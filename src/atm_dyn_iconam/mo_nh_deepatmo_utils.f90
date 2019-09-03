@@ -493,7 +493,9 @@ CONTAINS !......................................................................
       ENDIF
       
     ENDDO  !jk
-    
+
+!$ACC UPDATE DEVICE( p_nh_metrics%deepatmo_t1mc ) 
+
     ! For 'nlevp1'
     p_nh_metrics%deepatmo_t1ifc(nlevp1,idamtr%t1ifc%gradh) = 1._wp ! = 'grid_sphere_radius / grid_sphere_radius'
     IF (lnontrad)     p_nh_metrics%deepatmo_t1ifc(nlevp1,idamtr%t1ifc%invr)   = 1._wp / grid_sphere_radius

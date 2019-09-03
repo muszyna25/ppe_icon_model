@@ -48,7 +48,7 @@ MODULE mo_update_dyn
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .TRUE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS

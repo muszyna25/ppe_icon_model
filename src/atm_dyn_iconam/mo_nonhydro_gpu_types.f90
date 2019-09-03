@@ -40,7 +40,7 @@ MODULE mo_nonhydro_gpu_types
 #if defined( _OPENACC )
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp, iecham
   USE mo_mpi,                  ONLY: i_am_accel_node
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d
   USE mo_math_types,           ONLY: t_geographical_coordinates
@@ -59,12 +59,13 @@ MODULE mo_nonhydro_gpu_types
 
 CONTAINS
 
-  SUBROUTINE h2d_icon( p_int_states, p_patches, p_nh_states, prep_advs )
+  SUBROUTINE h2d_icon( p_int_states, p_patches, p_nh_states, prep_advs, iforcing )
 
     TYPE ( t_int_state ),  INTENT(INOUT) :: p_int_states(:)
     TYPE ( t_patch ),      INTENT(INOUT) :: p_patches(:)
     TYPE ( t_nh_state ),   INTENT(INOUT) :: p_nh_states(:)
     TYPE ( t_prepare_adv), INTENT(INOUT) :: prep_advs(:)
+    INTEGER, INTENT(IN)                  :: iforcing 
     INTEGER :: jg
 !
 ! Copy all data need on GPU from host to device
@@ -80,14 +81,19 @@ CONTAINS
 
     CALL transfer_nh_state( p_nh_states, .TRUE. )
 
+    IF( iforcing == iecham ) THEN
+      CALL transfer_echam( p_patches, .TRUE. )
+    END IF
+
   END SUBROUTINE h2d_icon
 
-  SUBROUTINE d2h_icon( p_int_states, p_patches, p_nh_states, prep_advs )
+  SUBROUTINE d2h_icon( p_int_states, p_patches, p_nh_states, prep_advs, iforcing )
 
     TYPE ( t_int_state ),  INTENT(INOUT) :: p_int_states(:)
     TYPE ( t_patch ),      INTENT(INOUT) :: p_patches(:)
     TYPE ( t_nh_state ),   INTENT(INOUT) :: p_nh_states(:)
     TYPE ( t_prepare_adv), INTENT(INOUT) :: prep_advs(:)
+    INTEGER, INTENT(IN)                  :: iforcing 
 
     REAL(wp), POINTER, DIMENSION(:,:,:)  :: vn_traj, mass_flx_me, mass_flx_ic
 
@@ -98,6 +104,10 @@ CONTAINS
     CALL transfer_prep_adv( prep_advs, .FALSE. )
     CALL transfer_patch( p_patches, .FALSE. )
     CALL transfer_int_state( p_int_states, .FALSE. )
+
+    IF( iforcing == iecham ) THEN
+      CALL transfer_echam( p_patches, .FALSE. )
+    END IF
 
 !$ACC EXIT DATA DELETE( prep_advs, p_patches, p_int_states ), IF ( i_am_accel_node  )
 
@@ -302,6 +312,22 @@ CONTAINS
 
   END SUBROUTINE transfer_nh_state
 
+  SUBROUTINE transfer_echam( p_patches, host_to_device )
+    TYPE ( t_patch ),      INTENT(INOUT) :: p_patches(:)
+    LOGICAL, INTENT(IN)                  :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    INTEGER :: jg
+
+    DO jg = 1, SIZE(p_patches)
+      IF( host_to_device ) THEN
+        CALL gpu_h2d_var_list('prm_field_D', domain=jg)
+        CALL gpu_h2d_var_list('prm_tend_D', domain=jg)
+      ELSE
+        CALL gpu_d2h_var_list('prm_field_D', domain=jg)
+        CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
+      END IF
+    END DO
+
+  END SUBROUTINE transfer_echam
 
 #endif
 

@@ -94,7 +94,7 @@ MODULE mo_solve_nonhydro
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .TRUE.    ! Only .TRUE. during unit testing
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.    ! Only .TRUE. during unit testing
 #endif
 
   CONTAINS
@@ -308,9 +308,9 @@ MODULE mo_solve_nonhydro
 #ifdef _OPENACC
 ! In validation mode, update all the needed fields on the device
     IF ( acc_validate .AND. acc_on .AND. i_am_accel_node ) THEN
-         CALL h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, &
-         &                        is_iau_active, p_nh, prep_adv )
-       ENDIF
+      CALL h2d_solve_nonhydro( nnow, jstep, jg, idiv_method, grf_intmethod_e, lprep_adv, l_vert_nested, &
+     &                        is_iau_active, p_nh, prep_adv )
+    ENDIF
 #endif
     IF (ltimer) CALL timer_start(timer_solve_nh)
 

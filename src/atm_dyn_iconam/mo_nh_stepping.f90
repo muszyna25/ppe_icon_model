@@ -694,12 +694,15 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, iforcing )
   i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
   TIME_LOOP: DO
 
+#ifdef _OPENACC
+    i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
     ! optional memory loggin
     CALL memory_log_add
 
@@ -714,6 +717,9 @@ MODULE mo_nh_stepping
 
     ! Update time-dependent ensemble perturbations if necessary
     IF (use_ensemble_pert .AND. gribout_config(1)%perturbationNumber >= 1) THEN
+#ifdef _OPENACC
+      CALL finish (routine, 'compute_ensemble_part: OpenACC version currently not implemented')
+#endif
       CALL compute_ensemble_pert(p_patch(1:), ext_data, prm_diag, mtime_current)
     ENDIF
 
@@ -731,8 +737,12 @@ MODULE mo_nh_stepping
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
-    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
+#ifdef _OPENACC
+          CALL finish (routine, 'read_latbc_data_sync: OpenACC version currently not implemented')
+#endif
       CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
+    ENDIF
 
     IF (msg_level > 2) THEN
       lprint_timestep = .TRUE.
@@ -773,6 +783,10 @@ MODULE mo_nh_stepping
     ! * instead of skipping the boundary condition upate after the first of 2 IAU iterations, 
     !   do the update and fire a corresponding reset call. 
     IF (iforcing == inwp) THEN
+
+#ifdef _OPENACC
+      CALL finish (routine, 'update_nwp_phy_bcs: OpenACC version currently not implemented')
+#endif
 
       ! Update the following surface fields, if a new day is coming
       !
@@ -848,12 +862,9 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-#ifdef _OPENACC
-      i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
 #ifdef _OPENACC
-      i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+    i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
 
@@ -1165,7 +1176,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, iforcing )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
