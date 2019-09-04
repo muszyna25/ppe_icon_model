@@ -39,3 +39,7 @@
 	path = externals/sct
 	url = git@gitlab.dkrz.de:dkrz-sw/sct.git
 	branch = release
+[submodule "externals/ecrad"]
+	path = externals/ecrad
+	url = git@gitlab.dkrz.de:dwd-sw/libecrad.git
+	branch = master
