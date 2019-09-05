@@ -54,16 +54,7 @@ unset OMPI_MCA_coll_fca_priority
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm is used here.
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -377,7 +368,7 @@ add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_lan
 # - well mixed greenhouse gases
 #
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file ${datadir}/greenhouse_historical_plus.nc                  ./bc_greenhouse_gases.nc
+add_link_file $datadir/greenhouse_ssp245.nc                             ./bc_greenhouse_gases.nc
 #
 # range of years for yearly files
 # assume start_date and end_date have the format yyyy-...

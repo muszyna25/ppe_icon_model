@@ -184,6 +184,8 @@ CONTAINS
        cevapcu(jk,:) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp
     END DO
     !
+    !$ACC UPDATE DEVICE( cevapcu )
+    !
   END SUBROUTINE eval_echam_cnv_config
 
   !----
@@ -258,6 +260,8 @@ CONTAINS
     ALLOCATE( cevapcu(nlev,n_dom),STAT=istat )
     IF (istat/=SUCCESS) CALL finish(TRIM(routine),'allocation of cevapcu failed')
     !
+    !$ACC ENTER DATA CREATE( cevapcu )
+    !
   END SUBROUTINE alloc_echam_cnv_config
 
   !----
@@ -270,6 +274,8 @@ CONTAINS
     CHARACTER(LEN=*),PARAMETER :: routine = 'dealloc_echam_cnv_config'
     !
     INTEGER :: istat
+    !
+    !$ACC EXIT DATA DELETE( cevapcu )
     !
     DEALLOCATE( cevapcu,STAT=istat )
     IF (istat/=SUCCESS) CALL finish(TRIM(routine),'deallocation of cevapcu failed')

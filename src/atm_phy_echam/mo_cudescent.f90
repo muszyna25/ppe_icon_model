@@ -91,24 +91,36 @@ CONTAINS
 
     ! Shortcuts to components of echam_cnv_config
     !
-    LOGICAL , POINTER :: lmfdd, lmfdudv
-    REAL(wp), POINTER :: cmfdeps
+    LOGICAL  :: lmfdd, lmfdudv
+    REAL(wp) :: cmfdeps
     !
-    lmfdudv  => echam_cnv_config(jg)% lmfdudv
-    lmfdd    => echam_cnv_config(jg)% lmfdd
-    cmfdeps  => echam_cnv_config(jg)% cmfdeps
+    lmfdudv  = echam_cnv_config(jg)% lmfdudv
+    lmfdd    = echam_cnv_config(jg)% lmfdd
+    cmfdeps  = echam_cnv_config(jg)% cmfdeps
 
     !---------------------------------------------------------------------------------
     !
     !     1.           Set default values for downdrafts
     !                  ---------------------------------
     !
+    !$ACC DATA PRESENT( lddraf, kdtop )
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       lddraf(jl) = .FALSE.
       kdtop(jl) = klevp1
     END DO
+    !$ACC END PARALLEL
+    !$ACC END DATA
     !
     IF (.NOT.lmfdd) RETURN
+
+    !$ACC DATA PRESENT( pxtenh, pxtu, pxtd, pmfdxt ) IF( ktrac > 0 )
+    !$ACC DATA PRESENT( ptenh, pqenh, puen, pven, pgeoh,  &
+    !$ACC               paphp1, ptu, pqu, puu, pvu, ldcum, kcbot, kctop, pmfub, prfl, &
+    !$ACC               ptd, pqd, pud, pvd, pmfd, pmfds, pmfdq, pdmfdp, pcpcu, kdtop, &
+    !$ACC               lddraf )                                                      &
+    !$ACC       CREATE( ztenwb, zqenwb, zcond, zph, loidx, llo2, llo3 )
       !
       !-------------------------------------------------------------------------------
       !
@@ -129,21 +141,30 @@ CONTAINS
       !         -----------------------------------------------------------------
       !
       is = jcs-1
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        llo2(jl) = .FALSE.
-        IF (ldcum(jl) .AND. prfl(jl) > 0.0_wp .AND. .NOT. lddraf(jl) .AND.           &
-          &                         (jk < kcbot(jl) .AND. jk > kctop(jl))) THEN
-          is = is+1
+        llo2(jl) = (ldcum(jl) .AND. prfl(jl) > 0.0_wp .AND. .NOT. lddraf(jl) .AND.           &
+          &                         (jk < kcbot(jl) .AND. jk > kctop(jl)))
+      ENDDO
+      !$ACC END PARALLEL
+      !$ACC UPDATE HOST( llo2 )
+      DO jl = jcs, kproma
+        IF (llo2(jl)) THEN
+          is = is + 1
           loidx(is) = jl
-          llo2(jl) = .TRUE.
         ENDIF
       ENDDO
+      !$ACC UPDATE DEVICE( loidx )
       IF (is == jcs-1) CYCLE level
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         ztenwb(jl,jk)=ptenh(jl,jk)
         zqenwb(jl,jk)=pqenh(jl,jk)
         zph(jl)=paphp1(jl,jk)
       END DO
+      !$ACC END PARALLEL
       !
       ik=jk
       icall=2
@@ -159,6 +180,8 @@ CONTAINS
       !
 !DIR$ IVDEP
 !OCL NOVREC
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zttest, zqtest, zbuo, zmftop )
       DO jl=jcs,kproma
         llo3(jl)=.FALSE.
         IF(llo2(jl)) THEN
@@ -182,8 +205,12 @@ CONTAINS
           END IF
         END IF
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(llo3(jl)) THEN
             pxtd(jl,jk,jt)=0.5_wp*(pxtu(jl,jk,jt)+pxtenh(jl,jk,jt))
@@ -191,17 +218,24 @@ CONTAINS
           ENDIF
         END DO
       END DO
+      !$ACC END PARALLEL
       !
       IF(lmfdudv) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(pmfd(jl,jk).LT.0._wp) THEN
             pud(jl,jk)=0.5_wp*(puu(jl,jk)+puen(jl,jk-1))
             pvd(jl,jk)=0.5_wp*(pvu(jl,jk)+pven(jl,jk-1))
           END IF
         END DO
+        !$ACC END PARALLEL
       END IF
       !
     END DO level
+    !
+    !$ACC END DATA
+    !$ACC END DATA
     !
   END SUBROUTINE cudlfs
   !>
@@ -249,12 +283,17 @@ CONTAINS
 
     ! Shortcuts to components of echam_cnv_config
     !
-    LOGICAL , POINTER :: lmfdudv
-    REAL(wp), POINTER :: cmfcmin, entrdd
+    LOGICAL  :: lmfdudv
+    REAL(wp) :: cmfcmin, entrdd
     !
-    lmfdudv  => echam_cnv_config(jg)% lmfdudv
-    cmfcmin  => echam_cnv_config(jg)% cmfcmin
-    entrdd   => echam_cnv_config(jg)% entrdd
+    lmfdudv  = echam_cnv_config(jg)% lmfdudv
+    cmfcmin  = echam_cnv_config(jg)% cmfcmin
+    entrdd   = echam_cnv_config(jg)% entrdd
+
+    !$ACC DATA PRESENT( pxtenh, pxtd, pmfdxt ) IF( ktrac > 0 )
+    !$ACC DATA PRESENT( pmref, ptenh, pqenh, puen, pven, pgeoh, paphp1, prfl, ptd,    &
+    !$ACC               pqd, pud, pvd, pmfd, pmfds, pmfdq, pdmfdp, pcpcu, lddraf )    &
+    !$ACC       CREATE( zdmfen, zdmfde, zcond, zph, llo2, loidx )
 
     !----------------------------------------------------------------------
     !     1.  Calculate moist descent for cumulus downdraft by
@@ -268,17 +307,28 @@ CONTAINS
     !
     level: DO jk = 3, klev
       is = jcs-1
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        llo2(jl) = .FALSE.
-        IF (lddraf(jl) .AND. pmfd(jl,jk-1) < 0.0_wp) THEN
-          is = is+1
+        llo2(jl) = (lddraf(jl) .AND. pmfd(jl,jk-1) < 0.0_wp)
+      ENDDO
+      !$ACC END PARALLEL
+      !$ACC UPDATE HOST( llo2 )
+      DO jl = jcs, kproma
+        IF (llo2(jl)) THEN
+          is = is + 1
           loidx(is) = jl
-          llo2(jl) = .TRUE.
         ENDIF
       ENDDO
+      !$ACC UPDATE DEVICE( loidx )
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         zph(jl) = paphp1(jl,jk)
       END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zentr )
       DO jl=jcs,kproma
         IF(llo2(jl)) THEN
           zentr=entrdd*pmfd(jl,jk-1)*rd*ptenh(jl,jk-1)/paphp1(jl,jk-1)*pmref(jl,jk-1)
@@ -286,8 +336,11 @@ CONTAINS
           zdmfde(jl)=zentr
         END IF
       END DO
+      !$ACC END PARALLEL
       itopde=klev-2
       IF(jk.GT.itopde) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(llo2(jl)) THEN
             zdmfen(jl)=0._wp
@@ -295,7 +348,10 @@ CONTAINS
               &                         (paphp1(jl,klevp1)-paphp1(jl,itopde))
           END IF
         END DO
+        !$ACC END PARALLEL
       END IF
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zseen, zqeen, zsdde, zqdde, zmfdsk, zmfdqk )
       DO jl=jcs,kproma
         IF(llo2(jl)) THEN
           pmfd(jl,jk)=pmfd(jl,jk-1)+zdmfen(jl)-zdmfde(jl)
@@ -313,8 +369,12 @@ CONTAINS
           zcond(jl)=pqd(jl,jk)
         END IF
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
+        !$ACC LOOP GANG VECTOR PRIVATE( zxteen, zxtdde, zmfdxtk )
         DO jl=jcs,kproma
           IF(llo2(jl)) THEN
             zxteen=pxtenh(jl,jk-1,jt)*zdmfen(jl)
@@ -324,6 +384,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
+      !$ACC END PARALLEL
       !
       ik=jk
       icall=2
@@ -331,6 +392,8 @@ CONTAINS
         CALL cuadjtq(jb, jcs, kproma, kbdim, klev, ik, zph, ptd, pqd, loidx, is, icall) 
       END IF
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zbuo, llo1, zdmfdp )
       DO jl=jcs,kproma
         IF(llo2(jl)) THEN
           zcond(jl)=zcond(jl)-pqd(jl,jk)
@@ -345,16 +408,23 @@ CONTAINS
           prfl(jl)=prfl(jl)+zdmfdp
         END IF
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(llo2(jl)) THEN
             pmfdxt(jl,jk,jt)=pxtd(jl,jk,jt)*pmfd(jl,jk)
           ENDIF
         END DO
       END DO
+      !$ACC END PARALLEL
       !
       IF(lmfdudv) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( zmfduk, zmfdvk )
         DO jl=jcs,kproma
           IF(llo2(jl).AND.pmfd(jl,jk).LT.0._wp) THEN
             zmfduk=pmfd(jl,jk-1)*pud(jl,jk-1)+zdmfen(jl)*puen(jl,jk-1)-              &
@@ -365,9 +435,13 @@ CONTAINS
             pvd(jl,jk)=zmfdvk*(1._wp/MIN(-cmfcmin,pmfd(jl,jk)))
           END IF
         END DO
+        !$ACC END PARALLEL
       END IF
       !
     END DO level
+
+    !$ACC END DATA
+    !$ACC END DATA
 
   END SUBROUTINE cuddraf
 

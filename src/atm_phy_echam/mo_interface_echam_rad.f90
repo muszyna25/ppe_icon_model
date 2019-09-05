@@ -38,6 +38,8 @@ MODULE mo_interface_echam_rad
   USE mo_psrad_radiation,     ONLY: psrad_radiation
 
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radiation
+  !$ser verbatim USE mo_ser_echam_rad, ONLY: serialize_rad_input,&
+  !$ser verbatim                             serialize_rad_output
 
   IMPLICIT NONE
   PRIVATE
@@ -71,6 +73,9 @@ CONTAINS
 
     ! associate pointers
     field => prm_field(jg)
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_rad_input(jg, nproma, nlev, field)
 
     IF ( is_in_sd_ed_interval ) THEN
         !
@@ -165,6 +170,9 @@ CONTAINS
           !
        !
        END IF
+
+    ! Serialbox2 input fields serialization
+    !$ser verbatim call serialize_rad_output(jg, nproma, nlev, field)
 
      IF (ltimer) CALL timer_stop(timer_radiation)
 

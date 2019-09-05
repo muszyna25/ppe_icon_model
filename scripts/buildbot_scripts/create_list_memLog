@@ -20,7 +20,6 @@ listname=memLog
 ./set_builder_flags Inactive --builders BREEZE_nag --list $listname
 ./set_builder_flags Inactive --builders DWD_cray --list $listname
 ./set_builder_flags Inactive --builders DAINT_CPU_cce --list $listname
-./set_builder_flags Inactive --builders DAINT_GPU_cce --list $listname
 
 ./set_builder_flags Active             --builders MISTRAL_ocean  --list $listname
 ./set_builder_flags Active             --builders MISTRAL_ocean_intel17  --list $listname

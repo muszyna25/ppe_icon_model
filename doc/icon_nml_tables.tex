@@ -6314,15 +6314,6 @@ If .TRUE., precede output messages by time stamp.&
 \tabularnewline
 
 %\hline
-test\_mode&
-I & 0& &
-Setting a value larger than 0 activates a dummy mode in which time stepping is changed
-into just doing iterations, and MPI communication is replaced by copying some value from
-the send buffer into the receive buffer (does not work with nesting and reduced radiation
-grid because the send buffer may then be empty on some PEs) & iequations = 3
-\tabularnewline
-
-%\hline
 debug\_check\_level&
 I & 0& &
 Setting a value larger than 0 activates debug checks.

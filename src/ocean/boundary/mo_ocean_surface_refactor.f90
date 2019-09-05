@@ -40,7 +40,7 @@ MODULE mo_ocean_surface_refactor
   USE mo_ocean_nml,           ONLY: iforc_oce, no_tracer, type_surfRelax_Temp, type_surfRelax_Salt, &
     &  No_Forcing, Analytical_Forcing, OMIP_FluxFromFile, Coupled_FluxFromAtmo,                     &
     &  i_sea_ice, zero_freshwater_flux, atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
-    &  limit_elevation, nbgctra, lhamocc
+    &  limit_elevation, lhamocc
 
   USE mo_ocean_nml,           ONLY: atmos_flux_analytical_type, relax_analytical_type, &
     &  n_zlev, para_surfRelax_Salt, para_surfRelax_Temp, atmos_precip_const, &  ! atmos_evap_constant
@@ -336,12 +336,12 @@ CONTAINS
     REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceArt(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
-    REAL(wp) :: h_old_test
+    REAL(wp) :: h_old_test, h_new_test
 
     TYPE(t_patch), POINTER:: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
 
-    INTEGER:: i_bgc_tra
+    
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
@@ -422,7 +422,7 @@ CONTAINS
           p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
-          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+          h_old_test =  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
 
 
           !******  (Thermodynamic Eq. 5)  ******
@@ -435,16 +435,9 @@ CONTAINS
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
             &                    - p_ice%draftave(jc,jb)
     
-          if(lhamocc.and. (p_os%p_prog(nold(1))%h(jc,jb)+ p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)) > 0._wp)then 
-          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
-           ! for HAMOCC tracer dilution
-             p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
-           &        * h_old_test/(p_os%p_prog(nold(1))%h(jc,jb) + p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb))
-          ENDDO
-          endif
-
+          h_new_test =  (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+          p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
           
-
         ENDIF  !  dolic>0
       END DO
     END DO

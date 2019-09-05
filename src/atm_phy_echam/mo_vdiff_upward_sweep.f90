@@ -23,6 +23,7 @@ MODULE mo_vdiff_upward_sweep
   USE mo_kind,               ONLY: wp
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, rhs_bksub, vdiff_tendencies
   USE mo_echam_vdiff_params, ONLY: itop
+  USE mo_exception,          ONLY: message
 
   IMPLICIT NONE
   PRIVATE
@@ -35,7 +36,7 @@ CONTAINS
   SUBROUTINE vdiff_up( jcs, kproma, kbdim, klev, klevm1,                 &! in
                        ktrac,      ksfc_type,   idx_wtr,                 &! in
                        pdtime, pfrc,                                     &! in
-                       pcfm_tile,                                        &! in 
+                       pcfm_tile,                                        &! in
                        aa,         pcptgz,                               &! in
                        pum1,       pvm1,        ptm1,                    &! in
                        pmair,                                            &! in
@@ -57,67 +58,66 @@ CONTAINS
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
     REAL(wp),INTENT(IN) :: pdtime
 
-    REAL(wp),INTENT(IN) ::           &
-      & pfrc      (kbdim,ksfc_type), &!< area fraction of each surface type
-      & pcfm_tile (kbdim,ksfc_type)   !< exchange coeff
+    REAL(wp),INTENT(IN) ::    &
+      & pfrc      (:,:)     , & !< (kbdim,ksfc_type) area fraction of each surface type
+      & pcfm_tile (:,:)         !< (kbdim,ksfc_type) exchange coeff
 
-    REAL(wp),INTENT(IN) :: aa    (kbdim,klev,3,nmatrix) !< for all variables
+    REAL(wp),INTENT(IN) :: aa    (:,:,:,:) !< (kbdim,klev,3,nmatrix) for all variables
 
 
     ! The input variables below are needed only by "vdiff_tendencies"
 
-    REAL(wp),INTENT(IN) :: pcptgz  (kbdim,klev)  !< dry static energy
+    REAL(wp),INTENT(IN) :: pcptgz  (:,:)   !< (kbdim,klev) dry static energy
 
-    REAL(wp),INTENT(IN) :: pum1    (kbdim,klev)  !< u-wind at step t-dt
-    REAL(wp),INTENT(IN) :: pvm1    (kbdim,klev)  !< q-wind at step t-dt
-    REAL(wp),INTENT(IN) :: ptm1    (kbdim,klev)  !< temperature at step t-dt
-    REAL(wp),INTENT(IN) :: pmair   (kbdim,klev)  !< moist air mass [kg/m2]
-!!$    REAL(wp),INTENT(IN) :: pmref   (kbdim,klev)  !< dry   air mass [kg/m2]
-    REAL(wp),INTENT(IN) :: pqm1    (kbdim,klev)  !< specific humidity at step t-dt
-    REAL(wp),INTENT(IN) :: pxlm1   (kbdim,klev)  !< cloud water concentration at step t-dt
-    REAL(wp),INTENT(IN) :: pxim1   (kbdim,klev)  !< cloud ice   concentration at step t-dt
-    REAL(wp),INTENT(IN) :: pxtm1   (kbdim,klev,ktrac) !< specific density of other tracers at step t-dt
+    REAL(wp),INTENT(IN) :: pum1    (:,:)   !< (kbdim,klev) u-wind at step t-dt
+    REAL(wp),INTENT(IN) :: pvm1    (:,:)   !< (kbdim,klev) q-wind at step t-dt
+    REAL(wp),INTENT(IN) :: ptm1    (:,:)   !< (kbdim,klev) temperature at step t-dt
+    REAL(wp),INTENT(IN) :: pmair   (:,:)   !< (kbdim,klev) moist air mass [kg/m2]
+!!$    REAL(wp),INTENT(IN) :: pmref   (:,:)   !< (kbdim,klev) dry   air mass [kg/m2]
+    REAL(wp),INTENT(IN) :: pqm1    (:,:)   !< (kbdim,klev) specific humidity at step t-dt
+    REAL(wp),INTENT(IN) :: pxlm1   (:,:)   !< (kbdim,klev) cloud water concentration at step t-dt
+    REAL(wp),INTENT(IN) :: pxim1   (:,:)   !< (kbdim,klev) cloud ice   concentration at step t-dt
+    REAL(wp),INTENT(IN) :: pxtm1   (:,:,:) !< (kbdim,klev,ktrac) specific density of other tracers at step t-dt
 
-    REAL(wp),INTENT(IN) :: pgeom1 (kbdim,klev)   !< geopotential above ground
-    REAL(wp),INTENT(IN) :: pztottevn(kbdim,klev) !< intermediate value of TTE
+    REAL(wp),INTENT(IN) :: pgeom1 (:,:)   !< (kbdim,klev) geopotential above ground
+    REAL(wp),INTENT(IN) :: pztottevn(:,:) !< (kbdim,klev) intermediate value of TTE
 
-    REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  !<
+    REAL(wp),INTENT(INOUT) :: bb    (:,:,:)  !< (kbdim,klev,nvar_vdiff)
 
-    REAL(wp),INTENT(IN)    :: pzthvvar (kbdim,klev) !< intermediate value of thvvar
-    REAL(wp),INTENT(INOUT) :: pxvar    (kbdim,klev) !< distribution width (b-a)
-                                                    !< in: step t-dt, out: modified
-                                                    !< due to vertical diffusion
+    REAL(wp),INTENT(IN)    :: pzthvvar (:,:) !< (kbdim,klev) intermediate value of thvvar
+    REAL(wp),INTENT(INOUT) :: pxvar    (:,:) !< (kbdim,klev) distribution width (b-a)
+                                             !< in: step t-dt, out: modified
+                                             !< due to vertical diffusion
 
     ! Roughness length
     ! In: values over each surface type.
     ! Out: z0m_tile over the ocean is updated using the time average ("hat" value)
     ! of u and v and the t-dt value of some other variables.
 
-    REAL(wp),INTENT(INOUT) :: pz0m_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pz0m_tile (:,:) !< (kbdim,ksfc_type)
 
     ! Vertically integrated dissipation of kinetic energy [W/m2]
 
-    REAL(wp),INTENT(OUT) :: pkedisp(kbdim)
+    REAL(wp),INTENT(OUT) :: pkedisp(:) !< (kbdim)
 
     ! Tendencies
 
-    REAL(wp),INTENT(OUT) :: pute_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pvte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pq_vdf   (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pqte_vdf (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxlte_vdf(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxite_vdf(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
+    REAL(wp),INTENT(OUT) :: pute_vdf (:,:)   !< (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pvte_vdf (:,:)   !< (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pq_vdf   (:,:)   !< (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pqte_vdf (:,:)   !< (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxlte_vdf(:,:)   !< (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxite_vdf(:,:)   !< (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxtte_vdf(:,:,:) !< (kbdim,klev,ktrac)
 
     ! Some other diagnostics
 
-    REAL(wp),INTENT(OUT) :: pz0m      (kbdim)      !< grid-box mean roughness height
-    REAL(wp),INTENT(OUT) :: pthvvar   (kbdim,klev) !< variance of virtual potential temperature
-                                                   !< at the new time step t
-    REAL(wp),INTENT(OUT) :: ptotte    (kbdim,klev)
-!!$    REAL(wp),INTENT(OUT) :: psh_vdiff (kbdim)      ! sens. heat flux
-!!$    REAL(wp),INTENT(OUT) :: pqv_vdiff (kbdim)      ! qv flux
-
+    REAL(wp),INTENT(OUT) :: pz0m      (:)     !< (kbdim) grid-box mean roughness height
+    REAL(wp),INTENT(OUT) :: pthvvar   (:,:)   !< (kbdim,klev) variance of virtual potential temperature
+                                              !< at the new time step t
+    REAL(wp),INTENT(OUT) :: ptotte    (:,:)   !< (kbdim,klev)
+!!$    REAL(wp),INTENT(OUT) :: psh_vdiff (:)     !< (kbdim) sens. heat flux
+!!$    REAL(wp),INTENT(OUT) :: pqv_vdiff (:)     !< (kbdim) qv flux
 
     !-----------------------------------------------------------------------
     ! 6. Obtain solution of the tri-diagonal system by back-substitution.

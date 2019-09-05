@@ -35,7 +35,7 @@ unset OMPI_MCA_coll_fca_priority
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-icon_data_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -591,7 +591,6 @@ if [[ "$output_trc_3d" == "yes" ]]; then
 /
 EOF
 fi
-
 
 # minimal jsbach output for running atm_amip experiment
 # for more jsbach output see exp.atm_amip_les

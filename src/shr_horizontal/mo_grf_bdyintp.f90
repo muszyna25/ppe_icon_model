@@ -35,7 +35,7 @@ MODULE mo_grf_bdyintp
 !
 USE mo_kind,                ONLY: wp
 USE mo_model_domain,        ONLY: t_patch
-USE mo_parallel_config,     ONLY: nproma, p_test_run
+USE mo_parallel_config,     ONLY: nproma, p_test_run, cpu_min_nproma
 USE mo_communication,       ONLY: exchange_data_grf
 
 USE mo_grf_intp_data_strc
@@ -99,7 +99,7 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   iblk    => p_grf%blklist_bdyintp_e
 
   ! Compute values for dynamic nproma blocking
-  nproma_bdyintp = MIN(nproma,256)
+  nproma_bdyintp = cpu_min_nproma(nproma,256)
   nblks_bdyintp  = INT(p_grf%npoints_bdyintp_e/nproma_bdyintp)
   npromz_bdyintp = MOD(p_grf%npoints_bdyintp_e,nproma_bdyintp)
   IF (npromz_bdyintp > 0) THEN
@@ -276,7 +276,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   ievidx  => p_grf%edge_vert_idx
 
   ! Compute values for dynamic nproma blocking
-  nproma_bdyintp = MIN(nproma,256)
+  nproma_bdyintp = cpu_min_nproma(nproma,256)
   nblks_bdyintp_e  = INT(p_grf%npoints_bdyintp_e/nproma_bdyintp)
   npromz_bdyintp_e = MOD(p_grf%npoints_bdyintp_e,nproma_bdyintp)
   IF (npromz_bdyintp_e > 0) THEN
@@ -569,7 +569,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
   ENDIF
 
   ! Compute values for dynamic nproma blocking
-  nproma_bdyintp = MIN(nproma,256)
+  nproma_bdyintp = cpu_min_nproma(nproma,256)
   nblks_bdyintp  = INT(p_grf%npoints_bdyintp_c/nproma_bdyintp)
   npromz_bdyintp = MOD(p_grf%npoints_bdyintp_c,nproma_bdyintp)
   IF (npromz_bdyintp > 0) THEN

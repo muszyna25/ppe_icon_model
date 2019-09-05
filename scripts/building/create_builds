@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #==============================================================================
 # Creates the ICON multiple builds based on config/multiple_builds
@@ -15,15 +15,15 @@ all_files = os.listdir(".")
 #print all_files
 
 def warning(where,message):
-  print '********************'
-  print "Warning: "+where+" "+message
-  print '********************'
+  print ('********************')
+  print ("Warning: "+where+" "+message)
+  print ('********************')
   
 def error(where,message):
-  print '********************'
-  print "ERROR: "+where+" "+message
-  print "Exit 1 "
-  print '********************'
+  print ('********************')
+  print ("ERROR: "+where+" "+message)
+  print ("Exit 1 ")
+  print ('********************')
   sys.exit(1)
 
 
@@ -135,7 +135,7 @@ for line in infile:
     continue  
   configure_options=line[sep_idx+1:]
  
-  print "Creating "+build_folder+" with configure_options:"+configure_options
+  print ("Creating "+build_folder+" with configure_options:"+configure_options)
   create_build_folder(build_folder)  
   # create the build_local
   create_build_local(build_folder, configure_options)

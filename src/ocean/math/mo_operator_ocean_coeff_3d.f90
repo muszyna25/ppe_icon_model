@@ -35,7 +35,7 @@ MODULE mo_operator_ocean_coeff_3d
     &  arc_length, cvec2gvec
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg, &
-    & select_solver, select_restart_mixedPrecision_gmres, &
+    & select_solver, select_gmres_mp_r, &
     & select_lhs, select_lhs_matrix
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
@@ -343,27 +343,28 @@ CONTAINS
 
     CASE (planar_torus_geometry)
       d_vector%x = y%x - x%x
-      channel_x_modulo = geometry_info%domain_length / geometry_info%sphere_radius
+      channel_x_modulo = geometry_info%domain_length ! / geometry_info%sphere_radius
       IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
         d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
       ENDIF
-      channel_y_modulo = geometry_info%domain_height / geometry_info%sphere_radius
+      channel_y_modulo = geometry_info%domain_height ! / geometry_info%sphere_radius
       IF (ABS(d_vector%x(2)) > channel_y_modulo  * 0.5_wp) THEN
         d_vector%x(2) = SIGN(1.0_wp, d_vector%x(2)) * (ABS(d_vector%x(2)) - channel_y_modulo)
       ENDIF
-
+      d_vector%x = d_vector%x / grid_sphere_radius
+      
     CASE (sphere_geometry)
       d_vector%x = y%x - x%x
 
     CASE ( planar_channel_geometry )
       d_vector%x = y%x - x%x
-      channel_x_modulo = geometry_info%domain_length / geometry_info%sphere_radius
+      channel_x_modulo = geometry_info%domain_length ! / geometry_info%sphere_radius
       IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
         d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
       ENDIF
-
+      d_vector%x = d_vector%x / grid_sphere_radius
     CASE ( planar_geometry )
-      d_vector%x = y%x - x%x
+      d_vector%x = (y%x - x%x) / grid_sphere_radius
 
     CASE DEFAULT
       CALL finish(method_name, "Undefined geometry type")
@@ -474,13 +475,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
 !<Optimize:inUse>
-  SUBROUTINE construct_operators_coefficients( patch_3D, operators_coefficients, solverCoeff_sp, var_list)
+  SUBROUTINE construct_operators_coefficients( patch_3D, operators_coefficients, solverCoeff_sp)
     TYPE(t_patch_3D),TARGET,INTENT(inout) :: patch_3D
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
-    TYPE(t_var_list)                      :: var_list
 
-    CALL allocate_operators_coefficients( patch_3d%p_patch_2d(1), operators_coefficients, solverCoeff_sp, var_list)
+    CALL allocate_operators_coefficients( patch_3d%p_patch_2d(1), operators_coefficients, solverCoeff_sp)
     CALL par_init_operator_coeff( patch_3d, operators_coefficients, solverCoeff_sp)
 
   END SUBROUTINE construct_operators_coefficients
@@ -506,12 +506,11 @@ CONTAINS
   ! Peter Korn (2012-2)
   !
 !<Optimize:inUse>
-  SUBROUTINE allocate_operators_coefficients( patch_2D, operators_coefficients, solverCoeff_sp, var_list)
+  SUBROUTINE allocate_operators_coefficients( patch_2D, operators_coefficients, solverCoeff_sp)
     !
     TYPE(t_patch),TARGET,INTENT(in)       :: patch_2D
     TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
-    TYPE(t_var_list)                      :: var_list
 
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, nz_lev
     INTEGER :: return_status,ie,i
@@ -639,16 +638,15 @@ CONTAINS
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2edge_viacell_coeff_all failed')
     ENDIF
 
-    IF (select_lhs == select_lhs_matrix) THEN
+    IF (select_lhs .GE. select_lhs_matrix .AND. select_lhs .LE. select_lhs_matrix + 1) THEN
       IF ( patch_2D%cells%max_connectivity /= 3 ) &
         CALL finish("select_lhs_matrix","this works only for triangles")
       ALLOCATE(operators_coefficients%lhs_all(0:9, nproma, alloc_cell_blocks),              &
                operators_coefficients%lhs_CellToCell_index(1:9, nproma, alloc_cell_blocks), &
                operators_coefficients%lhs_CellToCell_block(1:9, nproma, alloc_cell_blocks), &
                 stat=return_status)
-      IF (return_status /= success) THEN
-        CALL finish ('mo_operator_ocean_coeff_3d:allocating lhs_all failed')
-      ENDIF
+      IF (return_status /= success) &
+        & CALL finish ('mo_operator_ocean_coeff_3d:allocating lhs_all failed')
     ENDIF
       
      
@@ -762,7 +760,7 @@ CONTAINS
 
     !---------------------------------------------------------------
     ! allocate single precision operators
-    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
 
       ALLOCATE(solverCoeff_sp%div_coeff(nproma,alloc_cell_blocks,no_primal_edges),&
         & solverCoeff_sp%grad_coeff(nproma,nblks_e),                    &
@@ -865,11 +863,10 @@ CONTAINS
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_top)
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_integrated)
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_all)
-    IF (select_lhs == select_lhs_matrix) THEN
-      DEALLOCATE(operators_coefficients%lhs_all,              &
-               operators_coefficients%lhs_CellToCell_index, &
-               operators_coefficients%lhs_CellToCell_block)
-    ENDIF
+    IF (select_lhs .GE. select_lhs_matrix .AND. select_lhs .LE. select_lhs_matrix + 1) &
+      & DEALLOCATE(operators_coefficients%lhs_all, &
+        & operators_coefficients%lhs_CellToCell_index, &
+        & operators_coefficients%lhs_CellToCell_block)
  
     DEALLOCATE(operators_coefficients%edge2cell_coeff_cc)
 
@@ -888,7 +885,7 @@ CONTAINS
 !     DEALLOCATE(operators_coefficients%variable_vol_norm)
 !     DEALLOCATE(operators_coefficients%variable_dual_vol_norm)
 
-    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
 
       DEALLOCATE(solverCoeff_sp%div_coeff,              &
         & solverCoeff_sp%grad_coeff,                    &
@@ -937,7 +934,7 @@ CONTAINS
 
     CALL init_verticalAdvection_ppm_coefficients(patch_3D, operators_coefficients%verticalAdvectionPPMcoeffs)
     
-    IF (select_solver == select_restart_mixedPrecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
       solverCoeff_sp%grad_coeff(:,:)   = REAL(operators_coefficients%grad_coeff(:,1,:), sp)
       solverCoeff_sp%div_coeff(:,:,:)  = REAL(operators_coefficients%div_coeff(:,1,:,:), sp)
       solverCoeff_sp%edge2edge_viacell_coeff_all(:,:,:)  = REAL(operators_coefficients%edge2edge_viacell_coeff_all(:,:,:), sp)
@@ -1167,7 +1164,8 @@ CONTAINS
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
     
-
+!    CALL dbg_print('dual_edge_length',dual_edge_length, &
+!      & this_mod_name,1, in_subset=owned_edges)
    !2c) curl coefficients
     DO vertex_block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
@@ -1190,6 +1188,10 @@ CONTAINS
               & patch_2D%geometry_info)
             IF (DOT_PRODUCT(patch_2D%edges%dual_cart_normal(edge_index,edge_block)%x, dist_vector%x) &
                  * patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor) < 0.0_wp ) THEN
+              write(0,*) "dist_vector: ", dist_vector%x
+              write(0,*) "dual_cart_normal: ", patch_2D%edges%dual_cart_normal(edge_index,edge_block)%x
+              write(0,*) "orientation: ",  patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
+              write(0,*) "DOT_PRODUCT: ", DOT_PRODUCT(patch_2D%edges%dual_cart_normal(edge_index,edge_block)%x, dist_vector%x)
               CALL finish(method_name, "wrong orientation for rot_coeff")
             ENDIF
 

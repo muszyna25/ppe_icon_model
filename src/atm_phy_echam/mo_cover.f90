@@ -84,13 +84,13 @@ CONTAINS
     INTEGER, INTENT(in)    :: kbdim, klevp1, klev, jcs, kproma
     INTEGER, INTENT(in)    :: ktype(kbdim)          !< type of convection
     REAL(wp),INTENT(in)    :: pfrw(kbdim)         ,&!< water mask
-         &                       pfri(kbdim)           !< ice mask
+         &                    pfri(kbdim)           !< ice mask
     REAL(wp),INTENT(in)    :: zf(kbdim,klev)      ,&!< geometric height thickness [m]
-         &                       paphm1(kbdim,klevp1),&!< pressure at half levels
-         &                       papm1(kbdim,klev)   ,&!< pressure at full levels
-         &                       pqm1(kbdim,klev)    ,&!< specific humidity
-         &                       ptm1(kbdim,klev)    ,&!< temperature
-         &                       pxim1(kbdim,klev)     !< cloud ice
+         &                    paphm1(kbdim,klevp1),&!< pressure at half levels
+         &                    papm1(kbdim,klev)   ,&!< pressure at full levels
+         &                    pqm1(kbdim,klev)    ,&!< specific humidity
+         &                    ptm1(kbdim,klev)    ,&!< temperature
+         &                    pxim1(kbdim,klev)     !< cloud ice
     REAL(wp),INTENT(out)   :: paclc(kbdim,klev)     !< cloud cover
     REAL(wp),INTENT(out)   :: printop(kbdim)
 
@@ -114,7 +114,7 @@ CONTAINS
     REAL(wp) :: zqsm1(kbdim,klev)
     REAL(wp) :: ua(kproma)
 
-    LOGICAL :: lao, lao1
+    LOGICAL :: lao, lao1, lomask(kbdim)
 
     REAL(wp) :: zpapm1i(kbdim),     ztmp(kbdim)
 
@@ -124,58 +124,72 @@ CONTAINS
 
     ! Shortcuts to components of echam_cov_config
     !
-    INTEGER , POINTER :: nex, icov, jkscov, jksinv, jkeinv
-    REAL(wp), POINTER :: csatsc, csat, crt, crs, cinv
+    INTEGER :: nex, icov, jkscov, jksinv, jkeinv
+    REAL(wp):: csatsc, csat, crt, crs, cinv
     !
-    icov   => echam_cov_config(jg)% icov
-    jkscov => echam_cov_config(jg)% jkscov
-    jksinv => echam_cov_config(jg)% jksinv
-    jkeinv => echam_cov_config(jg)% jkeinv
-    csatsc => echam_cov_config(jg)% csatsc
-    csat   => echam_cov_config(jg)% csat
-    crs    => echam_cov_config(jg)% crs
-    crt    => echam_cov_config(jg)% crt
-    nex    => echam_cov_config(jg)% nex
-    cinv   => echam_cov_config(jg)% cinv
+    icov   = echam_cov_config(jg)% icov
+    jkscov = echam_cov_config(jg)% jkscov
+    jksinv = echam_cov_config(jg)% jksinv
+    jkeinv = echam_cov_config(jg)% jkeinv
+    csatsc = echam_cov_config(jg)% csatsc
+    csat   = echam_cov_config(jg)% csat
+    crs    = echam_cov_config(jg)% crs
+    crt    = echam_cov_config(jg)% crt
+    nex    = echam_cov_config(jg)% nex
+    cinv   = echam_cov_config(jg)% cinv
+
+    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxim1, paclc, printop ) &
+    !$ACC       CREATE( itv1, itv2, zdtmin, za, zqsm1, ua, zpapm1i, ztmp, zknvb, zphase, &
+    !$ACC               knvb, loidx, lomask )
 
     ! Initialize output arrays
     !
+    !   Initialize variables
+    !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
     DO jk = 1,klev
-       DO jl = jcs,kproma
-          !
-          paclc(jl,jk) = 0.0_wp
-          !
-       END DO
+      !$ACC LOOP VECTOR
+      DO jl = jcs,kproma
+         paclc(jl,jk) = 0.0_wp
+      END DO
     END DO
-
+    !$ACC END PARALLEL
+    !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
        !
        printop(jl) = 0.0_wp
        !
     END DO
+    !$ACC END PARALLEL
 
     ! Calculate the saturation mixing ratio
     !
     DO jk = jkscov,klev
        !
-       CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(1,jk),itv1(1),   &
-            za(1),pxim1(1,jk),nphase,zphase,itv2,       &
+       CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(:,jk),itv1(:),   &
+            za(:),pxim1(:,jk),nphase,zphase,itv2,       &
             klev=jk,kblock=jb,kblock_size=kbdim)
        ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
-       CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(1),za(1),nphase,itv2(1),ua(1))
+       CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(:),za(:),nphase,itv2(:),ua(:))
        ! output: ua
        !
-       !IBM* novector
-       !
+!IBM* novector
+
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR PRIVATE( zcor )
        DO jl = jcs,kproma
           zpapm1i(jl)  = SWDIV_NOCHK(1._wp,papm1(jl,jk))
           zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i(jl),0.5_wp)
-          zcor         = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
-          zqsm1(jl,jk) = zqsm1(jl,jk)*zcor  ! qsat
+          zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
+          zqsm1(jl,jk) = zqsm1(jl,jk)*zcor       ! qsat
        END DO
+       !$ACC END PARALLEL
        !
-    END DO
-
+    END DO   !jk
+    !
     ! Calculate the cloud cover as a function of relative humidity
     !
     SELECT CASE (icov)
@@ -196,10 +210,13 @@ CONTAINS
        !
        !   Initialize variables
        !
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO jl = jcs,kproma
           zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
-          zknvb(jl)  = 1.0_wp
+          zknvb(jl)= 1.0_wp
        END DO
+       !$ACC END PARALLEL
        !
        !   Checking occurrence of low-level inversion
        !   (below 2000 m, sea points only, no convection)
@@ -207,22 +224,35 @@ CONTAINS
        ! Build index list for columns, which have >50% sea surface, practically no sea ice, and
        ! which are not convective.
        ! Indixes of these columns are stored in the index list loidx, with list indices jcs:locnt.
-       locnt = jcs-1
+       !
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO jl = jcs,kproma
-          IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN
+          lomask(jl) = (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0)
+       END DO
+       !$ACC END PARALLEL
+       locnt = jcs-1
+       !$ACC UPDATE HOST( lomask )
+       DO jl = jcs,kproma
+          IF (lomask(jl)) THEN
              locnt = locnt + 1
              loidx(locnt) = jl
           END IF
        END DO
+       !$ACC UPDATE DEVICE( loidx )
        !
        ! For these columns, search from the lowermost layer jk=klev up to jk=jksinv at ~2000m height.
        ! Find the level index with the least negative lapse rate towards
        ! the adjacent upper layer, supposed to be the layer below the inversion.
        IF (locnt.GT.jcs-1) THEN
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO jk = klev,jksinv,-1
-             !
-             !IBM* ASSERT(NODEPS)
-             !IBM* novector
+
+!IBM* ASSERT(NODEPS)
+!IBM* novector
+
+             !$ACC LOOP GANG VECTOR PRIVATE( jl )
              DO nl = jcs,locnt
                 jl = loidx(nl)
                 ! Lapse rate dT/dz (K/m) between layers k-1 and k.
@@ -230,7 +260,8 @@ CONTAINS
              END DO
              !
              zjk = REAL(jk,wp)
-             !IBM* ASSERT(NODEPS)
+             !$ACC LOOP GANG VECTOR PRIVATE( jl, zdtdz )
+!IBM* ASSERT(NODEPS)
              DO nl = jcs,locnt
                 jl = loidx(nl)
                 ! Truncate lapse rate dT/dz (K/m) to value <= 0.
@@ -243,13 +274,19 @@ CONTAINS
                 zdtmin(jl)  = MAX(zdtdz,zdtmin(jl))
              END DO
           END DO
+          !$ACC END PARALLEL
        END IF
        !
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO jl = jcs,kproma
           knvb(jl) = INT(zknvb(jl))
        END DO
+       !$ACC END PARALLEL
        !
        DO jk = jkscov,klev
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( zrhc, zsat, jbm, lao, lao1, ilev, zdtdz, zgam, zqr )
           DO jl = jcs,kproma
              !
              ! Scaling factor zsat for the saturation mass mixing ratio, with range [csatsc,1].
@@ -291,13 +328,16 @@ CONTAINS
              paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))       ! = b in Eq.4 in LR (1996)
              !                                                   = b in Eq.3.13 of Sundqvist et al. (1989)
              !
-          END DO
-       END DO
+          END DO  !jl
+          !$ACC END PARALLEL
+       END DO   !jk
        !
     CASE(2) ! 0/1 cloud cover scheme
        !      Cloud cover is 1 if the relative humidity is >= csat, and 0 otherwise
        !
        DO jk = jkscov,klev
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( zqr )
           DO jl = jcs,kproma
              !
              zqr = pqm1(jl,jk)/zqsm1(jl,jk)
@@ -306,10 +346,13 @@ CONTAINS
                 paclc(jl,jk) = 1.0_wp
              END IF
              !
-          END DO
-       END DO
+          END DO  !jl
+          !$ACC END PARALLEL
+       END DO   !jk
        !
     END SELECT
+    !$ACC END DATA
+    !
     !
   END SUBROUTINE cover
 

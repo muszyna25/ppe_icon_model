@@ -1,0 +1,568 @@
+#--------------------------------------------------------------------------------------------------
+#
+# Aqua Planet Experiment (APE) with "graupel" microphysics
+#
+author_list="Marco Giorgetta, Monika Esch, Rene Redler, MPIM"
+#
+#--------------------------------------------------------------------------------------------------
+#
+# This file describes an aqua planet experiment based on the non-hydrostatic atmosphere and
+# a prototype of the Sapphire physics.
+#
+# The experiment is intialized analytically and uses constant-in-time
+# boundary conditions for:
+# - SST and sea ice
+# - spectral solar irradiation
+# - well mixed greenhouse gases CO2, CH4, N2O, CFCs
+# - O3 concentration
+#
+# No aerosols are used
+#
+#--------------------------------------------------------------------------------------------------
+
+# (1) Basic model configuration
+# -----------------------------
+
+atm_gridID="0023"
+atm_refinement="R02B07"
+atm_nlev=191
+
+atm_nproma=16
+
+#--------------------------------------------------------------------------------------------------
+
+# (2) unset some setting of create_target_header for mistral
+
+unset OMPI_MCA_coll_fca_enable
+unset OMPI_MCA_coll_fca_priority
+
+#--------------------------------------------------------------------------------------------------
+
+# (3) icon_data_poolFolder
+
+# Variables provided by the scripting mechanism
+
+# EXPNAME                       = name of exp. in 'exp.<name>'
+# basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
+# nproma                        = blocking length for array dimensioning and inner loop lengths
+#                                 -> deprecated. atm_nproma is used here.
+
+# overwrite the default setting with the new path and handle daint (CSCS)
+
+icon_rene_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+icon_public_poolFolder="${icon_data_poolFolder:-/pool/data/ICON}/grids/public/mpim"
+
+#--------------------------------------------------------------------------------------------------
+
+# (4) Set variables needed by the scripting mechanism
+# ---------------------------------------------------
+
+# horizontal grid(s)
+# ------------------
+atm_grid_name=icon_grid_${atm_gridID}_${atm_refinement}_G
+
+atmo_grid_folder=${icon_public_poolFolder}/${atm_gridID}
+atmo_data_InputFolder=${icon_rene_poolFolder}/${atm_gridID}
+atmo_dyn_grid=${atm_grid_name}.nc
+
+# start and end date+time
+# -----------------------
+start_date=${start_date:="0001-01-01T00:00:00Z"}
+  end_date=${end_date:=  "0001-01-11T00:00:00Z"}
+
+calendar="360 day year"
+
+# restart intervals
+# -----------------
+checkpoint_interval="P1D"
+restart_interval="P1D"
+
+# output intervals
+# ----------------
+atm_output_interval="PT1H"
+atm_file_interval="P1D"
+
+# namelist files
+# --------------
+atm_namelist=NAMELIST_${EXPNAME}_atm
+
+atmo_namelist=${atm_namelist}
+
+#--------------------------------------------------------------------------------------------------
+
+# (3) Define the model configuration
+
+# atmospheric dynamics and physics
+# --------------------------------
+cat > ${atm_namelist} << EOF
+!
+&parallel_nml
+ nproma           = ${atm_nproma}
+ num_io_procs     = 0
+/
+&grid_nml
+ dynamics_grid_filename = "${atmo_dyn_grid}"
+ grid_rescale_factor    = 0.125
+ grid_angular_velocity  = 0.
+/
+&run_nml
+ num_lev          = ${atm_nlev}
+ modelTimeStep    = "PT20S"
+ ltestcase        = .TRUE.      ! run testcase
+ ldynamics        = .TRUE.      ! dynamics
+ ltransport       = .TRUE.      ! transport
+ ntracer          = 3           ! number of tracers
+ iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
+ output           = 'nml'
+ msg_level        = 15          ! level of details report during integration 
+ restart_filename = "${EXPNAME}_restart_atm_<rsttime>.mfr"
+ activate_sync_timers = .TRUE.
+/
+&nh_testcase_nml
+ nh_test_name     = 'APE_echam'
+ ape_sst_case     = 'sst_qobs'
+ jw_u0            = 0.0
+/
+&nonhydrostatic_nml
+ ndyn_substeps    = 5           ! dtime/dt_dyn
+ damp_height      = 50000.      ! [m]
+ rayleigh_coeff   = 0.10
+ vwind_offctr     = 0.2
+ divdamp_fac      = 0.004
+/
+&interpol_nml
+ rbf_scale_mode_ll = 1
+/
+&sleve_nml
+ min_lay_thckn    = 40.         ! [m]
+ top_height       = 83000.      ! [m]
+ stretch_fac      = 0.9
+ decay_scale_1    = 4000.       ! [m]
+ decay_scale_2    = 2500.       ! [m]
+ decay_exp        = 1.2
+ flat_height      = 16000.      ! [m]
+/
+&diffusion_nml
+/
+&transport_nml
+!                   hus,clw,cli
+  ivadv_tracer     =   3, 3,  3
+  itype_hlimit     =   3, 4,  4
+  ihadv_tracer     =  52, 2,  2
+/
+&echam_phy_nml
+!
+! domain 1
+! --------
+!
+! atmospheric phyiscs (""=never)
+ echam_phy_config(1)%dt_rad = ""
+ echam_phy_config(1)%dt_vdf = ""
+ echam_phy_config(1)%dt_cnv = ""
+ echam_phy_config(1)%dt_cld = "PT20S"
+ echam_phy_config(1)%dt_gwd = ""
+ echam_phy_config(1)%dt_sso = ""
+!
+! atmospheric chemistry (""=never)
+ echam_phy_config(1)%dt_mox = ""
+ echam_phy_config(1)%dt_car = ""
+ echam_phy_config(1)%dt_art = ""
+!
+! surface (.TRUE. or .FALSE.)
+ echam_phy_config(1)%ljsb   = .FALSE.
+ echam_phy_config(1)%lamip  = .FALSE.
+ echam_phy_config(1)%lice   = .FALSE.
+ echam_phy_config(1)%lmlo   = .FALSE.
+ echam_phy_config(1)%llake  = .FALSE.
+!
+! fix negative humidity
+ echam_phy_config(1)%iqneg_d2p = 0
+ echam_phy_config(1)%iqneg_p2d = 0
+/
+&echam_rad_nml
+!
+! domain 1
+! --------
+!
+ echam_rad_config(1)%isolrad    =  2
+ echam_rad_config(1)%l_sph_symm_irr = .TRUE.
+ echam_rad_config(1)%l_orbvsop87= .FALSE.
+ echam_rad_config(1)%cecc       = 0.0
+ echam_rad_config(1)%cobld      = 0.0
+ echam_rad_config(1)%irad_h2o   =  1
+ echam_rad_config(1)%irad_co2   =  2
+ echam_rad_config(1)%irad_ch4   =  0
+ echam_rad_config(1)%irad_n2o   =  0
+ echam_rad_config(1)%irad_o3    =  4
+ echam_rad_config(1)%irad_o2    =  0
+ echam_rad_config(1)%irad_cfc11 =  0
+ echam_rad_config(1)%irad_cfc12 =  0
+ echam_rad_config(1)%irad_aero  =  0
+ echam_rad_config(1)%ighg       =  0
+/
+&echam_vdf_nml
+/
+&echam_cld_nml
+ echam_cld_config(1)%ncctop     = 108   ! <-- 20km
+ echam_cld_config(1)%nccbot     = 152   ! <-- 6.5 km
+ echam_cld_config(1)%jks        =  83   ! <-- 30 km
+ echam_cld_config(1)%jbmin      = 166   ! <-- 3.5km
+ echam_cld_config(1)%jbmax      = 177   ! <-- 150m
+/
+EOF
+
+#--------------------------------------------------------------------------------------------------
+
+# (4) Define the input
+
+# model files
+#
+add_link_file ${basedir}/data/lsdata.nc                                 ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+
+# namelist files
+#
+add_required_file ${basedir}/$rundir/${atm_namelist}                        ./
+
+# dictionary file for output variable names
+#
+dict_file="dict.${EXPNAME}"
+cat dict.iconam.mpim  > ${dict_file}
+add_required_file ${basedir}/$rundir/${dict_file}                           ./
+
+# atmosphere grid
+#
+add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./
+
+#--------------------------------------------------------------------------------------------------
+
+# (5) Define the output
+
+# Parameters for all output files
+# -------------------------------
+cat >> ${atm_namelist} << EOF
+&io_nml
+ output_nml_dict  = "${dict_file}"
+ netcdf_dict      = "${dict_file}"
+ itype_pres_msl   = 4
+ restart_file_type= 5
+ restart_write_mode = "joint procs multifile"
+/
+EOF
+
+# Define output files
+# -------------------
+
+# num_io_procs is increased by 1 for each active output_nml
+# the final num_io_procs is inserted in parallel_nml
+num_io_procs=0
+
+output=no
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_vgr"
+ filename_format  = "<output_filename>_<levtype_l>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"           ! output_start = output_end
+ output_end       = "${start_date}"           ! --> write once only irrespective of
+ output_interval  = "${atm_output_interval}"  !     the output interval and
+ file_interval    = "${atm_file_interval}"    !     the file interval
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_ps"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_pfull"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'pfull'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_ta"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ta'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_ua"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ua'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_va"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'va'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_wa"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'wa'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_hus"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'hus'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_clw"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'clw'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_cli"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'cli'
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_p2d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'orog'    ,
+                    'ts'      ,
+                    'clt'     ,
+                    'pr'      , 'prlr'    , 'prls'    ,
+                    'prw'     , 'cllvi'   , 'clivi'   ,
+                    'ptp'     ,
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_tend_ta"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'tend_ta_dyn'  , 'tend_ta_phy'  , 'tend_ta_cld'  ,
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_tend_ua"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'tend_ua_dyn'  , 'tend_ua_phy'  ,
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_tend_va"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'tend_va_dyn'  , 'tend_va_phy'  ,
+/
+EOF
+fi
+
+output=yes
+if [[ "$output" == "yes" ]]; then
+  num_io_procs=$((num_io_procs+1))
+  cat >> ${atm_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_tend_qhus"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${atm_output_interval}"
+ file_interval    = "${atm_file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'tend_qhus_dyn', 'tend_qhus_phy', 'tend_qhus_cld',
+/
+EOF
+fi
+
+# insert the final number of io_procs in the namelist file
+sed -i s/"num_io_procs     = 0"/"num_io_procs     = $num_io_procs"/g ${atm_namelist}
+
+#--------------------------------------------------------------------------------------------------

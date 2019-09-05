@@ -52,7 +52,7 @@ CONTAINS
 
     ! Local variables
     !
-    INTEGER  :: nlevp1
+    INTEGER  :: nlevp1, jc
     INTEGER  :: itype(nproma) !< type of convection
     REAL(wp) :: zfrw (nproma) !< cell area fraction of open water
     REAL(wp) :: zfri (nproma) !< cell area fraction of ice covered water
@@ -65,20 +65,33 @@ CONTAINS
     !$ser verbatim call serialize_cov_input(jg, jb, jcs, jce, nproma, nlev, field)
 
     nlevp1 = nlev+1
-    
-    itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
 
-    IF (iwtr.LE.nsfc_type) THEN
-       zfrw(:) = field%frac_tile(:,jb,iwtr)
-    ELSE
-       zfrw(:) = 0.0_wp
-    END IF
+    !$ACC DATA PRESENT( field% rtype, field%frac_tile ) &
+    !$ACC       CREATE( itype, zfrw, zfri )
 
-    IF (iice.LE.nsfc_type) THEN
-       zfri(:) = field%frac_tile(:,jb,iice)
-    ELSE
-       zfri(:) = 0.0_wp
-    END IF
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jc = jcs, jce
+      itype(jc) = NINT(field%rtype(jc,jb))
+    END DO
+    !$ACC END PARALLEL
+
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jc = 1, nproma
+      IF (iwtr.LE.nsfc_type) THEN
+         zfrw(jc) = field%frac_tile(jc,jb,iwtr)
+      ELSE
+         zfrw(jc) = 0.0_wp
+      END IF
+
+      IF (iice.LE.nsfc_type) THEN
+         zfri(jc) = field%frac_tile(jc,jb,iice)
+      ELSE
+         zfri(jc) = 0.0_wp
+      END IF
+    END DO
+    !$ACC END PARALLEL
 
     CALL cover(    jg,                        &! in
          &         jb,                        &! in
@@ -95,6 +108,8 @@ CONTAINS
          &         field%  qtrc(:,:,jb,iqi),  &! in    xim1
          &         field%  aclc(:,:,jb),      &! out   (for "radiation" and "vdiff_down")
          &         field% rintop(:,  jb)     ) ! out   (for output)
+
+    !$ACC END DATA
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_cov_output(jg, jb, jcs, jce, nproma, nlev, field)

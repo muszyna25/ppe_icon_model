@@ -24,11 +24,12 @@ MODULE mo_interface_echam_ocean
 
   USE mo_kind                ,ONLY: wp
   USE mo_model_domain        ,ONLY: t_patch
+  USE mo_nonhydro_types      ,ONLY: t_nh_diag
   USE mo_echam_phy_memory    ,ONLY: prm_field
   USE mo_ccycle_config       ,ONLY: ccycle_config
                                 
   USE mo_parallel_config     ,ONLY: nproma
-  
+
   USE mo_run_config          ,ONLY: ltimer, ico2, nlev
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
@@ -53,8 +54,6 @@ MODULE mo_interface_echam_ocean
 
   USE mo_coupling_config     ,ONLY: is_coupled_run
   USE mo_time_config         ,ONLY: time_config
-  
-  USE mo_model_domain        ,ONLY: t_patch
 
   USE mo_exception           ,ONLY: warning, finish, message
 
@@ -82,7 +81,7 @@ MODULE mo_interface_echam_ocean
 
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_echam_ocean'
 
-  INTEGER, PARAMETER    :: no_of_fields = 12
+  INTEGER, PARAMETER    :: no_of_fields = 13
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -368,6 +367,7 @@ CONTAINS
     field_name(10) = "10m_wind_speed"
     field_name(11) = "co2_mixing_ratio"
     field_name(12) = "co2_flux"
+    field_name(13) = "sea_level_pressure"
 
     DO idx = 1, no_of_fields
       CALL yac_fdef_field (      &
@@ -469,11 +469,12 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid level
   !! rather than the entire grid tree.
 
-  SUBROUTINE interface_echam_ocean( p_patch ) ! in
+  SUBROUTINE interface_echam_ocean( p_patch , pt_diag) ! in
 
     ! Arguments
 
     TYPE(t_patch), TARGET, INTENT(INOUT)    :: p_patch
+    TYPE(t_nh_diag), TARGET, INTENT(INOUT)  :: pt_diag
 
     ! Local variables
 
@@ -537,6 +538,7 @@ CONTAINS
     !   field_id(5) represents "atmosphere_sea_ice_bundle"                - sea ice surface and bottom melt potentials
     !   field_id(10) represents "10m_wind_speed"                          - atmospheric wind speed
     !   field_id(11) represents "qtrc(nlev,co2)"                          - co2 mixing ratio
+    !   field_id(13) represents "pres_msl"                                - sea level pressure
     !
     !  Receive fields from ocean:
     !   field_id(6) represents "sea_surface_temperature"                  - SST
@@ -825,6 +827,46 @@ CONTAINS
     !
     IF ( write_coupler_restart ) THEN
        CALL message('interface_echam_ocean', 'YAC says it is put for restart - ids 10, wind speed')
+    ENDIF
+
+    !
+    ! ------------------------------
+    !  Send sea level pressure
+    !   field_id(13) represents "pres_msl" - atmospheric sea level pressure
+    !
+    buffer(:,:) = 0.0_wp
+!!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+    DO i_blk = 1, p_patch%nblks_c
+      nn = (i_blk-1)*nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
+        buffer(nn+n,1) = pt_diag%pres_msl(n,i_blk)
+      ENDDO
+    ENDDO
+!!ICON_OMP_END_PARALLEL_DO
+    !
+    IF (ltimer) CALL timer_start(timer_coupling_put)
+
+    no_arr = 1
+    CALL yac_fput ( field_id(13), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND ) THEN
+      write_coupler_restart = .TRUE.
+    ELSE
+      write_coupler_restart = .FALSE.
+    ENDIF
+
+    IF ( info == OUT_OF_BOUND )                  &
+         & CALL warning('interface_echam_ocean', &
+         &              'YAC says fput called after end of run - id=13, sea level pressure')
+
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
+    IF ( write_coupler_restart ) THEN
+       CALL message('interface_echam_ocean', 'YAC says it is put for restart - ids 13, sea level pressure')
     ENDIF
 
 #ifndef __NO_ICON_OCEAN__
@@ -1246,6 +1288,7 @@ END MODULE mo_interface_echam_ocean
 MODULE mo_interface_echam_ocean
 
   USE mo_model_domain,    ONLY: t_patch
+  USE mo_nonhydro_types,  ONLY: t_nh_diag
   USE mo_exception,       ONLY: finish
   USE mo_coupling_config, ONLY: is_coupled_run
 
@@ -1266,9 +1309,12 @@ CONTAINS
 
   END SUBROUTINE construct_atmo_coupler
 
-  SUBROUTINE interface_echam_ocean ( p_patch )
+  SUBROUTINE interface_echam_ocean ( p_patch , pt_diag )
 
-    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
+    ! Arguments
+
+    TYPE(t_patch), TARGET, INTENT(INOUT)    :: p_patch
+    TYPE(t_nh_diag), TARGET, INTENT(INOUT)  :: pt_diag
 
     IF ( is_coupled_run() ) THEN
        CALL finish('interface_echam_ocean: unintentionally called. Check your source code and configure.')

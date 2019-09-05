@@ -30,7 +30,8 @@ USE mo_exception,          ONLY: finish, message
 USE mo_mpi,                ONLY: p_comm_work, p_barrier, &
   &                              p_real_dp, p_real_sp, p_int, p_address_kind, &
   &                              p_alltoall, p_alltoallv, p_bcast, &
-  &                              p_comm_size, p_comm_rank
+  &                              p_comm_size, p_comm_rank, &
+  &                              p_real_dp_byte, p_real_sp_byte
 USE mo_parallel_config, ONLY: nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   &                           timer_exch_data, timer_barrier
@@ -45,10 +46,15 @@ USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
   &             xt_xmap_get_num_sources, xt_xmap_get_num_destinations, &
   &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new, &
   &             xt_mpi_comm_mark_exclusive, xt_int_kind, xt_slice_c_loc
-USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
+USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp, insert_dimension
 USE iso_c_binding, ONLY: c_int, c_loc, c_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
   & t_comm_pattern_collection, xfer_list
+#ifdef _OPENACC
+USE mo_mpi,                 ONLY: i_am_accel_node
+USE iso_c_binding,          ONLY: c_size_t
+USE mo_openacc
+#endif
 
 
 IMPLICIT NONE
@@ -109,11 +115,11 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
     PROCEDURE :: exchange_data_r3d => exchange_data_r3d
     PROCEDURE :: exchange_data_s3d => exchange_data_s3d
     PROCEDURE :: exchange_data_i3d => exchange_data_i3d
+    PROCEDURE :: exchange_data_l3d => exchange_data_l3d
     PROCEDURE :: exchange_data_r2d => exchange_data_r2d
     PROCEDURE :: exchange_data_s2d => exchange_data_s2d
     PROCEDURE :: exchange_data_i2d => exchange_data_i2d
     PROCEDURE :: exchange_data_l2d => exchange_data_l2d
-    PROCEDURE :: exchange_data_l3d => exchange_data_l3d
     PROCEDURE :: exchange_data_mult => exchange_data_mult_dp
     PROCEDURE :: exchange_data_mult_mixprec => exchange_data_mult_mixprec
     PROCEDURE :: exchange_data_4de1 => exchange_data_4de1
@@ -159,6 +165,18 @@ INTERFACE IS_CONTIGUOUS
   MODULE PROCEDURE MY_IS_CONTIGUOUS_DP_4D
   MODULE PROCEDURE MY_IS_CONTIGUOUS_SP_4D
 END INTERFACE
+#endif
+
+#if defined( _OPENACC )
+#define ACC_DEBUG NO_ACC
+! OpenACC Not currently enabled
+! #define __COMMUNICATION_NOACC
+#if defined(__COMMUNICATION_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+!#define __USE_G2G
 #endif
 
 !--------------------------------------------------------------------------------------------------
@@ -291,7 +309,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
                               src_n_points, src_owner, src_global_index, &
                               inplace, comm)
 
-   CLASS(t_comm_pattern_yaxt), INTENT(OUT) :: p_pat
+   CLASS(t_comm_pattern_yaxt), TARGET, INTENT(OUT) :: p_pat
    INTEGER, INTENT(IN)           :: dst_n_points        ! Total number of points
    INTEGER, INTENT(IN)           :: dst_owner(:)        ! Owner of every point
    INTEGER, INTENT(IN)           :: dst_global_index(:) ! Global index of every point
@@ -324,6 +342,9 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_comm_pattern'
    INTEGER :: pcomm, comm_size, comm_rank
    LOGICAL :: any_dst_owner_lt_0
+#ifdef _OPENACC
+   LOGICAL, POINTER :: dst_mask(:)
+#endif
 
 !-----------------------------------------------------------------------
 
@@ -458,12 +479,18 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
      p_pat%inplace = .false.
    END IF
 
-END SUBROUTINE setup_comm_pattern
+#ifdef _OPENACC
+   IF (acc_on .AND. ALLOCATED(p_pat%dst_mask)) THEN
+     dst_mask => p_pat%dst_mask(:)
+!$ACC ENTER DATA COPYIN(dst_mask)
+   END IF
+#endif
 
+END SUBROUTINE setup_comm_pattern
 
   SUBROUTINE setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
        glb2loc_index_recv, glb2loc_index_send, inplace)
-    CLASS(t_comm_pattern_yaxt), INTENT(out) :: p_pat
+    CLASS(t_comm_pattern_yaxt), TARGET, INTENT(out) :: p_pat
     INTEGER, INTENT(in) :: comm
     TYPE(xfer_list), INTENT(in) :: recv_msg(:), send_msg(:)
     TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index_recv, &
@@ -475,6 +502,9 @@ END SUBROUTINE setup_comm_pattern
     INTEGER :: i, np_recv, np_send, nlocal
     TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
     TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
+#ifdef _OPENACC
+   LOGICAL, POINTER :: dst_mask(:)
+#endif
     CHARACTER(len=*), PARAMETER :: routine &
          = 'mo_communication_yaxt::setup_comm_pattern2'
 
@@ -506,6 +536,12 @@ END SUBROUTINE setup_comm_pattern
     ELSE
       p_pat%inplace = .FALSE.
     END IF
+#ifdef _OPENACC
+    IF (acc_on .AND. ALLOCATED(p_pat%dst_mask)) THEN
+      dst_mask => p_pat%dst_mask(:)
+!$ACC ENTER DATA COPYIN(dst_mask)
+    END IF
+#endif
   CONTAINS
     SUBROUTINE compose_lists(com, list, nlocal, glb2loc_index, msg, mask)
       TYPE(xt_com_list), INTENT(out) :: com(:)
@@ -896,10 +932,18 @@ END SUBROUTINE setup_comm_pattern_collection
 !
 SUBROUTINE delete_comm_pattern(p_pat)
 
-   CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+   CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
 
    CHARACTER(len=*), PARAMETER :: routine = modname//'::delete_comm_pattern'
    INTEGER :: i, n, ierror
+#ifdef _OPENACC
+   LOGICAL, POINTER :: dst_mask(:)
+
+   IF (acc_on .AND. ALLOCATED(p_pat%dst_mask)) THEN
+     dst_mask => p_pat%dst_mask(:)
+!$ACC EXIT DATA DELETE(dst_mask)
+   END IF
+#endif
 
    ! deallocate arrays
    IF (ALLOCATED(p_pat%dst_mask)) DEALLOCATE(p_pat%dst_mask)
@@ -971,14 +1015,18 @@ END SUBROUTINE delete_comm_pattern_collection
 !
 SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
 
-   CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+   CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
    REAL(dp), INTENT(INOUT), TARGET :: recv(:,:,:)
    REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
+   LOGICAL, POINTER :: dst_mask(:)
 
    TYPE(xt_redist) :: redist
 
    INTEGER :: i, j, k, nlev(1,2), m, n, o
+#ifdef _OPENACC
+    LOGICAL :: use_gpu
+#endif
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_r3d','Illegal first dimension of data array')
@@ -991,6 +1039,17 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    ENDIF
 
    start_sync_timer(timer_exch_data)
+
+#ifdef _OPENACC
+#ifdef __USE_G2G
+    use_gpu = i_am_accel_node .AND. acc_on
+#else
+    use_gpu = .FALSE.
+!$ACC UPDATE HOST ( recv ) IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST ( send ) IF ((i_am_accel_node .AND. acc_on) .AND. PRESENT(send))
+!$ACC UPDATE HOST ( add ) IF ((i_am_accel_node .AND. acc_on) .AND. PRESENT(add))
+#endif
+#endif
 
    m = SIZE(recv, 1)
    n = SIZE(recv, 2)
@@ -1010,7 +1069,6 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
      IF (p_pat%inplace) THEN
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
-       ! make copy of recv
        CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    END IF
@@ -1023,16 +1081,21 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
 
    IF (PRESENT(add)) THEN
      IF (ALLOCATED(p_pat%dst_mask)) THEN
+       dst_mask => p_pat%dst_mask(:)
+!$ACC PARALLEL PRESENT(recv, add) IF (use_gpu)
        DO k = 1, o
          DO j = 1, n
            DO i = 1, m
-             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+             IF (dst_mask(idx_1d(i,j))) THEN
                recv(i,j,k) = recv(i,j,k) + add(i,j,k)
              END IF
            END DO
          END DO
        END DO
+
+!$ACC END PARALLEL
      ELSE
+!$ACC PARALLEL PRESENT(recv, add) IF (use_gpu)
        DO k = 1, o
          DO j = 1, n
            DO i = 1, m
@@ -1040,8 +1103,13 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
            END DO
          END DO
        END DO
+!$ACC END PARALLEL
      END IF
    END IF
+
+#if defined(_OPENACC) && ! defined(__USE_G2G)
+!$ACC UPDATE DEVICE ( recv ) IF (i_am_accel_node .AND. acc_on)
+#endif
 
    stop_sync_timer(timer_exch_data)
 
@@ -1056,6 +1124,13 @@ CONTAINS
     REAL(dp), INTENT(INOUT), TARGET :: recv(*)
     REAL(dp), INTENT(IN), TARGET :: send(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
 
   END SUBROUTINE
@@ -1065,35 +1140,58 @@ CONTAINS
     TYPE(xt_redist), INTENT(IN) :: redist
     REAL(dp), INTENT(INOUT), TARGET :: recv(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(recv), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(recv), c_loc(recv))
 
   END SUBROUTINE
 
-    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+  SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
 
-      TYPE(xt_redist), INTENT(IN) :: redist
-      INTEGER, INTENT(in) :: n
-      REAL(dp), INTENT(INOUT), TARGET :: recv(n)
-      REAL(dp), TARGET :: send(n)
+    TYPE(xt_redist), INTENT(IN) :: redist
+    INTEGER, INTENT(in) :: n
+    REAL(dp), INTENT(INOUT), TARGET :: recv(n)
+    REAL(dp), TARGET :: send(n)
 
-      send = recv
+!$ACC DATA CREATE(send) IF (use_gpu)
+!$ACC KERNELS IF (use_gpu)
+    send = recv
+!$ACC END KERNELS
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+    ELSE
+#endif
       CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+#ifdef _OPENACC
+    END IF
+#endif
+!$ACC END DATA
 
-    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
-
+  END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
 END SUBROUTINE exchange_data_r3d
 
 SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
 
-   CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+   CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
    REAL(sp), INTENT(INOUT), TARGET :: recv(:,:,:)
    REAL(sp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
+   LOGICAL, POINTER :: dst_mask(:)
 
    TYPE(xt_redist) :: redist
 
    INTEGER :: i, j, k, nlev(1, 2), m, n, o
+#ifdef _OPENACC
+    LOGICAL :: use_gpu
+#endif
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_s3d','Illegal first dimension of data array')
@@ -1106,6 +1204,17 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    ENDIF
 
    start_sync_timer(timer_exch_data)
+
+#ifdef _OPENACC
+#ifdef __USE_G2G
+    use_gpu = i_am_accel_node .AND. acc_on
+#else
+    use_gpu = .FALSE.
+!$ACC UPDATE HOST ( recv ) IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST ( send ) IF ((i_am_accel_node .AND. acc_on) .AND. PRESENT(send))
+!$ACC UPDATE HOST ( add ) IF ((i_am_accel_node .AND. acc_on) .AND. PRESENT(add))
+#endif
+#endif
 
    m = SIZE(recv, 1)
    n = SIZE(recv, 2)
@@ -1125,7 +1234,6 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
      IF (p_pat%inplace) THEN
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
-       ! make copy of recv
        CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    END IF
@@ -1138,16 +1246,20 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
 
    IF (PRESENT(add)) THEN
      IF (ALLOCATED(p_pat%dst_mask)) THEN
+       dst_mask => p_pat%dst_mask(:)
+!$ACC PARALLEL PRESENT(recv, add) IF (use_gpu)
        DO k = 1, o
          DO j = 1, n
            DO i = 1, m
-             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+             IF (dst_mask(idx_1d(i,j))) THEN
                recv(i,j,k) = recv(i,j,k) + add(i,j,k)
              END IF
            END DO
          END DO
        END DO
+!$ACC END PARALLEL
      ELSE
+!$ACC PARALLEL PRESENT(recv, add) IF (use_gpu)
        DO k = 1, o
          DO j = 1, n
            DO i = 1, m
@@ -1155,8 +1267,13 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
            END DO
          END DO
        END DO
+!$ACC END PARALLEL
      END IF
    END IF
+
+#if defined(_OPENACC) && ! defined(__USE_G2G)
+!$ACC UPDATE DEVICE ( recv ) IF (i_am_accel_node .AND. acc_on)
+#endif
 
    stop_sync_timer(timer_exch_data)
 
@@ -1171,6 +1288,13 @@ CONTAINS
     REAL(sp), INTENT(INOUT), TARGET :: recv(*)
     REAL(sp), INTENT(IN), TARGET :: send(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
 
   END SUBROUTINE
@@ -1180,21 +1304,41 @@ CONTAINS
     TYPE(xt_redist), INTENT(IN) :: redist
     REAL(sp), INTENT(INOUT), TARGET :: recv(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(recv), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(recv), c_loc(recv))
 
   END SUBROUTINE
 
-    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+  SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
 
-      TYPE(xt_redist), INTENT(IN) :: redist
-      INTEGER, INTENT(in) :: n
-      REAL(sp), INTENT(INOUT), TARGET :: recv(n)
-      REAL(sp), TARGET :: send(n)
+    TYPE(xt_redist), INTENT(IN) :: redist
+    INTEGER, INTENT(in) :: n
+    REAL(sp), INTENT(INOUT), TARGET :: recv(n)
+    REAL(sp), TARGET :: send(n)
 
-      send = recv
+!$ACC DATA CREATE(send) IF (use_gpu)
+!$ACC KERNELS IF (use_gpu)
+    send = recv
+!$ACC END KERNELS
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+    ELSE
+#endif
       CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+#ifdef _OPENACC
+    END IF
+#endif
+!$ACC END DATA
 
-    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+  END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
 END SUBROUTINE exchange_data_s3d
 
@@ -1203,14 +1347,18 @@ END SUBROUTINE exchange_data_s3d
 !
 SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
 
-   CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+   CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
    INTEGER, INTENT(INOUT), TARGET :: recv(:,:,:)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
+   LOGICAL, POINTER :: dst_mask(:)
 
    TYPE(xt_redist) :: redist
 
    INTEGER :: i, j, k, nlev(1, 2), m, n, o
+#ifdef _OPENACC
+    LOGICAL :: use_gpu
+#endif
 
    IF(SIZE(recv,1) /= nproma) THEN
      CALL finish('exchange_data_i3d','Illegal first dimension of data array')
@@ -1223,6 +1371,17 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    ENDIF
 
    start_sync_timer(timer_exch_data)
+
+#ifdef _OPENACC
+#ifdef __USE_G2G
+    use_gpu = i_am_accel_node .AND. acc_on
+#else
+    use_gpu = .FALSE.
+!$ACC UPDATE HOST ( recv ) IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST ( send ) IF ((i_am_accel_node .AND. acc_on) .AND. PRESENT(send))
+!$ACC UPDATE HOST ( add ) IF ((i_am_accel_node .AND. acc_on) .AND. PRESENT(add))
+#endif
+#endif
 
    m = SIZE(recv, 1)
    n = SIZE(recv, 2)
@@ -1242,7 +1401,6 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
      IF (p_pat%inplace) THEN
        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
      ELSE
-       ! make copy of recv
        CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
      END IF
    END IF
@@ -1255,16 +1413,20 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
 
    IF (PRESENT(add)) THEN
      IF (ALLOCATED(p_pat%dst_mask)) THEN
+       dst_mask => p_pat%dst_mask(:)
+!$ACC PARALLEL PRESENT(recv, add) IF (use_gpu)
        DO k = 1, o
          DO j = 1, n
            DO i = 1, m
-             IF (p_pat%dst_mask(idx_1d(i,j))) THEN
+             IF (dst_mask(idx_1d(i,j))) THEN
                recv(i,j,k) = recv(i,j,k) + add(i,j,k)
              END IF
            END DO
          END DO
        END DO
+!$ACC END PARALLEL
      ELSE
+!$ACC PARALLEL PRESENT(recv, add) IF (use_gpu)
        DO k = 1, o
          DO j = 1, n
            DO i = 1, m
@@ -1272,8 +1434,13 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
            END DO
          END DO
        END DO
+!$ACC END PARALLEL
      END IF
    END IF
+
+#if defined(_OPENACC) && ! defined(__USE_G2G)
+!$ACC UPDATE DEVICE ( recv ) IF (i_am_accel_node .AND. acc_on)
+#endif
 
    stop_sync_timer(timer_exch_data)
 
@@ -1288,6 +1455,13 @@ CONTAINS
     INTEGER, INTENT(INOUT), TARGET :: recv(*)
     INTEGER, INTENT(IN), TARGET :: send(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
 
   END SUBROUTINE
@@ -1297,119 +1471,189 @@ CONTAINS
     TYPE(xt_redist), INTENT(IN) :: redist
     INTEGER, INTENT(INOUT), TARGET :: recv(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(recv), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(recv), c_loc(recv))
 
   END SUBROUTINE
 
-    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+  SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
 
-      TYPE(xt_redist), INTENT(IN) :: redist
-      INTEGER, INTENT(in) :: n
-      INTEGER, INTENT(INOUT), TARGET :: recv(n)
-      INTEGER, TARGET :: send(n)
+    TYPE(xt_redist), INTENT(IN) :: redist
+    INTEGER, INTENT(in) :: n
+    INTEGER, INTENT(INOUT), TARGET :: recv(n)
+    INTEGER, TARGET :: send(n)
 
-      send = recv
+!$ACC DATA CREATE(send) IF (use_gpu)
+!$ACC KERNELS IF (use_gpu)
+    send = recv
+!$ACC END KERNELS
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+    ELSE
+#endif
       CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+#ifdef _OPENACC
+    END IF
+#endif
+!$ACC END DATA
 
-    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+  END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
 END SUBROUTINE exchange_data_i3d
 
-  SUBROUTINE exchange_data_l3d(p_pat, recv, send)
-    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
-    LOGICAL, INTENT(INOUT), TARGET :: recv(:,:,:)
-    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+!================================================================================================
+! LOGICAL SECTION -------------------------------------------------------------------------------
+!
+SUBROUTINE exchange_data_l3d(p_pat, recv, send)
 
-    TYPE(xt_redist) :: redist
+   CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
+   LOGICAL, INTENT(INOUT), TARGET :: recv(:,:,:)
+   LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
 
-    INTEGER :: nlev(1, 2), n
+   TYPE(xt_redist) :: redist
 
-    IF(SIZE(recv,1) /= nproma) THEN
-      CALL finish('exchange_data_i3d','Illegal first dimension of data array')
-    ENDIF
+   INTEGER :: nlev(1, 2), n
+#ifdef _OPENACC
+    LOGICAL :: use_gpu
+#endif
 
-    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-      IF (activate_sync_timers) CALL timer_start(timer_barrier)
-      CALL p_barrier(p_pat%comm)
-      IF (activate_sync_timers) CALL timer_stop(timer_barrier)
-    ENDIF
+   IF(SIZE(recv,1) /= nproma) THEN
+     CALL finish('exchange_data_l3d','Illegal first dimension of data array')
+   ENDIF
 
-    start_sync_timer(timer_exch_data)
+   IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+   ENDIF
 
-    n = SIZE(recv, 2)
+   start_sync_timer(timer_exch_data)
 
-    nlev(1, 1) = n
-    IF (PRESENT(send)) THEN
-      nlev(1, 2) = SIZE(send,2)
-    ELSE
-      nlev(1, 2) = n
+#ifdef _OPENACC
+#ifdef __USE_G2G
+    use_gpu = i_am_accel_node .AND. acc_on
+#else
+    use_gpu = .FALSE.
+!$ACC UPDATE HOST ( recv ) IF (i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST ( send ) IF ((i_am_accel_node .AND. acc_on) .AND. PRESENT(send))
+#endif
+#endif
+
+   n = SIZE(recv, 2)
+
+   nlev(1, 1) = n
+   IF (PRESENT(send)) THEN
+     nlev(1, 2) = SIZE(send,2)
+   ELSE
+     nlev(1, 2) = n
+   END IF
+   redist = comm_pattern_get_redist(p_pat, 1, nlev, p_int)
+
+   IF (PRESENT(send)) THEN
+     CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
+   ELSE
+     IF (p_pat%inplace) THEN
+       CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
+     ELSE
+       CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
+     END IF
+   END IF
+
+   IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
+   ENDIF
+
+#if defined(_OPENACC) && ! defined(__USE_G2G)
+!$ACC UPDATE DEVICE ( recv ) IF (i_am_accel_node .AND. acc_on)
+#endif
+
+   stop_sync_timer(timer_exch_data)
+
+CONTAINS
+
+  ! this wrapper is needed because we have to ensure that the input array are in
+  ! contiguous memory (the keyword CONTIGUOUS is Fortran2008, which is not
+  ! required by ICON)
+  SUBROUTINE xt_redist_s_exchange1_contiguous(redist, send, recv)
+
+    TYPE(xt_redist), INTENT(IN) :: redist
+    LOGICAL, INTENT(INOUT), TARGET :: recv(*)
+    LOGICAL, INTENT(IN), TARGET :: send(*)
+    TYPE(c_ptr) :: send_ptr, recv_ptr
+
+    CALL xt_slice_c_loc(send, send_ptr)
+    CALL xt_slice_c_loc(recv, recv_ptr)
+
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send_ptr), acc_deviceptr(recv_ptr))
+      RETURN
     END IF
-    redist = comm_pattern_get_redist(p_pat, 1, nlev, p_int)
+#endif
+    CALL xt_redist_s_exchange1(redist, send_ptr, recv_ptr)
 
-    IF (PRESENT(send)) THEN
-      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
-    ELSE
-      IF (p_pat%inplace) THEN
-        CALL xt_redist_s_exchange1_contiguous_inplace(redist, recv)
-      ELSE
-        ! make copy of recv
-        CALL xt_redist_s_exchange1_contiguous_copy(redist, recv, SIZE(recv))
-      END IF
+  END SUBROUTINE
+
+  SUBROUTINE xt_redist_s_exchange1_contiguous_inplace(redist, recv)
+
+    TYPE(xt_redist), INTENT(IN) :: redist
+    LOGICAL, INTENT(INOUT), TARGET :: recv(*)
+    TYPE(c_ptr) :: recv_ptr
+
+    CALL xt_slice_c_loc(recv, recv_ptr)
+
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(recv_ptr), acc_deviceptr(recv_ptr))
+      RETURN
     END IF
+#endif
+    CALL xt_redist_s_exchange1(redist, recv_ptr, recv_ptr)
 
-    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-      IF (activate_sync_timers) CALL timer_start(timer_barrier)
-      CALL p_barrier(p_pat%comm)
-      IF (activate_sync_timers) CALL timer_stop(timer_barrier)
-    ENDIF
+  END SUBROUTINE
 
-    stop_sync_timer(timer_exch_data)
+  SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
 
-  CONTAINS
+    TYPE(xt_redist), INTENT(IN) :: redist
+    INTEGER, INTENT(in) :: n
+    LOGICAL, INTENT(INOUT), TARGET :: recv(n)
+    LOGICAL, TARGET :: send(n)
+    TYPE(c_ptr) :: send_ptr, recv_ptr
 
-    ! this wrapper is needed because we have to ensure that the input array are in
-    ! contiguous memory (the keyword CONTIGUOUS is Fortran2008, which is not
-    ! required by ICON)
-    SUBROUTINE xt_redist_s_exchange1_contiguous(redist, send, recv)
+    CALL xt_slice_c_loc(send, send_ptr)
+    CALL xt_slice_c_loc(recv, recv_ptr)
 
-      TYPE(xt_redist), INTENT(IN) :: redist
-      LOGICAL, INTENT(INOUT), TARGET :: recv(*)
-      LOGICAL, INTENT(IN), TARGET :: send(*)
-      TYPE(c_ptr) :: send_ptr, recv_ptr
-
-      CALL xt_slice_c_loc(send, send_ptr)
-      CALL xt_slice_c_loc(recv, recv_ptr)
+!$ACC DATA CREATE(send) IF (use_gpu)
+!$ACC KERNELS IF (use_gpu)
+    send = recv
+!$ACC END KERNELS
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send_ptr), acc_deviceptr(recv_ptr))
+    ELSE
+#endif
       CALL xt_redist_s_exchange1(redist, send_ptr, recv_ptr)
+#ifdef _OPENACC
+    END IF
+#endif
+!$ACC END DATA
 
-    END SUBROUTINE xt_redist_s_exchange1_contiguous
+  END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
-    SUBROUTINE xt_redist_s_exchange1_contiguous_inplace(redist, recv)
-
-      TYPE(xt_redist), INTENT(IN) :: redist
-      LOGICAL, INTENT(INOUT), TARGET :: recv(*)
-      TYPE(c_ptr) :: recv_ptr
-
-      CALL xt_slice_c_loc(recv, recv_ptr)
-      CALL xt_redist_s_exchange1(redist, recv_ptr, recv_ptr)
-
-    END SUBROUTINE xt_redist_s_exchange1_contiguous_inplace
-
-    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
-
-      TYPE(xt_redist), INTENT(IN) :: redist
-      INTEGER, INTENT(in) :: n
-      LOGICAL, INTENT(INOUT), TARGET :: recv(n)
-      LOGICAL, TARGET :: send(n)
-      TYPE(c_ptr) :: send_ptr, recv_ptr
-
-      send = recv
-      CALL xt_slice_c_loc(send, send_ptr)
-      CALL xt_slice_c_loc(recv, recv_ptr)
-      CALL xt_redist_s_exchange1(redist, send_ptr, recv_ptr)
-
-    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
-
-  END SUBROUTINE exchange_data_l3d
+END SUBROUTINE exchange_data_l3d
 
 !>
 !! Does data exchange according to a communication pattern (in p_pat).
@@ -1421,22 +1665,19 @@ END SUBROUTINE exchange_data_i3d
 !! in one step
 !! yaxt version by Moritz Hanke, April 2016
 !!
-  SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
-       recv, send, nshift)
+SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, recv, send, nshift)
 
-    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+  CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
 
-    TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
-    TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
+  TYPE(t_ptr_3d), PTR_INTENT(in) :: recv(:)
+  TYPE(t_ptr_3d), OPTIONAL, PTR_INTENT(in) :: send(:)
 
-    INTEGER, INTENT(IN)           :: ndim2tot
-    INTEGER, OPTIONAL, INTENT(IN) :: nshift
-    CALL exchange_data_mult_dp_top(p_pat, ndim2tot, recv, send, nshift)
-  END SUBROUTINE exchange_data_mult_dp
+  INTEGER, INTENT(IN)           :: ndim2tot
+  INTEGER, OPTIONAL, INTENT(IN) :: nshift
+  CALL exchange_data_mult_dp_top(p_pat, ndim2tot, recv, send, nshift)
+END SUBROUTINE exchange_data_mult_dp
 
-
-  SUBROUTINE exchange_data_mult_dp_top(p_pat, ndim2tot, &
-   recv, send, nshift)
+SUBROUTINE exchange_data_mult_dp_top(p_pat, ndim2tot, recv, send, nshift)
 
    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
@@ -1548,6 +1789,14 @@ END SUBROUTINE exchange_data_mult_dp_top
     REAL(dp), POINTER :: cpy(:, :, :)
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
+#ifdef _OPENACC
+    REAL(dp),POINTER :: p_recv(:,:,:)
+    REAL(dp),POINTER :: p_send(:,:,:)
+    TYPE(c_ptr) :: device_cpy
+    LOGICAL :: use_gpu
+
+    use_gpu = i_am_accel_node .AND. acc_on
+#endif
 
     lsend = ASSOCIATED(send)
     cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
@@ -1558,8 +1807,24 @@ END SUBROUTINE exchange_data_mult_dp_top
     ! set up C pointers
     DO i = 1, nfields
       IF (.NOT. needs_cpy(i, 1)) THEN
+#ifdef _OPENACC
+        IF (use_gpu) THEN
+#ifdef __USE_G2G
+          dst_data_cptr(i) = acc_deviceptr(recv(i)%p)
+          CYCLE
+#else
+          p_recv => recv(i)%p
+!$ACC UPDATE HOST ( p_recv ) IF (use_gpu)
+#endif
+        END IF
+#endif
         dst_data_cptr(i) = C_LOC(recv(i)%p(1,1,1))
       ELSE
+#ifdef _OPENACC
+        IF (use_gpu .AND. .NOT. IS_CONTIGUOUS(recv(i)%p)) &
+          CALL finish('exchange_data_mult_dp_bottom', &
+                      'use_gpu == .TRUE., therefore array has to be contiguous')
+#endif
         nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
@@ -1574,8 +1839,24 @@ END SUBROUTINE exchange_data_mult_dp_top
     IF (lsend) THEN
       DO i = 1, nfields
         IF (.NOT. needs_cpy(i, 2)) THEN
+#ifdef _OPENACC
+          IF (use_gpu) THEN
+#ifdef __USE_G2G
+            src_data_cptr(i) = acc_deviceptr(send(i)%p)
+            CYCLE
+#else
+            p_send => send(i)%p
+!$ACC UPDATE HOST ( p_send ) IF (use_gpu)
+#endif
+          END IF
+#endif
           src_data_cptr(i) = C_LOC(send(i)%p(1,1,1))
         ELSE
+#ifdef _OPENACC
+          IF (use_gpu .AND. .NOT. IS_CONTIGUOUS(send(i)%p)) &
+            CALL finish('exchange_data_mult_dp_bottom', &
+                        'use_gpu == .TRUE., therefore array has to be contiguous')
+#endif
           nblk = SIZE(send(i)%p, 3)
           ofs = cpy_psum + 1
           nl = nlev(i, 2)
@@ -1586,6 +1867,31 @@ END SUBROUTINE exchange_data_mult_dp_top
           cpy(:, :, :) = send(i)%p
           src_data_cptr(i) = C_LOC(cpy(1,1,1))
         END IF
+      END DO
+    ELSE IF (cpy_recv) THEN
+      DO i = 1, nfields
+        nblk = SIZE(recv(i)%p, 3)
+        ofs = cpy_psum + 1
+        nl = nlev(i, 1)
+        incr = nproma * nl * nblk
+        last = cpy_psum + incr
+        cpy(1:nproma, 1:nl, 1:nblk) => cpy_buf(ofs:last)
+        cpy_psum = cpy_psum + incr
+#if defined(_OPENACC) && defined(__USE_G2G)
+        IF (use_gpu) THEN
+          p_recv => recv(i)%p
+          device_cpy = acc_malloc(INT(nproma * nl * nblk, c_size_t) * &
+                                  INT(p_real_dp_byte, c_size_t))
+          CALL acc_map_data(cpy, device_cpy, nproma * nl * nblk)
+!$ACC KERNELS PRESENT(cpy, p_recv)
+          cpy(:, :, :) = p_recv
+!$ACC END KERNELS
+          src_data_cptr(i) = device_cpy
+          CYCLE
+        END IF
+#endif
+        cpy(:, :, :) = recv(i)%p
+        src_data_cptr(i) = C_LOC(cpy(1,1,1))
       END DO
     ELSE
       src_data_cptr = dst_data_cptr
@@ -1618,7 +1924,23 @@ END SUBROUTINE exchange_data_mult_dp_top
         recv(i)%p(:, :, :) = cpy
       END IF
     END DO
-
+#ifdef _OPENACC
+#ifdef __USE_G2G
+    IF (cpy_recv .AND. use_gpu) THEN
+      DO i = 1, nfields
+        CALL acc_unmap_data(acc_hostptr(src_data_cptr(i)))
+        CALL acc_free(src_data_cptr(i))
+      END DO
+    END IF
+#else
+    IF (use_gpu) THEN
+      DO i = 1, nfields
+        p_recv => recv(i)%p
+!$ACC UPDATE DEVICE ( p_recv ) IF (use_gpu)
+      END DO
+    END IF
+#endif
+#endif
   END SUBROUTINE exchange_data_mult_dp_bottom
 
   !>
@@ -1744,6 +2066,14 @@ END SUBROUTINE exchange_data_mult_sp
     REAL(sp), POINTER :: cpy(:, :, :)
     TYPE(c_ptr) :: src_data_cptr(SIZE(recv)), dst_data_cptr(SIZE(recv))
     TYPE(xt_redist) :: redist_coll
+#ifdef _OPENACC
+    REAL(sp),POINTER :: p_recv(:,:,:)
+    REAL(sp),POINTER :: p_send(:,:,:)
+    TYPE(c_ptr) :: device_cpy
+    LOGICAL :: use_gpu
+
+    use_gpu = i_am_accel_node .AND. acc_on
+#endif
 
     lsend = ASSOCIATED(send)
     cpy_recv = .NOT. (lsend .OR. p_pat%inplace)
@@ -1754,8 +2084,24 @@ END SUBROUTINE exchange_data_mult_sp
     ! set up C pointers
     DO i = 1, nfields
       IF (.NOT. needs_cpy(i, 1)) THEN
+#ifdef _OPENACC
+        IF (use_gpu) THEN
+#ifdef __USE_G2G
+          dst_data_cptr(i) = acc_deviceptr(recv(i)%p)
+          CYCLE
+#else
+          p_recv => recv(i)%p
+!$ACC UPDATE HOST ( p_recv ) IF (use_gpu)
+#endif
+        END IF
+#endif
         dst_data_cptr(i) = C_LOC(recv(i)%p(1,1,1))
       ELSE
+#ifdef _OPENACC
+        IF (use_gpu .AND. .NOT. IS_CONTIGUOUS(recv(i)%p)) &
+          CALL finish('exchange_data_mult_sp_bottom', &
+                      'use_gpu == .TRUE., therefore array has to be contiguous')
+#endif
         nblk = SIZE(recv(i)%p, 3)
         ofs = cpy_psum + 1
         nl = nlev(i, 1)
@@ -1770,8 +2116,24 @@ END SUBROUTINE exchange_data_mult_sp
     IF (lsend) THEN
       DO i = 1, nfields
         IF (.NOT. needs_cpy(i, 2)) THEN
+#ifdef _OPENACC
+          IF (use_gpu) THEN
+#ifdef __USE_G2G
+            src_data_cptr(i) = acc_deviceptr(send(i)%p)
+            CYCLE
+#else
+            p_send => send(i)%p
+!$ACC UPDATE HOST ( p_send ) IF (use_gpu)
+#endif
+          END IF
+#endif
           src_data_cptr(i) = C_LOC(send(i)%p(1,1,1))
         ELSE
+#ifdef _OPENACC
+          IF (use_gpu .AND. .NOT. IS_CONTIGUOUS(send(i)%p)) &
+            CALL finish('exchange_data_mult_sp_bottom', &
+                        'use_gpu == .TRUE., therefore array has to be contiguous')
+#endif
           nblk = SIZE(send(i)%p, 3)
           ofs = cpy_psum + 1
           nl = nlev(i, 2)
@@ -1782,6 +2144,31 @@ END SUBROUTINE exchange_data_mult_sp
           cpy(:, :, :) = send(i)%p
           src_data_cptr(i) = C_LOC(cpy(1,1,1))
         END IF
+      END DO
+    ELSE IF (cpy_recv) THEN
+      DO i = 1, nfields
+        nblk = SIZE(recv(i)%p, 3)
+        ofs = cpy_psum + 1
+        nl = nlev(i, 1)
+        incr = nproma * nl * nblk
+        last = cpy_psum + incr
+        cpy(1:nproma, 1:nl, 1:nblk) => cpy_buf(ofs:last)
+        cpy_psum = cpy_psum + incr
+#if defined(_OPENACC) && defined(__USE_G2G)
+        IF (use_gpu) THEN
+          p_recv => recv(i)%p
+          device_cpy = acc_malloc(INT(nproma * nl * nblk, c_size_t) * &
+                                  INT(p_real_sp_byte, c_size_t))
+          CALL acc_map_data(cpy, device_cpy, nproma * nl * nblk)
+!$ACC KERNELS PRESENT(cpy, p_recv)
+          cpy(:, :, :) = p_recv
+!$ACC END KERNELS
+          src_data_cptr(i) = device_cpy
+          CYCLE
+        END IF
+#endif
+        cpy(:, :, :) = recv(i)%p
+        src_data_cptr(i) = C_LOC(cpy(1,1,1))
       END DO
     ELSE
       src_data_cptr = dst_data_cptr
@@ -1814,7 +2201,23 @@ END SUBROUTINE exchange_data_mult_sp
         recv(i)%p(:, :, :) = cpy
       END IF
     END DO
-
+#ifdef _OPENACC
+#ifdef __USE_G2G
+    IF (cpy_recv .AND. use_gpu) THEN
+      DO i = 1, nfields
+        CALL acc_unmap_data(acc_hostptr(src_data_cptr(i)))
+        CALL acc_free(src_data_cptr(i))
+      END DO
+    END IF
+#else
+    IF (use_gpu) THEN
+      DO i = 1, nfields
+        p_recv => recv(i)%p
+!$ACC UPDATE DEVICE ( p_recv ) IF (use_gpu)
+      END DO
+    END IF
+#endif
+#endif
   END SUBROUTINE exchange_data_mult_sp_bottom
 
 !>
@@ -1830,7 +2233,7 @@ END SUBROUTINE exchange_data_mult_sp
 SUBROUTINE exchange_data_mult_mixprec(p_pat, nfields_dp, ndim2tot_dp, &
      nfields_sp, ndim2tot_sp, recv_dp, send_dp, recv_sp, send_sp, nshift)
 
-  CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+  CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
 
     TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: recv_dp(:)
     TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: send_dp(:)
@@ -1839,7 +2242,7 @@ SUBROUTINE exchange_data_mult_mixprec(p_pat, nfields_dp, ndim2tot_dp, &
 
     INTEGER, INTENT(IN)           :: nfields_dp, ndim2tot_dp, &
       nfields_sp, ndim2tot_sp
-  INTEGER, OPTIONAL, INTENT(IN) :: nshift
+    INTEGER, OPTIONAL, INTENT(IN) :: nshift
 
   IF (nfields_dp > 0) THEN
     CALL exchange_data_mult_dp(p_pat=p_pat, &
@@ -1864,21 +2267,37 @@ END SUBROUTINE exchange_data_mult_mixprec
 !!
 SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
 
-   CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
+   CLASS(t_comm_pattern_yaxt), TARGET, INTENT(INOUT) :: p_pat
 
    REAL(dp), INTENT(INOUT)           :: recv(:,:,:,:)
    REAL(dp), INTENT(IN   ), OPTIONAL :: send(:,:,:,:)
 
    INTEGER, INTENT(IN)           :: nfields, ndim2tot
 
+   REAL(dp), ALLOCATABLE :: send_(:,:,:,:)
    INTEGER :: data_type
    TYPE(xt_redist) :: redist
 
-   INTEGER :: nlev(1, 2), i, comm_size
+   INTEGER :: nlev(1, 2), i, j, k, l, comm_size
    LOGICAL, SAVE :: first_call = .TRUE., mpi_is_buggy
+   REAL(dp), ALLOCATABLE :: recv_buffer(:,:,:), send_buffer(:,:,:)
 
    CHARACTER(len=*), PARAMETER :: &
      routine = modname//"::exchange_data_4de1"
+
+#ifdef _OPENACC
+   LOGICAL :: use_gpu
+
+#ifdef __USE_G2G
+    use_gpu = i_am_accel_node .AND. acc_on
+#else
+    use_gpu = .FALSE.
+    IF (i_am_accel_node .AND. acc_on) THEN
+!$ACC UPDATE HOST (recv)
+!$ACC UPDATE HOST (send) IF (PRESENT(send))
+    END IF
+#endif
+#endif
 
 !-----------------------------------------------------------------------
 
@@ -1900,15 +2319,66 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
      ! exchange_data_4de1. This affects intelmpi and mvapich.
      ! This issue is currently under investigation. Until it is fixed, we need
      ! the following workaround.
+
+     ALLOCATE(recv_buffer(SIZE(recv, 2), SIZE(recv, 3), SIZE(recv, 4)))
      IF (PRESENT(send)) THEN
+       ALLOCATE(send_buffer(SIZE(send, 2), SIZE(send, 3), SIZE(send, 4)))
+!$ACC DATA PRESENT(send, recv) CREATE(recv_buffer, send_buffer) IF (use_gpu)
        DO i = 1, SIZE(recv, 1)
-           CALL exchange_data_r3d(p_pat, recv(i,:,:,:), send(i,:,:,:))
+!$ACC PARALLEL IF (use_gpu)
+         DO j = 1, SIZE(recv, 2)
+           DO k = 1, SIZE(recv, 3)
+             DO l = 1, SIZE(recv, 4)
+               recv_buffer(j,k,l) = recv(i,j,k,l)
+               send_buffer(j,k,l) = send(i,j,k,l)
+             END DO
+           END DO
+         END DO
+!$ACC END PARALLEL
+         CALL exchange_data_r3d(p_pat, recv_buffer, send_buffer)
+!$ACC PARALLEL IF (use_gpu)
+         DO j = 1, SIZE(recv, 2)
+           DO k = 1, SIZE(recv, 3)
+             DO l = 1, SIZE(recv, 4)
+               recv(i,j,k,l) = recv_buffer(j,k,l)
+             END DO
+           END DO
+         END DO
+!$ACC END PARALLEL
        END DO
+!$ACC END DATA
+       DEALLOCATE(send_buffer)
      ELSE
+!$ACC DATA PRESENT(recv) CREATE(recv_buffer) IF (use_gpu)
        DO i = 1, SIZE(recv, 1)
-           CALL exchange_data_r3d(p_pat, recv(i,:,:,:))
+!$ACC PARALLEL IF (use_gpu)
+         DO j = 1, SIZE(recv, 2)
+           DO k = 1, SIZE(recv, 3)
+             DO l = 1, SIZE(recv, 4)
+               recv_buffer(j,k,l) = recv(i,j,k,l)
+             END DO
+           END DO
+         END DO
+!$ACC END PARALLEL
+         CALL exchange_data_r3d(p_pat, recv_buffer)
+!$ACC PARALLEL IF (use_gpu)
+         DO j = 1, SIZE(recv, 2)
+           DO k = 1, SIZE(recv, 3)
+             DO l = 1, SIZE(recv, 4)
+               recv(i,j,k,l) = recv_buffer(j,k,l)
+             END DO
+           END DO
+         END DO
+!$ACC END PARALLEL
        END DO
+!$ACC END DATA
      END IF
+     DEALLOCATE(recv_buffer)
+#if defined(_OPENACC) && ! defined(__USE_G2G)
+     IF (i_am_accel_node .AND. acc_on) THEN
+!$ACC UPDATE DEVICE (recv) IF (i_am_accel_node .AND. acc_on)
+     END IF
+#endif
      RETURN
    END IF
 
@@ -1942,6 +2412,12 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
      END IF
    ENDIF
 
+#if defined(_OPENACC) && ! defined(__USE_G2G)
+   IF (i_am_accel_node .AND. acc_on) THEN
+!$ACC UPDATE DEVICE (recv) IF (i_am_accel_node .AND. acc_on)
+   END IF
+#endif
+
 CONTAINS
 
   ! this wrapper is needed because we have to ensure that the input array are in
@@ -1954,6 +2430,13 @@ CONTAINS
     REAL(dp), INTENT(INOUT), TARGET :: recv(*)
     REAL(dp), INTENT(IN), TARGET :: send(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
 
   END SUBROUTINE
@@ -1963,21 +2446,41 @@ CONTAINS
     TYPE(xt_redist), INTENT(IN), TARGET :: redist
     REAL(dp), INTENT(INOUT), TARGET :: recv(*)
 
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(recv), acc_deviceptr(recv))
+      RETURN
+    END IF
+#endif
     CALL xt_redist_s_exchange1(redist, c_loc(recv), c_loc(recv))
 
   END SUBROUTINE
 
-    SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
+  SUBROUTINE xt_redist_s_exchange1_contiguous_copy(redist, recv, n)
 
-      TYPE(xt_redist), INTENT(IN) :: redist
-      INTEGER, INTENT(in) :: n
-      REAL(dp), INTENT(INOUT), TARGET :: recv(n)
-      REAL(dp), TARGET :: send(n)
+    TYPE(xt_redist), INTENT(IN) :: redist
+    INTEGER, INTENT(in) :: n
+    REAL(dp), INTENT(INOUT), TARGET :: recv(n)
+    REAL(dp), TARGET :: send(n)
 
-      send = recv
+!$ACC DATA CREATE(send) IF (use_gpu)
+!$ACC KERNELS IF (use_gpu)
+    send = recv
+!$ACC END KERNELS
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      CALL xt_redist_s_exchange1( &
+        redist, acc_deviceptr(send), acc_deviceptr(recv))
+    ELSE
+#endif
       CALL xt_redist_s_exchange1(redist, c_loc(send), c_loc(recv))
+#ifdef _OPENACC
+    END IF
+#endif
+!$ACC END DATA
 
-    END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
+  END SUBROUTINE xt_redist_s_exchange1_contiguous_copy
 
 END SUBROUTINE exchange_data_4de1
 
@@ -2016,6 +2519,33 @@ SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
     &         src_fsize4d(nfields), dst_fsize4d(nfields)
    TYPE(xt_redist) :: redist_coll
    INTEGER, TARGET, SAVE :: dummy
+#ifdef _OPENACC
+    LOGICAL :: use_gpu
+
+#ifdef __USE_G2G
+    use_gpu = i_am_accel_node .AND. acc_on
+#else
+    use_gpu = .FALSE.
+    IF (i_am_accel_node .AND. acc_on) THEN
+!$ACC UPDATE HOST (recv1) IF (PRESENT(recv1))
+!$ACC UPDATE HOST (recv2) IF (PRESENT(recv2))
+!$ACC UPDATE HOST (recv3) IF (PRESENT(recv3))
+!$ACC UPDATE HOST (recv4) IF (PRESENT(recv4))
+!$ACC UPDATE HOST (recv5) IF (PRESENT(recv5))
+!$ACC UPDATE HOST (recv6) IF (PRESENT(recv6))
+!$ACC UPDATE HOST (recv4d1) IF (PRESENT(recv4d1))
+!$ACC UPDATE HOST (recv4d2) IF (PRESENT(recv4d2))
+!$ACC UPDATE HOST (send1) IF (PRESENT(send1))
+!$ACC UPDATE HOST (send2) IF (PRESENT(send2))
+!$ACC UPDATE HOST (send3) IF (PRESENT(send3))
+!$ACC UPDATE HOST (send4) IF (PRESENT(send4))
+!$ACC UPDATE HOST (send5) IF (PRESENT(send5))
+!$ACC UPDATE HOST (send6) IF (PRESENT(send6))
+!$ACC UPDATE HOST (send4d1) IF (PRESENT(send4d1))
+!$ACC UPDATE HOST (send4d2) IF (PRESENT(send4d2))
+    END IF
+#endif
+#endif
 
 !-----------------------------------------------------------------------
 
@@ -2130,6 +2660,19 @@ SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
      END SELECT
    ENDIF
 
+#if defined(_OPENACC) && ! defined(__USE_G2G)
+   IF (i_am_accel_node .AND. acc_on) THEN
+!$ACC UPDATE DEVICE (recv1) IF (PRESENT(recv1))
+!$ACC UPDATE DEVICE (recv2) IF (PRESENT(recv2))
+!$ACC UPDATE DEVICE (recv3) IF (PRESENT(recv3))
+!$ACC UPDATE DEVICE (recv4) IF (PRESENT(recv4))
+!$ACC UPDATE DEVICE (recv5) IF (PRESENT(recv5))
+!$ACC UPDATE DEVICE (recv6) IF (PRESENT(recv6))
+!$ACC UPDATE DEVICE (recv4d1) IF (PRESENT(recv4d1))
+!$ACC UPDATE DEVICE (recv4d2) IF (PRESENT(recv4d2))
+   END IF
+#endif
+
 CONTAINS
 
   !> grf data is often empty (not present) on tasks not involved.
@@ -2140,6 +2683,18 @@ CONTAINS
     TYPE(c_ptr), INTENT(out) :: data_cptr(npats)
     REAL(dp), INTENT(IN), TARGET ::  var(*)
     INTEGER :: i
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      IF (fsize4d > 0) THEN
+        DO i = 1, npats
+          data_cptr(i) = acc_deviceptr(C_LOC(var((i-1) * fsize4d + 1)))
+        END DO
+      ELSE
+        data_cptr = acc_deviceptr(C_LOC(dummy))
+      END IF
+      RETURN
+    END IF
+#endif
     IF (fsize4d > 0) THEN
       DO i = 1, npats
         data_cptr(i) = C_LOC(var((i-1) * fsize4d + 1))
@@ -2153,6 +2708,19 @@ CONTAINS
     TYPE(c_ptr), INTENT(out) :: data_cptr(npats * nfields)
     REAL(dp), INTENT(IN), TARGET ::  var(*)
     INTEGER :: i
+#ifdef _OPENACC
+    IF (use_gpu) THEN
+      IF (fsize4d > 0) THEN
+        DO i = 1, nfields
+          data_cptr((i-1)*npats+1:i*npats) = &
+            acc_deviceptr(C_LOC(var((i-1) * fsize4d + 1)))
+        END DO
+      ELSE
+        data_cptr = acc_deviceptr(C_LOC(dummy))
+      END IF
+      RETURN
+    END IF
+#endif
     IF (fsize4d > 0) THEN
       DO i = 1, nfields
         data_cptr((i-1)*npats+1:i*npats) = &
@@ -2415,36 +2983,33 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, l_recv_exists)
    REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
    LOGICAL, OPTIONAL :: l_recv_exists
 
+   REAL(dp), POINTER :: recv3d(:,:,:)
+   REAL(dp), POINTER :: send3d(:,:,:)
+   REAL(dp), POINTER :: add3d (:,:,:)
+
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_r2d"
-   REAL(dp) :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
 
    !-----------------------------------------------------------------------
 
-   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
-     tmp_recv(:,1,:) = 0._dp
-   ELSE
-     tmp_recv(:,1,:) = recv(:,:)
-   ENDIF
+   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) recv = 0._dp
+
+   CALL insert_dimension(recv3d, recv, 2)
+   IF (PRESENT(send)) CALL insert_dimension(send3d, send, 2)
+   IF (PRESENT(add))  CALL insert_dimension(add3d, add, 2)
 
    IF (PRESENT(send)) THEN
       IF (PRESENT(add)) THEN
-         CALL exchange_data_r3d(p_pat, tmp_recv, &
-           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-           add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+         CALL exchange_data_r3d(p_pat, recv3d, send=send3d, add=add3d)
       ELSE
-         CALL exchange_data_r3d(p_pat, tmp_recv, &
-           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+         CALL exchange_data_r3d(p_pat, recv3d, send=send3d)
       ENDIF
    ELSE
       IF (PRESENT(add)) THEN
-         CALL exchange_data_r3d(p_pat, tmp_recv, &
-           add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+         CALL exchange_data_r3d(p_pat, recv3d, add=add3d)
       ELSE
-         CALL exchange_data_r3d(p_pat, tmp_recv)
+         CALL exchange_data_r3d(p_pat, recv3d)
       ENDIF
    ENDIF
-
-   recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_r2d
 
@@ -2456,36 +3021,33 @@ SUBROUTINE exchange_data_s2d(p_pat, recv, send, add, l_recv_exists)
    REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
    LOGICAL, OPTIONAL :: l_recv_exists
 
+   REAL(sp), POINTER :: recv3d(:,:,:)
+   REAL(sp), POINTER :: send3d(:,:,:)
+   REAL(sp), POINTER :: add3d (:,:,:)
+
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_s2d"
-   REAL(sp) :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
 
    !-----------------------------------------------------------------------
 
-   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
-     tmp_recv(:,1,:) = 0._sp
-   ELSE
-     tmp_recv(:,1,:) = recv(:,:)
-   ENDIF
+   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) recv = 0._sp
+
+   CALL insert_dimension(recv3d, recv, 2)
+   IF (PRESENT(send)) CALL insert_dimension(send3d, send, 2)
+   IF (PRESENT(add))  CALL insert_dimension(add3d, add, 2)
 
    IF (PRESENT(send)) THEN
       IF (PRESENT(add)) THEN
-         CALL exchange_data_s3d(p_pat, tmp_recv, &
-           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-           add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+         CALL exchange_data_s3d(p_pat, recv3d, send=send3d, add=add3d)
       ELSE
-         CALL exchange_data_s3d(p_pat, tmp_recv, &
-           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+         CALL exchange_data_s3d(p_pat, recv3d, send=send3d)
       ENDIF
    ELSE
       IF (PRESENT(add)) THEN
-         CALL exchange_data_s3d(p_pat, tmp_recv, &
-           add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+         CALL exchange_data_s3d(p_pat, recv3d, add=add3d)
       ELSE
-         CALL exchange_data_s3d(p_pat, tmp_recv)
+         CALL exchange_data_s3d(p_pat, recv3d)
       ENDIF
    ENDIF
-
-   recv(:,:) = tmp_recv(:,1,:)
 
 END SUBROUTINE exchange_data_s2d
 
@@ -2500,67 +3062,65 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, l_recv_exists)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
    LOGICAL, OPTIONAL :: l_recv_exists
 
+   INTEGER, POINTER :: recv3d(:,:,:)
+   INTEGER, POINTER :: send3d(:,:,:)
+   INTEGER, POINTER :: add3d (:,:,:)
+
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i2d"
-   INTEGER :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
 
    !-----------------------------------------------------------------------
 
-   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
-     tmp_recv(:,1,:) = 0
-   ELSE
-     tmp_recv(:,1,:) = recv(:,:)
-   ENDIF
+   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) recv = 0
+
+   CALL insert_dimension(recv3d, recv, 2)
+   IF (PRESENT(send)) CALL insert_dimension(send3d, send, 2)
+   IF (PRESENT(add))  CALL insert_dimension(add3d, add, 2)
 
    IF (PRESENT(send)) THEN
       IF (PRESENT(add)) THEN
-         CALL exchange_data_i3d(p_pat, tmp_recv, &
-           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
-           add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+         CALL exchange_data_i3d(p_pat, recv3d, send=send3d, add=add3d)
       ELSE
-         CALL exchange_data_i3d(p_pat, tmp_recv, &
-           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+         CALL exchange_data_i3d(p_pat, recv3d, send=send3d)
       ENDIF
    ELSE
       IF (PRESENT(add)) THEN
-         CALL exchange_data_i3d(p_pat, tmp_recv, &
-           add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+         CALL exchange_data_i3d(p_pat, recv3d, add=add3d)
       ELSE
-         CALL exchange_data_i3d(p_pat, tmp_recv)
+         CALL exchange_data_i3d(p_pat, recv3d)
       ENDIF
    ENDIF
 
-   recv(:,:) = tmp_recv(:,1,:)
-
 END SUBROUTINE exchange_data_i2d
 
-  SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
-    !
-    CLASS(t_comm_pattern_yaxt), INTENT(INOUT), TARGET :: p_pat
-    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
-    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
-    LOGICAL, OPTIONAL :: l_recv_exists
+!================================================================================================
+! LOGICAL SECTION -------------------------------------------------------------------------------
+!
+SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
+   !
+   CLASS(t_comm_pattern_yaxt), INTENT(INOUT), TARGET :: p_pat
+   LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+   LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+   LOGICAL, OPTIONAL :: l_recv_exists
 
-    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_i2d"
-    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
+   LOGICAL, POINTER :: recv3d(:,:,:)
+   LOGICAL, POINTER :: send3d(:,:,:)
 
-    !-----------------------------------------------------------------------
+   CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_l2d"
 
-    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
-      tmp_recv(:,1,:) = .FALSE.
-    ELSE
-      tmp_recv(:,1,:) = recv(:,:)
-    ENDIF
+   !-----------------------------------------------------------------------
 
-    IF (PRESENT(send)) THEN
-      CALL exchange_data_l3d(p_pat, tmp_recv, &
-           send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
-    ELSE
-      CALL exchange_data_l3d(p_pat, tmp_recv)
-    ENDIF
+   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) recv = .FALSE.
 
-    recv(:,:) = tmp_recv(:,1,:)
+   CALL insert_dimension(recv3d, recv, 2)
+   IF (PRESENT(send)) CALL insert_dimension(send3d, send, 2)
 
-  END SUBROUTINE exchange_data_l2d
+   IF (PRESENT(send)) THEN
+      CALL exchange_data_l3d(p_pat, recv3d, send=send3d)
+   ELSE
+      CALL exchange_data_l3d(p_pat, recv3d)
+   ENDIF
+
+END SUBROUTINE exchange_data_l2d
 
 FUNCTION get_np_recv(comm_pat)
   CLASS(t_comm_pattern_yaxt), INTENT(IN) :: comm_pat

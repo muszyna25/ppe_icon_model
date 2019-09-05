@@ -32,8 +32,6 @@ MODULE mo_interface_echam_rht
 
   USE mo_radheating             ,ONLY: radheating
   USE mo_psrad_solar_parameters ,ONLY: psctm
-  USE mo_ext_data_state         ,ONLY: ext_data
-  USE mo_ext_data_types         ,ONLY: t_external_atmos
   !$ser verbatim USE mo_ser_echam_rht, ONLY: serialize_rht_input,&
   !$ser verbatim                             serialize_rht_output
 
@@ -68,14 +66,13 @@ CONTAINS
 
     ! Local variables
     !
-    INTEGER                             :: nlevp1
+    INTEGER                             :: nlevp1, jc, jk
     !
     REAL(wp)                            :: q_rad(nproma,nlev)
     REAL(wp)                            :: q_rlw(nproma,nlev)
     REAL(wp)                            :: q_rsw(nproma,nlev)
     !
     REAL(wp)                            :: tend_ta_rad(nproma,nlev)
-    TYPE(t_external_atmos), POINTER     :: ext_data_atm
 
     IF (ltimer) CALL timer_start(timer_rht)
 
@@ -84,12 +81,24 @@ CONTAINS
     fc_rht    => echam_phy_config(jg)%fc_rht
     field     => prm_field(jg)
     tend      => prm_tend (jg)
-    ext_data_atm => ext_data(jg)%atm
 
     ! Serialbox2 input fields serialization
-    !$ser verbatim call serialize_rht_input(jg, jb, jcs, jce, nproma, nlev, field, tend, ext_data_atm%emis_rad)
+    !$ser verbatim call serialize_rht_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
+       !$ACC DATA PRESENT( field%cosmu0, field%daylght_frc, field%ts_rad, field%ts_rad_rt, &
+       !$ACC               field%rsd_rt, field%rsu_rt, field%rsdcs_rt, field%rsucs_rt,     &
+       !$ACC               field%rld_rt, field%rlu_rt, field%rldcs_rt, field%rlucs_rt,     &
+       !$ACC               field%rvds_dir_rt, field%rpds_dir_rt, field%rnds_dir_rt,        &
+       !$ACC               field%rvds_dif_rt, field%rpds_dif_rt, field%rnds_dif_rt,        &
+       !$ACC               field%rvus_rt, field%rpus_rt, field%rnus_rt, field%rsdt,        &
+       !$ACC               field%rsut, field%rsds, field%rsus, field%rsutcs, field%rsdscs, &
+       !$ACC               field%rsuscs, field%rvds_dir, field%rpds_dir, field%rnds_dir,   &
+       !$ACC               field%rvds_dif, field%rpds_dif, field%rnds_dif, field%rvus,     &
+       !$ACC               field%rpus, field%rnus, field%rlut, field%rlds, field%rlus,     &
+       !$ACC               field%rlutcs, field%rldscs, field%q_rlw_nlev, field%qconv,      &
+       !$ACC               field%emissivity )                                              &
+       !$ACC       CREATE( q_rad, q_rsw, q_rlw, tend_ta_rad )
        !
        IF (is_active) THEN
           !
@@ -168,38 +177,179 @@ CONTAINS
                & q_rsw      = q_rsw                    (:,:) ,&! rad. heating by SW           [W/m2]
                & q_rlw      = q_rlw                    (:,:)  )! rad. heating by LW           [W/m2]
           !
-          q_rad(jcs:jce,:) = q_rsw(jcs:jce,:)+q_rlw(jcs:jce,:) ! rad. heating by SW+LW        [W/m2]
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              q_rad(jc,jk) = q_rsw(jc,jk)+q_rlw(jc,jk) ! rad. heating by SW+LW        [W/m2]
+            END DO
+          END DO
+          !$ACC END PARALLEL
           !
           ! for output: SW+LW heating
-          IF (ASSOCIATED(field% q_rad   )) field% q_rad   (jcs:jce,:,jb) =     q_rad(jcs:jce,:)
-          IF (ASSOCIATED(field% q_rad_vi)) field% q_rad_vi(jcs:jce,  jb) = SUM(q_rad(jcs:jce,:),DIM=2)
+          IF (ASSOCIATED(field% q_rad)) THEN
+            !$ACC DATA PRESENT( field%q_rad )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field% q_rad(jc,jk,jb) = q_rad(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(field% q_rad_vi)) THEN
+            !$ACC DATA PRESENT( field%q_rad_vi )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_rad_vi(jc, jb) = SUM(q_rad(jc,:))
+            END DO
+            !$acc END PARALLEL
+            !$acc END DATA
+          END IF
           !
           ! for output: SW heating
-          IF (ASSOCIATED(field% q_rsw   )) field% q_rsw   (jcs:jce,:,jb) =     q_rsw(jcs:jce,:)
-          IF (ASSOCIATED(field% q_rsw_vi)) field% q_rsw_vi(jcs:jce,  jb) = SUM(q_rsw(jcs:jce,:),DIM=2)
+          IF (ASSOCIATED(field% q_rsw)) THEN
+            !$ACC DATA PRESENT( field%q_rsw )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field% q_rsw(jc,jk,jb) = q_rsw(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(field% q_rsw_vi)) THEN
+            !$ACC DATA PRESENT( field%q_rsw_vi )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_rsw_vi(jc,jb) = SUM(q_rsw(jc,:))
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
           ! for output: LW heating
-          IF (ASSOCIATED(field% q_rlw   )) field% q_rlw   (jcs:jce,:,jb) =     q_rlw(jcs:jce,:)
-          IF (ASSOCIATED(field% q_rlw_vi)) field% q_rlw_vi(jcs:jce,  jb) = SUM(q_rlw(jcs:jce,:),DIM=2)
+          IF (ASSOCIATED(field% q_rlw)) THEN 
+            !$ACC DATA PRESENT( field%q_rlw )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field% q_rlw(jc,jk,jb) = q_rlw(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+          IF (ASSOCIATED(field% q_rlw_vi)) THEN
+            !$ACC DATA PRESENT( field%q_rlw_vi )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_rlw_vi(jc,jb) = SUM(q_rlw(jc,:))
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           
           ! store LW heating in lowermost layer separately,
           ! which is needed for computing q_rlw_impl
-          field% q_rlw_nlev(jcs:jce,jb) = q_rlw(jcs:jce,nlev)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR
+          DO jc = jcs, jce
+            field% q_rlw_nlev(jc,jb) = q_rlw(jc,nlev)
+          END DO
+          !$ACC END PARALLEL
           !
        ELSE
           CALL finish('mo_interface_echam_rht','interface_echam_rht must not be called with is_active=.FALSE.')
        END IF
        !
        ! convert    heating
-       tend_ta_rad(jcs:jce,:) = q_rad(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG
+       DO jk = 1, nlev
+         !$ACC LOOP VECTOR
+         DO jc = jcs, jce
+           tend_ta_rad(jc,jk) = q_rad(jc,jk) * field% qconv(jc,jk,jb)
+         END DO
+       END DO
+       !$ACC END PARALLEL
        !
-       IF (ASSOCIATED(tend% ta_rad)) tend% ta_rad(jcs:jce,:,jb) = tend_ta_rad(jcs:jce,:)
-       IF (ASSOCIATED(tend% ta_rsw)) tend% ta_rsw(jcs:jce,:,jb) = q_rsw(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
-       IF (ASSOCIATED(tend% ta_rlw)) tend% ta_rlw(jcs:jce,:,jb) = q_rlw(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
+       IF (ASSOCIATED(tend% ta_rad)) THEN
+         !$ACC DATA PRESENT( tend%ta_rad )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_rad(jc,jk,jb) = tend_ta_rad(jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% ta_rsw)) THEN
+         !$ACC DATA PRESENT( tend%ta_rsw )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_rsw(jc,jk,jb) = q_rsw(jc,jk) * field% qconv(jc,jk,jb)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% ta_rlw)) THEN
+         !$ACC DATA PRESENT( tend%ta_rlw )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_rlw(jc,jk,jb) = q_rlw(jc,jk) * field% qconv(jc,jk,jb)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
        ! accumulate heating
-       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_rad(jcs:jce,:)
-       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_rad(jcs:jce,:),DIM=2)
+       IF (ASSOCIATED(field% q_phy   )) THEN
+         !$ACC DATA PRESENT( field%q_phy )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_phy(jc,jk,jb) = field% q_phy(jc,jk,jb) + q_rad(jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_phy_vi)) THEN 
+         !$ACC DATA PRESENT( field%q_phy_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_phy_vi(jc,jb) = field% q_phy_vi(jc,jb) + SUM(q_rad(jc,:))
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_rht)
@@ -207,7 +357,17 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) + tend_ta_rad (jcs:jce,:)
+         !$ACC DATA PRESENT( tend%ta_phy )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_phy(jc,jk,jb) = tend% ta_phy(jc,jk,jb) + tend_ta_rad (jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -220,38 +380,155 @@ CONTAINS
        CASE(1,2)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
-             field% ta(jcs:jce,:,jb) = field% ta(jcs:jce,:,jb) + tend_ta_rad(jcs:jce,:)*pdtime
+            !$ACC DATA PRESENT( tend%ta )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field% ta(jc,jk,jb) = field% ta(jc,jk,jb) + tend_ta_rad(jc,jk)*pdtime
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
           END IF
+
+          !$ACC END DATA
        END SELECT
        !
     ELSE
        !
-       IF (ASSOCIATED(field% q_rad   )) field% q_rad   (jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(field% q_rad_vi)) field% q_rad_vi(jcs:jce,  jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_rad)) THEN
+         !$ACC DATA PRESENT( field%q_rad )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_rad(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_rad_vi)) THEN
+         !$ACC DATA PRESENT( field%q_rad_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_rad_vi(jc, jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
-       IF (ASSOCIATED(field% q_rsw   )) field% q_rsw   (jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(field% q_rsw_vi)) field% q_rsw_vi(jcs:jce,  jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_rsw)) THEN
+         !$ACC DATA PRESENT( field%q_rsw )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_rsw(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_rsw_vi)) THEN
+         !$ACC DATA PRESENT( field%q_rsw_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_rsw_vi(jc,jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
-       IF (ASSOCIATED(field% q_rlw   )) field% q_rlw   (jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(field% q_rlw_vi)) field% q_rlw_vi(jcs:jce,  jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_rlw)) THEN
+         !$ACC DATA PRESENT( field%q_rlw )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_rlw(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(field% q_rlw_vi)) THEN
+         !$ACC DATA PRESENT( field%q_rlw_vi )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_rlw_vi(jc,jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
-       IF (ASSOCIATED(tend% ta_rad)) tend% ta_rad(jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(tend% ta_rsw)) tend% ta_rsw(jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(tend% ta_rlw)) tend% ta_rlw(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% ta_rad)) THEN
+         !$ACC DATA PRESENT( tend%ta_rad )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_rad(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% ta_rsw)) THEN
+         !$ACC DATA PRESENT( tend%ta_rsw )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_rsw(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
+       IF (ASSOCIATED(tend% ta_rlw)) THEN
+         !$ACC DATA PRESENT( tend%ta_rlw )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_rlw(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        !
-       field% q_rlw_nlev(jcs:jce,jb) = 0.0_wp
+       !$ACC DATA PRESENT( field%q_rlw_nlev )
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP VECTOR
+       DO jc = jcs, jce
+         field% q_rlw_nlev(jc,jb) = 0.0_wp
+       END DO
+       !$ACC END PARALLEL
+       !$ACC END DATA
        !
     END IF
 
     ! Serialbox2 output fields serialization
-    !$ser verbatim call serialize_rht_output(jg, jb, jcs, jce, nproma, nlev, field, tend, ext_data_atm%emis_rad)
+    !$ser verbatim call serialize_rht_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
     NULLIFY(lparamcpl)
     NULLIFY(fc_rht)
     NULLIFY(field)
     NULLIFY(tend)
-    NULLIFY(ext_data_atm)
 
     IF (ltimer) CALL timer_stop(timer_rht)
 

@@ -66,6 +66,7 @@ CONTAINS
     ! Local variables
     !
     INTEGER                             :: itype(nproma)    !< type of convection
+    INTEGER                             :: jc,jk
     !
     REAL(wp)                            :: aclc  (nproma,nlev)
     REAL(wp)                            :: aclcov(nproma)
@@ -82,17 +83,33 @@ CONTAINS
     lparamcpl => echam_phy_config(jg)%lparamcpl
     fc_cld    => echam_phy_config(jg)%fc_cld
     field     => prm_field(jg)
-    tend      => prm_tend (jg)
+    tend      => prm_tend(jg)
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_cld_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
+       !$ACC DATA PRESENT( field%rtype, field% qconv, field% aclc, field% aclcov ) &
+       !$ACC       CREATE( itype, hur, q_cld, tend_ta_cld, tend_qtrc_cld, aclc, aclcov )
        !
        IF ( is_active ) THEN
           !
-          itype(:) = NINT(field%rtype(:,jb))
-          aclc(:,:) = field% aclc(:,:,jb)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR
+          DO jc = 1, nproma
+            itype(jc) = NINT(field%rtype(jc,jb))
+          END DO
+          !$ACC END PARALLEL
+
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              aclc(jc,jk) = field% aclc(jc,jk,jb)
+            END DO
+          END DO
+          !$ACC END PARALLEL
           !
           CALL cloud(jg,                           &! in
                &     jb,                           &! in
@@ -124,39 +141,133 @@ CONTAINS
           !
           ! store in memory for output or recycling
           !
-          IF (ASSOCIATED(field% hur)) field% hur(jcs:jce,:,jb) = hur(jcs:jce,:)
+          IF (ASSOCIATED(field% hur)) THEN
+            !$ACC DATA PRESENT( field%hur )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field%hur(jc,jk,jb) = hur(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
-          IF (ASSOCIATED(field% q_cld   )) field% q_cld   (jcs:jce,:,jb) =     q_cld(jcs:jce,:)
-          IF (ASSOCIATED(field% q_cld_vi)) field% q_cld_vi(jcs:jce,  jb) = SUM(q_cld(jcs:jce,:),DIM=2)
+          IF (ASSOCIATED(field% q_cld)) THEN
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field% q_cld(jc,jk,jb) = q_cld(jc,jk)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+          END IF
+          IF (ASSOCIATED(field% q_cld_vi)) THEN
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              field% q_cld_vi(jc,  jb) = SUM(q_cld(jc,:))
+            END DO
+            !$ACC END PARALLEL
+          END IF
           !
           IF (ASSOCIATED(tend% qtrc_cld )) THEN
-             tend% qtrc_cld(jcs:jce,:,jb,iqv) = tend_qtrc_cld(jcs:jce,:,iqv)
-             tend% qtrc_cld(jcs:jce,:,jb,iqc) = tend_qtrc_cld(jcs:jce,:,iqc)
-             tend% qtrc_cld(jcs:jce,:,jb,iqi) = tend_qtrc_cld(jcs:jce,:,iqi)
+            !$ACC DATA PRESENT( tend, tend%qtrc_cld )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+               tend% qtrc_cld(jc,jk,jb,iqv) = tend_qtrc_cld(jc,jk,iqv)
+               tend% qtrc_cld(jc,jk,jb,iqc) = tend_qtrc_cld(jc,jk,iqc)
+               tend% qtrc_cld(jc,jk,jb,iqi) = tend_qtrc_cld(jc,jk,iqi)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
           END IF
           !
        ELSE
           !
           ! retrieve from memory for recycling
           !
-          IF (ASSOCIATED(field% q_cld)) q_cld(jcs:jce,:) = field% q_cld(jcs:jce,:,jb)
+          IF (ASSOCIATED(field% q_cld)) THEN
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                q_cld(jc,jk) = field% q_cld(jc,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+          END IF
           !
           IF (ASSOCIATED(tend% qtrc_cld )) THEN
-             tend_qtrc_cld(jcs:jce,:,iqv) = tend% qtrc_cld(jcs:jce,:,jb,iqv)
-             tend_qtrc_cld(jcs:jce,:,iqc) = tend% qtrc_cld(jcs:jce,:,jb,iqc)
-             tend_qtrc_cld(jcs:jce,:,iqi) = tend% qtrc_cld(jcs:jce,:,jb,iqi)
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                tend_qtrc_cld(jc,jk,iqv) = tend%qtrc_cld(jc,jk,jb,iqv)
+                tend_qtrc_cld(jc,jk,iqc) = tend%qtrc_cld(jc,jk,jb,iqc)
+                tend_qtrc_cld(jc,jk,iqi) = tend%qtrc_cld(jc,jk,jb,iqi)
+              END DO
+            END DO
+            !$ACC END PARALLEL
           END IF
           !
        END IF
        !
        ! convert    heating
-       tend_ta_cld(jcs:jce,:) = q_cld(jcs:jce,:) * field% qconv(jcs:jce,:,jb)
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG
+       DO jk = 1, nlev
+         !$ACC LOOP VECTOR
+         DO jc = jcs, jce
+           tend_ta_cld(jc,jk) = q_cld(jc,jk) * field% qconv(jc,jk,jb)
+         END DO
+       END DO
+       !$ACC END PARALLEL
        !
-       IF (ASSOCIATED(tend% ta_cld)) tend% ta_cld(jcs:jce,:,jb) = tend_ta_cld(jcs:jce,:)
+       IF (ASSOCIATED(tend% ta_cld)) THEN
+         !$ACC DATA PRESENT( tend, tend%ta_cld )
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_cld(jc,jk,jb) = tend_ta_cld(jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+         !$ACC END DATA
+       END IF
        
        ! for output: accumulate heating
-       IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = field% q_phy   (jcs:jce,:,jb) +     q_cld(jcs:jce,:)
-       IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = field% q_phy_vi(jcs:jce,  jb) + SUM(q_cld(jcs:jce,:),DIM=2)
+       IF (ASSOCIATED(field% q_phy   )) THEN
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_phy(jc,jk,jb) = field% q_phy(jc,jk,jb) + q_cld(jc,jk)
+           END DO
+         END DO
+         !$ACC END PARALLEL
+       END IF
+       IF (ASSOCIATED(field% q_phy_vi)) THEN
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_phy_vi(jc,jb) = field% q_phy_vi(jc, jb) + SUM(q_cld(jc,:))
+         END DO
+         !$ACC END PARALLEL
+       END IF
        !
        ! accumulate tendencies for later updating the model state
        SELECT CASE(fc_cld)
@@ -164,10 +275,18 @@ CONTAINS
           ! diagnostic, do not use tendency
        CASE(1)
           ! use tendency to update the model state
-          tend%   ta_phy(jcs:jce,:,jb)      = tend%   ta_phy(jcs:jce,:,jb)     + tend_ta_cld  (jcs:jce,:)
-          tend% qtrc_phy(jcs:jce,:,jb,iqv)  = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend_qtrc_cld(jcs:jce,:,iqv)
-          tend% qtrc_phy(jcs:jce,:,jb,iqc)  = tend% qtrc_phy(jcs:jce,:,jb,iqc) + tend_qtrc_cld(jcs:jce,:,iqc)
-          tend% qtrc_phy(jcs:jce,:,jb,iqi)  = tend% qtrc_phy(jcs:jce,:,jb,iqi) + tend_qtrc_cld(jcs:jce,:,iqi)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              tend%   ta_phy(jc,jk,jb)      = tend%   ta_phy(jc,jk,jb)     + tend_ta_cld  (jc,jk)
+              tend% qtrc_phy(jc,jk,jb,iqv)  = tend% qtrc_phy(jc,jk,jb,iqv) + tend_qtrc_cld(jc,jk,iqv)
+              tend% qtrc_phy(jc,jk,jb,iqc)  = tend% qtrc_phy(jc,jk,jb,iqc) + tend_qtrc_cld(jc,jk,iqc)
+              tend% qtrc_phy(jc,jk,jb,iqi)  = tend% qtrc_phy(jc,jk,jb,iqi) + tend_qtrc_cld(jc,jk,iqi)
+            END DO
+          END DO
+          !$ACC END PARALLEL
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -181,28 +300,78 @@ CONTAINS
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
              ! prognostic
-             field%   ta(jcs:jce,:,jb)      = field%   ta(jcs:jce,:,jb)      + tend_ta_cld(jcs:jce,:)*pdtime
-             field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv)  + tend_qtrc_cld(jcs:jce,:,iqv)*pdtime
-             field% qtrc(jcs:jce,:,jb,iqc)  = field% qtrc(jcs:jce,:,jb,iqc)  + tend_qtrc_cld(jcs:jce,:,iqc)*pdtime
-             field% qtrc(jcs:jce,:,jb,iqi)  = field% qtrc(jcs:jce,:,jb,iqi)  + tend_qtrc_cld(jcs:jce,:,iqi)*pdtime
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG
+             DO jk = 1, nlev
+               !$ACC LOOP VECTOR
+               DO jc = jcs, jce
+                 field%   ta(jc,jk,jb)      = field%   ta(jc,jk,jb)      + tend_ta_cld(jc,jk)*pdtime
+                 field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv)  + tend_qtrc_cld(jc,jk,iqv)*pdtime
+                 field% qtrc(jc,jk,jb,iqc)  = field% qtrc(jc,jk,jb,iqc)  + tend_qtrc_cld(jc,jk,iqc)*pdtime
+                 field% qtrc(jc,jk,jb,iqi)  = field% qtrc(jc,jk,jb,iqi)  + tend_qtrc_cld(jc,jk,iqi)*pdtime
+               ! diagnostic
+                 field% aclc(jc,jk,jb)      = aclc  (jc,jk)
+               END DO
+             END DO
+             !$ACC END PARALLEL
              ! diagnostic
-             field% rtype (jcs:jce,  jb)    = REAL(itype(jcs:jce),wp)
-             field% aclc  (jcs:jce,:,jb)    = aclc  (jcs:jce,:)
-             field% aclcov(jcs:jce,  jb)    = aclcov(jcs:jce)
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG VECTOR
+             DO jc = 1, nproma
+               field% rtype(jc,jb) = REAL(itype(jc),wp)
+               field% aclcov(jc,jb)= aclcov(jc)
+             END DO
+             !$ACC END PARALLEL
           END IF
        END SELECT
        !
+       !$ACC END DATA
     ELSE
        !
-       IF (ASSOCIATED(field% q_cld   )) field% q_cld   (jcs:jce,:,jb) = 0.0_wp
-       IF (ASSOCIATED(field% q_cld_vi)) field% q_cld_vi(jcs:jce,  jb) = 0.0_wp
+       IF (ASSOCIATED(field% q_cld   )) THEN
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             field% q_cld (jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+       END IF
+       IF (ASSOCIATED(field% q_cld_vi)) THEN
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG VECTOR
+         DO jc = jcs, jce
+           field% q_cld_vi(jc,jb) = 0.0_wp
+         END DO
+         !$ACC END PARALLEL
+       END IF
        !
-       IF (ASSOCIATED(tend% ta_cld)) tend% ta_cld(jcs:jce,:,jb) = 0.0_wp
+       IF (ASSOCIATED(tend% ta_cld)) THEN
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% ta_cld(jc,jk,jb) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
+       END IF
        !
        IF (ASSOCIATED(tend% qtrc_cld)) THEN
-          tend% qtrc_cld(jcs:jce,:,jb,iqv) = 0.0_wp
-          tend% qtrc_cld(jcs:jce,:,jb,iqc) = 0.0_wp
-          tend% qtrc_cld(jcs:jce,:,jb,iqi) = 0.0_wp
+         !$ACC PARALLEL DEFAULT(PRESENT)
+         !$ACC LOOP GANG
+         DO jk = 1, nlev
+           !$ACC LOOP VECTOR
+           DO jc = jcs, jce
+             tend% qtrc_cld(jc,jk,jb,iqv) = 0.0_wp
+             tend% qtrc_cld(jc,jk,jb,iqc) = 0.0_wp
+             tend% qtrc_cld(jc,jk,jb,iqi) = 0.0_wp
+           END DO
+         END DO
+         !$ACC END PARALLEL
        END IF
        !
     END IF

@@ -95,6 +95,7 @@ then
   . ../setting
 fi
 #-----------------------------------------------------------------------------
+rundir="$run_folder"
 bindir="\${basedir}/$use_builddir/bin"   # binaries
 BUILDDIR=$use_builddir
 #-----------------------------------------------------------------------------
@@ -149,394 +150,10 @@ done
 
 }
 
-
 #=============================================================================
-set_run_target_blizzard()
+set_run_target_bullx_cpu()
 {
-
-  set_default use_nproma 40
-  set_default use_nodes 4
-  use_OMP_SCHEDULE="dynamic,1"
-  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
-  
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 16
-      set_default use_openmp_threads 4
-    else
-      set_default use_mpi_procs_pernode 64
-    fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 64
-#      set_default use_mpi_procs_pernode 1
-    fi
-  fi
-  
-  # check if we are in smt mode
-  let total_threads=${use_openmp_threads}*${use_mpi_procs_pernode}
-  if [[ total_threads -ge 64 ]] ; then
-    smt_mode="smt"
-    task_affinity="cpu($use_openmp_threads)"
-    #@ cpus_per_core=2
-  else
-    smt_mode="no_smt"
-    task_affinity="core($use_openmp_threads)"
-  fi
-
-  # memory model
-  if [[ "x$use_memory" != "x" ]] ; then
-    total_memory=$use_memory
-  else
-    case $use_memory_model in
-      "extreme" )
-        set_default total_memory 98000
-        ;;
-       "huge" )
-        set_default total_memory 49000
-        ;;
-      "verylarge" )
-        set_default total_memory 30000
-        ;;
-      "large" )
-        set_default total_memory 12000
-        ;;
-      "medium" )
-        set_default total_memory 6000
-        ;;
-      "small" )
-        set_default total_memory 3000
-        ;;
-      "verysmall" )
-        set_default total_memory 1500
-        ;;
-      * )
-        set_default total_memory 6000
-        ;;
-    esac
-  fi
-  let memory_size=${total_memory}/${use_mpi_procs_pernode}
-  if [[ "$use_mpi" == "yes"  ]] ; then
-    use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
-  else
-    use_resources="$use_resources ConsumableMemory(5000mb)"
-  fi
-
-  # create header
-  start_header
-  if [[ "$use_mpi" == "no"  ]] ; then
-    job_type=serial
-    node_usage=shared
-    networkMPI=""
-    rset=""
-    mcm_affinity_options=""
-    node=""
-    tasks_per_node=""     
- else
-    job_type=parallel
-    node_usage=not_shared
-    networkMPI="network.MPI  = sn_all,not_shared,us"
-    rset="rset         = rset_mcm_affinity"
-    mcm_affinity_options="mcm_affinity_options = mcm_accumulate"
-#    mcm_affinity_options="mcm_affinity_options = mcm_distribute"
-    node="node             = $use_nodes"
-    tasks_per_node="tasks_per_node   = $use_mpi_procs_pernode"
-  fi
-  if  [[ $use_openmp_threads -gt 8 ]] ; then
-    rset=" # rset         = rset_mcm_affinity"
-    mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
-  fi
-  # ------------------------------------
-  # check if we can use the mcm affinity
-  if  [[ $use_openmp_threads -gt 16 ]] ; then
-     rset=" # rset         = rset_mcm_affinity"
-     mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
-  fi
-  if [[ $smt_mode = "no_smt" ]] ; then
-    if  [[ $use_openmp_threads -gt 8 ]] ; then
-      rset=" # rset         = rset_mcm_affinity"
-      mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
-    fi
-  fi 
-  # ------------------------------------
-
-  if [[ "$use_nodes" -eq 1 ]] && [[ "$use_mpi_procs_pernode" -eq 1 ]] ; then
-    use_node_usage="shared"
-  fi
-  if [[ "$use_node_usage" == "shared" ]] ; then
-    node_usage=shared
-    networkMPI=""
-    rset=""
-    mcm_affinity_options=""
-  fi    
-
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-    wall_clock_limit="wall_clock_limit = $use_cpu_time"
-  else
-    wall_clock_limit=""
-  fi
-  if [[ "x$use_resources" != "x" ]] ; then
-    resources="resources        = $use_resources"
-  else
-    resources=""
-  fi
-  if [[ "x$use_account_no" != "x" ]] ; then
-    account="account_no      = $use_account_no"
-  else
-    account=""
-  fi
-
-  class=""
-  if   [[ "x$use_queue" == "xexpress" ]] ; then
-    class="class = express"
-    wall_clock_limit="wall_clock_limit = 00:20:00"
-  elif [[ "x$use_queue" == "xbench" ]] ; then
-    class="class = bench"
-  fi
-
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name='LOG.$(job_name)'
-  else
-    job_log_name='LOG.$(job_name).$(jobid)'
-  fi
-
-  if  [[ $use_openmp_threads -gt 1 ]] ; then
-    parallel_threads="parallel_threads = $use_openmp_threads"
-  else
-    parallel_threads=""
-  fi
-
-# smt mode
-#   task_affinity="cpu($use_openmp_threads)"
-# st mode
-#   task_affinity="core($use_openmp_threads)"
-
-# Some important environment variables:
-#  MP_USE_BULK_XFER
-#    LoadLeveler® keyword @bulkxfer to yes or setting the environment variable MP_USE_BULK_XFER to yes
-#
-#     This transparently causes portions of the user's virtual address space to be pinned and
-#     mapped to a communications adapter. The low level communication protocol will then use
-#     Remote Direct Memory Access (RDMA, also known as bulk transfer) to copy (pull) data from
-#     the send buffer to the receive buffer as part of the MPI receive. The minimum message size
-#     for which RDMA will be used can be adjusted by setting environment variable MP_BULK_MIN_MSG_SIZE.
-#
-#     This especially benefits applications that either transfer relatively large amounts of data
-#     (greater than 150 KB) in a single MPI call, or overlap computation and communication,
-#     since the CPU is no longer required to copy data. RDMA operations are considerably more
-#     efficient when large (16 MB) pages are used rather than small (4 KB) pages, especially for 
-#     large transfers. In order to use the bulk transfer mode, the system administrator must enable 
-#     RDMA communication and, if you are using LoadLeveler as a resource manager, it must be configured
-#      to use RDMA. Not all communications adapters support RDMA.
-
-  cat >> $output_script << EOF
-# =====================================
-# blizzard.dkrz.de batch job parameters
-# --------------------------------
-# @ shell        = /client/bin/ksh
-# @ job_type     = $job_type
-# @ $class
-## @ ll_res_id    = pio01.dkrz.de.13.r
-# @ node_usage   = $node_usage
-# @ $networkMPI
-# @ $rset 
-# @ $mcm_affinity_options
-# @ $node
-# @ $tasks_per_node
-# @ task_affinity    = $task_affinity
-# @ $parallel_threads
-# @ $resources
-# @ $wall_clock_limit
-# @ job_name     = $job_name
-# @ output       = $job_log_name.o
-# @ error        = \$(output)
-# @ notification = ${use_notification:-error}
-# @ $account
-# @ queue
-export MEMORY_AFFINITY=MCM
-export MP_PRINTENV=YES
-export MP_LABELIO=YES
-export MP_INFOLEVEL=2
-export MP_EAGER_LIMIT=64k
-export MP_BUFFER_MEM=64M,256M
-export MP_USE_BULK_XFER=NO
-export MP_BULK_MIN_MSG_SIZE=128k
-export MP_RFIFO_SIZE=4M
-export MP_SHM_ATTACH_THRESH=500000
-export LAPI_DEBUG_STRIPE_SEND_FLIP=8
-replicate_grid=2147483647
-#========================================
-
-run_model()
-{
-  date
-  mkdir -p resource_usage
-  poe ksh93 -c 'exec getrusage -o resource_usage/model.\${MP_CHILD} \${MODEL}'
-  getrusage_aggregate resource_usage/model.*
-  date
-}
-#========================================
-
-EOF
-}
-#=============================================================================
-set_run_target_wizard()
-{
-
-  set_default use_nproma 32
-  set_default use_nodes 1
-  use_OMP_SCHEDULE="dynamic,1"
-
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 4
-      set_default use_openmp_threads 4
-    else
-      set_default use_mpi_procs_pernode 16
-    fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 16
-     else
-       is_serial_run="yes"
-   fi
-
-  fi
-
-  # create header
-  start_header
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue="serial"
-    use_nodes=1
-    tasks_per_node=1
-  else
-    job_type=parallel
-    queue="serial"
-    tasks_per_node=$use_mpi_procs_pernode
-  fi
-  # ------------------------------------
-
-  cat >> $output_script <<EOF
-# =====================================
-# wizard batch job parameters
-#-----------------------------------------------------------------------------
-#SBATCH --job-name=$job_name
-#SBATCH --output=LOG.$job_name.%j.out
-#SBATCH --error=LOG.$job_name.%j.err
-#SBATCH --partition=$queue
-#SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
-#SBATCH --ntasks-per-node=$tasks_per_node
-#SBATCH --cpus-per-task=$use_openmp_threads
-#SBATCH --mem=233472
-#========================================
-EOF
-}
-
-#=============================================================================
-set_run_target_thunder()
-{
-
-  set_default use_nproma 8
-  set_default use_nodes 1
-  # use_OMP_SCHEDULE="static,1"
-  use_OMP_SCHEDULE="static,4"
-  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/mpi/CC/mh0287}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
-
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 4
-      set_default use_openmp_threads 4
-    else
-      set_default use_mpi_procs_pernode 16
-    fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 16
-#      set_default use_mpi_procs_pernode 1
-     else
-       is_serial_run="yes"
-   fi    
-  fi
-  
-  case x$use_queue in
-    "xdevelop" )
-      queue="mpi-develop"
-      ;;
-  esac
-
-  case _$use_compiler in
-    "_intel" )
-        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-        add_free_var KMP_LIBRARY "turnaround"
-        add_free_var KMP_KMP_SETTINGS "1"
-        add_free_var OMP_WAIT_POLICY "active"
-      ;;
-    "_gcc" )
-        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-      ;;
-  esac
-
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="mpi-serial"}
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="mpi-compute"}
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=16"
-  fi
-  
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
-
-  # ------------------------------------
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
-  fi
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 45 minutes
-    s_cpu_time="SBATCH --time=00:45:00"
-  fi
-    
-  # ------------------------------------
- 
-  cat >> $output_script << EOF
-#-----------------------------------------------------------------------------
-# thunder batch job parameters
-#-----------------------------------------------------------------------------
-#SBATCH --job-name=$job_name
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
-#SBATCH --partition=$queue
- #SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
-#$SBATCH_ntasks_per_node
-#$s_cpu_time
-EOF
-
-  # create header
-  start_header
-  
-}
-
-
-
-set_run_target_bullx()
-{
+  # mistral.dkrz.de  
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
@@ -556,7 +173,7 @@ set_run_target_bullx()
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-        set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 6 / '"$smt_adjust"'))"'
+      set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 6 / '"$smt_adjust"'))"'
       set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '$smt_adjust' / OMP_NUM_THREADS))"'
     else
       set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
@@ -714,13 +331,121 @@ EOF
 }
 
 #=============================================================================
+set_run_target_bullx_gpu()
+{
+
+  # mistral.dkrz.de  with GPU
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
+
+  set_default use_nproma 16
+  set_default use_nodes 1
+  set_default use_account_no "$(id -gn)"
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    use_account_no="mh0156"
+  fi
+  use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
+  use_OMP_SCHEDULE="dynamic,1"
+  use_omp_stacksize=200M
+
+  # set to 1 to use smt feature
+  smt_adjust=2
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
+  else
+    # on mistral, srun is still needed for running processes at
+    # full frequency
+    start="srun --cpu-freq=HighM1 -n 1"
+    is_serial_run="yes"
+  fi
+
+  [[ "x$use_queue" != 'x' ]] && queue=$use_queue
+
+  use_mpi_startrun="srun --cpu-freq=HighM1"
+
+  add_free_var MALLOC_TRIM_THRESHOLD_ -1
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    queue=${queue:="gpu"}
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+ else
+    queue=${queue:="gpu"}
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+
+  # ------------------------------------
+  s_cpu_time="00:30:00"
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time=$use_cpu_time
+  fi
+  # ------------------------------------
+
+  cat >> $output_script << EOF
+# =====================================
+# mistral batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --account=$use_account_no
+$(if [[ "x$BB_SYSTEM" != 'x' ]]; then
+  printf '#SBATCH --qos=buildbot
+';fi)
+#SBATCH --job-name=$job_name
+#SBATCH --partition=$queue
+#SBATCH --workdir=$output_folder
+#SBATCH --nodes=$use_nodes
+#SBATCH --threads-per-core=1
+# the following is needed to work around a bug that otherwise leads to
+# a too low number of ranks when using compute,compute2 as queue
+#SBATCH --mem=0
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#SBATCH --exclusive
+#SBATCH --time=$s_cpu_time
+#SBATCH --constraint=k80
+$(if [[ "$use_mpi_root" == *intel*mpi* ]]; then
+  printf '#========================================
+# the following line is only needed for srun to work with Intel MPI
+# but should be commented when using BullX MPI
+export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
+#========================================' ; fi)
+EOF
+
+# for the rest use the SLURM_JOB_NUM_NODES by default 
+use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
+
+  # create header
+  start_header
+  cat >>$output_script <<EOF
+ulimit -s 2097152
+ulimit -c 0
+$(case $use_flags_group in
+    (debug)
+      printf 'ulimit -c unlimited'
+      ;;
+  esac)
+EOF
+}
+
+#=============================================================================
 set_run_target_mpipc()
 {
 
-  set_default use_nproma 64
-  use_nodes=1
+  # *.mpimet.mpg.de with Linux (workstations and breeze)  
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
+
+  set_default use_nproma 64
+  use_nodes=1
   
   if [[ $use_mpi == "yes" ]]; then
     set_default use_mpi_procs_pernode 2
@@ -750,7 +475,6 @@ echo "mpd started as \$mpdid"
 EOF
   fi
 }
-
 
 #=============================================================================
 set_run_target_dole()
@@ -805,15 +529,15 @@ set_run_target_dole()
 EOF
 }
 
-
 #=============================================================================
 set_run_target_mpimac()
 {
-  
-  set_default use_nproma 48
-  use_nodes=1
+  # some Macs at MPIM 
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
+    
+  set_default use_nproma 48
+  use_nodes=1
   
   if [[ "$use_mpi" == "yes" ]]; then
     set_default use_mpi_procs_pernode 2
@@ -828,10 +552,13 @@ set_run_target_mpimac()
   start_header
 }
 
-
 #=============================================================================
 set_run_target_oflws()
 {
+  # *.dwd.de with Linux (workstations)
+  icon_data_rootFolder=${icon_data_rootFolder:=""}
+  icon_data_poolFolder=${icon_data_poolFolder:=""}
+    
   set_default use_nproma 64
 
   if [[ "$use_mpi" == "yes" ]]; then
@@ -845,10 +572,13 @@ set_run_target_oflws()
   start_header
 }
 
-
 #=============================================================================
 set_run_target_hpc()
 {
+  # xce.dwd.de
+  icon_data_rootFolder=${icon_data_rootFolder:=""}
+  icon_data_poolFolder=${icon_data_poolFolder:=""}
+    
   set_default use_nproma 64
   set_default use_nodes 1
   set_default use_mpi_procs_pernode 1
@@ -886,14 +616,15 @@ EOF
 #=============================================================================
 set_run_target_daint_cpu()
 {
+  # daint.cscs.ch
+  typeset poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -976,13 +707,14 @@ EOF
 #=============================================================================
 set_run_target_daint_gpu()
 {
+  # daint.cscs.ch with GPU
+  typeset poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1066,13 +798,14 @@ EOF
 #=============================================================================
 set_run_target_dom_gpu()
 {
+  # dom.cscs.ch
+  typeset poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1139,13 +872,14 @@ EOF
 #=============================================================================
 set_run_target_tave_knl()
 {
+  # tyve.cscs.ch
+  typeset poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,2"
-  poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1222,14 +956,15 @@ EOF
 #=============================================================================
 set_run_target_kesch_cpu()
 {
+  # kesch.cscs.ch
+  typeset poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,12"
-  poolFolder_prefix=/project/csstaff/inputs/icon
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1316,12 +1051,14 @@ EOF
 set_run_target_kesch_gpu()
 {
 
+  # kesch.cscs.ch with GPU
+  typeset poolFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+
   set_default use_nproma 256
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
-  poolFolder_prefix=/project/csstaff/inputs/icon
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -1465,92 +1202,6 @@ EOF
 }
 
 #=============================================================================
-set_run_target_jureca()
-{
-  set_default use_nproma 16
-  set_default use_cpu_time 01:30:00
-
-  set_default use_nodes 8
-  set_default use_mpi_procs_pernode 48
-  set_default use_openmp_threads 1
-
-  set_default job_log_name LOG.${job_name}.%j
-
-  icon_data_poolFolder=${icon_data_poolFolder:=/work/paj1613/paj16130/pool}
-
-  start_header
-
-  cat >> $output_script << EOF
-# ==========================
-#SBATCH --nodes=$use_nodes
-#SBATCH --ntasks-per-node=$use_mpi_procs_pernode
-#SBATCH --time=$use_cpu_time
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
-#SBATCH --partition=batch
-# ==========================
-EOF
-}
-
-#=============================================================================
-set_run_target_juqueen()
-{
-  set_default use_nproma 8
-  set_default use_cpu_time 01:00:00
-
-  set_default use_nodes 32
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 4
-      set_default use_openmp_threads 4
-    else
-      set_default use_mpi_procs_pernode 32
-    fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 1
-#      set_default use_mpi_procs_pernode 1
-    fi
-  fi
-
-#   if [[ $use_openmp == "yes" ]]; then
-#    #use_mpi="no"
-#    set_default use_openmp_threads 1
-#    queue=""
-#    resources=""
-#  elif [[ $use_mpi == "yes" ]]; then
-#    set_default use_mpi_procs_pernode 1
-#      queue=""
-#      resources=""
-#  else
-#    queue=""
-#    resources=""
-#  fi
-
-  # create header
-  start_header
-
-  cat >> $output_script << EOF
-# ===========================
-# juqueen.kfa-juelich.de batch job parameters
-# ---------------------------
-# @ job_name = $job_name
-# @ comment = "$job_name"
-# @ error = LOG.\$(job_name).\$(jobid).out
-# @ output = LOG.\$(job_name).\$(jobid).out
-# @ environment = COPY_ALL
-# @ wall_clock_limit = $use_cpu_time
-# @ notification = error
-# @ notify_user = $(whoami)
-# @ job_type = bluegene
-# @ initialdir = $output_folder
-# @ bg_size = ${use_nodes}
-# @ queue
-# ==========================
-EOF
-}
-
-#=============================================================================
 set_run_target_default()
 {
 
@@ -1569,10 +1220,11 @@ set_run_target_default()
 set_run_target_fh2()
 {
 
-  set_default use_nproma 8
-  use_nodes=1
   icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
   icon_data_poolFolder=${icon_data_poolFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
+
+  set_default use_nproma 8
+  use_nodes=1
   
   if [[ $use_mpi == "yes" ]]; then
     set_default use_mpi_procs_pernode 2

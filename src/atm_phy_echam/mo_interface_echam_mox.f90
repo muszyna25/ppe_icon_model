@@ -55,25 +55,28 @@ CONTAINS
 
     ! Pointers
     !
-    LOGICAL                 ,POINTER    :: lparamcpl
-    INTEGER                 ,POINTER    :: fc_mox
+    LOGICAL                             :: lparamcpl
+    INTEGER                             :: fc_mox
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
     ! Local variables
     !
     REAL(wp)                            :: tend_qtrc_mox(nproma,nlev,ntracer)
+    INTEGER                             :: jc, jk
 
     IF (ltimer) call timer_start(timer_mox)
 
     ! associate pointers
-    lparamcpl => echam_phy_config(jg)%lparamcpl
-    fc_mox    => echam_phy_config(jg)%fc_mox
+    lparamcpl = echam_phy_config(jg)%lparamcpl
+    fc_mox    = echam_phy_config(jg)%fc_mox
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_mox_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
+
+    !$ACC DATA CREATE( tend_qtrc_mox )
 
     IF ( is_in_sd_ed_interval ) THEN
        !
@@ -88,7 +91,17 @@ CONTAINS
           ! store in memory for output or recycling
           !
           IF (ASSOCIATED(tend% qtrc_mox)) THEN
-             tend% qtrc_mox(jcs:jce,:,jb,iqv) = tend_qtrc_mox(jcs:jce,:,iqv)
+             !$ACC DATA PRESENT( tend%qtrc_mox)
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP SEQ
+             DO jk = 1, nlev
+               !$ACC LOOP GANG VECTOR
+               DO jc = jcs, jce
+                 tend% qtrc_mox(jc,jk,jb,iqv) = tend_qtrc_mox(jc,jk,iqv)
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
           END IF
           !
        ELSE
@@ -96,7 +109,17 @@ CONTAINS
           ! retrieve from memory for recycling
           !
           IF (ASSOCIATED(tend% qtrc_mox)) THEN
-             tend_qtrc_mox(jcs:jce,:,iqv) = tend% qtrc_mox(jcs:jce,:,jb,iqv)
+             !$ACC DATA PRESENT( tend%qtrc_mox )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP SEQ
+             DO jk = 1, nlev
+             !$ACC LOOP GANG VECTOR
+               DO jc= jcs, jce
+                 tend_qtrc_mox(jc,jk,iqv) = tend% qtrc_mox(jc,jk,jb,iqv)
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
           END IF
           !
        END IF
@@ -106,8 +129,18 @@ CONTAINS
        CASE(0)
           ! diagnostic, do not use tendency
        CASE(1)
-          ! use tendency to update the model state
-          tend% qtrc_phy(jcs:jce,:,jb,iqv) = tend% qtrc_phy(jcs:jce,:,jb,iqv) + tend_qtrc_mox(jcs:jce,:,iqv)
+          !$ACC DATA PRESENT( tend%qtrc_phy )
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
+          DO jk = 1, nlev
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+            ! use tendency to update the model state
+              tend% qtrc_phy(jc,jk,jb,iqv) = tend% qtrc_phy(jc,jk,jb,iqv) + tend_qtrc_mox(jc,jk,iqv)
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
 !!$       CASE(2)
 !!$          ! use tendency as forcing in the dynamics
 !!$          ...
@@ -120,24 +153,44 @@ CONTAINS
        CASE(1,2)
           ! use tendency to update the physics state
           IF (lparamcpl) THEN
-             field% qtrc(jcs:jce,:,jb,iqv)  = field% qtrc(jcs:jce,:,jb,iqv) + tend_qtrc_mox(jcs:jce,:,iqv)*pdtime
+             !$ACC DATA PRESENT( field%qtrc )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP SEQ
+             DO jk = 1, nlev
+               !$ACC LOOP GANG VECTOR
+               DO jc = jcs, jce
+                 field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv) + tend_qtrc_mox(jc,jk,iqv)*pdtime
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
           END IF
        END SELECT
        !
     ELSE
        !
        IF (ASSOCIATED(tend% qtrc_mox)) THEN
-          tend% qtrc_mox(jcs:jce,:,jb,iqv) = 0.0_wp
+          !$ACC DATA PRESENT( tend%qtrc_mox )
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
+          DO jk = 1, nlev
+            !$ACC LOOP GANG VECTOR
+            DO jc = jcs, jce
+              tend% qtrc_mox(jc,jk,jb,iqv) = 0.0_wp
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
        END IF
        !
     END IF
 
+    !$ACC END DATA
+    
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_mox_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     ! disassociate pointers
-    NULLIFY(lparamcpl)
-    NULLIFY(fc_mox)
     NULLIFY(field)
     NULLIFY(tend)
 

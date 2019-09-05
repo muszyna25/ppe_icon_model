@@ -36,7 +36,6 @@ MODULE mo_ocean_state
     &                               k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,   &
     &                               GMRedi_configuration,GMRedi_combined,                         &
     &                               GM_only,Redi_only, type_3dimrelax_salt, type_3dimrelax_temp,  &
-    &                               nbgctra, nbgcadv,lhamocc,                                     &
     &                               GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,          &
     &                               REDI_INDIVIDUAL_DIAGNOSTIC, eddydiag
   USE mo_run_config,          ONLY: test_mode
@@ -84,7 +83,6 @@ MODULE mo_ocean_state
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
-  USE mo_hamocc_output,      ONLY: construct_hamocc_state_prog
   USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 
   IMPLICIT NONE
@@ -205,13 +203,7 @@ CONTAINS
           CALL construct_hydro_ocean_prog(patch_3d, &
             &                             ocean_state(1)%p_prog(timelevel), &
             &                             get_timelevel_string(timelevel))
-        IF ( lhamocc ) THEN
-          CALL construct_hamocc_state_prog(ocean_restart_list, &
-            &                              patch_2d, &
-            &                              ocean_state(1)%p_prog(timelevel), &
-            &                              get_timelevel_string(timelevel), &
-            &                              oce_config%tracer_codes(no_tracer))
-        END IF
+       
       END IF
     END DO
 
@@ -234,7 +226,13 @@ CONTAINS
     INTEGER :: status,i, alloc_cell_blocks, nblks_e,nblks_v
     CHARACTER(LEN=max_char_length) :: var_suffix
 
- 
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_state:construct_checkpoints'
+
+    !-------------------------------------------------------------------------
+
+   CALL message(TRIM(routine), 'start to construct checkpoints')
+
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     nblks_e = patch_2d%nblks_e
     nblks_v = patch_2d%nblks_v
@@ -663,18 +661,16 @@ CONTAINS
 
       !! Tracers
       IF ( no_tracer > 0 ) THEN
-#ifdef __NO_HAMOCC__
-#endif
         CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &
           & grid_unstructured_cell, za_depth_below_sea, &
           & t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &
           & DATATYPE_FLT64),&
           & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-          & ldims=(/nproma,n_zlev,alloc_cell_blocks,no_tracer+nbgctra/), &
+          & ldims=(/nproma,n_zlev,alloc_cell_blocks,no_tracer/), &
           & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
         ! Reference to individual tracer, for I/O
-        ALLOCATE(ocean_state_prog%tracer_ptr(no_tracer+nbgctra))
+        ALLOCATE(ocean_state_prog%tracer_ptr(no_tracer))
 
         DO jtrc = 1,no_tracer
         CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
@@ -693,17 +689,17 @@ CONTAINS
 
         !--------------------------------------------------------------------------
         ! use of the ocean_tracers structure
-        ALLOCATE(ocean_state_prog%tracer_collection%tracer(no_tracer+nbgctra))
-        ocean_state_prog%tracer_collection%no_of_tracers = no_tracer+nbgctra
+        ALLOCATE(ocean_state_prog%tracer_collection%tracer(no_tracer))
+        ocean_state_prog%tracer_collection%no_of_tracers = no_tracer
         ocean_state_prog%tracer_collection%patch_3d => patch_3d
-        DO jtrc = 1,no_tracer+nbgctra
+        DO jtrc = 1,no_tracer
           tracer => ocean_state_prog%tracer_collection%tracer(jtrc)
           ! point the concentration to the 4D tracer
           ! this is a tmeporary solution until the whole code is cleaned
           tracer%concentration => ocean_state_prog%tracer(:,:,:,jtrc) 
           NULLIFY(tracer%top_bc)
           NULLIFY(tracer%bottom_bc)
-          IF (jtrc <= no_tracer+nbgcadv) THEN
+          IF (jtrc <= no_tracer) THEN
             tracer%is_advected = .true.
           ELSE
             tracer%is_advected = .false.
@@ -1183,6 +1179,13 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"),lrestart_cont=.FALSE.)
 
+      CALL add_var(ocean_default_list, 'verticallyTotal_mass_flux_e', &
+      & ocean_state_diag%verticallyTotal_mass_flux_e, grid_unstructured_edge,&
+      & za_surface, &
+      & t_cf_var('verticallyTotal_mass_flux_e','','vertically integrated mass flux at edges', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED,grid_edge),&
+      & ldims=(/nproma,nblks_e/),in_group=groups("oce_diag"))
+
     ! velocities
     CALL add_var(ocean_restart_list, 'w', ocean_state_diag%w, grid_unstructured_cell, &
       & za_depth_below_sea_half, &
@@ -1553,6 +1556,17 @@ CONTAINS
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
 
+    ! CMIP6
+    CALL add_var(ocean_default_list, 'mlotst', ocean_state_diag%mlotst , grid_unstructured_cell,za_surface, &
+      &          t_cf_var('mlotst', 'm', 'ocean_mixed_layer_thickness_defined_by_sigma_t', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+    ! CMIP6
+    CALL add_var(ocean_default_list, 'mlotstsq', ocean_state_diag%mlotstsq , grid_unstructured_cell,za_surface, &
+      &          t_cf_var('mlotstsq', 'm', 'square_of_ocean_mixed_layer_thickness_defined_by_sigma_t', datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default","oce_essentials"))
+
     ! heat content of liquid water
       CALL add_var(ocean_default_list, 'heat_content_liquid_water', ocean_state_diag%heat_content_liquid_water,&
        & grid_unstructured_cell, &
@@ -1861,7 +1875,7 @@ CONTAINS
         & t_cf_var('GMRedi_flux_horz', '', '1:temperature 2:salinity', &
         & DATATYPE_FLT64),&
         & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-        & ldims=(/nproma,n_zlev,nblks_e,no_tracer+nbgcadv/), &
+        & ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       CALL add_var(ocean_restart_list, 'GMRedi_flux_vert',ocean_state_diag%GMRedi_flux_vert, &
@@ -1869,7 +1883,7 @@ CONTAINS
         & t_cf_var('GMRedi_flux_vert', '', '1:temperature 2:salinity', &
         & DATATYPE_FLT64),&
         & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer+nbgcadv/), &
+        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer/), &
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
         ocean_state_diag%GMRedi_flux_horz(:,:,:,:)=0.0_wp
@@ -1962,7 +1976,7 @@ CONTAINS
     INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_ocean_state:construct_hydro_ocean_aux'
+      & routine = 'mo_ocean_state:construct_ocean_nudge'
     INTEGER :: datatype_flt
 
     IF ( lnetcdf_flt64_output ) THEN
@@ -1972,7 +1986,7 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'construct hydro ocean auxiliary state...')
+    CALL message(TRIM(routine), 'construct  ocean nudge...')
     
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -2132,14 +2146,26 @@ CONTAINS
       & za_surface, t_cf_var('bc_top_w','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
+       
+    CALL add_var(ocean_default_list,'bc_tides_potential',ocean_state_aux%bc_tides_potential, grid_unstructured_cell,&
+      & za_surface, t_cf_var('bc_tides_potential','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+    ocean_state_aux%bc_tides_potential = 0.0_wp
+    CALL add_var(ocean_default_list,'bc_total_top_potential',ocean_state_aux%bc_total_top_potential, grid_unstructured_cell,&
+      & za_surface, t_cf_var('bc_total_top_potential','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+    ocean_state_aux%bc_total_top_potential = 0.0_wp
+        
     CALL add_var(ocean_default_list,'bc_bot_tracer',ocean_state_aux%bc_bot_tracer,grid_unstructured_cell,&
       & za_surface, t_cf_var('bc_bot_tracer','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks,no_tracer+nbgcadv/),in_group=groups("oce_aux"))
+      & ldims=(/nproma,alloc_cell_blocks,no_tracer/),in_group=groups("oce_aux"))
     CALL add_var(ocean_default_list,'bc_top_tracer',ocean_state_aux%bc_top_tracer,grid_unstructured_cell,&
       & za_surface, t_cf_var('bc_top_tracer','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks,no_tracer+nbgcadv/),in_group=groups("oce_aux"))
+      & ldims=(/nproma,alloc_cell_blocks,no_tracer/),in_group=groups("oce_aux"))
 
     ALLOCATE(ocean_state_aux%bc_top_veloc_cc(nproma,alloc_cell_blocks), stat=ist)
     IF (ist/=success) THEN
@@ -2607,21 +2633,21 @@ CONTAINS
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'prism_center_dist_c', patch_3d%p_patch_1d(n_dom)%prism_center_dist_c, &
       & grid_unstructured_cell, &
-      & za_depth_below_sea, &
+      & za_depth_below_sea_half, &
       & t_cf_var('prism_center_dist_c','m','time dependent distance between prism centers', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'constantPrismCenters_Zdistance', &
       & patch_3d%p_patch_1d(n_dom)%constantPrismCenters_Zdistance, &
       & grid_unstructured_cell, &
-      & za_depth_below_sea, &
+      & za_depth_below_sea_half, &
       & t_cf_var('constantPrismCenters_Zdistance','m','constant distance between prism centers', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'constantPrismCenters_invZdistance', &
       & patch_3d%p_patch_1d(n_dom)%constantPrismCenters_invZdistance, &
       & grid_unstructured_cell, &
-      & za_depth_below_sea, &
+      & za_depth_below_sea_half, &
       & t_cf_var('constantPrismCenters_invZdistance','m','inverse constant distance between prism centers', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
@@ -2634,14 +2660,14 @@ CONTAINS
     CALL add_var(ocean_default_list, 'inv_prism_center_dist_c', &
       & patch_3d%p_patch_1d(n_dom)%inv_prism_center_dist_c, &
       & grid_unstructured_cell, &
-      & za_depth_below_sea, &
+      & za_depth_below_sea_half, &
       & t_cf_var('inv_prism_center_dist_c','1/m','inverse of dist between prism centers at cells', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_geometry"),isteptype=tstep_constant)
     CALL add_var(ocean_default_list, 'inv_prism_center_dist_e', &
       & patch_3d%p_patch_1d(n_dom)%inv_prism_center_dist_e, &
       & grid_unstructured_edge, &
-      & za_depth_below_sea, &
+      & za_depth_below_sea_half, &
       & t_cf_var('inv_prism_center_dist_e','1/m','inverse of dist between prism centers at edges', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_geometry"),isteptype=tstep_constant)

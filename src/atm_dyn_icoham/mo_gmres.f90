@@ -46,7 +46,7 @@ MODULE mo_gmres
   USE mo_run_config,          ONLY: ltimer
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
-    & timer_gmres_p_sum, activate_sync_timers
+    & activate_sync_timers
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
   USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array, &
