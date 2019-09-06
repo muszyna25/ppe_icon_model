@@ -23,7 +23,7 @@
 MODULE mo_integrate_density_pa
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge_int, min_rlcell_int, &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell, min_rledge_int, min_rlcell_int, &
     &                               MIURA, MIURA3, ippm_v
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_model_domain,        ONLY: t_patch
@@ -39,12 +39,15 @@ MODULE mo_integrate_density_pa
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
+  USE mo_exception,           ONLY: finish
 
 
   IMPLICIT NONE
 
   PRIVATE
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_integrate_density_pa'
 
 
 
@@ -108,8 +111,14 @@ CONTAINS
     REAL(wp), POINTER ::  &
       & ptr_current_rho(:,:,:) => NULL()  !< pointer to density field
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = modname//':integrate_density_pa'
+
     !---------------------------------------------------------------------------
 
+#ifdef _OPENACC
+    CALL finish (routine,': OpenACC version currently not implemented')
+#endif
 
     ! get patch ID
     pid = p_patch%id

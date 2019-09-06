@@ -95,8 +95,6 @@ CONTAINS
     TYPE ( t_prepare_adv), INTENT(INOUT) :: prep_advs(:)
     INTEGER, INTENT(IN)                  :: iforcing 
 
-    REAL(wp), POINTER, DIMENSION(:,:,:)  :: vn_traj, mass_flx_me, mass_flx_ic
-
 !
 ! Delete all data on GPU
 !

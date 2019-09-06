@@ -491,6 +491,8 @@ CONTAINS
 
     ENDIF
 
+! Removing p_vn_traj, p_mass_flx_me, p_topflx_tra creates difference on the output files
+! but removing p_mass_flx_ic creates an error mo_gw_hines:hines_hines_intgrl : Hines i_alpha integral is negative) 
 !$ACC UPDATE HOST( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra ) &
 !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
