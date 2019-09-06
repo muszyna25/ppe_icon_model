@@ -26,7 +26,9 @@ MODULE mo_nh_testcases
 !  
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, finish, message_text
+
   USE mo_nh_testcases_nml
+
   USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, inwp, icosmo, iedmf
   USE mo_grid_config,          ONLY: lplane, n_dom, l_limited_area, &
     &                                grid_sphere_radius, grid_angular_velocity, &
@@ -55,7 +57,8 @@ MODULE mo_nh_testcases
   USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw,    &
                                    & init_nh_prog_mwbr_const, mount_half_width                     
   USE mo_nh_wk_exp,            ONLY: init_nh_topo_wk, init_nh_env_wk,             &
-                                   & init_nh_buble_wk                       
+                                   & init_nh_buble_wk, bubctr_z,                  &
+                                   & bub_hor_width, bub_ver_width, bub_amp
   USE mo_nh_bb13_exp,          ONLY: init_nh_env_bb13, init_nh_bubble_bb13                       
   USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
   USE mo_nh_dcmip_hadley,      ONLY: init_nh_dcmip_hadley         
@@ -75,11 +78,14 @@ MODULE mo_nh_testcases
   USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, &
                                      init_torus_with_sounding, init_warm_bubble
   USE mo_nh_tpe_exp,           ONLY: init_nh_state_prog_TPE
+  USE mo_nh_lim_area_testcases,ONLY: schaer_h0, schaer_a, schaer_lambda
+
   USE mo_nonhydrostatic_config, ONLY: ndyn_substeps, vwind_offctr
   USE mo_sleve_config,         ONLY: top_height
   USE mo_nh_lahade,            ONLY: init_nh_lahade
   USE mo_upatmo_config,        ONLY: upatmo_config
-  
+  USE mo_vertical_coord_table,  ONLY: vct_a
+
   IMPLICIT NONE  
   
   PRIVATE
@@ -148,12 +154,16 @@ MODULE mo_nh_testcases
 
   CASE ('schaer')
  
+    ! limited area test case by Schaer et al. (2002) (plane geometry)
+
     !IF(.NOT.lplane) CALL finish(TRIM(routine),'Schaer test case only for lplane=True')
 
     ! At present the mountain is at position lat=0,lon=0 (given in meters)
     z_x2_geo%lon = 0.0_wp
     z_x2_geo%lat = 0.0_wp
 
+    !MB: CAUTION: something is wrong here: if the loop is vectorized (without the write-statement below), orography is set =const. !!??
+!DIR$ NOVECTOR
     DO jg = 1, n_dom
       DO jb = 1, p_patch(jg)%nblks_c
         IF (jb /=  p_patch(jg)%nblks_c) THEN
@@ -162,14 +172,82 @@ MODULE mo_nh_testcases
           nlen =  p_patch(jg)%npromz_c
         ENDIF
         DO jc = 1, nlen
-          IF(p_patch(jg)%geometry_info%geometry_type==planar_torus_geometry)THEN
+          IF ( p_patch(jg)%geometry_info%geometry_type == planar_torus_geometry ) THEN
+            z_lon = p_patch(jg)%cells%cartesian_center(jc,jb)%x(1)
+          ELSE
+            z_lon = p_patch(jg)%cells%center(jc,jb)%lon*torus_domain_length/pi*0.5_wp
+          END IF
+          z_dist = z_lon - z_x2_geo%lon
+          ext_data(jg)%atm%topography_c(jc,jb) = mount_height            &
+            &    * EXP(-(z_dist/mount_width)**2) * ((COS(pi*z_dist/mount_width_2))**2)
+
+          ! WRITE(*,'(A,2I7,3F15.4)' ) "topo: ", jc, jb, z_lon, z_dist, ext_data(jg)%atm%topography_c(jc,jb)
+
+        ENDDO
+      ENDDO 
+    ENDDO 
+
+  CASE ('atm_at_rest')
+ 
+    !IF(.NOT.lplane) CALL finish(TRIM(routine),'Atm. at Rest test case only for lplane=True')
+
+    ! At present the mountain is at position lat=0,lon=0 (given in meters)
+    z_x2_geo%lon = 0.0_wp
+    z_x2_geo%lat = 0.0_wp
+
+    !MB: CAUTION: something is wrong here: if the loop is vectorized (without the write-statement below), orography is set =const. !!??
+    DO jg = 1, n_dom
+      DO jb = 1, p_patch(jg)%nblks_c
+        IF (jb /=  p_patch(jg)%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen =  p_patch(jg)%npromz_c
+        ENDIF
+        DO jc = 1, nlen
+          IF ( p_patch(jg)%geometry_info%geometry_type == planar_torus_geometry ) THEN
             z_lon = p_patch(jg)%cells%cartesian_center(jc,jb)%x(1)
           ELSE
             z_lon = p_patch(jg)%cells%center(jc,jb)%lon*torus_domain_length/pi*0.5_wp
           END IF
           z_dist = z_lon-z_x2_geo%lon
-          ext_data(jg)%atm%topography_c(jc,jb) = 250.0_wp &
-          & * EXP(-(z_dist/5000.0_wp)**2)*((COS(pi*z_dist/4000.0_wp))**2)
+          ext_data(jg)%atm%topography_c(jc,jb) = mount_height * EXP(-(z_dist/mount_width)**2)
+
+          !WRITE(*,'(A,2I7,3F15.4)' ) "topo: ", jc, jb, z_lon, z_dist, ext_data(jg)%atm%topography_c(jc,jb)
+
+        ENDDO
+      ENDDO 
+    ENDDO 
+
+  CASE ('gauss3D')
+ 
+    !IF(.NOT.lplane) CALL finish(TRIM(routine),'Atm. at Rest test case only for lplane=True')
+
+    ! At present the mountain is at position lat=0,lon=0 (given in meters)
+    z_x2_geo%lon = 0.0_wp
+    z_x2_geo%lat = 0.0_wp
+
+    !MB: CAUTION: something is wrong here: if the loop is vectorized (without the write-statement below), orography is set =const. !!??
+    DO jg = 1, n_dom
+      DO jb = 1, p_patch(jg)%nblks_c
+        IF (jb /=  p_patch(jg)%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen =  p_patch(jg)%npromz_c
+        ENDIF
+        DO jc = 1, nlen
+          IF ( p_patch(jg)%geometry_info%geometry_type == planar_torus_geometry ) THEN
+            z_lon = p_patch(jg)%cells%cartesian_center(jc,jb)%x(1)
+            z_lat = p_patch(jg)%cells%cartesian_center(jc,jb)%x(2)
+          ELSE
+            z_lon = p_patch(jg)%cells%center(jc,jb)%lon * torus_domain_length/pi*0.5_wp
+            z_lat = p_patch(jg)%cells%center(jc,jb)%lat * torus_domain_length/pi*0.5_wp
+          END IF
+          z_dist = SQRT( (z_lon-z_x2_geo%lon)**2 + (z_lat-z_x2_geo%lat)**2 )
+          ext_data(jg)%atm%topography_c(jc,jb) = mount_height * EXP(-(z_dist/mount_width)**2)
+          !ext_data(jg)%atm%topography_c(jc,jb) = mount_height * 2.0_wp**( -(z_dist/mount_width)**2 )
+
+          !WRITE(*,'(A,2I7,3F15.4)' ) "topo: ", jc, jb, z_lon, z_dist, ext_data(jg)%atm%topography_c(jc,jb)
+
         ENDDO
       ENDDO 
     ENDDO 
@@ -254,26 +332,12 @@ MODULE mo_nh_testcases
     END DO
 
   CASE ('bb13')
-
-    ! Testcase Baldauf, Brdar (2013) QJRMS (linear gravity/sound wave expansion in a channel)
-
+    ! Test case Baldauf, Brdar (2013) QJRMS (linear gravity/sound wave expansion in a channel)
     CALL message(TRIM(routine), "no orography for testcase bb13")
 
-    ! no orography:
-    DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_c
-
-        IF (jb /=  p_patch(jg)%nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_c
-        ENDIF
-
-        DO jc = 1, nlen
-          ext_data(jg)%atm%topography_c(jc,jb) = 0.0_wp
-        ENDDO
-      ENDDO 
-    ENDDO 
+  CASE ('straka93')
+    ! Test case Straka et al. (1993) (falling cold bubble)
+    CALL message(TRIM(routine), "no orography for testcase straka93")
 
   CASE ('PA')
    ! The topography ist initialized in "init_nh_state_prog_patest"
@@ -470,6 +534,7 @@ MODULE mo_nh_testcases
   INTEGER        :: nlev, nlevp1        !< number of full and half levels
 
   TYPE(t_nh_state), POINTER       :: p_nhdom
+  TYPE(t_cartesian_coordinates) :: p
                             
   REAL(wp)              :: p_sfc_jabw  ! surface pressure for the jabw test case, 
                                        ! standard values is 100000 Pa   
@@ -477,7 +542,14 @@ MODULE mo_nh_testcases
   REAL(wp) :: z_help
 
   LOGICAL  :: l_hydro_adjust, l_moist
-  
+
+  ! for a piecewise polytropic atmosphere:
+  INTEGER ::     nmbr_polytropic_levels
+  REAL(wp), ALLOCATABLE :: h_poly(:)
+  REAL(wp), ALLOCATABLE :: T0_poly(:)
+  REAL(wp), ALLOCATABLE :: dTdz_poly(:)
+  REAL(wp) :: p_surf
+
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                                    '(mo_nh_testcases) init_nh_testcase:' 
 
@@ -641,7 +713,7 @@ MODULE mo_nh_testcases
    CALL message(TRIM(routine),'End setup mwbr_const test')
 
 
-  CASE ('zero','bell','schaer')
+  CASE ('zero','bell','schaer', 'gauss3D', 'straka93' )
 
   ! For the moment we think of a given Brunt Vaisala frequency and a given      
   ! zonal wind. The lplane and the lcorio=F options are assumed
@@ -717,22 +789,37 @@ MODULE mo_nh_testcases
         DO jk = 1, nlev
           DO jc = 1, nlen
 
-       !     ! perturbation in theta_v for gravity test case
-       !     p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=&
-       !              p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)+ 0.01_wp*sin(&
-       !              pi*p_nhdom%metrics%geopot(jc,jk,jb)/grav/10000.0_wp)&
-       !            /(1.0_wp+(p_patch(jg)%cells%center(jc,jb)%lon*30.0/pi)**2)
-       !            !Das ist fuer dx=500 mit 600 Punkten (auf 2pi verteilt)
+            !     ! perturbation in theta_v for gravity test case
+            !     p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=&
+            !              p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)+ 0.01_wp*sin(&
+            !              pi*p_nhdom%metrics%geopot(jc,jk,jb)/grav/10000.0_wp)&
+            !            /(1.0_wp+(p_patch(jg)%cells%center(jc,jb)%lon*30.0/pi)**2)
+            !            !Das ist fuer dx=500 mit 600 Punkten (auf 2pi verteilt)
 
-       !     ! perturbation in theta_v for Straka test case
-       !     z_help = SQRT( ( p_patch(jg)%cells%center(jc,jb)%lon*6.4_wp/pi)**2 &
-       !     &      +((p_nhdom%metrics%z_mc(jc,jk,jb)-3000.0_wp)/2000.0_wp)**2)
-       !     IF (z_help<=1.0_wp) THEN
-       !       p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=&
-       !       &   p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb) &
-       !       &   -15.0_wp*(COS(pi*z_help)+1.0_wp)*0.5_wp&
-       !       &   /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
-       !     ENDIF
+            IF ( nh_test_name == "straka93 " ) THEN
+              ! test case Straka et al. (1993) (falling cold bubble)
+              ! perturbation in theta_v
+
+              !     z_help = SQRT( ( p_patch(jg)%cells%center(jc,jb)%lon*6.4_wp/pi)**2 &
+              !     &      +((p_nhdom%metrics%z_mc(jc,jk,jb) - bubctr_z)/bub_ver_width)**2)
+              !     IF (z_help<=1.0_wp) THEN
+              !       p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=      &
+              !       &   p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)   &
+              !       &   + bub_amp * (COS(pi*z_help)+1.0_wp)*0.5_wp  &
+              !       &   /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
+              !     ENDIF
+
+              p = gc2cc( p_patch(jg)%cells%center(jc,jb), p_patch(1)%geometry_info )
+              z_help = SQRT( ( p%x(1)/bub_hor_width )**2                   &
+                &          + ( (p_nhdom%metrics%z_mc(jc,jk,jb) - bubctr_z)/bub_ver_width )**2 )
+              IF ( z_help <= 1.0_wp ) THEN
+                p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=             &
+                  &   p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)        &
+                  &    + bub_amp * (COS(pi*z_help) + 1.0_wp) * 0.5_wp  &
+                  &      /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
+              ENDIF
+              !PRINT*,"coordinate z is=z", p_nhdom%metrics%z_mc(jc,jk,jb)
+            END IF
 
             ! exner and theta_v are given, so rho is deduced...
             p_nh_state(jg)%prog(jt)%rho(jc,jk,jb) = &
@@ -745,12 +832,36 @@ MODULE mo_nh_testcases
           p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb) = 0.0_wp
 
           ! copy w to reference state vector (needed by Rayleigh damping mechanism)
-          p_nh_state(jg)%ref%w_ref(je,jk,jb) = &
-              p_nh_state(jg)%prog(jt)%w(je,jk,jb)
+          p_nh_state(jg)%ref%w_ref(1:nlen,jk,jb) = &
+              p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb)
         ENDDO
       ENDDO
     ENDDO
   ENDDO
+
+
+  CASE ( 'atm_at_rest' )
+
+    ! set a piecewise polytropic atmosphere
+
+    nmbr_polytropic_levels = 2
+    ALLOCATE( h_poly   (nmbr_polytropic_levels + 1) )
+    ALLOCATE( T0_poly  (nmbr_polytropic_levels) )
+    ALLOCATE( dTdz_poly(nmbr_polytropic_levels) )
+
+    h_poly(1)    =     0.0_wp
+    T0_poly(1)   = 298.15_wp
+    dTdz_poly(1) = -0.0065_wp
+    p_surf       = 1.0e5_wp
+
+    h_poly(2)    = 12000.0_wp
+    T0_poly(2)   = 220.15_wp
+    dTdz_poly(2) = 0.0_wp
+
+    h_poly(3)    = vct_a(1)   ! something equal or higher than the model top height
+ 
+    CALL piecewise_polytropic_atm( p_patch,  p_nh_state,    &
+        &       nmbr_polytropic_levels, h_poly, T0_poly, dTdz_poly, p_surf, ntl, .TRUE. )
 
 
   CASE ('PA')  ! pure advection test case, no mountain
@@ -1082,13 +1193,13 @@ MODULE mo_nh_testcases
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
  
-      call add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
                       & start_level=nlev-3,                                    &
                       & end_level=nlev,                                        &
                       & noise_scale=w_perturb )   
 
-      call add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
                       & start_level=nlev-3,                                    &
                       & end_level=nlev,                                        &
@@ -1255,8 +1366,225 @@ MODULE mo_nh_testcases
     CALL message(TRIM(routine),'End setup terminator chemistry')
   ENDIF
 
- END SUBROUTINE init_nh_testcase
+  END SUBROUTINE init_nh_testcase
 
+
+  SUBROUTINE piecewise_polytropic_atm( p_patch,  p_nh_state,  &
+    &       nmbr_polytropic_levels, h_poly, T0_poly, dTdz_poly, p_surf, ntl,  &
+    &       l_hydro_adjust )
+
+    !
+    ! calculate the fields
+    ! [output]
+    !   p_nh_state(jg)%prog(jt)%rho(:,:,:))
+    !   p_nh_state(jg)%prog(jt)%exner(:,:,:)
+    !   p_nh_state(jg)%prog(jt)%theta_v(:,:,:)
+    ! for a piecewise polytropic atmosphere, defined by 
+    ! [input]
+    !   nmbr_polytropic_levels, h_poly(:), T0_poly(:), dTdz_poly(:), p_surf
+    ! Additionally set
+    ! [output]
+    !   p_nh_state(jg)%prog(jt)%w(:,:,:)
+    !   p_nh_state(jg)%prog(jt)%vn(:,:,:)
+    !
+
+    USE mo_mpi,                   ONLY: get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0
+    USE mo_nh_init_utils,         ONLY: hydro_adjust
+    USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),    TARGET, INTENT(inout) :: p_patch(n_dom)
+    TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom)
+
+    INTEGER, INTENT(in) :: nmbr_polytropic_levels
+    REAL(wp), INTENT(in) :: h_poly   ( nmbr_polytropic_levels+1 )
+    REAL(wp), INTENT(in) :: T0_poly  ( nmbr_polytropic_levels+1 )
+    REAL(wp), INTENT(in) :: dTdz_poly( nmbr_polytropic_levels+1 )
+    REAL(wp), INTENT(in) :: p_surf
+
+    INTEGER, INTENT(in) :: ntl
+
+    LOGICAL, INTENT(in) :: l_hydro_adjust
+
+    INTEGER :: jg, jt, jb, jk, jc, je, nlen
+    INTEGER :: nlev, nlevp1
+    INTEGER :: nblks_c, npromz_c
+    INTEGER :: nblks_e, npromz_e
+    INTEGER :: l
+
+    REAL(wp), ALLOCATABLE :: p0_poly(:)
+    REAL(wp) :: epsilon_dTdz
+    REAL(wp) :: h1
+    REAL(wp) :: z
+    REAL(wp) :: temp, pres
+    REAL(wp) :: delta
+
+    epsilon_dTdz = 1.0e-10_wp
+
+    ALLOCATE( p0_poly (nmbr_polytropic_levels+1 ) )
+
+    ! polytropic pressures at the height intervals 
+
+    p0_poly(1) = p_surf
+    DO l=1, nmbr_polytropic_levels-1
+      IF ( ABS( dTdz_poly(l) ) > epsilon_dTdz ) THEN
+        h1 = 1.0_wp + dTdz_poly(l) / T0_poly(l) * ( h_poly(l+1) - h_poly(l) )
+        p0_poly(l+1) = p0_poly(l) * h1**( - grav/(Rd* dTdz_poly(l) ) )
+      ELSE
+        ! isothermal 
+        delta = grav / ( Rd * T0_poly(l) )
+        p0_poly(l+1) = p0_poly(l) * EXP( - delta * ( h_poly(l+1) - h_poly(l) ) )
+      END IF
+    END DO
+
+    DO jg = 1, n_dom
+
+      ! number of vertical levels
+      nlev   = p_patch(jg)%nlev
+      nlevp1 = p_patch(jg)%nlevp1
+
+      ! center:
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
+
+      ! scalars (all is dry!)
+      DO jt = 1, ntl 
+        DO jb = 1, nblks_c
+
+          IF (jb /= nblks_c) THEN
+            nlen = nproma
+          ELSE
+            nlen = npromz_c
+          ENDIF
+
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+
+              z = p_nh_state(jg)%metrics%z_mc(jc,jk,jb)
+
+              DO l=1, nmbr_polytropic_levels
+
+                IF ( ( z >= h_poly(l) ) .AND. ( z < h_poly(l+1) ) ) THEN
+                  temp = T0_poly(l) + dTdz_poly(l) * z
+
+                  IF ( ABS( dTdz_poly(l) ) > epsilon_dTdz ) THEN
+                    h1 = 1.0_wp + dTdz_poly(l) / T0_poly(l) * ( z - h_poly(l) )
+                    pres = p0_poly(l) * h1**( - grav/(Rd* dTdz_poly(l) ) )
+                  ELSE
+                    ! isothermal 
+                    delta = grav / ( Rd * T0_poly(l) )
+                    pres = p0_poly(l) * EXP( - delta * ( z - h_poly(l) ) )
+                  END IF
+
+                END IF
+
+              END DO
+
+              p_nh_state(jg)%prog(jt)%rho(jc,jk,jb) = pres / ( Rd * temp )
+              p_nh_state(jg)%prog(jt)%exner(jc,jk,jb) = ( pres/p0ref )**( Rd/cpd )
+              p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb) = temp / p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
+
+            ENDDO
+          ENDDO
+
+          DO jk = 1, nlevp1
+            p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb) = 0.0_wp
+
+            ! copy w to reference state vector (needed by Rayleigh damping mechanism)
+            p_nh_state(jg)%ref%w_ref(je,jk,jb) = &
+              p_nh_state(jg)%prog(jt)%w(je,jk,jb)
+          ENDDO
+
+        ENDDO
+      ENDDO
+
+      ! edges:
+      nblks_e   = p_patch(jg)%nblks_e
+      npromz_e  = p_patch(jg)%npromz_e
+
+      DO jt = 1, ntl 
+        ! normal wind
+        DO jb = 1, nblks_e
+          IF (jb /= nblks_e) THEN
+            nlen = nproma
+          ELSE
+            nlen = npromz_e
+          ENDIF
+          DO jk = 1, nlev
+            DO je = 1, nlen
+              p_nh_state(jg)%prog(jt)%vn(je,jk,jb) = nh_u0 &
+                                !(p_nh_state(jg)%metrics%geopot(1,jk,1)/grav/1000.0_wp+5.0_wp)& !shear
+                *p_patch(jg)%edges%primal_normal(je,jb)%v1
+
+              ! copy vn to reference state vector (needed by Rayleigh damping mechanism)
+              p_nh_state(jg)%ref%vn_ref(je,jk,jb)  &
+                = p_nh_state(jg)%prog(jt)%vn(je,jk,jb)
+            ENDDO
+          ENDDO
+        ENDDO
+      ENDDO
+
+      jc = 1
+      jb = 1
+      jt = 1
+
+      IF ( get_my_mpi_work_id() == get_glob_proc0() ) THEN
+        WRITE(*,*) "control output 1: jg=", jg
+        DO jk=1, nlev
+          WRITE(*,'(I5,F10.3,5F13.5)') jk, p_nh_state(jg)%metrics%z_mc(jc,jk,jb),  &
+            p_nh_state(jg)%prog(jt)%rho(jc,jk,jb),      &
+            p_nh_state(jg)%prog(jt)%exner(jc,jk,jb),    &
+            p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb),  &
+            p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb) * p_nh_state(jg)%prog(jt)%exner(jc,jk,jb),  &
+            p0ref*p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)**(cpd/Rd)
+        END DO
+      END IF
+
+      ! numerical hydrostatic balancing is still necessary!
+      IF ( l_hydro_adjust ) THEN
+        CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,    &
+          p_nh_state(jg)%prog(nnow(jg))%rho,      &
+          p_nh_state(jg)%prog(nnow(jg))%exner,    &
+          p_nh_state(jg)%prog(nnow(jg))%theta_v )
+      END IF
+
+      IF ( get_my_mpi_work_id() == get_glob_proc0() ) THEN
+        WRITE(*,*) "control output 2: jg=", jg
+        DO jk=1, nlev
+          WRITE(*,'(I5,F10.3,5F13.5)') jk, p_nh_state(jg)%metrics%z_mc(jc,jk,jb),  &
+            p_nh_state(jg)%prog(jt)%rho(jc,jk,jb),     &
+            p_nh_state(jg)%prog(jt)%exner(jc,jk,jb),   &
+            p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb), &
+            p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb) * p_nh_state(jg)%prog(jt)%exner(jc,jk,jb),  &
+            p0ref*p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)**(cpd/Rd)
+        END DO
+      END IF
+
+      CALL diagnose_pres_temp ( p_nh_state(jg)%metrics,  p_nh_state(jg)%prog(nnow(jg)),  &
+        p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,      &
+        p_patch(jg), opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
+
+      IF ( get_my_mpi_work_id() == get_glob_proc0() ) THEN
+        WRITE(*,*) "control output 3: jg=", jg
+        DO jk=1, nlev
+          WRITE(*,'(I5,F10.3,5F13.5)') jk, p_nh_state(jg)%metrics%z_mc(jc,jk,jb),  &
+            p_nh_state(jg)%prog(jt)%rho(jc,jk,jb),     &
+            p_nh_state(jg)%prog(jt)%exner(jc,jk,jb),   &
+            p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb), &
+            p_nh_state(jg)%diag%temp(jc,jk,jb),        & 
+            p_nh_state(jg)%diag%pres(jc,jk,jb)
+        END DO
+      END IF
+
+      ! CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)    ! ????
+
+    ENDDO  ! do jg=...
+
+    DEALLOCATE( p0_poly )
+
+
+  END SUBROUTINE piecewise_polytropic_atm
 
  
 END MODULE mo_nh_testcases

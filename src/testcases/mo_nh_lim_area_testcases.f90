@@ -1117,7 +1117,7 @@ jnlayer(:,:,:)=0
   !! Calculate distances from a lon,lat point to the center point 
   !!  lonc,latc in the direction of the main axis of the 
   !!  mountain/buble
-  !! If rotangle is cero, then it calculates distances from a lon lat point 
+  !! If rotangle is zero, then it calculates distances from a lon lat point 
   !!  to the center point lonc, latc in the zonal and meridional directions
   !! This is a translation from SUBROUTINE hill_rot_coords in COSMO
   !! 

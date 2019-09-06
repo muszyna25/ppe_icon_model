@@ -3009,6 +3009,25 @@ Minimum turbulent viscosity &
 \tabularnewline
 
 %\hline
+smag\_coeff\_type & I & 1 &  &
+choose type of coefficient setting: \\
+1 = Smagorinsky model (default) \\
+2 = set coeff. externally by Km\_ext, Kh\_ext (for testing purposes, e.g. Straka et al. (1993)) &
+\tabularnewline
+
+%\hline
+Km\_ext & R & 75.0 &  m$^2$/s  &
+externally set constant kinematic viscosity  &
+smag\_coeff\_type=2
+\tabularnewline
+
+%\hline
+Kh\_ext & R & 75.0 &  m$^2$/s  &
+externally set constant diffusion coeff.   &
+smag\_coeff\_type=2
+\tabularnewline
+
+%\hline
 max\_turb\_scale & R & 300.0 &  &
 Asymtotic maximum turblence length scale (useful for coarse grid LES and when grid is vertically stretched) &
 \tabularnewline
@@ -7432,7 +7451,7 @@ testcase selection&
 \tabularnewline
 &&&& '\textbf{bell}': bell shaped mountain at 0E,0N&
 \tabularnewline
-&&&& '\textbf{schaer}': hilly mountain at 0E,0N&
+&&&& '\textbf{schaer}': hilly mountain at 0E,0N  &  is\_plane\_torus=.TRUE.   
 \tabularnewline
 &&&& '\textbf{jabw}': Initializes the full Jablonowski Williamson test case.&
 \tabularnewline
@@ -7492,13 +7511,15 @@ lcoriolis = .TRUE.
 &&&&'\textbf{CBL}': convective boundary layer simulations for LES package on torus (doubly periodic) grid&
 is\_plane\_torus= .TRUE.
 \tabularnewline
+&&&&'\textbf{bb13}': linear gravity- and sound-wave expansion in a channel (Baldauf, Brdar (2013) QJRMS) &
+is\_plane\_torus= .TRUE.
+\tabularnewline
 &&&&'\textbf{lahade}': deep-atmosphere sound wave testcase providing
 comparison of numerical with analytical solution according to method of
 Laeuter, Handorf and Dethloff, J. Comp. Phys.(2005) (requires to set
 src/shared/mo\_physical\_constants: grav to a very small value, e.g. grav = 1.0E-30)&
 ldeepatmo = .TRUE. .AND. lcoriolis = .TRUE. .AND. lcentrifugal = .TRUE.
 \tabularnewline
-
 is\_toy\_chem & 
 L & .FALSE. &  &
 Terminator toy chemistry activated when .TRUE. &
@@ -7597,6 +7618,19 @@ mount\_half\_width&
 R& 1500000.0& m&
 half width of mountain in mrw(2), mwbr\_const and bell &
 nh\_test\_name= 'mrw(2)\_nh', 'mwbr\_const' and 'bell'
+\tabularnewline
+
+%\hline
+mount\_width&
+R& 1000.0& m&
+  width of mountain &
+\tabularnewline
+
+%\hline
+mount\_width\_2 &
+R& 100.0& m&
+  a 2nd width scale of mountain &
+  nh\_test\_name='schaer'
 \tabularnewline
 
 %\hline
@@ -7776,7 +7810,7 @@ R& 20. & m/s &
 zonal wind at infinity height\\
 range 0. - 45.               \\
 used to vary the wind shear&
-nh\_test\_name='wk82'
+nh\_test\_name='wk82', 'bb13'
 \tabularnewline
 
 %\hline
@@ -7798,6 +7832,20 @@ bubctr\_lon&
 R& 90.& deg&
 longitude of the center of the thermal perturbation&
 nh\_test\_name='wk82'
+\tabularnewline
+
+%\hline
+bubctr\_x&
+R& 0.0 & m&
+x-position of the center of the thermal perturbation &
+is\_plane\_grid=.TRUE.
+\tabularnewline
+
+%\hline
+bubctr\_y&
+R& 0.0 & m&
+y-position of the center of the thermal perturbation &
+is\_plane\_grid=.TRUE.
 \tabularnewline
 
 %\hline

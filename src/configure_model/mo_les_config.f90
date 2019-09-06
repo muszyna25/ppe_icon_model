@@ -36,6 +36,7 @@ MODULE mo_les_config
     REAL(wp) :: shflx      ! prescribed sensible heat flux (W/m2)
     REAL(wp) :: lhflx      ! prescribed latent heat flux   (W/m2)
     INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux
+    INTEGER  :: smag_coeff_type  ! 1=Smagorinsky model; 2=set coeff. externally by Km_ext, Kh_ext (for tests)
 
     REAL(wp) :: ufric      ! friction velocity
  
@@ -50,6 +51,8 @@ MODULE mo_les_config
     REAL(wp) :: turb_prandtl 
     REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
     REAL(wp) :: km_min        !min mass weighted turbulent viscosity 
+    REAL(wp) :: Km_ext        !externally set constant kinematic viscosity [m2/s]
+    REAL(wp) :: Kh_ext        !externally set constant diffusion coeff.    [m2/s]
     REAL(wp) :: max_turb_scale !max turbulence length scale
     REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
 

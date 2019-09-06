@@ -61,7 +61,8 @@ MODULE mo_nh_testcases_nml
   PUBLIC :: read_nh_testcase_namelist,layer_thickness,                       &
     &       n_flat_level, nh_test_name,                                      &
     &       ape_sst_case, ape_sst_val, w_perturb, th_perturb,                &
-    &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
+    &       mount_height, mount_width, mount_width_2,                        & 
+    &       torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,                &
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
     &       tpe_moist, tpe_psfc, tpe_temp,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
@@ -84,6 +85,8 @@ MODULE mo_nh_testcases_nml
   LOGICAL  :: lcoupled_rho     !< re-integrate mass equation in PA test cases (TRUE/FALSE)
 
   REAL(wp) :: mount_height           ! (m)
+  REAL(wp) :: mount_width            ! (m)
+  REAL(wp) :: mount_width_2          ! (m)
   REAL(wp) :: nh_brunt_vais          ! (1/s)
   REAL(wp) :: nh_u0                  ! (m/s)
   REAL(wp) :: nh_t0                  ! (K)
@@ -146,6 +149,7 @@ MODULE mo_nh_testcases_nml
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
                             n_flat_level, jw_up, u0_mrw, mount_height_mrw,   &
                             mount_half_width, mount_lonctr_mrw_deg,          &
+                            mount_width, mount_width_2,                      &
                             mount_latctr_mrw_deg, p_int_mwbr_const,          &
                             temp_i_mwbr_const,  bruntvais_u_mwbr_const,      &
                             rotate_axis_deg,                                 &
@@ -211,6 +215,8 @@ MODULE mo_nh_testcases_nml
     u0_mrw                 = 20.0_wp
     mount_height_mrw       = 2000.0_wp
     mount_half_width       = 1500000._wp
+    mount_width            = 1000.0_wp
+    mount_width_2          = 100.0_wp
     mount_lonctr_mrw_deg   = 90.0_wp
     mount_latctr_mrw_deg   = 30.0_wp
     p_int_mwbr_const       = 70000._wp

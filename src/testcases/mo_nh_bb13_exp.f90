@@ -1,7 +1,7 @@
 !>
-!!  Subroutine to initialized the Baldauf, Brdar (2013) QJRMS test case 
+!!  Subroutines to initialize the Baldauf, Brdar (2013) QJRMS test case 
 !!   (linear gravity/sound waves expansion in a channel)
-!!   for the NH-Core in limited area mode
+!!   for the NH-Core in a quasi-2D limited area mode
 !!
 !!
 !! @par Revision History
@@ -50,11 +50,11 @@ MODULE mo_nh_bb13_exp
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    !USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: sync_patch_array, SYNC_C
-   !USE mo_vertical_coord_table, ONLY: vct_a
+   USE mo_vertical_coord_table, ONLY: vct_a
    USE mo_nh_init_utils,        ONLY: hydro_adjust
 
-   USE mo_nh_wk_exp,            ONLY: u_infty_wk
-
+   USE mo_nh_wk_exp,            ONLY: u_infty_wk, bub_hor_width, bub_amp
+   USE mo_nh_testcases_nml,     ONLY: bubctr_x
    IMPLICIT NONE
 
    PUBLIC  :: init_nh_env_bb13, init_nh_bubble_bb13
@@ -100,20 +100,20 @@ MODULE mo_nh_bb13_exp
 
     REAL(wp)       :: zu, zv
 
-    REAL(wp), DIMENSION(ptr_patch%nlev) :: theta, exner, pres, qv, theta_v, temp !, z_full
+    REAL(wp), DIMENSION(ptr_patch%nlev) :: theta, exner, pres, qv, theta_v, temp, z_full
 
 !--------------------------------------------------------------------
 !
 
     ! height of main levels (no orography)
-    ! DO jk = 1, ptr_patch%nlev
-    !   z_full(jk) = 0.5_wp*( vct_a(jk) + vct_a(jk+1) )
-    ! ENDDO
+    DO jk = 1, ptr_patch%nlev
+      z_full(jk) = 0.5_wp*( vct_a(jk) + vct_a(jk+1) )
+    ENDDO
 
     ! profiles for T = const 
     DO jk = 1, ptr_patch%nlev
       temp(jk)  = T_bb13
-      pres(jk)  = p0ref * exp( - grav / ( Rd * T_bb13 ) )
+      pres(jk)  = p0ref * exp( - grav / ( Rd * T_bb13 ) * z_full(jk) )
 
       qv(jk)    = 0.0_wp
 
@@ -136,7 +136,7 @@ MODULE mo_nh_bb13_exp
           ptr_nh_prog%theta_v(jc,jk,jb)     = theta_v(jk)
           ptr_nh_prog%exner  (jc,jk,jb)     = exner(jk)
           ptr_nh_prog%tracer (jc,jk,jb,iqv) = qv(jk)
-          ptr_nh_prog%rho    (jc,jk,jb)     = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref   &
+          ptr_nh_prog%rho    (jc,jk,jb)     = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd * p0ref   &
                                                          /rd/ptr_nh_prog%theta_v(jc,jk,jb)
         ENDDO  !jc
       ENDDO  !jk     
@@ -218,7 +218,6 @@ MODULE mo_nh_bb13_exp
     REAL(KIND=wp)            :: z_full
     REAL(KIND=wp)            :: dT_breth, dT
     REAL(KIND=wp)            :: delta_B, fac_breth
-    REAL(KIND=wp)            :: bubctr_x, bub_dT, bub_radx
 
     INTEGER        ::  jc, jb, jk, nlen 
     TYPE(t_cartesian_coordinates)   :: p
@@ -226,10 +225,6 @@ MODULE mo_nh_bb13_exp
     call message( "init_nh_bubble_bb13", "ACHTUNG: model_height sollte extern vorgegeben sein!" )
 
     model_height = 10000.0_wp
-
-    bubctr_x = -50000.0_wp
-    bub_dT   = 0.01_wp  ! [K]
-    bub_radx = 5000.0_wp
 
     delta_B = grav / Rd / T_bb13
 
@@ -251,14 +246,17 @@ MODULE mo_nh_bb13_exp
 
           fac_breth = EXP( 0.5 * delta_B * z_full ) 
 
-          dT_breth = bub_dT                          &
+          dT_breth = bub_amp                          &
             &    * SIN( z_full * pi / model_height )    &
-            &    * EXP( - ( ( p%x(1)- bubctr_x ) / bub_radx )**2 )
+            &    * EXP( - ( ( p%x(1)- bubctr_x ) / bub_hor_width )**2 )
 
           dT = dT_breth * fac_breth
 
           ! T(i,j,k) = T(i,j,k) + dT
           ptr_nh_prog%theta_v(jc,jk,jb) = ( T_bb13 + dT ) / ptr_nh_prog%exner(jc,jk,jb)
+
+          ptr_nh_prog%rho    (jc,jk,jb) = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd * p0ref   &
+                                                    /rd/ptr_nh_prog%theta_v(jc,jk,jb)
 
         ENDDO
         

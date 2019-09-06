@@ -382,6 +382,9 @@ MODULE mo_nh_wk_exp
   !!
   SUBROUTINE init_nh_buble_wk( ptr_patch, p_metrics, ptr_nh_prog, ptr_nh_diag )
 
+
+  USE mo_math_utilities,      ONLY: plane_torus_distance
+
     TYPE(t_patch), TARGET, INTENT(INOUT):: &  !< patch on which computation is performed
       &  ptr_patch
 
@@ -398,56 +401,60 @@ MODULE mo_nh_wk_exp
    REAL(wp)       :: z_lon_ctr, z_lat_ctr
    REAL(wp)       :: z_lon, z_lat, z_klev, z_cosr, z_r, z_h
    REAL(wp)       :: z_rR_2, z_hH_2, z_rad
+
+   REAL(wp) :: x_loc(3), x_c(3), x_bubble(3), dis
 !--------------------------------------------------------------------
 
     z_lon_ctr = bubctr_lon*deg2rad
     z_lat_ctr = bubctr_lat*deg2rad
 
-    ! number of vertical levels
+   ! number of vertical levels
    nlev   = ptr_patch%nlev
    nblks_c   = ptr_patch%nblks_c
    npromz_c  = ptr_patch%npromz_c
+
+  ! Bubble center : valid on the torus domain
+  x_bubble = (/bubctr_lon,bubctr_lat,bubctr_z/)
+
+  ! Non-dimensionalize the bubble center
+  x_c(1) = x_bubble(1) / bub_hor_width
+  x_c(2) = x_bubble(2) / bub_hor_width
+  x_c(3) = x_bubble(3) / bub_ver_width
+
 !$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc,x_loc,dis)
+  DO jb = 1, nblks_c
+    IF (jb /= nblks_c) THEN
+       nlen = nproma
+    ELSE
+       nlen = npromz_c
+    ENDIF
 
-!$OMP DO PRIVATE(jb,nlen,jk,jc, z_klev,z_lon, z_lat,z_cosr, z_r, z_h,z_rR_2, z_hH_2, z_rad )
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
-
-      DO jk = nlev, 1, -1
-            DO jc = 1, nlen
-            z_klev = 0.5_wp * ( p_metrics%z_ifc(jc,jk,jb) + &
-                       p_metrics%z_ifc(jc,jk+1,jb) )
-            z_lon = ptr_patch%cells%center(jc,jb)%lon
-            z_lat = ptr_patch%cells%center(jc,jb)%lat
-            z_cosr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr)
-            z_r = (grid_sphere_radius+z_klev)*ACOS(z_cosr)
-            z_h = z_klev-bubctr_z
-            z_rR_2= (z_r/bub_hor_width)**2
-            z_hH_2= (z_h/bub_ver_width)**2
-            z_rad=SQRT(z_rR_2+z_hH_2) 
-             IF (z_rad .LT. 1._wp ) THEN
-              ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) + &
-                           & bub_amp*COS(z_rad*pi/2._wp )**2  *               &
-                           &(1._wp + vtmpc1*ptr_nh_prog%tracer(jc,jk,jb,iqv))
-              ptr_nh_prog%rho(jc,jk,jb)   = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd    &
-                                          *p0ref/rd/ptr_nh_prog%theta_v(jc,jk,jb)
-
-             END IF
-            ENDDO !jc
-      ENDDO !jk     
-     ENDDO !jb
+    DO jc = 1 , nlen
+      DO jk = 1 , nlev
+        x_loc(1) = ptr_patch%cells%cartesian_center(jc,jb)%x(1)/bub_hor_width
+        x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
+        x_loc(3) = p_metrics%z_mc(jc,jk,jb)/bub_ver_width
+        dis = plane_torus_distance(x_loc,x_c,ptr_patch%geometry_info)
+        IF(dis < 1._wp)THEN
+          ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) + &
+               & bub_amp*COS(dis*pi/2._wp )**2  *               &
+               &(1._wp + vtmpc1*ptr_nh_prog%tracer(jc,jk,jb,iqv))
+          ptr_nh_prog%rho(jc,jk,jb) = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd  &
+               *p0ref/rd/ptr_nh_prog%theta_v(jc,jk,jb)
+        END IF
+      END DO !jk
+    END DO !jc
+  ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL
-        CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
-            &                     ptr_nh_prog, ptr_nh_diag,   &
-            &                     ptr_patch,                  &
-            &                     opt_calc_temp=.TRUE.,       &
-            &                     opt_calc_pres=.FALSE.,       &
-            &                     opt_rlend=min_rlcell_int )
+
+  CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
+                              ptr_nh_prog, ptr_nh_diag,   &
+                              ptr_patch,                  &
+                              opt_calc_temp=.TRUE.,       &
+                              opt_calc_pres=.FALSE.,       &
+                              opt_rlend=min_rlcell_int )
      
   END SUBROUTINE init_nh_buble_wk
 !--------------------------------------------------------------------
