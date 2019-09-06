@@ -51,9 +51,6 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
   USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
-#if defined( _OPENACC )
-  USE mo_mpi                   ,ONLY: i_am_accel_node, my_process_is_work
-#endif
 
   ! for 6hourly sst and ice data
   USE mo_time_config,          ONLY: time_config
@@ -128,9 +125,6 @@ CONTAINS
     INTEGER, POINTER :: ighg, isolrad, irad_o3, irad_aero
     TYPE(t_echam_phy_field) , POINTER    :: field
     !
-#ifdef _OPENACC
-    i_am_accel_node = .FALSE.    ! Deactivate GPUs
-#endif
     !
     jg        =  patch%id ! grid index
     ighg      => echam_rad_config(jg)% ighg
@@ -365,10 +359,6 @@ CONTAINS
     END IF
 
     END IF ! luse_rad
-
-#ifdef _OPENACC
-    i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
 
   END SUBROUTINE echam_phy_bcs
 

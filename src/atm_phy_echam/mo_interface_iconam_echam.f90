@@ -109,7 +109,6 @@ MODULE mo_interface_iconam_echam
   USE mo_art_config,            ONLY: art_config
 #if defined( _OPENACC )
   USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
-  USE mo_mpi                   ,ONLY: i_am_accel_node, my_process_is_work
 #endif
   !$ser verbatim USE mo_ser_iconam_echam, ONLY: serialize_iconam_input,&
   !$ser verbatim                                serialize_iconam_output
@@ -252,10 +251,6 @@ CONTAINS
     datetime_old      => newDatetime(datetime_new)
     datetime_old      =  datetime_new + neg_dt_loc_mtime
     CALL deallocateTimedelta(neg_dt_loc_mtime)
-
-#ifdef _OPENACC
-    i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
 
     !$ACC DATA PRESENT( pt_prog_old%vn, pt_prog_old%theta_v, pt_prog_old%exner,                 &
     !$ACC               pt_prog_old_rcf%tracer, pt_prog_new%vn, pt_prog_new%w, pt_prog_new%rho, &
@@ -1282,10 +1277,6 @@ ENDIF
     !$ser verbatim call serialize_iconam_output(jg, field, tend,&
     !$ser verbatim                    pt_int_state, p_metrics, pt_prog_old, pt_prog_old_rcf,&
     !$ser verbatim                    pt_prog_new, pt_prog_new_rcf, pt_diag)
-
-#ifdef _OPENACC
-      i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
 
     NULLIFY(field)
     NULLIFY(tend)

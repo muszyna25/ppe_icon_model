@@ -695,13 +695,11 @@ MODULE mo_nh_stepping
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
   call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, iforcing )
-  i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
   TIME_LOOP: DO
-
-#ifdef _OPENACC
-    i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#if defined( _OPENACC )
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
 #endif
     ! optional memory loggin
     CALL memory_log_add
@@ -863,10 +861,10 @@ MODULE mo_nh_stepping
     ! dynamics stepping
     !
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
-#ifdef _OPENACC
+
+#if defined( _OPENACC )
     i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
-
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
@@ -874,6 +872,9 @@ MODULE mo_nh_stepping
       CALL diag_for_output_dyn ()
       
       IF (iforcing == inwp) THEN
+#ifdef _OPENACC
+        CALL finish (routine, 'NWP: OpenACC version currently not implemented')
+#endif
         CALL aggr_landvars
 
         DO jg = 1, n_dom
@@ -931,7 +932,7 @@ MODULE mo_nh_stepping
 
       END IF !iforcing=inwp
 
-      IF (ntracer>0) THEN
+      IF (lart .AND. ntracer>0) THEN
          !
          ! Unit conversion for output from mass mixing ratios to densities
          ! and calculation of ART diagnostics
@@ -952,10 +953,9 @@ MODULE mo_nh_stepping
                  &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
          END DO
          !
-      END IF ! ntracer>0
+      END IF ! lart .AND. ntracer>0
 
     ENDIF
-
 
     ! Adapt number of dynamics substeps if necessary
     !
@@ -985,6 +985,9 @@ MODULE mo_nh_stepping
     ! update accumlated values
     CALL update_statistics
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
+#ifdef _OPENACC
+      CALL finish (routine, 'update_opt_acc: OpenACC version currently not implemented')
+#endif
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
         &                 p_nh_state(1)%prog(nnow(1))%rho, &
@@ -1008,6 +1011,9 @@ MODULE mo_nh_stepping
       IF (output_mode%l_nml        .AND. &    ! meteogram output is only initialized for nml output
         & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
+#ifdef _OPENACC
+        CALL finish (routine, 'meteogram_sample_vars: OpenACC version currently not implemented')
+#endif
         CALL meteogram_sample_vars(jg, jstep, mtime_current)
       END IF
     END DO
@@ -1028,6 +1034,9 @@ MODULE mo_nh_stepping
 #ifdef NOMPI
       IF (my_process_is_mpi_all_seq()) &
 #endif
+#ifdef _OPENACC
+        CALL finish (routine, 'supervise_total_integrals_nh: OpenACC version currently not implemented')
+#endif
         CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state, p_int_state(1:), &
         &                                  nnow(1:n_dom), nnow_rcf(1:n_dom), jstep == (nsteps+jstep0))
     ENDIF
@@ -1041,6 +1050,9 @@ MODULE mo_nh_stepping
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
     IF (is_avgFG_time(mtime_current)) THEN
       IF (p_nh_state(1)%diag%nsteps_avg(1) == 0) THEN
+#ifdef _OPENACC
+        CALL finish (routine, 'reinit_average_first_guess: OpenACC version currently not implemented')
+#endif
         CALL reinit_average_first_guess(p_patch(1), p_nh_state(1)%diag, p_nh_state(1)%prog(nnow_rcf(1)))
       END IF
     ENDIF
@@ -1133,6 +1145,9 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0 .AND. .NOT.(jstep == 0 .AND. iau_iter == 1)) THEN
+#ifdef _OPENACC
+      CALL finish (routine, 'recv_latbc_data: OpenACC version currently not implemented')
+#endif
       latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
       CALL recv_latbc_data(latbc               = latbc,              &
         &                  p_patch             = p_patch(1),         &
@@ -1172,6 +1187,7 @@ MODULE mo_nh_stepping
     ENDIF
 
     sim_time = getElapsedSimTimeInSeconds(mtime_current) 
+
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
@@ -1727,6 +1743,7 @@ MODULE mo_nh_stepping
                 &                         ,p_nh_state(jg)%prog(nnew(jg))             & !inout
                 &                         ,p_nh_state(jg)%prog(n_new_rcf)            & !inout
                 &                         ,p_nh_state(jg)%diag                       )
+
               !
               IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
@@ -2509,8 +2526,8 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE diag_for_output_dyn ()
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_nh_stepping:diag_for_output_dyn'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+     &  routine = 'mo_nh_stepping:diag_for_output_dyn'
 
     ! Local variables
     INTEGER :: jg, jgc, jn ! loop indices
@@ -2545,7 +2562,10 @@ MODULE mo_nh_stepping
       IF (ldeepatmo) THEN
         ! Modify divergence and vorticity for spherical geometry 
 
-        ! Note: not yet Open-ACC-parallelized!
+#if defined(_OPENACC)
+      CALL finish (routine, 'deepatmo:  OpenACC version currently not implemented')
+#endif
+
 
 #ifndef _OPENACC
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)

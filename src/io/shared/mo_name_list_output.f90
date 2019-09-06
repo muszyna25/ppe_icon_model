@@ -134,6 +134,9 @@ MODULE mo_name_list_output
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
+#ifdef _OPENACC
+  USE mo_mpi,                       ONLY: i_am_accel_node
+#endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta,             &
@@ -966,6 +969,9 @@ CONTAINS
       post_op_apply &
            = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
       IF ( post_op_apply ) THEN
+#ifdef _OPENACC
+        CALL finish(routine,'perform_post_op not supported on GPUs')
+#endif
         IF (idata_type == iREAL) THEN
           alloc_shape = SHAPE(r_ptr)
           IF (ALLOCATED(r_ptr_m)) THEN
@@ -1309,6 +1315,17 @@ CONTAINS
            ": internal error! unhandled info%ndims=", info%ndims
       GO TO 999
     END SELECT
+
+#if 0
+    IF      (ASSOCIATED(r_ptr_5d)) THEN
+!$ACC UPDATE HOST(r_ptr)
+    ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
+!$ACC UPDATE HOST(s_ptr)
+    ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
+!$ACC UPDATE HOST(i_ptr)
+    ENDIF
+#endif
+
     RETURN
 999 CALL finish(routine,message_text)
 
