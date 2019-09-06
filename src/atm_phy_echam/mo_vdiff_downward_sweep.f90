@@ -122,11 +122,11 @@ CONTAINS
 
     ! Variables with intent(out)
 
-    REAL(wp),INTENT(OUT) :: pqsat_tile(:,:) !< (kbdim,ksfc_type) saturation specific     out
+    REAL(wp),INTENT(OUT) :: pqsat_tile(:,:)   !< (kbdim,ksfc_type) saturation specific
                                               !< humidity at sfc.
                                               !< (step t-dt)
 
-    REAL(wp),INTENT(OUT) :: phdtcbl(:)  !< (kbdim) height of the top of the atmospheric dry
+    REAL(wp),INTENT(OUT) :: phdtcbl(:)    !< (kbdim) height of the top of the atmospheric dry
                                           !< convective boundary layer
 
     REAL(wp),INTENT(OUT) ::      &   ! out

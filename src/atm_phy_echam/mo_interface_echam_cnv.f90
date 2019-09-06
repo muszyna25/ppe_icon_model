@@ -82,7 +82,7 @@ CONTAINS
 
     LOGICAL  :: ldland(nproma)               !< land sea mask for using dlev_land or dlev_ocean
 
-    INTEGER  :: ictop(nproma)                !< level index of cnovective cloud top
+    INTEGER  :: ictop(nproma)                !< level index of convective cloud top
     REAL(wp) :: ztop(nproma)                 !< convective cloud top pressure   [Pa]
     REAL(wp) :: zta    (nproma,nlev)         !< provisional temperature         [K]
     REAL(wp), TARGET :: zqtrc  (nproma,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]

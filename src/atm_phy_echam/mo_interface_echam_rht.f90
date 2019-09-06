@@ -392,8 +392,6 @@ CONTAINS
             !$ACC END PARALLEL
             !$ACC END DATA
           END IF
-
-          !$ACC END DATA
        END SELECT
        !
     ELSE
