@@ -515,8 +515,8 @@ CONTAINS
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
 
     REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
-    REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)        !  allocatable?
-    REAL(wp)              :: fwf_fac !,frac_oce
+    REAL(wp)              :: frac_oce(nproma,p_patch%alloc_cell_blocks)
+    REAL(wp)              :: fwf_fac
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -577,6 +577,25 @@ CONTAINS
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !
     write_coupler_restart = .FALSE.
+
+    ! Calculate fractionla ocean mask 
+    ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
+    !  - lake part is included in land part, must be subtracted as well
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+    DO i_blk = 1, p_patch%nblks_c
+      nn = (i_blk-1)*nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
+           frac_oce(n,i_blk) = 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd) - prm_field(jg)%alake(n,i_blk)
+      ENDDO
+    ENDDO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
 
     !
     ! ------------------------------
@@ -655,7 +674,6 @@ CONTAINS
     !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
     buffer(:,:)   = 0.0_wp  ! temporarily
-    frac_oce(:,:) = 0.0_wp  ! for dbg
     scr(:,:)      = 0.0_wp
     !
     ! Preliminary: hard-coded correction factor for freshwater imbalance stemming from the atmosphere
@@ -710,11 +728,9 @@ CONTAINS
           buffer(nn+n,1) = (prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk))*fwf_fac
           buffer(nn+n,2) = (prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk))*fwf_fac
     
-          ! evaporation over ice-free and ice-covered water fraction, of whole ocean part, without land part
-          !  - lake part is included in land part, must be subtracted as well
-          frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+          ! evaporation over ice-free and ice-covered water fraction, of whole ocean part,
+          ! without land part and lake part, see frac_oce
 
-          !IF (frac_oce <= 0.0_wp) THEN
           IF (frac_oce(n,i_blk) <= 0.0_wp) THEN
             ! land part is zero
             buffer(nn+n,3) = 0.0_wp
@@ -996,8 +1012,7 @@ CONTAINS
         END IF
         DO n = 1, nlen
 
-          !  - lake part is included in land part, must be subtracted as well
-          frac_oce(n,i_blk)= 1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)-prm_field(jg)%alake(n,i_blk)
+          !  - lake part is included in land part, must be subtracted as well, see frac_oce
 
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%ts_tile(n,i_blk,iwtr) = dummy
