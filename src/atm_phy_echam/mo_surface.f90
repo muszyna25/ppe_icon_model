@@ -22,7 +22,7 @@ MODULE mo_surface
 #ifdef __NO_ICON_OCEAN__
   USE mo_exception,         ONLY: finish
 #endif
-
+  USE mo_coupling_config,   ONLY: is_coupled_run
   USE mo_physical_constants,ONLY: grav, Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
   USE mo_echam_phy_config,  ONLY: echam_phy_config
   USE mo_echam_phy_memory,  ONLY: cdimissval
@@ -260,8 +260,8 @@ CONTAINS
     ! Sea ice
     REAL(wp) :: Tfw(kbdim)
     REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice), conc_sum(kbdim)
-
-    LOGICAL :: mask(kbdim)
+    REAL(wp) :: frac_mask(kbdim)
+    LOGICAL  :: mask(kbdim)
 
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 
@@ -910,8 +910,15 @@ CONTAINS
         pevap_tile     (jcs:kproma,jsfc) = cdimissval
       !  pshflx_tile    (jcs:kproma,jsfc) = cdimissval
       !  plhflx_tile    (jcs:kproma,jsfc) = cdimissval
-        ptsfc_tile     (jcs:kproma,jsfc) = cdimissval
       END WHERE
+
+      ! For the coupled configuration a fractional mask has to be applied further down.
+      IF ( .NOT. is_coupled_run() ) THEN
+        WHERE (mask(jcs:kproma))
+          ptsfc_tile  (jcs:kproma,jsfc) = cdimissval
+        END WHERE
+      END IF
+
       ! land only
       IF (jsfc == idx_lnd) THEN
         WHERE (mask(jcs:kproma))
@@ -924,6 +931,23 @@ CONTAINS
         END WHERE
       END IF
     END DO
+
+    ! Apply fractional mask as later used in interface_echam_ocean for coupling
+    IF ( is_coupled_run() ) THEN
+      frac_mask(jcs:kproma) = 1.0_wp-pfrc(jcs:kproma,idx_lnd)-alake(jcs:kproma)
+      DO jsfc=1,ksfc_type
+        IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN
+          WHERE ( frac_mask(jcs:kproma) > EPSILON(1.0_wp) )
+             ptsfc_tile (jcs:kproma,jsfc) = cdimissval
+          END WHERE
+        ELSE ! jsfc == idx_lnd
+          mask(jcs:kproma) = pfrc(jcs:kproma,jsfc) <= 0._wp
+          WHERE ( mask(jcs:kproma) )
+             ptsfc_tile (jcs:kproma,jsfc) = cdimissval
+          END WHERE
+        END IF
+      ENDDO
+    ENDIF
 
     !----------------------------------------------------------------------------
     ! For consistency z0m_tile for ice is masked out here
