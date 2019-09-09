@@ -1017,7 +1017,7 @@ CONTAINS
            !ENDIF
            !
            !!   > slo: using frac_oce>0., constant fractional lsm contains ocean part
-           IF ( frac_oce(n,i_blk) > 0.0_wp ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+           IF ( frac_oce(n,i_blk) > EPSILON(1.0_wp) ) prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
            !  for dbg_print only
            IF ( idbg_mxmn >= 1 .OR. idbg_val >=1 ) THEN
              IF ( frac_oce(n,i_blk) > 0.0_wp ) THEN
