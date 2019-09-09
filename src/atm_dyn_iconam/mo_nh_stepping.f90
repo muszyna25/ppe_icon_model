@@ -862,13 +862,9 @@ MODULE mo_nh_stepping
     !
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
 
-#if defined( _OPENACC )
-    i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
-
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
-      
+    
       CALL diag_for_output_dyn ()
       
       IF (iforcing == inwp) THEN
@@ -957,7 +953,7 @@ MODULE mo_nh_stepping
 
     ENDIF
 
-    ! Adapt number of dynamics substeps if necessary
+! Adapt number of dynamics substeps if necessary
     !
     IF (lcfl_watch_mode .OR. MOD(jstep-jstep_shift,5) == 0) THEN
       CALL set_ndyn_substeps(lcfl_watch_mode)
@@ -2538,6 +2534,7 @@ MODULE mo_nh_stepping
 
     REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
 
+
     IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
     DO jg = 1, n_dom
@@ -2552,18 +2549,23 @@ MODULE mo_nh_stepping
 
       CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
                                  p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%u, p_nh_state(jg)%diag%v ) IF (i_am_accel_node)
 
       !CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
       CALL div_avg(p_vn, p_patch(jg), p_int_state(jg),p_int_state(jg)%c_bln_avg,&
                                                           p_nh_state(jg)%diag%div)
 
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%div ) IF (i_am_accel_node)
+
       CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
+
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%omega_z ) IF (i_am_accel_node)
 
       IF (ldeepatmo) THEN
         ! Modify divergence and vorticity for spherical geometry 
 
 #if defined(_OPENACC)
-      CALL finish (routine, 'deepatmo:  OpenACC version currently not implemented')
+        CALL finish (routine, 'deepatmo:  OpenACC version currently not implemented')
 #endif
 
 
@@ -2622,6 +2624,11 @@ MODULE mo_nh_stepping
       CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &
         p_int_state(jg)%verts_aw_cells, p_nh_state(jg)%diag%vor)
 
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%vor ) IF (i_am_accel_node)
+
+#if defined( _OPENACC )
+    i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
 
       CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
         &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
