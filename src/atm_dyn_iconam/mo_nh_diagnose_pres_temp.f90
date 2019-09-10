@@ -236,6 +236,13 @@ MODULE mo_nh_diagnose_pres_temp
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+
+!$ACC UPDATE HOST( pt_diag%temp, pt_diag%tempv ) IF (i_am_accel_node)
+!$ACC UPDATE HOST( pt_diag%temp_ifc ) IF (i_am_accel_node)
+!$ACC UPDATE HOST( pt_diag%pres_sfc, pt_diag%pres_ifc ) IF (i_am_accel_node)
+!$ACC UPDATE HOST( pt_diag%pres, pt_diag%dpres_mc ) IF (i_am_accel_node)
+
     !$ACC END DATA
     
     IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)

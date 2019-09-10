@@ -2626,10 +2626,6 @@ MODULE mo_nh_stepping
 
 !$ACC UPDATE HOST( p_nh_state(jg)%diag%vor ) IF (i_am_accel_node)
 
-#if defined( _OPENACC )
-    i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
-
       CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
         &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
         &                      p_nh_state(jg)%diag,p_patch(jg),                       &
@@ -2638,6 +2634,10 @@ MODULE mo_nh_stepping
         &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav       )
 
     ENDDO ! jg-loop
+
+#if defined( _OPENACC )
+    i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
 
     ! Fill boundaries of nested domains
     DO jg = n_dom, 1, -1
