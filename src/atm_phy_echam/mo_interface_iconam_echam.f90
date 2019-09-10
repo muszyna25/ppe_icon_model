@@ -1284,7 +1284,8 @@ ENDIF
     IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
 #if defined( _OPENACC )
-    CALL gpu_d2h_iconam_echam(patch)
+!!!  This has been deactivated in merge_candidate_8_no_updates; it is only a debugging placeholder
+!!!    CALL gpu_d2h_iconam_echam(patch)
 #endif
     !=====================================================================================
     !

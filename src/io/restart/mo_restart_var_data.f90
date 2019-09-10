@@ -33,6 +33,9 @@ MODULE mo_restart_var_data
 #ifndef __NO_ICON_ATMO__
   USE mo_ha_dyn_config, ONLY: ha_dyn_config
 #endif
+#ifdef _OPENACC
+  USE mo_mpi,                       ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -239,6 +242,7 @@ CONTAINS
       CASE (3)
         levelPointers(1)%p => varData(:,:,nindex,1,1)
       END SELECT
+!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node )
     ELSE
       DO jk = 1, nlevs
         SELECT CASE(var_ref_pos)
@@ -251,6 +255,7 @@ CONTAINS
         CASE (4)
           levelPointers(jk)%p => varData(:,jk,:,nindex,1)
         END SELECT
+!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node )
       END DO
     END IF
   END SUBROUTINE getLevelPointers_dp
@@ -279,6 +284,7 @@ CONTAINS
       CASE (3)
         levelPointers(1)%p => varData(:,:,nindex,1,1)
       END SELECT
+!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node )
      ELSE
        DO jk = 1, nlevs
          SELECT CASE(var_ref_pos)
@@ -291,6 +297,7 @@ CONTAINS
          CASE (4)
            levelPointers(jk)%p => varData(:,jk,:,nindex,1)
          END SELECT
+!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node )
        END DO
     END IF
   END SUBROUTINE getLevelPointers_sp
@@ -319,6 +326,7 @@ CONTAINS
       CASE (3)
         levelPointers(1)%p => varData(:,:,nindex,1,1)
       END SELECT
+!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node )
     ELSE
       DO jk = 1, nlevs
         SELECT CASE(var_ref_pos)
@@ -331,6 +339,7 @@ CONTAINS
         CASE (4)
           levelPointers(jk)%p => varData(:,jk,:,nindex,1)
         END SELECT
+!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node )
       END DO
     END IF
   END SUBROUTINE getLevelPointers_int

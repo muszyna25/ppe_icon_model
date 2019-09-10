@@ -698,9 +698,7 @@ MODULE mo_nh_stepping
 #endif
 
   TIME_LOOP: DO
-#if defined( _OPENACC )
-  i_am_accel_node = my_process_is_work()    ! Activate GPUs
-#endif
+
     ! optional memory loggin
     CALL memory_log_add
 
@@ -953,6 +951,7 @@ MODULE mo_nh_stepping
 
     ENDIF
 
+
 ! Adapt number of dynamics substeps if necessary
     !
     IF (lcfl_watch_mode .OR. MOD(jstep-jstep_shift,5) == 0) THEN
@@ -990,7 +989,7 @@ MODULE mo_nh_stepping
         &                 p_nh_state(1)%diag,              &
         &                 p_patch(1)%cells%owned,          &
         &                 p_patch(1)%nlev)
-    IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc)
+      IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
 
     ! output of results
@@ -1187,7 +1186,6 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
-  i_am_accel_node = my_process_is_work()    ! Activate GPUs
   CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, iforcing )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
@@ -1844,7 +1842,7 @@ MODULE mo_nh_stepping
         IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
           
           IF (latbc_config%nudge_hydro_pres) CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 2, &
-            p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp)
+            p_nh_state(jg)%diag%pres, p_nh_state(jg)%diag%temp, opt_varname="diag%pres and diag%temp")
           
           IF (num_prefetch_proc >= 1) THEN
             
@@ -2635,10 +2633,6 @@ MODULE mo_nh_stepping
 
     ENDDO ! jg-loop
 
-#if defined( _OPENACC )
-    i_am_accel_node = .FALSE.                 ! Deactivate GPUs
-#endif
-
     ! Fill boundaries of nested domains
     DO jg = n_dom, 1, -1
 
@@ -2646,7 +2640,7 @@ MODULE mo_nh_stepping
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
-        p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div)
+        p_nh_state(jg)%diag%v, p_nh_state(jg)%diag%div, opt_varname="u, v and div")
 
 
       DO jn = 1, p_patch(jg)%n_childdom

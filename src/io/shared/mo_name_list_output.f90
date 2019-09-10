@@ -1316,15 +1316,13 @@ CONTAINS
       GO TO 999
     END SELECT
 
-#if 0
     IF      (ASSOCIATED(r_ptr_5d)) THEN
-!$ACC UPDATE HOST(r_ptr)
+!$ACC UPDATE HOST(r_ptr) IF ( i_am_accel_node )
     ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
-!$ACC UPDATE HOST(s_ptr)
+!$ACC UPDATE HOST(s_ptr) IF ( i_am_accel_node )
     ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
-!$ACC UPDATE HOST(i_ptr)
+!$ACC UPDATE HOST(i_ptr) IF ( i_am_accel_node )
     ENDIF
-#endif
 
     RETURN
 999 CALL finish(routine,message_text)
