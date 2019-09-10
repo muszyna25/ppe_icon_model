@@ -1085,9 +1085,8 @@ CONTAINS
           !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
           !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk)
               tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk)
@@ -1113,9 +1112,8 @@ CONTAINS
           !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
           !$ACC               field%qtrc, tend_qtrc_vdf )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk)     *pdtime
               field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk)     *pdtime
