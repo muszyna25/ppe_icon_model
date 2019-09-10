@@ -37,7 +37,8 @@ MODULE mo_cuinitialize
   USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: cpd, cpv, vtmpc1, alv, als, tmelt
   USE mo_echam_cnv_config,     ONLY: echam_cnv_config
-  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline
+  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline,            &
+   &                                 prepare_ua_index_spline_batch,lookup_ua_spline_batch
   USE mo_cuadjust,             ONLY: cuadjtq
 
   IMPLICIT NONE
@@ -91,7 +92,8 @@ CONTAINS
       &        pxtu(kbdim,klev,ktrac),    pxtd(kbdim,klev,ktrac),                    &
       &        pmfuxt(kbdim,klev,ktrac),  pmfdxt(kbdim,klev,ktrac)
     REAL(wp):: za(kbdim),                 ua(kbdim)
-    INTEGER :: idx(kbdim)
+    REAL(wp):: za_batch(kbdim,klev),      ua_batch(kbdim,klev)
+    INTEGER :: idx(kbdim),                idx_batch(kbdim,klev)
     INTEGER :: jk, jl, jt, ik, icall
     REAL(wp):: zcpm, zzs
     LOGICAL :: llo1
@@ -105,13 +107,15 @@ CONTAINS
     !$ACC               puu, pvu, pud, pvd, pmfu, pmfd, pmfus, pmfds, pmfuq, pmfdq,     &
     !$ACC               pdmfup, pdmfdp, pcpen, pcpcu, palvsh, pdpmel, plu, plude, pqude,&
     !$ACC               klab )                                                          &
-    !$ACC       CREATE( zwmax, zph, loidx, ua, za, idx )
+    !$ACC       CREATE( zwmax, zph, loidx, ua, za, idx, ua_batch, za_batch, idx_batch )
     !---------------------------------------------------------------------------------
     !
     !*    1.  Specify large scale parameters at half levels, adjust temperature
     !*        fields if staticly unstable, find level of maximum vert. velocity
     !         -----------------------------------------------------------------
     !
+
+#ifndef _OPENACC
     DO jk=1,klev
 
       CALL prepare_ua_index_spline(jg,'cuini',jcs,kproma,pten(:,jk),idx(:),za(:), &
@@ -121,8 +125,7 @@ CONTAINS
 
 
 !IBM* NOVECTOR
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
       DO jl=jcs,kproma
 
         pqsen(jl,jk)=ua(jl)/papp1(jl,jk)
@@ -131,8 +134,27 @@ CONTAINS
 
         pcpen(jl,jk)=cpd+(cpv-cpd)*pqen(jl,jk) ! cp of moist air for comp. of fluxes
       END DO
-      !$ACC END PARALLEL
     END DO
+#else
+    CALL prepare_ua_index_spline_batch(jg,'cuini',jcs,kproma,klev,  &
+                                       pten,idx_batch,za_batch,     &
+                                       kblock=jb, kblock_size=kbdim)
+    CALL lookup_ua_spline_batch(jcs,kproma,klev,idx_batch,za_batch,ua_batch)
+
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+    DO jk=1,klev
+      DO jl=jcs,kproma
+
+        pqsen(jl,jk)=ua_batch(jl,jk)/papp1(jl,jk)
+        pqsen(jl,jk)=MIN(0.5_wp,pqsen(jl,jk))
+        pqsen(jl,jk)=pqsen(jl,jk)/(1._wp-vtmpc1*pqsen(jl,jk))
+
+        pcpen(jl,jk)=cpd+(cpv-cpd)*pqen(jl,jk) ! cp of moist air for comp. of fluxes
+      END DO
+    END DO
+#endif
+
+    !$acc wait
     !
     DO jk=2,klev
 !IBM* NOVECTOR
@@ -250,8 +272,7 @@ CONTAINS
     DO jk=1,klev
       ik=jk-1
       IF(jk.EQ.1) ik=1
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
       DO jl=jcs,kproma
         ptu(jl,jk)=ptenh(jl,jk)
         ptd(jl,jk)=ptenh(jl,jk)
@@ -275,11 +296,8 @@ CONTAINS
         pqude(jl,jk)=0._wp
         klab(jl,jk)=0
       END DO
-      !$ACC END PARALLEL
-      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
-      !$ACC LOOP SEQ
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( ktrac > 0 )
       DO jt=1,ktrac
-        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           pxtu(jl,jk,jt)=pxtenh(jl,jk,jt)
           pxtd(jl,jk,jt)=pxtenh(jl,jk,jt)
@@ -287,9 +305,10 @@ CONTAINS
           pmfdxt(jl,jk,jt)=0._wp
         END DO
       END DO
-      !$ACC END PARALLEL
       !
     END DO
+    !
+    !$ACC WAIT
     !
     !$ACC END DATA
     !$ACC END DATA
