@@ -76,8 +76,11 @@ MODULE mo_echam_convect_tables
   PUBLIC :: flookupoverflow
 
   PUBLIC :: prepare_ua_index_spline
+  PUBLIC :: prepare_ua_index_spline_batch
 
   PUBLIC :: lookup_ua_spline
+  PUBLIC :: lookup_ua_spline_batch
+
   PUBLIC :: lookup_uaw_spline
   PUBLIC :: lookup_ua_eor_uaw_spline
 
@@ -498,6 +501,43 @@ CONTAINS
 
   END SUBROUTINE fetch_ua_spline
   !----------------------------------------------------------------------------
+  SUBROUTINE fetch_ua_spline_batch(jcs,jce,batch_size,idx,zalpha,table,ua,dua)
+    INTEGER,            INTENT(in)  :: jcs, jce, batch_size
+    INTEGER,            INTENT(in)  :: idx(:, :)
+    REAL(wp),           INTENT(in)  :: zalpha(:, :)
+    REAL(wp),           INTENT(in)  :: table(1:2,lucupmin-2:lucupmax+1)
+    REAL(wp), OPTIONAL, INTENT(out) :: ua(:, :), dua(:, :)
+
+    REAL(wp) :: a, b, c, d, dx, ddx, x, bxa
+    INTEGER :: jl, id, batch
+    LOGICAL :: need_dua
+
+    need_dua = PRESENT(dua)
+
+    !$ACC DATA PRESENT( dua ) IF ( need_dua )
+    !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT( ua, idx, zalpha, table ) GANG VECTOR COLLAPSE(2) ASYNC(1)
+    DO batch = 1,batch_size
+      DO jl = jcs,jce
+        x = zalpha(jl,batch)
+        ! derivative and second derivative approximations (2 flops)
+        id   = idx(jl,batch)
+        dx   = table(1,id+1) - table(1,id)
+        ddx  = table(2,id+1) + table(2,id)
+        ! determine coefficients (2 fma + 1 flop)
+        a = ddx - 2.0_wp*dx
+        b = 3.0_wp*dx - ddx - table(2,id)
+        c = table(2,id)
+        d = table(1,id)
+        ! Horner's scheme to compute the spline functions (3 fmas)
+        bxa = b + x*a
+        ua(jl,batch) = d + x*(c + x*bxa)
+        IF ( need_dua ) dua(jl,batch) = rsdeltat*(c + x*(3.0_wp*bxa - b))
+      END DO
+    END DO
+    !$ACC END DATA
+
+  END SUBROUTINE fetch_ua_spline_batch
+  !----------------------------------------------------------------------------
   SUBROUTINE fetch_ua(size, idx, table, u)
     INTEGER,  INTENT(in)  :: size
     INTEGER,  INTENT(in)  :: idx(size)
@@ -689,6 +729,16 @@ CONTAINS
 
   END SUBROUTINE lookup_ua_spline
   !----------------------------------------------------------------------------
+  SUBROUTINE lookup_ua_spline_batch(jcs, jce, batch_size, idx, zalpha, ua, dua)
+    INTEGER,            INTENT(in)  :: jcs, jce, batch_size
+    INTEGER,            INTENT(in)  :: idx(:,:)
+    REAL(wp),           INTENT(in)  :: zalpha(:,:)
+    REAL(wp), OPTIONAL, INTENT(out) :: ua(:,:), dua(:,:)
+
+    CALL fetch_ua_spline_batch(jcs, jce, batch_size, idx, zalpha, tlucu, ua, dua)
+
+  END SUBROUTINE lookup_ua_spline_batch
+  !----------------------------------------------------------------------------
   SUBROUTINE lookup_ua(size, idx, ua, dua)
     INTEGER,            INTENT(in)    :: size
     INTEGER,            INTENT(in)    :: idx(size)
@@ -822,6 +872,91 @@ CONTAINS
     !$ACC END DATA
 
   END SUBROUTINE prepare_ua_index_spline
+  !----------------------------------------------------------------------------
+  SUBROUTINE prepare_ua_index_spline_batch(jg, name, jcs, jce, batch_size,  &
+    &                                      temp, idx, zalpha,               &
+    &                                      xi, nphase, zphase, iphase,      &
+    &                                      kblock, kblock_size)
+    INTEGER,            INTENT(in)  :: jg
+    CHARACTER(len=*),   INTENT(in)  :: name
+    INTEGER,            INTENT(in)  :: jcs, jce, batch_size ! start and end index of block
+    REAL(wp),           INTENT(in)  :: temp(:,:)
+    INTEGER,            INTENT(out) :: idx(:,:)
+    REAL(wp),           INTENT(out) :: zalpha(:,:)
+
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock
+    INTEGER,  OPTIONAL, INTENT(in)  :: kblock_size
+
+    REAL(wp), OPTIONAL, INTENT(in)  :: xi(:,:)
+    INTEGER,  OPTIONAL, INTENT(out) :: nphase(:)
+    REAL(wp), OPTIONAL, INTENT(out) :: zphase(:,:)
+    INTEGER,  OPTIONAL, INTENT(out) :: iphase(:,:)
+
+    REAL(wp) :: ztt, ztshft, ztmin,ztmax,znphase,ztest
+    INTEGER :: jl, batch, zoutofbounds
+
+    ! Shortcuts to components of echam_cld_config
+    !
+    REAL(wp) :: csecfrl, cthomi
+    !
+    !$ACC DATA PRESENT( temp, idx, zalpha )
+    !$ACC DATA PRESENT( xi ) IF( PRESENT(xi) )
+    !$ACC DATA PRESENT( zphase ) IF( PRESENT(zphase) )
+    !$ACC DATA PRESENT( iphase ) IF( PRESENT(iphase) )
+
+    !
+    csecfrl = echam_cld_config(jg)%csecfrl
+    cthomi  = echam_cld_config(jg)%cthomi
+
+    zoutofbounds = 0
+    ztmin = flucupmin
+    ztmax = flucupmax
+    IF (PRESENT(xi)) THEN
+      ! DA: This part has to better be implemented (if needed)
+      ! with array reduction coming in the OpenACC 2.7
+      WRITE ( 0 , * ) 'Not implemented!'
+      CALL lookuperror(name, 'prepare_ua_index_spline_batch')
+    ELSE
+      !$ACC PARALLEL LOOP DEFAULT(NONE) REDUCTION( +:zoutofbounds ) GANG VECTOR COLLAPSE(2) ASYNC(1)
+      DO batch = 1,batch_size
+        DO jl = jcs, jce
+          ztshft = FSEL(tmelt-temp(jl,batch),1.0_wp,0.0_wp)
+          ztt = rsdeltat*temp(jl,batch)
+          zalpha(jl,batch) = ztt - AINT(ztt)
+          idx(jl,batch) = INT(ztt-ztshft)
+          IF ( ztt <= ztmin .OR. ztt >= ztmax ) zoutofbounds = zoutofbounds + 1
+        END DO
+      END DO
+    END IF
+    ! if one index was out of bounds -> print error and exit
+    IF (zoutofbounds > 0) THEN
+      IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) ) THEN
+        !$ACC UPDATE HOST( temp )
+        ! tied to patch(1), does not yet work for nested grids
+        DO batch = 1,batch_size
+          DO jl = jcs, jce
+            ztt = rsdeltat*temp(jl,batch)
+            IF ( ztt <= ztmin .OR. ztt >= ztmax ) THEN
+              WRITE ( 0 , '(a,a,a,a,i5,a,i8,a,f8.2,a,f8.2,a,f8.2)' )                               &
+                 & ' Lookup table problem in ', TRIM(name), ' at ',                                &
+                 & ' level   =',batch,                                                             &
+                 & ' cell ID =',p_patch(1)%cells%decomp_info%glb_index((kblock-1)*kblock_size+jl), &
+                 & ' lon(deg)=',p_patch(1)%edges%center(jl,kblock)%lon*rad2deg,                    &
+                 & ' lat(deg)=',p_patch(1)%edges%center(jl,kblock)%lat*rad2deg,                    &
+                 & ' value   =',temp(jl,batch)
+            ENDIF
+          ENDDO
+        ENDDO
+      ENDIF
+      CALL lookuperror(name, 'prepare_ua_index_spline_batch')
+    END IF
+
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
+
+  END SUBROUTINE prepare_ua_index_spline_batch
   !----------------------------------------------------------------------------
   SUBROUTINE prepare_ua_index(jg, name, size, temp, idx, xi, nphase, zphase, iphase)
     INTEGER,            INTENT(in)  :: jg
