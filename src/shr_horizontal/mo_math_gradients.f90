@@ -1077,9 +1077,9 @@ ENDIF
 
   END SUBROUTINE grad_green_gauss_cell_adv
 
-SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,       &
-    &                                     opt_slev, opt_elev, opt_rlstart, opt_rlend)
-  !
+SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,         &
+    &                                   opt_slev, opt_elev, opt_rlstart, opt_rlend, &
+    &                                   opt_acc_async)
   !
   !  patch on which computation is performed
   !
@@ -1099,6 +1099,7 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
 
   INTEGER, INTENT(in), OPTIONAL :: opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
 
+  LOGICAL, INTENT(IN), OPTIONAL :: opt_acc_async
   !
   ! cell based Green-Gauss reconstructed geographical gradient vector
   !
@@ -1139,7 +1140,6 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
     rl_end = min_rlcell
   END IF
 
-
   iidx => ptr_patch%cells%neighbor_idx
   iblk => ptr_patch%cells%neighbor_blk
 
@@ -1150,7 +1150,7 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
   !
 
 !$ACC DATA PCOPYIN( p_ccpr ) PCOPYOUT( p_grad )                                     &
-!$ACC      PRESENT( ptr_int%geofac_grg, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
+!$ACC      PRESENT( ptr_int, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_ccpr ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -1164,7 +1164,7 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on ) 
 #ifdef __LOOP_EXCHANGE
       !$ACC LOOP GANG
       DO jc = i_startidx, i_endidx
@@ -1173,7 +1173,6 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
         DO jk = slev, elev
 #else
 
-! DA TODO: hot kernel, investigate performance
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
@@ -1237,8 +1236,15 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_grad ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( p_grad ) WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      IF ( opt_acc_async ) THEN
+        RETURN
+      END IF
+    END IF
+    !$ACC WAIT
 
   END SUBROUTINE grad_green_gauss_cell_dycore
 
