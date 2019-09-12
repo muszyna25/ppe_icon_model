@@ -24,7 +24,10 @@ MODULE mo_turbulence_diag
   USE mo_kind,              ONLY: wp
   USE mo_convect_tables,    ONLY: prepare_ua_index_spline, lookup_ua_spline, &
     &                             compute_qsat
-!!$  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline, lookup_ua_spline
+
+  ! DA: is it fine??
+  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline_batch, lookup_ua_spline_batch
+
   USE mo_echam_vdf_config,  ONLY: echam_vdf_config
   USE mo_echam_vdiff_params,ONLY: ckap, cb,cc, chneu, da1,                  &
     &                             eps_shear, eps_corio, totte_min, cons5,   &
@@ -161,6 +164,14 @@ CONTAINS
 
     REAL(wp) :: zonethird
 
+#ifdef _OPENACC
+    ! DA: for GPU it's much better to collapse the jk and jl loops,
+    !     therefore we need to use 2D temporary arrays
+    INTEGER  :: idx_batch(kbdim,klev)
+    REAL(wp) :: za_batch (kbdim,klev), zua_batch(kbdim,klev)
+    REAL(wp) :: zpapm1i_s
+#endif
+
     ! Shortcuts to components of echam_vdf_config
     !
     REAL(wp) :: f_tau0, f_theta0, c_f, c_n, c_e, pr0, fbl
@@ -175,7 +186,8 @@ CONTAINS
     !---- Argument arrays - Module Variables
     !$ACC CREATE(zlh,ztheta,zthetav,zthetal,zqsat,km,kh,zlhmid,zdgmid) &
     !$ACC CREATE(zccovermid,zqxmid,zqmid,zqsatmid,zthetamid,zthetavmid,ztmid,ztvmid) &
-    !$ACC CREATE(ihpbl,ihpblc,ihpbld,idx,za,zhdyn,zpapm1i,zua)
+    !$ACC CREATE(ihpbl,ihpblc,ihpbld,idx,za,zhdyn,zpapm1i,zua) &
+    !$ACC CREATE(idx_batch,za_batch,zua_batch)
 
     f_tau0   = echam_vdf_config(jg)% f_tau0
     f_theta0 = echam_vdf_config(jg)% f_theta0
@@ -196,6 +208,7 @@ CONTAINS
     ! 2. NEW THERMODYNAMIC VARIABLES
     !-------------------------------------
 
+#ifndef _OPENACC
     DO 212 jk=1,klev
       CALL prepare_ua_index_spline('vdiff (1)',jcs,kproma,ptm1(:,jk),idx,za       &
       &                                       ,klev=jk,kblock=jb,kblock_size=kbdim)
@@ -233,9 +246,44 @@ CONTAINS
       !$ACC END PARALLEL
 212 END DO
 
+#else
+    ! DA: warning: those are from ECHAM convect tables!!
+    CALL prepare_ua_index_spline_batch(jg, 'vdiff (1)', jcs, kproma, klev, &
+      &                                ptm1, idx_batch, za_batch,          &
+      &                                kblock=jb,kblock_size=kbdim)
+    CALL lookup_ua_spline_batch(jcs, kproma, klev, idx_batch, za_batch, zua_batch)
+
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk=1,klev
+      DO jl=jcs,kproma
+        zpapm1i_s = 1._wp/papm1(jl,jk)
+        ztheta(jl,jk) = (p0ref*zpapm1i_s)**rd_o_cpd
+
+        ! Virtual dry static energy, potential temperature, virtual potential
+        ! temperature
+
+        pcptgz (jl,jk) = pghf(jl,jk)*grav+ptm1(jl,jk)*(cpd+(cpv-cpd)*pqm1(jl,jk))
+        ztheta (jl,jk) = ptm1(jl,jk)*ztheta(jl,jk)
+        zthetav(jl,jk) = ztheta(jl,jk)*(1._wp+vtmpc1*pqm1(jl,jk)-pxm1(jl,jk))
+
+        ! Latent heat, liquid (and ice) potential temperature
+
+        zlh(jl,jk)     = FSEL(ptm1(jl,jk)-tmelt,alv,als) ! latent heat
+        zusus1         = zlh(jl,jk)/cpd*ztheta(jl,jk)/ptm1(jl,jk)*pxm1(jl,jk)
+        zthetal(jl,jk) = ztheta(jl,jk)-zusus1
+
+        zes=zua_batch(jl,jk)*zpapm1i_s              ! (sat. vapour pressure)*Rd/Rv/ps
+        zes=MIN(zes,0.5_wp)
+        zqsat(jl,jk)=zes/(1._wp-vtmpc1*zes)  ! specific humidity at saturation
+      END DO
+    END DO
+    !$ACC END PARALLEL
+#endif
+
     ! Copy bottom-level values to dummy arguments
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       ptheta_b (jl) = ztheta (jl,klev)
@@ -252,10 +300,9 @@ CONTAINS
     ! Vertical interpolation from full levels to mid-levels
     ! using linear interpolation in pressure coordinate
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO 214 jk=1,klevm1
-      !$ACC LOOP GANG VECTOR
       DO 213 jl=jcs,kproma
         zdgmid(jl,jk) = pghf(jl,jk) - pghf(jl,jk+1)
 
@@ -288,7 +335,7 @@ CONTAINS
     ! 4. Compute convective dry boundary layer height
     !------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       zcor=MAX(ABS(pcoriol(jl)),eps_corio)
@@ -298,7 +345,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jk=klevm1,1,-1
       !$ACC LOOP GANG VECTOR
@@ -311,7 +358,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       ihpbl (jl) = MIN(ihpblc(jl),ihpbld(jl))
@@ -329,10 +376,9 @@ CONTAINS
     ! 5. Compute exchange coefficients
     !--------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO 372 jk=1,klevm1
-      !$ACC LOOP GANG VECTOR
       DO 361 jl=jcs,kproma
 
         ! gradient of specific humidity, wind shear, buoyancy, Ri-number
@@ -478,6 +524,7 @@ CONTAINS
 372 END DO
     !$ACC END PARALLEL
     !$ACC END DATA
+    !$ACC WAIT
   END SUBROUTINE atm_exchange_coeff
   !-------------
   !>
