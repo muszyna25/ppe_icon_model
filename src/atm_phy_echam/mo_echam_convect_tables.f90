@@ -83,6 +83,7 @@ MODULE mo_echam_convect_tables
 
   PUBLIC :: lookup_uaw_spline
   PUBLIC :: lookup_ua_eor_uaw_spline
+  PUBLIC :: lookup_ua_eor_uaw_spline_batch
 
   PUBLIC :: lookup_ua_list_spline
   PUBLIC :: lookup_uaw_list_spline
@@ -501,43 +502,6 @@ CONTAINS
 
   END SUBROUTINE fetch_ua_spline
   !----------------------------------------------------------------------------
-  SUBROUTINE fetch_ua_spline_batch(jcs,jce,batch_size,idx,zalpha,table,ua,dua)
-    INTEGER,            INTENT(in)  :: jcs, jce, batch_size
-    INTEGER,            INTENT(in)  :: idx(:, :)
-    REAL(wp),           INTENT(in)  :: zalpha(:, :)
-    REAL(wp),           INTENT(in)  :: table(1:2,lucupmin-2:lucupmax+1)
-    REAL(wp), OPTIONAL, INTENT(out) :: ua(:, :), dua(:, :)
-
-    REAL(wp) :: a, b, c, d, dx, ddx, x, bxa
-    INTEGER :: jl, id, batch
-    LOGICAL :: need_dua
-
-    need_dua = PRESENT(dua)
-
-    !$ACC DATA PRESENT( dua ) IF ( need_dua )
-    !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT( ua, idx, zalpha, table ) GANG VECTOR COLLAPSE(2) ASYNC(1)
-    DO batch = 1,batch_size
-      DO jl = jcs,jce
-        x = zalpha(jl,batch)
-        ! derivative and second derivative approximations (2 flops)
-        id   = idx(jl,batch)
-        dx   = table(1,id+1) - table(1,id)
-        ddx  = table(2,id+1) + table(2,id)
-        ! determine coefficients (2 fma + 1 flop)
-        a = ddx - 2.0_wp*dx
-        b = 3.0_wp*dx - ddx - table(2,id)
-        c = table(2,id)
-        d = table(1,id)
-        ! Horner's scheme to compute the spline functions (3 fmas)
-        bxa = b + x*a
-        ua(jl,batch) = d + x*(c + x*bxa)
-        IF ( need_dua ) dua(jl,batch) = rsdeltat*(c + x*(3.0_wp*bxa - b))
-      END DO
-    END DO
-    !$ACC END DATA
-
-  END SUBROUTINE fetch_ua_spline_batch
-  !----------------------------------------------------------------------------
   SUBROUTINE fetch_ua(size, idx, table, u)
     INTEGER,  INTENT(in)  :: size
     INTEGER,  INTENT(in)  :: idx(size)
@@ -612,6 +576,97 @@ CONTAINS
 
   END SUBROUTINE fetch_ua_list_spline
   !----------------------------------------------------------------------------
+  SUBROUTINE ua_spline(table, x, idx, ua, dua)
+    !$ACC ROUTINE SEQ
+    REAL(wp),  INTENT(in)  :: table(1:2,lucupmin-2:lucupmax+1)
+    REAL(wp),  INTENT(in)  :: x
+    INTEGER,   INTENT(in)  :: idx
+    REAL(wp),  INTENT(out) :: ua, dua
+
+    REAL(wp) :: a, b, c, d, dx, ddx, bxa
+
+    ! derivate and second derivate approximations (2 flops)
+    dx   = table(1,idx+1) - table(1,idx)
+    ddx  = table(2,idx+1) + table(2,idx)
+    ! determine coefficients (2 fma + 1 flop)
+    a = ddx - 2.0_wp*dx
+    b = 3.0_wp*dx - ddx - table(2,idx)
+    c = table(2,idx)
+    d = table(1,idx)
+    ! Horner's scheme to compute the spline functions (5 fmas + 1 flop)
+    bxa = b + x*a
+    ua  = d + x*(c + x*bxa)
+    dua = rsdeltat*(c + x*(3.0_wp*bxa - b))
+  END SUBROUTINE ua_spline
+
+  SUBROUTINE fetch_ua_spline_batch(jcs,jce,batch_size,idx,zalpha,table,ua,dua)
+    INTEGER,            INTENT(in)  :: jcs, jce, batch_size
+    INTEGER,            INTENT(in)  :: idx(:, :)
+    REAL(wp),           INTENT(in)  :: zalpha(:, :)
+    REAL(wp),           INTENT(in)  :: table(1:2,lucupmin-2:lucupmax+1)
+    REAL(wp), OPTIONAL, INTENT(out) :: ua(:, :), dua(:, :)
+
+    REAL(wp) :: mydua
+    INTEGER :: jl, batch
+    LOGICAL :: need_dua
+
+    need_dua = PRESENT(dua)
+
+    !$ACC DATA PRESENT( dua ) IF ( need_dua )
+    !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT( ua, idx, zalpha, table ) GANG VECTOR COLLAPSE(2) ASYNC(1)
+    DO batch = 1,batch_size
+      DO jl = jcs,jce
+        CALL ua_spline(table, zalpha(jl,batch), idx(jl,batch), ua(jl,batch), mydua)
+        IF ( need_dua ) dua(jl,batch) = mydua
+      END DO
+    END DO
+    !$ACC END DATA
+
+  END SUBROUTINE fetch_ua_spline_batch
+
+  SUBROUTINE fetch_ua_list_spline_batch(jcs, jce, batch_size,          &
+                                        lookup_idx, iphase,            &
+                                        zalpha, table, tablew, ua, dua)
+
+    INTEGER,            INTENT(in)    :: jcs,jce,batch_size
+    INTEGER,            INTENT(in)    :: lookup_idx(:,:), iphase(:,:)
+    REAL(wp),           INTENT(in)    :: zalpha(:,:)
+    REAL(wp),           INTENT(in)    :: table(1:2,lucupmin-2:lucupmax+1)
+
+    ! For merging cases with temp >= t_melt and temp < t_melt
+    REAL(wp),           INTENT(in)    :: tablew(1:2,lucupmin-2:lucupmax+1)
+    REAL(wp), OPTIONAL, INTENT(inout) :: ua(:,:), dua(:,:)
+
+    INTEGER  :: jl, batch, idx
+    LOGICAL  :: need_dua
+    REAL(wp) :: myua, mydua, x
+
+    need_dua = PRESENT(dua)
+
+    !$ACC DATA PRESENT( iphase, lookup_idx, zalpha, table, tablew, ua )
+    !$ACC DATA PRESENT( dua ) IF ( need_dua )
+    
+    !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) COLLAPSE(2) ASYNC(1)
+    DO batch = 1, batch_size
+      DO jl = jcs, jce
+
+        idx = lookup_idx(jl,batch)
+        x   = zalpha    (jl,batch)
+        IF (iphase(jl,batch) == 1) THEN
+          CALL ua_spline(table,  x, idx, myua, mydua)
+        ELSE
+          CALL ua_spline(tablew, x, idx, myua, mydua)
+        END IF
+
+        ua(jl,batch) = myua
+        IF ( need_dua ) dua(jl,batch) = mydua
+      END DO
+    END DO
+
+    !$ACC END DATA
+    !$ACC END DATA
+  END SUBROUTINE fetch_ua_list_spline_batch
+  !----------------------------------------------------------------------------
   SUBROUTINE fetch_ua_list(size, kidx, store_idx, lookup_idx, table, u)
     INTEGER,  INTENT(in)    :: size, kidx
     INTEGER,  INTENT(in)    :: store_idx(kidx), lookup_idx(size)
@@ -680,6 +735,20 @@ CONTAINS
     END IF
 
   END SUBROUTINE lookup_ua_eor_uaw_spline
+  !----------------------------------------------------------------------------
+  SUBROUTINE lookup_ua_eor_uaw_spline_batch(jcs, jce, batch_size, idx, iphase, zalpha, ua, dua)
+    INTEGER,            INTENT(in)    :: jcs, jce, batch_size
+    INTEGER,            INTENT(in)    :: idx(:,:), iphase(:,:)
+    REAL(wp),           INTENT(in)    :: zalpha(:,:)
+    REAL(wp), OPTIONAL, INTENT(inout) :: ua(:,:), dua(:,:)
+
+    IF (PRESENT(dua)) THEN
+      CALL fetch_ua_list_spline_batch(jcs, jce, batch_size, idx, iphase, zalpha, tlucu, tlucuw, ua=ua, dua=dua)
+    ELSE
+      CALL fetch_ua_list_spline_batch(jcs, jce, batch_size, idx, iphase, zalpha, tlucu, tlucuw, ua=ua)
+    END IF
+
+  END SUBROUTINE lookup_ua_eor_uaw_spline_batch
   !----------------------------------------------------------------------------
   SUBROUTINE lookup_ua_eor_uaw(size, idx, nphase, iphase, ua, dua)
     INTEGER,            INTENT(in)    :: size, nphase
@@ -873,37 +942,39 @@ CONTAINS
 
   END SUBROUTINE prepare_ua_index_spline
   !----------------------------------------------------------------------------
-  SUBROUTINE prepare_ua_index_spline_batch(jg, name, jcs, jce, batch_size,  &
-    &                                      temp, idx, zalpha,               &
-    &                                      xi, nphase, zphase, iphase,      &
-    &                                      kblock, kblock_size)
-    INTEGER,            INTENT(in)  :: jg
-    CHARACTER(len=*),   INTENT(in)  :: name
-    INTEGER,            INTENT(in)  :: jcs, jce, batch_size ! start and end index of block
-    REAL(wp),           INTENT(in)  :: temp(:,:)
-    INTEGER,            INTENT(out) :: idx(:,:)
-    REAL(wp),           INTENT(out) :: zalpha(:,:)
+  SUBROUTINE prepare_ua_index_spline_batch(jg, name, jcs, jce, batch_size,            &
+    &                                      temp, idx, zalpha,                         &
+    &                                      xi, nphase, zphase, iphase,                &
+    &                                      kblock, kblock_size, opt_need_host_nphase, &
+    &                                      opt_sanitize_index)
+    INTEGER,            INTENT(in)    :: jg
+    CHARACTER(len=*),   INTENT(in)    :: name
+    INTEGER,            INTENT(in)    :: jcs, jce, batch_size ! start and end index of block
+    REAL(wp),           INTENT(in)    :: temp(:,:)
+    INTEGER,            INTENT(inout) :: idx(:,:)
+    REAL(wp),           INTENT(inout) :: zalpha(:,:)
 
-    INTEGER,  OPTIONAL, INTENT(in)  :: kblock
-    INTEGER,  OPTIONAL, INTENT(in)  :: kblock_size
+    INTEGER,  OPTIONAL, INTENT(in)    :: kblock
+    INTEGER,  OPTIONAL, INTENT(in)    :: kblock_size
 
-    REAL(wp), OPTIONAL, INTENT(in)  :: xi(:,:)
-    INTEGER,  OPTIONAL, INTENT(out) :: nphase(:)
-    REAL(wp), OPTIONAL, INTENT(out) :: zphase(:,:)
-    INTEGER,  OPTIONAL, INTENT(out) :: iphase(:,:)
+    REAL(wp), OPTIONAL, INTENT(in)    :: xi(:,:)
+    INTEGER,  OPTIONAL, INTENT(inout) :: nphase(:)
+    REAL(wp), OPTIONAL, INTENT(inout) :: zphase(:,:)
+    INTEGER,  OPTIONAL, INTENT(inout) :: iphase(:,:)
 
-    REAL(wp) :: ztt, ztshft, ztmin,ztmax,znphase,ztest
-    INTEGER :: jl, batch, zoutofbounds
+    LOGICAL,  OPTIONAL, INTENT(in)  :: opt_need_host_nphase, opt_sanitize_index
+    LOGICAL :: sanitize_index
+
+    REAL(wp) :: ztt, ztshft, ztmin,ztmax,znphase(batch_size),ztest,myznphase
+    INTEGER :: jl, jgang, jvec, batch, zoutofbounds, myzoutofbounds
+    INTEGER :: zoutofbounds_vec(batch_size)
+    INTEGER, PARAMETER :: tile_size = 1024
 
     ! Shortcuts to components of echam_cld_config
     !
     REAL(wp) :: csecfrl, cthomi
     !
     !$ACC DATA PRESENT( temp, idx, zalpha )
-    !$ACC DATA PRESENT( xi ) IF( PRESENT(xi) )
-    !$ACC DATA PRESENT( zphase ) IF( PRESENT(zphase) )
-    !$ACC DATA PRESENT( iphase ) IF( PRESENT(iphase) )
-
     !
     csecfrl = echam_cld_config(jg)%csecfrl
     cthomi  = echam_cld_config(jg)%cthomi
@@ -911,23 +982,112 @@ CONTAINS
     zoutofbounds = 0
     ztmin = flucupmin
     ztmax = flucupmax
+
+    sanitize_index = .FALSE.
+    IF (PRESENT(opt_sanitize_index)) THEN
+      IF (opt_sanitize_index) THEN
+        sanitize_index = .TRUE.
+      END IF
+    END IF
+
     IF (PRESENT(xi)) THEN
-      ! DA: This part has to better be implemented (if needed)
+      ! DA: This part has to better be implemented
       ! with array reduction coming in the OpenACC 2.7
-      WRITE ( 0 , * ) 'Not implemented!'
-      CALL lookuperror(name, 'prepare_ua_index_spline_batch')
-    ELSE
-      !$ACC PARALLEL LOOP DEFAULT(NONE) REDUCTION( +:zoutofbounds ) GANG VECTOR COLLAPSE(2) ASYNC(1)
+      
+      !$ACC DATA PRESENT( xi, zphase, iphase, nphase ) &
+      !$ACC      CREATE ( znphase, zoutofbounds_vec )
+
+      !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) ASYNC(1)
       DO batch = 1,batch_size
-        DO jl = jcs, jce
-          ztshft = FSEL(tmelt-temp(jl,batch),1.0_wp,0.0_wp)
-          ztt = rsdeltat*temp(jl,batch)
-          zalpha(jl,batch) = ztt - AINT(ztt)
-          idx(jl,batch) = INT(ztt-ztshft)
-          IF ( ztt <= ztmin .OR. ztt >= ztmax ) zoutofbounds = zoutofbounds + 1
+        znphase(batch) = 0.0_wp
+        zoutofbounds_vec(batch) = 0.0_wp
+      END DO
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC LOOP GANG COLLAPSE(2)
+      DO batch = 1,batch_size
+        DO jgang = jcs, jce, tile_size
+
+          myznphase = 0.0_wp
+          myzoutofbounds = 0
+          !$ACC LOOP VECTOR REDUCTION(+:myznphase,myzoutofbounds)
+          DO jvec = 0,tile_size-1
+            jl = jgang + jvec
+            IF (jl > jce) CYCLE
+
+            ztshft = FSEL(tmelt-temp(jl,batch),1.0_wp,0.0_wp)
+            ztt = rsdeltat*temp(jl,batch)
+            zalpha(jl,batch) = ztt - AINT(ztt)
+            idx(jl,batch) = INT(ztt-ztshft)
+            IF ( ztt <= ztmin .OR. ztt >= ztmax ) myzoutofbounds = myzoutofbounds + 1
+
+            ! check dual phase conditions:
+            ! lo2 = (ptm1(jl,jk) < cthomi) .OR. (ptm1(jl,jk) < tmelt .AND. zxised > csecfrl)
+            ztest = FSEL(temp(jl,batch)-tmelt,0.0_wp,1.0_wp)
+            ztest = FSEL(csecfrl-xi(jl,batch),0.0_wp,ztest)
+            ztest = FSEL(temp(jl,batch)-cthomi,ztest,1.0_wp)
+            ! normalize ztest to 0 and 1
+            iphase(jl,batch) = INT(ztest)
+            zphase(jl,batch) = ztest-0.5_wp
+
+            myznphase = myznphase + ztest
+          END DO
+
+          !$ACC ATOMIC
+          znphase(batch) = znphase(batch) + myznphase
+
+          IF (zoutofbounds_vec(batch) > 0) THEN
+            !$ACC ATOMIC
+            zoutofbounds_vec(batch) = zoutofbounds_vec(batch) + myzoutofbounds
+          END IF
+
         END DO
       END DO
-    END IF
+      !$ACC END PARALLEL
+
+      IF (sanitize_index) THEN
+        !$ACC PARALLEL LOOP GANG VECTOR DEFAULT(NONE) REDUCTION( +:zoutofbounds ) ASYNC(1)
+        DO batch = 1,batch_size
+          nphase = INT(znphase)
+          zoutofbounds = zoutofbounds + zoutofbounds_vec(batch)
+        END DO
+      END IF
+
+      IF ( PRESENT(opt_need_host_nphase) ) THEN
+        IF ( opt_need_host_nphase ) THEN
+          !$ACC UPDATE WAIT SELF(nphase)
+        END IF
+      END IF
+
+      !$ACC END DATA
+      
+    ELSE
+
+      IF (sanitize_index) THEN
+        !$ACC PARALLEL LOOP DEFAULT(NONE) REDUCTION( +:zoutofbounds ) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO batch = 1,batch_size
+          DO jl = jcs, jce
+            ztshft = FSEL(tmelt-temp(jl,batch),1.0_wp,0.0_wp)
+            ztt = rsdeltat*temp(jl,batch)
+            zalpha(jl,batch) = ztt - AINT(ztt)
+            idx(jl,batch) = INT(ztt-ztshft)
+            IF ( ztt <= ztmin .OR. ztt >= ztmax ) zoutofbounds = zoutofbounds + 1
+          END DO
+        END DO
+      ELSE
+        !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+        DO batch = 1,batch_size
+          DO jl = jcs, jce
+            ztshft = FSEL(tmelt-temp(jl,batch),1.0_wp,0.0_wp)
+            ztt = rsdeltat*temp(jl,batch)
+            zalpha(jl,batch) = ztt - AINT(ztt)
+            idx(jl,batch) = INT(ztt-ztshft)
+          END DO
+        END DO
+      END IF ! sanitize
+
+    END IF ! present(xi)
+
     ! if one index was out of bounds -> print error and exit
     IF (zoutofbounds > 0) THEN
       IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) ) THEN
@@ -951,9 +1111,6 @@ CONTAINS
       CALL lookuperror(name, 'prepare_ua_index_spline_batch')
     END IF
 
-    !$ACC END DATA
-    !$ACC END DATA
-    !$ACC END DATA
     !$ACC END DATA
 
   END SUBROUTINE prepare_ua_index_spline_batch
