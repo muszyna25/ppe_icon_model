@@ -57,8 +57,10 @@ MODULE mo_cover
 
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
-  USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,lookup_ua_eor_uaw_spline
+  USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,       lookup_ua_eor_uaw_spline,     &
+                                      prepare_ua_index_spline_batch, lookup_ua_eor_uaw_spline_batch
   USE mo_echam_cld_config,     ONLY : echam_cld_config
+  USE mo_index_list,           ONLY : generate_index_list
 
   IMPLICIT NONE
   PRIVATE
@@ -106,7 +108,7 @@ CONTAINS
     !
     !   Pointers and counters for iteration and diagnostic loop:
     !
-    INTEGER :: nphase
+    INTEGER :: nphase, nphase_batch(klev)
     !
     !   variables required for zriddr iteration scheme:
     !
@@ -114,13 +116,23 @@ CONTAINS
     REAL(wp) :: zqsm1(kproma*klev)
     REAL(wp) :: ua(kproma)
 
-    LOGICAL :: lao, lao1, lomask(kbdim)
+    LOGICAL :: lao, lao1
 
     REAL(wp) :: zpapm1i(kbdim,klev),     ztmp(kproma*klev)
 
     REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
-    INTEGER :: knvb(kbdim), loidx(kproma*klev)
+    INTEGER :: lomask(kbdim), knvb(kbdim), loidx(kproma*klev)
+
+#ifdef _OPENACC
+    ! DA: for GPU it's much better to collapse the jk and jl loops,
+    !     therefore we need to use 2D temporary arrays
+    INTEGER  :: idx_batch(kproma,klev), iphase_batch(kproma,klev)
+    REAL(wp) :: ua_batch (kproma,klev)
+
+    REAL(wp) :: za_batch(kbdim,klev), zphase_batch(kbdim,klev)
+    REAL(wp) :: zqsm1_s
+#endif
 
     ! Shortcuts to components of echam_cld_config
     !
@@ -136,24 +148,19 @@ CONTAINS
     nex    = echam_cld_config(jg)% nex
     cinv   = echam_cld_config(jg)% cinv
 
-    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxim1, paclc, printop ) &
-    !$ACC       CREATE( itv1, itv2, zdtmin, za, zqsm1, ua, zpapm1i, ztmp, zknvb, zphase, &
-    !$ACC               knvb, loidx, lomask )
+    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxim1, paclc, printop )  &
+    !$ACC       CREATE( itv1, itv2, zdtmin, za, zqsm1, ua, zpapm1i, ztmp, zknvb, zphase,           &
+    !$ACC               knvb, loidx, lomask, idx_batch, iphase_batch, za_batch, zphase_batch,      &
+    !$ACC               ua_batch, nphase_batch )
 
     !
     !   Initialize variables
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
-    DO jk = 1,jks-1
-      !$ACC LOOP VECTOR
-      DO jl = jcs,kproma
-         paclc(jl,jk) = 0.0_wp
-      END DO
-    END DO
-    !$ACC END PARALLEL
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
+    paclc(jcs:kproma,1:jks-1) = 0.0_wp
+    !$ACC END KERNELS
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
@@ -162,10 +169,9 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = jks,klev
-      !$ACC LOOP VECTOR
       DO jl = jcs,kproma
          zpapm1i(jl,jk) = SWDIV_NOCHK(1._wp,papm1(jl,jk))
       END DO
@@ -175,24 +181,17 @@ CONTAINS
     !       1.3   Checking occurrence of low-level inversion
     !             (below 2000 m, sea points only, no convection)
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
-      lomask(jl) = (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0)
+      lomask(jl) = MERGE( 1, 0, (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) )
     END DO
     !$ACC END PARALLEL
-    locnt = jcs-1
-    !$ACC UPDATE HOST( lomask )
-    DO jl = jcs,kproma
-      IF (lomask(jl)) THEN
-        locnt = locnt + 1
-        loidx(locnt) = jl
-      END IF
-    END DO
-    !$ACC UPDATE DEVICE( loidx )
+
+    CALL generate_index_list(lomask, loidx, jcs, kproma, locnt, 1)
 
     IF (locnt.GT.jcs-1) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP SEQ
       DO jk = klev,jbmin,-1
 
@@ -216,7 +215,7 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     END IF
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       knvb(jl) = INT(zknvb(jl))
@@ -227,11 +226,13 @@ CONTAINS
     !
     IF (jks < klev+1) THEN
 
+#ifndef _OPENACC
       DO jk = jks,klev
 
         CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(:,jk),itv1(:),   &
                                          za(:),pxim1(:,jk),nphase,zphase,itv2,       &
                                          klev=jk,kblock=jb,kblock_size=kbdim)
+
         ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
         CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(:),za(:),nphase,itv2(:),ua(:))
         ! output: ua
@@ -277,8 +278,55 @@ CONTAINS
         END DO !jl
         !$ACC END PARALLEL
       END DO  !jk
+#else
+
+      CALL prepare_ua_index_spline_batch( jg,'cover (2)',jcs,kproma,klev-jks+1,                           &
+                                          ptm1(:,jks:),idx_batch(:,jks:),za_batch(:,jks:),pxim1(:,jks:),  &
+                                          nphase_batch(jks:), zphase_batch(:,jks:), iphase_batch(:,jks:), &
+                                          kblock=jb, kblock_size=kbdim, opt_need_host_nphase=.FALSE. )
+
+      CALL lookup_ua_eor_uaw_spline_batch( jcs, kproma, klev-jks+1,                  &
+                                           idx_batch(:,jks:), iphase_batch(:,jks:),  & 
+                                           za_batch(:,jks:), ua_batch(:,jks:) )
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = jks,klev
+        DO jl = jcs,kproma
+          zqsm1_s = MIN(ua_batch(jl,jk)*zpapm1i(jl,jk),0.5_wp)
+          zcor    = 1._wp/(1._wp-vtmpc1*zqsm1_s)
+          zqsm1_s = zqsm1_s*zcor  ! qsat
+          !
+          !       Threshold relative humidity, qsat and cloud cover
+          !       This is from cloud, and is the original calculation for
+          !       cloud cover, based on relative humidity
+          !       (Lohmann and Roeckner, Clim. Dyn.  96)
+          !
+          zrhc=crt+(crs-crt)*EXP(1._wp-(paphm1(jl,klevp1)/papm1(jl,jk))**nex)
+          zsat=1._wp
+          jbm=knvb(jl)
+          lao=(jbm.GE.jbmin .AND. jbm.LE.jbmax)
+          lao1=(jk.EQ.jbm)
+          ilev=klev
+          IF (lao .AND. lao1) THEN
+          !  ilev=klevp1-jbm
+            ilev=100
+            printop(jl)=REAL(ilev,wp)
+            zdtdz = (ptm1(jl,jbm-1)-ptm1(jl,jbm))/(zf(jl,jk-1)-zf(jl,jk))
+            zgam  = MAX(0.0_wp,-zdtdz*cpd/grav)
+            zsat  = MIN(1.0_wp,csatsc+zgam)
+          END IF
+          zqr=pqm1(jl,jk)/(zqsm1_s*zsat)      ! r in Lohmann-scheme (grid-mean rel hum)
+          paclc(jl,jk)=(zqr-zrhc)/(1.0_wp-zrhc) ! b_o in Lohman-scheme
+          paclc(jl,jk)=MAX(MIN(paclc(jl,jk),1.0_wp),0.0_wp)
+          paclc(jl,jk)=1._wp-SQRT(1._wp-paclc(jl,jk))
+        END DO !jl
+      END DO  !jk
+      !$ACC END PARALLEL
+#endif
     END IF
 
+    !$ACC WAIT
     !$ACC END DATA
     !
     !
