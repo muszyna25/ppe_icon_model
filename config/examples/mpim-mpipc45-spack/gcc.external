@@ -11,7 +11,9 @@ FC=$MPICH_FC
 CC=$PLAIN_CC
 
 FCFLAGS="${NETCDFF_FCFLAGS} ${RTE_RRTMGP_FCFLAGS} ${ECRAD_FCFLAGS} ${SCT_FCFLAGS} ${YAXT_FCFLAGS} ${CDI_FCFLAGS} ${MTIME_FCFLAGS} ${YAC_FCFLAGS} ${SELF_FCFLAGS}"
+ICON_FCFLAGS='-O2 -g'
 CFLAGS=
+ICON_CFLAGS='-O2 -g'
 CPPFLAGS=
 LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${RTE_RRTMGP_LDFLAGS} ${ECRAD_LDFLAGS} ${SCT_LDFLAGS} ${YAXT_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
 LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS} ${ECRAD_LIBS} ${RTE_RRTMGP_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
@@ -20,5 +22,29 @@ LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_
 # libraries at the configure time and when running 'make check':
 BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
-"${ICON_DIR}"/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --with-external-mtime --with-external-self --with-external-cdi --with-external-yac --with-external-yaxt --with-external-sct --with-external-ecrad --with-external-rte-rrtmgp --enable-sct --enable-grib2 --enable-yaxt --enable-ecrad --enable-rte-rrtmgp "$@"
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+ICON_CFLAGS="$ICON_CFLAGS" \
+ICON_FCFLAGS="$ICON_FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+--enable-ecrad \
+--enable-grib2 \
+--enable-rte-rrtmgp \
+--enable-sct \
+--enable-yaxt \
+--with-external-cdi \
+--with-external-ecrad \
+--with-external-mtime \
+--with-external-rte-rrtmgp \
+--with-external-sct \
+--with-external-self \
+--with-external-yac \
+--with-external-yaxt \
+"$@"
 

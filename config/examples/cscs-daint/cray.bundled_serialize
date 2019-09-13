@@ -19,8 +19,8 @@ BUILD_ENV="export PYTHONPATH=\"${SERIALBOX2_ROOT}/python/pp_ser:\${PYTHONPATH}\"
 FC='ftn'
 CC='cc'
 
-FCFLAGS="-I${SERIALBOX2_ROOT}/include"
-CFLAGS=
+CFLAGS='-O2 -g'
+FCFLAGS="-O2 -g -I${SERIALBOX2_ROOT}/include"
 CPPFLAGS="-I${GRIBAPI_ROOT}/include"
 
 LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib -L${SERIALBOX2_ROOT}/lib"
@@ -32,5 +32,18 @@ BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-
 
 # Although the MPI-related tests are skipped, there are still tests in the test suite of CDI that fail.
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt --enable-serialization --disable-mpi-checks "$@"
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+--disable-mpi-checks \
+--enable-grib2 \
+--enable-serialization \
+--enable-yaxt \
+"$@"
 

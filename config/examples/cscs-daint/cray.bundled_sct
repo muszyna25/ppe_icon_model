@@ -15,8 +15,8 @@ BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.4
 FC='ftn'
 CC='cc'
 
-FCFLAGS=
-CFLAGS=
+CFLAGS='-O2 -g'
+FCFLAGS='-O2 -g'
 CPPFLAGS="-I${GRIBAPI_ROOT}/include"
 
 LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib"
@@ -28,5 +28,18 @@ BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-
 
 # Although the MPI-related tests are skipped, there are still tests in the test suite of CDI that fail.
 
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-yaxt --enable-sct --disable-mpi-checks "$@"
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+--disable-mpi-checks \
+--enable-grib2 \
+--enable-sct \
+--enable-yaxt \
+"$@"
 

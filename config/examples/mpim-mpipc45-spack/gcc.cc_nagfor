@@ -12,7 +12,9 @@ FC=$PLAIN_FC
 CC='/sw/stretch-x64/nag/nag-6.2/bin/nagfor =C'
 
 FCFLAGS="-fmodule-private -fimplicit-none ${MPICH_FCFLAGS} ${NETCDFF_FCFLAGS} ${YAXT_FCFLAGS} ${CDI_FCFLAGS}"
+ICON_FCFLAGS='-O2 -g'
 CFLAGS=
+ICON_CFLAGS='-O2 -g'
 CPPFLAGS="${MPICH_CPPFLAGS} ${HDF5_CPPFLAGS} ${NETCDF_CPPFLAGS} ${XML2_CPPFLAGS}"
 LDFLAGS="${MPICH_LDFLAGS} ${HDF5_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${YAXT_LDFLAGS} ${CDI_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS}"
 LIBS="${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MPICH_LIBS}"
@@ -24,5 +26,22 @@ BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-
 
 # The test suites of SCT and MTIME will fail because libtool does not recognize 'nagfor =C' as a NAG compiler.
 
-"${ICON_DIR}"/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --with-external-cdi --with-external-yaxt --enable-sct --enable-grib2 --enable-yaxt "$@"
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+ICON_CFLAGS="$ICON_CFLAGS" \
+ICON_FCFLAGS="$ICON_FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+MPI_LAUNCH="$MPI_LAUNCH" \
+--enable-grib2 \
+--enable-sct \
+--enable-yaxt \
+--with-external-cdi \
+--with-external-yaxt \
+"$@"
 

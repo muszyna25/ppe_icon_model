@@ -27,7 +27,7 @@ case $(host $(uname -n)) in
     xfail_test_names='cray.bundled cray.bundled_sct cray.bundled_serialize' ;;
   xce*.dwd.de\ *)
     test_suite='dwd-xce'
-    xfail_test_names='cray.bundled' ;;
+    xfail_test_names='cray.bundled_dynamic cray.bundled_static' ;;
   *)
     echo "Unknown test environment" && exit 1 ;;
 esac
@@ -35,9 +35,11 @@ esac
 art_repo='git@gitlab.dkrz.de:m300488/art.git'
 art_dir="$root_dir/../../../externals/art"
 if test ! -d "$art_dir"; then
-  git clone "$art_repo" "$art_dir"
+  git clone "$art_repo" "$art_dir" || echo "WARNING: failed to clone ICON-ART repository."
+elif test -d "$art_dir/.git"; then
+  cd "$art_dir" && git pull && cd - >/dev/null 2>&1 || echo "WARNING: failed to update ICON-ART repository."
 else
-  cd "$art_dir" && git pull && cd - >/dev/null 2>&1
+  echo "The directory "$art_dir" exists but it is not an ICON-ART repo." && exit 1
 fi
 
 for vendor in ${vendors}; do
@@ -83,4 +85,7 @@ for vendor in ${vendors}; do
     find "${vendor_test_name}" -type d -empty -delete
   done
 done
+
+if test "x$xfail_test_names" = x; then echo -e "\nAll tests passed"
+else echo -e "\nThe building tests passed, 'make check' failed for \"$xfail_test_names\" as expected."; fi
 
