@@ -2631,6 +2631,12 @@ MODULE mo_nh_stepping
         &                      opt_calc_pres=.TRUE.,                                  &
         &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav       )
 
+
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%temp,      p_nh_state(jg)%diag%tempv )    IF (i_am_accel_node)
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%temp_ifc )                                IF (i_am_accel_node)
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%pres_sfc,  p_nh_state(jg)%diag%pres_ifc ) IF (i_am_accel_node)
+!$ACC UPDATE HOST( p_nh_state(jg)%diag%pres,      p_nh_state(jg)%diag%dpres_mc ) IF (i_am_accel_node)
+
     ENDDO ! jg-loop
 
     ! Fill boundaries of nested domains

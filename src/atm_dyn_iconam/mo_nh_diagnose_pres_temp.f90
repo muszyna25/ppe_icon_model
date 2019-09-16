@@ -426,12 +426,9 @@ MODULE mo_nh_diagnose_pres_temp
     !$ACC      CREATE(z_qsum), &
     !$ACC      IF(i_am_accel_node)
     
-    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
-    !$ACC LOOP GANG VECTOR
-    DO jk = slev, slev_moist-1
-      z_qsum(:,jk) = 0._wp
-    ENDDO
-    !$ACC END PARALLEL
+    !$ACC KERNELS DEFAULT(PRESENT) IF(i_am_accel_node)
+    z_qsum(:,slev:slev_moist-1) = 0._wp
+    !$ACC END KERNELS
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
