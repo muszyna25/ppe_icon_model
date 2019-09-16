@@ -48,7 +48,7 @@ program test_index_list
     end do
   end do
 
-  call generate_index_list(conditions, dev_indices, 1, n, dev_nvalid, 1)
+  call generate_index_list_batched(conditions, dev_indices, 1, n, dev_nvalid, 1)
   !$acc wait(1)
   !$acc update host(dev_indices, dev_nvalid)
 

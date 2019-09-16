@@ -95,6 +95,11 @@ void c_generate_index_list_cuda_generic(
 	cudaStreamSynchronize(stream);
 }
 
+///
+/// Exposed functions
+/// 
+/// Non-batched first
+/// 
 
 void c_generate_index_list_cuda_i1(
 			const char* dev_conditions,
@@ -112,6 +117,25 @@ void c_generate_index_list_cuda_i4(
 			int& nvalid, cudaStream_t stream)
 {
 	c_generate_index_list_cuda_generic(dev_conditions, startid, endid, dev_indices, nvalid, stream);
+}
+
+/// 
+/// And now batched
+/// 
+
+void c_generate_index_list_cuda_batched_i1(
+	const int batch_size,
+	const char* dev_conditions, const int cond_stride,
+	const int startid, const int endid,
+	int* dev_indices, const int idx_stride,
+	int* dev_nvalid, cudaStream_t stream)
+{
+c_generate_index_list_cuda_batched_generic(
+		batch_size,
+		dev_conditions, cond_stride,
+		startid, endid,
+		dev_indices, idx_stride,
+		dev_nvalid, stream);
 }
 
 void c_generate_index_list_cuda_batched_i4(
