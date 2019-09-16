@@ -3,12 +3,13 @@
 
 
 #define MAX_BUF_LEN     1024
-#define NUM_FCT            8
+#define NUM_FCT            9
 #define MAX_NAME_LEN      32
 
 typedef enum { VARIABLE, VALUE, OPERATOR, FUNCTION } expr_type;
 typedef enum { EXP = 0, LOG = 1, SIN = 2, COS = 3, 
-               MIN = 4, MAX = 5, IF  = 6, SQRT = 7         } fct_type;
+               MIN = 4, MAX = 5, IF  = 6, SQRT = 7,
+               ERF = 8                              } fct_type;
 
 extern const char * const fct_name[NUM_FCT];
 

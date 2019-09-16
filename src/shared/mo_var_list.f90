@@ -103,6 +103,7 @@ MODULE mo_var_list
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
   PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
+  PUBLIC :: get_tracer_info_dyn_by_idx! return a copy of the dynamic metadata of a certain tracer
   PUBLIC :: get_timelevel_string      ! return the default string with timelevel encoded
   PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
 
@@ -599,6 +600,24 @@ CONTAINS
     ENDIF
     !
   END SUBROUTINE get_var_list_element_info
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Get a copy of the dynamic metadata concerning a var_list element by index of the element
+  !
+  SUBROUTINE get_tracer_info_dyn_by_idx (this_list, ncontained, info_dyn)
+    !    
+    TYPE(t_var_list),             INTENT(in)  :: this_list    ! list
+    INTEGER,                      INTENT(in)  :: ncontained   ! index of variable in container
+    TYPE(t_var_metadata_dynamic), INTENT(out) :: info_dyn     ! dynamic variable meta data
+    !    
+    TYPE(t_list_element), POINTER :: element
+    !    
+    element => find_tracer_by_index (this_list, ncontained)
+    IF (ASSOCIATED (element)) THEN 
+      info_dyn = element%field%info_dyn
+    ENDIF
+    !    
+  END SUBROUTINE get_tracer_info_dyn_by_idx
   !------------------------------------------------------------------------------------------------
   !
   ! Set default meta data of output var_list
@@ -4263,6 +4282,41 @@ CONTAINS
     !
   END FUNCTION find_list_element
   
+  !------------------------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  !
+  ! Overloaded to search for a tracer by its index (ncontained)
+  !
+  FUNCTION find_tracer_by_index (this_list, ncontained, opt_hgrid) RESULT(this_list_element)
+    !
+    TYPE(t_var_list),   INTENT(in) :: this_list
+    INTEGER,            INTENT(in) :: ncontained
+    INTEGER, OPTIONAL              :: opt_hgrid
+    !
+    TYPE(t_list_element), POINTER  :: this_list_element
+    INTEGER :: key,hgrid
+
+    hgrid = -1
+    CALL assign_if_present(hgrid,opt_hgrid)
+    !
+    this_list_element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(this_list_element))
+      IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
+        IF(ncontained == this_list_element%field%info%ncontained) THEN
+          IF (-1 == hgrid) THEN
+            RETURN
+          ELSE
+            IF (hgrid == this_list_element%field%info%hgrid) RETURN
+          ENDIF
+        ENDIF
+      ENDIF
+      this_list_element => this_list_element%next_list_element
+    ENDDO
+    !
+    NULLIFY (this_list_element)
+    !
+  END FUNCTION find_tracer_by_index
+
   !-----------------------------------------------------------------------------
   !
   ! Find named list element accross all knows variable lists

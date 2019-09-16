@@ -15,7 +15,7 @@
 const char*  const priorities = "(;><;+-;/*;^";
 const char*  const left_assoc = "><+-/*";
 const char * const fct_name[NUM_FCT] = { "exp", "log", "sin", "cos", "min", "max", 
-					 "if", "sqrt" };
+					 "if", "sqrt", "erf" };
 
 /* All data needed to define the state of the Finite State Machine parser. */
 struct t_parsedata {
@@ -146,7 +146,7 @@ action store_op {
  # tokens for basic arithmetic expressions
  operator        = space* ('+'|'-'|'*'|'/'|'^'|'>'|'<') >clear $append space* ;
  parenthesis     = space* ('('|')') >clear $append space* ;
- func            = space* ('exp'|'log'|'sin'|'cos'|'min'|'max'|'if'|'sqrt') >clear $append space*;
+ func            = space* ('exp'|'log'|'sin'|'cos'|'min'|'max'|'if'|'sqrt'|'erf') >clear $append space*;
  constant        = space* ('pi'|"r") >clear $append space* ;
  # function argument separator
  sep             = space* ',' space* ;
