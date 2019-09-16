@@ -15,7 +15,7 @@
 !!
 MODULE mo_surface
 
-  USE mo_kind,              ONLY: wp
+  USE mo_kind,              ONLY: wp, i1
 #ifdef _OPENACC
   USE mo_exception,         ONLY: warning
 #endif
@@ -35,6 +35,7 @@ MODULE mo_surface
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
   USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
+  USE mo_index_list,        ONLY: generate_index_list_batched
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
@@ -232,8 +233,9 @@ CONTAINS
 
 ! locals
 
-    INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
-    INTEGER  :: is     (ksfc_type)       !< counter for masks
+    INTEGER(i1) :: pfrc_test(kbdim,ksfc_type) !< integer mask to pass to CUB (can be removed later)
+    INTEGER     :: loidx    (kbdim,ksfc_type) !< counter for masks
+    INTEGER     :: is       (      ksfc_type) !< counter for masks
 
     INTEGER  :: jsfc, jk, jkm1, im, k, jl, jls, js
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
@@ -295,12 +297,11 @@ CONTAINS
     !$ACC               albnirdif_ice )                                        &
     !$ACC           IF( idx_ice <= ksfc_type .AND. echam_phy_config(jg)%lice )
 
-    !$ACC DATA PCREATE( loidx, is, se_sum, qv_sum, wgt_sum, wgt, zca, zcs,     &
-    !$ACC               zfrc_oce, zen_h, zfn_h, zen_qv, zfn_qv, zlhflx_lnd,    &
-    !$ACC               zlhflx_lwtr, zlhflx_lice, zshflx_lnd, zshflx_lwtr,     &
-    !$ACC               zshflx_lice )
-
-    !$ACC DATA PCREATE( zevap_lnd, zevap_lwtr, zevap_lice,                      &
+    !$ACC DATA PCREATE( loidx, is, se_sum, qv_sum, wgt_sum, wgt, zca, zcs,      &
+    !$ACC               zfrc_oce, zen_h, zfn_h, zen_qv, zfn_qv, zlhflx_lnd,     &
+    !$ACC               zlhflx_lwtr, zlhflx_lice, zshflx_lnd, zshflx_lwtr,      &
+    !$ACC               zshflx_lice, pfrc_test ),                               &
+    !$ACC      PCREATE( zevap_lnd, zevap_lwtr, zevap_lice,                      &
     !$ACC               qsat_lnd, qsat_lwtr, qsat_lice, dry_static_energy,      &
     !$ACC               ztsfc_lnd, ztsfc_lnd_eff, ztsfc_wtr, ztsfc_lwtr,        &
     !$ACC               ztsfc_lice, rvds, rnds, rpds, rsns, rlns,               &
@@ -316,18 +317,16 @@ CONTAINS
   
     ! check for masks
     !
-    ! GPU: Compute index list on CPU due to issues with ACC ATOMIC
-    !$ACC UPDATE HOST( pfrc )
+    ! DA: compute the index lists on the GPU
+    !$ACC PARALLEL LOOP COLLAPSE(2) DEFAULT(NONE) ASYNC(1)
     DO jsfc = 1,ksfc_type
-      is(jsfc) = 0
       DO jl = jcs,kproma
-        IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-          is(jsfc) = is(jsfc) + 1
-          loidx(is(jsfc),jsfc) = jl
-        ENDIF
-      ENDDO
-    ENDDO
-    !$ACC UPDATE DEVICE( is, loidx )
+        pfrc_test(jl, jsfc) = MERGE(1, 0, pfrc(jl, jsfc) > 0.0_wp)
+      END DO
+    END DO
+
+    CALL generate_index_list_batched(pfrc_test(jcs:,:), loidx, jcs, kproma, is, 1)
+    !$ACC UPDATE WAIT(1) SELF(is)
 
     ! Compute factor for conversion temperature to dry static energy
     !DO jsfc=1,ksfc_type
@@ -344,12 +343,13 @@ CONTAINS
     IF (lsfc_mom_flux) THEN
        CALL wind_stress( jcs, kproma, kbdim, ksfc_type,       &! in
             &            pdtime,                              &! in
+            &            loidx, is,                           &! in
             &            pfrc, pcfm_tile, pfac_sfc,           &! in
             &            bb(:,klev,iu), bb(:,klev,iv),        &! in
             &            pu_stress_gbm,  pv_stress_gbm,       &! out
             &            pu_stress_tile, pv_stress_tile       )! out
     ELSE
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP SEQ
        DO jsfc = 1,ksfc_type
          !$ACC LOOP GANG VECTOR
@@ -360,7 +360,7 @@ CONTAINS
        END DO
        !$ACC END PARALLEL
 
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR
        DO jk = 1, kbdim
          pu_stress_gbm (jk)   = 0._wp
@@ -371,7 +371,7 @@ CONTAINS
     END IF
 
     ! Compute downward shortwave surface fluxes
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       rvds(jl)      = rvds_dif(jl) + rvds_dir(jl)
@@ -399,7 +399,7 @@ CONTAINS
     END IF
 
     ! Set defaults
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -413,7 +413,7 @@ CONTAINS
     !===========================================================================
     ! all surfaces
     !===========================================================================
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -427,7 +427,7 @@ CONTAINS
     ! Land surface
     !===========================================================================
     
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       zlhflx_lnd(jk)    = 0._wp
@@ -449,6 +449,9 @@ CONTAINS
 
       ! If land is present, JSBACH is currently the only surface scheme supported by ECHAM physcis package
 #ifndef __NO_JSBACH__
+
+      ! DA: wait while the other kernels are not async
+      !$ACC WAIT
 
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR
@@ -721,7 +724,7 @@ CONTAINS
       ! Set the evapotranspiration coefficients, to be used later in
       ! blending and in diagnosing surface fluxes.
       !
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         zca(jl,idx_lnd) = pcair(jl)
@@ -741,7 +744,7 @@ CONTAINS
 
 #ifndef __NO_ICON_OCEAN__
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         rsns(jl)      = rsds(jl) - rsus(jl)
@@ -757,7 +760,7 @@ CONTAINS
           & psoflw=rsns(:),                       &
           & ptsw=ztsfc_wtr(:) )                     ! out
 #ifdef _OPENACC
-        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
         !$ACC LOOP GANG VECTOR
         DO jl = jcs,kproma
           IF (alake(jl) < EPSILON(1._wp)) THEN
@@ -775,7 +778,7 @@ CONTAINS
 
       ! Albedo model for the ocean
       ! TBD: This should be replaced by routine mo_surface_ocean:update_albedo_ocean from ECHAM6.2
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         IF (alake(jl) < EPSILON(1._wp)) THEN
@@ -794,6 +797,9 @@ CONTAINS
     !===========================================================================
 
     IF (idx_ice <= ksfc_type .AND. echam_phy_config(jg)%lice) THEN
+
+      ! DA: wait while the other kernels are not async
+      !$ACC WAIT
 
 #ifndef __NO_ICON_OCEAN__
       ! LL This is a temporary solution,
@@ -941,13 +947,13 @@ CONTAINS
     !===================================================================
 
     ! calculate grid box mean surface of co2
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       pco2nat(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -964,7 +970,7 @@ CONTAINS
     !   bb_btm(:,jsfc,ih) : tpfac2*land%ztklevl, tpfac2*ice%ztklevi, tpfac2*ocean%ztklevw
     !   bb_btm(:,jsfc,iqv): tpfac2*land%zqklevl, tpfac2*ice%zqklevi, tpfac2*ocean%zqklevw
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -985,7 +991,7 @@ CONTAINS
     !   bb(:,klev,ih) : ztdif_new
     !   bb(:,klev,iqv): zqdif_new
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
        se_sum(jl) = 0._wp    ! sum of weighted solution
@@ -994,8 +1000,9 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
              wgt(jl) = pfrc(jl,jsfc)
@@ -1003,11 +1010,11 @@ CONTAINS
           se_sum(jl) = se_sum(jl) + bb_btm(jl,jsfc,ih ) * wgt(jl)
           qv_sum(jl) = qv_sum(jl) + bb_btm(jl,jsfc,iqv) * wgt(jl)
       ENDDO
-      !$ACC END PARALLEL
     ENDDO
+    !$ACC END PARALLEL
 
     IF (lsfc_heat_flux) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         bb(jl,klev,ih ) = se_sum(jl)/wgt_sum(jl)
@@ -1015,7 +1022,7 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     ELSE
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR PRIVATE(jsfc)
       DO jl = jcs,kproma
         jsfc = 1
@@ -1036,7 +1043,7 @@ CONTAINS
     ! need to be scaled by the same factor.
 
     IF (idx_wtr.LE.ksfc_type) THEN   ! Open water is considered
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         IF (idx_ice.LE.ksfc_type) THEN ! Sea ice is also considered
@@ -1056,7 +1063,7 @@ CONTAINS
     jk   = klev    ! Bottom level index
     jkm1 = jk - 1
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       aa(jl,jk,2,im) =  aa(jl,jk,2,im) - aa(jl,jk,1,im)*aa(jl,jkm1,3,im)
@@ -1088,7 +1095,7 @@ CONTAINS
             &               plhflx_tile, pshflx_tile,             &! out
             &               pevap_tile )                           ! out
     ELSE
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP SEQ
        DO jsfc = 1,ksfc_type
          !$ACC LOOP GANG VECTOR
@@ -1099,7 +1106,7 @@ CONTAINS
          END DO
        END DO
        !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR
        DO jk = 1,kbdim
          plhflx_gbm (jk)   = 0._wp
@@ -1109,7 +1116,7 @@ CONTAINS
        !$ACC END PARALLEL
     END IF
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -1141,14 +1148,14 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! calculate grid box mean surface temperature
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       ptsfc(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
     DO jsfc=1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl= jcs,kproma
         ptsfc(jl) = ptsfc(jl) + pfrc(jl,jsfc) * ptsfc_tile(jl,jsfc)
@@ -1157,21 +1164,21 @@ CONTAINS
     ENDDO
 
     ! calculate grid box mean radiative temperature for use in radiation
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       ptsfc_rad(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
     DO jsfc=1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl= jcs,kproma
         ptsfc_rad(jl) = ptsfc_rad(jl) + pfrc(jl,jsfc) * ptsfc_tile(jl,jsfc)**4
       END DO
       !$ACC END PARALLEL
     ENDDO
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       ptsfc_rad(jl) = ptsfc_rad(jl)**0.25_wp
@@ -1179,7 +1186,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! Compute lw and sw surface radiation fluxes on tiles
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR PRIVATE(js)
@@ -1203,14 +1210,14 @@ CONTAINS
     ! Merge sw and lw surface fluxes
     ! This includes the update of the lw flux on land due to the new surface temperature where only part
     ! of the net radiation was used (due to the Taylor truncation in the surface energy balance)
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       rlns(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
     DO jsfc=1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR PRIVATE(js)
       DO jls = 1,is(jsfc)
         ! set index
@@ -1219,7 +1226,7 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     END DO
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       rlus(jl) = rlds(jl) -rlns(jl)
@@ -1227,7 +1234,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! Merge surface albedos
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       albvisdir(jk) = 0._wp
@@ -1237,7 +1244,7 @@ CONTAINS
       albedo   (jk) = 0._wp
     END DO
     !$ACC END PARALLEL
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,nsfc_type
       !$ACC LOOP GANG VECTOR
@@ -1252,14 +1259,14 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! Mask out tiled variables
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = 1, kproma
       mask(jl) = .FALSE.
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -1299,7 +1306,7 @@ CONTAINS
     ! For consistency z0m_tile for ice is masked out here
     !----------------------------------------------------------------------------
     IF (idx_ice<=ksfc_type) THEN  ! ice surface exists in the simulation
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         mask(jl) = pfrc(jl,idx_ice) == 0._wp
@@ -1324,7 +1331,8 @@ CONTAINS
     !$ACC END DATA
     !$ACC END DATA
     !$ACC END DATA
-    !$ACC END DATA
+
+    !$ACC WAIT
 
     END SUBROUTINE update_surface
   !-------------

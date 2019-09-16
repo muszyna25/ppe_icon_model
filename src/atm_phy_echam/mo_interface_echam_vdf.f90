@@ -180,7 +180,8 @@ CONTAINS
     ntrac  = ntracer-iqt+1  ! number of tracers excluding water vapour and hydrometeors
 
     !$ACC DATA PCREATE( zxt_emis ) IF( ntrac > 0 )
-    !$ACC DATA PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
+    !$ACC DATA PRESENT( field ),                                                &
+    !$ACC      PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
     !$ACC               zbhn_tile, zbm_tile, zbh_tile, dummy, dummyx,           &
     !$ACC               wstar, qs_sfc_tile, hdtcbl, ri_atm, mixlen, cfm,        &
     !$ACC               cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa,      &
@@ -199,7 +200,7 @@ CONTAINS
 !!$    ENDIF
     !
     ! default setting for all tracers
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( ntrac > 0 )
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( ntrac > 0 )
     !$ACC LOOP SEQ
     DO jt = 1,ntrac
       !$ACC LOOP GANG VECTOR
@@ -236,14 +237,14 @@ CONTAINS
     mmr_co2 = vmr_co2   * amco2/amd
 
     IF(ccycle_config(jg)%iccy_co2conc .EQ. 0) THEN   !  default
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = 1,nproma
         zco2(jl) = mmr_co2
       END DO
       !$ACC END PARALLEL
     ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 2 .OR. ccycle_config(jg)%iccy_co2conc .EQ. 4) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = 1,nproma
         zco2(jl) = ghg_co2mmr
@@ -251,7 +252,7 @@ CONTAINS
       !$ACC END PARALLEL
     ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 1) THEN
       !$ACC DATA PRESENT( field%qtrc )
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = 1,nproma
         zco2(jl) = field% qtrc(jl,nlev,jb,ico2)
@@ -266,10 +267,9 @@ CONTAINS
        !
        IF ( is_active ) THEN
           ! Set dummy values to zero to prevent invalid floating point operations:
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = 1,nproma
               dummy (jl,jk) = 0._wp
               dummyx(jl,jk) = 0._wp 
@@ -277,17 +277,14 @@ CONTAINS
           END DO
           !$ACC END PARALLEL
           !
-          !$ACC DATA PRESENT( field%qtrc )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs,jce
               zqx(jl,jk) =  field%qtrc(jl,jk,jb,iqc) + field%qtrc(jl,jk,jb,iqi)
             END DO
           END DO
           !$ACC END PARALLEL
-          !$ACC END DATA
           !
           ! Serialbox2 intermediate output serialization
           !$ser verbatim call serialize_vdf_chk_A_output(jg, jb, jcs, jce, nproma,&
@@ -309,6 +306,8 @@ CONTAINS
           !$ser verbatim   wstar, qs_sfc_tile, hdtcbl, ri_atm, ri_tile, mixlen, cfm,&
           !$ser verbatim   cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa, zaa_btm,&
           !$ser verbatim   zbb, zbb_btm, zfactor_sfc, zcpt_sfc_tile, zcptgz, zthvvar, ztottevn)
+          !
+          ! DA: this routine is async aware, so it's safe not not wait here
           !
           CALL vdiff_down(jg,                              &! in
                &          jb,                              &! in  used for debugging only
@@ -378,6 +377,8 @@ CONTAINS
                &          pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                &          paz0lh = field% z0h_lnd(:,jb))    ! in, optional, roughness length for heat over land
           !
+          ! DA: before the rest of the kernels here are async, we need to wait
+          !$ACC WAIT
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
           !$ser verbatim call serialize_vdf_vd_output(jg, jb, jcs, jce, nproma,&
