@@ -47,6 +47,7 @@ MODULE mo_nonhydro_gpu_types
   USE mo_model_domain,         ONLY: t_patch, t_tangent_vectors
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_diag, t_nh_prog
   USE mo_nh_prepadv_types,     ONLY: t_prepare_adv
+  USE mo_advection_config,     ONLY: t_advection_config
   USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_var_list_gpu,         ONLY: gpu_h2d_var_list, gpu_d2h_var_list
   USE mo_run_config,           ONLY: ltestcase
@@ -59,19 +60,20 @@ MODULE mo_nonhydro_gpu_types
 
 CONTAINS
 
-  SUBROUTINE h2d_icon( p_int_states, p_patches, p_nh_states, prep_advs, iforcing )
+  SUBROUTINE h2d_icon( p_int_states, p_patches, p_nh_states, prep_advs, advection_config, iforcing )
 
-    TYPE ( t_int_state ),  INTENT(INOUT) :: p_int_states(:)
-    TYPE ( t_patch ),      INTENT(INOUT) :: p_patches(:)
-    TYPE ( t_nh_state ),   INTENT(INOUT) :: p_nh_states(:)
-    TYPE ( t_prepare_adv), INTENT(INOUT) :: prep_advs(:)
-    INTEGER, INTENT(IN)                  :: iforcing 
+    TYPE ( t_int_state ),       INTENT(INOUT) :: p_int_states(:)
+    TYPE ( t_patch ),           INTENT(INOUT) :: p_patches(:)
+    TYPE ( t_nh_state ),        INTENT(INOUT) :: p_nh_states(:)
+    TYPE ( t_prepare_adv),      INTENT(INOUT) :: prep_advs(:)
+    TYPE ( t_advection_config), INTENT(INOUT) :: advection_config(:)
+    INTEGER, INTENT(IN)                       :: iforcing 
     INTEGER :: jg
 !
 ! Copy all data need on GPU from host to device
 !
 
-!$ACC ENTER DATA COPYIN( p_int_states, p_patches, prep_advs ), IF ( i_am_accel_node  )
+!$ACC ENTER DATA COPYIN( p_int_states, p_patches, prep_advs, advection_config ), IF ( i_am_accel_node  )
 
     CALL transfer_int_state( p_int_states, .TRUE. )
 
@@ -81,19 +83,22 @@ CONTAINS
 
     CALL transfer_nh_state( p_nh_states, .TRUE. )
 
+    CALL transfer_advection_config( advection_config, .TRUE. )
+
     IF( iforcing == iecham ) THEN
       CALL transfer_echam( p_patches, .TRUE. )
     END IF
 
   END SUBROUTINE h2d_icon
 
-  SUBROUTINE d2h_icon( p_int_states, p_patches, p_nh_states, prep_advs, iforcing )
+  SUBROUTINE d2h_icon( p_int_states, p_patches, p_nh_states, prep_advs, advection_config, iforcing )
 
-    TYPE ( t_int_state ),  INTENT(INOUT) :: p_int_states(:)
-    TYPE ( t_patch ),      INTENT(INOUT) :: p_patches(:)
-    TYPE ( t_nh_state ),   INTENT(INOUT) :: p_nh_states(:)
-    TYPE ( t_prepare_adv), INTENT(INOUT) :: prep_advs(:)
-    INTEGER, INTENT(IN)                  :: iforcing 
+    TYPE ( t_int_state ),  INTENT(INOUT)      :: p_int_states(:)
+    TYPE ( t_patch ),      INTENT(INOUT)      :: p_patches(:)
+    TYPE ( t_nh_state ),   INTENT(INOUT)      :: p_nh_states(:)
+    TYPE ( t_prepare_adv), INTENT(INOUT)      :: prep_advs(:)
+    TYPE ( t_advection_config), INTENT(INOUT) :: advection_config(:)
+    INTEGER, INTENT(IN)                       :: iforcing 
 
 !
 ! Delete all data on GPU
@@ -102,12 +107,13 @@ CONTAINS
     CALL transfer_prep_adv( prep_advs, .FALSE. )
     CALL transfer_patch( p_patches, .FALSE. )
     CALL transfer_int_state( p_int_states, .FALSE. )
+    CALL transfer_advection_config( advection_config, .FALSE. )
 
     IF( iforcing == iecham ) THEN
       CALL transfer_echam( p_patches, .FALSE. )
     END IF
 
-!$ACC EXIT DATA DELETE( prep_advs, p_patches, p_int_states ), IF ( i_am_accel_node  )
+!$ACC EXIT DATA DELETE( advection_config, prep_advs, p_patches, p_int_states ), IF ( i_am_accel_node  )
 
   END SUBROUTINE d2h_icon
 
@@ -262,6 +268,31 @@ CONTAINS
     ENDDO    
 
   END SUBROUTINE transfer_prep_adv
+
+  SUBROUTINE transfer_advection_config( advection_config, host_to_device )
+
+    LOGICAL, INTENT(IN)                        :: host_to_device     !   .TRUE. : h2d   .FALSE. : d2h
+    TYPE ( t_advection_config ), TARGET, INTENT(INOUT) :: advection_config(:)
+
+    INTEGER :: j
+
+    DO j=1, SIZE(advection_config)
+
+      IF ( host_to_device ) THEN
+
+!$ACC ENTER DATA COPYIN( advection_config(j)%trHydroMass%list ) &
+!$ACC            IF ( i_am_accel_node  )
+
+      ELSE
+
+!$ACC EXIT DATA DELETE( advection_config(j)%trHydroMass%list )  &
+!$ACC           IF ( i_am_accel_node  )
+
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE transfer_advection_config
 
   SUBROUTINE transfer_nh_state( p_nh, host_to_device )
 
