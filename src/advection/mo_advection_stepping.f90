@@ -90,9 +90,8 @@ MODULE mo_advection_stepping
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .TRUE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
-!!!  LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! ONLY SET TO .TRUE. FOR VALIDATION PHASE
 
 CONTAINS
 

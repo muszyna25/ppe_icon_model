@@ -62,7 +62,7 @@ MODULE mo_nh_dtp_interface
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
-  LOGICAL, PARAMETER ::  acc_validate = .TRUE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -158,8 +158,8 @@ CONTAINS
 !$ACC DATA PRESENT( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra, iqidx, iqblk )           &
 !$ACC      COPYIN( trAdvect, trAdvect%list ) CREATE( z_mass_flx_me, z_topflx_tra )                  &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
-!!! !$ACC UPDATE DEVICE( p_vn_traj, p_mass_flx_me, p_mass_flx_ic )                                      &
-!!! !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE DEVICE( p_vn_traj, p_mass_flx_me, p_mass_flx_ic )                                      &
+!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !!$    ! The full set of setup computations is NOT executed in prepare_tracer 
 !!$    ! when the tracer advection is running together with the dynmical core 
@@ -491,8 +491,6 @@ CONTAINS
 
     ENDIF
 
-! Removing p_vn_traj, p_mass_flx_me, p_topflx_tra creates difference on the output files
-! but removing p_mass_flx_ic creates an error mo_gw_hines:hines_hines_intgrl : Hines i_alpha integral is negative) 
 !$ACC UPDATE HOST( p_vn_traj, p_mass_flx_me, p_mass_flx_ic, p_topflx_tra ) &
 !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
@@ -545,8 +543,8 @@ CONTAINS
 !$ACC DATA PRESENT( p_prog%rho, p_metrics%ddqz_z_full, p_nh_diag%airmass_now, p_nh_diag%airmass_new ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 
-!!! !$ACC UPDATE DEVICE( p_prog%rho, p_metrics%ddqz_z_full ),                                              &
-!!! !$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE DEVICE( p_prog%rho, p_metrics%ddqz_z_full ),                                              &
+!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 
 !$OMP PARALLEL
