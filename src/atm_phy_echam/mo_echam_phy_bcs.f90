@@ -51,6 +51,9 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
   USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
+#if defined( _OPENACC )
+  USE mo_mpi                   ,ONLY: i_am_accel_node, my_process_is_work
+#endif
 
   ! for 6hourly sst and ice data
   USE mo_time_config,          ONLY: time_config
@@ -118,6 +121,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE                     :: mask_sftof(:,:)
 
 !!$    CHARACTER(*), PARAMETER :: method_name = "echam_phy_bcs_global"
+    LOGICAL                                  :: save_i_am_accel_node
 
     ! Shortcuts to components of echam_cld_config
     !
@@ -126,6 +130,10 @@ CONTAINS
     TYPE(t_echam_phy_field) , POINTER    :: field
     !
     !
+#ifdef _OPENACC
+    save_i_am_accel_node = i_am_accel_node
+    i_am_accel_node = .FALSE.    ! Deactivate GPUs
+#endif
     jg        =  patch%id ! grid index
     ighg      => echam_rad_config(jg)% ighg
     isolrad   => echam_rad_config(jg)% isolrad
@@ -359,6 +367,10 @@ CONTAINS
     END IF
 
     END IF ! luse_rad
+
+#ifdef _OPENACC
+    i_am_accel_node = save_i_am_accel_node    ! Reactivate GPUs if appropriate
+#endif
 
   END SUBROUTINE echam_phy_bcs
 
