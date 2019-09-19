@@ -631,6 +631,9 @@ CONTAINS
     CASE (235)
       ocean_temperature(:,:,:) = 10.0_wp
 
+    CASE(240)
+      CALL tracer_advec_test(patch_3d, ocean_temperature)
+
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
      CALL temperature_KelvinHelmholtzTest(patch_3d, ocean_temperature,&
@@ -751,6 +754,10 @@ CONTAINS
     CASE (207)
       CALL message(TRIM(method_name), 'Galewsky Test ')
       CALL velocity_GalewskyTest(patch_3d, normal_velocity)
+ 
+    CASE (220)
+      CALL message(TRIM(method_name), 'Uniform horz velocity')
+      CALL velocity_uniVert(patch_3d, normal_velocity)
  
 
      CASE (300)
@@ -1378,6 +1385,52 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
  !write(0,*)'Galewsky-Test6:vn', maxval(vn),minval(vn)
   END SUBROUTINE  velocity_GalewskyTest
   !-----------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  !> Uniform velocity
+  !-------------------------------------------------------------------------
+  SUBROUTINE velocity_uniVert(patch_3d, vn)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: vn(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_edges
+
+    INTEGER :: edge_block, edge_index, level
+    INTEGER :: start_edges_index, end_edges_index
+    REAL(wp) :: point_lon, point_lat     ! latitude of point
+    REAL(wp) :: t       ! point of time
+    REAL(wp) :: uu, vv      ! zonal,  meridional velocity
+    REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_usbr_u'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_edges => patch_2d%edges%ALL
+
+    DO edge_block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+      DO edge_index = start_edges_index, end_edges_index
+        uu = 0.0_wp 
+
+        vv = 10._wp
+
+        edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+              & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+          vn(edge_index, level, edge_block) = edge_vn
+        ENDDO
+
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE  velocity_uniVert
+  !-----------------------------------------------------------------------------------
+
 
   !-----------------------------------------------------------------------------------
   SUBROUTINE velocity_KelvinHelmholtzTest(patch_3d, vn, velocity_amplitude)
@@ -2225,6 +2278,72 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
   END SUBROUTINE temperature_dirac_signal
   !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  !-Square blob for testing advection
+  SUBROUTINE tracer_advec_test(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: block, idx, level
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
+    LOGICAL :: set_single_triangle
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_Uniform_SpecialArea'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    z_lat1  =  - 5._wp
+    z_lat2  =    5._wp
+    z_lon1  =  - 5._wp
+    z_lon2  =    5._wp
+    
+    set_single_triangle=.false.
+    
+    ocean_temperature = 5.0_wp !-5.0_wp
+    
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        lat_deg = cell_center(idx, block)%lat * rad2deg
+        lon_deg = cell_center(idx, block)%lon * rad2deg
+
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+
+!            write(*,*) level, lat_deg, lon_deg            
+       
+          IF ( (lat_deg >= z_lat1 .AND. lat_deg <= z_lat2) .AND. &
+            & (lon_deg >= z_lon1 .AND. lon_deg <= z_lon2) ) THEN 
+
+            IF(.NOT.set_single_triangle)THEN
+              ocean_temperature(idx, level, block) =  7.5_wp!-4.0_wp
+              !set_single_triangle=.true.
+!write(1020,*)'indices',idx,block              
+            ELSE
+            
+            ENDIF
+
+
+          END IF
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE tracer_advec_test 
+  !-------------------------------------------------------------------------------
+
 
 
   !-------------------------------------------------------------------------------

@@ -73,7 +73,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_grid_subset,            ONLY: t_subset_range, get_index_range 
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d, &
       & map_edges2cell_3d, map_scalar_center2prismtop, map_vec_prismtop2center_on_block, &
-      & map_cell2edges_3D
+      & map_cell2edges_3D, map_edges2edges_viacell_3d_const_z
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
   USE mo_var_list
@@ -586,6 +586,10 @@ CONTAINS
 
         IF (no_tracer>=1) THEN
 
+          !! Update mass_flx_e for tracer advection
+          CALL map_edges2edges_viacell_3d_const_z( patch_3d, ocean_state(jg)%p_prog(nold(1))%vn, &
+                         & operators_coefficients, ocean_state(jg)%p_diag%mass_flx_e)
+
           ! fill transport_state
           transport_state%patch_3d    => patch_3d
           transport_state%h_old       => ocean_state(jg)%p_prog(nold(1))%h
@@ -616,15 +620,6 @@ CONTAINS
         model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
         this_datetime = this_datetime + model_time_step
         CALL deallocateTimedelta(model_time_step) 
-!        CALL add_time(dtime,0,0,0,this_datetime)
-      
-        ! update accumulated vars
-!       CALL update_ocean_statistics(ocean_state(1),&
-!       & ocean_surface,                                &
-!       & patch_2D%cells%owned,       &
-!       & patch_2D%edges%owned,       &
-!       & patch_2D%verts%owned,       &
-!       & n_zlev)
           
         CALL output_ocean( patch_3d, &
           & ocean_state,             &
