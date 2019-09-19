@@ -2547,17 +2547,14 @@ MODULE mo_nh_stepping
 
       CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
                                  p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%u, p_nh_state(jg)%diag%v ) IF (i_am_accel_node)
+
 
       !CALL div(p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%div)
       CALL div_avg(p_vn, p_patch(jg), p_int_state(jg),p_int_state(jg)%c_bln_avg,&
                                                           p_nh_state(jg)%diag%div)
 
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%div ) IF (i_am_accel_node)
-
       CALL rot_vertex (p_vn, p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag%omega_z)
 
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%omega_z ) IF (i_am_accel_node)
 
       IF (ldeepatmo) THEN
         ! Modify divergence and vorticity for spherical geometry 

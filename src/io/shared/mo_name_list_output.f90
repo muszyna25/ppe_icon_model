@@ -136,6 +136,7 @@ MODULE mo_name_list_output
     &                                     p_max, p_comm_work_2_io, mpi_request_null
 #ifdef _OPENACC
   USE mo_mpi,                       ONLY: i_am_accel_node
+  USE openacc
 #endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
@@ -1317,11 +1318,11 @@ CONTAINS
     END SELECT
 
     IF      (ASSOCIATED(r_ptr_5d)) THEN
-!$ACC UPDATE HOST(r_ptr) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(r_ptr) IF ( i_am_accel_node .AND. acc_is_present(r_ptr) )
     ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
-!$ACC UPDATE HOST(s_ptr) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(s_ptr) IF ( i_am_accel_node .AND. acc_is_present(s_ptr) )
     ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
-!$ACC UPDATE HOST(i_ptr) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(i_ptr) IF ( i_am_accel_node .AND. acc_is_present(i_ptr) )
     ENDIF
 
     RETURN
