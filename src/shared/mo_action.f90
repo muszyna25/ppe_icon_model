@@ -212,6 +212,7 @@ CONTAINS
           IF (action_list%action(iact)%actionTyp == actionTyp) THEN
 
             ! Add field to action object
+print *, 'tvpham: nvars = ', nvars
             nvars = nvars + 1
             act_obj%var_element_ptr(nvars)%p => element%field
             act_obj%var_action_index(nvars) = iact
