@@ -23,7 +23,7 @@ MODULE mo_advection_config
   USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,   &
     &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,    &
     &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,   &
-    &                                 FFSL_HYB_MCYCL, ippm_v, ipsm_v, ippm4gpu_v, &
+    &                                 FFSL_HYB_MCYCL, ippm_v, ipsm_v,          &
     &                                 ino_flx, izero_grad, iparent_flx, inwp,  &
     &                                 iecham, TRACER_ONLY, SUCCESS, VNAME_LEN, &
     &                                 NO_HADV, NO_VADV
@@ -66,7 +66,6 @@ MODULE mo_advection_config
   !
   TYPE t_compute                                                               
     LOGICAL :: ppm_v     (MAX_NTRACER)
-    LOGICAL :: ppm4gpu_v (MAX_NTRACER)                                           
     LOGICAL :: miura3_h  (MAX_NTRACER)
     LOGICAL :: ffsl_h    (MAX_NTRACER)
     LOGICAL :: ffsl_hyb_h(MAX_NTRACER)
@@ -225,7 +224,6 @@ MODULE mo_advection_config
     ! scheme specific derived variables
     !
     TYPE(t_scheme) :: ppm_v      !< vertical PPM scheme
-    TYPE(t_scheme) :: ppm4gpu_v  !< vertical PPM scheme (optimized for GPU)
     TYPE(t_scheme) :: miura_h    !< horizontal miura scheme (linear reconstr.)
     TYPE(t_scheme) :: miura3_h   !< horizontal miura scheme (higher order reconstr.)
     TYPE(t_scheme) :: ffsl_h     !< horizontal FFSL scheme
@@ -441,43 +439,6 @@ CONTAINS
       ENDDO
     END IF
 
-
-    ! PPM4GPU_V specific settings (vertical transport)
-    !
-    lcompute%ppm4gpu_v(:)   = .FALSE.
-    lcleanup%ppm4gpu_v(:)   = .FALSE.
-
-    advection_config(jg)%ppm4gpu_v%iadv_min_slev = HUGE(1)
-
-    IF ( ANY(ivadv_tracer == ippm4gpu_v) ) THEN
-      ! compute minimum required slev for this group of tracers
-      DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm4gpu_v ) THEN
-          advection_config(jg)%ppm4gpu_v%iadv_min_slev =                           &
-            &                  MIN( advection_config(jg)%ppm4gpu_v%iadv_min_slev,  &
-            &                        advection_config(jg)%iadv_slev(jt) )
-        ENDIF
-      ENDDO
-
-      ! Search for the first tracer jt for which vertical advection of
-      ! type PPM4GPU has been selected.
-      DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm4gpu_v ) THEN
-          lcompute%ppm4gpu_v(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
-
-      ! Search for the last tracer jt for which vertical advection of
-      ! type PPM4GPU has been selected.
-      DO jt=ntracer,1,-1
-        IF ( ivadv_tracer(jt) == ippm4gpu_v ) THEN
-          lcleanup%ppm4gpu_v(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
-
-    ENDIF
 
     !
     ! MIURA specific settings (horizontal transport)

@@ -61,6 +61,10 @@ MODULE mo_util_phys
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
   USE mo_upatmo_config,         ONLY: upatmo_config
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+#endif
+
 
   IMPLICIT NONE
 
@@ -136,6 +140,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2014-03-25)
   !!
   ELEMENTAL FUNCTION nwp_con_gust( u_850, u_950, v_850, v_950) RESULT(vgust_con)
+!$ACC ROUTINE SEQ
 
     REAL(wp), INTENT(IN) :: u_850, &    ! zonal wind component at 850 hPa [m/s]
       &                     u_950, &    ! zonal wind component at 950 hPa [m/s]
@@ -265,6 +270,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by D. Reinert, DWD (2014-09-18) 
   ELEMENTAL FUNCTION swdir_s(albedo, swdifd_s, sobs)
+!$ACC ROUTINE SEQ
     REAL(wp)             :: swdir_s
     REAL(wp), INTENT(IN) :: albedo      ! shortwave broadband albedo
     REAL(wp), INTENT(IN) :: swdifd_s    ! shortwave diffuse downward flux (sfc)
@@ -283,6 +289,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  :  F. Prill, DWD (2012-07-03) 
   ELEMENTAL FUNCTION rel_hum(temp, qv, p_ex)
+
     REAL(wp) :: rel_hum
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
       &                     qv,   &  ! spec. water vapor content
@@ -313,6 +320,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  by Daniel Reinert, DWD (2013-07-15) 
   ELEMENTAL FUNCTION rel_hum_ifs(temp, qv, p_ex)
+
     REAL(wp) :: rel_hum_ifs
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
       &                     qv,   &  ! spec. water vapor content
@@ -409,6 +417,7 @@ CONTAINS
 
         END DO
       END DO
+
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -497,6 +506,7 @@ CONTAINS
 
         END DO
       END DO
+
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -513,6 +523,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-07-25) 
   ELEMENTAL FUNCTION vap_pres(qv,pres)
+
   IMPLICIT NONE
 
     REAL(wp), INTENT(IN)  :: qv   ! specific humidity         [kg/kg]
@@ -674,7 +685,7 @@ CONTAINS
 
 
     ! local
-    REAL(wp):: w_avg(nproma)       ! vertical velocity averaged to full level
+    REAL(wp):: w_avg               ! vertical velocity averaged to full level
     INTEGER :: slev, elev          ! vertical start and end index
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_nchdom
@@ -704,6 +715,8 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
       
+!$ACC PARALLEL DEFAULT(PRESENT) PRIVATE(w_avg) IF( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -712,12 +725,13 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 #endif
           ! half level to full level interpolation
-          w_avg(jc) = 0.5_wp * (p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb))
+          w_avg = 0.5_wp * (p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb))
 
-          out_var(jc,jk,jb) = -p_prog%rho(jc,jk,jb)*grav*w_avg(jc)
+          out_var(jc,jk,jb) = -p_prog%rho(jc,jk,jb)*grav*w_avg
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
     ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -857,6 +871,9 @@ CONTAINS
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_startblk = p_patch%cells%start_blk (rl_start,1)
     i_endblk   = p_patch%cells%end_blk   (rl_end,i_nchdom)
+
+!$ACC DATA CREATE( pv_ef, vt, theta_cf, theta_vf, theta_ef, w_vh, w_eh, ddtw_eh, ddnw_eh, &
+!$ACC              ddtth_ef, ddnth_ef, vor_ef ) IF ( i_am_accel_node )
     
 !$OMP PARALLEL    
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
@@ -866,6 +883,8 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
       
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 
@@ -873,6 +892,7 @@ CONTAINS
           
         ENDDO
       ENDDO
+!$ACC END PARALLEL
     
     END DO
 !$OMP END DO NOWAIT
@@ -917,26 +937,27 @@ CONTAINS
       
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
-     
+
+!$ACC PARALLEL DEFAULT(PRESENT) PRIVATE( ivd1, ivd2, vdfac )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)     
       DO jk = slev, elev
-      
-        !Get indices for vertical derivatives of full level variables
-        IF ( jk == slev ) THEN
-          ivd1=slev
-          ivd2=slev+1
-          vdfac=1_wp
-        ELSE IF ( jk == elev ) THEN
-          ivd1=elev-1
-          ivd2=elev
-          vdfac=1_wp
-        ELSE
-          ivd1=jk-1
-          ivd2=jk+1
-          vdfac=2_wp
-        END IF
-          
         DO je = i_startidx, i_endidx
 
+          !Get indices for vertical derivatives of full level variables
+          IF ( jk == slev ) THEN
+            ivd1=slev
+            ivd2=slev+1
+            vdfac=1_wp
+          ELSE IF ( jk == elev ) THEN
+            ivd1=elev-1
+            ivd2=elev
+            vdfac=1_wp
+          ELSE
+            ivd1=jk-1
+            ivd2=jk+1
+            vdfac=2_wp
+          END IF
+          
           !Ertel-PV calculation on edges
           pv_ef(je,jk,jb) =                                                                                     &
             &     (   0.5_wp*(ddnw_eh(je,jk,jb)+ddnw_eh(je,jk+1,jb))                                            &
@@ -964,6 +985,8 @@ CONTAINS
                    
         ENDDO
       ENDDO
+!$ACC END PARALLEL
+
     ENDDO 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -998,6 +1021,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL    
 
+!$ACC END DATA
         
   END SUBROUTINE compute_field_pv
 

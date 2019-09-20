@@ -223,10 +223,6 @@ CONTAINS
 
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
 
-#ifdef _OPENACC
-    LOGICAL  :: save_i_am_accel_node
-#endif
-
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_mflx_contra_v
 #endif
@@ -276,16 +272,28 @@ CONTAINS
         iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
 
 #ifdef _OPENACC
-! In GPU mode, copy data to HOST and perform upwind_vflux_ppm there, then update device
-! NOTE: this is only for testing; use upwind_vflux_ppm4gpu for performance
-        WRITE(message_text,'(a)') 'GPU mode: performing upwind_vflux_ppm on host; for performance use upwind_vflux_ppm4gpu'
+
+! In GPU mode, PSM is unavailable
+        IF ( p_ivadv_tracer(jt) == ipsm_v ) THEN
+          CALL finish ( TRIM(routine), 'NO ppm4gpu IMPLEMENTATION for PSM ')
+        ENDIF
+
+        WRITE(message_text,'(a)') 'WARNING:  in gpu mode, using upwind_vflux_ppm4gpu for performance reasons'
         CALL message(TRIM(routine),message_text)
-!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_cellhgt_mc_now, p_cellmass_now  ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE HOST( p_upflux(:,:,:,jt), p_mflx_contra_v ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE HOST( opt_topflx_tra(:,:,jt) ), IF( i_am_accel_node .AND. acc_on .AND. PRESENT(opt_topflx_tra ) )
-        save_i_am_accel_node = i_am_accel_node
-        i_am_accel_node = .FALSE.                  ! deactivate GPUs throughout upwind_vflux_ppm
-#endif
+
+        CALL upwind_vflux_ppm4gpu( p_patch, p_cc(:,:,:,jt), p_iubc_adv,      &! in
+            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
+            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
+            &                  p_ivlimit_selective(jt),                      &! in
+            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
+            &                  p_upflux(:,:,:,jt),                           &! out
+            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
+            &                  opt_slev=p_iadv_slev(jt),                     &! in
+            &                  opt_ti_slev=iadv_min_slev,                    &! in
+            &                  opt_rlstart=opt_rlstart,                      &! in
+            &                  opt_rlend=i_rlend_c                           )! in
+
+#else
         ! CALL third order PPM/PSM (unrestricted timestep-version) (i.e. CFL>1)
         CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,        &! in
           &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
@@ -300,30 +308,11 @@ CONTAINS
           &                  opt_ti_slev=iadv_min_slev,                    &! in
           &                  opt_rlstart=opt_rlstart,                      &! in
           &                  opt_rlend=i_rlend_c                           )! in
-#ifdef _OPENACC
-        i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
-!$ACC UPDATE DEVICE( p_upflux(:,:,:,jt), p_mflx_contra_v ), IF( i_am_accel_node .AND. acc_on )
+
 #endif
 
-
-      CASE( ippm4gpu_v )
-
-        iadv_min_slev = advection_config(jg)%ppm4gpu_v%iadv_min_slev
-
-        ! CALL third order PPM (unrestricted timestep-version, optimized for GPU)
-        CALL upwind_vflux_ppm4gpu( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
-            &                  p_mflx_contra_v, p_dtime, lcompute%ppm4gpu_v(jt), &! in
-            &                  lcleanup%ppm4gpu_v(jt), p_itype_vlimit(jt),   &! in
-            &                  p_ivlimit_selective(jt),                      &! in
-            &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
-            &                  p_upflux(:,:,:,jt),                           &! out
-            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
-            &                  opt_slev=p_iadv_slev(jt),                     &! in
-            &                  opt_ti_slev=iadv_min_slev,                    &! in
-            &                  opt_rlstart=opt_rlstart,                      &! in
-            &                  opt_rlend=i_rlend_c                           )! in
-
       END SELECT
+
     END DO  ! Tracer loop
 
 

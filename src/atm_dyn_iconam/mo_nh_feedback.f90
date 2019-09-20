@@ -1412,32 +1412,36 @@ CONTAINS
 
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
 
+!$ACC KERNELS
+      diff_vn(:,:,jb) = 0._wp
+!$ACC END KERNELS
+
 !$ACC PARALLEL IF( use_acc )
 #ifdef __LOOP_EXCHANGE
 !$ACC LOOP GANG
       DO je = i_startidx,i_endidx
         IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
-!$ACC LOOP VECTOR
 !DIR$ IVDEP
+!$ACC LOOP VECTOR
           DO jk = 1, nlev_c
-            diff_vn(je,jk,jb) = p_fbk_vn(je,jk,jb) - p_parent_prog%vn(je,jk+js,jb)
-          ENDDO
-        ELSE
-!$ACC KERNELS
-          diff_vn(je,1:nlev_c,jb) = 0._wp
-!$ACC END KERNELS
-        ENDIF
-      ENDDO
 #else
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1, nlev_c
         DO je = i_startidx,i_endidx
-          diff_vn(je,jk,jb) = MERGE(p_fbk_vn(je,jk,jb)-p_parent_prog%vn(je,jk+js,jb), 0._wp, &
-                                    p_grfp%mask_ovlp_e(je,jb,i_chidx) )
-        ENDDO
-      ENDDO
+          IF (p_grfp%mask_ovlp_e(je,jb,i_chidx)) THEN
 #endif
+            diff_vn(je,jk,jb) = p_fbk_vn(je,jk,jb) - p_parent_prog%vn(je,jk+js,jb)
+
+#ifdef __LOOP_EXCHANGE
+          ENDDO
+        ENDIF
+#else
+          ENDIF
+        ENDDO
+#endif
+      ENDDO
 !$ACC END PARALLEL
+
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
