@@ -532,9 +532,6 @@ CONTAINS
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
     TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
     
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_ocean_testbed_modules:test_advection'
-
     ! local variables
     TYPE (t_hamocc_state)        :: hamocc_State
     INTEGER :: jstep, jg
@@ -560,27 +557,18 @@ CONTAINS
     CALL timer_start(timer_total)
     
     IF (n_dom > 1 ) THEN
-      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+      CALL finish(TRIM(method_name), ' N_DOM > 1 is not allowed')
     END IF
     jg = n_dom
 
     jstep0 = 0
-    !------------------------------------------------------------------
-    ! IF(.NOT.l_time_marching)THEN
-
-      !IF(itestcase_oce==28)THEN
-      DO jstep = (jstep0+1), (jstep0+nsteps)
+      
+    DO jstep = (jstep0+1), (jstep0+nsteps)
       
         CALL datetimeToString(this_datetime, datestring)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(method_name), message_text)
  
-!          IF(jstep==1)THEN
-!          ocean_state(jg)%p_diag%vn_time_weighted = ocean_state(jg)%p_prog(nold(1))%vn
-!          ocean_state(jg)%p_prog(nnew(1))%vn = ocean_state(jg)%p_prog(nold(1))%vn
-!          ocean_state(jg)%p_diag%w        =  0.0_wp!0.0833_wp!0.025_wp
-!          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
-!          ENDIF
         old_tracer_collection => ocean_state(jg)%p_prog(nold(1))%tracer_collection
         new_tracer_collection => ocean_state(jg)%p_prog(nnew(1))%tracer_collection
 
@@ -597,11 +585,6 @@ CONTAINS
           transport_state%vn          => ocean_state(jg)%p_prog(nold(1))%vn
           transport_state%w           => ocean_state(jg)%p_diag%w
           transport_state%mass_flux_e => ocean_state(jg)%p_diag%mass_flx_e
-
-          ! fill boundary conditions
-!           old_tracer_collection%tracer(1)%top_bc => p_oce_sfc%TopBC_Temp_vdiff
-!           IF (no_tracer > 1) &
-!             old_tracer_collection%tracer(2)%top_bc => p_oce_sfc%TopBC_Salt_vdiff
 
           ! fill diffusion coefficients
           old_tracer_collection%tracer(1)%hor_diffusion_coeff => physics_parameters%TracerDiffusion_coeff(:,:,:,1)
@@ -636,8 +619,7 @@ CONTAINS
         ocean_state(jg)%p_aux%g_nm1 = ocean_state(jg)%p_aux%g_n
         ocean_state(jg)%p_aux%g_n   = 0.0_wp
 
-      END DO
-    ! ENDIF!(l_no_time_marching)THEN
+    END DO
     
     CALL timer_stop(timer_total)
     

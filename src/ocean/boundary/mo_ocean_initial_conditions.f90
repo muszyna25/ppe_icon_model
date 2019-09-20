@@ -757,7 +757,7 @@ CONTAINS
  
     CASE (220)
       CALL message(TRIM(method_name), 'Uniform horz velocity')
-      CALL velocity_uniVert(patch_3d, normal_velocity)
+      CALL velocity_uniHorz(patch_3d, normal_velocity)
  
 
      CASE (300)
@@ -1389,7 +1389,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
   !-------------------------------------------------------------------------------
   !> Uniform velocity
   !-------------------------------------------------------------------------
-  SUBROUTINE velocity_uniVert(patch_3d, vn)
+  SUBROUTINE velocity_uniHorz(patch_3d, vn)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: vn(:,:,:)
 
@@ -1414,9 +1414,9 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     DO edge_block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
       DO edge_index = start_edges_index, end_edges_index
-        uu = 0.0_wp 
+        uu = 10.0_wp
 
-        vv = 10._wp
+        vv =  0._wp
 
         edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
               & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
@@ -1428,7 +1428,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       ENDDO
     ENDDO
 
-  END SUBROUTINE  velocity_uniVert
+  END SUBROUTINE  velocity_uniHorz
   !-----------------------------------------------------------------------------------
 
 
