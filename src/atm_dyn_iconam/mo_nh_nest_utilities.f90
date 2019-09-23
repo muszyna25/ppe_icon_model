@@ -202,6 +202,11 @@ CONTAINS
           ENDDO
         ENDDO
 
+!
+! rho_ref_corr is one of several variables which is not defined with ADD_VAR, and needs to be explicitly copied to DEVICE
+!
+!$ACC ENTER DATA COPYIN( p_nh_state(jgc)%metrics%rho_ref_corr )
+
         DEALLOCATE(z_rho_ref)
 
       ENDDO

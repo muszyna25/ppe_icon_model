@@ -49,6 +49,7 @@ MODULE mo_nonhydro_gpu_types
   USE mo_nh_prepadv_types,     ONLY: t_prepare_adv
   USE mo_advection_config,     ONLY: t_advection_config
   USE mo_intp_data_strc,       ONLY: t_int_state
+  USE mo_grf_intp_data_strc,   ONLY: t_gridref_single_state, t_gridref_state
   USE mo_var_list_gpu,         ONLY: gpu_h2d_var_list, gpu_d2h_var_list
   USE mo_run_config,           ONLY: ltestcase
 
@@ -56,7 +57,7 @@ MODULE mo_nonhydro_gpu_types
 
   PRIVATE 
 
-  PUBLIC :: h2d_icon, d2h_icon
+  PUBLIC :: h2d_icon, d2h_icon, devcpy_grf_state
 
 CONTAINS
 
@@ -360,6 +361,94 @@ CONTAINS
     END DO
 
   END SUBROUTINE transfer_echam
+
+  SUBROUTINE devcpy_grf_state( p_grf, l_h2d )
+
+      TYPE ( t_gridref_state ), TARGET,  INTENT(INOUT) :: p_grf(:)
+      LOGICAL, INTENT(IN) :: l_h2d    ! true host-to-device, false device-to-host
+
+      INTEGER  :: j,k
+
+#ifndef _CRAYFTN
+!$ACC ENTER DATA COPYIN( p_grf ), IF ( i_am_accel_node  )
+#endif
+
+      DO j=1, SIZE(p_grf)
+
+        IF (l_h2d) THEN
+
+!$ACC ENTER DATA &
+!$ACC       COPYIN( p_grf(j)%fbk_wgt_aw, p_grf(j)%fbk_wgt_bln, p_grf(j)%fbk_wgt_e, p_grf(j)%fbk_dom_area,  &
+!$ACC               p_grf(j)%mask_ovlp_c, p_grf(j)%mask_ovlp_ch, p_grf(j)%mask_ovlp_e, p_grf(j)%mask_ovlp_v,        &
+!$ACC               p_grf(j)%idxlist_bdyintp_src_c, p_grf(j)%idxlist_bdyintp_src_e, p_grf(j)%blklist_bdyintp_src_c, &
+!$ACC               p_grf(j)%blklist_bdyintp_src_e,p_grf(j)%p_dom ),  &
+!$ACC       IF ( i_am_accel_node )        
+
+        DO k = 1, SIZE(p_grf(j)%p_dom)
+          CALL devcpy_grf_single_state( p_grf(j)%p_dom, l_h2d )
+        ENDDO
+
+        ELSE
+
+        DO k = 1, SIZE(p_grf(j)%p_dom)
+          CALL devcpy_grf_single_state( p_grf(j)%p_dom, l_h2d )
+        ENDDO
+
+!$ACC EXIT DATA &
+!$ACC      DELETE(  p_grf(j)%fbk_wgt_aw, p_grf(j)%fbk_wgt_bln, p_grf(j)%fbk_wgt_e, p_grf(j)%fbk_dom_area,           &
+!$ACC               p_grf(j)%mask_ovlp_c, p_grf(j)%mask_ovlp_ch, p_grf(j)%mask_ovlp_e, p_grf(j)%mask_ovlp_v,        &
+!$ACC               p_grf(j)%idxlist_bdyintp_src_c, p_grf(j)%idxlist_bdyintp_src_e, p_grf(j)%blklist_bdyintp_src_c, &
+!$ACC               p_grf(j)%blklist_bdyintp_src_e,p_grf(j)%p_dom )                                        &
+!$ACC       IF ( i_am_accel_node )        
+
+#ifndef _CRAYFTN
+!$ACC EXIT DATA DELETE( p_grf ), IF ( i_am_accel_node  )
+#endif
+
+        ENDIF
+
+      ENDDO
+
+    END SUBROUTINE devcpy_grf_state
+
+    SUBROUTINE devcpy_grf_single_state( p_grf, l_h2d )
+
+      TYPE ( t_gridref_single_state ), TARGET,  INTENT(INOUT) :: p_grf(:)
+      LOGICAL, INTENT(IN) :: l_h2d    ! true host-to-device, false device-to-host
+
+      INTEGER  :: j
+
+
+      DO j=1, SIZE(p_grf)
+
+        IF (l_h2d) THEN
+
+!$ACC ENTER DATA &
+!$ACC       COPYIN( p_grf(j)%grf_dist_pc2cc, p_grf(j)%grf_dist_pe2ce, p_grf(j)%idxlist_bdyintp_c,                  &
+!$ACC       p_grf(j)%idxlist_bdyintp_e, p_grf(j)%idxlist_ubcintp_c, p_grf(j)%idxlist_ubcintp_e, p_grf(j)%blklist_bdyintp_c, &
+!$ACC       p_grf(j)%blklist_bdyintp_e, p_grf(j)%blklist_ubcintp_c, p_grf(j)%blklist_ubcintp_e, p_grf(j)%idxlist_rbfintp_v, &
+!$ACC       p_grf(j)%blklist_rbfintp_v, p_grf(j)%edge_vert_idx, p_grf(j)%coeff_bdyintp_c, p_grf(j)%coeff_ubcintp_c,         &
+!$ACC       p_grf(j)%dist_pc2cc_bdy, p_grf(j)%dist_pc2cc_ubc, p_grf(j)%prim_norm, p_grf(j)%coeff_bdyintp_e12,               &
+!$ACC       p_grf(j)%coeff_bdyintp_e34, p_grf(j)%dist_pe2ce, p_grf(j)%coeff_ubcintp_e12, p_grf(j)%coeff_ubcintp_e34,        &
+!$ACC       p_grf(j)%coeff_rbf_v ),    IF ( i_am_accel_node )        
+
+        ELSE
+
+!$ACC EXIT DATA &
+!$ACC      DELETE(  p_grf(j)%grf_dist_pc2cc, p_grf(j)%grf_dist_pe2ce, p_grf(j)%idxlist_bdyintp_c,                           &
+!$ACC       p_grf(j)%idxlist_bdyintp_e, p_grf(j)%idxlist_ubcintp_c, p_grf(j)%idxlist_ubcintp_e, p_grf(j)%blklist_bdyintp_c, &
+!$ACC       p_grf(j)%blklist_bdyintp_e, p_grf(j)%blklist_ubcintp_c, p_grf(j)%blklist_ubcintp_e, p_grf(j)%idxlist_rbfintp_v, &
+!$ACC       p_grf(j)%blklist_rbfintp_v, p_grf(j)%edge_vert_idx, p_grf(j)%coeff_bdyintp_c, p_grf(j)%coeff_ubcintp_c,         &
+!$ACC       p_grf(j)%dist_pc2cc_bdy, p_grf(j)%dist_pc2cc_ubc, p_grf(j)%prim_norm, p_grf(j)%coeff_bdyintp_e12,               &
+!$ACC       p_grf(j)%coeff_bdyintp_e34, p_grf(j)%dist_pe2ce, p_grf(j)%coeff_ubcintp_e12, p_grf(j)%coeff_ubcintp_e34,        &
+!$ACC       p_grf(j)%coeff_rbf_v )                                        &
+!$ACC       IF ( i_am_accel_node )        
+
+        ENDIF
+
+      ENDDO
+
+    END SUBROUTINE devcpy_grf_single_state
 
 #endif
 

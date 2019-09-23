@@ -74,6 +74,9 @@ MODULE mo_pp_tasks
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_interpol_config,         ONLY: support_baryctr_intp
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+#endif
 
   ! Workaround for SMI computation. Not nice, however by making 
   ! direct use of the states below, we avoid enhancing the type t_data_input.
@@ -1021,6 +1024,9 @@ CONTAINS
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1,    & !out
         &                 vcoeff%lin_cell%kpbl2, vcoeff%lin_cell%wfacpbl2   )   !out
       ! Interpolate pressure on z-level "0": 
+! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
+!        Ultimately this calculation needs to be performed on the device
+!$ACC UPDATE HOST( p_diag%pres, p_diag%tempv ) IF (i_am_accel_node)
       CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,           &
         &                pmsl_aux(:,1,:),                                     &
         &                nblks_c, npromz_c, p_patch%nlev,                       &
@@ -1034,6 +1040,9 @@ CONTAINS
 
       IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_GME")
       ! Interpolate pressure on z-level "0":
+! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
+!        Ultimately this calculation needs to be performed on the device
+!$ACC UPDATE HOST( p_diag%pres, p_diag%pres_sfc, p_diag%temp ) IF (i_am_accel_node)
       CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
         &                    pmsl_aux(:,1,:),                           &  ! out
@@ -1055,6 +1064,9 @@ CONTAINS
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%zextrap,     & !out
         &                 vcoeff%lin_cell%wfacpbl1)                             !out
       ! Interpolate pressure on z-level "0":
+! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
+!        Ultimately this calculation needs to be performed on the device
+!$ACC UPDATE HOST( p_diag%pres_sfc, p_diag%temp ) IF (i_am_accel_node)
       CALL diagnose_pmsl_ifs(p_diag%pres_sfc, p_diag%temp, p_metrics%z_ifc,   & ! in
         &                    pmsl_aux(:,1,:),                                 & ! out
         &                    nblks_c, npromz_c, p_patch%nlev,                 & ! in
@@ -1073,6 +1085,8 @@ CONTAINS
 
     CALL cell_avg(pmsl_aux, p_patch, p_int_state(jg)%c_bln_avg, pmsl_avg)
     out_var%r_ptr(:,:,out_var_idx,1,1) = pmsl_avg(:,1,:)
+
+!$ACC UPDATE DEVICE(  out_var%r_ptr(:,:,out_var_idx,1,1) )  IF (i_am_accel_node)
 
   END SUBROUTINE pp_task_intp_msl
 

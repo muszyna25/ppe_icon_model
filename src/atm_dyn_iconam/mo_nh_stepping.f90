@@ -101,7 +101,7 @@ MODULE mo_nh_stepping
   USE mo_intp_data_strc,           ONLY: p_int_state, t_int_state
   USE mo_intp_rbf,                 ONLY: rbf_vec_interpol_cell
   USE mo_intp,                     ONLY: verts2cells_scalar
-  USE mo_grf_intp_data_strc,       ONLY: p_grf_state
+  USE mo_grf_intp_data_strc,       ONLY: p_grf_state, p_grf_state_local_parent
   USE mo_gridref_config,           ONLY: l_density_nudging, grf_intmethod_e
   USE mo_grf_bdyintp,              ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,        ONLY: compute_tendencies, boundary_interpolation,    &
@@ -208,7 +208,7 @@ MODULE mo_nh_stepping
   USE mo_assimilation_config,      ONLY: assimilation_config
 
 #if defined( _OPENACC )
-  USE mo_nonhydro_gpu_types,       ONLY: h2d_icon, d2h_icon
+  USE mo_nonhydro_gpu_types,       ONLY: h2d_icon, d2h_icon, devcpy_grf_state
   USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
   USE mo_loopindices,              ONLY: get_indices_c, get_indices_v
@@ -695,6 +695,10 @@ MODULE mo_nh_stepping
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
   call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config, iforcing )
+  IF (n_dom > 1 .OR. l_limited_area) THEN
+     CALL devcpy_grf_state (p_grf_state, .TRUE.)
+     CALL devcpy_grf_state (p_grf_state_local_parent, .TRUE.)
+  ENDIF
 #endif
 
   TIME_LOOP: DO
