@@ -987,13 +987,22 @@ maximum height for cloud cover computation &
 echam\_cov\_config(jg)\% icov &
 I & 1 & &
 selects cloud cover scheme \newline
+0: constant cloud cover =  clcon \newline
 1: fractional cloud cover based on rel. humidity \newline
-2: 0/1 cloud cover based on rel. humidity &
+2: 0/1 cloud cover based on rel. humidity >= csat \newline
+3: 0/1 cloud cover based on cloud condensate >= cqx &
+\tabularnewline
+
+echam\_cov\_config(jg)\% clcon &
+R & 0.0 & &
+constant cloud cover in m2/m2 &
+icov = 0
 \tabularnewline
 
 echam\_cov\_config(jg)\% csat &
 R & 1.0 & &
 relative humidity at which cloud cover is 1 &
+icov = 1, 2
 \tabularnewline
 
 echam\_cov\_config(jg)\% crs &
@@ -1036,6 +1045,12 @@ echam\_cov\_config(jg)\% csatsc &
 R & 0.7 & &
 minimum effective saturation for cloud cover below an inversion layer over sea &
 icov = 1
+\tabularnewline
+
+echam\_cov\_config(jg)\% cqx &
+R & 1.0e-8 & kg/kg &
+minimum cloud condensate mass mixing ratio for cloud cover 1 &
+icov = 3
 \tabularnewline
 
 \end{longtab}

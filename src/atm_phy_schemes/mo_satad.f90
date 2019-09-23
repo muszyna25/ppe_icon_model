@@ -172,11 +172,14 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   ! Local variables:
   ! -------------
   INTEGER (KIND=iintegers) ::  &
-       i, k,                   & !  Loop indices
+       i, k                      !  Loop indices
+#ifndef _OPENACC
+  INTEGER (KIND=iintegers) ::  &
        nsat,                   & !  Number of saturated gridpoints
        iwrk(idim*kdim),        & !  i-index of saturated gridpoints
        kwrk(idim*kdim),        & !  k-index of saturated gridpoints
        indx                        !, & !  loop index
+#endif
 
   REAL    (KIND=ireals   ) ::  &
        Ttest(idim,kdim), qtest(idim,kdim), qw(idim,kdim), qwd, qwa, dqwd, fT, dfT, & !, cvvmcl, qd,
@@ -190,8 +193,16 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
        lwdocvd  ! (Temperature-dependent) latent heat of vaporization over cv
 
+#ifdef _OPENACC
+  REAL (KIND=ireals), DIMENSION(idim,kdim) ::  &
+#else
   REAL (KIND=ireals), DIMENSION(idim*kdim) ::  &
+#endif
        twork, tworkold
+
+#ifdef _OPENACC
+  LOGICAL, DIMENSION(idim,kdim) :: doIter
+#endif
 
   REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
                                                        !at constant pressure
@@ -217,13 +228,16 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
   zqwmin = 1.0E-20_ireals
 
+#ifndef _OPENACC
   ! Counter for the number of gridpoints which need the Newton iteration:
   nsat = 0
+#endif
 
   ! KF old uncorrect version
   ! Some constants:
   ! lwdocvd = lwd / cvd
 
+  !$ACC DATA PCREATE( Ttest, qtest, qw, rhotot, lwdocvd, twork, tworkold, doIter)
 
 !!!=============================================================================================
 
@@ -233,8 +247,13 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
    CALL calrho( te, ppe,qve,qce,qle+qie, p0e, rhotot, idim, kdim, r_d, rvd_m_o )
 #endif
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO k = klo, kup
       DO i = ilo , iup
+#ifdef _OPENACC
+        doIter(i,k) = .FALSE.
+#endif
 
         ! total content of the species which are changed by the adjustment:
         qw(i,k) = qve(i,k) + qce(i,k)
@@ -252,7 +271,10 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 
       END DO
     END DO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(ll_satad)
     DO k = klo, kup
       DO i = ilo , iup
 
@@ -273,25 +295,37 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
           qce(i,k)  = 0.0_ireals
           te(i,k)   = Ttest(i,k)
         ELSE
+#ifndef _OPENACC
           ! In this case, the Newton interation is needed
           nsat       = nsat+1
           iwrk(nsat) = i
           kwrk(nsat) = k
+#endif
           ! Field for the iterated temperature, here set the starting value for the below iteration
           ! to the "old" temperature (as an alternative, the arithmetic mean
           ! between "old" temperature and dew point has been tested, but did
           ! not significantly increase the convergence speed of the iteration):
+#ifdef _OPENACC
+          twork(i,k)  = te(i,k)
+#else
           twork(nsat)  = te(i,k)
+#endif
           ! And this is the storage variable for the "old" values in the below iteration:
           ! Add some nonesense increment to the starting, which is sufficient to trigger the
           ! iteration below:
+#ifdef _OPENACC
+          tworkold(i,k) = twork(i,k) + 10.0_ireals
+          doIter(i,k) = .TRUE.
+#else
           tworkold(nsat) = twork(nsat) + 10.0_ireals
+#endif
         END IF
         
        END IF
 
       END DO
     END DO
+    !$ACC END PARALLEL
 
     ! Do the Newton iteration at gridpoints which need it:
     ! ---------------------------------------------------
@@ -302,7 +336,35 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 !!!=============================================================================
 
 
+#ifndef _OPENACC
     IF (nsat.gt.0) THEN
+#endif
+
+#ifdef _OPENACC
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(count, qwd, dqwd, fT, dfT)
+      DO k = klo, kup
+        DO i = ilo , iup
+          IF(doIter(i,k)) THEN
+            count = 0
+            ! This loop is iterated on every thread independently for every
+            ! cell.
+            DO WHILE (ABS(twork(i,k)-tworkold(i,k) > tol) .AND. count < maxiter)
+              ! Here we still have to iterate ...
+              tworkold(i,k) = twork(i,k)
+              qwd  = qsat_rho(twork(i,k), rhotot(i,k))
+              dqwd = dqsatdT_rho(qwd, twork(i,k))
+              ! Newton:
+              fT = twork(i,k) - te(i,k) + lwdocvd(i,k)*(qwd - qve(i,k))
+              dfT = 1.0_ireals + lwdocvd(i,k)*dqwd
+              twork(i,k) = twork(i,k) - fT / dfT;
+              count = count + 1
+            END DO
+          END IF
+        END DO
+      END DO
+      !$ACC END PARALLEL
+#else
       count = 0
       DO WHILE (ANY(ABS(twork(1:nsat)-tworkold(1:nsat)) > tol) .AND. count < maxiter)
         DO indx = 1, nsat
@@ -325,6 +387,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
         END DO
         count = count + 1
       END DO
+#endif
 
 !      IF (ANY(ABS(twork(1:nsat)-tworkold(1:nsat)) > tol)) THEN
 !        WRITE(*,*) 'SATAD_V_3D: convergence error of Newton iteration'
@@ -335,21 +398,42 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
       ! Distribute the results back to gridpoints:
       ! ------------------------------------------
 
+#ifdef _OPENACC
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(qwa)
+    DO k = klo, kup
+      DO i = ilo , iup
+        IF(doIter(i,k)) THEN
+        te (i,k) = twork(i,k)
+#else
 !CDIR NODEP,VOVERTAKE,VOB
 !DIR$ IVDEP
       DO indx = 1, nsat
         i = iwrk(indx)
         k = kwrk(indx)
         te (i,k) = twork(indx)
+#endif
         ! We disregard here the extrapolation of qsat from the second-last iteration
         ! step, which is done in the original routine to exactly preserve the internal energy.
         ! This introduces a small error (see the COSMO-Documentation, Part III).
         qwa = qsat_rho(te(i,k), rhotot(i,k))
         qce(i,k) = MAX( qce(i,k) + qve(i,k) - qwa,zqwmin)
         qve(i,k) = qwa
+#ifdef _OPENACC
+        END IF
+      END DO
+    END DO
+    !$ACC END PARALLEL
+#else
       ENDDO
+#endif
 
+#ifndef _OPENACC
     END IF
+#endif
+
+    ! ending the pcreate
+    !$ACC END DATA
 
 !!!=============================================================================================
 
@@ -377,6 +461,8 @@ IMPLICIT NONE
 REAL (KIND=ireals)              :: sat_pres_water
 REAL (KIND=ireals), INTENT(IN)  :: temp
 
+!$ACC ROUTINE SEQ
+
 sat_pres_water = b1*EXP( b2w*(temp-b3)/(temp-b4w) )
 
 END FUNCTION sat_pres_water
@@ -388,6 +474,8 @@ IMPLICIT NONE
 
 REAL (KIND=ireals)              :: sat_pres_ice
 REAL (KIND=ireals), INTENT(IN)  :: temp
+
+!$ACC ROUTINE SEQ
 
 sat_pres_ice = b1*EXP( b2i*(temp-b3)/(temp-b4i) )
 
@@ -405,7 +493,12 @@ spec_humi = rdv*pvap/( pres - o_m_rdv*pvap )
 
 END FUNCTION spec_humi
 
-ELEMENTAL FUNCTION qsat_rho(temp, rhotot)
+! Routine with ACC ROUTINE SEQ cannot be elemental
+#ifdef _OPENACC
+ELEMENTAL &
+#endif
+FUNCTION qsat_rho(temp, rhotot)
+  !$ACC ROUTINE SEQ
 
     !-------------------------------------------------------------------------------
     !
@@ -423,7 +516,12 @@ ELEMENTAL FUNCTION qsat_rho(temp, rhotot)
 
 END FUNCTION qsat_rho
 
-ELEMENTAL  FUNCTION dqsatdT_rho(zqsat, temp)
+! Routine with ACC ROUTINE SEQ cannot be elemental
+#ifdef _OPENACC
+ELEMENTAL &
+#endif
+FUNCTION dqsatdT_rho(zqsat, temp)
+  !$ACC ROUTINE SEQ
 
     !-------------------------------------------------------------------------------
     !

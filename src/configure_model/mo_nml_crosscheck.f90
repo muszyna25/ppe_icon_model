@@ -453,88 +453,11 @@ CONTAINS
     !
     ! Check settings of ntracer
     !
-    ! Set tracer indices
-    !
+    ! provisional number of water species for which convective
+    ! and turbulent tendencies of NWP physics are stored
+    nqtendphy = 0
+
     SELECT CASE(iforcing)
-    CASE (IECHAM,ILDF_ECHAM)  ! iforcing
-
-      IF (ntracer < 3) CALL finish(routine,'ECHAM physics needs at least 3 tracers')
-
-      IF (ANY(echam_phy_config(:)%lmig)) THEN
-
-        iqv       = 1     !> water vapour
-        iqc       = 2     !! cloud water
-        iqi       = 3     !! ice
-        iqr       = 4     !! rain water
-        iqs       = 5     !! snow
-        iqg       = 6     !! graupel
-        iqm_max   = iqg   !! end index of water species mixing ratios
-        iqt       = 4     !! start index of other tracers not related at all to moisture
-        io3       = 7     !! O3
-        ico2      = 8     !! CO2
-        ich4      = 9     !! CH4
-        in2o      = 10    !! N2O
-
-        nqtendphy = 0     !! number of water species for which convective and turbulent
-                          !! tendencies are stored
-
-      ELSE
-      
-        ! 0 indicates that this tracer is not (yet) used by ECHAM  physics
-        iqv       = 1     !> water vapour
-        iqc       = 2     !! cloud water
-        iqi       = 3     !! ice
-        iqr       = 0     !! rain water
-        iqs       = 0     !! snow
-        iqm_max   = 3     !! end index of water species mixing ratios
-        iqt       = 4     !! starting index of non-water species
-        io3       = 4     !! O3
-        ico2      = 5     !! CO2
-        ich4      = 6     !! CH4
-        in2o      = 7     !! N2O
-
-        nqtendphy = 0     !! number of water species for which convective and turbulent
-                          !! tendencies are stored
-      END IF
-
-      IF (lart) THEN
-        
-        ntracer = ntracer + art_config(1)%iart_echam_ghg + art_config(1)%iart_ntracer
-            io3    = 0     !! O3
-            ico2   = 0     !! CO2
-            ich4   = 0     !! CH4
-            in2o   = 0     !! N2O
-
-
-        SELECT CASE (art_config(1)%iart_echam_ghg)  
-
-        CASE(1)
-            io3    = 4
-        CASE(2)
-            ico2   = 5
-        CASE(3)
-            ich4   = 6
-        CASE(4)
-            in2o   = 7
-
-        CASE(0)
-
-        CASE DEFAULT
-          CALL finish('mo_atm_nml_crosscheck', 'iart_echam_ghg > 4 is not supported')
-
-        END SELECT
-
-
-
-
-        
-        WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                     'ntracer is increased by ',art_config(1)%iart_ntracer, &
-                                     ' to ',ntracer
-        CALL message(routine,message_text)
-
-      ENDIF
-
     CASE (INWP) ! iforcing
 
       ! ** NWP physics section ** 
@@ -735,16 +658,14 @@ CONTAINS
 
     CASE default ! iforcing
 
-        iqv    = 1     !> water vapour
-        iqc    = 2     !! cloud water
-        iqi    = 3     !! ice
-        iqr    = 0     !! 0: no rain water
-        iqs    = 0     !! 0: no snow
-        ico2   = 4     !! CO2
-        iqm_max= 3     !! end index of water species mixing ratios
-        iqt    = 4     !! starting index of non-water species
-        nqtendphy = 0  !! number of water species for which convective and turbulent
-                       !! tendencies are stored
+        iqv    = 1         !  water vapour
+        iqc    = 2         ! cloud water
+        iqi    = 3         ! cloud ice
+        iqr    = 0         ! no rain water
+        iqs    = 0         ! no snow
+        iqg    = 0         ! no graupel
+        iqm_max= iqi       ! end index of water species mixing ratios
+        iqt    = iqm_max+1 ! starting index of non-water species
 
     END SELECT ! iforcing
 

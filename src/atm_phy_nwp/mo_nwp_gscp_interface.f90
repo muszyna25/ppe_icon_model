@@ -122,7 +122,8 @@ CONTAINS
 
     ! Variables for tendencies
     REAL(wp), DIMENSION(nproma,p_patch%nlev) :: ddt_tend_t , ddt_tend_qv, ddt_tend_qc, &
-                                                ddt_tend_qi, ddt_tend_qr, ddt_tend_qs
+                                                ddt_tend_qi, ddt_tend_qr, ddt_tend_qs, &
+                                                ddt_tend_qg
 
     ! Local scalars:
 
@@ -348,6 +349,7 @@ CONTAINS
             & ddt_tend_qi = ddt_tend_qi                 ,    & !< out: tendency QI
             & ddt_tend_qr = ddt_tend_qr                 ,    & !< out: tendency QR
             & ddt_tend_qs = ddt_tend_qs                 ,    & !< out: tendency QS
+            & ddt_tend_qg = ddt_tend_qg                 ,    & !< out: tendency QG
             & idbg=msg_level/2                          ,    &
             & l_cv=.TRUE. )
           
@@ -556,6 +558,7 @@ CONTAINS
               prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqi) = ddt_tend_qi(jc,jk)  ! tendency QI
               prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqr) = ddt_tend_qr(jc,jk)  ! tendency QR
               prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqs) = ddt_tend_qs(jc,jk)  ! tendency QS
+              prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqg) = ddt_tend_qg(jc,jk)  ! tendency QG
             ENDDO
           ENDDO
         ENDIF

@@ -690,7 +690,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
@@ -1155,7 +1155,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 

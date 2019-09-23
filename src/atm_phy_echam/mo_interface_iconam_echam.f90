@@ -69,6 +69,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
+  USE mo_advection_config      ,ONLY: advection_config
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqm_max
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
@@ -268,7 +269,7 @@ CONTAINS
     !$ACC               pt_diag%pres, pt_diag%pres_ifc, pt_diag%ddt_tracer_adv,                 &
     !$ACC               pt_diag%ddt_vn_phy, pt_diag%exner_pr, pt_diag%ddt_exner_phy,            &
     !$ACC               pt_diag%exner_dyn_incr,                                                 &
-    !$ACC               pt_int_state%c_lin_e,                                                   &
+    !$ACC               pt_int_state%c_lin_e,  advection_config(jg)%trHydroMass%list,           &
     !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
     !$ACC               field%ua, field%va, field%vor, field%ta, field%tv, field%presm_old,     &
     !$ACC               field%presm_new, field%rho, field%mair, field%dz, field%mh2o,           &
@@ -1217,7 +1218,7 @@ ENDIF
                pt_diag% temp (jc,jk,jb) =   pt_diag% temp  (jc,jk,jb)             &
                  &                        + tend%    ta_phy(jc,jk,jb) * dt_loc
                !
-               z_qsum = pt_prog_new_rcf% tracer(jc,jk,jb,iqc) + pt_prog_new_rcf% tracer(jc,jk,jb,iqi)
+               z_qsum = SUM(pt_prog_new_rcf%tracer(jc,jk,jb,advection_config(jg)%trHydroMass%list))
                !
                pt_diag% tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                            &
                  &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf% tracer(jc,jk,jb,iqv) - z_qsum)

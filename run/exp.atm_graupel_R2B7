@@ -224,11 +224,12 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%lice   = .TRUE.
  echam_phy_config(1)%lmlo   = .FALSE.
  echam_phy_config(1)%llake  = ${llake}
- echam_phy_config(1)%lmig   = .TRUE.
 !
 ! fix negative humidity
  echam_phy_config(1)%iqneg_d2p = 2
  echam_phy_config(1)%iqneg_p2d = 2
+! set htop_moist_proc also as top of graupel calculation
+ echam_phy_config(1)%zmaxcloudy = 22500.
 /
 &echam_rad_nml
 !
@@ -245,7 +246,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -257,25 +257,16 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
- echam_cld_config(1)%ncctop     = 12    ! <-- 20km
- echam_cld_config(1)%nccbot     = 40    ! <-- 6.5 km
- echam_cld_config(1)%jks        = 1
- echam_cld_config(1)%crs        = 1.0
- echam_cld_config(1)%crt        = 1.0
- echam_cld_config(1)%cinhomi    = 1.0
- echam_cld_config(1)%cinhoml1   = 1.0
- echam_cld_config(1)%cinhoml2   = 1.0
- echam_cld_config(1)%cinhoml3   = 1.0
- echam_cld_config(1)%cvtfall    = 4.00
- echam_cld_config(1)%jbmin      = 50    ! <--3.5km
- echam_cld_config(1)%jbmax      = 68    ! <--150m
- echam_cld_config(1)%cn1lnd     = 50.
- echam_cld_config(1)%cn2lnd     =220.
- echam_cld_config(1)%cn1sea     = 50.
- echam_cld_config(1)%cn2sea     =100.
- echam_cld_config(1)%ccraut     = 2.0
- echam_cld_config(1)%ccsaut     = 2.0
- echam_cld_config(1)%csatsc     = 1.0
+/
+&echam_mig_nml
+ echam_mig_config(1)%ldiag_ttend = .TRUE. !< enable output of original graupel tendencies
+ echam_mig_config(1)%ldiag_qtend = .TRUE. !< enable output of original graupel tendencies
+ echam_mig_config(1)%mu_rain        = 0.5
+ echam_mig_config(1)%rain_n0_factor = 0.1
+ echam_mig_config(1)%v0snow         = 25.
+/
+&echam_cov_nml
+ echam_cov_config(1)%icov       = 2     ! 0/1 cloud cover based on rel. hum.
 /
 &sea_ice_nml
 /
@@ -514,9 +505,8 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'rho'     , 'ta'      ,
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
-                    'hur'     , 'cl'      ,
+                    'cl'      ,
                     'qr'      , 'qs'      , 'qg'      ,
-!                    'qo3_phy' ,
 /
 EOF
 fi
@@ -537,8 +527,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    ,
-                    'ps'      , 'psl'     ,
+ ml_varlist       = 'ps'      , 'psl'     ,
                     'cosmu0'  ,
                     'rsdt'    ,
                     'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,

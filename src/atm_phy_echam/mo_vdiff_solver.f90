@@ -1136,13 +1136,15 @@ CONTAINS
     !$ACC DATA PRESENT( pxtm1, pxtte_vdf ) IF( ktrac > 0 )
     !$ACC DATA &
     !---- Argument arrays - intent(in)
-    !$ACC PRESENT(pum1,pvm1,ptm1,pmair,pmref,pqm1,pxlm1,pxim1) &
+    !$ACC PRESENT(pum1,pvm1,ptm1,pmair,pqm1,pxlm1,pxim1) &
+!!$    !$ACC PRESENT(pum1,pvm1,ptm1,pmair,pmref,pqm1,pxlm1,pxim1) &
     !$ACC PRESENT(pgeom1,pcptgz,pztottevn,pzthvvar,pcfm_tile,pfrc,bb) &
     !---- Argument arrays - intent(inout)
     !$ACC PRESENT(pxvar,pz0m_tile) &
     !---- Argument arrays - intent(out)
     !$ACC PRESENT(pute_vdf,pvte_vdf,pq_vdf,pqte_vdf,pxlte_vdf,pxite_vdf) &
-    !$ACC PRESENT(pz0m,ptotte,pthvvar,psh_vdiff,pqv_vdiff) &
+    !$ACC PRESENT(pz0m,ptotte,pthvvar) &
+!!$    !$ACC PRESENT(pz0m,ptotte,pthvvar,psh_vdiff,pqv_vdiff) &
     !$ACC PRESENT(pkedisp) &
     !$ACC CREATE(zdis)
 

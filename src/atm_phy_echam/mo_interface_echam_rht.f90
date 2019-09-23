@@ -393,6 +393,7 @@ CONTAINS
             !$ACC END DATA
           END IF
        END SELECT
+       !$ACC END DATA
        !
     ELSE
        !

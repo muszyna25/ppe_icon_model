@@ -632,6 +632,15 @@ SUBROUTINE graupel     (             &
 !------------------------------------------------------------------------------
 !  Section 1: Initial setting of local and global variables
 !------------------------------------------------------------------------------
+  ! Input data
+  !$ACC DATA                                                     &
+  !$ACC PRESENT( dz, t, p, rho, qv, qc, qi, qr, qs, qg, qnc )    &
+  !$ACC PRESENT( prr_gsp, prs_gsp, prg_gsp, qrsflux )            &
+  ! automatic arrays
+  !$ACC CREATE( zvzr, zvzs, zvzg, zvzi )                         &
+  !$ACC CREATE( zpkr, zpks, zpkg, zpki )                         &
+  !$ACC CREATE( zprvr, zprvs, zprvi, zqvsw_up, zprvg )           &
+  !$ACC CREATE( dist_cldtop )
 
 ! Some constant coefficients
   IF( lsuper_coolw) THEN
@@ -684,17 +693,32 @@ SUBROUTINE graupel     (             &
     lldiag_qtend = .FALSE.
   ENDIF
 
+  !$ACC DATA &
+  !$ACC CREATE( t_in, qv_in, qc_in, qi_in, qr_in, qs_in, qg_in ) if( lldiag_qtend )
+
   ! save input arrays for final tendency calculation
   IF (lldiag_ttend) THEN
+    !$ACC DATA            &
+    !$ACC PRESENT( t_in )
+
+    !$ACC KERNELS
     t_in  = t
+    !$ACC END KERNELS
+    !$ACC END DATA
   ENDIF
   IF (lldiag_qtend) THEN
+    !$ACC DATA                                                &
+    !$ACC PRESENT( qv_in, qc_in, qi_in, qr_in, qs_in, qg_in )
+
+    !$ACC KERNELS
     qv_in = qv
     qc_in = qc
     qi_in = qi
     qr_in = qr
     qs_in = qs
     qg_in = qg
+    !$ACC END KERNELS
+    !$ACC END DATA
   END IF
 
 ! timestep for calculations
@@ -709,6 +733,10 @@ SUBROUTINE graupel     (             &
     WRITE (message_text,*) '   ivend   = ',ivend   ; CALL message('',message_text)
   END IF
   IF (izdebug > 50) THEN
+#if defined( _OPENACC )
+    CALL message('gscp_graupel','GPU-info : update host before graupel')
+#endif
+    !$ACC UPDATE HOST( dz, t, p, rho, qv, qc, qi, qr, qs, qg )
     WRITE (message_text,'(A,2E10.3)') '      MAX/MIN dz  = ',MAXVAL(dz),MINVAL(dz)
     CALL message('',message_text)
     WRITE (message_text,'(A,2E10.3)') '      MAX/MIN T   = ',MAXVAL(t),MINVAL(t)
@@ -732,6 +760,8 @@ SUBROUTINE graupel     (             &
   ENDIF
 
   ! Delete precipitation fluxes from previous timestep
+  !$ACC PARALLEL
+  !$ACC LOOP GANG VECTOR
   DO iv = iv_start, iv_end
     prr_gsp (iv) = 0.0_wp
     prs_gsp (iv) = 0.0_wp
@@ -751,14 +781,38 @@ SUBROUTINE graupel     (             &
     dist_cldtop(iv) = 0.0_wp
     zqvsw_up(iv) = 0.0_wp
   END DO
+  !$ACC END PARALLEL
 
 ! *********************************************************************
 ! Loop from the top of the model domain to the surface to calculate the
 ! transfer rates  and sedimentation terms
 ! *********************************************************************
 
+  !$ACC PARALLEL
+  !$ACC LOOP SEQ
   loop_over_levels: DO  k = k_start, ke
 
+    !$ACC LOOP GANG VECTOR PRIVATE( alf, bet, fnuc, hlp, llqc, llqg, llqi, llqr, &
+    !$ACC                           llqs, m2s, m3s, maxevap, nnr, ppg, qcg,      &
+    !$ACC                           qcgk_1, qgg, qig, qrg, qsg, qvg, reduce_dep, &
+    !$ACC                           rhog, sagg, sagg2, scac, scau, scfrz, sconr, &
+    !$ACC                           sconsg, sdau, sev, sgdep, sgmelt, siau,      &
+    !$ACC                           sicri, sidep, simelt, snuc, srcri, srfrz,    &
+    !$ACC                           srim, srim2, ssdep, sshed, ssmelt, temp_c,   &
+    !$ACC                           tg, z1orhog, zbsdep, zcagg, zcidep, zcorr,   &
+    !$ACC                           zcrim, zcsdep, zcslam, zdtdh, zdvtp, zeff,   &
+    !$ACC                           zeln13o8qrk, zeln27o16qrk, zeln3o4qsk,       &
+    !$ACC                           zeln6qgk, zeln7o4qrk, zeln7o8qrk, zeln8qsk,  &
+    !$ACC                           zelnrimexp_g, zhi, zimg, zimi, zimr, zims,   &
+    !$ACC                           zlnlogmi, zlnqgk, zlnqik, zlnqrk, zlnqsk,    &
+    !$ACC                           zmi, zn0s, znid, znin, zphi, zqct, zqgk,     &
+    !$ACC                           zqgt, zqik, zqit, zqrk, zqrt, zqsk, zqst,    &
+    !$ACC                           zqvsi, zqvsidiff, zqvsw, zqvsw0, zqvsw0diff, &
+    !$ACC                           zqvt, zrho1o2, zrhofac_qi, zscmax, zscsum,   &
+    !$ACC                           zsgmax, zsimax, zsisum, zsrmax, zsrsum,      &
+    !$ACC                           zssmax, zsssum, zsvidep, zsvisub, zsvmax,    &
+    !$ACC                           ztau, ztc, ztfrzdiff, ztt, zvz0s, zx1,       &
+    !$ACC                           zxfac, zzag, zzai, zzar, zzas, zztau )
     DO iv = iv_start, iv_end  !loop over horizontal domain
 
 
@@ -1544,6 +1598,7 @@ SUBROUTINE graupel     (             &
       qv (iv,k) = MAX ( 0.0_wp, qv(iv,k) + zqvt*zdt )
       qc (iv,k) = MAX ( 0.0_wp, qc(iv,k) + zqct*zdt )
 
+#ifndef _OPENACC
       IF (izdebug > 15) THEN
         ! Check for negative values
         IF (qr(iv,k) < 0.0_wp) THEN
@@ -1571,9 +1626,11 @@ SUBROUTINE graupel     (             &
           CALL message('',message_text)
         ENDIF
       ENDIF
+#endif
 
     ENDDO  !loop over iv
   END DO loop_over_levels
+  !$ACC END PARALLEL
 
 #if defined (__COSMO__)
   !XL : currently satad is outside of the k loop as function call
@@ -1613,27 +1670,67 @@ SUBROUTINE graupel     (             &
 ! calculated pseudo-tendencies
 
   IF ( lldiag_ttend ) THEN
+    !$ACC DATA                          &
+    !$ACC PRESENT( ddt_tend_t, t, t_in )
+
+    !$ACC PARALLEL
+    !$ACC LOOP GANG
     DO k=k_start,ke
+      !$ACC LOOP VECTOR
       DO iv=iv_start,iv_end
         ddt_tend_t (iv,k) = (t (iv,k) - t_in (iv,k))*zdtr
       END DO
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
   ENDIF
 
   IF ( lldiag_qtend ) THEN
+    !$ACC DATA                                          &
+    !$ACC PRESENT(ddt_tend_qv,ddt_tend_qc,ddt_tend_qr,ddt_tend_qs) &
+    !$ACC PRESENT(ddt_tend_qi,qv_in,qc_in,qr_in,qs_in,qi_in)
+
+    !$ACC PARALLEL
+    !$ACC LOOP GANG
     DO k=k_start,ke
+      !$ACC LOOP VECTOR
       DO iv=iv_start,iv_end
         ddt_tend_qv(iv,k) = MAX(-qv_in(iv,k)*zdtr,(qv(iv,k) - qv_in(iv,k))*zdtr)
         ddt_tend_qc(iv,k) = MAX(-qc_in(iv,k)*zdtr,(qc(iv,k) - qc_in(iv,k))*zdtr)
         ddt_tend_qi(iv,k) = MAX(-qi_in(iv,k)*zdtr,(qi(iv,k) - qi_in(iv,k))*zdtr)
         ddt_tend_qr(iv,k) = MAX(-qr_in(iv,k)*zdtr,(qr(iv,k) - qr_in(iv,k))*zdtr)
         ddt_tend_qs(iv,k) = MAX(-qs_in(iv,k)*zdtr,(qs(iv,k) - qs_in(iv,k))*zdtr)
-!       ddt_tend_qg(iv,k) = MAX(-qg_in(iv,k)*zdtr,(qg(iv,k) - qg_in(iv,k))*zdtr)
       END DO
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
+    
+    ! extra loop for (lldiag_qtend .AND. PRESENT(ddt_tend_qg) )
+
+    IF (PRESENT(ddt_tend_qg) ) THEN
+      !$ACC DATA PRESENT(ddt_tend_qg, qg_in)
+
+      !$ACC PARALLEL
+      !$ACC LOOP GANG
+      DO k=k_start,ke
+        !$ACC LOOP VECTOR
+        DO iv=iv_start,iv_end
+          ddt_tend_qg(iv,k) = MAX(-qg_in(iv,k)*zdtr,(qg(iv,k) - qg_in(iv,k))*zdtr)
+        END DO
+      END DO
+      !$ACC END PARALLEL
+
+      !$ACC END DATA
+    ENDIF
   ENDIF
 
   IF (izdebug > 15) THEN
+#ifdef _OPENACC
+   CALL message('gscp_graupel', 'GPU-info : update host after graupel')
+#endif
+   !$ACC UPDATE HOST( t, qv, qc, qi, qr, qs, qg)
    CALL message('gscp_graupel', 'UPDATED VARIABLES')
    WRITE(message_text,'(A,2E20.9)') 'graupel  T= ',&
     MAXVAL( t(:,:)), MINVAL(t(:,:) )
@@ -1657,6 +1754,9 @@ SUBROUTINE graupel     (             &
     MAXVAL( qg(:,:)), MINVAL(qg(:,:) )
     CALL message('', TRIM(message_text))
   ENDIF
+
+  !$ACC END DATA
+  !$ACC END DATA
 
 !------------------------------------------------------------------------------
 ! End of subroutine graupel

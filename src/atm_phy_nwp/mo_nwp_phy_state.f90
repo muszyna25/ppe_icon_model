@@ -3238,7 +3238,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     IF (atm_phy_nwp_config(k_jg)%ldetrain_conv_prec) ntr_conv = ntr_conv + 2 ! plus qr and qs
 
     shape4d_conv = (/nproma, klev  , kblks, ntr_conv /)
-    shape4d_gscp = (/nproma, klev  , kblks, 5 /)
+    shape4d_gscp = (/nproma, klev  , kblks, 6 /)
 
     NULLIFY(phy_tend%ddt_temp_gscp, phy_tend%ddt_tracer_gscp)
 
@@ -3529,7 +3529,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       &  is_variable_in_output(first_output_name_list, var_name="ddt_qc_gscp") .OR.   &
       &  is_variable_in_output(first_output_name_list, var_name="ddt_qi_gscp") .OR.   &
       &  is_variable_in_output(first_output_name_list, var_name="ddt_qr_gscp") .OR.   &
-      &  is_variable_in_output(first_output_name_list, var_name="ddt_qs_gscp") ) THEN
+      &  is_variable_in_output(first_output_name_list, var_name="ddt_qs_gscp") .OR.   &
+      &  is_variable_in_output(first_output_name_list, var_name="ddt_qg_gscp") ) THEN
       cf_desc    = t_cf_var('ddt_tracer_gscp', 's-1', &
            &                            'microphysics tendency of tracers', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -3582,6 +3583,14 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                 & t_cf_var('ddt_qs_gscp', 'kg kg**-1 s**-1',                       &
                 & 'microphysics tendency of snow', datatype_flt),                  &
+                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+                & ldims=shape3d)
+      !qg
+      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                & 'ddt_qg_gscp', phy_tend%tracer_gscp_ptr(6)%p_3d,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
+                & t_cf_var('ddt_qg_gscp', 'kg kg**-1 s**-1',                       &
+                & 'microphysics tendency of graupel', datatype_flt),                  &
                 & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
                 & ldims=shape3d)
 

@@ -73,7 +73,7 @@ CONTAINS
        &           , ktype,    pfrw,     pfri                              & !in
        &           , zf                                                    & !in
        &           , paphm1,   papm1                                       & !in
-       &           , ptm1,     pqm1,     pxim1                             & !in
+       &           , ptm1,     pqm1,     pxlm1, pxim1                      & !in
        &           , paclc                                                 & !out
        &           , printop                                               & !out
        &           )
@@ -90,13 +90,14 @@ CONTAINS
          &                    papm1(kbdim,klev)   ,&!< pressure at full levels
          &                    pqm1(kbdim,klev)    ,&!< specific humidity
          &                    ptm1(kbdim,klev)    ,&!< temperature
+         &                    pxlm1(kbdim,klev)   ,&!< cloud water
          &                    pxim1(kbdim,klev)     !< cloud ice
     REAL(wp),INTENT(out)   :: paclc(kbdim,klev)     !< cloud cover
     REAL(wp),INTENT(out)   :: printop(kbdim)
 
     INTEGER :: jl, jk, jbm
     INTEGER :: locnt, nl
-    REAL(wp):: zdtdz, zcor, zrhc, zsat, zqr
+    REAL(wp):: zdtdz, zcor, zrhc, zsat, zqr, zqx
     INTEGER :: itv1(kproma), itv2(kproma)
 
     !
@@ -125,7 +126,7 @@ CONTAINS
     ! Shortcuts to components of echam_cov_config
     !
     INTEGER :: nex, icov, jkscov, jksinv, jkeinv
-    REAL(wp):: csatsc, csat, crt, crs, cinv
+    REAL(wp):: csatsc, csat, crt, crs, cinv, cqx, clcon
     !
     icov   = echam_cov_config(jg)% icov
     jkscov = echam_cov_config(jg)% jkscov
@@ -137,8 +138,10 @@ CONTAINS
     crt    = echam_cov_config(jg)% crt
     nex    = echam_cov_config(jg)% nex
     cinv   = echam_cov_config(jg)% cinv
+    cqx    = echam_cov_config(jg)% cqx
+    clcon  = echam_cov_config(jg)% clcon
 
-    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxim1, paclc, printop ) &
+    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxlm1, pxim1, paclc, printop ) &
     !$ACC       CREATE( itv1, itv2, zdtmin, za, zqsm1, ua, zpapm1i, ztmp, zknvb, zphase, &
     !$ACC               knvb, loidx, lomask )
 
@@ -165,34 +168,57 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    ! Calculate the saturation mixing ratio
-    !
-    DO jk = jkscov,klev
-       !
-       CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(:,jk),itv1(:),   &
-            za(:),pxim1(:,jk),nphase,zphase,itv2,       &
-            klev=jk,kblock=jb,kblock_size=kbdim)
-       ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
-       CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(:),za(:),nphase,itv2(:),ua(:))
-       ! output: ua
-       !
-!IBM* novector
 
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR PRIVATE( zcor )
-       DO jl = jcs,kproma
-          zpapm1i(jl)  = SWDIV_NOCHK(1._wp,papm1(jl,jk))
-          zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i(jl),0.5_wp)
-          zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
-          zqsm1(jl,jk) = zqsm1(jl,jk)*zcor       ! qsat
-       END DO
-       !$ACC END PARALLEL
-       !
-    END DO   !jk
-    !
-    ! Calculate the cloud cover as a function of relative humidity
+    ! Preparations if needed
     !
     SELECT CASE (icov)
+       !
+    CASE(1,2) ! Calculate the saturation mixing ratio
+       !        for relative humidity based schemes
+       !
+       DO jk = jkscov,klev
+          !
+          CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(:,jk),itv1(:),   &
+               &                       za(:),pxim1(:,jk),nphase,zphase,itv2,       &
+               &                       klev=jk,kblock=jb,kblock_size=kbdim)
+          ! output: itv1=idx, za=zalpha, nphase, zphase, itv2
+          CALL lookup_ua_eor_uaw_spline(jcs,kproma,itv1(:),za(:),nphase,itv2(:),ua(:))
+          ! output: ua
+          !
+!IBM* novector
+
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( zcor )
+          DO jl = jcs,kproma
+             zpapm1i(jl)  = SWDIV_NOCHK(1._wp,papm1(jl,jk))
+             zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i(jl),0.5_wp)
+             zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
+             zqsm1(jl,jk) = zqsm1(jl,jk)*zcor       ! qsat
+          END DO
+          !$ACC END PARALLEL
+          !
+       END DO   !jk
+       !
+    END SELECT
+
+    
+    ! Calculate the cloud cover
+    !
+    SELECT CASE (icov)
+       !
+    CASE(0) ! constant cloud cover scheme
+       !      Cloud cover is set to the constant value clcon.
+       !
+       DO jk = jkscov,klev
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,kproma
+             !
+             paclc(jl,jk) = clcon
+             !
+          END DO  !jl
+          !$ACC END PARALLEL
+       END DO   !jk
        !
     CASE(1) ! Fractional cloud cover scheme
        !      The relative humidity dependence follows Sundqvist et al. (1989), Eqs.3.11-3.13,
@@ -286,7 +312,7 @@ CONTAINS
        !
        DO jk = jkscov,klev
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR PRIVATE( zrhc, zsat, jbm, lao, lao1, ilev, zdtdz, zgam, zqr )
+          !$ACC LOOP GANG VECTOR PRIVATE( zrhc, zsat, jbm, lao, lao1, zdtdz, zgam, zqr )
           DO jl = jcs,kproma
              !
              ! Scaling factor zsat for the saturation mass mixing ratio, with range [csatsc,1].
@@ -332,7 +358,7 @@ CONTAINS
           !$ACC END PARALLEL
        END DO   !jk
        !
-    CASE(2) ! 0/1 cloud cover scheme
+    CASE(2) ! 0/1 cloud cover scheme based on relative humidity.
        !      Cloud cover is 1 if the relative humidity is >= csat, and 0 otherwise
        !
        DO jk = jkscov,klev
@@ -343,6 +369,24 @@ CONTAINS
              zqr = pqm1(jl,jk)/zqsm1(jl,jk)
              !
              IF (zqr >= csat) THEN
+                paclc(jl,jk) = 1.0_wp
+             END IF
+             !
+          END DO  !jl
+          !$ACC END PARALLEL
+       END DO   !jk
+       !
+    CASE(3) ! 0/1 cloud cover scheme based on cloud condensate.
+       !      Cloud cover is 1 if the cloud condensate mixing ration is >= cqx, and 0 otherwise
+       !
+       DO jk = jkscov,klev
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( zqx )
+          DO jl = jcs,kproma
+             !
+             zqx = pxlm1(jl,jk)+pxim1(jl,jk)
+             !
+             IF (zqx >= cqx) THEN
                 paclc(jl,jk) = 1.0_wp
              END IF
              !

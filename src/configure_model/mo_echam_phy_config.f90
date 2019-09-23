@@ -150,7 +150,6 @@ MODULE mo_echam_phy_config
      !
      ! surface
      LOGICAL                              :: lsstice !< .true. for inst. 6hourly sst and ice (prelim)
-     LOGICAL                              :: lmig    !< .true. for graupel microphysics
      LOGICAL                              :: lmlo    !< .true. for mixed layer ocean
      LOGICAL                              :: lice    !< .true. for sea-ice temperature calculation
      LOGICAL                              :: ljsb    !< .true. for calculating the JSBACH land surface
@@ -330,7 +329,6 @@ CONTAINS
     echam_phy_config(:)% fc_art = 1
     !
     ! logical switches
-    echam_phy_config(:)% lmig  = .FALSE.
     echam_phy_config(:)% ljsb  = .FALSE.
     echam_phy_config(:)% llake = .FALSE.
     echam_phy_config(:)% lamip = .FALSE.
@@ -778,7 +776,6 @@ CONTAINS
        !
        CALL message    ('','logical switches')
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lmlo ',echam_phy_config(jg)% lmlo  )
-       CALL print_value('    echam_phy_config('//TRIM(cg)//')% lmig ',echam_phy_config(jg)% lmig  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lice ',echam_phy_config(jg)% lice  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% ljsb ',echam_phy_config(jg)% ljsb  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% llake',echam_phy_config(jg)% llake )

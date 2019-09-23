@@ -74,7 +74,10 @@ MODULE mo_echam_phy_memory
   USE mo_sea_ice_nml,         ONLY: kice
     !ART
   USE mo_art_config,          ONLY: ctracer_art
-  USE mo_run_config,          ONLY: lart
+  USE mo_run_config,          ONLY: lart,               &
+    &                               iqv ,iqc ,iqi ,     &
+    &                               iqr ,iqs ,iqg ,     &
+    &                               io3 ,ico2,ich4,in2o
     !
   USE mo_echam_phy_config,    ONLY: echam_phy_config
 
@@ -261,6 +264,9 @@ MODULE mo_echam_phy_memory
       & rsfc      (:,  :)=>NULL(),  &!< sfc rain flux, convective  [kg m-2 s-1]
       & ssfl      (:,  :)=>NULL(),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :)=>NULL(),  &!< sfc snow flux, convective  [kg m-2 s-1]
+      & rain_gsp_rate(:,  :)=>NULL(),  &!< gridscale rain rate     [kg m-2 s-1]
+      & snow_gsp_rate(:,  :)=>NULL(),  &!< gridscale snow rate     [kg m-2 s-1]
+      & graupel_gsp_rate(:,  :)=>NULL(),  &!< gridscale graupel rate     [kg m-2 s-1]
       & pr        (:,  :)=>NULL()    !< precipitation flux         [kg m-2 s-1]
 
     ! Tropopause
@@ -566,6 +572,13 @@ MODULE mo_echam_phy_memory
       !
       &   ta_mig (:,:,:)=>NULL()  , & !< temperature tendency due to graupel microphysics proc. (for const. pressure)
       & qtrc_mig (:,:,:,:)=>NULL(), & !< tracer tendency  due to graupel microphysics proc.
+      & ddt_tend_t (:,:,:)=>NULL(), & !< tendency temperature
+      & ddt_tend_qv(:,:,:)=>NULL(), & !< tendency QV
+      & ddt_tend_qc(:,:,:)=>NULL(), & !< tendency QC
+      & ddt_tend_qi(:,:,:)=>NULL(), & !< tendency QI
+      & ddt_tend_qr(:,:,:)=>NULL(), & !< tendency QR
+      & ddt_tend_qs(:,:,:)=>NULL(), & !< tendency QS
+      & ddt_tend_qg(:,:,:)=>NULL(), & !< tendency QG
       !
       ! cumulus convection
       !
@@ -672,64 +685,26 @@ CONTAINS
 
     IF (lart) THEN
         ctracer = ctracer_art
-    ELSE !!! IF (ANY(echam_phy_config(:)%lmig)) THEN
+    ELSE
 
-    ! Define tracer names to be used in the construction of tracer related variables
-    !
-      DO jtrc = 1,ntracer
-        !
-        ! specific names
-        SELECT CASE (jtrc)
-        CASE(1)
-          ctracer(jtrc) = 'hus'
-        CASE(2)
-          ctracer(jtrc) = 'clw'
-        CASE(3)
-          ctracer(jtrc) = 'cli'
-        CASE(4)
-          ctracer(jtrc) = 'qr'
-        CASE(5)
-          ctracer(jtrc) = 'qs'
-        CASE(6)
-          ctracer(jtrc) = 'qg'
-        CASE(7)
-          ctracer(jtrc) = 'o3'
-        CASE(8)
-          ctracer(jtrc) = 'co2'
-        CASE(9)
-          ctracer(jtrc) = 'ch4'
-        CASE(10)
-          ctracer(jtrc) = 'n2o'
-        CASE DEFAULT
+       ! Define tracer names to be used in the construction of tracer related variables
+       !
+       ! first set generic names for all tracers
+       DO jtrc = 1,ntracer
           WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-        END SELECT
-      END DO
-  !  ELSE
-  !
-  !  ! Define tracer names to be used in the construction of tracer related variables
-  !  !
-  !    DO jtrc = 1,ntracer
-  !      !
-  !      ! specific names
-  !      SELECT CASE (jtrc)
-  !      CASE(1)
-  !        ctracer(jtrc) = 'hus'
-  !      CASE(2)
-  !        ctracer(jtrc) = 'clw'
-  !      CASE(3)
-  !        ctracer(jtrc) = 'cli'
-  !      CASE(4)
-  !        ctracer(jtrc) = 'o3'
-  !      CASE(5)
-  !        ctracer(jtrc) = 'co2'
-  !      CASE(6)
-  !        ctracer(jtrc) = 'ch4'
-  !      CASE(7)
-  !        ctracer(jtrc) = 'n2o'
-  !      CASE DEFAULT
-  !        WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-  !      END SELECT
-  !    END DO
+       END DO
+       !
+       ! then set specific names for active indexed tracers
+       IF (iqv  > 0) ctracer(iqv ) = 'hus'
+       IF (iqc  > 0) ctracer(iqc ) = 'clw'
+       IF (iqi  > 0) ctracer(iqi ) = 'cli'
+       IF (iqr  > 0) ctracer(iqr ) = 'qr'
+       IF (iqs  > 0) ctracer(iqs ) = 'qs'
+       IF (iqg  > 0) ctracer(iqg ) = 'qg'
+       IF (io3  > 0) ctracer(io3 ) = 'o3'
+       IF (ico2 > 0) ctracer(ico2) = 'co2'
+       IF (ich4 > 0) ctracer(ich4) = 'ch4'
+       IF (in2o > 0) ctracer(in2o) = 'n2o'
 
     ENDIF
 
@@ -2452,6 +2427,39 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
 
+    cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale rain rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,77, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rain_gsp_rate', field%rain_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
+    cf_desc    = t_cf_var('snow_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale snow rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,56, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_gsp_rate', field%snow_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
+    cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale graupel rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'graupel_gsp_rate', field%graupel_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
     cf_desc    = t_cf_var('pr', 'kg m-2 s-1',                    &
          &                'precipitation flux',                  &
          &                datatype_flt)
@@ -4166,6 +4174,104 @@ CONTAINS
                       &         datatype_flt)
           grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, prefix//'ta_mig', tend%  ta_mig,                            &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
+                      & vert_interp=create_vert_interp_metadata(                               &
+                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                      &   l_extrapol=.FALSE. ),                                                &
+                      & lopenacc=.TRUE.)
+       END IF
+       !
+       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_t')) THEN
+          cf_desc    = t_cf_var('temperature_tendency_graupel', 'K s-1',                       &
+                      &         'temperature tendency due to graupel processes (cp)',          &
+                      &         datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( tend_list, prefix//'ddt_tend_t', tend%  ddt_tend_t,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
+                      & vert_interp=create_vert_interp_metadata(                               &
+                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                      &   l_extrapol=.FALSE. ),                                                &
+                      & lopenacc=.TRUE.)
+       END IF
+       !
+       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qv')) THEN
+          cf_desc    = t_cf_var('qv_tendency_graupel', 'kg kg-1 s-1',                          &
+                      &         'qv tendency due to graupel processes',                        &
+                      &         datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( tend_list, prefix//'ddt_tend_qv', tend%  ddt_tend_qv,                  &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
+                      & vert_interp=create_vert_interp_metadata(                               &
+                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                      &   l_extrapol=.FALSE. ),                                                &
+                      & lopenacc=.TRUE.)
+       END IF
+       !
+       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qc')) THEN
+          cf_desc    = t_cf_var('qc_tendency_graupel', 'kg kg-1 s-1',                          &
+                      &         'qc tendency due to graupel processes',                        &
+                      &         datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( tend_list, prefix//'ddt_tend_qc', tend%  ddt_tend_qc,                  &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
+                      & vert_interp=create_vert_interp_metadata(                               &
+                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                      &   l_extrapol=.FALSE. ),                                                &
+                      & lopenacc=.TRUE.)
+       END IF
+       !
+       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qi')) THEN
+          cf_desc    = t_cf_var('qi_tendency_graupel', 'kg kg-1 s-1',                          &
+                      &         'qi tendency due to graupel processes',                        &
+                      &         datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( tend_list, prefix//'ddt_tend_qi', tend%  ddt_tend_qi,                  &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
+                      & vert_interp=create_vert_interp_metadata(                               &
+                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                      &   l_extrapol=.FALSE. ),                                                &
+                      & lopenacc=.TRUE.)
+       END IF
+       !
+       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qr')) THEN
+          cf_desc    = t_cf_var('qr_tendency_graupel', 'kg kg-1 s-1',                          &
+                      &         'qr tendency due to graupel processes',                        &
+                      &         datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( tend_list, prefix//'ddt_tend_qr', tend%  ddt_tend_qr,                  &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
+                      & vert_interp=create_vert_interp_metadata(                               &
+                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                      &   l_extrapol=.FALSE. ),                                                &
+                      & lopenacc=.TRUE.)
+       END IF
+       !
+       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qs')) THEN
+          cf_desc    = t_cf_var('qs_tendency_graupel', 'kg kg-1 s-1',                          &
+                      &         'qs tendency due to graupel processes',                        &
+                      &         datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( tend_list, prefix//'ddt_tend_qs', tend%  ddt_tend_qs,                  &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
+                      & vert_interp=create_vert_interp_metadata(                               &
+                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
+                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
+                      &   l_extrapol=.FALSE. ),                                                &
+                      & lopenacc=.TRUE.)
+       END IF
+       !
+       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qg')) THEN
+          cf_desc    = t_cf_var('qg_tendency_graupel', 'kg kg-1 s-1',                          &
+                      &         'qg tendency due to graupel processes',                        &
+                      &         datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( tend_list, prefix//'ddt_tend_qg', tend%  ddt_tend_qg,                  &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
                       & vert_interp=create_vert_interp_metadata(                               &
                       &   vert_intp_type=vintp_types("P","Z","I"),                             &

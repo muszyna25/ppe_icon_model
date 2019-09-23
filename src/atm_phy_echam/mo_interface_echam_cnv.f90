@@ -109,7 +109,7 @@ CONTAINS
     nlevm1 = nlev-1
     nlevp1 = nlev+1
 
-    !$ACC DATA CREATE( itype, q_cnv, tend_ta_cnv, tend_ua_cnv, tend_va_cnv, tend_qtrc_cnv, ldland, &
+    !$ACC DATA CREATE( ictop, itype, q_cnv, tend_ta_cnv, tend_ua_cnv, tend_va_cnv, tend_qtrc_cnv, ldland, &
     !$ACC              ztop, zta, zqtrc, zua, zva, zqtrc_cnd, ztend_qv )
     
     IF ( is_in_sd_ed_interval ) THEN

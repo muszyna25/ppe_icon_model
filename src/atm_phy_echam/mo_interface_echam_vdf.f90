@@ -84,7 +84,6 @@ CONTAINS
     ! Pointers
     !
     LOGICAL                 ,POINTER    :: lparamcpl
-    LOGICAL                 ,POINTER    :: lmig
     INTEGER                 ,POINTER    :: fc_vdf
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
@@ -201,7 +200,6 @@ CONTAINS
 
     ! associate pointers
     lparamcpl => echam_phy_config(jg)%lparamcpl
-    lmig      => echam_phy_config(jg)%lmig
     fc_vdf    => echam_phy_config(jg)%fc_vdf
     field     => prm_field(jg)
     tend      => prm_tend (jg)
@@ -367,7 +365,7 @@ CONTAINS
           !$ACC END PARALLEL
           !$ACC END DATA
           !
-          !$ACC DATA PRESENT( field%ustar, field%cair, field%csat field%z0h_lnd, field%rlus )
+          !$ACC DATA PRESENT( field%ustar, field%cair, field%csat, field%z0h_lnd, field%rlus )
           !$ACC PARALLEL DEFAULT(PRESENT)
           !$ACC LOOP GANG VECTOR
           DO jl = jcs,jce
@@ -1304,7 +1302,7 @@ CONTAINS
             !$ACC DATA PRESENT( field%ts, field%ts_rad, field%ustar, field%evap,        &
             !$ACC               field%thvsig, field%cair, field%csat, field%z0h_lnd,    &
             !$ACC               field%rlus, field%albvisdir, field%albnirdir,           &
-            !$ACC               field%albvisdir, field%albnirdif, field%albedo          )
+            !$ACC               field%albvisdif, field%albnirdif, field%albedo          )
             !$ACC PARALLEL DEFAULT(PRESENT)
             !$ACC LOOP GANG VECTOR
             DO jl = jcs, jce

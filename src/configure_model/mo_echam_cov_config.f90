@@ -60,12 +60,17 @@ MODULE mo_echam_cov_config
      !                               diagnosed in eval_echam_cov_config
      ! cloud cover
      INTEGER  :: icov     !          cloud cover scheme
+     !                               0:  constant  cloud cover
      !                               1: fractional cloud cover dependent on relative humidity
      !                               2:     0/1    cloud cover dependent on relative humidity
+     !                               3:     0/1    cloud cover dependent on cloud condensate
+     ! icov=0:
+     REAL(wp) :: clcon    !          cloud cover constant, in m2/m2, [0,1]
+     !
      ! icov=1 and icov=2:
      REAL(wp) :: csat     !          relative humidity for 100% cloud cover
      !
-     ! icov=1 only:
+     ! icov=1:
      REAL(wp) :: crs      !          critical relative humidity at surface
      REAL(wp) :: crt      !          critical relative humidity aloft
      INTEGER  :: nex      !          transition parameter for critical relative humidity profile
@@ -78,6 +83,8 @@ MODULE mo_echam_cov_config
      REAL(wp) :: cinv     !          fraction of dry adiabatic lapse rate for search of top level of inversion layer over sea
      REAL(wp) :: csatsc   !          lower limit of scaling factor for saturation mixing ratio in layer below inversion
      !                               (csatsc=1 defaults to the standard scheme without accounting of inversion layers)
+     ! icov=3:
+     REAL(wp) :: cqx      !          critical mass mixing ratio in kg/kg of cloud water + cloud ice
      !
   END TYPE t_echam_cov_config
 
@@ -100,6 +107,7 @@ CONTAINS
     !
     echam_cov_config(:)% zmaxcov  = echam_phy_config(:)% zmaxcloudy
     echam_cov_config(:)% icov     = 1
+    echam_cov_config(:)% clcon    = 0.0_wp
     echam_cov_config(:)% csat     = 1.0_wp
     echam_cov_config(:)% crs      = 0.968_wp
     echam_cov_config(:)% crt      = 0.8_wp
@@ -108,6 +116,7 @@ CONTAINS
     echam_cov_config(:)% zmininv  =  200.0_wp
     echam_cov_config(:)% cinv     = 0.25_wp
     echam_cov_config(:)% csatsc   = 0.7_wp
+    echam_cov_config(:)% cqx      = 1.0e-8_wp
     !
   END SUBROUTINE init_echam_cov_config
 
@@ -138,6 +147,13 @@ CONTAINS
        END DO
        !
        SELECT CASE (echam_cov_config(jg)% icov)
+       CASE (0)
+          !
+          IF (echam_cov_config(jg)% clcon < 0.0_wp .OR. 1.0_wp < echam_cov_config(jg)% clcon) THEN
+             CALL finish('eval_echam_cov_config', &
+                  &      'echam_cov_config('//TRIM(cg)//')% clcon <0 or >1 is not allowed')
+          END IF
+          !
        CASE (1)
           !
           ! diagnose jksinv
@@ -173,10 +189,17 @@ CONTAINS
           !
        CASE (2)
           !
+       CASE (3)
+          !
+          IF (echam_cov_config(jg)% cqx < 0.0_wp .OR. 1.0_wp < echam_cov_config(jg)% cqx) THEN
+             CALL finish('eval_echam_cov_config', &
+                  &      'echam_cov_config('//TRIM(cg)//')% cqx <0 or >1 is not allowed')
+          END IF
+          !
        CASE DEFAULT
           !
           CALL finish('eval_echam_cov_config', &
-                  &   'echam_cov_config('//TRIM(cg)//')% icov /= 1 or 2 is not allowed')
+                  &   'echam_cov_config('//TRIM(cg)//')% icov /= 0:3 is not allowed')
        END SELECT
        !
     END DO
@@ -211,6 +234,9 @@ CONTAINS
        CALL print_value('    echam_cov_config('//TRIM(cg)//')% jkscov   ',echam_cov_config(jg)% jkscov  )
        CALL print_value('    echam_cov_config('//TRIM(cg)//')% icov     ',echam_cov_config(jg)% icov    )
        SELECT CASE (echam_cov_config(jg)% icov)
+       CASE(0)
+          CALL message    ('','---      --> use constant cloud cover')
+          CALL print_value('    echam_cov_config('//TRIM(cg)//')% clcon    ',echam_cov_config(jg)% clcon   )
        CASE(1)
           CALL message    ('','---      --> use the fractional cloud cover scheme')
           CALL print_value('    echam_cov_config('//TRIM(cg)//')% csat     ',echam_cov_config(jg)% csat    )
@@ -224,8 +250,11 @@ CONTAINS
           CALL print_value('    echam_cov_config('//TRIM(cg)//')% cinv     ',echam_cov_config(jg)% cinv    )
           CALL print_value('    echam_cov_config('//TRIM(cg)//')% csatsc   ',echam_cov_config(jg)% csatsc  )
        CASE(2)
-          CALL message    ('','---      --> use the 0/1 cloud cover scheme')
+          CALL message    ('','---      --> use the 0/1 cloud cover scheme with rel. humidity')
           CALL print_value('    echam_cov_config('//TRIM(cg)//')% csat     ',echam_cov_config(jg)% csat    )
+       CASE(3)
+          CALL message    ('','---      --> use the 0/1 cloud cover scheme with cloud condensate')
+          CALL print_value('    echam_cov_config('//TRIM(cg)//')% cqx      ',echam_cov_config(jg)% cqx     )
        END SELECT
        CALL message    ('','')
        !

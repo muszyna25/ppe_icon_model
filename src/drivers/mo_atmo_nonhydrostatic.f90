@@ -189,6 +189,12 @@ CONTAINS
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
+    IF (iforcing == iecham) THEN
+      CALL init_echam_phy_params       ( p_patch(1:) )
+      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
+      CALL construct_psrad_forcing_list( p_patch(1:) )
+    END IF
+
     IF(iforcing == inwp) THEN
 
       CALL configure_ensemble_pert(ext_data, time_config%tc_exp_startdate)
@@ -334,12 +340,6 @@ CONTAINS
      CALL init_radar_data(p_patch(1:), radar_data)
      CALL construct_lhn(lhn_fields,p_patch(1:))
    ENDIF
-
-    IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params       ( p_patch(1:) )
-      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
-      CALL construct_psrad_forcing_list( p_patch(1:) )
-    END IF
 
     !------------------------------------------------------------------
     ! Prepare for time integration

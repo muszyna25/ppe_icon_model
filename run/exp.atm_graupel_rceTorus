@@ -32,7 +32,7 @@ unset OMPI_MCA_coll_fca_priority
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -40,7 +40,7 @@ icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpi
 
 # horizontal grid(s)
 #
-grids_folder=/work/mh0287/users/rene/RCE
+grids_folder=${icon_data_poolFolder}/Torus_Triangles_20x22_5000m
 #
 # domain Torus
 grid_name=Torus_Triangles_20x22_5000m
@@ -117,13 +117,13 @@ cat > ${atmo_namelist} << EOF
  ntracer          = 6           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
- msg_level        = 15          ! level of details report during integration 
+ msg_level        = 12          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  activate_sync_timers = .TRUE.
  profiling_output = 1           ! aggregated: 1; detailed: 2; in files: 3
 /
 &nh_testcase_nml
- nh_test_name     = 'RCE_glb'
+ nh_test_name     = 'RCE_Tconst'
  ape_sst_case     = 'sst_const'
  ape_sst_val      = 25.
  tpe_temp         = 298.15
@@ -187,11 +187,12 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%lice   = .FALSE.
  echam_phy_config(1)%lmlo   = .FALSE.
  echam_phy_config(1)%llake  = .FALSE.
- echam_phy_config(1)%lmig   = .TRUE.
 !
 ! fix negative humidity
  echam_phy_config(1)%iqneg_d2p = 2
  echam_phy_config(1)%iqneg_p2d = 2
+! set htop_moist_proc also as top of graupel calculation
+ echam_phy_config(1)%zmaxcloudy = 22500.
 /
 &echam_rad_nml
 !
@@ -213,7 +214,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
  echam_rad_config(1)%irad_aero  =  0
- echam_rad_config(1)%ighg       =  0
  echam_rad_config(1)%vmr_co2    =  348.e-06 ! RCEMIP values; modern-day values
  echam_rad_config(1)%vmr_ch4    = 1650.e-09
  echam_rad_config(1)%vmr_n2o    =  306.e-09
@@ -227,24 +227,16 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
- echam_cld_config(1)%ncctop     = 12    ! <-- 20km
- echam_cld_config(1)%nccbot     = 40    ! <-- 6.5 km
- echam_cld_config(1)%jks        = 1
- echam_cld_config(1)%crs        = 1.0
- echam_cld_config(1)%crt        = 1.0
- echam_cld_config(1)%cinhomi    = 1.0
- echam_cld_config(1)%cinhoml1   = 1.0
- echam_cld_config(1)%cinhoml2   = 1.0
- echam_cld_config(1)%cinhoml3   = 1.0
- echam_cld_config(1)%cvtfall    = 4.00
- echam_cld_config(1)%jbmin      = 50    ! <--3.5km
- echam_cld_config(1)%jbmax      = 68    ! <--150m
- echam_cld_config(1)%cn1lnd     = 50.
- echam_cld_config(1)%cn2lnd     =220.
- echam_cld_config(1)%cn1sea     = 50.
- echam_cld_config(1)%cn2sea     =100.
- echam_cld_config(1)%ccraut     = 2.0
- echam_cld_config(1)%ccsaut     = 2.0
+/
+&echam_mig_nml
+ echam_mig_config(1)%ldiag_ttend = .TRUE. !< enable output of original graupel tendencies
+ echam_mig_config(1)%ldiag_qtend = .TRUE. !< enable output of original graupel tendencies
+ echam_mig_config(1)%mu_rain        = 0.5
+ echam_mig_config(1)%rain_n0_factor = 0.1
+ echam_mig_config(1)%v0snow         = 25. !< no effect, as set to v0snow_gr in graupel scheme
+/
+&echam_cov_nml
+ echam_cov_config(1)%icov       = 2     ! 0/1 cloud cover based on rel. hum.
 /
 EOF
 
@@ -275,8 +267,8 @@ start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - ozone
-datadir=/work/mh0287/users/rene/RCE
-add_link_file ${datadir}/rcemip_analytical_o3_20x22_5000m.nc            ./bc_ozone.nc
+datadir=${icon_data_poolFolder}/Torus_Triangles_20x22_5000m/r0006
+add_link_file ${datadir}/rcemip_analytical_o3_20x22_5000m_echam_plev.nc ./bc_ozone.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -317,8 +309,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"          ! --> write once only irrespective of
  output_interval  = "${output_interval_2d}"  !     the output interval and
  file_interval    = "${file_interval_2d}"    !     the file interval
- ml_varlist       = 'clon'   , 'clat' , 'areacella',
-                    'zghalf' , 'zg
+ ml_varlist       = 'clon'   , 'clat' , 'areacella', 'zghalf' , 'zg'   ,
 /
 EOF
 fi
@@ -377,7 +368,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'sic'     , 'sit'     ,
                     'albedo'  ,
                     'clt'     ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'prlr'    , 'prls'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'qgvi'    , 'qrvi'    , 'qsvi'    ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
@@ -406,19 +397,41 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval_3d}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'           , 'pfull'        , 'zg'         ,
-                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy',
+ ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
+                    'tend_ta'      , 'tend_qhus'    ,
+                    'tend_ta_dyn'  , 'tend_qhus_dyn',
+                    'tend_ta_phy'  , 'tend_qhus_phy',
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwd'  ,
-                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
-                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy',
-                    'tend_ua_vdf'  , 'tend_ua_gwd'  ,
-                    'tend_ua_cnv'  , 
-                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy',
-                    'tend_va_vdf'  , 'tend_va_gwd'  ,
-                    'tend_va_cnv'  ,
-                    'tend_hus'    , 'tend_hus_dyn', 'tend_hus_phy' ,
-                    'tend_hus_cld', 'tend_hus_cnv', 'tend_hus_vdf'
+                    'tend_ta_vdf'  , 'tend_qhus_vdf',
+                    'tend_ta_mig'  , 'tend_qhus_mig',
+                    'tend_qclw_mig', 'tend_qcli_mig',
+                    'tend_qqr_mig' , 'tend_qqs_mig' , 'tend_qqg_mig' ,
+/
+EOF
+fi
+
+# The following output is only possible if the switches ldiag_ttend and ldiag_qtend
+# in echam_mig_nml are set accordingly
+#
+if [[ "$output_phy_3d" == "yes" ]]; then   
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_ori_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ filetype         = 5
+ remap            = 0
+ operation        = 'mean'
+ output_grid      = .FALSE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval_3d}"
+ file_interval    = "${file_interval_3d}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
+                    'tend_ddt_tend_t'   ,
+                    'tend_ddt_tend_qv'  , 'tend_ddt_tend_qc'  , 'tend_ddt_tend_qi'  ,
+                    'tend_ddt_tend_qr'  , 'tend_ddt_tend_qs'  , 'tend_ddt_tend_qg'  ,
 /
 EOF
 fi

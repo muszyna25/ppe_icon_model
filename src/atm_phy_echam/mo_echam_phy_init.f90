@@ -23,7 +23,7 @@ MODULE mo_echam_phy_init
 
   ! infrastructure
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message, message_text
+  USE mo_exception,            ONLY: finish, message, message_text, print_value
   USE mtime,                   ONLY: datetime, OPERATOR(>), OPERATOR(==)
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
@@ -36,7 +36,9 @@ MODULE mo_echam_phy_init
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_master_config,        ONLY: isrestart
-  USE mo_run_config,           ONLY: iqt, io3, ntracer, ltestcase
+  USE mo_run_config,           ONLY: ltestcase, lart,                       &
+    &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
+    &                                iqt, io3, ico2, ich4, in2o, ntracer
 
   ! horizontal grid and indices
   USE mo_model_domain,         ONLY: t_patch
@@ -86,8 +88,12 @@ MODULE mo_echam_phy_init
   USE mo_convect_tables,       ONLY: init_convect_tables
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables
 
-  ! cloud microphysics
+  ! "echam"   cloud microphysics
   USE mo_echam_cld_config,     ONLY: eval_echam_cld_config, print_echam_cld_config, echam_cld_config
+
+  ! "graupel" cloud microphysics
+  USE gscp_data,              ONLY: gscp_set_coefficients
+  USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
   ! cloud cover
   USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config, echam_cov_config
@@ -125,6 +131,9 @@ MODULE mo_echam_phy_init
   USE gscp_data,              ONLY: gscp_set_coefficients
   USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
+  ! ART
+  USE mo_art_config,         ONLY: art_config
+
   IMPLICIT NONE
 
   PRIVATE
@@ -152,7 +161,7 @@ CONTAINS
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
 
-    INTEGER :: khydromet, ktrac
+    INTEGER :: nhydromet, ntrac
     INTEGER :: jg
     INTEGER :: nlev
 
@@ -193,6 +202,12 @@ CONTAINS
     CALL  eval_echam_phy_config
     CALL  eval_echam_phy_tc
     CALL print_echam_phy_config
+
+
+    ! Set tracer indices for physics
+    ! ------------------------------
+
+    CALL init_echam_phy_itracer
 
 
     ! Parameterizations (with time control)
@@ -236,22 +251,18 @@ CONTAINS
       !
       CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
       !
-      ! Currently the tracer indices are sorted such that we count
-      ! the water substances first, and then other species like
-      ! aerosols and their precursors. "ntracer" is the total number
-      ! of tracers (including water substances) handled in the model;
-      ! "iqt" is the starting index for non-water species.
-      ! Before more sophisticated meta-data structure becomes available,
-      ! it is assumed here that all tracers are subject to turbulent mixing.
+      ! vdiff diffuses only water vapor (index iqv), two hydro meteors
+      ! cloud water (index iqc) and cloud ice (index iqi), and further
+      ! tracers, which are supposed to be gases or suspended particles.
+      ! These additional ntrac tracers are supposed to be stored with
+      ! indices in the range [iqt,ntracer].
       !
-      !khydromet = iqt - 2        ! # of hydrometeors
-      ! as long as init_vdiff_solver is extremely hard-coded it is sufficient
-      ! to set khydromet to 2 for xl and xi to be mixed. init_vdiff_solver is
-      ! not able to handel khydromet not equal to 2
-      khydromet = 2
-      ktrac = ntracer - iqt + 1  ! # of non-water species
+      ! Precipitating hydrometeors (rain, snow, graupel) are not diffused
+      ! 
+      nhydromet = 2              ! diffuse two hydro meteor specied: cloud water and ice
+      ntrac = ntracer - iqt + 1  ! and ntrac further species
       !
-      CALL init_vdiff_solver( khydromet, ktrac, nlev )
+      CALL init_vdiff_solver( nhydromet, ntrac, nlev )
       !
       ! JSBACH land processes
       !
@@ -295,14 +306,6 @@ CONTAINS
       CALL print_echam_cld_config
     END IF
 
-    ! cloud cover
-    !
-    lany=.TRUE.
-    IF (lany) THEN
-      CALL  eval_echam_cov_config
-      CALL print_echam_cov_config
-    END IF
-
     ! cloud microphysics (graupel)
     !
     lany=.FALSE.
@@ -311,12 +314,33 @@ CONTAINS
     END DO
     IF (lany) THEN
       CALL print_echam_mig_config
+      !
+      ! For making the "graupel" setup specific for the grid, the following setup needs
+      ! to be executed in the time loop immediately before calling "graupel", or the
+      ! gscp_data module needs to be extended with a grid dimension. For the time being
+      ! the scheme is initialized with configuration parameters for grid 1.
+      !
+      IF (n_dom > 1) THEN
+         CALL message('','!! ATTENTION: The current implementation of the "graupel" scheme !!')
+         CALL message('','!! ---------  uses the configuration for grid 1 on all grids     !!')
+         CALL message('','')
+      END IF
+      !
+      jg=1
+      CALL gscp_set_coefficients(tune_zceff_min      = echam_mig_config(jg)% zceff_min      ,&
+         &                       tune_v0snow         = echam_mig_config(jg)% v0snow         ,&
+         &                       tune_zvz0i          = echam_mig_config(jg)% zvz0i          ,&
+         &                       tune_icesedi_exp    = echam_mig_config(jg)% icesedi_exp    ,&
+         &                       tune_mu_rain        = echam_mig_config(jg)% mu_rain        ,&
+         &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
+    END IF
 
-      CALL gscp_set_coefficients(tune_zceff_min = echam_mig_config(jg)%tune_zceff_min,  &
-        &                        tune_v0snow    = echam_mig_config(jg)%tune_v0snow,     &
-        &                        tune_zvz0i     = echam_mig_config(jg)%tune_zvz0i,      &
-        &                        tune_mu_rain   = echam_mig_config(jg)%mu_rain )
-
+    ! cloud cover
+    !
+    lany=.TRUE.
+    IF (lany) THEN
+      CALL  eval_echam_cov_config
+      CALL print_echam_cov_config
     END IF
 
     ! atmospheric gravity wave drag
@@ -375,6 +399,120 @@ CONTAINS
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy_params
+
+
+  SUBROUTINE init_echam_phy_itracer
+
+    INTEGER :: jg
+    LOGICAL :: lany
+
+    ! indices for water species mass mixing ratios used in the cloud microphyiscs
+    !
+    ! is echam cloud microphysics active?
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_cld > dt_zero)
+    END DO
+    !
+    IF (lany) THEN
+       IF (ntracer <3) CALL finish('mo_echam_phy_init:init_echam_phy_itracer', &
+            &                      'ntracer must be >=3 for ECHAM cloud microphysics')
+       iqv       = 1         ! water vapour
+       iqc       = 2         ! cloud water
+       iqi       = 3         ! cloud ice
+       iqr       = 0         ! no rain water
+       iqs       = 0         ! no snow
+       iqg       = 0         ! no graupel
+       iqm_max   = iqi       ! last index of water species mass mixing ratios
+    END IF
+    !
+    ! is "graupel" cloud microphysics active?
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_mig > dt_zero)
+    END DO
+    !
+    IF (lany) THEN
+       IF (ntracer <6) CALL finish('mo_echam_phy_init:init_echam_phy_itracer', &
+            &                      'ntracer must be >=6 for "graupel" cloud microphysics')
+       iqv       = 1         ! water vapour
+       iqc       = 2         ! cloud water
+       iqi       = 3         ! cloud ice
+       iqr       = 4         ! rain water
+       iqs       = 5         ! snow
+       iqg       = 6         ! graupel
+       iqm_max   = iqg       ! last index of water species mass mixing ratios
+    END IF
+
+    ! indices for extra tracer mass mixing ratios used for convective transport and vertical diffusion
+    ! indices are set only in range [iqt,ntracer], otherwise the index value is zero
+    !
+    iqt       = iqm_max+1 ! first index of non-water species
+    io3       = MERGE(iqt+0,0,ntracer>=iqt+0) ! O3
+    ico2      = MERGE(iqt+1,0,ntracer>=iqt+1) ! CO2
+    ich4      = MERGE(iqt+2,0,ntracer>=iqt+2) ! CH4
+    in2o      = MERGE(iqt+3,0,ntracer>=iqt+3) ! N2O
+
+    ! extra treatment if ART is active, probably wrong
+       
+    IF (lart) THEN
+        
+       ntracer = ntracer + art_config(1)%iart_echam_ghg + art_config(1)%iart_ntracer
+       io3    = 0     !! O3
+       ico2   = 0     !! CO2
+       ich4   = 0     !! CH4
+       in2o   = 0     !! N2O
+
+       SELECT CASE (art_config(1)%iart_echam_ghg)  
+
+       CASE(1)
+          io3    = 4
+       CASE(2)
+          ico2   = 5
+       CASE(3)
+          ich4   = 6
+       CASE(4)
+          in2o   = 7
+
+       CASE(0)
+
+       CASE DEFAULT
+          CALL finish('mo_atm_nml_crosscheck', 'iart_echam_ghg > 4 is not supported')
+
+       END SELECT
+
+       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
+                                         'ntracer is increased by ',art_config(1)%iart_ntracer, &
+                                         ' to ',ntracer
+       CALL message('mo_echam_phy_init:init_echam_phy_itracer',message_text)
+
+    ENDIF
+
+    CALL message('','')
+    CALL message('','Tracer configuration')
+    CALL message('','====================')
+    CALL message('','')
+    CALL message('','total number of tracers')
+    CALL print_value('ntracer',ntracer)
+    CALL message('','index variables defined for active tracers')
+    IF (iqv  > 0) CALL print_value('iqv    ',iqv )
+    IF (iqc  > 0) CALL print_value('iqc    ',iqc )
+    IF (iqi  > 0) CALL print_value('iqi    ',iqi )
+    IF (iqr  > 0) CALL print_value('iqr    ',iqr )
+    IF (iqs  > 0) CALL print_value('iqs    ',iqs )
+    IF (iqg  > 0) CALL print_value('iqg    ',iqg )
+    IF (io3  > 0) CALL print_value('io3    ',io3 )
+    IF (ico2 > 0) CALL print_value('ico2   ',ico2)
+    IF (ich4 > 0) CALL print_value('ich4   ',ich4)
+    IF (in2o > 0) CALL print_value('in2o   ',in2o)
+    CALL message('','last  index for water species mass mixing ratios')
+    CALL print_value('iqm_max',iqm_max)
+    CALL message('','first index for other species mass mixing ratios')
+    CALL print_value('iqt    '    ,iqt    )
+    CALL message('','number of other species mass mixing ratios')
+    CALL print_value('ntrac  ',ntracer-iqt+1)
+
+  END SUBROUTINE init_echam_phy_itracer
 
 
   SUBROUTINE init_echam_phy_external( p_patch, mtime_current)
