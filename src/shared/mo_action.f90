@@ -205,6 +205,7 @@ WRITE(message_text,'(a,a,a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(
         ELSE
           WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(varlist(i))
         END IF
+CALL message('',message_text)
 !tvpham.
         IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
 
