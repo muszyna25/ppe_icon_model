@@ -198,6 +198,14 @@ CONTAINS
         ELSE
           element => element%next_list_element
         ENDIF
+!tvpham:
+WRITE(message_text,'(a,a,a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),':'
+        IF (i==1) THEN
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(varlist(i))
+        ELSE
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(varlist(i))
+        END IF
+!tvpham.
         IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
 
         ! point to variable specific action list
