@@ -1701,29 +1701,13 @@ SUBROUTINE graupel     (             &
         ddt_tend_qi(iv,k) = MAX(-qi_in(iv,k)*zdtr,(qi(iv,k) - qi_in(iv,k))*zdtr)
         ddt_tend_qr(iv,k) = MAX(-qr_in(iv,k)*zdtr,(qr(iv,k) - qr_in(iv,k))*zdtr)
         ddt_tend_qs(iv,k) = MAX(-qs_in(iv,k)*zdtr,(qs(iv,k) - qs_in(iv,k))*zdtr)
+!       ddt_tend_qg(iv,k) = MAX(-qg_in(iv,k)*zdtr,(qg(iv,k) - qg_in(iv,k))*zdtr)
       END DO
     END DO
     !$ACC END PARALLEL
 
     !$ACC END DATA
     
-    ! extra loop for (lldiag_qtend .AND. PRESENT(ddt_tend_qg) )
-
-    IF (PRESENT(ddt_tend_qg) ) THEN
-      !$ACC DATA PRESENT(ddt_tend_qg, qg_in)
-
-      !$ACC PARALLEL
-      !$ACC LOOP GANG
-      DO k=k_start,ke
-        !$ACC LOOP VECTOR
-        DO iv=iv_start,iv_end
-          ddt_tend_qg(iv,k) = MAX(-qg_in(iv,k)*zdtr,(qg(iv,k) - qg_in(iv,k))*zdtr)
-        END DO
-      END DO
-      !$ACC END PARALLEL
-
-      !$ACC END DATA
-    ENDIF
   ENDIF
 
   IF (izdebug > 15) THEN

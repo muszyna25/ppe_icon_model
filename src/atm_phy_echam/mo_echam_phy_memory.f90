@@ -572,13 +572,6 @@ MODULE mo_echam_phy_memory
       !
       &   ta_mig (:,:,:)=>NULL()  , & !< temperature tendency due to graupel microphysics proc. (for const. pressure)
       & qtrc_mig (:,:,:,:)=>NULL(), & !< tracer tendency  due to graupel microphysics proc.
-      & ddt_tend_t (:,:,:)=>NULL(), & !< tendency temperature
-      & ddt_tend_qv(:,:,:)=>NULL(), & !< tendency QV
-      & ddt_tend_qc(:,:,:)=>NULL(), & !< tendency QC
-      & ddt_tend_qi(:,:,:)=>NULL(), & !< tendency QI
-      & ddt_tend_qr(:,:,:)=>NULL(), & !< tendency QR
-      & ddt_tend_qs(:,:,:)=>NULL(), & !< tendency QS
-      & ddt_tend_qg(:,:,:)=>NULL(), & !< tendency QG
       !
       ! cumulus convection
       !
@@ -4174,104 +4167,6 @@ CONTAINS
                       &         datatype_flt)
           grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, prefix//'ta_mig', tend%  ta_mig,                            &
-                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                      & vert_interp=create_vert_interp_metadata(                               &
-                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                      &   l_extrapol=.FALSE. ),                                                &
-                      & lopenacc=.TRUE.)
-       END IF
-       !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_t')) THEN
-          cf_desc    = t_cf_var('temperature_tendency_graupel', 'K s-1',                       &
-                      &         'temperature tendency due to graupel processes (cp)',          &
-                      &         datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_var( tend_list, prefix//'ddt_tend_t', tend%  ddt_tend_t,                    &
-                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                      & vert_interp=create_vert_interp_metadata(                               &
-                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                      &   l_extrapol=.FALSE. ),                                                &
-                      & lopenacc=.TRUE.)
-       END IF
-       !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qv')) THEN
-          cf_desc    = t_cf_var('qv_tendency_graupel', 'kg kg-1 s-1',                          &
-                      &         'qv tendency due to graupel processes',                        &
-                      &         datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_var( tend_list, prefix//'ddt_tend_qv', tend%  ddt_tend_qv,                  &
-                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                      & vert_interp=create_vert_interp_metadata(                               &
-                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                      &   l_extrapol=.FALSE. ),                                                &
-                      & lopenacc=.TRUE.)
-       END IF
-       !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qc')) THEN
-          cf_desc    = t_cf_var('qc_tendency_graupel', 'kg kg-1 s-1',                          &
-                      &         'qc tendency due to graupel processes',                        &
-                      &         datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_var( tend_list, prefix//'ddt_tend_qc', tend%  ddt_tend_qc,                  &
-                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                      & vert_interp=create_vert_interp_metadata(                               &
-                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                      &   l_extrapol=.FALSE. ),                                                &
-                      & lopenacc=.TRUE.)
-       END IF
-       !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qi')) THEN
-          cf_desc    = t_cf_var('qi_tendency_graupel', 'kg kg-1 s-1',                          &
-                      &         'qi tendency due to graupel processes',                        &
-                      &         datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_var( tend_list, prefix//'ddt_tend_qi', tend%  ddt_tend_qi,                  &
-                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                      & vert_interp=create_vert_interp_metadata(                               &
-                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                      &   l_extrapol=.FALSE. ),                                                &
-                      & lopenacc=.TRUE.)
-       END IF
-       !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qr')) THEN
-          cf_desc    = t_cf_var('qr_tendency_graupel', 'kg kg-1 s-1',                          &
-                      &         'qr tendency due to graupel processes',                        &
-                      &         datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_var( tend_list, prefix//'ddt_tend_qr', tend%  ddt_tend_qr,                  &
-                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                      & vert_interp=create_vert_interp_metadata(                               &
-                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                      &   l_extrapol=.FALSE. ),                                                &
-                      & lopenacc=.TRUE.)
-       END IF
-       !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qs')) THEN
-          cf_desc    = t_cf_var('qs_tendency_graupel', 'kg kg-1 s-1',                          &
-                      &         'qs tendency due to graupel processes',                        &
-                      &         datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_var( tend_list, prefix//'ddt_tend_qs', tend%  ddt_tend_qs,                  &
-                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
-                      & vert_interp=create_vert_interp_metadata(                               &
-                      &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                      &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                      &   l_extrapol=.FALSE. ),                                                &
-                      & lopenacc=.TRUE.)
-       END IF
-       !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ddt_tend_qg')) THEN
-          cf_desc    = t_cf_var('qg_tendency_graupel', 'kg kg-1 s-1',                          &
-                      &         'qg tendency due to graupel processes',                        &
-                      &         datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_var( tend_list, prefix//'ddt_tend_qg', tend%  ddt_tend_qg,                  &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc,grib2_desc,ldims=shape3d,&
                       & vert_interp=create_vert_interp_metadata(                               &
                       &   vert_intp_type=vintp_types("P","Z","I"),                             &

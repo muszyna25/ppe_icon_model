@@ -76,13 +76,6 @@ CONTAINS
     !
     REAL(wp)                            :: tend_ta_mig  (nproma,nlev)
     REAL(wp)                            :: tend_qtrc_mig(nproma,nlev,ntracer)
-    REAL(wp)                            :: ddt_tend_t   (nproma,nlev)
-    REAL(wp)                            :: ddt_tend_qv  (nproma,nlev)
-    REAL(wp)                            :: ddt_tend_qc  (nproma,nlev)
-    REAL(wp)                            :: ddt_tend_qi  (nproma,nlev)
-    REAL(wp)                            :: ddt_tend_qr  (nproma,nlev)
-    REAL(wp)                            :: ddt_tend_qs  (nproma,nlev)
-    REAL(wp)                            :: ddt_tend_qg  (nproma,nlev)
     !
     ! Local variables for security
     !
@@ -114,11 +107,7 @@ CONTAINS
     !$ACC               xlta                     , &
     !$ACC               xlqv, xlqc               , &
     !$ACC               xlqi, xlqr               , &
-    !$ACC               xlqs, xlqg               , &
-    !$ACC               ddt_tend_t               , &
-    !$ACC               ddt_tend_qv, ddt_tend_qc , &
-    !$ACC               ddt_tend_qi, ddt_tend_qr , &
-    !$ACC               ddt_tend_qs, ddt_tend_qg )
+    !$ACC               xlqs, xlqg               )
 
     !$ACC PARALLEL
     !$ACC LOOP GANG VECTOR
@@ -131,13 +120,6 @@ CONTAINS
 
     CALL init(tend_ta_mig)
     CALL init(tend_qtrc_mig)
-    CALL init(ddt_tend_t )
-    CALL init(ddt_tend_qv)
-    CALL init(ddt_tend_qc)
-    CALL init(ddt_tend_qi)
-    CALL init(ddt_tend_qr)
-    CALL init(ddt_tend_qs)
-    CALL init(ddt_tend_qg)
 
     ! reciprocal of timestep
 
@@ -228,14 +210,8 @@ CONTAINS
               & qrsflux=zqrsflux                    , & !< out  precipitation flux
               & l_cv=.TRUE.                         , &
               & ldiag_ttend = echam_mig_config(jg)%ldiag_ttend , & !< in:  if temp.  tendency shall be diagnosed
-              & ldiag_qtend = echam_mig_config(jg)%ldiag_qtend , & !< in:  if moisture tendencies shall be diagnosed
-              & ddt_tend_t  = ddt_tend_t (:,:)         , & !< out: tendency temperature
-              & ddt_tend_qv = ddt_tend_qv(:,:)         , & !< out: tendency QV
-              & ddt_tend_qc = ddt_tend_qc(:,:)         , & !< out: tendency QC
-              & ddt_tend_qi = ddt_tend_qi(:,:)         , & !< out: tendency QI
-              & ddt_tend_qr = ddt_tend_qr(:,:)         , & !< out: tendency QR
-              & ddt_tend_qs = ddt_tend_qs(:,:)         , & !< out: tendency QS
-              & ddt_tend_qg = ddt_tend_qg(:,:)         )   !< out: tendency QG
+              & ldiag_qtend = echam_mig_config(jg)%ldiag_qtend )   !< in:  if moisture tendencies shall be diagnosed
+                                                                   ! IF true tendencies have to be re-implemented
 
     !$ser verbatim call serialize_mig_before_satad2(jg, jb, jcs, jce, nproma, nlev, field,&
     !$ser verbatim      & xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc,&
@@ -343,110 +319,6 @@ CONTAINS
          !$ACC END DATA
        END IF
        !
-       ! store in memory for output in case ldiag_ttend is true
-       !
-       IF (echam_mig_config(jg)%ldiag_ttend .AND. ASSOCIATED(tend%ddt_tend_t )) THEN
-         !$ACC DATA PRESENT( tend%ddt_tend_t, ddt_tend_t )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
-         DO jk = jkscov,nlev
-           !$ACC LOOP VECTOR
-           DO jl = jcs,jce
-             tend% ddt_tend_t(jl,jk,jb) = ddt_tend_t(jl,jk)
-           ENDDO
-         ENDDO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-       !
-       ! store in memory for output in case ldiag_qtend is true
-       !
-         IF (echam_mig_config(jg)%ldiag_qtend ) THEN
-           IF (ASSOCIATED(tend%ddt_tend_qv)) THEN
-             !$ACC DATA PRESENT( tend%ddt_tend_qv, ddt_tend_qv )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
-             DO jk = jkscov,nlev
-               !$ACC LOOP VECTOR
-               DO jl = jcs,jce
-                 tend%ddt_tend_qv(jl,jk,jb) = ddt_tend_qv(jl,jk)
-               ENDDO
-             ENDDO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-           END IF
-           !
-           IF (ASSOCIATED(tend%ddt_tend_qc)) THEN
-             !$ACC DATA PRESENT( tend%ddt_tend_qc, ddt_tend_qc )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
-             DO jk = jkscov,nlev
-               !$ACC LOOP VECTOR
-               DO jl = jcs,jce
-                 tend%ddt_tend_qc(jl,jk,jb) = ddt_tend_qc(jl,jk)
-               ENDDO
-             ENDDO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-           END IF
-           !
-           IF (ASSOCIATED(tend%ddt_tend_qi)) THEN
-             !$ACC DATA PRESENT( tend%ddt_tend_qi, ddt_tend_qi )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
-             DO jk = jkscov,nlev
-               !$ACC LOOP VECTOR
-               DO jl = jcs,jce
-                 tend%ddt_tend_qi(jl,jk,jb) = ddt_tend_qi(jl,jk)
-               ENDDO
-             ENDDO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-           END IF
-           !
-           IF (ASSOCIATED(tend%ddt_tend_qr)) THEN
-             !$ACC DATA PRESENT( tend%ddt_tend_qr, ddt_tend_qr )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
-             DO jk = jkscov,nlev
-               !$ACC LOOP VECTOR
-               DO jl = jcs,jce
-                 tend%ddt_tend_qr(jl,jk,jb) = ddt_tend_qr(jl,jk)
-               ENDDO
-             ENDDO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-           END IF
-           !
-           IF (ASSOCIATED(tend%ddt_tend_qs)) THEN
-             !$ACC DATA PRESENT( tend%ddt_tend_qs, ddt_tend_qs )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
-             DO jk = jkscov,nlev
-               !$ACC LOOP VECTOR
-               DO jl = jcs,jce
-                 tend%ddt_tend_qs(jl,jk,jb) = ddt_tend_qs(jl,jk)
-               ENDDO
-             ENDDO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-           END IF
-           !
-           IF (ASSOCIATED(tend%ddt_tend_qg)) THEN
-             !$ACC DATA PRESENT( tend%ddt_tend_qg, ddt_tend_qg )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
-             DO jk = jkscov,nlev
-               !$ACC LOOP VECTOR
-               DO jl = jcs,jce
-                 tend%ddt_tend_qg(jl,jk,jb) = ddt_tend_qg(jl,jk)
-               ENDDO
-             ENDDO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-           END IF 
-         END IF  ! ldiag_qtend
-         !
        ELSE    ! is_active
          !
          ! retrieve from memory for recycling
