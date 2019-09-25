@@ -136,12 +136,12 @@ CONTAINS
     !
     ! freezing/deposition/sublimation
     echam_cld_config(:)% cthomi   = tmelt-35.0_wp
-    echam_cld_config(:)% csecfrl  = 5.0e-6_wp
+    echam_cld_config(:)% csecfrl  = 1.5e-5_wp
     !
     ! warm clouds
-    echam_cld_config(:)% ccraut   = 15.0_wp
+    echam_cld_config(:)% ccraut   =  2.0_wp
     echam_cld_config(:)% ccracl   =  6.0_wp
-    echam_cld_config(:)% cauloc   = 10.0_wp
+    echam_cld_config(:)% cauloc   =  1.0_wp
     echam_cld_config(:)% clmin    = 0.0_wp
     echam_cld_config(:)% clmax    = 0.5_wp
     !
@@ -152,7 +152,7 @@ CONTAINS
     echam_cld_config(:)% crhoi    = 500.0_wp
     echam_cld_config(:)% crhosno  = 100.0_wp
     echam_cld_config(:)% cn0s     = 3.e6_wp
-    echam_cld_config(:)% ccsaut   = 95.0_wp
+    echam_cld_config(:)% ccsaut   =  2.0_wp
     echam_cld_config(:)% ccsacl   = 0.10_wp
     !
     ! cloud droplet number concentration

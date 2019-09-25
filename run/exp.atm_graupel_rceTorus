@@ -229,8 +229,6 @@ cat > ${atmo_namelist} << EOF
 &echam_cld_nml
 /
 &echam_mig_nml
- echam_mig_config(1)%ldiag_ttend = .TRUE. !< enable output of original graupel tendencies
- echam_mig_config(1)%ldiag_qtend = .TRUE. !< enable output of original graupel tendencies
  echam_mig_config(1)%mu_rain        = 0.5
  echam_mig_config(1)%rain_n0_factor = 0.1
  echam_mig_config(1)%v0snow         = 25. !< no effect, as set to v0snow_gr in graupel scheme
@@ -409,32 +407,5 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 /
 EOF
 fi
-
-# The following output is only possible if the switches ldiag_ttend and ldiag_qtend
-# in echam_mig_nml are set accordingly
-#
-if [[ "$output_phy_3d" == "yes" ]]; then   
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_ori_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .FALSE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
- file_interval    = "${file_interval_3d}"
- include_last     = .FALSE.
- ml_varlist       = 'ps'           , 'pfull'        , 'zg'           ,
-                    'tend_ddt_tend_t'   ,
-                    'tend_ddt_tend_qv'  , 'tend_ddt_tend_qc'  , 'tend_ddt_tend_qi'  ,
-                    'tend_ddt_tend_qr'  , 'tend_ddt_tend_qs'  , 'tend_ddt_tend_qg'  ,
-/
-EOF
-fi
-
 
 #--------------------------------------------------------------------------------------------------

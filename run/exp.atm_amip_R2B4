@@ -24,7 +24,7 @@ author_list="Monika Esch, Marco Giorgetta, Rene Redler, MPIM"
 atmos_gridID="0013"
 atmos_refinement="R02B04"
 
-nproma_atm=48
+nproma_atm=16
 
 #
 #--------------------------------------------------------------------------------------------------
