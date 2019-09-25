@@ -24,7 +24,8 @@
 	branch = release-0.7.0-patched
 [submodule "externals/rte-rrtmgp"]
 	path = externals/rte-rrtmgp
-	url = https://github.com/RobertPincus/rte-rrtmgp.git
+	url = git@gitlab.dkrz.de:icon-libraries/librte-rrtmgp.git
+	branch = icon
 [submodule "externals/cub"]
 	path = externals/cub
 	url = https://github.com/NVlabs/cub.git
