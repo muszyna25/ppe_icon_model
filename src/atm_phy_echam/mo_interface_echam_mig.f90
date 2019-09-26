@@ -88,7 +88,7 @@ CONTAINS
 
     INTEGER :: jk, jl
 
-    !IF (ltimer) call timer_start(timer_mig)
+    IF (ltimer) call timer_start(timer_mig)
 
     ! associate pointers
     lparamcpl =  echam_phy_config(jg)%lparamcpl
