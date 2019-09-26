@@ -20,7 +20,8 @@
 MODULE mo_util_uuid
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_NULL_CHAR, &
-    &                                    C_DOUBLE, C_INT, C_PTR, C_F_POINTER, C_LOC
+       &                                 C_DOUBLE, C_INT, C_PTR, C_F_POINTER, C_LOC, &
+       &                                 C_SIZEOF
   USE mo_util_uuid_types, ONLY: t_uuid
   USE mo_util_sort, ONLY: quicksort
 
@@ -297,7 +298,7 @@ CONTAINS
     END IF
 
     ! determine MPI data type for REAL(C_DOUBLE):
-    CALL MPI_SIZEOF(tmp_c_double, p_c_double_byte, p_error)
+    p_c_double_byte = C_SIZEOF(tmp_c_double)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_REAL, p_c_double_byte, p_c_double, p_error)
 
     ! --- now perform the ALLTOALLV operation for the data and the
