@@ -1819,7 +1819,7 @@ CONTAINS
         sigma_alpha(i,lev,7) = sigma_alpha(i,lev,3)
         sigma_alpha(i,lev,8) = sigma_alpha(i,lev,4)
       END DO
- #else
+#else
       !$ACC PARALLEL LOOP DEFAULT(NONE) PRIVATE( sum_odd, sum_even ) GANG VECTOR ASYNC(1)
       DO i = il1,il2
         sum_odd  = ( sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,3)            &
@@ -1847,7 +1847,7 @@ CONTAINS
         END DO
         sigma_t(i,lev) = SQRT(sigma_t(i,lev))
       END DO
- #endif
+#endif
     END IF
     !
     !  calculate total rms velocity.

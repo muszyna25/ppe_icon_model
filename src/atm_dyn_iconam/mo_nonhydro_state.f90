@@ -98,7 +98,7 @@ MODULE mo_nonhydro_state
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
   USE mo_upatmo_config,        ONLY: upatmo_config, idamtr, istatus
 
-  #include "add_var_acc_macro.inc"
+#include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
 

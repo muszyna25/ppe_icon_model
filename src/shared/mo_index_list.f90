@@ -11,7 +11,7 @@ MODULE mo_index_list
 
   PRIVATE
 
-  PUBLIC :: generate_index_list
+  PUBLIC :: generate_index_list, generate_index_list_batched
 
   INTERFACE generate_index_list
     MODULE PROCEDURE generate_index_list_i1
@@ -117,12 +117,14 @@ MODULE mo_index_list
 
 ! Regular CPU implementation with a simple loop
 
-  SUBROUTINE generate_index_list_i1(conditions, indices, startid, endid, nvalid)
-    INTEGER(i1), INTENT(in)    :: conditions(:)
-    INTEGER,     INTENT(inout) :: indices(:)
-    INTEGER,     INTENT(in)    :: startid
-    INTEGER,     INTENT(in)    :: endid
-    INTEGER,     INTENT(out)   :: nvalid
+  SUBROUTINE generate_index_list_i1(conditions, indices, startid, endid, nvalid, dummy)
+    INTEGER(i1), INTENT(in)           :: conditions(:)
+    INTEGER,     INTENT(inout)        :: indices(:)
+    INTEGER,     INTENT(in)           :: startid
+    INTEGER,     INTENT(in)           :: endid
+    INTEGER,     INTENT(out)          :: nvalid
+    ! This argument is used in the OpenACC variant, but not in the GPU one 
+    INTEGER,     INTENT(in), OPTIONAL :: dummy
 
     INTEGER :: i
 
@@ -135,12 +137,14 @@ MODULE mo_index_list
     END DO
   END SUBROUTINE generate_index_list_i1
 
-  SUBROUTINE generate_index_list_i4(conditions, indices, startid, endid, nvalid)
-    INTEGER(i4), INTENT(in)    :: conditions(:)
-    INTEGER,     INTENT(inout) :: indices(:)
-    INTEGER,     INTENT(in)    :: startid
-    INTEGER,     INTENT(in)    :: endid
-    INTEGER,     INTENT(out)   :: nvalid
+  SUBROUTINE generate_index_list_i4(conditions, indices, startid, endid, nvalid, dummy)
+    INTEGER(i4), INTENT(in)           :: conditions(:)
+    INTEGER,     INTENT(inout)        :: indices(:)
+    INTEGER,     INTENT(in)           :: startid
+    INTEGER,     INTENT(in)           :: endid
+    INTEGER,     INTENT(out)          :: nvalid
+    ! This argument is used in the OpenACC variant, but not in the GPU one 
+    INTEGER,     INTENT(in), OPTIONAL :: dummy
 
     INTEGER :: i
 
@@ -153,12 +157,14 @@ MODULE mo_index_list
     END DO
   END SUBROUTINE generate_index_list_i4
 
-  SUBROUTINE generate_index_list_batched_i1(conditions, indices, startid, endid, nvalid)
-    INTEGER(i1), INTENT(in)    :: conditions(:,:)
-    INTEGER,     INTENT(inout) :: indices(:,:)
-    INTEGER,     INTENT(in)    :: startid
-    INTEGER,     INTENT(in)    :: endid
-    INTEGER,     INTENT(inout) :: nvalid(:)
+  SUBROUTINE generate_index_list_batched_i1(conditions, indices, startid, endid, nvalid, dummy)
+    INTEGER(i1), INTENT(in)           :: conditions(:,:)
+    INTEGER,     INTENT(inout)        :: indices(:,:)
+    INTEGER,     INTENT(in)           :: startid
+    INTEGER,     INTENT(in)           :: endid
+    INTEGER,     INTENT(inout)        :: nvalid(:)
+    ! This argument is used in the OpenACC variant, but not in the GPU one 
+    INTEGER,     INTENT(in), OPTIONAL :: dummy
 
     INTEGER :: i, batch, batch_size, sh(2)
     sh = SHAPE(conditions)
@@ -173,12 +179,14 @@ MODULE mo_index_list
 
   END SUBROUTINE generate_index_list_batched_i1
 
-  SUBROUTINE generate_index_list_batched_i4(conditions, indices, startid, endid, nvalid)
-    INTEGER(i4), INTENT(in)    :: conditions(:,:)
-    INTEGER,     INTENT(inout) :: indices(:,:)
-    INTEGER,     INTENT(in)    :: startid
-    INTEGER,     INTENT(in)    :: endid
-    INTEGER,     INTENT(inout) :: nvalid(:)
+  SUBROUTINE generate_index_list_batched_i4(conditions, indices, startid, endid, nvalid, dummy)
+    INTEGER(i4), INTENT(in)           :: conditions(:,:)
+    INTEGER,     INTENT(inout)        :: indices(:,:)
+    INTEGER,     INTENT(in)           :: startid
+    INTEGER,     INTENT(in)           :: endid
+    INTEGER,     INTENT(inout)        :: nvalid(:)
+    ! This argument is used in the OpenACC variant, but not in the GPU one
+    INTEGER,     INTENT(in), OPTIONAL :: dummy
 
     INTEGER :: i, batch, batch_size, sh(2)
     sh = SHAPE(conditions)

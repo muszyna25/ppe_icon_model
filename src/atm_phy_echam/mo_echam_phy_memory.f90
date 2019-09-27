@@ -78,7 +78,7 @@ MODULE mo_echam_phy_memory
     !
   USE mo_echam_phy_config,    ONLY: echam_phy_config
 
-  #include "add_var_acc_macro.inc"
+#include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
   PRIVATE

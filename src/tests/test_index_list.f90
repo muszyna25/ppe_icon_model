@@ -23,7 +23,7 @@ program test_index_list
 
   nvalid(1) = 0
   do i = 1, n
-    if (conditions(i,1)) then
+    if (conditions(i,1) /= 0) then
       nvalid(1) = nvalid(1) + 1
       indices(nvalid(1),1) = i
     end if
@@ -41,7 +41,7 @@ program test_index_list
   nvalid = 0
   do b = 1, nb
     do i = 1, n
-      if (conditions(i,b)) then
+      if (conditions(i,b) /= 0) then
         nvalid(b) = nvalid(b) + 1
         indices(nvalid(b),b) = i
       end if
