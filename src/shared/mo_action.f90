@@ -240,7 +240,7 @@ CONTAINS
     act_obj%nvars = nvars
 
 
-    !IF (msg_level >= 11) THEN tvpham
+    IF (msg_level >= 11) THEN
 
       ! remove duplicate variable names
       DO i=1,act_obj%nvars
@@ -261,7 +261,7 @@ CONTAINS
       IF(my_process_is_stdio()) THEN
         CALL act_obj%print_setup()
       ENDIF
-    !ENDIF tvpham
+    ENDIF
 
   END SUBROUTINE action_collect_vars
 
