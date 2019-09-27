@@ -63,7 +63,7 @@ MODULE mo_advection_vflux
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int,   &
-    &                               iup_v, ippm_v, ipsm_v, ippm4gpu_v,          &
+    &                               iup_v, ippm_v, ipsm_v,                      &
     &                               islopel_vsm, islopel_vm, ifluxl_vpd,        &
     &                               ino_flx, izero_grad, iparent_flx
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
