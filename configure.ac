@@ -973,7 +973,7 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/cdi],
-     [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
+     [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -1009,6 +1009,19 @@ dnl command line.
       [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes],
 dnl Disable unwanted extra dependencies.
       [acx_cv_have_libnc_dap=no], [acx_cv_have_nc4hdf5=no],
+dnl Disable the compilers we do not need.
+      [F77=no],
+dnl Note that we need to set CXX to 'no' not only to disable the redundant
+dnl checks but also to avoid the inconsistency in the generation of the
+dnl 'postdeps' variable for Fortran (!!!) compiler inside the *.la files. We
+dnl care about those files because they are used when linking the test suite of
+dnl CDI (i.e. when running 'make check'). If you want to know more, take a look
+dnl at the macro _LT_LANG_FC_CONFIG in libtool.m4 and note that it does not
+dnl initialize the variable 'output_verbose_link_cmd' as it should but uses the
+dnl value that is set for the C++ compiler. Therefore, by disabling CXX we get
+dnl the same behaviour (still questionable but satisfactory for us) as if CDI
+dnl didn't use the C++ compiler at all (e.g. like in YAXT).
+      [CXX=no],
       [MPI_LAUNCH="$MPI_LAUNCH"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/cdi/src "])
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a dnl
