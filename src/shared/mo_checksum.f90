@@ -151,7 +151,11 @@ CONTAINS
         ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
         ! not know about a DATATYPE_INT32, so use DATATYPE_INT as workaround 
         ! (which SHOULD hopefully have same storage size...)
-        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        IF (arr_size == 0) THEN
+          local_chksum = 0_C_INT32_T
+        ELSE
+          local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        ENDIF
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_int32
 
@@ -165,7 +169,11 @@ CONTAINS
         ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
         ! not know about a DATATYPE_FLT32, so use DATATYPE_INT as workaround 
         ! (which SHOULD hopefully have same storage size...)
-        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        IF (arr_size == 0) THEN
+          local_chksum = 0_C_INT32_T
+        ELSE
+          local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        ENDIF
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_float
 
@@ -176,7 +184,11 @@ CONTAINS
         LOGICAL,     OPTIONAL,         INTENT(in   ) :: opt_lDetails
         INTEGER(KIND = c_int32_t) :: local_chksum
 
-        local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
+        IF (arr_size == 0) THEN
+          local_chksum = 0_C_INT32_T
+        ELSE
+          local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
+        ENDIF
         CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_double
 
