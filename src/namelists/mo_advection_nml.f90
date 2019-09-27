@@ -29,7 +29,7 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               MIURA, FFSL_HYB_MCYCL, ippm_v,              &
+    &                               MIURA, FFSL_HYB_MCYCL, ippm_v, ipsm_v,      &
     &                               inol, ifluxl_sm, inol_v,                    &
     &                               islopel_vsm, ifluxl_vpd, VNAME_LEN
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
