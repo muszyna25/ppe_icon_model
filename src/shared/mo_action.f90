@@ -186,7 +186,22 @@ CONTAINS
 
     ! store actionTyp
     act_obj%actionTyp = actionTyp
+!tvpham:
+DO i=1,act_obj%nvars
+        varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
+      ENDDO
+      CALL remove_duplicates(varlist,nvars)
 
+      WRITE(message_text,'(a,a,a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),':'
+      DO i=1, nvars
+        IF (i==1) THEN
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(varlist(i))
+        ELSE
+          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(varlist(i))
+        END IF
+      ENDDO
+      CALL message('',message_text)
+!tvpham.
     ! loop over all variable lists and variables
     !
     DO i = 1,nvar_lists
