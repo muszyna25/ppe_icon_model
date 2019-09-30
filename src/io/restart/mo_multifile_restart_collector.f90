@@ -14,12 +14,12 @@
 
 MODULE mo_multifile_restart_collector
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_LOC, C_SIZEOF
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, C_F_POINTER, C_LOC
 
 #ifndef NOMPI
   USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_SUCCESS, MPI_REQUEST_NULL, MPI_DATATYPE_NULL, &
     & MPI_STATUS_IGNORE, MPI_STATUSES_IGNORE, MPI_TYPECLASS_INTEGER, MPI_COMM_NULL, &
-    & MPI_GROUP_NULL, MPI_INFO_NULL, MPI_MODE_NOCHECK, MPI_LOCK_EXCLUSIVE, &
+    & MPI_GROUP_NULL, MPI_INFO_NULL, MPI_SIZEOF, MPI_MODE_NOCHECK, MPI_LOCK_EXCLUSIVE, &
     & MPI_WIN_NULL, MPI_MODE_NOPUT, MPI_MODE_NOPRECEDE, MPI_MODE_NOSUCCEED
 #else
 #define MPI_ADDRESS_KIND i8
@@ -497,7 +497,7 @@ CONTAINS
     END IF
     CALL MPI_Gather(myRank, 1, p_int, rank_map, 1, p_int, 0, this%wComm, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")
-    addrBytes = C_SIZEOF(one)
+    CALL MPI_Sizeof(one, addrBytes, ierr)
     CALL MPI_Type_match_size(MPI_TYPECLASS_INTEGER, addrBytes, p_addr, ierr)
     CALL MPI_Gather(this%tOffCl, 4, p_addr, tmpOffSv, 4, p_addr, 0, this%wComm, ierr)
     IF (ierr /= MPI_SUCCESS) CALL finish(routine, "MPI error!")

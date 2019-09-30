@@ -153,7 +153,7 @@ MODULE mo_mpi
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
   !          MPI package to achieve proper output.
 
-  USE ISO_C_BINDING, ONLY: C_CHAR, C_SIZEOF
+  USE ISO_C_BINDING, ONLY: C_CHAR
   ! actual method (MPI-2)
 #ifndef NOMPI
 #if !defined (__SUNPRO_F95)
@@ -2014,12 +2014,12 @@ CONTAINS
     ! modules, we determine here locally the I/O size of the different
     ! kind types (assume 8 bit/byte. This is than used for determing
     ! the right MPI send/receive type parameters.
-    p_int_byte     = C_SIZEOF(iig)
-    p_int_i4_byte  = C_SIZEOF(ii4)
-    p_int_i8_byte  = C_SIZEOF(ii8)
-    p_real_byte    = C_SIZEOF(rrg)
-    p_real_sp_byte = C_SIZEOF(rsp)
-    p_real_dp_byte = C_SIZEOF(rdp)
+    CALL MPI_SIZEOF(iig, p_int_byte, p_error)
+    CALL MPI_SIZEOF(ii4, p_int_i4_byte, p_error)
+    CALL MPI_SIZEOF(ii8, p_int_i8_byte, p_error)
+    CALL MPI_SIZEOF(rrg, p_real_byte, p_error)
+    CALL MPI_SIZEOF(rsp, p_real_sp_byte, p_error)
+    CALL MPI_SIZEOF(rdp, p_real_dp_byte, p_error)
 
     p_int     = MPI_INTEGER
     p_bool    = MPI_LOGICAL
