@@ -494,7 +494,7 @@ spec_humi = rdv*pvap/( pres - o_m_rdv*pvap )
 END FUNCTION spec_humi
 
 ! Routine with ACC ROUTINE SEQ cannot be elemental
-#ifdef _OPENACC
+#ifndef _OPENACC
 ELEMENTAL &
 #endif
 FUNCTION qsat_rho(temp, rhotot)
@@ -517,7 +517,7 @@ FUNCTION qsat_rho(temp, rhotot)
 END FUNCTION qsat_rho
 
 ! Routine with ACC ROUTINE SEQ cannot be elemental
-#ifdef _OPENACC
+#ifndef _OPENACC
 ELEMENTAL &
 #endif
 FUNCTION dqsatdT_rho(zqsat, temp)

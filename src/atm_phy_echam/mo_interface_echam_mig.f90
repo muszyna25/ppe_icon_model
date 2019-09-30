@@ -118,8 +118,22 @@ CONTAINS
 
     ! preset local mig tendencies to avoid NaNs
 
-    CALL init(tend_ta_mig)
-    CALL init(tend_qtrc_mig)
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG
+       DO jk = 1, nlev
+         !$ACC LOOP VECTOR
+         DO jl = jcs, jce
+         tend_ta_mig(jl,jk)       = 0.0_wp
+         tend_qtrc_mig(jl,jk,iqv) = 0.0_wp
+         tend_qtrc_mig(jl,jk,iqc) = 0.0_wp
+         tend_qtrc_mig(jl,jk,iqi) = 0.0_wp
+         tend_qtrc_mig(jl,jk,iqr) = 0.0_wp
+         tend_qtrc_mig(jl,jk,iqs) = 0.0_wp
+         tend_qtrc_mig(jl,jk,iqg) = 0.0_wp
+         ENDDO
+       ENDDO
+       !$ACC END PARALLEL
+       !$ACC END DATA
 
     ! reciprocal of timestep
 
