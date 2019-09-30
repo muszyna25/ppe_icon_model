@@ -3456,7 +3456,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_compiler_vendor" >&5
 $as_echo "$acx_cv_c_compiler_vendor" >&6; }
 
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler version" >&5
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler version" >&5
 $as_echo_n "checking for C compiler version... " >&6; }
 if ${acx_cv_c_compiler_version+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3834,7 +3834,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_compiler_vendor" >&5
 $as_echo "$acx_cv_fc_compiler_vendor" >&6; }
 
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler version" >&5
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler version" >&5
 $as_echo_n "checking for Fortran compiler version... " >&6; }
 if ${acx_cv_fc_compiler_version+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -4232,7 +4232,7 @@ _ACEOF
          acx_save_FCFLAGS=$FCFLAGS
          FCFLAGS="$FCFLAGS ${acx_cv_fc_ftn_include_flag}../src/inc ${acx_cv_fc_ftn_include_flag}../src/inc2"
          acx_save_ac_link=$ac_link
-         ac_link=`echo "$ac_link" | sed 's%conftest\(\.\$ac_ext\)%../src/conftest\1%'`
+         ac_link=`$as_echo "$ac_link" | sed 's%conftest\.\$ac_ext%../src/&%'`
          while :; do
            if ac_fn_fc_try_link "$LINENO"; then :
   acx_exec_result=`./conftest$ac_exeext`
@@ -4360,7 +4360,7 @@ _ACEOF
          acx_save_FCFLAGS=$FCFLAGS
          FCFLAGS="$FCFLAGS ${acx_cv_fc_pp_include_flag}../src/inc ${acx_cv_fc_pp_include_flag}../src/inc2"
          acx_save_ac_link=$ac_link
-         ac_link=`echo "$ac_link" | sed 's%conftest\(\.\$ac_ext\)%../src/conftest\1%'`
+         ac_link=`$as_echo "$ac_link" | sed 's%conftest\.\$ac_ext%../src/&%'`
          while :; do
            if ac_fn_fc_try_link "$LINENO"; then :
   acx_exec_result=`./conftest$ac_exeext`

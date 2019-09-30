@@ -220,8 +220,7 @@ dnl This instance of the file will be compiled.
          FCFLAGS="$FCFLAGS ${acx_cv_fc_[]$1[]_include_flag}../src/inc dnl
 ${acx_cv_fc_[]$1[]_include_flag}../src/inc2"
          acx_save_ac_link=$ac_link
-         ac_link=`echo "$ac_link" | dnl
-sed 's%conftest\(\.\$ac_ext\)%../src/conftest\1%'`
+         ac_link=`AS_ECHO(["$ac_link"]) | sed 's%conftest\.\$ac_ext%../src/&%'`
          while :; do
            AC_LINK_IFELSE([],
              [acx_exec_result=`./conftest$ac_exeext`
@@ -275,4 +274,5 @@ m4_define([_ACX_FC_INCLUDE_CHECK],
         [AS_VAR_SET([acx_cache_var], [no])])])
    AS_VAR_IF([acx_cache_var], [yes], [$3], [m4_default([$4],
      [AC_MSG_FAILURE([Fortran header file '$2' included with dnl
-_ACX_FC_INCLUDE_DESC([$1]) is not available])])])])
+_ACX_FC_INCLUDE_DESC([$1]) is not available])])])
+    m4_popdef([acx_cache_var])])
