@@ -1006,7 +1006,7 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     nag*)
-                        load_modules    = gcc/6.4.0 nag/6.2 ${load_modules}
+                        load_modules    = gcc/6.3.0 nag/6.2 ${load_modules}
                         config_compiler = nag
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
@@ -1021,7 +1021,7 @@ case "$ac_sitename" in
                         ZLIBROOT    = /usr
                         GRIBAPIROOT = $software_tree/eccodes/eccodes-2.6.0-gcc64
                         MPIROOT     = $software_tree/mpi/openmpi-2.0.2p2_hpcx-nag62
-                        MPI_LIB     = -I/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/lib -Wl,-Wl,,-rpath -Wl,-Wl,,/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/lib -Wl,-Wl,,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/lib -lmpi_usempi -lmpi_mpifh -lmpi
+                        MPI_LIB     = -Wl,-pthread -I/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/lib -Wl,-Wl,,-rpath -Wl,-Wl,,/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/lib -Wl,-Wl,,--enable-new-dtags -L/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/lib -lmpi_usempi -lmpi_mpifh -lmpi
                         MPI_LAUNCH  = $MPIROOT/bin/mpiexec
                         XML2ROOT    = /usr
                         mpi_startrun = srun
