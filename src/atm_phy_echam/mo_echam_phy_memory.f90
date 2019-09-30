@@ -74,7 +74,10 @@ MODULE mo_echam_phy_memory
   USE mo_sea_ice_nml,         ONLY: kice
     !ART
   USE mo_art_config,          ONLY: ctracer_art
-  USE mo_run_config,          ONLY: lart
+  USE mo_run_config,          ONLY: lart,               &
+    &                               iqv ,iqc ,iqi ,     &
+    &                               iqr ,iqs ,iqg ,     &
+    &                               io3 ,ico2,ich4,in2o
     !
   USE mo_echam_phy_config,    ONLY: echam_phy_config
 
@@ -261,6 +264,9 @@ MODULE mo_echam_phy_memory
       & rsfc      (:,  :)=>NULL(),  &!< sfc rain flux, convective  [kg m-2 s-1]
       & ssfl      (:,  :)=>NULL(),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :)=>NULL(),  &!< sfc snow flux, convective  [kg m-2 s-1]
+      & rain_gsp_rate(:,  :)=>NULL(),  &!< gridscale rain rate     [kg m-2 s-1]
+      & snow_gsp_rate(:,  :)=>NULL(),  &!< gridscale snow rate     [kg m-2 s-1]
+      & graupel_gsp_rate(:,  :)=>NULL(),  &!< gridscale graupel rate     [kg m-2 s-1]
       & pr        (:,  :)=>NULL()    !< precipitation flux         [kg m-2 s-1]
 
     ! Tropopause
@@ -311,8 +317,8 @@ MODULE mo_echam_phy_memory
       & q_sso    (:,:,:)=>NULL(),   &!< Layer heating by orographic gravity wave dissipation
       & q_sso_vi (:,  :)=>NULL(),   &!< Vertically integrated heating by orographic gravity wave dissipation
       !
-      & sh_vdiff (:,  :)=>NULL(),   &!< sensible heat flux of vdiff
-      & qv_vdiff (:,  :)=>NULL(),   &!< qv flux of vdiff
+!!$      & sh_vdiff (:,  :)=>NULL(),   &!< sensible heat flux of vdiff
+!!$      & qv_vdiff (:,  :)=>NULL(),   &!< qv flux of vdiff
       & con_dtrl (:,  :)=>NULL(),   &!< detrainment of liquid from convection
       & con_dtri (:,  :)=>NULL(),   &!< detrainment of ice from convection 
       & con_iteqv(:,  :)=>NULL()     !< v. int. tendency of water vapor within convection
@@ -518,11 +524,6 @@ MODULE mo_echam_phy_memory
       & radtop_gmean (:)=>NULL(),      &!< [W/m2] global mean toa total radiation, derived variable
       & fwfoce_gmean (:)=>NULL(),      &!< [kg/m2/s] global mean freshwater flux over ocean area, derived variable
       & icefrc_gmean (:)=>NULL()!,      &!< global mean ice cover given as the fraction of grid box
-   
-    ! coupling to HAMOCC lcpl_co2_atmoce
-    REAL(wp),POINTER :: &
-      & co2mmr(:,:) =>NULL(),  &  !< co2 mixing ratio
-      & co2flux(:,:)=>NULL()      !< co2 flux
 
   END TYPE t_echam_phy_field
 
@@ -677,64 +678,26 @@ CONTAINS
 
     IF (lart) THEN
         ctracer = ctracer_art
-    ELSE !!! IF (ANY(echam_phy_config(:)%lmig)) THEN
+    ELSE
 
-    ! Define tracer names to be used in the construction of tracer related variables
-    !
-      DO jtrc = 1,ntracer
-        !
-        ! specific names
-        SELECT CASE (jtrc)
-        CASE(1)
-          ctracer(jtrc) = 'hus'
-        CASE(2)
-          ctracer(jtrc) = 'clw'
-        CASE(3)
-          ctracer(jtrc) = 'cli'
-        CASE(4)
-          ctracer(jtrc) = 'qr'
-        CASE(5)
-          ctracer(jtrc) = 'qs'
-        CASE(6)
-          ctracer(jtrc) = 'qg'
-        CASE(7)
-          ctracer(jtrc) = 'o3'
-        CASE(8)
-          ctracer(jtrc) = 'co2'
-        CASE(9)
-          ctracer(jtrc) = 'ch4'
-        CASE(10)
-          ctracer(jtrc) = 'n2o'
-        CASE DEFAULT
+       ! Define tracer names to be used in the construction of tracer related variables
+       !
+       ! first set generic names for all tracers
+       DO jtrc = 1,ntracer
           WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-        END SELECT
-      END DO
-  !  ELSE
-  !
-  !  ! Define tracer names to be used in the construction of tracer related variables
-  !  !
-  !    DO jtrc = 1,ntracer
-  !      !
-  !      ! specific names
-  !      SELECT CASE (jtrc)
-  !      CASE(1)
-  !        ctracer(jtrc) = 'hus'
-  !      CASE(2)
-  !        ctracer(jtrc) = 'clw'
-  !      CASE(3)
-  !        ctracer(jtrc) = 'cli'
-  !      CASE(4)
-  !        ctracer(jtrc) = 'o3'
-  !      CASE(5)
-  !        ctracer(jtrc) = 'co2'
-  !      CASE(6)
-  !        ctracer(jtrc) = 'ch4'
-  !      CASE(7)
-  !        ctracer(jtrc) = 'n2o'
-  !      CASE DEFAULT
-  !        WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-  !      END SELECT
-  !    END DO
+       END DO
+       !
+       ! then set specific names for active indexed tracers
+       IF (iqv  > 0) ctracer(iqv ) = 'hus'
+       IF (iqc  > 0) ctracer(iqc ) = 'clw'
+       IF (iqi  > 0) ctracer(iqi ) = 'cli'
+       IF (iqr  > 0) ctracer(iqr ) = 'qr'
+       IF (iqs  > 0) ctracer(iqs ) = 'qs'
+       IF (iqg  > 0) ctracer(iqg ) = 'qg'
+       IF (io3  > 0) ctracer(io3 ) = 'o3'
+       IF (ico2 > 0) ctracer(ico2) = 'co2'
+       IF (ich4 > 0) ctracer(ich4) = 'ch4'
+       IF (in2o > 0) ctracer(in2o) = 'n2o'
 
     ENDIF
 
@@ -2457,6 +2420,39 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
 
+    cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale rain rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,77, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rain_gsp_rate', field%rain_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
+    cf_desc    = t_cf_var('snow_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale snow rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,56, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_gsp_rate', field%snow_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
+    cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale graupel rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'graupel_gsp_rate', field%graupel_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
     cf_desc    = t_cf_var('pr', 'kg m-2 s-1',                    &
          &                'precipitation flux',                  &
          &                datatype_flt)
@@ -2861,12 +2857,12 @@ CONTAINS
        !
     END IF
 
-       cf_desc    = t_cf_var('sh_vdiff','J m-2 s-1', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, prefix//'sh_vdiff', field%sh_vdiff,          &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d,                       &
-                   &  lopenacc=.TRUE.)
+!!$       cf_desc    = t_cf_var('sh_vdiff','J m-2 s-1', '', datatype_flt)
+!!$       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+!!$       CALL add_var( field_list, prefix//'sh_vdiff', field%sh_vdiff,          &
+!!$                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+!!$                   & lrestart = .FALSE., ldims=shape2d,                       &
+!!$                   &  lopenacc=.TRUE.)
        cf_desc    = t_cf_var('con_dtrl','?', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'con_dtrl', field%con_dtrl,          &
@@ -2885,12 +2881,12 @@ CONTAINS
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    &  lopenacc=.TRUE.)
-       cf_desc    = t_cf_var('qv_vdiff','kg/m^2/s', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, prefix//'qv_vdiff', field%qv_vdiff,          &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d,                       &
-                   &  lopenacc=.TRUE.)
+!!$       cf_desc    = t_cf_var('qv_vdiff','kg/m^2/s', '', datatype_flt)
+!!$       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+!!$       CALL add_var( field_list, prefix//'qv_vdiff', field%qv_vdiff,          &
+!!$                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+!!$                   & lrestart = .FALSE., ldims=shape2d,                       &
+!!$                   &  lopenacc=.TRUE.)
 
     IF ( echam_phy_tc(jg)%dt_sso > dt_zero ) THEN
        !
@@ -3509,16 +3505,6 @@ CONTAINS
     ! Surface fluxes
     !---------------------------
     ! gridbox mean
-    CALL add_var( field_list, prefix//'co2flux', field%co2flux,           &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('co2flux', 'kg m-2 s-1', 'co2 flux',           &
-                & datatype_flt),                                          &
-                & grib2_var(255,255,255,iextbits, GRID_UNSTRUCTURED, GRID_CELL),&
-                & ldims=shape2d,                                          &
-                & lrestart = .FALSE.,                                     &
-                & isteptype=TSTEP_INSTANT,                                &
-                & lopenacc=.TRUE.)
-
 
     CALL add_var( field_list, prefix//'evspsbl', field%evap,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
@@ -3751,16 +3737,6 @@ CONTAINS
     !-----------------------------------------
     ! near surface diagnostics, grid box mean
     !-----------------------------------------
-
-    CALL add_var( field_list, prefix//'co2mmr', field%co2mmr,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('CO2 MR','kg kg-1','co2 mixing ratio',               &
-                &          datatype_flt),                                       &
-                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-                & ldims=shape2d,                                                &
-                & lrestart = .FALSE.,                                           &
-                & isteptype=TSTEP_INSTANT,                                      &
-                & lopenacc=.TRUE.)
 
     CALL add_var( field_list, prefix//'sfcwind', field%sfcwind,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &

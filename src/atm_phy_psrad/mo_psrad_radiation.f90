@@ -952,7 +952,7 @@ MODULE mo_psrad_radiation
           ! inconsistent with having two different options for the constant
           ! concentration cases (2 without and 3 with profile). However, instead
           ! of adding a fifth option, it seems more advisable to clean up the 
-          ! complete handling of radiation switches (including ighg), later.
+          ! complete handling of radiation switches later.
           zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
           zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
           gas_profile(jcs:jce,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(jcs:jce,:)   &

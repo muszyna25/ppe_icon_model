@@ -1,7 +1,7 @@
 !>
 !! Read configuration parameters as Fortran namelist from an external file. 
 !!
-!! @author Monika Esch, MPI-M
+!! @author Marco, Giorgetta, MPI-M, 2019-06
 !!
 !! @par Revision History
 !!
@@ -13,39 +13,39 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_ccycle_nml
+MODULE mo_echam_cov_nml
 
-  USE mo_ccycle_config    ,ONLY: ccycle_config, init_ccycle_config
+  USE mo_echam_cov_config ,ONLY: echam_cov_config, init_echam_cov_config
   USE mo_process_nml      ,ONLY: process_nml
   
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: process_ccycle_nml
+  PUBLIC :: process_echam_cov_nml
 
-  NAMELIST /ccycle_nml/ ccycle_config
+  NAMELIST /echam_cov_nml/ echam_cov_config
 
 CONTAINS
 
-    SUBROUTINE process_ccycle_nml(filename)
+  SUBROUTINE process_echam_cov_nml(filename)
     !
     CHARACTER(LEN=*), INTENT(in) :: filename
     !
-    CALL init_ccycle_config
+    CALL init_echam_cov_config
     !
-    CALL process_nml(filename, 'ccycle_nml', nml_read, nml_write)
+    CALL process_nml(filename, 'echam_cov_nml', nml_read, nml_write)
     !
   CONTAINS
     !
     SUBROUTINE nml_read(funit)
       INTEGER, INTENT(in) :: funit
-      READ(funit, NML=ccycle_nml)
+      READ(funit, NML=echam_cov_nml)
     END SUBROUTINE nml_read
     !
     SUBROUTINE nml_write(funit)
       INTEGER, INTENT(in) :: funit
-      WRITE(funit, NML=ccycle_nml)
+      WRITE(funit, NML=echam_cov_nml)
     END SUBROUTINE nml_write
     !
-  END SUBROUTINE process_ccycle_nml
+  END SUBROUTINE process_echam_cov_nml
 
-END MODULE mo_ccycle_nml
+END MODULE mo_echam_cov_nml

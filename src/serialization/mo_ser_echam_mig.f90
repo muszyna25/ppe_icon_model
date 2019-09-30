@@ -19,8 +19,6 @@ MODULE mo_ser_echam_mig
 
   PUBLIC :: serialize_mig_input
   PUBLIC :: serialize_mig_output
-  PUBLIC :: serialize_mig_before_satad2
-  PUBLIC :: serialize_mig_after_satad1
 
   CONTAINS
 
@@ -53,7 +51,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-input jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-#if defined( SERIALIZE_CREATE_REFERENCE )
+    #if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -101,16 +99,20 @@ MODULE mo_ser_echam_mig
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
+    LOGICAL, SAVE :: lenabled = .TRUE.
+#else
     LOGICAL, SAVE :: lenabled = .FALSE.
+#endif
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
     !$ser verbatim   lactive = .TRUE.
     !$ser verbatim ENDIF
     !$ser verbatim IF (lenabled .and. lactive) THEN
-    !$ser verbatim   CALL warning('SER:mo_ser_echam_mig:input','Serialization is active!')
+    !$ser verbatim   CALL warning('SER:mo_ser_echam_mig:after_satad1','Serialization is active!')
 #if defined( _OPENACC )
-    !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:input','GPU HOST synchronization forced by serialization!')
+    !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:after_satad1','GPU HOST synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
@@ -119,7 +121,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-after-satad1 jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-#if defined( SERIALIZE_CREATE_REFERENCE )
+    #if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -148,7 +150,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim END IF
 #if defined( SERIALIZE_READ_REFERENCE ) || defined( SERIALIZE_PERTURB_REFERENCE )
 #if defined( _OPENACC )
-    !$ser verbatim CALL warning('GPU:mo_ser_echam_mig:input','GPU DEVICE synchronization forced by serialization!')
+    !$ser verbatim CALL warning('GPU:mo_ser_echam_mig:after_satad1','GPU DEVICE synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
@@ -172,16 +174,20 @@ MODULE mo_ser_echam_mig
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
+    LOGICAL, SAVE :: lenabled = .TRUE.
+#else
     LOGICAL, SAVE :: lenabled = .FALSE.
+#endif
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
     !$ser verbatim   lactive = .TRUE.
     !$ser verbatim ENDIF
     !$ser verbatim IF (lenabled .and. lactive) THEN
-    !$ser verbatim   CALL warning('SER:mo_ser_echam_mig:input','Serialization is active!')
+    !$ser verbatim   CALL warning('SER:mo_ser_echam_mig:before_satad2','Serialization is active!')
 #if defined( _OPENACC )
-    !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:input','GPU HOST synchronization forced by serialization!')
+    !$ser verbatim   CALL warning('GPU:mo_ser_echam_mig:before_satad2','GPU HOST synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
@@ -190,7 +196,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-before-satad2 jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-#if defined( SERIALIZE_CREATE_REFERENCE )
+    #if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -219,7 +225,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim END IF
 #if defined( SERIALIZE_READ_REFERENCE ) || defined( SERIALIZE_PERTURB_REFERENCE )
 #if defined( _OPENACC )
-    !$ser verbatim CALL warning('GPU:mo_ser_echam_mig:input','GPU DEVICE synchronization forced by serialization!')
+    !$ser verbatim CALL warning('GPU:mo_ser_echam_mig:before_satad2','GPU DEVICE synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )

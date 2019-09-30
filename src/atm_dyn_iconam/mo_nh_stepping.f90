@@ -690,7 +690,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
@@ -751,11 +751,12 @@ MODULE mo_nh_stepping
              &             TRIM(mtime_utils%ddhhmmss(time_config%tc_exp_startdate, &
              &                                       mtime_current, FMT_DDHHMMSS_DAYSEP))
       ELSE
-        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') &
+        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3)') &
              &             'Time step: ', jstep, ' model time ',                                &
              &             mtime_current%date%year,   '-', mtime_current%date%month,    '-',    &
              &             mtime_current%date%day,    ' ', mtime_current%time%hour,     ':',    &
-             &             mtime_current%time%minute, ':', mtime_current%time%second
+             &             mtime_current%time%minute, ':', mtime_current%time%second,   '.',    &
+             &             mtime_current%time%ms
       ENDIF
 
       CALL message('',message_text)
@@ -1154,7 +1155,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1505,7 +1506,7 @@ MODULE mo_nh_stepping
 
 
 
-          ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
+          ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE

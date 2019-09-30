@@ -306,7 +306,6 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
  echam_rad_config(1)%irad_aero  =  0
- echam_rad_config(1)%ighg       =  0
  echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
  echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
@@ -323,7 +322,9 @@ cat > ${atm_namelist} << EOF
 /
 &echam_cld_nml
  echam_cld_config(1)%csecfrl    = 5.e-5       ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%crs        = 0.915       ! Critical relative humidity at surface, default 0.968
+/
+&echam_cov_nml
+ echam_cov_config(1)%crs        = 0.915       ! Critical relative humidity at surface, default 0.968
 /
 &sea_ice_nml
 /

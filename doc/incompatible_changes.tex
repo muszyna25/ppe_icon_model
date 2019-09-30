@@ -404,4 +404,30 @@ from ...mpi\_phy... to ...echam\_phy... because programmers felt that the acrony
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{echam\_cld\_nml / echam\_cov\_nml}{2019-06-07}{icon-aes:icon-aes-cover 09233f275f207d59d2cb6ad75bd13adf81c0d0c2}
+  \begin{itemize}
+   \item The control parameters for the  cloud cover parameterization (crs, crt, nex, jbmin, jbmax, cinv, csatsc)  are shifted to the new namelist echam\_cov\_nml.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{echam\_cov\_nml / echam\_cov\_nml}{2019-06-12}{icon-aes:icon-aes-cover 419e7ed54faa6db86a7151ece33b8e0b24737129 and e66e8e0f9cd439b81d7db63e0a4e03004d7f8144}
+  \begin{itemize}
+   \item The control parameters jks, jbmin and jbmax, specifying heights by the index of the vertical grid, are replaced by parameters zcovmax, zinvmax, and zinvmin, respectively, which directly specify the heights of interest. The change is as follows: \newline
+   \begin{itemize}
+    \item jks=15 --> zmaxcov=echam\_phy\_config\%zmaxcloudy
+    \item jbmin=43 --> zmaxinv=2000m
+    \item jbmax=45 --> zmininv=300m
+   \end{itemize}
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{echam\_cld\_nml / echam\_cld\_nml}{2019-06-12}{icon-aes:icon-aes-cover ab95fc16a944dde96a76aeb1f63a7c847d78da06 and e66e8e0f9cd439b81d7db63e0a4e03004d7f8144}
+  \begin{itemize}
+   \item The control parameters jks, specifying height by the index of the vertical grid, is replaced by the parameters zcldmax, which directly specify the height of interest. The change is as follows: \newline
+   \begin{itemize}
+    \item jks=15 --> zmaxcld=echam\_phy\_config\%zmaxcloudy
+   \end{itemize}
+  \end{itemize}
+\end{changeitem}
+
 % --------------------------------------------------------------------------------------------

@@ -150,7 +150,7 @@ MODULE mo_nh_diagnose_pres_temp
     i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 
-    !$ACC DATA COPYIN( advection_config(jg)%trHydroMass%list ) IF(i_am_accel_node)
+    !$ACC DATA PRESENT( advection_config(jg)%trHydroMass%list ) IF(i_am_accel_node)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
