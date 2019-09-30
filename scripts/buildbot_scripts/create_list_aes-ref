@@ -28,7 +28,7 @@ machine=mistral
 ./addbuilder MISTRAL_intel18_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_intel_hybrid_mixed   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
 
-./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag"                  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt"                  --builderflags="Active"  --list $list
 
 #CSCS builders
 machine=daint
