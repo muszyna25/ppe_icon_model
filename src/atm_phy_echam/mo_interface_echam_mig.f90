@@ -133,7 +133,6 @@ CONTAINS
          ENDDO
        ENDDO
        !$ACC END PARALLEL
-       !$ACC END DATA
 
     ! reciprocal of timestep
 
