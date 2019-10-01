@@ -78,19 +78,20 @@ MODULE mo_nh_testcases
   USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, &
                                      init_torus_with_sounding, init_warm_bubble
   USE mo_nh_tpe_exp,           ONLY: init_nh_state_prog_TPE
-  USE mo_nh_lim_area_testcases,ONLY: schaer_h0, schaer_a, schaer_lambda
 
   USE mo_nonhydrostatic_config, ONLY: ndyn_substeps, vwind_offctr
   USE mo_sleve_config,         ONLY: top_height
   USE mo_nh_lahade,            ONLY: init_nh_lahade
   USE mo_upatmo_config,        ONLY: upatmo_config
-  USE mo_vertical_coord_table,  ONLY: vct_a
+  USE mo_vertical_coord_table, ONLY: vct_a
+  USE mo_hydro_adjust,         ONLY: hydro_adjust_const_thetav
 
   IMPLICIT NONE  
   
   PRIVATE
   
-  PUBLIC :: init_nh_testtopo,init_nh_testcase
+  PUBLIC :: init_nh_testtopo
+  PUBLIC :: init_nh_testcase
 
   ! !DEFINED PARAMETERS for jablonowski williamson: 
   !  The rest of the needed parameters are define in mo_nh_jabw_exp
@@ -715,129 +716,147 @@ MODULE mo_nh_testcases
 
   CASE ('zero','bell','schaer', 'gauss3D', 'straka93' )
 
-  ! For the moment we think of a given Brunt Vaisala frequency and a given      
-  ! zonal wind. The lplane and the lcorio=F options are assumed
+    ! For the moment we think of a given Brunt Vaisala frequency and a given      
+    ! zonal wind. The lplane and the lcorio=F options are assumed
 
-  DO jg = 1, n_dom
-    p_nhdom   => p_nh_state(jg)
-    nblks_e   = p_patch(jg)%nblks_e
-    npromz_e  = p_patch(jg)%npromz_e
+    DO jg = 1, n_dom
+      p_nhdom   => p_nh_state(jg)
+      nblks_e   = p_patch(jg)%nblks_e
+      npromz_e  = p_patch(jg)%npromz_e
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
 
-    ! number of vertical levels
-    nlev   = p_patch(jg)%nlev
-    nlevp1 = p_patch(jg)%nlevp1
+      ! number of vertical levels
+      nlev   = p_patch(jg)%nlev
+      nlevp1 = p_patch(jg)%nlevp1
 
-    DO jt = 1, ntl 
-      ! normal wind
-      DO jb = 1, nblks_e
-        IF (jb /= nblks_e) THEN
-           nlen = nproma
-        ELSE
-           nlen = npromz_e
-        ENDIF
-        DO jk = 1, nlev
-          DO je = 1, nlen
-            p_nh_state(jg)%prog(jt)%vn(je,jk,jb) = nh_u0 &
-            !(p_nhdom%metrics%geopot(1,jk,1)/grav/1000.0_wp+5.0_wp)& !shear
-            *p_patch(jg)%edges%primal_normal(je,jb)%v1
+      DO jt = 1, ntl 
+        ! normal wind
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,je,nlen)
+        DO jb = 1, nblks_e
+          IF (jb /= nblks_e) THEN
+             nlen = nproma
+          ELSE
+             nlen = npromz_e
+          ENDIF
+          DO jk = 1, nlev
+            DO je = 1, nlen
+              p_nh_state(jg)%prog(jt)%vn(je,jk,jb) = nh_u0 &
+              !(p_nhdom%metrics%geopot(1,jk,1)/grav/1000.0_wp+5.0_wp)& !shear
+              *p_patch(jg)%edges%primal_normal(je,jb)%v1
 
-            ! copy vn to reference state vector (needed by Rayleigh damping mechanism)
-            p_nh_state(jg)%ref%vn_ref(je,jk,jb)  &
-                      = p_nh_state(jg)%prog(jt)%vn(je,jk,jb)
+              ! copy vn to reference state vector (needed by Rayleigh damping mechanism)
+              p_nh_state(jg)%ref%vn_ref(je,jk,jb)  &
+                        = p_nh_state(jg)%prog(jt)%vn(je,jk,jb)
+            ENDDO
           ENDDO
-        ENDDO
-      ENDDO
-    ENDDO
-    nblks_c   = p_patch(jg)%nblks_c
-    npromz_c  = p_patch(jg)%npromz_c
-    ! scalars (all is dry!)
-    DO jt = 1, ntl 
-      DO jb = 1, nblks_c
-        IF (jb /= nblks_c) THEN
-           nlen = nproma
-        ELSE
-           nlen = npromz_c
-        ENDIF
-        DO jk = 1, nlev
-          DO jc = 1, nlen
-            z_help=(nh_brunt_vais/grav)**2*p_nhdom%metrics%geopot(jc,jk,jb)
-            ! profile of theta is explicitly given
-            p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb) = nh_t0*EXP(z_help)
+        ENDDO  !jb
+!$OMP END DO NOWAIT
+
+      ! scalars (all is dry!)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,z_help) 
+        DO jb = 1, nblks_c
+          IF (jb /= nblks_c) THEN
+             nlen = nproma
+          ELSE
+             nlen = npromz_c
+          ENDIF
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              z_help=(nh_brunt_vais/grav)**2*p_nhdom%metrics%geopot(jc,jk,jb)
+              ! profile of theta is explicitly given
+              p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb) = nh_t0*EXP(z_help)
+            ENDDO
           ENDDO
-        ENDDO
-        DO jk = nlev, 1, -1
+          ! lower boundary condition for exner pressure
+          !
           DO jc = 1, nlen
-            IF (jk == nlev) THEN
-              IF (nh_brunt_vais /= 0.0_wp) THEN
-                ! for exner(nlev) (lowermost level): analytical exner
-                z_help = (nh_brunt_vais/grav)**2*p_nhdom%metrics%geopot(jc,jk,jb)
-                p_nh_state(jg)%prog(jt)%exner(jc,jk,jb) =    &
-                  (grav/nh_brunt_vais)**2/nh_t0/cpd*(EXP(-z_help)-1.0_wp)+1.0_wp
-              ELSE
-                p_nh_state(jg)%prog(jt)%exner(jc,jk,jb) = &
-                  1.0_wp-p_nhdom%metrics%geopot(jc,jk,jb)/cpd/nh_t0
-              ENDIF
-            ELSE ! other levels are hydrostatically balanced with respect to model numerics
-              z_help=0.5_wp*(p_nh_state(jg)%prog(jt)%theta_v(jc,jk  ,jb) &
-                           + p_nh_state(jg)%prog(jt)%theta_v(jc,jk+1,jb))
-              p_nh_state(jg)%prog(jt)%exner(jc,jk,jb) = &
-              & p_nh_state(jg)%prog(jt)%exner(jc,jk+1,jb) &
-              & -grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)/z_help
+            IF (nh_brunt_vais /= 0.0_wp) THEN
+              ! for exner(nlev) (lowermost level): analytical exner
+              z_help = (nh_brunt_vais/grav)**2*p_nhdom%metrics%geopot(jc,nlev,jb)
+              p_nh_state(jg)%prog(jt)%exner(jc,nlev,jb) =    &
+                &  (grav/nh_brunt_vais)**2/nh_t0/cpd*(EXP(-z_help)-1.0_wp)+1.0_wp
+            ELSE
+              p_nh_state(jg)%prog(jt)%exner(jc,nlev,jb) = &
+                &  1.0_wp-p_nhdom%metrics%geopot(jc,nlev,jb)/cpd/nh_t0
             ENDIF
           ENDDO
-        ENDDO
-        DO jk = 1, nlev
-          DO jc = 1, nlen
+        ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
 
-            !     ! perturbation in theta_v for gravity test case
-            !     p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=&
-            !              p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)+ 0.01_wp*sin(&
-            !              pi*p_nhdom%metrics%geopot(jc,jk,jb)/grav/10000.0_wp)&
-            !            /(1.0_wp+(p_patch(jg)%cells%center(jc,jb)%lon*30.0/pi)**2)
-            !            !Das ist fuer dx=500 mit 600 Punkten (auf 2pi verteilt)
+        ! compute hydrostatically balanced exner, by integrating the (discretized!) 
+        ! 3rd equation of motion under the assumption thetav=const.
+        CALL hydro_adjust_const_thetav(p_patch           = p_patch(jg),                   &
+          &                            p_nh_metrics      = p_nhdom%metrics,               &
+          &                            lintegrate_topdown= .FALSE.,                       &
+          &                            rho               = p_nh_state(jg)%prog(jt)%rho,   &
+          &                            exner             = p_nh_state(jg)%prog(jt)%exner, &
+          &                            theta_v           = p_nh_state(jg)%prog(jt)%theta_v)
 
-            IF ( nh_test_name == "straka93 " ) THEN
-              ! test case Straka et al. (1993) (falling cold bubble)
-              ! perturbation in theta_v
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,nlen,p,z_help)
+        DO jb = 1, nblks_c
+          IF (jb /= nblks_c) THEN
+             nlen = nproma
+          ELSE
+             nlen = npromz_c
+          ENDIF
+          DO jk = 1, nlev
+            DO jc = 1, nlen
 
-              !     z_help = SQRT( ( p_patch(jg)%cells%center(jc,jb)%lon*6.4_wp/pi)**2 &
-              !     &      +((p_nhdom%metrics%z_mc(jc,jk,jb) - bubctr_z)/bub_ver_width)**2)
-              !     IF (z_help<=1.0_wp) THEN
-              !       p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=      &
-              !       &   p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)   &
-              !       &   + bub_amp * (COS(pi*z_help)+1.0_wp)*0.5_wp  &
-              !       &   /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
-              !     ENDIF
+              !     ! perturbation in theta_v for gravity test case
+              !     p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=&
+              !              p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)+ 0.01_wp*sin(&
+              !              pi*p_nhdom%metrics%geopot(jc,jk,jb)/grav/10000.0_wp)&
+              !            /(1.0_wp+(p_patch(jg)%cells%center(jc,jb)%lon*30.0/pi)**2)
+              !            !Das ist fuer dx=500 mit 600 Punkten (auf 2pi verteilt)
 
-              p = gc2cc( p_patch(jg)%cells%center(jc,jb), p_patch(1)%geometry_info )
-              z_help = SQRT( ( p%x(1)/bub_hor_width )**2                   &
-                &          + ( (p_nhdom%metrics%z_mc(jc,jk,jb) - bubctr_z)/bub_ver_width )**2 )
-              IF ( z_help <= 1.0_wp ) THEN
-                p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=             &
-                  &   p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)        &
-                  &    + bub_amp * (COS(pi*z_help) + 1.0_wp) * 0.5_wp  &
-                  &      /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
-              ENDIF
-              !PRINT*,"coordinate z is=z", p_nhdom%metrics%z_mc(jc,jk,jb)
-            END IF
+              IF ( nh_test_name == "straka93 " ) THEN
+                ! test case Straka et al. (1993) (falling cold bubble)
+                ! perturbation in theta_v
 
-            ! exner and theta_v are given, so rho is deduced...
-            p_nh_state(jg)%prog(jt)%rho(jc,jk,jb) = &
-            &        (p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)**cvd_o_rd)*p0ref/rd &
-            &       /p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)
+                !     z_help = SQRT( ( p_patch(jg)%cells%center(jc,jb)%lon*6.4_wp/pi)**2 &
+                !     &      +((p_nhdom%metrics%z_mc(jc,jk,jb) - bubctr_z)/bub_ver_width)**2)
+                !     IF (z_help<=1.0_wp) THEN
+                !       p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=      &
+                !       &   p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)   &
+                !       &   + bub_amp * (COS(pi*z_help)+1.0_wp)*0.5_wp  &
+                !       &   /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
+                !     ENDIF
 
+                p = gc2cc( p_patch(jg)%cells%center(jc,jb), p_patch(1)%geometry_info )
+                z_help = SQRT( ( p%x(1)/bub_hor_width )**2                   &
+                  &          + ( (p_nhdom%metrics%z_mc(jc,jk,jb) - bubctr_z)/bub_ver_width )**2 )
+                IF ( z_help <= 1.0_wp ) THEN
+                  p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)=             &
+                    &   p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)        &
+                    &    + bub_amp * (COS(pi*z_help) + 1.0_wp) * 0.5_wp  &
+                    &      /p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)
+                ENDIF
+               !PRINT*,"coordinate z is=z", p_nhdom%metrics%z_mc(jc,jk,jb)
+              END IF
+
+              ! exner and theta_v are given, so rho is deduced...
+              p_nh_state(jg)%prog(jt)%rho(jc,jk,jb) = &
+                &        (p_nh_state(jg)%prog(jt)%exner(jc,jk,jb)**cvd_o_rd)*p0ref/rd &
+                &       /p_nh_state(jg)%prog(jt)%theta_v(jc,jk,jb)
+
+            ENDDO
           ENDDO
-        ENDDO
-        DO jk = 1, nlevp1
-          p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb) = 0.0_wp
+          DO jk = 1, nlevp1
+            p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb) = 0.0_wp
 
-          ! copy w to reference state vector (needed by Rayleigh damping mechanism)
-          p_nh_state(jg)%ref%w_ref(1:nlen,jk,jb) = &
-              p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb)
-        ENDDO
-      ENDDO
-    ENDDO
-  ENDDO
+            ! copy w to reference state vector (needed by Rayleigh damping mechanism)
+            p_nh_state(jg)%ref%w_ref(1:nlen,jk,jb) = &
+                p_nh_state(jg)%prog(jt)%w(1:nlen,jk,jb)
+          ENDDO
+        ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+      ENDDO  ! jt
+    ENDDO  ! jg
 
 
   CASE ( 'atm_at_rest' )
@@ -1388,8 +1407,8 @@ MODULE mo_nh_testcases
     !   p_nh_state(jg)%prog(jt)%vn(:,:,:)
     !
 
-    USE mo_mpi,                   ONLY: get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0
-    USE mo_nh_init_utils,         ONLY: hydro_adjust
+    USE mo_mpi,                   ONLY: get_my_mpi_work_id, get_glob_proc0
+    USE mo_hydro_adjust,          ONLY: hydro_adjust
     USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
 
     IMPLICIT NONE

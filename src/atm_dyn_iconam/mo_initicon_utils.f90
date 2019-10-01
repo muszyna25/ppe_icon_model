@@ -59,7 +59,7 @@ MODULE mo_initicon_utils
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE sfc_terra_data,         ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
-  USE mo_nh_init_utils,       ONLY: hydro_adjust
+  USE mo_hydro_adjust,        ONLY: hydro_adjust
   USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
     &                               dict_loadfile, dict_resize

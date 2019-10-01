@@ -39,7 +39,8 @@ MODULE mo_nh_dcmip_rest_atm
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, &
      &                                SYNC_C
-   USE mo_nh_init_utils,        ONLY: hydro_adjust, convert_thdvars  !, init_w 
+   USE mo_nh_init_utils,        ONLY: convert_thdvars  !, init_w
+   USE mo_hydro_adjust,         ONLY: hydro_adjust 
 
    IMPLICIT NONE
 

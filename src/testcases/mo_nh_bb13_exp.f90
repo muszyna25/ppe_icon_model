@@ -51,7 +51,7 @@ MODULE mo_nh_bb13_exp
    !USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: sync_patch_array, SYNC_C
    USE mo_vertical_coord_table, ONLY: vct_a
-   USE mo_nh_init_utils,        ONLY: hydro_adjust
+   USE mo_hydro_adjust,         ONLY: hydro_adjust
 
    USE mo_nh_wk_exp,            ONLY: u_infty_wk, bub_hor_width, bub_amp
    USE mo_nh_testcases_nml,     ONLY: bubctr_x

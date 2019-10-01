@@ -49,7 +49,8 @@ MODULE mo_nh_jabw_exp
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: global_sum_array, sync_patch_array, SYNC_C, SYNC_E
-   USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust
+   USE mo_nh_init_utils,        ONLY: init_w
+   USE mo_hydro_adjust,         ONLY: hydro_adjust
    USE mo_grid_config,          ONLY: grid_sphere_radius, grid_angular_velocity
 
    IMPLICIT NONE
