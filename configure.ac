@@ -27,6 +27,13 @@ AC_ARG_ENABLE([silent-rules],
   [AS_IF([test x"$enableval" != xno], [enable_silent_rules=yes])],
   [enable_silent_rules=yes])
 
+AC_ARG_ENABLE([explicit-fpp],
+  [AC_HELP_STRING([--enable-explicit-fpp],
+     [enable explicit Fortran preprocessing @<:@default=auto@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_explicit_fpp=yes])],
+  [enable_explicit_fpp=auto])
+
 m4_divert_once([HELP_ENABLE], [[
 Model Features:]])
 
@@ -154,8 +161,9 @@ AC_ARG_ENABLE([yaxt],
   [enable_yaxt=no])
 
 AC_ARG_ENABLE([serialization],
-[  --enable-serialization  enable Serialbox2 serialization. The value of the
-                          argument must be one of the following @<:@default=no@:>@:
+[  --enable-serialization  enable the Serialbox2 serialization. The value of
+                          the argument must be one of the following
+                          @<:@default=no@:>@:
                             read|yes  enable READ mode
                             perturb   enable READ & PERTURB mode
                             create    enable CREATE mode
@@ -284,12 +292,12 @@ ACX_COMPILER_CC_VERSION
 
 AC_ARG_VAR([ICON_CFLAGS],
   [C compiler flags to be appended to CFLAGS when compiling ICON,
-e.g. optimization flags])
+e.g. optimization flags])dnl
 ICON_CFLAGS=${ICON_CFLAGS-}
 
 AC_ARG_VAR([ICON_BUNDLED_CFLAGS],
   [C compiler flags to be appended to CFLAGS when compiling and linking
-the bundled libraries @<:@default=$ICON_CFLAGS@:>@])
+the bundled libraries @<:@default=$ICON_CFLAGS@:>@])dnl
 subdir_CFLAGS="$CFLAGS ${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}"
 
 dnl Check for headers that are protected with HAVE_* macros in the code
@@ -321,19 +329,21 @@ AC_LANG([Fortran])
 ACX_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
 
+AC_ARG_VAR([FPP], [Fortran preprocessor command (optional)])dnl
+
 AC_ARG_VAR([ICON_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
-ICON, e.g. optimization flags])
+ICON, e.g. optimization flags])dnl
 ICON_FCFLAGS=${ICON_FCFLAGS-}
 
 AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling the ocean
-component of ICON @<:@default=$ICON_FCFLAGS@:>@])
+component of ICON @<:@default=$ICON_FCFLAGS@:>@])dnl
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
 
 AC_ARG_VAR([ICON_BUNDLED_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
-the bundled libraries @<:@default=$ICON_FCFLAGS@:>@])
+the bundled libraries @<:@default=$ICON_FCFLAGS@:>@])dnl
 subdir_FCFLAGS="$FCFLAGS ${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}"
 
 dnl Run the delayed cross-compilation check:
@@ -471,12 +481,25 @@ AS_IF([test "x$enable_serialization" != xno],
                   [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])],
   [AC_SUBST([SB2_ENABLED], ['#'])])
 
+AS_IF([test "x$enable_explicit_fpp" = xauto && dnl
+test "x$enable_serialization" != xno],
+  [AC_MSG_NOTICE([explicit Fortran preprocessing is enabled because the dnl
+Serialbox2 serialization is requested: disable the explicit preprocessing dnl
+if required (--disable-explicit-fpp)])
+   enable_explicit_fpp=yes])
+AS_VAR_IF([enable_explicit_fpp], [yes],
+  [AC_SUBST([FPP_ENABLED], [''])],
+  [AC_SUBST([FPP_ENABLED], ['#'])])
+
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
 
 AS_IF([test "x$enable_intel_consistency" = xauto && dnl
 test "x$acx_cv_fc_compiler_vendor" = xintel],
-  [enable_intel_consistency=yes])
+  [AC_MSG_NOTICE([Intel compiler directives enforcing consistency are dnl
+enabled because $FC is recognized as the Intel Fortran compiler: disable dnl
+the directives if required (--disable-intel-consistency)])
+   enable_intel_consistency=yes])
 AS_VAR_IF([enable_intel_consistency], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"])])
 
@@ -561,7 +584,7 @@ interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
 
-AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command])dnl
+AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command (optional)])dnl
 dnl The configure scripts of the most of the bundled libraries expect
 dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
 dnl accommodate when required and if possible:
@@ -1234,15 +1257,13 @@ ACX_PROG_SEARCH([PERL], [perl],
    test $ac_status -eq 0 || test $ac_status -eq 1],
   [PERL=$acx_candidate])
 
-AC_ARG_VAR([SB2PP], [Serialbox2 preprocessor command])
-AC_MSG_CHECKING([for Serialbox2 preprocessor command])
-AS_VAR_IF([enable_serialization], [no],
-  [SB2PP=
-   AC_MSG_RESULT([none needed])],
+AC_ARG_VAR([SB2PP], [Serialbox2 preprocessor command (optional)])dnl
+AS_IF([test "x$enable_serialization" != xno],
   [AC_LANG_ASSERT([Fortran])
+   AC_MSG_CHECKING([for Serialbox2 preprocessor command])
    icon_sb2pp_result=unknown
    SB2PP=${SB2PP-'${PYTHON} -m pp_ser'}
-dnl pp_ser.py can not process a code like this:
+dnl pp_ser.py can not process a piece of code like this:
 dnl   program main
 dnl   end
 dnl Therefore, we need to generate the source code manually:
@@ -1259,10 +1280,20 @@ dnl Therefore, we need to generate the source code manually:
    rm -f conftest.$ac_ext
    AC_MSG_RESULT([$icon_sb2pp_result])
    AS_VAR_IF([icon_sb2pp_result], [unknown],
-     [AC_MSG_FAILURE([unable to find a valid Serialbox2 preprocessor: dnl
-either disable the serialization (--disable-serialization) or make sure dnl
-that path to the 'pp_ser' module is in the PYTHONPATH environment variable, dnl
-or set SB2PP accordingly])])])
+     [AC_MSG_FAILURE([unable to find a valid Serialbox2 preprocessor dnl
+command: either disable the serialization (--disable-serialization) or make dnl
+sure that path to the 'pp_ser' module is in the PYTHONPATH environment dnl
+variable, or set SB2PP accordingly])])],
+   [SB2PP=])
+
+AS_VAR_IF([enable_explicit_fpp], [yes],
+  [ACX_PROG_FPP([FPP],
+     [FPP=$acx_cv_prog_fpp],
+     [AC_MSG_FAILURE([unable to find a valid Fortran preprocessor command: dnl
+disable explicit Fortran preprocessing (--disable-explicit-fpp) or set FPP dnl
+accordingly])],
+     [$FC_INC_FLAG_PP_f90], [$FC_PP_DEF], [utils/fpp-wrappers])],
+  [FPP=])
 
 AC_PROG_INSTALL
 AC_PROG_MKDIR_P

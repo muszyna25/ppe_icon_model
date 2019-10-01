@@ -604,6 +604,7 @@ DEPGEN_INTRINSIC_MODS
 DEPGEN_EXTERNAL_MODS
 DEPGEN_FCFLAGS
 BUNDLED_LIBFILES
+FPP_ENABLED
 SB2_ENABLED
 ART_ENABLED
 JSBACH_ENABLED
@@ -620,6 +621,7 @@ FC_MOD_IN
 ICON_BUNDLED_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_FCFLAGS
+FPP
 FCFLAGS_f90
 ac_ct_FC
 FCFLAGS
@@ -677,6 +679,7 @@ ac_user_opts='
 enable_option_checking
 enable_rpaths
 enable_silent_rules
+enable_explicit_fpp
 enable_atmo
 enable_ocean
 enable_jsbach
@@ -724,6 +727,7 @@ ICON_CFLAGS
 ICON_BUNDLED_CFLAGS
 FC
 FCFLAGS
+FPP
 ICON_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_BUNDLED_FCFLAGS
@@ -1345,6 +1349,7 @@ Optional Features:
                           [default=yes]
   --enable-silent-rules   less verbose build output (undo: "make V=1")
                           [default=yes]
+  --enable-explicit-fpp   enable explicit Fortran preprocessing [default=auto]
 
 Model Features:
   --enable-atmo           enable the atmosphere component of ICON
@@ -1379,8 +1384,9 @@ Infrastructural Features:
                           [default=no]
   --enable-sct            enable the SCT timer [default=no]
   --enable-yaxt           enable the YAXT data exchange [default=no]
-  --enable-serialization  enable Serialbox2 serialization. The value of the
-                          argument must be one of the following [default=no]:
+  --enable-serialization  enable the Serialbox2 serialization. The value of
+                          the argument must be one of the following
+                          [default=no]:
                             read|yes  enable READ mode
                             perturb   enable READ & PERTURB mode
                             create    enable CREATE mode
@@ -1432,6 +1438,7 @@ Some influential environment variables:
               linking the bundled libraries [default=$ICON_CFLAGS]
   FC          Fortran compiler command
   FCFLAGS     Fortran compiler flags
+  FPP         Fortran preprocessor command (optional)
   ICON_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               and linking ICON, e.g. optimization flags
@@ -1441,10 +1448,10 @@ Some influential environment variables:
   ICON_BUNDLED_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               and linking the bundled libraries [default=$ICON_FCFLAGS]
-  MPI_LAUNCH  interactive MPI launcher command
+  MPI_LAUNCH  interactive MPI launcher command (optional)
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
-  SB2PP       Serialbox2 preprocessor command
+  SB2PP       Serialbox2 preprocessor command (optional)
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2086,6 +2093,16 @@ if test "${enable_silent_rules+set}" = set; then :
 fi
 else
   enable_silent_rules=yes
+fi
+
+
+# Check whether --enable-explicit-fpp was given.
+if test "${enable_explicit_fpp+set}" = set; then :
+  enableval=$enable_explicit_fpp; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
+  enable_explicit_fpp=yes
+fi
+else
+  enable_explicit_fpp=auto
 fi
 
 
@@ -3480,9 +3497,7 @@ fi
 $as_echo "$acx_cv_c_compiler_version" >&6; }
 
 
-
 ICON_CFLAGS=${ICON_CFLAGS-}
-
 
 subdir_CFLAGS="$CFLAGS ${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}"
 
@@ -3861,9 +3876,7 @@ $as_echo "$acx_cv_fc_compiler_version" >&6; }
 
 ICON_FCFLAGS=${ICON_FCFLAGS-}
 
-
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
-
 
 subdir_FCFLAGS="$FCFLAGS ${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}"
 
@@ -4659,12 +4672,27 @@ else
 
 fi
 
+if test "x$enable_explicit_fpp" = xauto && test "x$enable_serialization" != xno; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&5
+$as_echo "$as_me: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&6;}
+   enable_explicit_fpp=yes
+fi
+if test "x$enable_explicit_fpp" = xyes; then :
+  FPP_ENABLED=''
+
+else
+  FPP_ENABLED='#'
+
+fi
+
 if test "x$enable_loop_exchange" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__LOOP_EXCHANGE"
 fi
 
 if test "x$enable_intel_consistency" = xauto && test "x$acx_cv_fc_compiler_vendor" = xintel; then :
-  enable_intel_consistency=yes
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&5
+$as_echo "$as_me: Intel compiler directives enforcing consistency are enabled because $FC is recognized as the Intel Fortran compiler: disable the directives if required (--disable-intel-consistency)" >&6;}
+   enable_intel_consistency=yes
 fi
 if test "x$enable_intel_consistency" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"
@@ -6438,15 +6466,10 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 
+if test "x$enable_serialization" != xno; then :
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Serialbox2 preprocessor command" >&5
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Serialbox2 preprocessor command" >&5
 $as_echo_n "checking for Serialbox2 preprocessor command... " >&6; }
-if test "x$enable_serialization" = xno; then :
-  SB2PP=
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: none needed" >&5
-$as_echo "none needed" >&6; }
-else
-
    icon_sb2pp_result=unknown
    SB2PP=${SB2PP-'${PYTHON} -m pp_ser'}
    cat > conftest.$ac_ext <<_ACEOF
@@ -6475,9 +6498,149 @@ $as_echo "$icon_sb2pp_result" >&6; }
    if test "x$icon_sb2pp_result" = xunknown; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find a valid Serialbox2 preprocessor: either disable the serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
+as_fn_error $? "unable to find a valid Serialbox2 preprocessor command: either disable the serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
 See \`config.log' for more details" "$LINENO" 5; }
 fi
+else
+  SB2PP=
+fi
+
+if test "x$enable_explicit_fpp" = xyes; then :
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran preprocessor command" >&5
+$as_echo_n "checking for Fortran preprocessor command... " >&6; }
+   if ${acx_cv_prog_fpp+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  as_dir=conftest.dir/sub; as_fn_mkdir_p
+      cd conftest.dir
+      cat > sub/conftest.fpp_inc <<_ACEOF
+#define CONFTEST_THREE
+#ifndef CONFTEST_ZERO
+      integer conftest_zero
+#else
+      choke me
+#endif
+#ifdef CONFTEST_ONE
+      integer conftest_one
+#else
+      choke me
+#endif
+#if CONFTEST_TWO != 42
+      choke me
+#else
+      integer conftest_two
+#endif
+#ifdef CONFTEST_THREE
+      integer conftest_three
+#else
+      choke me
+#endif
+
+_ACEOF
+      acx_save_FCFLAGS=$FCFLAGS
+      if ${FPP+:} false; then :
+  set dummy "$FPP"
+else
+  ac_builddir=.
+
+case . in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo . | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+         acx_prog_fpp_wrapper_dir="${ac_abs_top_srcdir}/utils/fpp-wrappers"
+         set dummy "$FC -E" "$FC -E $ac_fcflags_srcext" \
+                   "$SHELL ${acx_prog_fpp_wrapper_dir}/nag.sh $FC" \
+                   "$FC -o - -Wp,-w,-P -F $ac_fcflags_srcext" \
+                   "$SHELL ${acx_prog_fpp_wrapper_dir}/cray.sh $FC" \
+                   "$FC -F" "$FC -F $ac_fcflags_srcext"
+fi
+      shift
+      acx_prog_fpp_include_flag=$FC_INC_FLAG_PP_f90
+      acx_prog_fpp_macro_flag=$FC_PP_DEF
+      for acx_candidate in "$@"; do
+        cat > conftest.$ac_ext <<_ACEOF
+      program main
+      implicit none
+#include "conftest.fpp_inc"
+      conftest_zero = 0
+      conftest_one = 1
+      conftest_two = 2
+      conftest_three = 3
+      end
+_ACEOF
+        rm -f conftest.acx_prog_fpp
+        acx_try_fpp="$acx_candidate \$FCFLAGS conftest.\$ac_ext >conftest.acx_prog_fpp"
+        FCFLAGS="${acx_prog_fpp_include_flag}sub ${acx_prog_fpp_macro_flag}CONFTEST_ONE ${acx_prog_fpp_macro_flag}CONFTEST_TWO=42 $acx_save_FCFLAGS"
+        { { ac_try="$acx_try_fpp"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$acx_try_fpp") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+        if test $? -eq 0 && test -f conftest.acx_prog_fpp; then :
+  acx_result=`grep -c 'integer conftest' conftest.acx_prog_fpp 2>/dev/null`
+           if test $? -eq 0 && test 4 -eq "$acx_result" 2>/dev/null; then :
+  mv conftest.acx_prog_fpp conftest.$ac_ext
+              FCFLAGS=$acx_save_FCFLAGS
+              if ac_fn_fc_try_compile "$LINENO"; then :
+  acx_cv_prog_fpp=$acx_candidate
+                 break
+fi
+rm -f core conftest.err conftest.$ac_objext
+fi
+fi
+      done
+      FCFLAGS=$acx_save_FCFLAGS
+      cd ..
+      rm -rf conftest.dir
+fi
+   if ${acx_cv_prog_fpp+:} false; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_fpp" >&5
+$as_echo "$acx_cv_prog_fpp" >&6; }
+      FPP=$acx_cv_prog_fpp
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
+$as_echo "unknown" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find a valid Fortran preprocessor command: disable explicit Fortran preprocessing (--disable-explicit-fpp) or set FPP accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+else
+  FPP=
 fi
 
 # Find a good install program.  We prefer a C program (faster),

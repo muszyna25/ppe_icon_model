@@ -20,14 +20,9 @@ moddir:= mod
 prefix:= @prefix@
 exec_prefix:= @exec_prefix@
 
-# Prefix to the directories with Fortran header files included with
-# both #include 'filename' directive and INCLUDE "filename" statement
-# (updated later if the preprocessing is performed):
-inc_prefix:= $(srcdir)/
-
 # Prefix (absolute or relative path with respect to vpath) to the
-# directories with Fortran source files (updated later if the
-# preprocessing is performed):
+# directories with Fortran source files (updated later if the files need to
+# be preprocessed and therefore relocated to another directory):
 f90_prefix:=
 
 # Compilers and utilities:
@@ -39,11 +34,12 @@ PERL= @PERL@
 DEPLIST= ${PYTHON} $(srcdir)/utils/mkhelper/deplist.py
 DEPGEN= ${PYTHON} $(srcdir)/utils/mkhelper/depgen.py
 SB2PP= @SB2PP@
+FPP= @FPP@
 INSTALL= @INSTALL@
 SED= @SED@
 
 # Fortran compiler flags:
-FCFLAGS= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) @FC_INC_FLAG@$(inc_prefix)src/include @FC_INC_FLAG_PP_f90@$(inc_prefix)src/include @FCFLAGS@
+FCFLAGS= @FCFLAGS@
 ICON_FCFLAGS= @ICON_FCFLAGS@
 ICON_OCEAN_FCFLAGS= @ICON_OCEAN_FCFLAGS@
 DEPGEN_FCFLAGS= @DEPGEN_FCFLAGS@
@@ -51,7 +47,11 @@ DEPGEN_FCFLAGS= @DEPGEN_FCFLAGS@
 # C compiler and preprocessor flags:
 CFLAGS= @CFLAGS@
 ICON_CFLAGS= @ICON_CFLAGS@
-CPPFLAGS= -I. @DEFS@ @CPPFLAGS@
+CPPFLAGS= @CPPFLAGS@
+
+# Compiler and preprocessor flags that must not be overloaded by the user:
+makefile_FCFLAGS:= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) @FC_INC_FLAG@$(srcdir)/src/include @FC_INC_FLAG_PP_f90@$(srcdir)/src/include
+makefile_CPPFLAGS:= -I. @DEFS@
 
 # Linker flags and libraries:
 LDFLAGS= @LDFLAGS@
@@ -61,63 +61,100 @@ LIBS= @LIBS@
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V),0)
-silent_FCLD=    @echo "  FCLD    " $@;
-silent_FC=      @echo "  FC      " $@;
 silent_CC=      @echo "  CC      " $@;
+silent_DEPGEN=  @echo "  DEPGEN  " $@;
 silent_DSL4JSB= @echo "  DSL4JSB " $@;
-silent_SB2=     @echo "  SB2PP   " $@;
+silent_FC=      @echo "  FC      " $@;
+silent_FCLD=    @echo "  FCLD    " $@;
+silent_FPP=     @echo "  FPP     " $@;
 silent_GEN=     @echo "  GEN     " $@;
 silent_MKDIR=   @echo "  MKDIR   " $(@D);
-silent_DEPGEN=  @echo "  DEPGEN  " $@;
+silent_SB2=     @echo "  SB2PP   " $@;
 endif
 
 # Path suffixes (i.e. without $(src_root) prefix) of the source files and headers:
 src_roots:= $(addprefix $(srcdir)/,$(subdirs))
-f90_srcs:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90'))
-inc_srcs:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.inc' -o -name '*.incf'))
-c_srcs:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.c'))
+f90_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90'))
+# Files included with the Fortran preprocessor #include "filename.inc" directive:
+inc_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.inc'))
+# Files included with the Fortran INCLUDE "filename.incf" statement:
+incf_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.incf'))
+c_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.c'))
 
-# Lists of preprocessed source files:
-pp_srcs:=
+# Files that need to be transferred along with the source files because
+# they are not accessible with the '@FC_INC_FLAG_PP_f90@' compiler flag:
+inc_non_common_files:= $(filter-out src/include/%,$(inc_files))
+inc_common_files:= $(filter-out $(inc_non_common_files),$(inc_files))
+
+# Files that need to be transferred along with the source files because
+# they are not accessible with the '@FC_INC_FLAG@' compiler flag:
+incf_non_common_files:= $(filter-out src/include/%,$(incf_files))
+incf_common_files:= $(filter-out $(incf_non_common_files),$(incf_files))
+
+# List of preprocessed header and source files:
+pp_files:=
 
 # ART sources:
-@ART_ENABLED@art_srcdir:= $(srcdir)/externals/art
-@ART_ENABLED@f90_srcs+= $(patsubst $(srcdir)/%,%,$(shell find $(art_srcdir) -name '*.f90'))
-@ART_ENABLED@inc_srcs+= $(patsubst $(srcdir)/%,%,$(shell find $(art_srcdir) -name '*.inc' -o -name '*.incf'))
+@ART_ENABLED@ART_srcdir:= $(srcdir)/externals/art
+@ART_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.f90'))
+@ART_ENABLED@inc_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.inc'))
+@ART_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.incf'))
 
 # JSBACH preprocessing:
-@JSBACH_ENABLED@jsb_srcdir:= $(srcdir)/externals/jsbach
-@JSBACH_ENABLED@jsb_subdir:= $(ppdir)/jsb
-@JSBACH_ENABLED@jsb_f90_srcs:= $(patsubst $(jsb_srcdir)/%,$(jsb_subdir)/%,$(shell find $(jsb_srcdir)/src -name '*.f90'))
-@JSBACH_ENABLED@f90_srcs+= $(jsb_f90_srcs)
-@JSBACH_ENABLED@pp_srcs+= $(jsb_f90_srcs)
+@JSBACH_ENABLED@JSB_srcdir:= $(srcdir)/externals/jsbach
+@JSBACH_ENABLED@JSB_subdir:= $(ppdir)/jsb
+@JSBACH_ENABLED@JSB_f90_files:= $(patsubst $(JSB_srcdir)/%,$(JSB_subdir)/%,$(shell find $(JSB_srcdir)/src -name '*.f90'))
+@JSBACH_ENABLED@f90_files+= $(JSB_f90_files)
+@JSBACH_ENABLED@pp_files+= $(JSB_f90_files)
+
+# FPP preprocessing:
+@FPP_ENABLED@FPP_subdir:= $(ppdir)/fpp
+@FPP_ENABLED@FPP_f90_files:= $(addprefix $(FPP_subdir)/,$(f90_files))
+@FPP_ENABLED@f90_files:= $(FPP_f90_files)
+@FPP_ENABLED@f90_prefix:= $(FPP_subdir)/$(f90_prefix)
+# FPP includes *.inc files into the source files:
+@FPP_ENABLED@inc_non_common_files:=
+@FPP_ENABLED@inc_common_files:=
+# FPP (with a small exception for Cray compiler) does not include *.incf files into the source files.
+@FPP_ENABLED@FPP_incf_files:= $(addprefix $(FPP_subdir)/,$(incf_non_common_files))
+@FPP_ENABLED@incf_non_common_files:= $(FPP_incf_files)
+@FPP_ENABLED@pp_files+= $(FPP_f90_files) $(FPP_incf_files)
 
 # SERIALBOX2 preprocessing:
-@SB2_ENABLED@sb2_subdir:= $(ppdir)/sb2
-@SB2_ENABLED@sb2_f90_srcs:= $(addprefix $(sb2_subdir)/,$(f90_srcs))
-@SB2_ENABLED@sb2_inc_srcs:= $(addprefix $(sb2_subdir)/,$(inc_srcs))
-@SB2_ENABLED@f90_srcs:= $(sb2_f90_srcs)
-@SB2_ENABLED@pp_srcs+= $(sb2_f90_srcs) $(sb2_inc_srcs)
-@SB2_ENABLED@f90_prefix:= $(sb2_subdir)/
-@SB2_ENABLED@inc_prefix:= $(sb2_subdir)/
+@SB2_ENABLED@SB2_subdir:= $(ppdir)/sb2
+@SB2_ENABLED@SB2_f90_files:= $(addprefix $(SB2_subdir)/,$(f90_files))
+@SB2_ENABLED@f90_files:= $(SB2_f90_files)
+@SB2_ENABLED@f90_prefix:= $(SB2_subdir)/$(f90_prefix)
+@SB2_ENABLED@SB2_inc_files:= $(addprefix $(SB2_subdir)/,$(inc_non_common_files))
+@SB2_ENABLED@inc_non_common_files:= $(SB2_inc_files)
+@SB2_ENABLED@SB2_incf_files:= $(addprefix $(SB2_subdir)/,$(incf_non_common_files))
+@SB2_ENABLED@incf_non_common_files:= $(SB2_incf_files)
+# Take care of the common *.inc files if required:
+@SB2_ENABLED@inc_common_files:= $(addprefix $(SB2_subdir)/,$(inc_common_files))
+@SB2_ENABLED@SB2_inc_files+= $(inc_common_files)
+# Prepend makefile_FCFLAGS with the flag adding the path to the transferred *.inc
+# files if required. Note that we do need SB2_extra_FCFLAGS because @FC_INC_FLAG_PP_f90@
+# might contain a comma, which would break the syntax of the $(if) function:
+@SB2_ENABLED@SB2_tmp_FCFLAGS:= @FC_INC_FLAG_PP_f90@$(builddir)/$(SB2_subdir)/src/include
+@SB2_ENABLED@makefile_FCFLAGS:= $(if $(inc_common_files),$(SB2_tmp_FCFLAGS)) $(makefile_FCFLAGS)
+@SB2_ENABLED@pp_files+= $(SB2_f90_files) $(SB2_inc_files) $(SB2_incf_files)
 
 # We need to make sure that we compile the preprocessed sources from
 # the current building directory but not from the possibly "dirty"
 # source directory. Therefore, we prepend the absolute paths to the
 # paths that start with $(ppdir):
-f90_srcs:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(f90_srcs))
+f90_files:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(f90_files))
 f90_prefix:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(f90_prefix))
-inc_prefix:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(inc_prefix))
-pp_srcs:= $(addprefix $(builddir)/,$(pp_srcs))
+pp_files:= $(addprefix $(builddir)/,$(pp_files))
 
 # Dependency files:
-deps:= $(addsuffix .d,$(f90_srcs) $(c_srcs)) c_binding.d extra_f90.d
+dep_files:= $(addsuffix .d,$(f90_files) $(c_files)) c_binding.d extra_f90.d
 
 # Stamp files of the building subdirectories:
-dirstamps= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(deps) $(pp_srcs)))) $(moddir)/.dirstamp)
+dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files)))) $(moddir)/.dirstamp)
 
 # Root ICON object file:
-icon_rootobj= $(f90_prefix)src/drivers/icon.@OBJEXT@
+ICON_obj_file= $(f90_prefix)src/drivers/icon.@OBJEXT@
 
 # Selective search paths:
 vpath %.f90 $(srcdir)
@@ -136,35 +173,35 @@ NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
 # Call make inside the subdirectories unconditionally:
 .PHONY: $(bundled_subdirs)
 # Keep directory stamps:
-.PRECIOUS: $(dirstamps)
+.PRECIOUS: $(dir_files)
 # Delete preprocessed files on error:
-.DELETE_ON_ERROR: $(pp_srcs)
+.DELETE_ON_ERROR: $(pp_files)
 
 # Default rule:
 all: icon@EXEEXT@
 
 # Explicit dependency generation rule:
-depend: $(deps)
+depend: $(dep_files)
 
 # Explicit preprocessing rule:
-preprocess: $(pp_srcs)
+preprocess: $(pp_files)
 
 # Delete the results of compilation and linking:
 mostlyclean: $(bundled_subdirs)
-	rm -f icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_srcs) $(c_srcs))) version.@OBJEXT@
+	rm -f icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files))) version.@OBJEXT@
 	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@
-	rm -f $(notdir $(f90_srcs:.f90=.i))
+	rm -f $(notdir $(f90_files:.f90=.i))
 
 # Delete files generated at the building stage:
 clean: mostlyclean
-	rm -f srclist $(pp_srcs) version.c
+	rm -f srclist $(pp_files) version.c
 	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
 
 # Delete everything generated at the configure stage (and clean the created directories if they are empty):
 distclean: clean
 	rm -f config.log config.status config.h depgen.f90.config depgen.c.config
-	rm -f $(deps)
-	rm -f $(dirstamps)
+	rm -f $(dep_files)
+	rm -f $(dir_files)
 	@for dir in $(subdirs) $(moddir) $(ppdir) $(bundled_subdirs) externals; do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
@@ -182,8 +219,8 @@ install: all
 	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon@EXEEXT@ $(DESTDIR)@bindir@/icon@EXEEXT@
 
 # Generate a list of files that are going to be compiled in the current configuration:
-srclist: $(deps)
-	$(silent_GEN)$(DEPLIST) -t $(icon_rootobj) -p '*.f90' -p '*.c' -p '*.inc' -p '*.incf' -p '*.h' --inc-oo -f $^ | sort > $@
+srclist: $(dep_files)
+	$(silent_GEN)$(DEPLIST) -t $(ICON_obj_file) -p '*.f90' -p '*.c' -p '*.inc' -p '*.incf' -p '*.h' --inc-oo -f $^ | sort > $@
 
 # Check rule (run the tests serially to make the output
 # readable and prevent from possible overloading due to
@@ -198,27 +235,27 @@ check: all
 	test -z "$$fail"
 
 # ICON executable linking rule:
-icon@EXEEXT@: $(icon_rootobj) $(shell $(DEPLIST) -t $(icon_rootobj) -p '*.@OBJEXT@' --inc-oo -f $(deps)) $(BUNDLED_LIBFILES)
-	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+icon@EXEEXT@: $(ICON_obj_file) $(shell $(DEPLIST) -t $(ICON_obj_file) -p '*.@OBJEXT@' --inc-oo -f $(dep_files)) $(BUNDLED_LIBFILES)
+	$(silent_FCLD)$(FC) -o $@ $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 # Default Fortran compilation rule:
-%.@OBJEXT@: %.f90 | $(dirstamps) $(bundled_subdirs)
-	$(silent_FC)$(FC) -o $@ -c $(FCFLAGS) $(ICON_FCFLAGS) @FCFLAGS_f90@ $<
+%.@OBJEXT@: %.f90 | $(dir_files) $(bundled_subdirs)
+	$(silent_FC)$(FC) -o $@ -c $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) @FCFLAGS_f90@ $<
 
 # Default C compilation rule:
-%.@OBJEXT@: %.c | $(dirstamps)
-	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(ICON_CFLAGS) $(CPPFLAGS) $<
+%.@OBJEXT@: %.c | $(dir_files)
+	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(ICON_CFLAGS) $(makefile_CPPFLAGS) $(CPPFLAGS) $<
 
 # ICON-Ocean Fortran compilation rules:
-ICON_OCEAN_FC= $(silent_FC)$(FC) -o $@ -c $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) @FCFLAGS_f90@ $<
+ICON_OCEAN_FC= $(silent_FC)$(FC) -o $@ -c $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) @FCFLAGS_f90@ $<
 
-$(f90_prefix)src/hamocc/%.@OBJEXT@: $(f90_prefix)src/hamocc/%.f90 | $(dirstamps) $(bundled_subdirs)
+$(f90_prefix)src/hamocc/%.@OBJEXT@: $(f90_prefix)src/hamocc/%.f90 | $(dir_files) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
 
-$(f90_prefix)src/ocean/%.@OBJEXT@: $(f90_prefix)src/ocean/%.f90 | $(dirstamps) $(bundled_subdirs)
+$(f90_prefix)src/ocean/%.@OBJEXT@: $(f90_prefix)src/ocean/%.f90 | $(dir_files) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
 
-$(f90_prefix)src/sea_ice/%.@OBJEXT@: $(f90_prefix)src/sea_ice/%.f90 | $(dirstamps) $(bundled_subdirs)
+$(f90_prefix)src/sea_ice/%.@OBJEXT@: $(f90_prefix)src/sea_ice/%.f90 | $(dir_files) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
 
 # Fortran module file tracking rule:
@@ -230,35 +267,58 @@ $(moddir)/%.@FC_MOD_FILE_EXT@:
 	fi
 
 # JSBACH dsl->f90 rule:
-@JSBACH_ENABLED@$(builddir)/$(jsb_subdir)/%.f90: $(jsb_srcdir)/%.f90 | $(dirstamps)
-@JSBACH_ENABLED@	$(silent_DSL4JSB)$(PYTHON) $(jsb_srcdir)/scripts/dsl4jsb/dsl4jsb.py -i $< -o $@
+@JSBACH_ENABLED@$(builddir)/$(JSB_subdir)/%.f90: $(JSB_srcdir)/%.f90 | $(dir_files)
+@JSBACH_ENABLED@	$(silent_DSL4JSB)$(PYTHON) $(JSB_srcdir)/scripts/dsl4jsb/dsl4jsb.py -i $< -o $@
 
-# SERIALBOX2 f90->f90 rule for the original Fortran files:
-@SB2_ENABLED@$(builddir)/$(sb2_subdir)/%.f90: %.f90  | $(dirstamps)
+# Default FPP f90->f90 rule for the original files:
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/%.f90: %.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@	$(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
+
+# Default FPP f90->f90 rule for the files preprocessed at the
+# previous preprocessing step:
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@	$(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
+
+# ICON-Ocean FPP f90->f90 rules for the original files:
+@FPP_ENABLED@ICON_OCEAN_FPP= $(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) $< >$@
+
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/hamocc/%.f90: src/hammoc/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@	$(ICON_OCEAN_FPP)
+
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/ocean/%.f90: src/ocean/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@	$(ICON_OCEAN_FPP)
+
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/sea_ice/%.f90: src/sea_ice/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@	$(ICON_OCEAN_FPP)
+
+# There is currently no need to introduce ICON-Ocean FPP rules
+# for the files preprocessed at the previous preprocessing step.
+
+# FPP incf->incf rule:
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/%.incf: %.incf | $(dir_files)
+@FPP_ENABLED@	$(silent_FPP)cp $< $@
+
+# SERIALBOX2 f90->f90 rule for the original files:
+@SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.f90: %.f90  | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
 
-# SERIALBOX2 f90->f90 rule for the files prepreprocessed at the
-# previous preprocessing step (e.g. JSBACH DSL preprocessing):
-@SB2_ENABLED@$(builddir)/$(sb2_subdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(dirstamps)
+# SERIALBOX2 f90->f90 rule for the files preprocessed at the
+# previous preprocessing step:
+@SB2_ENABLED@$(builddir)/$(SB2_subdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
 
-# Currently, the usage of a standalone Fortran preprocessing command, which
-# should be part of the SERIALBOX2 preprocessing, is not implemented. In most
-# cases, SERIALBOX2 seems to work event without it. Except for one file, for
-# which we introduce a special rule to help SERIALBOX2:
-@SB2_ENABLED@$(builddir)/$(sb2_subdir)/src/atm_phy_schemes/src_turbdiff.f90 : src/atm_phy_schemes/src_turbdiff.f90 | $(dirstamps)
-@SB2_ENABLED@	$(silent_SB2)$(SED) '/^ *\(end\)\? *module *turbulence_turbdiff *$$/Id' $< > $@ && $(SB2PP) -o $@ $@ >/dev/null
-
-# SERIALBOX2 inc->inc rule:
-@SB2_ENABLED@$(builddir)/$(sb2_subdir)/%.inc: %.inc | $(dirstamps)
+# SERIALBOX2 inc->inc rule for the original files:
+@SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.inc: %.inc | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
 
-# SERIALBOX2 incf->incf rule (these files are included with Fortran
-# INCLUDE "filename" statements and are not allowed to have Fortran
-# preprocessor macro directives included by the Serialbox2 preprocessor,
-# therefore we only copy the original files):
-@SB2_ENABLED@$(builddir)/$(sb2_subdir)/%.incf: %.incf | $(dirstamps)
-@SB2_ENABLED@	$(silent_SB2)cp $< $@ >/dev/null
+# SERIALBOX2 incf->incf rule for the original files:
+@SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.incf: %.incf | $(dir_files)
+@SB2_ENABLED@	$(silent_SB2)cp $< $@
+
+# SERIALBOX2 incf->incf rule for the files preprocessed at the
+# previous preprocessing step:
+@SB2_ENABLED@$(builddir)/$(SB2_subdir)/$(ppdir)/%.incf: $(builddir)/$(ppdir)/%.incf | $(dir_files)
+@SB2_ENABLED@	$(silent_SB2)cp $< $@
 
 # Version source file generation rule:
 version.c: force-create-version
@@ -269,23 +329,23 @@ version.c: force-create-version
 	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
 
 # Default Fortran dependency generation rule:
-%.f90.d: %.f90 icon.mk | preprocess $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
+%.f90.d: %.f90 icon.mk | preprocess $(dir_files)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
 
 # Default C dependency generation rule:
-%.c.d: %.c icon.mk | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) -i $< -- $(CFLAGS) $(ICON_CFLAGS) $(CPPFLAGS)
+%.c.d: %.c icon.mk | $(dir_files)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) -i $< -- $(CFLAGS) $(ICON_CFLAGS) $(makefile_CPPFLAGS) $(CPPFLAGS)
 
 # ICON-Ocean Fortran dependency generation rules:
-ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
+ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
 
-$(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 icon.mk | preprocess $(dirstamps)
+$(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 icon.mk | preprocess $(dir_files)
 	$(ICON_OCEAN_DEPGEN)
 
-$(f90_prefix)src/ocean/%.f90.d: $(f90_prefix)src/ocean/%.f90 icon.mk | preprocess $(dirstamps)
+$(f90_prefix)src/ocean/%.f90.d: $(f90_prefix)src/ocean/%.f90 icon.mk | preprocess $(dir_files)
 	$(ICON_OCEAN_DEPGEN)
 
-$(f90_prefix)src/sea_ice/%.f90.d: $(f90_prefix)src/sea_ice/%.f90 icon.mk | preprocess $(dirstamps)
+$(f90_prefix)src/sea_ice/%.f90.d: $(f90_prefix)src/sea_ice/%.f90 icon.mk | preprocess $(dir_files)
 	$(ICON_OCEAN_DEPGEN)
 
 # Dependency generation rule for Fortran-to-C bindings:
@@ -335,8 +395,8 @@ externals/yac: $(filter externals/mtime,$(bundled_subdirs))
 $(BUNDLED_LIBFILES): $(bundled_subdirs);
 
 # Dummy dependency file generation rule (called by config.status): 
-dummy-depend: | $(dirstamps)
-	@for file in $(deps); do \
+dummy-depend: | $(dir_files)
+	@for file in $(dep_files); do \
 	  test -e "$$file" || touch "$$file"; \
 	done
 
@@ -346,6 +406,6 @@ current_targets:= all
 endif
 
 ifneq (,$(filter-out $(NO_INC_TARGETS),$(current_targets)))
-include $(deps)
+include $(dep_files)
 endif
 
