@@ -57,7 +57,7 @@ MODULE mo_time_management
   USE mo_dynamics_config,          ONLY: iequations
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_grid_config,              ONLY: patch_weight, grid_rescale_factor, n_dom,         &
-    &                                    start_time
+    &                                    start_time, lrescale_timestep
   USE mo_io_config,                ONLY: dt_checkpoint
   USE mo_master_config,            ONLY: experimentReferenceDate,                          &
     &                                    experimentStartDate,                              &
@@ -148,16 +148,13 @@ CONTAINS
     ! Furthermore, the time step may be rescaled by the
     ! "grid_rescale_factor".
     !
-    IF (grid_rescale_factor /= 1.0_wp) THEN
+    IF (lrescale_timestep .AND. grid_rescale_factor /= 1.0_wp) THEN
       dtime1 = dtime1 * grid_rescale_factor
       CALL timedeltaToString(dtime1, dtime_string)
       IF (dtime_real > 0._wp)  dtime_real = dtime_real * grid_rescale_factor
 
 #ifndef __NO_ICON_ATMO__
       IF (get_my_process_type() == atmo_process) THEN
-!!$        echam_phy_config%dt_rad = &
-!!$          & echam_phy_config%dt_rad * grid_rescale_factor
-        
         DO jg=1,max_dom
           atm_phy_nwp_config(jg)%dt_conv = &
             atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor

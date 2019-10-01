@@ -89,6 +89,8 @@ cat > ${atmo_namelist} << EOF
  ! cell_type is not used = 3                ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
  grid_rescale_factor = 0.008  ! 1/X
+ lrescale_timestep = .TRUE.
+ lrescale_ang_vel  = .TRUE.
 / 
 &run_nml
  num_lev     = ${nlev},      ! number of full levels of vertical grid

@@ -47,6 +47,7 @@ USE mo_netcdf_parallel, ONLY:                     &
     &       lredgrid_phys, ifeedback_type, start_time, end_time
   PUBLIC :: grid_rescale_factor, grid_length_rescale_factor, &
      & grid_sphere_radius, grid_angular_velocity
+  PUBLIC :: lrescale_timestep, lrescale_ang_vel
   PUBLIC :: namelist_grid_angular_velocity
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename
@@ -107,6 +108,8 @@ INCLUDE 'netcdf.inc'
   REAL(wp) :: grid_length_rescale_factor = 1.0_wp
 !   REAL(wp) :: grid_area_rescale_factor = 1.0_wp
   REAL(wp) :: grid_sphere_radius  = earth_radius
+  LOGICAL  :: lrescale_timestep   = .FALSE.
+  LOGICAL  :: lrescale_ang_vel    = .FALSE.
   REAL(wp) :: grid_angular_velocity  = earth_angular_velocity
   REAL(wp) :: namelist_grid_angular_velocity  = earth_angular_velocity
 
@@ -193,7 +196,11 @@ CONTAINS
     IF ( grid_rescale_factor <= 0.0_wp ) grid_rescale_factor = 1.0_wp
     grid_sphere_radius = grid_sphere_radius * grid_rescale_factor
     grid_length_rescale_factor = grid_rescale_factor
-    grid_angular_velocity      = namelist_grid_angular_velocity / grid_rescale_factor
+    IF ( lrescale_ang_vel) THEN
+       grid_angular_velocity = namelist_grid_angular_velocity / grid_rescale_factor
+    ELSE
+       grid_angular_velocity = namelist_grid_angular_velocity
+    END IF
 
     IF (lradiation_grid) THEN
       n_dom_start = 0

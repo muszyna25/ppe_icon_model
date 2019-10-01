@@ -168,18 +168,22 @@ CONTAINS
         IF (ASSOCIATED(this%field%r_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
                &                   -INT(this%field%var_base_size*SIZE(this%field%r_ptr),i8)
+          !$ACC EXIT DATA DELETE( this%field%r_ptr ) IF( this%field%info%lopenacc )
           DEALLOCATE (this%field%r_ptr)
         ELSE IF (ASSOCIATED(this%field%s_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
                &                   -INT(this%field%var_base_size*SIZE(this%field%s_ptr),i8)
+          !$ACC EXIT DATA DELETE( this%field%s_ptr ) IF( this%field%info%lopenacc )
           DEALLOCATE (this%field%s_ptr)
         ELSE IF (ASSOCIATED(this%field%i_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
                &                   -INT(this%field%var_base_size*SIZE(this%field%i_ptr),i8)
+          !$ACC EXIT DATA DELETE( this%field%i_ptr ) IF( this%field%info%lopenacc )
           DEALLOCATE (this%field%i_ptr)
         ELSE IF (ASSOCIATED(this%field%l_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
                &                   -INT(this%field%var_base_size*SIZE(this%field%l_ptr),i8)
+          !$ACC EXIT DATA DELETE( this%field%l_ptr ) IF( this%field%info%lopenacc )
           DEALLOCATE (this%field%l_ptr)
         ENDIF
         this%field%info%allocated = .FALSE.

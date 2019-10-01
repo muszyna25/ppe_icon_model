@@ -50,9 +50,8 @@ machine=breeze
 machine=daint
 ./addmachine $machine --list $list
 ./addbuilder DAINT_CPU_cce        --machine $machine --configureflags="--with-fortran=cray" --builderflags="Active"      --list $list
-./addbuilder DAINT_GPU_cce        --machine $machine --configureflags="--with-fortran=cray_gpu" --builderflags="Active"  --list $list
 ./addbuilder DAINT_CPU_pgi        --machine $machine --configureflags="--with-fortran=pgi" --builderflags="Active"      --list $list
-./addbuilder DAINT_GPU_pgi        --machine $machine --configureflags="--with-fortran=pgi_gpu" --builderflags="build_only"  --list $list
+./addbuilder DAINT_GPU_pgi        --machine $machine --configureflags="--with-fortran=pgi_gpu" --builderflags="Active"  --list $list
 
 #DWD machines
 machine=dwd_cray

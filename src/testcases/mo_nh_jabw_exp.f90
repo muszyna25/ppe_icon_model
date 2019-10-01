@@ -69,9 +69,6 @@ MODULE mo_nh_jabw_exp
 ! !DEFINED PARAMETERS for jablonowski williamson:  
   REAL(wp), PARAMETER :: eta0  = 0.252_wp ! 
   REAL(wp), PARAMETER :: etat  = 0.2_wp   ! tropopause
-  REAL(wp), PARAMETER :: u0    = 35._wp   ! maximum zonal wind (m/s)
-  REAL(wp), PARAMETER :: temp0 = 288._wp  ! horizontal-mean temperature 
-                                          ! at surface (K)
   REAL(wp), PARAMETER :: gamma = 0.005_wp ! temperature elapse rate (K/m)
   REAL(wp), PARAMETER :: dtemp = 4.8e5_wp ! empirical temperature difference (K)
 
@@ -90,11 +87,12 @@ MODULE mo_nh_jabw_exp
   !!
   !!
   SUBROUTINE init_nh_topo_jabw( ptr_patch, topo_c, nblks_c, npromz_c, &
-                             &  opt_m_height, opt_m_half_width )
+                             &  u0, opt_m_height, opt_m_half_width )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
 
+    REAL(wp), INTENT (IN)           :: u0
     REAL(wp), INTENT (IN), OPTIONAL :: opt_m_height, opt_m_half_width
     INTEGER, INTENT (IN) ::  nblks_c, npromz_c
     REAL(wp),  INTENT(INOUT) :: topo_c    (nproma,nblks_c)
@@ -159,7 +157,7 @@ MODULE mo_nh_jabw_exp
   !!
   !!
   SUBROUTINE init_nh_state_prog_jabw( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
-    &                                p_metrics, p_int, p_sfc, jw_up )
+    &                                p_metrics, p_int, p_sfc, up, u0, temp0 )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
@@ -175,7 +173,9 @@ MODULE mo_nh_jabw_exp
     TYPE(t_int_state), INTENT(IN)       :: p_int
 
     REAL(wp), INTENT(IN)                :: p_sfc   !surface pressure, 1.e5 Pa in the standard jabw 
-    REAL(wp), INTENT(IN)                :: jw_up
+    REAL(wp), INTENT(IN)                :: up
+    REAL(wp), INTENT(IN)                :: u0
+    REAL(wp), INTENT(IN)                :: temp0
 
 
 
@@ -298,10 +298,10 @@ MODULE mo_nh_jabw_exp
             z_lat(je) = ptr_patch%edges%center(je,jb)%lat
             z_lon(je) = ptr_patch%edges%center(je,jb)%lon
             zu(je)    = u0*(COS(zeta_v_e(je,jk,jb))**1.5_wp)*(SIN(2.0_wp*z_lat(je))**2)
-            IF ( jw_up .GT. 1.e-20_wp ) THEN
+            IF ( up .GT. 1.e-20_wp ) THEN
              z_fac1(je)= SIN(latC)*SIN(z_lat(je))+COS(latC)*COS(z_lat(je))*COS(z_lon(je)-lonC) 
              z_fac2(je)  = 10._wp*ACOS(z_fac1(je))
-             zu(je) = zu(je) + jw_up* EXP(-z_fac2(je)**2)
+             zu(je) = zu(je) + up* EXP(-z_fac2(je)**2)
             END IF
             zv(je) = 0._wp
             ptr_nh_prog%vn(je,jk,jb) = &

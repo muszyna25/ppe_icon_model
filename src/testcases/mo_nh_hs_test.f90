@@ -81,7 +81,7 @@ CONTAINS
 
     INTEGER               :: nblks_c, npromz_c, nlen
     INTEGER               :: nlev                 !< number of full levels
-    INTEGER               :: jk, jb  ! loop variables
+    INTEGER               :: jk, jb, jc  ! loop variables
 
     REAL(wp)              :: zscale_h             !< initialized variables
     REAL(wp), ALLOCATABLE :: z_sfc(:,:,:)
@@ -119,23 +119,25 @@ CONTAINS
       ENDIF
 
       DO jk = 1, nlev
+        DO jc = 1, nlen
 
-        ! compute full level pressure
-        z_sfc(1:nlen,1,jb) = ptr_ext_data%atm%topography_c(1:nlen,jb)
-        ptr_nh_diag%pres(1:nlen,jk,jb) = zp_hs                                      &
-          &                  * exp(-(p_metrics%z_mc(1:nlen,jk,jb)-z_sfc(1:nlen,1,jb))/zscale_h)
+          ! compute full level pressure
+          z_sfc(jc,1,jb) = ptr_ext_data%atm%topography_c(jc,jb)
+          ptr_nh_diag%pres(jc,jk,jb) = zp_hs                                      &
+            &                  * exp(-(p_metrics%z_mc(jc,jk,jb)-z_sfc(jc,1,jb))/zscale_h)
 
-        ! init virtual potential temperature
-        ptr_nh_prog%theta_v(1:nlen,jk,jb) = zt_hs                                   &
-          & * (p0ref/ptr_nh_diag%pres(1:nlen,jk,jb))**rd_o_cpd
+          ! init virtual potential temperature
+          ptr_nh_prog%theta_v(jc,jk,jb) = zt_hs                                   &
+            & * (p0ref/ptr_nh_diag%pres(jc,jk,jb))**rd_o_cpd
 
-        ! init density field rho
-        ptr_nh_prog%rho(1:nlen,jk,jb) = ptr_nh_diag%pres(1:nlen,jk,jb)            &
-          &                           / (rd * zt_hs)
+          ! init density field rho
+          ptr_nh_prog%rho(jc,jk,jb) = ptr_nh_diag%pres(jc,jk,jb)            &
+            &                           / (rd * zt_hs)
 
-        ! init exner pressure
-        ptr_nh_prog%exner(1:nlen,jk,jb) = (ptr_nh_diag%pres(1:nlen,jk,jb)/p0ref)**rd_o_cpd
+          ! init exner pressure
+          ptr_nh_prog%exner(jc,jk,jb) = (ptr_nh_diag%pres(jc,jk,jb)/p0ref)**rd_o_cpd
 
+        ENDDO !jc
       ENDDO !jk
     ENDDO !jb
 !$OMP END DO NOWAIT

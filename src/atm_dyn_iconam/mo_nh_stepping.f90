@@ -70,7 +70,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method, &
     &                                    ldeepatmo
   USE mo_io_config,                ONLY: is_totint_time, n_diag
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart, ldass_lhn
@@ -570,10 +570,6 @@ MODULE mo_nh_stepping
     ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
     IF (ierr /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed!')
   ENDIF
-  
-  ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
-  ! MPI communication from now on.
-  IF (test_mode > 0) iorder_sendrecv = 0
 
   IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
@@ -694,7 +690,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
@@ -755,11 +751,12 @@ MODULE mo_nh_stepping
              &             TRIM(mtime_utils%ddhhmmss(time_config%tc_exp_startdate, &
              &                                       mtime_current, FMT_DDHHMMSS_DAYSEP))
       ELSE
-        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') &
+        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3)') &
              &             'Time step: ', jstep, ' model time ',                                &
              &             mtime_current%date%year,   '-', mtime_current%date%month,    '-',    &
              &             mtime_current%date%day,    ' ', mtime_current%time%hour,     ':',    &
-             &             mtime_current%time%minute, ':', mtime_current%time%second
+             &             mtime_current%time%minute, ':', mtime_current%time%second,   '.',    &
+             &             mtime_current%time%ms
       ENDIF
 
       CALL message('',message_text)
@@ -1158,7 +1155,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1434,7 +1431,7 @@ MODULE mo_nh_stepping
           &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
           &        p_nh_state(jg)%diag%airmass_new,                      & !in
           &        p_nh_state(jg)%diag%airmass_now,                      & !in
-          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
+          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
           &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
           &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
           &        p_nh_state(jg)%diag%vfl_tracer,                       & !out
@@ -1509,7 +1506,7 @@ MODULE mo_nh_stepping
 
 
 
-          ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
+          ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE
@@ -1557,7 +1554,7 @@ MODULE mo_nh_stepping
             &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
             &          p_nh_state(jg)%diag%airmass_new,                      & !in
             &          p_nh_state(jg)%diag%airmass_now,                      & !in
-            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
+            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
             &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
             &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
             &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
