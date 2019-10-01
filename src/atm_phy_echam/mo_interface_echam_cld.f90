@@ -68,6 +68,9 @@ CONTAINS
     INTEGER                             :: itype(nproma)    !< type of convection
     INTEGER                             :: jc,jk
     !
+    REAL(wp)                            :: aclc  (nproma,nlev)
+    REAL(wp)                            :: aclcov(nproma)
+    !
     REAL(wp)                            :: hur  (nproma,nlev)
     REAL(wp)                            :: q_cld(nproma,nlev)
     !
@@ -86,8 +89,8 @@ CONTAINS
     !$ser verbatim call serialize_cld_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
 
     IF ( is_in_sd_ed_interval ) THEN
-       !$ACC DATA PRESENT( field%rtype, field% qconv ) &
-       !$ACC       CREATE( itype, hur, q_cld, tend_ta_cld, tend_qtrc_cld )
+       !$ACC DATA PRESENT( field%rtype, field% qconv, field% aclc, field% aclcov ) &
+       !$ACC       CREATE( itype, hur, q_cld, tend_ta_cld, tend_qtrc_cld, aclc, aclcov )
        !
        IF ( is_active ) THEN
           !
@@ -95,6 +98,16 @@ CONTAINS
           !$ACC LOOP GANG VECTOR
           DO jc = 1, nproma
             itype(jc) = NINT(field%rtype(jc,jb))
+          END DO
+          !$ACC END PARALLEL
+
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG
+          DO jk = 1, nlev
+            !$ACC LOOP VECTOR
+            DO jc = jcs, jce
+              aclc(jc,jk) = field% aclc(jc,jk,jb)
+            END DO
           END DO
           !$ACC END PARALLEL
           !
@@ -114,10 +127,10 @@ CONTAINS
                &     field% qtrc     (:,:,jb,iqc), &! in  xlm1
                &     field% qtrc     (:,:,jb,iqi), &! in  xim1
                !
-               &     itype,                        &! inout
-               &     field% aclc     (:,:,jb),     &! inout
+               &     itype           (:),          &! inout
+               &     aclc            (:,:),        &! inout
+               &     aclcov          (:),          &! out
                !
-               &     field% aclcov   (:,  jb),     &! out
                &     field% rsfl     (:,  jb),     &! out
                &     field% ssfl     (:,  jb),     &! out
                &            hur      (:,:),        &! out
@@ -125,13 +138,6 @@ CONTAINS
                &      tend_qtrc_cld  (:,:,iqv),        &! out
                &      tend_qtrc_cld  (:,:,iqc),        &! out
                &      tend_qtrc_cld  (:,:,iqi)         )! out
-          !
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR
-          DO jc = 1, nproma
-            field% rtype(jc,jb) = REAL(itype(jc),wp)
-          END DO
-          !$ACC END PARALLEL
           !
           ! store in memory for output or recycling
           !
@@ -287,28 +293,37 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-         SELECT CASE(fc_cld)
-         CASE(0)
-            ! diagnostic, do not use tendency
-         CASE(1)
-            !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
-            DO jk = 1, nlev
-              !$ACC LOOP VECTOR
-              DO jc = jcs, jce
-                field%   ta(jc,jk,jb)      = field%   ta(jc,jk,jb)      + tend_ta_cld(jc,jk)*pdtime
-                field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv)  + tend_qtrc_cld(jc,jk,iqv)*pdtime
-                field% qtrc(jc,jk,jb,iqc)  = field% qtrc(jc,jk,jb,iqc)  + tend_qtrc_cld(jc,jk,iqc)*pdtime
-                field% qtrc(jc,jk,jb,iqi)  = field% qtrc(jc,jk,jb,iqi)  + tend_qtrc_cld(jc,jk,iqi)*pdtime
-              END DO
-            END DO
-            !$ACC END PARALLEL
-!!$       CASE(2)
-!!$          ! use tendency as forcing in the dynamics
-!!$          ...
-         END SELECT
-       END IF
+       SELECT CASE(fc_cld)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             ! prognostic
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG
+             DO jk = 1, nlev
+               !$ACC LOOP VECTOR
+               DO jc = jcs, jce
+                 field%   ta(jc,jk,jb)      = field%   ta(jc,jk,jb)      + tend_ta_cld(jc,jk)*pdtime
+                 field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv)  + tend_qtrc_cld(jc,jk,iqv)*pdtime
+                 field% qtrc(jc,jk,jb,iqc)  = field% qtrc(jc,jk,jb,iqc)  + tend_qtrc_cld(jc,jk,iqc)*pdtime
+                 field% qtrc(jc,jk,jb,iqi)  = field% qtrc(jc,jk,jb,iqi)  + tend_qtrc_cld(jc,jk,iqi)*pdtime
+               ! diagnostic
+                 field% aclc(jc,jk,jb)      = aclc  (jc,jk)
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             ! diagnostic
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG VECTOR
+             DO jc = 1, nproma
+               field% rtype(jc,jb) = REAL(itype(jc),wp)
+               field% aclcov(jc,jb)= aclcov(jc)
+             END DO
+             !$ACC END PARALLEL
+          END IF
+       END SELECT
        !
        !$ACC END DATA
     ELSE

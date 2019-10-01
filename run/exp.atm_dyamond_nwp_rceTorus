@@ -32,7 +32,7 @@ unset OMPI_MCA_coll_fca_priority
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -40,7 +40,7 @@ icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpi
 
 # horizontal grid(s)
 #
-grids_folder=/work/mh0287/users/rene/RCE
+grids_folder=${icon_data_poolFolder}/Torus_Triangles_20x22_5000m
 #
 # domain Torus
 grid_name=Torus_Triangles_20x22_5000m
@@ -117,21 +117,21 @@ cat > ${atmo_namelist} << EOF
  ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 3           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
- msg_level        = 15          ! level of details report during integration 
+ msg_level        = 12          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  activate_sync_timers = .TRUE.
  profiling_output = 1           ! aggregated: 1; detailed: 2; in files: 3
 /
 &nh_testcase_nml
- nh_test_name     = 'RCE_glb'
+ nh_test_name     = 'RCE_Tconst'
  ape_sst_case     = 'sst_const'
  ape_sst_val      = 25.
  tpe_temp         = 298.15
  tpe_psfc         = 1013.25e2
  w_perturb        = 0.1         ! m/s, default=0.05
  th_perturb       = 0.3         ! K, default=0.2
- zenithang        = 42.05       ! degrees
- sol_const        = 551.58
+ zenithang        = 38.24       ! degrees
+ sol_const        = 433.33
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 5           ! dtime/dt_dyn
@@ -173,6 +173,11 @@ cat > ${atmo_namelist} << EOF
  latm_above_top  = .TRUE.
  dt_conv         = 300.0 ! Time step of cu param AND cloud cover call [s]
  dt_rad          = 300.0 ! sec ... of radiation call
+ mu_rain         = 0.5
+ rain_n0_factor  = 0.1
+/
+&nwp_tuning_nml
+ tune_v0snow     = 25.0  !-> no effect, as set to v0snow_gr in graupel scheme
 /
 &radiation_nml
  irad_o3         = 4 ! read in external ozone file
@@ -201,7 +206,7 @@ EOF
 #
 add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
-add_link_file ${basedir}/data/dmin_wetgrowth_lookup.dat                 ./ # for inwp_gscp==4
+#add_link_file ${basedir}/data/dmin_wetgrowth_lookup.dat                 ./ # for inwp_gscp==4
 
 # namelist files
 #
@@ -221,7 +226,7 @@ start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - ozone
-datadir=/work/mh0287/users/rene/RCE
+datadir=${icon_data_poolFolder}/Torus_Triangles_20x22_5000m/r0006
 add_link_file ${datadir}/rcemip_analytical_o3_20x22_5000m_nwp.nc        ./o3_icon_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------

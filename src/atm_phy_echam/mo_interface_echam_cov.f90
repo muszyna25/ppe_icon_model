@@ -27,7 +27,7 @@ MODULE mo_interface_echam_cov
   
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_cov
 
-  USE mo_run_config          ,ONLY: iqv, iqi
+  USE mo_run_config          ,ONLY: iqv, iqc, iqi
   USE mo_cover               ,ONLY: cover
   !$ser verbatim USE mo_ser_echam_cov, ONLY: serialize_cov_input,&
   !$ser verbatim                             serialize_cov_output
@@ -105,6 +105,7 @@ CONTAINS
          &         field% presm_old(:,:,jb),  &! in
          &         field%  ta(:,:,jb),        &! in    tm1
          &         field%  qtrc(:,:,jb,iqv),  &! in    qm1
+         &         field%  qtrc(:,:,jb,iqc),  &! in    xlm1
          &         field%  qtrc(:,:,jb,iqi),  &! in    xim1
          &         field%  aclc(:,:,jb),      &! out   (for "radiation" and "vdiff_down")
          &         field% rintop(:,  jb)     ) ! out   (for output)

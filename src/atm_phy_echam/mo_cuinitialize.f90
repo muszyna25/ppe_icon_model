@@ -119,7 +119,6 @@ CONTAINS
 
       CALL lookup_ua_spline(jcs,kproma,idx(:),za(:),ua(:))
 
-
 !IBM* NOVECTOR
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR

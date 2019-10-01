@@ -69,6 +69,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
+  USE mo_advection_config      ,ONLY: advection_config
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqm_max
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
@@ -210,6 +211,9 @@ CONTAINS
     INTEGER :: jt_end
 
     !-------------------------------------------------------------------------------------
+#if defined( _OPENACC )
+    CALL gpu_h2d_iconam_echam(patch, pt_int_state, p_metrics)
+#endif
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
@@ -260,7 +264,7 @@ CONTAINS
     !$ACC               pt_diag%pres, pt_diag%pres_ifc, pt_diag%ddt_tracer_adv,                 &
     !$ACC               pt_diag%ddt_vn_phy, pt_diag%exner_pr, pt_diag%ddt_exner_phy,            &
     !$ACC               pt_diag%exner_dyn_incr,                                                 &
-    !$ACC               pt_int_state%c_lin_e,                                                   &
+    !$ACC               pt_int_state%c_lin_e,  advection_config(jg)%trHydroMass%list,           &
     !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
     !$ACC               field%ua, field%va, field%vor, field%ta, field%tv, field%presm_old,     &
     !$ACC               field%presm_new, field%rho, field%mair, field%dz, field%mh2o,           &
@@ -982,32 +986,38 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
               tend% mtrcvi_phy(jc,   jb,jt) = tend% mtrcvi_phy(jc,   jb,jt) &
                 &                            +tend% mtrc_phy  (jc,jk,jb,jt)
               !
-              ! new tracer mass
-              field% mtrc     (jc,jk,jb,jt) = field% mtrc(jc,jk,jb,jt) &
-                &                            +tend% mtrc_phy(jc,jk,jb,jt) &
-                &                            *dt_loc
-              !
-              ! Handling of negative tracer mass coming from physics
-              !   qtrc as well as other fields are derived from mtrc.
-              !   Therefore check mtrc for negative values.
-              !
-              IF (echam_phy_config(jg)%iqneg_p2d /= 0) THEN
-                 IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
+              ! If the physics tendency is /= 0 then change the tracer mass
+              ! and optionally check and correct negative values.
+              IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
+                 !
+                 ! new tracer mass
+                 field% mtrc     (jc,jk,jb,jt) = field% mtrc(jc,jk,jb,jt) &
+                   &                            +tend% mtrc_phy(jc,jk,jb,jt) &
+                   &                            *dt_loc
+                 !
+                 ! Handling of negative tracer mass coming from physics
+                 !   qtrc as well as other fields are derived from mtrc.
+                 !   Therefore check mtrc for negative values.
+                 !
+                 IF (echam_phy_config(jg)%iqneg_p2d /= 0) THEN
+                    IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
 #ifndef _OPENACC
-                    IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                       CALL print_value('grid   index jg',jg)
-                       CALL print_value('tracer index jt',jt)
-                       CALL print_value('level  index jk',jk)
-                       CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
-                       CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
-                       CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                       CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
-                    END IF
+                       IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                          CALL print_value('grid   index jg',jg)
+                          CALL print_value('tracer index jt',jt)
+                          CALL print_value('level  index jk',jk)
+                          CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                          CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
+                          CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                          CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
+                       END IF
 #endif
-                    IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                       field% mtrc(jc,jk,jb,jt) = 0.0_wp
+                       IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                          field% mtrc(jc,jk,jb,jt) = 0.0_wp
+                       END IF
                     END IF
                  END IF
+                 !
               END IF
               !
               ! new tracer path
@@ -1122,8 +1132,22 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
               field%           qtrc   (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
                 &                                     /field%  mref(jc,jk,jb)
               !
-              pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
-                &                                     /field%  mair(jc,jk,jb)
+              IF (echam_phy_config(jg)%ldrymoist) THEN
+                 ! in this case mtrc or mair or both may have changed, and
+                 ! terefore always re-compute the tracer variable
+                 pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
+                   &                                     /field%  mair(jc,jk,jb)
+                 !
+              ELSE
+                 ! in this case mair is unchanged, and the tracer variable
+                 ! is re-computed only if the mtrc is changed due to a physical
+                 ! tendency so that changes of only numerical origin are avoided
+                 IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
+                    pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
+                      &                                     /field%  mair(jc,jk,jb)
+                 END IF
+                 !
+              END IF
               !
             END DO
           END DO
@@ -1174,41 +1198,51 @@ ENDIF
             tend% va(jc,jk,jb) = tend% va_dyn(jc,jk,jb) + tend% va_phy(jc,jk,jb)
             tend% ta(jc,jk,jb) = tend% ta_dyn(jc,jk,jb) + tend% ta_phy(jc,jk,jb)
             !
-            ! (3) Exner function and virtual potential temperature
-            !
-            ! (a) Update T, then compute Temp_v, Exner and Theta_v
-            !
-            pt_diag% temp (jc,jk,jb) =   pt_diag% temp  (jc,jk,jb)             &
-              &                        + tend%    ta_phy(jc,jk,jb) * dt_loc
-            !
-            z_qsum = pt_prog_new_rcf% tracer(jc,jk,jb,iqc) + pt_prog_new_rcf% tracer(jc,jk,jb,iqi)
-            !
-            pt_diag% tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                            &
-              &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf% tracer(jc,jk,jb,iqv) - z_qsum)
-            !
-            ! Save provisional "new" exner from the slow-physics-forced dynamics
-            z_exner = pt_prog_new% exner(jc,jk,jb)
-            !
-            ! Compute final new exner
-            pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
-            !
-            ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
-            pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
-            !
-!!$            ! (b) Update Exner, then compute Temp_v
-!!$            !
-!!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new% exner(jc,jk,jb)                 &
-!!$              &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
-!!$            pt_diag%exner_old(jc,jk,jb) = pt_diag% exner_old(jc,jk,jb)                 &
-!!$              &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
-!!$            !
-!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
-!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
-!!$            !
-            !
-            ! (a) and (b) Compute Theta_v
-            !
-            pt_prog_new% theta_v(jc,jk,  jb) = pt_diag% tempv(jc,jk,jb) / pt_prog_new% exner(jc,jk,jb)
+            ! Re-compute new exner, tempv and theta_v only if physics tendencies
+            ! of temperature and water traces are non-zero in order to avoid
+            ! purely numerical changes.
+            IF (      tend% ta_phy   (jc,jk,jb)     /= 0.0_wp &
+               & .OR. tend% mtrc_phy (jc,jk,jb,iqv) /= 0.0_wp &
+               & .OR. tend% mtrc_phy (jc,jk,jb,iqc) /= 0.0_wp &
+               & .OR. tend% mtrc_phy (jc,jk,jb,iqi) /= 0.0_wp ) THEN
+               !
+               ! (3) Exner function and virtual potential temperature
+               !
+               ! (a) Update T, then compute Temp_v, Exner and Theta_v
+               !
+               pt_diag% temp (jc,jk,jb) =   pt_diag% temp  (jc,jk,jb)             &
+                 &                        + tend%    ta_phy(jc,jk,jb) * dt_loc
+               !
+               z_qsum = SUM(pt_prog_new_rcf%tracer(jc,jk,jb,advection_config(jg)%trHydroMass%list))
+               !
+               pt_diag% tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                            &
+                 &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf% tracer(jc,jk,jb,iqv) - z_qsum)
+               !
+               ! Save provisional "new" exner from the slow-physics-forced dynamics
+               z_exner = pt_prog_new% exner(jc,jk,jb)
+               !
+               ! Compute final new exner
+               pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
+               !
+               ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+               pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
+               !
+!!$               ! (b) Update Exner, then compute Temp_v
+!!$               !
+!!$               pt_prog_new%exner(jc,jk,jb) = pt_prog_new% exner(jc,jk,jb)                 &
+!!$                 &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
+!!$               pt_diag%exner_old(jc,jk,jb) = pt_diag% exner_old(jc,jk,jb)                 &
+!!$                 &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
+!!$               !
+!!$               pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
+!!$                 &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
+!!$               !
+               !
+               ! (a) and (b) Compute Theta_v
+               !
+               pt_prog_new% theta_v(jc,jk,  jb) = pt_diag% tempv(jc,jk,jb) / pt_prog_new% exner(jc,jk,jb)
+               !
+            END IF
             !
             ! Set physics forcing to zero so that it is not re-applied in the dynamical core
             pt_diag% ddt_exner_phy(jc,jk,jb) = 0._wp

@@ -773,7 +773,7 @@ MODULE mo_nonhydro_state
         !QG
         IF ( iqg /= 0 ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
+            &           TRIM(vname_prefix)//'qg'//suffix, p_prog%tracer_ptr(iqg)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
             &           t_cf_var(TRIM(vname_prefix)//'qg',                             &
             &            'kg kg-1','graupel_mixing_ratio', datatype_flt),              &

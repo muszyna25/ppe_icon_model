@@ -304,21 +304,27 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          !$ACC DATA PRESENT( field%ta, field%ua, field%va )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO jk = 1, nlev
-            !$ACC LOOP GANG VECTOR
-            DO jc = jcs, jce
-              field% ta(jc,jk,jb) = field% ta(jc,jk,jb) + tend_ta_gwd(jc,jk)*pdtime
-              field% ua(jc,jk,jb) = field% ua(jc,jk,jb) + tend_ua_gwd(jc,jk)*pdtime
-              field% va(jc,jk,jb) = field% va(jc,jk,jb) + tend_va_gwd(jc,jk)*pdtime
-            END DO
-          END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-       END IF
+       SELECT CASE(fc_gwd)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             !$ACC DATA PRESENT( field%ta, field%ua, field%va )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP SEQ
+             DO jk = 1, nlev
+               !$ACC LOOP GANG VECTOR
+               DO jc = jcs, jce
+                 field% ta(jc,jk,jb) = field% ta(jc,jk,jb) + tend_ta_gwd(jc,jk)*pdtime
+                 field% ua(jc,jk,jb) = field% ua(jc,jk,jb) + tend_ua_gwd(jc,jk)*pdtime
+                 field% va(jc,jk,jb) = field% va(jc,jk,jb) + tend_va_gwd(jc,jk)*pdtime
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+          END IF
+       END SELECT
        !
        !$ACC END DATA
        !
