@@ -211,9 +211,6 @@ CONTAINS
     INTEGER :: jt_end
 
     !-------------------------------------------------------------------------------------
-#if defined( _OPENACC )
-    CALL gpu_h2d_iconam_echam(patch, pt_int_state, p_metrics)
-#endif
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
