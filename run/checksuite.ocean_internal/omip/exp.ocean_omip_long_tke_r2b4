@@ -6,17 +6,19 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-11T00:00:00Z"
+  end_date="2024-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
+restart_interval="P1Y"
+checkpoint_interval="P1Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
 output_interval="P1M"                  # ocean model output interval in days
 daily="P1D"
 monthly="P1M"
-file_interval="P50Y"
+file_interval="P1Y"
 modelTimeStep="PT1H"
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
@@ -64,7 +66,8 @@ cat > ${ocean_namelist} << EOF
   output_filename  = "${EXPNAME}"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
+  output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
   operation        = "mean"
   file_interval    = "${file_interval}"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -74,36 +77,9 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
 /
 &output_nml
-  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_inst"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
-  file_interval    = "${file_interval}"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  include_last     = .false.
-  output_grid      = .TRUE.
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
-/
-&output_nml
-  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_max"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
-  operation        = "max"
-  file_interval    = "${file_interval}"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  include_last     = .false.
-  output_grid      = .TRUE.
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'mld'
-/
-&output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "${daily}"
+  output_interval  = "${monthly}"
   filename_format  = "<output_filename>_<datetime2>"
   output_grid      = .true.
   operation        = "mean"
@@ -115,7 +91,7 @@ cat > ${ocean_namelist} << EOF
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "${daily}"
+  output_interval  = "${monthly}"
   filename_format  = "<output_filename>_<datetime2>"
   output_grid      = .true.
   operation        = "mean"
@@ -136,6 +112,21 @@ cat > ${ocean_namelist} << EOF
   mode             =  1
   include_last     = .false.
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
+/
+&output_nml
+  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_tke"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${monthly}"
+  filename_format  = "<output_filename>_<datetime2>"
+  operation        = 'mean'
+  file_interval    = "${file_interval}"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'group:oce_cvmix_tke', 'group:oce_physics'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -180,7 +171,7 @@ cat > ${ocean_namelist} << EOF
   fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
   fct_high_order_flux   = 5      ! horizontal high order method: 1=upwind, 2=central, 3=lax_friedrichs, 4=miura_order1
   fct_limiter_horz      = 100    ! zalesak
-  threshold_min_T       = -2.0   ! to avoid abort
+  threshold_min_T       = -4.0   ! to avoid abort
 /
 &ocean_horizontal_diffusion_nml
   laplacian_form = 1                   ! 1=curlcurl-graddiv
@@ -197,8 +188,8 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
-  vert_mix_type                            = 1  ! 1: PP; 2: TKE
-  PPscheme_type                            = 4
+  vert_mix_type                            = 2  ! 1: PP; 2: TKE
+  PPscheme_type                            = 0
   velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
   Salinity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
@@ -212,6 +203,20 @@ cat > ${ocean_namelist} << EOF
   lambda_wind                     = 0.03
   tracer_TopWindMixing            = 1.0E-5
   velocity_TopWindMixing          = 1.0E-5
+  ! cvmix/tke parameters
+  c_k        = 0.1
+  c_eps      = 0.7
+  alpha_tke  = 30.0
+  mxl_min    = 1.d-8
+  kappaM_min = 0.0
+  kappaM_max = 100.0
+  cd         = 3.75
+  tke_min    = 1.d-6
+  tke_mxl_choice = 2                                                              
+  tke_surf_min = 1.d-4
+  only_tke = .true.                                                               
+  use_ubound_dirichlet = .false.                                                  
+  use_lbound_dirichlet = .false. 
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -269,14 +274,8 @@ cat > ${ocean_namelist} << EOF
   limit_seaice                    = .TRUE.    ! default: true
   seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
-  atm_pressure_included_in_ocedyn = .TRUE.   ! use atm. pressure in the ocean dynamics
-  atm_pressure_included_in_icedyn = .TRUE.   ! use atm. pressure in the ice dynamics
-
-  lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
-  jerlov_atten                    = 0.08      ! jerlov water type IB
-  jerlov_bluefrac                 = 0.36      ! jerlov water type IB
-/
-
+  atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
+  atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file
@@ -309,22 +308,11 @@ EOF
 
 
 #-----------------------------------------------------------------------------
-. ${thisdir}/add_required_ocean_files
-#-----------------------------------------------------------------------------
-. ${thisdir}/exec.iconrun
-#-----------------------------------------------------------------------------
-#  compare with reference
-if [[ x$BB_SYSTEM != x ]]; then
-  rm -f ${final_status_file}
-. ${thisdir}/postFunx.sh
-  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
-  cd ${dataPath}
-  slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
-  refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}
+# add standard atmo_non-hydrostatic_files
+#. ${thisdir}/add_required_ocean_files
 
-  directoryDiff ${refDir} .
-  check_final_status $? "DIFFCHECK for exp: ${EXPNAME}"
-  cd -
-fi
+add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OceanOnly_Icos_0158km_etopo40-40levels.nc initial_state.nc
+add_link_file $ocean_data_InputFolder/omipForcing-mpiomDaily-OceanOnly_Icos_0158km_etopo40.nc ocean-flux.nc
+add_link_file $ocean_data_InputFolder/omipRelaxSurface-OceanOnly_Icos_0158km_etopo40.nc ocean-relax.nc
 
-exit
+#-----------------------------------------------------------------------------

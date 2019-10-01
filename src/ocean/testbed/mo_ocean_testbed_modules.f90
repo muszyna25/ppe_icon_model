@@ -899,7 +899,8 @@ CONTAINS
       !---------------------------------------------------------------------
 
       if (jstep == jstep0 ) &
-        & CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, physics_parameters, operators_coefficients)
+        & CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, &
+        & physics_parameters, operators_coefficients, p_atm_f)
 
       !------------------------------------------------------------------------
       ! solve for new free surface

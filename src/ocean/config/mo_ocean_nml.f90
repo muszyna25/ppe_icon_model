@@ -414,6 +414,10 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER  :: PPscheme_ICON_Edge_vnPredict_type = 4
   INTEGER  :: PPscheme_type = PPscheme_MPIOM_type
 
+  INTEGER, PARAMETER :: vmix_pp  = 1
+  INTEGER, PARAMETER :: vmix_tke = 2
+  INTEGER  :: vert_mix_type = vmix_pp  ! 1: PP; 2: TKE ! by_nils
+
   REAL(wp) :: tracer_convection_MixingCoefficient        = 0.1_wp     ! convection diffusion coefficient for tracer, used in PP scheme
   REAL(wp) :: convection_InstabilityThreshold            = -5.0E-8_wp ! used in PP scheme
   REAL(wp) :: RichardsonDiffusion_threshold              =  5.0E-8_wp ! used in PP scheme
@@ -467,6 +471,20 @@ MODULE mo_ocean_nml
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   INTEGER  :: LeithViscosity_SmoothIterations = 0
   REAL(wp) :: LeithViscosity_SpatialSmoothFactor = 0.5_wp
+  ! cvmix_tke parameters ! by_nils
+  REAL(wp) :: c_k = 0.1_wp
+  REAL(wp) :: c_eps = 0.7_wp
+  REAL(wp) :: alpha_tke = 30.0_wp
+  REAL(wp) :: mxl_min = 1.E-8_wp 
+  REAL(wp) :: kappaM_min = 0.0_wp
+  REAL(wp) :: kappaM_max = 100.0_wp
+  REAL(wp) :: cd = 3.75_wp
+  REAL(wp) :: tke_min = 1.E-6_wp
+  INTEGER  :: tke_mxl_choice = 2
+  REAL(wp) :: tke_surf_min = 1.E-4_wp
+  LOGICAL  :: only_tke = .true.
+  LOGICAL  :: use_ubound_dirichlet = .false.
+  LOGICAL  :: use_lbound_dirichlet = .false.
 
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
@@ -512,6 +530,7 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_vertical_diffusion_nml/&
     &  PPscheme_type               ,&         !2=as in MPIOM, 4=used for higher resolutions
+    &  vert_mix_type               ,&         !1: PP; 2: TKE ! by_nils
     &  VerticalViscosity_TimeWeight,&         ! timeweight of the vertical viscosity calculated from the previous velocity (valid only with PPscheme_type=4)
     &  Temperature_VerticalDiffusion_background, &
     &  Salinity_VerticalDiffusion_background,    &
@@ -528,7 +547,21 @@ MODULE mo_ocean_nml
     &  velocity_TopWindMixing,      &
     &  tracer_convection_MixingCoefficient ,    &
     &  convection_InstabilityThreshold, &
-    &  RichardsonDiffusion_threshold
+    &  RichardsonDiffusion_threshold, &
+    ! cvmix_tke parameters ! by_nils
+    &  c_k,                         &
+    &  c_eps,                       &
+    &  alpha_tke,                   &
+    &  mxl_min,                     &
+    &  kappaM_min,                  &
+    &  kappaM_max,                  &
+    &  cd,                          &
+    &  tke_min,                     &
+    &  tke_mxl_choice,              &
+    &  tke_surf_min,                &
+    &  only_tke,                    &
+    &  use_ubound_dirichlet,        &
+    &  use_lbound_dirichlet!,        &
 
   !Parameters for GM-Redi configuration
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization

@@ -404,7 +404,8 @@ CONTAINS
 
         !---------------------------------------------------------------------
 
-        CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+        CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param,&
+          & operators_coefficients, p_atm_f)
 
         !------------------------------------------------------------------------
         IF (debug_check_level > 5) THEN
