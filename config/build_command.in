@@ -97,7 +97,7 @@ then
             then
                 module_swap $current_prgenv $mod
             fi
-            module unload $mod
+            module unload ${mod%%/*}
             module load $mod        
         done
     else
@@ -120,6 +120,11 @@ then
     echo Modules loaded for compiling
     echo
     module list
+    echo
+    if [[ ! -z $CRAY_LD_LIBRARY_PATH ]]
+    then
+	export LD_LIBRARY_PATH=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
+    fi
     echo
     echo "______________________________________________________________________"
     echo

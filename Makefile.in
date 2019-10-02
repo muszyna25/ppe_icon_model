@@ -81,6 +81,10 @@ AS             = @AS@
 
 CC             = @CC@
 CFLAGS         = $(INCLUDE) @CFLAGS@
+
+NVCC           = @NVCC@
+NVCFLAGS       = @NVCFLAGS@
+
 FC             = @FC@
 FFLAGS         = $(INCLUDES) @MODDIR@ @FFLAGS@
 FlibFLAGS      = $(INCLUDES) @MODDIR@ @FlibFLAGS@
@@ -154,7 +158,7 @@ distclean:
 	-rm config.log
 	-rm config.status
 	-rm config/config.h
-	-rm config/mh-config-use
+	-rm -f config/mh-config-use
 	-rm config/set-up.info
 	-rm -rf doc/html
 	-rm -rf doc/latex

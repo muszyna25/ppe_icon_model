@@ -147,9 +147,16 @@ case "$fortran_compiler" in
         ;;
     pgi*)
         config_compiler  = pgi
-        compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')
+	# CRAY is using a wrapper for compilers. The wrapper is called ftn. PGI's compiler is called pgfortran.
+        if [ -z ${CRAYPE_VERSION} ]
+        then
+            compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')            
+            FC               = pgfortran
+	else
+            compiler_version = $(ftn -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')            
+            FC               = ftn
+        fi
         CFLAGS      = $CFLAGS -DgFortran
-        FC          = pgfortran
         FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk
        # FFLAGS      = -O $GEN_FLAGS $FDEBUG -Mpreprocess -Mrecursive -Mstandard  -D__LOOP_EXCHANGE
         FFLAGS      = -O $FDEBUG -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
@@ -216,7 +223,7 @@ case "$ac_sitename" in
         case "$HOST" in
             *daint*|*dom*)
                 make_command = make -j 8
-                load_profile = /opt/modules/default/etc/modules.sh
+#LK                load_profile = /opt/modules/default/etc/modules.sh
                 submit       = sbatch
                 sync_submit  = sbatch --wait
                 CC = cc
@@ -332,10 +339,10 @@ case "$ac_sitename" in
                         #FFLAGS      = -O $FDEBUG -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         FFLAGS      = -g -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         F77FLAGS    = $FFLAGS
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -g -O2
                         SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/serialbox2_v2.4.3/pgi_18.10
                         SERIALBOX2_LIB = -L\$(SERIALBOX2ROOT)/lib -lSerialboxFortran -L${GCC_PATH}/snos/lib64/ -lstdc++fs -lstdc++
-                        OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma
+                        OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma -lstdc++
                         LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
                         LAPACK_LIB  = -llapack -lblas
                         config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
@@ -343,24 +350,26 @@ case "$ac_sitename" in
                         case "${config_tuning}" in
                             gpu*)
                                 config_target = daint_gpu
-                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda9.1 -Minfo=accel,inline -Mcuda
-                                LDFLAGS       = -ta=nvidia:cc60,cuda9.1 -Mcuda -Mnorpath
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda9.2 -Minfo=accel,inline
+                                LDFLAGS       = -ta=nvidia:cc60,cuda9.2
                                 ;;
                             *)
                                 config_target = daint_cpu
                                 FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
-                                LDFLAGS       = -tp=haswell -Mnorpath -dynamic
+                                LDFLAGS       = -tp=haswell -dynamic
                                 ;;
                         esac
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.08 PrgEnv-pgi/6.0.5 pgi-icon/19.5.0 cray-mpich cray-netcdf cray-hdf5 
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
                             gpu*)
-                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.08 PrgEnv-pgi/6.0.5 pgi-icon/19.5.0 cray-mpich cray-netcdf cray-hdf5 cudatoolkit/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
+                                NVCC        = nvcc
+				NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
@@ -444,7 +453,7 @@ case "$ac_sitename" in
                 ;;
             *tave*)
                 make_command = make -j 8
-                load_profile = /opt/modules/default/etc/modules.sh
+#                load_profile = /opt/modules/default/etc/modules.sh
                 submit       = sbatch
                 CC = cc
                 FC = ftn
@@ -1233,44 +1242,6 @@ case "$ac_sitename" in
                 make_command  = make -j 2
                 submit        =
                 case "$dist_codename" in
-                    *jessie*)
-                        load_modules = ncl/6.3.0-nodap-precompiled cdo/1.7.1-gcc52 python/2.7-ve6 ${load_modules}   
-                        ZLIBROOT     = /usr
-                        SZIPROOT     = $software_tree/szip-2.1-static-gccsys
-                        NETCDFFROOT  = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
-                        NETCDFROOT   = $software_tree/netcdf-4.3.3.1-static-gccsys
-                        HDF5ROOT     = $software_tree/hdf5-1.8.16-static-gccsys
-                        GRIBAPIROOT  = $software_tree/grib_api-1.14.3-static-${compiler_version}
-                        SYS_LIBS     = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
-                        SYS_LIBS     = -ljasper -ljpeg $SYS_LIBS
-                        OTHER_LIBS   = -ljasper -ljpeg -lm -ldl -lrt -lutil -lpthread -lpciaccess
-                        XML2ROOT     = /usr
-                        case "$fortran_compiler" in
-                            default|gcc)
-                                load_modules=gcc/5.2.0 ${load_modules}
-                                MPIROOT = $software_tree/mpi/openmpi-1.10.3-static-${compiler_version}
-                                MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $SYS_LIBS
-                                LDFLAGS = $LDFLAGS $SYS_LIBS
-                                ;;
-                            nag)
-                                load_modules=gcc/5.2.0 nag/6.0.1064 ${load_modules}
-                                FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
-                                CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
-                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl $SYS_LIBS
-                                MPIROOT = $software_tree/mpi/mpich-3.2-static-${compiler_version}
-                                MPI_LIB = -lmpifort -lmpi $SYS_LIBS
-                                ;;
-                            intel)
-                                load_modules=intel/16.0.2 ${load_modules}
-                                MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
-                                MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
-                                LDFLAGS = $LDFLAGS $SYS_LIBS
-                                HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                                CC_OMPFLAG  = -fopenmp
-                                ;;
-                        esac
-                        ;;
-
                     *stretch*)
                         load_modules = cdo/1.9.6-gccsys python/2.7.14-stable ${load_modules}
                         ZLIBROOT     = /usr
