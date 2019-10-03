@@ -627,6 +627,7 @@ ac_includes_default="\
 enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+use_ld_library_path
 use_flags_group
 use_shell
 sync_submit
@@ -655,8 +656,10 @@ LIB
 F77FLAGS
 FlibFLAGS
 FFLAGS
+NVCFLAGS
 ARFLAGS
 F77
+NVCC
 AS
 AR
 OTHER_LIBS
@@ -779,6 +782,7 @@ enable_ocean
 enable_testbed
 enable_psrad
 enable_mixed
+enable_gpu
 enable_serialization
 enable_mh_file
 with_fortran
@@ -1437,6 +1441,7 @@ Optional Features:
   --enable-testbed        Use testbed component.
   --enable-psrad          Use psrad model component.
   --enable-mixed          Use mixed precision dycore.
+  --enable-gpu            Use GPU accelerators.
   --enable-serialization  Enable Serialbox2 serialization. Three modes are
                           available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
@@ -2673,6 +2678,14 @@ else
 fi
 
 
+# Check whether --enable-gpu was given.
+if test "${enable_gpu+set}" = set; then :
+  enableval=$enable_gpu;
+else
+  enable_gpu=no
+fi
+
+
 
 # Check whether --enable-serialization was given.
 if test "${enable_serialization+set}" = set; then :
@@ -2926,7 +2939,7 @@ EOF
           if test -z "$CONFIG_SHELL"; then :
   CONFIG_SHELL=$SHELL
 fi
-          load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
+          load_profile=$($CONFIG_SHELL -c '. ./conftest; echo "$load_profile"')
           /bin/rm -f confsed conftest
 
        if test ! -z "$load_profile" ; then :
@@ -2988,7 +3001,7 @@ EOF
           if test -z "$CONFIG_SHELL"; then :
   CONFIG_SHELL=$SHELL
 fi
-          load_profile=$($CONFIG_SHELL -c '. ./conftest; echo "$load_profile"')
+          load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
           /bin/rm -f confsed conftest
 
        if test ! -z "$load_modules" ; then :
@@ -7026,6 +7039,8 @@ AS=$AS
 
 CC=$CC
 
+NVCC=$NVCC
+
 FC=$FC
 
 F77=$F77
@@ -7035,6 +7050,8 @@ ARFLAGS=$ARFLAGS
 
 
 CFLAGS=$CFLAGS
+
+NVCFLAGS=$NVCFLAGS
 
 FFLAGS=$FFLAGS
 
@@ -7391,6 +7408,13 @@ sync_submit=$sync_submit
 use_shell=$use_shell
 
 use_flags_group=$use_flags_group
+
+
+if test ! -z $CRAY_LD_LIBRARY_PATH; then :
+  use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
+fi
+
+use_ld_library_path=$use_ld_library_path
 
 
 ac_config_files="$ac_config_files config/set-up.info"
@@ -8102,6 +8126,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
                     enable_jsbach="${enable_jsbach}"
                     enable_rte_rrtmgp="${enable_rte_rrtmgp}"
                     enable_testbed="${enable_testbed}"
+                    enable_gpu="${enable_gpu}"
                     enable_serialization="${enable_serialization}"
                     my_preprocess_command='${my_preprocess_command}'
 
@@ -8712,6 +8737,7 @@ fi
                                               --enable_jsbach="${enable_jsbach}" \
                                               --enable_rte_rrtmgp="${kernel_type}" \
                                               --enable_testbed="${enable_testbed}" \
+					      --enable_gpu="${enable_gpu}" \
                                               --enable_serialization="${enable_serialization}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}" ;;
@@ -8914,6 +8940,21 @@ if test -n "$CROSS" ; then
    fi
 fi
 
+
+if test "x$enable_gpu" != "xno"; then :
+
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+       $as_echo '!!                                                            !!'
+       case "$enable_gpu" in #(
+  "yes") :
+    $as_echo "!!      GPU compiling is enabled: nvcc is required!           !!" ;; #(
+  *) :
+     ;;
+esac
+       $as_echo '!!                                                            !!'
+       $as_echo '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
+fi
 
 if test "x$enable_serialization" != "xno"; then :
 
