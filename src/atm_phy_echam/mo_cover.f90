@@ -193,9 +193,9 @@ CONTAINS
           !$ACC PARALLEL DEFAULT(PRESENT)
           !$ACC LOOP GANG VECTOR PRIVATE( zcor )
           DO jl = jcs,kproma
-             zpapm1i(jl)  = SWDIV_NOCHK(1._wp,papm1(jl,jk))
-             zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i(jl),0.5_wp)
-             zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
+             zpapm1i      = SWDIV_NOCHK(1._wp,papm1(jl,jk))
+             zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i,0.5_wp)
+             zcor         = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
              zqsm1(jl,jk) = zqsm1(jl,jk)*zcor       ! qsat
           END DO
           !$ACC END PARALLEL
