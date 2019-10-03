@@ -128,7 +128,6 @@ CONTAINS
     ! Shortcuts to components of echam_cld_config
     !
     INTEGER          :: jc, jb, jg
-    INTEGER, POINTER :: ighg, isolrad, irad_o3, irad_aero
     TYPE(t_echam_phy_field) , POINTER    :: field
     !
 #ifdef _OPENACC
