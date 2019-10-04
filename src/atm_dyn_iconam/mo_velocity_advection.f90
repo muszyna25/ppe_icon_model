@@ -758,15 +758,11 @@ MODULE mo_velocity_advection
     i_startblk = p_patch%cells%start_block(grf_bdywidth_c)
     i_endblk   = p_patch%cells%end_block(min_rlcell_int)
 
-! DA next line not needed, vcflmax already on cpu
-! TODO: test this
-! !$ACC UPDATE HOST( vcflmax ), IF( i_am_accel_node .AND. acc_on )   ! MAXVAL not properly implemented in OpenACC; perform on host
+    ! DA: vcflmax already on cpu
     max_vcfl_dyn = MAX(p_diag%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
 
-! DA This is also on the CPU, should just stay there
-! !$ACC KERNELS DEFAULT(PRESENT), IF( i_am_accel_node .AND. acc_on )
+    ! DA: This is also on the CPU, should just stay there
     p_diag%max_vcfl_dyn = max_vcfl_dyn
-! !$ACC END KERNELS
 
 !$ACC END DATA
 
