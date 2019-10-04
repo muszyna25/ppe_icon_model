@@ -401,6 +401,7 @@ CONTAINS
        !
     END SELECT
     !$ACC END DATA
+    !$ACC WAIT
     !
     !
   END SUBROUTINE cover
