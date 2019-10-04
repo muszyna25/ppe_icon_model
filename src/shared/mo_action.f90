@@ -238,8 +238,6 @@ CONTAINS
 
     ! set nvars
     act_obj%nvars = nvars
-print *, "tvpham: actionTyp = ", actionTyp
-print *, "tvpham: nvars = ", nvars
 
 
     IF (msg_level >= 11) THEN
