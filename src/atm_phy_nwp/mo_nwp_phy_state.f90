@@ -478,7 +478,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & initval=0._wp, resetval=0._wp,                             &
                 & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
 
-
     ! &      diag%rain_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp0', 'kg m-2 ', 'gridscale rain0', datatype_flt)
     grib2_desc = grib2_var(0, 1, 77, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -502,7 +501,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
                 & initval=0._wp, resetval=0._wp,                             &
                 & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
-
 
     ! &      diag%snow_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_gsp0', 'kg m-2 ', 'gridscale snow0', datatype_flt)
@@ -529,7 +527,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
                   & initval=0._wp, resetval=0._wp,                             &
                   & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
-
     ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
@@ -562,7 +559,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & initval=0._wp, resetval=0._wp,                             &
                   & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
 
-
     END SELECT
 
     ! &      diag%prec_gsp(nproma,nblks_c)
@@ -580,6 +576,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
 
 
+
     ! &      diag%rain_con(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con', 'kg m-2 ', 'convective rain', datatype_flt)
     grib2_desc = grib2_var(0, 1, 76, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -592,7 +589,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
                 & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
-
 
     ! &      diag%rain_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con0', 'kg m-2 ', 'convective rain0', datatype_flt)
@@ -617,7 +613,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
                 & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
-
 
     ! &      diag%snow_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con0', 'kg m-2', 'convective snow0', datatype_flt)
@@ -675,7 +670,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
                 & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
-
 
     ! &      diag%prec_gsp_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('prec_gsp_rate_avg', 'kg m-2 s-1',                  &

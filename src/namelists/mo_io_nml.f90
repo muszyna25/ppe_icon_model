@@ -98,6 +98,7 @@ CONTAINS
     CHARACTER(len=max_timedelta_str_len) :: tot_prec_interval(max_dom) ! time interval over which tot_prec is accumulated
     CHARACTER(len=max_timedelta_str_len) :: mxt_interval(max_dom)      ! time interval for tmax_2m and tmin_2m 
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
+
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
     INTEGER :: inextra_3d                 ! number of extra output fields for debugging
     LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated
