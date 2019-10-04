@@ -18,6 +18,8 @@ MODULE mo_index_list
     MODULE PROCEDURE generate_index_list_i4
   END INTERFACE
 
+! Warning: there will be no GPU -> CPU copy here, array of NUMBER
+!  of indices will ONLY be on the GPU!!
   INTERFACE generate_index_list_batched
     MODULE PROCEDURE generate_index_list_batched_i1
     MODULE PROCEDURE generate_index_list_batched_i4

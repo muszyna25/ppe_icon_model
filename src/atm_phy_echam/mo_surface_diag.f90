@@ -21,6 +21,7 @@ MODULE mo_surface_diag
   USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_echam_phy_memory,  ONLY: cdimissval
+  USE mo_index_list,        ONLY: generate_index_list_batched
 
 
   IMPLICIT NONE
@@ -511,7 +512,7 @@ CONTAINS
 
     ! Local variables
 
-    INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
+    INTEGER  :: loidx  (kbdim,ksfc_type), icond  (kbdim,ksfc_type) !< counter for masks
     INTEGER  :: is     (ksfc_type)       !< counter for masks
     INTEGER  :: jls, jl, jsfc, js
     REAL(wp)     :: zhuv, zhtq, zephum, zc2es, zc3les, zc3ies, zc4les, zc4ies
@@ -532,7 +533,7 @@ CONTAINS
     !$ACC               pdew2_gbm, pdew2_tile, puas_gbm, puas_tile, pvas_gbm,  &
     !$ACC               pvas_tile )                                            &
     !$ACC      PCREATE( zh2m, zqs1, zrh2m, zcvm3, zcvm4, zaph2m, zqs2, zq2m,   &
-    !$ACC               zfrac, ua, is, loidx )
+    !$ACC               zfrac, ua, is, loidx, icond )
 
     !CONSTANTS
     zhuv          =  10._wp ! 10m
@@ -561,20 +562,15 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    ! GPU: Compute index list on CPU due to issues with ACC ATOMIC
-    !$ACC UPDATE HOST( pfrc )
+    !$ACC PARALLEL LOOP DEFAULT(PRESENT)
     DO jsfc = 1,ksfc_type
-      ! check for masks
-      !
-      is(jsfc) = jcs-1
       DO jl = jcs,kproma
-        IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-          is(jsfc) = is(jsfc) + 1
-          loidx(is(jsfc),jsfc) = jl
-        ENDIF
+        icond(jl,jsfc) = MERGE(1, 0, pfrc(jl,jsfc).GT.0.0_wp)
       ENDDO
     ENDDO
-    !$ACC UPDATE DEVICE( is, loidx )
+
+    CALL generate_index_list_batched(icond(jcs:,:), loidx(jcs:,:), jcs, kproma, is, 1)
+    !$ACC UPDATE WAIT SELF(is)
 
     !     Compute new t2m
     !
