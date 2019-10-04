@@ -248,7 +248,7 @@ INTEGER :: i_startblk      ! start block
 INTEGER :: i_endblk        ! end block
 INTEGER :: i_startidx      ! start index
 INTEGER :: i_endidx        ! end index
-INTEGER :: rl_start, rl_end, i_nchdom
+INTEGER :: rl_start, rl_end, i_nchdom, jk0, jkk
 
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
@@ -302,16 +302,24 @@ DO jb = i_startblk, i_endblk
                      i_startidx, i_endidx, rl_start, rl_end)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-  !$ACC LOOP GANG
+#ifndef _OPENACC
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
-    !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
 !CDIR UNROLL=2
   DO jk = slev, elev
-    !$ACC LOOP VECTOR
     DO jc = i_startidx, i_endidx
+#endif
+! _OPENACC
+#else
+  !$ACC LOOP GANG VECTOR COLLAPSE(2)
+  DO jk0 = slev, elev, 2
+    DO jc = i_startidx, i_endidx
+      !$ACC LOOP SEQ
+      do jkk = 0, 1
+        jk = jk0 + jkk
+        if (jk > elev) cycle
 #endif
 
       p_u_out(jc,jk,jb) =  &
@@ -334,6 +342,10 @@ DO jb = i_startblk, i_endblk
         ptr_coeff(7,2,jc,jb)*p_vn_in(iidx(7,jc,jb),jk,iblk(7,jc,jb)) + &
         ptr_coeff(8,2,jc,jb)*p_vn_in(iidx(8,jc,jb),jk,iblk(8,jc,jb)) + &
         ptr_coeff(9,2,jc,jb)*p_vn_in(iidx(9,jc,jb),jk,iblk(9,jc,jb))
+
+#ifdef _OPENACC
+      ENDDO
+#endif
 
     ENDDO
   ENDDO
