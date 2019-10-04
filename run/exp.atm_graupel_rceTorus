@@ -18,13 +18,6 @@ author_list="Tobias Becker, Rene Redler, Monika Esch, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (0) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
-
-#--------------------------------------------------------------------------------------------------
-
 # (1) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'

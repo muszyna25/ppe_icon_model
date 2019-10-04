@@ -18,7 +18,7 @@ author_list="Helmuth Haak, Rene Redler, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (0) Basic model configuration
+# (1) Basic model configuration
 # -----------------------------
 
 ocean_gridID="0014"
@@ -31,17 +31,10 @@ initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 #--------------------------------------------------------------------------------------------------
 #
-# (1) Define the model time stepping
+# (2) Define the model time stepping
 # ----------------------------------
 
 oceTimeStep="PT60M"              # ocean time step:   24 time steps per day
-
-#--------------------------------------------------------------------------------------------------
-
-# (2) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
 
 #--------------------------------------------------------------------------------------------------
 

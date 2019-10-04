@@ -18,7 +18,7 @@ author_list="Monika Esch, Marco Giorgetta, Rene Redler, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (0) Basic model configuration
+# (1) Basic model configuration
 # -----------------------------
 #
 atmos_gridID="0013"
@@ -29,19 +29,12 @@ nproma_atm=16
 #
 #--------------------------------------------------------------------------------------------------
 #
-# (1) Define the model time stepping
+# (2) Define the model time stepping
 # ----------------------------------
 
 radTimeStep="PT90M"              # radiation time step:    16 time steps per day
 atmTimeStep="PT15M"              # atmosphere time step:   96 time steps per day
                                  #                          3 time steps per radTimeStep
-#--------------------------------------------------------------------------------------------------
-
-# (2) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
-
 #--------------------------------------------------------------------------------------------------
 
 # (3) icon_data_poolFolder

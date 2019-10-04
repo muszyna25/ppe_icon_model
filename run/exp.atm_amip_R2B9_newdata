@@ -18,9 +18,7 @@ author_list="Thorsten Mauritsen, Rene Redler, Monika Esch, Marco Giorgetta, MPIM
 #
 #--------------------------------------------------------------------------------------------------
 
-#--------------------------------------------------------------------------------------------------
-
-# (0) Variables provided by the scripting mechanism
+# (1) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
@@ -29,7 +27,7 @@ author_list="Thorsten Mauritsen, Rene Redler, Monika Esch, Marco Giorgetta, MPIM
 
 #--------------------------------------------------------------------------------------------------
 
-# (1) Basic model configuration
+# (2) Basic model configuration
 
 atmos_gridID="0015"
 atmos_refinement="R02B09"
@@ -37,11 +35,6 @@ ifs2icon_refinement="R2B09"
 
 # set nproma default for production
 nproma_atm=96
-
-# (2) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
 
 #--------------------------------------------------------------------------------------------------
 

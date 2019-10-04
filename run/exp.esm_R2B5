@@ -64,7 +64,7 @@ author_list="Monika Esch & Rene Redler"
 
 #--------------------------------------------------------------------------------------------------
 
-# (0) Basic model configuration
+# (1) Basic model configuration
 # -----------------------------
 
 initialiseOcean="fromRestart"
@@ -85,7 +85,7 @@ mpi_oce_nodes=1                    # nodes for the ocean model
 
 #--------------------------------------------------------------------------------------------------
 
-# (1) Define the model time stepping
+# (2) Define the model time stepping
 # ----------------------------------
 
 radTimeStep="PT1H"               # radiation time step:    12 time steps per day
@@ -95,13 +95,6 @@ atmTimeStep="PT6M"               # atmosphere time step:  240 time steps per day
 oceTimeStep="PT30M"              # ocean time step:        24 time steps per day
                                  #                          1 time step  per couplingTimeStep
 couplingTimeStep="PT30M"         # coupling time step:      2 time steps per radTimeStep 
-
-#--------------------------------------------------------------------------------------------------
-
-# (2) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
 
 #--------------------------------------------------------------------------------------------------
 
