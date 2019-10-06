@@ -95,6 +95,7 @@ then
         do
             if [ "${mod%%-*}" = "PrgEnv" ]
             then
+                export PATH=$CRAY_BINUTILS_BIN:$PATH
                 module_swap $current_prgenv $mod
             fi
             module unload ${mod%%/*}

@@ -165,11 +165,6 @@ CONTAINS
        !$ACC END PARALLEL
        !$ACC END DATA
 
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU host synchronization should be removed when port is done!')
-#endif
-       ! satad_v_3D is not yet ported.
-       !$ACC UPDATE HOST(xlta, xlqv, xlqc)
       !!-------------------------------------------------------------------------
       !> Initial saturation adjustment (a second one follows at the end of the microphysics)
       !!-------------------------------------------------------------------------
@@ -187,10 +182,6 @@ CONTAINS
               & klo      = jkscov                         ,& !> IN
               & kup      = nlev                            & !> IN
               )
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU device synchronization should be removed when port is done!')
-#endif
-       !$ACC UPDATE DEVICE(xlta, xlqv, xlqc)
 !
     !$ser verbatim call serialize_mig_after_satad1(jg, jb, jcs, jce, nproma, nlev, field,&
     !$ser verbatim        xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc,&
@@ -230,10 +221,6 @@ CONTAINS
     !$ser verbatim      & xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc,&
     !$ser verbatim      & zqrsflux)
 
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU host synchronization should be removed when port is done!')
-#endif
-       !$ACC UPDATE HOST(xlta, xlqv, xlqc)
       !!-------------------------------------------------------------------------
       !> Final saturation adjustment (as this has been removed from the end of the microphysics)
       !!-------------------------------------------------------------------------
@@ -251,10 +238,7 @@ CONTAINS
               & klo      = jkscov                         ,& !> IN
               & kup      = nlev                            & !> IN
               )
-#if defined( _OPENACC )
-       CALL warning('GPU:interface_echam_mig','GPU device synchronization should be removed when port is done!')
-#endif
-       !$ACC UPDATE DEVICE(xlta, xlqv, xlqc)
+
        !
        ! Calculate rain and snow
        !
