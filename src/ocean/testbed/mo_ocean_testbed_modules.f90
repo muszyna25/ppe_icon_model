@@ -2537,7 +2537,8 @@ CONTAINS
     
   END SUBROUTINE upwind_zstar_hflux_oce
   !-----------------------------------------------------------------------
-    
+   
+
 
   !-------------------------------------------------------------------------
   !>
@@ -2562,7 +2563,10 @@ CONTAINS
     REAL(wp) :: H_l, eta_l, coeff_l 
     INTEGER  :: bt_level 
     REAL(wp) :: z_adv_flux_h (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) :: div_z_c(nproma,n_zlev)
+    REAL(wp) :: div_z_depth_int_c(nproma)
     REAL(wp) :: temp(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), POINTER :: cell_thickness(:,:,:)
 
     CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_ab_timestepping_mimetic:alc_vert_velocity_mim_bottomup'
     !-----------------------------------------------------------------------
@@ -2572,6 +2576,7 @@ CONTAINS
     all_cells        => patch_2D%cells%all
     edges_in_domain  => patch_2D%edges%in_domain
     vertical_velocity=> ocean_state%p_diag%w
+    cell_thickness   => patch_3D%p_patch_1d(1)%prism_thick_c
     ! due to nag -nan compiler-option:
     !------------------------------------------------------------------
     ! Step 1) Calculate divergence of horizontal velocity at all levels
@@ -2581,7 +2586,7 @@ CONTAINS
     CALL map_edges2edges_viacell_3d_const_z( patch_3d, ocean_state%p_prog(nold(1))%vn, &
       & op_coeffs, ocean_state%p_diag%mass_flx_e)
 
-    !! Use trick to get mass flux by using constant coefficient
+    !! Use trick of using constant coefficient to get mass flux 
     temp = 1.0_wp
     CALL upwind_zstar_hflux_oce( patch_3d,  &
               & temp, &
@@ -2589,15 +2594,19 @@ CONTAINS
               & ocean_state%p_diag%mass_flx_e,         &
               & z_adv_flux_h)                         
 
+    vertical_velocity = 0.0_wp
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
       
       CALL div_oce_3D_onTriangles_onBlock(z_adv_flux_h, patch_3D, op_coeffs%div_coeff, &
-        & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo), blockNo=blockNo, start_index=start_index, &
+        & div_z_c(:,:), blockNo=blockNo, start_index=start_index, &
         & end_index=end_index, start_level=1, end_level=n_zlev)
 
       DO jc = start_index, end_index
+        !! Get summation over depth of divergence for RHS of sfc equation 
+        div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
        
         bt_level = patch_3d%p_patch_1d(1)%dolic_c(jc, blockNo)      
 
@@ -2612,10 +2621,18 @@ CONTAINS
         !! Trick here is that dw/dz = -div(v) or w2-w1=-dz.div(v)=-div(dz.v)
         !! In z*, it becomes d(J.w)/dz = -div(J.v) or w2-w1=-dz*.div(J.v)/J=-div(dz*.J.v)/J
         !! J being the vertical co-ordinate Jacobian
+        !! d_t eta = -div_z_depth_int_c(jc)/H_l
         DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
         
           vertical_velocity(jc,jk,blockNo) = vertical_velocity(jc,jk+1,blockNo) - &
-            & ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)/coeff_l
+            & ( div_z_c(jc,jk) - &
+            & cell_thickness(jc, jk, blockNo)*div_z_depth_int_c(jc)/H_l)/coeff_l
+          !! Switch to the below lines to use w^* for d_t eta = 0
+          !! This will give incorrect results for topmost layer where a zero
+          !! flux boundary condn is used in vertical advection
+!          vertical_velocity(jc,jk,blockNo) = vertical_velocity(jc,jk+1,blockNo) - &
+!            &  div_z_c(jc,jk)/coeff_l
+
 
         END DO
       END DO
@@ -2766,13 +2783,27 @@ CONTAINS
 !    !Calculate divergence of advective fluxes
 !    CALL div_oce_3d( z_adv_flux_h, patch_3D, operators_coefficients%div_coeff, &
 !      & div_adv_flux_horz, subset_range=cells_in_domain )
+!
+!    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!      CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+!      DO jc = start_cell_index, end_cell_index
+!        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!
+!          if ( (jb == 4) .AND. (jc == 10) ) THEN
+!            write(*, *) level, div_adv_flux_horz(jc,level,jb) , div_adv_flux_vert(jc,level,jb), &
+!              & transport_state%w(jb, level + 1, jc) - transport_state%w(jb, level, jc), &
+!              & patch_3d%p_patch_1d(1)%prism_thick_c(jb, level, jc)
+!          ENDIF
+!    
+!        ENDDO
+!      ENDDO
+!    ENDDO
 ! 
 !    !---------------------------------------------------------------------
 !    !-FIXME: test end 
 !    !---------------------------------------------------------------------
  
     jstep0 = 0
-      
     DO jstep = (jstep0+1), (jstep0+nsteps)
 
         CALL datetimeToString(this_datetime, datestring)
@@ -2875,12 +2906,11 @@ CONTAINS
                   new_tracer%concentration(jc,level,jb) =                          &
                     &  old_tracer%concentration(jc,level,jb) -                     &
                     &  (delta_t /  ( coeff_l*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) )    &
-                    & * (div_adv_flux_horz(jc,level,jb)  +div_adv_flux_vert(jc,level,jb))
+                    & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
 
 !                  write(*, *) level, ocean_state(jg)%p_diag%w (jc,level,jb), &
 !                    & div_adv_flux_horz(jc,level,jb) , div_adv_flux_vert(jc,level,jb)
-!                  write(*, *) level, old_tracer%concentration(jc,level,jb), new_tracer%concentration(jc,level,jb) 
-        
+
                 ENDDO
         
               END DO
