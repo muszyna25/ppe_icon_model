@@ -1289,9 +1289,8 @@ CONTAINS
     !-------------------------------------------------------------
 
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk=itop,klev
-      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
 
         zqnew = bb(jl,jk,iqv) + tpfac3*pqm1(jl,jk)
