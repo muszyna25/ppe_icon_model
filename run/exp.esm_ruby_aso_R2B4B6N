@@ -54,7 +54,8 @@ atmos_refinement="R02B04"
 ocean_gridID="0031"
 ocean_refinement="R02B06"
 
-# use alternatively: full restart, init from (ocean) restart, init from climatology
+# use alternatively: full restart, init from (ocean) restart, init from climatology or false
+#  - set to false as ocean was initialised
 initialiseOcean="fromRestart"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
@@ -136,6 +137,7 @@ restart_interval="P1D"                             #  test run 30 min
 
 # restart and output files are written once per job
 checkpoint_interval="P20Y"                        
+atm_file_interval="P20Y"
 oce_file_interval="P20Y"
 lnd_file_interval="P20Y"
 
@@ -1185,9 +1187,8 @@ fi
 ocean_vertical_levels=64
 ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"    #  no land points
 #ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_G.nc"    #  global ocean mask
-ocean_grid_folder="$ocean_data_InputFolder"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}"
-
+ocean_grid_folder="$ocean_data_InputFolder"
 #ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 
 #-----------------------------------------------------------------------------
