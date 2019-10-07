@@ -106,7 +106,7 @@ MODULE mo_ocean_testbed_modules
 
   USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
   USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
-  USE mo_sync,                        ONLY: sync_e, sync_c, sync_patch_array
+  USE mo_sync,                        ONLY: sync_c, sync_patch_array
 
   IMPLICIT NONE
   PRIVATE
@@ -2537,8 +2537,8 @@ CONTAINS
     
   END SUBROUTINE upwind_zstar_hflux_oce
   !-----------------------------------------------------------------------
-    
-  
+   
+
 
   !-------------------------------------------------------------------------
   !>
@@ -2953,4 +2953,4 @@ CONTAINS
 
 
 
-END MODULE mo_ocean_testbed_modules
+E
