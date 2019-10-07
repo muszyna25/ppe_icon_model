@@ -933,21 +933,22 @@ CONTAINS
     END DO
 
     ! Apply fractional mask as later used in interface_echam_ocean for coupling
-    IF ( is_coupled_run() ) THEN
-      frac_mask(jcs:kproma) = 1.0_wp-pfrc(jcs:kproma,idx_lnd)-alake(jcs:kproma)
-      DO jsfc=1,ksfc_type
-        IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN
-          WHERE ( frac_mask(jcs:kproma) > EPSILON(1.0_wp) )
-             ptsfc_tile (jcs:kproma,jsfc) = cdimissval
-          END WHERE
-        ELSE ! jsfc == idx_lnd
-          mask(jcs:kproma) = pfrc(jcs:kproma,jsfc) <= 0._wp
-          WHERE ( mask(jcs:kproma) )
-             ptsfc_tile (jcs:kproma,jsfc) = cdimissval
-          END WHERE
-        END IF
-      ENDDO
-    ENDIF
+    !  - contains a bug, presumably in the use of frac_mask or mask
+    !IF ( is_coupled_run() ) THEN
+    !  frac_mask(jcs:kproma) = 1.0_wp-pfrc(jcs:kproma,idx_lnd)-alake(jcs:kproma)
+    !  DO jsfc=1,ksfc_type
+    !    IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN
+    !      WHERE ( frac_mask(jcs:kproma) > EPSILON(1.0_wp) )
+    !         ptsfc_tile (jcs:kproma,jsfc) = cdimissval
+    !      END WHERE
+    !    ELSE ! jsfc == idx_lnd
+    !      mask(jcs:kproma) = pfrc(jcs:kproma,jsfc) <= 0._wp
+    !      WHERE ( mask(jcs:kproma) )
+    !         ptsfc_tile (jcs:kproma,jsfc) = cdimissval
+    !      END WHERE
+    !    END IF
+    !  ENDDO
+    !ENDIF
 
     !----------------------------------------------------------------------------
     ! For consistency z0m_tile for ice is masked out here
