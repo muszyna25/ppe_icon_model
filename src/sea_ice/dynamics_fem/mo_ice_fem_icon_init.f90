@@ -482,7 +482,7 @@ CONTAINS
     ! Temporary var
     INTEGER ::  elem, elnodes(3)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_interface:basisfunctions_nod'
-    LOGICAL :: found
+    LOGICAL :: found, kill
 
     ! allocate bafux_nod, bafuy_nod
     ! 6 neighbouring cells by default, can be less for pentagons and boundary nodes
@@ -493,9 +493,10 @@ CONTAINS
     ! initialize with zeros
     bafux_nod = 0.0_wp
     bafuy_nod = 0.0_wp
-
-!ICON_OMP_PARALLEL_DO PRIVATE(jn,je,elem,elnodes,k) ICON_OMP_DEFAULT_SCHEDULE
+    kill = .false.
+!ICON_OMP_PARALLEL_DO PRIVATE(jn,je,elem,elnodes,k,found) ICON_OMP_DEFAULT_SCHEDULE
     DO jn=1, nod2D
+         IF (kill) CYCLE
          DO je=1,6
             elem=nod2D_elems(je,jn)
 
@@ -516,14 +517,16 @@ CONTAINS
                   bafux_nod(je,jn) = bafux(k,elem)
                   bafuy_nod(je,jn) = bafuy(k,elem)
               ELSE
-                CALL finish(routine, "FEM element-vertex connectivity inconsistency")
+                kill = .true.
+!                CALL finish(routine, "FEM element-vertex connectivity inconsistency")
               ENDIF
 
             END IF
          END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO
-
+    if (kill) &
+       CALL finish(routine, "FEM element-vertex connectivity inconsistency")
   END SUBROUTINE basisfunctions_nod
 
   !-------------------------------------------------------------------------

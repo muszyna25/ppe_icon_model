@@ -120,7 +120,8 @@ MODULE mo_ocean_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
   PUBLIC :: calc_characteristic_physical_numbers
-
+  PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
+  
   ! variables
   TYPE (t_var_list), PUBLIC :: ocean_params_list
 
@@ -754,8 +755,12 @@ CONTAINS
 
 !    CALL calc_characteristic_physical_numbers(patch_3d, ocean_state)
 
+!   Calculate the vertical density gradient on the interfaces (zgrad_rho)
+!   and the Richardson Number ; shall be used in PP and possibly TKE
+    CALL calc_vertical_stability(patch_3d, ocean_state)
+
     CALL update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs)
-    
+
     IF (LeithClosure_order == 1 .or.  LeithClosure_order == 21) THEN
       IF (LeithClosure_form == 1) THEN
         CALL calculate_LeithClosure_harmonic_vort(patch_3d, ocean_state, params_oce, op_coeffs)
@@ -1729,10 +1734,10 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     !TYPE(t_ho_params),                 INTENT(inout) :: param
     !TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
-    
+
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level, blockNo
-    !INTEGER :: start_edge_index, end_edge_index, je   
+    !INTEGER :: start_edge_index, end_edge_index, je
     TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: lambda
@@ -1742,16 +1747,16 @@ CONTAINS
     REAL(wp), PARAMETER :: beta_param=2.29E-11
     REAL(wp), PARAMETER :: latitude_threshold=5.0_wp
     REAL(wp) :: Rossby_radius_equator(nproma)
-    REAL(wp) :: Rossby_radius_offequator(nproma)  
-    
-    
-    REAL(wp) :: z_shear_cell  
+    REAL(wp) :: Rossby_radius_offequator(nproma)
+
+
+    REAL(wp) :: z_shear_cell
     REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev), density(n_zlev)
     REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
-    
+
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
-    cells_in_domain => patch_2D%cells%in_domain 
+    cells_in_domain => patch_2D%cells%in_domain
     all_cells       => patch_2D%cells%ALL
     start_level=1
     z_vert_density_grad_c => ocean_state%p_diag%zgrad_rho
@@ -1778,60 +1783,56 @@ CONTAINS
         !--------------------------------------------------------
         pressure(2:end_level) = patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, 2:end_level, blockNo)&
         & * OceanReferenceDensity * sitodbar
-        
+
         z_rho_up(1:end_level-1)  &
         &= calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(cell_index,1:end_level-1,blockNo,1), &
                                     & salinity(1:end_level-1), pressure(2:end_level),end_level-1)
-          
+
         z_rho_down(2:end_level) &
         &= calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(cell_index,2:end_level,blockNo,1), &
                                     & salinity(2:end_level), pressure(2:end_level), end_level-1)
 
 
         DO level = 2, end_level
-        
-          ocean_state%p_diag%rho_GM(cell_index,level,blockNo)=0.5_wp*(z_rho_up(level)+z_rho_down(level))
-                
+
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(cell_index,level-1,blockNo)%x - ocean_state%p_diag%p_vn(cell_index,level,blockNo)%x)**2)
-            
+
           z_vert_density_grad_c(cell_index,level,blockNo) = (z_rho_down(level) - z_rho_up(level-1)) *  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo)
-            
-          !adjusted vertical derivative (follows MOM, see Griffies-book, (p. 332, eq. (15.15)) or MOM-5 manual (sect. 23.7.1.1)  
-          z_vert_density_grad_c(cell_index,level,blockNo)=min(z_vert_density_grad_c(cell_index,level,blockNo),-dbl_eps)  
-            
+
+          !adjusted vertical derivative (follows MOM, see Griffies-book, (p. 332, eq. (15.15)) or MOM-5 manual (sect. 23.7.1.1)
+          !z_vert_density_grad_c(cell_index,level,blockNo)=min(z_vert_density_grad_c(cell_index,level,blockNo),-dbl_eps)
           ocean_state%p_diag%Richardson_Number(cell_index, level, blockNo) &
           &= MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(cell_index,level,blockNo) * z_grav_rho * &
-          & (z_rho_down(level) - z_rho_up(level-1)) / z_shear_cell, 0.0_wp) 
+          & (z_rho_down(level) - z_rho_up(level-1)) / z_shear_cell, 0.0_wp)
         END DO ! levels
         ocean_state%p_diag%grad_rho_PP_vert(cell_index,2:end_level,blockNo)=z_vert_density_grad_c(cell_index,2:end_level,blockNo)
-        ocean_state%p_diag%rho_GM(cell_index,1,blockNo)                 =ocean_state%p_diag%rho_GM(cell_index,2,blockNo)
 
       END DO ! index
     END DO
 !ICON_OMP_END_DO
-    
+
 
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, &
 !ICON_OMP Rossby_radius_equator, Rossby_radius_offequator) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-      
+
       Rossby_radius_equator   (:)               =0.0_wp
       Rossby_radius_offequator(:)               =0.0_wp
-      ocean_state%p_diag%Wavespeed_baroclinic(:,blockNo)=0.0_wp     
-       
+      ocean_state%p_diag%Wavespeed_baroclinic(:,blockNo)=0.0_wp
+
       DO cell_index = start_cell_index, end_cell_index
-            
+
           end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
 
           DO level = start_level, end_level
-          
+
             !calculate buoyancy frequency
             ocean_state%p_diag%Buoyancy_Freq(cell_index,level,blockNo)&
             & = -z_grav_rho*z_vert_density_grad_c(cell_index,level,blockNo)
-           
+
             !calculate baroclinic wave speed
             ocean_state%p_diag%Wavespeed_baroclinic(cell_index,blockNo)&
             &=ocean_state%p_diag%Wavespeed_baroclinic(cell_index,blockNo)&
@@ -1839,15 +1840,14 @@ CONTAINS
             &*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)
 
           END DO
-          
+
           IF(abs(patch_2d%cells%center(cell_index, blockNo)%lat)*rad2deg>=latitude_threshold)THEN
             Rossby_radius_offequator(cell_index)&
             &=ocean_state%p_diag%Wavespeed_baroclinic(cell_index,blockNo)&
             &/abs(patch_2d%cells%f_c(cell_index,blockNo))
           ENDIF
           Rossby_radius_equator(cell_index)&
-            &=ocean_state%p_diag%Wavespeed_baroclinic(cell_index,blockNo)/(2.0_wp*beta_param)  
-          
+            &=ocean_state%p_diag%Wavespeed_baroclinic(cell_index,blockNo)/(2.0_wp*beta_param)
           ocean_state%p_diag%Rossby_Radius(cell_index,blockNo)&
             &=min(Rossby_radius_offequator(cell_index),Rossby_radius_equator(cell_index))
       END DO
@@ -1860,19 +1860,105 @@ CONTAINS
 !   Do level=1,n_zlev
 !   write(0,*)'max-min',level,&
 !    &maxval( ocean_state%p_diag%Richardson_Number(:,level,:)),&
-!    &minval( ocean_state%p_diag%Richardson_Number(:,level,:)),& 
+!    &minval( ocean_state%p_diag%Richardson_Number(:,level,:)),&
 !    &maxval( ocean_state%p_diag%Buoyancy_Freq(:,level,:)),&
 !    &minval( ocean_state%p_diag%Buoyancy_Freq(:,level,:))
-!   End do   
-!   write(0,*)'max-min',&     
+!   End do
+!   write(0,*)'max-min',&
 !    &maxval( ocean_state%p_diag%Wavespeed_baroclinic),&
-!    &minval( ocean_state%p_diag%Wavespeed_baroclinic),& 
+!    &minval( ocean_state%p_diag%Wavespeed_baroclinic),&
 !    &maxval( ocean_state%p_diag%Rossby_Radius),&
 !    &maxval(Rossby_radius_offequator), maxval(Rossby_radius_equator)
-  
+
 !  stop
-   
+
   END SUBROUTINE calc_characteristic_physical_numbers
+  !-------------------------------------------------------------------------
+
+!<Optimize:inUse>
+  SUBROUTINE calc_vertical_stability(patch_3d, ocean_state)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+
+    !Local variables
+    INTEGER :: start_index, end_index, cell_index,level,end_level, blockNo
+
+    TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+
+    REAL(wp) :: z_grav_rho
+    REAL(wp) :: z_shear_cell
+    REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev) !, density(n_zlev)
+    REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
+
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    all_cells       => patch_2D%cells%ALL
+    !-------------------------------------------------------------------------------
+
+    z_grav_rho = grav/OceanReferenceDensity
+
+    !ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down, pressure)
+    salinity(1:n_zlev) = sal_ref
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    pressure(:) = 0._wp
+
+    !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, end_level, level, &
+    !ICON_OMP z_shear_cell) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+
+      ocean_state%p_diag%Richardson_Number(:, :, blockNo) = 0.0_wp
+      ocean_state%p_diag%zgrad_rho(:,:, blockNo) = 0.0_wp
+
+      DO cell_index = start_index, end_index
+
+        end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+        IF (end_level < 2) CYCLE
+
+        IF(no_tracer >= 2) THEN
+            salinity(1:end_level) = ocean_state%p_prog(nold(1))%tracer(cell_index,1:end_level,blockNo,2)
+        ENDIF
+
+        !--------------------------------------------------------
+        pressure(2:end_level) = patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, 2:end_level, blockNo) &
+             * OceanReferenceDensity * sitodbar
+
+        z_rho_up(1:end_level-1) = &
+             calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(cell_index,1:end_level-1,blockNo,1), &
+             salinity(1:end_level-1), pressure(2:end_level),end_level-1)
+
+        z_rho_down(2:end_level) = &
+             calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(cell_index,2:end_level,blockNo,1), &
+             salinity(2:end_level), pressure(2:end_level), end_level-1)
+
+        DO level = 2, end_level
+
+          z_shear_cell = dbl_eps + &
+               SUM((ocean_state%p_diag%p_vn(cell_index,level-1,blockNo)%x &
+               - ocean_state%p_diag%p_vn(cell_index,level,blockNo)%x)**2)
+
+          ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo) = (z_rho_down(level) - z_rho_up(level-1)) *  &
+               patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo)
+
+          !adjusted vertical derivative (follows MOM, see Griffies-book,
+          ! (p. 332, eq. (15.15)) or MOM-5 manual (sect. 23.7.1.1)
+          !ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo)= &
+          !     MIN(ocean_state%p_diag%zgrad_rho(cell_index,level,blockNo),-dbl_eps)
+
+          ocean_state%p_diag%Richardson_Number(cell_index, level, blockNo) &
+               = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(cell_index,level,blockNo) * z_grav_rho * &
+               (z_rho_down(level) - z_rho_up(level-1)) / z_shear_cell, 0.0_wp)
+        END DO ! levels
+      END DO ! index
+    END DO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
+
+
+  END SUBROUTINE calc_vertical_stability
   !-------------------------------------------------------------------------
 
 

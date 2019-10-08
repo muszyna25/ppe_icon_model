@@ -58,12 +58,6 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))+ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
-
-#ifdef __INTEL_COMPILER
-#define USE_LAXFR_MACROS
-#define laxfr_upflux_v LAXFR_UPFLUX_V_MACRO
-#endif
 MODULE mo_advection_vflux
 
   USE mo_kind,                ONLY: wp
@@ -79,9 +73,6 @@ MODULE mo_advection_vflux
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, lvert_nest, timers_level, iqtke
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList 
-#ifndef USE_LAXFR_MACROS
-  USE mo_advection_utils,     ONLY: laxfr_upflux_v
-#endif
   USE mo_advection_vlimit,    ONLY: v_limit_parabola_mo, v_limit_parabola_sm, &
    &                                vflx_limiter_pd,                          &
    &                                v_limit_slope_mo, v_limit_slope_sm,       &
@@ -355,7 +346,7 @@ CONTAINS
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
         ! Be sure to avoid division by zero
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR
         DO jc = i_startidx, i_endidx
           z_mflx_contra_v(jc) = SIGN( MAX(ABS(p_mflx_contra_v(jc,p_patch%nshift_child,jb)),dbl_eps), &
@@ -363,7 +354,7 @@ CONTAINS
         ENDDO
 !$ACC END PARALLEL
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG
         DO nt = 1, trAdvect%len
           jt = trAdvect%list(nt)
@@ -501,14 +492,14 @@ CONTAINS
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev+1, nlev
         DO jc = i_startidx, i_endidx
-          ! calculate vertical tracer flux
-          p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v(p_mflx_contra_v(jc,jk,jb),p_cc(jc,jk-1,jb),p_cc(jc,jk,jb))
-
+          ! calculate vertical tracer flux   -- removed flaky laxfr macro
+          p_upflux(jc,jk,jb) = p_mflx_contra_v(jc,jk,jb) *                    &
+                               MERGE( p_cc(jc,jk,jb),p_cc(jc,jk-1,jb),        &
+                                      p_mflx_contra_v(jc,jk,jb) .GE. 0.0_wp ) 
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
 !$ACC END PARALLEL
@@ -1178,10 +1169,10 @@ CONTAINS
             &  + 2._wp*z_cflfrac_p(jc,ik,jb)*z_cflfrac_p(jc,ik,jb))
 
           !
-          ! full flux
+          ! full flux  -- removed flaky laxfr macro
           !
-          p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),z_lext_1,z_lext_2)
+          p_upflux(jc,jk,jb) = p_mflx_contra_v(jc,jk,jb)*               &
+                               MERGE(z_lext_2,z_lext_1,p_mflx_contra_v(jc,jk,jb) >= 0.0_wp)
 
         END DO ! end loop over cells
 
@@ -1725,7 +1716,7 @@ CONTAINS
       ! The contravariant mass flux should never exactly vanish
       !
       IF (l_out_edgeval) THEN
-!$ACC PARALLEL  IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL  DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slevp1, elev
           DO jc = i_startidx, i_endidx
@@ -1753,7 +1744,7 @@ CONTAINS
         ! Split density-weighted Courant number into integer and fractional 
         ! part and store the sum in z_cfl (for w>0 and w<0)
         !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( z_mass, jks ) COLLAPSE(2)
         DO jk = slevp1_ti, elev
           DO jc = i_startidx, i_endidx
@@ -1820,7 +1811,7 @@ CONTAINS
       z_slope(i_startidx:i_endidx,slev) = 0._wp
 !$ACC END KERNELS
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, zfac_m1, zfac, p_cc_min, p_cc_max ) COLLAPSE(2)
       DO jk = slevp1, nlev
         DO jc = i_startidx, i_endidx
@@ -1888,7 +1879,7 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, ikp2, zgeo1, zgeo2, zgeo3, zgeo4 ) COLLAPSE(2)
       DO jk = slevp1, nlev-2
         DO jc = i_startidx, i_endidx
@@ -1946,7 +1937,7 @@ CONTAINS
       IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
         ! simply copy face values to 'face_up' and 'face_low' arrays
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikp1 ) COLLAPSE(2)
         DO jk = slev, nlev
           DO jc = i_startidx, i_endidx
@@ -1973,7 +1964,7 @@ CONTAINS
       !     z_delta_q = 0.5*\Delta q
       !     z_a1 = 1/6*a_6
       !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, nlev
         DO jc = i_startidx, i_endidx
@@ -1988,7 +1979,7 @@ CONTAINS
       ! 5b. First compute the fractional fluxes for all cell faces.
       !     For cell faces with CFL>1, integer fluxes will be added lateron.
       !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikm1, js, z_cflfrac, jks, wsign, z_q_int ) COLLAPSE(2)
       DO jk = slevp1, elev
 
@@ -2033,7 +2024,7 @@ CONTAINS
       !
       ! 5c. Now compute the integer fluxes and add them to the fractional flux
       !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( js, z_iflx, jk_shift ) COLLAPSE(2)
       DO jk = slevp1, elev
 
@@ -2093,7 +2084,7 @@ CONTAINS
       ! If desired, get edge value of advected quantity 
       IF ( l_out_edgeval ) THEN
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slevp1, nlev
           DO jc = i_startidx, i_endidx

@@ -32,7 +32,8 @@ PROGRAM icon
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
-    &                               atmo_process, ocean_process, ps_radiation_process
+    &                               atmo_process, ocean_process, ps_radiation_process,  &
+    &                               hamocc_process
 #ifndef __NO_ICON_TESTBED__
   USE mo_master_control,      ONLY: testbed_process
 #endif
@@ -46,6 +47,7 @@ PROGRAM icon
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
+  USE mo_hamocc_model,        ONLY: hamocc_model  
 #endif
 
 #ifndef __NO_ICON_TESTBED__
@@ -250,6 +252,11 @@ PROGRAM icon
 #ifndef __NO_ICON_PS_RAD__
   CASE (ps_radiation_process)
     CALL ps_radiation_model  (my_namelist_filename, TRIM(master_namelist_filename))
+#endif
+
+#ifndef __NO_ICON_OCEAN__
+  CASE (hamocc_process)
+    CALL hamocc_model (my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
 #ifndef __NO_ICON_TESTBED__

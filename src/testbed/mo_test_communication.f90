@@ -15,7 +15,7 @@
 !!
 MODULE mo_test_communication
 
-  USE mo_kind,                ONLY: wp, sp, dp
+  USE mo_kind,                ONLY: wp, sp, dp, vp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: work_mpi_barrier, p_n_work, p_pe_work, &
     &                               p_comm_work, p_comm_rank, p_comm_size, &
@@ -61,15 +61,21 @@ MODULE mo_test_communication
   USE mo_icon_comm_lib
 
   USE mo_icon_testbed_config, ONLY: testbed_model, test_halo_communication, &
-    & test_radiation_communication, testbed_iterations, calculate_iterations, &
-    & test_gather_communication, test_exchange_communication
-
+    & testbed_iterations, calculate_iterations, test_gather_communication, &
+    & test_exchange_communication, test_bench_exchange_data_mult
+  USE mo_grid_config, ONLY: n_dom_start
+#ifdef _OPENACC
+USE mo_mpi,                  ONLY: i_am_accel_node
+#endif
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
 
 PUBLIC :: test_communication
+PUBLIC :: halo_communication_3D_testbed, gather_communication_testbed
+PUBLIC :: exchange_communication_testbed, exchange_communication_grf_testbed
+PUBLIC :: bench_exchange_data_mult
 
 CONTAINS
 
@@ -110,18 +116,22 @@ CONTAINS
     CASE(test_halo_communication)
       CALL halo_communication_3D_testbed()
 
-    CASE(test_radiation_communication)
-      CALL radiation_communication_testbed()
-
     CASE(test_gather_communication)
       CALL gather_communication_testbed()
 
     CASE(test_exchange_communication)
       CALL exchange_communication_testbed()
       CALL exchange_communication_grf_testbed()
+#ifdef _OPENACC
+      CALL exchange_communication_testbed(test_gpu=.TRUE.)
+      CALL exchange_communication_grf_testbed(test_gpu=.TRUE.)
+#endif
+
+    CASE(test_bench_exchange_data_mult)
+      CALL bench_exchange_data_mult()
 
     CASE default
-      CALL finish(method_name, "Unrecognized testbed_model")
+      CALL finish(method_name, "Unrecognized communication testbed_model")
 
     END SELECT
     !---------------------------------------------------------------------
@@ -148,7 +158,6 @@ CONTAINS
 
   END SUBROUTINE test_communication
   !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   !>
@@ -204,14 +213,10 @@ CONTAINS
 
     INTEGER :: timer_3D_cells_1, timer_3D_cells_2, timer_3D_cells_3, timer_3D_cells_4
 
-    INTEGER :: patch_no
-
-    patch_no=1
-
-    pnt_3D_cells_1 => p_nh_state(patch_no)%prog(1)%w(:,:,:)
-    pnt_3D_cells_2 => p_nh_state(patch_no)%prog(1)%rho(:,:,:)
-    pnt_3D_cells_3 => p_nh_state(patch_no)%prog(1)%exner(:,:,:)
-    pnt_3D_cells_4 => p_nh_state(patch_no)%prog(1)%theta_v(:,:,:)
+    pnt_3D_cells_1 => p_nh_state(n_dom_start)%prog(1)%w(:,:,:)
+    pnt_3D_cells_2 => p_nh_state(n_dom_start)%prog(1)%rho(:,:,:)
+    pnt_3D_cells_3 => p_nh_state(n_dom_start)%prog(1)%exner(:,:,:)
+    pnt_3D_cells_4 => p_nh_state(n_dom_start)%prog(1)%theta_v(:,:,:)
 
     pnt_3D_cells_1(:,:,:) = 0.0_wp
     pnt_3D_cells_2(:,:,:) = 0.0_wp
@@ -219,23 +224,23 @@ CONTAINS
     pnt_3D_cells_4(:,:,:) = 0.0_wp
 
     timer_3D_cells_1  = new_timer  (timer_descr//"_3dcells_1")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
       & var1=pnt_3D_cells_1, &
       & timer_id=timer_3D_cells_1)
 
     timer_3D_cells_2  = new_timer  (timer_descr//"_3dcells_2")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
       & var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
       & timer_id=timer_3D_cells_2)
 
     timer_3D_cells_3  = new_timer  (timer_descr//"_3dcells_3")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
       & var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
       & var3=pnt_3D_cells_3, &
       & timer_id=timer_3D_cells_3)
 
     timer_3D_cells_4  = new_timer  (timer_descr//"_3dcells_4")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
       & var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
       & var3=pnt_3D_cells_3,var4=pnt_3D_cells_4, &
       & timer_id=timer_3D_cells_4)
@@ -250,41 +255,41 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: timer_descr
 
     ! 3D variables
-    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:)
+    REAL(vp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_3(:,:,:)
+    REAL(wp), POINTER :: pnt_3D_edges_2(:,:,:)
 
     INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3
 
-    INTEGER :: patch_no
-
-    patch_no=1
-
-    pnt_3D_edges_1 => p_nh_state(patch_no)%diag%ddt_vn_phy(:,:,:)
-    pnt_3D_edges_2 => p_nh_state(patch_no)%diag%mass_fl_e(:,:,:)
-    pnt_3D_edges_3 => p_nh_state(patch_no)%diag%vt(:,:,:)
-!     pnt_3D_edges_4 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
-
-    pnt_3D_edges_1(:,:,:) = 0.0_wp
+    pnt_3D_edges_1 => p_nh_state(n_dom_start)%diag%ddt_vn_phy(:,:,:)
+    pnt_3D_edges_2 => p_nh_state(n_dom_start)%diag%mass_fl_e(:,:,:)
+    pnt_3D_edges_3 => p_nh_state(n_dom_start)%diag%vt(:,:,:)
+!     pnt_3D_edges_4 => p_nh_state(n_dom_start)%diag%hfl_tracer(:,:,:,1)
+    pnt_3D_edges_1(:,:,:) = 0.0_vp
     pnt_3D_edges_2(:,:,:) = 0.0_wp
-    pnt_3D_edges_3(:,:,:) = 0.0_wp
+    pnt_3D_edges_3(:,:,:) = 0.0_vp
 !     pnt_3D_edges_4(:,:,:) = 0.0_wp
 
     timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
-      & var1=pnt_3D_edges_1, timer_id=timer_3D_edges_1)
+    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
+      & var1=pnt_3D_edges_2, timer_id=timer_3D_edges_1)
 
-    timer_3D_edges_2  = new_timer  (timer_descr//"_3dedges_2")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
-      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
-      & timer_id=timer_3D_edges_2)
+!    timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
+!    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
+!      & var1=pnt_3D_edges_1, timer_id=timer_3D_edges_1)
 
-    timer_3D_edges_3  = new_timer  (timer_descr//"_3dedges_3")
-    CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
-      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
-      & var3=pnt_3D_edges_3, &
-      & timer_id=timer_3D_edges_3)
+!    timer_3D_edges_2  = new_timer  (timer_descr//"_3dedges_2")
+!    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
+!      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+!      & timer_id=timer_3D_edges_2)
+
+!    timer_3D_edges_3  = new_timer  (timer_descr//"_3dedges_3")
+!    CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
+!      & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+!      & var3=pnt_3D_edges_3, &
+!      & timer_id=timer_3D_edges_3)
 
 !     timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
-!     CALL test_iconcom_3D(p_patch(patch_no)%sync_cells_not_in_domain, &
+!     CALL test_iconcom_3D(p_patch(n_dom_start)%sync_cells_not_in_domain, &
 !       & var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
 !       & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
 !       & timer_id=timer_3D_edges_4)
@@ -312,15 +317,10 @@ CONTAINS
     INTEGER :: i, j, k, l, m, n
     CHARACTER(len=128) :: str_i
 
-
-    INTEGER :: patch_no
-
-    patch_no=1
-
-    pnt_3D_cells_1 => p_nh_state(patch_no)%prog(1)%w(:,:,:)
-    pnt_3D_cells_2 => p_nh_state(patch_no)%prog(1)%rho(:,:,:)
-    pnt_3D_cells_3 => p_nh_state(patch_no)%prog(1)%exner(:,:,:)
-    pnt_3D_cells_4 => p_nh_state(patch_no)%prog(1)%theta_v(:,:,:)
+    pnt_3D_cells_1 => p_nh_state(n_dom_start)%prog(1)%w(:,:,:)
+    pnt_3D_cells_2 => p_nh_state(n_dom_start)%prog(1)%rho(:,:,:)
+    pnt_3D_cells_3 => p_nh_state(n_dom_start)%prog(1)%exner(:,:,:)
+    pnt_3D_cells_4 => p_nh_state(n_dom_start)%prog(1)%theta_v(:,:,:)
     pnt_3D_cells_1(:,:,:) = 0.0_wp
     pnt_3D_cells_2(:,:,:) = 0.0_wp
     pnt_3D_cells_3(:,:,:) = 0.0_wp
@@ -328,21 +328,21 @@ CONTAINS
 
     timer_3D_cells_1  = new_timer  (timer_descr//"_3dcells_1")
     CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1, &
-      & timer_id=timer_3D_cells_1, patch_no=patch_no)
+      & timer_id=timer_3D_cells_1)
 
     timer_3D_cells_2  = new_timer  (timer_descr//"_3dcells_2")
     CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
-      & timer_id=timer_3D_cells_2, patch_no=patch_no)
+      & timer_id=timer_3D_cells_2)
 
     timer_3D_cells_3  = new_timer  (timer_descr//"_3dcells_3")
     CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
       & var3=pnt_3D_cells_3, &
-      & timer_id=timer_3D_cells_3, patch_no=patch_no)
+      & timer_id=timer_3D_cells_3)
 
     timer_3D_cells_4  = new_timer  (timer_descr//"_3dcells_4")
     CALL test_oldsync_3D(SYNC_C, var1=pnt_3D_cells_1,var2=pnt_3D_cells_2, &
       & var3=pnt_3D_cells_3,var4=pnt_3D_cells_4, &
-      & timer_id=timer_3D_cells_4, patch_no=patch_no)
+      & timer_id=timer_3D_cells_4)
 
     DO i = 1, 16
       ALLOCATE(pnt_4D_cells(i, SIZE(pnt_3D_cells_1, 1), &
@@ -363,7 +363,7 @@ CONTAINS
       write (str_i, '(I4)') i
       timer_4DE1_cells = new_timer(timer_descr//"_4de1cells_"//ADJUSTL(TRIM(str_i)))
       CALL test_oldsync_4DE1(SYNC_C, var=pnt_4D_cells, nfields=i, &
-        &                    timer_id=timer_4DE1_cells, patch_no=patch_no)
+        &                    timer_id=timer_4DE1_cells)
       DEALLOCATE(pnt_4D_cells)
     END DO
 
@@ -377,44 +377,44 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: timer_descr
 
     ! 3D variables
-    REAL(wp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_2(:,:,:), pnt_3D_edges_3(:,:,:)
+    REAL(vp), POINTER :: pnt_3D_edges_1(:,:,:), pnt_3D_edges_3(:,:,:)
+    REAL(wp), POINTER :: pnt_3D_edges_2(:,:,:)
 
     INTEGER :: timer_3D_edges_1, timer_3D_edges_2, timer_3D_edges_3
 
-    INTEGER :: patch_no
-
-    patch_no=1
-
-    pnt_3D_edges_1 => p_nh_state(patch_no)%diag%ddt_vn_phy(:,:,:)
-    pnt_3D_edges_2 => p_nh_state(patch_no)%diag%mass_fl_e(:,:,:)
-    pnt_3D_edges_3 => p_nh_state(patch_no)%diag%vt(:,:,:)
-!     pnt_3D_edges_4 => p_nh_state(patch_no)%diag%hfl_tracer(:,:,:,1)
+    pnt_3D_edges_1 => p_nh_state(n_dom_start)%diag%ddt_vn_phy(:,:,:)
+    pnt_3D_edges_2 => p_nh_state(n_dom_start)%diag%mass_fl_e(:,:,:)
+    pnt_3D_edges_3 => p_nh_state(n_dom_start)%diag%vt(:,:,:)
+!     pnt_3D_edges_4 => p_nh_state(n_dom_start)%diag%hfl_tracer(:,:,:,1)
     pnt_3D_edges_1(:,:,:) = 0.0_wp
     pnt_3D_edges_2(:,:,:) = 0.0_wp
     pnt_3D_edges_3(:,:,:) = 0.0_wp
 !     pnt_3D_edges_4(:,:,:) = 0.0_wp
 
     timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
-    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1, &
-      & timer_id=timer_3D_edges_1, patch_no=patch_no)
+    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_2, &
+      & timer_id=timer_3D_edges_1)
 
-    timer_3D_edges_2  = new_timer  (timer_descr//"_3dedges_2")
-    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
-      & timer_id=timer_3D_edges_2, patch_no=patch_no)
+!    timer_3D_edges_1  = new_timer  (timer_descr//"_3dedges_1")
+!    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1, &
+!      & timer_id=timer_3D_edges_1)
 
-    timer_3D_edges_3  = new_timer  (timer_descr//"_3dedges_3")
-    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
-      & var3=pnt_3D_edges_3, &
-      & timer_id=timer_3D_edges_3, patch_no=patch_no)
+!    timer_3D_edges_2  = new_timer  (timer_descr//"_3dedges_2")
+!    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+!      & timer_id=timer_3D_edges_2)
+
+!    timer_3D_edges_3  = new_timer  (timer_descr//"_3dedges_3")
+!    CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
+!      & var3=pnt_3D_edges_3, &
+!      & timer_id=timer_3D_edges_3)
 
 !     timer_3D_edges_4  = new_timer  (timer_descr//"_3dedges_4")
 !     CALL test_oldsync_3D(SYNC_E, var1=pnt_3D_edges_1,var2=pnt_3D_edges_2, &
 !       & var3=pnt_3D_edges_3,var4=pnt_3D_edges_4, &
-!       & timer_id=timer_3D_edges_4, patch_no=patch_no)
+!       & timer_id=timer_3D_edges_4)
 
   END SUBROUTINE test_oldsync_edges_3D
   !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   SUBROUTINE test_communication_2D
@@ -442,17 +442,16 @@ CONTAINS
     ! other
     INTEGER :: comm_1, comm_2, comm_3
 
-    INTEGER :: patch_no, i
+    INTEGER :: i
 
 
     CHARACTER(*), PARAMETER :: method_name = "mo_test_communication:test_communication"
 
     !---------------------------------------------------------------------
-    patch_no=1
 
-    pnt_2D_cells => p_patch(patch_no)%cells%area(:,:)
-    pnt_2D_edges => p_patch(patch_no)%edges%primal_edge_length(:,:)
-    pnt_2D_verts => p_patch(patch_no)%verts%dual_area(:,:)
+    pnt_2D_cells => p_patch(n_dom_start)%cells%area(:,:)
+    pnt_2D_edges => p_patch(n_dom_start)%edges%primal_edge_length(:,:)
+    pnt_2D_verts => p_patch(n_dom_start)%verts%dual_area(:,:)
     !---------------------------------------------------------------------
     ! test the 2D sync
     !---------------------------------------------------------------------
@@ -557,7 +556,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_cells)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_cells, p_patch(patch_no)%sync_cells_not_in_domain)
+       CALL icon_comm_sync(pnt_2D_cells, p_patch(n_dom_start)%sync_cells_not_in_domain)
     ENDDO
     CALL timer_stop(timer_iconcom_2D_cells)
 
@@ -565,7 +564,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_edges)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_edges, p_patch(patch_no)%sync_edges_not_owned)
+       CALL icon_comm_sync(pnt_2D_edges, p_patch(n_dom_start)%sync_edges_not_owned)
     ENDDO
     CALL timer_stop(timer_iconcom_2D_edges)
 
@@ -573,7 +572,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_verts)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_verts, p_patch(patch_no)%sync_verts_not_owned)
+       CALL icon_comm_sync(pnt_2D_verts, p_patch(n_dom_start)%sync_verts_not_owned)
     ENDDO
     CALL timer_stop(timer_iconcom_2D_verts)
 
@@ -581,9 +580,9 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_all)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_cells, p_patch(patch_no)%sync_cells_not_in_domain)
-       CALL icon_comm_sync(pnt_2D_edges, p_patch(patch_no)%sync_edges_not_owned)
-       CALL icon_comm_sync(pnt_2D_verts, p_patch(patch_no)%sync_verts_not_owned)
+       CALL icon_comm_sync(pnt_2D_cells, p_patch(n_dom_start)%sync_cells_not_in_domain)
+       CALL icon_comm_sync(pnt_2D_edges, p_patch(n_dom_start)%sync_edges_not_owned)
+       CALL icon_comm_sync(pnt_2D_verts, p_patch(n_dom_start)%sync_verts_not_owned)
     ENDDO
     CALL timer_stop(timer_iconcom_2D_all)
 
@@ -593,15 +592,15 @@ CONTAINS
     DO i=1,testbed_iterations
 
        comm_1 = new_icon_comm_variable(pnt_2D_cells, &
-         &  p_patch(patch_no)%sync_cells_not_in_domain, &
+         &  p_patch(n_dom_start)%sync_cells_not_in_domain, &
          &  status=is_ready, scope=until_sync)
 
        comm_2 = new_icon_comm_variable(pnt_2D_edges, &
-         & p_patch(patch_no)%sync_edges_not_owned, status=is_ready, &
+         & p_patch(n_dom_start)%sync_edges_not_owned, status=is_ready, &
          & scope=until_sync)
 
        comm_3 = new_icon_comm_variable(pnt_2D_verts, &
-         & p_patch(patch_no)%sync_verts_not_owned, status=is_ready, &
+         & p_patch(n_dom_start)%sync_verts_not_owned, status=is_ready, &
          & scope=until_sync)
 
        CALL icon_comm_sync_all()
@@ -610,11 +609,11 @@ CONTAINS
     CALL timer_stop(timer_iconcom_2D_comb)
 
     ! test the 2D iconcom on keeping the communicators
-    comm_1 = new_icon_comm_variable(pnt_2D_cells, p_patch(patch_no)%sync_cells_not_in_domain)
+    comm_1 = new_icon_comm_variable(pnt_2D_cells, p_patch(n_dom_start)%sync_cells_not_in_domain)
     comm_2 = new_icon_comm_variable(pnt_2D_edges, &
-      & p_patch(patch_no)%sync_edges_not_owned)
+      & p_patch(n_dom_start)%sync_edges_not_owned)
     comm_3 = new_icon_comm_variable(pnt_2D_verts, &
-      & p_patch(patch_no)%sync_verts_not_owned)
+      & p_patch(n_dom_start)%sync_verts_not_owned)
 
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_keep)
@@ -636,7 +635,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   SUBROUTINE test_iconcom_3D(comm_pattern, var1, var2, var3, var4, timer_id)
-    INTEGER :: comm_pattern, timer_id, patch_no
+    INTEGER :: comm_pattern, timer_id
     REAL(wp) , POINTER:: var1(:,:,:)
     REAL(wp) , POINTER, OPTIONAL :: var2(:,:,:), var3(:,:,:), var4(:,:,:)
 
@@ -681,8 +680,8 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE test_oldsync_3D(comm_pattern, var1, var2, var3, var4, timer_id, patch_no)
-    INTEGER :: comm_pattern, timer_id, patch_no
+  SUBROUTINE test_oldsync_3D(comm_pattern, var1, var2, var3, var4, timer_id)
+    INTEGER :: comm_pattern, timer_id
     REAL(wp) , POINTER:: var1(:,:,:)
     REAL(wp) , POINTER, OPTIONAL :: var2(:,:,:), var3(:,:,:), var4(:,:,:)
 
@@ -693,7 +692,7 @@ CONTAINS
     IF (.NOT. PRESENT(var2)) THEN
       DO i=1,testbed_iterations
         CALL timer_start(timer_id)
-        CALL sync_patch_array( comm_pattern, p_patch(patch_no), var1 )
+        CALL sync_patch_array( comm_pattern, p_patch(n_dom_start), var1 )
         CALL timer_stop(timer_id)
       ENDDO
       RETURN
@@ -702,20 +701,20 @@ CONTAINS
     IF (PRESENT(var4)) THEN
       DO i=1,testbed_iterations
         CALL timer_start(timer_id)
-        CALL sync_patch_array_mult(comm_pattern, p_patch(patch_no), 4, var1, var2, var3, var4)
+        CALL sync_patch_array_mult(comm_pattern, p_patch(n_dom_start), 4, var1, var2, var3, var4)
         CALL timer_stop(timer_id)
       ENDDO
 
    ELSEIF (PRESENT(var3)) THEN
       DO i=1,testbed_iterations
         CALL timer_start(timer_id)
-        CALL sync_patch_array_mult(comm_pattern, p_patch(patch_no), 3, var1, var2, var3)
+        CALL sync_patch_array_mult(comm_pattern, p_patch(n_dom_start), 3, var1, var2, var3)
         CALL timer_stop(timer_id)
       ENDDO
    ELSE
       DO i=1,testbed_iterations
         CALL timer_start(timer_id)
-        CALL sync_patch_array_mult(comm_pattern, p_patch(patch_no), 2, var1, var2)
+        CALL sync_patch_array_mult(comm_pattern, p_patch(n_dom_start), 2, var1, var2)
         CALL timer_stop(timer_id)
       ENDDO
    ENDIF
@@ -727,8 +726,8 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE test_oldsync_4DE1(comm_pattern, var, nfields, timer_id, patch_no)
-    INTEGER :: comm_pattern, nfields, timer_id, patch_no
+  SUBROUTINE test_oldsync_4DE1(comm_pattern, var, nfields, timer_id)
+    INTEGER :: comm_pattern, nfields, timer_id
     REAL(wp) :: var(:,:,:,:)
 
     INTEGER :: i
@@ -736,7 +735,7 @@ CONTAINS
     CALL work_mpi_barrier()
     DO i=1,testbed_iterations
       CALL timer_start(timer_id)
-      CALL sync_patch_array_4de1(comm_pattern, p_patch(patch_no), nfields, var)
+      CALL sync_patch_array_4de1(comm_pattern, p_patch(n_dom_start), nfields, var)
       CALL timer_stop(timer_id)
     ENDDO
 
@@ -745,18 +744,16 @@ CONTAINS
   END SUBROUTINE test_oldsync_4DE1
   !-------------------------------------------------------------------------
 
-
   !-------------------------------------------------------------------------
   SUBROUTINE test_sync_2D(comm_pattern, var, timer)
     INTEGER :: comm_pattern, timer
     REAL(wp) , POINTER:: var(:,:)
 
-    INTEGER :: i, patch_no
+    INTEGER :: i
 
-    patch_no = 1
     CALL timer_start(timer)
     DO i=1,testbed_iterations
-      CALL sync_patch_array( comm_pattern, p_patch(patch_no), var )
+      CALL sync_patch_array( comm_pattern, p_patch(n_dom_start), var )
       CALL do_calculations()
     ENDDO
     CALL timer_stop(timer)
@@ -768,14 +765,13 @@ CONTAINS
     INTEGER :: comm_pattern, timer
     REAL(wp) , POINTER:: cell_var(:,:), edge_var(:,:), vert_var(:,:)
 
-    INTEGER :: i, patch_no
+    INTEGER :: i
 
-    patch_no = 1
     CALL timer_start(timer)
     DO i=1,testbed_iterations
-      CALL sync_patch_array(SYNC_C , p_patch(patch_no), cell_var )
-      CALL sync_patch_array(SYNC_E , p_patch(patch_no), edge_var )
-      CALL sync_patch_array(SYNC_V , p_patch(patch_no), vert_var )
+      CALL sync_patch_array(SYNC_C , p_patch(n_dom_start), cell_var )
+      CALL sync_patch_array(SYNC_E , p_patch(n_dom_start), edge_var )
+      CALL sync_patch_array(SYNC_V , p_patch(n_dom_start), vert_var )
     ENDDO
     CALL timer_stop(timer)
   END SUBROUTINE test_sync_2D_all
@@ -786,12 +782,11 @@ CONTAINS
     INTEGER :: comm_pattern, timer
     REAL(wp) , POINTER:: var(:,:,:)
 
-    INTEGER :: i, patch_no
+    INTEGER :: i
 
-    patch_no = 1
     CALL timer_start(timer)
     DO i=1,testbed_iterations
-      CALL sync_patch_array( comm_pattern, p_patch(patch_no), var )
+      CALL sync_patch_array( comm_pattern, p_patch(n_dom_start), var )
       CALL do_calculations()
     ENDDO
     CALL timer_stop(timer)
@@ -803,16 +798,15 @@ CONTAINS
 
     REAL(wp) , POINTER:: cell_var(:,:,:), edge_var(:,:,:), vert_var(:,:,:)
 
-    INTEGER :: i, patch_no, timer
+    INTEGER :: i, timer
 
-    patch_no = 1
     CALL timer_start(timer)
     DO i=1,testbed_iterations
-      CALL sync_patch_array(SYNC_C , p_patch(patch_no), cell_var )
+      CALL sync_patch_array(SYNC_C , p_patch(n_dom_start), cell_var )
       CALL do_calculations()
-      CALL sync_patch_array(SYNC_E , p_patch(patch_no), edge_var )
+      CALL sync_patch_array(SYNC_E , p_patch(n_dom_start), edge_var )
       CALL do_calculations()
-      CALL sync_patch_array(SYNC_V , p_patch(patch_no), vert_var )
+      CALL sync_patch_array(SYNC_V , p_patch(n_dom_start), vert_var )
       CALL do_calculations()
     ENDDO
     CALL timer_stop(timer)
@@ -822,17 +816,16 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE do_calculations()
 
-    INTEGER :: i, patch_no
+    INTEGER :: i
 
-    patch_no = 1
     DO i=1,calculate_iterations
-      CALL grad_fd_norm (p_hydro_state(patch_no)%prog(1)%temp(:,:,:), &
-        & p_patch(patch_no), p_hydro_state(patch_no)%prog(1)%vn(:,:,:))
+      CALL grad_fd_norm (p_hydro_state(n_dom_start)%prog(1)%temp(:,:,:), &
+        & p_patch(n_dom_start), p_hydro_state(n_dom_start)%prog(1)%vn(:,:,:))
     ENDDO
 
   END SUBROUTINE do_calculations
   !-------------------------------------------------------------------------
-!     pnt_3D_verts_1 => p_hydro_state(patch_no)%diag%rel_vort(:,:,:)
+!     pnt_3D_verts_1 => p_hydro_state(n_dom_start)%diag%rel_vort(:,:,:)
 !
 !
 !     !---------------------------------------------------------------------
@@ -988,13 +981,13 @@ CONTAINS
 !     DO i=1,testbed_iterations
 !
 !       comm_1 = new_icon_comm_variable(pnt_3D_cells_1, cells_not_in_domain, &
-!         & p_patch(patch_no), status=is_ready, scope=until_sync)
+!         & p_patch(n_dom_start), status=is_ready, scope=until_sync)
 !
 !       comm_2 = new_icon_comm_variable(pnt_3D_edges_1, &
-!         & edges_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
+!         & edges_not_owned, p_patch(n_dom_start), status=is_ready, scope=until_sync)
 !
 !       comm_3 = new_icon_comm_variable(pnt_3D_verts_1, &
-!         & verts_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
+!         & verts_not_owned, p_patch(n_dom_start), status=is_ready, scope=until_sync)
 !
 !       CALL icon_comm_sync_all()
 !
@@ -1007,7 +1000,7 @@ CONTAINS
 !
 !     ! test the 3D iconcom on keeping the communicators
 !     comm_1 = new_icon_comm_variable(pnt_3D_cells_1, cells_not_in_domain, &
-!       & p_patch(patch_no))
+!       & p_patch(n_dom_start))
 !     comm_2 = new_icon_comm_variable(pnt_3D_edges_1, &
 !       & edges_not_owned)
 !     comm_3 = new_icon_comm_variable(pnt_3D_verts_1, &
@@ -1033,8 +1026,9 @@ CONTAINS
 !     CALL delete_icon_comm_variable(comm_1)
     !---------------------------------------------------------------------
 
+  SUBROUTINE exchange_communication_testbed(test_gpu)
 
-  SUBROUTINE exchange_communication_testbed()
+    LOGICAL, OPTIONAL, INTENT(IN) :: test_gpu
 
     INTEGER, ALLOCATABLE :: owner_local_src(:), owner_local_dst(:), &
       &                     glb_index_src(:), glb_index_dst(:)
@@ -1264,7 +1258,7 @@ CONTAINS
     ref_out_array_i_2d = RESHAPE(MERGE(-1, glb_index_dst, &
       &                                owner_local_dst == -1), (/nproma, 10/))
     ref_out_array_l_2d = RESHAPE(MERGE(.FALSE., .TRUE., owner_local_dst == -1), &
-      &                          (/nproma, 16/))
+      &                          (/nproma, 10/))
     DO i = 1, nlev
       ref_out_array_r_3d(:,i,:) = MERGE(-1._wp, ref_out_array_r_2d + &
         &                               (i - 1) * global_size, &
@@ -1879,46 +1873,104 @@ CONTAINS
       LOGICAL, INTENT(IN) ::  ref_out_array_l_2d(:,:), ref_out_array_l_3d(:,:,:)
       CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
 
+#ifdef _OPENACC
+    IF (PRESENT(test_gpu)) THEN
+      i_am_accel_node = test_gpu
+    ELSE
+      i_am_accel_node = .FALSE.
+    END IF
+#endif
+
+!$acc data copyin(add_array_r_2d) &
+!$acc      if (present(add_array_r_2d) .AND. i_am_accel_node)
+!$acc data copyin(in_array_r_2d) &
+!$acc      if (present(in_array_r_2d) .AND. i_am_accel_node)
+!$acc data copy(out_array_r_2d) if (i_am_accel_node)
       CALL exchange_data(p_pat=comm_pattern, recv=out_array_r_2d, &
         &                send=in_array_r_2d, add=add_array_r_2d, &
         &                l_recv_exists=.TRUE.)
+!$acc end data
+!$acc end data
+!$acc end data
       IF (ANY(out_array_r_2d /= ref_out_array_r_2d)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result r_2d"
         CALL finish(method_name, message_text)
       END IF
+
+!$acc data copyin(add_array_r_3d) &
+!$acc      if (present(add_array_r_3d) .AND. i_am_accel_node)
+!$acc data copyin(in_array_r_3d) &
+!$acc      if (present(in_array_r_3d) .AND. i_am_accel_node)
+!$acc data copy(out_array_r_3d) if (i_am_accel_node)
       CALL exchange_data(p_pat=comm_pattern, recv=out_array_r_3d, &
         &                send=in_array_r_3d, add=add_array_r_3d)
+!$acc end data
+!$acc end data
+!$acc end data
       IF (ANY(out_array_r_3d /= ref_out_array_r_3d)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result r_3d"
         CALL finish(method_name, message_text)
       END IF
 
+!$acc data copyin(add_array_i_2d) &
+!$acc      if (present(add_array_i_2d) .AND. i_am_accel_node)
+!$acc data copyin(in_array_i_2d) &
+!$acc      if (present(in_array_i_2d) .AND. i_am_accel_node)
+!$acc data copy(out_array_i_2d) if (i_am_accel_node)
       CALL exchange_data(p_pat=comm_pattern, recv=out_array_i_2d, &
         &                send=in_array_i_2d, add=add_array_i_2d, &
         &                l_recv_exists=.TRUE.)
+!$acc end data
+!$acc end data
+!$acc end data
       IF (ANY(out_array_i_2d /= ref_out_array_i_2d)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result i_2d"
         CALL finish(method_name, message_text)
       END IF
+
+!$acc data copyin(add_array_i_3d) &
+!$acc      if (present(add_array_i_3d) .AND. i_am_accel_node)
+!$acc data copyin(in_array_i_3d) &
+!$acc      if (present(in_array_i_3d) .AND. i_am_accel_node)
+!$acc data copy(out_array_i_3d) if (i_am_accel_node)
       CALL exchange_data(p_pat=comm_pattern, recv=out_array_i_3d, &
         &                send=in_array_i_3d, add=add_array_i_3d)
+!$acc end data
+!$acc end data
+!$acc end data
       IF (ANY(out_array_i_3d /= ref_out_array_i_3d)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result i_3d"
         CALL finish(method_name, message_text)
       END IF
 
-      !CALL exchange_data(p_pat=comm_pattern, recv=out_array_l_2d, &
-      !  &                send=in_array_l_2d, l_recv_exists=.TRUE.)
-      !IF (ANY(out_array_l_2d /= ref_out_array_l_2d)) THEN
-      !  WRITE(message_text,'(a,i0)') "Wrong exchange result l_2d"
-      !  CALL finish(method_name, message_text)
-      !END IF
-      !CALL exchange_data(p_pat=comm_pattern, recv=out_array_l_3d, &
-      !  &                send=in_array_l_3d)
-      !IF (ANY(out_array_l_3d /= ref_out_array_l_3d)) THEN
-      !  WRITE(message_text,'(a,i0)') "Wrong exchange result l_3d"
-      !  CALL finish(method_name, message_text)
-      !END IF
+!$acc data copyin(in_array_l_2d) &
+!$acc      if (present(in_array_l_2d) .AND. i_am_accel_node)
+!$acc data copy(out_array_l_2d) if (i_am_accel_node)
+      CALL exchange_data(p_pat=comm_pattern, recv=out_array_l_2d, &
+        &                send=in_array_l_2d, l_recv_exists=.TRUE.)
+!$acc end data
+!$acc end data
+      IF (ANY(out_array_l_2d .NEQV. ref_out_array_l_2d)) THEN
+        WRITE(message_text,'(a,i0)') "Wrong exchange result l_2d"
+        CALL finish(method_name, message_text)
+      END IF
+
+!$acc data copyin(in_array_l_3d) &
+!$acc      if (present(in_array_l_3d) .AND. i_am_accel_node)
+!$acc data copy(out_array_l_3d) if (i_am_accel_node)
+      CALL exchange_data(p_pat=comm_pattern, recv=out_array_l_3d, &
+        &                send=in_array_l_3d)
+!$acc end data
+!$acc end data
+      IF (ANY(out_array_l_3d .NEQV. ref_out_array_l_3d)) THEN
+        WRITE(message_text,'(a,i0)') "Wrong exchange result l_3d"
+        CALL finish(method_name, message_text)
+      END IF
+
+#ifdef _OPENACC
+    i_am_accel_node = .FALSE.
+#endif
+
     END SUBROUTINE check_exchange
 
     SUBROUTINE check_exchange_4de1(in_array, out_array, ref_out_array, &
@@ -1934,12 +1986,27 @@ CONTAINS
       nfields = SIZE(out_array, 1)
       ndim2tot = nfields * SIZE(out_array, 3)
 
+#ifdef _OPENACC
+    IF (PRESENT(test_gpu)) THEN
+      i_am_accel_node = test_gpu
+    ELSE
+      i_am_accel_node = .FALSE.
+    END IF
+#endif
+
+!$acc data copy(out_array) copyin(in_array) if (i_am_accel_node)
       CALL exchange_data_4de1(comm_pattern, nfields, ndim2tot, out_array, &
         &                     in_array)
+!$acc end data
+
       IF (ANY(out_array /= ref_out_array)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result 4de1"
         CALL finish(method_name, message_text)
       END IF
+
+#ifdef _OPENACC
+    i_am_accel_node = .FALSE.
+#endif
 
     END SUBROUTINE check_exchange_4de1
 
@@ -2222,6 +2289,30 @@ CONTAINS
         END IF
       END IF
 
+#ifdef _OPENACC
+    IF (PRESENT(test_gpu)) THEN
+      i_am_accel_node = test_gpu
+    ELSE
+      i_am_accel_node = .FALSE.
+    END IF
+#endif
+
+!$acc data copyin(in_array1) if (present(in_array1) .AND. i_am_accel_node)
+!$acc data copyin(in_array2) if (present(in_array2) .AND. i_am_accel_node)
+!$acc data copyin(in_array3) if (present(in_array3) .AND. i_am_accel_node)
+!$acc data copyin(in_array4) if (present(in_array4) .AND. i_am_accel_node)
+!$acc data copyin(in_array5) if (present(in_array5) .AND. i_am_accel_node)
+!$acc data copyin(in_array6) if (present(in_array6) .AND. i_am_accel_node)
+!$acc data copyin(in_array7) if (present(in_array7) .AND. i_am_accel_node)
+!$acc data copyin(in_array4d) if (present(in_array4d) .AND. i_am_accel_node)
+!$acc data copy(out_array1) if (present(out_array1) .AND. i_am_accel_node)
+!$acc data copy(out_array2) if (present(out_array2) .AND. i_am_accel_node)
+!$acc data copy(out_array3) if (present(out_array3) .AND. i_am_accel_node)
+!$acc data copy(out_array4) if (present(out_array4) .AND. i_am_accel_node)
+!$acc data copy(out_array5) if (present(out_array5) .AND. i_am_accel_node)
+!$acc data copy(out_array6) if (present(out_array6) .AND. i_am_accel_node)
+!$acc data copy(out_array7) if (present(out_array7) .AND. i_am_accel_node)
+!$acc data copy(out_array4d) if (present(out_array4d) .AND. i_am_accel_node)
       IF (nfields > 0) THEN
         CALL exchange_data_mult( &
           p_pat=comm_pattern, nfields=nfields, ndim2tot=ndim2tot, &
@@ -2235,6 +2326,26 @@ CONTAINS
           recv4d=out_array4d, send4d=in_array4d, &
           nshift=kshift)
       END IF
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+
+#ifdef _OPENACC
+    i_am_accel_node = .FALSE.
+#endif
 
       IF (PRESENT(out_array1)) THEN
         IF (ANY(out_array1 /= ref_out_array1)) THEN
@@ -2871,6 +2982,38 @@ CONTAINS
         END IF
       END IF
 
+#ifdef _OPENACC
+    IF (PRESENT(test_gpu)) THEN
+      i_am_accel_node = test_gpu
+    ELSE
+      i_am_accel_node = .FALSE.
+    END IF
+#endif
+
+!$acc data copyin(in_array1_dp) if (present(in_array1_dp) .AND. i_am_accel_node)
+!$acc data copyin(in_array2_dp) if (present(in_array2_dp) .AND. i_am_accel_node)
+!$acc data copyin(in_array3_dp) if (present(in_array3_dp) .AND. i_am_accel_node)
+!$acc data copyin(in_array4_dp) if (present(in_array4_dp) .AND. i_am_accel_node)
+!$acc data copyin(in_array5_dp) if (present(in_array5_dp) .AND. i_am_accel_node)
+!$acc data copyin(in_array4d_dp) if (present(in_array4d_dp) .AND. i_am_accel_node)
+!$acc data copy(out_array1_dp) if (present(out_array1_dp) .AND. i_am_accel_node)
+!$acc data copy(out_array2_dp) if (present(out_array2_dp) .AND. i_am_accel_node)
+!$acc data copy(out_array3_dp) if (present(out_array3_dp) .AND. i_am_accel_node)
+!$acc data copy(out_array4_dp) if (present(out_array4_dp) .AND. i_am_accel_node)
+!$acc data copy(out_array5_dp) if (present(out_array5_dp) .AND. i_am_accel_node)
+!$acc data copy(out_array4d_dp) if (present(out_array4d_dp) .AND. i_am_accel_node)
+!$acc data copyin(in_array1_sp) if (present(in_array1_sp) .AND. i_am_accel_node)
+!$acc data copyin(in_array2_sp) if (present(in_array2_sp) .AND. i_am_accel_node)
+!$acc data copyin(in_array3_sp) if (present(in_array3_sp) .AND. i_am_accel_node)
+!$acc data copyin(in_array4_sp) if (present(in_array4_sp) .AND. i_am_accel_node)
+!$acc data copyin(in_array5_sp) if (present(in_array5_sp) .AND. i_am_accel_node)
+!$acc data copyin(in_array4d_sp) if (present(in_array4d_sp) .AND. i_am_accel_node)
+!$acc data copy(out_array1_sp) if (present(out_array1_sp) .AND. i_am_accel_node)
+!$acc data copy(out_array2_sp) if (present(out_array2_sp) .AND. i_am_accel_node)
+!$acc data copy(out_array3_sp) if (present(out_array3_sp) .AND. i_am_accel_node)
+!$acc data copy(out_array4_sp) if (present(out_array4_sp) .AND. i_am_accel_node)
+!$acc data copy(out_array5_sp) if (present(out_array5_sp) .AND. i_am_accel_node)
+!$acc data copy(out_array4d_sp) if (present(out_array4d_sp) .AND. i_am_accel_node)
       IF ((nfields_dp > 0) .OR. (nfields_sp > 0)) THEN
         CALL exchange_data_mult_mixprec( &
           p_pat=comm_pattern, nfields_dp=nfields_dp, ndim2tot_dp=ndim2tot_dp, &
@@ -2889,6 +3032,34 @@ CONTAINS
           recv4d_sp=out_array4d_sp, send4d_sp=in_array4d_sp, &
           nshift=kshift)
       END IF
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+!$acc end data
+
+#ifdef _OPENACC
+    i_am_accel_node = .FALSE.
+#endif
 
       IF (PRESENT(out_array1_dp)) THEN
         IF (ANY(out_array1_dp /= ref_out_array1_dp)) THEN
@@ -2978,7 +3149,9 @@ CONTAINS
 
   END SUBROUTINE exchange_communication_testbed
 
-  SUBROUTINE exchange_communication_grf_testbed()
+  SUBROUTINE exchange_communication_grf_testbed(test_gpu)
+
+    LOGICAL, OPTIONAL, INTENT(IN) :: test_gpu
 
     CHARACTER(*), PARAMETER :: method_name = &
       "mo_test_communication:exchange_communication_grf_testbed"
@@ -3206,6 +3379,14 @@ CONTAINS
 
       INTEGER :: nfields, ndim2tot, i
 
+#ifdef _OPENACC
+    IF (PRESENT(test_gpu)) THEN
+      i_am_accel_node = test_gpu
+    ELSE
+      i_am_accel_node = .FALSE.
+    END IF
+#endif
+
       ALLOCATE(tmp_recv1(SIZE(recv1,1),SIZE(recv1,2),SIZE(recv1,3)), &
         &      tmp_recv2(SIZE(recv2,1),SIZE(recv2,2),SIZE(recv2,3)), &
         &      tmp_recv3(SIZE(recv3,1),SIZE(recv3,2),SIZE(recv3,3)), &
@@ -3230,8 +3411,10 @@ CONTAINS
       nfields = 1
       ndim2tot = SIZE(recv1, 2)
       recv1 = tmp_recv1
+!$acc data copy(recv1) copyin(send1) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv1=recv1, send1=send1)
+!$acc end data
       IF (ANY(recv1 /= ref_recv1)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result grf", i
         CALL finish(method_name, message_text)
@@ -3242,9 +3425,11 @@ CONTAINS
       ndim2tot = SIZE(recv1, 2) + SIZE(recv2, 2)
       recv1 = tmp_recv1
       recv2 = tmp_recv2
+!$acc data copy(recv1, recv2) copyin(send1, send2) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv1=recv1, send1=send1, &
         &                    recv2=recv2, send2=send2)
+!$acc end data
       IF (ANY(recv1 /= ref_recv1) .OR. ANY(recv2 /= ref_recv2)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result grf", i
         CALL finish(method_name, message_text)
@@ -3256,10 +3441,13 @@ CONTAINS
       recv1 = tmp_recv1
       recv2 = tmp_recv2
       recv3 = tmp_recv3
+!$acc data copy(recv1, recv2, recv3) &
+!$acc      copyin(send1, send2, send3) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv1=recv1, send1=send1, &
         &                    recv2=recv2, send2=send2, recv3=recv3, &
         &                    send3=send3)
+!$acc end data
       IF (ANY(recv1 /= ref_recv1) .OR. ANY(recv2 /= ref_recv2) .OR. &
         & ANY(recv3 /= ref_recv3)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result grf", i
@@ -3274,10 +3462,13 @@ CONTAINS
       recv2 = tmp_recv2
       recv3 = tmp_recv3
       recv4 = tmp_recv4
+!$acc data copy(recv1, recv2, recv3, recv4) &
+!$acc      copyin(send1, send2, send3, send4) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv1=recv1, send1=send1, &
         &                    recv2=recv2, send2=send2, recv3=recv3, &
         &                    send3=send3, recv4=recv4, send4=send4)
+!$acc end data
       IF (ANY(recv1 /= ref_recv1) .OR. ANY(recv2 /= ref_recv2) .OR. &
         & ANY(recv3 /= ref_recv3) .OR. ANY(recv4 /= ref_recv4)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result grf", i
@@ -3293,11 +3484,14 @@ CONTAINS
       recv3 = tmp_recv3
       recv4 = tmp_recv4
       recv5 = tmp_recv5
+!$acc data copy(recv1, recv2, recv3, recv4, recv5) &
+!$acc      copyin(send1, send2, send3, send4, send5) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv1=recv1, send1=send1, &
         &                    recv2=recv2, send2=send2, recv3=recv3, &
         &                    send3=send3, recv4=recv4, send4=send4, &
         &                    recv5=recv5, send5=send5)
+!$acc end data
       IF (ANY(recv1 /= ref_recv1) .OR. ANY(recv2 /= ref_recv2) .OR. &
         & ANY(recv3 /= ref_recv3) .OR. ANY(recv4 /= ref_recv4) .OR. &
         & ANY(recv5 /= ref_recv5)) THEN
@@ -3315,12 +3509,15 @@ CONTAINS
       recv4 = tmp_recv4
       recv5 = tmp_recv5
       recv6 = tmp_recv6
+!$acc data copy(recv1, recv2, recv3, recv4, recv5, recv6) &
+!$acc      copyin(send1, send2, send3, send4, send5, send6) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv1=recv1, send1=send1, &
         &                    recv2=recv2, send2=send2, recv3=recv3, &
         &                    send3=send3, recv4=recv4, send4=send4, &
         &                    recv5=recv5, send5=send5, recv6=recv6, &
         &                    send6=send6)
+!$acc end data
       IF (ANY(recv1 /= ref_recv1) .OR. ANY(recv2 /= ref_recv2) .OR. &
         & ANY(recv3 /= ref_recv3) .OR. ANY(recv4 /= ref_recv4) .OR. &
         & ANY(recv5 /= ref_recv5) .OR. ANY(recv6 /= ref_recv6)) THEN
@@ -3332,9 +3529,11 @@ CONTAINS
       nfields = SIZE(recv4d1, 4)
       ndim2tot = SIZE(recv4d1, 4) * SIZE(recv4d1, 2)
       recv4d1 = tmp_recv4d1
+!$acc data copy(recv4d1) copyin(send4d1) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv4d1=recv4d1, &
         &                    send4d1=send4d1)
+!$acc end data
       IF (ANY(recv4d1 /= ref_recv4d1)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result grf", i
         CALL finish(method_name, message_text)
@@ -3346,9 +3545,11 @@ CONTAINS
         &        SIZE(recv4d2, 4) * SIZE(recv4d2, 2)
       recv4d1 = tmp_recv4d1
       recv4d2 = tmp_recv4d2
+!$acc data copy(recv4d1, recv4d2) copyin(send4d1, send4d2) if (i_am_accel_node)
       CALL exchange_data_grf(p_pat_coll=p_pat_coll, nfields=nfields, &
         &                    ndim2tot=ndim2tot, recv4d1=recv4d1, &
         &                    send4d1=send4d1, recv4d2=recv4d2, send4d2=send4d2)
+!$acc end data
       IF (ANY(recv4d1 /= ref_recv4d1) .OR. ANY(recv4d2 /= ref_recv4d2)) THEN
         WRITE(message_text,'(a,i0)') "Wrong exchange result grf", i
         CALL finish(method_name, message_text)
@@ -3457,7 +3658,7 @@ CONTAINS
       &                        ref_out_array_r_1d, ref_out_array_r_2d, &
       &                        out_array_i_1d, out_array_i_2d, &
       &                        ref_out_array_i_1d, ref_out_array_i_2d, &
-      &                        gather_pattern, __LINE__, fill_value)
+      &                        gather_pattern, __LINE__, fill_value, INT(fill_value))
 
     ! delete gather pattern and other arrays
     DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
@@ -3551,7 +3752,7 @@ CONTAINS
         &                        ref_out_array_r_1d, ref_out_array_r_2d, &
         &                        out_array_i_1d, out_array_i_2d, &
         &                        ref_out_array_i_1d, ref_out_array_i_2d, &
-        &                        gather_pattern, __LINE__, fill_value)
+        &                        gather_pattern, __LINE__, fill_value, INT(fill_value))
 
       ! delete gather pattern and other arrays
       DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
@@ -3643,7 +3844,7 @@ CONTAINS
       &                        ref_out_array_r_1d, ref_out_array_r_2d, &
       &                        out_array_i_1d, out_array_i_2d, &
       &                        ref_out_array_i_1d, ref_out_array_i_2d, &
-      &                        gather_pattern, __LINE__, fill_value)
+      &                        gather_pattern, __LINE__, fill_value, INT(fill_value))
 
     ! delete gather pattern and other arrays
     DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
@@ -3733,7 +3934,7 @@ CONTAINS
       &                        ref_out_array_r_1d, ref_out_array_r_2d, &
       &                        out_array_i_1d, out_array_i_2d, &
       &                        ref_out_array_i_1d, ref_out_array_i_2d, &
-      &                        gather_pattern, __LINE__, fill_value)
+      &                        gather_pattern, __LINE__, fill_value, INT(fill_value))
 
     ! delete gather pattern and other arrays
     DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
@@ -3831,7 +4032,7 @@ CONTAINS
         &                        ref_out_array_r_1d, ref_out_array_r_2d, &
         &                        out_array_i_1d, out_array_i_2d, &
         &                        ref_out_array_i_1d, ref_out_array_i_2d, &
-        &                        gather_pattern, __LINE__, fill_value)
+        &                        gather_pattern, __LINE__, fill_value, INT(fill_value))
 
       ! initialise reference out data (for no fill_value case)
       DEALLOCATE(out_array_r_1d, out_array_r_2d, out_array_i_1d, out_array_i_2d, &
@@ -3948,7 +4149,7 @@ CONTAINS
       CALL check_exchange_allgather(in_array_r_1d, in_array_i_1d, &
         &                           out_array_r_1d, ref_out_array_r_1d, &
         &                           out_array_i_1d, ref_out_array_i_1d, &
-        &                           allgather_pattern, __LINE__, fill_value)
+        &                           allgather_pattern, __LINE__, fill_value, INT(fill_value))
   !
       ! delete gather pattern and other arrays
       DEALLOCATE(in_array_r_1d, in_array_i_1d, &
@@ -4008,7 +4209,7 @@ CONTAINS
         CALL check_exchange_allgather(in_array_r_1d, in_array_i_1d, &
           &                           out_array_r_1d, ref_out_array_r_1d, &
           &                           out_array_i_1d, ref_out_array_i_1d, &
-          &                           allgather_pattern, __LINE__, fill_value)
+          &                           allgather_pattern, __LINE__, fill_value, INT(fill_value))
     !
         ! delete gather pattern and other arrays
         DEALLOCATE(in_array_r_1d, in_array_i_1d, &
@@ -4040,7 +4241,7 @@ CONTAINS
       &                              ref_out_array_r_1d, ref_out_array_r_2d, &
       &                              out_array_i_1d, out_array_i_2d, &
       &                              ref_out_array_i_1d, ref_out_array_i_2d, &
-      &                              gather_pattern, line, fill_value)
+      &                              gather_pattern, line, fill_value_w, fill_value_i)
 
       REAL(wp), INTENT(IN) :: in_array_r_1d(:,:), in_array_r_2d(:,:,:)
       INTEGER, INTENT(IN) :: in_array_i_1d(:,:), in_array_i_2d(:,:,:)
@@ -4050,11 +4251,12 @@ CONTAINS
       INTEGER, INTENT(IN) :: ref_out_array_i_1d(:), ref_out_array_i_2d(:,:)
       TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
       INTEGER, INTENT(in) :: line
-      REAL(wp), OPTIONAL, INTENT(IN) :: fill_value
+      REAL(wp), OPTIONAL, INTENT(IN) :: fill_value_w
+      INTEGER, OPTIONAL, INTENT(IN) :: fill_value_i
       INTEGER :: i
 
       CALL exchange_data(in_array=in_array_r_1d, out_array=out_array_r_1d, &
-        &                gather_pattern=gather_pattern, fill_value=fill_value)
+        &                gather_pattern=gather_pattern, fill_value=fill_value_w)
       IF (p_pe_work == 0) THEN
         IF (ANY(out_array_r_1d /= ref_out_array_r_1d)) THEN
           WRITE(message_text,'(a,i0)') "Wrong gather result r_1d, line=", line
@@ -4062,7 +4264,7 @@ CONTAINS
         END IF
       END IF
       CALL exchange_data(in_array=in_array_r_2d, out_array=out_array_r_2d, &
-        &                gather_pattern=gather_pattern, fill_value=fill_value)
+        &                gather_pattern=gather_pattern, fill_value=fill_value_w)
       IF (p_pe_work == 0) THEN
         IF (ANY(out_array_r_2d /= ref_out_array_r_2d)) THEN
           WRITE(message_text,'(a,i0)') "Wrong gather result r_2d, line=", line
@@ -4070,7 +4272,7 @@ CONTAINS
         END IF
       END IF
       CALL exchange_data(in_array=in_array_i_1d, out_array=out_array_i_1d, &
-        &                gather_pattern=gather_pattern, fill_value=fill_value)
+        &                gather_pattern=gather_pattern, fill_value=fill_value_i)
       IF (p_pe_work == 0) THEN
         IF (ANY(out_array_i_1d /= ref_out_array_i_1d)) THEN
           WRITE(message_text,'(a,i0)') "Wrong gather result i_1d, line=", line
@@ -4078,7 +4280,7 @@ CONTAINS
         END IF
       END IF
       CALL exchange_data(in_array=in_array_i_2d, out_array=out_array_i_2d, &
-        &                gather_pattern=gather_pattern, fill_value=fill_value)
+        &                gather_pattern=gather_pattern, fill_value=fill_value_i)
       IF (p_pe_work == 0) THEN
         IF (ANY(out_array_i_2d /= ref_out_array_i_2d)) THEN
           WRITE(message_text,'(a,i0)') "Wrong gather result i_2d, line=", line
@@ -4094,7 +4296,7 @@ CONTAINS
       &                                 out_array_i_1d, &
       &                                 ref_out_array_i_1d, &
       &                                 allgather_pattern, line, &
-      &                                 fill_value)
+      &                                 fill_value_w, fill_value_i)
 
       REAL(wp), INTENT(IN) :: in_array_r_1d(:,:)
       INTEGER, INTENT(IN) :: in_array_i_1d(:,:)
@@ -4104,12 +4306,13 @@ CONTAINS
       INTEGER, INTENT(IN) :: ref_out_array_i_1d(:)
       TYPE(t_comm_allgather_pattern), INTENT(IN) :: allgather_pattern
       INTEGER, INTENT(in) :: line
-      REAL(wp), OPTIONAL, INTENT(IN) :: fill_value
+      REAL(wp), OPTIONAL, INTENT(IN) :: fill_value_w
+      INTEGER, OPTIONAL, INTENT(IN) :: fill_value_i
       INTEGER :: i
 
       CALL exchange_data(in_array=in_array_r_1d, out_array=out_array_r_1d, &
         &                allgather_pattern=allgather_pattern, &
-        &                fill_value=fill_value)
+        &                fill_value=fill_value_w)
       IF (p_pe_work == 0) THEN
         IF (ANY(out_array_r_1d /= ref_out_array_r_1d)) THEN
           WRITE(message_text,'(a,i0)') "Wrong gather result r_1d, line=", line
@@ -4118,7 +4321,7 @@ CONTAINS
       END IF
       CALL exchange_data(in_array=in_array_i_1d, out_array=out_array_i_1d, &
         &                allgather_pattern=allgather_pattern, &
-        &                fill_value=fill_value)
+        &                fill_value=fill_value_i)
       IF (p_pe_work == 0) THEN
         IF (ANY(out_array_i_1d /= ref_out_array_i_1d)) THEN
           WRITE(message_text,'(a,i0)') "Wrong gather result i_1d, line=", line
@@ -4126,6 +4329,311 @@ CONTAINS
         END IF
       END IF
     END SUBROUTINE
+
+  END SUBROUTINE
+
+  SUBROUTINE bench_exchange_data_mult()
+
+    REAL(wp), POINTER :: var1(:,:,:), var2(:,:,:), var3(:,:,:), &
+                             var4(:,:,:), var5(:,:,:), var6(:,:,:), &
+                             var7(:,:,:)
+
+    INTEGER :: nlev, nblk, nfields, i
+    LOGICAL, SAVE :: first_call = .TRUE.
+    INTEGER, SAVE :: timer_1var, timer_2var, timer_3var, timer_4var, &
+               timer_5var, timer_6var, timer_7var
+    INTEGER, SAVE :: timer_1var_b, timer_2var_b, timer_3var_b, &
+                     timer_4var_b, timer_5var_b, timer_6var_b, timer_7var_b
+    CLASS(t_comm_pattern), POINTER :: comm_pattern
+
+    IF (first_call) THEN
+      first_call = .FALSE.
+      timer_1var =   new_timer("bench 1 var no   barrier")
+      timer_2var =   new_timer("bench 2 var no   barrier")
+      timer_3var =   new_timer("bench 3 var no   barrier")
+      timer_4var =   new_timer("bench 4 var no   barrier")
+      timer_5var =   new_timer("bench 5 var no   barrier")
+      timer_6var =   new_timer("bench 6 var no   barrier")
+      timer_7var =   new_timer("bench 7 var no   barrier")
+
+      timer_1var_b = new_timer("bench 1 var with barrier")
+      timer_2var_b = new_timer("bench 2 var with barrier")
+      timer_3var_b = new_timer("bench 3 var with barrier")
+      timer_4var_b = new_timer("bench 4 var with barrier")
+      timer_5var_b = new_timer("bench 5 var with barrier")
+      timer_6var_b = new_timer("bench 6 var with barrier")
+      timer_7var_b = new_timer("bench 7 var with barrier")
+    END IF
+
+    nlev = p_patch(n_dom_start)%nlev
+    nblk = p_patch(n_dom_start)%nblks_c
+    comm_pattern => p_patch(n_dom_start)%comm_pat_c
+
+    ALLOCATE(var1(nproma, nlev, nblk), var2(nproma, nlev, nblk), &
+             var3(nproma, nlev, nblk), var4(nproma, nlev, nblk), &
+             var5(nproma, nlev, nblk), var6(nproma, nlev, nblk), &
+             var7(nproma, nlev, nblk))
+
+    var1 = 0
+    var2 = 0
+    var3 = 0
+    var4 = 0
+    var5 = 0
+    var6 = 0
+    var7 = 0
+
+    ! warm-up
+    nfields = 1
+    DO i = 1, 16
+      CALL exchange_data(comm_pattern, var1)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_1var)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL exchange_data(comm_pattern, var1)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_1var)
+
+    ! warm-up
+    nfields = 2
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_2var)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_2var)
+
+    ! warm-up
+    nfields = 3
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_3var)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_3var)
+
+    ! warm-up
+    nfields = 4
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_4var)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_4var)
+
+    ! warm-up
+    nfields = 5
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_5var)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_5var)
+
+    ! warm-up
+    nfields = 6
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_6var)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_6var)
+
+    ! warm-up
+    nfields = 7
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6, recv7=var7)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_7var)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6, recv7=var7)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_7var)
+
+    !---------------------------------------------------------------------------
+
+    ! warm-up
+    nfields = 1
+    DO i = 1, 16
+      CALL exchange_data(comm_pattern, var1)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_1var_b)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL work_mpi_barrier()
+      CALL exchange_data(comm_pattern, var1)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_1var_b)
+
+    ! warm-up
+    nfields = 2
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_2var_b)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL work_mpi_barrier()
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_2var_b)
+
+    ! warm-up
+    nfields = 3
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_3var_b)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL work_mpi_barrier()
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_3var_b)
+
+    ! warm-up
+    nfields = 4
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_4var_b)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL work_mpi_barrier()
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_4var_b)
+
+    ! warm-up
+    nfields = 5
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_5var_b)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL work_mpi_barrier()
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_5var_b)
+
+    ! warm-up
+    nfields = 6
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_6var_b)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL work_mpi_barrier()
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_6var_b)
+
+    ! warm-up
+    nfields = 7
+    DO i = 1, 16
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6, recv7=var7)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_start(timer_7var_b)
+    ! benchmarking
+    DO i = 1, testbed_iterations
+      CALL work_mpi_barrier()
+      CALL exchange_data_mult( &
+        p_pat=comm_pattern, nfields=nfields, ndim2tot=nfields*nlev, recv1=var1, &
+        recv2=var2, recv3=var3, recv4=var4, recv5=var5, recv6=var6, recv7=var7)
+    END DO
+    CALL work_mpi_barrier()
+    CALL timer_stop(timer_7var_b)
 
   END SUBROUTINE
 

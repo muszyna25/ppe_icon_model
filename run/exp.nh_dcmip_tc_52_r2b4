@@ -88,6 +88,8 @@ cat > ${atmo_namelist} << EOF
 &grid_nml
  dynamics_grid_filename  ="${atmo_dyn_grids}"
  grid_rescale_factor     = ${rescale_factor}
+ lrescale_timestep = .TRUE.
+ lrescale_ang_vel  = .TRUE.
 /
 &nh_testcase_nml
  nh_test_name     = 'dcmip_tc_52'

@@ -49,6 +49,8 @@ MODULE mo_grid_nml
     & config_radiation_grid_filename      => radiation_grid_filename,       &
     & config_grid_rescale_factor          => grid_rescale_factor,           &
     & config_grid_angular_velocity        => namelist_grid_angular_velocity,&
+    & config_lrescale_timestep            => lrescale_timestep,             &
+    & config_lrescale_ang_vel             => lrescale_ang_vel,              &
     & config_use_duplicated_connectivity  => use_duplicated_connectivity,   &
     & config_use_dummy_cell_closure       => use_dummy_cell_closure,        &
     & DEFAULT_ENDTIME,                                         &
@@ -113,6 +115,7 @@ MODULE mo_grid_nml
     INTEGER                     :: dynamics_radiation_grid_link(max_dom)
         
     REAL(wp) :: grid_rescale_factor, grid_angular_velocity
+    LOGICAL  :: lrescale_timestep, lrescale_ang_vel
     INTEGER                    :: iunit
 
     LOGICAL    :: create_vgrid   ! switch if files containing vct_a, vct_b, z_ifc shall be created
@@ -124,6 +127,7 @@ MODULE mo_grid_nml
     NAMELIST /grid_nml/ lfeedback, ifeedback_type,      &
       &  lplane, is_plane_torus, corio_lat, l_limited_area,        &
       &  grid_rescale_factor, lsep_grfinfo,                        &
+      &  lrescale_timestep, lrescale_ang_vel,                      &
       &  patch_weight, lredgrid_phys, start_time, end_time,        &
       &  dynamics_grid_filename,  dynamics_parent_grid_id,         &
       &  radiation_grid_filename,    &
@@ -176,6 +180,8 @@ MODULE mo_grid_nml
     !----------------------------------------------------------------
     grid_rescale_factor   = 1.0_wp
     grid_angular_velocity = earth_angular_velocity
+    lrescale_timestep     = .FALSE.
+    lrescale_ang_vel      = .FALSE.
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -244,6 +250,8 @@ MODULE mo_grid_nml
     config_radiation_grid_filename = radiation_grid_filename
     config_grid_rescale_factor     = grid_rescale_factor
     config_grid_angular_velocity   = grid_angular_velocity
+    config_lrescale_timestep       = lrescale_timestep
+    config_lrescale_ang_vel        = lrescale_ang_vel
     config_create_vgrid            = create_vgrid
     config_vertical_grid_filename  = vertical_grid_filename
 

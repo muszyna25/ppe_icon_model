@@ -68,6 +68,8 @@ CONTAINS
     !
     lresum=.FALSE.
     !
+    !$ACC DATA CREATE( itrpwmo, itrpwmop1 )
+    !
     CALL WMO_tropopause( jcs, jce, nproma, nlev,   &! in
                        & ncctop, nccbot, lresum,   &! in
                        & field% ta(:,:,jb),        &! in
@@ -75,6 +77,8 @@ CONTAINS
                        & field% ptp(:,jb),         &! inout for diagnostics
                        & itrpwmo, itrpwmop1        )! out for submodel
     !
+
+    !$ACC END DATA
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_wmo_output(jg, jb, jcs, jce, nproma, nlev, field)

@@ -1,6 +1,7 @@
 #ifndef __NO_ICON_OCEAN__
 
-SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
+MODULE mo_construct_icon_hamocc
+
 
   USE mo_kind, ONLY           : wp
   USE mo_hamocc_nml, ONLY     : l_init_bgc
@@ -37,14 +38,64 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
   USE mo_sync,                ONLY: global_sum_array
   USE mo_math_utilities,      ONLY: set_zlev
   USE mo_ocean_surface_types, ONLY: t_atmos_for_ocean 
- ! USE mo_hamocc_diagnostics,  ONLY: get_inventories
+  USE mo_end_bgc,             ONLY: cleanup_hamocc
+  USE mo_bgc_bcond,           ONLY: construct_bgc_ext_data, destruct_bgc_ext_data, ext_data_bgc
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_bgc_ini, ltimer
+  USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_hamocc_output,       ONLY: construct_hamocc_var_lists, construct_hamocc_state, &
+    &                                destruct_hamocc_state         
+  USE mo_master_config,       ONLY: isRestart
+  USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
+    & t_hamocc_ocean_state
 
   IMPLICIT NONE
+  PRIVATE
+  
+  
+  PUBLIC:: construct_icon_hamocc, destruct_icon_hamocc, init_icon_hamocc 
+CONTAINS
+
+!------------------------------------------------------------
+SUBROUTINE destruct_icon_hamocc()
+
+    CALL cleanup_hamocc
+    CALL destruct_bgc_ext_data
+    CALL destruct_hamocc_state(hamocc_state)
+
+END SUBROUTINE destruct_icon_hamocc
+!------------------------------------------------------------
+
+!------------------------------------------------------------
+SUBROUTINE construct_icon_hamocc(patch_3d, ext_data)
+   TYPE(t_patch_3D),             TARGET,INTENT(IN)    :: patch_3D
+   TYPE(t_external_data), TARGET, INTENT(inout) :: ext_data
+   
+    CALL construct_hamocc_var_lists(patch_3d%p_patch_2d(1))
+    CALL construct_hamocc_state(patch_3d, hamocc_state)
+    CALL construct_bgc_ext_data(patch_3d%p_patch_2d(1), ext_data,ext_data_bgc)
+
+END SUBROUTINE construct_icon_hamocc
+!------------------------------------------------------------
+
+!------------------------------------------------------------
+SUBROUTINE init_icon_hamocc(hamocc_ocean_state)
+  TYPE(t_hamocc_ocean_state), TARGET   :: hamocc_ocean_state
+
+  if(ltimer)call timer_start(timer_bgc_ini)
+  CALL ini_bgc_icon(hamocc_ocean_state, isRestart())
+  if(ltimer)call timer_stop(timer_bgc_ini)
+ 
+END SUBROUTINE init_icon_hamocc
+!------------------------------------------------------------
+ 
+!------------------------------------------------------------
+!------------------------------------------------------------
+SUBROUTINE INI_BGC_ICON(hamocc_ocean_state,l_is_restart)
+  TYPE(t_hamocc_ocean_state), TARGET   :: hamocc_ocean_state
+ ! USE mo_hamocc_diagnostics,  ONLY: get_inventories
 
   !! Arguments
-  TYPE(t_patch_3D),             TARGET,INTENT(IN)    :: p_patch_3D
-  TYPE(t_hydro_ocean_state)                   :: p_os
-  TYPE(t_atmos_for_ocean)                     :: p_as
+  TYPE(t_patch_3D), POINTER    :: p_patch_3D
   LOGICAL, INTENT(in):: l_is_restart
 
 
@@ -63,7 +114,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
   REAL(wp),ALLOCATABLE:: dlevels_m(:),dlevels_i(:)
  
   CALL message(TRIM(routine), 'start')
-
+  p_patch_3D => hamocc_ocean_state%patch_3D
   !
   !----------------------------------------------------------------------
   !
@@ -146,6 +197,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
            totalarea = totalarea + p_patch%cells%area(jc,jb) * &
  &             p_patch_3d%wet_halo_zero_c(jc,1,jb)
 
+!       write(0,*) "cell area:", p_patch%cells%area(jc,jb), " wet_halo_zero_c:", p_patch_3d%wet_halo_zero_c(jc,1,jb)
         ENDDO
   ENDDO
   totalarea     = global_sum_array(totalarea)
@@ -183,8 +235,8 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
 
           CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
-             &jb, p_os%p_prog(nnew(1))%tracer(:,:,jb,:)&
-             &,p_as%co2(:,jb)&
+             &jb, hamocc_state%p_prog(nnew(1))%tracer(:,:,jb,:)&
+             &,hamocc_ocean_state%ocean_to_hamocc_state%co2_mixing_ratio(:,jb)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
 
          ELSE
@@ -200,15 +252,18 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,p_as,l_is_restart)
         CALL initial_update_icon(start_index,end_index,levels, &
               &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
               &              jb, &
-              &              p_os%p_prog(nold(1))%tracer(:,:,jb,:),&
+              &              hamocc_state%p_prog(nold(1))%tracer(:,:,jb,:),&
               &              hamocc_state%p_sed, hamocc_state%p_diag,&
-              &              p_as%co2flx(:,jb))
+              &              hamocc_ocean_state%hamocc_to_ocean_state%co2_flux(:,jb))
      
 
   ENDDO
 
 
  CALL message(TRIM(routine), 'end ini bgc')
-END SUBROUTINE 
+END SUBROUTINE INI_BGC_ICON
 
+
+END MODULE mo_construct_icon_hamocc
+!------------------------------------------------------------
 #endif

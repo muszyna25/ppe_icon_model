@@ -32,7 +32,7 @@ module_swap() {
 }
 
 is_module_loaded() {
-    mod_base="${1%%/*}"
+    mod_base="$(basename $(dirname $1))"
     module_load_status=$(module list 2>&1 |  awk '{for (i=1; i <= NF; ++i) { print $i}; }' | grep ^${mod_base%%/*})
 
     if [ -z $module_load_status ]
@@ -128,11 +128,6 @@ fi
 if  [ "x${config_target}" = "xbullx" ] && [ "x${config_compiler}" = "xpgi" ]
 then
     export TMPDIR=/scratch/${USER:0:1}/$USER/
-fi
-
-if [ "x${config_target}" = "xblizzard" ]
-then
-    export LDR_CNTRL=MAXDATA=0xD0000000@DSA
 fi
 
 @make_command@

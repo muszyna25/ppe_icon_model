@@ -40,7 +40,7 @@ MODULE mo_ocean_math_operators
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, &
-    & select_solver, select_restart_mixedprecision_gmres, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip, &
+    & select_solver, select_gmres_mp_r, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip, &
     & select_lhs, select_lhs_matrix, ab_beta, ab_gam
   
   USE mo_dynamics_config,    ONLY: nold
@@ -1544,7 +1544,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(inout)      :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     
     CALL calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
@@ -1570,8 +1570,8 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
-    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(in) :: solvercoeff_sp
     REAL(wp), OPTIONAL :: inTopCellThickness(:,:)
     
     !  local variables
@@ -1917,7 +1917,7 @@ CONTAINS
 ! !ICON_OMP_END_DO
 !
 !
-!     IF (select_solver == select_restart_mixedprecision_gmres) THEN
+!     IF (select_solver == select_gmres_mp_r) THEN
 ! !ICON_OMP WORKSHARE
 !       solvercoeff_sp%edge_thickness(:,:)  = REAL(ocean_state%p_diag%thick_e(:,:), sp)
 !       solvercoeff_sp%cell_thickness(:,:)  = REAL(ocean_state%p_diag%thick_c(:,:), sp)
@@ -2032,7 +2032,7 @@ CONTAINS
 
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     REAL(wp), OPTIONAL :: inTopCellThickness(:,:)
     
@@ -2153,7 +2153,7 @@ CONTAINS
 !ICON_OMP_END_DO
     ENDIF 
     
-    IF (select_solver == select_restart_mixedprecision_gmres) THEN
+    IF (select_solver == select_gmres_mp_r) THEN
 !ICON_OMP WORKSHARE
       solvercoeff_sp%edge_thickness(:,:)  = REAL(ocean_state%p_diag%thick_e(:,:), sp)
       solvercoeff_sp%cell_thickness(:,:)  = REAL(ocean_state%p_diag%thick_c(:,:), sp)
@@ -2232,7 +2232,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL    
     !-------------------------------------------------------------------------
     
-    IF (select_lhs == select_lhs_matrix) &
+    IF (select_lhs .GE. select_lhs_matrix .AND. select_lhs .LE. select_lhs_matrix + 1) &
       CALL update_lhs_matrix_coeff( patch_3D, operators_coefficients)
 
     !---------Debug Diagnostics-------------------------------------------
@@ -2259,8 +2259,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE update_lhs_matrix_coeff( patch_3D, operators_coefficients)
 
-    TYPE(t_patch_3D ),TARGET                :: patch_3D
-    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_patch_3D ), TARGET :: patch_3D
+    TYPE(t_operator_coeff), INTENT(inout) :: operators_coefficients
 
     TYPE(t_patch), POINTER                  :: patch_2D
     TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -2301,6 +2301,7 @@ CONTAINS
 
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, cell_StartIndex, cell_EndIndex)
+      lhs_coeffs(:, :, blockNo) = 0._wp
       DO jc = cell_StartIndex, cell_EndIndex
 
         IF (patch_3D%surface_cell_sea_land_mask(jc,blockNo) >= 0) CYCLE
@@ -2417,60 +2418,36 @@ CONTAINS
 
         ENDDO ! end of PtP coefficients for the three edges of this cell
 
-        ! fill the stencil connectivity
-        DO cell_connect = 1, 9
-          operators_coefficients%lhs_CellToCell_index(cell_connect,jc,blockNo) = cell_idx(cell_connect)
-          operators_coefficients%lhs_CellToCell_block(cell_connect,jc,blockNo) = cell_blk(cell_connect)
-        ENDDO
-
         ! for convenience get the dic coefficients localy
         dc(1) = operators_coefficients%div_coeff(jc, 1, blockNo, 1)
         dc(2) = operators_coefficients%div_coeff(jc, 1, blockNo, 2)
         dc(3) = operators_coefficients%div_coeff(jc, 1, blockNo, 3)
 
+        ! fill the stencil connectivity
+        DO cell_connect = 1, 9
+          operators_coefficients%lhs_CellToCell_index(cell_connect,jc,blockNo) = cell_idx(cell_connect)
+          operators_coefficients%lhs_CellToCell_block(cell_connect,jc,blockNo) = cell_blk(cell_connect)
+        ENDDO
         ! finaly the coefficients
-        lhs_coeffs(0, jc, blockNo) = &
-          gdt2_inv - gam_times_beta * &
+        lhs_coeffs(0, jc, blockNo) = gdt2_inv - gam_times_beta * &
            (dc(1) * (gs(1,0) * ap(1,1) + gs(2,0) * ap(1,2) + gs(3,0) * ap(1,3)) + &
             dc(2) * (gs(1,0) * ap(2,1) + gs(2,0) * ap(2,2) + gs(3,0) * ap(2,3)) + &
             dc(3) * (gs(1,0) * ap(3,1) + gs(2,0) * ap(3,2) + gs(3,0) * ap(3,3)))
-
-        lhs_coeffs(1, jc, blockNo) = &
-          -gam_times_beta * &
+        lhs_coeffs(1, jc, blockNo) = -gam_times_beta * &
            (dc(1) * (gs(1,1) * ap(1,1) + gs(5,1) * ap(1,5) + gs(4,1) * ap(1,4)) + &
-            dc(2) *  gs(1,1) * ap(2,1) + &
-            dc(3) *  gs(1,1) * ap(3,1))
-
-        lhs_coeffs(2, jc, blockNo) = &
-          -gam_times_beta * &
-           (dc(1) * gs(2,2) * ap(1,2) + &
-            dc(2) * (gs(2,2) * ap(2,2) + gs(6,2) * ap(2,6) + gs(7,2) * ap(2,7)) + &
-            dc(3) * gs(2,2) * ap(3,2))
-
-        lhs_coeffs(3, jc, blockNo) = &
-          -gam_times_beta * &
-           (dc(1) * gs(3,3) * ap(1,3) + &
-            dc(2) * gs(3,3) * ap(2,3) + &
+            dc(2) *  gs(1,1) * ap(2,1) + dc(3) *  gs(1,1) * ap(3,1))
+        lhs_coeffs(2, jc, blockNo) = -gam_times_beta * &
+           (dc(1) * gs(2,2) * ap(1,2) + dc(2) * (gs(2,2) * ap(2,2) + &
+            gs(6,2) * ap(2,6) + gs(7,2) * ap(2,7)) + dc(3) * gs(2,2) * ap(3,2))
+        lhs_coeffs(3, jc, blockNo) = -gam_times_beta * &
+           (dc(1) * gs(3,3) * ap(1,3) + dc(2) * gs(3,3) * ap(2,3) + &
             dc(3) * (gs(3,3) * ap(3,3) + gs(8,3) * ap(3,8) + gs(9,3) * ap(3,9)))
-
-        lhs_coeffs(4, jc, blockNo) = &
-          -gam_times_beta * dc(1) * gs(4,4) * ap(1,4) 
-
-        lhs_coeffs(5, jc, blockNo) = &
-          -gam_times_beta * dc(1) * gs(5,5) * ap(1,5) 
-
-        lhs_coeffs(6, jc, blockNo) = &
-          -gam_times_beta * dc(2) * gs(6,6) * ap(2,6) 
-
-        lhs_coeffs(7, jc, blockNo) = &
-          -gam_times_beta * dc(2) * gs(7,7) * ap(2,7) 
-
-        lhs_coeffs(8, jc, blockNo) = &
-          -gam_times_beta * dc(3) * gs(8,8) * ap(3,8) 
- 
-        lhs_coeffs(9, jc, blockNo) = &
-          -gam_times_beta * dc(3) * gs(9,9) * ap(3,9) 
-
+        lhs_coeffs(4, jc, blockNo) = -gam_times_beta * dc(1) * gs(4,4) * ap(1,4)
+        lhs_coeffs(5, jc, blockNo) = -gam_times_beta * dc(1) * gs(5,5) * ap(1,5)
+        lhs_coeffs(6, jc, blockNo) = -gam_times_beta * dc(2) * gs(6,6) * ap(2,6)
+        lhs_coeffs(7, jc, blockNo) = -gam_times_beta * dc(2) * gs(7,7) * ap(2,7)
+        lhs_coeffs(8, jc, blockNo) = -gam_times_beta * dc(3) * gs(8,8) * ap(3,8) 
+        lhs_coeffs(9, jc, blockNo) = -gam_times_beta * dc(3) * gs(9,9) * ap(3,9)
       ENDDO
     ENDDO
 

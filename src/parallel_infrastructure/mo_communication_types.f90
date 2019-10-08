@@ -91,7 +91,7 @@ ABSTRACT INTERFACE
     p_pat, dst_n_points, dst_owner, dst_global_index, send_glb2loc_index, &
     src_n_points, src_owner, src_global_index, inplace, comm)
     IMPORT t_comm_pattern, t_glb2loc_index_lookup
-    CLASS(t_comm_pattern), INTENT(OUT) :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(OUT) :: p_pat
     INTEGER, INTENT(IN)           :: dst_n_points
     INTEGER, INTENT(IN)           :: dst_owner(:)
     INTEGER, INTENT(IN)           :: dst_global_index(:)
@@ -106,7 +106,7 @@ ABSTRACT INTERFACE
   SUBROUTINE interface_setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
        glb2loc_index_recv, glb2loc_index_send, inplace)
     IMPORT t_comm_pattern, xfer_list, t_glb2loc_index_lookup
-    CLASS(t_comm_pattern), INTENT(OUT) :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(OUT) :: p_pat
     INTEGER, INTENT(in) :: comm
     TYPE(xfer_list), &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -120,12 +120,12 @@ ABSTRACT INTERFACE
 
   SUBROUTINE interface_delete_comm_pattern(p_pat)
     IMPORT t_comm_pattern
-    CLASS(t_comm_pattern), INTENT(INOUT) :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT) :: p_pat
   END SUBROUTINE interface_delete_comm_pattern
 
   SUBROUTINE interface_exchange_data_r3d(p_pat, recv, send, add)
     IMPORT t_comm_pattern, dp
-    CLASS(t_comm_pattern), INTENT(INOUT)   :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT)   :: p_pat
     REAL(dp), INTENT(INOUT), TARGET        :: recv(:,:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     REAL(dp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
@@ -133,7 +133,7 @@ ABSTRACT INTERFACE
 
   SUBROUTINE interface_exchange_data_s3d(p_pat, recv, send, add)
     IMPORT t_comm_pattern, sp
-    CLASS(t_comm_pattern), INTENT(INOUT)   :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT)   :: p_pat
     REAL(sp), INTENT(INOUT), TARGET        :: recv(:,:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     REAL(sp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
@@ -141,7 +141,7 @@ ABSTRACT INTERFACE
 
   SUBROUTINE interface_exchange_data_i3d(p_pat, recv, send, add)
     IMPORT t_comm_pattern
-    CLASS(t_comm_pattern), INTENT(INOUT)  :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT)  :: p_pat
     INTEGER, INTENT(INOUT), TARGET        :: recv(:,:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
     INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
@@ -150,7 +150,7 @@ ABSTRACT INTERFACE
   SUBROUTINE interface_exchange_data_mult( &
     p_pat, ndim2tot, recv, send, nshift)
     IMPORT t_comm_pattern, t_ptr_3d
-    CLASS(t_comm_pattern), INTENT(INOUT) :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT) :: p_pat
     TYPE(t_ptr_3d), PTR_INTENT(IN) :: recv(:)
     TYPE(t_ptr_3d), PTR_INTENT(IN), OPTIONAL :: send(:)
     INTEGER, INTENT(IN)           :: ndim2tot
@@ -161,7 +161,7 @@ ABSTRACT INTERFACE
     p_pat, nfields_dp, ndim2tot_dp, nfields_sp, ndim2tot_sp, recv_dp, send_dp, &
     recv_sp, send_sp, nshift)
     IMPORT t_comm_pattern, t_ptr_3d, t_ptr_3d_sp
-    CLASS(t_comm_pattern), INTENT(INOUT) :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT) :: p_pat
     TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: recv_dp(:)
     TYPE(t_ptr_3d), PTR_INTENT(in), OPTIONAL :: send_dp(:)
     TYPE(t_ptr_3d_sp), PTR_INTENT(in), OPTIONAL :: recv_sp(:)
@@ -173,7 +173,7 @@ ABSTRACT INTERFACE
 
   SUBROUTINE interface_exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
     IMPORT t_comm_pattern, dp
-    CLASS(t_comm_pattern), INTENT(INOUT) :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT) :: p_pat
     REAL(dp), INTENT(INOUT)           :: recv(:,:,:,:)
     REAL(dp), INTENT(IN   ), OPTIONAL :: send(:,:,:,:)
     INTEGER, INTENT(IN)           :: nfields, ndim2tot
@@ -216,7 +216,7 @@ ABSTRACT INTERFACE
 
   SUBROUTINE interface_exchange_data_l3d(p_pat, recv, send)
     IMPORT t_comm_pattern
-    CLASS(t_comm_pattern), INTENT(INOUT)  :: p_pat
+    CLASS(t_comm_pattern), TARGET, INTENT(INOUT)  :: p_pat
     LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:,:)
     LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
   END SUBROUTINE interface_exchange_data_l3d

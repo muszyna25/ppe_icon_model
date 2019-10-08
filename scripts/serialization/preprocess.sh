@@ -1,7 +1,7 @@
 #! /bin/sh
 
 ser_vars2pass="my_iconppdir=\"${my_iconppdir}\";FC=\"${FC}\""
-ser_funcsrc="$(realpath scripts/serialization/functions.sh)"
+ser_funcsrc="$(readlink -f scripts/serialization/functions.sh)"
 ser_setup="${ser_vars2pass};source ${ser_funcsrc}"
 
 serialization_init() {
@@ -28,7 +28,7 @@ serialization_pp() {
       ;; #(
     cray*) :
       local abs_include
-      abs_include="$(realpath src/include)"
+      abs_include="$(readlink -f src/include)"
       cd src/ || exit 1
       echo "Preprocessing files (CPP) ..."
       PP_FFLAGS="$(echo "$FFLAGS" | sed -e 's/ -e Z //' -e 's/,ipa1//' -e 's|-I../pp ||' -e 's|-I../support ||' -e 's|-I../module ||')"
