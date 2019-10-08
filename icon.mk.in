@@ -270,14 +270,14 @@ version.c: force-create-version
 
 # Default Fortran dependency generation rule:
 %.f90.d: %.f90 icon.mk | preprocess $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
 
 # Default C dependency generation rule:
 %.c.d: %.c icon.mk | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) $< -- $(CFLAGS) $(ICON_CFLAGS) $(CPPFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) -i $< -- $(CFLAGS) $(ICON_CFLAGS) $(CPPFLAGS)
 
 # ICON-Ocean Fortran dependency generation rules:
-ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
+ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
 
 $(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 icon.mk | preprocess $(dirstamps)
 	$(ICON_OCEAN_DEPGEN)
