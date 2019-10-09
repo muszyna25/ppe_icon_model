@@ -18,20 +18,25 @@ test_suite=
 xfail_test_names=
 failed_test_names=
 
-case $(host $(uname -n)) in
-  mpipc45.mpimet.mpg.de\ *)
-    test_suite='mpim-mpipc45-spack'
-    xfail_test_names='gcc.cc_nagfor nag.cc_nagfor nag.disable_rpath' ;;
-  mlogin*.hpc.dkrz.de\ *)
-    test_suite='dkrz-mistral' ;;
-  daint*.login.cscs.ch\ *)
-    test_suite='cscs-daint'
-    xfail_test_names='cray.bundled cray.bundled_sct cray.bundled_serialize' ;;
-  xce*.dwd.de\ *)
-    test_suite='dwd-xce'
-    xfail_test_names='cray.bundled_dynamic cray.bundled_static' ;;
+case $(uname -s) in
+  Darwin)
+    test_suite='darwin-macports' ;;
   *)
-    echo "Unknown test environment" && exit 1 ;;
+    case $(host $(uname -n)) in
+      mpipc45.mpimet.mpg.de\ *)
+        test_suite='mpim-mpipc45-spack'
+        xfail_test_names='gcc.cc_nagfor nag.cc_nagfor nag.disable_rpath' ;;
+      mlogin*.hpc.dkrz.de\ *)
+        test_suite='dkrz-mistral' ;;
+      daint*.login.cscs.ch\ *)
+        test_suite='cscs-daint'
+        xfail_test_names='cray.bundled cray.bundled_sct cray.bundled_serialize' ;;
+      xce*.dwd.de\ *)
+        test_suite='dwd-xce'
+        xfail_test_names='cray.bundled_dynamic cray.bundled_static' ;;
+      *)
+        echo "Unknown test environment" && exit 1 ;;
+    esac ;;
 esac
 
 art_repo='git@gitlab.dkrz.de:m300488/art.git'
@@ -45,9 +50,10 @@ else
 fi
 
 for vendor in ${vendors}; do
-  vendor_tests=$(find "${root_dir}/../${test_suite}" -name ${vendor}'.*' -type f -executable | sort)
+  vendor_tests=$(find "${root_dir}/../${test_suite}" -name ${vendor}'.*' -type f | sort)
 
   for vendor_test in ${vendor_tests}; do
+    test -x "${vendor_test}" || continue
     vendor_test_name=$(basename "${vendor_test}")
     mkdir "${vendor_test_name}"
     cd "${vendor_test_name}"
@@ -97,7 +103,7 @@ for vendor in ${vendors}; do
 
     echo "Running 'make -j8 distclean' in $(pwd)..." | tee -a "${log_file}"
     make -j8 distclean 2>&1 | tee -a "${log_file}"
-    if find -mindepth 1 -print -quit 2>/dev/null | grep -q . >/dev/null 2>&1; then
+    if find . -mindepth 1 -print -quit 2>/dev/null | grep -q . >/dev/null 2>&1; then
       echo -e "\n'make -j8 distclean' did not delete all files" && exit 1; fi
     cd ..
     find "${vendor_test_name}" -type d -empty -delete

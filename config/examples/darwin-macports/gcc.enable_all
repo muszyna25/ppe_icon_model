@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# In this example we assume that you have already installed and activated the
+# following packages on your system using MacPorts:
+#
+#   libxml2
+#   gcc6
+#   mpich-gcc6
+#   hdf5 +gcc6
+#   netcdf +gcc6
+#   netcdf-fortran +gcc6
+#   lapack +gcc6
+#   eccodes +gcc6
+#
+# If that is not the case, you can run the installation commands listed in
+# the file 'port_install', which you can find in the directory containing this
+# example:
+#
+# sudo port -F ./port_install
+
+set -eu
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR="${MY_DIR}/../../.."
+
+FC=mpif90
+CC=mpicc
+
+FCFLAGS='-O2 -g -I/opt/local/include'
+CFLAGS='-O2 -g'
+CPPFLAGS='-I/opt/local/include -I/opt/local/include/libxml2'
+LDFLAGS='-L/opt/local/lib'
+LIBS='-lxml2 -llapack -lblas -leccodes -lnetcdff -lnetcdf -lhdf5'
+MPI_LAUNCH=mpirun
+
+"${ICON_DIR}/configure" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+MPI_LAUNCH="$MPI_LAUNCH" \
+--enable-ecrad \
+--enable-grib2 \
+--enable-rte-rrtmgp \
+--enable-sct \
+--enable-yaxt \
+"$@"
