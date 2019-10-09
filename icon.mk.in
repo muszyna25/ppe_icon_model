@@ -191,18 +191,21 @@ mostlyclean: $(bundled_subdirs)
 	rm -f icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files))) version.@OBJEXT@
 	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@
 	rm -f $(notdir $(f90_files:.f90=.i))
+	rm -rf icon@EXEEXT@.dSYM
 
-# Delete files generated at the building stage:
+# Delete files generated at the building stage (Python cache files are
+# generated in the source directory, we delete them only if are not
+# building out-of-source):
 clean: mostlyclean
 	rm -f srclist $(pp_files) version.c
-	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
+	find . -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
 
 # Delete everything generated at the configure stage (and clean the created directories if they are empty):
 distclean: clean
 	rm -f config.log config.status config.h depgen.f90.config depgen.c.config
 	rm -f $(dep_files)
 	rm -f $(dir_files)
-	@for dir in $(subdirs) $(moddir) $(ppdir) $(bundled_subdirs) externals; do \
+	@for dir in $(subdirs) $(moddir) $(ppdir) externals; do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
             find "$$dir" -type d -empty -delete; \
