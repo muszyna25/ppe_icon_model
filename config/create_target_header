@@ -683,7 +683,7 @@ set_run_target_daint_cpu()
   # ------------------------------------
 
   use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_TASKS_PER_NODE}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   cat >> $output_script << EOF
 # =====================================
@@ -775,7 +775,7 @@ set_run_target_daint_gpu()
   # ------------------------------------
 
   use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_TASKS_PER_NODE}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   cat >> $output_script << EOF
 # =====================================
@@ -1025,7 +1025,7 @@ set_run_target_kesch_cpu()
   # ------------------------------------
 
   use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_TASKS_PER_NODE}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   cat >> $output_script << EOF
 # =====================================
@@ -1117,7 +1117,7 @@ set_run_target_kesch_gpu()
   fi
 
   use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_TASKS_PER_NODE}\"
+  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   # ------------------------------------
 
