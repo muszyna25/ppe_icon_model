@@ -369,9 +369,7 @@ CONTAINS
 
       INTEGER  :: j,k
 
-#ifndef _CRAYFTN
 !$ACC ENTER DATA COPYIN( p_grf ), IF ( i_am_accel_node  )
-#endif
 
       DO j=1, SIZE(p_grf)
 
@@ -401,9 +399,7 @@ CONTAINS
 !$ACC               p_grf(j)%blklist_bdyintp_src_e,p_grf(j)%p_dom )                                        &
 !$ACC       IF ( i_am_accel_node )        
 
-#ifndef _CRAYFTN
 !$ACC EXIT DATA DELETE( p_grf ), IF ( i_am_accel_node  )
-#endif
 
         ENDIF
 

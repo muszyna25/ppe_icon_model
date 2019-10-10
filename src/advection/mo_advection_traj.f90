@@ -137,9 +137,7 @@ CONTAINS
       CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
     ENDIF
 
-#ifndef _CRAYFTN
 !$ACC ENTER DATA CREATE( obj ), IF ( i_am_accel_node .AND. acc_on )
-#endif
 !$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF ( i_am_accel_node .AND. acc_on )
 
   END SUBROUTINE construct
@@ -167,9 +165,7 @@ CONTAINS
     IF (ASSOCIATED(obj%cell_idx)) THEN
 
 !$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF ( i_am_accel_node .AND. acc_on )
-#ifndef _CRAYFTN
 !$ACC EXIT DATA DELETE( obj ), IF ( i_am_accel_node .AND. acc_on )
-#endif
 
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
       IF (ist /= SUCCESS) THEN
