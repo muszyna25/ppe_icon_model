@@ -279,9 +279,6 @@ CONTAINS
           CALL finish ( TRIM(routine), 'NO ppm4gpu IMPLEMENTATION for PSM ')
         ENDIF
 
-        WRITE(message_text,'(a)') 'WARNING:  in gpu mode, using upwind_vflux_ppm4gpu for performance reasons'
-        CALL message(TRIM(routine),message_text)
-
         CALL upwind_vflux_ppm4gpu( p_patch, p_cc(:,:,:,jt), p_iubc_adv,      &! in
             &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
             &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
