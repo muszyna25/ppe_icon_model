@@ -106,7 +106,7 @@ USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mo_io_config,            ONLY: lnetcdf_flt64_output, gust_interval, &
-  &                                mxt_interval, tot_prec_interval
+  &                                mxt_interval, precip_interval
 USE mtime,                   ONLY: max_timedelta_str_len, getPTStringFromMS
 USE mo_name_list_output_config, ONLY: &
   &                                first_output_name_list, is_variable_in_output
@@ -476,7 +476,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
                 & initval=0._wp, resetval=0._wp,                             &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%rain_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp0', 'kg m-2 ', 'gridscale rain0', datatype_flt)
@@ -500,7 +500,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
                 & initval=0._wp, resetval=0._wp,                             &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%snow_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_gsp0', 'kg m-2 ', 'gridscale snow0', datatype_flt)
@@ -526,7 +526,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
                   &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
                   & initval=0._wp, resetval=0._wp,                             &
-                  & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                  & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
     ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
@@ -543,7 +543,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
                   &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
                   & initval=0._wp, resetval=0._wp,                             &
-                  & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                  & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
       
 
        ! &      diag%hail_gsp(nproma,nblks_c)
@@ -557,7 +557,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
                   &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
                   & initval=0._wp, resetval=0._wp,                             &
-                  & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                  & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     END SELECT
 
@@ -573,7 +573,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
 
@@ -588,7 +588,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%rain_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con0', 'kg m-2 ', 'convective rain0', datatype_flt)
@@ -612,7 +612,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%snow_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con0', 'kg m-2', 'convective snow0', datatype_flt)
@@ -637,7 +637,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
     ! &      diag%tot_prec(nproma,nblks_c)
@@ -652,7 +652,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
 
@@ -669,7 +669,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%prec_gsp_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('prec_gsp_rate_avg', 'kg m-2 s-1',                  &
@@ -684,7 +684,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', 'kg m-2 s-1',                  &
@@ -698,7 +698,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
                 &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
                 & initval=0._wp, resetval=0._wp,                              &
-                & action_list=actions(new_action(ACTION_RESET,tot_prec_interval(k_jg))) )
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
 

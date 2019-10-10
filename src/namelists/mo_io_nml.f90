@@ -32,7 +32,7 @@ MODULE mo_io_nml
   USE mo_io_config,          ONLY: config_lkeep_in_sync           => lkeep_in_sync          , &
                                  & config_dt_diag                 => dt_diag                , &
                                  & config_gust_interval           => gust_interval          , &
-                                 & config_tot_prec_interval       => tot_prec_interval      , &
+                                 & config_precip_interval         => precip_interval        , &
                                  & config_mxt_interval            => mxt_interval           , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
                                  & config_inextra_2d              => inextra_2d             , &
@@ -40,7 +40,7 @@ MODULE mo_io_nml
                                  & config_lflux_avg               => lflux_avg              , &
                                  & config_itype_pres_msl          => itype_pres_msl         , &
                                  & config_output_nml_dict         => output_nml_dict        , &
-                                 & config_linvert_dict            => linvert_dict            , &
+                                 & config_linvert_dict            => linvert_dict           , &
                                  & config_netcdf_dict             => netcdf_dict            , &
                                  & config_lnetcdf_flt64_output    => lnetcdf_flt64_output   , &
                                  & config_itype_rh                => itype_rh               , &
@@ -95,7 +95,7 @@ CONTAINS
     LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
     REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
     REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
-    CHARACTER(len=max_timedelta_str_len) :: tot_prec_interval(max_dom) ! time interval over which tot_prec is accumulated
+    CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
     CHARACTER(len=max_timedelta_str_len) :: mxt_interval(max_dom)      ! time interval for tmax_2m and tmin_2m 
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
@@ -152,7 +152,7 @@ CONTAINS
       &              lnetcdf_flt64_output,                              &
       &              restart_file_type, write_initial_state,            &
       &              write_last_restart, timeSteps_per_outputStep,      &
-      &              lmask_boundary, tot_prec_interval, mxt_interval,   &
+      &              lmask_boundary, precip_interval, mxt_interval,     &
       &              gust_interval, restart_write_mode,                 &
       &              nrestart_streams
 
@@ -168,7 +168,7 @@ CONTAINS
     dt_checkpoint           = 0._wp  ! unspecified
 
     gust_interval(:)        = 3600._wp     ! 1 hour
-    tot_prec_interval(:)    = "P01Y"       ! 1 year
+    precip_interval(:)      = "P01Y"       ! 1 year
     mxt_interval(:)         = "PT06H"      ! 6 hours
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
@@ -226,7 +226,7 @@ CONTAINS
     config_lkeep_in_sync           = lkeep_in_sync
     config_dt_diag                 = dt_diag
     config_gust_interval(:)        = gust_interval(:)
-    config_tot_prec_interval(:)    = tot_prec_interval(:)
+    config_precip_interval(:)      = precip_interval(:)
     config_mxt_interval(:)         = mxt_interval(:)
     config_dt_checkpoint           = dt_checkpoint
     config_inextra_2d              = inextra_2d
