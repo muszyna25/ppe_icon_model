@@ -1838,10 +1838,60 @@ mo_ocean_testbed_performance.o \
 mo_ocean_testbed_quads.o \
 mo_ocean_testbed_read.o \
 mo_ocean_testbed_solverMatrix.o \
+mo_ocean_testbed_zstar.o \
 mo_ocean_time_events.o \
 mo_ocean_types.o \
 mo_run_config.o \
 mo_sea_ice_types.o
+
+
+mo_ocean_testbed_zstar.o : ../../src/ocean/testbed/mo_ocean_testbed_zstar.f90 \
+mo_dynamics_config.o \
+mo_event_manager.o \
+mo_exception.o \
+mo_ext_data_types.o \
+mo_grid_config.o \
+mo_grid_subset.o \
+mo_hamocc_types.o \
+mo_hydro_ocean_run.o \
+mo_ice_diagnostics.o \
+mo_impl_constants.o \
+mo_io_config.o \
+mo_kind.o \
+mo_master_config.o \
+mo_model_domain.o \
+mo_ocean_GM_Redi.o \
+mo_ocean_ab_timestepping.o \
+mo_ocean_diagnostics.o \
+mo_ocean_diffusion.o \
+mo_ocean_math_operators.o \
+mo_ocean_nml.o \
+mo_ocean_output.o \
+mo_ocean_physics.o \
+mo_ocean_physics_types.o \
+mo_ocean_statistics.o \
+mo_ocean_surface_refactor.o \
+mo_ocean_surface_types.o \
+mo_ocean_testbed_vertical_diffusion.o \
+mo_ocean_thermodyn.o \
+mo_ocean_tracer.o \
+mo_ocean_tracer_transport_horz.o \
+mo_ocean_types.o \
+mo_operator_ocean_coeff_3d.o \
+mo_parallel_config.o \
+mo_physical_constants.o \
+mo_random_util.o \
+mo_restart.o \
+mo_restart_attributes.o \
+mo_run_config.o \
+mo_scalar_product.o \
+mo_sea_ice.o \
+mo_sea_ice_nml.o \
+mo_sea_ice_types.o \
+mo_statistics.o \
+mo_time_config.o \
+mo_timer.o \
+mo_util_dbg_prnt.o
 
 mo_ocean_testbed_EOS.o : ../../src/ocean/testbed/mo_ocean_testbed_EOS.f90 \
 mo_exception.o \
