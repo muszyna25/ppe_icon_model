@@ -184,6 +184,7 @@ CONTAINS
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -222,6 +223,7 @@ CONTAINS
          alb_nir_dir(:,:),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),           & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),           & !< surface albedo for NIR range and dif light
+         emissivity(:,:),            & !< surface longwave emissivity
          zf(:,:,:),               & !< geometric height at full level in m
          zh(:,:,:),             & !< geometric height at half level in m
          dz(:,:,:),               & !< geometric height thickness in m
@@ -282,6 +284,7 @@ CONTAINS
         & loland          ,loglac          ,this_datetime                    ,&
         & pcos_mu0        ,daylght_frc                                       ,&
         & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+        & emissivity                                                         ,&
         & zf              ,zh              ,dz                               ,&
         & pp_sfc          ,pp_fl                                             ,&
         & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -308,6 +311,7 @@ CONTAINS
         & loland          ,loglac          ,this_datetime                    ,&
         & pcos_mu0        ,daylght_frc                                       ,&
         & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+        & emissivity                                                         ,&
         & zf              ,zh              ,dz                               ,&
         & pp_sfc          ,pp_fl                                             ,&
         & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -341,6 +345,7 @@ CONTAINS
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -379,6 +384,7 @@ CONTAINS
          alb_nir_dir(:,:),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),           & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),           & !< surface albedo for NIR range and dif light
+         emissivity(:,:),            & !< surface longwave emissivity
          zf(:,:,:),               & !< geometric height at full level in m
          zh(:,:,:),             & !< geometric height at half level in m
          dz(:,:,:),               & !< geometric height thickness in m
@@ -459,6 +465,7 @@ CONTAINS
                   c_loc(alb_nir_dir(1,1)), &
                   c_loc(alb_vis_dif(1,1)), &
                   c_loc(alb_nir_dif(1,1)), &
+                  c_loc(emissivity(1,1)),  &
                   c_loc(zf(1,1,1)),        &
                   c_loc(zh(1,1,1)),        &
                   c_loc(dz(1,1,1)),        &
@@ -519,6 +526,7 @@ CONTAINS
         & loland          ,loglac          ,this_datetime                    ,&
         & pcos_mu0        ,daylght_frc                                       ,&
         & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+        & emissivity                                                         ,&
         & zf              ,zh              ,dz                               ,&
         & pp_sfc          ,pp_fl                                             ,&
         & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -593,6 +601,7 @@ CONTAINS
                                     c_loc(this_memory%in%alb_nir_dir(1,1)),           &
                                     c_loc(this_memory%in%alb_vis_dif(1,1)),           &
                                     c_loc(this_memory%in%alb_nir_dif(1,1)),           &
+                                    c_loc(this_memory%in%emissivity(1,1)),            &
                                     c_loc(this_memory%const%zf(1,1,1)),               &
                                     c_loc(this_memory%const%zh(1,1,1)),               &
                                     c_loc(this_memory%const%dz(1,1,1)),               &
@@ -631,6 +640,7 @@ CONTAINS
        & this_memory%in%pcos_mu0        ,this_memory%in%daylght_frc         ,&
        & this_memory%in%alb_vis_dir     ,this_memory%in%alb_nir_dir     ,    &
        & this_memory%in%alb_vis_dif     ,this_memory%in%alb_nir_dif     ,    &
+       & this_memory%in%emissivity                                          ,&
        & this_memory%const%zf, this_memory%const%zh, this_memory%const%dz   ,&
        & this_memory%in%pp_sfc          ,this_memory%in%pp_fl               ,&
        & this_memory%in%tk_sfc          ,this_memory%in%tk_fl,               &
@@ -695,6 +705,7 @@ CONTAINS
        & this_memory%in%pcos_mu0        ,this_memory%in%daylght_frc          ,&
        & this_memory%in%alb_vis_dir     ,this_memory%in%alb_nir_dir     ,    &
        & this_memory%in%alb_vis_dif     ,this_memory%in%alb_nir_dif     ,&
+       & this_memory%in%emissivity                                          ,&
        & this_memory%const%zf, this_memory%const%zh, this_memory%const%dz   ,&
        & this_memory%in%pp_sfc          ,this_memory%in%pp_fl               ,&
        & this_memory%in%tk_sfc          ,this_memory%in%tk_fl,               &
@@ -786,6 +797,7 @@ CONTAINS
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -822,6 +834,7 @@ CONTAINS
          alb_nir_dir(:,:),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(:,:),           & !< surface albedo for vis range and dif light
          alb_nir_dif(:,:),           & !< surface albedo for NIR range and dif light
+         emissivity(:,:),            & !< surface longwave emissivity
          zf(:,:,:),               & !< geometric height at full level in m
          zh(:,:,:),             & !< geometric height at half level in m
          dz(:,:,:),               & !< geometric height thickness in m
@@ -914,6 +927,7 @@ CONTAINS
     this_memory%in%alb_nir_dir = alb_nir_dir
     this_memory%in%alb_vis_dif = alb_vis_dif
     this_memory%in%alb_nir_dif = alb_nir_dif
+    this_memory%in%emissivity = emissivity
     this_memory%in%pp_sfc = pp_sfc
     this_memory%in%pp_fl = pp_fl
     this_memory%in%tk_sfc = tk_sfc
@@ -938,6 +952,7 @@ CONTAINS
       & this_memory%in%pcos_mu0        ,this_memory%in%daylght_frc          ,&
       & this_memory%in%alb_vis_dir     ,this_memory%in%alb_nir_dir     ,    &
       & this_memory%in%alb_vis_dif     ,this_memory%in%alb_nir_dif     ,&
+      & this_memory%in%emissivity                                          ,&
       & this_memory%const%zf, this_memory%const%zh, this_memory%const%dz   ,&
       & this_memory%in%pp_sfc          ,this_memory%in%pp_fl               ,&
       & this_memory%in%tk_sfc          ,this_memory%in%tk_fl,               &

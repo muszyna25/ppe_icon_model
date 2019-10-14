@@ -45,6 +45,8 @@ CONTAINS
     INTEGER  :: jl
     REAL(wp) :: dmixsea,cpsea,zmixcap,zfluxw
 
+    !$ACC DATA PRESENT( pahflw, pahfsw, ptrflw, psoflw, ptsw )
+
     !
     ! Parameters/constants set in ml_flux(ECHAM) originally:
     !  zdmix=50._dp
@@ -58,12 +60,17 @@ CONTAINS
 
     zmixcap   = rho_ref*cpsea*dmixsea ! mixed layer heat capacity? 
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zfluxw )
     DO jl = start_column,  end_column
 
       zfluxw             = pahflw(jl) + pahfsw(jl) + ptrflw(jl) + psoflw(jl)
       ptsw(jl)           = ptsw(jl) + pdtime * zfluxw/zmixcap
 
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
   END SUBROUTINE ml_ocean
 

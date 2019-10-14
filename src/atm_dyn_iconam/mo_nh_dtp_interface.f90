@@ -47,6 +47,7 @@ MODULE mo_nh_dtp_interface
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
+  USE mo_upatmo_config,      ONLY: idamtr
 
   IMPLICIT NONE
   PRIVATE
@@ -516,7 +517,8 @@ CONTAINS
 !DIR$ IVDEP
            !$ACC LOOP VECTOR
            DO jc= i_startidx, i_endidx
-             p_nh_diag%airmass_now(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
+             p_nh_diag%airmass_now(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) &
+               &                             * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
            ENDDO  ! jc
          ENDDO  ! jk
 !$ACC END PARALLEL
@@ -527,7 +529,8 @@ CONTAINS
 !DIR$ IVDEP
            !$ACC LOOP VECTOR
            DO jc= i_startidx, i_endidx
-             p_nh_diag%airmass_new(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb)
+             p_nh_diag%airmass_new(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) &
+               &                             * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
            ENDDO  ! jc
          ENDDO  ! jk
 !$ACC END PARALLEL
@@ -539,7 +542,8 @@ CONTAINS
              !$ACC LOOP VECTOR
              DO jc= i_startidx, i_endidx
                p_nh_diag%airmass_now(jc,jk,jb) = p_nh_diag%airmass_now(jc,jk,jb) + &
-                 iau_wgt_adv*p_metrics%ddqz_z_full(jc,jk,jb)*p_nh_diag%rho_incr(jc,jk,jb)
+                 iau_wgt_adv*p_metrics%ddqz_z_full(jc,jk,jb)*p_nh_diag%rho_incr(jc,jk,jb) * &
+                 p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
              ENDDO  ! jc
            ENDDO  ! jk
 !$ACC END PARALLEL

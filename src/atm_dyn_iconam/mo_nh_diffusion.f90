@@ -37,7 +37,7 @@ MODULE mo_nh_diffusion
   USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, ndyn_substeps, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_turbdiff_config,     ONLY: turbdiff_config
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, cpu_min_nproma
   USE mo_run_config,          ONLY: ltimer, iforcing, lvert_nest
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_impl_constants    ,  ONLY: min_rledge_int, min_rlcell_int, min_rlvert_int, inwp, iecham
@@ -281,7 +281,7 @@ MODULE mo_nh_diffusion
     ENDIF
 
 !$ACC DATA CREATE( kh_c, kh_smag_e, kh_smag_ec, u_vert, v_vert, u_cell, v_cell, z_w_v, z_temp,               &
-!$ACC              z_nabla4_e, z_nabla4_e2, z_nabla2_e, z_nabla2_c,                                          &
+!$ACC              z_nabla4_e, z_nabla4_e2, z_nabla2_e, z_nabla2_c, enh_diffu_3d,                            &
 !$ACC              vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, icount,                       &
 !$ACC              z_vn_ie, z_vt_ie, dvndz, dvtdz, dwdz, dthvdz, dwdn, dwdt, kh_smag3d_e ),                  &
 !$ACC      COPYIN( nrdmax, diff_multfac_vn, diff_multfac_n2w, diff_multfac_smag, smag_limit, enh_smag_fac ), &
@@ -292,15 +292,18 @@ MODULE mo_nh_diffusion
 !$ACC               p_int%cells_aw_verts, p_int%c_lin_e, p_int%e_bln_c_s, p_int%geofac_div,                  &
 !$ACC               p_int%geofac_grg, p_int%geofac_n2s, p_int%nudgecoeff_e,                                  &
 !$ACC               p_nh_prog%exner, p_nh_prog%theta_v, p_nh_prog%vn, p_nh_prog%w,                           &
-!$ACC               p_nh_diag%div_ic, p_nh_diag%dwdx, p_nh_diag%dwdy, p_nh_diag%hdef_ic,                     &
 !$ACC               p_nh_diag%theta_v_ic, p_nh_diag%vt,                                                      &
 !$ACC               p_nh_metrics%ddqz_z_full_e, p_nh_metrics%enhfac_diffu, p_nh_metrics%wgtfac_c,            &
 !$ACC               p_nh_metrics%wgtfac_e, p_nh_metrics%wgtfacq_e, p_nh_metrics%wgtfacq1_e,                  &
 !$ACC               p_nh_metrics%zd_blklist, p_nh_metrics%zd_e2cell, p_nh_metrics%zd_edgeidx,                &
 !$ACC               p_nh_metrics%zd_edgeblk, p_nh_metrics%zd_geofac, p_nh_metrics%zd_indlist,                &
-!$ACC               p_nh_metrics%zd_intcoef, p_nh_metrics%zd_vertidx, p_nh_metrics%theta_ref_mc,             &
-!$ACC               ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk  ),                             &
+!$ACC               p_nh_metrics%zd_intcoef, p_nh_metrics%zd_vertidx, p_nh_metrics%zd_diffcoef,              &
+!$ACC               p_nh_metrics%theta_ref_mc, ividx, ivblk, iecidx, iecblk, icidx, icblk, ieidx, ieblk ),   &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
+
+!!! Following variables may be present in certain situations, but we don't want it to fail in the general case.
+!!! Should actually be in a separate data region with correct IF condition.
+!!! !$ACC               p_nh_diag%div_ic, p_nh_diag%dwdx, p_nh_diag%dwdy, p_nh_diag%hdef_ic,                     &
 
 #ifdef _OPENACC
     vn_tmp          => p_nh_prog%vn
@@ -340,9 +343,11 @@ MODULE mo_nh_diffusion
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
 #ifdef __MIXED_PRECISION
-        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert, &
+                                      opt_varname="diffusion: u_vert and v_vert")
 #else
-        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert,                          &
+                                   opt_varname="diffusion: u_vert and v_vert")
 #endif
       ENDIF
 
@@ -465,14 +470,16 @@ MODULE mo_nh_diffusion
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
 #ifdef __MIXED_PRECISION
-        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert, &
+                                      opt_varname="diffusion: u_vert and v_vert 2")
 #else
-        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert,                          &
+                                   opt_varname="diffusion: u_vert and v_vert 2")
 #endif
       ENDIF
       CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, z_w_v, opt_rlend=min_rlvert_int)
-      CALL sync_patch_array(SYNC_V,p_patch,z_w_v)
-      CALL sync_patch_array(SYNC_C,p_patch,p_nh_diag%theta_v_ic)
+      CALL sync_patch_array(SYNC_V,p_patch,z_w_v,opt_varname="diffusion: z_w_v")
+      CALL sync_patch_array(SYNC_C,p_patch,p_nh_diag%theta_v_ic,opt_varname="diffusion: theta_v_ic")
 
       fac2d = 0.0625_wp ! Factor of the 2D deformation field which is used as minimum of the 3D def field
 
@@ -829,7 +836,8 @@ MODULE mo_nh_diffusion
 
     IF (diffu_type == 5) THEN ! Add fourth-order background diffusion
 
-      IF (discr_vn > 1) CALL sync_patch_array(SYNC_E,p_patch,z_nabla2_e)
+      IF (discr_vn > 1) CALL sync_patch_array(SYNC_E,p_patch,z_nabla2_e,      &
+                                              opt_varname="diffusion: nabla2_e")
 
       ! Interpolate nabla2(v) to vertices in order to compute nabla2(nabla2(v))
 
@@ -848,9 +856,11 @@ MODULE mo_nh_diffusion
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
 #ifdef __MIXED_PRECISION
-        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert, &
+                                      opt_varname="diffusion: u_vert and v_vert 3")
 #else
-        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert,                          &
+                                   opt_varname="diffusion: u_vert and v_vert 3")
 #endif
       ENDIF
 
@@ -1191,7 +1201,7 @@ MODULE mo_nh_diffusion
 !$OMP END PARALLEL
 
     IF (itype_comm == 1 .OR. itype_comm == 3) THEN
-      CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn)
+      CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn,opt_varname="diffusion: vn sync")
     ENDIF
 
     IF (ltemp_diffu) THEN ! Smagorinsky temperature diffusion
@@ -1206,7 +1216,7 @@ MODULE mo_nh_diffusion
    !     blcoef     => p_nh_metrics%zd_e2cell
         geofac_n2s => p_nh_metrics%zd_geofac
 
-        nproma_zdiffu = MIN(nproma,256)
+        nproma_zdiffu = cpu_min_nproma(nproma,256)
         nblks_zdiffu = INT(p_nh_metrics%zd_listdim/nproma_zdiffu)
         npromz_zdiffu = MOD(p_nh_metrics%zd_listdim,nproma_zdiffu)
         IF (npromz_zdiffu > 0) THEN
@@ -1261,7 +1271,7 @@ MODULE mo_nh_diffusion
 ! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
               enh_diffu_3d(jc,jk,jb) = (thresh_tdiff - tdiff)*5.e-4_vp
             ELSE
-              enh_diffu_3d(jc,jk,jb) = 0._vp
+              enh_diffu_3d(jc,jk,jb) = -HUGE(0._vp)   ! In order that this is never taken as the MAX
 #endif
             ENDIF
           ENDDO
@@ -1275,20 +1285,10 @@ MODULE mo_nh_diffusion
       ! Enhance Smagorinsky coefficients at the three edges of the cells included in the list
       ! Attention: this operation is neither vectorizable nor OpenMP-parallelizable (race conditions!)
 
+#ifndef _OPENACC
 !$OMP MASTER
       DO jb = i_startblk,i_endblk
 
-#ifdef _OPENACC
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR COLLAPSE(2)
-        DO jk = nlev-1, nlev
-          DO je = i_startidx, i_endidx
-            kh_smag_e(je,jk,jb) = MAX(kh_smag_e(je,jk,jb), enh_diffu_3d(iecidx(je,jb,1),jk,iecblk(je,jb,1)), &
-                                      enh_diffu_3d(iecidx(je,jb,2),jk,iecblk(je,jb,2)) )
-          ENDDO
-        ENDDO
-!$ACC END PARALLEL
-#else
         IF (icount(jb) > 0) THEN
           DO ic = 1, icount(jb)
             jc = iclist(ic,jb)
@@ -1299,11 +1299,36 @@ MODULE mo_nh_diffusion
             kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) = MAX(enh_diffu,kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)))
           ENDDO
         ENDIF
-#endif
-      ENDDO
+
+     ENDDO
+
 !$OMP END MASTER
 !$OMP BARRIER
-      
+
+#else
+
+     rl_start = grf_bdywidth_e+1
+     rl_end   = min_rledge_int
+
+     i_startblk = p_patch%edges%start_block(rl_start)
+     i_endblk   = p_patch%edges%end_block(rl_end)
+
+     DO jb = i_startblk,i_endblk
+
+       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
+       DO jk = nlev-1, nlev
+         DO je = i_startidx, i_endidx
+            kh_smag_e(je,jk,jb) = MAX(kh_smag_e(je,jk,jb), enh_diffu_3d(iecidx(je,jb,1),jk,iecblk(je,jb,1)), &
+                 enh_diffu_3d(iecidx(je,jb,2),jk,iecblk(je,jb,2)) )
+         ENDDO
+       ENDDO
+!$ACC END PARALLEL
+     ENDDO
+#endif
+
       IF (discr_t == 1) THEN  ! use discretization K*nabla(theta)
 
         rl_start = grf_bdywidth_c+1
@@ -1430,7 +1455,7 @@ MODULE mo_nh_diffusion
           ENDIF
           ishift = (jb-1)*nproma_zdiffu
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-          !$ACC LOOP GANG VECTOR
+          !$ACC LOOP GANG VECTOR PRIVATE(ic)
 !CDIR NODEP,VOVERTAKE,VOB
 !DIR$ IVDEP
           DO jc = 1, nlen_zdiffu
@@ -1484,13 +1509,15 @@ MODULE mo_nh_diffusion
 
       ! This could be further optimized, but applications without physics are quite rare;
       IF ( .NOT. lhdiff_rcf .OR. linit .OR. (iforcing /= inwp .AND. iforcing /= iecham) ) THEN
-        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
+        CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner,  &
+                                   opt_varname="diffusion: theta and exner")
       ENDIF
 
     ENDIF ! temperature diffusion
 
     IF ( .NOT. lhdiff_rcf .OR. linit .OR. (iforcing /= inwp .AND. iforcing /= iecham) ) THEN
-      IF (diffusion_config(jg)%lhdiff_w) CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w)
+      IF (diffusion_config(jg)%lhdiff_w) &
+        CALL sync_patch_array(SYNC_C,p_patch,p_nh_prog%w,"diffusion: w")
     ENDIF
 
     IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)

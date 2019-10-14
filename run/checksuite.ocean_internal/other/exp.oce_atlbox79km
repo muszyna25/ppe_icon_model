@@ -87,13 +87,16 @@ cat > ${ocean_namelist} << EOF
                        100.0,  120.0,  150.0,  180.0,  210.0,  240.0,  270.0,  300.0,  350.0,  400.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
 ! l_partial_cells                 = .FALSE.   ! partial bottom cells=true: local varying bottom depth
-  select_solver                   =   2       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
+
+  select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
+                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                =   1.0E-14
-  solver_max_iter_per_restart     =  26       !
-  solver_tolerance_sp             =   1.0E-14 !
-  solver_max_iter_per_restart_sp  =  26  !
-  solver_max_restart_iterations   = 100       !  outer (restart solver)
+  solver_tolerance                = 1.0E-13 ! this may further be reduced
+
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+
   fast_performance_level          = 500       !  performance level 12: for cell-based; 5: default
 ! use_continuity_correction       = .TRUE.    !  height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.

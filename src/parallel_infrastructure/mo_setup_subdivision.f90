@@ -76,7 +76,7 @@ MODULE mo_setup_subdivision
   USE mo_decomposition_tools, ONLY: divide_cells_by_location, t_cell_info, &
     & sort_cell_info_by_cell_number, partidx_of_elem_uniform_deco
   USE mo_math_utilities,      ONLY: fxp_lat, fxp_lon
-  USE mo_master_control,      ONLY: get_my_process_type, ocean_process
+  USE mo_master_control,      ONLY: my_process_is_oceanic
 #ifndef NOMPI
   USE mo_divide_cells_by_location_mpi, ONLY: divide_cells_by_location_mpi, &
        init_divide_cells_by_location_mpi
@@ -335,13 +335,12 @@ CONTAINS
       ! order_type_of_halos = 0 order for parent (l_compute_grid = false)
       !                       1 order root grid  (l_compute_grid = true)
       !                       2 all halos go to the end, for ocean
-      my_process_type = get_my_process_type()
-      SELECT CASE (my_process_type)
-        CASE (ocean_process)
-           order_type_of_halos = 2
-        CASE default
+      
+      IF (my_process_is_oceanic()) THEN
+        order_type_of_halos = 2
+      ELSE
         order_type_of_halos = 1
-      END SELECT
+      ENDIF
 
       CALL divide_patch(p_patch(jg), p_patch_pre(jg), dist_cell_owner, &
         &               n_ghost_rows, order_type_of_halos, p_pe_work)
@@ -1555,6 +1554,7 @@ CONTAINS
       wrk_p_patch%grid_filename      = wrk_p_patch_pre%grid_filename
       wrk_p_patch%grid_filename_grfinfo = wrk_p_patch_pre%grid_filename_grfinfo
       wrk_p_patch%level              = wrk_p_patch_pre%level
+      wrk_p_patch%nest_level         = wrk_p_patch_pre%nest_level
       wrk_p_patch%id                 = wrk_p_patch_pre%id
       wrk_p_patch%cells%max_connectivity = wrk_p_patch_pre%cells%max_connectivity
       wrk_p_patch%verts%max_connectivity = wrk_p_patch_pre%verts%max_connectivity
@@ -3346,11 +3346,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    IF (get_my_process_type() == ocean_process) THEN
-      locean = .TRUE.
-    ELSE
-      locean = .FALSE.
-    ENDIF
+    locean = my_process_is_oceanic()
 
     lsplit_merged_domains = .FALSE.
 

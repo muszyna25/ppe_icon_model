@@ -632,13 +632,13 @@ END SUBROUTINE upscale_rad_input
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2010-12-03
 !!
-SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
-  rg_aclcov, rg_lwflxall, rg_trsolall, rg_trsol_clr_sfc, rg_lwflx_up_sfc,   &
+SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
+  rg_trsolall, rg_trsol_clr_sfc, rg_lwflx_clr_sfc, rg_lwflx_up_sfc,         &
   rg_trsol_up_toa, rg_trsol_up_sfc, rg_trsol_par_sfc, rg_trsol_dn_sfc_diff, &
   tsfc_rg, albdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, z_tot_cld,        &
   pres_ifc_rg, z_pres_ifc, tsfc, albdif, aclcov, lwflxall, trsolall,        &
   lwflx_up_sfc, trsol_up_toa, trsol_up_sfc, trsol_par_sfc,                  &
-  trsol_dn_sfc_diff, trsol_clr_sfc)
+  trsol_dn_sfc_diff, trsol_clr_sfc, lwflx_clr_sfc)
 
 
   ! Input grid parameters
@@ -656,11 +656,12 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     tot_cld_rg(:,:,:,:), pres_ifc_rg(:,:,:), z_pres_ifc(:,:,:), z_tot_cld(:,:,:,:)
 
   ! Auxiliary input fields on full grid needed for downscaling corrections
-  REAL(wp), INTENT(IN) :: tsfc(:,:), albdif(:,:), rg_trsol_clr_sfc(:,:)
+  REAL(wp), INTENT(IN) :: tsfc(:,:), albdif(:,:), rg_trsol_clr_sfc(:,:) , rg_lwflx_clr_sfc(:,:)
 
   ! Downscaled output fields (on full grid)
-  REAL(wp), INTENT(INOUT) :: aclcov(:,:), lwflxall(:,:,:), trsolall(:,:,:), lwflx_up_sfc(:,:),         &
-    trsol_up_toa(:,:), trsol_up_sfc(:,:), trsol_par_sfc(:,:), trsol_dn_sfc_diff(:,:), trsol_clr_sfc(:,:)
+  REAL(wp), INTENT(INOUT) :: aclcov(:,:), lwflxall(:,:,:), trsolall(:,:,:), lwflx_up_sfc(:,:),            &
+    trsol_up_toa(:,:), trsol_up_sfc(:,:), trsol_par_sfc(:,:), trsol_dn_sfc_diff(:,:), trsol_clr_sfc(:,:), &
+    lwflx_clr_sfc(:,:)
 
   ! Intermediate storage fields needed in the case of MPI parallelization
   REAL(wp), ALLOCATABLE, TARGET ::  z_lwflxall(:,:,:), z_trsolall(:,:,:)
@@ -706,7 +707,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   INTEGER :: nshift, nlevp1_rg, nlev_tot
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
 
-  INTEGER :: n2dvars, iclcov, itsfc, ialb, iemis, icosmu0, ilwsfc, itrutoa, itrusfc, itrdiff, itrclrsfc, itrparsfc
+  INTEGER :: n2dvars, n2dvars_rg, iclcov, itsfc, ialb, iemis, icosmu0, ilwsfc, itrutoa, &
+             itrusfc, itrdiff, itrclrsfc, itrparsfc, ilwclrsfc
 
   LOGICAL :: l_limit(3)
 !-----------------------------------------------------------------------
@@ -741,27 +743,29 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   iblk => p_gcp%child_blk
 
   ! named constants for accessing 2D variables contained in zrg_aux3d
-  n2dvars = nshift+11
-  iclcov  = nshift+1
-  itsfc   = nshift+2
-  ialb    = nshift+3
-  iemis   = nshift+4
-  icosmu0 = nshift+5
-  ilwsfc  = nshift+6
-  itrutoa = nshift+7
-  itrusfc = nshift+8
-  itrdiff = nshift+9
-  itrclrsfc = nshift+10
-  itrparsfc = nshift+11
+  n2dvars    = 12
+  n2dvars_rg = nshift+n2dvars
+  iclcov     = nshift+1
+  itsfc      = nshift+2
+  ialb       = nshift+3
+  iemis      = nshift+4
+  icosmu0    = nshift+5
+  ilwsfc     = nshift+6
+  itrutoa    = nshift+7
+  itrusfc    = nshift+8
+  itrdiff    = nshift+9
+  itrclrsfc  = nshift+10
+  itrparsfc  = nshift+11
+  ilwclrsfc  = nshift+12
 
 
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
 
-    ALLOCATE( z_lwflxall(nproma,nlevp1_rg,nblks_c_lp),        z_trsolall(nproma,nlevp1_rg,nblks_c_lp),          &
-              zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                                   &
-              zrg_aux3d(nproma,n2dvars,nblks_c_lp),           z_aux3d(nproma,11,p_patch(jg)%nblks_c),           &
-              zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp),  z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c) )
+    ALLOCATE( z_lwflxall(nproma,nlevp1_rg,nblks_c_lp),           z_trsolall(nproma,nlevp1_rg,nblks_c_lp),          &
+              zpg_aux3d(nproma,n2dvars_rg,p_patch(jgp)%nblks_c),                                                   &
+              zrg_aux3d(nproma,n2dvars_rg,nblks_c_lp),           z_aux3d(nproma,n2dvars,p_patch(jg)%nblks_c),      &
+              zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp),     z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c) )
 
 
     ! Perform communication from parent to local parent grid in the MPI case,
@@ -779,10 +783,11 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     CALL copy(rg_trsol_up_sfc(:,:), zpg_aux3d(:,itrusfc,:))
     CALL copy(rg_trsol_dn_sfc_diff(:,:), zpg_aux3d(:,itrdiff,:))
     CALL copy(rg_trsol_clr_sfc(:,:), zpg_aux3d(:,itrclrsfc,:))
+    CALL copy(rg_lwflx_clr_sfc(:,:), zpg_aux3d(:,ilwclrsfc,:))
     CALL copy(rg_trsol_par_sfc(:,:), zpg_aux3d(:,itrparsfc,:))
 !$OMP END PARALLEL
 
-    nlev_tot = 2*nlevp1_rg + n2dvars
+    nlev_tot = 2*nlevp1_rg + n2dvars_rg
 
     CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 3, nlev_tot, &
                             RECV1=z_lwflxall, SEND1=rg_lwflxall,     &
@@ -794,7 +799,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     p_pres_ifc   => z_pres_ifc
     p_tot_cld    => z_tot_cld
   ELSE
-    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),          z_aux3d(nproma,11,p_patch(jg)%nblks_c),          &
+    ALLOCATE(zrg_aux3d(nproma,n2dvars_rg,nblks_c_lp),       z_aux3d(nproma,n2dvars,p_patch(jg)%nblks_c),     &
              zrg_trdiffsolall(nproma,nlevp1_rg,nblks_c_lp), z_trdiffsolall(nproma,nlevp1,p_patch(jg)%nblks_c))
 
     p_lwflxall   => rg_lwflxall
@@ -814,6 +819,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     CALL copy(rg_trsol_up_sfc(:,:), zrg_aux3d(:,itrusfc,:))
     CALL copy(rg_trsol_dn_sfc_diff(:,:), zrg_aux3d(:,itrdiff,:))
     CALL copy(rg_trsol_clr_sfc(:,:), zrg_aux3d(:,itrclrsfc,:))
+    CALL copy(rg_lwflx_clr_sfc(:,:), zrg_aux3d(:,ilwclrsfc,:))
     CALL copy(rg_trsol_par_sfc(:,:), zrg_aux3d(:,itrparsfc,:))
 !$OMP END PARALLEL
   ENDIF
@@ -888,7 +894,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   ! Please note that we cannot use sync_patch_array here (comparing parallel/non parallel results)
   ! since the arrays don't start with lower bound 1 in the non parallel case!
 
-  nlev_tot = 2*nlevp1_rg + n2dvars
+  nlev_tot = 2*nlevp1_rg + n2dvars_rg
 
   IF (.NOT. my_process_is_mpi_seq()) THEN
     CALL exchange_data_mult(p_pp%comm_pat_c, 3, nlev_tot, recv1=p_lwflxall, &
@@ -925,7 +931,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
                          grf_fbk_start_c, grf_fbk_start_c)
 
 
-      DO jk = nshift+1, n2dvars
+      DO jk = nshift+1, n2dvars_rg
         DO jc = i_startidx, i_endidx
           z_aux3d(iidx(jc,jb,1),jk-nshift,iblk(jc,jb,1)) = zrg_aux3d(jc,jk,jb)
           z_aux3d(iidx(jc,jb,2),jk-nshift,iblk(jc,jb,2)) = zrg_aux3d(jc,jk,jb)
@@ -1108,6 +1114,12 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
       lwflx_up_sfc(jc2,jb2) = z_aux3d(jc2,6,jb2) + dlwem_o_dtg(jc)* (tsfc(jc2,jb2) - tsfc_backintp(jc2,jb2))
       lwflx_up_sfc(jc3,jb3) = z_aux3d(jc3,6,jb3) + dlwem_o_dtg(jc)* (tsfc(jc3,jb3) - tsfc_backintp(jc3,jb3))
       lwflx_up_sfc(jc4,jb4) = z_aux3d(jc4,6,jb4) + dlwem_o_dtg(jc)* (tsfc(jc4,jb4) - tsfc_backintp(jc4,jb4))
+
+      ! Clear-sky LW fluxes
+      lwflx_clr_sfc(jc1,jb1) = z_aux3d(jc1,12,jb1) - dlwem_o_dtg(jc)*lwfac2(jc)*(tsfc(jc1,jb1)-tsfc_backintp(jc1,jb1))
+      lwflx_clr_sfc(jc2,jb2) = z_aux3d(jc2,12,jb2) - dlwem_o_dtg(jc)*lwfac2(jc)*(tsfc(jc2,jb2)-tsfc_backintp(jc2,jb2))
+      lwflx_clr_sfc(jc3,jb3) = z_aux3d(jc3,12,jb3) - dlwem_o_dtg(jc)*lwfac2(jc)*(tsfc(jc3,jb3)-tsfc_backintp(jc3,jb3))
+      lwflx_clr_sfc(jc4,jb4) = z_aux3d(jc4,12,jb4) - dlwem_o_dtg(jc)*lwfac2(jc)*(tsfc(jc4,jb4)-tsfc_backintp(jc4,jb4))
 
       ! The downscaling corrections for the upward fluxes assume that the downward radiation is unaffected by
       ! the surface albedo, so that the correction on upward radiation is the same as on net radiation
@@ -2550,10 +2562,13 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
 !$OMP END PARALLEL
 
     ! Halo update is needed before interpolation
-    CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
+    CALL sync_patch_array_mult(SYNC_C,ptr_pp,2,z_aux3d_p,prm_diagp%rcld)
 
     CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 1, z_aux3d_p, z_aux3d_c, llimit_nneg=(/.TRUE./),&
       &                     lnoshift=.TRUE.)
+
+    ! needed for cloud-cover scheme
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_grf, 1, prm_diagp%rcld, prm_diagc%rcld, llimit_nneg=(/.TRUE./))
 
 
   i_startblk = ptr_pc%cells%start_blk(1,1)

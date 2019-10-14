@@ -238,8 +238,8 @@ LOGICAL, PARAMETER :: &
   lred_depgrowth = .TRUE. , & ! switch for reduced depositional growth near tops of stratus clouds
 #else
   lorig_icon   = .TRUE.  , &  ! switch for original ICON setup (only for cloudice)
-  lred_depgrowth = .FALSE., & ! switch for reduced depositional growth near tops of stratus clouds
-                              ! (not used in ICON because it degrades scores at high latitudes)
+  lred_depgrowth = .TRUE., &  ! switch for reduced depositional growth near tops of stratus clouds
+                              ! (combined with increased 'ztmix' parameter in order not to degrade T2M in Siberian winter)
 #endif
 
   lsedi_ice    = .FALSE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)

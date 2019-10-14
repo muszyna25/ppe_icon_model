@@ -598,7 +598,7 @@ CONTAINS
       it2 = timer_top
     ENDIF
 
-!$omp parallel private(t)
+!$omp parallel private(t,n,thread_id)
     n = 1
     thread_id = 0
 !$  n = omp_get_num_threads()

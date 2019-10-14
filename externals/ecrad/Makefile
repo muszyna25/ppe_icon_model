@@ -1,0 +1,64 @@
+ifndef PROFILE
+$(info Standard ecrad ICON profile is used)
+PROFILE = ecradICON
+endif
+
+# Include a platform-specific makefile that defines FC, FCFLAGS and
+# LIBS
+include	Makefile_include.$(PROFILE)
+all: build
+
+help:
+	@echo "Usage:"
+	@echo "  make PROFILE=<prof>"
+	@echo "where <prof> is one of gfortran, pgi etc."
+
+# Consolidate flags
+export FC
+export FCFLAGS = $(WARNFLAGS) $(BASICFLAGS) $(CPPFLAGS) -I../include \
+	$(OPTFLAGS) $(NETCDF_INCLUDE) $(OMPFLAG)
+export LIBS    = $(LDFLAGS) -L../lib -lradiation -lutilities \
+	-lifsrrtm -lifsaux $(FCLIBS) $(NETCDF_LIB) $(OMPFLAG)
+
+
+ifdef USE_PSRAD
+build: libifsaux libutilities libpsradrrtm libifsrrtm libradiation
+else
+build: libifsaux libutilities libifsrrtm libradiation
+endif
+
+deps: clean-deps
+	cd ifsaux && $(MAKE) deps
+	cd ifsrrtm && $(MAKE) deps
+
+clean-deps:
+	rm -f include/*.intfb.h
+
+libifsaux:
+	cd ifsaux && $(MAKE)
+
+libutilities:
+	cd utilities && $(MAKE)
+
+libpsradrrtm:
+	cd psradrrtm && $(MAKE)
+
+libifsrrtm:
+	cd ifsrrtm && $(MAKE)
+
+libradiation:
+	cd radiation && $(MAKE)
+
+clean:
+	cd ifsaux && $(MAKE) clean
+	cd utilities && $(MAKE) clean
+	cd ifsrrtm && $(MAKE) clean
+	cd radiation && $(MAKE) clean
+	rm -f module/*.mod
+
+clean-autosaves:
+	rm -f *~ */*~ */*/*~
+
+.NOTPARALLEL: libifsaux libutilities libifsrrtm libradiation
+
+.PHONY: libifsaux libpsradrrtm libifsrrtm libradiation clean

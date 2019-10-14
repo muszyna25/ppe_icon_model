@@ -1,0 +1,48 @@
+# The the namelist settings below correspond 
+# to the implemented default values 
+# (see /doc/Namelist_overview.pdf)
+
+# To switch on the deep atmosphere, set ldeepatmo = .TRUE. 
+# (further settings should not be necessary)
+
+# To switch on the upper-atmosphere extrapolation, 
+# set itype_vert_expol = 2
+
+# Please, see src/namelists/mo_upatmo_nml: check_upatmo 
+# for namelist settings that exclude ldeepatmo = .TRUE. 
+# and/or itype_vert_expol = 2
+
+#--------------------------------------------------------------------
+
+&dynamics_nml
+ ldeepatmo             = .FALSE.    ! .TRUE. -> deep-atmosphere modification is applied 
+                                    ! to the non-hydrostatic model equations 
+/
+
+&initicon_nml
+ itype_vert_expol      = 1          ! Type of vertical extrapolation of initial data. 
+                                    ! 1: Linear extrapolation (standard setting) 
+                                    ! 2: Blending with climatology 
+                                    ! (intended for simulations with the upper-atmosphere configuration)
+/
+
+&upatmo_nml
+ lnontrad              = .TRUE.     ! .TRUE. -> non-traditional deep-atmosphere terms 
+                                    ! in components of momentum equation are switched on
+ lconstgrav            = .FALSE.    ! .TRUE. -> gravitational acceleration is const. 
+                                    ! like in case of the shallow atmosphere
+ lcentrifugal          = .FALSE.    ! .TRUE. -> explicit centrifugal acceleration is switched on
+ ldeepatmo2phys        = .FALSE.    ! .TRUE. -> the input fields to the ECHAM physics parameterizations 
+                                    ! are modified for the deep atmosphere, if required 
+                                    ! .FALSE. -> the input fields are computed in accordance 
+                                    ! with the shallow-atmosphere approximation (standard) in any case
+ expol_start_height    = 70000.0    ! [m] Height above which extrapolation (blending) of initial data starts
+ expol_blending_scale  = 10000.0    ! [m] Blending scale height
+ expol_vn_decay_scale  = 10000.0    ! [m] Scale height for (exponential) decay of extrapolated 
+                                    ! horizontal wind component (for stability reasons)
+ expol_temp_infty      =   400.0    ! [K] Climatological temperature of exosphere (z -> infinity)  
+ lexpol_sanitycheck    = .FALSE.    ! .TRUE. -> Apply sanity check to extrapolated fields
+/
+
+#--------------------------------------------------------------------
+

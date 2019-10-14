@@ -161,6 +161,12 @@ distclean:
 	-rm -rf html/[a-z]*
 	-rm -f src/messy_interface
 	-rm -f src/lnd_phy_jsbach 
+	-rm -f externals/ecrad/module/*
+	-rm -f externals/ecrad/lib/*
+	-rm -f externals/ecrad/*/*.o
+	-rm -f externals/ecrad/*/*.i
+	-rm -f externals/ecrad/*/*.lst
+	-rm -f externals/ecrad/Makefile_include.ecradICON
 
 doc:
 	doxygen doc/resources/doxyfile_icon_html

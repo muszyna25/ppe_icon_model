@@ -117,13 +117,13 @@ CONTAINS
     echam_cnv_config(:)% lmfdd      = .TRUE.
     echam_cnv_config(:)% lmfdudv    = .TRUE.
     !
-    echam_cnv_config(:)% entrscv    = 3.0e-3_wp
+    echam_cnv_config(:)% entrscv    = 3.0e-4_wp
     echam_cnv_config(:)% entrmid    = 2.0e-4_wp
-    echam_cnv_config(:)% entrpen    = 2.0e-4_wp
+    echam_cnv_config(:)% entrpen    = 3.0e-4_wp
     echam_cnv_config(:)% entrdd     = 4.0e-4_wp
     !
     echam_cnv_config(:)% cprcon     = 2.5e-4_wp
-    echam_cnv_config(:)% cmfctop    = 0.2_wp
+    echam_cnv_config(:)% cmfctop    = 0.1_wp
     echam_cnv_config(:)% cmfdeps    = 0.3_wp
     !
     echam_cnv_config(:)% cminbuoy   = 0.2_wp
@@ -183,6 +183,8 @@ CONTAINS
        ztmp          = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(zeta(jk))
        cevapcu(jk,:) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp
     END DO
+    !
+    !$ACC UPDATE DEVICE( cevapcu )
     !
   END SUBROUTINE eval_echam_cnv_config
 
@@ -258,6 +260,8 @@ CONTAINS
     ALLOCATE( cevapcu(nlev,n_dom),STAT=istat )
     IF (istat/=SUCCESS) CALL finish(TRIM(routine),'allocation of cevapcu failed')
     !
+    !$ACC ENTER DATA CREATE( cevapcu )
+    !
   END SUBROUTINE alloc_echam_cnv_config
 
   !----
@@ -270,6 +274,8 @@ CONTAINS
     CHARACTER(LEN=*),PARAMETER :: routine = 'dealloc_echam_cnv_config'
     !
     INTEGER :: istat
+    !
+    !$ACC EXIT DATA DELETE( cevapcu )
     !
     DEALLOCATE( cevapcu,STAT=istat )
     IF (istat/=SUCCESS) CALL finish(TRIM(routine),'deallocation of cevapcu failed')

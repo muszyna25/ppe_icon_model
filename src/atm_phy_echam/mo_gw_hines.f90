@@ -123,20 +123,20 @@ CONTAINS
 !!$    REAL(wp) ,INTENT(in)  :: paprflux(nbdim)         ! precipitation flux
 !!$    REAL(wp) ,INTENT(in)  :: lat_deg(nbdim)          ! latitude in deg N
     ! Input 2D
-    REAL(wp) ,INTENT(in)  :: paphm1(nbdim,nlev+1)    ! half level pressure (t-dt)
-    REAL(wp) ,INTENT(in)  :: papm1(nbdim,nlev)       ! full level pressure (t-dt)
-    REAL(wp) ,INTENT(in)  :: pzh(nbdim,nlev+1)       ! half level height asl. (m)
-    REAL(wp) ,INTENT(in)  :: prho(nbdim,nlev)        ! full level density (kg/m3)
-    REAL(wp) ,INTENT(in)  :: pmair(nbdim,nlev)       ! full level air mass (kg/m2)
-    REAL(wp) ,INTENT(in)  :: ptm1(nbdim,nlev)        ! temperature (t-dt)
-    REAL(wp) ,INTENT(in)  :: pum1(nbdim,nlev)        ! zonal wind (t-dt)
-    REAL(wp) ,INTENT(in)  :: pvm1(nbdim,nlev)        ! meridional wind (t-dt)
+    REAL(wp) ,INTENT(in)  :: paphm1(:,:) ! (nbdim,nlev+1) half level pressure (t-dt)
+    REAL(wp) ,INTENT(in)  :: papm1(:,:)  ! (nbdim,nlev) full level pressure (t-dt)
+    REAL(wp) ,INTENT(in)  :: pzh(:,:)    ! (nbdim,nlev+1) half level height asl. (m)
+    REAL(wp) ,INTENT(in)  :: prho(:,:)   ! (nbdim,nlev) full level density (kg/m3)
+    REAL(wp) ,INTENT(in)  :: pmair(:,:)  ! (nbdim,nlev) full level air mass (kg/m2)
+    REAL(wp) ,INTENT(in)  :: ptm1(:,:)   ! (nbdim,nlev) temperature (t-dt)
+    REAL(wp) ,INTENT(in)  :: pum1(:,:)   ! (nbdim,nlev) zonal wind (t-dt)
+    REAL(wp) ,INTENT(in)  :: pvm1(:,:)   ! (nbdim,nlev) meridional wind (t-dt)
 
     !  Array arguments with intent(OUT):
     ! - input/output 2d
-    REAL(wp) ,INTENT(out) :: dissip_gwd(nbdim,nlev)  ! gw energy dissipation
-    REAL(wp) ,INTENT(out) :: tend_u_gwd(nbdim,nlev)  ! tendency of zonal wind
-    REAL(wp) ,INTENT(out) :: tend_v_gwd(nbdim,nlev)  ! tendency of meridional wind
+    REAL(wp) ,INTENT(out) :: dissip_gwd(:,:)  ! (nbdim,nlev) gw energy dissipation
+    REAL(wp) ,INTENT(out) :: tend_u_gwd(:,:)  ! (nbdim,nlev) tendency of zonal wind
+    REAL(wp) ,INTENT(out) :: tend_v_gwd(:,:)  ! (nbdim,nlev) tendency of meridional wind
 
     !  Local arrays for ccc/mam hines gwd scheme:
 
@@ -180,7 +180,7 @@ CONTAINS
 
     !
     ! Local scalars:
-    INTEGER  :: jk, jl
+    INTEGER  :: jk, jl, ja
     INTEGER  :: levbot     ! gravity wave spectrum lowest level
     REAL(wp) :: rgocp, ratio, pressg_inv
 !!$    REAL(wp) :: zpcons
@@ -189,9 +189,9 @@ CONTAINS
 
   ! Shortcuts to components of echam_gwd_config
   !
-  INTEGER , POINTER :: emiss_lev     !< number of levels above the ground at which gw are emitted
-  REAL(wp), POINTER :: rmscon        !< [m/s] root mean square gravity wave wind at emission level
-  REAL(wp), POINTER :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+  INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
+  REAL(wp) :: rmscon        !< [m/s] root mean square gravity wave wind at emission level
+  REAL(wp) :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
   !
 !!$  LOGICAL , POINTER :: lfront        !< true: compute gw sources emerging from fronts and background
 !!$                                     !< (Charron and Manzini, 2002)
@@ -217,9 +217,9 @@ CONTAINS
 !!$  REAL(wp), POINTER :: lat_rmscon    !< [degN] rmscon is used poleward of this latitude
 !!$  REAL(wp), POINTER :: rmscon_eq     !< [m/s]  rms constant used equatorward of lat_rmscon_eq
     !
-    emiss_lev     => echam_gwd_config(jg)% emiss_lev
-    rmscon        => echam_gwd_config(jg)% rmscon
-    kstar         => echam_gwd_config(jg)% kstar
+    emiss_lev     = echam_gwd_config(jg)% emiss_lev
+    rmscon        = echam_gwd_config(jg)% rmscon
+    kstar         = echam_gwd_config(jg)% kstar
     !
 !!$    lfront        => echam_gwd_config(jg)% lfront
 !!$    !
@@ -232,9 +232,23 @@ CONTAINS
 !!$    lat_rmscon    => echam_gwd_config(jg)% lat_rmscon
 !!$    rmscon_eq     => echam_gwd_config(jg)% rmscon_eq
 
-    dissip_gwd(:,:) = 0.0_wp
-    tend_u_gwd(:,:) = 0.0_wp
-    tend_v_gwd(:,:) = 0.0_wp
+    !$ACC DATA PRESENT( paphm1, papm1, pzh, prho, pmair, ptm1, pum1, pvm1, dissip_gwd,  &
+    !$ACC               tend_u_gwd, tend_v_gwd )                                        &
+    !$ACC       CREATE( pressg, sgj, shj, shxkj, dttdsf, diffco, flux_u, flux_v, uhs,   &
+    !$ACC               vhs, bvfreq, density, mair, visc_mol, alt, rmswind, anis,       &
+    !$ACC               k_alpha, lorms, m_alpha, mmin_alpha, sigma_t, sigsqmcw, sigmatm )
+
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO jk = 1, nlev
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        dissip_gwd(jl,jk) = 0.0_wp
+        tend_u_gwd(jl,jk) = 0.0_wp
+        tend_v_gwd(jl,jk) = 0.0_wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
     !--  Check consistency of nc, jcs and jce
     !
@@ -243,19 +257,46 @@ CONTAINS
     !--  Initialize the ccc/mam hines gwd scheme
     !
 
-    diffco(:,:) = 0.0_wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO jk = 1, nlev
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        diffco(jl,jk) = 0.0_wp
 
-    flux_u(:,:) = 0.0_wp
-    flux_v(:,:) = 0.0_wp
+        flux_u(jl,jk) = 0.0_wp
+        flux_v(jl,jk) = 0.0_wp
 
-    uhs(:,:) = 0.0_wp
-    vhs(:,:) = 0.0_wp
+        uhs(jl,jk) = 0.0_wp
+        vhs(jl,jk) = 0.0_wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
     ! Wind variances form orographic gravity waves
     ! Note: the code is NOT fully implemeted for this case!
 
-    sigsqmcw(:,:,:) = 0.0_wp
-    sigmatm(:,:)    = 0.0_wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO ja = 1, nazmth
+      !$ACC LOOP SEQ
+      DO jk = 1, nlev
+        !$ACC LOOP GANG VECTOR
+        DO jl = 1, nc
+          sigsqmcw(jl,jk,ja) = 0.0_wp
+        END DO
+      END DO
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO jk = 1, nlev
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        sigmatm(jl,jk) = 0.0_wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
 !!$    ! precipitation (check the units!):
 !!$    zpcons = (1000.0_wp*86400.0_wp)/rhoh2o
@@ -264,18 +305,30 @@ CONTAINS
     rgocp=rd/cpd
 
     ! Surface pressure:
-    pressg(1:nc)=paphm1(jcs:jce,nlev+1)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, nc
+      pressg(jl)=paphm1(jcs-1+jl,nlev+1)
+    END DO
+    !$ACC END PARALLEL
 
     ! Vertical positioning arrays:
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=1,nlev
 !IBM* novector
+      !$ACC LOOP GANG VECTOR PRIVATE( pressg_inv )
       DO jl=1,nc
         pressg_inv = 1._wp/pressg(jl)
         shj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
         sgj(jl,jk)=papm1(jl+jcs-1,jk)*pressg_inv
       END DO
-      shxkj(1:nc,jk) = sgj(1:nc,jk)**rgocp
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        shxkj(jl,jk) = sgj(jl,jk)**rgocp
+      END DO
     END DO
+    !$ACC END PARALLEL
 
 !     sgj(1:nc,1:nlev)=shj(1:nc,1:nlev)
 
@@ -283,8 +336,11 @@ CONTAINS
     !     * calculate b v frequency at all points
     !     * and smooth bvfreq.
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=2,nlev
 !IBM* novector
+      !$ACC LOOP GANG VECTOR
       DO jl=1,nc
         dttdsf(jl)=(ptm1(jl+jcs-1,jk)/shxkj(jl,jk)-ptm1(jl+jcs-1,jk-1)/shxkj(jl,jk-1)) &
           /(shj(jl,jk)-shj(jl,jk-1))
@@ -293,28 +349,50 @@ CONTAINS
 
         bvfreq(jl,jk)=-dttdsf(jl)*sgj(jl,jk)/rd
       END DO
-      bvfreq(1:nc,jk) = SQRT(bvfreq(1:nc,jk))
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        bvfreq(jl,jk) = SQRT(bvfreq(jl,jk))
+      END DO
 
 !!HW!! !IBM* novector
-      bvfreq(1:nc,jk) = bvfreq(1:nc,jk)*grav/ptm1(jcs:jce,jk)
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        bvfreq(jl,jk) = bvfreq(jl,jk)*grav/ptm1(jcs-1+jl,jk)
+      END DO
     END DO
+    !$ACC END PARALLEL
 
-    bvfreq(:,1) = bvfreq(:,2)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, nc
+      bvfreq(jl,1) = bvfreq(jl,2)
+    END DO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=2,nlev
+      !$ACC LOOP GANG VECTOR PRIVATE( ratio )
       DO jl=1,nc
         ratio=5.0_wp*LOG(sgj(jl,jk)/sgj(jl,jk-1))
         bvfreq(jl,jk) = (bvfreq(jl,jk-1) + ratio*bvfreq(jl,jk))/(1.0_wp+ratio)
       END DO
     END DO
+    !$ACC END PARALLEL
 
     !     * altitude above ground, density and air mass.
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=1,nlev
-       alt    (1:nc,jk) = pzh  (jcs:jce,jk+1) - pzh(jcs:jce,nlev+1)
-       density(1:nc,jk) = prho (jcs:jce,jk)
-       mair   (1:nc,jk) = pmair(jcs:jce,jk)
+       !$ACC LOOP GANG VECTOR
+       DO jl = 1, nc
+         alt    (jl,jk) = pzh  (jcs-1+jl,jk+1) - pzh(jcs-1+jl,nlev+1)
+         density(jl,jk) = prho (jcs-1+jl,jk)
+         mair   (jl,jk) = pmair(jcs-1+jl,jk)
+       END DO
     END DO
+    !$ACC END PARALLEL
 
     !
     !     * set molecular viscosity to a very small value.
@@ -322,13 +400,29 @@ CONTAINS
     !     * viscosity coefficient could be specified here.
 
 
-    visc_mol(:,:) = 1.5e-5_wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO jk = 1, nlev
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        visc_mol(jl,jk) = 1.5e-5_wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
 
     ! use single value for azimuthal-dependent horizontal wavenumber:
     ! kstar = (old latitudinal dependence, introduce here if necessary)
 
-    k_alpha(:,:) = kstar
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO ja = 1, nazmth
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        k_alpha(jl,ja) = kstar
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
     !     * defile bottom launch level (emission level of gws)
 
@@ -336,18 +430,37 @@ CONTAINS
 
     !     * initialize switch for column calculation
 
-    lorms(:) = .FALSE.
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, nc
+      lorms(jl) = .FALSE.
+    END DO
+    !$ACC END PARALLEL
 
     !     * background wind minus value at bottom launch level.
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=1,levbot
-      uhs(1:nc,jk) = pum1(jcs:jce,jk) - pum1(jcs:jce,levbot)
-      vhs(1:nc,jk) = pvm1(jcs:jce,jk) - pvm1(jcs:jce,levbot)
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        uhs(jl,jk) = pum1(jcs-1+jl,jk) - pum1(jcs-1+jl,levbot)
+        vhs(jl,jk) = pvm1(jcs-1+jl,jk) - pvm1(jcs-1+jl,levbot)
+      END DO
     END DO
+    !$ACC END PARALLEL
 
     !     * specify root mean square wind at bottom launch level.
 
-    anis(1:nc,1:naz) = 1.0_wp/REAL(naz,wp)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO ja = 1, nazmth
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, nc
+        anis(jl,ja) = 1.0_wp/REAL(naz,wp)
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
 !!$    IF (lrmscon_lat) THEN
 !!$      ! latitude dependent gravity wave source
@@ -358,7 +471,12 @@ CONTAINS
 !!$        &              +MAX(MIN((lat_rmscon-ABS(lat_deg(1:nc)))   ,lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon_eq ) &
 !!$        &            /(lat_rmscon-lat_rmscon_eq)
 !!$    ELSE
-      rmswind(1:nc) = rmscon
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, nc
+      rmswind(jl) = rmscon
+    END DO
+    !$ACC END PARALLEL
 !!$    ENDIF
 
 !!$       !     * gravity waves from fronts:
@@ -375,11 +493,14 @@ CONTAINS
 !!$          END DO
 !!$       ENDIF
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=1,nc
       IF (rmswind(jl) > 0.0_wp) THEN
         lorms(jl) = .TRUE.
       ENDIF
     END DO
+    !$ACC END PARALLEL
 
     !
     !     * calculate gw tendencies (note that diffusion coefficient and
@@ -402,6 +523,8 @@ CONTAINS
       &                rmswind, anis, k_alpha, sigsqmcw,          &
       &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,    &
       &                levbot, lorms)
+
+    !$ACC END DATA
 
   END SUBROUTINE gw_hines
   !-----------------------------------------------------------------------
@@ -488,40 +611,53 @@ CONTAINS
     INTEGER  :: jg
     INTEGER  :: nlons, nlevs, nazmth, lev2
 
-    REAL(wp) :: drag_u(nlons,nlevs),   drag_v(nlons,nlevs)
-    REAL(wp) :: heat(nlons,nlevs),     diffco(nlons,nlevs)
-    REAL(wp) :: flux_u(nlons,nlevs),   flux_v(nlons,nlevs)
-    REAL(wp) :: flux(nlons,nlevs,nazmth)
-    REAL(wp) :: vel_u(nlons,nlevs),    vel_v(nlons,nlevs)
-    REAL(wp) :: bvfreq(nlons,nlevs),   density(nlons,nlevs), mair(nlons,nlevs)
-    REAL(wp) :: visc_mol(nlons,nlevs), alt(nlons,nlevs)
-    REAL(wp) :: rmswind(nlons),      bvfb(nlons),   densb(nlons)
-    REAL(wp) :: anis(nlons,nazmth)
-    REAL(wp) :: sigma_t(nlons,nlevs), sigsqmcw(nlons,nlevs,nazmth)
-    REAL(wp) :: sigma_alpha(nlons,nlevs,nazmth), sigmatm(nlons,nlevs)
+    REAL(wp) :: drag_u(:,:), drag_v(:,:)
+    REAL(wp) :: heat(:,:),   diffco(:,:) ! (nlons,nlevs)
+    REAL(wp) :: flux_u(:,:), flux_v(:,:) ! (nlons,nlevs)
+    REAL(wp) :: vel_u(:,:),  vel_v(:,:)  ! (nlons, nvlevs)
+    REAL(wp) :: bvfreq(:,:), density(:,:), mair(:,:) ! (nlons,nlevs)
+    REAL(wp) :: visc_mol(:,:), alt(:,:)  ! (nlons,nlevs)
+    REAL(wp) :: rmswind(:)               ! (nlons)
+    REAL(wp) :: anis(:,:)                ! (nlons,nazmth)
+    REAL(wp) :: k_alpha(:,:)             ! (nlons,nazmth)
+    REAL(wp) :: sigsqmcw(:,:,:)          ! (nlons,nlevs,nazmth)
+    REAL(wp) :: m_alpha(:,:,:)           ! (nlons,nlevs,nazmth)
+    REAL(wp) :: mmin_alpha(:,:)          ! (nlons,nazmth)
+    REAL(wp) :: sigma_t(:,:)             ! (nlons,nlevs)
+    REAL(wp) :: sigmatm(:,:)             ! (nlons,nlevs)
 
-    REAL(wp) :: m_alpha(nlons,nlevs,nazmth), v_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: ak_alpha(nlons,nazmth),      k_alpha(nlons,nazmth)
-    REAL(wp) :: mmin_alpha(nlons,nazmth)
-    REAL(wp) :: smoothr1(nlons,nlevs), smoothr2(nlons,nlevs)
-
-    LOGICAL  :: lorms(nlons), losigma_t(nlons,nlevs)
+    LOGICAL  :: lorms(:)                 ! (nlons)
     !
     !  internal variables.
     !
+    REAL(wp) :: flux(nlons,nlevs,nazmth)
+    REAL(wp) :: bvfb(nlons),   densb(nlons)
+    REAL(wp) :: sigma_alpha(nlons,nlevs,nazmth)
+    REAL(wp) :: v_alpha(nlons,nlevs,nazmth)
+    REAL(wp) :: ak_alpha(nlons,nazmth)
+    REAL(wp) :: smoothr1(nlons,nlevs), smoothr2(nlons,nlevs)
+    LOGICAL  :: losigma_t(nlons,nlevs) 
+
     INTEGER  :: i, n, l, lev1, il1, il2
 !!$    INTEGER :: iprint
 
     ! Shortcuts to components of echam_gwd_config
     !
-    LOGICAL , POINTER :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
+    LOGICAL  :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
     !                                  !< false: compute only momentum flux deposition
-    REAL(wp), POINTER :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
-    REAL(wp), POINTER :: m_min         !< [1/m] minimum bound in  vertical wavenumber
+    REAL(wp) :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+    REAL(wp) :: m_min         !< [1/m] minimum bound in  vertical wavenumber
     !
-    lheatcal      => echam_gwd_config(jg)% lheatcal
-    kstar         => echam_gwd_config(jg)% kstar
-    m_min         => echam_gwd_config(jg)% m_min
+    lheatcal      = echam_gwd_config(jg)% lheatcal
+    kstar         = echam_gwd_config(jg)% kstar
+    m_min         = echam_gwd_config(jg)% m_min
+
+    !$ACC DATA PRESENT( drag_u, drag_v, heat, diffco, flux_u, flux_v, vel_u, vel_v, &
+    !$ACC               bvfreq, density, mair, visc_mol, alt, rmswind, anis,        &
+    !$ACC               k_alpha, sigsqmcw, m_alpha, mmin_alpha, sigma_t, sigmatm,   &
+    !$ACC               lorms )                                                     &
+    !$ACC       CREATE( flux, bvfb, densb, sigma_alpha, v_alpha, ak_alpha,          &
+    !$ACC               smoothr1, smoothr2, losigma_t )
 
     !-----------------------------------------------------------------------
     !
@@ -537,18 +673,28 @@ CONTAINS
     !
     !  buoyancy and density at bottom level.
     !
-    bvfb(il1:il2)  = bvfreq(il1:il2,lev2)
-    densb(il1:il2) = density(il1:il2,lev2)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO i = il1, il2
+      bvfb(i)  = bvfreq(i,lev2)
+      densb(i) = density(i,lev2)
+    END DO
+    !$ACC END PARALLEL
     !
     !  initialize some variables
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO n = 1,naz
+       !$ACC LOOP SEQ
        DO l=lev1,lev2
+          !$ACC LOOP GANG VECTOR
           DO i=il1,il2
              m_alpha(i,l,n) =  m_min
           END DO
        END DO
     END DO
+    !$ACC END PARALLEL
     !
     !  compute azimuthal wind components from zonal and meridional winds.
     !
@@ -571,18 +717,26 @@ CONTAINS
     !
     IF (nsmax>0)  THEN
        DO n = 1,naz
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO l=lev1,lev2
+             !$ACC LOOP GANG VECTOR
              DO i=il1,il2
                 smoothr1(i,l) = m_alpha(i,l,n)
              END DO
           END DO
+          !$ACC END PARALLEL
           CALL vert_smooth (smoothr1,smoothr2, smco, nsmax,      &
             &               il1, il2, lev1, lev2, nlons, nlevs )
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO l=lev1,lev2
+             !$ACC LOOP GANG VECTOR
              DO i=il1,il2
                 m_alpha(i,l,n) = smoothr1(i,l)
              END DO
           END DO
+          !$ACC END PARALLEL
        END DO
        CALL vert_smooth ( sigma_t, smoothr2, smco, nsmax,      &
          &                il1, il2, lev1, lev2, nlons, nlevs )
@@ -630,6 +784,8 @@ CONTAINS
          &  naz, il1, il2, lev1, lev2, nlons, nlevs,      &
          &  nazmth, losigma_t )
     END IF
+
+    !$ACC END DATA
 
     !  finished.
     !
@@ -704,23 +860,24 @@ CONTAINS
 
     INTEGER  :: jg
     INTEGER  :: il1, il2, levtop, levbot, nlons, nlevs, nazmth
-    REAL(wp) :: m_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: sigma_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: sigalpmc(nlons,nlevs,nazmth)
-    REAL(wp) :: sigsqh_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: sigsqmcw(nlons,nlevs,nazmth)
-    REAL(wp) :: sigma_t(nlons,nlevs)
-    REAL(wp) :: sigmatm(nlons,nlevs)
-    REAL(wp) :: ak_alpha(nlons,nazmth)
-    REAL(wp) :: v_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: visc_mol(nlons,nlevs)
+    REAL(wp) :: m_alpha(:,:,:)      ! (nlons,nlevs,nazmth)
+    REAL(wp) :: sigma_t(:,:)        ! (nlons,nlevs)
+    REAL(wp) :: sigma_alpha(:,:,:)  ! (nlons,nlevs,nazmth)
+    REAL(wp) :: ak_alpha(:,:)       ! (nlons,nazmth)
+    REAL(wp) :: mmin_alpha(:,:)     ! (nlons,nazmth)
+    REAL(wp) :: v_alpha(:,:,:)      ! (nlons,nlevs,nazmth)
+    REAL(wp) :: visc_mol(:,:)       ! (nlons,nlevs)
 !     REAL(wp) :: f2mod(nlons,nlevs)
-    REAL(wp) :: density(nlons,nlevs),  densb(nlons)
-    REAL(wp) :: bvfreq(nlons,nlevs),   bvfb(nlons),  rms_wind(nlons)
-    REAL(wp) :: anis(nlons,nazmth)
-    REAL(wp) :: i_alpha(nlons,nazmth), mmin_alpha(nlons,nazmth)
+    REAL(wp) :: density(:,:)        ! (nlons,nlevs)
+    REAL(wp) :: densb(:)            ! (nlons)
+    REAL(wp) :: bvfreq(:,:)         ! (nlons,nlevs)
+    REAL(wp) :: bvfb(:),  rms_wind(:) ! (nlons)
+    REAL(wp) :: anis(:,:)           ! (nlons,nazmth)
+    REAL(wp) :: sigsqmcw(:,:,:)     ! (nlons,nlevs,nazmth)
+    REAL(wp) :: sigmatm(:,:)        ! (nlons,nlevs)
 
-    LOGICAL  :: lorms(nlons), losigma_t(nlons,nlevs), do_alpha(nlons,nazmth)
+    LOGICAL  :: lorms(:)            ! (nlons)
+    LOGICAL  :: losigma_t(:,:)      ! (nlons,nlevs)
     !
     ! internal variables.
     !
@@ -730,6 +887,12 @@ CONTAINS
 
     REAL(wp) :: m_sub_m_turb, m_sub_m_mol, m_trial, mmsq
     REAL(wp) :: visc, visc_min, f2mfac
+
+    ! work arrays
+    REAL(wp) :: sigalpmc(nlons,nlevs,nazmth)
+    REAL(wp) :: sigsqh_alpha(nlons,nlevs,nazmth)
+    REAL(wp) :: i_alpha(nlons,nazmth)
+    LOGICAL  :: do_alpha(nlons,nazmth)
 
     REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons)! , vtmp3(nlons), maxdiff
 
@@ -746,11 +909,17 @@ CONTAINS
     !
     ! Shortcuts to components of echam_gwd_config
     !
-    REAL(wp), POINTER :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
-    REAL(wp), POINTER :: m_min         !< [1/m] minimum bound in  vertical wavenumber
+    REAL(wp) :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+    REAL(wp) :: m_min         !< [1/m] minimum bound in  vertical wavenumber
     !
-    kstar => echam_gwd_config(jg)% kstar
-    m_min => echam_gwd_config(jg)% m_min
+    kstar = echam_gwd_config(jg)% kstar
+    m_min = echam_gwd_config(jg)% m_min
+
+    !$ACC DATA PRESENT( m_alpha, sigma_t, sigma_alpha, ak_alpha, mmin_alpha,    &
+    !$ACC               losigma_t, v_alpha, visc_mol, density, densb, bvfreq,   &
+    !$ACC               bvfb, rms_wind, anis, lorms, sigsqmcw, sigmatm )        &
+    !$ACC       CREATE( sqr_rms_wind, ilorms, ialpha, n_over_m, sigfac, vtmp1,  &
+    !$ACC               vtmp2, do_alpha, sigalpmc, sigsqh_alpha, i_alpha )
 
     visc_min = 1.e-10_wp
 
@@ -770,33 +939,75 @@ CONTAINS
     END IF
 
     !   initialize logical flags and arrays
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO l=1,nlevs
-       losigma_t(:,l) = lorms(:)
+       !$ACC LOOP GANG VECTOR
+       DO i = 1, nlons
+         losigma_t(i,l) = lorms(i)
+       END DO
     ENDDO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO n=1,nazmth
-       do_alpha(:,n) = lorms(:)
+       !$ACC LOOP GANG VECTOR
+       DO i = 1, nlons
+         do_alpha(i,n) = lorms(i)
+       END DO
     ENDDO
+    !$ACC END PARALLEL
 
     nlorms = 0
+    !$ACC UPDATE HOST( lorms )
     DO i = il1,il2
        IF (lorms(i)) THEN
           nlorms = nlorms + 1
           ilorms(nlorms) = i
        END IF
     END DO
+    !$ACC UPDATE DEVICE( ilorms )
 
-    sigsqh_alpha(:,:,:) = 0.0_wp ! mpuetz: is this really necessary -> 15% of wavnum
-    i_alpha(:,:) = 0.0_wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO n=1,nazmth
+      !$ACC LOOP SEQ
+      DO l=1,nlevs
+         !$ACC LOOP GANG VECTOR
+         DO i = 1, nlons
+           sigsqh_alpha(i,l,n) = 0.0_wp ! mpuetz: is this really necessary -> 15% of wavnum
+         END DO
+      END DO
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO n=1,nazmth
+       !$ACC LOOP GANG VECTOR
+       DO i = 1, nlons
+         i_alpha(i,n) = 0.0_wp
+       END DO
+    ENDDO
+    !$ACC END PARALLEL
 
     !
     ! calculate azimuthal variances at bottom level using anisotropy factor
     !
-    sqr_rms_wind(il1:il2) = rms_wind(il1:il2)**2
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO i = il1, il2
+      sqr_rms_wind(i) = rms_wind(i)**2
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO n = 1,naz
+       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           sigsqh_alpha(i,levbot,n) = anis(i,n)* sqr_rms_wind(i)
        END DO
     END DO
+    !$ACC END PARALLEL
     !
     !  velocity variances at bottom level.
     !
@@ -815,9 +1026,12 @@ CONTAINS
 
      IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) ) THEN
        ! here slope=1 -> use parameters s1p1_par_integer for exponential and s1p1_par_real for factor
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
        DO n = 1,naz
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
+          !$ACC LOOP GANG VECTOR PRIVATE( i )
           DO j = 1,nlorms
              i = ilorms(j)
                 m_alpha(i,levbot,n) = bvfb(i)/(f1*sigma_alpha(i,levbot,n) + f2*sigma_t(i,levbot))
@@ -825,18 +1039,26 @@ CONTAINS
                 mmin_alpha(i,n) = m_alpha(i,levbot,n)
           END DO
        END DO
+       !$ACC END PARALLEL
      ELSE
        ! here slope/=1 -> use variable real for exponential and factor
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
        DO n = 1,naz
 !IBM* ASSERT(NODEPS)
+          !$ACC LOOP GANG VECTOR PRIVATE( i )
           DO j = 1,nlorms
              i = ilorms(j)
              vtmp1(j) = m_alpha(i,levbot,n)
           END DO
 
-          vtmp1(1:nlorms) = vtmp1(1:nlorms)**(-sp1_var_real)
+          !$ACC LOOP GANG VECTOR
+          DO j = 1, nlorms
+            vtmp1(j) = vtmp1(j)**(-sp1_var_real)
+          END DO
 
 !IBM* ASSERT(NODEPS)
+          !$ACC LOOP GANG VECTOR PRIVATE( i )
           DO j = 1,nlorms
              i = ilorms(j)
                 m_alpha(i,levbot,n) = bvfb(i)/(f1*sigma_alpha(i,levbot,n) + f2*sigma_t(i,levbot))
@@ -844,6 +1066,7 @@ CONTAINS
                 mmin_alpha(i,n)     = m_alpha(i,levbot,n)
           END DO
        END DO
+       !$ACC END PARALLEL
     ENDIF
     !
     !  calculate quantities from the bottom upwards,
@@ -863,14 +1086,18 @@ CONTAINS
        !  use value at level below.
        !
        nlorms = 0
+       !$ACC UPDATE HOST( losigma_t(:,lbelow) )
        DO i = il1,il2
           IF (losigma_t(i,lbelow)) THEN
              nlorms = nlorms + 1
              ilorms(nlorms) = i
           END IF
        END DO
+       !$ACC UPDATE DEVICE( ilorms )
 
 !IBM* ASSERT(NODEPS)
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR PRIVATE( i, f2mfac, visc )
        DO j = 1,nlorms
           i = ilorms(j)
 
@@ -884,23 +1111,33 @@ CONTAINS
           vtmp1(j) = bvfreq(i,l) / n_over_m(i)
           vtmp2(j) = bvfreq(i,l)*kstar/visc
        END DO
+       !$ACC END PARALLEL
 
-       CALL vec_cbrt(vtmp2, vtmp2, n=nlorms)
+       CALL vec_cbrt(vtmp2, vtmp2, n=nlorms, lopenacc=.TRUE.)
 
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR PRIVATE( i, m_sub_m_turb, m_sub_m_mol )
        DO j = 1,nlorms
           i = ilorms(j)
           m_sub_m_turb = vtmp1(j)
           m_sub_m_mol  = vtmp2(j)/f3
           IF (m_sub_m_turb>=m_sub_m_mol) n_over_m(i) = bvfreq(i,l) / m_sub_m_mol
        END DO
+       !$ACC END PARALLEL
        !
        !  calculate cutoff wavenumber at this level.
        !
        DO n = 1,naz
           ! set the default
-          m_alpha(il1:il2,l,n) = m_min
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR
+          DO i = il1, il2
+            m_alpha(i,l,n) = m_min
+          END DO
+          !$ACC END PARALLEL
 
           nalpha = 0
+          !$ACC UPDATE HOST( ilorms, do_alpha(:,n) )
           DO j = 1,nlorms
              i = ilorms(j)
              IF (do_alpha(i,n)) THEN
@@ -908,8 +1145,11 @@ CONTAINS
                 ialpha(nalpha) = i
              END IF
           END DO
+          !$ACC UPDATE DEVICE( ialpha )
 
 !IBM* ASSERT(NODEPS)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i, m_trial )
           DO j = 1,nalpha
              i = ialpha(j)
              !
@@ -936,6 +1176,7 @@ CONTAINS
              !
              mmin_alpha(i,n) = MIN(mmin_alpha(i,n),m_alpha(i,l,n))
           END DO
+          !$ACC END PARALLEL
        END DO
        !
        !  calculate the hines integral at this level.
@@ -949,14 +1190,21 @@ CONTAINS
        !  calculate the velocity variances at this level.
        !
 !IBM* novector
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           sigfac(i) = densb(i) / density(i,l) * bvfreq(i,l) / bvfb(i)
        END DO
+       !$ACC END PARALLEL
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
        DO n = 1,naz
+          !$ACC LOOP GANG VECTOR
           DO i = il1,il2
              sigsqh_alpha(i,l,n) = sigfac(i) * ak_alpha(i,n) * i_alpha(i,n)
           END DO
        END DO
+       !$ACC END PARALLEL
        CALL hines_sigma ( sigma_t, sigma_alpha, sigsqh_alpha, naz, l, &
          &                il1, il2, nlons, nlevs, nazmth )
 
@@ -966,15 +1214,20 @@ CONTAINS
        !
        !  if total rms wind zero (no more drag) then set drag to false
        !
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO i=il1,il2
           IF ( sigma_t(i,l) < EPSILON(1.0_wp)) THEN
              losigma_t(i,l) = .FALSE.
           ENDIF
        ENDDO
+       !$ACC END PARALLEL
        !
        !  end of level loop.
        !
     END DO
+
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_wavnum
@@ -1016,8 +1269,8 @@ CONTAINS
 
     INTEGER  :: naz, il1, il2, lev1, lev2
     INTEGER  :: nlons, nlevs, nazmth
-    REAL(wp) :: v_alpha(nlons,nlevs,nazmth)
-    REAL(wp) ::  vel_u(nlons,nlevs), vel_v(nlons,nlevs)
+    REAL(wp) :: v_alpha(:,:,:)          ! (nlons,nlevs,nazmth)
+    REAL(wp) :: vel_u(:,:), vel_v(:,:)  ! (nlons,nlevs)
     !
     !  internal variables.
     !
@@ -1025,6 +1278,7 @@ CONTAINS
     REAL(wp) :: u, v, vmu, vpu, umin
     !-----------------------------------------------------------------------
 
+    !$ACC DATA PRESENT( v_alpha, vel_u, vel_v )
 
     umin  = 0.001_wp
 
@@ -1032,8 +1286,11 @@ CONTAINS
        !
     CASE(4)  !  case with 4 azimuths.
 
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
        DO l = lev1,lev2
 !CDIR NODEP
+          !$ACC LOOP GANG VECTOR PRIVATE( u, v )
           DO i = il1,il2
              !
              u = vel_u(i,l)
@@ -1049,11 +1306,15 @@ CONTAINS
              !
           END DO
        END DO
+       !$ACC END PARALLEL
        !
     CASE (8)   !  case with 8 azimuths.
        !
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
        DO l = lev1,lev2
 !CDIR NODEP
+          !$ACC LOOP GANG VECTOR PRIVATE( u, v, vpu, vmu )
           DO i = il1,il2
              !
              u = vel_u(i,l)
@@ -1077,8 +1338,11 @@ CONTAINS
              !
           END DO
        END DO
+       !$ACC END PARALLEL
        !
     END SELECT
+
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_wind
@@ -1134,14 +1398,15 @@ CONTAINS
     INTEGER  :: naz, il1, il2, lev1, lev2, lev2p
     INTEGER  :: nlons, nlevs, nazmth
     REAL(wp) ::  m_min
-    REAL(wp) ::  flux_u(nlons,nlevs), flux_v(nlons,nlevs)
-    REAL(wp) ::  flux(nlons,nlevs,nazmth)
-    REAL(wp) ::  drag_u(nlons,nlevs), drag_v(nlons,nlevs)
-    REAL(wp) ::  densb(nlons), mair(nlons,nlevs)
-    REAL(wp) ::  m_alpha(nlons,nlevs,nazmth)
-    REAL(wp) ::  ak_alpha(nlons,nazmth), k_alpha(nlons,nazmth)
+    REAL(wp) ::  flux_u(:,:), flux_v(:,:)    ! (nlons,nlevs)
+    REAL(wp) ::  flux(:,:,:)                 ! (nlons,nlevs,nazmth)
+    REAL(wp) ::  drag_u(:,:), drag_v(:,:)    ! (nlons,nlevs)
+    REAL(wp) ::  densb(:)                    ! (nlons)
+    REAL(wp) ::  mair(:,:)                   ! (nlons,nlevs)
+    REAL(wp) ::  m_alpha(:,:,:)              ! (nlons,nlevs,nazmth)
+    REAL(wp) ::  ak_alpha(:,:), k_alpha(:,:) ! (nlons,nazmth)
 
-    LOGICAL  :: lorms(nlons)
+    LOGICAL  :: lorms(:) ! (nlons)
     !
     !  internal variables.
     !
@@ -1150,15 +1415,23 @@ CONTAINS
 
     REAL(wp) ::  inv_slope
     REAL(wp) ::  densb_slope(nlons)
+
+    !$ACC DATA PRESENT( flux_u, flux_v, flux, drag_u, drag_v, densb, mair, m_alpha, &
+    !$ACC               ak_alpha, k_alpha, lorms )                                  &
+    !$ACC       CREATE( densb_slope, ak_k_alpha )
     !-----------------------------------------------------------------------
     !
     lev1p = lev1 + 1
     lev2p = lev2 + 1
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO k = 1, nazmth
+      !$ACC LOOP GANG VECTOR
       DO i = il1,il2
         ak_k_alpha(i,k) = ak_alpha(i,k)*k_alpha(i,k)
       END DO
     END DO
+    !$ACC END PARALLEL
     !
     !  for case where slope = 1.:
     !
@@ -1167,24 +1440,36 @@ CONTAINS
        !  case with 4 azimuths.
        !
        IF (naz==4)  THEN
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO l = lev1,lev2
+             !$ACC LOOP GANG VECTOR
              DO i = il1,il2
-                flux(i,l,:) = ak_k_alpha(i,:)*(m_alpha(i,l,:)-m_min)
+                !$ACC LOOP SEQ
+                DO k = 1, nazmth
+                  flux(i,l,k) = ak_k_alpha(i,k)*(m_alpha(i,l,k)-m_min)
+                END DO
                 flux_u(i,l) = flux(i,l,1) - flux(i,l,3)
                 flux_v(i,l) = flux(i,l,2) - flux(i,l,4)
              END DO
           END DO
+          !$ACC END PARALLEL
        END IF
        !
        !  case with 8 azimuths.
        !
        IF (naz==8)  THEN
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO l = lev1,lev2
+             !$ACC LOOP SEQ
              DO k = 1, nazmth
+                !$ACC LOOP GANG VECTOR
                 DO i = il1,il2
                   flux(i,l,k) = ak_k_alpha(i,k) * (m_alpha(i,l,k)-m_min)
                 END DO
              END DO
+             !$ACC LOOP GANG VECTOR
              DO i = il1,il2
                 flux_u(i,l) = flux(i,l,1) - flux(i,l,5) &
                   &         + cos45*( flux(i,l,2) - flux(i,l,4) - flux(i,l,6) + flux(i,l,8) )
@@ -1192,6 +1477,7 @@ CONTAINS
                   &         + cos45*( flux(i,l,2) + flux(i,l,4) - flux(i,l,6) - flux(i,l,8) )
              END DO
           END DO
+          !$ACC END PARALLEL
        END IF
 
     !
@@ -1202,24 +1488,36 @@ CONTAINS
        !  case with 4 azimuths.
        !
        IF (naz==4)  THEN
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO l = lev1,lev2
+             !$ACC LOOP GANG VECTOR
              DO i = il1,il2
-                flux(i,l,:) = ak_k_alpha(i,:)*m_alpha(i,l,:)**slope
+                !$ACC LOOP SEQ
+                DO k = 1, nazmth
+                  flux(i,l,k) = ak_k_alpha(i,k)*m_alpha(i,l,k)**slope
+                END DO
                 flux_u(i,l) = flux(i,l,1) - flux(i,l,3)
                 flux_v(i,l) = flux(i,l,2) - flux(i,l,4)
              END DO
           END DO
+          !$ACC END PARALLEL
        END IF
        !
        !  case with 8 azimuths.
        !
        IF (naz==8)  THEN
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO l = lev1,lev2
+             !$ACC LOOP SEQ
              DO k = 1, nazmth
+                !$ACC LOOP GANG VECTOR
                 DO i = il1,il2
                   flux(i,l,k) = ak_k_alpha(i,k)*m_alpha(i,l,k)**slope
                 END DO
              END DO
+             !$ACC LOOP GANG VECTOR
              DO i = il1,il2
                 flux_u(i,l) = flux(i,l,1) - flux(i,l,5) &
                   &         + cos45*( flux(i,l,2) - flux(i,l,4) - flux(i,l,6) + flux(i,l,8) )
@@ -1227,6 +1525,7 @@ CONTAINS
                   &         + cos45*( flux(i,l,2) + flux(i,l,4) - flux(i,l,6) - flux(i,l,8) )
              END DO
           END DO
+          !$ACC END PARALLEL
        END IF
 
     END IF
@@ -1237,41 +1536,61 @@ CONTAINS
     !  for case where slope = 1.:
     !
     IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) )  THEN
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
        DO l = lev1,lev2
+          !$ACC LOOP GANG VECTOR
           DO i = il1,il2
              flux_u(i,l) = flux_u(i,l) * densb(i)
              flux_v(i,l) = flux_v(i,l) * densb(i)
           END DO
+          !$ACC LOOP SEQ
           DO k = 1, nazmth
+             !$ACC LOOP GANG VECTOR
              DO i = il1,il2
                 flux(i,l,k) = flux(i,l,k) * densb(i)
              END DO
           END DO
        END DO
+       !$ACC END PARALLEL
 
     !
     !  for case where slope /= 1.:
     !
     ELSE
        inv_slope = 1._wp / slope
-       densb_slope(il1:il2) = densb(il1:il2) * inv_slope
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
+       DO i = il1, il2
+         densb_slope(i) = densb(i) * inv_slope
+       END DO
+       !$ACC END PARALLEL
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP SEQ
        DO l = lev1,lev2
+          !$ACC LOOP GANG VECTOR
           DO i = il1,il2
              flux_u(i,l) = flux_u(i,l) * densb_slope(i)
              flux_v(i,l) = flux_v(i,l) * densb_slope(i)
           END DO
+          !$ACC LOOP SEQ
           DO k = 1, nazmth
+            !$ACC LOOP GANG VECTOR
              DO i = il1,il2
                 flux(i,l,k) = flux(i,l,k) * densb_slope(i)
              END DO
           END DO
        END DO
+       !$ACC END PARALLEL
     END IF
     !
     !  calculate drag at intermediate levels
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO l = lev1p,lev2
 !IBM* NOVECTOR
+       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           IF (lorms(i)) THEN
              drag_u(i,l) = - ( flux_u(i,l-1) - flux_u(i,l) ) / mair(i,l)
@@ -1279,25 +1598,34 @@ CONTAINS
           ENDIF
        END DO
     END DO
+    !$ACC END PARALLEL
     !
     !  drag at first and last levels using one-side differences.
     !
 !IBM* NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO i = il1,il2
        IF (lorms(i)) THEN
           drag_u(i,lev1) =  flux_u(i,lev1)  / mair(i,lev1)
           drag_v(i,lev1) =  flux_v(i,lev1)  / mair(i,lev1)
        ENDIF
     END DO
+    !$ACC END PARALLEL
     IF (nlevs > lev2) THEN
 !IBM* NOVECTOR
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           IF (lorms(i)) THEN
              drag_u(i,lev2p) = - flux_u(i,lev2)  / mair(i,lev2p)
              drag_v(i,lev2p) = - flux_v(i,lev2)  / mair(i,lev2p)
           ENDIF
        END DO
+       !$ACC END PARALLEL
     ENDIF
+
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_flux
@@ -1352,11 +1680,13 @@ CONTAINS
 
     INTEGER  ::  naz, il1, il2, lev1, lev2, nlons, nlevs, nazmth
     REAL(wp) ::  kstar, f1, f2, f3, f5, f6
-    REAL(wp) ::  heat(nlons,nlevs), diffco(nlons,nlevs)
-    REAL(wp) ::  bvfreq(nlons,nlevs), mair(nlons,nlevs)
-    REAL(wp) ::  sigma_t(nlons,nlevs),  sigma_alpha(nlons,nlevs,nazmth)
-    REAL(wp) ::  flux(nlons,nlevs,nazmth), visc_mol(nlons,nlevs)
-    LOGICAL  ::  losigma_t(nlons,nlevs)
+    REAL(wp) ::  heat(:,:), diffco(:,:) ! (nlons,nlevs)
+    REAL(wp) ::  bvfreq(:,:), mair(:,:) ! (nlons,nlevs)
+    REAL(wp) ::  sigma_t(:,:)           ! (nlons,nlevs)
+    REAL(wp) ::  sigma_alpha(:,:,:)     ! (nlons,nlevs,nazmth)
+    REAL(wp) ::  flux(:,:,:)            ! (nlons,nlevs,nazmth)
+    REAL(wp) ::  visc_mol(:,:)          ! (nlons,nlevs)
+    LOGICAL  ::  losigma_t(:,:)         ! (nlons,nlevs)
     !
     ! internal variables.
     !
@@ -1367,11 +1697,17 @@ CONTAINS
     REAL(wp) :: dfdz(nlons,nlevs,nazmth)
     !-----------------------------------------------------------------------
 
+    !$ACC DATA PRESENT( heat, diffco, bvfreq, mair, sigma_t, sigma_alpha, flux, visc_mol, losigma_t ) &
+    !$ACC       CREATE( dfdz )
+
     visc_min = 1.e-10_wp
 
     lev1p = lev1 + 1
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO l = lev1p,lev2
+       !$ACC LOOP GANG VECTOR PRIVATE( visc, m_sub_m_turb, m_sub_m_mol, m_sub_m )
        DO i = il1,il2
           IF (losigma_t(i,l)) THEN
              visc    = MAX ( visc_mol(i,l), visc_min )
@@ -1379,12 +1715,18 @@ CONTAINS
              m_sub_m_mol  = (bvfreq(i,l)*kstar/visc)**0.33333333_wp/f3
              m_sub_m      = MIN ( m_sub_m_turb, m_sub_m_mol )
 !CDIR UNROLL=8
-             dfdz(i,l,:) = ( flux(i,l-1,:) - flux(i,l,:) ) / mair(i,l) &
-               &         * ( f1*sigma_alpha(i,l,:) + bvfreq(i,l)/m_sub_m )
+             !$ACC LOOP SEQ
+             DO n = 1, nazmth
+               dfdz(i,l,n) = ( flux(i,l-1,n) - flux(i,l,n) ) / mair(i,l) &
+                 &         * ( f1*sigma_alpha(i,l,n) + bvfreq(i,l)/m_sub_m )
+             END DO
           ENDIF
        END DO
     END DO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( visc, m_sub_m_turb, m_sub_m_mol, m_sub_m )
     DO i = il1,il2
        IF (losigma_t(i,lev1)) THEN
           visc    = MAX ( visc_mol(i,lev1), visc_min )
@@ -1392,10 +1734,14 @@ CONTAINS
           m_sub_m_mol  = (bvfreq(i,lev1)*kstar/visc)**0.33333333_wp/f3
           m_sub_m      = MIN ( m_sub_m_turb, m_sub_m_mol )
 !CDIR UNROLL=8
-          dfdz(i,lev1,:) = -flux(i,lev1,:) / mair(i,l) &
-            &             * ( f1*sigma_alpha(i,lev1,:) + bvfreq(i,lev1)/m_sub_m )
+          !$ACC LOOP SEQ
+          DO n = 1, nazmth
+            dfdz(i,lev1,n) = -flux(i,lev1,n) / mair(i,l) &
+              &             * ( f1*sigma_alpha(i,lev1,n) + bvfreq(i,lev1)/m_sub_m )
+          END DO
        ENDIF
     END DO
+    !$ACC END PARALLEL
 
     !
     !  heating and diffusion.
@@ -1406,7 +1752,10 @@ CONTAINS
     !  that imposed by molecular viscosity (m_sub_m_mol).
     !
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO l = lev1,lev2
+       !$ACC LOOP GANG VECTOR PRIVATE( visc, m_sub_m_turb, m_sub_m_mol, m_sub_m, heatng )
        DO i = il1,il2
           IF (losigma_t(i,l)) THEN
              visc    = MAX ( visc_mol(i,l), visc_min )
@@ -1414,6 +1763,7 @@ CONTAINS
              m_sub_m_mol  = (bvfreq(i,l)*kstar/visc)**0.33333333_wp/f3
              m_sub_m      = MIN ( m_sub_m_turb, m_sub_m_mol )
              heatng = 0.0_wp
+             !$ACC LOOP SEQ
              DO n=1,naz
                 heatng = heatng - f5 * dfdz(i,l,n)
              ENDDO
@@ -1422,6 +1772,9 @@ CONTAINS
           ENDIF
        END DO
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
     RETURN
     !-----------------------------------------------------------------------
@@ -1459,38 +1812,53 @@ CONTAINS
 
     INTEGER  :: lev, naz, il1, il2
     INTEGER  :: nlons, nlevs, nazmth
-    REAL(wp) ::  sigma_t(nlons,nlevs)
-    REAL(wp) :: sigma_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: sigsqh_alpha(nlons,nlevs,nazmth)
+    REAL(wp) :: sigma_t(:,:)        ! (nlons,nlevs)
+    REAL(wp) :: sigma_alpha(:,:,:)  ! (nlons,nlevs,nazmth)
+    REAL(wp) :: sigsqh_alpha(:,:,:) ! (nlons,nlevs,nazmth)
     !
     !  internal variables.
     !
     INTEGER  :: i, n
     REAL(wp) :: sum_even, sum_odd
+
+    !$ACC DATA PRESENT( sigma_t, sigma_alpha, sigsqh_alpha )
     !-----------------------------------------------------------------------
     !
     !  calculate azimuthal rms velocity for the 4 azimuth case.
     !
     IF (naz==4)  THEN
 !CDIR NODEP
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           sigma_alpha(i,lev,1) = sigsqh_alpha(i,lev,1)+sigsqh_alpha(i,lev,3)
           sigma_alpha(i,lev,2) = sigsqh_alpha(i,lev,2)+sigsqh_alpha(i,lev,4)
        END DO
+       !$ACC END PARALLEL
 
-       sigma_alpha(il1:il2,lev,1) =  SQRT(sigma_alpha(il1:il2,lev,1))
-       sigma_alpha(il1:il2,lev,2) =  SQRT(sigma_alpha(il1:il2,lev,2))
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
+       DO i = il1,il2
+         sigma_alpha(i,lev,1) =  SQRT(sigma_alpha(i,lev,1))
+         sigma_alpha(i,lev,2) =  SQRT(sigma_alpha(i,lev,2))
+       END DO
+       !$ACC END PARALLEL
 
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           sigma_alpha(i,lev,3) = sigma_alpha(i,lev,1)
           sigma_alpha(i,lev,4) = sigma_alpha(i,lev,2)
        END DO
+       !$ACC END PARALLEL
     END IF
     !
     !  calculate azimuthal rms velocity for the 8 azimuth case.
     !
     IF (naz==8)  THEN
 !CDIR NODEP
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR PRIVATE( sum_odd, sum_even )
        DO i = il1,il2
           sum_odd  = ( sigsqh_alpha(i,lev,1) + sigsqh_alpha(i,lev,3)            &
             &        + sigsqh_alpha(i,lev,5) + sigsqh_alpha(i,lev,7) ) * 0.5_wp
@@ -1501,31 +1869,54 @@ CONTAINS
           sigma_alpha(i,lev,3) = sigsqh_alpha(i,lev,3) + sigsqh_alpha(i,lev,7) + sum_even
           sigma_alpha(i,lev,4) = sigsqh_alpha(i,lev,4) + sigsqh_alpha(i,lev,8) + sum_odd
        END DO
+       !$ACC END PARALLEL
 
-       sigma_alpha(il1:il2,lev,1) = SQRT(sigma_alpha(il1:il2,lev,1))
-       sigma_alpha(il1:il2,lev,2) = SQRT(sigma_alpha(il1:il2,lev,2))
-       sigma_alpha(il1:il2,lev,3) = SQRT(sigma_alpha(il1:il2,lev,3))
-       sigma_alpha(il1:il2,lev,4) = SQRT(sigma_alpha(il1:il2,lev,4))
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
+       DO i = il1,il2
+         sigma_alpha(i,lev,1) = SQRT(sigma_alpha(i,lev,1))
+         sigma_alpha(i,lev,2) = SQRT(sigma_alpha(i,lev,2))
+         sigma_alpha(i,lev,3) = SQRT(sigma_alpha(i,lev,3))
+         sigma_alpha(i,lev,4) = SQRT(sigma_alpha(i,lev,4))
+       END DO
+       !$ACC END PARALLEL
 
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           sigma_alpha(i,lev,5) = sigma_alpha(i,lev,1)
           sigma_alpha(i,lev,6) = sigma_alpha(i,lev,2)
           sigma_alpha(i,lev,7) = sigma_alpha(i,lev,3)
           sigma_alpha(i,lev,8) = sigma_alpha(i,lev,4)
        END DO
+       !$ACC END PARALLEL
     END IF
     !
     !  calculate total rms velocity.
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO i = il1,il2
        sigma_t(i,lev) = 0.0_wp
     END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO n = 1,naz
+        !$ACC LOOP GANG VECTOR
        DO i = il1,il2
           sigma_t(i,lev) = sigma_t(i,lev) + sigsqh_alpha(i,lev,n)
        END DO
     END DO
-    sigma_t(il1:il2,lev) = SQRT(sigma_t(il1:il2,lev))
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO i = il1, il2
+      sigma_t(i,lev) = SQRT(sigma_t(i,lev))
+    END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_sigma
@@ -1581,17 +1972,20 @@ CONTAINS
     IMPLICIT NONE
 
     INTEGER  :: lev, naz, il1, il2, nlons, nlevs, nazmth
-    REAL(wp) :: i_alpha(nlons,nazmth)
-    REAL(wp) :: v_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: m_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: bvfb(nlons), rbvfb(nlons), m_min
+    REAL(wp) :: i_alpha(:,:)   ! (nlons,nazmth)
+    REAL(wp) :: v_alpha(:,:,:) ! (nlons,nlevs,nazmth)
+    REAL(wp) :: m_alpha(:,:,:) ! (nlons,nlevs,nazmth)
+    REAL(wp) :: bvfb(:)        ! (nlons)
+    REAL(wp) :: m_min ! 
 
-    LOGICAL  :: lorms(nlons), do_alpha(nlons,nazmth)
+    LOGICAL  :: lorms(:)       ! (nlons)
+    LOGICAL  :: do_alpha(:,:)  ! (nlons,nazmth)
     !
     !  internal variables.
     !
     INTEGER  :: i, n, j
     REAL(wp) :: q_alpha, qm, qmm, sqrtqm, q_min, qm_min, ztmp
+    REAL(wp) :: rbvfb(nlons)
 
     !  variables for sparse vector optimization
     INTEGER  :: ixi(nlons*nazmth), ixnaz(nlons*nazmth)
@@ -1601,9 +1995,13 @@ CONTAINS
     REAL(wp) :: vinp (nlons*nazmth), vout (nlons*nazmth)
     REAL(wp) :: winp (nlons*nazmth), wout (nlons*nazmth)
     REAL(wp) :: xinp (nlons*nazmth), xout (nlons*nazmth)
-    INTEGER  :: vlen,nlorms,ic,ix,nerror
+    INTEGER  :: vlen,nlorms,ic,ix,nerror,ic_loc
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_hines_intgrl'
+
+    !$ACC DATA PRESENT( i_alpha, v_alpha, m_alpha, bvfb, lorms, do_alpha ) &
+    !$ACC       CREATE( rbvfb, ixi, ixnaz, itx, ilorms, icond, vinp, vout, &
+    !$ACC               winp, wout, xinp, xout )
 
     !-----------------------------------------------------------------------
     !
@@ -1613,28 +2011,37 @@ CONTAINS
     qm_min = 0.01_wp
 
 !IBM *NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO i = il1,il2
       rbvfb(i)=1.0_wp/bvfb(i)
     ENDDO
+    !$ACC END PARALLEL
     nlorms = 0
+    !$ACC UPDATE HOST( lorms )
     DO i = il1,il2
        IF (lorms(i)) THEN
           nlorms = nlorms + 1
           ilorms(nlorms) = i
        END IF
     END DO
+    !$ACC UPDATE DEVICE( ilorms )
     !
     !  for integer value slope = 1.
     !
     IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) )  THEN
        DO n = 1,naz
 !IBM* ASSERT(NODEPS)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i )
           DO j = 1,nlorms
              i = ilorms(j)
              icond(j) = INT(FSEL(m_min - m_alpha(i,lev,n),0._wp,1._wp))
           END DO
+          !$ACC END PARALLEL
 
           vlen = 0
+          !$ACC UPDATE HOST( ilorms, icond, i_alpha, do_alpha )
           DO j = 1,nlorms
              i = ilorms(j)
              IF (icond(j)>0) THEN
@@ -1645,8 +2052,11 @@ CONTAINS
                 do_alpha(i,n) = .FALSE.
              END IF
           END DO
+          !$ACC UPDATE DEVICE( ixi, i_alpha, do_alpha )
 
 !IBM* ASSERT(NODEPS)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i, q_alpha, qm, qmm, ztmp )
           DO j = 1,vlen
              i = ixi(j)
 
@@ -1661,22 +2071,39 @@ CONTAINS
              ztmp     = FSEL(vinp(j)-q_min**2,ztmp ,1._wp)
              icond(j) = INT(ztmp)
           END DO
+          !$ACC END PARALLEL
 
           ! if |qm| is small (rare event) we must do a Taylor expansion
 
           ic = 0
           IF (vlen>0) THEN
+             !$ACC UPDATE HOST( icond, ixi )
              DO j = 1,vlen
                 IF (icond(j)<=0) CYCLE
                 ic = ic + 1
                 itx(ic) = ixi(j)
              END DO
+             !$ACC UPDATE DEVICE( itx )
           END IF
 
-          vout(1:vlen) = 1._wp/vinp(1:vlen)
-          wout(1:vlen) = LOG(winp(1:vlen))
-          if (vlen > 0) xout(1:vlen) = LOG(xinp(1:vlen))   ! don't fuse vectorized LOGs
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR
+          DO j = 1, vlen
+            vout(j) = 1._wp/vinp(j)
+            wout(j) = LOG(winp(j))
+          END DO
+          !$ACC END PARALLEL
+          if (vlen > 0) THEN
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO j = 1, vlen
+              xout(j) = LOG(xinp(j))   ! don't fuse vectorized LOGs
+            END DO
+            !$ACC END PARALLEL
+          END IF
 
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i )
           DO j = 1,vlen
              i = ixi(j)
 
@@ -1686,9 +2113,12 @@ CONTAINS
              !
              i_alpha(i,n) = MAX( i_alpha(i,n) , 0.0_wp )
           END DO
+          !$ACC END PARALLEL
 
           ! do Taylor expansion for small |qm|
 !IBM* ASSERT(NODEPS,ITERCNT(1))
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i, q_alpha, qm, qmm )
           DO j = 1,ic
              i = itx(j)
              q_alpha = v_alpha(i,lev,n) * rbvfb(i)
@@ -1711,6 +2141,7 @@ CONTAINS
              END IF
              i_alpha(i,n) = MAX( i_alpha(i,n) , 0.0_wp )
           END DO
+          !$ACC END PARALLEL
 
        END DO ! n
     END IF
@@ -1720,6 +2151,8 @@ CONTAINS
     IF ( ABS(slope-2.0_wp) < EPSILON(1.0_wp) )  THEN
        DO n = 1,naz
 !IBM* ASSERT(NODEPS)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i, q_alpha, qm, ztmp )
           DO j = 1,nlorms
              i = ilorms(j)
              q_alpha = v_alpha(i,lev,n) * rbvfb(i)
@@ -1731,29 +2164,42 @@ CONTAINS
              ztmp = FSEL(ABS(q_alpha)-q_min,ztmp,1._wp)
              icond(j) = INT(ztmp)
           END DO
+          !$ACC END PARALLEL
 
           ! if |qm| is small (rare event) we must do a Taylor expansion
 
           ic = 0
           IF (nlorms>0) THEN
+             !$ACC UPDATE HOST( icond, ilorms )
              DO j = 1,nlorms
                 IF (icond(j)<=0) CYCLE
                 ic = ic + 1
                 itx(ic) = ilorms(j)
              END DO
+             !$ACC UPDATE DEVICE( itx )
           END IF
 
-          vout(1:nlorms) = 1._wp/vinp(1:nlorms)
-          wout(1:nlorms) = LOG(winp(1:nlorms))
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR
+          DO j = 1, nlorms
+            vout(j) = 1._wp/vinp(j)
+            wout(j) = LOG(winp(j))
+          END DO
+          !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i )
           DO j = 1,nlorms
              i = ilorms(j)
              i_alpha(i,n) = - ( wout(j) + 1.0_wp - winp(j) + winp(j)**2 * 0.5_wp  ) * vout(j)
           END DO
+          !$ACC END PARALLEL
 
           ! do Taylor expansion for small |qm|
 !IBM* ASSERT(NODEPS,ITERCNT(1))
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP GANG VECTOR PRIVATE( i, q_alpha, qm )
           DO j = 1,ic
              i = itx(j)
              q_alpha = v_alpha(i,lev,n) * rbvfb(i)
@@ -1765,6 +2211,7 @@ CONTAINS
                   &           / q_alpha**3
              END IF
           END DO
+          !$ACC END PARALLEL
        END DO
     END IF
     !
@@ -1773,6 +2220,8 @@ CONTAINS
     IF ( ABS(slope-1.5_wp) < EPSILON(1.0_wp) )  THEN
        ic = 0
        DO n = 1,naz
+          !$ACC PARALLEL DEFAULT(PRESENT) COPY( ic )
+          !$ACC LOOP GANG VECTOR PRIVATE( i, q_alpha, qm, ic_loc )
           DO j = 1,nlorms
              i = ilorms(j)
              !
@@ -1787,9 +2236,13 @@ CONTAINS
              IF (ABS(q_alpha) < q_min .OR. ABS(qm) < qm_min)  THEN
                 ! taylor series expansion is a very rare event.
                 ! do sparse processing separately
+                ! local copy of the index is needed for parallel execution on GPU
+                !$ACC ATOMIC CAPTURE
                 ic = ic+1
-                ixi(ic) = i
-                ixnaz(ic) = n
+                ic_loc = ic
+                !$ACC END ATOMIC
+                ixi(ic_loc) = i
+                ixnaz(ic_loc) = n
              ELSE
                 qm     = ABS(qm)
                 sqrtqm = SQRT(qm)
@@ -1804,10 +2257,13 @@ CONTAINS
              ENDIF
              !
           END DO
+          !$ACC END PARALLEL
        END DO
        ! taylor series expansion is a very rare event.
        ! do sparse processing here separately
 !CDIR NODEP
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR PRIVATE( n, i, q_alpha, qm )
        DO ix = 1, ic
           n = ixnaz(ix)
           i = ixi(ix)
@@ -1820,6 +2276,7 @@ CONTAINS
                &            * m_alpha(i,lev,n)**1.5_wp / q_alpha
           END IF
        ENDDO
+       !$ACC END PARALLEL
     END IF
     !
     !  if integral is negative (which in principle should not happen) then
@@ -1827,11 +2284,15 @@ CONTAINS
     !  the variances.
     !
     DO n = 1,naz
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
        DO i = il1, il2
           icond(i-il1+1) = INT(FSEL(i_alpha(i,n),0._wp,1._wp))
        END DO
+       !$ACC END PARALLEL
        IF (il2 >= il1) THEN  ! mpuetz: don't fuse with previous loop
           nerror = 0
+          !$ACC UPDATE HOST( icond )
           DO i = il1, il2
              nerror = nerror + icond(i-il1+1)
           END DO
@@ -1841,9 +2302,13 @@ CONTAINS
 
           ! find the first error and dump
 
+          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC LOOP SEQ
           DO i = il1, il2
              IF (icond(i-il1+1) > 0) EXIT
           END DO
+          !$ACC END PARALLEL
+          !$ACC UPDATE HOST( i_alpha, v_alpha, m_alpha, rbvfb )
 
           WRITE (message_text,*) ' '
           CALL message(TRIM(routine),message_text)
@@ -1874,6 +2339,8 @@ CONTAINS
        END IF
 
     END DO
+
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_intgrl
@@ -2003,7 +2470,9 @@ CONTAINS
 
     INTEGER  :: il1, il2, lev1, lev2, nlons, nlevs
     REAL(wp) :: alt_exp
-    REAL(wp) :: darr(nlons,nlevs), data_zmax(nlons), alt(nlons,nlevs)
+    REAL(wp) :: darr(:,:)     ! (nlons,nlevs)
+    REAL(wp) :: data_zmax(:)  ! (nlons)
+    REAL(wp) :: alt(:,:)      ! (nlons,nlevs)
     !
     ! internal variables.
     !
@@ -2015,6 +2484,8 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_exp'
 
     !-----------------------------------------------------------------------
+    !$ACC DATA PRESENT( darr, data_zmax, alt ) &
+    !$ACC       CREATE( vtmp, ialt )
 
     hscale = 5.e3_wp
 
@@ -2033,36 +2504,55 @@ CONTAINS
     !
     !  data values at first level above alt_exp.
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO i = il1,il2
+       !$ACC LOOP SEQ
        DO l = levtop,levbot,lincr
           IF (alt(i,l) >= alt_exp)  THEN
              data_zmax(i) = darr(i,l)
           END IF
        END DO
     END DO
+    !$ACC END PARALLEL
     !
     !  exponentially damp field above alt_exp to model top at l=1.
     !
     DO l = 1,lev2
        nalt = 0
+       !$ACC UPDATE HOST( alt(:,l) )
        DO i = il1,il2
           IF (alt(i,l) >= alt_exp)  THEN
              nalt = nalt + 1
              ialt(nalt) = i
           END IF
        END DO
+       !$ACC UPDATE DEVICE( ialt )
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR PRIVATE( i )
        DO j = 1,nalt
           i = ialt(j)
           vtmp(j) = (alt_exp-alt(i,l))/hscale
        END DO
+       !$ACC END PARALLEL
 
-       vtmp(1:nalt) = EXP(vtmp(1:nalt))
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR
+       DO j = 1, nalt
+         vtmp(j) = EXP(vtmp(j))
+       END DO
+       !$ACC END PARALLEL
 
+       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC LOOP GANG VECTOR PRIVATE( i )
        DO j = 1,nalt
           i = ialt(j)
           darr(i,l) = data_zmax(i) * vtmp(j)
        END DO
+       !$ACC END PARALLEL
     END DO
+
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE hines_exp
@@ -2105,12 +2595,14 @@ CONTAINS
 
     INTEGER  :: nsmooth, il1, il2, lev1, lev2, nlons, nlevs
     REAL(wp) :: coeff
-    REAL(wp) :: darr(nlons,nlevs), work(nlons,nlevs)
+    REAL(wp) :: darr(:,:), work(:,:) ! (nlons,nlevs)
     !
     !  internal variables.
     !
     INTEGER  :: i, l, ns, lev1p, lev2m
     REAL(wp) :: sum_wts
+
+    !$ACC DATA CREATE( darr, work )
     !-----------------------------------------------------------------------
     !
     !  calculate sum of weights.
@@ -2122,11 +2614,15 @@ CONTAINS
     !
     !  smooth nsmooth times
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO ns = 1,nsmooth
        !
        !  copy darr into work array.
        !
+       !$ACC LOOP SEQ
        DO l = lev1,lev2
+          !$ACC LOOP GANG VECTOR
           DO i = il1,il2
              work(i,l) = darr(i,l)
           END DO
@@ -2134,12 +2630,17 @@ CONTAINS
        !
        !  smooth array work in vertical direction and put into darr.
        !
+       !$ACC LOOP SEQ
        DO l = lev1p,lev2m
+          !$ACC LOOP GANG VECTOR
           DO i = il1,il2
              darr(i,l) = (work(i,l+1)+coeff*work(i,l)+work(i,l-1) ) / sum_wts
           END DO
        END DO
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
   END SUBROUTINE vert_smooth

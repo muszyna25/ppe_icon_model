@@ -1501,5 +1501,10 @@ MODULE mo_physical_constants_iface
 END MODULE mo_physical_constants_iface
 
 !! ==============================================================================================================================
+#else
+
+! nag does not like empty files
+MODULE util_jsbach
+END MODULE util_jsbach
 
 #endif

@@ -686,11 +686,11 @@ DO jl=kidia,kfdia
 
       ! shallow convection
 
-      zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zqenh(jl,ikb)
-      zdqmin=MAX(0.01_JPRB*zqenh(jl,ikb),1.e-10_JPRB)
-      zdh=rcpd*(ptu(jl,ikb)-ztenh(jl,ikb))+rlvtt*zqumqe
-      zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
       IF (zdhpbl(jl) > 0.0_JPRB) THEN
+        zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zqenh(jl,ikb)
+        zdqmin=MAX(0.01_JPRB*zqenh(jl,ikb),1.e-10_JPRB)
+        zdh=rcpd*(ptu(jl,ikb)-ztenh(jl,ikb))+rlvtt*zqumqe
+        zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
         zmfub(jl)=zdhpbl(jl)/zdh
         zmfub(jl)=MIN(zmfub(jl),0.5_jprb*zmfmax)
       ELSE
@@ -923,8 +923,6 @@ DO jl=kidia,kfdia
     ELSE
       zeps=0.0_JPRB
    ENDIF
-    zqumqe=pqu(jl,ikb)+plu(jl,ikb)-&
-      & zeps*zqd(jl,ikb)-(1.0_JPRB-zeps)*zqenh(jl,ikb)
     zdqmin=MAX(0.01_JPRB*zqenh(jl,ikb),1.e-10_JPRB)
     ! maximum permisable value of ud base mass flux
     zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2*rmflic+rmflia
@@ -932,10 +930,12 @@ DO jl=kidia,kfdia
     ! shallow convection
 
     IF(ktype(jl) == 2) THEN
-      zdh=rcpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)-&
-        & (1.0_JPRB-zeps)*ztenh(jl,ikb))+rlvtt*zqumqe
-      zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
       IF(zdhpbl(jl) > 0.0_JPRB) THEN
+        zqumqe=pqu(jl,ikb)+plu(jl,ikb)-&
+          & zeps*zqd(jl,ikb)-(1.0_JPRB-zeps)*zqenh(jl,ikb)
+        zdh=rcpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)-&
+          & (1.0_JPRB-zeps)*ztenh(jl,ikb))+rlvtt*zqumqe
+        zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
         zmfub1(jl)=zdhpbl(jl)/zdh
       ELSE
         zmfub1(jl)=zmfub(jl)

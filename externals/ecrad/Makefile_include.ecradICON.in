@@ -1,0 +1,11 @@
+# Fortran compiler executable
+FC = @FC@
+
+##NETCDFROOT     = @NETCDFROOT@
+NETCDFLIBPATH  = @NETCDFLIBPATH@
+NETCDF_LIB     = @NETCDF_LIB@
+NETCDF_INCLUDE = @NETCDF_INCLUDE@
+
+# Basic flags such as where to write module files, and an instruction
+#  to read Fortran unformatted data files as big endian 
+BASICFLAGS = @MODDIR@ @MODOPT@../module @F77FLAGS@

@@ -66,7 +66,7 @@ MODULE mo_ocean_coupling
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
 
-  INTEGER, PARAMETER    :: no_of_fields = 13
+  INTEGER, PARAMETER    :: no_of_fields = 14
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -347,6 +347,7 @@ CONTAINS
     field_name(11) = "river_runoff"
     field_name(12) = "co2_mixing_ratio"
     field_name(13) = "co2_flux"
+    field_name(14) = "sea_level_pressure"
 
     ! Define the mask for all fields but the runoff (idx=1 to 10)
 
@@ -983,6 +984,44 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%fu10(:,:))
     END IF
 
+    !  Receive slp
+    !   field_id(14) represents atmospheric sea level pressure
+    !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
+
+    buffer(:,:) = 0.0_wp  ! temporarily
+    no_arr = 1
+    CALL yac_fget ( field_id(14), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    IF ( info > COUPLING .AND. info < OUT_OF_BOUND )                       &
+         &                      CALL message('couple_ocean_toatmo_fluxes', &
+         &                                   'YAC says it is get for restart - id=14, sea level pressure')
+    IF ( info == OUT_OF_BOUND ) CALL warning('couple_ocean_toatmo_fluxes', &
+         &                                   'YAC says fget called after end of run - id=14, sea level pressure')
+
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
+    IF (info > 0 .AND. info < 7 ) THEN
+      !
+!!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+      DO i_blk = 1, patch_horz%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
+          IF ( nn+n > nbr_inner_cells ) THEN
+            atmos_forcing%pao(n,i_blk) = dummy
+          ELSE
+            atmos_forcing%pao(n,i_blk) = buffer(nn+n,1)
+          ENDIF
+        ENDDO
+      ENDDO
+!!ICON_OMP_END_PARALLEL_DO
+      !
+      CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%pao(:,:))
+    END IF
     IF(l_cpl_co2)then
     !
     ! ------------------------------

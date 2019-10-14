@@ -39,13 +39,15 @@ MODULE mo_master_control
     & atmo_process, ocean_process, ps_radiation_process, testbed_process, &
     & my_process_is_ocean, get_my_model_no,                               &
     & are_multiple_models, use_restart_namelists, isRestart,              &
-    & process_exists
+    & process_exists, hamocc_process, my_process_is_hamocc,               &
+    & my_process_is_oceanic 
    
 
   ! ------------------------------------------------------------------------
   INTEGER, PARAMETER :: atmo_process         = 1
   INTEGER, PARAMETER :: ocean_process        = 2
   INTEGER, PARAMETER :: ps_radiation_process = 3
+  INTEGER, PARAMETER :: hamocc_process       = 4
   INTEGER, PARAMETER :: testbed_process      = 99
   ! ------------------------------------------------------------------------
 
@@ -191,6 +193,7 @@ CONTAINS
       CASE (atmo_process)
       CASE (ocean_process)
       CASE (ps_radiation_process)
+      CASE (hamocc_process)
       CASE (testbed_process)
       CASE default
         CALL finish("check_my_component","my_process_model is unkown")
@@ -284,8 +287,25 @@ CONTAINS
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_hamocc()
+
+    my_process_is_hamocc = (my_process_model == hamocc_process)
+
+  END FUNCTION my_process_is_hamocc
+  !------------------------------------------------------------------------
+ 
+  !------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_oceanic()
+
+    my_process_is_oceanic = (my_process_model == ocean_process) .or. (my_process_model == hamocc_process)
+
+  END FUNCTION my_process_is_oceanic
+  !------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------
   LOGICAL FUNCTION use_restart_namelists()
-    use_restart_namelists = (isRestart() .and. read_restart_namelists .and. (my_process_model /= ocean_process))
+    use_restart_namelists = (isRestart() .and. read_restart_namelists .and. &
+      & (my_process_model /= ocean_process) .and. (my_process_model /= hamocc_process))
   END FUNCTION use_restart_namelists
   !------------------------------------------------------------------------
 

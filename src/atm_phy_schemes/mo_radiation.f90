@@ -571,7 +571,8 @@ CONTAINS
     & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, dust_tunefac                     &
     ! output
     & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa,         &
-    &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc, trsol_par_sfc     )
+    &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc, trsol_par_sfc,    &
+    &  lwflx_clr_sfc  )
 
     ! input
     ! -----
@@ -627,7 +628,8 @@ CONTAINS
       &  trsol_up_toa(kbdim),       & !< TOA upward shortwave transmissivity (normalized upward flux)
       &  trsol_up_sfc(kbdim),       & !< Surface upward shortwave transmissivity (normalized upward flux)
       &  trsol_dn_sfc_diffus(kbdim),& !< Surface downward diffuse shortwave transmissivity (normalized diffuse downward flux)
-      &  trsol_clr_sfc(kbdim),      & !< Surface net clear-sky solar transmissivity
+      &  trsol_clr_sfc(kbdim),      & !< Surface net clear-sky solar transmissivity at surface
+      &  lwflx_clr_sfc(kbdim),      & !< Longwave net clear-sky surface flux
       &  trsol_par_sfc(kbdim)         !< Surface transmissivity for photosynthetically active part of solar radiation
 
     INTEGER  :: jk, jl
@@ -792,6 +794,8 @@ CONTAINS
     trsol_up_toa(1:jce)        = flx_upsw_toa  (1:jce)/(cos_mu0(1:jce)*tsi_radt)
     trsol_dn_sfc_diffus(1:jce) = flx_dnsw_diff_sfc(1:jce)/(cos_mu0(1:jce)*tsi_radt)
     trsol_par_sfc(1:jce)       = flx_par_sfc(1:jce)/(cos_mu0(1:jce)*tsi_radt)
+
+    lwflx_clr_sfc(1:jce)       = flx_lw_net_clr(1:jce,klevp1)
 
     IF (ltimer) CALL timer_stop(timer_radiation)
 
@@ -1587,6 +1591,7 @@ CONTAINS
     &                 swflx_up_toa  ,  &
     &                 swflx_up_sfc  ,  &
     &                 swflx_par_sfc ,  &
+    &                 swflx_clr_sfc ,  &
     &                 swflx_dn_sfc_diff)
 
     INTEGER,  INTENT(in)  ::    &
@@ -1657,6 +1662,7 @@ CONTAINS
       &     swflx_up_toa(kbdim), &     ! shortwave upward flux at the top of the atmosphere [W/m2]
       &     swflx_up_sfc(kbdim), &     ! shortwave upward flux at the surface [W/m2]
       &     swflx_par_sfc(kbdim), &    ! photosynthetically active downward flux at the surface [W/m2]
+      &     swflx_clr_sfc(kbdim), &    ! clear-sky net shortwave flux at the surface [W/m2]
       &     swflx_dn_sfc_diff(kbdim)   ! shortwave diffuse downward radiative flux at the surface [W/m2]
 
     ! Local arrays
@@ -1684,7 +1690,7 @@ CONTAINS
 
     INTEGER :: jc,jk,jt,ic
 
-    LOGICAL  :: l_nh_corr, lcalc_trsolclr
+    LOGICAL  :: l_nh_corr, lcalc_trsolclr, lcalc_clrflx
 
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: zflxsw,zflxlw,zflxswclr,zflxlwclr,zconv,tqv
@@ -1704,6 +1710,11 @@ CONTAINS
     lcalc_trsolclr = .TRUE.
     IF (PRESENT(use_trsolclr_sfc) .AND. PRESENT(trsol_clr_sfc)) THEN
       IF (use_trsolclr_sfc) lcalc_trsolclr = .FALSE.
+    ENDIF
+    IF (PRESENT(swflx_clr_sfc)) THEN
+      lcalc_clrflx = .TRUE.
+    ELSE
+      lcalc_clrflx = .FALSE.
     ENDIF
 
     ! Conversion factor for heating rates
@@ -1747,6 +1758,12 @@ CONTAINS
         swflx_dn_sfc_diff(jc) = pi0(jc)*trsol_dn_sfc_diff(jc) * slope_corr(jc)
         swflx_par_sfc(jc)     = pi0(jc)*trsol_par_sfc(jc) * slope_corr(jc)
       ENDDO
+
+      IF (lcalc_clrflx) THEN
+        DO jc = jcs, jce
+          swflx_clr_sfc(jc) = pi0(jc)*trsol_clr_sfc(jc)
+        ENDDO
+      ENDIF
 
       ! Correction of longwave fluxes for changes in ground temperature
       tqv(:)            = 0._wp

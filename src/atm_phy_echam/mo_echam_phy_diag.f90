@@ -73,10 +73,16 @@ CONTAINS
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_fractions_input(jg, jb, jcs, jce, nproma, nlev, field)
+
+    !$ACC DATA PRESENT( field%lsmask, field%alake, field%seaice, field%lake_ice_frc, field%ts_tile, &
+    !$ACC               field%frac_tile )                                                           &
+    !$ACC       CREATE( zfrw, zfri, zfrl )
  
     ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jc=jcs,jce
 
       ! fraction of solid land in the grid box, i.e. land without lakes if lakes are used
@@ -125,11 +131,35 @@ CONTAINS
       END IF
 
     END DO
+    !$ACC END PARALLEL
 
     ! 3.4 Merge three pieces of information into one array for vdiff
-    IF (ilnd.LE.nsfc_type) field%frac_tile(jcs:jce,jb,ilnd) = zfrl(jcs:jce)
-    IF (iwtr.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iwtr) = zfrw(jcs:jce)
-    IF (iice.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iice) = zfri(jcs:jce)
+    IF (ilnd.LE.nsfc_type) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jc=jcs,jce
+        field%frac_tile(jc,jb,ilnd) = zfrl(jc)
+      END DO
+      !$ACC END PARALLEL
+    END IF
+    IF (iwtr.LE.nsfc_type) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jc=jcs,jce
+        field%frac_tile(jc,jb,iwtr) = zfrw(jc)
+      END DO
+      !$ACC END PARALLEL
+    END IF
+    IF (iice.LE.nsfc_type) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jc=jcs,jce
+        field%frac_tile(jc,jb,iice) = zfri(jc)
+      END DO
+      !$ACC END PARALLEL
+    END IF
+
+    !$ACC END DATA
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_fractions_output(jg, jb, jcs, jce, nproma, nlev, field)
@@ -158,24 +188,33 @@ CONTAINS
 
     ! Shortcuts to components of echam_cld_config
     !
-    REAL(wp), POINTER :: cn1lnd, cn2lnd, cn1sea, cn2sea
+    REAL(wp) :: cn1lnd, cn2lnd, cn1sea, cn2sea
     !
-    cn1lnd => echam_cld_config(jg)% cn1lnd
-    cn2lnd => echam_cld_config(jg)% cn2lnd
-    cn1sea => echam_cld_config(jg)% cn1sea
-    cn2sea => echam_cld_config(jg)% cn2sea
+    cn1lnd = echam_cld_config(jg)% cn1lnd
+    cn2lnd = echam_cld_config(jg)% cn2lnd
+    cn1sea = echam_cld_config(jg)% cn1sea
+    cn2sea = echam_cld_config(jg)% cn2sea
 
     field => prm_field(jg)
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_droplet_number_input(jg, jb, jcs, jce, nproma, nlev, field)
-    
+
+    !$ACC DATA PRESENT( field%sftlf, field%sftgif, field%presm_old, field%acdnc ) &
+    !$ACC       CREATE( lland, lglac )
+
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jc=jcs,jce
       lland(jc) = field%sftlf (jc,jb) > 0._wp
       lglac(jc) = field%sftgif(jc,jb) > 0._wp
     END DO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
     DO jk = 1,nlev
+      !$ACC LOOP VECTOR PRIVATE( zprat, zn1, zn2, zcdnc )
       DO jc = jcs,jce
         !
         zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
@@ -196,8 +235,9 @@ CONTAINS
         !
       END DO
     END DO
+    !$ACC END PARALLEL
 
-    NULLIFY(cn1lnd, cn2lnd, cn1sea, cn2sea)
+    !$ACC END DATA
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_droplet_number_output(jg, jb, jcs, jce, nproma, nlev, field)
@@ -219,16 +259,29 @@ CONTAINS
     ! Local variables
     !
     TYPE(t_echam_phy_field), POINTER    :: field
+    INTEGER                             :: jc, jk
 
     field => prm_field(jg)
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_cpair_cvair_qconv_input(jg, jb, jcs, jce, nproma, nlev, field)
     
-    field%cpair(jcs:jce,:,jb) = cpd+(cpv-cpd)*field%qtrc(jcs:jce,:,jb,iqv)
-    field%cvair(jcs:jce,:,jb) = cvd+(cvv-cvd)*field%qtrc(jcs:jce,:,jb,iqv)
-    !
-    field%qconv(jcs:jce,:,jb) = 1._wp/(field%mair(jcs:jce,:,jb)*field%cpair(jcs:jce,:,jb))
+    !$ACC DATA PRESENT( field%cpair, field%qtrc, field%cvair, field%qconv, field%mair )
+
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
+    DO jk = 1,nlev
+      !$ACC LOOP VECTOR
+      DO jc=jcs,jce
+        field%cpair(jc,jk,jb) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
+        field%cvair(jc,jk,jb) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
+        !
+        field%qconv(jc,jk,jb) = 1._wp/(field%mair(jc,jk,jb)*field%cpair(jc,jk,jb))
+      END DO
+    END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_cpair_cvair_qconv_output(jg, jb, jcs, jce, nproma, nlev, field)
@@ -250,14 +303,32 @@ CONTAINS
     ! Local variables
     !
     TYPE(t_echam_phy_field), POINTER    :: field
+    INTEGER                             :: jc, jk
 
     field => prm_field(jg)
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_initialize_input(jg, jb, jcs, jce, nproma, nlev, field)
     
-    IF (ASSOCIATED(field% q_phy   )) field% q_phy   (jcs:jce,:,jb) = 0._wp
-    IF (ASSOCIATED(field% q_phy_vi)) field% q_phy_vi(jcs:jce,  jb) = 0._wp
+    IF (ASSOCIATED(field% q_phy)) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG
+      DO jk = 1,nlev
+        !$ACC LOOP VECTOR
+        DO jc=jcs,jce
+          field% q_phy(jc,jk,jb) = 0._wp
+        END DO
+      END DO
+      !$ACC END PARALLEL
+    END IF
+    IF (ASSOCIATED(field% q_phy_vi)) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jc=jcs,jce
+        field% q_phy_vi(jc, jb) = 0._wp
+      END DO
+      !$ACC END PARALLEL
+    END IF
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_initialize_output(jg, jb, jcs, jce, nproma, nlev, field)
@@ -280,23 +351,41 @@ CONTAINS
     !
     TYPE(t_echam_phy_field), POINTER    :: field
     TYPE(t_echam_phy_tend) , POINTER    :: tend
+    INTEGER                             :: jc, jk
 
     field => prm_field(jg)
     tend  => prm_tend (jg)
 
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_finalize_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
+
+    !$ACC DATA PRESENT( field%pr, field%rsfl, field%ssfl, field%rsfc, field%ssfc, tend%ta_phy, field%cpair, field%cvair )
     
     ! precipitation flux from all processes
     !
-    field% pr(jcs:jce,jb) =  field% rsfl(jcs:jce,jb) & ! rain large scale
-         &                  +field% ssfl(jcs:jce,jb) & ! snow large scale
-         &                  +field% rsfc(jcs:jce,jb) & ! rain convection
-         &                  +field% ssfc(jcs:jce,jb)   ! snow convection
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jc=jcs,jce
+    field% pr(jc,jb) =  field% rsfl(jc,jb) & ! rain large scale
+         &                  +field% ssfl(jc,jb) & ! snow large scale
+         &                  +field% rsfc(jc,jb) & ! rain convection
+         &                  +field% ssfc(jc,jb)   ! snow convection
+    END DO
+    !$ACC END PARALLEL
  
     ! convert the temperature tendency from physics, as computed for constant pressure conditions,
     ! to constant volume conditions, as needed for the coupling to the dynamics
-    tend% ta_phy(jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb) * field% cpair(jcs:jce,:,jb) / field% cvair(jcs:jce,:,jb)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG
+    DO jk = 1,nlev
+      !$ACC LOOP VECTOR
+      DO jc=jcs,jce
+        tend% ta_phy(jc,jk,jb) = tend% ta_phy(jc,jk,jb) * field% cpair(jc,jk,jb) / field% cvair(jc,jk,jb)
+      END DO
+    END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_finalize_output(jg, jb, jcs, jce, nproma, nlev, field, tend)

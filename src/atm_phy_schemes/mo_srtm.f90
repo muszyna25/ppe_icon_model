@@ -154,7 +154,7 @@ CONTAINS
     INTEGER  :: indfor(kbdim,klev), indself(kbdim,klev)
     INTEGER  :: jp(kbdim,klev), jt(kbdim,klev), jt1(kbdim,klev)
 
-    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim)
+    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim), zcloud_ll(kbdim), lcfac
     REAL(wp) :: zalbd(kbdim,ksw) , zalbp(kbdim,ksw)
 
     REAL(wp) :: frc_vis(ksw), frc_nir(ksw), frc_par
@@ -415,6 +415,7 @@ CONTAINS
     DO ic = 1, icount
       zclear(ic)     = 1.0_wp
       zcloud(ic)     = 0.0_wp
+      zcloud_ll(ic)  = 0.0_wp
       zfrcl_above(ic)= 0.0_wp
     ENDDO
 
@@ -457,6 +458,13 @@ CONTAINS
 
           zcloud(ic) = alpha * ccmax + (1-alpha) * ccran
           zclear(ic) = 1.0_wp-zcloud(ic)
+
+          ! additional calculation of low-level cloud cover for postprocessing of diffuse fraction
+          lcfac = MERGE(1.0_wp, 0.0_wp, zpm_fl_vr(ic,jk)/zpm_fl_vr(ic,1) > 0.75_wp)
+          ccmax = MAX( zfrcl(ic,jk),  zcloud_ll(ic) )
+          ccran =      zfrcl(ic,jk) + zcloud_ll(ic) - zfrcl(ic,jk) * zcloud_ll(ic)
+          zcloud_ll(ic) = lcfac * (alpha * ccmax + (1-alpha) * ccran)
+
         ENDDO
       ENDDO
 
@@ -568,10 +576,12 @@ CONTAINS
       ENDDO
 
 
-      IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation
-        DO ic = 1, icount
+      IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation, including simple empirical parameterization
+        DO ic = 1, icount             ! for reflected radiation on low-level clouds
           jl = idx(ic)
-          flxd_dff_sfc(jl) = zflxd_diff(ic)
+          flxd_dff_sfc(jl) = MIN(zflxd_sw(ic,klev+1), &
+                             zflxd_diff(ic) + 0.5_wp*zflxd_sw(ic,klev+1)*zcloud_ll(ic)*(1._wp-zcloud_ll(ic))**2)
+   !       flxd_dff_sfc(jl) = zflxd_diff(ic)
         ENDDO
       ENDIF
 

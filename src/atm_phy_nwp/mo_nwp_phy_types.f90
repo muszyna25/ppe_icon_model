@@ -181,6 +181,8 @@ MODULE mo_nwp_phy_types
       &  lwflxsfc_t(:,:,:),    & !! tile-based longwave net flux at surface [W/m2]
       &  trsolall(:,:,:),      & !! shortwave net tranmissivity (i.e. net flux normalized by irradiance) []
       &  trsolclr_sfc(:,:),    & !! clear-sky shortwave net tranmissivity at the surface
+      &  swflxclr_sfc(:,:),    & !! clear-sky shortwave net flux at the surface
+      &  lwflxclr_sfc(:,:),    & !! clear-sky longwave net flux at the surface
       &  trsol_up_toa(:,:),    & !! normalized shortwave upward flux at the top of the atmosphere
       &  trsol_up_sfc(:,:),    & !! normalized shortwave upward flux at the surface
       &  trsol_par_sfc(:,:),   & !! normalized downward photosynthetically active flux at the surface
@@ -196,12 +198,15 @@ MODULE mo_nwp_phy_types
       &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
       &  lwflxsfc_a(:,:),      & !! Surface net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxsfc_a(:,:),      & !! Surface net solar radiation [W/m2], accumulated or mean since model start
+      &  lwflxclrsfc_a(:,:),   & !! Clear-sky surface net thermal radiation [W/m2], accumulated or mean since model start
+      &  swflxclrsfc_a(:,:),   & !! Clear-sky surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxtoa_a(:,:),      & !! TOA net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since model start
       &  asod_t    (:,:),      & !! Top down solar radiation  [W/m2], accumulated or mean since model start
       &  asou_t    (:,:),      & !! Top up solar radiation  [W/m2], accumulated or mean since model start
       &  athd_s    (:,:),      & !! Surface down thermal radiation [W/m2], accumulated or mean since model start
       &  athu_s    (:,:),      & !! Surface up thermal radiation [W/m2], accumulated or mean since model start
+      &  asod_s    (:,:),      & !! Surface down solar rad. [W/m2], accumulated or mean since model start 
       &  asodird_s (:,:),      & !! Surface down solar direct rad. [W/m2], accumulated or mean since model start 
       &  asodifd_s (:,:),      & !! Surface down solar diff. rad. [W/m2], accumulated or mean since model start 
       &  asodifu_s (:,:),      & !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
@@ -460,6 +465,7 @@ MODULE mo_nwp_phy_types
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke_pconv   (:,:,:)  ,& !! TKE tendency from convective prec
       ddt_tke_hsh     (:,:,:)  ,& !! TKE tendency from horizontal shear
+      ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
     REAL(vp2), POINTER           &
@@ -469,7 +475,6 @@ MODULE mo_nwp_phy_types
       ::                        &
       ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
       ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
-      ddt_tracer_gscp (:,:,:,:),& !! Hydromet-tendency from microphysics
       ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
       ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag

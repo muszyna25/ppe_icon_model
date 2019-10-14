@@ -123,7 +123,7 @@ CONTAINS
 
     lfocvd  = alf/cvd
     cpdocvd = cpd/cvd
-    ticeini = 258.15_wp
+    ticeini = 256.15_wp
 
     ! IDs for optional arguments for detrainment of rain and snow
     IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN

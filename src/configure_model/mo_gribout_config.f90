@@ -24,6 +24,7 @@
 MODULE mo_gribout_config
 
   USE mo_impl_constants,     ONLY: max_phys_dom
+  USE mo_grib2_tile,         ONLY: t_grib2_template_tile
 
   IMPLICIT NONE
   PRIVATE
@@ -115,9 +116,22 @@ MODULE mo_gribout_config
       &        numberOfForecastsInEnsemble,   &
       &        perturbationNumber
 
-   
+    CHARACTER(len=32) ::  &               !< type of GRIB2 templates used for surface tile fields
+      &  typeOfGrib2TileTemplate          !  'wmo': official WMO templates 55, 59, ...
+                                          !  'dwd': local 'DWD' templates 40455, 40456, ...
+
     ! derived variables
- 
+    !
+    TYPE(t_grib2_template_tile)::  &      !< defines set of employed GRIB2 tile templates for writing
+      &  grib2_template_tile              !< contains tile template numbers as well as the corresponding 
+                                          !< set GRIB2 tile keys.
+                                          !< variant 1: templates 40455, 40456, etc
+                                          !<            DWD's local tile templates
+                                          !< variant 2: 55, 59, etc
+                                          !< official WMO tile templates
+                                          !< the variant in use is determined by the namelist parameter itype_tiletemplate  
+
+
   END TYPE t_gribout_config
 
   !>
@@ -140,9 +154,9 @@ CONTAINS
   SUBROUTINE configure_gribout(grid_generatingCenter, grid_generatingSubcenter, &
     &                          n_dom)
   !
-    INTEGER,       INTENT(IN)  :: grid_generatingCenter(:)
-    INTEGER,       INTENT(IN)  :: grid_generatingSubcenter(:)
-    INTEGER,       INTENT(IN)  :: n_dom 
+    INTEGER,       INTENT(IN)  :: grid_generatingCenter(0:)
+    INTEGER,       INTENT(IN)  :: grid_generatingSubcenter(0:)
+    INTEGER,       INTENT(IN)  :: n_dom
 
     ! local fields
     INTEGER  :: jg
@@ -150,6 +164,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     DO jg = 1, n_dom
+      !
       ! check, whether generatingCenter was set in gribout_nml
       !
       IF ( gribout_config(jg)%generatingCenter == -1 ) THEN
@@ -163,7 +178,8 @@ CONTAINS
         ! If not, then fill with grid generating subcenter
         gribout_config(jg)%generatingSubcenter = grid_generatingSubcenter(jg)
       ENDIF
-    ENDDO
+
+    ENDDO  ! jg
 
   END SUBROUTINE configure_gribout
 

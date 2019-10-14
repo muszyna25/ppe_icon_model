@@ -42,12 +42,13 @@ MODULE mo_parallel_config
        &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
        &  io_process_stride, io_process_rotate
 
-  PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
+  PUBLIC :: set_nproma, get_nproma, cpu_min_nproma, check_parallel_configuration,   &
+       &    use_async_restart_output, blk_no, idx_no, idx_1d
 
   ! computing setup
   ! ---------------
   INTEGER  :: nproma = 1              ! inner loop length/vector length
-  !$acc declare copyin(nproma)
+  !$ACC DECLARE COPYIN(nproma)
 
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
@@ -262,7 +263,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: new_nproma
 
     nproma = new_nproma
-    !$acc update device(nproma)
+    !$ACC UPDATE DEVICE(nproma)
 
   END SUBROUTINE set_nproma
   !-------------------------------------------------------------------------
@@ -274,6 +275,21 @@ CONTAINS
     get_nproma = nproma
 
   END FUNCTION get_nproma
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION cpu_min_nproma(nproma, min_nproma) RESULT(new_nproma)
+    INTEGER, INTENT(IN) :: nproma, min_nproma
+    INTEGER             :: new_nproma
+
+#ifdef _OPENACC
+    new_nproma = nproma
+#else
+    new_nproma = MIN(nproma, min_nproma)
+#endif
+
+  END FUNCTION cpu_min_nproma 
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

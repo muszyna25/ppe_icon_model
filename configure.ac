@@ -96,6 +96,10 @@ AC_ARG_ENABLE([jsbach],
               AS_HELP_STRING([--enable-jsbach],[Use jsbach model component.]),
               [],[enable_jsbach=yes])
 
+AC_ARG_ENABLE([rte-rrtmgp],
+              AS_HELP_STRING([--enable-rte-rrtmgp],[Use rte-rrtmgp model component.]),
+              [],[enable_rte_rrtmgp=no])
+
 AC_ARG_ENABLE([ocean],
               AS_HELP_STRING([--enable-ocean],[Use ocean model component.]),
               [],[enable_ocean=yes])
@@ -196,6 +200,18 @@ AC_ARG_WITH([yac],
 AS_IF([test "x$with_yac" = "xno"],
       [use_yac="no"],
       [use_yac="yes"])
+
+dnl ecrad (radiation scheme ecRad)
+
+AC_ARG_WITH([ecrad],
+  [AS_HELP_STRING([--with-ecrad],
+    [enable use of ecrad])],
+    [],
+    [])
+
+AS_IF([test "x$with_ecrad" = "xyes"],
+      [use_ecrad="yes"],
+      [use_ecrad="no"])
 
 dnl selects DLR's MESSy
 
@@ -352,6 +368,9 @@ AS_IF([test "x$enable_atmo" = "xno"],
 
 AS_IF([test "x$enable_jsbach" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"])
+
+AS_IF([test "x$enable_rte_rrtmgp" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_RTE_RRTMGP__"])
 
 AS_IF([test "x$enable_ocean" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"])
@@ -1185,7 +1204,7 @@ AS_IF([test "x$enable_serialization" != "xno"],
     [
      my_iconsrcdir="build/${build_host}/pp"
      my_iconppdir="${my_iconsrcdir}"
-     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE"
+     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE ${SERIALIZE_EXTRA_FLAGS}"
      AS_CASE(["$enable_serialization"],
              ["read"],
                 [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE"],
@@ -1209,6 +1228,12 @@ fi
 
 my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
 
+if [[ "x$enable_rte_rrtmgp" = xyes ]]
+then
+    my_srcdirs="externals/rte-rrtmgp/src ${my_srcdirs}"
+    ac_libs="$ac_libs -lrte-rrtmgp"		 
+fi
+
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
     FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
@@ -1217,6 +1242,11 @@ if [[ "x$use_yac" = xyes ]] ; then
         FFLAGS="${FFLAGS} ${DEFOPT}USE_MPI"
         CFLAGS="${CFLAGS} ${DEFCOPT}USE_MPI"
     fi
+fi
+
+if [[ "x$use_ecrad" = xyes ]] ; then
+    FFLAGS="${FFLAGS} -I`pwd`/externals/ecrad/module ${DEFOPT}__ECRAD"
+    CFLAGS="${CFLAGS} -I`pwd`/externals/ecrad/module"
 fi
 
 if [[ "x$use_messy" = xyes ]] ; then
@@ -1250,6 +1280,9 @@ if test "$use_mpcc_r" = yes ; then
 fi
 
 ac_objdirs=""
+if [[ "x$use_ecrad" = xyes ]] ; then
+    ac_objdirs="${ac_objdirs} `pwd`/externals/ecrad"
+fi
 for dir in $my_srcdirs ; do
     dir=${dir#${exec_prefix}\/}
     ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
@@ -1291,6 +1324,10 @@ fi
 
 if [[ "x$use_yac" = xyes ]] ; then
    ac_libs="$ac_libs -lyac"
+fi
+
+if [[ "x$use_ecrad" = xyes ]] ; then
+   ac_libs="$ac_libs -L`pwd`/externals/ecrad/lib -lradiation -lutilities -lifsrrtm -lifsaux"
 fi
 
 #------------------------
@@ -1352,21 +1389,13 @@ AS_IF([test "x$enable_serialization" != "xno"],
                     [
                      AS_IF([test -z "${SERIALBOX2_INCLUDE}"],
                      [
-                      SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
+                      SERIALBOX2_INCLUDE='-I$(SERIALBOX2ROOT)/include'
                       ])
                      ],
-                    [test -f "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a"],
+                    [test -r "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a" -o -r "${SERIALBOX2ROOT}/lib/libSerialboxFortran.so" ],
                     [
-                     AS_CASE([$fortran_compiler],
-                      [pgi*],
-                      [
-                       SERIALBOX2_LIB="${SERIALBOX2ROOT}/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++"
-                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
-                      ],
-                      [
-                       SERIALBOX2_LIB="-L${SERIALBOX2ROOT}/lib -l:libSerialboxFortran.a -lstdc++fs -lstdc++"
-                       SERIALBOX2_INCLUDE="-I${SERIALBOX2ROOT}/include"
-                      ])
+                     SERIALBOX2_LIB='-L$(SERIALBOX2ROOT)/lib -lSerialboxFortran -lstdc++fs -lstdc++'
+                     SERIALBOX2_INCLUDE='-I$(SERIALBOX2ROOT)/include'
                      ],
                     [
                      AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
@@ -1394,7 +1423,11 @@ AS_IF([test "x$enable_serialization" != "xno"],
              [
               AC_MSG_ERROR(["Serialization is enabled but SERIALBOX2ROOT is not defined"])
               ])
-       ])
+       ],
+       [
+        SERIALBOX2_LIB=''
+        SERIALBOX2_INCLUDE=''
+        ])
 
 dnl ######################################################################
 dnl substitutions
@@ -1476,6 +1509,7 @@ ac_libs="${ac_libs} -ltixi -lmtime -lself"
 AC_SUBST(LIB,$ac_libs)
 
 AC_SUBST(MODDIR,$MODDIR)
+AC_SUBST(MODOPT,$MODOPT)
 
 AC_SUBST(LDFLAGS,$LDFLAGS)
 
@@ -1562,7 +1596,7 @@ AC_SUBST(SRCDIRS,$ac_srcdirs)
 
 AC_SUBST(OBJDIRS,$ac_objdirs)
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES(Makefile externals/ecrad/Makefile_include.ecradICON)
 
 dnl ######################################################################
 dnl compiler versions
@@ -1765,12 +1799,22 @@ AC_CONFIG_COMMANDS([Makefiles],
                                   ])
                            externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
                            ])
+                    AS_IF([test "x$enable_rte_rrtmgp" = "xyes"],
+                          [
+			   AS_CASE([$config_target],
+                                   [*_gpu],	  
+                                   [kernel_type=openacc],
+                                   [kernel_type=cpu]
+                                  )
+	                   ],
+                           [kernel_type=none])
                     config/createMakefiles.pl \
                                               --target="${build_host}" \
                                               --srcdirs="${my_srcdirs}" \
                                               --enable_ocean="${enable_ocean}" \
                                               --enable_atmo="${enable_atmo}" \
                                               --enable_jsbach="${enable_jsbach}" \
+                                              --enable_rte_rrtmgp="${kernel_type}" \
                                               --enable_testbed="${enable_testbed}" \
                                               --enable_serialization="${enable_serialization}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
@@ -1785,6 +1829,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                     enable_ocean="${enable_ocean}"
                     enable_atmo="${enable_atmo}"
                     enable_jsbach="${enable_jsbach}"
+                    enable_rte_rrtmgp="${enable_rte_rrtmgp}"
                     enable_testbed="${enable_testbed}"
                     enable_serialization="${enable_serialization}"
                     my_preprocess_command='${my_preprocess_command}'

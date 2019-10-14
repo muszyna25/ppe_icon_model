@@ -650,13 +650,9 @@ check_error $? "${MODEL} does not exist?"
 
 rm -f finish.status
 #
-#if [ x$target = "xblizzard" ] ; then
-#  run_model
-#else
-  date
-  ${START} ${MODEL}
-  date
-#fi
+date
+${START} ${MODEL}
+date
 #
 if [ -r finish.status ] ; then
   check_error 0 "${START} ${MODEL}"

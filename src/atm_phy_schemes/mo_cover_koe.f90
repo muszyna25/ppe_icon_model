@@ -34,13 +34,14 @@ MODULE mo_cover_koe
   USE mo_physical_constants, ONLY: rdv    , & !! r_d / r_v
                                    rv     , & !! Rv
                                    tmelt  , & !! melting temperature of ice/snow
-                                   grav       !! gravitational acceleration
+                                   grav   , & !! gravitational acceleration
+                                   alvdcp     !! lh_v / cp_d
 
   USE mo_convect_tables,     ONLY: c1es   , & !! constants for computing the sat. vapour
                                    c3les  , & !! pressure over water (l) and ice (i)
                                    c3ies  , & !!               -- " --
                                    c4les  , & !!               -- " --
-                                   c4ies      !!               -- " --
+                                   c4ies, c5les
 
   USE mo_cufunctions,        ONLY: foealfcu    !! liquid fraction as in Tiedtke/Bechtold convection
 
@@ -50,7 +51,7 @@ MODULE mo_cover_koe
 
   USE mo_impl_constants,     ONLY: iedmf
 
-  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy
+  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac
 
   IMPLICIT NONE
 
@@ -90,7 +91,7 @@ SUBROUTINE cover_koe( &
   & pp                              , & ! in:    pressure (")
   & ps                              , & ! in:    surface pressure
   & t_g                             , & ! in;    surface temperature
-  & pgeo                            , & ! in:    geopotential
+  & pgeo, deltaz                    , & ! in:    geopotential above ground, layer thickness
   & rho                             , & ! in:    density
   & rcld                            , & ! inout: standard deviation of saturation deficit
   & ldland                          , & ! in:    land/sea mask
@@ -119,6 +120,7 @@ INTEGER(KIND=i4), INTENT(IN) ::  &
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & pp               , & ! full pressure                                 (  Pa )
   & pgeo             , & ! geopotential (above ground)                   (m2/s2)
+  & deltaz           , & ! layer thickness                               (m)
   & rho                  ! density                                       (kg/m3)
 
 REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
@@ -164,7 +166,7 @@ LOGICAL ::  &
   & lprog_qi
 
 INTEGER (KIND=i4) :: &
-  & jl, jk,          &
+  & jl, jk, jkp1,         &
   & itype_wcld, icldm_rad
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
@@ -175,13 +177,13 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 
 
 REAL(KIND=wp) :: &
-  & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
-  & ztt    , zzpv   , zzpa   , zzps   , &
-  & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, par2, qcc, asyfac, box_liq_asy, fac1, fac2
+  & fgew   , fgee   , fgqs   , dqsdt,   & !fgqv   , & ! name of statement functions
+  & ztt    , zzpv   , zzpa   , zzps   , zqs, &
+  & zf_ice , deltaq , qisat_grid, zdeltaq, zrcld, thicklay_fac, tfac, satdef_fac, &
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, par2, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
-  zqlsat , zqisat, zagl_lim
+  zqlsat , zqisat, zagl_lim, zdqlsat_dT
 
 !! Local parameters:
 !! -----------------
@@ -189,10 +191,8 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
-  & box_ice  = 0.05_wp  , &  ! box width scale ice clouds
+  & box_ice  = 0.05_wp  , & ! box width scale ice clouds
   & tm10     = tmelt - 10.0_wp
-!  & zt_ice1 = tmelt -  5.0_wp, &
-!  & zt_ice2 = tmelt - 25.0_wp
 
   REAL(kind=wp), PARAMETER :: grav_i = 1._wp/grav
 
@@ -210,6 +210,8 @@ REAL(KIND=wp), PARAMETER  :: &
 ! statement function to calculate saturation specific humidities from RH=esat/e (proper and safe)
   fgqs(zzps,zzpv,zzpa) = rdv * zzps / (zzpa - (1._wp-rdv)*zzpv)           ! zzps: saturation vapour pressure
 
+! statement function for dq_sat_dT
+  dqsdt(ztt,zqs) = c5les * (1._wp-zqs) * zqs / (ztt-c4les)**2
 !-----------------------------------------------------------------------
 
 ! saturation mixing ratio at -50 C and 200 hPa
@@ -240,8 +242,10 @@ DO jk = kstart,klev
     ! specific humidity at saturation over water (zqlsat) and ice (zqisat)
     zqlsat (jl,jk) = fgqs ( fgew(tt(jl,jk)), vap_pres, pp(jl,jk) )
     zqisat (jl,jk) = fgqs ( fgee(tt(jl,jk)), vap_pres, pp(jl,jk) )
+    ! derivative of qsat_w w.r.t. temperature
+    zdqlsat_dT(jl,jk) = dqsdt(tt(jl,jk), zqlsat(jl,jk))
     ! limit on box width near the surface, reaches 0.05 at 500 m AGL
-    zagl_lim(jl,jk) = MAX(0.01_wp, 1.e-4_wp*pgeo(jl,jk) * grav_i)
+    zagl_lim(jl,jk) = 0.025_wp + 5.e-5_wp * pgeo(jl,jk)*grav_i
   ENDDO
 ENDDO
 
@@ -270,32 +274,42 @@ CASE( 0 )
 CASE( 1 )
 
   DO jk = kstart,klev
+    jkp1 = MIN(jk+1,klev)
     DO jl = kidia,kfdia
 
 ! stratiform cloud
 !  liquid cloud
      !
-     ! quadratic increase of cloud cover from 0 to 1 between RH = (100 - 2.5*asyfac*tune_box_liq)% and (100 + tune_box_liq)%;
-     ! the additional asymmetry factor asyfac is 1.25 in subsaturated air at temperatures above freezing and smoothly
-     ! decreases to 1 if clouds are present and/or cold temperatures.
+     ! quadratic increase of cloud cover from 0 to 1 between RH = (1 - box_liq_asy*tune_box_liq) and (1 + tune_box_liq);
+     ! the box width is defined as 4*rcld (standard dev. of saturation deficit) with upper and lower limits;
+     ! in addition, sub-grid scale moisture variations in the vertical are parameterized depending on vertical resolution
      ! Diagnosed cloud water is proportional to clcov**2
-      asyfac = MAX(1._wp,1.25_wp-12.5_wp*qc(jl,jk)/zqlsat(jl,jk)+0.05_wp*MIN(0._wp,tt(jl,jk)-tmelt))
-      deltaq = MIN(tune_box_liq*asyfac, zagl_lim(jl,jk)) * zqlsat(jl,jk)
+     !
+      thicklay_fac = MIN(1._wp,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
+      zdeltaq = MIN(tune_box_liq*(1._wp+0.5_wp*thicklay_fac), zagl_lim(jl,jk)) * zqlsat(jl,jk)
+      zrcld = 0.5_wp*(rcld(jl,jk)+rcld(jl,jk+1))
+      deltaq = MAX(0.8_wp*zdeltaq,MIN((4._wp+thicklay_fac)*zrcld,2._wp*zdeltaq))
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
-        ! asymmetry factor for water clouds and derived parameters
-        fac1 = 1._wp - MIN(1._wp,0.1_wp*MAX(0._wp,tt(jl,jk)-tm10))
-        fac2 = MIN(1._wp,qi(jl,jk)/(0.01_wp*zqisat_m50))
-        box_liq_asy = tune_box_liq_asy*(1._wp-fac1*fac2) + 2._wp*fac1*fac2
+        ! asymmetry factor for water clouds and derived parameters;
+        ! the asymmetry factor is reduced to 2 in the presence of (grid-scale) cloud ice seeding
+        ! and close to the surface because 'long tails' are unrealistic (and detrimental) in these cases
+        fac_aux = 1._wp - MIN(1._wp,0.1_wp*MAX(0._wp,tt(jl,jk)-tm10))
+        fac_ic  = fac_aux*MIN(1._wp,qi(jl,jk)/(1.e-3_wp*zqisat_m50))
+        fac_sfc = MAX(0._wp,zqlsat(jl,jk)-(qv(jl,jk)+deltaq))/deltaq*MAX(0._wp,(tune_box_liq-zagl_lim(jl,jk))/zagl_lim(jl,jk))
+        fac_ic  = MAX(fac_ic,MIN(1._wp,fac_sfc))
+        box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac)*(1._wp-fac_ic) + 2._wp*fac_ic
         par1 = box_liq_asy+1._wp
         par2 = par1**4
         !
         zaux = qv(jl,jk) + qc(jl,jk) + box_liq_asy*deltaq - zqlsat(jl,jk)
         cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
+        ! compensating reduction of cloud water content if the thick-layer correction is active
+        fac_aux = 1._wp + (alvdcp*zdqlsat_dT(jl,jk)+thicklay_fac)*MIN(1._wp,2._wp*(1._wp-cc_turb_liq(jl,jk)))
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = zaux**4 / (par2*asyfac*deltaq**3)
+          qc_turb  (jl,jk) = zaux**4 / (fac_aux*par2*deltaq**3)
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF
@@ -306,19 +320,17 @@ CASE( 1 )
      !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi_mod > zcldlim ) THEN
-       !deltaq     = min( box_ice * zqisat(jl,jk), 10._wp * qi(jl,jk) )     ! box width = 2*deltaq
         deltaq     = MIN(box_ice, zagl_lim(jl,jk)) * MIN(zqisat_m25, zqisat(jl,jk))  ! box width = 2*deltaq
         qisat_grid = MAX( qv(jl,jk), zqisat(jl,jk) )                        ! qsat grid-scale
-       !qisat_grid = zqisat(jl,jk)                                          ! qsat grid-scale
         IF ( ( qv(jl,jk) + qi_mod - deltaq) > qisat_grid ) THEN
           cc_turb_ice(jl,jk) = 1.0_wp
-          qi_turb    (jl,jk) = qv(jl,jk) + qi_mod - qisat_grid
+          qi_turb    (jl,jk) = qi_mod
         ELSE
           zaux = MIN(2._wp*(qi_mod + MAX(0._wp, qv(jl,jk) - zqisat(jl,jk))), &
                  qv(jl,jk) + qi_mod + deltaq - qisat_grid )
           cc_turb_ice(jl,jk) = zaux / (2._wp*deltaq)
           IF ( cc_turb_ice(jl,jk) > 0.0_wp ) THEN
-            qi_turb  (jl,jk) = MAX(qi_mod, zaux**2 / (4._wp*deltaq))
+            qi_turb  (jl,jk) = MAX(MIN(qi_mod,zqisat(jl,jk)*cc_turb_ice(jl,jk)), zaux**2/(4._wp*deltaq))
           ELSE
             qi_turb  (jl,jk) = 0.0_wp
           ENDIF
@@ -339,26 +351,24 @@ CASE( 1 )
 
 
 ! convective cloud
-      cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho /
-                   & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
-      ! Assume 2% cloud cover in non-detraining updraft region
-      cc_conv(jl,jk) = MAX(cc_conv(jl,jk), MIN(0.02_wp,0.2_wp*plu(jl,jk)/zqlsat(jl,jk)) )
-      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*       foealfcu(tt(jl,jk)) ! ql up  foealfa = liquid/(liquid+ice)
-      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfcu(tt(jl,jk)))! qi up
-      IF (ktype(jl) == 2) THEN ! shallow convection
-        ! additional source term for convective clouds depending on detrained cloud water (rhoc_tend) and RH
-        qcc = MAX(0._wp, MIN(0.075_wp*tune_box_liq*zqlsat(jl,jk), (rhoc_tend(jl,jk)/rho(jl,jk))*2._wp*taudecay* &
-          (1._wp - 6000._wp/taudecay*(1._wp-qv(jl,jk)/zqlsat(jl,jk))) ))
-        cc_conv(jl,jk) = MAX(cc_conv(jl,jk),SQRT(qcc/(tune_box_liq*zqlsat(jl,jk))) )
-        qc_conv(jl,jk) = MAX(qcc,qc_conv(jl,jk))
-      ENDIF
+      tfac = foealfcu(tt(jl,jk)) ! foealfa = liquid/(liquid+ice); controls partitioning between cloud water and cloud ice
+      ! reduction of decay time scale depending on saturation deficit
+      satdef_fac = 1._wp - MIN(0.9_wp,125._wp*( tfac*(zqlsat(jl,jk)-qv(jl,jk)) + (1._wp-tfac)*(zqisat(jl,jk)-qv(jl,jk)) ))
+      cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &  ! cc = detrainment/rho / (Du/rho + 1/tau,decay)
+                   & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / (taudecay*satdef_fac) )
+      ! detrainment water is defined as detrainment rate * updraft liquid water in layer below
+      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jkp1)*       tfac ! ql up
+      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jkp1)*(1._wp-tfac)! qi up
+      ! alternative formulation of source term for liquid convective clouds depending on detrained cloud water and RH;
+      ! as most important difference, it uses the same clcov-qc relationship as turbulent clouds but is restricted to low mixing ratios
+      qcc = MAX(0._wp, MIN(0.075_wp*tune_box_liq*zqlsat(jl,jk), (rhoc_tend(jl,jk)/rho(jl,jk))*taudecay* &
+        (1._wp - 4._wp*(1._wp-qv(jl,jk)/zqlsat(jl,jk))) ))
+      cc_conv(jl,jk) = MAX(cc_conv(jl,jk),SQRT(qcc/(tune_box_liq*zqlsat(jl,jk))) )
+      qc_conv(jl,jk) = MAX(qcc,qc_conv(jl,jk))
+      !
       cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
       qc_conv(jl,jk) = min(max(0.0_wp,qc_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qc limit to 10%qv
       qi_conv(jl,jk) = min(max(0.0_wp,qi_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qi limit to 10%qv
-     !cc_conv(jl,jk) = 0.0_wp
-     !qc_conv(jl,jk) = 0.0_wp
-     !qi_conv(jl,jk) = 0.0_wp
-
 
     ENDDO
   ENDDO
@@ -492,31 +502,32 @@ END SELECT
 DO jk = kstart,klev
   DO jl = kidia,kfdia
     qv_tot(jl,jk) = qv(jl,jk) + qc(jl,jk) + qi(jl,jk) - qc_tot(jl,jk) - qi_tot(jl,jk)
-   !zf_ice = 1.0_wp - MIN( 1.0_wp, MAX( 0.0_wp, (tt(jl,jk)-zt_ice2) / (zt_ice1-zt_ice2) ) )
-    IF ( (qc_tot(jl,jk)+qi_tot(jl,jk)) > 0.0_wp ) THEN
-      zf_ice = MIN( 1.0_wp, MAX( 0.0_wp, qi_tot(jl,jk) / (qc_tot(jl,jk)+qi_tot(jl,jk)) ) )
-    ELSE
-      zf_ice = 0.0_wp
-    ENDIF
 
+!    IF ( (qc_tot(jl,jk)+qi_tot(jl,jk)) > 0.0_wp ) THEN
+!      zf_ice = MIN( 1.0_wp, MAX( 0.0_wp, qi_tot(jl,jk) / (qc_tot(jl,jk)+qi_tot(jl,jk)) ) )
+!    ELSE
+!      zf_ice = 0.0_wp
+!    ENDIF
+
+! GZ: except for the no-clouds option (0), it is impossible to violate this sanity check criterion;
+!     in this case, however, we'd like to have really no clouds
 ! sanity check 1: qv_tot < 1.1 q,sat,liq (to allow for small qc_tot diagnostic)
-    IF (qv_tot(jl,jk) .GT. 1.1_wp * zqlsat(jl,jk) ) THEN
-      qc_tot(jl,jk) = qc_tot(jl,jk) + ( qv_tot(jl,jk) - 1.1_wp * zqlsat (jl,jk) ) *(1.0_wp-zf_ice)
-      qi_tot(jl,jk) = qi_tot(jl,jk) + ( qv_tot(jl,jk) - 1.1_wp * zqlsat (jl,jk) ) * zf_ice
-      qv_tot(jl,jk) = 1.1_wp * zqlsat (jl,jk)
-    ENDIF
+!    IF (qv_tot(jl,jk) .GT. 1.1_wp * zqlsat(jl,jk) ) THEN
+!      qc_tot(jl,jk) = qc_tot(jl,jk) + ( qv_tot(jl,jk) - 1.1_wp * zqlsat (jl,jk) ) *(1.0_wp-zf_ice)
+!      qi_tot(jl,jk) = qi_tot(jl,jk) + ( qv_tot(jl,jk) - 1.1_wp * zqlsat (jl,jk) ) * zf_ice
+!      qv_tot(jl,jk) = 1.1_wp * zqlsat (jl,jk)
+!    ENDIF
 
 ! sanity check 2: qv_tot > 0.1 qv (take qc, qi if available)
-    IF ( qv_tot(jl,jk) .LT. 0.1_wp * qv(jl,jk)                                             .AND. &
-     &   qc_tot(jl,jk) + (qv_tot(jl,jk) - 0.1_wp*qv(jl,jk)) * (1.0_wp-zf_ice) .GE. 0.0_wp  .AND. &
-     &   qi_tot(jl,jk) + (qv_tot(jl,jk) - 0.1_wp*qv(jl,jk)) * zf_ice          .GE. 0.0_wp ) THEN
-      qc_tot(jl,jk) = qc_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * (1.0_wp - zf_ice)
-      qi_tot(jl,jk) = qi_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * zf_ice
+    IF ( qv_tot(jl,jk) < 0.1_wp * qv(jl,jk) ) THEN
+      zf_ice = qi_tot(jl,jk) / MAX(zcldlim,qc_tot(jl,jk)+qi_tot(jl,jk))
+      qc_tot(jl,jk) = MAX(0._wp, qc_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * (1.0_wp - zf_ice) )
+      qi_tot(jl,jk) = MAX(0._wp, qi_tot(jl,jk) + ( qv_tot(jl,jk) - 0.1_wp * qv(jl,jk) ) * zf_ice )
       qv_tot(jl,jk) = 0.1_wp * qv(jl,jk)
     ENDIF
 
-! sanity check 3: cc > 0 if little cloud
-    IF ( qc_tot(jl,jk) + qi_tot(jl,jk) .LT. 1.e-8_wp ) THEN
+! sanity check 3: remove 'epsilon' clouds
+    IF ( qc_tot(jl,jk) + qi_tot(jl,jk) < zcldlim ) THEN
       qv_tot(jl,jk) = qv_tot(jl,jk) + qc_tot(jl,jk) + qi_tot(jl,jk)
       qc_tot(jl,jk) = 0.0_wp
       qi_tot(jl,jk) = 0.0_wp

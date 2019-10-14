@@ -83,7 +83,7 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_c)                          [1/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers( mass related ones only) [kg/m**2]
-    &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
+    &  tracer_vi_avg(:,:,:),& ! average (since model start) of tracer_vi [kg/m**2]
     &  exner_pr(:,:,:),     & ! exner pressure perturbation, saved from previous step (nproma,nlev,nblks_c)
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
@@ -101,10 +101,6 @@ MODULE mo_nonhydro_types
     &  vfl_tracer(:,:,:,:), & ! vertical tracer flux at cells               [kg/m/s]
                               ! (nproma,nlevp1,nblks_c,ntracer)
     &  div(:,:,:),          & ! divergence(nproma,nlev,nblks_c)     [1/s]
-    &  div_ic(:,:,:),       & ! divergence at half levels(nproma,nlevp1,nblks_c)     [1/s]
-    &  hdef_ic(:,:,:),      & ! horizontal wind field deformation (nproma,nlevp1,nblks_c)     [1/s^2]
-    &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
-    &  dwdy(:,:,:),         & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  mass_fl_e(:,:,:),    & ! horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
@@ -172,7 +168,12 @@ MODULE mo_nonhydro_types
     &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w_adv(:,:,:,:)   & ! vert. wind tendency from advection
+    &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
+    ! fields for 3D elements in turbdiff
+    &  div_ic(:,:,:),       & ! divergence at half levels(nproma,nlevp1,nblks_c)     [1/s]
+    &  hdef_ic(:,:,:),      & ! horizontal wind field deformation (nproma,nlevp1,nblks_c)     [1/s^2]
+    &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
+    &  dwdy(:,:,:)          & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  => NULL()              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
     REAL(vp2), POINTER      & ! single precision if "__MIXED_PRECISION_2" is defined
@@ -389,6 +390,27 @@ MODULE mo_nonhydro_types
 #endif
      :: nudgecoeff_vert(:)
 
+    ! Upper atmosphere/deep atmosphere
+    !
+    REAL(wp), POINTER     &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS        &
+#endif
+     ::                   &
+     zgpot_ifc(:,:,:)   , & ! geopotential height of the grid layer interfaces (nproma,nlevp1,nblks_c)
+     zgpot_mc(:,:,:)    , & ! geopotential height of cell centers (nproma,nlev,nblks_c)
+     dzgpot_mc(:,:,:)     & ! geopotential layer thickness (nproma,nlev,nblks_c)   
+     => NULL()
+    !
+    REAL(wp), POINTER      &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      , CONTIGUOUS         &
+#endif
+      ::                   &
+      deepatmo_t1mc(:,:),  & ! metrical modification factors for full levels (nlev,nitem)
+      deepatmo_t1ifc(:,:), & ! metrical modification factors for half levels (nlevp1,nitem)
+      deepatmo_t2mc(:,:)   & ! metrical modification factors for full levels (nitem,nlev)
+      => NULL()    
 
 
    ! Corresponding scalar list dimensions

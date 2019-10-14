@@ -800,15 +800,11 @@ MODULE mo_async_latbc
         &                lremap_lonlat=.FALSE. )
 
       ! allocate the number of vertical levels and other fields with
-      ! the same size as number of variables
-      ALLOCATE(latbc%buffer%nlev(ngrp_prefetch_vars),        &
-        &      latbc%buffer%mapped_name(ngrp_prefetch_vars), &
-        &      latbc%buffer%internal_name(ngrp_prefetch_vars), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      ! allocate the array for variable ID
-      ! with same size as number of variables
-      ALLOCATE(latbc%buffer%varID(ngrp_prefetch_vars), STAT=ierrstat)
+      ! the same size as number of variables, reserve space for geop_ml_var
+      ALLOCATE(latbc%buffer%nlev(ngrp_prefetch_vars+1),        &
+        &      latbc%buffer%mapped_name(ngrp_prefetch_vars+1), &
+        &      latbc%buffer%internal_name(ngrp_prefetch_vars+1),&
+        &      latbc%buffer%varID(ngrp_prefetch_vars+1), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
       IF (is_work .AND. p_pe_work == p_work_pe0) THEN
@@ -1493,7 +1489,7 @@ MODULE mo_async_latbc
         END IF
       END DO
       DO jp = 1, buffer%ngrp_vars
-        IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
+        IF (buffer%internal_name(jp) == buffer%geop_ml_var) THEN
           ! variable GEOSP is stored in cell center location
           buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
         END IF
@@ -1558,7 +1554,7 @@ MODULE mo_async_latbc
       IF (found_unknown_grid) CALL finish(routine,'Unknown grid type found!')
 
       DO jp = 1, buffer%ngrp_vars
-        IF (buffer%mapped_name(jp) == buffer%geop_ml_var) THEN
+        IF (buffer%internal_name(jp) == buffer%geop_ml_var) THEN
           ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
           ! as the variable GEOSP doesn't exist in metadata
           mem_size_ = mem_size_ + INT(1*n_own_cells,mpi_address_kind)

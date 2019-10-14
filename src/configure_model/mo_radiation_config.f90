@@ -25,6 +25,7 @@
 MODULE mo_radiation_config
 
   USE mo_kind,           ONLY: wp
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
 
   IMPLICIT NONE
   PUBLIC
@@ -140,6 +141,17 @@ MODULE mo_radiation_config
     !     rates)
     !
     REAL(wp) :: tsi
+    !
+    ! ecRad specific configuration
+    LOGICAL  :: llw_cloud_scat          !< Do long wave cloud scattering?
+    INTEGER  :: iliquid_scat            !< Optical properties for liquid cloud scattering
+                                        !< 0: SOCRATES
+                                        !< 1: Slingo (1989)
+    INTEGER  :: iice_scat               !< Optical properties for ice cloud scattering
+                                        !< 0: Fu et al. (1996)
+                                        !< 1: Baran et al. (2016)
+    CHARACTER(len=MAX_CHAR_LENGTH) :: &
+      &  ecrad_data_path                !< Folder containing optical properties
     !
   
   !END TYPE t_radiation_config

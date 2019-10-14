@@ -83,6 +83,7 @@ MODULE mo_initicon
   USE mo_util_uuid_types,     ONLY: t_uuid
   USE mo_nwp_sfc_utils,       ONLY: seaice_albedo_coldstart
   USE mo_fortran_tools,       ONLY: init
+  USE mo_upatmo_config,       ONLY: upatmo_config
 
 
   IMPLICIT NONE
@@ -814,7 +815,8 @@ MODULE mo_initicon
 
       ! Recompute the hydrostatically integrated pressure from the first guess
       CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, &
-        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
+        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.,   &
+        &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav            )
 
 
       IF (lread_ana) THEN
@@ -1523,7 +1525,8 @@ MODULE mo_initicon
 
       ! Recompute the hydrostatically integrated pressure from the first guess
       CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, &
-        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
+        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.,   &
+        &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav            )
 
     ENDDO  ! jg domain loop
 

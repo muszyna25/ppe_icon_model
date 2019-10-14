@@ -58,6 +58,8 @@ rh_2m               RELHUM_2M
 rh_2m_land          RELHUM_2M_L
 td_2m_land          TD_2M_L
 t_2m_land           T_2M_L
+t_2m                T_2M
+t2m_bias            T_2M_FILTBIAS
 albdif              ALB_RAD
 alb_si              ALB_SEAICE
 asodifd_s           ASWDIFD_S

@@ -63,6 +63,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_nwp_sfc_interp,        ONLY: smi_to_wsoil, wsoil_to_smi
   USE mo_flake,                 ONLY: flake_coldinit
   USE mo_phyparam_soil,         ONLY: cporv, cadp, csalb, ist_seawtr
+  USE mo_upatmo_config,         ONLY: upatmo_config
 
   IMPLICIT NONE
 
@@ -753,7 +754,7 @@ MODULE mo_nh_init_nest_utils
 
     CALL diagnose_pres_temp(p_child_metrics, p_child_prog, p_child_prog_rcf, p_child_diag, &
                             p_patch(jgc), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE.,      &
-                            lnd_prog=p_child_lprog)
+                            lnd_prog=p_child_lprog, opt_lconstgrav=upatmo_config(jgc)%dyn%l_constgrav)
 
 
     DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, wtrvars_par, phdiag_par, lndvars_chi, &

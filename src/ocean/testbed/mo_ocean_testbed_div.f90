@@ -21,6 +21,7 @@
 !!
 !!
 #include "omp_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
 
 MODULE mo_ocean_testbed_div
   !-------------------------------------------------------------------------
@@ -43,7 +44,6 @@ MODULE mo_ocean_testbed_div
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_ocean_math_operators
   USE mo_scalar_product,      ONLY:  map_edges2edges_viacell_3d_const_z
 
 
@@ -52,8 +52,11 @@ MODULE mo_ocean_testbed_div
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_physics_types, ONLY: t_ho_params
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
-  USE mo_ocean_math_operators,ONLY: div_oce_3d
+  USE mo_ocean_math_operators,ONLY: div_oce_3d, rot_vertex_ocean_3D
   USE mo_statistics
+  
+  USE mo_name_list_output,       ONLY: write_name_list_output
+  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
 
   IMPLICIT NONE
 
@@ -65,6 +68,8 @@ MODULE mo_ocean_testbed_div
   REAL(wp), POINTER                    :: PtPvn(:,:,:)
   REAL(wp), POINTER                    :: u_vert(:,:), v_vert(:,:), div_vert(:,:)
   REAL(wp), POINTER                    :: divPtP(:,:,:), divPtP_diff(:,:,:)
+  onVertices :: vort                   ! vorticity at triangle vertices. Unit [1/s]
+  onVertices_Type(t_cartesian_coordinates) :: vn_dual
 
 
   REAL(wp) :: minmaxmean(3), L2Diff, L2DivAn, LInfDiff, LInfDivAn
@@ -106,10 +111,12 @@ CONTAINS
     PtPvn        => ocean_state%p_diag%ptp_vn
     divPtP       => ocean_state%p_diag%divPtP
     divPtP_diff  => ocean_state%p_diag%divPtP_diff
-
+    vort         => ocean_state%p_diag%vort
+    vn_dual      => ocean_state%p_diag%p_vn_dual
+    
     ALLOCATE(u_vert(nproma,patch_2D%nblks_v), v_vert(nproma,patch_2D%nblks_v), div_vert(nproma,patch_2D%nblks_v))
 
-        
+
     SELECT CASE (test_mode) ! 100 - 999
 
       CASE (103)
@@ -129,6 +136,9 @@ CONTAINS
 
       CASE (109)
         CALL test_vn_accuracy_onPlaneQuads_Hui()
+
+      CASE (110)
+        CALL test_div_onTorus()
 
       CASE DEFAULT
         CALL finish("test_div", "Unknown test_mode")
@@ -220,6 +230,19 @@ CONTAINS
 
   END SUBROUTINE test_div_accuracy_onPlane_Hui
   !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  ! 
+  SUBROUTINE test_div_onTorus()
+  
+    CALL fill_div_onTorus()
+ 
+    CALL diagnose_div_accuracy()
+     
+    IF (output_mode%l_nml) CALL write_name_list_output(0)
+
+  END SUBROUTINE test_div_onTorus
+  !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>
@@ -233,7 +256,8 @@ CONTAINS
 
     CALL div_oce_3d( vn, patch_3D, operators_coefficients%div_coeff, div_model)
     CALL div_oce_3d( PtPvn, patch_3D, operators_coefficients%div_coeff, divPtP)
-
+    CALL rot_vertex_ocean_3D( patch_3D, vn, vn_dual, operators_coefficients, vort)
+    
 !     CALL dbg_print('prism_thick_e',patch_3d%p_patch_1d(1)%prism_thick_e, &
 !         & str_module,1, in_subset=patch_2d%edges%owned)
 !     CALL dbg_print('h',ocean_state%p_prog(nold(1))%h,str_module,1, in_subset=patch_2d%cells%owned)
@@ -243,7 +267,20 @@ CONTAINS
     div_diff    = div_model - div_analytic
     divPtP_diff = divPtP    - div_analytic
 
+    write(0,*) "=================================="
+    CALL dbg_print('rot_coeff',operators_coefficients%rot_coeff(:,:,:,1), str_module,1, in_subset=patch_2d%verts%owned)
+    CALL dbg_print('rot_coeff',operators_coefficients%rot_coeff(:,:,:,2), str_module,1, in_subset=patch_2d%verts%owned)
+    CALL dbg_print('rot_coeff',operators_coefficients%rot_coeff(:,:,:,3), str_module,1, in_subset=patch_2d%verts%owned)
+    CALL dbg_print('rot_coeff',operators_coefficients%rot_coeff(:,:,:,4), str_module,1, in_subset=patch_2d%verts%owned)
+    CALL dbg_print('rot_coeff',operators_coefficients%rot_coeff(:,:,:,5), str_module,1, in_subset=patch_2d%verts%owned)
+    CALL dbg_print('rot_coeff',operators_coefficients%rot_coeff(:,:,:,6), str_module,1, in_subset=patch_2d%verts%owned)
+     
+    write(0,*) "=================================="
+    CALL dbg_print('div_coeff',operators_coefficients%div_coeff(:,:,:,1), str_module,1, in_subset=patch_2d%cells%owned)
+    CALL dbg_print('div_coeff',operators_coefficients%div_coeff(:,:,:,2), str_module,1, in_subset=patch_2d%cells%owned)
+    CALL dbg_print('div_coeff',operators_coefficients%div_coeff(:,:,:,3), str_module,1, in_subset=patch_2d%cells%owned)
 
+    write(0,*) "=================================="
     CALL dbg_print('vn',vn,str_module,1, in_subset=patch_2d%edges%owned)
     CALL dbg_print('PtPvn',PtPvn,str_module,1, in_subset=patch_2d%edges%owned)
     CALL dbg_print('div_analytic',div_analytic,str_module,1, in_subset=patch_2d%cells%owned)
@@ -447,6 +484,95 @@ CONTAINS
 
   END SUBROUTINE fill_vn_divAnalytic_plane_Hui
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  ! 
+  SUBROUTINE fill_div_onTorus()
+  
+    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: lon, lat, x, y, u, v
+    REAL(wp) :: sqrt_105, sqrt_15, sqrt_pi_x_2
+    INTEGER :: block, j, start_index,  end_index
+    !-----------------------------------------------------------------------
+    all_edges => patch_2d%edges%all
+    all_cells => patch_2d%cells%all
+    !-----------------------------------------------------------------------
+    sqrt_105 = SQRT(105.0_wp)
+    sqrt_15  = SQRT(15.0_wp)
+    sqrt_pi_x_2 = SQRT(pi*2.0_wp)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(block,j,start_index,end_index, x, y, u, v, lon, lat) ICON_OMP_DEFAULT_SCHEDULE
+    DO block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, block, start_index, end_index)
+      DO j =  start_index, end_index
+        x = patch_2d%edges%cartesian_center(j,block)%x(1)
+        y = patch_2d%edges%cartesian_center(j,block)%x(2)
+ 
+        lon = patch_2d%edges%center(j,block)%lon
+        lat = patch_2d%edges%center(j,block)%lat
+        
+!   1st case
+        !         u = sin(x*pi)
+!         v = cos(y*pi) ! note we need at least to be continues at +-pi/2
+        
+!   2nd case
+!         u = sin(x*pi)*cos(y*pi)
+!         v = cos(y*pi)**2
+         
+         
+         
+!   3 case (from Hui but with x,y)
+        u = 0.25_wp * sqrt_105 / sqrt_pi_x_2 * cos(2.0_wp*x*pi) * cos(y*pi)**2 * sin(y*pi)
+        v = - 0.5_wp * sqrt_15 / sqrt_pi_x_2 * cos(x*pi) * cos(y*pi) * sin(y*pi) 
+
+!   4 case (from Hui with lon/lat)
+!         u = 0.25_wp * sqrt_105 / sqrt_pi_x_2 * cos(2.0_wp*lon) * cos(lat)**2 * sin(lat)
+!         v = - 0.5_wp * sqrt_15 / sqrt_pi_x_2 * cos(lon) * cos(lat) * sin(lat) 
+
+        vn(j,1,block) =  u * patch_2d%edges%primal_normal(j,block)%v1 &
+                     & + v * patch_2d%edges%primal_normal(j,block)%v2
+
+      END DO
+    END DO 
+!ICON_OMP_END_PARALLEL_DO
+
+!ICON_OMP_PARALLEL_DO PRIVATE(block,j,start_index,end_index, x, y, lon, lat) ICON_OMP_DEFAULT_SCHEDULE
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_index, end_index)
+      DO j =  start_index, end_index
+        x = patch_2d%cells%cartesian_center(j,block)%x(1)
+        y = patch_2d%cells%cartesian_center(j,block)%x(2)
+ 
+        lon = patch_2d%cells%center(j,block)%lon
+        lat = patch_2d%cells%center(j,block)%lat
+        
+!   1st case
+!         div_analytic (j,1,block) = (cos(x*pi) - sin(y*pi)) * pi 
+
+!   2nd case
+!         div_analytic (j,1,block) = (cos(x*pi) * cos(y*pi) - 2.0_wp * cos(y*pi) * sin(y*pi)) * pi 
+
+
+!   3 case (from Hui but with x,y)
+         div_analytic (j,1,block) = &
+           & - 1.0_wp/(2._wp*sqrt_pi_x_2) * (sqrt_105 * sin(2.0_wp * x*pi) * cos(y*pi)**2 * sin(y*pi) + &
+             sqrt_15 * cos(x*pi) * cos(2.0_wp*y*pi)) * pi  
+             
+ !   4 case (from Hui with lon/lat)
+!         div_analytic (j,1,block) = &
+!            & -1.0_wp/(2._wp*sqrt_pi_x_2) * (sqrt_105 * sin(2.0_wp * lon) * cos(lat)**2 * sin(lat) + &
+!              sqrt_15 * cos(lon) * cos(2.0_wp*lat)) * (2.0_wp * pi / patch_2D%geometry_info%domain_length)  
+            
+      END DO
+    END DO 
+!ICON_OMP_END_PARALLEL_DO
+     
+
+  END SUBROUTINE fill_div_onTorus
+  !-------------------------------------------------------------------------
+
+
 
   !-------------------------------------------------------------------------
   ! Su dy = 1/12 * sqrt(105/(2*pi)) cos(2*lon_0) (cos^3(lat_0) - cos^3(lat_1))
