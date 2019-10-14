@@ -567,8 +567,11 @@ AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
 
 dnl A list of Fortran intrinsic modules:
 AC_SUBST([DEPGEN_INTRINSIC_MODS],
-  [[iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,]]dnl
-[[ieee_features,omp_lib,omp_lib_kinds,openacc]])
+  ['iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,dnl
+ieee_features,omp_lib,omp_lib_kinds,openacc'])
+
+dnl Intel intrinsic module (no reason to make this conditional):
+AS_VAR_APPEND([DEPGEN_INTRINSIC_MODS], [',ifcore'])
 
 AS_VAR_IF([enable_mpi], [yes],
   [AC_MSG_CHECKING([whether Fortran 2003 interface of MPI library is available])

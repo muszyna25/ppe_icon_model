@@ -4732,8 +4732,10 @@ as_fn_append DEPGEN_EXTERNAL_MODS ',mo_yac_finterface'
 as_fn_append DEPGEN_EXTERNAL_MODS ',tixi'
 as_fn_append DEPGEN_EXTERNAL_MODS ',self_assert,self_map,self_object,self_vector,self_vector_ref'
 
-DEPGEN_INTRINSIC_MODS=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc
+DEPGEN_INTRINSIC_MODS='iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc'
 
+
+as_fn_append DEPGEN_INTRINSIC_MODS ',ifcore'
 
 if test "x$enable_mpi" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran 2003 interface of MPI library is available" >&5
