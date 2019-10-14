@@ -34,6 +34,7 @@ ICON_CFLAGS="$ICON_CFLAGS" \
 ICON_FCFLAGS="$ICON_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
+--disable-explicit-fpp \
 --enable-serialization \
 --with-external-cdi \
 --with-external-mtime \
