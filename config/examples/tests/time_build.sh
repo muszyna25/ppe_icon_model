@@ -19,8 +19,8 @@ make -j8 depend
 
 for i in {1..5}; do
   make mostlyclean
-  "$time_cmd" -f '%e' -o time.txt -a make -j8
-  "$time_cmd" -f '%e' -o time_remake.txt -a make -j8
+  "${time_cmd}" -f '%e' -o time.txt -a make -j8
+  "${time_cmd}" -f '%e' -o time_remake.txt -a make -j8
 done
 
 ###############################################################################

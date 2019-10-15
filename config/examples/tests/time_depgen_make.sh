@@ -17,7 +17,7 @@ eval "${root_dir}/../${config}"
 ###############################################################################
 
 for i in {1..5}; do
-  "$time_cmd" -f '%e' -o time.txt -a make "$@" depend
+  "${time_cmd}" -f '%e' -o time.txt -a make "$@" depend
   touch icon.mk
 done
 

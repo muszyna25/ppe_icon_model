@@ -20,14 +20,14 @@ max_file_count=1000
 set +e
 files=$(find "${icon_dir}/src" -name '*.f90' | sort | head -${max_file_count})
 set -e
-echo "Total number of files: $(echo "$files" | wc -l)"
+echo "Total number of files: $(echo "${files}" | wc -l)"
 
 ###############################################################################
 
 for i in {1..5}; do
   start_time=$(date '+%s%N')
-  for f in $files; do
-    "${python}" "${depgen}" -o "${dep_dir}/$(basename "$f").d" --src-roots="${icon_dir}" ${depgen_args} -i "$f" -- -Jmods -I"${icon_dir}/src/include"
+  for f in ${files}; do
+    "${python}" "${depgen}" -o "${dep_dir}/$(basename "${f}").d" --src-roots="${icon_dir}" ${depgen_args} -i "${f}" -- -Jmods -I"${icon_dir}/src/include"
   done
   finish_time=$(date '+%s%N')
   echo "(${finish_time} - ${start_time})/1000000000" | bc -l | tee -a time.txt

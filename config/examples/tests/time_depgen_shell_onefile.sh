@@ -20,12 +20,12 @@ time_cmd=$(which time)
 set +e
 files=$(find "${icon_dir}/src" -name '*.f90' | sort | head -${max_file_count})
 set -e
-echo "Total number of files: $(echo "$files" | wc -l)"
+echo "Total number of files: $(echo "${files}" | wc -l)"
 
 ###############################################################################
 
 for i in {1..5}; do
-  cat $files | "${time_cmd}" -f '%e' -o time.txt -a "${python}" "${depgen}" --obj-name all.o --src-name all.f90 -o all.f90.d --src-roots="${icon_dir}" ${depgen_args} -- -Jmods -I"${icon_dir}/src/include"
+  cat ${files} | "${time_cmd}" -f '%e' -o time.txt -a "${python}" "${depgen}" --obj-name all.o --src-name all.f90 -o all.f90.d --src-roots="${icon_dir}" ${depgen_args} -- -Jmods -I"${icon_dir}/src/include"
 done
 
 ###############################################################################

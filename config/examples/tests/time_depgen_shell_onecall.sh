@@ -22,11 +22,11 @@ time_cmd=$(which time)
 set +e
 files=$(find "${icon_dir}/src" -name '*.f90' | sort | head -${max_file_count})
 set -e
-echo "Total number of files: $(echo "$files" | wc -l)"
+echo "Total number of files: $(echo "${files}" | wc -l)"
 
 deps=
-for f in $files; do
-  deps+=" ${dep_dir}/$(basename "$f").d"
+for f in ${files}; do
+  deps+=" ${dep_dir}/$(basename "${f}").d"
 done
 
 ###############################################################################
