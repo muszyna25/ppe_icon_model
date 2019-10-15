@@ -599,6 +599,7 @@ SB2PP
 PERL
 PYTHON
 subdirs_extra
+MPI_LAUNCH
 DEPGEN_INTRINSIC_MODS
 DEPGEN_EXTERNAL_MODS
 DEPGEN_FCFLAGS
@@ -719,6 +720,7 @@ LIBS
 CPPFLAGS
 FC
 FCFLAGS
+MPI_LAUNCH
 PYTHON
 PERL
 SB2PP'
@@ -1426,6 +1428,7 @@ Some influential environment variables:
               you have headers in a nonstandard directory <include dir>
   FC          Fortran compiler command
   FCFLAGS     Fortran compiler flags
+  MPI_LAUNCH  interactive MPI launcher command
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
   SB2PP       Serialbox2 preprocessor command
@@ -5031,6 +5034,51 @@ rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
 
+if test -n "$MPI_LAUNCH"; then :
+  case "$MPI_LAUNCH" in #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    acx_prog_search_path=unknown
+   set dummy $MPI_LAUNCH; acx_tmp=$2
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the path to $acx_tmp" >&5
+$as_echo_n "checking for the path to $acx_tmp... " >&6; }
+   case "$acx_tmp" in #(
+  [\\/]* | ?:[\\/]*) :
+    if as_fn_executable_p "$acx_tmp"; then :
+  acx_prog_search_path="$MPI_LAUNCH"
+         { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_tmp" >&5
+$as_echo "$acx_tmp" >&6; }
+fi ;; #(
+  *) :
+    as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    if as_fn_executable_p "$as_dir/$acx_tmp"; then :
+  acx_prog_search_path="$as_dir/$MPI_LAUNCH"
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: $as_dir/$acx_tmp" >&5
+$as_echo "$as_dir/$acx_tmp" >&6; }
+            break
+fi
+  done
+IFS=$as_save_IFS
+ ;;
+esac
+   if test "x$acx_prog_search_path" = xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
+$as_echo "unknown" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find the path to $acx_tmp
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  MPI_LAUNCH="$acx_prog_search_path"
+fi ;;
+esac
+fi
+
 if test "x$enable_openmp" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to enable OpenMP support" >&5
 $as_echo_n "checking for Fortran compiler flag needed to enable OpenMP support... " >&6; }
@@ -5780,7 +5828,9 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*) :
+  CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*) :
+     ;; #(
+  BUILD_ENV=*|MPI_LAUNCH=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5820,7 +5870,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy FCFLAGS="$subdir_FCFLAGS" CFLAGS="$sct_CFLAGS" LDFLAGS="$sct_LDFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix ; shift
+   set dummy FCFLAGS="$subdir_FCFLAGS" CFLAGS="$sct_CFLAGS" LDFLAGS="$sct_LDFLAGS" MPICC= MPIFC= --enable-static --disable-shared --disable-maintainer-mode --enable-mpi="$enable_mpi" --enable-openmp="$enable_openmp" --disable-rpath --disable-papi --enable-hdf5 --enable-silent-rules="$enable_silent_rules" --without-libpapi-prefix --without-libhdf5-prefix MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -5895,7 +5945,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -5921,7 +5971,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$yaxt_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$yaxt_LDFLAGS" --enable-static --disable-shared --enable-dependency-tracking --enable-silent-rules="$enable_silent_rules" --with-regard-for-quality="$enable_mpi_checks" MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -6067,7 +6117,7 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*) :
+  BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
@@ -6109,7 +6159,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$cdi_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" LDFLAGS="$cdi_LDFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --enable-iso-c-interface --disable-cf-interface --disable-cdi-app --enable-grib --enable-cgribex --disable-mpi --with-grib_api="$enable_grib2" --without-eccodes --without-threads --with-netcdf acx_cv_have_netcdf2=yes acx_cv_have_netcdf4=yes acx_cv_have_libnc_dap=no acx_cv_have_nc4hdf5=no MPI_LAUNCH="$MPI_LAUNCH" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

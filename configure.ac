@@ -696,6 +696,16 @@ interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
 
+AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command])dnl
+dnl The configure scripts of the most of the bundled libraries expect
+dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
+dnl accommodate when required and if possible:
+AS_IF([test -n "$MPI_LAUNCH"],
+  [AS_CASE(["$MPI_LAUNCH"],
+     [[[\\/]]* | ?:[[\\/]]*], [],
+     [ACX_PROG_SEARCH_PATH([$MPI_LAUNCH],
+        [MPI_LAUNCH="$acx_prog_search_path"])])])
+
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
      [AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_openmp_flag"])
@@ -945,7 +955,8 @@ accordingly])])
 version of SCT: the test suite of SCT might fail at $sct_test_failure_stage dnl
 time])])])
       ACX_CONFIG_SUBDIR([externals/sct],
-        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*],
+        [[CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPICC=*|MPIFC=*],
+         [BUILD_ENV=*|MPI_LAUNCH=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
@@ -964,7 +975,8 @@ time])])])
          [--enable-mpi="$enable_mpi"], [--enable-openmp="$enable_openmp"],
          [--disable-rpath], [--disable-papi], [--enable-hdf5],
          [--enable-silent-rules="$enable_silent_rules"],
-         [--without-libpapi-prefix], [--without-libhdf5-prefix]])
+         [--without-libpapi-prefix], [--without-libhdf5-prefix],
+         [MPI_LAUNCH="$MPI_LAUNCH"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/sct/src"])
       BUNDLED_LIBS="externals/sct/src/.libs/libsct.a $BUNDLED_LIBS"])])
 
@@ -999,7 +1011,7 @@ accordingly])])
            [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
 version of YAXT: the configure script of YAXT might fail])])])
       ACX_CONFIG_SUBDIR([externals/yaxt],
-        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+        [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPI_LAUNCH=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -1009,7 +1021,8 @@ version of YAXT: the configure script of YAXT might fail])])])
          [LDFLAGS="$yaxt_LDFLAGS"], [--enable-static],
          [--disable-shared], [--enable-dependency-tracking],
          [--enable-silent-rules="$enable_silent_rules"],
-         [--with-regard-for-quality="$enable_mpi_checks"]])
+         [--with-regard-for-quality="$enable_mpi_checks"],
+         [MPI_LAUNCH="$MPI_LAUNCH"]])
       AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/yaxt/src"])
       BUNDLED_LIBS="externals/yaxt/src/.libs/libyaxt.a dnl
 externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBS"])])
@@ -1086,7 +1099,7 @@ and LIBS accordingly])])
         [AC_MSG_WARN([unable to set valid RPATH flags for the bundled dnl
 version of CDI: the configure script of CDI might fail])])])
    ACX_CONFIG_SUBDIR([externals/cdi],
-     [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*],
+     [[BUILD_ENV=*|CFLAGS=*|FCFLAGS=*|LDFLAGS=*|MPI_LAUNCH=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
@@ -1121,7 +1134,8 @@ dnl and NetCDF4 features by setting the corresponding cache variables on the
 dnl command line.
       [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes],
 dnl Disable unwanted extra dependencies.
-      [acx_cv_have_libnc_dap=no], [acx_cv_have_nc4hdf5=no]])
+      [acx_cv_have_libnc_dap=no], [acx_cv_have_nc4hdf5=no],
+      [MPI_LAUNCH="$MPI_LAUNCH"]])
    AS_VAR_APPEND([BUNDLED_FCFLAGS], [" ${FC_MOD_IN}externals/cdi/src"])
    BUNDLED_LIBS="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBS"])
