@@ -253,7 +253,7 @@ CONTAINS
       & zshflx_lnd(kbdim), zshflx_lwtr(kbdim), zshflx_lice(kbdim), &
       & zevap_lnd(kbdim), zevap_lwtr(kbdim), zevap_lice(kbdim),    &
       & qsat_lnd(kbdim), qsat_lwtr(kbdim), qsat_lice(kbdim),       &
-      & dry_static_energy(kbdim),                                  &
+      & zcpt_lnd(kbdim), zcpt_lwtr(kbdim), zcpt_lice(kbdim),      &
       & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim),                    &
       & ztsfc_wtr(kbdim), ztsfc_lwtr(kbdim), ztsfc_lice(kbdim),    &
       & rvds(kbdim), rnds(kbdim), rpds(kbdim),                     &
@@ -304,7 +304,8 @@ CONTAINS
     !$ACC               zshflx_lice )
 
     !$ACC DATA PCREATE( zevap_lnd, zevap_lwtr, zevap_lice,                      &
-    !$ACC               qsat_lnd, qsat_lwtr, qsat_lice, dry_static_energy,      &
+    !$ACC               qsat_lnd, qsat_lwtr, qsat_lice,                         &
+    !$ACC               zcpt_lnd, zcpt_lwtr, zcpt_lice,                         &
     !$ACC               ztsfc_lnd, ztsfc_lnd_eff, ztsfc_wtr, ztsfc_lwtr,        &
     !$ACC               ztsfc_lice, rvds, rnds, rpds, rsns, rlns,               &
     !$ACC               fract_par_diffuse, zalbedo_lwtr, zalbedo_lice,          &
@@ -480,7 +481,9 @@ CONTAINS
         qsat_lnd(jk)          = 0._wp
         qsat_lwtr(jk)         = 0._wp
         qsat_lice(jk)         = 0._wp
-        dry_static_energy(jk) = 0._wp
+        zcpt_lnd(jk)          = 0._wp
+        zcpt_lwtr(jk)         = 0._wp
+        zcpt_lice(jk)         = 0._wp
         ztsfc_lnd(jk)         = 0._wp
         ztsfc_lnd_eff(jk)     = 0._wp
         ztsfc_lwtr(jk)        = 0._wp
@@ -518,11 +521,12 @@ CONTAINS
 #ifdef _OPENACC
      CALL warning('GPU:update_surface', 'GPU host synchronization for JSBACH should be remove when port is done!')
 #endif
-      !$ACC UPDATE HOST( aa_btm, bb_btm, dry_static_energy, fract_par_diffuse, &
+      !$ACC UPDATE HOST( aa_btm, bb_btm, fract_par_diffuse,                    &
       !$ACC              is, lake_ice_frc, loidx, pu_stress_gbm,               &
       !$ACC              pu_stress_tile, pv_stress_gbm, pv_stress_tile,        &
       !$ACC              q_snocpymlt, rnds, rpds, rvds, pco2, pco2_flux_tile,  &
       !$ACC              qsat_lnd, qsat_lwtr, qsat_lice, z0h_lnd, z0m_tile,    &
+      !$ACC              zcpt_lnd, zcpt_lwtr, zcpt_lice,                       &
       !$ACC              zca, zcs, zen_h, zen_qv, zfn_h, zfn_qv, zlhflx_lice,  &
       !$ACC              zlhflx_lnd, zlhflx_lwtr, zshflx_lice, zshflx_lnd,     &
       !$ACC              zshflx_lwtr, ztsfc_lice, ztsfc_lnd, ztsfc_lnd_eff,    &
@@ -561,7 +565,7 @@ CONTAINS
           & t_eff_srf         = ztsfc_lnd_eff(jcs:kproma),                                   & ! out (T_s^eff) surface temp
                                                                                              ! (effective, for longwave rad)
           & qsat_srf          = qsat_lnd(jcs:kproma),                                        & ! out
-          & s_srf             = dry_static_energy(jcs:kproma),                               & ! out (s_s^star, for vdiff scheme)
+          & s_srf             = zcpt_lnd(jcs:kproma),                                        & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(jcs:kproma),                                           & ! out
           & fact_qsat_srf     = pcsat(jcs:kproma),                                           & ! out
           & evapotrans        = zevap_lnd(jcs:kproma),                                       & ! out
@@ -590,12 +594,14 @@ CONTAINS
           & q_bcoef_ice       = zfn_qv(jcs:kproma, idx_ice),                                 & ! in
           & t_lwtr            = ztsfc_lwtr(jcs:kproma),                                      & ! out
           & qsat_lwtr         = qsat_lwtr(jcs:kproma),                                       & ! out
+          & s_lwtr            = zcpt_lwtr(jcs:kproma),                                       & ! out
           & evapo_wtr         = zevap_lwtr(jcs:kproma),                                      & ! out
           & latent_hflx_wtr   = zlhflx_lwtr(jcs:kproma),                                     & ! out
           & sensible_hflx_wtr = zshflx_lwtr(jcs:kproma),                                     & ! out
           & albedo_lwtr       = zalbedo_lwtr(jcs:kproma),                                    & ! out
           & t_lice            = ztsfc_lice(jcs:kproma),                                      & ! out
           & qsat_lice         = qsat_lice(jcs:kproma),                                       & ! out
+          & s_lice            = zcpt_lice(jcs:kproma),                                       & ! out
           & evapo_ice         = zevap_lice(jcs:kproma),                                      & ! out
           & latent_hflx_ice   = zlhflx_lice(jcs:kproma),                                     & ! out
           & sensible_hflx_ice = zshflx_lice(jcs:kproma),                                     & ! out
@@ -606,7 +612,8 @@ CONTAINS
      CALL warning('GPU:update_surface', 'GPU device synchronization for JSBACH should be remove when port is done!')
 #endif
           !$ACC UPDATE DEVICE( ztsfc_lnd, ztsfc_lnd_eff, qsat_lnd, qsat_lwtr, qsat_lice,   &
-          !$ACC                dry_static_energy, pcair, pcsat, zevap_lnd, zlhflx_lnd,     &
+          !$ACC                zcpt_lnd, zcpt_lwtr, zcpt_lice,                             &
+          !$ACC                pcair, pcsat, zevap_lnd, zlhflx_lnd,     &
           !$ACC                zshflx_lnd, zgrnd_hflx, zgrnd_hcap, z0h_lnd, z0m_tile,      &
           !$ACC                q_snocpymlt, albvisdir_tile, albnirdir_tile, albvisdif_tile,&
           !$ACC                albnirdif_tile, ztsfc_lwtr, zevap_lwtr, zlhflx_lwtr,        &
@@ -640,7 +647,7 @@ CONTAINS
           & t_eff_srf         = ztsfc_lnd_eff(jcs:kproma),                                   & ! out (T_s^eff) surface temp 
                                                                                              ! (effective, for longwave rad)
           & qsat_srf          = qsat_lnd(jcs:kproma),                                        & ! out
-          & s_srf             = dry_static_energy(jcs:kproma),                               & ! out (s_s^star, for vdiff scheme)
+          & s_srf             = zcpt_lnd(jcs:kproma),                                        & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(jcs:kproma),                                           & ! out
           & fact_qsat_srf     = pcsat(jcs:kproma),                                           & ! out
           & evapotrans        = zevap_lnd(jcs:kproma),                                       & ! out
@@ -661,7 +668,7 @@ CONTAINS
      CALL warning('GPU:update_surface', 'GPU device synchronization for JSBACH should be remove when port is done!')
 #endif
         !$ACC UPDATE DEVICE( ztsfc_lnd, ztsfc_lnd_eff, qsat_lnd,                          &
-        !$ACC                dry_static_energy, pcair, pcsat, zevap_lnd, zlhflx_lnd,      &
+        !$ACC                zcpt_lnd, pcair, pcsat, zevap_lnd, zlhflx_lnd,      &
         !$ACC                zshflx_lnd, zgrnd_hflx, zgrnd_hcap, z0h_lnd, z0m_tile,       &
         !$ACC                q_snocpymlt, albvisdir_tile, albnirdir_tile, albvisdif_tile, &
         !$ACC                albnirdif_tile, pco2_flux_tile )
@@ -681,12 +688,13 @@ CONTAINS
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         ptsfc_tile(jl,idx_lnd) = ztsfc_lnd(jl)
-        pcpt_tile (jl,idx_lnd) = dry_static_energy(jl)
+        pcpt_tile (jl,idx_lnd) = zcpt_lnd(jl)
         pqsat_tile(jl,idx_lnd) = qsat_lnd(jl)
         IF (echam_phy_config(jg)%llake) THEN
           IF (idx_wtr <= ksfc_type) THEN
             IF (alake(jl) > 0._wp) THEN
               ptsfc_tile    (jl, idx_wtr) = ztsfc_lwtr   (jl)
+              pcpt_tile     (jl, idx_wtr) = zcpt_lwtr    (jl)
               pqsat_tile    (jl, idx_wtr) = qsat_lwtr    (jl)
               albvisdir_tile(jl, idx_wtr) = zalbedo_lwtr (jl)
               albvisdif_tile(jl, idx_wtr) = zalbedo_lwtr (jl)
@@ -699,6 +707,7 @@ CONTAINS
           IF (idx_ice <= ksfc_type) THEN
             IF (alake(jl) > 0._wp) THEN
               ptsfc_tile    (jl, idx_ice) = ztsfc_lice   (jl)
+              pcpt_tile     (jl, idx_ice) = zcpt_lice    (jl)
               pqsat_tile    (jl, idx_ice) = qsat_lice    (jl)
               albvisdir_tile(jl, idx_ice) = zalbedo_lice (jl)
               albvisdif_tile(jl, idx_ice) = zalbedo_lice (jl)
@@ -714,12 +723,13 @@ CONTAINS
 
 #else
       ptsfc_tile(jcs:kproma,idx_lnd) = ztsfc_lnd(jcs:kproma)
-      pcpt_tile (jcs:kproma,idx_lnd) = dry_static_energy(jcs:kproma)
+      pcpt_tile (jcs:kproma,idx_lnd) = zcpt_lnd(jcs:kproma)
       pqsat_tile(jcs:kproma,idx_lnd) = qsat_lnd(jcs:kproma)
       IF (echam_phy_config(jg)%llake) THEN
         IF (idx_wtr <= ksfc_type) THEN
           WHERE (alake(jcs:kproma) > 0._wp)
             ptsfc_tile    (jcs:kproma, idx_wtr) = ztsfc_lwtr   (jcs:kproma)
+            pcpt_tile     (jcs:kproma, idx_wtr) = zcpt_lwtr    (jcs:kproma)
             pqsat_tile    (jcs:kproma, idx_wtr) = qsat_lwtr    (jcs:kproma)
             albvisdir_tile(jcs:kproma, idx_wtr) = zalbedo_lwtr (jcs:kproma)
             albvisdif_tile(jcs:kproma, idx_wtr) = zalbedo_lwtr (jcs:kproma)
@@ -732,6 +742,7 @@ CONTAINS
         IF (idx_ice <= ksfc_type) THEN
           WHERE (alake(jcs:kproma) > 0._wp)
             ptsfc_tile    (jcs:kproma, idx_ice) = ztsfc_lice   (jcs:kproma)
+            pcpt_tile     (jcs:kproma, idx_ice) = zcpt_lice    (jcs:kproma)
             pqsat_tile    (jcs:kproma, idx_ice) = qsat_lice    (jcs:kproma)
             albvisdir_tile(jcs:kproma, idx_ice) = zalbedo_lice (jcs:kproma)
             albvisdif_tile(jcs:kproma, idx_ice) = zalbedo_lice (jcs:kproma)
@@ -1060,6 +1071,11 @@ CONTAINS
         ELSE ! only open water
           zfrc_oce(jl) = pfrc(jl,idx_wtr)
         ENDIF
+        IF (idx_lnd.LE.ksfc_type) THEN
+          IF (alake(jl) > 0._wp) THEN
+            zfrc_oce(jl) = 0._wp
+          END IF
+        END IF
         bb(jl,klev,iu) =   bb(jl,klev,iu) - pocu(jl)*zfrc_oce(jl)*tpfac2
         bb(jl,klev,iv) =   bb(jl,klev,iv) - pocv(jl)*zfrc_oce(jl)*tpfac2
       END DO
