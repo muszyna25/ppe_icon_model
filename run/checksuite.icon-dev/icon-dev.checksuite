@@ -351,7 +351,7 @@ function tolerance_check
     git clone https://github.com/remodietlicher/icon-test-references.git
 
     # This variable stores the version of the reference data
-    REFERENCE_HASH=f2ca3fa376a4d5e4d49d3714ce022d2ab4682238
+    REFERENCE_HASH=61b84c89773fa4d0fc652cb1125607b3407915fe
 
     # change to the relevant version of the reference data
     cd icon-test-references
