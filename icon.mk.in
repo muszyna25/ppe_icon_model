@@ -263,8 +263,8 @@ $(moddir)/%.@FC_MOD_FILE_EXT@:
 	@if test -z $<; then \
 	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'." >&2; \
 	elif test ! -f $@; then \
-	  rm -f $<; $(MAKE) $<; \
-	fi
+	  rm -f $<; $(MAKE) $< && @MOD_TIMESTAMPS@; \
+	else @MOD_TIMESTAMPS@; fi
 
 # JSBACH dsl->f90 rule:
 @JSBACH_ENABLED@$(builddir)/$(JSB_subdir)/%.f90: $(JSB_srcdir)/%.f90 | $(dir_files)

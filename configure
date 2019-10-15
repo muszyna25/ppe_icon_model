@@ -608,6 +608,7 @@ FPP_ENABLED
 SB2_ENABLED
 ART_ENABLED
 JSBACH_ENABLED
+MOD_TIMESTAMPS
 DEFAULT_VERBOSITY
 FC_PP_DEF
 FC_INC_ORDER_PP_f90
@@ -679,6 +680,7 @@ ac_user_opts='
 enable_option_checking
 enable_rpaths
 enable_silent_rules
+enable_mod_timestamps
 enable_explicit_fpp
 enable_atmo
 enable_ocean
@@ -1349,6 +1351,13 @@ Optional Features:
                           [default=yes]
   --enable-silent-rules   less verbose build output (undo: "make V=1")
                           [default=yes]
+  --enable-mod-timestamps enable timestamp correction for Fortran module
+                          files, which results in faster recompilation with
+                          compilers that update timestamps of the module files
+                          unconditionally (e.g. NAG) but does not allow to
+                          avoid excessive recompilations with compilers that
+                          update timestamps of the module files only when
+                          their contents change (e.g. GNU) [default=yes]
   --enable-explicit-fpp   enable explicit Fortran preprocessing [default=auto]
 
 Model Features:
@@ -2093,6 +2102,16 @@ if test "${enable_silent_rules+set}" = set; then :
 fi
 else
   enable_silent_rules=yes
+fi
+
+
+# Check whether --enable-mod-timestamps was given.
+if test "${enable_mod_timestamps+set}" = set; then :
+  enableval=$enable_mod_timestamps; if test x"$enableval" != xno; then :
+  enable_mod_timestamps=yes
+fi
+else
+  enable_mod_timestamps=yes
 fi
 
 
@@ -4572,6 +4591,14 @@ else
 fi
 
 as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
+
+if test "x$enable_mod_timestamps" = xyes; then :
+  MOD_TIMESTAMPS='touch $@'
+
+else
+  MOD_TIMESTAMPS=':'
+
+fi
 
 if test "x$enable_atmo" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
