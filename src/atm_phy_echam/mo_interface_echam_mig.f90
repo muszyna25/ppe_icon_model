@@ -119,9 +119,8 @@ CONTAINS
     ! preset local mig tendencies to avoid NaNs
 
        !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = 1, nlev
-         !$ACC LOOP VECTOR
          DO jl = jcs, jce
          tend_ta_mig(jl,jk)       = 0.0_wp
          tend_qtrc_mig(jl,jk,iqv) = 0.0_wp
@@ -149,9 +148,8 @@ CONTAINS
        !
        !$ACC DATA PRESENT(field%ta, field%qtrc)
        !$ACC PARALLEL
-       !$ACC LOOP GANG
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = 1,nlev
-         !$ACC LOOP VECTOR
          DO jl = jcs,jce
            xlta(jl,jk) = field% ta   (jl,jk,jb)
            xlqv(jl,jk) = field% qtrc (jl,jk,jb,iqv)
@@ -258,9 +256,8 @@ CONTAINS
        !
        !$ACC DATA PRESENT( field%ta, field%qtrc, field% cpair )
        !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = jkscov, nlev
-         !$ACC LOOP VECTOR
          DO jl = jcs, jce
          tend_ta_mig(jl,jk) = (xlta(jl,jk)-field% ta(jl,jk,jb))*zdtr                &
                                      & * cvd/field% cpair(jl,jk,jb)
@@ -286,9 +283,8 @@ CONTAINS
        IF (ASSOCIATED(tend% ta_mig)) THEN 
          !$ACC DATA PRESENT( tend%ta_mig, tend_ta_mig )
          !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = jkscov,nlev
-           !$ACC LOOP VECTOR
            DO jl = jcs,jce
              tend% ta_mig(jl,jk,jb) = tend_ta_mig(jl,jk)
            ENDDO
@@ -300,9 +296,8 @@ CONTAINS
        IF (ASSOCIATED(tend% qtrc_mig)) THEN
          !$ACC DATA PRESENT( tend%qtrc_mig, tend_qtrc_mig )
          !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = jkscov,nlev
-           !$ACC LOOP VECTOR
            DO jl = jcs,jce
              tend% qtrc_mig(jl,jk,jb,iqv) = tend_qtrc_mig(jl,jk,iqv)
              tend% qtrc_mig(jl,jk,jb,iqc) = tend_qtrc_mig(jl,jk,iqc)
@@ -323,9 +318,8 @@ CONTAINS
          IF (ASSOCIATED(tend% ta_mig)) THEN 
            !$ACC DATA PRESENT( tend%ta_mig, tend_ta_mig )
            !$ACC PARALLEL DEFAULT(PRESENT)
-           !$ACC LOOP GANG
+           !$ACC LOOP GANG VECTOR COLLAPSE(2)
            DO jk = jkscov,nlev
-             !$ACC LOOP VECTOR
              DO jl = jcs,jce
                tend_ta_mig(jl,jk) = tend% ta_mig(jl,jk,jb)
              ENDDO
@@ -337,9 +331,8 @@ CONTAINS
          IF (ASSOCIATED(tend% qtrc_mig)) THEN
            !$ACC DATA PRESENT( tend%qtrc_mig, tend_qtrc_mig )
            !$ACC PARALLEL DEFAULT(PRESENT)
-           !$ACC LOOP GANG
+           !$ACC LOOP GANG VECTOR COLLAPSE(2)
            DO jk = jkscov,nlev
-             !$ACC LOOP VECTOR
              DO jl = jcs,jce
                tend_qtrc_mig(jl,jk,iqv) = tend% qtrc_mig(jl,jk,jb,iqv)
                tend_qtrc_mig(jl,jk,iqc) = tend% qtrc_mig(jl,jk,jb,iqc)
@@ -363,9 +356,8 @@ CONTAINS
        CASE(1)
           !$ACC DATA PRESENT( tend%ta_phy, tend%qtrc_phy, tend_ta_mig, tend_qtrc_mig )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               ! use tendency to update the model state
               tend%   ta_phy(jl,jk,jb)      = tend%   ta_phy(jl,jk,jb)     + tend_ta_mig  (jl,jk)
@@ -392,9 +384,8 @@ CONTAINS
          CASE(1)
              !$ACC DATA PRESENT( field%ta, field%qtrc, tend_ta_mig, tend_qtrc_mig )
              !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
+             !$ACC LOOP GANG VECTOR COLLAPSE(2)
              DO jk = 1, nlev
-               !$ACC LOOP VECTOR
                DO jl = jcs, jce
                  field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_mig  (jl,jk)    *pdtime
                  field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_mig(jl,jk,iqv)*pdtime
@@ -419,9 +410,8 @@ CONTAINS
        IF (ASSOCIATED(tend% ta_mig)) THEN 
          !$ACC DATA PRESENT( tend%ta_mig )
          !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
+         !$ACC LOOP GANG VECTOR COLLAPSE(2)
          DO jk = 1, nlev
-           !$ACC LOOP VECTOR
            DO jl = jcs, jce
              tend% ta_mig(jl,jk,jb) = 0.0_wp
            END DO
@@ -433,9 +423,8 @@ CONTAINS
        IF (ASSOCIATED(tend% qtrc_mig )) THEN
           !$ACC DATA PRESENT( tend%qtrc_mig )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               tend% qtrc_mig(jl,jk,jb,iqv) = 0.0_wp
               tend% qtrc_mig(jl,jk,jb,iqc) = 0.0_wp

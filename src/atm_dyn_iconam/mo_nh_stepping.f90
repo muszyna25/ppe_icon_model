@@ -2534,6 +2534,7 @@ MODULE mo_nh_stepping
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: nlev
+    INTEGER :: idamtr_t1mc_divh, idamtr_t1mc_gradh
 
     REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
 
@@ -2576,20 +2577,24 @@ MODULE mo_nh_stepping
         rl_end     = min_rlcell
         i_startblk = p_patch(jg)%cells%start_block(rl_start) 
         i_endblk   = p_patch(jg)%cells%end_block(rl_end)  
+        idamtr_t1mc_divh = idamtr%t1mc%divh
 #ifndef _OPENACC
 !$OMP DO PRIVATE(jb, jc, jk, i_startidx, i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
         DO jb = i_startblk, i_endblk
           
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-          
+
+!$ACC PARALLEL
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               ! Multiply metrical modification factor
               p_nh_state(jg)%diag%div(jc,jk,jb) = p_nh_state(jg)%diag%div(jc,jk,jb) & 
-                &                               * p_nh_state(jg)%metrics%deepatmo_t1mc(jk,idamtr%t1mc%divh)
+                &                               * p_nh_state(jg)%metrics%deepatmo_t1mc(jk,idamtr_t1mc_divh)
             END DO
           END DO
+!$ACC END PARALLEL
         END DO  !jb
 #ifndef _OPENACC
 !$OMP END DO NOWAIT
@@ -2597,7 +2602,8 @@ MODULE mo_nh_stepping
         rl_start   = 2
         rl_end     = min_rlvert
         i_startblk = p_patch(jg)%verts%start_block(rl_start) 
-        i_endblk   = p_patch(jg)%verts%end_block(rl_end)  
+        i_endblk   = p_patch(jg)%verts%end_block(rl_end)
+        idamtr_t1mc_gradh = idamtr%t1mc%gradh
 #ifndef _OPENACC
 !$OMP DO PRIVATE(jb, jv, jk, i_startidx, i_endidx), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -2605,13 +2611,16 @@ MODULE mo_nh_stepping
           
           CALL get_indices_v(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC PARALLEL
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1, nlev
             DO jv = i_startidx, i_endidx
               ! Multiply metrical modification factor
               p_nh_state(jg)%diag%omega_z(jv,jk,jb) = p_nh_state(jg)%diag%omega_z(jv,jk,jb) &
-                &                                   * p_nh_state(jg)%metrics%deepatmo_t1mc(jk,idamtr%t1mc%gradh)
+                &                                   * p_nh_state(jg)%metrics%deepatmo_t1mc(jk,idamtr_t1mc_gradh)
             END DO
           END DO
+!$ACC END PARALLEL
         END DO  !jb
 #ifndef _OPENACC
 !$OMP END DO NOWAIT
@@ -2624,20 +2633,12 @@ MODULE mo_nh_stepping
       CALL verts2cells_scalar(p_nh_state(jg)%diag%omega_z, p_patch(jg), &
         p_int_state(jg)%verts_aw_cells, p_nh_state(jg)%diag%vor)
 
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%vor ) IF (i_am_accel_node)
-
       CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
         &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
         &                      p_nh_state(jg)%diag,p_patch(jg),                       &
         &                      opt_calc_temp=.TRUE.,                                  &
         &                      opt_calc_pres=.TRUE.,                                  &
         &                      opt_lconstgrav=upatmo_config(jg)%dyn%l_constgrav       )
-
-
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%temp,      p_nh_state(jg)%diag%tempv )    IF (i_am_accel_node)
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%temp_ifc )                                IF (i_am_accel_node)
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%pres_sfc,  p_nh_state(jg)%diag%pres_ifc ) IF (i_am_accel_node)
-!$ACC UPDATE HOST( p_nh_state(jg)%diag%pres,      p_nh_state(jg)%diag%dpres_mc ) IF (i_am_accel_node)
 
     ENDDO ! jg-loop
 

@@ -188,10 +188,9 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp_ifc ) THEN
         
         !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
-        !$ACC LOOP GANG
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = MAX(slev+1,2), nlev
 !DIR$ IVDEP
-          !$ACC LOOP VECTOR
           DO jc =  i_startidx, i_endidx
             pt_diag%temp_ifc(jc,jk,jb) = &
               p_metrics%wgtfac_c(jc,jk,jb)*pt_diag%temp(jc,jk,jb) +      &
