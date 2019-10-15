@@ -43,24 +43,20 @@ INSTALL= @INSTALL@
 SED= @SED@
 
 # Fortran compiler flags:
-FCFLAGS= @FCFLAGS@
-ICON_COMMON_FCFLAGS= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) @FC_INC_FLAG@$(inc_prefix)src/include @FC_INC_FLAG_PP_f90@$(inc_prefix)src/include @BUNDLED_FCFLAGS@
-ICON_DEFAULT_FCFLAGS= $(ICON_COMMON_FCFLAGS) @ICON_OPTIM_FCFLAGS@ $(FCFLAGS)
-ICON_OCEAN_FCFLAGS= $(ICON_COMMON_FCFLAGS) @ICON_OPTIM_OCEAN_FCFLAGS@ $(FCFLAGS)
+FCFLAGS= @FC_MOD_IN@$(moddir) @FC_MOD_OUT@$(moddir) @FC_INC_FLAG@$(inc_prefix)src/include @FC_INC_FLAG_PP_f90@$(inc_prefix)src/include @FCFLAGS@
+ICON_FCFLAGS= @ICON_FCFLAGS@
+ICON_OCEAN_FCFLAGS= @ICON_OCEAN_FCFLAGS@
 DEPGEN_FCFLAGS= @DEPGEN_FCFLAGS@
 
 # C compiler and preprocessor flags:
 CFLAGS= @CFLAGS@
-ICON_DEFAULT_CFLAGS= @ICON_OPTIM_CFLAGS@ $(CFLAGS)
-CPPFLAGS= @CPPFLAGS@
-ICON_COMMON_CPPFLAGS= -I. @DEFS@
-ICON_DEFAULT_CPPFLAGS= $(ICON_COMMON_CPPFLAGS) $(CPPFLAGS)
+ICON_CFLAGS= @ICON_CFLAGS@
+CPPFLAGS= -I. @DEFS@ @CPPFLAGS@
 
 # Linker flags and libraries:
 LDFLAGS= @LDFLAGS@
-ICON_RPATH_LDFLAGS= @ICON_RPATH_LDFLAGS@
+BUNDLED_LIBFILES= @BUNDLED_LIBFILES@
 LIBS= @LIBS@
-BUNDLED_LIBS= @BUNDLED_LIBS@
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
@@ -202,19 +198,19 @@ check: all
 	test -z "$$fail"
 
 # ICON executable linking rule:
-icon@EXEEXT@: $(icon_rootobj) $(shell $(DEPLIST) -t $(icon_rootobj) -p '*.@OBJEXT@' --inc-oo -f $(deps)) $(BUNDLED_LIBS)
-	$(silent_FCLD)$(FC) -o $@ $(ICON_DEFAULT_FCFLAGS) $(ICON_RPATH_LDFLAGS) $(LDFLAGS) $^ $(LIBS)
+icon@EXEEXT@: $(icon_rootobj) $(shell $(DEPLIST) -t $(icon_rootobj) -p '*.@OBJEXT@' --inc-oo -f $(deps)) $(BUNDLED_LIBFILES)
+	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 # Default Fortran compilation rule:
 %.@OBJEXT@: %.f90 | $(dirstamps) $(bundled_subdirs)
-	$(silent_FC)$(FC) -o $@ -c $(ICON_DEFAULT_FCFLAGS) @FCFLAGS_f90@ $<
+	$(silent_FC)$(FC) -o $@ -c $(FCFLAGS) $(ICON_FCFLAGS) @FCFLAGS_f90@ $<
 
 # Default C compilation rule:
 %.@OBJEXT@: %.c | $(dirstamps)
-	$(silent_CC)$(CC) -o $@ -c $(ICON_DEFAULT_CFLAGS) $(ICON_DEFAULT_CPPFLAGS) $<
+	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(ICON_CFLAGS) $(CPPFLAGS) $<
 
 # ICON-Ocean Fortran compilation rules:
-ICON_OCEAN_FC= $(silent_FC)$(FC) -o $@ -c $(ICON_OCEAN_FCFLAGS) @FCFLAGS_f90@ $<
+ICON_OCEAN_FC= $(silent_FC)$(FC) -o $@ -c $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) @FCFLAGS_f90@ $<
 
 $(f90_prefix)src/hamocc/%.@OBJEXT@: $(f90_prefix)src/hamocc/%.f90 | $(dirstamps) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
@@ -274,14 +270,14 @@ version.c: force-create-version
 
 # Default Fortran dependency generation rule:
 %.f90.d: %.f90 icon.mk | preprocess $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(ICON_DEFAULT_FCFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
 
 # Default C dependency generation rule:
 %.c.d: %.c icon.mk | $(dirstamps)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) $< -- $(ICON_DEFAULT_CFLAGS) $(ICON_DEFAULT_CPPFLAGS)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) $< -- $(CFLAGS) $(ICON_CFLAGS) $(CPPFLAGS)
 
 # ICON-Ocean Fortran dependency generation rules:
-ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(ICON_OCEAN_FCFLAGS)
+ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) $< -- $(DEPGEN_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
 
 $(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 icon.mk | preprocess $(dirstamps)
 	$(ICON_OCEAN_DEPGEN)
@@ -336,7 +332,7 @@ externals/yac: $(filter externals/mtime,$(bundled_subdirs))
 
 # Relink ICON executable if any of the source files of the bundled libraries
 # is updated (the semicolon is required to support parallel rebuild):
-$(BUNDLED_LIBS): $(bundled_subdirs);
+$(BUNDLED_LIBFILES): $(bundled_subdirs);
 
 # Dummy dependency file generation rule (called by config.status): 
 dummy-depend: | $(dirstamps)
