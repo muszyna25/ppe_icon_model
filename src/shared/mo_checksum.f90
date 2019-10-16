@@ -13,7 +13,6 @@
 MODULE mo_checksum
     USE ISO_C_BINDING,  ONLY: C_INT32_T, C_DOUBLE, C_FLOAT, c_int, c_ptr, c_loc
     USE mo_mpi,         ONLY: p_comm_size, p_comm_rank, p_comm_work, p_gather
-    USE mo_exception,   ONLY: message
     USE mo_util_string, ONLY: int2string
     USE mo_cdi,         ONLY: DATATYPE_INT, DATATYPE_FLT32, DATATYPE_FLT64
 #ifndef NOMPI
@@ -153,7 +152,7 @@ CONTAINS
         ! not know about a DATATYPE_INT32, so use DATATYPE_INT as workaround 
         ! (which SHOULD hopefully have same storage size...)
         IF (arr_size == 0) then
-          CALL message('', 'Checksum for 0 sized arrays not available.')
+          WRITE(0,*) 'Checksum for 0 sized arrays not available.'
         ELSE
           local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
           CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
@@ -171,7 +170,7 @@ CONTAINS
         ! not know about a DATATYPE_FLT32, so use DATATYPE_INT as workaround 
         ! (which SHOULD hopefully have same storage size...)
         IF (arr_size == 0) then
-          CALL message('', 'Checksum for 0 sized arrays not available.')
+          WRITE(0,*) 'Checksum for 0 sized arrays not available.'
         ELSE
           local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
           CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
@@ -186,7 +185,7 @@ CONTAINS
         INTEGER(KIND = c_int32_t) :: local_chksum
 
         IF (arr_size == 0) then
-          CALL message('', 'Checksum for 0 sized arrays not available.')
+          WRITE(0,*) 'Checksum for 0 sized arrays not available.'
         ELSE
           local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
           CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
