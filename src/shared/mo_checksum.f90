@@ -151,13 +151,9 @@ CONTAINS
         ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
         ! not know about a DATATYPE_INT32, so use DATATYPE_INT as workaround 
         ! (which SHOULD hopefully have same storage size...)
-        IF (arr_size == 0) then
-          WRITE(0,*) 'Checksum for 0 sized arrays not available.'
-        ELSE
-          local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
-          CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
-        ENDIF
-      END SUBROUTINE printChecksum_int32
+        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
+    END SUBROUTINE printChecksum_int32
 
     SUBROUTINE printChecksum_float(prefix, arr_size, array, opt_lDetails)
         CHARACTER(LEN = *),           INTENT(in   ) :: prefix
@@ -169,12 +165,8 @@ CONTAINS
         ! HACKHACKHACKHACK:: stupid serializeGetSizeInCore() from cdilib does
         ! not know about a DATATYPE_FLT32, so use DATATYPE_INT as workaround 
         ! (which SHOULD hopefully have same storage size...)
-        IF (arr_size == 0) then
-          WRITE(0,*) 'Checksum for 0 sized arrays not available.'
-        ELSE
-          local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
-          CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
-        ENDIF
+        local_chksum = cdi_check_sum(DATATYPE_INT, arr_size, c_loc(array))
+        CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_float
 
     SUBROUTINE printChecksum_double(prefix, arr_size, array, opt_lDetails)
@@ -184,12 +176,8 @@ CONTAINS
         LOGICAL,     OPTIONAL,         INTENT(in   ) :: opt_lDetails
         INTEGER(KIND = c_int32_t) :: local_chksum
 
-        IF (arr_size == 0) then
-          WRITE(0,*) 'Checksum for 0 sized arrays not available.'
-        ELSE
-          local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
-          CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
-        ENDIF
+        local_chksum = cdi_check_sum(DATATYPE_FLT64, arr_size, c_loc(array))
+        CALL printChecksum_second_step(prefix, local_chksum, opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_double
 
     ! This is the call layer computing the size from assumed shape arrays,
