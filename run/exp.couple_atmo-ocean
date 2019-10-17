@@ -773,8 +773,8 @@ incrank_list[1]=$ocean_inc_rank
 # atmosphere model files
 # ----------------------
 #
-add_required_file ${basedir}/data/lsdata.nc                             ./
-add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc                 ./
+add_required_file ${ICON_SRC_PATH}/data/lsdata.nc                             ./
+add_required_file ${ICON_SRC_PATH}/data/ECHAM6_CldOptProps.nc                 ./
 #
 # namelist files
 # --------------
@@ -801,15 +801,15 @@ add_link_file ${datadir}/bc_ozone_ape.nc                                ./bc_ozo
 # -----------------------------
 #
 dict_file="dict.${EXPNAME}"
-add_required_file ${basedir}/run/${dict_file}  ./
+add_required_file ${ICON_BUILD_PATH}/run/${dict_file}  ./
 #
 #-----------------------------------------------------------------------------
 #
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/run/coupling.xml  ./
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
-add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
+add_required_file ${ICON_BUILD_PATH}/run/coupling.xml  ./
+add_required_file ${ICON_SRC_PATH}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${ICON_SRC_PATH}/externals/yac/input/component.xsd.in ./component.xsd
 #
 #-----------------------------------------------------------------------------

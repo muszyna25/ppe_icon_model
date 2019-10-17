@@ -303,25 +303,25 @@ fi
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                                 ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+add_link_file ${ICON_SRC_PATH}/data/lsdata.nc                                 ./
+add_link_file ${ICON_SRC_PATH}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
 #
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${ICON_BUILD_PATH}/run/${atmo_namelist}                       ./
+add_required_file ${ICON_BUILD_PATH}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                           ./
+add_required_file ${ICON_BUILD_PATH}/run/${dict_file}                           ./
 
 # initial conditions
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/initial_condition
-add_link_file $datadir/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
+add_link_file ${datadir}/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
 #
 # - land: source?, date+time?
 datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
@@ -338,7 +338,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
+add_link_file ${datadir}/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
@@ -348,27 +348,27 @@ do
   if [[ $year -le 2014 ]]
   then
     datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}_${grid_label}
-    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
   else
     datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}_${grid_label}
-    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
+    add_link_file ${datadir}/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
   fi
   (( year = year+1 ))
 done
 # -- for irad_o3=1 with Cariolle ozone chemistry
 datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
+add_link_file ${datadir}/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
-  add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                        ./MACv2.0-SP_v1.nc
+  add_link_file ${ICON_SRC_PATH}/data/MACv2.0-SP_v1.nc                        ./MACv2.0-SP_v1.nc
 #
 # - Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
 datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${grid_refinement}_${grid_label}
 #
-add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                    ./
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                    ./
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc               ./bc_aeropt_kinne_sw_b14_fin.nc
+add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
 # - stratospheric aerosol
 year=$start_year
@@ -413,7 +413,7 @@ if [[ ${jsbach_with_hd} = yes ]]; then
 fi
 #
 # - lctlib file for JSBACH
-add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
+add_link_file ${ICON_SRC_PATH}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 
 #--------------------------------------------------------------------------------------------------
 

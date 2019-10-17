@@ -12,27 +12,34 @@ def runCommand(cmd):
   return status
 #-----------------------------------------------------------------------
 
-def make_binaries_interface(configure_flags, builder_flags):
-  if "Ocean" in builder_flags:
-    return make_ocean_binaries(configure_flags)
-  #elif "AES" in builder_flags:
-    #return make_aes_binaries(configure_flags)
-  elif "NWP" in builder_flags:
-    return make_nwp_binaries(configure_flags)
-  elif not "Inactive" in builder_flags:
-    return make_all_binaries(configure_flags)
+def make_binaries_interface(build_script, configure_flags, builder_flags):
+  if not "Inactive" in builder_flags:
+    return make_all_binaries(build_script, configure_flags)
   return 0
   
 
-def make_all_binaries(configure_flags):
+def make_all_binaries(build_script, configure_flags):
   os.chdir(paths.basePath)
-  status = runCommand("./configure "+configure_flags)
+  build_command = ''
+  if (None != build_script):
+      build_command = build_script
+  else:
+      build_command = './configure '+configure_flags
+  status = runCommand(build_command)
   if not status == 0:
     print("Configure failed")
     return status
-  status = runCommand("./build_command")
+  status = runCommand("make -j8 V=1")
   if not status == 0:
     print("Build failed")
+    return status
+  status = runCommand("make install V=1")
+  if not status == 0:
+    print("installation failed")
+    return status
+  status = runCommand("make runscripts")
+  if not status == 0:
+    print("Building templates failed")
     return status
   set_account()
   os.chdir(paths.thisPath)

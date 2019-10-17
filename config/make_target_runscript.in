@@ -1,7 +1,7 @@
 #!/bin/ksh
 #==============================================================================
 #
-# This script makes the run scripts for the icon_testbed 
+# This script makes the run scripts for the icon_testbed
 #
 # Leonidas Linardakis, MPI-M, 2010-11-22
 #
@@ -59,7 +59,7 @@ eval_argument ()
   ;;
   *) let "no_of_free_variables=$no_of_free_variables+1"
      free_variable[$no_of_free_variables]=$1
-     free_variable_value[$no_of_free_variables]=$2 
+     free_variable_value[$no_of_free_variables]=$2
 #      echo "free_variable=${free_variable[$no_of_free_variables]} with value=${free_variable_value[$no_of_free_variables]}"
 #      exit -1 ;;
   esac
@@ -77,10 +77,14 @@ cd $(dirname $0)
 this_folder=$(pwd)
 base_folder=${this_folder%/*}
 
-. $base_folder/config/set-up.info
-
-. $base_folder/config/create_target_header
-
+for config_file in ${base_folder}/config/set-up.info ${base_folder}/config/create_target_header; do
+  if test -f ${config_file} ; then
+    source ${config_file}
+  else
+    echo "Could NOT find config file '${config_file}' - exit"
+    exit 1
+  fi
+done
 
 let "no_of_free_variables=0"
 for arg

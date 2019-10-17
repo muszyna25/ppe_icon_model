@@ -57,3 +57,6 @@ distclean:
 	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 	rm -f Makefile
 
+# code for generating runscripts  - TODO: check insource-builds
+runscripts: @srcdir@/run
+	rsync -avz --exclude='*.in' --exclude '**/*.in' $< ./
