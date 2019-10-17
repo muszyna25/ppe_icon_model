@@ -1328,11 +1328,15 @@ AC_CONFIG_FILES([
   run/add_run_routines
 ])
 
-dnl create scripting for runscript generation
-AC_CONFIG_FILES([make_runscripts],[chmod 0755 make_runscripts])
-AC_CONFIG_FILES([config/create_target_header],[chmod 0755 config/create_target_header])
-AC_CONFIG_FILES([config/make_target_runscript],[chmod 0755 config/make_target_runscript])
-AC_CONFIG_FILES([run/exec.iconrun],[chmod 0755 run/exec.iconrun])
+dnl Scripting for runscript generation:
+AC_CONFIG_FILES([
+  config/create_target_header
+  config/make_target_runscript
+  make_runscripts
+  run/exec.iconrun
+],
+[chmod +x "$ac_file"])
+
 dnl An additional step to generate dummy dependencies:
 AC_CONFIG_COMMANDS([depfiles],
   [${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&AS_MESSAGE_LOG_FD

@@ -7,7 +7,7 @@ DELEGATEE_FILE= icon.mk
 
 .SUFFIXES:
 .NOTPARALLEL:
-.PHONY: $(DELEGATED_RULES) distclean dist snapshot help
+.PHONY: $(DELEGATED_RULES) distclean dist snapshot help runscripts
 
 $(DELEGATED_RULES):
 	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
@@ -30,7 +30,8 @@ help:
 	echo "  'dist'          create a tarball containing files from the current HEAD of"; \
 	echo "                  the ICON git repository and its git submodules"; \
 	echo "  'snapshot'      create a tarball containing all files in the source directory"; \
-	echo "                  that are not ignored by git in their current state"
+	echo "                  that are not ignored by git in their current state"; \
+	echo "  'runscripts'    copy runscripts to the current directory"
 
 GIT= git
 TAR= tar
@@ -57,6 +58,5 @@ distclean:
 	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 	rm -f Makefile
 
-# code for generating runscripts  - TODO: check insource-builds
-runscripts: @srcdir@/run
-	rsync -avz --exclude='*.in' --exclude '**/*.in' $< ./
+runscripts:
+	@rsync -avz --exclude='*.in' --exclude='.*' @srcdir@/run @builddir@

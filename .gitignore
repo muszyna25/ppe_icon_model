@@ -14,10 +14,15 @@
 /config.h
 /config.log
 /config.status
+/config/create_target_header
+/config/make_target_runscript
 /depgen.c.config
 /depgen.f90.config
 /extra_f90.d
 /icon.mk
+/make_runscripts
+/run/add_run_routines
+/run/exec.iconrun
 
 # Build stage files:
 *.i

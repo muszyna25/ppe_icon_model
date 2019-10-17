@@ -202,10 +202,11 @@ clean: mostlyclean
 
 # Delete everything generated at the configure stage (and clean the created directories if they are empty):
 distclean: clean
-	rm -f config.log config.status config.h depgen.f90.config depgen.c.config
+	rm -f config.h config.log config.status depgen.c.config depgen.f90.config
+	rm -f config/create_target_header config/make_target_runscript make_runscripts run/add_run_routines run/exec.iconrun
 	rm -f $(dep_files)
 	rm -f $(dir_files)
-	@for dir in $(subdirs) $(moddir) $(ppdir) externals; do \
+	@for dir in $(subdirs) $(moddir) $(ppdir) externals config run; do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
             find "$$dir" -type d -empty -delete; \
