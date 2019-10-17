@@ -1,3 +1,304 @@
+  MODULE mo_surface_height_lhs_zstar
+
+    ! contains extended lhs-matrix-generator type
+    ! provides surface height lhs for free ocean surface solve
+   
+    USE mo_kind, ONLY: wp
+    USE mo_exception, ONLY: finish
+    USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen
+    USE mo_ocean_solve_aux, ONLY: t_destructible
+    USE mo_ocean_types, ONLY: t_solverCoeff_singlePrecision, t_operator_coeff
+    USE mo_grid_subset, ONLY: t_subset_range, get_index_range
+    USE mo_ocean_nml, ONLY: select_lhs, select_lhs_matrix, ab_gam, ab_beta, &
+      & l_edge_based, l_lhs_direct
+    USE mo_communication, ONLY: exchange_data
+    USE mo_parallel_config, ONLY: nproma
+    USE mo_impl_constants, ONLY: sea_boundary
+    USE mo_run_config, ONLY: dtime, debug_check_level
+    USE mo_physical_constants, ONLY: grav
+    USE mo_ocean_math_operators, ONLY: &
+      & grad_fd_norm_oce_2d_3d, div_oce_2D_onTriangles_onBlock, &
+      & div_oce_2D_general_onBlock
+    USE mo_scalar_product, ONLY: map_edges2edges_viacell_3d_const_z
+    USE mo_model_domain, ONLY: t_patch_3d, t_patch
+    USE mo_mpi, ONLY: my_process_is_mpi_parallel
+
+  
+      IMPLICIT NONE
+    
+      PRIVATE
+    
+      PUBLIC :: t_surface_height_lhs_zstar, lhs_surface_height_zstar_ptr
+    
+      TYPE, EXTENDS(t_lhs_agen) :: t_surface_height_lhs_zstar
+        PRIVATE
+        TYPE(t_patch_3d), POINTER :: patch_3d => NULL()
+        TYPE(t_patch), POINTER :: patch_2d => NULL()
+        REAL(wp), POINTER :: thickness_e_wp(:,:)
+        TYPE(t_operator_coeff), POINTER :: op_coeffs_wp => NULL()
+        TYPE(t_solverCoeff_singlePrecision), POINTER :: op_coeffs_sp => NULL()
+        REAL(wp), ALLOCATABLE, DIMENSION(:,:), PRIVATE :: z_grad_h_wp, z_e_wp
+#ifdef __INTEL_COMPILER
+!DIR$ ATTRIBUTES ALIGN : 64 :: z_grad_h_wp, z_e_wp
+#endif
+      CONTAINS
+        PROCEDURE :: lhs_wp => lhs_surface_height_zstar
+        PROCEDURE :: construct => lhs_surface_height_construct
+        PROCEDURE :: destruct => lhs_surface_height_destruct
+        PROCEDURE, PRIVATE :: internal_wp => lhs_surface_height_ab_mim_zstar
+        PROCEDURE, PRIVATE :: internal_matrix_wp => lhs_surface_height_ab_mim_matrix_wp
+        PROCEDURE :: lhs_matrix_shortcut => lhs_surface_height_ab_mim_matrix_shortcut
+
+      END TYPE t_surface_height_lhs_zstar
+    
+      INTEGER, PARAMETER :: topLevel = 1
+    
+    CONTAINS
+    
+    ! returns pointer to t_primal_flip_flop_lhs object, if provided a matching
+    ! object of corresponding abstract type
+      FUNCTION lhs_surface_height_zstar_ptr(this) RESULT(this_ptr)
+        CLASS(t_destructible), INTENT(IN), TARGET :: this
+        CLASS(t_surface_height_lhs_zstar), POINTER :: this_ptr
+    
+        SELECT TYPE (this)
+        CLASS IS (t_surface_height_lhs_zstar)
+          this_ptr => this
+        CLASS DEFAULT
+          NULLIFY(this_ptr)
+          CALL finish("surface_height_lhs_ptr", "not correct type!")
+        END SELECT
+      END FUNCTION lhs_surface_height_zstar_ptr
+    
+    !init generator object
+      SUBROUTINE lhs_surface_height_construct(this, patch_3d, thick_e, &
+          & op_coeffs_wp, op_coeffs_sp)
+        CLASS(t_surface_height_lhs_zstar), INTENT(INOUT) :: this
+        TYPE(t_patch_3d), POINTER, INTENT(IN) :: patch_3d
+        REAL(wp), POINTER, INTENT(IN) :: thick_e(:,:)
+        TYPE(t_operator_coeff), TARGET, INTENT(IN) :: op_coeffs_wp
+        TYPE(t_solverCoeff_singlePrecision), TARGET, INTENT(IN) :: op_coeffs_sp
+    
+        CALL this%destruct()
+        this%patch_3d => patch_3d
+        this%patch_2d => patch_3d%p_patch_2d(1)
+        this%thickness_e_wp => thick_e
+        this%op_coeffs_wp => op_coeffs_wp
+        this%op_coeffs_sp => op_coeffs_sp
+        this%is_const = .false.
+        this%use_shortcut = (select_lhs .GT. select_lhs_matrix .AND. select_lhs .LE. select_lhs_matrix + 1)
+        IF (this%patch_2d%cells%max_connectivity .NE. 3 .AND. .NOT.l_lhs_direct) &
+          & CALL finish("t_surface_height_lhs::lhs_surface_height_construct", &
+          &  "internal matrix implementation only works with triangular grids!")
+        ALLOCATE(this%is_init(1))
+      END SUBROUTINE lhs_surface_height_construct
+    
+    ! interface routine clear object internals
+      SUBROUTINE lhs_surface_height_destruct(this)
+        CLASS(t_surface_height_lhs_zstar), INTENT(INOUT) :: this
+    
+        NULLIFY(this%patch_3d, this%patch_2d, this%thickness_e_wp)
+        NULLIFY(this%op_coeffs_wp, this%op_coeffs_sp)
+        IF (ALLOCATED(this%z_e_wp)) DEALLOCATE(this%z_e_wp, this%z_grad_h_wp)
+        IF (ALLOCATED(this%is_init)) DEALLOCATE(this%is_init)
+      END SUBROUTINE lhs_surface_height_destruct
+    
+    ! interface routine for the left hand side computation
+      SUBROUTINE lhs_surface_height_zstar(this, x, ax)
+        CLASS(t_surface_height_lhs_zstar), INTENT(INOUT) :: this
+        REAL(wp), INTENT(IN) :: x(:,:)
+        REAL(wp), INTENT(OUT) :: ax(:,:)
+    
+        IF (this%use_shortcut) &
+          & CALL finish("t_surface_height_lhs::lhs_surface_height_wp", &
+            & "should not be here because of shortcut!")
+    ! alloc internal arrays, if needed to
+    ! if using operator implementation of lhs
+        IF (select_lhs .NE. select_lhs_matrix) THEN
+          IF (ALLOCATED(this%z_e_wp)) THEN
+            IF (nproma .NE. SIZE(this%z_e_wp, 1) .OR. &
+                & this%patch_2d%nblks_e .NE. SIZE(this%z_e_wp, 2)) &
+                & DEALLOCATE(this%z_e_wp, this%z_grad_h_wp)
+          END IF
+          IF (.NOT.ALLOCATED(this%z_e_wp)) &
+            & ALLOCATE(this%z_e_wp(nproma, this%patch_2d%nblks_e), &
+                & this%z_grad_h_wp(nproma, this%patch_2d%nblks_e))
+        END IF
+          
+        CALL this%internal_wp(x, ax)
+      END SUBROUTINE lhs_surface_height_zstar
+
+
+    ! internal backend routine to compute surface height lhs -- "operator" implementation
+      SUBROUTINE lhs_surface_height_ab_mim_zstar(this, x, lhs)
+        CLASS(t_surface_height_lhs_zstar), INTENT(INOUT) :: this
+        REAL(wp), INTENT(IN), CONTIGUOUS :: x(:,:)
+        REAL(wp), INTENT(OUT), CONTIGUOUS :: lhs(:,:)
+        REAL(wp) :: gdt2_inv, gam_times_beta
+        INTEGER :: start_index, end_index, jc, blkNo, je
+        TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
+
+        cells_in_domain => this%patch_2D%cells%in_domain
+        edges_in_domain => this%patch_2D%edges%in_domain
+        gdt2_inv = REAL(1.0_wp / (grav*(dtime)**2),wp)
+        gam_times_beta = REAL(ab_gam * ab_beta, wp)
+        lhs(1:nproma,cells_in_domain%end_block:) = 0.0_wp
+        IF (l_edge_based) THEN
+          !Step 1) Calculate gradient of iterated height.
+          CALL grad_fd_norm_oce_2d_3d( x, this%patch_2D, this%op_coeffs_wp%grad_coeff(:,1,:), &
+            & this%z_grad_h_wp(:,:), subset_range=this%patch_2D%edges%gradIsCalculable)
+          DO blkNo = edges_in_domain%start_block, edges_in_domain%end_block
+            CALL get_index_range(edges_in_domain, blkNo, start_index, end_index)
+            DO je = start_index, end_index
+              this%z_e_wp(je,blkNo) = this%z_grad_h_wp(je,blkNo) * this%thickness_e_wp(je,blkNo)
+            END DO
+          END DO
+        ELSE  !IF(.NOT.l_edge_based)THEN
+          CALL grad_fd_norm_oce_2d_3d( x, this%patch_2D, this%op_coeffs_wp%grad_coeff(:,1,:), &
+            & this%z_grad_h_wp(:,:), subset_range=this%patch_2D%edges%gradIsCalculable)
+          IF (this%patch_2d%cells%max_connectivity /= 3 .AND. my_process_is_mpi_parallel()) &
+            & CALL exchange_data(this%patch_2D%comm_pat_e, this%z_grad_h_wp)
+          CALL map_edges2edges_viacell_3d_const_z( this%patch_3d, &
+            & this%z_grad_h_wp(:,:), this%op_coeffs_wp, this%z_e_wp(:,:))
+        END IF ! l_edge_based
+    !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
+        DO blkNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blkNo, start_index, end_index)
+          IF (this%patch_2d%cells%max_connectivity .EQ. 3) THEN
+            CALL div_oce_2D_onTriangles_onBlock(this%z_e_wp, this%patch_2D, &
+              & this%op_coeffs_wp%div_coeff, lhs(:,blkNo), level=topLevel, &
+              & blockNo=blkNo, start_index=start_index, end_index=end_index)
+          ELSE
+            CALL div_oce_2D_general_onBlock(this%z_e_wp, this%patch_2D, &
+              & this%op_coeffs_wp%div_coeff, lhs(:,blkNo), level=topLevel, &
+              & blockNo=blkNo, start_index=start_index, end_index=end_index)
+          END IF
+          !Step 4) Finalize LHS calculations
+          DO jc = start_index, end_index
+            lhs(jc,blkNo) = x(jc,blkNo) * gdt2_inv - gam_times_beta * lhs(jc,blkNo)
+          END DO
+        END DO ! blkNo
+    !ICON_OMP_END_PARALLEL_DO
+        IF (debug_check_level > 20) THEN
+          DO blkNo = cells_in_domain%start_block, cells_in_domain%end_block
+            CALL get_index_range(cells_in_domain, blkNo, start_index, end_index)
+            DO jc = start_index, end_index
+              IF(this%patch_3d%lsm_c(jc,1,blkNo) > sea_boundary) THEN
+                IF (lhs(jc,blkNo) /= 0.0_wp) &
+                  & CALL finish("lhs_surface_height_ab_mim",&
+                      & "lhs(jc,blkNo) /= 0 on land")
+              END IF
+            END DO
+          END DO
+        ENDIF
+      END SUBROUTINE lhs_surface_height_ab_mim_zstar
+ 
+      
+      ! internal backend routine to compute surface height lhs -- "matrix" implementation
+      SUBROUTINE lhs_surface_height_ab_mim_matrix_wp(this, x, lhs)
+        CLASS(t_surface_height_lhs_zstar), INTENT(INOUT) :: this
+        REAL(wp), INTENT(IN), CONTIGUOUS :: x(:,:)
+        REAL(wp), INTENT(OUT), CONTIGUOUS :: lhs(:,:)
+        INTEGER :: start_index, end_index, jc, blkNo, ico
+        TYPE(t_subset_range), POINTER :: cells_in_domain
+        REAL(wp), POINTER, DIMENSION(:,:,:), CONTIGUOUS :: lhs_coeffs
+        REAL(wp) :: xco(9)
+        INTEGER, POINTER, DIMENSION(:,:,:), CONTIGUOUS :: idx, blk
+    
+        cells_in_domain => this%patch_2D%cells%in_domain
+        lhs_coeffs => this%op_coeffs_wp%lhs_all
+        idx => this%op_coeffs_wp%lhs_CellToCell_index
+        blk => this%op_coeffs_wp%lhs_CellToCell_block
+    !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, xco, ico) ICON_OMP_DEFAULT_SCHEDULE
+        DO blkNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blkNo, start_index, end_index)
+          lhs(:,blkNo) = 0.0_wp
+          DO jc = start_index, end_index
+            IF(.NOT.(this%patch_3d%lsm_c(jc,1,blkNo) > sea_boundary)) THEN
+              FORALL(ico = 1:9) xco(ico) = x(idx(ico, jc, blkNo), blk(ico, jc, blkNo))
+              lhs(jc,blkNo) = x(jc,blkNo) * lhs_coeffs(0, jc, blkNo) + &
+                & SUM(xco(:) * lhs_coeffs(1:9, jc, blkNo))
+            END IF
+          END DO
+        END DO ! blkNo
+    !ICON_OMP_END_PARALLEL_DO
+        IF (debug_check_level > 20) THEN
+          DO blkNo = cells_in_domain%start_block, cells_in_domain%end_block
+            CALL get_index_range(cells_in_domain, blkNo, start_index, end_index)
+            DO jc = start_index, end_index
+              IF(this%patch_3d%lsm_c(jc,1,blkNo) > sea_boundary) THEN
+                IF (lhs(jc,blkNo) /= 0.0_wp) &
+                  & CALL finish("lhs_surface_height_ab_mim", "lhs(jc,blkNo) /= 0 on land")
+              ENDIF
+            END DO
+          END DO
+        ENDIF
+      END SUBROUTINE lhs_surface_height_ab_mim_matrix_wp
+
+
+      SUBROUTINE lhs_surface_height_ab_mim_matrix_shortcut(this, idx, blk, coeff)
+        CLASS(t_surface_height_lhs_zstar), INTENT(INOUT) :: this
+        INTEGER, INTENT(INOUT), ALLOCATABLE, DIMENSION(:,:,:) :: idx, blk
+        REAL(KIND=wp), INTENT(INOUT), ALLOCATABLE, DIMENSION(:,:,:) :: coeff
+        INTEGER :: nidx, nblk, nnz, iidx, iblk, inz
+        INTEGER, POINTER, DIMENSION(:,:,:), CONTIGUOUS :: opc_idx, opc_blk
+        REAL(wp), POINTER, DIMENSION(:,:,:), CONTIGUOUS :: opc_coeff
+    
+        IF (.NOT.this%use_shortcut) &
+          & CALL finish( &
+            & "t_surface_height_lhs::lhs_surface_height_ab_mim_matrix_shortcut", &
+            & "wrong turn!")    
+        nidx = SIZE(coeff, 1)
+        nblk = SIZE(coeff, 2)
+        nnz = 10
+        opc_coeff => this%op_coeffs_wp%lhs_all
+        IF (.NOT.ALLOCATED(idx)) THEN
+          DEALLOCATE(coeff)
+          ALLOCATE(idx(nidx, nblk, nnz), blk(nidx, nblk, nnz), &
+            & coeff(nidx, nblk, nnz))
+          opc_idx => this%op_coeffs_wp%lhs_CellToCell_index
+          opc_blk => this%op_coeffs_wp%lhs_CellToCell_block
+    !ICON_OMP PARALLEL PRIVATE(iblk, iidx, inz)
+    !ICON_OMP DO SCHEDULE(GUIDED)
+          DO iblk = 1, nblk
+            idx(:, iblk, 1) = (/(iidx, iidx = 1, nidx)/)
+            blk(:, iblk, 1) = iblk
+            coeff(:, iblk, 1) = opc_coeff(0, :, iblk)
+          END DO
+    !ICON_OMP END DO NOWAIT
+    !ICON_OMP DO SCHEDULE(GUIDED)
+          DO inz = 2, nnz
+            DO iblk = 1, nblk
+              DO iidx = 1, nidx
+                IF (ABS(opc_coeff(inz - 1, iidx, iblk)) .EQ. 0._wp) THEN
+                  idx(iidx, iblk, inz) = idx(iidx, iblk, 1)
+                  blk(iidx, iblk, inz) = blk(iidx, iblk, 1)
+                  coeff(iidx, iblk, inz) = 0._wp
+                ELSE
+                  idx(iidx, iblk, inz) = opc_idx(inz - 1, iidx, iblk)
+                  blk(iidx, iblk, inz) = opc_blk(inz - 1, iidx, iblk)
+                  coeff(iidx, iblk, inz) = opc_coeff(inz - 1, iidx, iblk)
+                END IF
+              END DO
+            END DO
+          END DO
+    !ICON_OMP END DO NOWAIT
+    !ICON_OMP END PARALLEL
+        ELSE
+    !ICON_OMP PARALLEL DO PRIVATE(iblk)
+          DO inz = 1, nnz
+            DO iblk = 1, nblk
+              coeff(:, iblk, inz) = opc_coeff(inz - 1, :, iblk)
+            END DO
+          END DO
+    !ICON_OMP END PARALLEL DO
+        END IF
+  END SUBROUTINE lhs_surface_height_ab_mim_matrix_shortcut
+   
+  END MODULE mo_surface_height_lhs_zstar
+
+
+
 !>
 !! Testbed for modifications requiresd to enable zstar 
 !!
@@ -28,7 +329,7 @@ MODULE mo_ocean_testbed_zstar
     & solver_tolerance_sp, select_solver, solver_max_iter_per_restart_sp,                         &
     & use_absolute_solver_tolerance, ab_beta, PPscheme_ICON_Edge_vnPredict_type,                  &
     & PPscheme_type, ab_const, MASS_MATRIX_INVERSION_TYPE, MASS_MATRIX_INVERSION_ADVECTION,       &
-    & ab_gam
+    & ab_gam, OceanReferenceDensity_inv
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode, debug_check_level 
@@ -91,6 +392,7 @@ MODULE mo_ocean_testbed_zstar
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_horz_veloc, VelocityBottomBoundaryCondition_onBlock
   USE mo_mpi, ONLY: work_mpi_barrier
   USE mo_surface_height_lhs, ONLY: t_surface_height_lhs, lhs_surface_height_ptr
+  USE mo_surface_height_lhs_zstar, ONLY: t_surface_height_lhs_zstar, lhs_surface_height_zstar_ptr
   USE mo_ocean_solve_trivial_transfer, ONLY: t_trivial_transfer, trivial_transfer_ptr
   USE mo_ocean_solve_subset_transfer, ONLY: t_subset_transfer, subset_transfer_ptr
   USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen, lhs_agen_ptr
@@ -1352,7 +1654,7 @@ CONTAINS
     CLASS(t_destructible), POINTER, INTENT(INOUT) :: free_sfc_solver_trans
     CLASS(t_destructible), POINTER, INTENT(INOUT) :: free_sfc_solver_comp_trans
     TYPE(t_patch), POINTER :: patch_2D
-    TYPE(t_surface_height_lhs), POINTER :: lhs_sh
+    TYPE(t_surface_height_lhs_zstar), POINTER :: lhs_sh
     TYPE(t_trivial_transfer), POINTER :: trans_triv
     TYPE(t_subset_transfer), POINTER :: trans_subs
     TYPE(t_ocean_solve), POINTER :: solve, solve_comp
@@ -1367,9 +1669,9 @@ CONTAINS
     patch_2D => patch_3d%p_patch_2d(1)
     NULLIFY(trans_triv)
 ! allocate lhs object
-    ALLOCATE(t_surface_height_lhs :: free_sfc_solver_lhs)
+    ALLOCATE(t_surface_height_lhs_zstar :: free_sfc_solver_lhs)
 ! init lhs object
-    lhs_sh => lhs_surface_height_ptr(free_sfc_solver_lhs)
+    lhs_sh => lhs_surface_height_zstar_ptr(free_sfc_solver_lhs)
     CALL lhs_sh%construct(patch_3d, ocean_state%p_diag%thick_e, &
       & op_coeffs, solverCoeff_sp)
     lhs => lhs_agen_ptr(free_sfc_solver_lhs)
@@ -1452,6 +1754,100 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  !! Calculation the hydrostatic pressure gradient at edges by computing the pressure of the
+  !! two adjacent cell fluid column as weight of the fluid column above a certain level.
+  !! In this routine this level is given by the edge-level, this level goes down from the surface
+  !! to the the deepest edge. At the deepest edge-level the horizontal gradient is taken by using
+  !! the adjacent pressure values at this level. It might happen that one of the adjacent column
+  !! reaches down deeper, but this does not influence the hydrostatic pressure. 
+  !! This routine does calculathe the pressure only temporarily. 
+  !! It overcomes a difficulty with the pressure gradient calculation for partial cells that arises
+  !! in the subroutine "calc_internal_press" (see below). The calc_internal_press should not be used
+  !! with partial cells.
+  !!
+  SUBROUTINE calc_internal_press_grad_zstar(patch_3d, rho, pressure_hyd, bc_total_top_potential, grad_coeff, press_grad)
+    !
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), INTENT(in)                 :: rho          (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
+    REAL(wp), INTENT(inout)              :: pressure_hyd (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(in)                 :: bc_total_top_potential(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
+    !REAL(wp), INTENT(in), TARGET      :: prism_thick_e(1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp), INTENT(in)                 :: grad_coeff(:,:,:)
+    REAL(wp), INTENT(inout)              :: press_grad    (nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)  !< hydrostatic pressure gradient
+
+    ! local variables:
+    !CHARACTER(len=max_char_length), PARAMETER :: &
+    !       & routine = (this_mod_name//':calc_internal_pressure')
+    INTEGER :: je, jk, jb, jc, ic1,ic2,ib1,ib2
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
+    REAL(wp) :: z_full_c1, z_box_c1, z_full_c2, z_box_c2
+    REAL(wp) :: z_grav_rho_inv
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
+    REAL(wp), POINTER :: prism_thick_e(:,:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: prism_center_dist !distance between prism centers without surface elevation
+    !-----------------------------------------------------------------------
+    z_grav_rho_inv = OceanReferenceDensity_inv * grav
+    patch_2D        => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    all_cells       => patch_2D%cells%ALL
+    prism_thick_e   => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e
+
+    iidx => patch_3D%p_patch_2D(1)%edges%cell_idx
+    iblk => patch_3D%p_patch_2D(1)%edges%cell_blk
+
+    pressure_hyd (1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    !-------------------------------------------------------------------------
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+
+      DO jc = start_index, end_index
+
+        pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb) &
+          & + bc_total_top_potential(jc,jb)
+          
+        DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+          pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
+            &*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO
+
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, ic1, ib1, ic2, ib2, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+
+      DO je = start_index, end_index
+
+          ic1=patch_2D%edges%cell_idx(je,jb,1)
+          ib1=patch_2D%edges%cell_blk(je,jb,1)
+          ic2=patch_2D%edges%cell_idx(je,jb,2)
+          ib2=patch_2D%edges%cell_blk(je,jb,2)
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+
+          press_grad(je,jk,jb)=(pressure_hyd(ic2,jk,ib2)-pressure_hyd(ic1,jk,ib1))*grad_coeff(je,jk,jb)
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+    
+    END SUBROUTINE calc_internal_press_grad_zstar
+    !-------------------------------------------------------------------------
+
+
+
+  !-------------------------------------------------------------------------
+  !>
   !! Computation of velocity predictor in Adams-Bashforth timestepping.
   !!
   SUBROUTINE calculate_explicit_term_zstar( patch_3d, ocean_state, p_phys_param,&
@@ -1478,11 +1874,12 @@ CONTAINS
     ! STEP 2: compute 3D contributions: gradient of hydrostatic pressure and vertical velocity advection
       
     ! calculate density from EOS using temperature and salinity at timelevel n
+    ! FIXME: Uses depth to calculate pressure, will beed fix 
     CALL calculate_density( patch_3d,                         &
      & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
      & ocean_state%p_diag%rho(:,:,:) )
 
-    CALL calc_internal_press_grad( patch_3d,&
+    CALL calc_internal_press_grad_zstar( patch_3d,&
        &                          ocean_state%p_diag%rho,&
        &                          ocean_state%p_diag%press_hyd,& 
        &                          ocean_state%p_aux%bc_total_top_potential, &
@@ -1797,20 +2194,23 @@ CONTAINS
       CALL message (TRIM(routine), message_text)
             
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
-      
+
+      !! Get kinetic energy
       CALL calc_scalar_product_veloc_3d( patch_3d,  &
         & ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_diag,                     &
         & operators_coefficients)
-      
+     
+      !! Tracer relaxation and surface flux boundary conditions
       CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
            & current_time, operators_coefficients)
-  
-  
+ 
+      !! This updates height dependent variables including column height   
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
       
       !---------------------------------------------------------------------
-  
+ 
+      !! For updating ocean physics parameterization
       CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
   
       !------------------------------------------------------------------------
@@ -1823,7 +2223,8 @@ CONTAINS
 
       !! FIXME: The RHS can be filled explicitly here, however, the LHS requires
       !! multiplying the Beta*Gamma term with (H+eta)/H
-      ! init sfc solver related objects, if necessary
+      !! The height goes in using map_edges2edges_viacell_2D 
+      !! init sfc solver related objects, if necessary
       IF (.NOT.ASSOCIATED(free_sfc_solver)) &
         CALL init_free_sfc(patch_3d, ocean_state(jg), operators_coefficients, solverCoeff_sp, &
         & free_sfc_solver, free_sfc_solver_comp, free_sfc_solver_lhs, free_sfc_solver_trans, &
@@ -1847,7 +2248,6 @@ CONTAINS
       CALL fill_rhs4surface_eq_zstar(patch_3d, ocean_state(jg), operators_coefficients)
 
       ! Solve surface equation with solver
-      ! decide on guess to use in solver
 
       !!ICON_OMP PARALLEL WORKSHARE
       solve%x_loc_wp(:,:) = ocean_state(jg)%p_prog(nold(1))%h(:,:)
@@ -1953,8 +2353,6 @@ CONTAINS
 
       
     END DO
-
-
 
   END SUBROUTINE test_stepping_zstar
 
