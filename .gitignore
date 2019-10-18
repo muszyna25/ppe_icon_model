@@ -26,9 +26,9 @@
 
 # Build stage files:
 *.i
-*.mod
 *.o
 /icon
+/mod
 /pp
 /srclist
 /version.c

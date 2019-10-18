@@ -27,16 +27,6 @@ AC_ARG_ENABLE([silent-rules],
   [AS_IF([test x"$enableval" != xno], [enable_silent_rules=yes])],
   [enable_silent_rules=yes])
 
-AC_ARG_ENABLE([mod-timestamps],
-  [AC_HELP_STRING([--enable-mod-timestamps],
-     [enable timestamp correction for Fortran module files, which results in
-faster recompilation with compilers that update timestamps of the module files
-unconditionally (e.g. NAG) but does not allow to avoid excessive recompilations
-with compilers that update timestamps of the module files only when their
-contents change (e.g. GNU) @<:@default=yes@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_mod_timestamps=yes])],
-  [enable_mod_timestamps=yes])
-
 AC_ARG_ENABLE([explicit-fpp],
   [AC_HELP_STRING([--enable-explicit-fpp],
      [enable explicit Fortran preprocessing @<:@default=auto@:>@])],
@@ -338,6 +328,7 @@ AC_LANG([Fortran])
 
 ACX_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
+AC_SUBST([FC_VENDOR], [$acx_cv_fc_compiler_vendor])
 
 AC_ARG_VAR([FPP], [Fortran preprocessor command (optional)])dnl
 
@@ -413,10 +404,6 @@ ACX_FC_ATTRIBUTE_CONTIGUOUS(
 
 AS_VAR_APPEND([FCFLAGS],
   [" ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
-
-AS_VAR_IF([enable_mod_timestamps], [yes],
-  [AC_SUBST([MOD_TIMESTAMPS], ['touch $@'])],
-  [AC_SUBST([MOD_TIMESTAMPS], [':'])])
 
 AS_VAR_IF([enable_atmo], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])

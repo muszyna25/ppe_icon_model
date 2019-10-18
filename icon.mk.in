@@ -33,6 +33,7 @@ PYTHON= @PYTHON@
 PERL= @PERL@
 DEPLIST= ${PYTHON} $(srcdir)/utils/mkhelper/deplist.py
 DEPGEN= ${PYTHON} $(srcdir)/utils/mkhelper/depgen.py
+MODCMP= ${PYTHON} $(srcdir)/utils/mkhelper/fortmodcmp.py
 SB2PP= @SB2PP@
 FPP= @FPP@
 INSTALL= @INSTALL@
@@ -166,7 +167,8 @@ vpath %.c $(srcdir)
 .SUFFIXES:
 # Targets not associated with files:
 .PHONY: all depend dummy-depend preprocess mostlyclean clean \
-        distclean maintainer-clean install check force-create-version
+        distclean maintainer-clean install check force-create-version \
+        sanitize-mod-proxies
 # Targets that do not need the inclusion of the dependency files:
 NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
                  distclean maintainer-clean
@@ -189,7 +191,7 @@ preprocess: $(pp_files)
 # Delete the results of compilation and linking:
 mostlyclean: $(bundled_subdirs)
 	rm -f icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files))) version.@OBJEXT@
-	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@
+	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@ $(moddir)/*.@FC_MOD_FILE_EXT@.proxy
 	rm -f $(notdir $(f90_files:.f90=.i))
 	rm -rf icon@EXEEXT@.dSYM
 
@@ -262,13 +264,21 @@ $(f90_prefix)src/ocean/%.@OBJEXT@: $(f90_prefix)src/ocean/%.f90 | $(dir_files) $
 $(f90_prefix)src/sea_ice/%.@OBJEXT@: $(f90_prefix)src/sea_ice/%.f90 | $(dir_files) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
 
+# Delete all Fortran module proxy files that do not have an existing module to
+# be a proxy of, i.e. if <filename>.proxy exists but <filename> does not,
+# delete <filename>.proxy:
+sanitize-mod-proxies:
+	@rm -f $(filter-out $(addsuffix .proxy,$(wildcard $(moddir)/*.@FC_MOD_FILE_EXT@)),$(wildcard $(moddir)/*.@FC_MOD_FILE_EXT@.proxy))
+
 # Fortran module file tracking rule:
-$(moddir)/%.@FC_MOD_FILE_EXT@:
-	@if test -z $<; then \
-	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'." >&2; \
-	elif test ! -f $@; then \
-	  rm -f $<; $(MAKE) $< && @MOD_TIMESTAMPS@; \
-	else @MOD_TIMESTAMPS@; fi
+$(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
+	@if test -z '$<'; then \
+	  echo "Cannot find Fortran source file providing module '$(basename $(@F:.proxy=))'." >&2; \
+	else \
+	  if test ! -f '$(@:.proxy=)'; then rm -f '$<'; $(MAKE) -f icon.mk '$<'; fi; \
+	  if cmp '$@' '$(@:.proxy=)' >/dev/null 2>&1 || $(MODCMP) '$@' '$(@:.proxy=)' @FC_VENDOR@ 2>/dev/null; then :; \
+	  else cp '$(@:.proxy=)' '$@' 2>/dev/null; fi; \
+	fi
 
 # JSBACH dsl->f90 rule:
 @JSBACH_ENABLED@$(builddir)/$(JSB_subdir)/%.f90: $(JSB_srcdir)/%.f90 | $(dir_files)

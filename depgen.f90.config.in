@@ -6,7 +6,7 @@
 --pp-inc-order=@FC_INC_ORDER_PP_f90@
 --pp-macro-flag=@FC_PP_DEF@
 --fc-enable
---fc-mod-ext=@FC_MOD_FILE_EXT@
+--fc-mod-ext=@FC_MOD_FILE_EXT@.proxy
 --fc-mod-upper=@FC_MOD_FILE_UPPER@
 --fc-inc-flag=@FC_INC_FLAG@
 --fc-inc-order=@FC_INC_ORDER@
