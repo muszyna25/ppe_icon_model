@@ -753,6 +753,8 @@ EOF
 
 set_run_target_()
 {
+  echo "!! THIS IS A FALLBACK SETUP !!"
+  echo "!! YOUR HOST/SITE IS unknown TO THE SCRIPTING ENGINE !!"
   set_run_target_mpipc
 }
 
