@@ -9,13 +9,13 @@
 # Marco Giorgetta, MPI-M, 2010-04-21
 #
 #-----------------------------------------------------------------------------
-final_status_file=@abs_top_builddir@/run/${job_name}.final_status
+final_status_file=@prefix@/run/${job_name}.final_status
 rm -f ${final_status_file}
 #-----------------------------------------------------------------------------
 #
 # directories definition
 #
-ICONDIR=@abs_top_builddir@
+ICONDIR=@prefix@
 RUNSCRIPTDIR=${ICONDIR}/run
 if [ x$grids_folder = x ] ; then
    HGRIDDIR=${ICONDIR}/grids

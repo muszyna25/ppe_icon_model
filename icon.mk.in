@@ -220,8 +220,16 @@ distclean: clean
 maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~
 
+runscripts:
+	@rsync -avz --exclude='*.in' --exclude='.*' @srcdir@/run @builddir@
+
+install_runscripts: runscripts
+	@rsync -avz --exclude='*.in' --exclude='.*' @builddir@/run @prefix@
+	@rsync -avz --exclude='*.in' --exclude='.*' @builddir@/config @prefix@
+	$(INSTALL) -d $(DESTDIR)@prefix@ && $(INSTALL) make_runscripts $(DESTDIR)@prefix@/make_runscripts
+
 # Installation rule:
-install: all
+install: all install_runscripts
 	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon@EXEEXT@ $(DESTDIR)@bindir@/icon@EXEEXT@
 
 # Generate a list of files that are going to be compiled in the current configuration:

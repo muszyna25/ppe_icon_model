@@ -95,7 +95,7 @@ then
 fi
 #-----------------------------------------------------------------------------
 bindir="@prefix@/bin"   # binaries
-BUILDDIR=@abs_top_builddir@
+BUILDDIR=@prefix@
 SRCDIR=@abs_top_srcdir@
 #-----------------------------------------------------------------------------
 EOF

@@ -58,5 +58,3 @@ distclean:
 	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 	rm -f Makefile
 
-runscripts:
-	@rsync -avz --exclude='*.in' --exclude='.*' @srcdir@/run @builddir@
