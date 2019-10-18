@@ -751,6 +751,10 @@ EOF
   fi
 }
 
+set_run_target_()
+{
+  set_run_target_mpipc
+}
 
 #=============================================================================
 set_run_target_dole()
