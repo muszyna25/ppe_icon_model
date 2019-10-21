@@ -24,14 +24,7 @@ else
 fi
 
 # experiment directory, with plenty of space, create if new
-case $use_site in
-cscs.ch)
-	EXPDIR=${SCRATCH}/experiments/${EXPNAME}
-	;;
-*)
-	EXPDIR=${ICONDIR}/experiments/${EXPNAME}
-	;;
-esac
+EXPDIR=${ICONDIR}/experiments/${EXPNAME}
 if [ ! -d ${EXPDIR} ] ;  then
   mkdir -p ${EXPDIR}
 fi
@@ -328,13 +321,7 @@ EOF
 done
 fi
 #-----------------------------------------------------------------------------
-#
-# get eventually needed LD_LIBRARY_PATH
 
-if [[ ! -z $use_ld_library_path ]]
-then
-    export LD_LIBRARY_PATH=$use_ld_library_path
-fi
 
 #-----------------------------------------------------------------------------
 #
