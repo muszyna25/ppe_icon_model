@@ -43,6 +43,7 @@ AC_DEFUN([ACX_SWAP_MODULES],
 
           moduleshome_in_use="${MODULESHOME-}"
           load_modules_in_use=m4_default([$1],[""])
+          check_loaded=m4_default([$2],[""])
           shell_in_use="${SHELL##*/}"
 
           # in case specific modules are required do replace those only
@@ -73,12 +74,19 @@ AC_DEFUN([ACX_SWAP_MODULES],
                      is_loaded=false 
                      for mod in $modules_loaded
                      do
+                         mod_ignore=$(echo $check_loaded | $GREP -o "$replacement")
 		         AS_IF([test ${mod%%/*} = ${replacement%%/*}],
  		               [AS_IF([test "$mod" != "$replacement"],
-                                      [AS_IF([test ! -z prgenv_loaded],
-                                             [module unload $mod
-                                              module load $replacement],
-                                             [module swap $mod $replacement])],
+                                      [AS_IF([test ! -z $mod_ignore],
+                                             [AC_MSG_NOTICE([Module $mod already loaded, ignoring.])
+                                              is_loaded=true],
+                                             [
+                                              AS_IF([test ! -z prgenv_loaded],
+                                                    [module unload $mod
+                                                     module load $replacement],
+                                                   [module swap $mod $replacement])
+                                              ])
+                                      ],
                                       [is_loaded=true])])
 
 		     done

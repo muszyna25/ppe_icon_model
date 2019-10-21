@@ -32,7 +32,8 @@ MODULE mo_initicon_io
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
-  USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var
+  USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm_in, t_pi_atm, &
+    &                               alb_snow_var, geop_ml_var
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceFg, &
     &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch, &
     &                               kInputSourceCold
@@ -44,7 +45,8 @@ MODULE mo_initicon_io
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
-    &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS
+    &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
+    &                               VARNAME_LEN, max_ntracer
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -69,7 +71,10 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
-
+  USE mo_linked_list,         ONLY: t_list_element
+  USE mo_var_list_element,    ONLY: t_var_list_element, level_type_ml
+  USE mo_var_list,            ONLY: nvar_lists, var_lists, get_var_name
+  USE mo_var_groups,          ONLY: var_groups_dyn
 
   ! High level overview of how `mo_initicon` reads input data
   ! =========================================================
@@ -1177,6 +1182,22 @@ MODULE mo_initicon_io
 
                 ! clean-up
                 DEALLOCATE(z_ifc_in)
+
+                ! fetch additional tracers in first guess
+                IF ( init_mode /= MODE_IAU_OLD ) &
+                  &  CALL fetch_tracer_fg('tracer_fg_in', params, jg,     &
+                  &                        atm_in  = initicon(jg)%atm_in, &
+                  &                        nblks_c = p_patch(jg)%nblks_c, &
+                  &                        nlev_in = p_patch(jg)%nlev,    &
+                  &                        nlev    = p_patch(jg)%nlev)
+
+            ELSE
+
+                ! fetch additional tracers in first guess
+                IF ( init_mode /= MODE_IAU_OLD ) &
+                  &  CALL fetch_tracer_fg('tracer_fg_in', params, jg,        &
+                  &                        tracer = prognosticFields%tracer)
+
             END IF
 
             CALL fetchRequired3d(params, 'vn', jg, prognosticFields%vn)
@@ -1211,7 +1232,7 @@ MODULE mo_initicon_io
     REAL(dp), POINTER :: levelValues(:)
     TYPE(t_fetchParams) :: params
     REAL(wp), ALLOCATABLE :: z_ifc_in(:,:,:), w_ifc(:,:,:), tke_ifc(:,:,:)
-    LOGICAL :: lfound_thv, lfound_rho, lfound_vn
+    LOGICAL :: lfound_thv, lfound_rho, lfound_vn, lfound_qr, lfound_qs
 
     ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
@@ -1254,17 +1275,19 @@ MODULE mo_initicon_io
             CALL fetchRequired3d(params, 'qv', jg, initicon(jg)%atm_in%qv)
             CALL fetchRequired3d(params, 'qc', jg, initicon(jg)%atm_in%qc)
             CALL fetchRequired3d(params, 'qi', jg, initicon(jg)%atm_in%qi)
-            IF ( iqr /= 0 ) THEN
-            CALL fetchRequired3d(params, 'qr', jg, initicon(jg)%atm_in%qr)
-            ELSE
-            initicon(jg)%atm_in%qr(:,:,:) = 0._wp
-            END IF
+            CALL fetch3d(params, 'qr', jg, initicon(jg)%atm_in%qr, lfound_qr)
+            CALL fetch3d(params, 'qs', jg, initicon(jg)%atm_in%qs, lfound_qs)
+!$OMP PARALLEL
+            IF (.NOT. lfound_qr) CALL init(initicon(jg)%atm_in%qr(:,:,:))
+            IF (.NOT. lfound_qs) CALL init(initicon(jg)%atm_in%qs(:,:,:))
+!$OMP END PARALLEL
 
-            IF ( iqs /= 0 ) THEN
-            CALL fetchRequired3d(params, 'qs', jg, initicon(jg)%atm_in%qs)
-            ELSE
-            initicon(jg)%atm_in%qs(:,:,:) = 0._wp
-            END IF
+            ! fetch additional tracers in first guess
+            CALL fetch_tracer_fg('tracer_fg_in', params, jg,       &
+              &                   atm_in  = initicon(jg)%atm_in,   &
+              &                   nblks_c = p_patch(jg)%nblks_c,   &
+              &                   nlev_in = SIZE(levelValues,1)-1, &
+              &                   nlev    = p_patch(jg)%nlev)
 
             CALL fetch3d(params, 'vn', jg, initicon(jg)%atm_in%vn, lfound_vn)
             IF (lfound_vn) THEN
@@ -1438,6 +1461,67 @@ MODULE mo_initicon_io
     ENDDO ! loop over model domains
 
   END SUBROUTINE fetch_dwdana_atm
+
+  !>
+  !! Fetch additional tracers in the first guess from the request list
+  !! Lopp over all ICON vars and collect info similar to collect_group
+  SUBROUTINE fetch_tracer_fg(grp_name, params, jg, tracer, atm_in, &
+    &                        nblks_c, nlev_in, nlev)
+    CHARACTER(LEN=*),    INTENT(IN)    :: grp_name
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    INTEGER,             INTENT(IN)    :: jg
+
+    REAL(wp), POINTER,   INTENT(INOUT), OPTIONAL :: tracer(:,:,:,:)
+    TYPE(t_pi_atm_in),   INTENT(INOUT), OPTIONAL :: atm_in
+    INTEGER,             INTENT(IN), OPTIONAL    :: nblks_c
+    INTEGER,             INTENT(IN), OPTIONAL    :: nlev_in
+    INTEGER,             INTENT(IN), OPTIONAL    :: nlev
+
+    ! local variables
+    INTEGER                           :: i, grp_id, idx
+    TYPE(t_list_element), POINTER     :: element
+    TYPE(t_var_list_element), POINTER :: var_element
+    CHARACTER(LEN=VARNAME_LEN)        :: name
+    REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
+
+    idx = 0
+    grp_id = var_groups_dyn%group_id(grp_name)
+
+    ! loop over all variable lists and variables
+    DO i = 1, nvar_lists
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
+      ! do not inspect variable list if its domain does not match:
+      IF (var_lists(i)%p%patch_id /= jg)  CYCLE
+
+      element => var_lists(i)%p%first_list_element
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
+        var_element => element%field
+        ! Do not inspect element if it is a container
+        IF (.NOT. var_element%info%lcontainer .AND. var_element%info%in_group(grp_id)) THEN
+          idx = idx + 1
+          name = get_var_name(var_element)
+          IF ( PRESENT(atm_in) ) THEN
+            atm_in%tracer(idx)%var_element => var_element
+            ! allocate source array for vertical interpolation
+            ALLOCATE(atm_in%tracer(idx)%field(nproma,nlev_in,nblks_c))
+!$OMP PARALLEL
+            CALL init(atm_in%tracer(idx)%field(:,:,:))      !_jf: necessary?
+!$OMP END PARALLEL
+            ! request the first guess fields
+            my_ptr3d => atm_in%tracer(idx)%field(:,:,:)
+            CALL fetch3d(params, TRIM(name), jg, my_ptr3d)
+          ENDIF
+          IF ( PRESENT(tracer) ) THEN
+            ! request the first guess fields
+            my_ptr3d => tracer(:,:,:,var_element%info%ncontained)
+            CALL fetch3d(params, TRIM(name), jg, my_ptr3d)
+          END IF
+        END IF
+        element => element%next_list_element
+      ENDDO LOOPVAR ! loop over vlist "i"
+    ENDDO ! i = 1, nvar_lists
+
+  END SUBROUTINE fetch_tracer_fg
 
   !XXX: Cannot be moved into fetch_dwdana_atm() since it needs input from fetch_dwdana_sfc()
   SUBROUTINE process_input_dwdana_atm (p_patch, initicon)

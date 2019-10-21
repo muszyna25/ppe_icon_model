@@ -197,6 +197,44 @@ MODULE mo_intp_data_strc
   END TYPE t_gauss_quad
 
 
+  TYPE t_cell_environ
+    !
+    ! This derived type stores an index list of cells lying within a certain radius
+    ! around a center cell (ic,ib) 
+    ! and additionally limited by the number of halo lines.
+    ! The related variable is defined in subr. 'gen_index_list_radius'.
+    !
+
+    LOGICAL   :: is_used = .FALSE.      ! currently: set .TRUE. if SDI or LPI shall be computed
+
+    INTEGER   :: nmbr_nghbr_cells_alloc = 13  ! max. number of cells around *any* center cell for allocation
+                                ! This value must be increased for larger numbers of max_nmbr_iter or radius
+                                ! (see subr. gen_index_list_radius)
+
+    INTEGER   :: max_nmbr_nghbr_cells   ! max. number of cells around *any* center cell
+                                        ! (including the center cell)
+
+    INTEGER, ALLOCATABLE :: nmbr_nghbr_cells(:,:)  ! number of cells around the center cell (ic,ib)
+                                                   ! (including the center cell).
+         ! Recommendation: for efficient vectorization, build loops using max_nmbr_nghbr_cells 
+         ! instead of this field.
+
+    INTEGER,  ALLOCATABLE :: idx(:,:,:)             ! Index jc of the l-th neighbour cell (ic, ib, l)
+
+    INTEGER,  ALLOCATABLE :: blk(:,:,:)             ! Block jb of the l-th neighbour cell (ic, ib, l)
+
+    REAL(wp), ALLOCATABLE :: area_norm(:,:,:)       ! area of the l-th neighbour cell (ic, ib, l)
+                                                    ! normalized by the area sum over all neighbour cells.
+                                                    ! Note: area_norm=0 if l>nmbr_nghbr_cells(ic,ib)
+
+    ! the following variables are only for validation purposes in any calling subroutine
+    REAL(wp)             :: radius                 ! the limiting radius
+    INTEGER              :: max_nmbr_iter          ! maximum number of iterations used
+
+  END TYPE t_cell_environ
+ 
+
+
   TYPE t_int_state
   
     ! a) weights which are inconsistent with the Hamiltonian viewpoint
@@ -512,7 +550,12 @@ MODULE mo_intp_data_strc
     !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
     ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
     REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:)
+
+    ! index list for neighbouring cells within a certain radius
+    TYPE(t_cell_environ) :: cell_environ
+ 
   END TYPE t_int_state
+
 
   ! MODULE VARIABLES --------------------------------------------------------------
 

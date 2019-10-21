@@ -38,7 +38,7 @@ MODULE mo_sgs_turbulence
   USE mo_run_config,          ONLY: iqv, iqc, iqtke, msg_level
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_impl_constants    ,  ONLY: min_rlcell, min_rledge_int, min_rlcell_int, min_rlvert_int,   &
-                                    iprog
+                                    iprog, ismag
   USE mo_math_utilities,      ONLY: tdma_solver
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult
@@ -55,6 +55,7 @@ MODULE mo_sgs_turbulence
   USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
   USE mo_fortran_tools,       ONLY: init
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config  
+  USE mo_exception,           ONLY: finish
 
   IMPLICIT NONE
 
@@ -76,6 +77,7 @@ MODULE mo_sgs_turbulence
   REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: km_iv, km_ie, km_c, &
                                              rho_ic, div_c, u_vert, v_vert, &
                                              w_ie, w_vert, theta_v, kh_ie
+
 
   CHARACTER(len=*), PARAMETER :: inmodule = 'mo_sgs_turbulence:'
 
@@ -128,12 +130,12 @@ MODULE mo_sgs_turbulence
     ALLOCATE( u_vert(nproma,nlev,p_patch%nblks_v),           &
               v_vert(nproma,nlev,p_patch%nblks_v),           &
               w_vert(nproma,nlevp1,p_patch%nblks_v),         &
-              w_ie(nproma,nlevp1,p_patch%nblks_e),           &
-              km_iv(nproma,nlevp1,p_patch%nblks_v),          &
-              km_c(nproma,nlev,p_patch%nblks_c),             &
-              km_ie(nproma,nlevp1,p_patch%nblks_e),          &
-              kh_ie(nproma,nlevp1,p_patch%nblks_e),          &              
-              theta(nproma,nlev,p_patch%nblks_c),            &
+              w_ie  (nproma,nlevp1,p_patch%nblks_e),         &
+              km_iv (nproma,nlevp1,p_patch%nblks_v),         &
+              km_c  (nproma,nlev  ,p_patch%nblks_c),         &
+              km_ie (nproma,nlevp1,p_patch%nblks_e),         &
+              kh_ie (nproma,nlevp1,p_patch%nblks_e),         &              
+              theta (nproma,nlev,  p_patch%nblks_c),         &
               theta_v(nproma,nlev,p_patch%nblks_c),          &
               div_c(nproma,nlev,p_patch%nblks_c),            &
               rho_ic(nproma,nlevp1,p_patch%nblks_c)          &
@@ -181,12 +183,33 @@ MODULE mo_sgs_turbulence
     CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_prog_lnd_now, p_prog_lnd_new,     &
                             p_diag_lnd, prm_diag, theta, p_nh_prog%tracer(:,:,:,iqv), p_sim_time)
 
-    IF ( atm_phy_nwp_config(jg)%inwp_turb == iprog) THEN 
+    IF ( atm_phy_nwp_config(jg)%inwp_turb == iprog ) THEN 
       CALL prognostic_tke(p_nh_prog, p_nh_prog_now_rcf, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,   &
                           p_patch, p_int, prm_diag, dt)
+
+    ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == ismag ) THEN 
+
+      IF ( les_config(jg)%smag_coeff_type == 1 ) THEN
+        CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
+        CALL smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, prm_diag)
+
+      ELSE IF ( les_config(jg)%smag_coeff_type == 2 ) THEN
+
+        !MB: this call shouldn't be necessary ...
+        CALL smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, prm_diag)
+
+        km_c  (:,:,:) = les_config(jg)%Km_ext
+        km_ie (:,:,:) = les_config(jg)%Km_ext
+        km_iv (:,:,:) = les_config(jg)%Km_ext
+        kh_ie (:,:,:) = les_config(jg)%Kh_ext
+        prm_diag%tkvm(:,:,:) = les_config(jg)%Km_ext   ! --> visc_smag_ic
+        prm_diag%tkvh(:,:,:) = les_config(jg)%Kh_ext   ! --> diff_smag_ic   !?
+        les_config(jg)%rturb_prandtl = les_config(jg)%Km_ext / les_config(jg)%Kh_ext
+
+      END IF
+
     ELSE
-      CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
-      CALL smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, prm_diag)
+      CALL finish( "drive_subgrid_diffusion", "inwp_turb is neither iprog nor ismag")
     END IF
 
     CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag,      &
@@ -229,7 +252,7 @@ MODULE mo_sgs_turbulence
   !! smagorinsky_model
   !!------------------------------------------------------------------------
   !! Computes the sgs viscosity and diffusivity using Smagorinsky model
-  !! \tau_ij = KD_ij where D_ij = du_i/dx_j + du_j/dx_i
+  !! \tau_ij = K D_ij where D_ij = du_i/dx_j + du_j/dx_i
   !!
   !! and  K = cs * \Delta**2 * D / sqrt(2), where D = sqrt(D_ijD_ij)
   !!

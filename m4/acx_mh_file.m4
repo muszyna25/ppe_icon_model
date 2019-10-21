@@ -149,6 +149,7 @@ EOF
           export host
           AS_IF([test -z "$CONFIG_SHELL"],[CONFIG_SHELL=$SHELL]) 
           load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
+          ignore_if_loaded=$($CONFIG_SHELL -c '. ./conftest; echo "$ignore_if_loaded"')
           /bin/rm -f confsed conftest
 ])
 dnl

@@ -2242,8 +2242,8 @@ CONTAINS
     INTEGER    :: jk, jb, jc
     REAL (wp)  :: h, dz, c, lambda_im
 
-    REAL (wp) :: phi_old( nproma, p_patch%nlev, p_patch%nblks_c)
-    REAL (wp) :: phi_new( nproma, p_patch%nlev, p_patch%nblks_c)
+    REAL (wp) :: phi_old( nproma, p_patch%nlev )
+    REAL (wp) :: phi_new( nproma, p_patch%nlev )
 
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_startidx, i_endidx
@@ -2260,7 +2260,7 @@ CONTAINS
     IF ( .FALSE. ) THEN
 #else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,dz,c,lambda_im,h) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,dz,c,lambda_im,h,phi_old,phi_new) ICON_OMP_GUIDED_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -2270,7 +2270,7 @@ CONTAINS
       ! calculate densities (for the following flux advection scheme)
       DO jk = 1, p_patch%nlev
         DO jc = i_startidx, i_endidx
-          phi_old(jc,jk,jb) = tracer(jc,jk,jb) * rho(jc,jk,jb)
+          phi_old(jc,jk) = tracer(jc,jk,jb) * rho(jc,jk,jb)
         ENDDO ! jc
       ENDDO ! jk
 
@@ -2284,9 +2284,9 @@ CONTAINS
           c = dt / ( 2.0_wp * dz );
           lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-          h = phi_old(jc,jk,jb) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk,jb) )
+          h = phi_old(jc,jk) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk) )
 
-          phi_new(jc,jk,jb) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
+          phi_new(jc,jk) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
         END DO ! jc
 
         DO jk=2, p_patch%nlev
@@ -2296,12 +2296,12 @@ CONTAINS
             c = dt / ( 2.0_wp * dz );
             lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-            h = phi_old(jc,jk,jb) + c *                      &
-              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1,jb)   &
-              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1,jb)   &
-              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  ,jb)  )
+            h = phi_old(jc,jk) + c *                      &
+              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1)   &
+              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1)   &
+              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  )  )
 
-            phi_new(jc,jk,jb) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
+            phi_new(jc,jk) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
 
           END DO ! jc
         END DO ! jk
@@ -2318,9 +2318,9 @@ CONTAINS
           c = dt / ( 2.0_wp * dz );
           lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-          h = phi_old(jc,jk,jb) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk,jb) )
+          h = phi_old(jc,jk) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk) )
 
-          phi_new(jc,jk,jb) = MAX( lambda_im * h, 0.0_wp)
+          phi_new(jc,jk) = MAX( lambda_im * h, 0.0_wp)
         END DO ! jc
 
         DO jk=2, p_patch%nlev
@@ -2330,12 +2330,12 @@ CONTAINS
             c = dt / ( 2.0_wp * dz );
             lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-            h = phi_old(jc,jk,jb) + c *                      &
-              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1,jb)   &
-              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1,jb)   &
-              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  ,jb)  )
+            h = phi_old(jc,jk) + c *                      &
+              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1)   &
+              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1)   &
+              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  )  )
 
-            phi_new(jc,jk,jb) = MAX( lambda_im * h, 0.0_wp)
+            phi_new(jc,jk) = MAX( lambda_im * h, 0.0_wp)
           END DO ! jc
         END DO ! jk
 
@@ -2344,7 +2344,7 @@ CONTAINS
       ! calculate back the specific mass:
       DO jk = 1, p_patch%nlev
         DO jc = i_startidx, i_endidx
-          tracer(jc,jk,jb) = phi_new(jc,jk,jb) * rho_inv(jc,jk,jb)
+          tracer(jc,jk,jb) = phi_new(jc,jk) * rho_inv(jc,jk,jb)
         ENDDO ! jc
       ENDDO ! jk
 

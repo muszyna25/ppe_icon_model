@@ -498,8 +498,13 @@ CONTAINS
                 generatingSubCenter = INT(cdiGribIterator_inqLongValue(gribIterator, "subCentre"))
                 instId = institutInq(generatingCenter, generatingSubcenter, '', '')
                 instName => institutInqNamePtr(instId) 
-                IF (TRIM(toCharacter(instName))=="DWD") THEN 
-                  metadata%experimentId = INT(cdiGribIterator_inqLongValue(gribIterator, "localNumberOfExperiment"))
+                !
+                ! Check if instName is associated as CDI returns a NULL pointer if the center is not found within
+                ! a CDI internal list (instituteDefaultEntries)
+                IF (ASSOCIATED(instName)) THEN
+                  IF (TRIM(toCharacter(instName))=="DWD") THEN 
+                    metadata%experimentId = INT(cdiGribIterator_inqLongValue(gribIterator, "localNumberOfExperiment"))
+                  ENDIF
                 ENDIF
                 CALL cdiGribIterator_delete(gribIterator)
             END IF

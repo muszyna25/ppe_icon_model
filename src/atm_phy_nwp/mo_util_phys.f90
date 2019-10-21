@@ -32,8 +32,10 @@ MODULE mo_util_phys
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
-    &                                 min_rlcell, dzsoil
-  USE mo_model_domain,          ONLY: t_patch
+    &                                 min_rlcell, dzsoil, grf_bdywidth_c
+  USE mo_impl_constants_grf,    ONLY: grf_bdyintp_start_c,  &
+    &                                 grf_ovlparea_start_c, grf_fbk_start_c
+  USE mo_model_domain,          ONLY: t_patch, p_patch_local_parent
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
@@ -61,11 +63,14 @@ MODULE mo_util_phys
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
   USE mo_upatmo_config,         ONLY: upatmo_config
+  USE mo_grf_intp_data_strc,    ONLY: p_grf_state, p_grf_state_local_parent
+  USE mo_communication,         ONLY: exchange_data
+  USE mo_grid_config,           ONLY: l_limited_area
+  USE mo_mpi,                   ONLY: get_my_mpi_work_id  ! only for debugging
 
   IMPLICIT NONE
 
   PRIVATE
-
 
 
   PUBLIC :: nwp_dyn_gust
@@ -79,10 +84,15 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: compute_field_omega
   PUBLIC :: compute_field_pv
+  PUBLIC :: compute_field_sdi
+  PUBLIC :: compute_field_lpi
   PUBLIC :: compute_field_smi
   PUBLIC :: iau_update_tracer
   PUBLIC :: tracer_add_phytend
   PUBLIC :: cal_cape_cin
+
+  !> module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_phys'
 
 CONTAINS
 
@@ -1002,6 +1012,745 @@ CONTAINS
   END SUBROUTINE compute_field_pv
 
 
+  !>
+  !! compute_field_sdi
+  !!
+  !! Description:
+  !!   calculation of the supercell detection indices (SDI1, SDI2)
+  !!
+  !! Method:
+  !!   defined in:
+  !!   Wicker L, J. Kain, S. Weiss and D. Bright, A Brief Description of the
+  !!          Supercell Detection Index, (available from
+  !!   http://www.spc.noaa.gov/exper/Spring_2005/SDI-docs.pdf)
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-05-13) 
+  !!
+  SUBROUTINE compute_field_sdi( ptr_patch, jg, ptr_patch_local_parent, p_int,    &
+                                p_metrics, p_prog, p_diag,                 &
+                                sdi_2 )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch           !< patch on which computation is performed
+    INTEGER,            INTENT(IN)    :: jg    ! domain ID of main grid
+    TYPE(t_patch), TARGET, INTENT(IN) :: ptr_patch_local_parent    !< parent grid for larger exchange halo
+    TYPE(t_int_state),  INTENT(IN)    :: p_int   ! for reduced grid
+
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+ 
+    REAL(wp),           INTENT(OUT)   :: sdi_2(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER  :: i_rlstart,  i_rlend
+    INTEGER  :: i_startblk, i_endblk
+    INTEGER  :: i_startidx, i_endidx
+
+    REAL(wp) :: z_min, z_max
+
+    REAL(wp) :: hsurf( nproma )
+    REAL(wp) :: delta_z
+    REAL(wp) :: vol( nproma )
+    REAL(wp) :: vol_inv
+    REAL(wp) :: area_norm
+
+    TYPE(t_patch),  POINTER  :: p_pp
+
+    REAL(wp) :: w_c
+
+    ! vertical averages:
+    REAL(wp) :: w_vmean        ( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: zeta_vmean     ( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: w_w_vmean      ( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: zeta_zeta_vmean( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: w_zeta_vmean   ( nproma, ptr_patch%nblks_c)
+
+    ! volume averages:
+    REAL(wp) :: w_mean        ( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: zeta_mean     ( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: w_w_mean      ( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: zeta_zeta_mean( nproma, ptr_patch%nblks_c)
+    REAL(wp) :: w_zeta_mean   ( nproma, ptr_patch%nblks_c)
+
+    INTEGER, PARAMETER :: idx_w         = 1
+    INTEGER, PARAMETER :: idx_zeta      = 2
+    INTEGER, PARAMETER :: idx_w_w       = 3
+    INTEGER, PARAMETER :: idx_zeta_zeta = 4
+    INTEGER, PARAMETER :: idx_w_zeta    = 5
+
+    ! the corresponding fields on the parent grid:
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: p_vmean  ! vertical means on the parent grid
+    REAL(wp) :: p_mean( nproma, 5)                      ! means on the parent grid
+
+    REAL(wp) :: w2_mean
+    REAL(wp) :: zeta2_mean
+    REAL(wp) :: helic_mean
+    REAL(wp) :: helic_w_corr
+
+    INTEGER :: jb, jc, jk
+    INTEGER :: jb2, jc2
+    INTEGER :: i, l, idx
+    INTEGER :: ist
+    INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
+
+    REAL(wp), POINTER :: p_fbkwgt(:,:,:)
+
+    INTEGER :: nblks_c_lp
+
+    REAL(wp) :: EPS = 1.0E-20_wp
+
+    ! definition of the vertical integration limits:
+    z_min = 1500.0  ! in m
+    z_max = 5500.0  ! in m
+
+    ! --- to prevent errors at the boundaries, set output field(s) to 0:
+
+    i_rlstart = 1
+    i_rlend   = grf_bdywidth_c
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,           &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        !sdi_1   ( jc, jb ) = 0.0_wp
+        sdi_2 ( jc, jb ) = 0.0_wp
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+    ! --- calculate vertical averages ---
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,delta_z,vol,vol_inv,hsurf,w_c) ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+      DO jc = i_startidx, i_endidx
+
+        w_vmean        (jc,jb) = 0.0_wp
+        zeta_vmean     (jc,jb) = 0.0_wp
+        w_w_vmean      (jc,jb) = 0.0_wp
+        zeta_zeta_vmean(jc,jb) = 0.0_wp
+        w_zeta_vmean   (jc,jb) = 0.0_wp
+
+        vol  (jc) = 0.0_wp
+        hsurf(jc) = p_metrics%z_ifc(jc,ptr_patch%nlev+1,jb)
+      END DO
+
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF ( ( p_metrics%z_ifc(jc,jk+1,jb) >= hsurf(jc) + z_min ) .AND.      &
+            &  ( p_metrics%z_ifc(jc,jk  ,jb) <= hsurf(jc) + z_max ) ) THEN
+            ! integrate only between z_min and z_max
+
+            delta_z = p_metrics%z_ifc(jc,jk,jb) - p_metrics%z_ifc(jc,jk+1,jb)
+
+            w_c = 0.5_wp * ( p_prog%w(jc,jk  ,jb)    &
+              &            + p_prog%w(jc,jk+1,jb) )
+
+            w_vmean        (jc,jb) = w_vmean        (jc,jb) + delta_z * w_c
+            zeta_vmean     (jc,jb) = zeta_vmean     (jc,jb) + delta_z * p_diag%vor(jc,jk,jb)
+            w_w_vmean      (jc,jb) = w_w_vmean      (jc,jb) + delta_z * w_c * w_c
+            zeta_zeta_vmean(jc,jb) = zeta_zeta_vmean(jc,jb) + delta_z * p_diag%vor(jc,jk,jb) * p_diag%vor(jc,jk,jb)
+            w_zeta_vmean   (jc,jb) = w_zeta_vmean   (jc,jb) + delta_z * w_c * p_diag%vor(jc,jk,jb) 
+
+            vol(jc) = vol(jc) + delta_z
+          END IF
+
+        END DO
+      END DO
+
+      DO jc = i_startidx, i_endidx
+        vol_inv = 1.0_wp / vol(jc)
+        w_vmean        (jc,jb) = w_vmean        (jc,jb) * vol_inv
+        zeta_vmean     (jc,jb) = zeta_vmean     (jc,jb) * vol_inv
+        w_w_vmean      (jc,jb) = w_w_vmean      (jc,jb) * vol_inv
+        zeta_zeta_vmean(jc,jb) = zeta_zeta_vmean(jc,jb) * vol_inv
+        w_zeta_vmean   (jc,jb) = w_zeta_vmean   (jc,jb) * vol_inv
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+    ! --- average these values to the parent grid cells
+    !
+    !     motivation: enhance the horiz. averaging area, which is otherwise 
+    !     too strongly limited by the limited halo of the domain decomposition.
+
+    p_pp => ptr_patch_local_parent
+
+    p_fbkwgt => p_grf_state_local_parent(jg)%fbk_wgt_bln
+
+    ! Set pointers to index and coefficient fields for cell-based variables
+    iidx => p_pp%cells%child_idx
+    iblk => p_pp%cells%child_blk
+
+    nblks_c_lp = p_pp%cells%end_block( min_rlcell )
+
+    ALLOCATE( p_vmean ( nproma, 5, nblks_c_lp), STAT=ist )
+    IF ( ist /= 0 ) THEN
+      CALL finish( modname//':compute_field_sdi', "allocate failed" )
+    END IF
+
+    ! first nullify all lateral grid points
+
+    ! Start/End block in the parent domain
+    IF (jg == 1 .AND. l_limited_area) THEN
+      i_rlstart = grf_bdyintp_start_c
+    ELSE
+      i_rlstart = grf_ovlparea_start_c
+    ENDIF
+    i_rlend   = grf_fbk_start_c + 1
+
+    i_startblk = p_pp%cells%start_block( i_rlstart )
+    i_endblk   = p_pp%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,idx,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( p_pp, jb, i_startblk, i_endblk,           &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO idx=1, 5
+        DO jc = i_startidx, i_endidx
+          p_vmean ( jc, idx, jb ) = 0.0_wp
+        END DO
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    
+    ! Start/End block in the parent domain
+    IF (jg == 1 .AND. l_limited_area) THEN
+      i_rlstart = grf_fbk_start_c
+    ELSE
+      i_rlstart = grf_ovlparea_start_c
+    ENDIF
+    i_rlend   = min_rlcell_int
+
+    i_startblk = p_pp%cells%start_block( i_rlstart )
+    i_endblk   = p_pp%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( p_pp, jb, i_startblk, i_endblk,           &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+
+        p_vmean(jc, idx_w, jb) =                                                 &
+            w_vmean        ( iidx(jc,jb,1), iblk(jc,jb,1) ) * p_fbkwgt(jc,jb,1)  &
+          + w_vmean        ( iidx(jc,jb,2), iblk(jc,jb,2) ) * p_fbkwgt(jc,jb,2)  &
+          + w_vmean        ( iidx(jc,jb,3), iblk(jc,jb,3) ) * p_fbkwgt(jc,jb,3)  &
+          + w_vmean        ( iidx(jc,jb,4), iblk(jc,jb,4) ) * p_fbkwgt(jc,jb,4)
+
+        p_vmean(jc, idx_zeta, jb) =                                              &
+            zeta_vmean     ( iidx(jc,jb,1), iblk(jc,jb,1) ) * p_fbkwgt(jc,jb,1)  &
+          + zeta_vmean     ( iidx(jc,jb,2), iblk(jc,jb,2) ) * p_fbkwgt(jc,jb,2)  &
+          + zeta_vmean     ( iidx(jc,jb,3), iblk(jc,jb,3) ) * p_fbkwgt(jc,jb,3)  &
+          + zeta_vmean     ( iidx(jc,jb,4), iblk(jc,jb,4) ) * p_fbkwgt(jc,jb,4)
+
+        p_vmean(jc, idx_w_w, jb) =                                               &
+            w_w_vmean      ( iidx(jc,jb,1), iblk(jc,jb,1) ) * p_fbkwgt(jc,jb,1)  &
+          + w_w_vmean      ( iidx(jc,jb,2), iblk(jc,jb,2) ) * p_fbkwgt(jc,jb,2)  &
+          + w_w_vmean      ( iidx(jc,jb,3), iblk(jc,jb,3) ) * p_fbkwgt(jc,jb,3)  &
+          + w_w_vmean      ( iidx(jc,jb,4), iblk(jc,jb,4) ) * p_fbkwgt(jc,jb,4)
+
+        p_vmean(jc, idx_zeta_zeta, jb) =                                         &
+            zeta_zeta_vmean( iidx(jc,jb,1), iblk(jc,jb,1) ) * p_fbkwgt(jc,jb,1)  &
+          + zeta_zeta_vmean( iidx(jc,jb,2), iblk(jc,jb,2) ) * p_fbkwgt(jc,jb,2)  &
+          + zeta_zeta_vmean( iidx(jc,jb,3), iblk(jc,jb,3) ) * p_fbkwgt(jc,jb,3)  &
+          + zeta_zeta_vmean( iidx(jc,jb,4), iblk(jc,jb,4) ) * p_fbkwgt(jc,jb,4)
+
+        p_vmean(jc, idx_w_zeta, jb) =                                            &
+            w_zeta_vmean   ( iidx(jc,jb,1), iblk(jc,jb,1) ) * p_fbkwgt(jc,jb,1)  &
+          + w_zeta_vmean   ( iidx(jc,jb,2), iblk(jc,jb,2) ) * p_fbkwgt(jc,jb,2)  &
+          + w_zeta_vmean   ( iidx(jc,jb,3), iblk(jc,jb,3) ) * p_fbkwgt(jc,jb,3)  &
+          + w_zeta_vmean   ( iidx(jc,jb,4), iblk(jc,jb,4) ) * p_fbkwgt(jc,jb,4)
+
+       END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ! --- Exchange of these fields on the parent grid
+
+    CALL exchange_data( p_pp%comm_pat_c, recv=p_vmean )
+
+    ! --- Average over the neighbouring parent grid cells
+
+    ! consistency check
+    IF ( p_int%cell_environ%max_nmbr_iter /= 1 ) THEN
+      CALL finish( modname//':compute_field_sdi', "cell_environ is not built with the right number of iterations" )
+    END IF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,p_mean,  &
+!$OMP            l,jc2,jb2,area_norm,i) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( p_pp, jb, i_startblk, i_endblk,             &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        p_mean( jc, 1:5 ) = 0.0_wp
+      END DO
+
+      DO l=1, p_int%cell_environ%max_nmbr_nghbr_cells
+        DO jc = i_startidx, i_endidx
+
+          jc2       = p_int%cell_environ%idx      ( jc, jb, l)
+          jb2       = p_int%cell_environ%blk      ( jc, jb, l)
+          area_norm = p_int%cell_environ%area_norm( jc, jb, l)
+
+          p_mean( jc, idx_w        ) = p_mean( jc, idx_w        ) + area_norm * p_vmean( jc2, idx_w,         jb2)
+          p_mean( jc, idx_zeta     ) = p_mean( jc, idx_zeta     ) + area_norm * p_vmean( jc2, idx_zeta,      jb2)
+          p_mean( jc, idx_w_w      ) = p_mean( jc, idx_w_w      ) + area_norm * p_vmean( jc2, idx_w_w,       jb2)
+          p_mean( jc, idx_zeta_zeta) = p_mean( jc, idx_zeta_zeta) + area_norm * p_vmean( jc2, idx_zeta_zeta, jb2)
+          p_mean( jc, idx_w_zeta   ) = p_mean( jc, idx_w_zeta   ) + area_norm * p_vmean( jc2, idx_w_zeta,    jb2)
+
+        END DO
+      END DO
+
+      ! write back to the 4 child grid cells:
+      DO i = 1, 4
+        DO jc = i_startidx, i_endidx
+          w_mean        ( iidx(jc,jb,i), iblk(jc,jb,i) ) = p_mean( jc, idx_w )
+          zeta_mean     ( iidx(jc,jb,i), iblk(jc,jb,i) ) = p_mean( jc, idx_zeta )
+          w_w_mean      ( iidx(jc,jb,i), iblk(jc,jb,i) ) = p_mean( jc, idx_w_w )
+          zeta_zeta_mean( iidx(jc,jb,i), iblk(jc,jb,i) ) = p_mean( jc, idx_zeta_zeta )
+          w_zeta_mean   ( iidx(jc,jb,i), iblk(jc,jb,i) ) = p_mean( jc, idx_w_zeta )
+        END DO
+      END DO
+
+    END DO
+!$OMP END PARALLEL
+
+    DEALLOCATE( p_vmean, STAT=ist ) 
+    IF ( ist /= 0 ) THEN
+      CALL finish( modname//':compute_field_sdi', "deallocate failed" )
+    END IF
+
+    ! --- calculate SDI_1, SDI_2 (now again on the child-grid)
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,helic_mean,w2_mean,zeta2_mean,helic_w_corr) ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,      &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+      DO jc = i_startidx, i_endidx
+
+        helic_mean  = w_zeta_mean(jc,jb)    - w_mean(jc,jb) * zeta_mean(jc,jb)
+        zeta2_mean  = zeta_zeta_mean(jc,jb) - zeta_mean(jc,jb) * zeta_mean(jc,jb)
+        w2_mean     = w_w_mean(jc,jb)       - w_mean(jc,jb) * w_mean(jc,jb)
+
+        IF ( ( w2_mean > EPS ) .AND. ( zeta2_mean > EPS ) ) THEN
+
+          helic_w_corr = helic_mean / SQRT( w2_mean * zeta2_mean )
+
+          !sdi_1(jc,jb) = helic_w_corr * zeta_vmean(jc,jb)
+
+          IF ( w_vmean(jc,jb) > 0.0_wp ) THEN
+            sdi_2(jc,jb) = helic_w_corr * ABS( zeta_vmean(jc,jb) )
+          ELSE
+            sdi_2(jc,jb) = 0.0_wp
+          END IF
+
+        ELSE
+         !sdi_1(jc,jb) = 0.0_wp
+          sdi_2(jc,jb) = 0.0_wp
+        END IF
+
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_sdi
+
+
+  !>
+  !! Calculate the Lightning Potential Index (LPI)
+  !!
+  !! Literature
+  !!       - B. Lynn, Y. Yair, 2010: Prediction of lightning flash density with the WRF model,
+  !!           Adv. Geosci., 23, 11-16
+  !! adapted from the COSMO-implementation by Uli Blahak.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-05-27) 
+  !!
+
+  SUBROUTINE compute_field_LPI( ptr_patch, jg, ptr_patch_local_parent, p_int,   &
+                                p_metrics, p_prog, p_diag,                &
+                                lpi )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    INTEGER,            INTENT(IN)    :: jg                ! domain ID of main grid
+    TYPE(t_patch), TARGET, INTENT(IN) :: ptr_patch_local_parent  !< parent grid for larger exchange halo
+    TYPE(t_int_state),  INTENT(IN)    :: p_int
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp),           INTENT(OUT)   :: lpi(:,:)          !< output variable, dim: (nproma,nblks_c)
+
+    TYPE(t_patch),  POINTER  :: p_pp
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+
+    REAL(wp) :: delta_z
+    REAL(wp) :: q_liqu, q_solid, epsw
+    REAL(wp) :: lpi_incr
+    REAL(wp) :: w_c
+    REAL(wp) :: Tmelt_m_20K
+
+    REAL(wp) :: w_updraft_crit
+    REAL(wp) :: qg_low_limit, qg_upp_limit, qg_scale_inv
+    REAL(wp) :: w_thresh, w_frac_tresh
+
+    REAL(wp) :: vol( nproma )
+
+    INTEGER :: jc, jk, jb
+    INTEGER :: jc2, jb2
+    INTEGER :: l, i
+    INTEGER :: ist
+
+    INTEGER :: nmbr_w  ( nproma, ptr_patch%nblks_c )
+    !INTEGER :: nmbr_all( nproma, ptr_patch%nblks_c )  ! only necessary for 'variant 1 of updraft in environment crit.'
+
+    INTEGER, ALLOCATABLE :: p_nmbr_w(:,:)
+    INTEGER  :: p_nmbr_w_sum  (nproma)
+    INTEGER  :: p_nmbr_all_sum(nproma)
+    REAL(wp) :: p_frac_w      (nproma)
+
+    REAL(wp) :: frac_w( nproma, ptr_patch%nblks_c )
+
+    INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
+    INTEGER :: nblks_c_lp
+
+
+    SELECT CASE ( atm_phy_nwp_config(jg)%inwp_gscp )
+    CASE ( 2, 4 )   ! 2=graupel scheme, 4=two-moment-scheme (with graupel)
+      ! (ok; graupel is available)
+    CASE DEFAULT
+      CALL finish( modname//'compute_field_LPI',  &
+        &     "no graupel available! Either switch off LPI output or change the microphysics scheme" )
+    END SELECT
+
+    Tmelt_m_20K = Tmelt - 20.0_wp
+
+    ! --- Thresholds, limits, ... for several criteria: ---
+
+    ! for the 'updraft criterion' in the LPI integral:
+    w_updraft_crit = 0.5_wp  ! in m/s; threshold for w
+
+    ! for the 'Graupel-criterion' in the LPI integral:
+    qg_low_limit = 0.0002_wp  ! in kg/kg; lower limit for the 'Graupel-criterion'
+    qg_upp_limit = 0.001_wp   ! in kg/kg; upper limit for the 'Graupel-criterion'
+
+    qg_scale_inv = 1.0_wp / ( qg_upp_limit - qg_low_limit )
+
+    ! for the 'updraft in environment'-criterion:
+    w_thresh = 0.5_wp  ! in m/s; threshold for w
+                       ! see Lynn, Yair (2010)
+                       ! however, Uli Blahak determined 1.1 m/s for COSMO
+
+    w_frac_tresh = 0.5_wp   ! in 100%; threshold for the fraction of points with 'w>w_thresh'
+                            ! to identify growing thunderstorms
+                            ! Lynn, Yair (2010) propose 0.5 (however, the whole criterion is unclear)
+
+
+
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+    ! nullify every grid point (lateral boundary, too)
+    lpi(:,:) = 0.0_wp
+
+    ! --- calculation of the LPI integral ---
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,vol,delta_z,w_c,q_liqu,q_solid,epsw,lpi_incr), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        vol     (jc)     = 0.0_wp
+        nmbr_w  (jc, jb) = 0
+       !nmbr_all(jc, jb) = 0  ! only necessary for 'variant 1 of updraft in environment crit.'
+      END DO
+
+      DO jk = kstart_moist(jg), ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF (      (p_diag%temp(jc,jk,jb) <= Tmelt)     &
+              .AND. (p_diag%temp(jc,jk,jb) >= Tmelt_m_20K) ) THEN
+
+            delta_z = p_metrics%ddqz_z_full(jc,jk,jb)
+            w_c     = 0.5_wp * ( p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb) )
+
+            q_liqu  = p_prog%tracer(jc,jk,jb,iqc)   &
+                    + p_prog%tracer(jc,jk,jb,iqr)
+
+            q_solid =    p_prog%tracer(jc,jk,jb,iqg) *                                              &
+              &  ( SQRT( p_prog%tracer(jc,jk,jb,iqi) * p_prog%tracer(jc,jk,jb,iqg) )                &
+              &   / MAX( p_prog%tracer(jc,jk,jb,iqi) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) +   &
+              &    SQRT( p_prog%tracer(jc,jk,jb,iqs) * p_prog%tracer(jc,jk,jb,iqg) )                &
+              &   / MAX( p_prog%tracer(jc,jk,jb,iqs) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) )
+
+            epsw = 2.0_wp * SQRT( q_liqu * q_solid ) / MAX( q_liqu + q_solid, 1.0e-20_wp)
+
+            ! 'updraft-criterion' in the LPI interal
+            IF ( w_c >= w_updraft_crit ) THEN
+              ! only (strong enough) updrafts should be counted, no downdrafts
+              lpi_incr = w_c * w_c * epsw * delta_z
+
+              ! additional 'Graupel-criterion' in the LPI integral
+              lpi_incr = lpi_incr * MAX( MIN( (p_prog%tracer(jc,jk,jb,iqg) -qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
+
+            ELSE
+              lpi_incr = 0.0_wp
+            END IF
+
+            lpi(jc,jb) = lpi(jc,jb) + lpi_incr
+            vol(jc)    = vol(jc)    + delta_z
+
+            ! sum up for the later test on growth of thunderstorm ('updraft in environment crit.'):
+
+            ! 'variant 1 of updraft in environment crit.' (3D-criterion, MB)
+            !IF (w_c >= w_thresh) THEN
+            !  nmbr_w(jc,jb) = nmbr_w(jc,jb) + 1
+            !END IF
+            !nmbr_all(jc,jb) = nmbr_all(jc,jb) + 1
+
+            ! 'variant 2 of updraft in environment crit.' (2D-criterion, UB)
+            IF (w_c >= w_thresh) THEN
+              nmbr_w(jc,jb) = 1
+            END IF
+
+          END IF
+
+        END DO
+      END DO
+
+      ! normalization
+      DO jc = i_startidx, i_endidx
+        lpi(jc,jb) = lpi(jc,jb) / vol(jc)
+      END DO
+
+    END DO
+!$OMP END PARALLEL
+
+
+    ! --- 'updraft in environment criterion' ---
+
+
+    ! spatial filtering, i.e. 
+    ! test for growth phase of the thunderstorm
+    ! (remark: currently only 'variant 2' (2D-criterion) is implemented here)
+
+    ! --- average nmbr_w to the parent grid cells
+
+    p_pp => ptr_patch_local_parent
+
+    ! Set pointers to index and coefficient fields for cell-based variables
+    iidx => p_pp%cells%child_idx
+    iblk => p_pp%cells%child_blk
+
+    nblks_c_lp = p_pp%cells%end_block( min_rlcell )
+
+    ALLOCATE( p_nmbr_w ( nproma, nblks_c_lp), STAT=ist )
+    IF ( ist /= 0 ) THEN
+      CALL finish( modname//':compute_field_lpi', "allocate failed" )
+    END IF
+
+    ! first nullify all lateral grid points
+
+    ! Start/End block in the parent domain
+    IF (jg == 1 .AND. l_limited_area) THEN
+      i_rlstart = grf_bdyintp_start_c
+    ELSE
+      i_rlstart = grf_ovlparea_start_c
+    ENDIF
+    i_rlend   = grf_fbk_start_c + 1
+
+    i_startblk = p_pp%cells%start_block( i_rlstart )
+    i_endblk   = p_pp%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( p_pp, jb, i_startblk, i_endblk,           &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        p_nmbr_w( jc, jb) = 0.0_wp
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+    ! Start/End block in the parent domain
+    IF (jg == 1 .AND. l_limited_area) THEN
+      i_rlstart = grf_fbk_start_c
+    ELSE
+      i_rlstart = grf_ovlparea_start_c
+    ENDIF
+    i_rlend   = min_rlcell_int
+
+    i_startblk = p_pp%cells%start_block( i_rlstart )
+    i_endblk   = p_pp%cells%end_block  ( i_rlend   )
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( p_pp, jb, i_startblk, i_endblk,           &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        p_nmbr_w(jc, jb) =                            &
+              nmbr_w( iidx(jc,jb,1), iblk(jc,jb,1) )  &
+            + nmbr_w( iidx(jc,jb,2), iblk(jc,jb,2) )  &
+            + nmbr_w( iidx(jc,jb,3), iblk(jc,jb,3) )  &
+            + nmbr_w( iidx(jc,jb,4), iblk(jc,jb,4) ) 
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ! --- Exchange of these fields on the parent grid
+    CALL exchange_data( p_pp%comm_pat_c, recv=p_nmbr_w )
+
+    ! --- Average over the neighbouring parent grid cells
+
+    ! consistency check
+    IF ( p_int%cell_environ%max_nmbr_iter /= 1 ) THEN
+      CALL finish( modname//':compute_field_lpi', "cell_environ is not built with the right number of iterations" )
+    END IF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,  &
+!$OMP            p_nmbr_w_sum, p_nmbr_all_sum,  &
+!$OMP            l,jc2,jb2,p_frac_w,i) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( p_pp, jb, i_startblk, i_endblk,           &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        p_nmbr_w_sum  (jc)  = 0
+        p_nmbr_all_sum(jc) = 0
+      END DO
+
+      DO l=1, p_int%cell_environ%max_nmbr_nghbr_cells
+        DO jc = i_startidx, i_endidx
+
+          jc2 = p_int%cell_environ%idx( jc, jb, l)
+          jb2 = p_int%cell_environ%blk( jc, jb, l)
+
+          IF ( p_int%cell_environ%area_norm( jc, jb, l) > 1.0e-7_wp ) THEN
+            p_nmbr_w_sum  (jc) = p_nmbr_w_sum  (jc) + p_nmbr_w(jc2, jb2)
+            p_nmbr_all_sum(jc) = p_nmbr_all_sum(jc) + 4
+          END IF
+        END DO
+      END DO
+
+      DO jc = i_startidx, i_endidx
+        p_frac_w(jc) = DBLE( p_nmbr_w_sum(jc) ) / DBLE( p_nmbr_all_sum(jc) )
+      END DO
+
+      ! write back to the 4 child grid cells:
+      DO i = 1, 4
+        DO jc = i_startidx, i_endidx
+          frac_w( iidx(jc,jb,i), iblk(jc,jb,i) ) = p_frac_w(jc)
+        END DO
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    DEALLOCATE( p_nmbr_w, STAT=ist )
+    IF ( ist /= 0 ) THEN
+      CALL finish( modname//':compute_field_lpi', "deallocate failed" )
+    END IF
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+      DO jc = i_startidx, i_endidx
+        ! finally, this is the 'updraft in environment criterion':
+        IF ( frac_w(jc,jb) < w_frac_tresh ) THEN
+          lpi(jc, jb) = 0.0_wp
+        END IF
+
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_LPI
 
 
   !
@@ -1640,7 +2389,7 @@ CONTAINS
     REAL(wp)             :: fthetae ! Equivalent potential temperature [K]
 
 !   fthetae = (p0/zpx)**rd_o_cpd *ztx*exp( alvdcp*zrx/ztx)  
-    fthetae = (p0/zpx)**rd_o_cpd *ztx*exp( alvdcp*zqx/(ztx*(1._wp-zqx)) )
+    fthetae = (p0/zpx)**rd_o_cpd *ztx*EXP( alvdcp*zqx/(ztx*(1._wp-zqx)) )
 
   END FUNCTION fthetae
 

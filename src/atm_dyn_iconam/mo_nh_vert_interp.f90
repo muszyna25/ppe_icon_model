@@ -32,13 +32,14 @@ MODULE mo_nh_vert_interp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv, dtdz_standardatm, p0sl_bg
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_run_config,          ONLY: num_lev
+  USE mo_run_config,          ONLY: num_lev, ntracer
   USE mo_io_config,           ONLY: itype_pres_msl
   USE mo_impl_constants,      ONLY: PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_DWD, &
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_ICONVREMAP, SUCCESS
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode, lread_vn, lvert_remap_fg
   USE mo_initicon_types,      ONLY: t_init_state, t_initicon_state
+  USE mo_fortran_tools,       ONLY: init
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, adjust_w, convert_thdvars
   USE mo_util_phys,           ONLY: virtual_temp, vap_pres
@@ -227,7 +228,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = 'vert_interp'
 
     INTEGER :: jg
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev, nlevp1, idx
     INTEGER :: nlev_in         ! number of vertical levels in source vgrid 
     LOGICAL :: lc2f, l_use_vn, latbcmode, lfill
 
@@ -370,7 +371,7 @@ CONTAINS
                             coef1, coef2, coef3, idx0_cub, bot_idx_cub)
 
     ! (Initialize upper-atmosphere extrapolation type.
-    ! Note: not intendet for the limited-area mode.)
+    ! Note: not intended for the limited-area mode.)
     lexpol = upatmo_config(jg)%exp%l_expol .AND. (.NOT. latbcmode)
     IF (lexpol) CALL expol%initialize(p_patch)
 
@@ -497,6 +498,27 @@ CONTAINS
                   wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1,      &
                   wfacpbl2, kpbl2, l_loglin=.FALSE., l_extrapol=.FALSE., &
                   l_pd_limit=.TRUE.)
+
+    ! ... additional tracer variables
+    DO idx=1, ntracer
+      IF ( ASSOCIATED(initicon%atm_in%tracer(idx)%field) ) THEN
+        IF ( .NOT. latbcmode ) THEN
+          ! allocate target array for vertical interpolation
+          ALLOCATE(initicon%atm%tracer(idx)%field(nproma,nlev,p_patch%nblks_c))
+!$OMP PARALLEL
+          CALL init(initicon%atm%tracer(idx)%field(:,:,:))   !_jf: necessary?
+!$OMP END PARALLEL
+          ! set pointer to var_element of atm_in
+          initicon%atm%tracer(idx)%var_element => initicon%atm_in%tracer(idx)%var_element
+        ENDIF
+        ! do vertical interpolation
+        CALL lin_intp(initicon%atm_in%tracer(idx)%field, initicon%atm%tracer(idx)%field, &
+                      p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,                  &
+                      wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1,                  &
+                      wfacpbl2, kpbl2, l_loglin=.FALSE., l_extrapol=.FALSE.,             &
+                      l_pd_limit=.TRUE.)
+      ENDIF
+    ENDDO
 
     ! (Extrapolate water phases, except for water vapour 'qv', to upper atmosphere.
     ! Note: this is only done for subroutine-internal use, 
