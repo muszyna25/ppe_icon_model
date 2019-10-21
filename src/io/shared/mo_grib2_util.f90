@@ -17,7 +17,7 @@
 MODULE mo_grib2_util
 
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
-  USE mo_exception,          ONLY: finish, message, message_text
+  USE mo_exception,          ONLY: finish
   USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarTypeOfGeneratingProcess,  &
                                  & vlistInqVarTsteptype, vlistInqTaxis, taxisInqTunit,  &
                                  & TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,   &
@@ -43,7 +43,7 @@ MODULE mo_grib2_util
     &                              deallocateTimedelta, deallocateDatetime, &
     &                              MAX_DATETIME_STR_LEN,                    &
     &                              MAX_DATETIME_STR_LEN,                    &
-    &                              OPERATOR(-)
+    &                              OPERATOR(-), getTotalSecondsTimeDelta 
 
   IMPLICIT NONE
 
@@ -431,7 +431,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Set additional, time-dependent GRIB2 keys
   !!  
-  !!  This subroutine sets all GRIB2 keys that may change during the
+  !!  This subroutine sets GRIB2 keys that may change during the
   !!  simulation. Currently this is the case for the start and end time 
   !!  of the statistical process interval.
   !!
@@ -449,13 +449,11 @@ CONTAINS
   !!  @author D. Reinert, F. Prill (DWD)
   !!
   !!  CAVEATs
-  !!
   !!  - we implicitly assume that actions are ordered according to increasing forecast time.
-  !!  - we implicitly assume that the statistical process time range is always smaller than one month
   !!
   SUBROUTINE set_GRIB2_timedep_keys(streamID, varID, info, start_date, cur_date)
     INTEGER                             ,INTENT(IN) :: streamID, varID
-    TYPE (t_var_metadata)               ,INTENT(IN) :: info
+    TYPE (t_var_metadata), TARGET       ,INTENT(IN) :: info
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) ,INTENT(IN) :: start_date, cur_date
     ! local variables
     TYPE(timedelta), POINTER      :: mtime_lengthOfTimeRange       ! length of time range (mtime format)
@@ -468,7 +466,7 @@ CONTAINS
     INTEGER                       :: forecast_time                 ! forecast time in appropriate time units
     TYPE(datetime),  POINTER      :: mtime_start                   ! model start (initialization) time
     TYPE(datetime),  POINTER      :: mtime_cur                     ! model current time (rounded)
-    TYPE(datetime)                :: statProc_startDateTime        ! statistical process starting DateTime
+    TYPE(datetime),  POINTER      :: statProc_startDateTime        ! statistical process starting DateTime
     INTEGER                       :: var_actionId                  ! action from which metainfo is used
     CHARACTER(len=*), PARAMETER   :: routine = 'set_GRIB2_timedep_keys'
 
@@ -476,6 +474,7 @@ CONTAINS
     ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
     ! performed over the entire model run but over only some intervals.
     CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
+
 
     !---------------------------------------------------------
     ! Set time-dependent metainfo
@@ -487,6 +486,19 @@ CONTAINS
     IF ((ALL((/TSTEP_MAX, TSTEP_MIN/) /= info%isteptype)) .AND. &
       & (one_of(TRIM(info%name),ana_avg_vars) == -1) ) RETURN
 
+    ! DR
+    ! less cumbersome solution, which does no longer skip variables of type 
+    ! TSTEP_AVG, TSTEP_ACCUM. By this, the manual list ana_avg_vars becomes superfluous.
+    !
+    ! This version differs from the current version (see above) by the fact that 
+    ! forecastTime and lengthOfTimeRange are set for ALL statistically processed variables 
+    ! and not only for those of type TSTEP_MAX, TSTEP_MIN and members of the list ana_avg_vars.
+    !
+    ! First tests showed that metadata for variables of type TSTEP_AVG, TSTEP_ACCUM are 
+    ! still correct. Putting it the other way around: It is not clear 
+    ! to me why with the currently active version the keys forecastTime and lengthOfTimeRange are 
+    ! set correctly for variables of type TSTEP_AVG, TSTEP_ACCUM.
+    !IF ((ALL((/TSTEP_MAX, TSTEP_MIN, TSTEP_AVG, TSTEP_ACCUM/) /= info%isteptype))) RETURN
 
     ! get vlistID. Note that the stream-internal vlistID must be used. 
     ! It is obtained via streamInqVlist(streamID)
@@ -513,29 +525,27 @@ CONTAINS
 
       ! get latest (intended) triggering time, which is equivalent to 
       ! the statistical process starting time
-      statProc_startDateTime = info%action_list%action(var_actionId)%EventLastTriggerDate
+      statProc_startDateTime => info%action_list%action(var_actionId)%EventLastTriggerDate
 
-
-      ! get time interval, over which statistical process has been performed
-      ! It is the time difference between the current time (rounded) mtime_cur and 
-      ! the last time the nullify-action took place (rounded) statProc_startDateTime.
-      mtime_lengthOfTimeRange  => newTimedelta("P01D")  ! init
-      !
-      ! mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-      mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
-
-      ! time interval over which statistical process has been performed (in secs)    
-      ilengthOfTimeRange_secs = 86400 *INT(mtime_lengthOfTimeRange%day)    &
-           &                  + 3600  *INT(mtime_lengthOfTimeRange%hour)   &
-           &                  + 60    *INT(mtime_lengthOfTimeRange%minute) &
-           &                  +        INT(mtime_lengthOfTimeRange%second) 
-           
-
-      ! cleanup
-      CALL deallocateTimedelta(mtime_lengthOfTimeRange)
     ELSE
-      ilengthOfTimeRange_secs = 0
-    END IF
+      ! If there is no RESET action available, it is assumed that the 
+      ! statistical process start time is equal to the model start time
+      statProc_startDateTime => mtime_start
+    ENDIF
+
+
+    ! get time interval, over which statistical process has been performed
+    ! It is the time difference between the current time (rounded) mtime_cur and 
+    ! the last time the nullify-action took place (rounded) statProc_startDateTime.
+    mtime_lengthOfTimeRange  => newTimedelta("P01D")
+    !
+    ! mtime_lengthOfTimeRange = current time - statistical process start time
+    mtime_lengthOfTimeRange = mtime_cur - statProc_startDateTime
+
+    ! time interval over which statistical process has been performed (in secs)    
+    ilengthOfTimeRange_secs = INT(getTotalSecondsTimeDelta(mtime_lengthOfTimeRange, &
+      &                                                statProc_startDateTime)      &
+      &                           )
 
 
     ! get forecast_time: forecast_time = statProc_startDateTime - model_startDateTime
@@ -545,10 +555,7 @@ CONTAINS
     forecast_delta = statProc_startDateTime - mtime_start
 
     ! forecast time in seconds
-    forecast_secs =    forecast_delta%second    +   &
-      &             60*(forecast_delta%minute   +   & 
-      &                 60*(forecast_delta%hour +   &
-      &                       24*forecast_delta%day))
+    forecast_secs = INT(getTotalSecondsTimeDelta(forecast_delta, mtime_start))
 
 
     SELECT CASE (taxis_tunit)
@@ -578,7 +585,9 @@ CONTAINS
     ! cleanup
     CALL deallocateDatetime(mtime_start)
     CALL deallocateDatetime(mtime_cur)
+    CALL deallocateTimedelta(mtime_lengthOfTimeRange)
     CALL deallocateTimedelta(forecast_delta)
+    NULLIFY(statProc_startDateTime)
 
   END SUBROUTINE set_GRIB2_timedep_keys
 
