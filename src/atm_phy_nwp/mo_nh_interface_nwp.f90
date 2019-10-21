@@ -1834,14 +1834,16 @@ CONTAINS
                         & pt_diag,                       & !inout
                         & prm_diag                       ) !inout
 
-    ! Call the ART diagnostics
-    CALL art_diagnostics_interface(pt_patch,               &
-      &                            pt_prog%rho,            &
-      &                            pt_diag%pres,           &
-      &                            pt_prog_now_rcf%tracer, &
-      &                            p_metrics%ddqz_z_full,  &
-      &                            p_metrics%z_mc, jg,     &
-      &                            dt_phy_jg, p_sim_time)
+    IF (lart) THEN
+      ! Call the ART diagnostics
+      CALL art_diagnostics_interface(pt_patch,               &
+        &                            pt_prog%rho,            &
+        &                            pt_diag%pres,           &
+        &                            pt_prog_now_rcf%tracer, &
+        &                            p_metrics%ddqz_z_full,  &
+        &                            p_metrics%z_mc, jg,     &
+        &                            dt_phy_jg, p_sim_time)
+    ENDIF !lart
 
     IF (ltimer) CALL timer_stop(timer_physics)
 

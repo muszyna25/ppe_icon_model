@@ -2951,7 +2951,8 @@ EOF
           if test -z "$CONFIG_SHELL"; then :
   CONFIG_SHELL=$SHELL
 fi
-          load_profile=$($CONFIG_SHELL -c '. ./conftest; echo "$load_profile"')
+          load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
+          ignore_if_loaded=$($CONFIG_SHELL -c '. ./conftest; echo "$ignore_if_loaded"')
           /bin/rm -f confsed conftest
 
        if test ! -z "$load_profile" ; then :
@@ -3023,6 +3024,7 @@ fi
 
           moduleshome_in_use="${MODULESHOME-}"
           load_modules_in_use="$load_modules"
+          check_loaded="$ignore_if_loaded"
           shell_in_use="${SHELL##*/}"
 
           # in case specific modules are required do replace those only
@@ -3059,14 +3061,26 @@ fi
                      is_loaded=false
                      for mod in $modules_loaded
                      do
-		         if test ${mod%%/*} = ${replacement%%/*}; then :
-  if test "$mod" != "$replacement"; then :
-  if test ! -z prgenv_loaded; then :
+                         mod_ignore=$(echo $check_loaded | $GREP -o "$replacement")
+		         if test ${mod%%/*} = ${replacement%%/*}; then
+  if test "$mod" != "$replacement"; then
+  if test ! -z $mod_ignore; then
+  { $as_echo "$as_me:$LINENO: Module $mod already loaded, ignoring." >&5
+$as_echo "$as_me: Module $mod already loaded, ignoring." >&6;}
+                                              is_loaded=true
+else
+
+                                              if test ! -z prgenv_loaded; then
   module unload $mod
-                                              module load $replacement
+                                                     module load $replacement
 else
   module swap $mod $replacement
 fi
+
+
+fi
+
+
 else
   is_loaded=true
 fi
