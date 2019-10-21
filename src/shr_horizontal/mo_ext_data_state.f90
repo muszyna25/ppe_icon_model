@@ -37,7 +37,7 @@
 MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: inwp, iecham, MODIS, ildf_echam,                &
+  USE mo_impl_constants,     ONLY: inwp, MODIS,                                    &
     &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
@@ -300,8 +300,7 @@ CONTAINS
       &     p_ext_atm%albuv_dif,       &
       &     p_ext_atm%albni_dif,       &
       &     p_ext_atm%lsm_ctr_c,       &
-      &     p_ext_atm%elevation_c,     &
-      &     p_ext_atm%emis_rad         )
+      &     p_ext_atm%elevation_c      )
 
 
     !
@@ -1115,10 +1114,7 @@ CONTAINS
 
       END IF  ! albedo_type
 
-    END IF ! iforcing
-
-
-    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
+    ELSE ! iforcing
 
       ! atmosphere land-sea-mask at surface on cell centers
       ! lsm_ctr_c  p_ext_atm%lsm_ctr_c(nproma,nblks_c)
@@ -1138,15 +1134,6 @@ CONTAINS
           &             GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
           grib2_desc, ldims=shape2d_c )
       END IF
-
-      ! longwave surface emissivity
-      !
-      ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
-      cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity', datatype_flt)
-      grib2_desc = grib2_var( 2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
       ! HDmodel land-sea-mask at surface on cell centers
       ! lsm_hd_c   p_ext_atm%lsm_hd_c(nproma,nblks_c)

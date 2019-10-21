@@ -33,7 +33,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer, iforcing
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf, nnew_rcf
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o, tmelt
-  USE mo_phyparam_soil,         ONLY: crhosminf
+  USE sfc_terra_data,           ONLY: crhosminf, cporv, cadp, csalb, ist_seawtr
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, &
     &                                 MAX_CHAR_LENGTH, dzsoil, inwp, nclass_aero, ALB_SI_MISSVAL
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
@@ -59,10 +59,9 @@ MODULE mo_nh_init_nest_utils
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_cell
-  USE mo_seaice_nwp,            ONLY: frsi_min
+  USE sfc_seaice,               ONLY: frsi_min
   USE mo_nwp_sfc_interp,        ONLY: smi_to_wsoil, wsoil_to_smi
-  USE mo_flake,                 ONLY: flake_coldinit
-  USE mo_phyparam_soil,         ONLY: cporv, cadp, csalb, ist_seawtr
+  USE sfc_flake,                ONLY: flake_coldinit
   USE mo_upatmo_config,         ONLY: upatmo_config
 
   IMPLICIT NONE

@@ -77,7 +77,6 @@ cd $(dirname $0)
 this_folder=$(pwd)
 base_folder=${this_folder%/*}
 
-
 . $base_folder/config/set-up.info
 
 . $base_folder/config/create_target_header
@@ -105,6 +104,12 @@ fi
 
 if [[ "x$input_folder" == "x" ]] ; then
   input_folder=run
+fi
+
+if [[ "x$input_folder" == "x" ]] ; then
+  run_folder=run
+else
+  run_folder=$input_folder
 fi
 
 if [[ "x$output_folder" == "x" ]] ; then

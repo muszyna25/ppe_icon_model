@@ -25,10 +25,15 @@ MODULE mo_ser_echam_sso
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT)  :: tend
+#if defined(SERIALIZE_ECHAM_SSO) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
     LOGICAL, SAVE :: lenabled = .TRUE.
+#else
+    LOGICAL, SAVE :: lenabled = .FALSE.
+#endif
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -155,12 +160,14 @@ MODULE mo_ser_echam_sso
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_sso_input
 
   SUBROUTINE serialize_sso_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT)  :: tend
+#if defined(SERIALIZE_ECHAM_SSO) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -247,6 +254,7 @@ MODULE mo_ser_echam_sso
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_sso_output
 
 END MODULE mo_ser_echam_sso

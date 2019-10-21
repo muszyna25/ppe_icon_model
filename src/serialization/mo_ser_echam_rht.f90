@@ -21,15 +21,19 @@ MODULE mo_ser_echam_rht
 
   CONTAINS
 
-  SUBROUTINE serialize_rht_input(jg, jb, jcs, jce, nproma, nlev, field, tend, emis_rad)
+  SUBROUTINE serialize_rht_input(jg, jb, jcs, jce, nproma, nlev, field, tend)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT)  :: tend
-    REAL(kind=wp), INTENT(INOUT)                    :: emis_rad(:,:)
+#if defined(SERIALIZE_ECHAM_RHT) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
     LOGICAL, SAVE :: lenabled = .TRUE.
+#else
+    LOGICAL, SAVE :: lenabled = .FALSE.
+#endif
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -92,11 +96,12 @@ MODULE mo_ser_echam_rht
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy ) IF( ASSOCIATED(field%q_phy) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy_vi ) IF( ASSOCIATED(field%q_phy_vi) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_rlw_nlev ) IF( ASSOCIATED(field%q_rlw_nlev) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%emissivity ) IF( ASSOCIATED(field%emissivity) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_rad ) IF( ASSOCIATED(tend%ta_rad) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_rsw ) IF( ASSOCIATED(tend%ta_rsw) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_rlw ) IF( ASSOCIATED(tend%ta_rlw) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_phy ) IF( ASSOCIATED(tend%ta_phy) )
-    !$ser verbatim   !NOACC UPDATE HOST( emis_rad ) ! NOT ON GPU
+    !$ser verbatim   !$ACC UPDATE HOST( tend%ta ) IF( ASSOCIATED(tend%ta) )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
@@ -112,6 +117,7 @@ MODULE mo_ser_echam_rht
 #endif
     !$ser data echam_rht_cosmu0=field%cosmu0(:,jb) IF (ASSOCIATED(field%cosmu0))
     !$ser data echam_rht_daylght_frc=field%daylght_frc(:,jb) IF (ASSOCIATED(field%daylght_frc))
+    !$ser data echam_rht_emissivity=field%emissivity(:,jb) IF (ASSOCIATED(field%emissivity))
     !$ser data echam_rht_ts_rad=field%ts_rad(:,jb) IF (ASSOCIATED(field%ts_rad))
     !$ser data echam_rht_ts_rad_rt=field%ts_rad_rt(:,jb) IF (ASSOCIATED(field%ts_rad_rt))
     !$ser data echam_rht_rsd_rt=field%rsd_rt(:,:,jb) IF (ASSOCIATED(field%rsd_rt))
@@ -167,7 +173,6 @@ MODULE mo_ser_echam_rht
     !$ser data echam_rht_ta_rlw=tend%ta_rlw(:,:,jb) IF (ASSOCIATED(tend%ta_rlw))
     !$ser data echam_rht_ta_phy=tend%ta_phy(:,:,jb) IF (ASSOCIATED(tend%ta_phy))
     !$ser data echam_rht_ta=tend%ta(:,:,jb) IF (ASSOCIATED(tend%ta))
-    !$ser data echam_rht_emis_rad=emis_rad(:,jb)
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
     !$ser verbatim   lenabled = .FALSE.
@@ -228,22 +233,24 @@ MODULE mo_ser_echam_rht
     !$ser verbatim   !$ACC UPDATE DEVICE( field%q_phy ) IF( ASSOCIATED(field%q_phy) )
     !$ser verbatim   !$ACC UPDATE DEVICE( field%q_phy_vi ) IF( ASSOCIATED(field%q_phy_vi) )
     !$ser verbatim   !$ACC UPDATE DEVICE( field%q_rlw_nlev ) IF( ASSOCIATED(field%q_rlw_nlev) )
+    !$ser verbatim   !$ACC UPDATE DEVICE( field%emissivity ) IF( ASSOCIATED(field%emissivity) )
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%ta_rad ) IF( ASSOCIATED(tend%ta_rad) )
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%ta_rsw ) IF( ASSOCIATED(tend%ta_rsw) )
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%ta_rlw ) IF( ASSOCIATED(tend%ta_rlw) )
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%ta_phy ) IF( ASSOCIATED(tend%ta_phy) )
-    !$ser verbatim   !NOACC UPDATE DEVICE( emis_rad ) ! NOT ON GPU
+    !$ser verbatim   !$ACC UPDATE DEVICE( tend%ta ) IF( ASSOCIATED(tend%ta) )
 #endif
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_rht_input
 
-  SUBROUTINE serialize_rht_output(jg, jb, jcs, jce, nproma, nlev, field, tend, emis_rad)
+  SUBROUTINE serialize_rht_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT)  :: tend
-    REAL(kind=wp), INTENT(INOUT)                    :: emis_rad(:,:)
+#if defined(SERIALIZE_ECHAM_RHT) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -310,11 +317,12 @@ MODULE mo_ser_echam_rht
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy ) IF( ASSOCIATED(field%q_phy) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy_vi ) IF( ASSOCIATED(field%q_phy_vi) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_rlw_nlev ) IF( ASSOCIATED(field%q_rlw_nlev) )
+    !$ser verbatim   !$ACC UPDATE HOST( field%emissivity ) IF( ASSOCIATED(field%emissivity) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_rad ) IF( ASSOCIATED(tend%ta_rad) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_rsw ) IF( ASSOCIATED(tend%ta_rsw) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_rlw ) IF( ASSOCIATED(tend%ta_rlw) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_phy ) IF( ASSOCIATED(tend%ta_phy) )
-    !$ser verbatim   !NOACC UPDATE HOST( emis_rad ) ! NOT ON GPU
+    !$ser verbatim   !$ACC UPDATE HOST( tend%ta ) IF( ASSOCIATED(tend%ta) )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
@@ -372,18 +380,19 @@ MODULE mo_ser_echam_rht
     !$ser data echam_rht_q_rlw_vi=field%q_rlw_vi(:,jb) IF (ASSOCIATED(field%q_rlw_vi))
     !$ser data echam_rht_q_phy=field%q_phy(:,:,jb) IF (ASSOCIATED(field%q_phy))
     !$ser data echam_rht_q_phy_vi=field%q_phy_vi(:,jb) IF (ASSOCIATED(field%q_phy_vi))
+    !$ser data echam_rht_emissivity=field%emissivity(:,jb) IF (ASSOCIATED(field%emissivity))
     !$ser data echam_rht_ta_rad=tend%ta_rad(:,:,jb) IF (ASSOCIATED(tend%ta_rad))
     !$ser data echam_rht_ta_rsw=tend%ta_rsw(:,:,jb) IF (ASSOCIATED(tend%ta_rsw))
     !$ser data echam_rht_ta_rlw=tend%ta_rlw(:,:,jb) IF (ASSOCIATED(tend%ta_rlw))
     !$ser data echam_rht_ta_phy=tend%ta_phy(:,:,jb) IF (ASSOCIATED(tend%ta_phy))
     !$ser data echam_rht_ta=tend%ta(:,:,jb) IF (ASSOCIATED(tend%ta))
-    !$ser data echam_rht_emis_rad=emis_rad(:,jb)
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
     !$ser verbatim   lenabled = .FALSE.
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_rht_output
 
 END MODULE mo_ser_echam_rht

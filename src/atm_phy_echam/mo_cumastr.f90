@@ -154,7 +154,7 @@ CONTAINS
       &        zmfuxt(kbdim,klev,ktrac),zmfdxt(kbdim,klev,ktrac)
     LOGICAL :: loddraf(kbdim),          ldland(kbdim)
     LOGICAL :: ldcum(kbdim)
-    LOGICAL :: llo1
+    LOGICAL :: llo1, llo1mask(kbdim)
     !
     INTEGER :: nl, jl, jk, ikb, jt, itopm2, locnt, ldcnt
     REAL(wp):: zcons, zqumqe, zdqmin, zmfmax, zalvs, zalvdcp, zqalv       &
@@ -169,18 +169,36 @@ CONTAINS
 
     ! Shortcuts to components of echam_cnv_config
     !
-    LOGICAL , POINTER :: lmfdd, lmfdudv
-    REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
+    LOGICAL           :: lmfdd, lmfdudv
+    REAL(wp)          :: entrpen, entrscv, cmfdeps, cmftau
     REAL(wp), POINTER :: zevapcu(:)
     !
-    lmfdd   => echam_cnv_config(jg)% lmfdd
-    lmfdudv => echam_cnv_config(jg)% lmfdudv
-    entrscv => echam_cnv_config(jg)% entrscv
-    entrpen => echam_cnv_config(jg)% entrpen
-    cmfdeps => echam_cnv_config(jg)% cmfdeps
-    cmftau  => echam_cnv_config(jg)% cmftau
+    lmfdd   = echam_cnv_config(jg)% lmfdd
+    lmfdudv = echam_cnv_config(jg)% lmfdudv
+    entrscv = echam_cnv_config(jg)% entrscv
+    entrpen = echam_cnv_config(jg)% entrpen
+    cmfdeps = echam_cnv_config(jg)% cmfdeps
+    cmftau  = echam_cnv_config(jg)% cmftau
     !
     zevapcu(1:klev) => cevapcu(1:klev,jg)
+
+    !$ACC DATA PRESENT( pxten ) IF( ktrac > 0 )
+    !$ACC DATA PRESENT( pxtte_cnv ) IF( ktrac> 0 )
+    !$ACC DATA PRESENT( pzf, pzh, pmref, pten, pqen, pxen, puen, pven,        &
+    !$ACC               ldland, pverv, pqhfla, papp1, paphp1, pgeo,           &
+    !$ACC               pgeoh, pqte, pthvsig, ktype, kctop, prsfc, pssfc,     &
+    !$ACC               pcon_dtrl, pcon_dtri, pcon_iqte, pq_cnv, pvom_cnv,    &
+    !$ACC               pvol_cnv, pqte_cnv, pxtecl, pxteci, ptop, zevapcu )   &
+    !$ACC       CREATE( ptu, pqu, plu, plude, pmfu, pmfd, kcbot, pqude, zqsen,&
+    !$ACC               zcpen, ztenh, zqenh, zxenh, zalvsh, zqsenh, ztd, zqd, &
+    !$ACC               zmfus, zmfds, zmfuq, zmfdq, zdmfup, zdmfdp, zmful,    &
+    !$ACC               zrfl, zuu, zvu, zud, zvd, zcpcu, zentr, zhcbase,      &
+    !$ACC               zmfub, zmfub1, zktype, zldcum, zcpcui, zkcbot,        &
+    !$ACC               zictop0, ztmp1, ztmp2, ztmp3, za, zsfl, zdpmel, zcape,&
+    !$ACC               zheat, ua, dua, ub, zhmin, zihmin, zhhatt, zdqpbl,    &
+    !$ACC               zdqcv, ihmin, ilo1, ldidx, loidx, ilab, idtop, ictop0,&
+    !$ACC               ilwmin, itopec2, loddraf, ldland, ldcum, llo1mask )
+    !$ACC DATA  CREATE( zxtu, zxtenh, zxtd, zmfuxt, zmfdxt ) IF( ktrac > 0 )
 
     !-----------------------------------------------------------------------
     !
@@ -228,16 +246,27 @@ CONTAINS
     !*                 then decide on type of cumulus convection
     !                  -----------------------------------------
     !
-    zkcbot(jcs:kproma) = REAL(kcbot(jcs:kproma),wp)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs, kproma
+      zkcbot(jl) = REAL(kcbot(jl),wp)
+    END DO
+    !$ACC END PARALLEL
 
     jk=1
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       zdqpbl(jl)=0.0_wp
       zdqcv(jl)=pqte(jl,jk)*pmref(jl,jk)
       idtop(jl)=0
     END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=2,klev
       zjk = REAL(jk,wp)
+      !$ACC LOOP GANG VECTOR PRIVATE( zhelp )
       DO jl=jcs,kproma
         zhelp      = pmref(jl,jk)
         zdqcv(jl)  = zdqcv(jl)+pqte(jl,jk)*zhelp
@@ -247,14 +276,25 @@ CONTAINS
 #endif
       END DO
     END DO
+    !$ACC END PARALLEL
     !
     !*             (C) Determine moisture supply for boundary layer and determine
     !*                 cloud base massflux ignoring the effects of downdrafts
     !*                 at this stage
     !                  ---------------------------------------------------------------
     !
-    zldcum(jcs:kproma) = MERGE(1._wp,0._wp,ldcum(jcs:kproma))
-    ktype(:) = 0
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs, kproma
+      zldcum(jl) = MERGE(1._wp,0._wp,ldcum(jl))
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      ktype(jl) = 0
+    END DO
+    !$ACC END PARALLEL
 
 !DIR$ IVDEP
 #ifdef _CRAYFTN
@@ -262,6 +302,8 @@ CONTAINS
 #endif
 !IBM* ASSERT(NODEPS)
 !IBM* NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( ikb, zqumqe, zdqmin, zlo1, zmfmax, zhelp )
     DO jl=jcs,kproma
       ikb=kcbot(jl)
       zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zqenh(jl,ikb)
@@ -280,7 +322,13 @@ CONTAINS
       PRINT '(A6,I3,I4,2 E18.10,I3,L3)','zmfub',ikb,jl,zmfub(jl),zentr(jl),ktype(jl),(zlo1==1._wp)
 #endif
     END DO
-    ldcum(jcs:kproma) = (zldcum(jcs:kproma).GT.0._wp)
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs, kproma
+      ldcum(jl) = (zldcum(jl).GT.0._wp)
+    END DO
+    !$ACC END PARALLEL
     !
     !-----------------------------------------------------------------------
     !*    4.0          Determine cloud ascent for entraining plume
@@ -292,21 +340,32 @@ CONTAINS
     !        -------------------------------------------------------------------------
     !
 !DIR$ IVDEP
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( ikb, zalvs )
     DO jl=jcs,kproma
       ikb=kcbot(jl)
       zalvs=FSEL(tmelt-ptu(jl,ikb),als,alv)
       zhcbase(jl) = zcpcu(jl,ikb)*ptu(jl,ikb) + pgeoh(jl,ikb) + zalvs*pqu(jl,ikb)
       zictop0(jl) = zkcbot(jl)-1._wp
     END DO
+    !$ACC END PARALLEL
     DO jk=klev,1,-1
-      zcpcui(jcs:kproma,jk) = 1._wp/zcpcu(jcs:kproma,jk)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs, kproma
+        zcpcui(jl,jk) = 1._wp/zcpcu(jl,jk)
+      END DO
+      !$ACC END PARALLEL
       IF (jk <= klevm1 .AND. jk >= 3) THEN
         ! mpuetz: too few instructions (FP dependencies)
-        CALL prepare_ua_index_spline(jg,'cumastr',jcs,kproma,ztenh(1,jk),loidx(1),za(1))
-        CALL lookup_ua_spline(jcs,kproma,loidx(1),za(1),ua(1),dua(1))
-        CALL lookup_ubc(jcs,kproma,ztenh(1,jk),ub(1))
+        CALL prepare_ua_index_spline(jg,'cumastr',jcs,kproma,ztenh(:,jk),loidx(:),za(:))
+        CALL lookup_ua_spline(jcs,kproma,loidx(:),za(:),ua(:),dua(:))
+        CALL lookup_ubc(jcs,kproma,ztenh(:,jk),ub(:))
         zjk = REAL(jk,wp)
 !IBM* NOVECTOR
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( zalvs, zalvdcp, zqalv, zhsat, zpaphp1i, zes, zcor, &
+        !$ACC                           zqsat, zdqsdt, zgam, zzz, zhhat, zlo1 )
         DO jl=jcs,kproma
           ! mpuetz: move some of these into the previous loop
           zalvs=FSEL(tmelt - ztenh(jl,jk),als,alv)
@@ -331,9 +390,15 @@ CONTAINS
           PRINT '(A6,I3,I4,3 E18.10,I3)','ictop',jk,jl,zes,zqsdt,zhhatt(jl,jk),INT(zictop0(jl))
 #endif
         END DO
+        !$ACC END PARALLEL
       END IF
     END DO
-    ictop0(jcs:kproma) = INT(zictop0(jcs:kproma))
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs, kproma
+      ictop0(jl) = INT(zictop0(jl))
+    END DO
+    !$ACC END PARALLEL
     !!
     !!     DEEP CONVECTION IF CLOUD DEPTH > 200 HPA, ELSE SHALLOW
     !!     (CLOUD DEPTH FROM NON-ENTRAINIG PLUME)
@@ -348,22 +413,33 @@ CONTAINS
     !              -------------------------------------------
     !
     ldcnt = jcs-1
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       zhmin(jl)=0._wp
       zihmin(jl)=0._wp
-      llo1=ldcum(jl).AND.ktype(jl).EQ.1
-      IF(llo1) THEN
+      llo1mask(jl)=ldcum(jl).AND.ktype(jl).EQ.1
+      IF(llo1mask(jl)) THEN
         zihmin(jl)=zkcbot(jl)
+      ENDIF
+    ENDDO
+    !$ACC END PARALLEL
+    !$ACC UPDATE HOST( llo1mask )
+    DO jl=jcs,kproma
+      IF(llo1mask(jl)) THEN
         ldcnt = ldcnt + 1
         ldidx(ldcnt) = jl
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE( ldidx )
     !
     zbi=1._wp/25._wp
     DO jk=klev,1,-1
       ! mpuetz: compute the update criterion
       zjk = REAL(jk,wp)
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zlo1 )
       DO nl = jcs,ldcnt
         jl = ldidx(nl)
         zlo1 = FSEL(zjk - zkcbot(jl),0._wp,1._wp)
@@ -371,15 +447,20 @@ CONTAINS
         zlo1 = FSEL(-ABS(zihmin(jl)-zkcbot(jl)),zlo1,0._wp)
         ilo1(nl) = INT(zlo1)
       END DO
+      !$ACC END PARALLEL
       ! mpuetz: compute the indices of elements to be updated
       locnt = 0
+      !$ACC UPDATE HOST( ilo1, ldidx )
       DO nl = jcs,ldcnt
         IF (ilo1(nl).GT.0) THEN
           locnt = locnt + 1
           loidx(locnt) = ldidx(nl)
         END IF
       END DO
+      !$ACC UPDATE DEVICE( loidx )
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zalvs, ikb, zroi, zdz, za1, za2, zdhdz, zdepth )
       DO nl=1,locnt
         jl = loidx(nl)
         zalvs = FSEL(tmelt - ztenh(jl,jk),als,alv)
@@ -396,8 +477,16 @@ CONTAINS
         ztmp2(nl) = zdz*zdhdz
         ztmp3(nl) = 1._wp+zdepth*zbi
       END DO
-      ztmp3(1:locnt) = SQRT(ztmp3(1:locnt))
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO nl = 1, locnt
+        ztmp3(nl) = SQRT(ztmp3(nl))
+      END DO
+      !$ACC END PARALLEL
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zalvs, zfac, zrh )
       DO nl=1,locnt
         jl = loidx(nl)
         zalvs     = ztmp1(nl)
@@ -407,8 +496,11 @@ CONTAINS
         zihmin(jl) = FSEL(zrh - zhmin(jl),zihmin(jl),zjk)
       !  IF(zhmin(jl).GT.zrh) ihmin(jl)=jk
       ENDDO
+      !$ACC END PARALLEL
     ENDDO
 !IBM* ASSERT(NODEPS)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl )
     DO nl=jcs,ldcnt
       jl = ldidx(nl)
 #ifdef __ibmdbg__
@@ -417,7 +509,13 @@ CONTAINS
       zihmin(jl) = FSEL(zihmin(jl)-zictop0(jl),zihmin(jl),zictop0(jl))
     !    IF(ihmin(jl).LT.ictop0(jl)) ihmin(jl)=ictop0(jl)
     ENDDO
-    ihmin(jcs:kproma) = INT(zihmin(jcs:kproma))
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs, kproma
+      ihmin(jl) = INT(zihmin(jl))
+    END DO
+    !$ACC END PARALLEL
     !
     !*         (B) Do ascent in 'cuasc' in absence of downdrafts
     !              ---------------------------------------------
@@ -447,6 +545,8 @@ CONTAINS
     !          ---------------------------------------------------------
     !
 !DIR$ IVDEP
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zpbmpt )
     DO jl=jcs,kproma
       zpbmpt=paphp1(jl,kcbot(jl))-paphp1(jl,kctop(jl))
       IF(ldcum(jl).AND.ktype(jl).EQ.1.AND.zpbmpt.LT.2.e4_wp) ktype(jl)=2  ! cloud thickness < 200hPa --> shallow conv.
@@ -454,20 +554,32 @@ CONTAINS
       IF(ktype(jl).EQ.2) zentr(jl)=entrscv
       zrfl(jl)=zdmfup(jl,1)
     END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=2,klev
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         zrfl(jl)=zrfl(jl)+zdmfup(jl,jk)
       END DO
     END DO
+    !$ACC END PARALLEL
     ! mpuetz: must recompute ldidx() since ktype could have changed
     ldcnt = jcs-1 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
-      llo1=ldcum(jl).AND.ktype(jl).EQ.1
-      IF(llo1) THEN
+      llo1mask(jl)=ldcum(jl).AND.ktype(jl).EQ.1
+    ENDDO
+    !$ACC END PARALLEL
+    !$ACC UPDATE HOST( llo1mask )
+    DO jl=jcs,kproma
+      IF(llo1mask(jl)) THEN
         ldcnt = ldcnt + 1
         ldidx(ldcnt) = jl
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE( ldidx )
     !
     !-----------------------------------------------------------------------
     !*    5.0          Cumulus downdraft calculations
@@ -512,25 +624,37 @@ CONTAINS
     !              -------------------------------------------------------------
     ! mpuetz: cuasc can modify kctop !!
     !
-    zkcbot(jcs:kproma) = REAL(kcbot(jcs:kproma),wp)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs, kproma
+      zkcbot(jl) = REAL(kcbot(jl),wp)
+    END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       zheat(jl)=0._wp
       zcape(jl)=0._wp
       zmfub1(jl)=zmfub(jl)
     ! zhelp(jl) =0._wp
     END DO
+    !$ACC END PARALLEL
     !
     DO jk=1,klev
       zjk = REAL(jk,wp)
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zkctop, zlo1 )
       DO nl = jcs,ldcnt
         jl = ldidx(nl)
         zkctop = REAL(kctop(jl),wp)
         zlo1 = FSEL(zkcbot(jl) - zjk,1._wp,0._wp)* FSEL(zkctop - zjk,0._wp,1._wp)
         ilo1(nl) = INT(zlo1)
       END DO
+      !$ACC END PARALLEL
       locnt = 0
+      !$ACC UPDATE HOST( ldidx, kcbot, kctop )
       DO nl = jcs,ldcnt
         jl = ldidx(nl)
         IF(jk.LE.kcbot(jl).AND.jk.GT.kctop(jl)) THEN
@@ -539,11 +663,14 @@ CONTAINS
           loidx(locnt) = jl
         END IF
       END DO
+      !$ACC UPDATE DEVICE( loidx )
 #ifdef __ibmdbg__
       PRINT '(A6,I3,2 I4)','cumas1',jk,ldcnt,locnt,INT(zkcbot(jl))
 #endif
       ! mpuetz: there is reuse of zro, maybe we can calulate once and store
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zroi, ztenhi, zdz )
       DO nl=1,locnt
         jl = loidx(nl)
         zroi = SWDIV_NOCHK(rd*ztenh(jl,jk)*(1._wp+vtmpc1*zqenh(jl,jk)),paphp1(jl,jk))
@@ -560,6 +687,7 @@ CONTAINS
         PRINT '(A6,I3,I4,6 E18.10)','zcape',jk,jl,pten(jl,jk-1)-pten(jl,jk),pqen(jl,jk-1)-pqen(jl,jk),pmfu(jl,jk)+pmfd(jl,jk),ptu(jl,jk),pqu(jl,jk),plu(jl,jk)
 #endif
       ENDDO
+      !$ACC END PARALLEL
     ENDDO
     !
     !  DO jl=jcs,kproma
@@ -574,6 +702,8 @@ CONTAINS
     !     ENDDO
     !     if (zhelp(jl).lt.0._wp) zhelp(jl)=0._wp
     !  ENDDO
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( ikb, zmfmax )
     DO jl=jcs,kproma
       IF(ldcum(jl).AND.ktype(jl).EQ.1) THEN
         ikb=kcbot(jl)
@@ -583,11 +713,13 @@ CONTAINS
         zmfub1(jl) = MIN(zmfub1(jl),zmfmax)
       ENDIF
     ENDDO
+    !$ACC END PARALLEL
     !
     !*      Recalculate convective fluxes due to effect of downdrafts on boundary
     !*      layer moisture budget for shallow convection (ktype=2)
     !       ---------------------------------------------------------------------
     ldcnt = jcs-1
+    !$ACC UPDATE HOST( ktype )
     DO jl=jcs,kproma
       llo1=ktype(jl).EQ.2
       IF(llo1) THEN
@@ -595,8 +727,11 @@ CONTAINS
         ldidx(ldcnt) = jl
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE( ldidx )
 !DIR$ IVDEP
 !IBM* ASSERT(NODEPS)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, ikb, llo1, zeps, zqumqe, zdqmin, zmfmax )
     DO nl=jcs,ldcnt
       jl = ldidx(nl)
       ikb=kcbot(jl)
@@ -614,15 +749,20 @@ CONTAINS
       PRINT '(A6,I4,E18.10)','zmfub1',jl,zmfub1(jl)
 #endif
     END DO
+    !$ACC END PARALLEL
     ldcnt = jcs-1
+    !$ACC UPDATE HOST( ldcum )
     DO jl=jcs,kproma
       IF (ldcum(jl)) THEN
         ldcnt = ldcnt + 1
         ldidx(ldcnt) = jl
       ENDIF
     ENDDO
+    !$ACC UPDATE DEVICE( ldidx )
     DO jk=1,klev
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zfac )
       DO nl=jcs,ldcnt
         jl = ldidx(nl)
         ztmp1(nl) = SWDIV_NOCHK(zmfub1(jl),MAX(zmfub(jl),1.e-10_wp))
@@ -635,25 +775,33 @@ CONTAINS
         PRINT '(A6,I3,I4,E18.10)','zfac',jk,jl,ztmp1(nl)
 #endif
       END DO
+      !$ACC END PARALLEL
 !IBM* unroll(4)
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
 !IBM* ASSERT(NODEPS)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zfac )
         DO nl=jcs,ldcnt
           jl = ldidx(nl)
           zfac             = ztmp1(nl)
           zmfdxt(jl,jk,jt) = zmfdxt(jl,jk,jt)*zfac
         END DO
       END DO
+      !$ACC END PARALLEL
       !
     END DO
     !
     !*       New values of cloud base mass flux
     !        ----------------------------------
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl )
     DO nl=jcs,ldcnt
       jl = ldidx(nl)
       zmfub(jl) = zmfub1(jl)
     END DO
+    !$ACC END PARALLEL
     !
     !-----------------------------------------------------------------------
     !*    6.0   Determine final cloud ascent for entraining plume
@@ -702,8 +850,13 @@ CONTAINS
       &        zcpcu,                                                    &
       &        pten,     zsfl,     zdpmel,   itopm2                     )
 
-    prsfc(:)=zrfl(:)
-    pssfc(:)=zsfl(:)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      prsfc(jl) = zrfl(jl)
+      pssfc(jl) = zsfl(jl)
+    END DO
+    !$ACC END PARALLEL
 
     !-----------------------------------------------------------------------
     !
@@ -740,20 +893,34 @@ CONTAINS
     !*   10.0      Pressure altitude of convective cloud tops
     !              ------------------------------------------
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       itopec2(jl)=klevp1
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=1,klev-4
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         IF(ilab(jl,jk).EQ.2 .AND. itopec2(jl).EQ.klevp1) THEN
           itopec2(jl)=jk
         END IF
       END DO
     END DO
+    !$ACC END PARALLEL
     !
-    ptop(:)=99999._wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      ptop(jl)=99999._wp
+    END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       IF(itopec2(jl).EQ.1) THEN
         ptop(jl)=(paphp1(jl,1)+paphp1(jl,2))*0.5_wp
@@ -763,6 +930,12 @@ CONTAINS
         ptop(jl)=99999._wp
       END IF
     END DO
+    !$ACC END PARALLEL
+    !
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
     !
     !-----------------------------------------------------------------------
     !

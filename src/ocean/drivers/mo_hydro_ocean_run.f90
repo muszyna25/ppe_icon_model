@@ -30,10 +30,11 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_config,            ONLY: n_dom
   USE mo_coupling_config,        ONLY: is_coupled_run
   USE mo_memory_log,             ONLY: memory_log_add
-  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc, &
+  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
-    &  Cartesian_Mixing, GMRedi_configuration
+    &  Cartesian_Mixing, GMRedi_configuration, use_tides, OceanReferenceDensity_inv, &
+    &  atm_pressure_included_in_ocedyn
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -73,7 +74,6 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output_init,  ONLY: output_file
   USE mo_name_list_output_types, ONLY: t_output_file
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
   USE mo_master_config,          ONLY: isRestart
   USE mo_time_config,            ONLY: time_config, t_time_config
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
@@ -81,7 +81,7 @@ MODULE mo_hydro_ocean_run
   USE mo_statistics
   USE mo_var_list
   USE mo_ocean_statistics
-  USE mo_hamocc_types,           ONLY: t_hamocc_state
+  USE mo_ocean_to_hamocc_interface, ONLY: ocean_to_hamocc_interface
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
@@ -90,7 +90,8 @@ MODULE mo_hydro_ocean_run
   USE mo_hamocc_nml,             ONLY: io_stdo_bgc
   USE mo_end_bgc,                ONLY: cleanup_hamocc
   USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
-
+  USE mo_ocean_tides,         ONLY: tide    
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
 
   IMPLICIT NONE
 
@@ -116,24 +117,18 @@ CONTAINS
     TYPE(t_patch_3d ), INTENT(in)     :: patch_3d
     TYPE(t_ocean_surface)             :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(in)   :: p_as
-    TYPE(t_operator_coeff)            :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(INOUT) :: operators_coefficients
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE (t_sea_ice),   INTENT(inout) :: sea_ice
-    TYPE(t_external_data), TARGET, INTENT(in) :: ext_data
+    TYPE(t_external_data), TARGET, INTENT(inout) :: ext_data
 ! !   TYPE (t_ho_params)                :: p_phys_param
     LOGICAL, INTENT(in)               :: is_restart
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
-#ifndef __NO_HAMMOC__
-    if(lhamocc)then
-      if(ltimer)call timer_start(timer_bgc_ini)
-      CALL ini_bgc_icon(patch_3d,ocean_state,p_as, is_restart)
-      if(ltimer)call timer_stop(timer_bgc_ini)
-    endif
-#endif
 
     IF (is_restart .AND. is_coupled_run() ) THEN
         ! Initialize 10m Wind Speed from restart file when run in coupled mode
         p_as%fu10 = p_oce_sfc%Wind_Speed_10m
+        p_as%pao = p_oce_sfc%sea_level_pressure
     ENDIF
 
     IF (is_restart .AND. (i_ice_dyn == 1)) THEN
@@ -159,8 +154,7 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
     CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
-    CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
-
+ 
     ! this is needed as initial condition or restart 
 !     CALL calc_scalar_product_veloc_3d( patch_3d,  &
 !       & ocean_state(1)%p_prog(nold(1))%vn,         &
@@ -176,8 +170,6 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE end_ho_stepping()
 
-    CALL destruct_ho_lhs_fields_mimetic()
-    if(lhamocc)call cleanup_hamocc
     
   END SUBROUTINE end_ho_stepping
   !-------------------------------------------------------------------------
@@ -194,20 +186,19 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,    &
     & p_oce_sfc, p_phys_param,                                          &
-    & p_as, p_atm_f, sea_ice, hamocc_state, operators_coefficients,     &
+    & p_as, p_atm_f, sea_ice, operators_coefficients,     &
     & solvercoeff_sp)
 
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
-    TYPE(t_ocean_surface)                            :: p_oce_sfc
-    TYPE(t_ho_params)                                :: p_phys_param
+    TYPE(t_ocean_surface)   ,  INTENT(inout)                         :: p_oce_sfc
+    TYPE(t_ho_params)                       ,  INTENT(inout)         :: p_phys_param
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE(t_sea_ice),          INTENT(inout)          :: sea_ice
-    TYPE(t_hamocc_state), INTENT(INOUT)              :: hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    TYPE(t_operator_coeff),   INTENT(inout), TARGET :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout), TARGET :: solvercoeff_sp
 
     ! local variables
     INTEGER :: jstep, jg, return_status
@@ -318,6 +309,8 @@ CONTAINS
 
     END SELECT
 
+    CALL clear_ocean_ab_timestepping_mimetic()
+
     CALL restartDescriptor%destruct()
  
     CALL deallocateDatetime(current_time)
@@ -358,12 +351,24 @@ CONTAINS
         CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
              & current_time, operators_coefficients)
 
-        IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc,  current_time)
         stop_timer(timer_upd_flx,3)
 
         start_detail_timer(timer_extra22,4)
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
         stop_detail_timer(timer_extra22,4)
+        
+        !------------------------------------------------------------------------
+        ! compute tidal potential
+        IF (use_tides) THEN
+          CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
+        ENDIF
+        ! total top potential
+        IF (atm_pressure_included_in_ocedyn) THEN
+          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential  &
+            & + p_as%pao * OceanReferenceDensity_inv
+        ELSE
+          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
+        ENDIF 
 
   !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
   !       CALL calc_scalar_product_veloc_3d( patch_3d,  &
@@ -414,7 +419,7 @@ CONTAINS
         ENDIF
         
         stop_timer(timer_solve_ab,1)
-
+          
         !------------------------------------------------------------------------
         ! Step 4: calculate final normal velocity from predicted horizontal
         ! velocity vn_pred and updated surface height
@@ -460,8 +465,10 @@ CONTAINS
         END IF
 
         !------------------------------------------------------------------------
-        CALL tracer_biochemistry_transport(patch_3d, ocean_state(jg), p_as, sea_ice, p_oce_sfc, &
-          & p_phys_param, operators_coefficients)
+        CALL tracer_transport(patch_3d, ocean_state(jg), p_as, sea_ice, p_oce_sfc, &
+          & p_phys_param, operators_coefficients, current_time)
+
+        
         !------------------------------------------------------------------------
 
       !------------------------------------------------------------------------
@@ -496,6 +503,7 @@ CONTAINS
 
       CALL calc_fast_oce_diagnostics( patch_2d, &
           & patch_3d, &
+          & ocean_state(1), &
           & patch_3d%p_patch_1d(1)%dolic_c, &
           & patch_3d%p_patch_1d(1)%prism_thick_c, &
           & patch_3d%p_patch_1d(1)%zlev_m, &
@@ -505,9 +513,7 @@ CONTAINS
           & ocean_state(jg)%p_prog(nnew(1))%tracer, &
           & p_atm_f, &
         & p_oce_sfc, &
-          & hamocc_state, &
-          & sea_ice, &
-          & lhamocc) 
+          & sea_ice) 
 
         stop_detail_timer(timer_extra20,5)
 
@@ -540,6 +546,7 @@ CONTAINS
 
         ! copy atmospheric wind speed of coupling from p_as%fu10 into forcing to be written by restart
         p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+        p_oce_sfc%sea_level_pressure(:,:) = p_as%pao(:,:)
 
         start_detail_timer(timer_extra21,5)
         
@@ -605,7 +612,7 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE tracer_biochemistry_transport(patch_3d, ocean_state, p_as, sea_ice, p_oce_sfc, p_phys_param, operators_coefficients)
+  SUBROUTINE tracer_transport(patch_3d, ocean_state, p_as, sea_ice, p_oce_sfc, p_phys_param, operators_coefficients, current_time)
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
@@ -613,9 +620,10 @@ CONTAINS
     TYPE(t_ocean_surface)                            :: p_oce_sfc
     TYPE(t_ho_params)                                :: p_phys_param
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
-    
-    TYPE(t_tracer_collection) , POINTER              :: old_tracer_collection, new_tracer_collection
+    TYPE(datetime), POINTER, INTENT(in)              :: current_time
+
     TYPE(t_ocean_transport_state)                    :: transport_state
+    TYPE(t_tracer_collection) , POINTER              :: old_tracer_collection, new_tracer_collection
 
     INTEGER :: i, jg
 
@@ -650,30 +658,12 @@ CONTAINS
         old_tracer_collection%tracer(2)%top_bc => p_oce_sfc%TopBC_Salt_vdiff
 
       ! fill diffusion coefficients
-      old_tracer_collection%tracer(1)%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,1)
-      old_tracer_collection%tracer(1)%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,1)
-      DO i = 2, old_tracer_collection%no_of_tracers
-        old_tracer_collection%tracer(i)%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,2)
-        old_tracer_collection%tracer(i)%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,2)
+      DO i = 1, old_tracer_collection%no_of_tracers
+          old_tracer_collection%tracer(i)%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,i)
+          old_tracer_collection%tracer(i)%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,i)
       ENDDO
+      
     ENDIF
-    !------------------------------------------------------------------------
-!     CALL dbg_print('Tr3:before hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,3),str_module,1, &
-!       & patch_3d%p_patch_2d(1)%cells%owned )
-!     CALL dbg_print('Tr20:before hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,20),str_module,1, &
-!       & patch_3d%p_patch_2d(1)%cells%owned )
-
-    !------------------------------------------------------------------------
-    ! call HAMOCC
-    if(lhamocc)then
-      if(ltimer) call timer_start(timer_bgc_tot)
-      CALL bgc_icon(patch_3d,ocean_state,p_as,sea_ice)
-      if(ltimer) call timer_stop(timer_bgc_tot)
-    endif
-!     CALL dbg_print('Tr3:after hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,3),str_module,5, &
-!       & patch_3d%p_patch_2d(1)%cells%owned )
-!     CALL dbg_print('Tr20:after hamocc', ocean_state%p_prog(nold(1))%tracer(:,:,:,20),str_module,5, &
-!     & patch_3d%p_patch_2d(1)%cells%owned )
     !------------------------------------------------------------------------
 
     !------------------------------------------------------------------------
@@ -697,22 +687,22 @@ CONTAINS
 !       & patch_3d%p_patch_2d(1)%cells%owned )
 !     CALL dbg_print('Tr20:new adv', ocean_state%p_prog(nnew(1))%tracer(:,:,:,20),str_module,1, &
 !       & patch_3d%p_patch_2d(1)%cells%owned )
+    CALL ocean_to_hamocc_interface(ocean_state, transport_state, &
+      & p_oce_sfc, p_as, sea_ice, p_phys_param, operators_coefficients, current_time)
 
-  END SUBROUTINE tracer_biochemistry_transport
+  END SUBROUTINE tracer_transport
   !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,p_oce_sfc,sea_ice, &
-          & hamocc_state, operators_coefficients, p_phys_param)
+          & operators_coefficients, p_phys_param)
 
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
     TYPE(t_ocean_surface) , INTENT(INOUT)       :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(INOUT)     :: sea_ice
-    TYPE(t_hamocc_state), INTENT(INOUT)         :: hamocc_state
-    TYPE(t_operator_coeff),   INTENT(inout)     :: operators_coefficients    
+    TYPE(t_operator_coeff),   INTENT(in)     :: operators_coefficients    
     TYPE(t_ho_params), INTENT(IN), OPTIONAL     :: p_phys_param
     
     TYPE(t_patch), POINTER :: patch_2d

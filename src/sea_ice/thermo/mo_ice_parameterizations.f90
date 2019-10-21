@@ -80,10 +80,15 @@ CONTAINS
     INTEGER             :: jc,k
     !-------------------------------------------------------------------------------
 
+    !$ACC DATA PRESENT( Tsurf, hi, hs, albvisdir, albvisdif, albnirdir, albnirdif )
+
     SELECT CASE (i_ice_albedo)
     CASE (1)
       ! This is Uwe's albedo expression from the old budget function
+      !$ACC PARALLEL
+      !$ACC LOOP SEQ
       DO k=1,kice
+        !$ACC LOOP GANG VECTOR PRIVATE( albflag )
         DO jc = i_startidx_c,i_endidx_c
 
           albflag =  1.0_wp/ ( 1.0_wp+albtrans * (Tsurf(jc,k))**2 )
@@ -100,16 +105,28 @@ CONTAINS
 
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
       ! all albedos are the same
-      albvisdif = albvisdir
-      albnirdir = albvisdir
-      albnirdif = albvisdir
+      !$ACC PARALLEL
+      !$ACC LOOP SEQ
+      DO k=1,kice
+        !$ACC LOOP GANG VECTOR
+        DO jc = 1,nbdim
+          albvisdif(jc,k) = albvisdir(jc,k)
+          albnirdir(jc,k) = albvisdir(jc,k)
+          albnirdif(jc,k) = albvisdir(jc,k)
+        END DO
+      END DO
+      !$ACC END PARALLEL
 
     CASE (2)
       ! This is the CCSM 3 albedo scheme
+      !$ACC PARALLEL
+      !$ACC LOOP SEQ
 !PREVENT_INCONSISTENT_IFORT_FMA
       DO k=1,kice
+        !$ACC LOOP GANG VECTOR PRIVATE( frac_snow )
         DO jc = i_startidx_c,i_endidx_c
           frac_snow = hs(jc,k)/( hs(jc,k)+0.02_wp )
           IF ( Tsurf(jc,k) > -1._wp ) THEN
@@ -123,12 +140,23 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
+      !$ACC END PARALLEL
 
       ! diffuse and direct albedos are the same
-      albvisdif = albvisdir
-      albnirdif = albnirdir
+      !$ACC PARALLEL
+      !$ACC LOOP SEQ
+      DO k=1,kice
+        !$ACC LOOP GANG VECTOR
+        DO jc = 1, nbdim
+          albvisdif(jc,k) = albvisdir(jc,k)
+          albnirdif(jc,k) = albnirdir(jc,k)
+        END DO
+      END DO
+      !$ACC END PARALLEL
 
     END SELECT
+
+   !$ACC END DATA
 
   END SUBROUTINE set_ice_albedo
 

@@ -29,7 +29,7 @@ MODULE mo_ocean_tracer_transport_types
   TYPE t_ocean_tracer
     onCells :: concentration
 
-    onCells :: hor_diffusion_coeff
+    onEdges :: hor_diffusion_coeff
     onCells_HalfLevels :: ver_diffusion_coeff
 
     onCells_2D :: top_bc, bottom_bc

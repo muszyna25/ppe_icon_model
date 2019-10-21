@@ -19,7 +19,7 @@ MODULE mo_ocean_model
        &                            pio_type, num_test_pe
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
        &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-       &                            set_mpi_work_communicators, process_mpi_io_size
+       &                            process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
   USE mo_memory_log,              ONLY: memory_log_terminate
@@ -49,7 +49,7 @@ MODULE mo_ocean_model
     & grid_generatingsubcenter  ! grid generating subcenter
 
   USE mo_ocean_nml_crosscheck,   ONLY: ocean_crosscheck
-  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing, lhamocc, &
+  USE mo_ocean_nml,              ONLY: i_sea_ice, no_tracer, use_omip_forcing,  &
     & initialize_fromRestart, ncheckpoints
 
   USE mo_model_domain,        ONLY: t_patch_3d, p_patch_local_parent
@@ -60,10 +60,8 @@ MODULE mo_ocean_model
 
   USE mo_build_decomposition, ONLY: build_decomposition
   USE mo_complete_subdivision,ONLY: setup_phys_patches
-  USE mtime,                  ONLY: datetimeToString
 
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
-  USE mo_bgc_bcond,           ONLY: construct_bgc_ext_data, destruct_bgc_ext_data, ext_data_bgc
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state, &
     & t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_ocean_state,           ONLY:  v_base, &
@@ -74,8 +72,6 @@ MODULE mo_ocean_model
   USE mo_ocean_initialization, ONLY: init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_patch_3d,   &
     & init_patch_3d
-  USE mo_hamocc_output,        ONLY: construct_hamocc_var_lists, construct_hamocc_state, &
-    &                                destruct_hamocc_state         
   USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
   USE mo_ocean_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
@@ -113,12 +109,14 @@ MODULE mo_ocean_model
   USE mo_ocean_testbed,        ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,            ONLY: restartWritingParameters
-  USE mo_bgc_icon_comm,        ONLY: hamocc_state
   USE mo_ocean_time_events,    ONLY: init_ocean_time_events, getCurrentDate_to_String
   !-------------------------------------------------------------
   ! For the coupling
   USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
   USE mo_coupling_config,     ONLY: is_coupled_run
+  !-------------------------------------------------------------
+ 
+  USE mo_ocean_to_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end
 
   IMPLICIT NONE
 
@@ -128,11 +126,11 @@ MODULE mo_ocean_model
     PUBLIC :: construct_ocean_model, destruct_ocean_model
     PUBLIC :: ocean_patch_3d, ocean_state, operators_coefficients
 
-    TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d
+    TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d => NULL()
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: atmos_fluxes
-    TYPE(t_operator_coeff)                          :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
+    TYPE(t_operator_coeff), TARGET                  :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), TARGET     :: solverCoefficients_sp 
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
     
   !  TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -145,7 +143,6 @@ MODULE mo_ocean_model
   SUBROUTINE ocean_model(oce_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
-
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
 
     !-------------------------------------------------------------------
@@ -161,7 +158,8 @@ MODULE mo_ocean_model
 
     !-------------------------------------------------------------------
     CALL construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
-
+    CALL ocean_to_hamocc_construct(ocean_patch_3D, ext_data(1))
+    
     !-------------------------------------------------------------------
     IF (isRestart() .OR. initialize_fromRestart) THEN
       ocean_initFromRestart_OVERRIDE = initialize_fromRestart
@@ -187,12 +185,15 @@ MODULE mo_ocean_model
 
     CALL prepare_ho_stepping(ocean_patch_3d, operators_coefficients, &
       & ocean_state(1), v_oce_sfc, p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
+   
+   CALL ocean_to_hamocc_init(ocean_patch_3d, ocean_state(1), &
+      & p_as, v_sea_ice, v_oce_sfc, v_params)
 
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
     IF (output_mode%l_nml .and. .true.) THEN
-      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_oce_sfc,v_sea_ice,hamocc_state, operators_coefficients)
+      CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_oce_sfc,v_sea_ice, operators_coefficients)
     ENDIF
     !------------------------------------------------------------------
     SELECT CASE (test_mode)
@@ -200,7 +201,6 @@ MODULE mo_ocean_model
         CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
           & ext_data,                                          &
           & v_oce_sfc, v_params, p_as, atmos_fluxes,v_sea_ice, &
-          & hamocc_state,                                      &
           & operators_coefficients,                            &
           & solverCoefficients_sp)
 
@@ -231,6 +231,8 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
     !  cleaning up process
     CALL end_ho_stepping()
+    CALL ocean_to_hamocc_end()
+
     CALL destruct_ocean_model()
 
   END SUBROUTINE ocean_model
@@ -265,7 +267,6 @@ MODULE mo_ocean_model
     IF(no_tracer>0) CALL destruct_ocean_forcing(v_oce_sfc)
     CALL destruct_sea_ice(v_sea_ice)
 
-    IF(lhamocc) CALL destruct_hamocc_state(hamocc_state)
     CALL destruct_atmos_for_ocean(p_as)
     !CALL destruct_atmos_fluxes(atmos_fluxes)
 
@@ -274,8 +275,7 @@ MODULE mo_ocean_model
     !---------------------------------------------------------------------
     ! Destruct external data state
     CALL destruct_ocean_ext_data
-    IF(lhamocc)CALL destruct_bgc_ext_data
-
+ 
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
     IF (error_status/=success) THEN
@@ -304,7 +304,6 @@ MODULE mo_ocean_model
     CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
-
     ! close memory logging files
     CALL memory_log_terminate
 
@@ -385,7 +384,6 @@ MODULE mo_ocean_model
 
     CALL construct_ocean_var_lists(ocean_patch_3d%p_patch_2d(1))
     
-    IF(lhamocc) CALL construct_hamocc_var_lists(ocean_patch_3d%p_patch_2d(1))
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -393,12 +391,6 @@ MODULE mo_ocean_model
     IF (ist /= success) THEN
       CALL finish(TRIM(method_name),'allocation for ocean_state failed')
     ENDIF
-    !if(lhamocc)then
-    !ALLOCATE (hamocc_state(n_dom), stat=ist)
-    !IF (ist /= success) THEN
-    !  CALL finish(TRIM(method_name),'allocation for hamocc_state failed')
-    !ENDIF
-    !ENDIF
     !---------------------------------------------------------------------
     ! 9. Horizontal and vertical grid(s) are now defined.
     !    Assign values to derived variables in the configuration states
@@ -424,19 +416,18 @@ MODULE mo_ocean_model
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
     CALL construct_ocean_ext_data(ocean_patch_3d%p_patch_2d(1:), ext_data)
-    IF(lhamocc)CALL construct_bgc_ext_data(ocean_patch_3d%p_patch_2d(1:), ext_data,ext_data_bgc)
     ! initial analytic bathymetry via namelist
     CALL init_ocean_bathymetry(patch_3d=ocean_patch_3d,  &
       & cells_bathymetry=ext_data(1)%oce%bathymetry_c(:,:))
+
 
     !---------------------------------------------------------------------
     ! Prepare time integration
     CALL construct_ocean_states(ocean_patch_3d, ocean_state, ext_data, &
       & v_params, p_as, atmos_fluxes, v_sea_ice, v_oce_sfc, operators_coefficients, solverCoefficients_sp)!,p_int_state(1:))
 
-    !---------------------------------------------------------------------
+    !---------------------------------------------------------------------    
     IF (use_dummy_cell_closure) CALL create_dummy_cell_closure(ocean_patch_3D)
-    
 
     ! initialize ocean indices for debug output (including 3-dim lsm)
     CALL init_oce_index(ocean_patch_3d%p_patch_2d,ocean_patch_3d, ocean_state, ext_data )
@@ -481,8 +472,8 @@ MODULE mo_ocean_model
     TYPE(t_atmos_fluxes ),      INTENT(inout)  :: atmos_fluxes
     TYPE(t_sea_ice),            INTENT(inout)  :: p_ice
     TYPE(t_ocean_surface),      INTENT(inout)  :: p_oce_sfc
-    TYPE(t_operator_coeff),     INTENT(inout), TARGET  :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    TYPE(t_operator_coeff),     INTENT(inout), TARGET :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(inout), TARGET :: solverCoeff_sp
 
     ! local variables
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: datestring
@@ -511,12 +502,12 @@ MODULE mo_ocean_model
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
     CALL init_ho_base (patch_3d%p_patch_2d(1), external_data(1), v_base)
-    IF (use_omip_forcing .or. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
+!     IF (use_omip_forcing .or. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
+    CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base) ! This initializes the wet_c,..., for all cells ! unbelievable !
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
-
-    CALL construct_operators_coefficients     ( patch_3d, operators_coefficients, solverCoeff_sp, ocean_default_list)
+    CALL construct_operators_coefficients     ( patch_3d, operators_coefficients, solverCoeff_sp)
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
@@ -526,9 +517,6 @@ MODULE mo_ocean_model
     ocean_state(1)%operator_coeff => operators_coefficients
 
     CALL construct_ocean_nudge(patch_3d%p_patch_2d(1),  ocean_nudge)
-
-    if(lhamocc) CALL construct_hamocc_state(patch_3d%p_patch_2d, hamocc_state)
-
 
     CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)
 
