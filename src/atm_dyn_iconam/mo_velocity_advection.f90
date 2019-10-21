@@ -243,11 +243,6 @@ MODULE mo_velocity_advection
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-        ! Initialize the max CFL variable to zero for the subsequent computation
-        ! TODO: this logic can be moved to GPU completely
-        maxvcfl = 0
-
-
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
@@ -529,6 +524,10 @@ MODULE mo_velocity_advection
         levmask(jb,jk) = .FALSE.
       ENDDO
 !$ACC END PARALLEL
+
+        ! Initialize the max CFL variable to zero for the following computation
+        ! TODO: in OpenACC this logic can be moved to GPU completely
+        maxvcfl = 0
 
 ! DA this kernel is ASYNC(1), so need to wait to retrieve the value
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on ) PRIVATE(vcfl)  DEFAULT(NONE) ASYNC(1)
