@@ -829,14 +829,10 @@ MODULE mo_async_latbc
              &                                  time_config%tc_exp_startdate,  &
              &                                  time_config%tc_exp_startdate))
         latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
-      END IF
-      IF (is_work .AND.  p_pe_work == p_work_pe0) THEN
 
         INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
             CALL finish(routine,'LATBC file not found: '//latbc_file)
-         ELSE
-            CALL message("", "reading boundary data: "//latbc_file)
          ENDIF
 
          ! open file
