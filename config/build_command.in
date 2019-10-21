@@ -122,9 +122,12 @@ then
     echo
     module list
     echo
-    if [[ ! -z $CRAY_LD_LIBRARY_PATH ]]
+    if [ -n ${CRAY_LD_LIBRARY_PATH:=} ]
     then
-	export LD_LIBRARY_PATH=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
+        if [ -n ${LD_LIBRARY_PATH:=} ]
+        then
+	    export LD_LIBRARY_PATH=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
+        fi
     fi
     echo
     echo "______________________________________________________________________"
