@@ -1245,7 +1245,6 @@ case "$ac_sitename" in
         software_tree = /sw/${dist_codename}-x64
         case "$host" in
             x86_64-*-linux-*)        # 64 bit squeeze, wheezy, jessie, stretch MPI/ZMAW workstation
-                load_profile  = /client/etc/profile.zmaw
                 config_target = mpipc
                 make_command  = make -j 2
                 submit        =
