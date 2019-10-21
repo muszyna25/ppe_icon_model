@@ -685,7 +685,8 @@ END SUBROUTINE rbf_vec_interpol_vertex_wp
 ! Variant for mixed precision mode (output fields in single precision)
 SUBROUTINE rbf_vec_interpol_vertex_vp( p_e_in, ptr_patch, ptr_int, &
                                        p_u_out, p_v_out,           &
-                                       opt_slev, opt_elev, opt_rlstart, opt_rlend )
+                                       opt_slev, opt_elev, opt_rlstart, opt_rlend,  &
+                                       opt_acc_async )
 !
 TYPE(t_patch), TARGET, INTENT(in) ::  &
   &  ptr_patch
@@ -713,6 +714,8 @@ REAL(sp),INTENT(INOUT) ::  &
 ! reconstructed y-component (v) of velocity vector
 REAL(sp),INTENT(INOUT) ::  &
   &  p_v_out(:,:,:) ! dim: (nproma,nlev,nblks_v)
+
+LOGICAL, INTENT(IN), OPTIONAL :: opt_acc_async
 
 ! !LOCAL VARIABLES
 
@@ -814,6 +817,13 @@ ENDDO
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+IF ( PRESENT(opt_acc_async) ) THEN
+  IF ( opt_acc_async ) THEN
+    RETURN
+  END IF
+END IF
+!$ACC WAIT
 
 END SUBROUTINE rbf_vec_interpol_vertex_vp
 

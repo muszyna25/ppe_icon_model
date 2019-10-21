@@ -1597,10 +1597,12 @@ CONTAINS
     
   END SUBROUTINE init_zero_contiguous_dp
 
-  SUBROUTINE init_contiguous_sp(var, n, v)
+  SUBROUTINE init_contiguous_sp(var, n, v, opt_acc_async)
     INTEGER, INTENT(in) :: n
     REAL(sp), INTENT(out) :: var(n)
     REAL(sp), INTENT(in) :: v
+
+    LOGICAL, INTENT(in), OPTIONAL :: opt_acc_async
 
     INTEGER :: i
 #ifdef _OPENACC
@@ -1620,12 +1622,25 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      IF ( opt_acc_async ) THEN
+        RETURN
+      END IF
+    END IF
+    !$ACC WAIT
   END SUBROUTINE init_contiguous_sp
 
-  SUBROUTINE init_zero_contiguous_sp(var, n)
+  SUBROUTINE init_zero_contiguous_sp(var, n, opt_acc_async)
     INTEGER, INTENT(in) :: n
     REAL(sp), INTENT(out) :: var(n)
-    CALL init_contiguous_sp(var, n, 0.0_sp)
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_acc_async
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      CALL init_contiguous_sp(var, n, 0.0_sp, opt_acc_async)
+    ELSE
+      CALL init_contiguous_sp(var, n, 0.0_sp)
+    END IF
   END SUBROUTINE init_zero_contiguous_sp
 
   SUBROUTINE init_contiguous_i4(var, n, v)
