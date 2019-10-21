@@ -33,7 +33,7 @@ MODULE mo_io_nml
                                  & config_dt_diag                 => dt_diag                , &
                                  & config_gust_interval           => gust_interval          , &
                                  & config_precip_interval         => precip_interval        , &
-                                 & config_mxt_interval            => mxt_interval           , &
+                                 & config_maxt_interval           => maxt_interval          , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
                                  & config_inextra_2d              => inextra_2d             , &
                                  & config_inextra_3d              => inextra_3d             , &
@@ -96,7 +96,7 @@ CONTAINS
     REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
     REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
     CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
-    CHARACTER(len=max_timedelta_str_len) :: mxt_interval(max_dom)      ! time interval for tmax_2m and tmin_2m 
+    CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m and tmin_2m 
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
@@ -152,7 +152,7 @@ CONTAINS
       &              lnetcdf_flt64_output,                              &
       &              restart_file_type, write_initial_state,            &
       &              write_last_restart, timeSteps_per_outputStep,      &
-      &              lmask_boundary, precip_interval, mxt_interval,     &
+      &              lmask_boundary, precip_interval, maxt_interval,    &
       &              gust_interval, restart_write_mode,                 &
       &              nrestart_streams
 
@@ -169,7 +169,7 @@ CONTAINS
 
     gust_interval(:)        = 3600._wp     ! 1 hour
     precip_interval(:)      = "P01Y"       ! 1 year
-    mxt_interval(:)         = "PT06H"      ! 6 hours
+    maxt_interval(:)        = "PT06H"      ! 6 hours
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
     lflux_avg               = .TRUE.
@@ -227,7 +227,7 @@ CONTAINS
     config_dt_diag                 = dt_diag
     config_gust_interval(:)        = gust_interval(:)
     config_precip_interval(:)      = precip_interval(:)
-    config_mxt_interval(:)         = mxt_interval(:)
+    config_maxt_interval(:)        = maxt_interval(:)
     config_dt_checkpoint           = dt_checkpoint
     config_inextra_2d              = inextra_2d
     config_inextra_3d              = inextra_3d

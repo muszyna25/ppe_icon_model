@@ -106,7 +106,7 @@ USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mo_io_config,            ONLY: lnetcdf_flt64_output, gust_interval, &
-  &                                mxt_interval, precip_interval
+  &                                maxt_interval, precip_interval
 USE mtime,                   ONLY: max_timedelta_str_len, getPTStringFromMS
 USE mo_name_list_output_config, ONLY: &
   &                                first_output_name_list, is_variable_in_output
@@ -2270,7 +2270,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MAX, initval=-999._wp, resetval=-999._wp,         &
-      & action_list=actions(new_action(ACTION_RESET,mxt_interval(k_jg))),            &
+      & action_list=actions(new_action(ACTION_RESET,maxt_interval(k_jg))),&
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
 
@@ -2281,7 +2281,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MIN, initval=999._wp, resetval=999._wp,           &
-      & action_list=actions(new_action(ACTION_RESET,mxt_interval(k_jg))),            &
+      & action_list=actions(new_action(ACTION_RESET,maxt_interval(k_jg))),&
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 
