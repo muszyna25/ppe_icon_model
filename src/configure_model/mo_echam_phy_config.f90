@@ -117,6 +117,11 @@ MODULE mo_echam_phy_config
      CHARACTER(len=max_datetime_str_len ) :: ed_cld  !< end   time of cloud microphysics
      INTEGER                              :: fc_cld
      !
+     CHARACTER(len=max_timedelta_str_len) :: dt_mig  !< time  step of cloud microphysics (graupel)
+     CHARACTER(len=max_datetime_str_len ) :: sd_mig  !< start time of cloud microphysics (graupel)
+     CHARACTER(len=max_datetime_str_len ) :: ed_mig  !< end   time of cloud microphysics (graupel)
+     INTEGER                              :: fc_mig
+     !
      CHARACTER(len=max_timedelta_str_len) :: dt_gwd  !< time  step of atmospheric gravity wave drag
      CHARACTER(len=max_datetime_str_len ) :: sd_gwd  !< start time of atmospheric gravity wave drag
      CHARACTER(len=max_datetime_str_len ) :: ed_gwd  !< end   time of atmospheric gravity wave drag
@@ -144,12 +149,15 @@ MODULE mo_echam_phy_config
      INTEGER                              :: fc_art
      !
      ! surface
+     LOGICAL                              :: lsstice !< .true. for inst. 6hourly sst and ice (prelim)
      LOGICAL                              :: lmlo    !< .true. for mixed layer ocean
      LOGICAL                              :: lice    !< .true. for sea-ice temperature calculation
      LOGICAL                              :: ljsb    !< .true. for calculating the JSBACH land surface
      LOGICAL                              :: llake   !< .true. for using lakes in JSBACH
      LOGICAL                              :: lamip   !< .true. for AMIP simulations
-     LOGICAL                              :: lcpl_co2_atmoce !< .true. for coupling of co2 atmo/ocean
+     !
+     ! vertical range parameters
+     REAL(wp)                             :: zmaxcloudy !< maximum height (m) for cloud computations
      !
   END TYPE t_echam_phy_config
 
@@ -190,6 +198,12 @@ MODULE mo_echam_phy_config
      TYPE(datetime ), POINTER :: ed_cld
      TYPE(event    ), POINTER :: ev_cld
      REAL(wp)                 :: dt_cld_sec
+     !
+     TYPE(timedelta), POINTER :: dt_mig
+     TYPE(datetime ), POINTER :: sd_mig
+     TYPE(datetime ), POINTER :: ed_mig
+     TYPE(event    ), POINTER :: ev_mig
+     REAL(wp)                 :: dt_mig_sec
      !
      TYPE(timedelta), POINTER :: dt_gwd
      TYPE(datetime ), POINTER :: sd_gwd
@@ -284,6 +298,11 @@ CONTAINS
     echam_phy_config(:)% ed_cld = ''
     echam_phy_config(:)% fc_cld = 1
     !
+    echam_phy_config(:)% dt_mig = ''
+    echam_phy_config(:)% sd_mig = ''
+    echam_phy_config(:)% ed_mig = ''
+    echam_phy_config(:)% fc_mig = 1
+    !
     echam_phy_config(:)% dt_gwd = ''
     echam_phy_config(:)% sd_gwd = ''
     echam_phy_config(:)% ed_gwd = ''
@@ -315,7 +334,11 @@ CONTAINS
     echam_phy_config(:)% lamip = .FALSE.
     echam_phy_config(:)% lmlo  = .FALSE.
     echam_phy_config(:)% lice  = .FALSE.
-    echam_phy_config(:)% lcpl_co2_atmoce  = .FALSE.
+    !
+    echam_phy_config(:)% lsstice          = .FALSE.
+    !
+    ! vertical range parameters
+    echam_phy_config(:)% zmaxcloudy = 33000.0_wp
     !
   END SUBROUTINE init_echam_phy_config
 
@@ -356,6 +379,12 @@ CONTAINS
             &                             echam_phy_config (jg)% sd_cld  ,&
             &                             echam_phy_config (jg)% ed_cld  ,&
             &                             echam_phy_config (jg)% fc_cld  )
+       !
+       CALL eval_echam_phy_config_details(TRIM(cg),                'mig' ,&
+            &                             echam_phy_config (jg)% dt_mig  ,&
+            &                             echam_phy_config (jg)% sd_mig  ,&
+            &                             echam_phy_config (jg)% ed_mig  ,&
+            &                             echam_phy_config (jg)% fc_mig  )
        !
        CALL eval_echam_phy_config_details(TRIM(cg),                'gwd' ,&
             &                             echam_phy_config (jg)% dt_gwd  ,&
@@ -528,6 +557,16 @@ CONTAINS
             &                         echam_phy_tc    (jg)% ev_cld     ,&
             &                         echam_phy_tc    (jg)% dt_cld_sec )
        !
+       CALL eval_echam_phy_tc_details(cg,                     'mig'    ,&
+            &                         echam_phy_config(jg)% dt_mig     ,&
+            &                         echam_phy_config(jg)% sd_mig     ,&
+            &                         echam_phy_config(jg)% ed_mig     ,&
+            &                         echam_phy_tc    (jg)% dt_mig     ,&
+            &                         echam_phy_tc    (jg)% sd_mig     ,&
+            &                         echam_phy_tc    (jg)% ed_mig     ,&
+            &                         echam_phy_tc    (jg)% ev_mig     ,&
+            &                         echam_phy_tc    (jg)% dt_mig_sec )
+       !
        CALL eval_echam_phy_tc_details(cg,                     'gwd'    ,&
             &                         echam_phy_config(jg)% dt_gwd     ,&
             &                         echam_phy_config(jg)% sd_gwd     ,&
@@ -699,6 +738,12 @@ CONTAINS
             &                              echam_phy_config(jg)% ed_cld  ,&
             &                              echam_phy_config(jg)% fc_cld  )
        !
+       CALL print_echam_phy_config_details(cg,                     'mig' ,&
+            &                              echam_phy_config(jg)% dt_mig  ,&
+            &                              echam_phy_config(jg)% sd_mig  ,&
+            &                              echam_phy_config(jg)% ed_mig  ,&
+            &                              echam_phy_config(jg)% fc_mig  )
+       !
        CALL print_echam_phy_config_details(cg,                     'gwd' ,&
             &                              echam_phy_config(jg)% dt_gwd  ,&
             &                              echam_phy_config(jg)% sd_gwd  ,&
@@ -735,9 +780,13 @@ CONTAINS
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% ljsb ',echam_phy_config(jg)% ljsb  )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% llake',echam_phy_config(jg)% llake )
        CALL print_value('    echam_phy_config('//TRIM(cg)//')% lamip',echam_phy_config(jg)% lamip )
-       CALL print_value('    echam_phy_config('//TRIM(cg)//')% lcpl_co2_atmoce',echam_phy_config(jg)% lcpl_co2_atmoce)
-       !
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% lsstice ',echam_phy_config(jg)% lsstice  )
        CALL message    ('','')
+       !
+       CALL message    ('','vertical ranges')
+       CALL print_value('    echam_phy_config('//TRIM(cg)//')% zmaxcloudy ',echam_phy_config(jg)% zmaxcloudy )
+       CALL message    ('','')
+       !
        CALL message    ('','Derived time control')
        CALL message    ('','....................')
        CALL message    ('','')
@@ -765,6 +814,12 @@ CONTAINS
             &                          echam_phy_tc(jg)% sd_cld     ,&
             &                          echam_phy_tc(jg)% ed_cld     ,&
             &                          echam_phy_tc(jg)% dt_cld_sec )
+       !
+       CALL print_echam_phy_tc_details(cg,                 'mig'    ,&
+            &                          echam_phy_tc(jg)% dt_mig     ,&
+            &                          echam_phy_tc(jg)% sd_mig     ,&
+            &                          echam_phy_tc(jg)% ed_mig     ,&
+            &                          echam_phy_tc(jg)% dt_mig_sec )
        !
        CALL print_echam_phy_tc_details(cg,                 'gwd'    ,&
             &                          echam_phy_tc(jg)% dt_gwd     ,&

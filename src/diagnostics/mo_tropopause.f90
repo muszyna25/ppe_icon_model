@@ -165,8 +165,13 @@ CONTAINS
     iplimb=nccbot
     iplimt=ncctop+2
 
+    !$ACC DATA PRESENT( ptm1, papm1, ptropo, ktrpwmo, ktrpwmop1 ) &
+    !$ACC       CREATE( ztropo, zpmk, zpm, za, zb, ztm, zdtdz, zplimb, zplimt, zpapm1 )
+
     ! Calculate the height of the tropopause
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
 #ifdef VECTOR
       ztropov(jl) = -999.0_wp
@@ -176,17 +181,25 @@ CONTAINS
       zplimb(jl) = papm1(jl,iplimb)
       zplimt(jl) = papm1(jl,iplimt)
     ENDDO
+    !$ACC END PARALLEL
 
     ! compute dt/dz
 
 !LK may generate problem on NEC !cdir collapse
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk = iplimt-2, iplimb+1
+      !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         zpapm1(jl,jk)=papm1(jl,jk)**zkappa
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
 !LK may generate problem on NEC !cdir collapse
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk = iplimt-1, iplimb+1
+      !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
 
         ! ztm   lineare Interpolation in p**kappa
@@ -202,6 +215,7 @@ CONTAINS
         zdtdz(jl,jk)=zfaktor*zkappa*za(jl,jk)*zpmk(jl,jk)/ztm(jl,jk)
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
 
 #ifdef VECTOR
 
@@ -331,7 +345,10 @@ CONTAINS
 
 #else
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zag, zbg, zptph, zp2km, zasum, kcount, zamean )
     nproma_loop: DO jl = jcs, kproma
+      !$ACC LOOP SEQ
       vertical_loop: DO jk = iplimb+1, iplimt-1, -1
         ! First test: valid dt/dz ?
         IF (zdtdz(jl,jk) >  zgwmo .AND.  &     ! dt/dz > -2K/km
@@ -353,6 +370,7 @@ CONTAINS
           kcount  = 0                                             ! number of levels above
           ! 2nd test: dt/dz above 2 km must not be lower than -2 K/km
           IF (zptph >= zplimt(jl)) THEN
+            !$ACC LOOP SEQ
             vertical_sub_loop: DO jj = jk, iplimt-1, -1
 
               IF (zpm(jl,jj) <= zptph .AND. zpm(jl,jj) >= zp2km )THEN
@@ -371,6 +389,7 @@ CONTAINS
         ENDIF
       END DO vertical_loop
     END DO nproma_loop
+    !$ACC END PARALLEL
 
 #endif
 
@@ -384,9 +403,20 @@ CONTAINS
       ptropo(1:kproma) = ztropov(1:kproma)
    END WHERE
 #else
+#ifdef _OPENACC
+   !$ACC PARALLEL DEFAULT(PRESENT)
+   !$ACC LOOP GANG VECTOR
+   DO jl = jcs,kproma
+     IF (ztropo(jl) > 0.0_wp) THEN
+       ptropo(jl) = ztropo(jl)
+     END IF
+   END DO
+   !$ACC END PARALLEL
+#else
     WHERE (ztropo(jcs:kproma) > 0.0_wp)
       ptropo(jcs:kproma) = ztropo(jcs:kproma)
    END WHERE
+#endif
 #endif
 
 !LK    DO jl = jcs, kproma
@@ -397,9 +427,17 @@ CONTAINS
 
     ! calculation of tropopause on model levels
 
-    ktrpwmop1(:) = iplimt
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      ktrpwmop1(jl) = iplimt
+    END DO
+    !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk = iplimt-1, iplimb+1
+      !$ACC LOOP GANG VECTOR PRIVATE( zdp, lo1, lo2, lo3 )
       DO jl = jcs, kproma
 
         zdp = 0.5_wp*(papm1(jl,jk+1)-papm1(jl,jk))
@@ -413,6 +451,9 @@ CONTAINS
 
       END DO
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
   END SUBROUTINE WMO_tropopause
 

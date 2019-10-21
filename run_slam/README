@@ -1,0 +1,72 @@
+QUBICC SLAM Experiments on Mistral
+----------------------------------
+Marco Giorgetta, MPI-M, April 2019
+
+This is a first set of test experiments for the idealized QBO simulations
+on a spherically limited area model (slam) setup. This setup uses the r02b07
+grid on a sphere with radius r_Earth/8 so that the metric resolution is
+20 km / 8 = 2.5 km, as targetted for the realistic QBO simulation. Thus the
+number of cells is reduced by a factor of 8^2=64. For the vertical a 191 level
+grid is used, which extends up to ~83 km. The time step is 20s.
+
+Test experiments are made for:
+
+Two time periods:
+- "t1m": 3 time steps with time step output
+- "10d": 10 days with hourly output in daily files and daily restarts
+
+And these configurations:
+- slam                     : the empty time loop
+- slam_dyn_tra             : dynamics + transport
+- slam_dyn_tra_nop         : dynamics + transport + dyn-phy-interface, but no params.
+- slam_dyn_tra_psr         : dynamics + transport + "PSRAD"   radiation
+- slam_dyn_tra_vdf         : dynamics + transport + "vdiff"   vertical diffusion
+- slam_dyn_tra_cld         : dynamics + transport + "echam"   cloud micro-physics
+- slam_dyn_tra_mig         : dynamics + transport + "graupel" cloud micro-physics (1)
+- slam_dyn_tra_psr_vdf_cld : dynamics + transport + "PSRAD"   radiation
+                                                  + "vdiff"   vertical diffusion
+                                                  + "echam"   cloud micro-physics
+
+(1) "graupel" cloud micro-physics produces no precip over 10 days
+
+Code used:
+icon-aes:icon-aes-mig #90db8107cc1a24ab6e2572ef2808a3d5651fa5b6
+
+Changes later committed to:
+icon-aes:icon-aes-slaminit #9e77d1e598dd332182a9c3ae3b7f0d815f1f6af9
+
+Note: By error the executable used did not include all changes of #9e77d1. This
+      This had the side effect of using the standard Earth rotation instead of
+      no rotation. With the correct executable no rotation would be used and
+      results therefore would be different.
+      Therefore the executable ("icon") is stored in the experiment folder
+      of the experiment "slam_dyn_tra_psr_vdf_cld".
+
+Experiments are stored in:
+/work/mh0081/m214017/experiments_icon-aes-qbexp-slam-1
+
+--------------------------------------------------------------------------------
+
+Update 26.4.2019
+
+- exp.r02b07l191_slam_dyn_tra_psr_vdf_cld_300d added
+  This experiment was initially set to run for 300 days,
+  but later shortened to 180 days.
+
+- exp.r02b04l191_slam*_t1m experiments added
+  The only differences between the r02b04 and r02b07 versions consist in the
+  grids and in the number of output PEs, which is set to 1 in the r02b04 setups
+  instead of the number of output files in the r02b07 setups.
+
+- The following experiments are run with the "new" code specified below:
+-- all "t1m" experiments for r02b04 and r02b07
+-- exp.r02b07l191_slam_dyn_tra_psr_vdf_cld_10d
+-- exp.r02b07l191_slam_dyn_tra_psr_vdf_cld_300d
+
+Code used:
+icon-aes:icon-aes-integrate-qubicc-1 #f4eba5bd7f375b7f885cacb594aadb8e47ccfcd6
+
+Experiments are stored in:
+/work/mh0081/m214017/experiments_icon-aes-qbexp-slam-2
+
+--------------------------------------------------------------------------------

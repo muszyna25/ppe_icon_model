@@ -15,6 +15,8 @@ MODULE mo_var_list
 #endif
 #endif
 
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_null_char, C_SIZE_T
+
   USE mo_kind,             ONLY: sp, wp, i8
   USE mo_mpi,              ONLY: my_process_is_stdio
   USE mo_cdi,              ONLY: CDI_DATATYPE_FLT64,                &
@@ -696,6 +698,8 @@ CONTAINS
     this_info%action_list         = actions()
     !
     this_info%l_pp_scheduler_task = 0
+    !
+    this_info%lopenacc            = .FALSE.
 
   END SUBROUTINE default_var_list_metadata
 
@@ -716,7 +720,8 @@ CONTAINS
          &                     tlev_source, vert_interp,                       &
          &                     hor_interp, in_group, verbose,                  &
          &                     l_pp_scheduler_task, post_op, action_list,      &
-         &                     var_class, data_type, idx_tracer, idx_diag)    
+         &                     var_class, data_type, idx_tracer, idx_diag,     &   
+         &                     lopenacc)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -746,6 +751,7 @@ CONTAINS
     INTEGER,                 INTENT(IN), OPTIONAL :: data_type     ! variable data type
     INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer    ! index of tracer in tracer container 
     INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag      ! index of tracer in diagnostics container 
+    LOGICAL,                 INTENT(IN), OPTIONAL :: lopenacc      ! variable data type
     !
     LOGICAL :: lverbose
     !
@@ -766,7 +772,7 @@ CONTAINS
     !
     ! hash variable name for fast search
     !
-    IF (PRESENT(name)) info%key = util_hashword(name, LEN_TRIM(name), 0)
+    IF (PRESENT(name)) info%key = util_hashword(name//c_null_char, int(LEN_TRIM(name), C_SIZE_T), 0)
     !
 !!$    CALL assign_if_present (info%used_dimensions(1:SIZE(ldims)), ldims)
     CALL assign_if_present (info%used_dimensions, ldims)
@@ -813,6 +819,9 @@ CONTAINS
     ! indices of tracer in tracer container and in diagnostic container
     CALL assign_if_present (info%idx_tracer, idx_tracer)
     CALL assign_if_present (info%idx_diag, idx_diag)
+
+    ! Create data on GPU
+    CALL assign_if_present(info%lopenacc, lopenacc)
 
     !
     ! printout (optional)
@@ -943,7 +952,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, tracer_info,                 &
     &   p5_r, p5_s, p5_i, p5_l, initval_r, initval_s, initval_i, initval_l,     &
     &   resetval_r, resetval_s, resetval_i, resetval_l,                         &
-    &   missval_r, missval_s, missval_i, missval_l, var_class )
+    &   missval_r, missval_s, missval_i, missval_l, var_class, lopenacc )
 
     INTEGER,                 INTENT(IN)           :: ndims                        ! used dimensions (1...5)
     INTEGER,                 INTENT(IN)           :: data_type
@@ -1004,6 +1013,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval_i                    ! missing value
     LOGICAL,                 INTENT(in), OPTIONAL :: missval_l                    ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
 
     ! local variables
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1084,7 +1094,7 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group,  &
          verbose=verbose, l_pp_scheduler_task=l_pp_scheduler_task,           &
          post_op=post_op, action_list=action_list, var_class=var_class,      &
-         data_type=data_type )
+         data_type=data_type, lopenacc=lopenacc )
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
@@ -1104,15 +1114,19 @@ CONTAINS
       CASE (REAL_T)
         new_list_element%field%var_base_size    = 8
         ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        !$ACC ENTER DATA CREATE( new_list_element%field%r_ptr ) IF( new_list_element%field%info%lopenacc )
       CASE (SINGLE_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%s_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        !$ACC ENTER DATA CREATE( new_list_element%field%s_ptr ) IF( new_list_element%field%info%lopenacc )
       CASE (INT_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        !$ACC ENTER DATA CREATE( new_list_element%field%i_ptr ) IF( new_list_element%field%info%lopenacc )
       CASE (BOOL_T)
         new_list_element%field%var_base_size    = 4
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        !$ACC ENTER DATA CREATE( new_list_element%field%l_ptr ) IF( new_list_element%field%info%lopenacc )
       END SELECT
 
       IF (istat /= 0) THEN
@@ -1143,15 +1157,19 @@ CONTAINS
     CASE (REAL_T)
       CALL init_array_r5d(new_list_element%field%r_ptr, linit=PRESENT(initval_r), initval=initval, &
         &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$ACC UPDATE DEVICE( new_list_element%field%r_ptr ) IF( new_list_element%field%info%lopenacc )
     CASE (SINGLE_T)
       CALL init_array_s5d(new_list_element%field%s_ptr, linit=PRESENT(initval_s), initval=initval, &
         &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$ACC UPDATE DEVICE( new_list_element%field%s_ptr ) IF( new_list_element%field%info%lopenacc )
     CASE (INT_T)
       CALL init_array_i5d(new_list_element%field%i_ptr, linit=PRESENT(initval_i), initval=initval, &
         &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$ACC UPDATE DEVICE( new_list_element%field%i_ptr ) IF( new_list_element%field%info%lopenacc )
     CASE (BOOL_T)
       CALL init_array_l5d(new_list_element%field%l_ptr, linit=PRESENT(initval_l), initval=initval, &
         &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$ACC UPDATE DEVICE( new_list_element%field%l_ptr ) IF( new_list_element%field%info%lopenacc )
     END SELECT
   END SUBROUTINE add_var_list_element_5d
 
@@ -1166,7 +1184,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1201,6 +1220,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1213,7 +1233,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                      &
       &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,              &
       &   initval_r=initval, resetval_r=resetval, missval_r=missval,       &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%r_ptr(:,:,:,:,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_r4d
@@ -1229,7 +1249,7 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,                   &
     &   resetval, lmiss, missval, tlev_source, tracer_info, info, p5,  &
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1265,6 +1285,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1277,7 +1298,7 @@ CONTAINS
       &   info, vert_interp, hor_interp, in_group, verbose,                    &
       &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
       &   p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,  &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%r_ptr(:,:,:,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_r3d
@@ -1293,7 +1314,7 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,                   &
     &   resetval, lmiss, missval, tlev_source, tracer_info, info, p5,  &
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1329,6 +1350,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1341,7 +1363,7 @@ CONTAINS
       &   info, vert_interp, hor_interp, in_group, verbose,                    &
       &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
       &   p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,  &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%r_ptr(:,:,1,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_r2d
@@ -1357,7 +1379,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1392,6 +1415,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1404,7 +1428,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,           &
       &   initval_r=initval, resetval_r=resetval, missval_r=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class,lopenacc=lopenacc)
     ptr => element%field%r_ptr(:,1,1,1,1)
     IF (PRESENT(new_element))  new_element => element
 
@@ -1420,7 +1444,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1455,6 +1480,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1467,7 +1493,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                      &
       &   l_pp_scheduler_task, post_op, action_list, p5_s=p5,              &
       &   initval_s=initval, resetval_s=resetval, missval_s=missval,       &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%s_ptr(:,:,:,:,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_s4d
@@ -1483,7 +1509,7 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,                   &
     &   resetval, lmiss, missval, tlev_source, tracer_info, info, p5,  &
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1519,6 +1545,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1531,7 +1558,7 @@ CONTAINS
       &   info, vert_interp, hor_interp, in_group, verbose,                    &
       &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
       &   p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,  &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%s_ptr(:,:,:,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_s3d
@@ -1547,7 +1574,7 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,                   &
     &   resetval, lmiss, missval, tlev_source, tracer_info, info, p5,  &
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1583,6 +1610,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1595,7 +1623,7 @@ CONTAINS
       &   info, vert_interp, hor_interp, in_group, verbose,                    &
       &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
       &   p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,  &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%s_ptr(:,:,1,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_s2d
@@ -1611,7 +1639,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1646,6 +1675,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1658,7 +1688,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_s=p5,           &
       &   initval_s=initval, resetval_s=resetval, missval_s=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%s_ptr(:,1,1,1,1)
     IF (PRESENT(new_element))  new_element => element
 
@@ -1674,7 +1704,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1709,6 +1740,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1721,7 +1753,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
       &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%i_ptr(:,:,:,:,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i4d
@@ -1737,7 +1769,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1772,6 +1805,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1784,7 +1818,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
       &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%i_ptr(:,:,:,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i3d
@@ -1800,7 +1834,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1835,6 +1870,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1847,7 +1883,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
       &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%i_ptr(:,:,1,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i2d
@@ -1863,7 +1899,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1898,6 +1935,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1910,7 +1948,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
       &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%i_ptr(:,1,1,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_i1d
@@ -1925,7 +1963,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -1960,6 +1999,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -1972,7 +2012,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
       &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%l_ptr(:,:,:,:,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l4d
@@ -1988,7 +2028,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -2023,6 +2064,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -2035,7 +2077,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
       &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%l_ptr(:,:,:,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l3d
@@ -2051,7 +2093,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -2086,6 +2129,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -2098,7 +2142,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
       &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%l_ptr(:,:,1,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l2d
@@ -2114,7 +2158,8 @@ CONTAINS
     &   lrestart, lrestart_cont, initval, isteptype,              &
     &   resetval, lmiss, missval, tlev_source, info, p5,          &
     &   vert_interp, hor_interp, in_group, verbose, new_element,  &
-    &   l_pp_scheduler_task, post_op, action_list, var_class)
+    &   l_pp_scheduler_task, post_op, action_list, var_class,     &
+    &   lopenacc)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
@@ -2149,6 +2194,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+    LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
     ! local variables
     TYPE(t_list_element), POINTER :: element
     INTEGER                       :: idims(5), ndims
@@ -2161,7 +2207,7 @@ CONTAINS
       &   vert_interp, hor_interp, in_group, verbose,                   &
       &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
       &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class)
+      &   var_class=var_class, lopenacc=lopenacc)
     ptr => element%field%l_ptr(:,1,1,1,1)
     IF (PRESENT(new_element))  new_element => element
   END SUBROUTINE add_var_list_element_l1d
@@ -4205,7 +4251,7 @@ CONTAINS
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)
     !
-    key = util_hashword(name, LEN_TRIM(name), 0)
+    key = util_hashword(name//c_null_char, INT(LEN_TRIM(name), C_SIZE_T), 0)
     name_has_time_level = has_time_level(name)
     !
     element => this_list%p%first_list_element

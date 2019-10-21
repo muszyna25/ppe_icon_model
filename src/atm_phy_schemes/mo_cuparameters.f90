@@ -317,8 +317,9 @@ MODULE mo_cuparameters
   !                        0:NO  1:SURFACE SENS HEAT FLUX 2: SUBCLOUD CAPE
   !     RTAU0     REAL     PRORTIONALITY FACTOR USED FOR RCAPDCYCL TIME SCALE
   !     RMFCFL    REAL     MULTIPLE OF CFL STABILITY CRITERIUM
-  !     RMFLIC    REAL     USE CFL (1) OR ABSOLUT MASS FLUX LIMIT (0)
-  !     RMFLIA    REAL     VALUE OF ABSOLUT MASS FLUX LIMIT
+  !     RMFLIC    REAL     USE CFL (1) OR ABSOLUTE MASS FLUX LIMIT (0)
+  !     RMFLIA    REAL     VALUE OF ABSOLUTE MASS FLUX LIMIT
+  !     RMFDEF    REAL     DEFAULT FIRST-GUESS MASS FLUX VALUE FOR DEEP CONVECTION
   !     RMFSOLCT  REAL     SOLVER FOR MASSFLUX ADVECTION EQUATION FOR TRACERS
   !                        0 : EXPLICIT  0-1 : SEMI-IMPLICIT >=1 : FULLY IMPLICIT
   !     RMFSOLUV  REAL     SOLVER FOR MASSFLUX ADVECTION EQUATION FOR MOMENTUM
@@ -336,6 +337,7 @@ MODULE mo_cuparameters
   ! REAL(KIND=jprb) :: rmfcfl -> moved into phy_params because it is resolution-dependent
   REAL(KIND=jprb) :: rmflic
   REAL(KIND=jprb) :: rmflia
+  REAL(KIND=jprb) :: rmfdef
   REAL(KIND=jprb) :: rmflmax
   REAL(KIND=jprb) :: rmfsoluv
   REAL(KIND=jprb) :: rmfsoltq
@@ -482,7 +484,7 @@ MODULE mo_cuparameters
           & rmfcmax  ,rmfcmin   ,detrpen            ,&
           & lmfdd    ,lmfdudv                       ,&
           & lmfit    ,rmflic                       ,&
-          & rmflia   ,rmfsoluv ,rmflmax            ,&
+          & rmflia   ,rmfsoluv ,rmflmax, rmfdef    ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
           & entrdd   ,& ! njkt1     ,&
@@ -1331,6 +1333,7 @@ ENDIF
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit
 rmflmax=1.75_jprb ! mass flux limit following a suggestion by P. Bechtold [kg/(m**2s)]
+rmfdef=0.1_JPRB   ! first-guess mass flux value for deep convection (M. Ahlgrimm)
 
 
 !     MASSFLUX SOLVERs FOR MOMEMTUM AND TRACERS

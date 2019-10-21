@@ -135,23 +135,33 @@ CONTAINS
 
     ! Shortcuts to components of echam_cnv_config
     !
-    LOGICAL , POINTER :: lmfmid, lmfdudv
-    INTEGER , POINTER :: nmctop
-    REAL(wp), POINTER :: cprcon, cmfctop, cmfcmin, cminbuoy, cmaxbuoy, cbfac, centrmax
-    REAL(wp), POINTER :: dlev_land, dlev_ocean
+    LOGICAL     :: lmfmid, lmfdudv
+    INTEGER     :: nmctop
+    REAL(wp)    :: cprcon, cmfctop, cmfcmin, cminbuoy, cmaxbuoy, cbfac, centrmax
+    REAL(wp)    :: dlev_land, dlev_ocean
     !
-    lmfmid     => echam_cnv_config(jg)% lmfmid
-    lmfdudv    => echam_cnv_config(jg)% lmfdudv
-    nmctop     => echam_cnv_config(jg)% nmctop
-    cprcon     => echam_cnv_config(jg)% cprcon
-    cmfctop    => echam_cnv_config(jg)% cmfctop
-    cmfcmin    => echam_cnv_config(jg)% cmfcmin
-    cminbuoy   => echam_cnv_config(jg)% cminbuoy
-    cmaxbuoy   => echam_cnv_config(jg)% cmaxbuoy
-    cbfac      => echam_cnv_config(jg)% cbfac
-    centrmax   => echam_cnv_config(jg)% centrmax
-    dlev_land  => echam_cnv_config(jg)% dlev_land
-    dlev_ocean => echam_cnv_config(jg)% dlev_ocean
+    lmfmid     = echam_cnv_config(jg)% lmfmid
+    lmfdudv    = echam_cnv_config(jg)% lmfdudv
+    nmctop     = echam_cnv_config(jg)% nmctop
+    cprcon     = echam_cnv_config(jg)% cprcon
+    cmfctop    = echam_cnv_config(jg)% cmfctop
+    cmfcmin    = echam_cnv_config(jg)% cmfcmin
+    cminbuoy   = echam_cnv_config(jg)% cminbuoy
+    cmaxbuoy   = echam_cnv_config(jg)% cmaxbuoy
+    cbfac      = echam_cnv_config(jg)% cbfac
+    centrmax   = echam_cnv_config(jg)% centrmax
+    dlev_land  = echam_cnv_config(jg)% dlev_land
+    dlev_ocean = echam_cnv_config(jg)% dlev_ocean
+
+    !$ACC DATA PRESENT( pxtenh, pxten, pxtu, pmfuxt ) IF( ktrac > 0 )
+    !$ACC DATA PRESENT( pzf, pzh, pmref, ptenh, pqenh, puen, pven, pten, pqen, pqsen, &
+    !$ACC               pgeo, pgeoh, paphp1, pthvsig, pqte, pverv, klwmin, ldcum,     &
+    !$ACC               ldland, ktype, klab, ptu, pqu, plu, puu, pvu, pmfu, pmfub,    &
+    !$ACC               pentr, pmfus, pmfuq, pmful, plude, pqude, pdmfup, khmin,      &
+    !$ACC               phhatt, phcbase, pqsenh, pcpen, pcpcu, kcbot, kctop, kctop0 ) &
+    !$ACC       CREATE( khmin, loidx, phhatt, phcbase, pqsenh, ldcum, ldland, zdmfen, &
+    !$ACC               zdmfde, zmfuu, zmfuv, zpbase, zqold, zph, zodetr, zoentr,     &
+    !$ACC               zbuoy )
 
     !---------------------------------------------------------------------------------
     !
@@ -159,19 +169,29 @@ CONTAINS
     !                  ------------------
     !
     zcons=1._wp/pdtime
-    zqold(jcs:kproma) = 0.0_wp
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = jcs, kproma
+      zqold(jl) = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
     !
     !---------------------------------------------------------------------------------
     !
     !     2.           Set default values
     !                  ------------------
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
      zmfuu(jl)=0._wp
      zmfuv(jl)=0._wp
      IF(.NOT.ldcum(jl)) ktype(jl)=0
     END DO
+    !$ACC END PARALLEL
     DO jk=1,klev
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         plu(jl,jk)=0._wp
         pmfu(jl,jk)=0._wp
@@ -184,25 +204,36 @@ CONTAINS
         IF(.NOT.ldcum(jl).OR.ktype(jl).EQ.3) klab(jl,jk)=0
         IF(jk.LT.kcbot(jl)) klab(jl,jk)=0
       END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
            pmfuxt(jl,jk,jt)=0._wp
         END DO
       END DO
+      !$ACC END PARALLEL
       !
     END DO
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=1,klev
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         zoentr(jl,jk)=0._wp
         zodetr(jl,jk)=0._wp
       ENDDO
     ENDDO
+    !$ACC END PARALLEL
     !
     !---------------------------------------------------------------------------------
     !
     !     3.0          Initialize values at lifting level
     !                  ----------------------------------
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       kctop(jl)=klevm1
       IF(.NOT.ldcum(jl)) THEN
@@ -218,8 +249,12 @@ CONTAINS
         zmfuv(jl)=pmfub(jl)*pvu(jl,klev)
       END IF
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+    !$ACC LOOP SEQ
     DO jt=1,ktrac
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         IF(.NOT.ldcum(jl)) THEN
           pxtu(jl,klev,jt)=0._wp
@@ -227,16 +262,22 @@ CONTAINS
         pmfuxt(jl,klev,jt)=pmfub(jl)*pxtu(jl,klev,jt)
       END DO
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       ldcum(jl)=.FALSE.
     END DO
+    !$ACC END PARALLEL
     !
     !---------------------------------------------------------------------------------
     !
     !     3.5          Find organized entrainment at cloud base
     !                  ----------------------------------------
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( ikb, zdz, zdrodz )
     DO jl=jcs,kproma
       IF(ktype(jl).EQ.1) THEN
         ikb=kcbot(jl)
@@ -253,6 +294,7 @@ CONTAINS
         ENDIF
       ENDIF
     ENDDO
+    !$ACC END PARALLEL
     !
     !---------------------------------------------------------------------------------
     !
@@ -284,12 +326,18 @@ CONTAINS
       ENDIF
       !
       locnt = jcs-1
+      !$ACC UPDATE HOST( klab )
       DO jl=jcs,kproma
         IF(klab(jl,jk+1).EQ.0) klab(jl,jk)=0
         IF(klab(jl,jk+1).GT.0) THEN
           locnt = locnt + 1
           loidx(locnt) = jl
         END IF
+      END DO
+      !$ACC UPDATE DEVICE( loidx, klab )
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zmfmax, zfac)
+      DO jl=jcs,kproma
         zph(jl)=paphp1(jl,jk)
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
           zmfmax=pmref(jl,jk-1)*zcons
@@ -303,7 +351,11 @@ CONTAINS
           END IF
         END IF
       END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
+        !$ACC LOOP GANG VECTOR PRIVATE( zmfmax, zfac )
         DO jl=jcs,kproma
           IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
             zmfmax=pmref(jl,jk-1)*zcons
@@ -314,15 +366,19 @@ CONTAINS
           END IF
         END DO
       END DO
+      !$ACC END PARALLEL
       !
       ! Reset pmfub if necessary
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zmfmax )
       DO jl=jcs,kproma
         IF(ktype(jl).EQ.3.AND.jk.EQ.kcbot(jl)) THEN
           zmfmax=pmref(jl,jk-1)*zcons
           pmfub(jl)=MIN(pmfub(jl),zmfmax)
         END IF
       END DO
+      !$ACC END PARALLEL
       !
       !*   Specify turbulent entrainment and detrainment rates plus
       !    organized detrainment rates in *cuentr*
@@ -345,6 +401,10 @@ CONTAINS
       !     that are neutral compared to the environmental air are detrained
       !     ----------------------------------------------------------------
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zmftest, zmfmax, zdprho, zalvs, zmse, ikt,  &
+      !$ACC                           znevn, zodmax, zqeen, zscde, zga, zdt, zscod,   &
+      !$ACC                           zqude, zqcod, zmfusk, zmfuqk, zmfulk, zseen )
       DO n=jcs,locnt
         jl = loidx(n)
 
@@ -409,9 +469,13 @@ CONTAINS
         ptu(jl,jk)=MIN(400._wp,ptu(jl,jk))
         zqold(jl)=pqu(jl,jk)
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
 !IBM* ASSERT(NODEPS)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zxteen, zxtude, zmfuxtk )
         DO n=jcs,locnt
           jl = loidx(n)
           zxteen=pxtenh(jl,jk+1,jt)*(zdmfen(jl)+zoentr(jl,jk))
@@ -420,6 +484,7 @@ CONTAINS
           pxtu(jl,jk,jt)=zmfuxtk*(1._wp/MAX(cmfcmin,pmfu(jl,jk)))
         END DO
       END DO
+      !$ACC END PARALLEL
       !
       !    Do corrections for moist ascent by adjusting t,q and l in *cuadjtq*
       !    -------------------------------------------------------------------
@@ -436,6 +501,8 @@ CONTAINS
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zlift, zbuo, zdnoprc, zprcon, zlnew )
       DO n=jcs,locnt
         jl = loidx(n)
         IF (pqu(jl,jk).LT.zqold(jl)) THEN
@@ -461,28 +528,41 @@ CONTAINS
           END IF
         END IF
       END DO
+      !$ACC END PARALLEL
 
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl )
       DO n=jcs,locnt
         jl = loidx(n)
         pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
         pmfus(jl,jk)=(pcpcu(jl,jk)*ptu(jl,jk)+pgeoh(jl,jk))*pmfu(jl,jk)
         pmfuq(jl,jk)=pqu(jl,jk)*pmfu(jl,jk)
       END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
 !IBM* ASSERT(NODEPS)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl )
         DO n=jcs,locnt
           jl = loidx(n)
           pmfuxt(jl,jk,jt)=pxtu(jl,jk,jt)*pmfu(jl,jk)
         END DO
       END DO
+      !$ACC END PARALLEL
       !
       IF(lmfdudv) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           zdmfen(jl)=zdmfen(jl)+zoentr(jl,jk)
           zdmfde(jl)=zdmfde(jl)+zodetr(jl,jk)
         ENDDO
+        !$ACC END PARALLEL
 !IBM* ASSERT(NODEPS)
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( jl, zz, zdmfeu, zdmfdu )
         DO n=jcs,locnt
           jl = loidx(n)
           IF(ktype(jl).EQ.1.OR.ktype(jl).EQ.3) THEN
@@ -500,12 +580,15 @@ CONTAINS
              pvu(jl,jk)=zmfuv(jl)*(1._wp/pmfu(jl,jk))
           END IF
         END DO
+        !$ACC END PARALLEL
       END IF
       !
       !   Compute organized entrainment for use at next level
       !   ---------------------------------------------------
       !
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zbuoyz, zdz, zdrodz )
       DO n=jcs,locnt
         jl = loidx(n)
         IF(ktype(jl).EQ.1) THEN
@@ -521,6 +604,7 @@ CONTAINS
           zoentr(jl,jk-1)=MAX(zoentr(jl,jk-1),0._wp)
         ENDIF
       ENDDO
+      !$ACC END PARALLEL
       !
     END DO
     !
@@ -532,11 +616,16 @@ CONTAINS
     !               detrainment and are already known from previous calculations
     !               above
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       IF(kctop(jl).EQ.klevm1) ldcum(jl)=.FALSE.
       kcbot(jl)=MAX(kcbot(jl),kctop(jl))
     END DO
+    !$ACC END PARALLEL
 !DIR$ IVDEP
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( jk, zzdmf )
     DO jl=jcs,kproma
       IF(ldcum(jl)) THEN
         jk=kctop(jl)-1
@@ -558,7 +647,11 @@ CONTAINS
         END IF
       END IF
     END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+    !$ACC LOOP SEQ
     DO jt=1,ktrac
+      !$ACC LOOP GANG VECTOR PRIVATE( jk )
       DO jl=jcs,kproma
         IF(ldcum(jl)) THEN
           jk=kctop(jl)-1
@@ -566,9 +659,12 @@ CONTAINS
         ENDIF
       END DO
     END DO
+    !$ACC END PARALLEL
     !
     IF(lmfdudv) THEN
 !DIR$      IVDEP
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jk )
       DO jl=jcs,kproma
         IF(ldcum(jl)) THEN
           jk=kctop(jl)-1
@@ -576,8 +672,11 @@ CONTAINS
           pvu(jl,jk)=pvu(jl,jk+1)
         END IF
       END DO
+      !$ACC END PARALLEL
     END IF
     !
+    !$ACC END DATA
+    !$ACC END DATA
 
   END SUBROUTINE cuasc
   !!
@@ -621,13 +720,19 @@ CONTAINS
 
     ! Shortcuts to components of echam_cnv_config
     !
-    LOGICAL , POINTER :: lmfdudv
-    REAL(wp), POINTER :: entrmid, cmfcmin, cmfcmax
+    LOGICAL     :: lmfdudv
+    REAL(wp)    :: entrmid, cmfcmin, cmfcmax
     !
-    lmfdudv  => echam_cnv_config(jg)% lmfdudv
-    entrmid  => echam_cnv_config(jg)% entrmid
-    cmfcmin  => echam_cnv_config(jg)% cmfcmin
-    cmfcmax  => echam_cnv_config(jg)% cmfcmax
+    lmfdudv  = echam_cnv_config(jg)% lmfdudv
+    entrmid  = echam_cnv_config(jg)% entrmid
+    cmfcmin  = echam_cnv_config(jg)% cmfcmin
+    cmfcmax  = echam_cnv_config(jg)% cmfcmax
+
+    !$ACC DATA PRESENT( pxten, pxtu, pmfuxt ) IF( ktrac > 0)
+    !$ACC DATA PRESENT( klab, pten, pqen, pqsen, puen, pven, pverv, pgeo, pgeoh,      &
+    !$ACC               ldcum, ktype, pmfu, pmfub, pentr, kcbot, ptu, pqu, plu, puu,  &
+    !$ACC               pvu, pmfus, pmfuq, pmful, pdmfup, pmfuu, pcpen, pmfuv )       &
+    !$ACC       CREATE( llo3 )
 
     !---------------------------------------------------------------------------------
     !
@@ -636,6 +741,8 @@ CONTAINS
     !
 !DIR$ IVDEP
 !OCL NOVREC
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zzzmb )
     DO jl=jcs,kproma
       llo3(jl)=.FALSE.
       IF(.NOT.ldcum(jl) .AND. klab(jl,kk+1) .EQ. 0                                   &
@@ -667,9 +774,13 @@ CONTAINS
         END IF
       END IF
     END DO
+    !$ACC END PARALLEL
 !DIR$ IVDEP
 !OCL NOVREC
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+    !$ACC LOOP SEQ
     DO jt=1,ktrac
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         IF (llo3(jl)) THEN
           pxtu(jl,kk+1,jt)=pxten(jl,kk,jt)
@@ -677,6 +788,10 @@ CONTAINS
         ENDIF
       END DO
     END DO
+    !$ACC END PARALLEL
+    !
+    !$ACC END DATA
+    !$ACC END DATA
     !
   END SUBROUTINE cubasmc
   !!
@@ -716,10 +831,15 @@ CONTAINS
 
     ! Shortcuts to components of echam_cnv_config
     !
-    REAL(wp), POINTER :: cmfcmin, centrmax
+    REAL(wp) :: cmfcmin, centrmax
     !
-    cmfcmin  => echam_cnv_config(jg)% cmfcmin
-    centrmax => echam_cnv_config(jg)% centrmax
+    cmfcmin  = echam_cnv_config(jg)% cmfcmin
+    centrmax = echam_cnv_config(jg)% centrmax
+
+    !$ACC DATA PRESENT( pzh, pmref, ptenh, pqenh, pqte, paphp1, klwmin, ldcum, ktype, &
+    !$ACC               kcbot, kctop0, ppbase, pmfu, pentr, podetr, khmin, pdmfen,    &
+    !$ACC               pdmfde )                                                      &
+    !$ACC       CREATE( zrrho, zdprho, icond1, icond2, icond3, idx )
 
     !
     !---------------------------------------------------------------------------------
@@ -730,6 +850,8 @@ CONTAINS
     !           --------------------------------------------
     !
 !IBM* NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zpmid )
     DO jl=jcs,kproma
       ppbase(jl) = paphp1(jl,kcbot(jl))
       zrrho(jl)  = (rd*ptenh(jl,kk+1)*(1._wp+vtmpc1*pqenh(jl,kk+1)))/paphp1(jl,kk+1)
@@ -742,8 +864,10 @@ CONTAINS
       pdmfen(jl)=0._wp
       podetr(jl,kk)=0._wp
     END DO
+    !$ACC END PARALLEL
 
     ncnt = 0
+    !$ACC UPDATE HOST( kcbot, ldcum )
     DO jl=jcs,kproma
       llo1=kk.LT.kcbot(jl).AND.ldcum(jl)
       IF (llo1) THEN
@@ -751,8 +875,11 @@ CONTAINS
         idx(ncnt) = jl
       END IF
     END DO
+    !$ACC UPDATE DEVICE( idx )
 
 !IBM* ASSERT(NODEPS)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, zentr, llo2, iklwmin, zentest )
     DO n=1,ncnt
       jl = idx(n)
       zentr=pentr(jl)*pmfu(jl,kk+1)*zdprho(jl)*zrrho(jl)
@@ -775,12 +902,15 @@ CONTAINS
       llo2=ktype(jl).EQ.1 .AND.(kk.GE.iklwmin.OR.icond1(jl).GT.0)
       IF(llo2) pdmfen(jl)=zentr
     END DO
+    !$ACC END PARALLEL
     !
     !    organized detrainment, detrainment starts at khmin
     !
     IF (kproma > 0) THEN
       ! kproma>0: mpuetz's workaround to avoid combining of two loops
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, llo2, ikt, ikh, zzmzk, ztmzk, zarg, zorgde )
       DO n=1,ncnt
         jl = idx(n)
         llo2=ktype(jl).EQ.1
@@ -797,7 +927,10 @@ CONTAINS
           ENDIF
         ENDIF
       END DO
+      !$ACC END PARALLEL
     END IF
+    !
+    !$ACC END DATA
     !
   END SUBROUTINE cuentr
 

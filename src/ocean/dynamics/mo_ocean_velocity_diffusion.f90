@@ -74,7 +74,7 @@ CONTAINS
     REAL(wp)                 :: vn_in(:,:,:)! INTENT(in)
     TYPE(t_ho_params)        :: physics_parameters !mixing parameters INTENT(in)
     TYPE(t_hydro_ocean_diag) :: p_diag! INTENT(in)
-    TYPE(t_operator_coeff)   :: operators_coeff! INTENT(in)
+    TYPE(t_operator_coeff),INTENT(IN)   :: operators_coeff! INTENT(in)
     REAL(wp)                 :: laplacian_vn_out(:,:,:)! INTENT(out)
     
     !Local variables
@@ -789,7 +789,7 @@ CONTAINS
     TYPE(t_ho_params)             :: physics_parameters !mixing parameters  INTENT(in)
     REAL(wp)                      :: u_vec_e(:,:,:) ! INTENT(in)
     REAL(wp)                      :: vort   (:,:,:) ! INTENT(in)
-    TYPE(t_operator_coeff)        :: operators_coeff ! INTENT(in)
+    TYPE(t_operator_coeff),INTENT(IN) :: operators_coeff ! INTENT(in)
     REAL(wp)                      :: nabla4_vec_e(:,:,:) ! INTENT(out)
     
     !Local variables
@@ -940,8 +940,6 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl
-  !-------------------------------------------------------------------------
-  
   
   !-------------------------------------------------------------------------
   !
@@ -961,7 +959,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)              :: velocity(:,:,:)   ! on edges
     REAL(wp), INTENT(inout)              :: a_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET :: operators_coefficients
+    TYPE(t_operator_coeff),INTENT(IN) ,TARGET :: operators_coefficients
     !
     INTEGER :: start_index, end_index, edge_block
     TYPE(t_subset_range), POINTER :: edges_in_domain
@@ -1010,7 +1008,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)              :: velocity(:,:)   ! on edges, (nproma, levels)
     REAL(wp), INTENT(inout)              :: a_v(:,:)      ! on edges, (nproma, levels)
-    TYPE(t_operator_coeff),TARGET :: operators_coefficients
+    TYPE(t_operator_coeff),INTENT(IN) ,TARGET :: operators_coefficients
     INTEGER , INTENT(in):: start_index, end_index, edge_block
     !
     REAL(wp) :: dt_inv
@@ -1089,6 +1087,5 @@ CONTAINS
     END DO ! edge_index = start_index, end_index
 
   END SUBROUTINE velocity_diffusion_vertical_implicit_onBlock
-  !------------------------------------------------------------------------
   
 END MODULE mo_ocean_velocity_diffusion

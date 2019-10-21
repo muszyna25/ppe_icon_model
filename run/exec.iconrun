@@ -72,6 +72,11 @@ if [ x$namelist_list = x ]; then
     namelist_list[0]="$psrad_namelist"
     modelname_list[0]="psrad"
     modeltype_list[0]=3
+  elif [ x$hamocc_namelist != x ]; then
+    # this is the hamocc model
+    namelist_list[0]="$hamocc_namelist"
+    modelname_list[0]="hamocc"
+    modeltype_list[0]=4
   elif [ x$testbed_namelist != x ]; then
     # this is the testbed model
     namelist_list[0]="$testbed_namelist"
@@ -117,6 +122,10 @@ fi
 run_psrad=${run_psrad="false"}
 if [ x$psrad_namelist != x ]; then
   run_psrad="true"
+fi
+run_hamocc=${run_hamocc="false"}
+if [ x$hamocc_namelist != x ]; then
+  run_hamocc="true"
 fi
 
 #-----------------------------------------------------------------------------
@@ -330,13 +339,9 @@ check_error $? "${MODEL} does not exist?"
 
 rm -f finish.status
 #
-#if [ x$target = "xblizzard" ] ; then
-#  run_model
-#else
-  date
-  ${START} ${MODEL} # > out.txt 2>&1
-  date
-#fi
+date
+${START} ${MODEL} # > out.txt 2>&1
+date
 #
 if [ -r finish.status ] ; then
   check_final_status 0 "${START} ${MODEL}"

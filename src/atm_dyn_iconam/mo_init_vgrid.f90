@@ -78,6 +78,7 @@ CONTAINS
                                                  ! i.e. where vct_b
 
     REAL(wp) :: z_height, z_flat
+    REAL(wp) :: x1
     INTEGER  :: jk
     INTEGER  :: nlevp1            !< number of half levels
 
@@ -91,16 +92,39 @@ CONTAINS
 
     ELSE
 
-      z_flat = REAL(nlevp1-n_flat_level,wp) * layer_thickness
-      DO jk = 1, nlevp1
-        z_height  = layer_thickness*REAL(nlevp1-jk,wp)
-        vct_a(jk) = z_height
-        IF ( z_height >= z_flat) THEN
-          vct_b(jk) = 0.0_wp
-        ELSE
-          vct_b(jk) = (z_flat - z_height)/z_flat
-        ENDIF
-      ENDDO
+      IF (itype_laydistr == 3) THEN
+        !MB: misuse the SLEVE-type-parameter here; perhaps find a better solution!
+
+        ! use 2nd-order polynomial (s. Baldauf (2013) COSMO-TR, S. 33)
+        DO jk = 1, nlevp1
+
+          z_flat = flat_height  ! from 'sleve_nml'
+
+          x1 = REAL( nlev + 1 - jk, wp) / REAL( nlev, wp)
+          z_height  = top_height * x1 * ( stretch_fac * x1 + 1.0_wp-stretch_fac )
+          vct_a(jk) = z_height
+          IF ( z_height >= z_flat) THEN
+            vct_b(jk) = 0.0_wp
+          ELSE
+            vct_b(jk) = (z_flat - z_height)/z_flat
+          ENDIF
+
+        ENDDO
+
+      ELSE  
+
+        z_flat = REAL(nlevp1-n_flat_level,wp) * layer_thickness
+        DO jk = 1, nlevp1
+          z_height  = layer_thickness*REAL(nlevp1-jk,wp)
+          vct_a(jk) = z_height
+          IF ( z_height >= z_flat) THEN
+            vct_b(jk) = 0.0_wp
+          ELSE
+            vct_b(jk) = (z_flat - z_height)/z_flat
+          ENDIF
+        ENDDO
+
+      ENDIF
 
     ENDIF
 
@@ -160,6 +184,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
 
     REAL(wp) :: z_exp, dvct(nlev), zvcta(nlev+1), stretchfac, zdvct, x1, a, b, c, jkr
+    REAL(wp) :: z_flat, z_height
     INTEGER  :: jk, jk1, jks, jk2
     INTEGER  :: nlevp1        !< number of full and half levels
 
@@ -167,6 +192,7 @@ CONTAINS
     nlevp1 = nlev+1
 
     IF (min_lay_thckn > 0.01_wp) THEN
+
       IF (itype_laydistr == 1) THEN
         z_exp = LOG(min_lay_thckn/top_height)/LOG(2._wp/pi*ACOS(REAL(nlev-1,wp)**stretch_fac/&
           &     REAL(nlev,wp)**stretch_fac))
@@ -180,7 +206,8 @@ CONTAINS
             &              REAL(nlev,wp)**stretch_fac))**z_exp
           vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
         ENDDO
-      ELSE
+
+      ELSE IF (itype_laydistr == 2) THEN
         ! use third-order polynomial
         x1 = (2._wp*stretch_fac-1._wp)*min_lay_thckn
         b = (top_height-x1/6._wp*nlev**3-(min_lay_thckn-x1/6._wp)*nlev)/&
@@ -192,7 +219,27 @@ CONTAINS
           vct_a(jk) = a*jkr**3 + b*jkr**2 + c*jkr
           vct_b(jk) = EXP(-vct_a(jk)/5000._wp)
         ENDDO
+
+      ELSE IF (itype_laydistr == 3) THEN
+        ! use 2nd-order polynomial (s. Baldauf (2013) COSMO-TR, p. 33)
+        DO jk = 1, nlevp1
+
+          z_flat = flat_height  ! from 'sleve_nml'
+          x1 = REAL( nlev + 1 - jk, wp) / REAL( nlev, wp)
+          vct_a(jk) = top_height * x1 * ( stretch_fac * x1 + 1.0_wp-stretch_fac )
+
+          IF ( z_height >= z_flat) THEN
+            vct_b(jk) = 0.0_wp
+          ELSE
+            vct_b(jk) = (z_flat - z_height)/z_flat
+          ENDIF
+
+        ENDDO
+
+      ELSE
+        CALL finish ( "init_sleve_coord", "value for itype_laydistr is unknown" )
       ENDIF
+
       ! Apply additional limitation on layer thickness in the middle and upper troposphere if the paramter
       ! max_lay_thckn is specified appropriately
       IF (max_lay_thckn > 2._wp*min_lay_thckn .AND. max_lay_thckn < 0.5_wp*htop_thcknlimit) THEN

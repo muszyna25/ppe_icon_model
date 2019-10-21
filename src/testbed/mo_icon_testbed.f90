@@ -19,9 +19,9 @@ MODULE mo_icon_testbed
   USE mo_master_control,      ONLY: get_my_process_name
 
   USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler_model, &
-    & test_jitter_model, test_halo_communication,test_radiation_communication,     &
-    & test_netcdf_read_model, test_gather_communication,                           &
-    & test_exchange_communication
+    & test_jitter_model, test_halo_communication, test_netcdf_read_model,          &
+    & test_gather_communication, test_exchange_communication,                      &
+    & test_bench_exchange_data_mult
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
 #ifndef __NO_ICON_ATMO__
@@ -49,7 +49,7 @@ CONTAINS
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
     
     CALL read_icon_testbed_namelist(testbed_namelist_filename)
-    
+
     SELECT CASE(testbed_model)
     
     CASE(null_model)
@@ -59,8 +59,8 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
 
-    CASE(test_halo_communication,test_radiation_communication,&
-      &  test_gather_communication, test_exchange_communication)
+    CASE(test_halo_communication, test_gather_communication, &
+         test_exchange_communication, test_bench_exchange_data_mult)
       CALL test_communication(testbed_namelist_filename,shr_namelist_filename)
 
     CASE(test_jitter_model)
