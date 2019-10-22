@@ -106,7 +106,7 @@
 
   ! cvmix_kpp_params_type contains the necessary parameters for KPP mixing
   type, public :: cvmix_kpp_params_type
-    private
+    !private
       real(cvmix_r8) :: Ri_crit        ! Critical Richardson number
                                        ! (OBL_depth = where bulk Ri = Ri_crit)
 
