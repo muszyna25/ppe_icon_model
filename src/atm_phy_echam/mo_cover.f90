@@ -284,10 +284,10 @@ CONTAINS
        ! Find the level index with the least negative lapse rate towards
        ! the adjacent upper layer, supposed to be the layer below the inversion.
        IF (locnt.GT.jcs-1) THEN
-          zjk = REAL(jk,wp)
           !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP SEQ
           DO jk = klev,jksinv,-1
+             zjk = REAL(jk,wp)
              !
 !IBM* ASSERT(NODEPS)
             !$ACC LOOP GANG VECTOR
