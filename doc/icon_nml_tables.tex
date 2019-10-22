@@ -2898,8 +2898,22 @@ Specifies method for computation of relative humidity \\
 
 %\hline
 gust\_interval&
-R& 3600. & s&
+R(n\_dom)& 3600. & s&
 Interval over which wind gusts are maximized &
+iforcing=3
+\tabularnewline
+
+%\hline
+precip\_interval&
+C(n\_dom)& "P01Y" & &
+Interval over which precipitation variables are accumulated (rain\_gsp, snow\_gsp, graupel\_gsp, ice\_gsp, hail\_gsp, prec\_gsp, rain\_con, snow\_con, prec\_con, tot\_prec, prec\_con\_rate\_avg, prec\_gsp\_rate\_avg, tot\_prec\_rate\_avg)&
+iforcing=3
+\tabularnewline
+
+%\hline
+maxt\_interval&
+C(n\_dom)& "PT06H" & &
+Interval over which max/min 2-m temperatures are calculated &
 iforcing=3
 \tabularnewline
 

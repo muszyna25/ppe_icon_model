@@ -31,6 +31,7 @@ MODULE mo_io_config
   USE mo_parallel_config,         ONLY: num_restart_procs
   USE mo_run_config,              ONLY: dtime
   USE mo_util_string,             ONLY: int2string
+  USE mtime,                      ONLY: max_timedelta_str_len
 
   IMPLICIT NONE
   PUBLIC
@@ -44,6 +45,8 @@ MODULE mo_io_config
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
   REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
+  CHARACTER(len=max_timedelta_str_len) :: precip_interval(max_dom)   ! time interval over which precipitation variables are accumulated
+  CHARACTER(len=max_timedelta_str_len) :: maxt_interval(max_dom)     ! time interval for tmax_2m, tmin_2m
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging

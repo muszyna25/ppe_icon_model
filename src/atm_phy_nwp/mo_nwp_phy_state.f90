@@ -105,7 +105,8 @@ USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
-USE mo_io_config,            ONLY: lnetcdf_flt64_output, gust_interval
+USE mo_io_config,            ONLY: lnetcdf_flt64_output, gust_interval, &
+  &                                maxt_interval, precip_interval
 USE mtime,                   ONLY: max_timedelta_str_len, getPTStringFromMS
 USE mo_name_list_output_config, ONLY: &
   &                                first_output_name_list, is_variable_in_output
@@ -473,8 +474,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM ,                                    &
                 & hor_interp=create_hor_interp_metadata(                     &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
+                & initval=0._wp, resetval=0._wp,                             &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%rain_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp0', 'kg m-2 ', 'gridscale rain0', datatype_flt)
@@ -496,8 +498,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM ,                                    &
                 & hor_interp=create_hor_interp_metadata(                     &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
+                & initval=0._wp, resetval=0._wp,                             &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%snow_gsp0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_gsp0', 'kg m-2 ', 'gridscale snow0', datatype_flt)
@@ -521,8 +524,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & isteptype=TSTEP_ACCUM,                                     &
                   & hor_interp=create_hor_interp_metadata(                     &
                   &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
-                  &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
-                  & ) )
+                  &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
+                  & initval=0._wp, resetval=0._wp,                             &
+                  & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
     ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
@@ -537,8 +541,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & isteptype=TSTEP_ACCUM,                                     &
                   & hor_interp=create_hor_interp_metadata(                     &
                   &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
-                  &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
-                  & ) )
+                  &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
+                  & initval=0._wp, resetval=0._wp,                             &
+                  & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
       
 
        ! &      diag%hail_gsp(nproma,nblks_c)
@@ -550,8 +555,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                   & isteptype=TSTEP_ACCUM,                                     &
                   & hor_interp=create_hor_interp_metadata(                     &
                   &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
-                  &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
-                  & ) )
+                  &    fallback_type=HINTP_TYPE_LONLAT_NNB),                   &
+                  & initval=0._wp, resetval=0._wp,                             &
+                  & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     END SELECT
 
@@ -565,8 +571,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM ,                                     &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
 
@@ -577,10 +584,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, in_group=groups("precip_vars"),              &
                 & isteptype=TSTEP_ACCUM ,                                     &
-                & hor_interp=create_hor_interp_metadata(                     &
-                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
-                & ) )
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%rain_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con0', 'kg m-2 ', 'convective rain0', datatype_flt)
@@ -600,10 +608,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ldims=shape2d,                                              &
                 & in_group=groups("precip_vars"),                             &
                 & isteptype=TSTEP_ACCUM ,                                     &
-                & hor_interp=create_hor_interp_metadata(                     &
-                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                     &
-                & ) )
+                & hor_interp=create_hor_interp_metadata(                      &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%snow_con0(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con0', 'kg m-2', 'convective snow0', datatype_flt)
@@ -626,8 +635,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM ,                                     &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
     ! &      diag%tot_prec(nproma,nblks_c)
@@ -640,8 +650,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_ACCUM ,                                     &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
 
@@ -656,8 +667,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_AVG,                                        &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%prec_gsp_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('prec_gsp_rate_avg', 'kg m-2 s-1',                  &
@@ -670,8 +682,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_AVG,                                        &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', 'kg m-2 s-1',                  &
@@ -683,8 +696,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & isteptype=TSTEP_AVG,                                        &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                    &
-                &    fallback_type=HINTP_TYPE_LONLAT_NNB                      &
-                & ) )
+                &    fallback_type=HINTP_TYPE_LONLAT_NNB),                    &
+                & initval=0._wp, resetval=0._wp,                              &
+                & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))) )
 
 
 
@@ -2256,7 +2270,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MAX, initval=-999._wp, resetval=-999._wp,         &
-      & action_list=actions(new_action(ACTION_RESET,"PT06H")),            &
+      & action_list=actions(new_action(ACTION_RESET,maxt_interval(k_jg))),&
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
 
@@ -2267,7 +2281,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MIN, initval=999._wp, resetval=999._wp,           &
-      & action_list=actions(new_action(ACTION_RESET,"PT06H")),            &
+      & action_list=actions(new_action(ACTION_RESET,maxt_interval(k_jg))),&
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 

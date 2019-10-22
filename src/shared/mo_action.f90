@@ -81,7 +81,7 @@ MODULE mo_action
   ! PARAMETER
   PUBLIC :: ACTION_NAMES
 
-  INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be
+  INTEGER, PARAMETER :: NMAX_VARS = 100 ! maximum number of fields that can be
                                         ! assigned to a single action
 
 
