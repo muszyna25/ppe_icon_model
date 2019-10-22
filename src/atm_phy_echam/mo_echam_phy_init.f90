@@ -702,16 +702,18 @@ CONTAINS
             &             ccycle_config(jg)%ico2conc == 4               )
     END DO
     IF (lany) THEN
-       !
-       ! read annual means
-       IF (.NOT. bc_greenhouse_gases_file_read) THEN
-          CALL read_bc_greenhouse_gases('bc_greenhouse_gases.nc')
-       END IF
-       ! interpolate to the current date and time, placing the annual means at
-       ! the mid points of the current and preceding or following year, if the
-       ! current date is in the 1st or 2nd half of the year, respectively.
-       CALL bc_greenhouse_gases_time_interpolation(mtime_current)
-       !
+      !
+      ! scenario of well mixed greenhouse gases, horizontally constant
+      !
+      ! read annual means
+      IF (.NOT. bc_greenhouse_gases_file_read) THEN
+        CALL read_bc_greenhouse_gases('bc_greenhouse_gases.nc')
+      END IF
+      ! interpolate to the current date and time, placing the annual means at
+      ! the mid points of the current and preceding or following year, if the
+      ! current date is in the 1st or 2nd half of the year, respectively.
+      CALL bc_greenhouse_gases_time_interpolation(mtime_current)
+      !
     END IF
 
     
