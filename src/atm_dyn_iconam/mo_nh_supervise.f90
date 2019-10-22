@@ -685,9 +685,9 @@ CONTAINS
 
 !$OMP PARALLEL
 #ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
-!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = istartblk_e, iendblk_e
 
@@ -713,9 +713,9 @@ CONTAINS
 !$OMP END DO
 
 #ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
-!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = istartblk_c, iendblk_c
 

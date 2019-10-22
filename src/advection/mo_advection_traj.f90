@@ -402,14 +402,14 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    IF (timers_level > 5) CALL timer_stop(timer_back_traj)
+
     IF ( PRESENT(opt_acc_async) ) THEN
       IF ( opt_acc_async ) THEN
         RETURN
       END IF
     END IF
     !$ACC WAIT
-
-    IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
   END SUBROUTINE btraj_compute_o1
 

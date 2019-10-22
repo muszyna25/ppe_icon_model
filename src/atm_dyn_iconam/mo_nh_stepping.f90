@@ -2571,7 +2571,7 @@ MODULE mo_nh_stepping
 
 
 #ifndef _OPENACC
-!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,idamtr_t1mc_divh,idamtr_t1mc_gradh)
 #endif
         rl_start   = 1
         rl_end     = min_rlcell
