@@ -116,7 +116,6 @@ MODULE mo_async_latbc_types
      ! .TRUE., if heights are computed (hydrostatic model input):
      LOGICAL                                     :: lcompute_hhl_pres
 
-     CHARACTER(LEN=10)                           :: psvar
      CHARACTER(LEN=10)                           :: geop_ml_var        ! model level surface geopotential
      CHARACTER(LEN=10)                           :: hhl_var
 

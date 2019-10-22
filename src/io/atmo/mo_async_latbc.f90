@@ -770,7 +770,7 @@ MODULE mo_async_latbc
       TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch
       INTEGER,       OPTIONAL,    INTENT(OUT)   :: fileID
 
-      CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_files"
+      CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_file"
       LOGICAL,      PARAMETER                   :: ldebug  = .FALSE.
 #ifndef NOMPI
       ! local variables
@@ -936,7 +936,6 @@ MODULE mo_async_latbc
       CALL p_bcast(StrLowCasegrp(:),               p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(counter,                        p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
-      CALL p_bcast(latbc%buffer%psvar,             p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%geop_ml_var,       p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%hhl_var,           p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_qs,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
@@ -1088,12 +1087,8 @@ MODULE mo_async_latbc
          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
          !
          lhave_ps = .FALSE.
-         IF (test_cdi_varID(fileID_latbc, 'PS', latbc_dict) /= -1) THEN
+         IF (test_cdi_varID(fileID_latbc, 'pres_sfc', latbc_dict) /= -1) THEN
             lhave_ps = .TRUE.
-            buffer%psvar    = 'PS'
-         ELSE IF (test_cdi_varID(fileID_latbc, 'LNPS', latbc_dict) /= -1) THEN
-            lhave_ps = .TRUE.
-            buffer%psvar    = 'LNPS'
          ENDIF
 
          !
