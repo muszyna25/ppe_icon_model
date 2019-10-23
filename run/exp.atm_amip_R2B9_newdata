@@ -40,17 +40,8 @@ nproma_atm=96
 
 # (3) icon_data_poolFolder
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-#icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
-icon_data_poolFolder="$poolFolder_prefix/mnt/lustre01/work/mh0287/users/rene/public/mpim"
+#icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 #
 #--------------------------------------------------------------------------------------------------

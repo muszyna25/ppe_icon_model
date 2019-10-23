@@ -93,16 +93,7 @@ couplingTimeStep="PT15M"         # coupling time step:      1 time step  per rad
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm and nproma_ocn are used here.
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 #--------------------------------------------------------------------------------------------------
 

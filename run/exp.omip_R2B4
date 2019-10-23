@@ -48,16 +48,7 @@ oceTimeStep="PT60M"              # ocean time step:   24 time steps per day
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm is used here.
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -68,7 +59,7 @@ icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
 # ----------------
 oce_grid_name=icon_grid_${ocean_gridID}_${ocean_refinement}_O
 
-ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
+ocean_grid_folder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
 

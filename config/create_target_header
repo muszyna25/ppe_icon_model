@@ -42,13 +42,13 @@ else
   start=${start:="$use_mpi_startrun"}
 fi
 
-set_default use_nodes 1
-set_default use_omp_stacksize 32M
-mpi_total_procs='$((no_of_nodes * mpi_procs_pernode))'
-
 cat >> $output_script << EOF
 #=============================================================================
-#
+set -x
+export F_NORCW=65535
+ulimit -s unlimited
+#=============================================================================
+
 # ICON run script. Created by $scriptname
 # target machine is $use_target
 # target use_compiler is $use_compiler
@@ -56,67 +56,63 @@ cat >> $output_script << EOF
 # with openmp=$use_openmp
 # memory_model=$use_memory_model
 # submit with $use_submit
-# 
+
 #=============================================================================
-set -x
-. ./add_run_routines
-#-----------------------------------------------------------------------------
-# target parameters
-# ----------------------------
-site="$use_site"
-target="$use_target"
-compiler="$use_compiler"
-loadmodule="$use_load_modules"
-with_mpi="$use_mpi"
-with_openmp="$use_openmp"
-job_name="$job_name"
-submit="$use_submit"
-#-----------------------------------------------------------------------------
-# openmp environment variables
+
+# OpenMP environment variables
 # ----------------------------
 export OMP_NUM_THREADS=${use_openmp_threads}
 export ICON_THREADS=${use_openmp_threads}
 export OMP_SCHEDULE=${use_OMP_SCHEDULE}
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=${use_omp_stacksize}
-#-----------------------------------------------------------------------------
+
 # MPI variables
-# ----------------------------
-mpi_root=$use_mpi_root
+# -------------
 no_of_nodes=${use_nodes}
 mpi_procs_pernode=$use_mpi_procs_pernode
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
-START="$start"
-#-----------------------------------------------------------------------------
-# load ../setting if exists  
+
+# blocking length
+# ---------------
+nproma=$use_nproma
+
+#=============================================================================
+
+# load local setting, if existing
+# -------------------------------
 if [ -a ../setting ]
 then
   echo "Load Setting"
   . ../setting
 fi
-#-----------------------------------------------------------------------------
-rundir="$run_folder"
-bindir="\${basedir}/$use_builddir/bin"   # binaries
-BUILDDIR=$use_builddir
-#-----------------------------------------------------------------------------
+
+# environment variables for the experiment and the target system
+# --------------------------------------------------------------
 EOF
 
+# environment variables for the experiment and the target system
+i=1;while [ $i -le ${no_of_free_variables} ]
+do
+  echo "export ${free_variable[$i]}=\"${free_variable_value[$i]}\"" >> $output_script
+  i=$((i+1));
+done
 
 if [[ "x$use_load_profile" != "x" ]]; then
   if [[ "x$use_load_modules" != "x" ]]; then
     profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
 cat >> $output_script << EOF
-#=============================================================================
+
 # load profile
+# ------------
 if [ -a  $profile_filename ] ; then
 $use_load_profile
-#=============================================================================
-#=============================================================================
+
 # load modules
+# ------------
 module purge
-module load "\$loadmodule"
+module load $use_load_modules
 module list
-#=============================================================================
 fi
 EOF
 fi
@@ -124,29 +120,56 @@ fi
 
 if [[ "x$use_netcdflibpath" != "x" ]]; then
 cat >> $output_script << EOF
-#=============================================================================
+
+# NetCDF library
+# --------------
 export LD_LIBRARY_PATH=$use_netcdflibpath:\$LD_LIBRARY_PATH
-#=============================================================================
 EOF
 fi
 
 cat >> $output_script << EOF
-nproma=$use_nproma
+
+#=============================================================================
+
+# directories with absolute paths
+# -------------------------------
+thisdir=\$(pwd)
+basedir=\${thisdir%/*}
+export basedir
+icon_data_rootFolder="${icon_data_rootFolder}"
+
+# how to start the icon model
+# ---------------------------
+export START="$start"
+export MODEL="\${basedir}/$use_builddir/bin/icon"
+
+# how to submit the next job
+# --------------------------
+submit="$use_submit"
+job_name="$job_name"
+
+# cdo for post-processing
+# -----------------------
 cdo="${cdo}"
 cdo_diff="${cdo} ${cdo_diff}"
-icon_data_rootFolder="${icon_data_rootFolder}"
-icon_data_poolFolder="${icon_data_poolFolder}"
-icon_data_buildbotFolder="${icon_data_rootFolder}/buildbot_data"
-icon_data_buildbotFolder_aes="${icon_data_rootFolder}/buildbot_data/aes"
-icon_data_buildbotFolder_oes="${icon_data_rootFolder}/buildbot_data/oes"
-EOF
 
-#for i in {1..$no_of_free_variables}
-i=1;while [ $i -le ${no_of_free_variables} ]
-do
-  echo "export ${free_variable[$i]}=\"${free_variable_value[$i]}\"" >> $output_script
-  i=$((i+1));
-done
+# constants for time calculations
+# -------------------------------
+second=1                                 # [s] 1 second
+minute=60                                # [s] 1 minute
+hour=3600                                # [s] 1 hour
+day=86400                                # [s] 1 day
+month=2592000                            # [s] 30 days
+year360=31104000                         # [s] 360 days
+year=31556900                            # [s] 1 earth year
+
+# define script functions used in the experiment run script
+# ---------------------------------------------------------
+. ./add_run_routines
+
+#=============================================================================
+
+EOF
 
 }
 
@@ -155,7 +178,6 @@ set_run_target_bullx_cpu()
 {
   # mistral.dkrz.de  
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
@@ -278,9 +300,10 @@ set_run_target_bullx_cpu()
   # ------------------------------------
 
   cat >> $output_script << EOF
-# =====================================
-# mistral batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# mistral cpu batch job parameters
+# --------------------------------
 #SBATCH --account=$use_account_no
 $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
   printf '#SBATCH --qos=buildbot
@@ -318,13 +341,6 @@ $(case $use_flags_group in
       printf 'ulimit -c unlimited'
       ;;
   esac)
-# this can not be done in use_mpi_startrun since it depends on the
-# environment at time of script execution
-#case " \$loadmodule " in
-#  *\ mxm\ *)
-#    START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
-#    ;;
-#esac
 EOF
 }
 
@@ -334,7 +350,6 @@ set_run_target_bullx_gpu()
 
   # mistral.dkrz.de  with GPU
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
@@ -390,9 +405,10 @@ set_run_target_bullx_gpu()
   # ------------------------------------
 
   cat >> $output_script << EOF
-# =====================================
-# mistral batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# mistral gpu batch job parameters
+# --------------------------------
 #SBATCH --account=$use_account_no
 $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
   printf '#SBATCH --qos=buildbot
@@ -440,7 +456,6 @@ set_run_target_mpipc()
 
   # *.mpimet.mpg.de with Linux (workstations and breeze)  
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   set_default use_nproma 64
   use_nodes=1
@@ -462,12 +477,15 @@ EOF
   
   if [[ "$use_mpi" == "yes" ]] ; then
     cat >> $output_script << EOF
-#----------------------------------
+#=============================================================================
+
+# MPI linux PC
+#-------------
 # start mpd (MPI deamon for MPICH2)
 export MPD_CON_EXT=job_\$\$
-\${mpi_root}/bin/mpd &
+${use_mpi_root}/bin/mpd &
 sleep 2
-mpdid=\$(\${mpi_root}/bin/mpdtrace -l | awk '{print \$1}')
+mpdid=\$(${use_mpi_root}/bin/mpdtrace -l | awk '{print \$1}')
 echo "mpd started as \$mpdid"
 #-----------------------------------
 EOF
@@ -475,65 +493,11 @@ EOF
 }
 
 #=============================================================================
-set_run_target_dole()
-{  
-  set_default use_nproma 8
-  set_default use_nodes 1
-   
-  if [[ $use_openmp == "yes" ]]; then
-    use_mpi="no"
-    set_default use_openmp_threads 16
-    queue="-q smp"
-    resources=" -pe smp 16"
-  elif [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs_pernode 8
-    if [[ "$use_mpi_procs_pernode" == "1" ]] ; then
-      queue="-q serial"
-      resources=""    
-    else
-      queue="-q cluster"
-      resources="-pe orte8 ${use_mpi_procs_pernode}"
-    fi
-  else
-    queue="-q serial"
-    resources=""      
-  fi
-
-  # create header
-  start_header
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="-l s_cpu=$use_cpu_time"
-  fi
-
-  cat >> $output_script << EOF
-# ===========================
-# dole specific setup 
- basedir=/scratch/${USER}/trunk/icon-dev
- calldir=\$basedir
- thisdir=\$basedir
-# ===========================
-# dole.cscs.ch batch job parameters
-# ---------------------------
-#PBS -V
-#PBS -N $job_name
-#PBS -S /bin/tcsh
-#PBS -j oe
-#PBS -l cpunum_job=$cpunum_job
-#PBS -o LOG.$job_name.o
-#PBS -q normal
-#PBS -l walltime=02:00:00
-# ==========================
-EOF
-}
-
-#=============================================================================
 set_run_target_mpimac()
 {
   # some Macs at MPIM 
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
-    
+
   set_default use_nproma 48
   use_nodes=1
   
@@ -555,9 +519,9 @@ set_run_target_oflws()
 {
   # *.dwd.de with Linux (workstations)
   icon_data_rootFolder=${icon_data_rootFolder:=""}
-  icon_data_poolFolder=${icon_data_poolFolder:=""}
     
   set_default use_nproma 64
+  use_nodes=1
 
   if [[ "$use_mpi" == "yes" ]]; then
     set_default use_mpi_procs_pernode 4
@@ -575,7 +539,6 @@ set_run_target_hpc()
 {
   # xce.dwd.de
   icon_data_rootFolder=${icon_data_rootFolder:=""}
-  icon_data_poolFolder=${icon_data_poolFolder:=""}
     
   set_default use_nproma 64
   set_default use_nodes 1
@@ -587,7 +550,6 @@ set_run_target_hpc()
 
     
   cat >> $output_script << EOF
-# ===========================
 #### BATCH_SYSTEM=PBS ####
 #-----------------------------------------------------------------------------
 #PBS -q lang
@@ -615,9 +577,8 @@ EOF
 set_run_target_daint_cpu()
 {
   # daint.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+  typeset rootFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
@@ -684,9 +645,10 @@ set_run_target_daint_cpu()
   use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# daint cpu batch job parameters
+# ------------------------------
 #SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
@@ -695,7 +657,6 @@ set_run_target_daint_cpu()
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
   # create header
   start_header
@@ -706,9 +667,8 @@ EOF
 set_run_target_daint_gpu()
 {
   # daint.cscs.ch with GPU
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+  typeset rootFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 256
   set_default use_nodes 1
@@ -776,9 +736,10 @@ set_run_target_daint_gpu()
   use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# daint gpu batch job parameters
+# ------------------------------
 #SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
@@ -787,7 +748,6 @@ set_run_target_daint_gpu()
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
   # create header
   start_header
@@ -797,9 +757,8 @@ EOF
 set_run_target_dom_gpu()
 {
   # dom.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+  typeset rootFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 256
   set_default use_nodes 1
@@ -852,16 +811,16 @@ set_run_target_dom_gpu()
   # ------------------------------------
 
   cat >> $output_script << EOF
-# =====================================
-# dom batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# dom gpu batch job parameters
+# ----------------------------
 #SBATCH --job-name=$job_name
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
   # create header
   start_header
@@ -870,10 +829,9 @@ EOF
 #=============================================================================
 set_run_target_tave_knl()
 {
-  # tyve.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+  # tave.cscs.ch
+  typeset rootFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
@@ -934,9 +892,10 @@ set_run_target_tave_knl()
   # ------------------------------------
 
   cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# tave batch job parameters
+#--------------------------
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
@@ -944,7 +903,6 @@ set_run_target_tave_knl()
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
   # create header
   start_header
@@ -955,9 +913,8 @@ EOF
 set_run_target_kesch_cpu()
 {
   # kesch.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+  typeset rootFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 16
   set_default use_nodes 1
@@ -1026,9 +983,10 @@ set_run_target_kesch_cpu()
   use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
 
   cat >> $output_script << EOF
-# =====================================
-# kesch batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# kesch cpu batch job parameters
+# ------------------------------
 #SBATCH --partition=debug
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
@@ -1038,7 +996,6 @@ set_run_target_kesch_cpu()
 #$SBATCH_ntasks_per_node
 #$SBATCH_cpus_per_task
 #$s_cpu_time
-#========================================
 EOF
   # create header
   start_header
@@ -1050,9 +1007,8 @@ set_run_target_kesch_gpu()
 {
 
   # kesch.cscs.ch with GPU
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+  typeset rootFolder_prefix=/users/icontest
+  icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
   set_default use_nproma 256
   set_default use_nodes 1
@@ -1120,9 +1076,10 @@ set_run_target_kesch_gpu()
   # ------------------------------------
 
   cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
+#=============================================================================
+
+# kesch gpu batch job parameters
+# ------------------------------
 #SBATCH --gres=gpu:1
 #SBATCH --partition=debug
 #SBATCH --job-name=$job_name
@@ -1132,7 +1089,6 @@ set_run_target_kesch_gpu()
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
   # create header
   start_header
@@ -1219,7 +1175,6 @@ set_run_target_fh2()
 {
 
   icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
 
   set_default use_nproma 8
   use_nodes=1
@@ -1268,10 +1223,10 @@ create_target_header()
 # set default values
   set_default use_shell "/bin/ksh"
   set_default use_memory_model "default"
+  set_default use_omp_stacksize 32M
       
 cat > $output_script << EOF
 #!$use_shell
-#=============================================================================
 EOF
 
   set_run_target_${use_target}

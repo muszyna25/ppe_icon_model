@@ -70,7 +70,7 @@ fi
 # ------------------
 
 # Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
-grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre04.ff
+grids_folder=${icon_data_rootFolder}/coupled_input_temp/aloy_pre04.ff
 atmo_dyn_grids='ATMOOCEANINP_pre04_OceWithCoast_158km_editSLOHH2017_G.cdo172.nc'
 ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 

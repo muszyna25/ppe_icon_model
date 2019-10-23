@@ -310,7 +310,7 @@ EOF
 if [[ x$BB_SYSTEM != x ]]; then
   rm -f ${final_status_file}
 . ${thisdir}/postFunx.sh
-  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
+  dataPath="${basedir}/experiments/${EXPNAME}/"
   cd ${dataPath}
   slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
   refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}

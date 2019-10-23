@@ -26,7 +26,7 @@
 # _bb_table_Model_        hydrost. atm + ocean
 # _bb_table_Grid_         triangle
 #-----------------------------------------------------------------------------
-grids_folder=${icon_data_poolFolder}/grids/buildbot
+grids_folder=${icon_data_rootFolder}/grids/buildbot
 #
 # Number of ocean processes
 #
@@ -794,7 +794,7 @@ add_required_file ${thisdir}/${atmo_namelist}                           ./
 # ------------------------------
 #
 # - ozone
-datadir=/pool/data/ICON/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
+datadir=${icon_data_rootFolder}/grids/private/mpim/icon_preprocessing/source/ozone/ape/R02B04
 add_link_file ${datadir}/bc_ozone_ape.nc                                ./bc_ozone.nc
 #
 # dictionary for variable names

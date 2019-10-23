@@ -77,14 +77,16 @@ cd $(dirname $0)
 this_folder=$(pwd)
 base_folder=${this_folder%/*}
 
+# initialize "use_..." variables, which characterize the target system,
+# with values stored up by the "configure" script in set-up.info
 . $base_folder/config/set-up.info
 
-. $base_folder/config/create_target_header
-
-
+# now use arguments passed to make_target_runscript to adjust "use_..." variables
+echo "Arguments for make_target_runscript:"
 let "no_of_free_variables=0"
 for arg
 do
+  echo "$arg"
   eval_argument $arg
 done
 
@@ -126,8 +128,16 @@ fi
 
 job_name=${job_name:=$output_name}
 # echo job_name=$job_name
+
+echo " "
+echo "Create the run script  $output_script"
+echo "1. Use create_target_header to create the header"
+# execute the script create_target_header to define the shell function create_target_header
+. $base_folder/config/create_target_header
+# execute the shell function create_target_header to create the header
 create_target_header
 
+echo "2. Add the scripts for the experiment and the execution:"
 input_script=$base_folder/$input_folder/$input_name
 for in_name in $input_name
 do
@@ -136,15 +146,19 @@ do
     echo "script $cat_file not found"
     exit 1
   fi
+  echo "   - adding: $cat_file"
   cat $cat_file >> $output_script
 done
 
 chmod +x $output_script
-if [[ "x$use_submit" == "x" ]] ; then
-  echo "$output_script is created."
-else
-  echo "$output_script is created. Submit is $use_submit."
+
+echo " "
+echo "$output_script is created."
+
+if [[ "x$use_submit" != "x" ]] ; then
+  echo "Submit is $use_submit."
 fi
+
 # echo "---------------------------"
 
 

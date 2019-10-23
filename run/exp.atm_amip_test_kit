@@ -33,17 +33,7 @@ author_list="Marco Giorgetta, MPIM"
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-#icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/mpim/icon_preprocessing/source"
-icon_data_poolFolder="$icon_data_poolFolder/icon_preprocessing/source"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/mpim/icon_preprocessing/source"
 
 #--------------------------------------------------------------------------------------------------
 

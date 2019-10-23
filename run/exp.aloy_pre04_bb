@@ -69,7 +69,7 @@ fi
 # ------------------
 
 # Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
-grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre04.ff
+grids_folder=${icon_data_rootFolder}/coupled_input_temp/aloy_pre04.ff
 atmo_dyn_grids='ATMOOCEANINP_pre04_OceWithCoast_158km_editSLOHH2017_G.cdo172.nc'
 ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 
@@ -397,7 +397,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 # II.2.4 Initial conditions
 # -------------------------
 
-INDATA=${icon_data_poolFolder}/input/r0003
+INDATA=${icon_data_rootFolder}/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=/pool/data/ICON/setup/ifs_iconremap_amip
