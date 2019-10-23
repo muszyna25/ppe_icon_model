@@ -1732,7 +1732,7 @@ CONTAINS
 
     ! Take maximum/minimum over blocks
     wmaxi = MAXVAL(wmax(i_startblk:i_endblk))
-    wmini = MAXVAL(wmin(i_startblk:i_endblk))
+    wmini = MINVAL(wmin(i_startblk:i_endblk))
     tmaxi  = MAXVAL(tmax(i_startblk:i_endblk))
     tmini  = MINVAL(tmin(i_startblk:i_endblk))
     qvmaxi = MAXVAL(qvmax(i_startblk:i_endblk))
