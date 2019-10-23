@@ -220,6 +220,16 @@ lhn\_relax = .TRUE.
 \tabularnewline
 
 %\hline
+ {lhn\_wweight}&
+L&
+.FALSE.&
+&
+Reduction of the LHN temperature increment in case of strong advection, messured by horizontal wind in 950, 850 and 700 hPa.\\
+The reduction is done linearly down to cero.&
+\tabularnewline
+
+
+%\hline
  {lhn\_artif}&
 L&
 .TRUE.&
@@ -234,6 +244,15 @@ R&
 5.0&
 &
 Value of the ratio of radar to model precipitation rate, from which an artificial temperature profile is applied&
+lhn\_artif=.TRUE.
+\tabularnewline
+
+%\hline
+ {fac\_lhn\_artif\_tune}&
+R&
+1.0&
+&
+Tuning factor to optimize the effectiveness of the artificial profile.&
 lhn\_artif=.TRUE.
 \tabularnewline
 
@@ -336,7 +355,7 @@ Apply a blacklist information in the radar data obtained by comparison against s
 %\hline
  {blacklist\_file(:)}&
 C (n\_dom)&
-&
+'radarblacklist.nc'&
 &
 Name of blacklist file, containing a mask concerning the quality of the radar data.\\
 Value 1: good quality\\
@@ -356,7 +375,7 @@ Apply a model intern bright band detection to avoid strong overestimation due to
 %\hline
  {height\_file(:)}&
 C (n\_dom)&
-&
+'radarheight.nc'&
 &
 Name of file containing the height of the lowest scan for each possible radar station within the given radar composite.\\
 This file is required, when applying bright band detection.\\
@@ -367,9 +386,9 @@ lhn\_bright=.TRUE.
 %\hline
  {nradar}&
 I (n\_dom)&
-200&
+20&
 &
-Maximal number of radar station contained within height\_file&
+Maximal number of radar height layers contained within height\_file&
 lhn\_bright=.TRUE.
 \tabularnewline
 

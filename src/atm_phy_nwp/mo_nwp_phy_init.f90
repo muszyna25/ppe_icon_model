@@ -178,6 +178,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   REAL(wp), PARAMETER :: pr800  = 800._wp / 1013.25_wp
   REAL(wp), PARAMETER :: pr400  = 400._wp / 1013.25_wp
+  REAL(wp), PARAMETER :: pr700  = 700._wp / 1013.25_wp
 
   REAL(wp) :: ttropo, ptropo, temp, zfull
 
@@ -1151,11 +1152,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   ! convective contribution to wind gusts
   !
   ! k800, k400 will be used for inwp_convection==0 as well. 
+  ! k700 is used for LHN data assimilation
   ! Thus we need to make sure that they are initialized.
   prm_diag%k850(:,:) = nlev
   prm_diag%k950(:,:) = nlev
   prm_diag%k800(:,:) = nlev
   prm_diag%k400(:,:) = nlev
+  prm_diag%k700(:,:) = nlev
 
   rl_start = 1  ! Initialization should be done for all points
   rl_end   = min_rlcell
@@ -1198,6 +1201,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       DO jk=nlev-1, 2, -1
         zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
         IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
+        IF (zpres/zpres0 >= pr700) prm_diag%k700(jc,jb) = jk
         IF (zpres/zpres0 >= pr400*SQRT(p0ref/zpres0)) THEN
           prm_diag%k400(jc,jb) = jk
         ELSE
