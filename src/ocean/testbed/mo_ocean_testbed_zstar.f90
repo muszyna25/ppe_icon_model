@@ -1390,66 +1390,28 @@ CONTAINS
     CALL div_oce_3d( z_adv_flux_h, patch_3D, operators_coefficients%div_coeff, &
       & div_adv_flux_horz, subset_range=cells_in_domain )
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
-!ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-        
-      DO jc = start_cell_index, end_cell_index
-       !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
-        DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+    !! FIXME: No boundary conditions implemented for the tracer
 
-          delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_old(jc,jb)
-          delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_new(jc,jb)
+    !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
+    !ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+            !! d_z*(coeff*w*C) = coeff*d_z(w*C) since coeff is constant for each column
+            div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
 
-          new_tracer%concentration(jc,level,jb)= &
-            & (old_tracer%concentration(jc,level,jb) * delta_z &
-            & - delta_t * (&
-            &  div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
-            &  )) / delta_z_new
-
-        ENDDO
-
-        div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
-
-        !! FIXME: replace 2 with 1 once we have fixed the above
-        DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
     
-          new_tracer%concentration(jc,level,jb) =                          &
-            &  old_tracer%concentration(jc,level,jb) -                     &
-            &  (delta_t /  ( stretch_c(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
-            & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
+              new_tracer%concentration(jc,level,jb) =                          &
+                &  old_tracer%concentration(jc,level,jb)*(stretch_c(jc, jb)/stretch_c_new(jc, jb)) -         &
+                &  (delta_t /  ( stretch_c_new(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
+                & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
 
-        ENDDO
- 
-      END DO
-    END DO
-!ICON_OMP_END_PARALLEL_DO
-
-
-!    !! FIXME: Replace with below for eta 
-!    !! FIXME: No boundary conditions implemented for the tracer
-!
-!    !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
-!    !ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
-!        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-!          DO jc = start_cell_index, end_cell_index
-!            !! d_z*(coeff*w*C) = coeff*d_z(w*C) since coeff is constant for each column
-!            div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
-!
-!            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-!    
-!              new_tracer%concentration(jc,level,jb) =                          &
-!                &  old_tracer%concentration(jc,level,jb)*(stretch_c(jc, jb)/stretch_c_new(jc, jb)) -         &
-!                &  (delta_t /  ( stretch_c_new(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
-!                & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
-!
-!            ENDDO
-!    
-!          END DO
-!        END DO
-!    !ICON_OMP_END_PARALLEL_DO
+            ENDDO
+    
+          END DO
+        END DO
+    !ICON_OMP_END_PARALLEL_DO
  
     
     !Vertical mixing: implicit and with coefficient a_v
@@ -1736,7 +1698,7 @@ CONTAINS
           !! Update w and mass_flx_e for tracer advection
           !! FIXME: Needs to be tested with correct vertical velocity
           CALL calc_vert_velocity_bottomup_zstar( patch_3d, ocean_state(jg), operators_coefficients, &
-            & stretch_c, H_c, stretch_e, eta_0, eta_1)
+            & stretch_c, H_c, stretch_e)
 
           ! fill transport_state
           transport_state%patch_3d    => patch_3d
@@ -1983,9 +1945,7 @@ CONTAINS
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       ! Step 1) Compute normal derivative of new surface height
-      !! FIXME: Replace with eta
-!      CALL grad_fd_norm_oce_2d_onBlock(eta, patch, op_coeffs%grad_coeff(:,1, blockNo), &
-      CALL grad_fd_norm_oce_2d_onBlock(ocean_state%p_prog(nnew(1))%h, patch, op_coeffs%grad_coeff(:,1, blockNo), &
+      CALL grad_fd_norm_oce_2d_onBlock(eta, patch, op_coeffs%grad_coeff(:,1, blockNo), &
         & z_grad_h_block(:), start_edge_index, end_edge_index, blockNo)
       ! Step 2) Calculate the new velocity from the predicted one and the new surface height
       DO je = start_edge_index, end_edge_index
@@ -2019,15 +1979,13 @@ CONTAINS
   !! of horizontal velocity
   !!
   SUBROUTINE calc_vert_velocity_bottomup_zstar( patch_3d, ocean_state, op_coeffs, stretch_c, depth_c, &
-      & stretch_e, eta_0, eta_1)
+      & stretch_e)
     TYPE(t_patch_3d), TARGET :: patch_3d       ! patch on which computation is performed
     TYPE(t_hydro_ocean_state) :: ocean_state
     TYPE(t_operator_coeff), INTENT(in) :: op_coeffs
     REAL(wp), INTENT(IN)               :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp), INTENT(IN)               :: depth_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp), INTENT(IN)               :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
-    REAL(wp), INTENT(IN)               :: eta_0(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! eta old 
-    REAL(wp), INTENT(IN)               :: eta_1(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! eta new 
     ! Local variables
     INTEGER :: jc, jk, blockNo, je, z_dolic, start_index, end_index
     REAL(wp) :: z_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks), z_abort
@@ -2067,12 +2025,10 @@ CONTAINS
         vertical_velocity(jc, patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) + 1, blockNo) = 0.0_wp
         DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
           vertical_velocity(jc,jk,blockNo) = vertical_velocity(jc,jk+1,blockNo) - &
-             &   ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo) 
-           !! FIXME: Replace with below terms
-!            & ( ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo) + &
-!            & (1.0_wp/depth_c(jc, blockNo))*                       &
-!            & deta_dt*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, blockNo) &
-!            & )/stretch_c(jc, blockNo)
+            & ( ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo) + &
+            & (1.0_wp/depth_c(jc, blockNo))*                       &
+            & deta_dt*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, blockNo) &
+            & )/stretch_c(jc, blockNo)
         END DO
       END DO
     END DO ! blockNo
@@ -2080,22 +2036,6 @@ CONTAINS
     
     CALL sync_patch_array(sync_c,patch_2D,vertical_velocity)
 
-    !-----------------------------------------------------
-    IF (use_continuity_correction) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, blockNo, start_index, end_index)
-        DO jc = start_index, end_index
-          ocean_state%p_prog(nnew(1))%h(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo) + &
-          !! FIXME: Replace with eta 
-          !! eta_1(jc,blockNo) = eta_0(jc,blockNo) + &
-          &  vertical_velocity(jc,1,blockNo) * dtime
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-    ENDIF
-    !---------------------------------------------------------------------
-  
   END SUBROUTINE calc_vert_velocity_bottomup_zstar
   !-------------------------------------------------------------------------
  
@@ -2239,7 +2179,7 @@ CONTAINS
     ! STEP 2: compute 3D contributions: gradient of hydrostatic pressure and vertical velocity advection
       
     ! calculate density from EOS using temperature and salinity at timelevel n
-    ! FIXME: Uses depth to calculate pressure, will beed fix 
+    ! FIXME: Uses depth to calculate pressure, will need fix 
     CALL calculate_density( patch_3d,                         &
      & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
      & ocean_state%p_diag%rho(:,:,:) )
@@ -2464,9 +2404,7 @@ CONTAINS
       ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
       DO jc = start_cell_index, end_cell_index
         IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
-!            !! FIXME: Replace with eta
-!          ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ( ( eta(jc,blockNo) &
-          ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
+          ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ( ( eta(jc,blockNo) &
             & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
 
         ENDIF
@@ -2574,8 +2512,9 @@ CONTAINS
  
     !------------------------------------------------------------------
     
-    eta_e=0.0_wp !! Initialize height to 0
-    eta_c=0.0_wp !! Initialize height to 0
+    eta_e     = 0.0_wp !! Initialize height to 0
+    eta_c     = 0.0_wp !! Initialize height to 0
+    eta_c_new = 0.0_wp !! Initialize height to 0
 
 
     !! FIXME: Does this make sense
@@ -2597,6 +2536,8 @@ CONTAINS
         else 
           stretch_c(jc, jb)  = 1.0_wp
         ENDIF
+          
+        stretch_c_new(jc, jb)  = stretch_c(jc, jb) 
 
       END DO
     END DO ! blockNo
@@ -2661,6 +2602,11 @@ CONTAINS
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =', jstep , '  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
        
+      !!ICON_OMP PARALLEL WORKSHARE
+      eta_c(:, :)     = eta_c_new(:, :) 
+      stretch_c(:, :) = stretch_c_new(:, :) 
+      !!ICON_OMP END PARALLEL WORKSHARE
+ 
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
 
       !! Get kinetic energy
@@ -2701,9 +2647,7 @@ CONTAINS
       IF (l_solver_compare) solve_comp => ocean_solve_ptr(free_sfc_solver_comp)
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('on entry: h-old'   ,ocean_state(jg)%p_prog(nold(1))%h ,str_module, 3, in_subset=owned_cells)
-      CALL dbg_print('on entry: vn-old'  ,ocean_state(jg)%p_prog(nold(1))%vn,str_module, 3, in_subset=owned_edges)
-      CALL dbg_print('on entry: h-new'   ,ocean_state(jg)%p_prog(nnew(1))%h ,str_module, 2, in_subset=owned_cells)
+      CALL dbg_print('on entry: h-new'   ,eta_c_new                         ,str_module, 2, in_subset=owned_cells)
       CALL dbg_print('on entry: vn-new'  ,ocean_state(jg)%p_prog(nnew(1))%vn,str_module, 2, in_subset=owned_edges)
 
       ! Apply windstress
@@ -2721,9 +2665,7 @@ CONTAINS
       ! Solve surface equation with solver
 
       !!ICON_OMP PARALLEL WORKSHARE
-      solve%x_loc_wp(:,:) = ocean_state(jg)%p_prog(nold(1))%h(:,:)
-      !! FIXME: Replace with eta
-!      solve%x_loc_wp(:,:) = eta_c(:,:)
+      solve%x_loc_wp(:,:) = eta_c(:,:)
       !!ICON_OMP END PARALLEL WORKSHARE
 
       solve%b_loc_wp => ocean_state(jg)%p_aux%p_rhs_sfc_eq
@@ -2738,20 +2680,69 @@ CONTAINS
         RETURN
       ENDIF
       !!ICON_OMP PARALLEL WORKSHARE
-      ocean_state(jg)%p_prog(nnew(1))%h(:,:) = solve%x_loc_wp(:,:)
-      !! FIXME: Replace with eta
-!      eta_c_new(:,:) = solve%x_loc_wp(:,:)
+      eta_c_new(:,:) = solve%x_loc_wp(:,:)
       !!ICON_OMP END PARALLEL WORKSHARE
-  
+ 
       IF (createSolverMatrix) &
         CALL solve%dump_matrix(jstep)
   
       !-------- end of solver ---------------
-      CALL sync_patch_array(sync_c, patch_2D, ocean_state(jg)%p_prog(nnew(1))%h)
-      !! FIXME: Replace with eta
-      !! CALL sync_patch_array(sync_c, patch_2D, eta_c_new)
+      CALL sync_patch_array(sync_c, patch_2D, eta_c_new)
       !---------------------------------------------------------------------
-      
+ 
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        
+        bt_lev = patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
+ 
+        if ( patch_3D%lsm_c(jc, 1, jb) <= sea_boundary ) THEN
+          stretch_c_new(jc, jb)  = (H_c(jc, jb) + eta_c_new(jc, jb))/H_c(jc, jb) 
+        else 
+          stretch_c_new(jc, jb)  = 1.0_wp
+        ENDIF
+
+      END DO
+    END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO
+
+!ICON_OMP_MASTER
+    CALL sync_patch_array(sync_c, patch_2D, stretch_c_new)
+!ICON_OMP_END_MASTER
+!ICON_OMP_BARRIER
+
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, je, jk, id1, id2, bl1, bl2, st1, st2) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+      DO je = start_index, end_index
+        id1 = idx(je, jb, 1)
+        id2 = idx(je, jb, 2)
+        bl1 = blk(je, jb, 1)
+        bl2 = blk(je, jb, 2)
+ 
+        st1 = stretch_c_new(id1, bl1) 
+        st2 = stretch_c_new(id2, bl2) 
+
+        !! FIXME: There seem to be edge cases where this does not work
+        IF(patch_3D%lsm_e(je, 1, jb) <= sea_boundary)THEN
+          stretch_e(je, jb) = 0.5_wp*(st1 + st2)
+        ELSE
+          stretch_e(je, jb) = 1.0_wp
+        ENDIF
+
+
+      ENDDO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+!ICON_OMP_MASTER
+    CALL sync_patch_array(sync_e, patch_2D, stretch_e)
+!ICON_OMP_END_MASTER
+!ICON_OMP_BARRIER
+
+     
       IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
         CALL warning(routine, "height below min_top_height")
         CALL print_value_location(ocean_state(jg)%p_prog(nnew(1))%h(:,:), minmaxmean(1), owned_cells)
@@ -2764,14 +2755,13 @@ CONTAINS
       !------------------------------------------------------------------------
       ! Step 4: calculate final normal velocity from predicted horizontal
       ! velocity vn_pred and updated surface height
-      ! FIXME: Needs to be called with eta_new 
       CALL calc_normal_velocity_ab_zstar(patch_3d, ocean_state(jg), operators_coefficients, eta_c_new)
  
       !------------------------------------------------------------------------
       ! Step 5: calculate vertical velocity and mass_flx_e from continuity equation under
       ! incompressiblity condition in the non-shallow-water case
       CALL calc_vert_velocity_bottomup_zstar( patch_3d, ocean_state(jg),operators_coefficients, & 
-        & stretch_c, H_c, stretch_e, eta_c, eta_c_new)
+        & stretch_c_new, H_c, stretch_e)
       !------------------------------------------------------------------------
   
       !------------------------------------------------------------------------
