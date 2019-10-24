@@ -480,6 +480,7 @@ MODULE mo_ocean_testbed_zstar
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, no_primal_edges
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
+  USE mo_ocean_tracer_diffusion,    ONLY: tracer_diffusion_vertical_implicit
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
@@ -1237,9 +1238,10 @@ CONTAINS
     dt_inv = 1.0_wp/dtime
     
     DO cell_index = start_index, end_index
-      inv_str_c  = 1._wp/stretch_c(cell_index, blockNo)
+      bottom_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
 
- 
+      inv_str_c    = 1._wp/stretch_c(cell_index, blockNo)
+
       IF (bottom_level < 2 ) CYCLE ! nothing to diffuse
 
       DO level=1,bottom_level
@@ -1297,9 +1299,10 @@ CONTAINS
       DO level = 1, bottom_level
         ocean_tracer%concentration(cell_index,level,blockNo) = column_tracer(level)
       ENDDO
-    
+   
     ENDDO ! cell_index
-    
+
+
   END SUBROUTINE tracer_diffusion_vertical_implicit_zstar_onBlock
   !------------------------------------------------------------------------
     
@@ -1308,8 +1311,8 @@ CONTAINS
   !!Subroutine for all advection operations on a single tracer 
   !>
   !-------------------------------------------------------------------------
-  SUBROUTINE advect_ocean_tracers_zstar( patch_3d, transport_state, &
-    & operators_coefficients, stretch_e, stretch_c, old_tracer, new_tracer)
+  SUBROUTINE advect_individual_tracers_zstar( patch_3d, transport_state, &
+    & operators_coefficients, stretch_e, stretch_c, stretch_c_new, old_tracer, new_tracer)
 
 
     TYPE(t_patch_3d), POINTER, INTENT(in)                :: patch_3d
@@ -1317,6 +1320,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(in)                 :: operators_coefficients
     REAL(wp), INTENT(IN)               :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     REAL(wp), INTENT(IN)               :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(IN)               :: stretch_c_new(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     TYPE(t_ocean_tracer), INTENT(IN)   :: old_tracer
     TYPE(t_ocean_tracer), INTENT(OUT)  :: new_tracer
 
@@ -1386,29 +1390,71 @@ CONTAINS
     CALL div_oce_3d( z_adv_flux_h, patch_3D, operators_coefficients%div_coeff, &
       & div_adv_flux_horz, subset_range=cells_in_domain )
 
-    !! FIXME: No boundary conditions implemented for the tracer
-
-    !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
-    !ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-          DO jc = start_cell_index, end_cell_index
-            !! d_z*(coeff*w*C) = coeff*d_z(w*C) since coeff is constant for each column
-            div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
-
-            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-    
-              new_tracer%concentration(jc,level,jb) =                          &
-                &  old_tracer%concentration(jc,level,jb) -                     &
-                &  (delta_t /  ( stretch_c(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
-                & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
-
-            ENDDO
-    
-          END DO
-        END DO
-    !ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
+!ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
         
+      DO jc = start_cell_index, end_cell_index
+       !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
+        DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+
+          delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_old(jc,jb)
+          delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_new(jc,jb)
+
+          new_tracer%concentration(jc,level,jb)= &
+            & (old_tracer%concentration(jc,level,jb) * delta_z &
+            & - delta_t * (&
+            &  div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            &  )) / delta_z_new
+
+        ENDDO
+
+        div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
+
+        !! FIXME: replace 2 with 1 once we have fixed the above
+        DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+    
+          new_tracer%concentration(jc,level,jb) =                          &
+            &  old_tracer%concentration(jc,level,jb) -                     &
+            &  (delta_t /  ( stretch_c(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
+            & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
+
+        ENDDO
+ 
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+
+!    !! FIXME: Replace with below for eta 
+!    !! FIXME: No boundary conditions implemented for the tracer
+!
+!    !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
+!    !ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
+!        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+!          DO jc = start_cell_index, end_cell_index
+!            !! d_z*(coeff*w*C) = coeff*d_z(w*C) since coeff is constant for each column
+!            div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
+!
+!            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!    
+!              new_tracer%concentration(jc,level,jb) =                          &
+!                &  old_tracer%concentration(jc,level,jb)*(stretch_c(jc, jb)/stretch_c_new(jc, jb)) -         &
+!                &  (delta_t /  ( stretch_c_new(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
+!                & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
+!
+!            ENDDO
+!    
+!          END DO
+!        END DO
+!    !ICON_OMP_END_PARALLEL_DO
+ 
+    
+    !Vertical mixing: implicit and with coefficient a_v
+    !that is the sum of PP-coeff and implicit part of Redi-scheme      
+
     CALL tracer_diffusion_vertical_implicit_zstar( &
            & patch_3d,                  &
            & new_tracer,                &
@@ -1417,7 +1463,7 @@ CONTAINS
  
     CALL sync_patch_array(sync_c, patch_2D, new_tracer%concentration)
 
-  END SUBROUTINE advect_ocean_tracers_zstar
+  END SUBROUTINE advect_individual_tracers_zstar
 
 
 
@@ -1471,6 +1517,7 @@ CONTAINS
     REAL(wp) :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp) :: stretch_c_new(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: st1, st2 
     REAL(wp) :: eta_0(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: eta_1(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
@@ -1545,6 +1592,7 @@ CONTAINS
         else 
           stretch_c(jc, jb)  = 1.0_wp
         ENDIF
+        stretch_c_new(jc, jb) = stretch_c(jc, jb)
 
       END DO
     END DO ! blockNo
@@ -1552,6 +1600,7 @@ CONTAINS
 
 !ICON_OMP_MASTER
     CALL sync_patch_array(sync_c, patch_2D, stretch_c)
+    CALL sync_patch_array(sync_c, patch_2D, stretch_c_new)
 !ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
 
@@ -1713,8 +1762,8 @@ CONTAINS
           new_tracer => new_tracer_collection%tracer(tracer_index)
           IF ( old_tracer%is_advected) THEN
            
-            call advect_ocean_tracers_zstar( patch_3d, transport_state, &
-              & operators_coefficients, stretch_e, stretch_c, old_tracer, new_tracer)
+            call advect_individual_tracers_zstar( patch_3d, transport_state, &
+              & operators_coefficients, stretch_e, stretch_c, stretch_c_new, old_tracer, new_tracer)
 
           ENDIF
         END DO
@@ -1746,6 +1795,46 @@ CONTAINS
     
   END SUBROUTINE ocean_test_zstar_advection
   !-------------------------------------------------------------------------
+
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! !  SUBROUTINE advects the tracers present in the ocean model.
+  !!
+  SUBROUTINE advect_ocean_tracers_zstar(old_tracers, new_tracers, transport_state, operators_coeff, &
+      & stretch_e, stretch_c, stretch_c_new)
+    TYPE(t_tracer_collection), INTENT(inout)      :: old_tracers
+    TYPE(t_tracer_collection), INTENT(inout)      :: new_tracers
+    TYPE(t_ocean_transport_state), TARGET         :: transport_state
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coeff
+    REAL(wp), INTENT(IN)               :: stretch_e(nproma, transport_state%patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp), INTENT(IN)               :: stretch_c(nproma, transport_state%patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(IN)               :: stretch_c_new(nproma, transport_state%patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+ 
+
+    !Local variables
+    TYPE(t_patch_3d ), POINTER     :: patch_3d
+    INTEGER :: tracer_index
+    !-------------------------------------------------------------------------------
+    patch_3d => transport_state%patch_3d
+
+    DO tracer_index = 1, old_tracers%no_of_tracers
+          
+      IF ( old_tracers%tracer(tracer_index)%is_advected) THEN
+       
+        call advect_individual_tracers_zstar( patch_3d, transport_state, &
+          & operators_coeff, stretch_e, stretch_c, stretch_c_new,        & 
+          & old_tracers%tracer(tracer_index), new_tracers%tracer(tracer_index))
+
+      ENDIF
+
+    END DO
+
+  END SUBROUTINE advect_ocean_tracers_zstar
+  !-------------------------------------------------------------------------
+
+
 
   
   
@@ -2427,6 +2516,7 @@ CONTAINS
     REAL(wp) :: H_e  (nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! Column depth at edge 
     REAL(wp) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
     REAL(wp) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! 
+    REAL(wp) :: stretch_c_new(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
     REAL(wp) :: st1, st2 
     REAL(wp) :: eta_c_new(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! Surface height after time step 
 
@@ -2489,8 +2579,9 @@ CONTAINS
 
 
     !! FIXME: Does this make sense
-    stretch_c = 1.0_wp
-    stretch_e = 1.0_wp
+    stretch_c     = 1.0_wp
+    stretch_e     = 1.0_wp
+    stretch_c_new = 1.0_wp
     !------------------------------------------------------------------
  
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
@@ -2513,6 +2604,7 @@ CONTAINS
 
 !ICON_OMP_MASTER
     CALL sync_patch_array(sync_c, patch_2D, stretch_c)
+    CALL sync_patch_array(sync_c, patch_2D, stretch_c_new)
 !ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
 
@@ -2549,24 +2641,26 @@ CONTAINS
 
     !------------------------------------------------------------------
     jstep0 = 0
+    jstep  = jstep0
 
     ! local time var to be passed along, so the global is kept safe 
     current_time => newNullDatetime()
+    !------------------------------------------------------------------
 
     !! Start time stepping
     DO
 
       ! optional memory loggin
       CALL memory_log_add
-      
+
       jstep = jstep + 1
       ! update model date and time mtime based
       current_time = ocean_time_nextStep()
   
       CALL datetimeToString(current_time, datestring)
-      WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+      WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =', jstep , '  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
-            
+       
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
 
       !! Get kinetic energy
@@ -2714,8 +2808,9 @@ CONTAINS
       ! transport tracers and diffuse them
       IF (no_tracer>=1) THEN
   
-          CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
-  
+          CALL advect_ocean_tracers_zstar(old_tracer_collection, new_tracer_collection, &
+            & transport_state, operators_coefficients, stretch_e, stretch_c, stretch_c_new)
+ 
       ENDIF
       !------------------------------------------------------------------------
 
