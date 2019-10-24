@@ -34,6 +34,9 @@ case $(uname -s) in
       xce*.dwd.de\ *)
         test_suite='dwd-xce'
         xfail_test_names='cray.bundled_dynamic cray.bundled_static' ;;
+      breeze*.mpimet.mpg.de\ *)
+        test_suite='mpim-breeze'
+        xfail_test_names='gcc.bundled' ;;
       *)
         echo "Unknown test environment" && exit 1 ;;
     esac ;;
