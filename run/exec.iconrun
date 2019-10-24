@@ -321,7 +321,13 @@ EOF
 done
 fi
 #-----------------------------------------------------------------------------
+#
+# get eventually needed LD_LIBRARY_PATH
 
+if [[ ! -z $use_ld_library_path ]]
+then
+    export LD_LIBRARY_PATH=$use_ld_library_path
+fi
 
 #-----------------------------------------------------------------------------
 #
