@@ -2155,7 +2155,7 @@ CONTAINS
   !! Computation of velocity predictor in Adams-Bashforth timestepping.
   !!
   SUBROUTINE calculate_explicit_term_zstar( patch_3d, ocean_state, p_phys_param,&
-    & is_first_timestep, op_coeffs, p_as, stretch_c)
+    & is_first_timestep, op_coeffs, p_as, stretch_c, eta_c)
     TYPE(t_patch_3d ), POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     TYPE (t_ho_params)                   :: p_phys_param
@@ -2163,6 +2163,7 @@ CONTAINS
     TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
     TYPE(t_atmos_for_ocean), INTENT(inout) :: p_as
     REAL(wp), INTENT(IN) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
+    REAL(wp), INTENT(IN) :: eta_c    (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
     TYPE(t_subset_range), POINTER :: owned_edges, owned_cells
     
     owned_edges     => patch_3d%p_patch_2d(n_dom)%edges%owned
@@ -2209,7 +2210,7 @@ CONTAINS
       & ocean_state%p_diag,op_coeffs,  &
       & ocean_state%p_diag%laplacian_horz)
     
-    CALL explicit_vn_pred_zstar( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep)
+    CALL explicit_vn_pred_zstar( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep, eta_c)
     
   END SUBROUTINE calculate_explicit_term_zstar
 
@@ -2278,6 +2279,7 @@ CONTAINS
     !i.e. if it part of explicit term in momentum and tracer eqs.
     !in this case, topLevel boundary ondition of vertical Laplacians are homogeneous.
     !Below is the code that adds surface forcing to explicit term of momentum eq.
+    !FIXME: zstar boundary conditions needed here
     DO je = start_edge_index, end_edge_index
       IF(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)>=min_dolic) THEN
         ocean_state%p_diag%vn_pred(je,1,blockNo) =  ocean_state%p_diag%vn_pred(je,1,blockNo)      &
@@ -2294,12 +2296,14 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  SUBROUTINE explicit_vn_pred_zstar( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep)
+  SUBROUTINE explicit_vn_pred_zstar( patch_3d, ocean_state, op_coeffs, p_phys_param, &
+      & is_first_timestep, eta)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff), INTENT(IN) :: op_coeffs
     TYPE (t_ho_params) :: p_phys_param
-    LOGICAL, INTENT(in) :: is_first_timestep
+    LOGICAL, INTENT(in)  :: is_first_timestep
+    REAL(wp), INTENT(IN) :: eta(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
     REAL(wp) :: z_gradh_e(nproma)
     TYPE(t_subset_range), POINTER :: edges_in_domain
     INTEGER :: start_edge_index, end_edge_index, blockNo
@@ -2312,7 +2316,7 @@ CONTAINS
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       z_gradh_e(:)  = 0.0_wp
-      CALL grad_fd_norm_oce_2d_onBlock( ocean_state%p_prog(nold(1))%h, patch_2D, &
+      CALL grad_fd_norm_oce_2d_onBlock( eta, patch_2D, &
         & op_coeffs%grad_coeff(:,1,blockNo), z_gradh_e(:), start_edge_index, end_edge_index, blockNo)
       z_gradh_e(start_edge_index:end_edge_index) = &
          & (1.0_wp-ab_beta) * grav * z_gradh_e(start_edge_index:end_edge_index)
@@ -2629,8 +2633,7 @@ CONTAINS
   
       !------------------------------------------------------------------------
       ! solve for new free surface
-!      CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
-!        & p_as, p_oce_sfc, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)
+      !------------------------------------------------------------------------
       
       owned_cells => patch_2D%cells%owned
       owned_edges => patch_2D%edges%owned
@@ -2654,7 +2657,7 @@ CONTAINS
       CALL top_bound_cond_horz_veloc(patch_3d, ocean_state(jg), operators_coefficients, p_oce_sfc)
       
       CALL calculate_explicit_term_zstar(patch_3d, ocean_state(jg), p_phys_param, &
-        & is_initial_timestep(jstep), operators_coefficients, p_as, stretch_c)
+        & is_initial_timestep(jstep), operators_coefficients, p_as, stretch_c, eta_c)
       
       ! Calculate RHS of surface equation
       CALL fill_rhs4surface_eq_zstar(patch_3d, ocean_state(jg), operators_coefficients, stretch_e, eta_c)
@@ -2742,6 +2745,9 @@ CONTAINS
 !ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
 
+      !------------------------------------------------------------------------
+      ! end solve for free surface and update stretching
+      !------------------------------------------------------------------------
      
       IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
         CALL warning(routine, "height below min_top_height")
