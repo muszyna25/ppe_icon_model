@@ -141,15 +141,15 @@ thisdir=$(pwd)
 
 basedir=@abs_top_srcdir@
 
-ICON_BASE_PATH=@prefix@
+ICON_BASE_PATH=@abs_top_builddir@
 export ICON_BASE_PATH
 RUNSCRIPT_NAME=`basename $0`
 
 ICON_SRC_PATH=@abs_top_srcdir@
 ICON_DATA_PATH=@abs_top_srcdir@/data
 
-ICON_BUILD_PATH=@prefix@
-ICON_RUN_PATH=@prefix@/run
+ICON_BUILD_PATH=@abs_top_builddir@
+ICON_RUN_PATH=@abs_top_builddir@/run
 #-----------------------------------------------------------------------------
 . ${thisdir}/../config/set-up.info
 

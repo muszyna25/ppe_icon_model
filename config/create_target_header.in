@@ -94,8 +94,8 @@ then
   . ../setting
 fi
 #-----------------------------------------------------------------------------
-bindir="@prefix@/bin"   # binaries
-BUILDDIR=@prefix@
+bindir=@abs_top_builddir@
+BUILDDIR=@abs_top_builddir@
 SRCDIR=@abs_top_srcdir@
 #-----------------------------------------------------------------------------
 EOF
