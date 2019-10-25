@@ -379,7 +379,7 @@ case "$ac_sitename" in
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
                             gpu_19.9)
-                                load_modules = daint-gpu modules craype craype-haswell cdt/19.08 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 cray-mpich cray-netcdf cray-hdf5 cudatoolkit/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
+                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 cray-mpich cray-netcdf cray-hdf5 cudatoolkit/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
                                 NVCC        = nvcc
 				NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
                                 NETCDFROOT  = ${NETCDF_DIR}
