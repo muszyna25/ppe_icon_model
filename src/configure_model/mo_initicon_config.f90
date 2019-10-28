@@ -56,7 +56,7 @@ MODULE mo_initicon_config
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
-  PUBLIC :: qcana_mode, qiana_mode
+  PUBLIC :: qcana_mode, qiana_mode, qrsgana_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
   PUBLIC :: lvert_remap_fg
@@ -139,7 +139,7 @@ MODULE mo_initicon_config
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
-  INTEGER  :: qcana_mode, qiana_mode ! mode of processing QC/QI increments
+  INTEGER  :: qcana_mode, qiana_mode, qrsgana_mode ! mode of processing QC/QI/QR/QS/QG increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time

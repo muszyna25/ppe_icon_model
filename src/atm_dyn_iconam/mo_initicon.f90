@@ -25,7 +25,7 @@ MODULE mo_initicon
   USE mo_kind,                ONLY: dp, wp, vp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -38,7 +38,7 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
-    &                               fgFilename, anaFilename, ana_varnames_map_file
+    &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, max_dom,   &
@@ -446,7 +446,7 @@ MODULE mo_initicon
 #if !defined __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', &
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', &
                                                         & 'w_so', 'h_snow', 'freshsnow', 't_2m']
                 CASE(MODE_IAU_OLD)
                     incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
@@ -459,7 +459,8 @@ MODULE mo_initicon
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', 'qv       ', &
-                      &                    'qc       ', 'qi       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
+                      &                    'qc       ', 'qi       ', 'qr       ', 'qs       ', 'qg       '/)
+                      &                    'w_so     ', 'h_snow   ', 'freshsnow'/)
                     CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
                       lHardCheckUuids = .NOT.check_uuid_gracefully)
             write(0,*) "incrementsList_IAU: ", incrementsList_IAU
@@ -1216,6 +1217,18 @@ MODULE mo_initicon
             ENDDO
           ENDIF
 
+          IF (qrsgana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhor_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qr(jc,jk,jb)
+              p_diag%rhos_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qs(jc,jk,jb)
+            ENDDO
+            IF (iqg <= iqm_max) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhog_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qg(jc,jk,jb)
+              ENDDO
+            ENDIF
+          ENDIF
+
         ENDDO  ! jk
 
       ENDDO  ! jb
@@ -1447,15 +1460,30 @@ MODULE mo_initicon
             IF (qcana_mode > 0) THEN
               DO jc = i_startidx, i_endidx
                 p_prog_now_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqc)+&
-                 p_diag%rhoc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                     p_diag%rhoc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
               ENDDO
             ENDIF
 
             IF (qiana_mode > 0) THEN
               DO jc = i_startidx, i_endidx
                 p_prog_now_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqi)+&
-                 p_diag%rhoi_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                     p_diag%rhoi_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
               ENDDO
+            ENDIF
+
+            IF (qrsgana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqr) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqr)+&
+                                                                 p_diag%rhor_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                p_prog_now_rcf%tracer(jc,jk,jb,iqs) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqs)+&
+                                                                 p_diag%rhos_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+              IF (iqg <= iqm_max) THEN
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqg)+&
+                                                                   p_diag%rhog_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+              ENDIF
             ENDIF
 
           ENDDO  ! jk

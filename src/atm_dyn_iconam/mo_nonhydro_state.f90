@@ -66,7 +66,8 @@ MODULE mo_nonhydro_state
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
-    &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, qcana_mode, qiana_mode
+    &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
+    &                                qcana_mode, qiana_mode, qrsgana_mode
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,           &
     &                                add_ref, new_var_list, delete_var_list,       &
@@ -737,6 +738,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",      &
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
             &                           "LATBC_PREFETCH_VARS",                         &
             &                           "mode_iniana","icon_lbc_vars") )
@@ -764,6 +766,7 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",      &
             &                           "mode_iau_fg_in","mode_iau_old_fg_in",         &
             &                           "LATBC_PREFETCH_VARS",                         &
             &                           "mode_iniana","icon_lbc_vars") )
@@ -900,7 +903,12 @@ MODULE mo_nonhydro_state
             &                       lower_limit=0._wp  ),                              & 
             &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-            &                           "mode_iau_fg_in","LATBC_PREFETCH_VARS")  )
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
+            &                           "mode_iau_fg_in"                               &
+! also necessary???  &                  "mode_iau_old_fg_in",                          &
+! ???       &                           "LATBC_PREFETCH_VARS",                         &
+! ???       &                           "mode_iniana","icon_lbc_vars") )
+            &                          )                             )
         END IF ! inwp_gscp==2
 
         !CK> improved ice nucleation scheme
@@ -1581,6 +1589,9 @@ MODULE mo_nonhydro_state
     &       p_diag%rhov_incr, &
     &       p_diag%rhoc_incr, &
     &       p_diag%rhoi_incr, &
+    &       p_diag%rhor_incr, &
+    &       p_diag%rhos_incr, &
+    &       p_diag%rhog_incr, &
     &       p_diag%u_avg, &
     &       p_diag%v_avg, &
     &       p_diag%pres_avg, &
@@ -2563,11 +2574,47 @@ MODULE mo_nonhydro_state
         grib2_desc = grib2_var( 0, 6, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_diag_list, 'rhoi_incr', p_diag%rhoi_incr,                    &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
-                    & ldims=shape3d_c,                                               &
+                    & ldims=shape3d_c, &
                     & lrestart=.FALSE., loutput=.TRUE.,                              &
                     & lopenacc = .TRUE. )
-      ENDIF
 
+      END IF
+        
+      IF (qrsgana_mode > 0) THEN
+        ! rhor_incr  p_diag%rhor_incr(nproma,nlev,nblks_c)
+        !
+        cf_desc    = t_cf_var('rhor_incr', ' ',                   &
+          &                   'partial density of rain increment from DA', datatype_flt)
+        grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_diag_list, 'rhor_incr', p_diag%rhor_incr,                    &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                    & ldims=shape3d_c, &
+                    & lrestart=.FALSE., loutput=.TRUE.,                              &
+                    & lopenacc = .TRUE. )
+
+        ! rhos_incr  p_diag%rhos_incr(nproma,nlev,nblks_c)
+        !
+        cf_desc    = t_cf_var('rhos_incr', ' ',                   &
+          &                   'partial density of snow increment from DA', datatype_flt)
+        grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_diag_list, 'rhos_incr', p_diag%rhos_incr,                    &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                    & ldims=shape3d_c, &
+                    & lrestart=.FALSE., loutput=.TRUE.,                              &
+                    & lopenacc = .TRUE. )
+
+        ! rhog_incr  p_diag%rhog_incr(nproma,nlev,nblks_c)
+        !
+        cf_desc    = t_cf_var('rhog_incr', ' ',                   &
+          &                   'partial density of graupel increment from DA', datatype_flt)
+        grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_var( p_diag_list, 'rhog_incr', p_diag%rhog_incr,                    &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                    & ldims=shape3d_c, &
+                    & lrestart=.FALSE., loutput=.TRUE.,                              &
+                    & lopenacc = .TRUE. )
+      END IF
+      
     ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN

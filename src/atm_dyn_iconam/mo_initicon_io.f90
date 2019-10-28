@@ -40,7 +40,7 @@ MODULE mo_initicon_io
   USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename,             &
     &                               ifs2icon_filename, lread_vn, lread_tke,             &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
-    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode
+    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode, qrsgana_mode
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
@@ -1086,7 +1086,7 @@ MODULE mo_initicon_io
   !! Fetch the DWD first guess from the request list (atmosphere only)
   !! First guess (FG) is read for theta_v, rho, vn, w, tke,
   !! whereas DA output is read for T, p, u, v,
-  !! qv, qc, qi, qr, qs.
+  !! qv, qc, qi, qr, qs, qg.
   SUBROUTINE fetch_dwdfg_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
     CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
     TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
@@ -1211,7 +1211,7 @@ MODULE mo_initicon_io
   !! for subsequent vertical remapping to the current ICON grid
   !! First guess (FG) is read for z_ifc, theta_v, rho, vn, w, tke,
   !! whereas DA output is read for T, p, u, v,
-  !! qv, qc, qi, qr, qs.
+  !! qv, qc, qi, qr, qs, qg.
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1232,7 +1232,7 @@ MODULE mo_initicon_io
     REAL(dp), POINTER :: levelValues(:)
     TYPE(t_fetchParams) :: params
     REAL(wp), ALLOCATABLE :: z_ifc_in(:,:,:), w_ifc(:,:,:), tke_ifc(:,:,:)
-    LOGICAL :: lfound_thv, lfound_rho, lfound_vn, lfound_qr, lfound_qs
+    LOGICAL :: lfound_thv, lfound_rho, lfound_vn, lfound_qr, lfound_qs, lfound_qg
 
     ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)))
     params%inputInstructions = inputInstructions
@@ -1289,6 +1289,16 @@ MODULE mo_initicon_io
               &                   nlev_in = SIZE(levelValues,1)-1, &
               &                   nlev    = p_patch(jg)%nlev)
 
+            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+              CALL fetch3d(params, 'qg', jg, initicon(jg)%atm_in%qg, lfound_qg)
+              IF (.NOT. lfound_qg) THEN
+                CALL message(TRIM(routine),'Graupel (QG) not available in input data')
+                initicon(jg)%atm_in%qg(:,:,:) = 0._wp
+              END IF
+            ELSE
+              initicon(jg)%atm_in%qg(:,:,:) = 0._wp
+            END IF
+
             CALL fetch3d(params, 'vn', jg, initicon(jg)%atm_in%vn, lfound_vn)
             IF (lfound_vn) THEN
               lread_vn = .TRUE.  ! Tell the vertical interpolation routine that vn needs to be processed
@@ -1333,8 +1343,9 @@ MODULE mo_initicon_io
 
                       initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
                       initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
-                        (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                      &
-                         initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+                        (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
+                         initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb) +                        &
+                         initicon(jg)%atm_in%qg(jc,jk,jb)                                      ) )
 
                     END DO
                   ENDIF
@@ -1359,7 +1370,7 @@ MODULE mo_initicon_io
   !!
   !! Depending on the initialization mode, either full fields or increments
   !! are read (atmosphere only). The following full fields are read, if available:
-  !!     u, v, t, p, qv, qi, qc, qr, qs
+  !!     u, v, t, p, qv, qi, qc, qr, qs, qg
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1434,6 +1445,30 @@ MODULE mo_initicon_io
               CALL fetch3d(params, 'qi', jg, my_ptr%qi)
               IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qi', kInputSourceBoth)
+              END IF
+            ENDIF
+
+            IF (init_mode == MODE_IAU .AND. qrsgana_mode > 0) THEN
+              IF ( iqr /= 0 ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qr') == kInputSourceFg
+                CALL fetch3d(params, 'qr', jg, my_ptr%qr)
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qr') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qr', kInputSourceBoth)
+                END IF
+              END IF
+              IF ( iqs /= 0 ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qs') == kInputSourceFg
+                CALL fetch3d(params, 'qs', jg, my_ptr%qs)
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qs') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qs', kInputSourceBoth)
+                END IF
+              END IF
+              IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qg') == kInputSourceFg
+                CALL fetch3d(params, 'qg', jg, my_ptr%qg)
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qg') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qg', kInputSourceBoth)
+                END IF
               END IF
             ENDIF
 

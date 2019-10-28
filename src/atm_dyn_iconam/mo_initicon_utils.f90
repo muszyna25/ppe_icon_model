@@ -33,7 +33,7 @@ MODULE mo_initicon_utils
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, &
     &                               t_pi_sfc, t_sfc_inc, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, qrsgana_mode, &
     &                               ana_varnames_map_file, lread_vn,      &
     &                               lvert_remap_fg, aerosol_fg_present
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
@@ -914,6 +914,21 @@ MODULE mo_initicon_utils
           END IF
         ENDDO
 
+        IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              initicon(jg)%atm_in%qg(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg)
+            ENDDO
+          ENDDO
+        ELSE
+          ! Probably unnecessary due to previous initialization?
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              initicon(jg)%atm_in%qg(jc,jk,jb) = 0.0_wp
+            ENDDO
+          ENDDO          
+        END IF
+          
         ! w and TKE at surface level
         DO jc = 1, nlen
           w_ifc(jc,nlevp1,jb)   = p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)
@@ -933,7 +948,8 @@ MODULE mo_initicon_utils
             initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
             initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
               (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
-               initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+               initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb) +                        &
+               initicon(jg)%atm_in%qg(jc,jk,jb)                                      ))
 
           ENDDO
         ENDDO
@@ -1534,6 +1550,7 @@ MODULE mo_initicon_utils
         &       atm_in%qi, &
         &       atm_in%qr, &
         &       atm_in%qs, &
+        &       atm_in%qg, &
         &       atm_in%rho, &
         &       atm_in%theta_v, &
         &       atm_in%tke, &
@@ -1641,6 +1658,20 @@ MODULE mo_initicon_utils
                 CALL init(atm_inc%qi(:,:,:))
 !$OMP END PARALLEL 
               ENDIF
+              IF (qrsgana_mode > 0) THEN
+                ALLOCATE(atm_inc%qr(nproma,nlev,nblks_c))
+                ALLOCATE(atm_inc%qs(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qr(:,:,:))
+                CALL init(atm_inc%qs(:,:,:))
+!$OMP END PARALLEL 
+              ENDIF
+              IF (qrsgana_mode > 0 .AND. atm_phy_nwp_config(jg)%lhave_graupel) THEN
+                ALLOCATE(atm_inc%qg(nproma,nlev,nblks_c))
+!$OMP PARALLEL 
+                CALL init(atm_inc%qg(:,:,:))
+!$OMP END PARALLEL 
+              END IF
             ENDIF
 
             atm_inc%nlev         = nlev
@@ -1772,6 +1803,7 @@ MODULE mo_initicon_utils
       atm_in%qi      (nproma,nlev_in,nblks_c),   &
       atm_in%qr      (nproma,nlev_in,nblks_c),   &
       atm_in%qs      (nproma,nlev_in,nblks_c),   &
+      atm_in%qg      (nproma,nlev_in,nblks_c),   &
       const%z_mc_in  (nproma,nlev_in,nblks_c) )
 !$OMP PARALLEL 
     CALL init(atm_in%pres(:,:,:))
@@ -1786,6 +1818,7 @@ MODULE mo_initicon_utils
     CALL init(atm_in%qi(:,:,:))
     CALL init(atm_in%qr(:,:,:))
     CALL init(atm_in%qs(:,:,:))
+    CALL init(atm_in%qg(:,:,:))
 !$OMP END PARALLEL
 
     IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
@@ -1951,6 +1984,9 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(initicon(jg)%atm_in%qs)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qs: ", &
         & initicon(jg)%atm_in%qs)
+      IF(ASSOCIATED(initicon(jg)%atm_in%qg)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%qg: ", &
+        & initicon(jg)%atm_in%qg)
       IF(ASSOCIATED(initicon(jg)%atm_in%rho)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_in%rho: ", &
         & initicon(jg)%atm_in%rho)
@@ -2038,6 +2074,9 @@ MODULE mo_initicon_utils
       IF(ALLOCATED(initicon(jg)%atm%qs)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qs: ", &
         & initicon(jg)%atm%qs)
+      IF(ALLOCATED(initicon(jg)%atm%qg)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm%qg: ", &
+        & initicon(jg)%atm%qg)
       IF(ALLOCATED(initicon(jg)%atm%tke)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm%tke: ", &
         & initicon(jg)%atm%tke)
@@ -2083,6 +2122,9 @@ MODULE mo_initicon_utils
       IF(ALLOCATED(initicon(jg)%atm_inc%qs)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qs: ", &
         & initicon(jg)%atm_inc%qs)
+      IF(ALLOCATED(initicon(jg)%atm_inc%qg)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%qg: ", &
+        & initicon(jg)%atm_inc%qg)
       IF(ALLOCATED(initicon(jg)%atm_inc%tke)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"atm_inc%tke: ", &
         & initicon(jg)%atm_inc%tke)

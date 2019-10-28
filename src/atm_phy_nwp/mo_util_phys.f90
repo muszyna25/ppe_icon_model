@@ -47,7 +47,7 @@ MODULE mo_util_phys
   USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
-  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode
+  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_lnd_nwp_config,        ONLY: nlev_soil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
@@ -1818,6 +1818,16 @@ CONTAINS
         IF (qiana_mode > 0) THEN
           pt_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqi) + &
             iau_wgt_adv*pt_diag%rhoi_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ENDIF
+        IF (qrsgana_mode > 0) THEN
+          pt_prog_rcf%tracer(jc,jk,jb,iqr) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqr) + &
+            iau_wgt_adv * pt_diag%rhor_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          pt_prog_rcf%tracer(jc,jk,jb,iqs) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqs) + &
+            iau_wgt_adv * pt_diag%rhos_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ENDIF
+        IF (qrsgana_mode > 0 .AND. iqg <= iqm_max) THEN
+          pt_prog_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqg) + &
+            iau_wgt_adv * pt_diag%rhog_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
         ENDIF
       ENDDO
     ENDDO
