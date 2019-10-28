@@ -20,9 +20,9 @@ moddir:= mod
 prefix:= @prefix@
 exec_prefix:= @exec_prefix@
 
-# Prefix (absolute or relative path with respect to vpath) to the
-# directories with Fortran source files (updated later if the files need to
-# be preprocessed and therefore relocated to another directory):
+# Prefix (absolute or relative path with respect to $(srcdir)) to the directories
+# with Fortran source files (updated later if the files need to be preprocessed
+# and therefore relocated to another directory):
 f90_prefix:=
 
 # Compilers and utilities:
@@ -73,23 +73,25 @@ silent_MKDIR=   @echo "  MKDIR   " $(@D);
 silent_SB2=     @echo "  SB2PP   " $@;
 endif
 
-# Path suffixes (i.e. without $(src_root) prefix) of the source files and headers:
+# Path suffixes (i.e. without $(srcdir) prefix) of the source files:
 src_roots:= $(addprefix $(srcdir)/,$(subdirs))
 f90_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90'))
-# Files included with the Fortran preprocessor #include "filename.inc" directive:
+# Files included with the preprocessor #include "filename.inc" directives:
 inc_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.inc'))
-# Files included with the Fortran INCLUDE "filename.incf" statement:
+# Files included with the Fortran INCLUDE "filename.incf" statements:
 incf_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.incf'))
 c_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.c'))
 
-# Files that need to be transferred along with the source files because
-# they are not accessible with the '@FC_INC_FLAG_PP_f90@' compiler flag:
+# Files that need to be transferred along with the source files because they
+# are not accessible with the '@FC_INC_FLAG_PP_f90@' compiler flag:
 inc_non_common_files:= $(filter-out src/include/%,$(inc_files))
+# Files located with the '@FC_INC_FLAG_PP_f90@' compiler flag:
 inc_common_files:= $(filter-out $(inc_non_common_files),$(inc_files))
 
-# Files that need to be transferred along with the source files because
-# they are not accessible with the '@FC_INC_FLAG@' compiler flag:
+# Files that need to be transferred along with the source files because they
+# are not accessible with the '@FC_INC_FLAG@' compiler flag:
 incf_non_common_files:= $(filter-out src/include/%,$(incf_files))
+# Files located with the '@FC_INC_FLAG@' compiler flag:
 incf_common_files:= $(filter-out $(incf_non_common_files),$(incf_files))
 
 # List of preprocessed header and source files:
@@ -116,7 +118,8 @@ pp_files:=
 # FPP includes *.inc files into the source files:
 @FPP_ENABLED@inc_non_common_files:=
 @FPP_ENABLED@inc_common_files:=
-# FPP (with a small exception for Cray compiler) does not include *.incf files into the source files.
+# FPP (with a small exception for Cray compiler) does not include *.incf files
+# into the source files.
 @FPP_ENABLED@FPP_incf_files:= $(addprefix $(FPP_subdir)/,$(incf_non_common_files))
 @FPP_ENABLED@incf_non_common_files:= $(FPP_incf_files)
 @FPP_ENABLED@pp_files+= $(FPP_f90_files) $(FPP_incf_files)
@@ -133,17 +136,18 @@ pp_files:=
 # Take care of the common *.inc files if required:
 @SB2_ENABLED@inc_common_files:= $(addprefix $(SB2_subdir)/,$(inc_common_files))
 @SB2_ENABLED@SB2_inc_files+= $(inc_common_files)
-# Prepend makefile_FCFLAGS with the flag adding the path to the transferred *.inc
-# files if required. Note that we do need SB2_extra_FCFLAGS because @FC_INC_FLAG_PP_f90@
-# might contain a comma, which would break the syntax of the $(if) function:
+# Prepend makefile_FCFLAGS with the flag adding the path to the transferred
+# '*.inc' files if required. Note that we need SB2_tmp_FCFLAGS because
+# @FC_INC_FLAG_PP_f90@ might contain a comma, which would break the syntax of
+# the $(if) function:
 @SB2_ENABLED@SB2_tmp_FCFLAGS:= @FC_INC_FLAG_PP_f90@$(builddir)/$(SB2_subdir)/src/include
 @SB2_ENABLED@makefile_FCFLAGS:= $(if $(inc_common_files),$(SB2_tmp_FCFLAGS)) $(makefile_FCFLAGS)
 @SB2_ENABLED@pp_files+= $(SB2_f90_files) $(SB2_inc_files) $(SB2_incf_files)
 
-# We need to make sure that we compile the preprocessed sources from
-# the current building directory but not from the possibly "dirty"
-# source directory. Therefore, we prepend the absolute paths to the
-# paths that start with $(ppdir):
+# We need to make sure that we compile the preprocessed sources from the
+# current building directory but not from the possibly "dirty" source
+# directory. Therefore, we make the paths that start with $(ppdir) the absolute
+# ones.
 f90_files:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(f90_files))
 f90_prefix:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(f90_prefix))
 pp_files:= $(addprefix $(builddir)/,$(pp_files))
@@ -196,13 +200,14 @@ mostlyclean: $(bundled_subdirs)
 	rm -rf icon@EXEEXT@.dSYM
 
 # Delete files generated at the building stage (Python cache files are
-# generated in the source directory, we delete them only if are not
-# building out-of-source):
+# generated in the source directory, we delete them only if we are not building
+# out-of-source):
 clean: mostlyclean
 	rm -f srclist $(pp_files) version.c
 	find . -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
 
-# Delete everything generated at the configure stage (and clean the created directories if they are empty):
+# Delete everything generated at the configure stage (and clean the created
+# directories if they are empty):
 distclean: clean
 	rm -f config.h config.log config.status depgen.c.config depgen.f90.config
 	rm -f config/create_target_header config/make_target_runscript make_runscripts run/add_run_routines run/exec.iconrun
@@ -232,13 +237,13 @@ install_runscripts: runscripts
 install: all install_runscripts
 	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon@EXEEXT@ $(DESTDIR)@bindir@/icon@EXEEXT@
 
-# Generate a list of files that are going to be compiled in the current configuration:
+# Generate a list of files that are going to be compiled in the current
+# configuration:
 srclist: $(dep_files)
 	$(silent_GEN)$(DEPLIST) -t $(ICON_obj_file) -p '*.f90' -p '*.c' -p '*.inc' -p '*.incf' -p '*.h' --inc-oo -f $^ | sort > $@
 
-# Check rule (run the tests serially to make the output
-# readable and prevent from possible overloading due to
-# multiple MPI runs):
+# Check rule (run the tests serially to make the output readable and prevent
+# from possible overloading due to multiple simultaneous MPI runs):
 check: all
 	@fail=; pass=; \
 	for d in $(bundled_subdirs); do \
@@ -296,8 +301,8 @@ $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/%.f90: %.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
 
-# Default FPP f90->f90 rule for the files preprocessed at the
-# previous preprocessing step:
+# Default FPP f90->f90 rule for the files preprocessed at the previous
+# preprocessing step:
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
 
@@ -313,8 +318,8 @@ $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/sea_ice/%.f90: src/sea_ice/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)
 
-# There is currently no need to introduce ICON-Ocean FPP rules
-# for the files preprocessed at the previous preprocessing step.
+# There is currently no need to introduce ICON-Ocean FPP rules for the files
+# preprocessed at the previous preprocessing step.
 
 # FPP incf->incf rule:
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/%.incf: %.incf | $(dir_files)
@@ -324,8 +329,8 @@ $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
 @SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.f90: %.f90  | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
 
-# SERIALBOX2 f90->f90 rule for the files preprocessed at the
-# previous preprocessing step:
+# SERIALBOX2 f90->f90 rule for the files preprocessed at the previous
+# preprocessing step:
 @SB2_ENABLED@$(builddir)/$(SB2_subdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
 
@@ -337,8 +342,8 @@ $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
 @SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.incf: %.incf | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)cp $< $@
 
-# SERIALBOX2 incf->incf rule for the files preprocessed at the
-# previous preprocessing step:
+# SERIALBOX2 incf->incf rule for the files preprocessed at the previous
+# preprocessing step:
 @SB2_ENABLED@$(builddir)/$(SB2_subdir)/$(ppdir)/%.incf: $(builddir)/$(ppdir)/%.incf | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)cp $< $@
 
@@ -430,4 +435,3 @@ endif
 ifneq (,$(filter-out $(NO_INC_TARGETS),$(current_targets)))
 include $(dep_files)
 endif
-
