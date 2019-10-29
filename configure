@@ -606,6 +606,10 @@ DEPGEN_FCFLAGS
 BUNDLED_LIBFILES
 FPP_ENABLED
 SB2_ENABLED
+CUDA_ENABLED
+OPENACC_ENABLED
+OPENMP_ENABLED
+MPI_ENABLED
 ART_ENABLED
 JSBACH_ENABLED
 DEFAULT_VERBOSITY
@@ -622,6 +626,7 @@ ICON_BUNDLED_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_FCFLAGS
 FPP
+FC_VERSION
 FC_VENDOR
 FCFLAGS_f90
 ac_ct_FC
@@ -3875,6 +3880,8 @@ $as_echo "$acx_cv_fc_compiler_version" >&6; }
 
 FC_VENDOR=$acx_cv_fc_compiler_vendor
 
+FC_VERSION=$acx_cv_fc_compiler_version
+
 
 
 ICON_FCFLAGS=${ICON_FCFLAGS-}
@@ -4632,13 +4639,37 @@ else
 
 fi
 
-if test "x$enable_mpi" = xno; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}NOMPI"
+if test "x$enable_mpi" = xyes; then :
+  MPI_ENABLED=''
+
+else
+  MPI_ENABLED='#'
+
+   as_fn_append FCFLAGS " ${FC_PP_DEF}NOMPI"
 fi
 
 if test "x$enable_active_target_sync" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"
 fi
+
+if test "x$enable_openmp" = xyes; then :
+  OPENMP_ENABLED=''
+
+else
+  OPENMP_ENABLED='#'
+
+fi
+
+if test "x$enable_openacc" = xyes; then :
+  OPENACC_ENABLED=''
+
+else
+  OPENACC_ENABLED='#'
+
+fi
+
+CUDA_ENABLED='#'
+
 
 if test "x$enable_parallel_netcdf" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"

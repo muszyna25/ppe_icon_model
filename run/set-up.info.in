@@ -1,0 +1,198 @@
+# Set use_site:
+use_host=`(hostname || uname -n) 2>/dev/null | sed 1q`
+case "$use_host" in
+  wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
+  daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
+  ic2*|uc1*|fh2*) use_site=kit.edu ;;
+  *) use_site=`host -n "$use_host" 2>/dev/null | awk '/has address/ {print $1}' 2>/dev/null | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}' 2>/dev/null`
+     test -n "$use_site" || use_site='local.net' ;;
+esac
+
+# Set use_compiler:
+use_compiler='@FC_VENDOR@'
+case "$use_compiler" in
+  gnu) use_compiler='gcc' ;;
+  portland) use_compiler='pgi' ;;
+  unknown) use_compiler= ;;
+esac
+
+# Set use_compiler_version:
+use_compiler_version='@FC_VERSION@'
+case "$use_compiler_version" in
+  unknown) use_compiler_version= ;;
+esac
+
+# Set use_mpi:
+use_mpi='no'
+@MPI_ENABLED@use_mpi='yes'
+
+# Set use_openmp:
+use_openmp='no'
+@OPENMP_ENABLED@use_openmp='yes'
+
+# Set use_openacc:
+use_openacc='no'
+@OPENACC_ENABLED@use_openacc='yes'
+
+# Set use_cuda:
+use_cuda='no'
+@CUDA_ENABLED@use_cuda='yes'
+
+# Set use_builddir:
+use_builddir='@abs_top_builddir@'
+
+# Init other variables:
+use_mpi_startrun=
+use_flags_group=
+use_target=
+use_mpi_procs_pernode=
+use_load_modules=
+use_load_profile=
+use_submit=
+use_sync_submit=
+use_shell=
+
+# Set default values:
+test -n '@MPI_LAUNCH@' && use_mpi_startrun='@MPI_LAUNCH@ -n $mpi_total_procs'
+
+# Set site-specific values:
+case "$use_site" in
+  cscs.ch)
+    case "$HOST" in
+      *daint*|*dom*)
+        use_load_profile='/opt/modules/default/etc/modules.sh'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
+        case "${use_cuda}${use_openacc}" in
+          *yes*) use_target='daint_gpu' ;;
+          *) use_target='daint_cpu' ;;
+        esac
+      ;;
+
+      *tave*)
+        use_load_profile='/opt/modules/default/etc/modules.sh'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
+        use_target='tave_knl'
+      ;;
+
+      *kesch*)
+        use_load_profile='/etc/profile.d/modules.sh'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
+        case "${use_cuda}${use_openacc}" in
+          *yes*) use_target='kesch_gpu' ;;
+          *) use_target='kesch_cpu' ;;
+        esac
+      ;;
+    esac
+  ;;
+
+  dwd.de)
+    case "$use_host" in
+      xc*)
+        use_submit='qsub'
+        use_sync_submit='qsub -Wblock=true'
+      ;;
+      oflws*)
+        use_target='oflws'
+      ;;
+      *) #hpc
+        use_submit='qsubw'
+        use_sync_submit='qsub -W block=true'
+        use_target='hpc'
+      ;;
+    esac
+  ;;
+
+  dkrz.de)
+    case "$use_host" in
+      btlogin*|btc*|mlogin*)
+        use_load_profile='/etc/profile'
+        use_load_modules='ncl/6.2.1-gccsys cdo/1.9.5-gcc64'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun'
+        case "${use_cuda}${use_openacc}" in
+          *yes*) use_target='bullx_gpu' ;;
+          *) use_target='bullx_cpu' ;;
+        esac
+      ;;
+    esac
+  ;;
+
+  kfa-juelich.de|fz-juelich.de|*jureca*|*juwels*)
+    case "$use_host" in
+      jrl*|juwels*)
+        use_submit='sbatch'
+        use_mpi_startrun='srun'
+        use_target='jureca'
+      ;;
+      juqueen*)
+        use_submit='llsubmit'
+        use_mpi_startrun='runjob --ranks-per-node \$mpi_procs_pernode --envs OMP_NUM_THREADS=\$OMP_NUM_THREADS --exe'
+        use_target='juqueen'
+      ;;
+    esac
+  ;;
+
+  kit.edu)
+    case "$use_host" in
+      uc1*)
+        use_submit='sbatch'
+        use_mpi_startrun='runjob --ranks-per-node \$mpi_procs_pernode --envs OMP_NUM_THREADS=\$OMP_NUM_THREADS --exe'
+        use_target='ic2'
+      ;;
+      fh2*)
+        use_load_profile='/opt/lmod/lmod/init/sh'
+        use_target='fh2'
+        case "$use_compiler" in
+          intel)
+            use_submit='sbatch'
+            case "$use_compiler_version" in
+              17.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_17.0/bin/mpirun' ;;
+              19.*) use_mpi_startrun='software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun' ;;
+            esac
+          ;;
+          gcc)
+            use_submit='msub'
+            use_mpi_startrun='mpirun'
+          ;;
+        esac
+        use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_17.0/bin/mpirun'
+      ;;
+    esac
+  ;;
+
+  mpg.de)
+    case "$use_host" in
+      mpipc*)
+        use_target='mpipc'
+        case "`lsb_release -c | awk '{print $2}'`" in
+          stretch)
+            use_load_profile='/etc/profile.d/mpim.sh'
+            use_load_modules='cdo/1.9.6-gccsys python/2.7.14-stable'
+          ;;
+        esac
+      ;;
+      *)
+        case "`uname -s`" in
+          Darwin) use_target='mpimac' ;;
+        esac
+      ;;
+    esac
+  ;;
+
+  ecmwf.int)
+  ;;
+
+  pa.cluster)
+    use_target='pacluster'
+    use_submit='qsub'
+  ;;
+
+esac
+

@@ -329,6 +329,7 @@ AC_LANG([Fortran])
 ACX_FC_PP_SRCEXT([f90])
 ACX_COMPILER_FC_VERSION
 AC_SUBST([FC_VENDOR], [$acx_cv_fc_compiler_vendor])
+AC_SUBST([FC_VERSION], [$acx_cv_fc_compiler_version])
 
 AC_ARG_VAR([FPP], [Fortran preprocessor command (optional)])dnl
 
@@ -451,12 +452,25 @@ AS_VAR_IF([enable_art], [yes],
      [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])],
   [AC_SUBST([ART_ENABLED], ['#'])])
 
-AS_VAR_IF([enable_mpi], [no],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
+AS_VAR_IF([enable_mpi], [yes],
+  [AC_SUBST([MPI_ENABLED], [''])],
+  [AC_SUBST([MPI_ENABLED], ['#'])
+   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
 
 AS_VAR_IF([enable_active_target_sync], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"])])
+
+AS_VAR_IF([enable_openmp], [yes],
+  [AC_SUBST([OPENMP_ENABLED], [''])],
+  [AC_SUBST([OPENMP_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_openacc], [yes],
+  [AC_SUBST([OPENACC_ENABLED], [''])],
+  [AC_SUBST([OPENACC_ENABLED], ['#'])])
+
+dnl Support for CUDA is not implemented yet:
+AC_SUBST([CUDA_ENABLED], ['#'])
 
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"])])
