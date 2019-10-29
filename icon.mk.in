@@ -37,7 +37,6 @@ MODCMP= ${PYTHON} $(srcdir)/utils/mkhelper/fortmodcmp.py
 SB2PP= @SB2PP@
 FPP= @FPP@
 INSTALL= @INSTALL@
-SED= @SED@
 
 # Fortran compiler flags:
 FCFLAGS= @FCFLAGS@
