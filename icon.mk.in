@@ -16,6 +16,9 @@ ppdir:= pp
 # Relative path to the directory with the Fortran module files:
 moddir:= mod
 
+# Relative path to the directory with the resulting executables:
+bindir:= bin
+
 # Paths to the installation directories:
 prefix:= @prefix@
 exec_prefix:= @exec_prefix@
@@ -155,7 +158,7 @@ pp_files:= $(addprefix $(builddir)/,$(pp_files))
 dep_files:= $(addsuffix .d,$(f90_files) $(c_files)) c_binding.d extra_f90.d
 
 # Stamp files of the building subdirectories:
-dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files)))) $(moddir)/.dirstamp)
+dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files)))) $(moddir)/.dirstamp $(bindir)/.dirstamp)
 
 # Root ICON object file:
 ICON_obj_file= $(f90_prefix)src/drivers/icon.@OBJEXT@
@@ -183,7 +186,7 @@ NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
 .DELETE_ON_ERROR: $(pp_files)
 
 # Default rule:
-all: icon@EXEEXT@
+all: $(bindir)/icon@EXEEXT@
 
 # Explicit dependency generation rule:
 depend: $(dep_files)
@@ -193,7 +196,7 @@ preprocess: $(pp_files)
 
 # Delete the results of compilation and linking:
 mostlyclean: $(bundled_subdirs)
-	rm -f icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files))) version.@OBJEXT@
+	rm -f $(bindir)/icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files))) version.@OBJEXT@
 	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@ $(moddir)/*.@FC_MOD_FILE_EXT@.proxy
 	rm -f $(notdir $(f90_files:.f90=.i))
 	rm -rf icon@EXEEXT@.dSYM
@@ -211,7 +214,7 @@ distclean: clean
 	rm -f config.h config.log config.status depgen.c.config depgen.f90.config
 	rm -f $(dep_files)
 	rm -f $(dir_files)
-	@for dir in $(subdirs) $(moddir) $(ppdir) externals config; do \
+	@for dir in $(subdirs) $(bindir) $(moddir) $(ppdir) externals config; do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
             find "$$dir" -type d -empty -delete; \
@@ -225,7 +228,7 @@ maintainer-clean: distclean
 
 # Installation rule:
 install: all
-	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon@EXEEXT@ $(DESTDIR)@bindir@/icon@EXEEXT@
+	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) $(bindir)/icon@EXEEXT@ $(DESTDIR)@bindir@/icon@EXEEXT@
 
 # Generate a list of files that are going to be compiled in the current
 # configuration:
@@ -244,7 +247,7 @@ check: all
 	test -z "$$fail"
 
 # ICON executable linking rule:
-icon@EXEEXT@: $(ICON_obj_file) $(shell $(DEPLIST) -t $(ICON_obj_file) -p '*.@OBJEXT@' --inc-oo -f $(dep_files)) $(BUNDLED_LIBFILES)
+$(bindir)/icon@EXEEXT@: $(ICON_obj_file) $(shell $(DEPLIST) -t $(ICON_obj_file) -p '*.@OBJEXT@' --inc-oo -f $(dep_files)) $(BUNDLED_LIBFILES) | $(dir_files)
 	$(silent_FCLD)$(FC) -o $@ $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 # Default Fortran compilation rule:
