@@ -69,14 +69,17 @@ for vendor in ${vendors}; do
 
     echo "Running 'make -j8' in $(pwd)" | tee -a "${log_file}"
     make -j8 2>&1 | tee -a "${log_file}"
-    if ldd ./icon | grep -q 'not found' >/dev/null 2>&1; then
-      echo -e "\nThe executable of ICON ('./icon') does not contain all required RPATHS" && exit 1; fi
+    icon_file='bin/icon'
+    if test ! -f "${icon_file}" || test ! -x "${icon_file}"; then
+      echo -e "\nThe executable of ICON ('${icon_file}') not found" && exit 1; fi
+    if ldd "${icon_file}" | grep -q 'not found' >/dev/null 2>&1; then
+      echo -e "\nThe executable of ICON ('${icon_file}') does not contain all required RPATHS" && exit 1; fi
 
     echo "Running 'make' for the second time in $(pwd)..." | tee -a "${log_file}"
     make 2>&1 | tee -a "${log_file}" | tee make_2.log
     if grep '^\(  GEN      version\.c\|perl .*pvcs.pl\)' make_2.log >/dev/null 2>&1; then :
       else echo -e "\nMake did not try to regenerate 'version.c'" && exit 1; fi
-    if grep ' [ ]*\(DEPGEN\|FC\|CC\|CCLD\|FCLD\|-o icon\)' make_2.log >/dev/null 2>&1; then
+    if grep " [ ]*\(DEPGEN\|FC\|CC\|CCLD\|FCLD\|-o ${icon_file}\)" make_2.log >/dev/null 2>&1; then
       echo -e "\nThe second call of make did some compilation/linking work" && exit 1; fi
 
     echo "Running 'make' for the third time in $(pwd)..." | tee -a "${log_file}"
