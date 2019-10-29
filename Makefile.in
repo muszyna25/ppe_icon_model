@@ -30,8 +30,7 @@ help:
 	echo "  'dist'          create a tarball containing files from the current HEAD of"; \
 	echo "                  the ICON git repository and its git submodules"; \
 	echo "  'snapshot'      create a tarball containing all files in the source directory"; \
-	echo "                  that are not ignored by git in their current state"; \
-	echo "  'runscripts'    copy runscripts to the current directory"
+	echo "                  that are not ignored by git in their current state"
 
 GIT= git
 TAR= tar

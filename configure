@@ -6888,10 +6888,7 @@ $as_echo "$ac_cv_path_SED" >&6; }
 
 ac_config_headers="$ac_config_headers config.h"
 
-ac_config_files="$ac_config_files Makefile depgen.c.config depgen.f90.config icon.mk run/add_run_routines"
-
-
-ac_config_files="$ac_config_files config/create_target_header config/make_target_runscript make_runscripts run/exec.iconrun"
+ac_config_files="$ac_config_files Makefile depgen.c.config depgen.f90.config icon.mk"
 
 
 ac_config_commands="$ac_config_commands depfiles"
@@ -7687,11 +7684,6 @@ do
     "depgen.c.config") CONFIG_FILES="$CONFIG_FILES depgen.c.config" ;;
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
     "icon.mk") CONFIG_FILES="$CONFIG_FILES icon.mk" ;;
-    "run/add_run_routines") CONFIG_FILES="$CONFIG_FILES run/add_run_routines" ;;
-    "config/create_target_header") CONFIG_FILES="$CONFIG_FILES config/create_target_header" ;;
-    "config/make_target_runscript") CONFIG_FILES="$CONFIG_FILES config/make_target_runscript" ;;
-    "make_runscripts") CONFIG_FILES="$CONFIG_FILES make_runscripts" ;;
-    "run/exec.iconrun") CONFIG_FILES="$CONFIG_FILES run/exec.iconrun" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -8254,10 +8246,6 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "config/create_target_header":F) chmod +x "$ac_file" ;;
-    "config/make_target_runscript":F) chmod +x "$ac_file" ;;
-    "make_runscripts":F) chmod +x "$ac_file" ;;
-    "run/exec.iconrun":F) chmod +x "$ac_file" ;;
     "depfiles":C) ${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&5
    sleep 1
    touch icon.mk ;;

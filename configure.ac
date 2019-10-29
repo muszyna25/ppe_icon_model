@@ -1326,17 +1326,7 @@ AC_CONFIG_FILES([
   depgen.c.config
   depgen.f90.config
   icon.mk
-  run/add_run_routines
 ])
-
-dnl Scripting for runscript generation:
-AC_CONFIG_FILES([
-  config/create_target_header
-  config/make_target_runscript
-  make_runscripts
-  run/exec.iconrun
-],
-[chmod +x "$ac_file"])
 
 dnl An additional step to generate dummy dependencies:
 AC_CONFIG_COMMANDS([depfiles],

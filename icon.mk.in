@@ -210,10 +210,9 @@ clean: mostlyclean
 # directories if they are empty):
 distclean: clean
 	rm -f config.h config.log config.status depgen.c.config depgen.f90.config
-	rm -f config/create_target_header config/make_target_runscript make_runscripts run/add_run_routines run/exec.iconrun
 	rm -f $(dep_files)
 	rm -f $(dir_files)
-	@for dir in $(subdirs) $(moddir) $(ppdir) externals config run; do \
+	@for dir in $(subdirs) $(moddir) $(ppdir) externals config; do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
             find "$$dir" -type d -empty -delete; \
@@ -225,16 +224,8 @@ distclean: clean
 maintainer-clean: distclean
 	rm -rf autom4te.cache config.h.in~
 
-runscripts:
-	@rsync -avz --exclude='*.in' --exclude='.*' @srcdir@/run @builddir@
-
-install_runscripts: runscripts
-	@rsync -avz --exclude='*.in' --exclude='.*' @builddir@/run @prefix@
-	@rsync -avz --exclude='*.in' --exclude='.*' @builddir@/config @prefix@
-	$(INSTALL) -d $(DESTDIR)@prefix@ && $(INSTALL) make_runscripts $(DESTDIR)@prefix@/make_runscripts
-
 # Installation rule:
-install: all install_runscripts
+install: all
 	$(INSTALL) -d $(DESTDIR)@bindir@ && $(INSTALL) icon@EXEEXT@ $(DESTDIR)@bindir@/icon@EXEEXT@
 
 # Generate a list of files that are going to be compiled in the current
