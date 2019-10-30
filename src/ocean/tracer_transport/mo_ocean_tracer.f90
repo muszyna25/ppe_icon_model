@@ -28,7 +28,7 @@ MODULE mo_ocean_tracer
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
     & GMRedi_configuration,                                               &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & tracer_update_mode
+    & tracer_update_mode, vert_mix_type, vmix_kpp
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
@@ -336,7 +336,6 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: top_bc(nproma)
     ! KPP T and S tendencies, by_Oliver
-    REAL(wp), POINTER :: kpp_nonlocal_trans_tend(:,:,:)   ! non-localtransport tendency (either heat or scalar)
 
 
     CHARACTER(len=*), PARAMETER :: method_name = 'mo_ocean_tracer:advect_diffuse_tracer'
@@ -349,16 +348,6 @@ CONTAINS
     !by_Oliver: account for nonlocal transport term for heat and scalar
     !(salinity) if KPP scheme is used
    
-    ! FIXME: check for mixing scheme here?
-    kpp_nonlocal_trans_tend(:,:,:)=0.0
-    
-    IF (tracer_index == 1 ) THEN
-      ! heat
-      kpp_nonlocal_trans_tend => params_oce%cvmix_params%nl_trans_tend_heat(:,:,:)
-    ELSE IF (tracer_index == 2 ) THEN
-      ! salinity
-      kpp_nonlocal_trans_tend => params_oce%cvmix_params%nl_trans_tend_salt(:,:,:)
-    END IF
     !---------------------------------------------------------------------
  
     ! these are probably not necessary
@@ -449,10 +438,32 @@ CONTAINS
         DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           !FIXME: add KPP nonlocal transport terms here on r.h.s.! by Oliver
           new_tracer%concentration(jc,level,jb) =                          &
-            &  old_tracer%concentration(jc,level,jb) -                     &
-            &  (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))    &
-            & * (div_adv_flux_horz(jc,level,jb)  +div_adv_flux_vert(jc,level,jb)&
-            &  - div_diff_flux_horz(jc,level,jb) +kpp_nonlocal_trans_tend(jc,level,jb))
+            &  old_tracer%concentration(jc,level,jb)                       &
+            &  - (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))    &
+            &  * (  div_adv_flux_horz(jc,level,jb)  &
+            &     + div_adv_flux_vert(jc,level,jb)  &
+            &     - div_diff_flux_horz(jc,level,jb) ) 
+
+
+          ! only use with kpp
+          IF (vert_mix_type .EQ. vmix_kpp) THEN
+            IF (tracer_index == 1 ) THEN
+              ! heat
+              new_tracer%concentration(jc,level,jb) =                          &
+                   & new_tracer%concentration(jc,level,jb)                          &
+                   ! FIXME: check sign
+                   &    + (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)) &
+                   &    * params_oce%cvmix_params%nl_trans_tend_heat(jc,level,jb)
+
+            ELSE IF (tracer_index == 2 ) THEN
+              ! salinity
+              new_tracer%concentration(jc,level,jb) =                          &
+                   & new_tracer%concentration(jc,level,jb)                          &
+                   ! FIXME: check sign
+                   &    + (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)) &
+                   &    * params_oce%cvmix_params%nl_trans_tend_salt(jc,level,jb)
+            END IF
+          END IF
 
         ENDDO
 
