@@ -22,7 +22,7 @@ LIBS="${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} $
 
 # Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
 # libraries at the configure time and when running 'make check':
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/-L[ ]*/-L/g;s/[ ][ ]*\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
 # Additionally, we test that we can set MPI_LAUNCH command without the absolute path:
 BUILD_ENV="$BUILD_ENV PATH=\"$(dirname "$MPICH_LAUNCH"):\$PATH\"; export PATH;"

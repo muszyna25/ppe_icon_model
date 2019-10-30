@@ -2,13 +2,14 @@
 
 set -eu
 set -o pipefail
+ulimit -c 0
 
 root_dir=$(cd "$(dirname "$0")"; pwd)
 work_dir="${root_dir}/$(basename "$0" '.sh')"
 rm -rf "${work_dir}" && mkdir -p "${work_dir}" && cd "${work_dir}"
 
 if test $# -eq 0; then
-  vendors='gcc intel nag cray'
+  vendors='gcc intel nag cray pgi'
 else
   vendors=$@
 fi
@@ -27,10 +28,11 @@ case $(uname -s) in
         test_suite='mpim-mpipc45-spack'
         xfail_test_names='gcc.cc_nagfor nag.cc_nagfor nag.disable_rpath' ;;
       mlogin*.hpc.dkrz.de\ *)
-        test_suite='dkrz-mistral' ;;
+        test_suite='dkrz-mistral'
+        ulimit -s 10240 ;;
       daint*.login.cscs.ch\ *)
         test_suite='cscs-daint'
-        xfail_test_names='cray.bundled cray.bundled_sct cray.bundled_serialize' ;;
+        xfail_test_names='cray.clang.bundled cray.classic.bundled' ;;
       xce*.dwd.de\ *)
         test_suite='dwd-xce'
         xfail_test_names='cray.bundled_dynamic cray.bundled_static' ;;
@@ -98,7 +100,7 @@ for vendor in ${vendors}; do
             if test x"${failed_test_names}" = x; then
               failed_test_names=${vendor_test_name}
             else
-              failed_test_names=" ${vendor_test_name}"
+              failed_test_names="${failed_test_names} ${vendor_test_name}"
             fi
           fi ;;
         *)

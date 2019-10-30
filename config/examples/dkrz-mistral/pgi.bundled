@@ -1,0 +1,70 @@
+#!/bin/bash
+
+set -eu
+
+NETCDF_ROOT='/sw/rhel6-x64/netcdf/netcdf_c-4.6.1-gcc64'
+NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
+NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT='/sw/rhel6-x64/netcdf/netcdf_fortran-4.4.4-pgi18.10'
+NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
+NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
+NETCDFF_LIBS='-lnetcdff'
+
+# The compiler sets -L and -rpath flags for /sw/rhel6-x64/pgi/pgi-18.10/linux86-64/18.10
+# automatically, therefore we don't need extra flags for BLAS and LAPACK except
+# for:
+BLAS_LAPACK_LIBS='-llapack -lblas'
+
+XML_ROOT='/usr'
+XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
+XML_LDFLAGS="-L${XML_ROOT}/lib64"
+XML_LIBS='-lxml2'
+
+######################
+
+ICON_DIR="$(cd "$(dirname "$0")"; pwd)/../../.."
+BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules /sw/rhel6-x64/pgi/pgi-18.10/modulefiles/pgi/18.10 /home/mpim/m300742/modules/mpi/openmpi-2.0.2p2_hpcx-pgi18.10;"
+
+# Note that /sw/rhel6-x64/pgi/pgi-18.10/modulefiles/pgi/18.10 sets CC and FC,
+# which overloads values that we set on the command line. Therefore, we need to
+# change them back:
+BUILD_ENV="$BUILD_ENV CC=mpicc; export CC; FC=mpif90; export FC;"
+
+FC='mpif90'
+CC='mpicc'
+
+CFLAGS='-O2'
+FCFLAGS="-O2 ${NETCDFF_FCFLAGS}"
+CPPFLAGS="${NETCDF_CPPFLAGS} ${XML_CPPFLAGS}"
+LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${XML_LDFLAGS}"
+
+# The shared version of NetCDF Fortran library in /sw/rhel6-x64/netcdf/netcdf_fortran-4.4.4-pgi18.10/lib
+# is not linked properly: it explicitly depends on libhdf5.so and libhdf5_hl.so
+# even though it does not require any symbols from them directly (i.e.
+# libnetcdff.so is overlinked). The problem is exacerbated by the fact that the
+# version of NetCDF C library required by libnetcdff.so is not only linked to a
+# different installation of HDF5 library but also to the HDF5 library of a
+# different version and ABI. This makes it impossible to specify LIBS properly:
+# either we need to overlink ICON (note that we don't need HDF5 in this
+# configuration directly because the SCT timer is disabled) to the version of
+# HDF5 that is used by NetCDF C or change the correct topological order
+# '-lnetcdff -lnetcdf' to a reversed one. We implement the second solution
+# here:
+LIBS="${XML_LIBS} ${BLAS_LAPACK_LIBS} ${NETCDF_LIBS} ${NETCDFF_LIBS}"
+
+# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
+# libraries at the configure time and when running 'make check':
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/-L[ ]*/-L/g;s/[ ][ ]*\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+--enable-active-target-sync \
+--enable-yaxt \
+"$@"

@@ -2,6 +2,11 @@
 
 set -eu
 
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR="${MY_DIR}/../../.."
+
+BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.4 cray-netcdf/4.6.1.2;"
+
 GRIBAPI_ROOT='/apps/daint/UES/6.0.UP02/sandbox-ws/grib_api'
 GRIBAPI_LIBS='-lgrib_api'
 
@@ -10,27 +15,30 @@ SERIALBOX2_LIBS='-lSerialboxFortran'
 
 XML_LIBS='-lxml2'
 
-######################
-
-ICON_DIR="$(cd "$(dirname "$0")"; pwd)/../../.."
-BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.4 cray-netcdf/4.6.1.2;"
+# Add the Serialbox2 preprocessor to PYTHONPATH:
 BUILD_ENV="export PYTHONPATH=\"${SERIALBOX2_ROOT}/python/pp_ser:\${PYTHONPATH}\";${BUILD_ENV}"
 
-FC='ftn'
-CC='cc'
+FC=ftn
+CC=cc
 
-CFLAGS='-O2 -g'
-FCFLAGS="-O2 -g -I${SERIALBOX2_ROOT}/include"
+CFLAGS='-O2'
+FCFLAGS="-O2 -I${SERIALBOX2_ROOT}/include"
 CPPFLAGS="-I${GRIBAPI_ROOT}/include"
-
 LDFLAGS="-dynamic -L${GRIBAPI_ROOT}/lib -L${SERIALBOX2_ROOT}/lib"
 LIBS="${XML_LIBS} ${SERIALBOX2_LIBS} ${GRIBAPI_LIBS}"
+MPI_LAUNCH='srun -p debug -C gpu'
 
 # Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
 # libraries at the configure time and when running 'make check':
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+BUILD_ENV="${BUILD_ENV} LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/-L[ ]*/-L/g;s/[ ][ ]*\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
-# Although the MPI-related tests are skipped, there are still tests in the test suite of CDI that fail.
+# There is a known MPI library defect of external32 data packing, which is the
+# only serialization guaranteed to be portable across different MPI
+# communicators. This error is reported by the configure script of YAC unless
+# we switch to the regular data packing routines by setting the argument
+# "--disable-mpi-pack-external". Since the argument is not known by the
+# configure script of ICON, we also set '--disable-option-checking' to prevent
+# a warning message.
 
 "${ICON_DIR}/configure" \
 BUILD_ENV="$BUILD_ENV" \
@@ -41,7 +49,9 @@ FC="$FC" \
 FCFLAGS="$FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
---disable-mpi-checks \
+MPI_LAUNCH="$MPI_LAUNCH" \
+--disable-mpi-pack-external \
+--disable-option-checking \
 --enable-grib2 \
 --enable-serialization \
 --enable-yaxt \

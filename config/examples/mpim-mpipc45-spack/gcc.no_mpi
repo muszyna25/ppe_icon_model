@@ -20,7 +20,7 @@ LIBS="${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${
 
 # Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
 # libraries at the configure time and when running 'make check':
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/-L[ ]*/-L/g;s/[ ][ ]*\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
 "${ICON_DIR}/configure" \
 BUILD_ENV="$BUILD_ENV" \
