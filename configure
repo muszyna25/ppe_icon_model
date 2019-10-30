@@ -639,6 +639,7 @@ CPPFLAGS
 LDFLAGS
 CFLAGS
 CC
+BUILD_ENV_MAKE
 BUILD_ENV
 target_alias
 host_alias
@@ -1426,8 +1427,9 @@ Optional Packages:
   --with-external-self    use external SELF library [default=no]
 
 Some influential environment variables:
-  BUILD_ENV   initialization code to set up the building environment (must end
-              with a semicolon), e.g. 'LICENSE=file.lic; export LICENSE;'
+  BUILD_ENV   initialization code to set up the building environment (must be
+              a single line ending with a semicolon), e.g. 'LICENSE=file.lic;
+              export LICENSE;'
   CC          C compiler command
   CFLAGS      C compiler flags
   LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a
@@ -2461,26 +2463,53 @@ else
 fi
 
 
+
    if test -n "$BUILD_ENV"; then :
   if $as_echo "$BUILD_ENV" | grep ';[ ]*$' >/dev/null 2>&1; then :
 
 else
   as_fn_error $? "\$BUILD_ENV does not end with a semicolon: '$BUILD_ENV'" "$LINENO" 5
 fi
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether \$BUILD_ENV is accepted by '$SHELL -c'" >&5
-$as_echo_n "checking whether \$BUILD_ENV is accepted by '$SHELL -c'... " >&6; }
-      acx_BUILD_ENV=$BUILD_ENV
-      case $acx_BUILD_ENV in #(
-  *\'*) :
-    acx_BUILD_ENV=`$as_echo "$acx_BUILD_ENV" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+      case $BUILD_ENV in #(
+  *${as_nl}*) :
+    as_fn_error $? "\$BUILD_ENV contains a newline: '$BUILD_ENV'" "$LINENO" 5 ;; #(
   *) :
      ;;
 esac
-      $as_echo "$as_me:${as_lineno-$LINENO}: $SHELL -c '$acx_BUILD_ENV'" >&5
-      eval \$SHELL -c "'$acx_BUILD_ENV'" >&5 2>&1
+      BUILD_ENV_MAKE=`echo "$BUILD_ENV" | sed 's/\\$/$$/g'`
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether \$BUILD_ENV is accepted by '$SHELL -c'" >&5
+$as_echo_n "checking whether \$BUILD_ENV is accepted by '$SHELL -c'... " >&6; }
+      acx_build_env_quoted=$BUILD_ENV
+      case $acx_build_env_quoted in #(
+  *\'*) :
+    acx_build_env_quoted=`$as_echo "$acx_build_env_quoted" | sed "s/'/'\\\\\\\\''/g"` ;; #(
+  *) :
+     ;;
+esac
+      $as_echo "$as_me:${as_lineno-$LINENO}: $SHELL -c '$acx_build_env_quoted'" >&5
+      eval \$SHELL -c "'$acx_build_env_quoted'" >&5 2>&1
       if test $? -eq 0; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
+         acx_build_env_vars_to_check=
+         eval "set dummy $ac_configure_args"; shift
+         for acx_arg; do
+           case $acx_arg in #(
+  -*) :
+     ;; #(
+  *=*) :
+                acx_arg_name=`expr "x$acx_arg" : 'x\([^=]*\)='`
+            acx_arg_cmd_value=`expr "x$acx_arg" : '[^=]*=\(.*\)'`
+            eval acx_arg_${acx_arg_name}=\$$acx_arg_name
+            if test "x$acx_arg_cmd_value" = x"`eval 'as_val=${'acx_arg_${acx_arg_name}'};$as_echo "$as_val"'`"; then :
+  as_fn_append acx_build_env_vars_to_check " $acx_arg_name"
+else
+  { eval acx_arg_${acx_arg_name}=; unset acx_arg_${acx_arg_name};}
+fi ;; #(
+  *) :
+     ;;
+esac
+         done
          { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether \$BUILD_ENV is accepted by the current shell" >&5
 $as_echo_n "checking whether \$BUILD_ENV is accepted by the current shell... " >&6; }
          $as_echo "$as_me:${as_lineno-$LINENO}: $BUILD_ENV" >&5
@@ -2488,7 +2517,16 @@ $as_echo_n "checking whether \$BUILD_ENV is accepted by the current shell... " >
          if test $? -eq 0; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-
+            if test -n "$acx_build_env_vars_to_check"; then :
+  for acx_arg_name in $acx_build_env_vars_to_check; do
+                 if test x"`eval 'as_val=${'$acx_arg_name'};$as_echo "$as_val"'`" != \
+x"`eval 'as_val=${'acx_arg_${acx_arg_name}'};$as_echo "$as_val"'`"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \$BUILD_ENV has modified variable '$acx_arg_name', which was set on the command line to \"`eval 'as_val=${'acx_arg_${acx_arg_name}'};$as_echo "$as_val"'`\": new value of the variable is \"`eval 'as_val=${'$acx_arg_name'};$as_echo "$as_val"'`\"" >&5
+$as_echo "$as_me: WARNING: \$BUILD_ENV has modified variable '$acx_arg_name', which was set on the command line to \"`eval 'as_val=${'acx_arg_${acx_arg_name}'};$as_echo "$as_val"'`\": new value of the variable is \"`eval 'as_val=${'$acx_arg_name'};$as_echo "$as_val"'`\"" >&2;}
+fi
+                 { eval acx_arg_${acx_arg_name}=; unset acx_arg_${acx_arg_name};}
+               done
+fi
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -3455,7 +3493,7 @@ as_fn_error $? "C compiler does not support ISO C99
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler vendor" >&5
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler vendor" >&5
 $as_echo_n "checking for C compiler vendor... " >&6; }
 if ${acx_cv_c_compiler_vendor+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3468,6 +3506,8 @@ elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORAT
   acx_cv_c_compiler_vendor=portland
 elif $CC -V 2>&1 | grep '^Cray C' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
+elif $CC --version 2>&1 | grep '^Cray clang' >/dev/null 2>&1; then :
+  acx_cv_c_compiler_vendor=cray
 elif $CC --version | grep '^gcc' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=gnu
 else
@@ -3477,7 +3517,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_compiler_vendor" >&5
 $as_echo "$acx_cv_c_compiler_vendor" >&6; }
 
-         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler version" >&5
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler version" >&5
 $as_echo_n "checking for C compiler version... " >&6; }
 if ${acx_cv_c_compiler_version+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3490,12 +3530,23 @@ else
   portland) :
     acx_cv_c_compiler_version=`$CC -V | sed -n 's/pgcc \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'` ;; #(
   cray) :
-    acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
+    acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+         if test -z "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version=`$CC --version | sed -n 's/.*version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
+            if test -n "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version="clang:${acx_cv_c_compiler_version}"
+fi
+else
+  acx_cv_c_compiler_version="classic:${acx_cv_c_compiler_version}"
+fi ;; #(
   gnu) :
-    acx_cv_c_compiler_version=`$CC -dumpversion 2>/dev/null` ;; #(
+    acx_cv_c_compiler_version=`$CC -dumpfullversion 2>/dev/null || $CC -dumpversion 2>/dev/null` ;; #(
   *) :
     acx_cv_c_compiler_version=unknown ;;
 esac
+      if test -z "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version=unknown
+fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_compiler_version" >&5
 $as_echo "$acx_cv_c_compiler_version" >&6; }
@@ -3808,6 +3859,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
       ac_fcflags_srcext=$acx_fcflags_srcext_save
       ac_ext=$acx_ext_save
 fi
+
    if test -n "$acx_cv_fc_pp_srcext_f90"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_pp_srcext_f90" >&5
 $as_echo "$acx_cv_fc_pp_srcext_f90" >&6; }
@@ -3831,7 +3883,7 @@ else
 
 fi
 
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler vendor" >&5
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler vendor" >&5
 $as_echo_n "checking for Fortran compiler vendor... " >&6; }
 if ${acx_cv_fc_compiler_vendor+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3853,7 +3905,9 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_compiler_vendor" >&5
 $as_echo "$acx_cv_fc_compiler_vendor" >&6; }
 
-         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler version" >&5
+FC_VENDOR=$acx_cv_fc_compiler_vendor
+
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler version" >&5
 $as_echo_n "checking for Fortran compiler version... " >&6; }
 if ${acx_cv_fc_compiler_version+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3864,19 +3918,20 @@ else
   nag) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
-    acx_cv_fc_compiler_version=`$FC -V | sed -n 's/pgfortran \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'` ;; #(
+    acx_cv_fc_compiler_version=`$FC -V | sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
   cray) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   gnu) :
-    acx_cv_fc_compiler_version=`$FC -dumpversion 2>/dev/null` ;; #(
+    acx_cv_fc_compiler_version=`$FC -dumpfullversion 2>/dev/null || $FC -dumpversion 2>/dev/null` ;; #(
   *) :
     acx_cv_fc_compiler_version=unknown ;;
 esac
+      if test -z "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version=unknown
+fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_compiler_version" >&5
 $as_echo "$acx_cv_fc_compiler_version" >&6; }
-
-FC_VENDOR=$acx_cv_fc_compiler_vendor
 
 FC_VERSION=$acx_cv_fc_compiler_version
 
@@ -3992,6 +4047,7 @@ rm -f core conftest.err conftest.$ac_objext
       rm -f conftest.$ac_ext
       FCFLAGS=$acx_save_FCFLAGS
 fi
+
    if test -n "$acx_cv_fc_line_length_unlimited"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_line_length_unlimited" >&5
 $as_echo "$acx_cv_fc_line_length_unlimited" >&6; }
@@ -4230,8 +4286,10 @@ else
          as_dir=conftest.dir/build; as_fn_mkdir_p
          as_dir=conftest.dir/src/inc2; as_fn_mkdir_p
          cat > conftest.$ac_ext <<_ACEOF
+      program main
       include "conftest.inc"
 
+      end
 _ACEOF
          cp conftest.$ac_ext conftest.dir/build/conftest.$ac_ext
          mv conftest.$ac_ext conftest.dir/src/conftest.$ac_ext
@@ -4243,9 +4301,7 @@ _ACEOF
          set "src" "/src/" "flg" "/src/inc/" "inc" "/src/inc2/" "cwd" "/build/"
          while test $# != 0; do
            cat > conftest.$ac_ext <<_ACEOF
-      program main
       write(*,"(a)") "${1}"
-      end
 _ACEOF
            shift; mv conftest.$ac_ext conftest.dir${1}conftest.write; shift
          done
@@ -4358,8 +4414,10 @@ else
          as_dir=conftest.dir/build; as_fn_mkdir_p
          as_dir=conftest.dir/src/inc2; as_fn_mkdir_p
          cat > conftest.$ac_ext <<_ACEOF
+      program main
 #include "conftest.inc"
 
+      end
 _ACEOF
          cp conftest.$ac_ext conftest.dir/build/conftest.$ac_ext
          mv conftest.$ac_ext conftest.dir/src/conftest.$ac_ext
@@ -4371,9 +4429,7 @@ _ACEOF
          set "src" "/src/" "flg" "/src/inc/" "inc" "/src/inc2/" "cwd" "/build/"
          while test $# != 0; do
            cat > conftest.$ac_ext <<_ACEOF
-      program main
       write(*,"(a)") "${1}"
-      end
 _ACEOF
            shift; mv conftest.$ac_ext conftest.dir${1}conftest.write; shift
          done
@@ -4514,8 +4570,7 @@ esac
    acx_shlib_rpath_flags_check_result=no
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
 $as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
-   acx_save_LDFLAGS=$LDFLAGS
-   LDFLAGS=" $LDFLAGS"
+
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -4526,7 +4581,7 @@ if ac_fn_fc_try_link "$LINENO"; then :
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-   LDFLAGS=$acx_save_LDFLAGS
+
    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
 $as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
    if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
@@ -4801,16 +4856,14 @@ if test -n "$MPI_LAUNCH"; then :
   [\\/]* | ?:[\\/]*) :
      ;; #(
   *) :
-    acx_prog_search_path=unknown
-   set dummy $MPI_LAUNCH; acx_tmp=$2
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the path to $acx_tmp" >&5
-$as_echo_n "checking for the path to $acx_tmp... " >&6; }
-   case "$acx_tmp" in #(
-  [\\/]* | ?:[\\/]*) :
-    if as_fn_executable_p "$acx_tmp"; then :
-  acx_prog_search_path="$MPI_LAUNCH"
-         { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_tmp" >&5
-$as_echo "$acx_tmp" >&6; }
+    acx_prog_search_abspath=unknown
+   set dummy $MPI_LAUNCH; shift; acx_prog_exec=$1; shift; acx_prog_args="$@"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the absolute path to $acx_prog_exec" >&5
+$as_echo_n "checking for the absolute path to $acx_prog_exec... " >&6; }
+   case $acx_prog_exec in #(
+  *[\\/]*) :
+    if as_fn_executable_p $acx_prog_exec; then :
+  acx_prog_search_abspath=$acx_prog_exec
 fi ;; #(
   *) :
     as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
@@ -4818,25 +4871,44 @@ for as_dir in $PATH
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
-    if as_fn_executable_p "$as_dir/$acx_tmp"; then :
-  acx_prog_search_path="$as_dir/$MPI_LAUNCH"
-            { $as_echo "$as_me:${as_lineno-$LINENO}: result: $as_dir/$acx_tmp" >&5
-$as_echo "$as_dir/$acx_tmp" >&6; }
-            break
+    if as_fn_executable_p "$as_dir/$acx_prog_exec"; then :
+  acx_prog_search_abspath="$as_dir/$acx_prog_exec"; break
 fi
   done
 IFS=$as_save_IFS
  ;;
 esac
-   if test "x$acx_prog_search_path" = xunknown; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
-$as_echo "unknown" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+   case $acx_prog_search_abspath in #(
+  unknown) :
+     ;; #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    asx_dir=`echo "$acx_prog_search_abspath" | sed 's%/[^/]*$%%' 2>/dev/null`
+      asx_file=`echo "$acx_prog_search_abspath" | sed 's%.*/%%' 2>/dev/null`
+      asx_dir=`cd "$asx_dir" >/dev/null 2>&1 && pwd 2>/dev/null`
+      acx_prog_search_abspath=unknown
+      case $asx_dir in #(
+  [\\/]* | ?:[\\/]*) :
+    if as_fn_executable_p "$asx_dir/$asx_file"; then :
+  acx_prog_search_abspath="$asx_dir/$asx_file"
+fi ;; #(
+  *) :
+     ;;
+esac ;;
+esac
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_prog_search_abspath" >&5
+$as_echo "$acx_prog_search_abspath" >&6; }
+   if test "x$acx_prog_search_abspath" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find the path to $acx_tmp
+as_fn_error $? "unable to find the absolute path to $acx_prog_exec
 See \`config.log' for more details" "$LINENO" 5; }
 else
-  MPI_LAUNCH="$acx_prog_search_path"
+  if test -n "$acx_prog_args"; then :
+  as_fn_append acx_prog_search_abspath " $acx_prog_args"
+fi
+      MPI_LAUNCH="$acx_prog_search_path"
 fi ;;
 esac
 fi
@@ -4874,6 +4946,7 @@ rm -f core conftest.err conftest.$ac_objext \
       rm -f conftest.$ac_ext
       FCFLAGS=$acx_save_FCFLAGS
 fi
+
    if test -n "$acx_cv_fc_openmp_flag"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_openmp_flag" >&5
 $as_echo "$acx_cv_fc_openmp_flag" >&6; }
@@ -5053,6 +5126,7 @@ rm -f core conftest.err conftest.$ac_objext \
       rm -f conftest.$ac_ext
       FCFLAGS=$acx_save_FCFLAGS
 fi
+
    if test -n "$acx_cv_fc_openacc_flag"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_openacc_flag" >&5
 $as_echo "$acx_cv_fc_openacc_flag" >&6; }
@@ -6447,6 +6521,7 @@ fi
 fi
       done
 fi
+
    if ${acx_cv_prog_PYTHON+:} false; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PYTHON" >&5
 $as_echo "$acx_cv_prog_PYTHON" >&6; }
@@ -6486,6 +6561,7 @@ fi
 fi
       done
 fi
+
    if ${acx_cv_prog_PERL+:} false; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PERL" >&5
 $as_echo "$acx_cv_prog_PERL" >&6; }
@@ -6661,6 +6737,7 @@ fi
       cd ..
       rm -rf conftest.dir
 fi
+
    if ${acx_cv_prog_fpp+:} false; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_fpp" >&5
 $as_echo "$acx_cv_prog_fpp" >&6; }
@@ -6932,7 +7009,6 @@ LIBOBJS=$ac_libobjs
 LTLIBOBJS=$ac_ltlibobjs
 
 
-BUILD_ENV=`echo "$BUILD_ENV" | sed 's/\\$/$$/g'`
 if test "x$no_recursion" = xyes; then :
   subdirs_extra=
 else
@@ -7021,6 +7097,10 @@ $as_echo "$as_me: running $SHELL $acx_config_subdir_script $acx_config_subdir_ar
 fi
               cd "$acx_config_subdir_popdir"
             done
+            if test -n "$subdirs_extra"; then :
+  $as_echo "===" >&6
+               $as_echo "$as_me:${as_lineno-$LINENO}: ===" >&5
+fi
 fi
 
 : "${CONFIG_STATUS=./config.status}"

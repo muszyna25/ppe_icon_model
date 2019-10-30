@@ -1,7 +1,7 @@
 # This makefile sets up the building environment and calls icon.mk.
 
 SHELL= @SHELL@
-BUILD_ENV= @BUILD_ENV@
+BUILD_ENV= @BUILD_ENV_MAKE@
 DELEGATED_RULES= all depend preprocess mostlyclean clean maintainer-clean install srclist check
 DELEGATEE_FILE= icon.mk
 

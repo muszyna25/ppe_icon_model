@@ -288,7 +288,8 @@ AC_PROG_CC_C99
 AS_VAR_IF([ac_cv_prog_cc_c99], [no],
   [AC_MSG_FAILURE([C compiler does not support ISO C99])])
 
-ACX_COMPILER_CC_VERSION
+ACX_COMPILER_CC_VENDOR_SIMPLE
+ACX_COMPILER_CC_VERSION_SIMPLE
 
 AC_ARG_VAR([ICON_CFLAGS],
   [C compiler flags to be appended to CFLAGS when compiling ICON,
@@ -327,8 +328,9 @@ AC_PROG_FC
 AC_LANG([Fortran])
 
 ACX_FC_PP_SRCEXT([f90])
-ACX_COMPILER_FC_VERSION
+ACX_COMPILER_FC_VENDOR_SIMPLE
 AC_SUBST([FC_VENDOR], [$acx_cv_fc_compiler_vendor])
+ACX_COMPILER_FC_VERSION_SIMPLE
 AC_SUBST([FC_VERSION], [$acx_cv_fc_compiler_version])
 
 AC_ARG_VAR([FPP], [Fortran preprocessor command (optional)])dnl
@@ -609,7 +611,7 @@ dnl accommodate when required and if possible:
 AS_IF([test -n "$MPI_LAUNCH"],
   [AS_CASE(["$MPI_LAUNCH"],
      [[[\\/]]* | ?:[[\\/]]*], [],
-     [ACX_PROG_SEARCH_PATH([$MPI_LAUNCH],
+     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
         [MPI_LAUNCH="$acx_prog_search_path"])])])
 
 AS_VAR_IF([enable_openmp], [yes],
