@@ -46,8 +46,7 @@ MODULE mo_var_list
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
-       &                         append_list_element,               &
-       &                         delete_list_element
+       &                         append_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
@@ -838,7 +837,7 @@ CONTAINS
   ! (private routine within this module)
   !
   SUBROUTINE set_var_metadata_dyn(this_info_dyn,tracer_info)
-    TYPE(t_var_metadata_dynamic),INTENT(OUT) :: this_info_dyn
+    TYPE(t_var_metadata_dynamic),INTENT(INOUT) :: this_info_dyn
     CLASS(t_tracer_meta),INTENT(IN),OPTIONAL :: tracer_info
 
     CALL assign_if_present_tracer_meta(this_info_dyn%tracer,tracer_info)
@@ -3736,33 +3735,7 @@ CONTAINS
     END SUBROUTINE locate
     !
   END SUBROUTINE add_var_list_reference
-  !------------------------------------------------------------------------------------------------
-  !
-  ! remove one element from the list
-  ! the element is identified by its name
-  !
-  SUBROUTINE delete_var_list_element (this_list, name)
-    TYPE(t_var_list), INTENT(inout) :: this_list
-    CHARACTER(len=*), INTENT(in)    :: name
-    !
-    TYPE(t_list_element), POINTER :: ptr
-    !
-    IF (this_list%p%first_list_element%field%info%name == name) THEN
-      CALL delete_list_element (this_list, this_list%p%first_list_element)
-      RETURN
-    ELSE
-      ptr => this_list%p%first_list_element
-      DO
-        IF (.NOT.ASSOCIATED (ptr%next_list_element)) EXIT
-        IF (ptr%next_list_element%field%info%name == name) THEN
-          CALL delete_list_element (this_list, ptr%next_list_element)
-          EXIT
-        ENDIF
-        ptr => ptr%next_list_element
-      END DO
-    ENDIF
-    !
-  END SUBROUTINE delete_var_list_element
+
   !------------------------------------------------------------------------------------------------
   !
   ! Print routines for control output and debuggung

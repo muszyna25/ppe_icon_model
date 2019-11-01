@@ -789,7 +789,9 @@ CONTAINS
 
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
+      CALL message(routine, 'delete output variable lists')
       CALL close_name_list_output
+      CALL message(routine, 'finish statistics streams')
       CALL finish_statistics_streams
     END IF
 #ifdef HAVE_CDI_PIO
@@ -802,6 +804,7 @@ CONTAINS
 #endif
     ! finalize meteogram output
     IF (output_mode%l_nml) THEN
+      CALL message(routine, 'finalize meteogram output')
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           CALL meteogram_finalize(jg)

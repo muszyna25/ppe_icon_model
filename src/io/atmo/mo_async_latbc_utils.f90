@@ -27,7 +27,7 @@
     USE mpi
     USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
          &                            p_comm_work,                              &
-         &                            my_process_is_mpi_test
+         &                            my_process_is_mpi_test, get_my_global_mpi_id
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
@@ -1386,13 +1386,10 @@
     !
     SUBROUTINE async_pref_send_handshake()
 #ifndef NOMPI
-      INTEGER :: msg
       ! Simply send a message from Input prefetching PE 0 to work PE 0
       ! p_pe_work == 0 signifies processor 0 in Input prefetching PEs
       IF(p_pe_work == 0) THEN
-        msg = msg_pref_done
-        CALL p_isend(msg, p_work_pe0, TAG_PREFETCH2WORK)
-        CALL p_wait()
+        CALL p_send(msg_pref_done, p_work_pe0, TAG_PREFETCH2WORK)
       ENDIF
 #endif
     END SUBROUTINE async_pref_send_handshake
@@ -1417,6 +1414,7 @@
            CALL finish(routine, 'Compute PE: Got illegal prefetching tag: '//int2string(msg,'(i0)'))
          END IF
       ENDIF
+
       ! Wait in barrier until message is here
       CALL p_barrier(p_comm_work)
 #endif
