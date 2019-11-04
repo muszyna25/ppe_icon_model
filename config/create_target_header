@@ -576,14 +576,14 @@ set_run_target_daint_cpu()
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 2
-      set_default use_openmp_threads 3
+      set_default use_mpi_procs_pernode 4
+      set_default use_openmp_threads 6
     else
-      set_default use_mpi_procs_pernode 6
+      set_default use_mpi_procs_pernode 12
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 6
+      set_default use_openmp_threads 12
       set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
