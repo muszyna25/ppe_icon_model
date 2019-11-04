@@ -50,6 +50,7 @@ Error somewhere around
 ../../src/io/shared/mo_cf_convention.f90
 ../../src/io/shared/mo_grib2.f90
 ../../src/io/shared/mo_grib2_util.f90
+../../src/io/shared/mo_grib2_tile.f90
 ../../src/io/shared/mo_io_units.f90
 ../../src/io/shared/mo_io_util.f90
 ../../src/io/shared/mo_level_selection.f90

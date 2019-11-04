@@ -1,0 +1,27 @@
+# Fortran compiler executable
+FC = gfortran
+
+# Tell the compiler to accept C-preprocessor directives
+CPPFLAGS = -cpp
+
+NETCDFROOT     = ${NETCDF_DIR}
+NETCDFLIBPATH  = ${NETCDFROOT}/lib
+NETCDF_LIB     = -L$(NETCDFLIBPATH) -lnetcdff -lnetcdf
+NETCDF_INCLUDE = -I$(NETCDFROOT)/include
+
+# Optimization flags
+OPTFLAGS = -O0
+
+# Warning flags: all except those that warn about unused stuff
+WARNFLAGS = -Wall # -Wno-unused-label -Wno-unused-dummy-argument -Wno-unused-variable
+
+# Basic flags such as where to write module files, and an instruction
+#  to read Fortran unformatted data files as big endian 
+BASICFLAGS = -J../mod #-fconvert=big-endian
+
+# Debugging flags, such as "-g" to store debugging symbols, and
+# instructions to abort if certain floating-point exceptions occur
+DEBUGFLAGS = -g -ffpe-trap=invalid,zero,overflow
+
+# OpenMP flag
+OMPFLAG = -fopenmp

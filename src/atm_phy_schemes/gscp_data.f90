@@ -233,8 +233,8 @@ REAL    (KIND=wp   ), PARAMETER ::  &
   zthet  = 248.15_wp,       & ! temperature for het. nuc. of cloud ice
   zthn   = 236.15_wp,       & ! temperature for hom. freezing of cloud water
   ztrfrz = 271.15_wp,       & ! threshold temperature for heterogeneous freezing of raindrops
-  ztmix  = 250.00_wp,       & ! threshold temperature for mixed-phase clouds freezing of raindrops
-                              ! (Forbes 2012)
+  ztmix  = 257.15_wp,       & ! threshold temperature for mixed-phase cloud freezing of cloud drops
+                              ! (Forbes 2012; was originally 250 K, but this degrades wintertime temperatures in Siberia)
   znimax_Thom = 250.E+3_wp, & ! FR: maximal number of ice crystals 
   zmi0   = 1.0E-12_wp,      & ! initial crystal mass for cloud ice nucleation
   zmimax = 1.0E-9_wp,       & ! maximum mass of cloud ice crystals   

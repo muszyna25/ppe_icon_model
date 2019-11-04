@@ -194,7 +194,7 @@ mpi_oce_io_procs=0                 # for ocean (not working yet)
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-output_atm_cgrid=no                # produces 1 atm file 
+output_atm_vgrid=no                # produces 1 atm file 
 output_atm_debug=no                # produces 1 atm file 
 output_atm_3d=yes                  # produces 1 atm file 
 output_atm_2d=yes                  # produces 1 atm file 
@@ -658,7 +658,6 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -672,22 +671,20 @@ cat > ${atm_namelist} << EOF
 &echam_cld_nml
  echam_cld_config(1)%ncctop     = 12    ! <-- 20km
  echam_cld_config(1)%nccbot     = 40    ! <-- 6.5 km
- echam_cld_config(1)%jks        = 1
- echam_cld_config(1)%crs        = 1.0
- echam_cld_config(1)%crt        = 1.0
  echam_cld_config(1)%cinhomi    = 1.0
  echam_cld_config(1)%cinhoml1   = 1.0
  echam_cld_config(1)%cinhoml2   = 1.0
  echam_cld_config(1)%cinhoml3   = 1.0
  echam_cld_config(1)%cvtfall    = 4.00
- echam_cld_config(1)%jbmin      = 50    ! <--3.5km
- echam_cld_config(1)%jbmax      = 68    ! <--150m
  echam_cld_config(1)%cn1lnd     = 50.
  echam_cld_config(1)%cn2lnd     =220.
  echam_cld_config(1)%cn1sea     = 50.
  echam_cld_config(1)%cn2sea     =100.
  echam_cld_config(1)%ccraut     = 2.0
  echam_cld_config(1)%ccsaut     = 2.0
+/
+&echam_cov_nml
+ echam_cov_config(1)%icov       = 2     ! 0/1 cloud cover based on rel. hum.
 /
 &sea_ice_nml
 /
@@ -942,11 +939,11 @@ fi
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
 #
-if [[ "$output_atm_cgrid" == "yes" ]]; then
+if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
   cat >> ${atm_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
+ output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
@@ -955,7 +952,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"               ! --> write once only irrespective of
  output_interval  = "${atm_output_interval}"      !     the output interval and
  file_interval    = "${atm_file_interval}"        !     the file interval
- ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi

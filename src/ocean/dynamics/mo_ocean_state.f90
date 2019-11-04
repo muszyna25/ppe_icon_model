@@ -775,6 +775,13 @@ CONTAINS
     nblks_v = patch_2d%nblks_v
 
     ! add monitoring {{{
+
+    CALL add_var(ocean_default_list, 'amoc26n', ocean_state_diag%monitor%amoc26n , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('amoc26n', 'Sv', 'amoc26n', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
     CALL add_var(ocean_default_list, 'kin_energy_global', ocean_state_diag%monitor%kin_energy , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('kin_energy', 'J', 'kin_energy', datatype_flt),&
@@ -1193,6 +1200,13 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_default"),lrestart_cont=.FALSE.)
 
+      CALL add_var(ocean_default_list, 'verticallyTotal_mass_flux_e', &
+      & ocean_state_diag%verticallyTotal_mass_flux_e, grid_unstructured_edge,&
+      & za_surface, &
+      & t_cf_var('verticallyTotal_mass_flux_e','','vertically integrated mass flux at edges', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED,grid_edge),&
+      & ldims=(/nproma,nblks_e/),in_group=groups("oce_diag"))
+
     ! velocities
     CALL add_var(ocean_restart_list, 'w', ocean_state_diag%w, grid_unstructured_cell, &
       & za_depth_below_sea_half, &
@@ -1239,6 +1253,14 @@ CONTAINS
        & t_cf_var('delta_theta','W m-2','tendendy of liquid water temperature expressed as heat content', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+      CALL add_var(ocean_default_list, 'delta_so', ocean_state_diag%delta_so,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('delta_so','kg s-1 m-2','tendency_of_sea_water_salinity_expressed_as_salt_content', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
 
       CALL add_var(ocean_default_list, 'opottemptend', ocean_state_diag%opottemptend,&
        & grid_unstructured_cell, &
@@ -1603,6 +1625,60 @@ CONTAINS
       &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
 
+   ! swr fraction absorbed in the surface layer
+    CALL add_var(ocean_default_list, 'swsum', ocean_state_diag%swsum , &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('swsum', '1', 'swsum', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! (total subsurface ) heating due to absorption [J m-2]
+    CALL add_var(ocean_default_list, 'heatabs', ocean_state_diag%heatabs , &
+      &         grid_unstructured_cell, za_surface,&
+      &         t_cf_var('heatabs', 'J m-2', 'heatabs', datatype_flt),&
+      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+ 
+   ! dummy2d
+!    CALL add_var(ocean_default_list, 'dummy2d', ocean_state_diag%dummy2d , &
+!      &         grid_unstructured_cell, za_surface,&
+!      &         t_cf_var('dummy2d', '', 'dummy2d', datatype_flt),&
+!      &         grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!      &         ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
+ 
+
+   ! relative swr absorption factor
+      CALL add_var(ocean_default_list, 'swrab', ocean_state_diag%swrab,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('swrab','1','swrab', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! relative swr absorption factor from hamocc (LFB_BGC_OCE)
+      CALL add_var(ocean_default_list, 'swr_frac', ocean_state_diag%swr_frac,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('swr_frac','1','swr_frac', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! CMIP6 Net Rate of Absorption of Shortwave Energy in Ocean Layer
+      CALL add_var(ocean_default_list, 'rsdoabsorb', ocean_state_diag%rsdoabsorb,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('rsdoabsorb','W m-2','Net Rate of Absorption of Shortwave Energy in Ocean Layer', &
+       & datatype_flt), grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+   ! dummy3d
+!      CALL add_var(ocean_default_list, 'dummy3d', ocean_state_diag%dummy3d,&
+!       & grid_unstructured_cell, &
+!       & za_depth_below_sea, &
+!       & t_cf_var('dummy3d','','dummy3d', &
+!       & datatype_flt), grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
 
     ! number of deepest convection layer
     CALL add_var(ocean_default_list, 'condep', ocean_state_diag%condep , grid_unstructured_cell, za_surface,&
@@ -1824,6 +1900,26 @@ CONTAINS
       & ldims=(/1,180/),in_group=groups("ocean_moc"),&
       & loutput=.TRUE.)
 
+    ! Implied ocean fw transport
+    CALL add_var(ocean_default_list, 'global_wfl',ocean_state_diag%global_wfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_wfl','m3s-1','global implied freshwater transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_wfl',ocean_state_diag%atlantic_wfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_wfl','m3s-1','atlantic implied freshwater transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_wfl',ocean_state_diag%pacific_wfl,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_wfl','W','indopacific implied freshwater transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
     ! hfbasin ocean heat transport
     CALL add_var(ocean_default_list, 'global_hfbasin',ocean_state_diag%global_hfbasin,    &
       & GRID_ZONAL, za_surface,&
@@ -1840,6 +1936,26 @@ CONTAINS
     CALL add_var(ocean_default_list, 'pacific_hfbasin',ocean_state_diag%pacific_hfbasin,    &
       & GRID_ZONAL, za_surface,&
       & t_cf_var('pacific_hfbasin','W','indopacific northward ocean heat transport', datatype_flt), &
+      & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+
+    ! hfbasin ocean salt transport
+    CALL add_var(ocean_default_list, 'global_sltbasin',ocean_state_diag%global_sltbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('global_sltbasin','kg s-1','global northward ocean salt transport', datatype_flt), &
+      & grib2_var(255, 255, 147, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'atlantic_sltbasin',ocean_state_diag%atlantic_sltbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('atlantic_sltbasin','kg s-1','atlantic northward ocean salt transport', datatype_flt), &
+      & grib2_var(255, 255, 148, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/1,180/),in_group=groups("ocean_moc"),&
+      & loutput=.TRUE.)
+    CALL add_var(ocean_default_list, 'pacific_sltbasin',ocean_state_diag%pacific_sltbasin,    &
+      & GRID_ZONAL, za_surface,&
+      & t_cf_var('pacific_sltbasin','kg s-1','indopacific northward ocean salt transport', datatype_flt), &
       & grib2_var(255, 255, 149, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/1,180/),in_group=groups("ocean_moc"),&
       & loutput=.TRUE.)
@@ -2153,6 +2269,18 @@ CONTAINS
       & za_surface, t_cf_var('bc_top_w','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
+       
+    CALL add_var(ocean_default_list,'bc_tides_potential',ocean_state_aux%bc_tides_potential, grid_unstructured_cell,&
+      & za_surface, t_cf_var('bc_tides_potential','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+    ocean_state_aux%bc_tides_potential = 0.0_wp
+    CALL add_var(ocean_default_list,'bc_total_top_potential',ocean_state_aux%bc_total_top_potential, grid_unstructured_cell,&
+      & za_surface, t_cf_var('bc_total_top_potential','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+    ocean_state_aux%bc_total_top_potential = 0.0_wp
+        
     CALL add_var(ocean_default_list,'bc_bot_tracer',ocean_state_aux%bc_bot_tracer,grid_unstructured_cell,&
       & za_surface, t_cf_var('bc_bot_tracer','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&

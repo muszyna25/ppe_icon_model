@@ -31,7 +31,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_run_config,          ONLY: msg_level
   USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
-  USE mo_phyparam_soil,       ONLY: cporv, cadp, cfcap, cpwp
+  USE sfc_terra_data,         ONLY: cporv, cadp, cfcap, cpwp
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_exception,           ONLY: finish, message_text, message
 

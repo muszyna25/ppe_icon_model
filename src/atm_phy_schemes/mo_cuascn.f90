@@ -663,7 +663,7 @@ DO jk=klev-1,ktdia+2,-1
              zdmfde(jl)=zdmfen(jl)
           ENDIF
           zc = 1.6_JPRB-MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK))
-          ZDMFDE(JL)=ZDMFDE(JL)*MAX(0.9_jprb*zc,zc**2)
+          ZDMFDE(JL)=ZDMFDE(JL)*MAX(0.9_jprb*zc,zc**4)
           zmftest=pmfu(jl,jk+1)+zdmfen(jl)-zdmfde(jl)
           zchange=MAX(zmftest-zmfmax,0.0_JPRB)
           zxe=MAX(zchange-zxs,0.0_JPRB)
@@ -824,7 +824,7 @@ DO jk=klev-1,ktdia+2,-1
 
           IF(zbuo(jl,jk) > -0.2_JPRB) THEN !.AND.klab(jl,jk+1) == 2) THEN
             ikb=kcbot(jl)
-            zoentr(jl)=zentrorg(jl)*(0.3_JPRB-(MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1))-1.0_JPRB))*&
+            zoentr(jl)=zentrorg(jl)*(1.3_JPRB-MIN(1.0_JPRB,pqen(jl,jk-1)/pqsen(jl,jk-1)))*&
               &(pgeoh(jl,jk-1)-pgeoh(jl,jk))*zrg*MIN(1.0_JPRB,pqsen(jl,jk)/pqsen(jl,ikb))**3
             zoentr(jl)=MIN(0.4_JPRB,zoentr(jl))*pmfu(jl,jk)
           ELSE
@@ -836,7 +836,10 @@ DO jk=klev-1,ktdia+2,-1
             pmfu(jl,jk)=pmfu(jl,jk+1)
             pkineu(jl,jk)=0.5_JPRB
           ENDIF
-          IF(pkineu(jl,jk) > 0.0_JPRB.AND.pmfu(jl,jk) > 0.0_JPRB) THEN
+          ! determine convection top level;
+          ! the last set of criteria serves to limit the overshooting of updrafts through the tropopause
+          IF (pkineu(jl,jk) > 0.0_JPRB .AND. pmfu(jl,jk) > 0.0_JPRB .AND. (zbuo(jl,jk) > -2._JPRB .OR. &
+             (pten(jl,jk-1)-pten(jl,jk))/(zrg*(pgeo(jl,jk-1)-pgeo(jl,jk))) < -3.e-3_jprb ) ) THEN
             kctop(jl)=jk
             llo1(jl)=.TRUE.
           ELSE

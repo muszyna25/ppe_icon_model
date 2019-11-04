@@ -86,7 +86,7 @@ MODULE mo_cumaster
   USE mo_cuparameters , ONLY :                                   &
     & rtwat                                                     ,&
     & lmfdd    ,lmfdudv            ,lmfit                       ,&
-    & rmflic  ,rmflia  ,rmflmax, rmfsoluv                       ,&
+    & rmflic  ,rmflia  ,rmflmax, rmfsoluv, rmfdef               ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
     & rg       ,rd      ,rcpd  ,retv , rlvtt                    ,&
@@ -680,21 +680,20 @@ DO jl=kidia,kfdia
     ! deep convection
 
     IF (ktype(jl) == 1) THEN
-      zmfub(jl)=zmfmax*0.1_JPRB
+      zmfub(jl)=(PAPH(JL,IKB)-PAPH(JL,IKB-1))*rmfdef/(rg*ptsphy)
 
     ELSEIF (ktype(jl) == 2) THEN
 
       ! shallow convection
 
-      zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zqenh(jl,ikb)
-      zdqmin=MAX(0.01_JPRB*zqenh(jl,ikb),1.e-10_JPRB)
-      zdh=rcpd*(ptu(jl,ikb)-ztenh(jl,ikb))+rlvtt*zqumqe
-      zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
       IF (zdhpbl(jl) > 0.0_JPRB) THEN
+        zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zqenh(jl,ikb)
+        zdqmin=MAX(0.01_JPRB*zqenh(jl,ikb),1.e-10_JPRB)
+        zdh=rcpd*(ptu(jl,ikb)-ztenh(jl,ikb))+rlvtt*zqumqe
+        zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
         zmfub(jl)=zdhpbl(jl)/zdh
         zmfub(jl)=MIN(zmfub(jl),0.5_jprb*zmfmax)
       ELSE
-        zmfub(jl)=zmfmax*0.05_JPRB
         ldcum(jl)=.FALSE.
       ENDIF
       IF(lmfwstar) zmfub(jl)=zmf_shal(jl)
@@ -923,8 +922,6 @@ DO jl=kidia,kfdia
     ELSE
       zeps=0.0_JPRB
    ENDIF
-    zqumqe=pqu(jl,ikb)+plu(jl,ikb)-&
-      & zeps*zqd(jl,ikb)-(1.0_JPRB-zeps)*zqenh(jl,ikb)
     zdqmin=MAX(0.01_JPRB*zqenh(jl,ikb),1.e-10_JPRB)
     ! maximum permisable value of ud base mass flux
     zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2*rmflic+rmflia
@@ -932,13 +929,18 @@ DO jl=kidia,kfdia
     ! shallow convection
 
     IF(ktype(jl) == 2) THEN
-      zdh=rcpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)-&
-        & (1.0_JPRB-zeps)*ztenh(jl,ikb))+rlvtt*zqumqe
-      zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
       IF(zdhpbl(jl) > 0.0_JPRB) THEN
+        zqumqe=pqu(jl,ikb)+plu(jl,ikb)-&
+          & zeps*zqd(jl,ikb)-(1.0_JPRB-zeps)*zqenh(jl,ikb)
+        zdh=rcpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)-&
+          & (1.0_JPRB-zeps)*ztenh(jl,ikb))+rlvtt*zqumqe
+        zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
         zmfub1(jl)=zdhpbl(jl)/zdh
       ELSE
-        zmfub1(jl)=zmfub(jl)
+        !MA: cleanup convection types and set default values 
+        zmfub1(jl)=0.0_JPRB
+        ldcum(jl)=.FALSE.
+        ktype(jl)=0
       ENDIF
 
       zmfub1(jl)=MIN(zmfub1(jl),0.5_jprb*zmfmax)

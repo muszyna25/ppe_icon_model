@@ -80,7 +80,7 @@ MODULE mo_convect_tables
   PUBLIC :: lookup_ubc
   PUBLIC :: lookup_ubc_list
 
-  
+
   REAL (wp), PARAMETER :: cthomi  = tmelt-35.0_wp
   REAL (wp), PARAMETER :: csecfrl = 5.e-6_wp
 
@@ -383,6 +383,8 @@ CONTAINS
     STOP 'lookup tables printed'
 #endif
 
+    !$ACC ENTER DATA COPYIN( tlucu, tlucuw )
+
   END SUBROUTINE init_convect_tables
 
 
@@ -479,8 +481,13 @@ CONTAINS
     REAL(wp) :: a,b,c,d,dx,ddx,x,bxa
     INTEGER  ::  jl
 
-    IF (PRESENT(ua) .AND. .NOT. PRESENT(dua)) THEN
+    !$ACC DATA PRESENT( idx, zalpha, table )
+    !$ACC DATA PRESENT( ua ) IF( PRESENT(ua) )
+    !$ACC DATA PRESENT( dua ) IF( PRESENT(dua) )
 
+    IF (PRESENT(ua) .AND. .NOT. PRESENT(dua)) THEN
+      !$ACC PARALLEL
+      !$ACC LOOP GANG VECTOR PRIVATE( x, dx, ddx, a, b, c, d, bxa )
       DO jl = jcs,size
 
         x = zalpha(jl)
@@ -502,9 +509,10 @@ CONTAINS
         bxa = b + x*a
         ua(jl) = d + x*(c + x*bxa)
       END DO
-
+      !$ACC END PARALLEL
     ELSE IF (PRESENT(ua) .AND. PRESENT(dua)) THEN
-
+      !$ACC PARALLEL
+      !$ACC LOOP GANG VECTOR PRIVATE( x, dx, ddx, a, b, c, d, bxa )
       DO jl = jcs,size
 
         x = zalpha(jl)
@@ -527,7 +535,12 @@ CONTAINS
         ua(jl)  = d + x*(c + x*bxa)
         dua(jl) = 20._wp*(c + x*(3._wp*bxa - b))
       END DO
+      !$ACC END PARALLEL
     END IF
+
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
 
   END SUBROUTINE fetch_ua_spline
 
@@ -811,6 +824,14 @@ CONTAINS
     REAL(wp) :: ztt, ztshft, zinbounds, ztmin,ztmax,znphase,ztest
     INTEGER  ::  jl
 
+    !---- Argument arrays - intent(in)
+    !$ACC DATA PRESENT( temp )
+    !$ACC DATA PRESENT( xi ) IF( PRESENT(xi) )
+    !---- Argument arrays - intent(out)
+    !$ACC DATA PRESENT(idx,zalpha)
+    !$ACC DATA PRESENT(zphase) IF( PRESENT(zphase) )
+    !$ACC DATA PRESENT(iphase) IF( PRESENT(iphase) )
+
     zinbounds = 1._wp
     ztmin = flucupmin
     ztmax = flucupmax
@@ -819,6 +840,8 @@ CONTAINS
 
       znphase = 0.0_wp
 
+      !$ACC PARALLEL
+      !$ACC LOOP GANG VECTOR PRIVATE( ztshft, ztt, ztest ) REDUCTION(+:znphase) REDUCTION(*:zinbounds)
       DO jl = jcs,size
 
         ztshft = FSEL(temp(jl)-tmelt,0._wp,1._wp)
@@ -844,10 +867,12 @@ CONTAINS
         zphase(jl) = ztest-0.5_wp
         znphase = znphase + ztest
       END DO
-
+      !$ACC END PARALLEL
       nphase = INT(znphase)
 
     ELSE
+      !$ACC PARALLEL
+      !$ACC LOOP GANG VECTOR PRIVATE( ztshft, ztt ) REDUCTION(*:zinbounds)
       DO jl = jcs,size
 
         ztshft = FSEL(temp(jl)-tmelt,0._wp,1._wp)
@@ -858,12 +883,14 @@ CONTAINS
         zinbounds = FSEL(ztmin-ztt,0._wp,zinbounds)
         zinbounds = FSEL(ztt-ztmax,0._wp,zinbounds)
       END DO
+      !$ACC END PARALLEL
     END IF
 
     ! if one index was out of bounds -> print error and exit
 
     IF (zinbounds == 0._wp) THEN
 
+      !$ACC UPDATE HOST( temp )
       IF ( PRESENT(kblock) .AND. PRESENT(kblock_size) .AND. PRESENT(klev) ) THEN
 
         ! tied to patch(1), does not yet work for nested grids
@@ -887,6 +914,12 @@ CONTAINS
       CALL lookuperror(name)
 
     ENDIF
+
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
 
   END SUBROUTINE prepare_ua_index_spline
 
@@ -989,6 +1022,7 @@ CONTAINS
 
 !CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
+
     DO nl = 1,size
       jl = list(nl)
 
@@ -1022,6 +1056,11 @@ CONTAINS
     REAL(wp) :: ztt, ztshft, zinbounds, ztmax, ztmin
     INTEGER :: nl, jl
 
+    !$ACC DATA PRESENT( list, temp )                         &
+    !$ACC       CREATE( idx, zalpha )
+    !$ACC DATA PRESENT( ua )  IF( PRESENT(ua) )
+    !$ACC DATA PRESENT( dua ) IF( PRESENT(dua) )
+
     zinbounds = 1.0_wp
     ztmin = flucupmin
     ztmax = flucupmax
@@ -1029,6 +1068,8 @@ CONTAINS
     ! first compute all lookup indices and check if they are all within allowed bounds
 
 !IBM* ASSERT(NODEPS)
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, ztshft, ztt ) REDUCTION( *:zinbounds )
     DO nl = 1, kidx
       jl = list(nl)
       ztshft = FSEL(tmelt-temp(jl),1.0_wp,0.0_wp)
@@ -1039,9 +1080,14 @@ CONTAINS
       zinbounds = FSEL(ztmin-ztt,0.0_wp,zinbounds)
       zinbounds = FSEL(ztt-ztmax,0.0_wp,zinbounds)
     END DO
+    !$ACC END PARALLEL
+
     ! if one index was out of bounds -> print error and exit
     IF (zinbounds == 0.0_wp) CALL lookuperror(name)
     CALL fetch_ua_spline(1,kidx, idx, zalpha, tlucu, ua, dua)
+    !$ACC END DATA
+    !$ACC END DATA
+    !$ACC END DATA
 
   END SUBROUTINE lookup_ua_list_spline_2
 
@@ -1209,8 +1255,13 @@ CONTAINS
     !-----
     lookupoverflow = .FALSE.
 
-      CALL lookup_ua_list_spline_2('compute_qsat',kbdim,is,loidx(1), ptsfc(1), ua(1))
+    !$ACC DATA PRESENT( loidx, ppsfc, ptsfc, pqs ) &
+    !$ACC      CREATE( ua )
+
+    CALL lookup_ua_list_spline_2('compute_qsat',kbdim,is,loidx(:), ptsfc(:), ua(:))
 !
+    !$ACC PARALLEL
+    !$ACC LOOP GANG VECTOR PRIVATE( jl, zpap, zes, zcor )
     DO jc = 1,is
       jl = loidx(jc)
       zpap    = 1._wp/ppsfc(jl)
@@ -1218,9 +1269,10 @@ CONTAINS
       zcor    = 1._wp/(1._wp-vtmpc1*zes)
       pqs(jl) = zes*zcor
     ENDDO
+    !$ACC END PARALLEL
 !
     IF (lookupoverflow) CALL lookuperror ('compute_qsat')
-
+    !$ACC END DATA
   END SUBROUTINE compute_qsat
   !-------------
 

@@ -45,11 +45,12 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
 USE mo_nh_testcases,         ONLY: init_nh_testcase
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
+USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method, &
+  &                                ldeepatmo
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area
+     &                             is_plane_torus, l_limited_area, n_dom_start
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -58,8 +59,8 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 ! Grid nesting
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
-USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
-  &                                itime_scheme
+USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
+  &                                itime_scheme, ndyn_substeps, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
@@ -121,6 +122,11 @@ USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statisti
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
+USE mo_initicon_config,     ONLY: init_mode
+USE mo_sleve_config,        ONLY: flat_height
+USE mo_vertical_coord_table, ONLY: vct_a
+USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
+USE mo_nudging_config,      ONLY: l_global_nudging
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -174,6 +180,8 @@ CONTAINS
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
+    LOGICAL :: l_sdi2(n_dom)     !< Flag. TRUE if computation of supercell detection index desired
+    LOGICAL :: l_lpi(n_dom)      !< Flag. TRUE if computation of lightning potential index desired
     LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
@@ -182,6 +190,12 @@ CONTAINS
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
+
+    IF (iforcing == iecham) THEN
+      CALL init_echam_phy_params       ( p_patch(1:) )
+      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
+      CALL construct_psrad_forcing_list( p_patch(1:) )
+    END IF
 
     IF(iforcing == inwp) THEN
 
@@ -202,6 +216,12 @@ CONTAINS
      ENDDO
 
     ENDIF
+
+    ! upper atmosphere
+    CALL configure_upatmo( n_dom_start=n_dom_start, n_dom=n_dom,                 & 
+      & p_patch=p_patch(n_dom_start:), ldeepatmo=ldeepatmo, init_mode=init_mode, &
+      & iforcing=iforcing, dtime=dtime, ndyn_substeps=ndyn_substeps,             &
+      & flat_height=flat_height, msg_level=msg_level, vct_a=vct_a                ) 
 
     ! initialize ldom_active flag if this is not a restart run
 
@@ -257,9 +277,11 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
-        l_rh(jg)  = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg)  = is_variable_in_output(first_output_name_list, var_name="pv")
-        l_smi(jg) = is_variable_in_output(first_output_name_list, var_name="smi")
+        l_rh(jg)   = is_variable_in_output(first_output_name_list, var_name="rh")
+        l_pv(jg)   = is_variable_in_output(first_output_name_list, var_name="pv")
+        l_sdi2(jg) = is_variable_in_output(first_output_name_list, var_name="sdi2")
+        l_lpi(jg)  = is_variable_in_output(first_output_name_list, var_name="lpi")
+        l_smi(jg)  = is_variable_in_output(first_output_name_list, var_name="smi")
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be
         ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
@@ -279,7 +301,7 @@ CONTAINS
     END IF
 
     IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
+      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv, l_sdi2, l_lpi )
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
       CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
@@ -300,7 +322,9 @@ CONTAINS
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
        &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state_lists(jg)%tracer_list(:)  )
+       &                      p_nh_state_lists(jg)%tracer_list(:),     &
+       &                      kstart_tracer(jg,:))
+
     ENDDO
 
    IF (ldass_lhn) THEN 
@@ -320,12 +344,6 @@ CONTAINS
      CALL init_radar_data(p_patch(1:), radar_data)
      CALL construct_lhn(lhn_fields,p_patch(1:))
    ENDIF
-
-    IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params       ( p_patch(1:) )
-      CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
-      CALL construct_psrad_forcing_list( p_patch(1:) )
-    END IF
 
     !------------------------------------------------------------------
     ! Prepare for time integration
@@ -689,7 +707,7 @@ CONTAINS
     ! variable group information
     IF (my_process_is_stdio() .AND. (msg_level >= 15)) THEN
       CALL print_group_details(idom=1,                            &
-        &                      opt_latex_fmt           = .FALSE., &
+        &                      opt_latex_fmt           = .TRUE., &
         &                      opt_reduce_trailing_num = .TRUE.,  &
         &                      opt_skip_trivial        = .TRUE.)
     END IF
@@ -750,12 +768,17 @@ CONTAINS
       ENDDO
     ENDIF
 
+!
+! WS:  why is p_lnd_state not deallocated here?
+!
     IF (iforcing == iecham) THEN
       CALL cleanup_echam_phy
     ENDIF
 
+    CALL destruct_upatmo()
+
     ! call close name list prefetch
-    IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN
       IF (num_prefetch_proc >= 1) THEN
         CALL close_prefetch()
         CALL latbc%finalize()

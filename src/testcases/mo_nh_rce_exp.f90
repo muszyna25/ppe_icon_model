@@ -46,7 +46,7 @@ MODULE mo_nh_rce_exp
    CONTAINS
 !-------------------------------------------------------------------------
   !>
-  !! Initialization of prognostic state vector for the nh RCE test case
+  !! Initialization of prognostic state vector for the nh RCE test case with a constant T profile
   !!  
   !!
   SUBROUTINE init_nh_state_rce_glb( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &

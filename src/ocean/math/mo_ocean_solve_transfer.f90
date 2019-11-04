@@ -1,5 +1,8 @@
 #if (defined(_OPENMP) && defined(OCE_SOLVE_OMP))
 #include "omp_definitions.inc"
+#define PURE_OR_OMP
+#else
+#define PURE_OR_OMP PURE
 #endif
 
 MODULE mo_ocean_solve_transfer
@@ -435,7 +438,7 @@ CONTAINS
   END SUBROUTINE ocean_solve_transfer_global_sum_2d_sp
 
 ! performs local sum -- 'fast' implementation - dp variant
-  PURE FUNCTION simple_sum_loc_dp_2d(vals) RESULT(local_sum)
+  PURE_OR_OMP FUNCTION simple_sum_loc_dp_2d(vals) RESULT(local_sum)
     REAL(dp), INTENT(IN), CONTIGUOUS :: vals(:,:)
     REAL(dp) :: local_sum, aux_sum(SIZE(vals, 2))
     INTEGER :: j
@@ -451,7 +454,7 @@ CONTAINS
   END FUNCTION simple_sum_loc_dp_2d
 
 ! performs local sum -- 'fast' implementation - sp variant
-  PURE FUNCTION simple_sum_loc_sp_2d(vals) RESULT(local_sum)
+  PURE_OR_OMP FUNCTION simple_sum_loc_sp_2d(vals) RESULT(local_sum)
     REAL(sp), INTENT(IN), CONTIGUOUS :: vals(:,:)
     REAL(sp) :: local_sum, aux_sum(SIZE(vals, 2))
     INTEGER :: j
@@ -467,7 +470,7 @@ CONTAINS
   END FUNCTION simple_sum_loc_sp_2d
 
 ! finds local MAXVAL(ABS(x(:,:)) implementation - dp variant
-  PURE FUNCTION abs_max_loc_dp_2d(vals) RESULT(abs_max)
+  PURE_OR_OMP FUNCTION abs_max_loc_dp_2d(vals) RESULT(abs_max)
     REAL(dp), INTENT(IN), CONTIGUOUS :: vals(:,:)
     REAL(dp) :: abs_max, aux_max(SIZE(vals, 2))
     INTEGER :: j
@@ -483,7 +486,7 @@ CONTAINS
   END FUNCTION abs_max_loc_dp_2d
 
 ! finds local MAXVAL(ABS(x(:,:)) implementation - dp variant
-  PURE FUNCTION abs_max_loc_sp_2d(vals) RESULT(abs_max)
+  PURE_OR_OMP FUNCTION abs_max_loc_sp_2d(vals) RESULT(abs_max)
     REAL(sp), INTENT(IN), CONTIGUOUS :: vals(:,:)
     REAL(sp) :: abs_max, aux_max(SIZE(vals, 2))
     INTEGER :: j
@@ -500,7 +503,7 @@ END FUNCTION abs_max_loc_sp_2d
 
 ! first local part of order insensitive summation -- dp-variant
 ! convert to scaled integers and locally sum those
-  PURE FUNCTION order_insensit_ieee64_sum_frst_dp_2d(vals, abs_max) &
+  PURE_OR_OMP FUNCTION order_insensit_ieee64_sum_frst_dp_2d(vals, abs_max) &
     & RESULT(isum)
     REAL(dp), INTENT(IN), CONTIGUOUS :: vals(:,:)
     REAL(dp), INTENT(IN) :: abs_max

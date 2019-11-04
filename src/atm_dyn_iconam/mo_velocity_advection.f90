@@ -81,6 +81,11 @@ MODULE mo_velocity_advection
   !!
   !! @par Revision History
   !! Initial release by Guenther Zaengl (2010-02-03)
+  !! Modification by Sebastian Borchert, DWD (2017-07-07)
+  !! (Dear developer, for computational efficiency reasons, a copy of this subroutine 
+  !! exists in 'src/atm_dyn_iconam/mo_nh_deepatmo_utils'. If you would change something here, 
+  !! please consider to apply your development there, too, in order to help preventing 
+  !! the copy from diverging and becoming a code corpse sooner or later. Thank you!)
   !!
   SUBROUTINE velocity_tendencies (p_prog, p_patch, p_int, p_metrics, p_diag, z_w_concorr_me, z_kin_hor_e, &
                                   z_vt_ie, ntnd, istep, lvn_only, dtime)

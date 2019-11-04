@@ -25,17 +25,18 @@ MODULE mo_ocean_diagnostics_types
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_math_types,          ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
-  
+
   PUBLIC :: t_ocean_monitor
-  
+
   PUBLIC :: t_ocean_regions
   PUBLIC :: t_ocean_region_volumes
   PUBLIC :: t_ocean_region_areas
   PUBLIC :: t_ocean_basins
- 
+
 
   ! diagnostic variables
   TYPE t_ocean_monitor
+    REAL(wp), POINTER :: amoc26n(:)
     REAL(wp), POINTER :: volume(:)
     REAL(wp), POINTER :: kin_energy(:)
     REAL(wp), POINTER :: pot_energy(:)

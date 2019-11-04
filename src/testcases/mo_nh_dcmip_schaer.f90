@@ -46,7 +46,8 @@ MODULE mo_nh_dcmip_schaer
    USE mo_intp,                 ONLY: cells2edges_scalar
    USE mo_sync,                 ONLY: sync_patch_array, sync_patch_array_mult, &
      &                                SYNC_C, SYNC_E
-   USE mo_nh_init_utils,        ONLY: hydro_adjust, convert_thdvars  !, init_w 
+   USE mo_nh_init_utils,        ONLY: convert_thdvars  !, init_w 
+   USE mo_hydro_adjust,         ONLY: hydro_adjust
 
    IMPLICIT NONE
 

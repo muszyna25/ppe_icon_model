@@ -205,6 +205,11 @@ MODULE mo_output_event_handler
     MODULE PROCEDURE is_par_output_step
   END INTERFACE
 
+  INTERFACE check_close_file
+    MODULE PROCEDURE check_close_file
+    MODULE PROCEDURE check_close_file_step
+  END INTERFACE check_close_file
+
   INTERFACE get_current_date
     MODULE PROCEDURE get_current_date
     MODULE PROCEDURE get_current_date_par
@@ -1781,19 +1786,37 @@ CONTAINS
     TYPE(t_par_output_event), INTENT(IN) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::check_close_file"
-    INTEGER :: istep
 
-    istep = event%output_event%i_event_step
+    check_close_file = check_close_file_step(event, event%output_event%i_event_step)
+  END FUNCTION check_close_file
+
+  !> @return .TRUE. if current event step has the "close file" flag
+  !          enabled.
+  !
+  !  @author F. Prill, DWD
+  !
+  FUNCTION check_close_file_step(event, istep) RESULT(check_close_file)
+    LOGICAL :: check_close_file
+    TYPE(t_par_output_event), INTENT(IN) :: event
+    INTEGER, INTENT(in) :: istep
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::check_close_file"
+
     ! We cannot check events that are the union of multiple other
     ! events:
-    IF (event%output_event%event_step(istep)%n_pes > 1) THEN
-      WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
+    IF (istep <= SIZE(event%output_event%event_step)) THEN
+      IF (event%output_event%event_step(istep)%n_pes > 1) THEN
+        WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
-      CALL finish(routine, "Error! Multi-part event step!")
+        CALL finish(routine, "Error! Multi-part event step!")
+      END IF
+      check_close_file &
+        = event%output_event%event_step(istep)%event_step_data(1)%l_open_file
+    ELSE
+      check_close_file = .TRUE.
     END IF
-    check_close_file = istep > 1 &
-      .AND. event%output_event%event_step(istep)%event_step_data(1)%l_open_file
-  END FUNCTION check_close_file
+    check_close_file = check_close_file .AND. istep > 1
+  END FUNCTION check_close_file_step
 
 
   !> @return .TRUE. if this PE is the event's root PE.  If no event

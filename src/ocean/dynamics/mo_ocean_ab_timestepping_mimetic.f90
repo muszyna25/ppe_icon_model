@@ -376,11 +376,8 @@ CONTAINS
 !      CALL dbg_print('after ocean_solve: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
       !---------------------------------------------------------------------
       CALL dbg_print('vn-new',ocean_state%p_prog(nnew(1))%vn,str_module, 2,in_subset=owned_edges)
-      CALL dbg_print('aft ocean_solve('//TRIM(solve%sol_type_name)//'): h-new', &
-        & ocean_state%p_prog(nnew(1))%h(:,:) ,str_module,2,in_subset=owned_cells)
       minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
-      CALL debug_print_MaxMinMean('after ocean_solve('//TRIM(solve%sol_type_name)//'): h-new', &
-        & minmaxmean, str_module, 2)
+      CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, 1)
       IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
 !          CALL finish(method_name, "height below min_top_height")
         CALL warning(method_name, "height below min_top_height")
@@ -465,11 +462,10 @@ CONTAINS
 
 
 
-
      CALL calc_internal_press_grad( patch_3d,&
          &                          ocean_state%p_diag%rho,&
          &                          ocean_state%p_diag%press_hyd,& 
-         &                          p_as%pao,&
+         &                          ocean_state%p_aux%bc_total_top_potential, &
          &                          op_coeffs%grad_coeff,  &
          &                          ocean_state%p_diag%press_grad)     
       ! calculate vertical velocity advection

@@ -21,7 +21,6 @@ MODULE mo_advection_aerosols
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, nclass_aero, idu
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_advection_config,    ONLY: advection_config
-  ! USE mo_advection_limiter,   ONLY: hflx_limiter_sm
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell
@@ -329,9 +328,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-  ! Does not seem to be needed because undershoots happen practically never
-  !  CALL hflx_limiter_sm(p_patch, p_int, dtime, aerosol, flx_aero,      &
-  !                       1, 5, rhodz_now_int, opt_rlend=min_rlcell_int-1)
+
 
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
 

@@ -15,7 +15,7 @@ qs                  QS
 pres_sfc            LNPS
 z_ifc               HHL
 vn                  VN
-GEOSP               GEOSP
+GEOSP               GEOP_SFC
 GEOP_ML             GEOP_ML
 theta_v             THETA_V
 rho                 DEN

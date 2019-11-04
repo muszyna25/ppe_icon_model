@@ -109,17 +109,31 @@ CONTAINS
     
     REAL(wp) :: idt2 ! 1 / (2*dt)
 
-    INTEGER :: k, jc ! loop indices
+    INTEGER :: k, jk, jc ! loop indices
     
     
    !-------------------------------------------------------------------------------
+    !$ACC DATA PRESENT ( Tsurf, T1, T2, hi, hs, Qtop, Qbot, SWnet, nonsolar,   &
+    !$ACC                dnonsolardT, Tfw )
 
     ! initialization
-    Qbot(:,:) = 0._wp
-    Qtop(:,:) = 0._wp
+    !$ACC PARALLEL
+    !$ACC LOOP SEQ
+    DO k = 1,kice
+      !$ACC LOOP GANG VECTOR
+      DO jk = 1,nbdim
+        Qbot(jk,k) = 0._wp
+        Qtop(jk,k) = 0._wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
     idt2   =  1.0_wp / (2.0_wp*pdtime)
     
+    !$ACC PARALLEL
+    !$ACC LOOP SEQ
     DO k=1,kice
+      !$ACC LOOP GANG VECTOR PRIVATE(B, A, K1, K2, D, iK1B, Tsurfm, A1a, A1,   &
+      !$ACC                          B1a, B1, C1)
       DO jc = i_startidx_c,i_endidx_c
         IF ( hi(jc,k) > 0._wp ) THEN
 
@@ -184,6 +198,9 @@ CONTAINS
         END IF
       END DO
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
 
   END SUBROUTINE set_ice_temp_winton
 

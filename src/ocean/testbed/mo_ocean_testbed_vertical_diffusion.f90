@@ -46,7 +46,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_ocean_forcing,          ONLY: destruct_ocean_forcing
   USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_var_list,               ONLY: print_var_list
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn

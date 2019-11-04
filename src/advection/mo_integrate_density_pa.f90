@@ -24,7 +24,7 @@ MODULE mo_integrate_density_pa
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge_int, min_rlcell_int, &
-    &                               MIURA, MIURA3
+    &                               MIURA, MIURA3, ippm_v
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -218,8 +218,11 @@ CONTAINS
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in
           &                  advection_config(pid)%itype_vlimit(1),        &! in
+          &                  advection_config(pid)%ivlimit_selective(1),   &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full, .TRUE.,                &! in 
+          &                  p_metrics%ddqz_z_full,                        &! in
+          &                  .TRUE.,                                       &! in
+          &                  ippm_v,                                       &! in           
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in
@@ -433,8 +436,11 @@ CONTAINS
           &                  z_w_traj, p_dtime,                            &! in
           &                  lcompute, lcleanup,                           &! in
           &                  advection_config(pid)%itype_vlimit(1),        &! in
+          &                  advection_config(pid)%ivlimit_selective(1),   &! in
           &                  p_metrics%ddqz_z_full,                        &! in
-          &                  p_metrics%ddqz_z_full, .TRUE.,                &! in
+          &                  p_metrics%ddqz_z_full,                        &! in
+          &                  .TRUE.,                                       &! in
+          &                  ippm_v,                                       &! in           
           &                  p_diag%rho_ic,                                &! out
           &                  opt_lout_edge = .TRUE.,                       &! in
           &                  opt_rlstart=i_rlstart,                        &! in

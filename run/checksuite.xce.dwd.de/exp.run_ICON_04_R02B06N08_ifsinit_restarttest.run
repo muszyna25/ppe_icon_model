@@ -245,7 +245,7 @@ cat > NAMELIST_NWP << EOF
 &grid_nml
  dynamics_grid_filename      =  ${dynamics_grid_filename}         ! array of the grid filenames for the dycore
  radiation_grid_filename     = ${radiation_grid_filename}         ! array of the grid filenames for the radiation model
- dynamics_parent_grid_id     =                       0, 1         ! array of the indexes of the parent grid filenames
+ dynamics_parent_grid_id     =                    0, 1, 2         ! array of the indexes of the parent grid filenames
  lredgrid_phys               =               .TRUE.,.TRUE.        ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =       .TRUE.,.TRUE.,.FALSE.        ! specifies if feedback to parent grid is performed
  ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)

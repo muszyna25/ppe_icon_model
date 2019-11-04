@@ -67,6 +67,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_parameters,     ONLY: t_phy_params
   USE mo_time_config,        ONLY: time_config
   USE mo_nwp_tuning_config,  ONLY: lcalib_clcov
+  USE mo_upatmo_config,      ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -355,6 +356,11 @@ CONTAINS
                 &                                   prm_diag%swflxsfc  (jc,jb), &
                 &                                   t_wgt)
 
+              ! time averaged clear-sky shortwave net flux at surface
+              prm_diag%swflxclrsfc_a(jc,jb) = time_avg(prm_diag%swflxclrsfc_a(jc,jb), &
+                &                                      prm_diag%swflxclr_sfc (jc,jb), &
+                &                                      t_wgt)
+
               ! time averaged shortwave diffuse downward flux at surface
               prm_diag%asodifd_s (jc,jb) = time_avg(prm_diag%asodifd_s        (jc,jb), &
                 &                                   prm_diag%swflx_dn_sfc_diff(jc,jb), &
@@ -366,11 +372,15 @@ CONTAINS
                 &                                 * prm_diag%swflxsfc    (jc,jb), &
                 &                                   t_wgt)
 
-
               ! time averaged longwave net flux at surface
               prm_diag%lwflxsfc_a(jc,jb) = time_avg(prm_diag%lwflxsfc_a(jc,jb), &
                 &                                   prm_diag%lwflxsfc  (jc,jb), &
                 &                                   t_wgt)
+
+              ! time averaged clear-sky longwave net flux at surface
+              prm_diag%lwflxclrsfc_a(jc,jb) = time_avg(prm_diag%lwflxclrsfc_a(jc,jb), &
+                &                                      prm_diag%lwflxclr_sfc (jc,jb), &
+                &                                      t_wgt)
 
               ! time averaged longwave upward flux at surface
               prm_diag%athu_s    (jc,jb) = time_avg(prm_diag%athu_s      (jc,jb), &
@@ -402,6 +412,9 @@ CONTAINS
               prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
                 &                        -            prm_diag%asodifd_s (jc,jb) &
                 &                        +            prm_diag%asodifu_s (jc,jb) )
+
+              ! downward solar radiation = sum of direct + diffuse
+              prm_diag%asod_s(jc,jb) = prm_diag%asodifd_s(jc,jb) + prm_diag%asodird_s(jc,jb)
 
               ! time averaged downward photosynthetically active flux at surface
               prm_diag%aswflx_par_sfc(jc,jb) = time_avg(prm_diag%aswflx_par_sfc(jc,jb), &
@@ -502,6 +515,11 @@ CONTAINS
              &                         + prm_diag%swflxsfc(jc,jb)     &
              &                         * dt_phy_jg(itfastphy)
 
+              ! accumulated clear-sky shortwave net flux at surface
+              prm_diag%swflxclrsfc_a(jc,jb) = prm_diag%swflxclrsfc_a(jc,jb) &
+             &                           + prm_diag%swflxclr_sfc(jc,jb)     &
+             &                           * dt_phy_jg(itfastphy)
+
               ! accumulated shortwave diffuse downward flux at surface
               prm_diag%asodifd_s (jc,jb) = prm_diag%asodifd_s        (jc,jb)  &
              &                           + prm_diag%swflx_dn_sfc_diff(jc,jb)  &
@@ -517,6 +535,11 @@ CONTAINS
               prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb) &
                                    &   + prm_diag%lwflxsfc(jc,jb)     &
                                    &   * dt_phy_jg(itfastphy)
+
+              ! accumulated clear-sky longwave net flux at surface
+              prm_diag%lwflxclrsfc_a(jc,jb) = prm_diag%lwflxclrsfc_a(jc,jb) &
+                                     &   + prm_diag%lwflxclr_sfc(jc,jb)     &
+                                     &   * dt_phy_jg(itfastphy)
 
               ! accumulated shortwave net flux at TOA
               prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb) &
@@ -548,6 +571,9 @@ CONTAINS
               prm_diag%asodird_s (jc,jb) = MAX(0._wp, prm_diag%swflxsfc_a(jc,jb) &
                 &                        -            prm_diag%asodifd_s (jc,jb) &
                 &                        +            prm_diag%asodifu_s (jc,jb) )
+
+              ! downward solar radiation = sum of direct + diffuse
+              prm_diag%asod_s(jc,jb) = prm_diag%asodifd_s(jc,jb) + prm_diag%asodird_s(jc,jb)
 
               ! accumulated downward photosynthetically active flux at surface
               prm_diag%aswflx_par_sfc(jc,jb) = prm_diag%aswflx_par_sfc(jc,jb)  &
@@ -666,7 +692,9 @@ CONTAINS
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
 
-           z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
+           ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
+           z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb) & 
+             &    * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
 
            ! TQV, TQC, TQI
            prm_diag%tot_cld_vi(jc, jb,iqv) = prm_diag%tot_cld_vi(jc, jb,iqv)    + &
@@ -839,9 +867,11 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
       ! pre-computation of rho * \Delta z
+      ! (deep-atmosphere modification applied: height-dependence of grid cell volume)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx 
-          rhodz(jc,jk) = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
+          rhodz(jc,jk) = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb) & 
+            &          * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)  
         ENDDO
       ENDDO
 
@@ -1051,23 +1081,18 @@ CONTAINS
 
 
       !
-      ! height of 0 deg C level "hzerocl". Not higher than htop_moist_proc
+      ! height of 0 deg C level "hzerocl". Take uppermost freezing level in case of multiple 
+      ! occurrences, use orography height if temperature is below freezing in all levels
       !
-      ! Surface temperature below 0 deg C
-      WHERE( pt_diag%temp(i_startidx:i_endidx,nlev,jb) < tmelt)
-        prm_diag%hzerocl(i_startidx:i_endidx,jb) = zundef
-      ELSEWHERE
-        prm_diag%hzerocl(i_startidx:i_endidx,jb) = 0._wp
-      END WHERE
+      ! Initialization with orography height
+      prm_diag%hzerocl(i_startidx:i_endidx,jb) = p_metrics%z_ifc(i_startidx:i_endidx,nlevp1,jb)
 
-      !AD(MPIM): ending the loop at kstart_moist+1 to avoid runtime error in dry case
-      DO jk = nlev, kstart_moist+1, -1
+      DO jk = kstart_moist+1, nlev
         DO jc = i_startidx, i_endidx 
-          IF ( prm_diag%hzerocl(jc,jb) /= 0._wp) THEN
+          IF ( prm_diag%hzerocl(jc,jb) > p_metrics%z_ifc(jc,nlevp1,jb)) THEN ! freezing level found
             CYCLE
-          ELSE IF ( pt_diag%temp(jc,jk  ,jb) >= tmelt .AND. &
-           &        pt_diag%temp(jc,jk-1,jb) <  tmelt ) THEN
-            prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -  &
+          ELSE IF (pt_diag%temp(jc,jk-1,jb) < tmelt .AND. pt_diag%temp(jc,jk,jb) >= tmelt) THEN
+            prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -            &
            &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
            &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
            &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )

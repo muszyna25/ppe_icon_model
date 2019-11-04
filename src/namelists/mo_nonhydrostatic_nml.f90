@@ -41,6 +41,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
                                     & config_hbot_qvsubstep   => hbot_qvsubstep   , &
+                                    & config_htop_tracer_proc    => htop_tracer_proc    , &
                                     & config_damp_height      => damp_height      , &
                                     & config_rayleigh_type    => rayleigh_type    , &
                                     & config_rayleigh_coeff   => rayleigh_coeff   , &
@@ -113,10 +114,12 @@ CONTAINS
     REAL(wp):: divdamp_trans_end       ! Upper bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
     INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
     REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
-    ! where processes related to moist physics are computed
+                                       ! where processes related to moist physics are computed
     REAL(wp):: hbot_qvsubstep          ! Bottom height (in m) down to which water vapor is
-    ! advected with internal substepping (to circumvent CFL
-    ! instability in the stratopause region).
+                                       ! advected with internal substepping (to circumvent CFL
+                                       ! instability in the stratopause region).
+    REAL(wp):: htop_tracer_proc        ! Top height (in m) of the part of the model domain
+                                       ! where processes related to (ART) tracers are computed
 
     INTEGER :: rayleigh_type           ! type of Rayleigh damping (1: CLASSIC, 2: Klemp (2008))
     REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
@@ -147,7 +150,7 @@ CONTAINS
          & nest_substeps, l_masscorr_nest, l_zdiffu_t,               &
          & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
          & rhotheta_offctr, lextra_diffu, veladv_offctr,             &
-         & divdamp_trans_start, divdamp_trans_end
+         & divdamp_trans_start, divdamp_trans_end, htop_tracer_proc
 
     !-----------------------
     ! 1. default settings
@@ -189,6 +192,9 @@ CONTAINS
     !use half the transport time step above 24 km to ensure CFL stability
     !     (requires choosing ihadv_tracer(1) = 22, 32 or 42!)
     hbot_qvsubstep  = 22500._wp
+
+    ! Turn off art tracer related processes above 1000.0 km (i.e. per default ineffective)
+    htop_tracer_proc = 1000000._wp
 
     ! type of Rayleigh damping
     rayleigh_type     = 2           ! Klemp-type Rayleigh damping
@@ -338,7 +344,8 @@ CONTAINS
        config_l_masscorr_nest   = l_masscorr_nest
        config_htop_moist_proc   = htop_moist_proc
        config_hbot_qvsubstep    = hbot_qvsubstep
-  
+       config_htop_tracer_proc  = htop_tracer_proc
+
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------

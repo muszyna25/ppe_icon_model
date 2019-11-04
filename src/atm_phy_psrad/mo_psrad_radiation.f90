@@ -316,6 +316,7 @@ MODULE mo_psrad_radiation
     & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif    ,&!< in  surface albedo for visible range, diffuse
     & alb_nir_dif    ,&!< in  surface albedo for near IR range, diffuse
+    & emissivity     ,&!< in surface longwave emissivity
     & tk_sfc         ,&!< in  grid box mean surface temperature
     & zf             ,&!< in  geometric height at full level      [m]
     & zh             ,&!< in  geometric height at half level      [m]
@@ -370,6 +371,7 @@ MODULE mo_psrad_radiation
     & alb_nir_dir(:,:),      & !< surface albedo for NIR range and direct light
     & alb_vis_dif(:,:),      & !< surface albedo for visible range and diffuse light
     & alb_nir_dif(:,:),      & !< surface albedo for NIR range and diffuse light
+    & emissivity(:,:),       & !< surface longwave emissivity
     & tk_sfc(:,:),           & !< Surface temperature
     & zf(:,:,:),          & !< geometric height at full level      [m]
     & zh(:,:,:),          & !< geometric height at half level      [m]
@@ -517,6 +519,7 @@ MODULE mo_psrad_radiation
       & loland          ,loglac          ,this_datetime                    ,&
       & pcos_mu0        ,daylght_frc                                       ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emissivity                                                         ,&
       & zf              ,zh              ,dz                               ,&
       & pp_sfc          ,pp_fl                                             ,&
       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
@@ -949,7 +952,7 @@ MODULE mo_psrad_radiation
           ! inconsistent with having two different options for the constant
           ! concentration cases (2 without and 3 with profile). However, instead
           ! of adding a fifth option, it seems more advisable to clean up the 
-          ! complete handling of radiation switches (including ighg), later.
+          ! complete handling of radiation switches later.
           zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
           zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
           gas_profile(jcs:jce,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(jcs:jce,:)   &

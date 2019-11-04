@@ -103,7 +103,16 @@ MODULE mo_advection_nml
                                    !< 3: monotonous flux limiter
                                    !< 4: positive definite flux limiter
 
-  REAL(wp):: beta_fct              !< factor of allowed over-/undershooting in monotonous limiter
+  INTEGER :: &                     !< additional method for identifying and avoiding 
+    & ivlimit_selective(max_ntracer)!< spurious limiting of smooth extrema
+                                   !< 1: switch on
+                                   !< 0: switch off
+
+  REAL(wp):: beta_fct              !< global boost factor for range of permissible values in 
+                                   !< (semi-) monotonous flux limiter. A value larger than 
+                                   !< 1 allows for (small) over and undershoots, while a value 
+                                   !< of 1 gives strict monotonicity (at the price of increased 
+                                   !< diffusivity).
 
 
   INTEGER :: iord_backtraj         !< parameter to select the spacial order
@@ -124,11 +133,13 @@ MODULE mo_advection_nml
     &  init_formula                  !< for passive tracers.
 
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
-    &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
-    &                     iadv_tke, beta_fct, iord_backtraj,              &
-    &                     lclip_tracer, tracer_names, ctracer_list, igrad_c_miura,      &
-    &                     lstrang, llsq_svd, npassive_tracer,             &
-    &                     init_formula
+    &                     itype_vlimit, ivlimit_selective,                &
+    &                     ivcfl_max, itype_hlimit,                        &
+    &                     iadv_tke, beta_fct,                             &
+    &                     iord_backtraj, lclip_tracer, tracer_names,      &
+    &                     ctracer_list, igrad_c_miura, lstrang, llsq_svd, &
+    &                     npassive_tracer, init_formula
+
 
 
 CONTAINS
@@ -167,24 +178,25 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    ctracer_list    = ''
-    ihadv_tracer(:) = MIURA     ! miura horizontal advection scheme
-    itype_hlimit(:) = ifluxl_sm ! positive definite flux limiter
-    ivadv_tracer(:) = ippm_v    ! PPM vertical advection scheme
-    itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
-    iadv_tke        = 0         ! no TKE advection
-    beta_fct        = 1.005_wp  ! factor of allowed over-/undershooting in monotonous limiter
-    ivcfl_max       = 5         ! CFL-stability range for vertical advection
-    iord_backtraj   = 1         ! 1st order backward trajectory
-    lvadv_tracer    = .TRUE.    ! vertical advection yes/no
-    lclip_tracer    = .FALSE.   ! clipping of negative values yes/no
-    lstrang         = .FALSE.   ! Strang splitting yes/no
+    ctracer_list         = ''
+    ihadv_tracer(:)      = MIURA     ! miura horizontal advection scheme
+    itype_hlimit(:)      = ifluxl_sm ! positive definite flux limiter
+    ivadv_tracer(:)      = ippm_v    ! PPM vertical advection scheme
+    itype_vlimit(:)      = islopel_vsm ! semi-monotonous slope limiter
+    ivlimit_selective(:) = 0         ! do not use method for preserving smooth extrema
+    iadv_tke             = 0         ! no TKE advection
+    beta_fct             = 1.005_wp  ! factor of allowed over-/undershooting in monotonous limiter
+    ivcfl_max            = 5         ! CFL-stability range for vertical advection
+    iord_backtraj        = 1         ! 1st order backward trajectory
+    lvadv_tracer         = .TRUE.    ! vertical advection yes/no
+    lclip_tracer         = .FALSE.   ! clipping of negative values yes/no
+    lstrang              = .FALSE.   ! Strang splitting yes/no
 
-    igrad_c_miura   = 1         ! MIURA linear least squares reconstruction
+    igrad_c_miura        = 1         ! MIURA linear least squares reconstruction
 
-    llsq_svd        = .TRUE.    ! apply singular-value-decomposition (FALSE: use QR-decomposition)
-    npassive_tracer = 0         ! no additional passive tracers
-    init_formula    = ''        ! no explizit initialization of passive tracers
+    llsq_svd             = .TRUE.    ! apply singular-value-decomposition (FALSE: use QR-decomposition)
+    npassive_tracer      = 0         ! no additional passive tracers
+    init_formula         = ''        ! no explizit initialization of passive tracers
 
     DO it=1,max_ntracer         ! use tracer index as name suffix
       WRITE(tname,'(I3)') it
@@ -234,10 +246,11 @@ CONTAINS
         &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
         &  '20,22,32,42 or 52 ')
     ENDIF
+
     IF ( ANY(ivadv_tracer(1:ntracer) > ippm4gpu_v) .OR.                   &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for ivadv_tracer. Must be 0,1,3 or 4 ')
+        &  'incorrect settings for ivadv_tracer. Must be 0,1,3,4 or 5 ')
     ENDIF
 
 
@@ -247,14 +260,18 @@ CONTAINS
     IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                  &
       &  ANY(itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for itype_vlimit. Must be 0,1,2 or 4 ')
+        &  'incorrect settings for itype_vlimit. Permissible choices [0,..,3]')
     ENDIF
     IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                    &
       &  ANY(itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
+        &  'incorrect settings for itype_hlimit. Permissible choices [0,..,4]')
     ENDIF
-
+    IF ( ANY(ivlimit_selective(1:ntracer) < 0 ) .OR.                  &
+      &  ANY(ivlimit_selective(1:ntracer) > 1 )) THEN
+      CALL finish( TRIM(routine),                                     &
+        &  'incorrect settings for ivlimit_selective. Permissible values 0 or 1')
+    ENDIF
 
     ! FCT multiplicative spreading - sanity check
     ! 
@@ -283,22 +300,23 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      advection_config(jg)%tracer_names(:)= ADJUSTL(tracer_names(:))
-      advection_config(jg)%ihadv_tracer(:)= ihadv_tracer(:)
-      advection_config(jg)%ivadv_tracer(:)= ivadv_tracer(:)
-      advection_config(jg)%lvadv_tracer   = lvadv_tracer
-      advection_config(jg)%lclip_tracer   = lclip_tracer
-      advection_config(jg)%lstrang        = lstrang
-      advection_config(jg)%llsq_svd       = llsq_svd
-      advection_config(jg)%itype_vlimit(:)= itype_vlimit(:)
-      advection_config(jg)%itype_hlimit(:)= itype_hlimit(:)
-      advection_config(jg)%beta_fct       = beta_fct
-      advection_config(jg)%iord_backtraj  = iord_backtraj
-      advection_config(jg)%igrad_c_miura  = igrad_c_miura
-      advection_config(jg)%iadv_tke       = iadv_tke
-      advection_config(jg)%ivcfl_max      = ivcfl_max
-      advection_config(jg)%npassive_tracer= npassive_tracer 
-      advection_config(jg)%init_formula   = init_formula 
+      advection_config(jg)%tracer_names(:)     = ADJUSTL(tracer_names(:))
+      advection_config(jg)%ihadv_tracer(:)     = ihadv_tracer(:)
+      advection_config(jg)%ivadv_tracer(:)     = ivadv_tracer(:)
+      advection_config(jg)%lvadv_tracer        = lvadv_tracer
+      advection_config(jg)%lclip_tracer        = lclip_tracer
+      advection_config(jg)%lstrang             = lstrang
+      advection_config(jg)%llsq_svd            = llsq_svd
+      advection_config(jg)%itype_vlimit(:)     = itype_vlimit(:)
+      advection_config(jg)%itype_hlimit(:)     = itype_hlimit(:)
+      advection_config(jg)%ivlimit_selective(:)= ivlimit_selective(:)
+      advection_config(jg)%beta_fct            = beta_fct
+      advection_config(jg)%iord_backtraj       = iord_backtraj
+      advection_config(jg)%igrad_c_miura       = igrad_c_miura
+      advection_config(jg)%iadv_tke            = iadv_tke
+      advection_config(jg)%ivcfl_max           = ivcfl_max
+      advection_config(jg)%npassive_tracer     = npassive_tracer 
+      advection_config(jg)%init_formula        = init_formula 
     ENDDO
 
 
