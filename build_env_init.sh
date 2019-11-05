@@ -10,7 +10,7 @@
 
 function switch_for_module {
   if test ! -z $1; then
-    packageName=`echo $1 | cut -d/ -f1`
+    packageName=`echo $1 | awk -F/ '{print $(NF-1)}'`
     same_name_modules=`module -t list 2>&1 | sed -n '/'$packageName'/p'`
     test -n "$same_name_modules" && module unload $same_name_modules
     conflicting_modules=`module show $packageName 2>&1 | sed -n 's/^conflict[ \t][ \t]*\([^ \t][^ \t]*\)/\1/p'`
