@@ -4,8 +4,6 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 
-AC_PREFIX_DEFAULT(["`pwd`/install"])
-
 AS_IF([test "`cd $srcdir && pwd`" != "`pwd`" && dnl
 test -f "$srcdir/config.status"],
   [AC_MSG_ERROR([source directory already configured; dnl

@@ -585,7 +585,6 @@ PACKAGE_BUGREPORT='icon@mpimet.mpg.de'
 PACKAGE_URL=''
 
 ac_unique_file="src/drivers/icon.f90"
-ac_default_prefix="`pwd`/install"
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 LN_S
@@ -2071,8 +2070,6 @@ fi
 ac_config_guess="$SHELL $ac_aux_dir/config.guess"  # Please don't use this var.
 ac_config_sub="$SHELL $ac_aux_dir/config.sub"  # Please don't use this var.
 ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
-
-
 
 
 

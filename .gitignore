@@ -28,9 +28,6 @@
 /srclist
 /version.c
 
-# Install stage files:
-/install
-
 # Dist stage files:
 /icon-*.tar.bz2
 
