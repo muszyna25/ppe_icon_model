@@ -185,6 +185,8 @@ NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
 # Delete preprocessed files on error:
 .DELETE_ON_ERROR: $(pp_files)
 
+################################ USER INTERFACE ################################
+
 # Default rule:
 all: $(bindir)/icon@EXEEXT@
 
@@ -201,11 +203,15 @@ mostlyclean: $(bundled_subdirs)
 	rm -f $(notdir $(f90_files:.f90=.i))
 	rm -rf icon@EXEEXT@.dSYM
 
-# Delete files generated at the building stage (Python cache files are
-# generated in the source directory, we delete them only if we are not building
-# out-of-source):
+# Delete files generated at the building stage:
+#   1. The value of the variable pp_files can be very long, which might lead
+#      to an error "execvp: /bin/bash: Argument list too long". Our first
+#      attempt to overcome this issue is to turn the absolute paths of the files
+#      into relative ones.
+#   2. Python cache files are generated in the source directory, we delete them
+#      only if we are not building out-of-source.
 clean: mostlyclean
-	rm -f srclist $(pp_files) version.c
+	rm -f srclist $(patsubst $(builddir)/%,%,$(pp_files)) version.c
 	find . -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
 
 # Delete everything generated at the configure stage (and clean the created
@@ -238,45 +244,40 @@ srclist: $(dep_files)
 # Check rule (run the tests serially to make the output readable and prevent
 # from possible overloading due to multiple simultaneous MPI runs):
 check: all
-	@fail=; pass=; \
+	@test -z '$(bundled_subdirs)' && echo "The list of bundled libraries is empty: nothing to check." && exit 0; \
+	fail=; pass=; \
 	for d in $(bundled_subdirs); do \
 	  if $(MAKE) -C "$$d" check V=$(V); then pass="$$pass$$d "; \
 	  else fail="$$fail$$d "; fi; \
 	done; \
-	echo "PASS: $$pass"; echo "FAIL: $$fail"; \
-	test -z "$$fail"
+	test -n "$$pass" && echo "PASS: $$pass"; \
+	if test -n "$$fail"; then echo "FAIL: $$fail" && false; fi # exit code of the last command must be zero if $fail is empty
+
+########################### COMPILATION AND LINKING ############################
 
 # ICON executable linking rule:
 $(bindir)/icon@EXEEXT@: $(ICON_obj_file) $(shell $(DEPLIST) -t $(ICON_obj_file) -p '*.@OBJEXT@' --inc-oo -f $(dep_files)) $(BUNDLED_LIBFILES) | $(dir_files)
 	$(silent_FCLD)$(FC) -o $@ $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
-# Default Fortran compilation rule:
-%.@OBJEXT@: %.f90 | $(dir_files) $(bundled_subdirs)
-	$(silent_FC)$(FC) -o $@ -c $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) @FCFLAGS_f90@ $<
-
-# Default C compilation rule:
-%.@OBJEXT@: %.c | $(dir_files)
-	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(ICON_CFLAGS) $(makefile_CPPFLAGS) $(CPPFLAGS) $<
+# Note that old versions of make (3.81 and earlier) take the first matching
+# pattern rules instead of the rule with the shortest stem. Therefore, it is
+# important that we declare more concrete rules first.
 
 # ICON-Ocean Fortran compilation rules:
 ICON_OCEAN_FC= $(silent_FC)$(FC) -o $@ -c $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) @FCFLAGS_f90@ $<
 
 $(f90_prefix)src/hamocc/%.@OBJEXT@: $(f90_prefix)src/hamocc/%.f90 | $(dir_files) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
-
 $(f90_prefix)src/ocean/%.@OBJEXT@: $(f90_prefix)src/ocean/%.f90 | $(dir_files) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
-
 $(f90_prefix)src/sea_ice/%.@OBJEXT@: $(f90_prefix)src/sea_ice/%.f90 | $(dir_files) $(bundled_subdirs)
 	$(ICON_OCEAN_FC)
 
-# Delete all Fortran module proxy files that do not have an existing module to
-# be a proxy of, i.e. if <filename>.proxy exists but <filename> does not,
-# delete <filename>.proxy:
-sanitize-mod-proxies:
-	@rm -f $(filter-out $(addsuffix .proxy,$(wildcard $(moddir)/*.@FC_MOD_FILE_EXT@)),$(wildcard $(moddir)/*.@FC_MOD_FILE_EXT@.proxy))
+# Default Fortran compilation rule:
+%.@OBJEXT@: %.f90 | $(dir_files) $(bundled_subdirs)
+	$(silent_FC)$(FC) -o $@ -c $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) @FCFLAGS_f90@ $<
 
-# Fortran module file tracking rule:
+# Fortran module file rule:
 $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
 	@if test -z '$<'; then \
 	  echo "Cannot find Fortran source file providing module '$(basename $(@F:.proxy=))'." >&2; \
@@ -286,118 +287,74 @@ $(moddir)/%.@FC_MOD_FILE_EXT@.proxy:| sanitize-mod-proxies
 	  else cp '$(@:.proxy=)' '$@' 2>/dev/null; fi; \
 	fi
 
-# JSBACH dsl->f90 rule:
+# Delete all Fortran module proxy files that do not have an existing module to
+# be a proxy of, i.e. if <filename>.proxy exists but <filename> does not,
+# delete <filename>.proxy:
+sanitize-mod-proxies:
+	@rm -f $(filter-out $(addsuffix .proxy,$(wildcard $(moddir)/*.@FC_MOD_FILE_EXT@)),$(wildcard $(moddir)/*.@FC_MOD_FILE_EXT@.proxy))
+
+# Default C compilation rule:
+%.@OBJEXT@: %.c | $(dir_files)
+	$(silent_CC)$(CC) -o $@ -c $(CFLAGS) $(ICON_CFLAGS) $(makefile_CPPFLAGS) $(CPPFLAGS) $<
+
+############################# JSBACH PREPROCESSING #############################
+
+# Default dsl->f90 rule:
 @JSBACH_ENABLED@$(builddir)/$(JSB_subdir)/%.f90: $(JSB_srcdir)/%.f90 | $(dir_files)
 @JSBACH_ENABLED@	$(silent_DSL4JSB)$(PYTHON) $(JSB_srcdir)/scripts/dsl4jsb/dsl4jsb.py -i $< -o $@
 
-# Default FPP f90->f90 rule for the original files:
-@FPP_ENABLED@$(builddir)/$(FPP_subdir)/%.f90: %.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
-@FPP_ENABLED@	$(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
+############################ FORTRAN PREPROCESSING #############################
 
-# Default FPP f90->f90 rule for the files preprocessed at the previous
-# preprocessing step:
+# Default f90->f90 rule for files that have already been processed by some other
+# preprocessor:
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
 
-# ICON-Ocean FPP f90->f90 rules for the original files:
+# ICON-Ocean f90->f90 rules for the original files:
 @FPP_ENABLED@ICON_OCEAN_FPP= $(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) $< >$@
 
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/hamocc/%.f90: src/hammoc/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)
-
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/ocean/%.f90: src/ocean/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)
-
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/sea_ice/%.f90: src/sea_ice/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)
 
-# There is currently no need to introduce ICON-Ocean FPP rules for the files
-# preprocessed at the previous preprocessing step.
+# Default f90->f90 rule for the original files:
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/%.f90: %.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@	$(silent_FPP)$(FPP) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $< >$@
 
-# FPP incf->incf rule:
+# Default incf->incf rule:
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/%.incf: %.incf | $(dir_files)
 @FPP_ENABLED@	$(silent_FPP)cp $< $@
 
-# SERIALBOX2 f90->f90 rule for the original files:
-@SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.f90: %.f90  | $(dir_files)
-@SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
+########################### SERIALBOX2 PREPROCESSING ###########################
 
-# SERIALBOX2 f90->f90 rule for the files preprocessed at the previous
-# preprocessing step:
+@SB2_ENABLED@ICON_SB2= $(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
+
+# Default f90->f90 rule for files that have already been processed by some other
+# preprocessor:
 @SB2_ENABLED@$(builddir)/$(SB2_subdir)/$(ppdir)/%.f90: $(builddir)/$(ppdir)/%.f90 | $(dir_files)
-@SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
+@SB2_ENABLED@	$(ICON_SB2)
 
-# SERIALBOX2 inc->inc rule for the original files:
+# Default f90->f90 rule for the original files:
+@SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.f90: %.f90  | $(dir_files)
+@SB2_ENABLED@	$(ICON_SB2)
+
+# Default inc->inc rule for the original files:
 @SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.inc: %.inc | $(dir_files)
-@SB2_ENABLED@	$(silent_SB2)$(SB2PP) -o $@ $< >/dev/null
+@SB2_ENABLED@	$(ICON_SB2)
 
-# SERIALBOX2 incf->incf rule for the original files:
-@SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.incf: %.incf | $(dir_files)
-@SB2_ENABLED@	$(silent_SB2)cp $< $@
-
-# SERIALBOX2 incf->incf rule for the files preprocessed at the previous
-# preprocessing step:
+# Default incf->incf rule for files that have already been processed by some
+# other preprocessor:
 @SB2_ENABLED@$(builddir)/$(SB2_subdir)/$(ppdir)/%.incf: $(builddir)/$(ppdir)/%.incf | $(dir_files)
 @SB2_ENABLED@	$(silent_SB2)cp $< $@
 
-# Version source file generation rule:
-version.c: force-create-version
-	$(silent_GEN)$(PERL) $(srcdir)/utils/pvcs.pl --srcdir $(srcdir)
+# Default incf->incf rule for the original files:
+@SB2_ENABLED@$(builddir)/$(SB2_subdir)/%.incf: %.incf | $(dir_files)
+@SB2_ENABLED@	$(silent_SB2)cp $< $@
 
-# Directory creation rule:
-%/.dirstamp:
-	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
-
-# Default Fortran dependency generation rule:
-%.f90.d: %.f90 icon.mk | preprocess $(dir_files)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
-
-# Default C dependency generation rule:
-%.c.d: %.c icon.mk | $(dir_files)
-	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) -i $< -- $(CFLAGS) $(ICON_CFLAGS) $(makefile_CPPFLAGS) $(CPPFLAGS)
-
-# ICON-Ocean Fortran dependency generation rules:
-ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
-
-$(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 icon.mk | preprocess $(dir_files)
-	$(ICON_OCEAN_DEPGEN)
-
-$(f90_prefix)src/ocean/%.f90.d: $(f90_prefix)src/ocean/%.f90 icon.mk | preprocess $(dir_files)
-	$(ICON_OCEAN_DEPGEN)
-
-$(f90_prefix)src/sea_ice/%.f90.d: $(f90_prefix)src/sea_ice/%.f90 icon.mk | preprocess $(dir_files)
-	$(ICON_OCEAN_DEPGEN)
-
-# Dependency generation rule for Fortran-to-C bindings:
-c_binding.d: icon.mk
-	$(silent_DEPGEN)echo '$(f90_prefix)src/io/restart/mo_c_restart_util.@OBJEXT@:| support/util_multifile_restart.@OBJEXT@' > $@; \
-	echo '$(f90_prefix)src/io/shared/mo_util_file.@OBJEXT@:| support/util_file.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/io/shared/mo_util_nml.@OBJEXT@:| support/nml_annotate.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_expression.@OBJEXT@:| support/util_arithmetic_expr.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_backtrace.@OBJEXT@:| support/util_backtrace.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_hash.@OBJEXT@:| support/util_hash.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_stride.@OBJEXT@:| support/util_stride.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_string_parse.@OBJEXT@:| support/util_string_parse.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_sysinfo.@OBJEXT@:| support/util_sysinfo.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_system.@OBJEXT@:| support/util_system.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_timer.@OBJEXT@:| support/util_timer.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_uuid.@OBJEXT@:| support/util_uuid.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/shared/mo_util_vcs.@OBJEXT@:| version.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/art/shared/mo_art_util_vcs.@OBJEXT@:| version.@OBJEXT@' >> $@;
-
-# Dependency generation rule for undetectable Fortran dependencies:
-extra_f90.d: icon.mk
-	$(silent_DEPGEN)echo '$(f90_prefix)src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_o3_column.@OBJEXT@' > $@; \
-	echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_init.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_init_o3.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_lat_intp_li.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_pres_intp_li.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/chemcon.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/ocprod.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/sedshi.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/swr_absorption.@OBJEXT@' >> $@; \
-	echo '$(f90_prefix)src/hamocc/icon_specific/mo_hamocc_ocean_physics.@OBJEXT@:| $(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@' >> $@;
+############################## BUNDLED LIBRARIES ###############################
 
 # Make bundled libraries:
 $(bundled_subdirs):
@@ -414,12 +371,78 @@ externals/yac: $(filter externals/mtime,$(bundled_subdirs))
 # is updated (the semicolon is required to support parallel rebuild):
 $(BUNDLED_LIBFILES): $(bundled_subdirs);
 
-# Dummy dependency file generation rule (called by config.status): 
+############################### AUXILIARY RULES ################################
+
+# Version source file generation rule:
+version.c: force-create-version
+	$(silent_GEN)$(PERL) $(srcdir)/utils/pvcs.pl --srcdir $(srcdir)
+
+# Directory creation rule:
+%/.dirstamp:
+	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
+
+############################ DEPENDENCY GENERATION #############################
+
+# ICON-Ocean Fortran dependency generation rules:
+ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
+
+$(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 icon.mk | preprocess $(dir_files)
+	$(ICON_OCEAN_DEPGEN)
+$(f90_prefix)src/ocean/%.f90.d: $(f90_prefix)src/ocean/%.f90 icon.mk | preprocess $(dir_files)
+	$(ICON_OCEAN_DEPGEN)
+$(f90_prefix)src/sea_ice/%.f90.d: $(f90_prefix)src/sea_ice/%.f90 icon.mk | preprocess $(dir_files)
+	$(ICON_OCEAN_DEPGEN)
+
+# Default Fortran dependency generation rule:
+%.f90.d: %.f90 icon.mk | preprocess $(dir_files)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
+
+# Default C dependency generation rule:
+%.c.d: %.c icon.mk | $(dir_files)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) -i $< -- $(CFLAGS) $(ICON_CFLAGS) $(makefile_CPPFLAGS) $(CPPFLAGS)
+
+# Dependency generation rule for Fortran-to-C bindings:
+c_binding.d: icon.mk
+	$(silent_DEPGEN):;{ \
+	  echo '$(f90_prefix)src/io/restart/mo_c_restart_util.@OBJEXT@:| support/util_multifile_restart.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/io/shared/mo_util_file.@OBJEXT@:| support/util_file.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/io/shared/mo_util_nml.@OBJEXT@:| support/nml_annotate.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_expression.@OBJEXT@:| support/util_arithmetic_expr.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_backtrace.@OBJEXT@:| support/util_backtrace.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_hash.@OBJEXT@:| support/util_hash.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_stride.@OBJEXT@:| support/util_stride.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_string_parse.@OBJEXT@:| support/util_string_parse.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_sysinfo.@OBJEXT@:| support/util_sysinfo.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_system.@OBJEXT@:| support/util_system.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_timer.@OBJEXT@:| support/util_timer.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_uuid.@OBJEXT@:| support/util_uuid.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/shared/mo_util_vcs.@OBJEXT@:| version.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/art/shared/mo_art_util_vcs.@OBJEXT@:| version.@OBJEXT@'; \
+	} >$@
+
+# Dependency generation rule for undetectable Fortran dependencies:
+extra_f90.d: icon.mk
+	$(silent_DEPGEN):;{ \
+	  echo '$(f90_prefix)src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_o3_column.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_init.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/atm_phy_echam/mo_echam_phy_init.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_init_o3.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_do3dt.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_lat_intp_li.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/atm_phy_echam/mo_interface_echam_car.@OBJEXT@:| $(f90_prefix)src/atm_chem_cariolle/lcariolle_pres_intp_li.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/chemcon.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/ocprod.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/sedshi.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@:| $(f90_prefix)src/hamocc/common/swr_absorption.@OBJEXT@' && \
+	  echo '$(f90_prefix)src/hamocc/icon_specific/mo_hamocc_ocean_physics.@OBJEXT@:| $(f90_prefix)src/hamocc/icon_specific/bgc_icon.@OBJEXT@'; \
+	} >$@
+
+# Dummy dependency file generation rule (called by config.status):
 dummy-depend: | $(dir_files)
 	@for file in $(dep_files); do \
 	  test -e "$$file" || touch "$$file"; \
 	done
 
+# Include dependencies if required:
 current_targets:= $(strip $(MAKECMDGOALS))
 ifeq (,$(current_targets))
 current_targets:= all
