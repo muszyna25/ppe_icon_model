@@ -421,12 +421,22 @@ MODULE mo_nwp_phy_types
       & ldshcv    (:,:)       !< shallow convection indicator
 
     !> (Optional:) Additional diagnostic fields:
-    REAL(wp), POINTER ::  &
-      rh(:,:,:),          &   !> relative humidity
-      pv(:,:,:),          &   !> potential vorticity
-      sdi2(:,:),          &   !> supercell detection index (SDI2)
-      lpi(:,:)                !> lightning potential index (LPI)
-
+    REAL(wp), POINTER ::   &
+      rh(:,:,:),           & !> relative humidity
+      pv(:,:,:),           & !> potential vorticity
+      sdi2(:,:),           & !> supercell detection index (SDI2)
+      lpi(:,:),            & !> lightning potential index (LPI)
+      lpi_max(:,:),        & !> lightning potential index, maximum (LPI_MAX)
+      ceiling_height(:,:), & !> ceiling height
+      hbas_sc(:,:),        & !> height of base above MSL from shallow convection parameterization
+      htop_sc(:,:),        & !> height of top  above MSL from shallow convection parameterization
+      twater(:,:),         & !> Total column integrated water
+      q_sedim(:,:,:),      & !> Specific content of precipitation particles
+      tcond_max(:,:),      & !< Flag. TRUE if computation of total column-integrated condensate desired
+      tcond10_max(:,:),    & !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
+      uh_max(:,:),         & !< Flag. TRUE if computation of updraft helicity desired
+      vorw_ctmax(:,:),     & !< Flag. TRUE if computation of maximum rotation amplitude desired
+      w_ctmax(:,:)           !< Flag. TRUE if computation of maximum updraft track desired
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
     ! grid and latm_above_top = .TRUE.

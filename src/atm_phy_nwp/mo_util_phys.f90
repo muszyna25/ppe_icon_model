@@ -28,7 +28,7 @@ MODULE mo_util_phys
     &                                 grav,            &
     &                                 tmelt, earth_radius, &
     &                                 alvdcp, rd_o_cpd
-  USE mo_exception,             ONLY: finish
+  USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
@@ -86,6 +86,16 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_pv
   PUBLIC :: compute_field_sdi
   PUBLIC :: compute_field_lpi
+  PUBLIC :: maximize_field_lpi
+  PUBLIC :: compute_field_ceiling
+  PUBLIC :: compute_field_hbas_sc
+  PUBLIC :: compute_field_htop_sc
+  PUBLIC :: compute_field_twater
+  PUBLIC :: compute_field_q_sedim
+  PUBLIC :: compute_field_tcond_max
+  PUBLIC :: compute_field_uh_max
+  PUBLIC :: compute_field_vorw_ctmax
+  PUBLIC :: compute_field_w_ctmax
   PUBLIC :: compute_field_smi
   PUBLIC :: iau_update_tracer
   PUBLIC :: tracer_add_phytend
@@ -1105,7 +1115,7 @@ CONTAINS
     z_min = 1500.0  ! in m
     z_max = 5500.0  ! in m
 
-    ! --- to prevent errors at the boundaries, set output field(s) to 0:
+    ! --- to prevent errors at the boundaries, set some field(s) to 0:
 
     i_rlstart = 1
     i_rlend   = grf_bdywidth_c
@@ -1123,6 +1133,13 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         !sdi_1   ( jc, jb ) = 0.0_wp
         sdi_2 ( jc, jb ) = 0.0_wp
+
+        w_vmean        (jc,jb) = 0.0_wp
+        zeta_vmean     (jc,jb) = 0.0_wp
+        w_w_vmean      (jc,jb) = 0.0_wp
+        zeta_zeta_vmean(jc,jb) = 0.0_wp
+        w_zeta_vmean   (jc,jb) = 0.0_wp
+
       END DO
     END DO
 !$OMP END DO NOWAIT
@@ -1414,7 +1431,6 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Michael Baldauf, DWD (2019-05-27) 
   !!
-
   SUBROUTINE compute_field_LPI( ptr_patch, jg, ptr_patch_local_parent, p_int,   &
                                 p_metrics, p_prog, p_diag,                &
                                 lpi )
@@ -1581,10 +1597,15 @@ CONTAINS
 
       ! normalization
       DO jc = i_startidx, i_endidx
-        lpi(jc,jb) = lpi(jc,jb) / vol(jc)
+        IF ( vol(jc) > 1.0e-30_wp ) THEN
+          lpi(jc,jb) = lpi(jc,jb) / vol(jc)
+        ELSE
+          lpi(jc,jb) = 0.0_wp
+        END IF
       END DO
 
     END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1751,6 +1772,742 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE compute_field_LPI
+
+
+  !>
+  !! Do a maximization step for the calculation of the LPI_MAX.
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-09-17) 
+  !!
+  SUBROUTINE maximize_field_LPI( ptr_patch, jg, ptr_patch_local_parent, p_int,   &
+                                p_metrics, p_prog, p_diag,                &
+                                lpi_max )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    INTEGER,            INTENT(IN)    :: jg                ! domain ID of main grid
+    TYPE(t_patch), TARGET, INTENT(IN) :: ptr_patch_local_parent  !< parent grid for larger exchange halo
+    TYPE(t_int_state),  INTENT(IN)    :: p_int
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp), INTENT(INOUT) :: lpi_max( nproma, ptr_patch%nblks_c )
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jc
+
+    REAL(wp) :: lpi( nproma, ptr_patch%nblks_c )
+
+    CALL compute_field_LPI( ptr_patch, jg, ptr_patch_local_parent, p_int,   &
+                            p_metrics, p_prog, p_diag,                &
+                            lpi )
+
+    ! Maximize
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        lpi_max(jc,jb) = MAX( lpi_max(jc,jb), lpi(jc,jb) )
+      END DO
+    END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE maximize_field_LPI
+
+
+  !>
+  !! Calculate the ceiling height
+  !! = height above MSL, for which cloud coverage > 4/8
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-21) 
+  !!
+  SUBROUTINE compute_field_ceiling( ptr_patch, jg,    &
+                                p_metrics, prm_diag,  &
+                                ceiling_height )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    INTEGER,              INTENT(IN)  :: jg            ! domain ID of main grid
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nwp_phy_diag), INTENT(IN)  :: prm_diag
+
+    REAL(wp),             INTENT(OUT) :: ceiling_height(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    LOGICAL ::  cld_base_found( nproma ) 
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        cld_base_found(jc) = .FALSE.
+        ceiling_height(jc,jb) = p_metrics%z_mc(jc,1,jb)  ! arbitrary default value
+      END DO
+
+      DO jk = ptr_patch%nlev, kstart_moist(jg), -1
+
+        DO jc = i_startidx, i_endidx
+
+          IF ( .NOT.(cld_base_found(jc)) .AND. (prm_diag%clc(jc,jk,jb) > 0.5_wp) ) THEN
+            ceiling_height(jc,jb) = p_metrics%z_mc(jc,jk,jb)
+            cld_base_found(jc) = .TRUE.
+          ENDIF
+
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_ceiling
+
+
+  !>
+  !! Calculate the height of base over MSL from the shallow convection parameterization.
+  !!
+  !! This subroutine is quite similar to compute_field_htop_sc.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-22) 
+  !!
+  SUBROUTINE compute_field_hbas_sc( ptr_patch,        &
+                                p_metrics, prm_diag,  &
+                                hbas_sc )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nwp_phy_diag), INTENT(IN)  :: prm_diag
+
+    REAL(wp),             INTENT(OUT) :: hbas_sc(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jc, idx
+
+    REAL(wp), PARAMETER :: undefValue = 0.0_wp
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,idx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+
+        IF ( prm_diag%ktype(jc,jb) == 2 ) THEN
+          ! the column is identified as shallow convection
+          idx = prm_diag%mbas_con( jc, jb)
+          hbas_sc(jc,jb) = p_metrics%z_mc( jc, idx, jb)
+       ELSE
+          hbas_sc(jc,jb) = undefValue
+        END IF
+
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_hbas_sc
+
+
+  !>
+  !! Calculate the height of top over MSL from the shallow convection parameterization.
+  !!
+  !! This subroutine is quite similar to compute_field_hbas_sc.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-22) 
+  !!
+  SUBROUTINE compute_field_htop_sc( ptr_patch,        &
+                                p_metrics, prm_diag,  &
+                                htop_sc )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nwp_phy_diag), INTENT(IN)  :: prm_diag
+
+    REAL(wp),             INTENT(OUT) :: htop_sc(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jc, idx
+
+    REAL(wp), PARAMETER :: undefValue = 0.0_wp
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,idx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+
+        IF ( prm_diag%ktype(jc,jb) == 2 ) THEN
+          ! the column is identified as shallow convection
+          idx = prm_diag%mtop_con( jc, jb)
+          htop_sc(jc,jb) = p_metrics%z_mc( jc, idx, jb)
+       ELSE
+          htop_sc(jc,jb) = undefValue
+        END IF
+
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_htop_sc
+
+
+  !>
+  !! Calculate total column integrated water (twater)
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_twater( ptr_patch, jg,      &
+                                   p_metrics, p_prog,  &
+                                   twater )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    INTEGER,              INTENT(IN)  :: jg            ! domain ID of main grid
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nh_prog),      INTENT(IN)  :: p_prog
+
+    REAL(wp),             INTENT(OUT) :: twater(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: q_water( nproma, ptr_patch%nlev )
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+    twater( :, 1:i_startblk-1 ) = 0.0_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,q_water), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          q_water(jc,jk) = p_prog%tracer(jc,jk,jb,iqv)   &
+            &            + p_prog%tracer(jc,jk,jb,iqc)
+        END DO
+      END DO
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqi)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqi)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqr)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqr)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqs)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqs)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqg)
+          END DO
+        END DO
+      END IF
+
+      !MB: what about hail?
+
+      ! calculate vertically integrated mass
+
+      twater(:, jb) = 0.0_wp
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          twater(jc,jb) = twater(jc,jb)       &
+            &            + p_prog%rho(jc,jk,jb) * q_water(jc,jk) * p_metrics%ddqz_z_full(jc,jk,jb)
+        END DO
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_twater
+
+
+  !>
+  !! Calculate specific content of precipitation particles
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_q_sedim( ptr_patch, jg, p_prog, q_sedim )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    INTEGER,              INTENT(IN)  :: jg            ! domain ID of main grid
+    TYPE(t_nh_prog),      INTENT(IN)  :: p_prog
+
+    REAL(wp),             INTENT(OUT) :: q_sedim(:,:,:)  !< output variable, dim: (nproma,nlev,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+    q_sedim( :, :, 1:i_startblk-1 ) = 0.0_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      ! it is assumed that at least a warm rain Kessler scheme is used, i.e. qr is available too
+      DO jk = kstart_moist(jg), ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          q_sedim(jc,jk,jb) = p_prog%tracer(jc,jk,jb,iqr)
+        END DO
+      END DO
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqs)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqs)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqg)
+          END DO
+        END DO
+      END IF
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_q_sedim
+
+
+  !>
+  !! Calculate 
+  !!     TCOND_MAX   (total column-integrated condensate, max. during the last hour)
+  !! and TCOND10_MAX (total column-integrated condensate above z(T=-10 degC), max. during the last hour)
+  !! Here, compute columnwise amximum of these input fields and the newly computed fields.
+  !! 
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_tcond_max( ptr_patch, jg,                 &
+                                   p_metrics, p_prog, p_diag,        &
+                                   flag_tcond_max, flag_tcond10_max, &
+                                   tcond_max,      tcond10_max )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    INTEGER,            INTENT(IN)    :: jg                ! domain ID of main grid
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    LOGICAL,            INTENT(IN)    :: flag_tcond_max    ! if true, then calculate tcond_max
+    LOGICAL,            INTENT(IN)    :: flag_tcond10_max  ! if true, then calculate tcond10_max
+
+    REAL(wp),           INTENT(INOUT) :: tcond_max  (:,:)    !< output variable, dim: (nproma,nblks_c)
+    REAL(wp),           INTENT(INOUT) :: tcond10_max(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: q_cond( nproma, ptr_patch%nlev )
+    REAL(wp) :: tcond( nproma )
+
+    REAL(wp), PARAMETER :: Tzero_m_10K = 263.15    ! in K
+
+    ! Consistency check:
+    IF ( (.NOT. flag_tcond_max) .AND. (.NOT. flag_tcond10_max) ) THEN
+      CALL finish( "compute_field_tcond_max", "at least one of the two flags must be set to .TRUE." )
+    END IF
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,q_cond,tcond), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      ! it is assumed that at least a warm rain Kessler scheme is used, i.e. qr is available too
+      DO jk = kstart_moist(jg), ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          q_cond(jc,jk) = p_prog%tracer(jc,jk,jb,iqc)  &
+            &           + p_prog%tracer(jc,jk,jb,iqr)
+        END DO
+      END DO
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqi)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqi)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqs)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqs)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqg)
+          END DO
+        END DO
+      END IF
+
+      !MB: what about hail?
+
+      ! calculate vertically integrated mass
+
+      IF ( flag_tcond_max ) THEN
+        tcond( i_startidx: i_endidx) = 0.0_wp
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            tcond(jc) = tcond(jc)       &
+              &       + p_prog%rho(jc,jk,jb) * q_cond(jc,jk) * p_metrics%ddqz_z_full(jc,jk,jb)
+          END DO
+        END DO
+
+        DO jc = i_startidx, i_endidx
+          tcond_max( jc,jb ) = MAX( tcond_max( jc,jb ), tcond(jc) )
+        END DO
+      END IF
+
+      IF ( flag_tcond10_max ) THEN
+        tcond( i_startidx: i_endidx) = 0.0_wp
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            IF ( p_diag%temp( jc,jk,jb) <= Tzero_m_10K ) THEN
+              tcond(jc) = tcond(jc)       &
+                &       + p_prog%rho(jc,jk,jb) * q_cond(jc,jk) * p_metrics%ddqz_z_full(jc,jk,jb)
+            END IF
+          END DO
+        END DO
+
+        DO jc = i_startidx, i_endidx
+          tcond10_max( jc,jb ) = MAX( tcond10_max( jc,jb ), tcond(jc) )
+        END DO
+      END IF
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE compute_field_tcond_max
+
+
+  !>
+  !! Calculate UH_MAX (updraft helicity, max.  during the last hour)
+  !! For the definition see: Kain et al. (2008) Wea. Forecasting
+  !!
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_uh_max( ptr_patch,                 &
+                                   p_metrics, p_prog, p_diag, &
+                                   uh_max )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp),           INTENT(INOUT) :: uh_max(:,:)    !< input/output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: zmin( nproma )
+    REAL(wp) :: zmax( nproma )
+    REAL(wp) :: uhel( nproma )
+    REAL(wp) :: w_c
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,zmin,zmax,uhel,w_c), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        zmin(jc) = MAX( p_metrics%z_ifc( jc, ptr_patch%nlev+1, jb) + 500.0_wp, 2000.0_wp )
+        zmax(jc) = zmin(jc) + 6000.0
+      END DO
+
+      uhel( i_startidx:i_endidx ) = 0.0_wp
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF ( ( p_metrics%z_mc( jc, jk, jb) >= zmin(jc) ) .AND.     &
+            &  ( p_metrics%z_mc( jc, jk, jb) <= zmax(jc) ) ) THEN
+
+            w_c = 0.5_wp * ( p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb) )
+            ! a simple vertical integration; only updrafts are counted:
+            uhel(jc) = uhel(jc) + MAX( w_c, 0.0_wp) * p_diag%vor(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
+          END IF
+
+        END DO
+      END DO
+
+      DO jc = i_startidx, i_endidx
+        uh_max(jc,jb) = MAX( uh_max(jc,jb), uhel( jc) )
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_uh_max
+
+
+  !>
+  !! Calculate VORW_CTMAX (Maximum rotation amplitude during the last hour)
+  !!
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_vorw_ctmax( ptr_patch,          &
+                                       p_metrics, p_diag,  &
+                                       vorw_ctmax )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp),           INTENT(INOUT) :: vorw_ctmax(:,:)  !< input/output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: zmin( nproma )
+    REAL(wp) :: zmax( nproma )
+    REAL(wp) :: vort( nproma )
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,zmin,zmax,vort), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        zmin(jc) = p_metrics%z_ifc( jc, ptr_patch%nlev+1, jb)
+        zmax(jc) = MAX( 3000.0_wp,  zmin(jc) + 1500.0_wp )
+      END DO
+
+      vort( i_startidx:i_endidx ) = 0.0_wp
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF ( ( p_metrics%z_mc( jc, jk, jb) >= zmin(jc) ) .AND.     &
+            &  ( p_metrics%z_mc( jc, jk, jb) <= zmax(jc) ) ) THEN
+            vort(jc) = MAX( vort(jc), ABS( p_diag%vor(jc,jk,jb) ) )
+          END IF
+
+        END DO
+      END DO
+
+      DO jc = i_startidx, i_endidx
+        vorw_ctmax(jc,jb) = MAX( vorw_ctmax(jc,jb), vort(jc) )
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_vorw_ctmax
+
+
+  !>
+  !! Calculate W_CTMAX (Maximum updraft track during the last hour)
+  !!
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_w_ctmax( ptr_patch,             &
+                                    p_metrics, p_prog,     &
+                                    w_ctmax )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+
+    REAL(wp),           INTENT(INOUT) :: w_ctmax(:,:)    !< input/output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF ( p_metrics%z_mc( jc, jk, jb) <= 10000.0_wp ) THEN
+            w_ctmax(jc,jb) = MAX( w_ctmax(jc,jb), p_prog%w(jc,jk,jb) )
+          END IF
+
+        END DO
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_w_ctmax
 
 
   !

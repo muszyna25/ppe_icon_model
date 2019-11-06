@@ -182,7 +182,18 @@ CONTAINS
     LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
     LOGICAL :: l_sdi2(n_dom)     !< Flag. TRUE if computation of supercell detection index desired
     LOGICAL :: l_lpi(n_dom)      !< Flag. TRUE if computation of lightning potential index desired
+    LOGICAL :: l_lpi_max(n_dom)  !< Flag. TRUE if computation of max. of lightning potential index desired
+    LOGICAL :: l_ceiling(n_dom)  !< Flag. TRUE if computation of ceiling height desired
+    LOGICAL :: l_hbas_sc(n_dom)  !< Flag. TRUE if computation of height of base from shallow convection desired
+    LOGICAL :: l_htop_sc(n_dom)  !< Flag. TRUE if computation of height of top  from shallow convection desired
+    LOGICAL :: l_twater(n_dom)   !< Flag. TRUE if computation of total column integrated water desired
+    LOGICAL :: l_q_sedim(n_dom)  !< Flag. TRUE if computation of specific content of precipitation particles desired
     LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
+    LOGICAL :: l_tcond_max(n_dom)   !< Flag. TRUE if computation of total column-integrated condensate desired
+    LOGICAL :: l_tcond10_max(n_dom) !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
+    LOGICAL :: l_uh_max(n_dom)      !< Flag. TRUE if computation of updraft helicity desired
+    LOGICAL :: l_vorw_ctmax(n_dom)  !< Flag. TRUE if computation of maximum rotation amplitude desired
+    LOGICAL :: l_w_ctmax(n_dom)     !< Flag. TRUE if computation of maximum updraft track desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
@@ -277,11 +288,22 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
-        l_rh(jg)   = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg)   = is_variable_in_output(first_output_name_list, var_name="pv")
-        l_sdi2(jg) = is_variable_in_output(first_output_name_list, var_name="sdi2")
-        l_lpi(jg)  = is_variable_in_output(first_output_name_list, var_name="lpi")
-        l_smi(jg)  = is_variable_in_output(first_output_name_list, var_name="smi")
+        l_rh(jg)      = is_variable_in_output(first_output_name_list, var_name="rh")
+        l_pv(jg)      = is_variable_in_output(first_output_name_list, var_name="pv")
+        l_sdi2(jg)    = is_variable_in_output(first_output_name_list, var_name="sdi2")
+        l_lpi(jg)     = is_variable_in_output(first_output_name_list, var_name="lpi")
+        l_lpi_max(jg) = is_variable_in_output(first_output_name_list, var_name="lpi_max")
+        l_ceiling(jg) = is_variable_in_output(first_output_name_list, var_name="ceiling")
+        l_hbas_sc(jg) = is_variable_in_output(first_output_name_list, var_name="hbas_sc")
+        l_htop_sc(jg) = is_variable_in_output(first_output_name_list, var_name="htop_sc")
+        l_twater(jg)  = is_variable_in_output(first_output_name_list, var_name="twater")
+        l_q_sedim(jg) = is_variable_in_output(first_output_name_list, var_name="q_sedim")
+        l_tcond_max(jg)   = is_variable_in_output(first_output_name_list, var_name="tcond_max")
+        l_tcond10_max(jg) = is_variable_in_output(first_output_name_list, var_name="tcond10_max")
+        l_uh_max(jg)      = is_variable_in_output(first_output_name_list, var_name="uh_max")
+        l_vorw_ctmax(jg)  = is_variable_in_output(first_output_name_list, var_name="vorw_ctmax")
+        l_w_ctmax(jg)     = is_variable_in_output(first_output_name_list, var_name="w_ctmax")
+        l_smi(jg)         = is_variable_in_output(first_output_name_list, var_name="smi")
         ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
         ! In this case, the group can not be checked, as the connection between SMI and the group will be
         ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
@@ -301,7 +323,9 @@ CONTAINS
     END IF
 
     IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv, l_sdi2, l_lpi )
+      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv, l_sdi2, l_lpi, l_lpi_max, l_ceiling,   &
+                                    l_hbas_sc, l_htop_sc, l_twater, l_q_sedim, l_tcond_max,         &
+                                    l_tcond10_max, l_uh_max, l_vorw_ctmax, l_w_ctmax )
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
       CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF

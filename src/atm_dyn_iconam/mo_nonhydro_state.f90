@@ -1750,7 +1750,7 @@ MODULE mo_nonhydro_state
 
       ! ddt_pres_sfc     p_diag%ddt_pres_sfc(nproma,nblks_c)
       !
-      cf_desc    = t_cf_var('surface_pressure tendency', 'Pa/s', 'surface pressure tendency', datatype_flt)
+      cf_desc    = t_cf_var('surface_pressure tendency', 'Pa s-1', 'surface pressure tendency', datatype_flt)
       grib2_desc = grib2_var(0, 3, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'ddt_pres_sfc', p_diag%ddt_pres_sfc,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
@@ -1868,7 +1868,7 @@ MODULE mo_nonhydro_state
     !       which takes care of the regular update:
     ! 
     IF (l_omega) THEN
-      cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity', datatype_flt)
+      cf_desc    = t_cf_var('omega', 'Pa s-1', 'vertical velocity', datatype_flt)
       grib2_desc = grib2_var(0, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list,                                                     &
                     & "omega", p_diag%omega,                                         &
@@ -2477,7 +2477,7 @@ MODULE mo_nonhydro_state
 
 
       ! tracer_vi_avg(nproma,nblks_c,iqm_max)
-      cf_desc    = t_cf_var('tracer_vi_avg', 'kg/m**2', &
+      cf_desc    = t_cf_var('tracer_vi_avg', 'kg m-2', &
         &                   'average  of vertically integrated tracers', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,          &
@@ -2490,7 +2490,7 @@ MODULE mo_nonhydro_state
       ALLOCATE(p_diag%tracer_vi_avg_ptr(nqtendphy))
       DO jt =1,nqtendphy
         WRITE(ctrc,'(I3.3)')jt
-        cf_desc    = t_cf_var('tracer_vi_avg'//ctrc, 'kg/m**2', &
+        cf_desc    = t_cf_var('tracer_vi_avg'//ctrc, 'kg m-2', &
           &                   'average of vertically integrated tracers', datatype_flt)
         CALL add_ref( p_diag_list, 'tracer_vi_avg', 'tracer_vi_avg'//ctrc,       &
           &           p_diag%tracer_vi_avg_ptr(jt)%p_2d,                         &

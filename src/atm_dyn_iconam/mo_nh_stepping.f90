@@ -89,7 +89,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE mo_ext_data_state,           ONLY: ext_data
   USE mo_limarea_config,           ONLY: latbc_config
-  USE mo_model_domain,             ONLY: p_patch, t_patch
+  USE mo_model_domain,             ONLY: p_patch, t_patch, p_patch_local_parent
   USE mo_time_config,              ONLY: time_config
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
@@ -98,7 +98,7 @@ MODULE mo_nh_stepping
   USE mo_nh_dcmip_terminator,      ONLY: dcmip_terminator_interface
   USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
     &                                    init_supervise_nh, finalize_supervise_nh
-  USE mo_intp_data_strc,           ONLY: p_int_state, t_int_state
+  USE mo_intp_data_strc,           ONLY: p_int_state, t_int_state, p_int_state_local_parent
   USE mo_intp_rbf,                 ONLY: rbf_vec_interpol_cell
   USE mo_intp,                     ONLY: verts2cells_scalar
   USE mo_grf_intp_data_strc,       ONLY: p_grf_state
@@ -219,6 +219,10 @@ MODULE mo_nh_stepping
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
   USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
   USE mo_nudging,                  ONLY: nudging_interface  
+  USE mo_name_list_output_config,  ONLY: is_variable_in_output, first_output_name_list
+  USE mo_util_phys,                ONLY: maximize_field_lpi, compute_field_tcond_max,     &
+                                         compute_field_uh_max, &
+                                         compute_field_vorw_ctmax, compute_field_w_ctmax
 
   IMPLICIT NONE
 
@@ -527,6 +531,11 @@ MODULE mo_nh_stepping
   TYPE(timedelta), POINTER             :: eventInterval     => NULL()
   TYPE(event), POINTER                 :: checkpointEvent   => NULL()
   TYPE(event), POINTER                 :: restartEvent      => NULL()
+  TYPE(event), POINTER                 :: lpiMaxEvent       => NULL()
+  TYPE(event), POINTER                 :: tcond_max_Event   => NULL()
+  TYPE(event), POINTER                 :: uh_max_Event      => NULL()
+  TYPE(event), POINTER                 :: vorw_ctmax_Event  => NULL()
+  TYPE(event), POINTER                 :: w_ctmax_Event     => NULL()
 
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
@@ -672,6 +681,110 @@ MODULE mo_nh_stepping
   ENDIF
   lret = addEventToEventGroup(restartEvent, checkpointEventGroup)
 
+  ! --- create Event for LPI_MAX maximization:
+  eventInterval  = newTimedelta("PT00H03M")    ! time interval 3 mins 
+  lpiMaxEvent => newEvent( 'lpi_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+     &                     time_config%tc_exp_startdate,             &   ! start
+     &                     time_config%tc_exp_stopdate,              &
+     &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('perform_nh_timeloop', "event 'lpi_max': "//errstring)
+  ENDIF
+  !lret = addEventToEventGroup(lpiMaxEvent, checkpointEventGroup)  ! not necessary
+
+
+
+  ! --- create Event for TCOND_MAX maximization:
+  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
+  tcond_max_Event => newEvent( 'tcond_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+     &                     time_config%tc_exp_startdate,             &   ! start
+     &                     time_config%tc_exp_stopdate,              &
+     &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('perform_nh_timeloop', "event 'tcond_max': "//errstring)
+  ENDIF
+
+  ! --- create Event for UH_MAX maximization:
+  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
+  uh_max_Event => newEvent( 'uh_max', time_config%tc_exp_startdate, &   ! "anchor date"
+     &                     time_config%tc_exp_startdate,            &   ! start
+     &                     time_config%tc_exp_stopdate,             &
+     &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('perform_nh_timeloop', "event 'uh_max': "//errstring)
+  ENDIF
+
+  ! --- create Event for VORW_CTMAX maximization:
+  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
+  vorw_ctmax_Event => newEvent( 'vorw_ctmax', time_config%tc_exp_startdate,  &   ! "anchor date"
+     &                     time_config%tc_exp_startdate,             &   ! start
+     &                     time_config%tc_exp_stopdate,              &
+     &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('perform_nh_timeloop', "event 'vorw_ctmax': "//errstring)
+  ENDIF
+
+  ! --- create Event for W_CTMAX maximization:
+  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
+  w_ctmax_Event => newEvent( 'w_ctmax', time_config%tc_exp_startdate,  &   ! "anchor date"
+     &                     time_config%tc_exp_startdate,             &   ! start
+     &                     time_config%tc_exp_stopdate,              &
+     &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('perform_nh_timeloop', "event 'w_ctmax': "//errstring)
+  ENDIF
+
+
   CALL printEventGroup(checkpointEvents)
 
   ! set time loop properties
@@ -690,7 +803,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
+  CALL h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
@@ -934,6 +1047,71 @@ MODULE mo_nh_stepping
       END IF ! ntracer>0
 
     ENDIF
+
+    IF ( is_variable_in_output( first_output_name_list, var_name="lpi_max") ) THEN
+      ! output of LPI_MAX is required
+      IF ( isCurrentEventActive( lpiMaxEvent, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+        DO jg = 1, n_dom
+          IF ( jg >= n_dom_start+1 ) THEN
+            ! p_patch_local_parent(jg) seems to exist
+            CALL maximize_field_lpi( p_patch(jg), jg, p_patch_local_parent(jg), p_int_state_local_parent(jg),     &
+              &                      p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,  &
+              &                      prm_diag(jg)%lpi_max(:,:)  )
+          ELSE
+            CALL message( "perform_nh_timeloop", "WARNING: LPI_MAX cannot be computed since no reduced grid is available" )
+          END IF
+        END DO
+
+      END IF
+    END IF
+
+
+    IF ( ( is_variable_in_output( first_output_name_list, var_name="tcond_max") ) .OR.      &
+         ( is_variable_in_output( first_output_name_list, var_name="tcond10_max") ) ) THEN
+      ! output of TCOND_MAX (total column-integrated condensate, max. during the last hour) is required
+      IF ( isCurrentEventActive( tcond_max_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+        DO jg = 1, n_dom
+          CALL compute_field_tcond_max( p_patch(jg), jg,     &
+            &                      p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,  &
+            &                      is_variable_in_output( first_output_name_list, var_name="tcond_max" ),       &
+            &                      is_variable_in_output( first_output_name_list, var_name="tcond10_max"),      &
+            &                      prm_diag(jg)%tcond_max(:,:), prm_diag(jg)%tcond10_max(:,:)  )
+        END DO
+      END IF
+    END IF
+
+    IF ( is_variable_in_output( first_output_name_list, var_name="uh_max") ) THEN
+      ! output of UH_MAX (updraft helicity, max.  during the last hour) is required
+      IF ( isCurrentEventActive( uh_max_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+        DO jg = 1, n_dom
+          CALL compute_field_uh_max( p_patch(jg),          &
+            &                      p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,  &
+            &                      prm_diag(jg)%uh_max(:,:)  )
+        END DO
+      END IF
+    END IF
+
+    IF ( is_variable_in_output( first_output_name_list, var_name="vorw_ctmax") ) THEN
+      ! output of VORW_CTMAX (Maximum rotation amplitude during the last hour) is required
+      IF ( isCurrentEventActive( vorw_ctmax_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+        DO jg = 1, n_dom
+          CALL compute_field_vorw_ctmax( p_patch(jg),                            &
+            &                      p_nh_state(jg)%metrics, p_nh_state(jg)%diag,  &
+            &                      prm_diag(jg)%vorw_ctmax(:,:)  )
+        END DO
+      END IF
+    END IF
+
+    IF ( is_variable_in_output( first_output_name_list, var_name="w_ctmax") ) THEN
+      ! output of W_CTMAX (Maximum updraft track during the last hour) is required
+      IF ( isCurrentEventActive( w_ctmax_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+        DO jg = 1, n_dom
+          CALL compute_field_w_ctmax( p_patch(jg),     &
+            &                      p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)),  &
+            &                      prm_diag(jg)%w_ctmax(:,:)  )
+        END DO
+      END IF
+    END IF
 
 
     ! Adapt number of dynamics substeps if necessary
