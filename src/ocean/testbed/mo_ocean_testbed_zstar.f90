@@ -461,7 +461,7 @@ MODULE mo_ocean_testbed_zstar
     & use_absolute_solver_tolerance, ab_beta, PPscheme_ICON_Edge_vnPredict_type,                  &
     & PPscheme_type, ab_const, MASS_MATRIX_INVERSION_TYPE, MASS_MATRIX_INVERSION_ADVECTION,       &
     & ab_gam, OceanReferenceDensity_inv, iswm_oce, MASS_MATRIX_INVERSION_ALLTERMS,                &
-    & discretization_scheme, use_continuity_correction
+    & discretization_scheme, use_continuity_correction, LinearHalineContractionCoefficient
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode, debug_check_level 
@@ -470,7 +470,7 @@ MODULE mo_ocean_testbed_zstar
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total
   USE mo_ocean_ab_timestepping,  ONLY: update_time_indices ,  &
      & solve_free_surface_eq_ab, calc_vert_velocity, calc_normal_velocity_ab
-  USE mo_ocean_ab_timestepping_mimetic,  ONLY: invert_mass_matrix 
+  USE mo_ocean_ab_timestepping_mimetic,  ONLY: calculate_explicit_term_ab, fill_rhs4surface_eq_ab 
 
   USE mo_random_util,            ONLY: add_random_noise_global
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_operator_coeff, t_solvercoeff_singleprecision
@@ -569,6 +569,7 @@ MODULE mo_ocean_testbed_zstar
 
   PUBLIC :: ocean_test_zstar_advection
   PUBLIC :: test_stepping_zstar 
+  PUBLIC :: test_stepping_z
   
   !-------------------------------------------------------------------------
 CONTAINS
@@ -1391,6 +1392,7 @@ CONTAINS
       & div_adv_flux_horz, subset_range=cells_in_domain )
 
     !! FIXME: No boundary conditions implemented for the tracer
+    !! FIXME: No horizontal diffusion 
 
     !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
     !ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
@@ -2039,20 +2041,10 @@ CONTAINS
   END SUBROUTINE calc_vert_velocity_bottomup_zstar
   !-------------------------------------------------------------------------
  
-
-
+  
   !-------------------------------------------------------------------------
   !>
-  !! Calculation the hydrostatic pressure gradient at edges by computing the pressure of the
-  !! two adjacent cell fluid column as weight of the fluid column above a certain level.
-  !! In this routine this level is given by the edge-level, this level goes down from the surface
-  !! to the the deepest edge. At the deepest edge-level the horizontal gradient is taken by using
-  !! the adjacent pressure values at this level. It might happen that one of the adjacent column
-  !! reaches down deeper, but this does not influence the hydrostatic pressure. 
-  !! This routine does calculathe the pressure only temporarily. 
-  !! It overcomes a difficulty with the pressure gradient calculation for partial cells that arises
-  !! in the subroutine "calc_internal_press" (see below). The calc_internal_press should not be used
-  !! with partial cells.
+  !! Calculation the hydrostatic pressure gradient at edges with zstar 
   !!
   SUBROUTINE calc_internal_press_grad_zstar(patch_3d, rho, pressure_hyd, bc_total_top_potential, &
       & grad_coeff, stretch_c, press_grad)
@@ -2145,8 +2137,8 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
     
-    END SUBROUTINE calc_internal_press_grad_zstar
-    !-------------------------------------------------------------------------
+  END SUBROUTINE calc_internal_press_grad_zstar
+  !-------------------------------------------------------------------------
 
 
 
@@ -2594,7 +2586,6 @@ CONTAINS
 
     !! Start time stepping
     DO
-
       ! optional memory loggin
       CALL memory_log_add
 
@@ -2650,6 +2641,7 @@ CONTAINS
       IF (l_solver_compare) solve_comp => ocean_solve_ptr(free_sfc_solver_comp)
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('test    : h var'   ,ocean_state(jg)%p_prog(nold(1))%h ,str_module, 2, in_subset=owned_cells)
       CALL dbg_print('on entry: h-new'   ,eta_c_new                         ,str_module, 2, in_subset=owned_cells)
       CALL dbg_print('on entry: vn-new'  ,ocean_state(jg)%p_prog(nnew(1))%vn,str_module, 2, in_subset=owned_edges)
 
@@ -2812,6 +2804,14 @@ CONTAINS
 
       !------------------------------------------------------------------------
   
+      CALL output_ocean( patch_3d, &
+        & ocean_state,             &
+        & current_time,                &
+        & p_oce_sfc,          &
+        & sea_ice,               &
+        & jstep, jstep0)
+
+
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop
       CALL update_time_indices(jg)
@@ -2824,11 +2824,287 @@ CONTAINS
         RETURN
       END IF
 
-      
     END DO
 
   END SUBROUTINE test_stepping_zstar
 
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Test time stepping with z levels
+  SUBROUTINE test_stepping_z( patch_3d, ocean_state, p_ext_data,  &
+    & this_datetime, p_oce_sfc, p_phys_param, &
+    & p_as, p_atm_f, sea_ice, &
+    & hamocc_state,operators_coefficients,solvercoeff_sp)
+
+    TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
+    TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
+    TYPE(datetime), POINTER                          :: this_datetime
+    TYPE(t_ocean_surface)                            :: p_oce_sfc
+    TYPE(t_ho_params)                                :: p_phys_param 
+    TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
+    TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
+    TYPE(t_sea_ice),          INTENT(inout)          :: sea_ice
+    TYPE(t_hamocc_state),     INTENT(inout)          :: hamocc_state
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    
+
+    ! local variables
+    INTEGER :: jstep, jg, return_status
+    INTEGER :: i 
+    CHARACTER(LEN=32)               :: datestring
+    TYPE(t_patch), POINTER :: patch_2d
+    INTEGER :: jstep0 ! start counter for time loop
+    REAL(wp) :: mean_height, old_mean_height
+    REAL(wp) :: verticalMeanFlux(n_zlev+1)
+    INTEGER :: level
+
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_ocean_testbed_modules:test_core'
+
+    TYPE(t_tracer_collection) , POINTER              :: old_tracer_collection, new_tracer_collection
+    TYPE(t_ocean_transport_state)                    :: transport_state
+
+    TYPE(datetime), POINTER             :: current_time     => NULL()
+    TYPE(t_ocean_solve), POINTER :: solve, solve_comp
+    CLASS(t_destructible), POINTER :: free_sfc_solver => NULL()
+    CLASS(t_destructible), POINTER :: free_sfc_solver_comp => NULL()
+    CLASS(t_destructible), POINTER :: free_sfc_solver_lhs => NULL()
+    CLASS(t_destructible), POINTER :: free_sfc_solver_trans => NULL()
+    CLASS(t_destructible), POINTER :: free_sfc_solver_comp_trans => NULL()
+    TYPE(t_surface_height_lhs_zstar), POINTER :: lhs_sh => NULL()
+
+    REAL(wp) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! 
+
+    TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
+    INTEGER, SAVE :: istep = 0
+    LOGICAL :: l_is_compare_step
+    REAL(wp), PARAMETER ::  min_top_height = 0.05_wp !we have to have at least 5cm water on topLevel of sea cells)
+    INTEGER :: n_it, n_it_sp, ret_status
+    INTEGER :: rho_switch 
+    REAL(wp) :: rn, minmaxmean(3)
+    CHARACTER(LEN=12)  :: str_module = 'core_test'  ! Output of module for 1 line debug)
+
+    !------------------------------------------------------------------
+    patch_2D        => patch_3d%p_patch_2d(1)
+    rho_switch      = 1 ! 0: default 1: linear 
+
+    !------------------------------------------------------------------
+    ! no grid refinement allowed here so far
+    !------------------------------------------------------------------
+
+    IF (n_dom > 1 ) THEN
+      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+    END IF
+
+    jg = n_dom
+    patch_2d => patch_3d%p_patch_2d(jg)
+
+    !------------------------------------------------------------------
+    !! Dummy variable to use init_free_sfc from surface_height_zstar
+    stretch_e     = 1.0_wp
+
+!ICON_OMP_MASTER
+    CALL sync_patch_array(sync_e, patch_2D, stretch_e)
+!ICON_OMP_END_MASTER
+!ICON_OMP_BARRIER
+    !------------------------------------------------------------------
+
+    jstep0 = 0
+    jstep  = jstep0 
+    ! local time var to be passed along, so the global is kept safe 
+    current_time => newNullDatetime()
+    !! Start time stepping
+
+    DO
+
+      ! optional memory loggin
+      CALL memory_log_add
+
+      jstep = jstep + 1
+
+      ! update model date and time mtime based
+      current_time = ocean_time_nextStep()
+
+      CALL datetimeToString(current_time, datestring)
+      WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+      CALL message (TRIM(routine), message_text)
+
+      CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
+
+      CALL calc_scalar_product_veloc_3d( patch_3d,  &
+        & ocean_state(jg)%p_prog(nold(1))%vn,         &
+        & ocean_state(jg)%p_diag,                     &
+        & operators_coefficients)
+
+      CALL update_ocean_surface_refactor( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
+           & current_time, operators_coefficients)
+  
+      CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
+
+      !---------------------------------------------------------------------
+
+      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+
+      !------------------------------------------------------------------------
+      ! solve for new free surface
+      ! Show that the solve_free_surface_eq_ab is slowing down the startup
+!      CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
+!        & p_as, p_oce_sfc, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)
+      
+      owned_cells => patch_2D%cells%owned
+      owned_edges => patch_2D%edges%owned
+
+      ! init sfc solver related objects, if necessary
+      IF (.NOT.ASSOCIATED(free_sfc_solver)) &
+
+        CALL init_free_sfc(patch_3d, ocean_state(jg), operators_coefficients, solverCoeff_sp, stretch_e, &
+        & free_sfc_solver, free_sfc_solver_comp, free_sfc_solver_lhs, free_sfc_solver_trans, &
+        & free_sfc_solver_comp_trans, lhs_sh)
+ 
+      solve => ocean_solve_ptr(free_sfc_solver)
+
+      IF (l_solver_compare) solve_comp => ocean_solve_ptr(free_sfc_solver_comp)
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+
+      CALL dbg_print('on entry: h-old'   ,ocean_state(jg)%p_prog(nold(1))%h ,str_module, 3, in_subset=owned_cells)
+      CALL dbg_print('on entry: vn-old'  ,ocean_state(jg)%p_prog(nold(1))%vn,str_module, 3, in_subset=owned_edges)
+      CALL dbg_print('on entry: h-new'   ,ocean_state(jg)%p_prog(nnew(1))%h ,str_module, 2, in_subset=owned_cells)
+      CALL dbg_print('on entry: vn-new'  ,ocean_state(jg)%p_prog(nnew(1))%vn,str_module, 2, in_subset=owned_edges)
+
+      ! Apply windstress
+      CALL top_bound_cond_horz_veloc(patch_3d, ocean_state(jg), operators_coefficients, p_oce_sfc)
+
+      CALL calculate_explicit_term_ab(patch_3d, ocean_state(jg), p_phys_param, &
+        & is_initial_timestep(jstep), operators_coefficients, p_as)
+
+      ! Calculate RHS of surface equation
+      CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state(jg), operators_coefficients)
+
+      ! Solve surface equation with solver
+      ! decide on guess to use in solver
+
+      !!ICON_OMP PARALLEL WORKSHARE
+      solve%x_loc_wp(:,:) = ocean_state(jg)%p_prog(nold(1))%h(:,:)
+      !!ICON_OMP END PARALLEL WORKSHARE
+
+      solve%b_loc_wp => ocean_state(jg)%p_aux%p_rhs_sfc_eq
+
+      ! call solver
+
+      CALL solve%solve(n_it, n_it_sp)
+
+      rn = MERGE(solve%res_loc_wp(1), 0._wp, n_it .NE. 0)
+
+
+      IF (rn > solver_tolerance) THEN
+        ret_status = 2
+
+        CALL warning(routine, "NOT YET CONVERGED !!")
+        RETURN
+
+      ENDIF
+
+      !!ICON_OMP PARALLEL WORKSHARE
+      ocean_state(jg)%p_prog(nnew(1))%h(:,:) = solve%x_loc_wp(:,:)
+      !!ICON_OMP END PARALLEL WORKSHARE
+
+      IF (createSolverMatrix) &
+        CALL solve%dump_matrix(jstep)
+
+      !-------- end of solver ---------------
+
+      CALL sync_patch_array(sync_c, patch_2D, ocean_state(jg)%p_prog(nnew(1))%h)
+
+      !---------------------------------------------------------------------
+
+
+      IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
+
+        CALL warning(routine, "height below min_top_height")
+        CALL print_value_location(ocean_state(jg)%p_prog(nnew(1))%h(:,:), minmaxmean(1), owned_cells)
+        CALL print_value_location(ocean_state(jg)%p_prog(nnew(2))%h(:,:), minmaxmean(1), owned_cells)
+        CALL work_mpi_barrier()
+        ret_status = 1
+
+        RETURN
+      ENDIF
+
+      !------------------------------------------------------------------------
+      ! Step 4: calculate final normal velocity from predicted horizontal
+      ! velocity vn_pred and updated surface height
+      CALL calc_normal_velocity_ab(patch_3d, ocean_state(jg),&
+        & operators_coefficients, solvercoeff_sp,  p_ext_data(jg), p_phys_param)
+      !------------------------------------------------------------------------
+      ! Step 5: calculate vertical velocity and mass_flx_e from continuity equation under
+      ! incompressiblity condition in the non-shallow-water case
+      CALL calc_vert_velocity( patch_3d, ocean_state(jg),operators_coefficients)
+      !------------------------------------------------------------------------
+      !------------------------------------------------------------------------
+      !Tracer transport
+      old_tracer_collection => ocean_state(jg)%p_prog(nold(1))%tracer_collection
+      new_tracer_collection => ocean_state(jg)%p_prog(nnew(1))%tracer_collection
+      !------------------------------------------------------------------------
+
+      IF (no_tracer>=1) THEN
+
+        ! fill transport_state
+        transport_state%patch_3d    => patch_3d
+        transport_state%h_old       => ocean_state(jg)%p_prog(nold(1))%h
+        transport_state%h_new       => ocean_state(jg)%p_prog(nnew(1))%h
+        transport_state%w           => ocean_state(jg)%p_diag%w  ! w_time_weighted
+        transport_state%mass_flux_e => ocean_state(jg)%p_diag%mass_flx_e
+        transport_state%vn          => ocean_state(jg)%p_diag%vn_time_weighted
+
+        ! fill boundary conditions
+        old_tracer_collection%tracer(1)%top_bc => p_oce_sfc%TopBC_Temp_vdiff
+
+        IF (no_tracer > 1) &
+          old_tracer_collection%tracer(2)%top_bc => p_oce_sfc%TopBC_Salt_vdiff
+
+        ! fill diffusion coefficients
+        DO i = 1, old_tracer_collection%no_of_tracers
+            old_tracer_collection%tracer(i)%hor_diffusion_coeff => p_phys_param%TracerDiffusion_coeff(:,:,:,i)
+            old_tracer_collection%tracer(i)%ver_diffusion_coeff => p_phys_param%a_tracer_v(:,:,:,i)
+        ENDDO
+      ENDIF
+
+      !------------------------------------------------------------------------
+      !------------------------------------------------------------------------
+      ! transport tracers and diffuse them
+
+      IF (no_tracer>=1) THEN
+          CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+      ENDIF
+
+      !------------------------------------------------------------------------
+      !------------------------------------------------------------------------
+
+      CALL output_ocean( patch_3d, &
+        & ocean_state,             &
+        & current_time,                &
+        & p_oce_sfc,          &
+        & sea_ice,               &
+        & jstep, jstep0)
+
+      ! Shift time indices for the next loop
+      ! this HAS to ge into the restart files, because the start with the following loop
+      CALL update_time_indices(jg)
+
+      ! update intermediate timestepping variables for the tracers
+      CALL update_time_g_n(ocean_state(jg))
+
+      IF (isEndOfThisRun()) THEN
+        ! leave time loop
+
+        RETURN
+      END IF
+        
+    END DO
+
+  END SUBROUTINE test_stepping_z
 
 END MODULE mo_ocean_testbed_zstar

@@ -108,7 +108,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
   USE mo_sync,                        ONLY: sync_c, sync_c1, sync_patch_array, sync_patch_array_mult
   
-  USE mo_ocean_testbed_zstar,         ONLY: ocean_test_zstar_advection
+  USE mo_ocean_testbed_zstar,         ONLY: ocean_test_zstar_advection, test_stepping_zstar, test_stepping_z
 
   IMPLICIT NONE
   PRIVATE
@@ -206,8 +206,8 @@ CONTAINS
         CALL checkVarlistKeys(patch_3d%p_patch_2D(1))
     
     
-      CASE (91) ! Test zstar transformation of operators 
-        CALL test_zstar( patch_3d, ocean_state,  &
+      CASE (91) ! Test stepping with z levels 
+        CALL test_stepping_z( patch_3d, ocean_state,  &
           & external_data , &
           & this_datetime, &
           & ocean_surface, &
@@ -219,8 +219,9 @@ CONTAINS
           & operators_coefficients, &
           & solvercoeff_sp)
 
-      CASE (92) ! Test advection part of momentum  
-        CALL test_mom( patch_3d, ocean_state,  &
+
+      CASE (92) ! Test full time stepping with zstar 
+        CALL test_stepping_zstar( patch_3d, ocean_state,  &
           & external_data , &
           & this_datetime, &
           & ocean_surface, &
@@ -232,7 +233,6 @@ CONTAINS
           & operators_coefficients, &
           & solvercoeff_sp)
 
-      
       CASE (93)
         CALL ocean_test_zstar_advection( patch_3d, ocean_state, &
           & this_datetime, ocean_surface, physics_parameters,             &

@@ -482,7 +482,9 @@ CONTAINS
       CALL calculate_density_mpiom(patch_3d, tracer, rho)
     CASE(3)
       CALL calculate_density_jmdwfg06(patch_3d, tracer, rho)
-      !CALL calculate_density_JM_EOS(patch_2D, tracer, rho)
+      !CALL calculate_density_JM_EOS(patch_2D, tracer, rho)k
+    CASE(5)
+      CALL calculate_density_lin(patch_3d, tracer, rho)
     CASE(10)
       CALL calculate_density_EOS10(patch_3d, tracer, rho)
     CASE default
@@ -547,6 +549,50 @@ CONTAINS
   END SUBROUTINE calc_potential_density
   !-------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------
+  !! Linear density profile for basic tests. Follows
+  !! https://doi.org/10.1016/j.ocemod.2014.12.004 
+  SUBROUTINE calculate_density_lin(patch_3d, tracer, rho)
+    !
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp),    INTENT(in)       :: tracer(:,:,:,:)     !< input of S and T
+    REAL(wp), INTENT(inout)       :: rho   (:,:,:)       !< density
+    
+    INTEGER  :: jc, jk, jb
+    INTEGER  :: start_index, end_index
+    REAL(wp) :: t_ref, s_ref !! Reference temperature and salinity 
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3d%p_patch_2d(1)
+    !-------------------------------------------------------------------------
+    all_cells => patch_2D%cells%ALL
+
+    t_ref =  5.0_wp
+    s_ref = 35.0_wp
+    
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      !  tracer 1: potential temperature
+      !  tracer 2: salinity
+      rho(:,:,jb) = OceanReferenceDensity   !  plotting purpose
+      DO jc = start_index, end_index
+        DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            rho(jc,jk,jb) = OceanReferenceDensity          &
+              & - 0.2 * ( tracer(jc,jk,jb,1) - t_ref ) &
+              & + LinearHalineContractionCoefficient * ( tracer(jc,jk,jb,2) - s_ref )
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+      
+  END SUBROUTINE calculate_density_lin
+  !-------------------------------------------------------------------------
+
+
   !-------------------------------------------------------------------------
   !>
   !!Calculates the density via a linear equation-of-state.

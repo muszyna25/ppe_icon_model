@@ -631,8 +631,17 @@ CONTAINS
     CASE (235)
       ocean_temperature(:,:,:) = 10.0_wp
 
+    !------------------------------
+    !! Test cases for zstar
+    !------------------------------
     CASE(240)
       CALL tracer_advec_test(patch_3d, ocean_temperature)
+
+    CASE(241)
+      CALL lock_exchange(patch_3d, ocean_temperature)
+    !------------------------------
+    !------------------------------
+
 
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
@@ -2343,6 +2352,66 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
   END SUBROUTINE tracer_advec_test 
   !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  !-Lock Exchange test case
+  !! Approximating the following reference
+  !! https://doi.org/10.1016/j.ocemod.2014.12.004
+  SUBROUTINE lock_exchange(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: block, idx, level
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg
+    REAL(wp):: z_lat1, z_lat2, z_lon1, z_lon2
+    LOGICAL :: set_single_triangle
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_Uniform_SpecialArea'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    z_lon1  =    0._wp
+    z_lat1  =    0._wp
+    
+    set_single_triangle=.false.
+    
+    ocean_temperature = 5.0_wp 
+    
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        lat_deg = cell_center(idx, block)%lat * rad2deg
+        lon_deg = cell_center(idx, block)%lon * rad2deg
+
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+
+!          IF (lon_deg >= z_lon1 )  THEN 
+         IF (lat_deg >= z_lat1 )  THEN 
+
+            IF(.NOT.set_single_triangle)THEN
+              ocean_temperature(idx, level, block) =  30._wp
+            ENDIF
+
+
+          END IF
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE lock_exchange 
+  !-------------------------------------------------------------------------------
+
 
 
 

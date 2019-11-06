@@ -92,6 +92,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   PUBLIC :: invert_mass_matrix
   PUBLIC :: clear_ocean_ab_timestepping_mimetic
   PUBLIC :: calculate_explicit_term_ab
+  PUBLIC :: fill_rhs4surface_eq_ab 
   !
 ! solver object (free ocean surface)
   CLASS(t_destructible), POINTER :: free_sfc_solver => NULL()
