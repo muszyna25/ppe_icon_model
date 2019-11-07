@@ -406,7 +406,7 @@ case "$ac_sitename" in
                                 ;;
                             *)
                                 config_target = daint_cpu
-                                FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=intolerant -hfp1 -hnoacc -O1,cache0
+                                FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=intolerant -homp -hfp1 -hnoacc -O1,cache0
                                 LDFLAGS     = -Wl,--allow-multiple-definition
                                 ;;
                         esac
