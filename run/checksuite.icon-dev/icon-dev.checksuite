@@ -855,7 +855,7 @@ if string_in_list $MD $CMODES; then
     if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
         cd ${SCRIPT_DIR}
         MPI=`grep with_mpi exp.${SCRIPT}.run`
-        MPIYES='with_mpi="yes"'
+        MPIYES='# with_mpi=yes'
         if [ "$MPI" == "$MPIYES" ]; then
 
             # find out how many nodes and processes per node are in use
@@ -970,7 +970,7 @@ if string_in_list $MD $CMODES; then
     if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
         cd ${SCRIPT_DIR}
         OMP=`grep with_openmp exp.${SCRIPT}.run`
-        OMPYES='with_openmp="yes"'
+        OMPYES='# with_openmp=yes'
         if [ "$OMP" == "$OMPYES" ]; then
 
             # find out how many omp threads are in use

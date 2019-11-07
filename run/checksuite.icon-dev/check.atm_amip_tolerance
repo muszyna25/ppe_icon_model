@@ -14,6 +14,10 @@
 # - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
 # - the restart file names: 
 #
+# For this test a separate experiment name is needed. Therefore a soft-link
+# is created for the new name exp.atm_amip_tolerance_test.
+rm -f exp.atm_amip_tolerance_test
+ln -s exp.atm_amip_test exp.atm_amip_tolerance_test
 export EXPERIMENT='atm_amip_tolerance_test'
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
@@ -43,6 +47,7 @@ export RESTART_DATE='19790101T000800Z'
 #
 # default: MD='rnmo'
 #
+export MD='t'
 
 #--------------------------------------------------------------------------------
 # 
@@ -60,7 +65,7 @@ case $HOST in
         module load netcdf-python
 esac
 
-./icon-dev.checksuite -m tolerance
+./icon-dev.checksuite
 STATUS=$?
 
 check_final_status $STATUS "$EXPERIMENT"
@@ -68,4 +73,3 @@ check_final_status $STATUS "$EXPERIMENT"
 
 #--------------------------------------------------------------------------------
 exit
-
