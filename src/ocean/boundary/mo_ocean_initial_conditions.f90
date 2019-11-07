@@ -264,6 +264,8 @@ CONTAINS
     CASE (201)
       CALL depth_mountain_orography_Williamson_test5(patch_3d, cells_bathymetry)
 
+    CASE (202)
+      CALL depth_overflow(patch_3d, cells_bathymetry)
 
     CASE default
       CALL finish(method_name, "unknown topography_type")
@@ -639,6 +641,9 @@ CONTAINS
 
     CASE(241)
       CALL lock_exchange(patch_3d, ocean_temperature)
+    
+    CASE(242)
+      CALL overflow(patch_3d, ocean_temperature)
     !------------------------------
     !------------------------------
 
@@ -2410,6 +2415,61 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     END DO
 
   END SUBROUTINE lock_exchange 
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  !-overflow test case
+  !! Approximating the following reference
+  !! https://doi.org/10.1016/j.ocemod.2014.12.004
+  SUBROUTINE overflow(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: block, idx, level
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: y_loc, y_loc0 
+    LOGICAL :: set_single_triangle
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_Uniform_SpecialArea'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    set_single_triangle=.false.
+
+    y_loc0 = 20000._wp
+    
+    ocean_temperature = 10.0_wp 
+    
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        y_loc = patch_2D%cells%cartesian_center(idx, block)%x(2)
+
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+
+         IF (y_loc >= y_loc0 )  THEN 
+
+            IF(.NOT.set_single_triangle)THEN
+              ocean_temperature(idx, level, block) =  20._wp
+            ENDIF
+
+
+          END IF
+        END DO
+      END DO
+    END DO
+
+  END SUBROUTINE overflow 
   !-------------------------------------------------------------------------------
 
 
@@ -4957,6 +5017,58 @@ stop
 
   END SUBROUTINE depth_mountain_orography_Williamson_test5
   !-----------------------------------------------------------------------------------
+
+  
+  !-----------------------------------------------------------------------------------
+  !
+  ! Initial datum for overflow test case 
+  !
+  SUBROUTINE depth_overflow(patch_3d, cells_bathymetry)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET, INTENT(inout)  :: cells_bathymetry(:,:)
+
+    REAL(wp)             :: point_height      ! orography
+
+    REAL(wp)             :: d1, d2, d, sigma, x0, x 
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    ! Local Variables
+    INTEGER :: block, idx
+    INTEGER :: start_cell_index, end_cell_index
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':depth_mountain_orography_Williamson_test5'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    d1 =  500._wp 
+    d2 = 2000._wp 
+    
+    sigma =  7000._wp
+    x0    = 40000._wp
+
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        x = patch_2D%cells%cartesian_center(idx, block)%x(2)
+
+        d = d1 + 0.5_wp*(d2 - d1)*(1.0_wp + tanh( (x - x0)/sigma) )
+        
+        IF ( cells_bathymetry(idx, block) < 0.0_wp ) THEN ! Only touch it if its not land
+          cells_bathymetry(idx, block) = -d
+        ENDIF
+
+
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE depth_overflow
+  !-----------------------------------------------------------------------------------
+
 
   !-----------------------------------------------------------------------------------
   SUBROUTINE depth_uniform(patch_3d, cells_bathymetry)

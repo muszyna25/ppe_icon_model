@@ -2147,7 +2147,7 @@ CONTAINS
   !! Computation of velocity predictor in Adams-Bashforth timestepping.
   !!
   SUBROUTINE calculate_explicit_term_zstar( patch_3d, ocean_state, p_phys_param,&
-    & is_first_timestep, op_coeffs, p_as, stretch_c, eta_c)
+    & is_first_timestep, op_coeffs, p_as, stretch_c, eta_c, stretch_e)
     TYPE(t_patch_3d ), POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     TYPE (t_ho_params)                   :: p_phys_param
@@ -2156,6 +2156,7 @@ CONTAINS
     TYPE(t_atmos_for_ocean), INTENT(inout) :: p_as
     REAL(wp), INTENT(IN) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
     REAL(wp), INTENT(IN) :: eta_c    (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
+    REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     TYPE(t_subset_range), POINTER :: owned_edges, owned_cells
     
     owned_edges     => patch_3d%p_patch_2d(n_dom)%edges%owned
@@ -2202,7 +2203,8 @@ CONTAINS
       & ocean_state%p_diag,op_coeffs,  &
       & ocean_state%p_diag%laplacian_horz)
     
-    CALL explicit_vn_pred_zstar( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep, eta_c)
+    CALL explicit_vn_pred_zstar( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep, &
+      & eta_c, stretch_e)
     
   END SUBROUTINE calculate_explicit_term_zstar
 
@@ -2286,16 +2288,118 @@ CONTAINS
     END DO
   END SUBROUTINE calculate_explicit_vn_pred_3D_onBlock_zstar
 
+  
+  !-------------------------------------------------------------------------
+  !!Subroutine implements implicit vertical diffusion for horizontal velocity fields
+  !!by inverting a scalar field..
+  !------------------------------------------------------------------------
+  SUBROUTINE velocity_diffusion_vertical_implicit_zstar( &
+    & patch_3d,                            &
+    & velocity,                            &
+    & a_v, stretch_e,                      &
+    & operators_coefficients,              &
+    & start_index, end_index, edge_block)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), INTENT(inout)              :: velocity(:,:)   ! on edges, (nproma, levels)
+    REAL(wp), INTENT(inout)              :: a_v(:,:)      ! on edges, (nproma, levels)
+    REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
+    TYPE(t_operator_coeff),INTENT(IN) ,TARGET :: operators_coefficients
+    INTEGER , INTENT(in):: start_index, end_index, edge_block
+    !
+    REAL(wp) :: dt_inv
+    REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
+    REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev), diagonal_product
+    REAL(wp) :: column_velocity(1:n_zlev)
+    REAL(wp) :: fact(1:n_zlev)
+    REAL(wp) :: inv_str_e 
+
+    INTEGER :: bottom_level
+    INTEGER :: edge_index, level
+    TYPE(t_patch), POINTER :: patch_2d
+
+    !-----------------------------------------------------------------------
+    dt_inv = 1.0_wp/dtime
+
+    DO edge_index = start_index, end_index
+      bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+
+      inv_str_e    = 1._wp/stretch_e(edge_index, edge_block)
+
+      IF (bottom_level < 2 ) CYCLE ! nothing to diffuse
+
+      ! Note : the inv_prism_thick_e, inv_prism_center_dist_e should be updated in calculate_thickness
+      DO level=1, bottom_level
+        inv_prism_thickness(level)        = inv_str_e*patch_3d%p_patch_1d(1)%inv_prism_thick_e(edge_index,level,edge_block)
+        inv_prisms_center_distance(level) = inv_str_e*patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(edge_index,level,edge_block)
+      ENDDO
+
+
+      !------------------------------------
+      ! Fill triangular matrix
+      ! b is diagonal, a is the upper diagonal, c is the lower
+      !   top level
+      a(1) = 0.0_wp
+      c(1) = -a_v(edge_index,2) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+      b(1) = dt_inv - c(1)
+      DO level = 2, bottom_level-1
+        a(level) = - a_v(edge_index,level)   * inv_prism_thickness(level) * inv_prisms_center_distance(level)
+        c(level) = - a_v(edge_index,level+1) * inv_prism_thickness(level) * inv_prisms_center_distance(level+1)
+        b(level) = dt_inv - a(level) - c(level)
+      END DO
+      ! bottom
+      a(bottom_level) = -a_v(edge_index,bottom_level) * inv_prism_thickness(bottom_level) * &
+        & inv_prisms_center_distance(bottom_level)
+      b(bottom_level) = dt_inv - a(bottom_level)
+
+      ! precondition: set diagonal equal to diagonal_product
+      diagonal_product = PRODUCT(b(1:bottom_level))
+
+      DO level = 1, bottom_level
+        fact(level) = diagonal_product / b(level)
+        a(level)  = a(level)  * fact(level)
+        b(level)  = diagonal_product
+        c(level)  = dt_inv * fact(level) - a(level) - b(level)
+        column_velocity(level) = velocity(edge_index,level) * dt_inv * fact(level)
+      ENDDO
+      c(bottom_level) = 0.0_wp
+
+      !------------------------------------
+      ! solver from lapack
+      !
+      ! eliminate lower diagonal
+      DO level = bottom_level-1, 1, -1
+        fact(level+1)  = c( level ) / b( level+1 )
+        b( level ) = b( level ) - fact(level+1) * a( level +1 )
+        column_velocity( level ) = column_velocity( level ) - fact(level+1) * column_velocity( level+1 )
+      ENDDO
+
+      !     Back solve with the matrix U from the factorization.
+      column_velocity( 1 ) = column_velocity( 1 ) / b( 1 )
+      DO level = 2, bottom_level
+        column_velocity( level ) = ( column_velocity( level ) - a( level ) * column_velocity( level-1 ) ) / b( level )
+      ENDDO
+
+      DO level = 1, bottom_level
+        velocity(edge_index,level) = column_velocity(level)
+      ENDDO
+
+    END DO ! edge_index = start_index, end_index
+
+  END SUBROUTINE velocity_diffusion_vertical_implicit_zstar
+  !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   SUBROUTINE explicit_vn_pred_zstar( patch_3d, ocean_state, op_coeffs, p_phys_param, &
-      & is_first_timestep, eta)
+      & is_first_timestep, eta, stretch_e)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff), INTENT(IN) :: op_coeffs
     TYPE (t_ho_params) :: p_phys_param
     LOGICAL, INTENT(in)  :: is_first_timestep
     REAL(wp), INTENT(IN) :: eta(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+    REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     REAL(wp) :: z_gradh_e(nproma)
     TYPE(t_subset_range), POINTER :: edges_in_domain
     INTEGER :: start_edge_index, end_edge_index, blockNo
@@ -2323,9 +2427,9 @@ CONTAINS
         CALL ICON_PP_Edge_vnPredict_scheme(patch_3d, blockNo, start_edge_index, end_edge_index, &
           & ocean_state, ocean_state%p_diag%vn_pred(:,:,blockNo))
       !In 3D case implicit vertical velocity diffusion is chosen
-      CALL velocity_diffusion_vertical_implicit_onBlock(patch_3d, &
-        & ocean_state%p_diag%vn_pred(:,:,blockNo), p_phys_param%a_veloc_v(:,:,blockNo), op_coeffs, &
-        & start_edge_index, end_edge_index, blockNo)
+      CALL velocity_diffusion_vertical_implicit_zstar(patch_3d, &
+        & ocean_state%p_diag%vn_pred(:,:,blockNo), p_phys_param%a_veloc_v(:,:,blockNo), stretch_e, &
+        & op_coeffs, start_edge_index, end_edge_index, blockNo)
 
     END DO
 !ICON_OMP_END_PARALLEL_DO
@@ -2558,7 +2662,7 @@ CONTAINS
         st1 = stretch_c(id1, bl1) 
         st2 = stretch_c(id2, bl2) 
 
-        !! FIXME: There seem to be edge cases where this does not work
+        !! FIXME: does averaging  make sense? 
         IF(patch_3D%lsm_e(je, 1, jb) <= sea_boundary)THEN
           stretch_e(je, jb) = 0.5_wp*(st1 + st2)
         ELSE
@@ -2649,7 +2753,7 @@ CONTAINS
       CALL top_bound_cond_horz_veloc(patch_3d, ocean_state(jg), operators_coefficients, p_oce_sfc)
       
       CALL calculate_explicit_term_zstar(patch_3d, ocean_state(jg), p_phys_param, &
-        & is_initial_timestep(jstep), operators_coefficients, p_as, stretch_c, eta_c)
+        & is_initial_timestep(jstep), operators_coefficients, p_as, stretch_c, eta_c, stretch_e)
       
       ! Calculate RHS of surface equation
       CALL fill_rhs4surface_eq_zstar(patch_3d, ocean_state(jg), operators_coefficients, stretch_e, eta_c)

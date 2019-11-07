@@ -568,7 +568,9 @@ CONTAINS
     !-------------------------------------------------------------------------
     all_cells => patch_2D%cells%ALL
 
-    t_ref =  5.0_wp
+    !! FIXME: This case is very sensitive to t_ref
+    !! So lock exchange should be at t_ref = 5 and overflow at t_ref = 10
+    t_ref = 10.0_wp
     s_ref = 35.0_wp
     
 !ICON_OMP_PARALLEL
