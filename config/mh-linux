@@ -350,8 +350,9 @@ case "$ac_sitename" in
                         case "${config_tuning}" in
                             gpu*)
                                 config_target = daint_gpu
-                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda9.2 -Minfo=accel,inline
-                                LDFLAGS       = -ta=nvidia:cc60,cuda9.2
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda10.1 -Minfo=accel,inline
+                                LDFLAGS       = -ta=nvidia:cc60,cuda10.1
+                                CLAWFC_FLAGS  = ${CLAWFC_FLAGS} --target=gpu --directive=acc
                                 ;;
                             *)
                                 config_target = daint_cpu
@@ -362,24 +363,12 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu modules craype craype-haswell cdt/19.08 PrgEnv-pgi/6.0.5 pgi-icon/19.5.0 cray-mpich cray-netcdf cray-hdf5 
-                                NETCDFROOT  = ${NETCDF_DIR}
-                                HDF5ROOT    = ${HDF5_DIR}
-                                ;;
-                            19.9)
-                                load_modules = daint-gpu modules craype craype-haswell cdt/19.08 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 cray-mpich cray-netcdf cray-hdf5
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 gcc cray-mpich cray-netcdf cray-hdf5
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
                             gpu)
-                                load_modules = daint-gpu modules craype craype-haswell cdt/19.08 PrgEnv-pgi/6.0.5 pgi-icon/19.5.0 gcc/6.2.0 cray-mpich cray-netcdf cray-hdf5 cudatoolkit/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
-                                NVCC        = nvcc
-				NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
-                                NETCDFROOT  = ${NETCDF_DIR}
-                                HDF5ROOT    = ${HDF5_DIR}
-                                ;;
-                            gpu_19.9)
-                                load_modules = daint-gpu modules craype craype-haswell cdt/19.08 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 gcc/6.2.0 cray-mpich cray-netcdf cray-hdf5 cudatoolkit/9.2.148_3.19-6.0.7.1_2.1__g3d9acc8
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7
                                 NVCC        = nvcc
 				NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
                                 NETCDFROOT  = ${NETCDF_DIR}
@@ -424,7 +413,7 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
+                                load_modules = modules craype daint-gpu PrgEnv-cray gcc cce-icon/9.0.2-classic cray-netcdf cray-hdf5 cray-libsci
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}

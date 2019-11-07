@@ -659,7 +659,7 @@ set_run_target_daint_gpu()
   icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
 
-  set_default use_nproma 256
+  set_default use_nproma 8000
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
 
