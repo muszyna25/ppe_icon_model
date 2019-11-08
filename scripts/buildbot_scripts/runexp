@@ -2,13 +2,17 @@
 
 set -eu
 
-hostname=${HOSTNAME:-""}
+hostname=${HOSTNAME:-unknown}
+
+echo "Start runexp switcher on $hostname ..."
 
 case $hostname in
     daint*)
+        echo "   select bash variant ..."        
 	exec ./scripts/buildbot_scripts/runexp.bash
 	;;  
     *)
+        echo "   select ksh variant ..."                
 	exec ./scripts/buildbot_scripts/runexp.ksh
 	;;	
 esac
