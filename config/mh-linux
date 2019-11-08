@@ -402,12 +402,12 @@ case "$ac_sitename" in
                             gpu*)
                                 config_target = daint_gpu
                                 FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -O2
-                                LDFLAGS     = -Wl,--allow-multiple-definition
+                                LDFLAGS     = -Wl,--allow-multiple-definition -hacc
                                 ;;
                             *)
                                 config_target = daint_cpu
                                 FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=intolerant -homp -hfp1 -hnoacc -O1,cache0
-                                LDFLAGS     = -Wl,--allow-multiple-definition
+                                LDFLAGS     = -Wl,--allow-multiple-definition -homp
                                 ;;
                         esac
                         # Setup of specific version
