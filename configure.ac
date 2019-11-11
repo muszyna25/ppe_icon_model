@@ -350,15 +350,18 @@ subdir_FCFLAGS="$FCFLAGS ${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}"
 
 dnl Run the delayed cross-compilation check:
 AS_VAR_IF([acx_save_cross_compiling], [no],
-  [AC_LINK_IFELSE([AC_LANG_PROGRAM],
-     [./conftest$ac_cv_exeext >/dev/null 2>&1
-      AS_IF([test $? -ne 0],
-        [AC_MSG_WARN([unable to run executables linked with the provided dnl
-linker flags, which might result into a failure of the following standard dnl
-cross compilation check with a misleading message: make sure that the dnl
-dynamic linker is able to find all the shared libraries specified in LIBS, dnl
-e.g. by extending the LD_LIBRARY_PATH environment variable (or its dnl
-analogue)])])])])
+  [acx_compiler_cross_check_result=ok
+   AC_LINK_IFELSE([AC_LANG_PROGRAM],
+     [./conftest$ac_cv_exeext >/dev/null 2>&1 || dnl
+acx_compiler_cross_check_result=fail],
+     [acx_compiler_cross_check_result=fail])
+   AS_VAR_IF([acx_compiler_cross_check_result], [fail],
+     [AC_MSG_WARN([unable to link and run executables linked with the dnl
+provided linker flags, which might result into a failure of the following dnl
+standard cross compilation check with a misleading message: make sure that dnl
+the dynamic linker is able to find all the shared libraries specified in dnl
+LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its dnl
+analogue)])])])
 ACX_COMPILER_CROSS_CHECK_NOW
 
 ACX_FC_LINE_LENGTH([unlimited])

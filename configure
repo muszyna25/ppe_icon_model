@@ -3941,20 +3941,23 @@ ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
 subdir_FCFLAGS="$FCFLAGS ${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}"
 
 if test "x$acx_save_cross_compiling" = xno; then :
-  cat > conftest.$ac_ext <<_ACEOF
+  acx_compiler_cross_check_result=ok
+   cat > conftest.$ac_ext <<_ACEOF
       program main
 
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  ./conftest$ac_cv_exeext >/dev/null 2>&1
-      if test $? -ne 0; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&5
-$as_echo "$as_me: WARNING: unable to run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&2;}
-fi
+  ./conftest$ac_cv_exeext >/dev/null 2>&1 || acx_compiler_cross_check_result=fail
+else
+  acx_compiler_cross_check_result=fail
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+   if test "x$acx_compiler_cross_check_result" = xfail; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to link and run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&5
+$as_echo "$as_me: WARNING: unable to link and run executables linked with the provided linker flags, which might result into a failure of the following standard cross compilation check with a misleading message: make sure that the dynamic linker is able to find all the shared libraries specified in LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its analogue)" >&2;}
+fi
 fi
    cross_compiling=$acx_save_cross_compiling
    ac_tool_warned=$acx_save_ac_tool_warned
