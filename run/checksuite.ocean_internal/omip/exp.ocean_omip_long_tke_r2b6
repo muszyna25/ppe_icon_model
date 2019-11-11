@@ -261,10 +261,15 @@ cat > ${ocean_namelist} << EOF
  leadclose_1                     =   0.25     ! default: 0.5 - value of MPIOM: 0.25
  leadclose_2n                    =   0.666    ! default: 0.0 - value of MPIOM: 2/3
  albedoW_sim  = 0.10         ! albedo of the ocean used in sea ice model
- albs         = 0.85         ! Albedo of snow (not melting)
- albsm        = 0.70         ! Albedo of snow (melting)
- albi         = 0.75         ! Albedo of ice (not melting)
- albim        = 0.70         ! Albedo of ice (melting)
+! albs         = 0.85         ! Albedo of snow (not melting)
+! albsm        = 0.70         ! Albedo of snow (melting)
+! albi         = 0.75         ! Albedo of ice (not melting)
+! albim        = 0.70         ! Albedo of ice (melting)
+ albs         = 0.80         ! Albedo of snow (not melting)
+ albsm        = 0.65         ! Albedo of snow (melting)
+ albi         = 0.70         ! Albedo of ice (not melting)
+ albim        = 0.65         ! Albedo of ice (melting)
+
  Pstar        = 40000
 /
 &ocean_forcing_nml
