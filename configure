@@ -627,8 +627,8 @@ ac_includes_default="\
 enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-use_path
 use_ld_library_path
+use_path
 use_flags_group
 use_shell
 sync_submit
@@ -754,7 +754,6 @@ infodir
 docdir
 oldincludedir
 includedir
-runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -860,7 +859,6 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
-runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1113,15 +1111,6 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
-  -runstatedir | --runstatedir | --runstatedi | --runstated \
-  | --runstate | --runstat | --runsta | --runst | --runs \
-  | --run | --ru | --r)
-    ac_prev=runstatedir ;;
-  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
-  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
-  | --run=* | --ru=* | --r=*)
-    runstatedir=$ac_optarg ;;
-
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1259,7 +1248,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir runstatedir
+		libdir localedir mandir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1412,7 +1401,6 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
-  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -2952,8 +2940,7 @@ EOF
           if test -z "$CONFIG_SHELL"; then :
   CONFIG_SHELL=$SHELL
 fi
-          load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
-          ignore_if_loaded=$($CONFIG_SHELL -c '. ./conftest; echo "$ignore_if_loaded"')
+          load_profile=$($CONFIG_SHELL -c '. ./conftest; echo "$load_profile"')
           /bin/rm -f confsed conftest
 
        if test ! -z "$load_profile" ; then :
@@ -3016,6 +3003,7 @@ EOF
   CONFIG_SHELL=$SHELL
 fi
           load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
+          ignore_if_loaded=$($CONFIG_SHELL -c '. ./conftest; echo "$ignore_if_loaded"')
           /bin/rm -f confsed conftest
 
        if test ! -z "$load_modules" ; then :
@@ -3063,24 +3051,22 @@ fi
                      for mod in $modules_loaded
                      do
                          mod_ignore=$(echo $check_loaded | $GREP -o "$replacement")
-		         if test ${mod%%/*} = ${replacement%%/*}; then
-  if test "$mod" != "$replacement"; then
-  if test ! -z $mod_ignore; then
-  { $as_echo "$as_me:$LINENO: Module $mod already loaded, ignoring." >&5
+		         if test ${mod%%/*} = ${replacement%%/*}; then :
+  if test "$mod" != "$replacement"; then :
+  if test ! -z $mod_ignore; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Module $mod already loaded, ignoring." >&5
 $as_echo "$as_me: Module $mod already loaded, ignoring." >&6;}
                                               is_loaded=true
 else
 
-                                              if test ! -z prgenv_loaded; then
+                                              if test ! -z prgenv_loaded; then :
   module unload $mod
                                                      module load $replacement
 else
   module swap $mod $replacement
 fi
 
-
 fi
-
 
 else
   is_loaded=true
@@ -7437,12 +7423,12 @@ use_shell=$use_shell
 
 use_flags_group=$use_flags_group
 
-use_path=$use_path
 
 if test ! -z $PATH; then :
   use_path=$PATH
 fi
 use_path=$use_path
+
 
 if test ! -z $CRAY_LD_LIBRARY_PATH; then :
   use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
