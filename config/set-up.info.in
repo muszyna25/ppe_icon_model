@@ -20,5 +20,6 @@ use_submit='@submit@'
 use_sync_submit='@sync_submit@'
 use_shell='@use_shell@'
 use_flags_group='@use_flags_group@'
+use_path='@use_path@'
 use_ld_library_path='@use_ld_library_path@'
 ##################################

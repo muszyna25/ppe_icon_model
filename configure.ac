@@ -1867,6 +1867,10 @@ AC_SUBST(sync_submit,$sync_submit)
 AC_SUBST(use_shell,$use_shell)                
 AC_SUBST(use_flags_group,$use_flags_group)          
 
+AS_IF([test ! -z $PATH],
+      [use_path=$PATH]) 
+AC_SUBST(use_path,$use_path)                
+
 AS_IF([test ! -z $CRAY_LD_LIBRARY_PATH],
       [use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH]) 
 

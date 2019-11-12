@@ -627,6 +627,7 @@ ac_includes_default="\
 enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+use_path
 use_ld_library_path
 use_flags_group
 use_shell
@@ -7436,6 +7437,12 @@ use_shell=$use_shell
 
 use_flags_group=$use_flags_group
 
+use_path=$use_path
+
+if test ! -z $PATH; then :
+  use_path=$PATH
+fi
+use_path=$use_path
 
 if test ! -z $CRAY_LD_LIBRARY_PATH; then :
   use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
