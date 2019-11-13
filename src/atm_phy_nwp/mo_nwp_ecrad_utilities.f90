@@ -160,7 +160,8 @@ CONTAINS
         ENDDO !jc
       ENDDO !jk
       DO jc = i_startidx, i_endidx
-        ecrad_thermodynamics%temperature_hl(jc,nlevp1)    = tsfc(jc)
+        ecrad_thermodynamics%temperature_hl(jc,nlevp1) = temp(jc,nlev) + (pres_ifc(jc,nlevp1) - pres(jc,nlev)) * &
+                               (temp(jc,nlev-1) - temp(jc,nlev))/(pres(jc,nlev-1) - pres(jc,nlev))
         ecrad_thermodynamics%temperature_hl(jc,1)         = temp(jc,1)                        &
           &                   + ( pres_ifc(jc,1) - pres(jc,1) )                               &
           &                   * (temp(jc,1)      - ecrad_thermodynamics%temperature_hl(jc,2)) &

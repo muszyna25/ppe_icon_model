@@ -687,7 +687,9 @@ CONTAINS
       END DO
     END DO
     DO jl = 1, jce
-      tk_hl(jl,klevp1) = tk_sfc(jl)
+ !     tk_hl(jl,klevp1) = tk_sfc(jl)
+      tk_hl(jl,klevp1) = tk_fl(jl,klev) + (pp_hl(jl,klevp1) - pp_fl(jl,klev)) * &
+         (tk_fl(jl,klev-1) - tk_fl(jl,klev))/(pp_fl(jl,klev-1) - pp_fl(jl,klev))
       tk_hl(jl,1)      = tk_fl(jl,1)+(pp_hl(jl,1)-pp_fl(jl,1))*(tk_fl(jl,1) - tk_hl(jl,2))  &
         &                / (pp_fl(jl,1)-pp_hl(jl,2))
     END DO

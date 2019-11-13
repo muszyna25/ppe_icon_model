@@ -208,7 +208,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zbsmel,    zcsmel,    icesedi_exp, zams => zams_gr,                  &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
-    mma, mmb
+    mma, mmb, v_sedi_rain_min, v_sedi_snow_min, v_sedi_graupel_min
 
 #ifdef __ICON__
 ! this is (at the moment) an ICON part
@@ -929,6 +929,8 @@ SUBROUTINE graupel     (             &
         zbsdep = ccsdep*SQRT(v0snow)
         zvz0s  = ccsvel*EXP(ccsvxp * LOG(zn0s))
         zlnqsk = zvz0s * EXP (ccswxp * LOG (zqsk)) * zrho1o2
+        ! Prevent terminal fall speed of snow from being zero at the surface level
+        IF ( k == ke ) zlnqsk = MAX( zlnqsk, v_sedi_snow_min )
         zpks(iv) = zqsk * zlnqsk
         IF (zvzs(iv) == 0.0_wp) THEN
           zvzs(iv) = zlnqsk * ccswxp_ln1o2
@@ -943,6 +945,8 @@ SUBROUTINE graupel     (             &
 
       IF (llqr) THEN
         zlnqrk = zvz0r * EXP (zvzxp * LOG (zqrk)) * zrho1o2
+        ! Prevent terminal fall speed of rain from being zero at the surface level
+        IF ( k == ke ) zlnqrk = MAX( zlnqrk, v_sedi_rain_min )
         zpkr(iv) = zqrk * zlnqrk
         IF (zvzr(iv) == 0.0_wp) THEN
           zvzr(iv) = zlnqrk * zvzxp_ln1o2
@@ -955,6 +959,8 @@ SUBROUTINE graupel     (             &
 
       IF (llqg) THEN
         zlnqgk = zvz0g * EXP (zexpsedg * LOG (zqgk)) * zrho1o2
+        ! Prevent terminal fall speed of graupel from being zero at the surface level
+        IF ( k == ke ) zlnqgk = MAX( zlnqgk, v_sedi_graupel_min )
         zpkg(iv) = zqgk * zlnqgk
         IF (zvzg(iv) == 0.0_wp) THEN
           zvzg(iv) = zlnqgk * zexpsedg_ln1o2
@@ -972,6 +978,13 @@ SUBROUTINE graupel     (             &
           zvzi(iv) = zlnqik * zbvi_ln1o2
         ENDIF
       ENDIF  ! qi_sedi
+
+      ! Prevent terminal fall speeds of precip hydrometeors from being zero at the surface level
+      IF ( k == ke ) THEN
+        zvzr(iv) = MAX( zvzr(iv), v_sedi_rain_min )
+        zvzs(iv) = MAX( zvzs(iv), v_sedi_snow_min )
+        zvzg(iv) = MAX( zvzg(iv), v_sedi_graupel_min )
+      ENDIF
 
       !--------------------------------------------------------------------------
       ! 2.3: Second part of preparations
