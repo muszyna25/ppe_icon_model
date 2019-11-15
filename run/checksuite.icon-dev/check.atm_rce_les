@@ -36,8 +36,9 @@ export RESTART_DATE='20080801T002000Z'
 # o = omp test
 #
 # default: MD='rnmo'
+# 2019-11-15:  turning off MPI due to bug in mo_random_util.f90 (to be addressed by MPI-M)
 #
-export MD='rnmo'
+export MD='rno'
 
 #--------------------------------------------------------------------------------
 # 
