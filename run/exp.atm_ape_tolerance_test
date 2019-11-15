@@ -102,6 +102,9 @@ cat > ${atmo_namelist} << EOF
  ape_sst_case     = 'sst_qobs'
  zp_ape           = 101325
  ztmc_ape         = 25.006
+ jw_temp0         = 288.0
+ jw_up            = 1.0
+ jw_u0            = 35.0
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
