@@ -94,6 +94,41 @@ run_scripts_submit()
 
   stop_check="warning_on_error"
 
+  # check if the tolerance infrastructure needs to be initialized
+  cnt=$(grep -i "tolerance" run/runscripts_list | wc -l)
+  echo "found tolerance check. Initializing infrastructure..."
+  if [ $cnt -gt 0 ]; then
+    # make sure that repos do not exist
+    if [ -d probtest ]; then
+        rm -rf probtest
+    fi
+    if [ -d icon-test-references ]; then
+        rm -rf icon-test-references
+    fi
+    
+    # Clone the testsuite
+    git clone https://github.com/remodietlicher/probtest.git
+
+    # This variable stores the version of the probtest repository
+    PROBTEST_HASH=$(cat scripts/buildbot_scripts/probtest_hash)
+
+    # change to the relevant version of the reference data
+    cd probtest
+    git reset --hard ${PROBTEST_HASH}
+    cd ..
+
+    # Clone the reference data
+    git clone https://github.com/remodietlicher/icon-test-references.git
+
+    # This variable stores the version of the reference data
+    REFERENCE_HASH=$(cat scripts/buildbot_scripts/tolerance_hash)
+
+    # change to the relevant version of the reference data
+    cd icon-test-references
+    git reset --hard ${REFERENCE_HASH}
+    cd ..
+  fi
+
   echo "Run all *.run in run directory"
   cd run
   EXP_FILES=`cat runscripts_list`
