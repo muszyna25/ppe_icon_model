@@ -629,8 +629,8 @@ set_run_target_daint_cpu()
   fi
   # ------------------------------------
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   cat >> $output_script << EOF
 # =====================================
@@ -711,8 +711,8 @@ set_run_target_daint_gpu()
 
   # ------------------------------------
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   cat >> $output_script << EOF
 # =====================================
@@ -872,6 +872,9 @@ set_run_target_tave_knl()
   fi
   # ------------------------------------
 
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
+
   cat >> $output_script << EOF
 # =====================================
 # daint batch job parameters
@@ -961,8 +964,8 @@ set_run_target_kesch_cpu()
   fi
   # ------------------------------------
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   cat >> $output_script << EOF
 # =====================================
@@ -1053,8 +1056,8 @@ set_run_target_kesch_gpu()
     s_cpu_time="SBATCH --time=00:45:00"
   fi
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   # ------------------------------------
 
