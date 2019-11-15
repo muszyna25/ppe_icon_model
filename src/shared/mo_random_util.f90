@@ -131,7 +131,9 @@ CONTAINS
         ENDDO
         ! Since this routine is not called from OpenMP, no need to change the seed
         ! WARNING: changing the seed produced LOW-QUALITY and CORRELATED sequences
-        !CALL RANDOM_SEED( PUT=seed_array )
+        ! WS 2019-11-15: reenabled in order to pass Mistral atm_rce_les tests
+        !                but Dmitry's comment above has to be addressed...
+        CALL RANDOM_SEED( PUT=seed_array )
         CALL RANDOM_NUMBER( noise_1D(start_level:end_level))
 
 !          WRITE(0,*) get_my_global_mpi_id(), ":", vertical_seed( (block-1) * in_subset%block_size + idx), &
