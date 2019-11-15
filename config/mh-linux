@@ -223,7 +223,6 @@ case "$ac_sitename" in
         case "$HOST" in
             *daint*|*dom*)
                 make_command = make -j 8
-#LK                load_profile = /opt/modules/default/etc/modules.sh
                 submit       = sbatch
                 sync_submit  = sbatch --wait
                 CC = cc
@@ -270,7 +269,7 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5 cray-libsci
+                                load_modules = modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5 cray-libsci cdo-icon
                                 NETCDFROOT   = ${NETCDF_DIR}
                                 HDF5ROOT     = ${HDF5_DIR}
                                 LAPACKROOT   = ${CRAY_LIBSCI_PREFIX_DIR}
@@ -314,7 +313,7 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = PrgEnv-intel cray-netcdf cray-hdf5 cray-libsci
+                                load_modules = PrgEnv-intel cray-netcdf cray-hdf5 cray-libsci cdo-icon
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
@@ -363,12 +362,12 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 gcc cray-mpich cray-netcdf cray-hdf5
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 gcc cray-mpich cray-netcdf cray-hdf5 cdo-icon
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
                             gpu)
-                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9.0 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7 cdo-icon
                                 NVCC        = nvcc
 				NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
                                 NETCDFROOT  = ${NETCDF_DIR}
@@ -400,9 +399,10 @@ case "$ac_sitename" in
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
                             gpu*)
-                                config_target = daint_gpu
-                                FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -O2
-                                LDFLAGS     = -Wl,--allow-multiple-definition -hacc
+                                (>&6 echo "")
+                                (>&6 echo "OpenACC is not supported with GCC.")
+                                (>&6 echo "")
+                                exit 1
                                 ;;
                             *)
                                 config_target = daint_cpu
@@ -413,14 +413,7 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = modules craype daint-gpu PrgEnv-cray gcc cce-icon/9.0.2-classic cray-netcdf cray-hdf5 cray-libsci
-                                NETCDFROOT  = ${NETCDF_DIR}
-                                HDF5ROOT    = ${HDF5_DIR}
-                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB  = -lsci_cray
-                                ;;
-                            gpu*)
-                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 craype-accel-nvidia60
+                                load_modules = modules craype daint-gpu PrgEnv-cray gcc cce-icon/9.0.2-classic cray-netcdf cray-hdf5 cray-libsci cdo-icon
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
@@ -454,7 +447,6 @@ case "$ac_sitename" in
                 ;;
             *tave*)
                 make_command = make -j 8
-#                load_profile = /opt/modules/default/etc/modules.sh
                 submit       = sbatch
                 CC = cc
                 FC = ftn
@@ -464,14 +456,14 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     gcc)
                         config_target=tave_knl
-                        load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
+                        load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         CFLAGS      = -DgFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/GNU/5.3.0
 			;;
                     intel)
                         config_target=tave_knl
-                        load_modules = PrgEnv-intel cray-netcdf cray-mpich craype-mic-knl
+                        load_modules = PrgEnv-intel cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         CFLAGS      = -std=gnu99 -march=native -DgFortran -DHAVE_LIBNETCDF
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
@@ -482,14 +474,14 @@ case "$ac_sitename" in
 			;;
                     pgi)
                         config_target=tave_knl
-                        load_modules = PrgEnv-pgi cray-netcdf cray-mpich craype-mic-knl
+                        load_modules = PrgEnv-pgi cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
 			;;
                     cray)
                         config_target=tave_knl
-                        load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-mic-knl
+                        load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         FFLAGS      = -D__LOOP_EXCHANGE -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/default/CRAY/8.3
