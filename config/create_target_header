@@ -640,7 +640,6 @@ set_run_target_daint_cpu()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
-# #SBATCH --workdir=$output_folder
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
@@ -722,7 +721,6 @@ set_run_target_daint_gpu()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
-#SBATCH --workdir=$output_folder
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
@@ -882,7 +880,6 @@ set_run_target_tave_knl()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
-# #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
