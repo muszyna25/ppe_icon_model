@@ -24,7 +24,7 @@ MODULE mo_interface_echam_wmo
 
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_wmo
 
-  USE mo_echam_cld_config    ,ONLY: echam_cld_config
+  USE mo_echam_wmo_config    ,ONLY: echam_wmo_config
 
   USE mo_tropopause          ,ONLY: WMO_tropopause
   !$ser verbatim USE mo_ser_echam_wmo, ONLY: serialize_wmo_input,&
@@ -52,10 +52,10 @@ CONTAINS
     LOGICAL  :: lresum                                     !< for WMO_tropopause
     ! Shortcuts to components of echam_cld_config
     !  for WMO_tropopause
-    INTEGER, POINTER :: ncctop, nccbot
+    INTEGER, POINTER :: jkswmo_top, jkswmo_bot
 
-    ncctop => echam_cld_config(jg)% ncctop
-    nccbot => echam_cld_config(jg)% nccbot
+    jkswmo_top => echam_wmo_config(jg)% jkswmo_top
+    jkswmo_bot => echam_wmo_config(jg)% jkswmo_bot
 
     IF (ltimer) call timer_start(timer_wmo)
 
@@ -70,12 +70,12 @@ CONTAINS
     !
     !$ACC DATA CREATE( itrpwmo, itrpwmop1 )
     !
-    CALL WMO_tropopause( jcs, jce, nproma, nlev,   &! in
-                       & ncctop, nccbot, lresum,   &! in
-                       & field% ta(:,:,jb),        &! in
-                       & field% presm_old(:,:,jb), &! in
-                       & field% ptp(:,jb),         &! inout for diagnostics
-                       & itrpwmo, itrpwmop1        )! out for submodel
+    CALL WMO_tropopause( jcs, jce, nproma, nlev,           &! in
+                       & jkswmo_top, jkswmo_bot, lresum,   &! in
+                       & field% ta(:,:,jb),                &! in
+                       & field% presm_old(:,:,jb),         &! in
+                       & field% ptp(:,jb),                 &! inout for diagnostics
+                       & itrpwmo, itrpwmop1                )! out for submodel
     !
 
     !$ACC END DATA

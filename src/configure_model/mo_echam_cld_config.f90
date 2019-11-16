@@ -168,12 +168,6 @@ CONTAINS
     echam_cld_config(:)% cinhoml3 = 0.80_wp
     echam_cld_config(:)% clwprat  = 4.0_wp
     !
-    ! tropopause diagnostics
-!!$    echam_cld_config(:)% cptop  = 1000.0_wp
-!!$    echam_cld_config(:)% cpbot  = 50000.0_wp
-    echam_cld_config(:)% ncctop   = 13
-    echam_cld_config(:)% nccbot   = 35
-    !
   END SUBROUTINE init_echam_cld_config
 
   !----
@@ -267,11 +261,6 @@ CONTAINS
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml2 ',echam_cld_config(jg)% cinhoml2)
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml3 ',echam_cld_config(jg)% cinhoml3)
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
-       CALL message    ('','')
-!!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cptop    ',echam_cld_config(jg)% cptop   )
-!!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cpbot    ',echam_cld_config(jg)% cpbot   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ncctop   ',echam_cld_config(jg)% ncctop  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% nccbot   ',echam_cld_config(jg)% nccbot  )
        CALL message    ('','')
        !
     END DO
