@@ -169,12 +169,14 @@ CONTAINS
     IF(varIndex /= varCount + 1) CALL finish(routine, "assertion failed: wrong restart variable count")
   END FUNCTION createRestartVarData
 
-  SUBROUTINE getLevelPointers_helper(vMeta, nindex, nlevs, var_ref_pos)
+  SUBROUTINE getLevelPointers_helper(vMeta, nindex, nlevs, var_ref_pos, lopenacc)
     TYPE(t_var_metadata), INTENT(IN) :: vMeta
     INTEGER, INTENT(OUT) :: nindex, nlevs, var_ref_pos
+    LOGICAL, INTENT(OUT) :: lopenacc
     INTEGER :: var_ref_pos_max
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":getLevelPointers_helper"
 
+    lopenacc = vMeta%lopenacc
     IF (vMeta%used_dimensions(1) /= nproma) &
       & CALL finish(routine,'1st dim is not nproma: '//TRIM(vMeta%name))
     nindex = MERGE(vMeta%ncontained, 1, vMeta%lcontained)
@@ -223,9 +225,10 @@ CONTAINS
     REAL(dp), TARGET :: varData(:,:,:,:,:)
     TYPE(t_ptr_2d), ALLOCATABLE, INTENT(INOUT) :: levelPointers(:)
     INTEGER :: nindex, nlevs, var_ref_pos, error, jk
+    LOGICAL :: lopenacc
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":getLevelPointers"
 
-    CALL getLevelPointers_helper(varMetadata, nindex, nlevs, var_ref_pos)
+    CALL getLevelPointers_helper(varMetadata, nindex, nlevs, var_ref_pos, lopenacc)
     IF(ALLOCATED(levelPointers)) THEN
       IF(SIZE(levelPointers) /= nlevs) DEALLOCATE(levelPointers)
     END IF
@@ -242,7 +245,7 @@ CONTAINS
       CASE (3)
         levelPointers(1)%p => varData(:,:,nindex,1,1)
       END SELECT
-!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node .AND. lopenacc )
     ELSE
       DO jk = 1, nlevs
         SELECT CASE(var_ref_pos)
@@ -255,7 +258,7 @@ CONTAINS
         CASE (4)
           levelPointers(jk)%p => varData(:,jk,:,nindex,1)
         END SELECT
-!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node .AND. lopenacc )
       END DO
     END IF
   END SUBROUTINE getLevelPointers_dp
@@ -265,9 +268,10 @@ CONTAINS
     REAL(sp), TARGET :: varData(:,:,:,:,:)
     TYPE(t_ptr_2d_sp), ALLOCATABLE, INTENT(INOUT) :: levelPointers(:)
     INTEGER :: nindex, nlevs, var_ref_pos, error, jk
+    LOGICAL :: lopenacc
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":getLevelPointers"
 
-    CALL getLevelPointers_helper(varMetadata, nindex, nlevs, var_ref_pos)
+    CALL getLevelPointers_helper(varMetadata, nindex, nlevs, var_ref_pos, lopenacc)
     IF(ALLOCATED(levelPointers)) THEN
       IF(SIZE(levelPointers) /= nlevs) DEALLOCATE(levelPointers)
     END IF
@@ -284,7 +288,7 @@ CONTAINS
       CASE (3)
         levelPointers(1)%p => varData(:,:,nindex,1,1)
       END SELECT
-!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node .AND. lopenacc )
      ELSE
        DO jk = 1, nlevs
          SELECT CASE(var_ref_pos)
@@ -297,7 +301,7 @@ CONTAINS
          CASE (4)
            levelPointers(jk)%p => varData(:,jk,:,nindex,1)
          END SELECT
-!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node .AND. lopenacc )
        END DO
     END IF
   END SUBROUTINE getLevelPointers_sp
@@ -307,9 +311,10 @@ CONTAINS
     INTEGER, TARGET :: varData(:,:,:,:,:)
     TYPE(t_ptr_2d_int), ALLOCATABLE, INTENT(INOUT) :: levelPointers(:)
     INTEGER :: nindex, nlevs, var_ref_pos, error, jk
+    LOGICAL :: lopenacc
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":getLevelPointers"
 
-    CALL getLevelPointers_helper(varMetadata, nindex, nlevs, var_ref_pos)
+    CALL getLevelPointers_helper(varMetadata, nindex, nlevs, var_ref_pos, lopenacc)
     IF(ALLOCATED(levelPointers)) THEN
       IF(SIZE(levelPointers) /= nlevs) DEALLOCATE(levelPointers)
     END IF
@@ -326,7 +331,7 @@ CONTAINS
       CASE (3)
         levelPointers(1)%p => varData(:,:,nindex,1,1)
       END SELECT
-!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(levelPointers(1)%p) IF ( i_am_accel_node .AND. lopenacc )
     ELSE
       DO jk = 1, nlevs
         SELECT CASE(var_ref_pos)
@@ -339,7 +344,7 @@ CONTAINS
         CASE (4)
           levelPointers(jk)%p => varData(:,jk,:,nindex,1)
         END SELECT
-!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node )
+!$ACC UPDATE HOST(levelPointers(jk)%p) IF ( i_am_accel_node .AND. lopenacc )
       END DO
     END IF
   END SUBROUTINE getLevelPointers_int
