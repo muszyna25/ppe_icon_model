@@ -266,6 +266,10 @@ AC_ARG_WITH([external-self],
 
 ACX_BUILD_ENVIRONMENT
 
+AC_CANONICAL_HOST
+ACX_HOST_FQDN([], [:])
+AC_SUBST([host_fqdn], [$acx_cv_host_fqdn])
+
 dnl Delay the cross-compilation check:
 ACX_COMPILER_CROSS_CHECK_DELAY
 

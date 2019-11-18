@@ -1,13 +1,15 @@
 # Set use_site:
-use_host=`(hostname || uname -n) 2>/dev/null | sed 1q`
+use_host='@host_fqdn@'
 case "$use_host" in
+  unknown) ;;
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
-  melian) use_site=local.net ;;
-  *) use_site=`host -n "$use_host" 2>/dev/null | awk '/has address/ {print $1}' 2>/dev/null | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}' 2>/dev/null`
-     test -n "$use_site" || use_site='local.net' ;;
+  melian*) use_site=local.net ;;
+  *mpimet.mpg.de) use_site=mpg.de ;;
+  *) use_site=`echo "$use_host" | sed 's/^[^.]*\\.//'` ;;
 esac
+test -n "$use_site" || use_site='local.net'
 
 # Set use_compiler:
 use_compiler='@FC_VENDOR@'
@@ -180,8 +182,8 @@ case "$use_site" in
         esac
       ;;
       *)
-        case "`uname -s`" in
-          Darwin) use_target='mpimac' ;;
+        case '@host_os@' in
+          darwin*) use_target='mpimac' ;;
         esac
       ;;
     esac
