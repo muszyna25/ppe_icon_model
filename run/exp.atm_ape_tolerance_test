@@ -142,7 +142,7 @@ cat > ${atmo_namelist} << EOF
  echam_phy_config(1)%dt_rad = "PT8M"
  echam_phy_config(1)%dt_vdf = "PT4M"
  echam_phy_config(1)%dt_cnv = "PT4M"
- echam_phy_config(1)%dt_cld = ""
+ echam_phy_config(1)%dt_cld = "PT4M"
  echam_phy_config(1)%dt_gwd = "PT4M"
 !
 ! atmospheric chemistry (""=never)
@@ -353,7 +353,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwd'  ,
-                    'tend_ta_cnv'  ,  
+                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
                     'tend_ua_vdf'  , 'tend_ua_gwd'  ,
                     'tend_ua_cnv'  , 
@@ -361,7 +361,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_vdf'  , 'tend_va_gwd'  ,
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
-                    'tend_qhus_cnv', 'tend_qhus_vdf',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
                     !'tend_qhus_mox'
 /
 EOF
