@@ -77,8 +77,8 @@ MODULE mo_ocean_surface_refactor
   PUBLIC  :: update_ocean_surface_refactor
   ! private routine
   PRIVATE :: apply_surface_fluxes
-  PRIVATE :: apply_surface_fluxes_slo
-  PRIVATE :: update_atmos_fluxes
+  PUBLIC  :: apply_surface_fluxes_slo
+  PUBLIC  :: update_atmos_fluxes
   PRIVATE :: update_atmos_fluxes_analytical
 
   CHARACTER(len=12)           :: str_module    = 'OceanSurfaceRefactor'  ! Output of module for 1 line debug
