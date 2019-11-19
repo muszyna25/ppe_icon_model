@@ -53,12 +53,12 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 #./rmexp "checksuite.icon-dev/check.atm_heldsuarez"                  --builders DAINT_CPU_pgi --list $listname
 
 # PGI for GPU: failing currently are ... 
-$rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest                  --builders DAINT_GPU_pgi --list $listname
-$rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical         --builders DAINT_GPU_pgi --list $listname
-$rmexp checksuite.icon-dev/check.atm_heldsuarez                                  --builders DAINT_GPU_pgi --list $listname
-$rmexp checksuite.icon-dev/check.atm_amip                                        --builders DAINT_GPU_pgi --list $listname
-$rmexp checksuite.icon-dev/check.atm_amip_update                                 --builders DAINT_GPU_pgi --list $listname
-$rmexp checksuite.icon-dev/check.atm_amip_tolerance                              --builders DAINT_GPU_pgi --list $listname
+./rmexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest                  --builders DAINT_GPU_pgi --list $listname
+./rmexp checksuite.ocean_internal/technical/exp.test_ocean_omip_technical         --builders DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_heldsuarez                                  --builders DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip                                        --builders DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip_update                                 --builders DAINT_GPU_pgi --list $listname
+./rmexp checksuite.icon-dev/check.atm_amip_tolerance                              --builders DAINT_GPU_pgi --list $listname
 
 # add tolerance check to daint builders
 $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_cce --list $listname
