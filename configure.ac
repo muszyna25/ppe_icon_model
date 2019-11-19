@@ -596,7 +596,7 @@ dnl Intel intrinsic module (no reason to make this conditional):
 AS_VAR_APPEND([DEPGEN_INTRINSIC_MODS], [',ifcore'])
 
 AS_VAR_IF([enable_mpi], [yes],
-  [AC_MSG_CHECKING([whether Fortran 2003 interface of MPI library is available])
+  [AC_MSG_CHECKING([whether Fortran 90 interface of MPI library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
        use mpi, only: mpi_init
        implicit none
@@ -604,7 +604,7 @@ AS_VAR_IF([enable_mpi], [yes],
        call mpi_init(error)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using Fortran 2003 dnl
+      AC_MSG_FAILURE([unable to link a test program using Fortran 90 dnl
 interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
@@ -798,11 +798,11 @@ ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
         [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
          [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
          [--enable-silent-rules="$enable_silent_rules"]])
-   AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/ecrad/mod "])
-   BUNDLED_LIBFILES="externals/ecrad/libifsaux.a $BUNDLED_LIBFILES"
-   BUNDLED_LIBFILES="externals/ecrad/libutilities.a $BUNDLED_LIBFILES"
-   BUNDLED_LIBFILES="externals/ecrad/libifsrrtm.a $BUNDLED_LIBFILES"
-   BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"])])
+      AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/ecrad/mod "])
+      BUNDLED_LIBFILES="externals/ecrad/libifsaux.a $BUNDLED_LIBFILES"
+      BUNDLED_LIBFILES="externals/ecrad/libutilities.a $BUNDLED_LIBFILES"
+      BUNDLED_LIBFILES="externals/ecrad/libifsrrtm.a $BUNDLED_LIBFILES"
+      BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"])])
 
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
