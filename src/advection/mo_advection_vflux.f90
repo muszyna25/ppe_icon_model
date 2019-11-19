@@ -2384,7 +2384,7 @@ CONTAINS
       &  parent_topflx(:)         !< interpolated from parent grid
     REAL(wp), INTENT(OUT)    :: & !< upper boundary condition
       &  upflx_top(:)
-    REAL(wp), INTENT(OUT)    :: & !< lower boundary condition
+    REAL(wp), INTENT(INOUT)  :: & !< lower boundary condition
       &  upflx_bottom(:)
     LOGICAL, INTENT(IN)      :: & !< apply lower boundary condition?
       &  llbc_adv
