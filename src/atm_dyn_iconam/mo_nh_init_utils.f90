@@ -35,7 +35,7 @@ MODULE mo_nh_init_utils
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
   USE mo_vertical_coord_table,  ONLY: vct_b
-  USE mo_impl_constants,        ONLY: nclass_aero
+  USE mo_impl_constants,        ONLY: nclass_aero, min_rlcell
   USE mo_math_constants,        ONLY: pi
   USE mo_exception,             ONLY: finish
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
@@ -691,7 +691,8 @@ CONTAINS
     ! Apply nabla2-diffusion niter times to create smooth topography
     DO iter = 1, niter
 
-      CALL nabla2_scalar(z_topo, p_patch, p_int, nabla2_topo, 1, 1)
+      CALL nabla2_scalar(z_topo, p_patch, p_int, nabla2_topo, &
+        &                 slev=1, elev=1, rl_start=2, rl_end=min_rlcell )
 
       DO jb = i_startblk,nblks_c
 

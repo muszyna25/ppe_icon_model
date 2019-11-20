@@ -516,7 +516,6 @@ CONTAINS
        DO jc = 1, nlen
          jk = ktop_thicklimit(jc)
          IF (jk <= nlev-2 .AND. jk >= 4) THEN
-           ! TODO : array access with subscript (jk-3)=0
            dz1 = z3d_i(jc,jk+1,jb)-z3d_i(jc,jk+2,jb)
            dz2 = z3d_i(jc,jk-3,jb)-z3d_i(jc,jk-2,jb)
            dzr = (dz2/dz1)**0.25_wp ! stretching factor
