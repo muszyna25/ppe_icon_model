@@ -1480,6 +1480,14 @@ MODULE mo_nwp_lnd_state
            & ) )
 
 
+    ! & p_diag_lnd%runoff_s_inst_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('runoff_s_inst_t', 'kg m-2', &
+         &                'surface water runoff; instantaneous value', datatype_flt)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'runoff_s_inst_t', p_diag_lnd%runoff_s_inst_t,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S, cf_desc, grib2_desc,       &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+
     ! & p_diag_lnd%runoff_s_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_s_t', 'kg m-2', &
          &                'surface water runoff; sum over forecast', datatype_flt)
@@ -1504,6 +1512,14 @@ MODULE mo_nwp_lnd_state
                & ldims=shape2d )
     END DO
 
+
+    ! & p_diag_lnd%runoff_g_inst_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('runoff_g_inst_t', 'kg m-2', &
+         &                'soil water runoff; instantaneous value', datatype_flt)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'runoff_g_inst_t', p_diag_lnd%runoff_g_inst_t,    &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! & p_diag_lnd%runoff_g_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_g_t', 'kg m-2', &

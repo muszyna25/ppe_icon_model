@@ -1400,7 +1400,7 @@ CONTAINS
                         & pt_patch, p_metrics,           & !in
                         & pt_prog, pt_prog_rcf,          & !in
                         & pt_diag,                       & !inout
-                        & prm_diag                       ) !inout
+                        & prm_diag, lnd_diag             ) !inout
 
     !Christopher Moseley: Cloud diagnostics (cloud base, top, etc) for LES
     IF (  lcall_phy_jg(itturb) .OR. linit ) &

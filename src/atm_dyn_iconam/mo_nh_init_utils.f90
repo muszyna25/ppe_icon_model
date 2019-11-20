@@ -981,6 +981,8 @@ CONTAINS
       CALL init (prm_diag(jg)%qhfl_s_t)
       CALL init (lnd_diag%runoff_s_t)
       CALL init (lnd_diag%runoff_g_t)
+      CALL init (lnd_diag%runoff_s_inst_t)
+      CALL init (lnd_diag%runoff_g_inst_t)
 
 !$OMP END PARALLEL
 

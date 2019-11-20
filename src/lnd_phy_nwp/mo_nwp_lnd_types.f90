@@ -152,6 +152,8 @@ MODULE mo_nwp_lnd_types
     &  qv_s_t       (:,:,:) , & ! specific humidity at the surface              (kg/kg)
     &  runoff_s_t   (:,:,:) , & ! surface water runoff; sum over forecast       (kg/m2)
     &  runoff_g_t   (:,:,:) , & ! soil water runoff; sum over forecast          (kg/m2)
+    &  runoff_s_inst_t(:,:,:) , & ! surface water runoff; instantaneous value   (kg/m2)
+    &  runoff_g_inst_t(:,:,:) , & ! soil water runoff; instantaneous value      (kg/m2)
     &  rstom        (:,:)   , & ! stomatal resistance                           ( s/m )
     &  rstom_t      (:,:,:) , & ! tile based stomatal resistance                ( s/m )
     &  plantevap    (:,:)   , & ! integral function of plant evaporation        (kg/m2)

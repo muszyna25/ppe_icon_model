@@ -34,7 +34,7 @@ MODULE mo_nwp_diagnosis
 
   USE mo_kind,               ONLY: wp
 
-  USE mo_impl_constants,     ONLY: itccov, itconv, itradheat, itturb, itfastphy, &
+  USE mo_impl_constants,     ONLY: itccov, itconv, itradheat, itturb, itsfc, itfastphy, &
     &                              min_rlcell_int
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
@@ -73,12 +73,17 @@ MODULE mo_nwp_diagnosis
 
   PRIVATE
 
-
   PUBLIC  :: nwp_statistics
   PUBLIC  :: nwp_diag_for_output
   PUBLIC  :: nwp_diag_output_1
   PUBLIC  :: nwp_diag_output_2
   PUBLIC  :: nwp_diag_output_minmax_micro
+
+
+ !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nwp_diagnosis'
+
+
 
 CONTAINS
 
@@ -102,7 +107,7 @@ CONTAINS
                             & pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
                             & pt_diag,                    & !inout
-                            & prm_diag                    ) !inout   
+                            & prm_diag, lnd_diag )          !inout   
                             
 
     LOGICAL,            INTENT(IN)   :: lcall_phy_jg(:) !< physics package time control (switches)
@@ -119,7 +124,8 @@ CONTAINS
     TYPE(t_nh_metrics), INTENT(in)   :: p_metrics
 
     TYPE(t_nwp_phy_diag), INTENT(inout):: prm_diag
-
+    TYPE(t_lnd_diag),     INTENT(inout):: lnd_diag      !< diag vars for sfc
+ 
     INTEGER,           INTENT(IN)  :: kstart_moist
     INTEGER,           INTENT(IN)  :: ih_clch, ih_clcm
 
@@ -181,6 +187,11 @@ CONTAINS
     ! - time averaged total cloud cover
     ! - time averaged TQV, TQC, TQI, TQR, TQS
     ! - time averaged TQV_DIA, TQC_DIA, TQI_DIA
+    !
+    ! soil
+    !-----
+    ! - surface water runoff; sum over forecast
+    ! - soil water runoff; sum over forecast
     !
     ! turbulent fluxes
     !-----------------
@@ -264,6 +275,16 @@ CONTAINS
             ENDDO
           ENDDO  ! jt
         ENDIF
+
+        IF (lcall_phy_jg(itsfc)) THEN
+          DO jt=1,ntiles_total
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              lnd_diag%runoff_s_t(jc,jb,jt) = lnd_diag%runoff_s_t(jc,jb,jt) + lnd_diag%runoff_s_inst_t(jc,jb,jt)
+              lnd_diag%runoff_g_t(jc,jb,jt) = lnd_diag%runoff_g_t(jc,jb,jt) + lnd_diag%runoff_g_inst_t(jc,jb,jt)
+            END DO
+          END DO
+        END IF
 
         IF (lflux_avg) THEN
 
@@ -426,7 +447,6 @@ CONTAINS
           ENDIF  ! lcall_phy_jg(itradheat)
 
         ELSEIF (.NOT. lflux_avg) THEN
-
 
           IF (lcall_phy_jg(itturb)) THEN
 

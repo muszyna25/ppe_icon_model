@@ -1244,12 +1244,9 @@ MODULE mo_nh_stepping
 
     IF (lwrite_checkpoint) THEN
 
-      ! apply nest boundary filling; this has no impact on the correctness (in the sense of reproducibility)
-      ! of the restart but facilitates debugging
       CALL diag_for_output_dyn ()
       IF (iforcing == inwp) THEN
         CALL aggr_landvars
-        CALL fill_nestlatbc_phys
       END IF
 
         DO jg = 1, n_dom
@@ -1270,6 +1267,10 @@ MODULE mo_nh_stepping
 
         ENDDO
 
+        ! trigger writing of restart files. note that the nest
+        ! boundary has not been updated. therefore data in the
+        ! boundary region may be older than the data in the prognostic
+        ! region. However this has no effect on the prognostic result.
         CALL restartDescriptor%writeRestart(mtime_current, jstep, opt_output_jfile = output_jfile)
 
 #ifdef MESSY

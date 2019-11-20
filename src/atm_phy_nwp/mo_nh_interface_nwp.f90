@@ -1832,7 +1832,7 @@ CONTAINS
                         & pt_patch, p_metrics,           & !in
                         & pt_prog, pt_prog_rcf,          & !in
                         & pt_diag,                       & !inout
-                        & prm_diag                       ) !inout
+                        & prm_diag, lnd_diag             ) !inout
 
     IF (lart) THEN
       ! Call the ART diagnostics

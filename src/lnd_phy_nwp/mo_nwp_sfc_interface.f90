@@ -170,8 +170,8 @@ CONTAINS
     REAL(wp) :: thbs_t     (nproma)
     REAL(wp) :: pabs_t     (nproma)
 
-    REAL(wp) :: runoff_s_t (nproma)
-    REAL(wp) :: runoff_g_t (nproma)
+    REAL(wp) :: runoff_s_inst_t (nproma)
+    REAL(wp) :: runoff_g_inst_t (nproma)
 
     INTEGER  :: soiltyp_t (nproma)
     REAL(wp) :: plcov_t   (nproma)
@@ -279,19 +279,19 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,          &
-!$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2,   &
-!$OMP   rain_gsp_rate,snow_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,        &
-!$OMP   prr_gsp_t,prs_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t, &
-!$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,      &
-!$OMP   snowfrac_t,runoff_s_t,runoff_g_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,sobs_t,thbs_t,pabs_t, &
-!$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,&
-!$OMP   rho_snow_mult_now_t,wtot_snow_now_t,dzh_snow_now_t,t_so_now_t,w_so_now_t,w_so_ice_now_t, &
-!$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t, &
-!$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
-!$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
-!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t,laifac_t,qsat1,dqsdt1,qsat2,dqsdt2,  &
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,                     &
+!$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2,              &
+!$OMP   rain_gsp_rate,snow_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,                   &
+!$OMP   prr_gsp_t,prs_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t,            &
+!$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,                 &
+!$OMP   snowfrac_t,runoff_s_inst_t,runoff_g_inst_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,sobs_t,thbs_t,pabs_t,  &
+!$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,           &
+!$OMP   rho_snow_mult_now_t,wtot_snow_now_t,dzh_snow_now_t,t_so_now_t,w_so_now_t,w_so_ice_now_t,            &
+!$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t,            &
+!$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,                 &
+!$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,                 &
+!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t,            &
+!$OMP   meltrate,h_snow_gp_t,conv_frac,tsnred,plevap_t,z0_t,laifac_t,qsat1,dqsdt1,qsat2,dqsdt2,             &
 !$OMP   sntunefac,sntunefac2,snowfrac_lcu_t) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
@@ -513,8 +513,12 @@ CONTAINS
             z0_t(ic)                =  prm_diag%gz0_t(jc,jb,isubs)/grav
           ENDIF
 
-          runoff_s_t(ic)            =  lnd_diag%runoff_s_t(jc,jb,isubs) 
-          runoff_g_t(ic)            =  lnd_diag%runoff_g_t(jc,jb,isubs)
+          ! note: we reset "runoff_s_inst_t", "runoff_g_inst_t" in
+          ! order to obtain the instantaneous values (and not the sum
+          ! over forecast) from terra:
+          runoff_s_inst_t(ic)       =  0._wp 
+          runoff_g_inst_t(ic)       =  0._wp
+
           u_10m_t(ic)               =  prm_diag%u_10m_t(jc,jb,isubs)
           v_10m_t(ic)               =  prm_diag%v_10m_t(jc,jb,isubs)  
           tch_t(ic)                 =  prm_diag%tch_t(jc,jb,isubs)
@@ -718,8 +722,8 @@ CONTAINS
         &  thbs          = thbs_t                            , & !IN thermal radiation at the ground             (W/m2)
         &  pabs          = pabs_t                            , & !IN photosynthetic active radiation             (W/m2)
 !
-        &  runoff_s      = runoff_s_t                        , & !INOUT surface water runoff; sum over forecast  (kg/m2)
-        &  runoff_g      = runoff_g_t                        , & !INOUT soil water runoff; sum over forecast     (kg/m2)
+        &  runoff_s      = runoff_s_inst_t                   , & !INOUT surface water runoff   (kg/m2)
+        &  runoff_g      = runoff_g_inst_t                   , & !INOUT soil water runoff      (kg/m2)
 !
         &  zshfl_s       = shfl_soil_t                       , & !OUT sensible heat flux soil/air interface    (W/m2) 
         &  zlhfl_s       = lhfl_soil_t                       , & !OUT latent   heat flux soil/air interface    (W/m2) 
@@ -806,8 +810,8 @@ CONTAINS
             lnd_prog_new%w_s_t     (jc,jb,isubs) = w_s_new_t     (ic)     
           END IF
           lnd_diag%freshsnow_t   (jc,jb,isubs) = freshsnow_t   (ic) 
-          lnd_diag%runoff_s_t    (jc,jb,isubs) = runoff_s_t    (ic)  
-          lnd_diag%runoff_g_t    (jc,jb,isubs) = runoff_g_t    (ic)  
+          lnd_diag%runoff_s_inst_t    (jc,jb,isubs) = runoff_s_inst_t    (ic)  
+          lnd_diag%runoff_g_inst_t    (jc,jb,isubs) = runoff_g_inst_t    (ic)  
 
           lnd_prog_new%t_so_t(jc,nlev_soil+1,jb,isubs) = t_so_new_t(ic,nlev_soil+1)
 
@@ -949,8 +953,8 @@ CONTAINS
              lnd_diag%snowfrac_lc_t (jc,jb,is1) = lnd_diag%snowfrac_lc_t (jc,jb,is2) 
              lnd_diag%snowfrac_lcu_t(jc,jb,is1) = lnd_diag%snowfrac_lcu_t(jc,jb,is2) 
              lnd_diag%snowfrac_t    (jc,jb,is1) = lnd_diag%snowfrac_t    (jc,jb,is2) 
-             lnd_diag%runoff_s_t    (jc,jb,is1) = lnd_diag%runoff_s_t    (jc,jb,is2)
-             lnd_diag%runoff_g_t    (jc,jb,is1) = lnd_diag%runoff_g_t    (jc,jb,is2)
+             lnd_diag%runoff_s_inst_t (jc,jb,is1) = lnd_diag%runoff_s_inst_t    (jc,jb,is2)
+             lnd_diag%runoff_g_inst_t (jc,jb,is1) = lnd_diag%runoff_g_inst_t    (jc,jb,is2)
 
              prm_diag%lhfl_bs_t     (jc,jb,is1) = prm_diag%lhfl_bs_t     (jc,jb,is2)
              lnd_diag%rstom_t       (jc,jb,is1) = lnd_diag%rstom_t       (jc,jb,is2)

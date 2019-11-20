@@ -469,7 +469,7 @@ CONTAINS
     INTEGER :: get_var_timelevel
     TYPE(t_var_metadata), INTENT(IN) :: info
     ! local variable
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_timelevel'
     INTEGER :: idx
 
     idx = INDEX(info%name,TIMELEVEL_SUFFIX)
@@ -487,7 +487,7 @@ CONTAINS
   ! return logical if a variable name has a timelevel encoded
   LOGICAL FUNCTION has_time_level(varname)
     CHARACTER(LEN=*) :: varname
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:has_time_level'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':has_time_level'
     INTEGER :: idx
 
     idx = INDEX(varname,TIMELEVEL_SUFFIX)
@@ -501,7 +501,7 @@ CONTAINS
     INTEGER :: get_var_tileidx
     CHARACTER(LEN=*) :: varname
     ! local variable
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_tileidx'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_tileidx'
     INTEGER :: idx
 
     idx = INDEX(varname,'_t_')
@@ -821,6 +821,9 @@ CONTAINS
 
     ! Create data on GPU
     CALL assign_if_present(info%lopenacc, lopenacc)
+
+    ! perform consistency checks on variable's meta-data:
+    CALL check_metadata_consistency(info)
 
     !
     ! printout (optional)
@@ -3674,6 +3677,23 @@ CONTAINS
       ptr = 0
     END IF
   END SUBROUTINE add_var_list_reference_i2d
+
+
+  !================================================================================================
+  !------------------------------------------------------------------------------------------------
+  !
+  ! perform consistency checks on variable's meta-data.
+  !
+  SUBROUTINE check_metadata_consistency(info)
+    TYPE(t_var_metadata), INTENT(IN) :: info  ! variable meta data
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':check_metadata_consistency'
+
+    IF (info%lrestart .AND. info%lcontainer) THEN
+      CALL finish(routine//' - '//TRIM(info%name), &
+        &         'Container variables are not restartable! Use var references instead.')
+    END IF
+    ! ... put other consistency checks here ...
+  END SUBROUTINE check_metadata_consistency
 
 
 
