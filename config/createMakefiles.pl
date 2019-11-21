@@ -29,6 +29,8 @@ my $enable_serialization;
 my $iconsrcdir = "src";
 my $iconppdir;
 
+our $enable_gpu;
+
 GetOptions( 
 	    'target=s'  => \$target,
             'srcdirs=s' => \$srcdirs,
@@ -37,6 +39,7 @@ GetOptions(
             'enable_jsbach=s' => \$enable_jsbach,
             'enable_rte_rrtmgp=s' => \$enable_rte_rrtmgp,
             'enable_testbed=s' => \$enable_testbed,
+            'enable_gpu=s' => \$enable_gpu, 
             'enable_serialization=s' => \$enable_serialization,
             'iconsrcdir=s' => \$iconsrcdir,
             'iconppdir=s' => \$iconppdir,
@@ -239,6 +242,10 @@ if ( ($enable_jsbach eq "yes")
     symlink File::Spec->abs2rel("$prefix/externals/jsbach/src", "$iconsrcdir"), "$iconsrcdir/lnd_phy_jsbach"; 
 }
 
+if ( ($enable_gpu eq "yes") and -d 'externals/cub' ) {
+    symlink "$prefix/externals/cub", "${build_path}/include/cub";
+}
+
 if ( ($enable_ocean eq "yes") and -d "src/ocean/include" ) {
     opendir(DIR, "src/ocean/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);
@@ -336,6 +343,10 @@ EOF
 
 #__________________________________________________________________________________________________________________________________ 
 # write compile and link information
+
+    print MAKEFILE "%.o: %.cu\n",
+        "\t\$(NVCC) \$(NVCFLAGS) -c \$<\n",
+        "\n";
 
     print MAKEFILE "%.o: %.f\n",
         "\t\$(F77) \$(F77FLAGS) -c \$<\n",
@@ -588,13 +599,20 @@ sub ScanDirectory {
     my @names = grep { !exists($ignored_entries{$_}) } readdir(DIR);
     closedir(DIR);
 
+    my $suffix_list ="";
+
     foreach my $name (@names){
 
         if (-d $name){
             my $nextpath="$workpath/$name";
             ScanDirectory($name, $nextpath, $level);
         } else {
-	    if ($name =~ /\.[c|f|F]{1}(90|95|03)?$/) {
+	    if ($enable_gpu eq "yes") {
+		$suffix_list = '\.[c|f|F]{1}(u|90|95|03)?$';
+	    } else {
+		$suffix_list = '\.[c|f|F]{1}(90|95|03)?$';
+	    }
+	    if ($name =~ /$suffix_list/) {
                 if ($workpath =~ "lnd_phy_jsbach") {
                     # For JSBACH, use the pre-processed source file located in the build directory
                     # These files need to be initially created by configure, with an additional "_dsl4jsb" before the suffix,

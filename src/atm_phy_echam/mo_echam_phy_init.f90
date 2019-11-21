@@ -98,6 +98,9 @@ MODULE mo_echam_phy_init
   ! cloud cover
   USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config, echam_cov_config
 
+  ! WMO tropopause
+  USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
+
   ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
     &                                read_bcast_real_1d_wrap, &
@@ -341,6 +344,14 @@ CONTAINS
     IF (lany) THEN
       CALL  eval_echam_cov_config
       CALL print_echam_cov_config
+    END IF
+
+    ! WMO tropopause
+    !
+    lany=.TRUE.
+    IF (lany) THEN
+      CALL  eval_echam_wmo_config
+      CALL print_echam_wmo_config
     END IF
 
     ! atmospheric gravity wave drag

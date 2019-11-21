@@ -1293,12 +1293,14 @@ CONTAINS
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups), verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups),                                   &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5,                                                               &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     END IF
     element => find_list_element(this_list, TRIM(name))
     element%field%info%ndims = 2
@@ -1366,12 +1368,14 @@ CONTAINS
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups), new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups),                  &
+        lopenacc=.TRUE., new_element=new_element)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose,                                              &
+        lopenacc=.TRUE., new_element=new_element)
     END IF
     element => find_list_element(this_list, TRIM(name))
     element%field%info%ndims = 3
