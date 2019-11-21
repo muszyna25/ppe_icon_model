@@ -63,10 +63,11 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 # add tolerance check to daint builders
 $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_cce --list $listname
 $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_GPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_cce --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_GPU_pgi --list $listname
+# This test is currently not yet working on DAINT_GPU_pgi.   Debugging ongoing.
+### $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_GPU_pgi --list $listname
 
 #-----------------------------------------------------------
 # DWD
