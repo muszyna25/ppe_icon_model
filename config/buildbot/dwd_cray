@@ -7,7 +7,7 @@ set -eu
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../.."
 
-BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cce/8.7.11 cray-mpich/7.7.4 cray-netcdf/4.6.3.0 cray-hdf5/1.10.5.0;"
+BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cce/8.4.1 cray-mpich/7.4.3 cray-netcdf/4.3.2 ;"
 
 # We extend BUILD_ENV here only for testing, i.e. to prevent as many tests from
 # failing as possible when running 'make check' on the login nodes with Sandy
@@ -15,7 +15,7 @@ BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.8
 # (the question needs to be addressed to the developers of CDI). Note that the
 # following line should be removed when building the application for compute
 # nodes with Haswell processors.
-BUILD_ENV+="switch_for_module craype-sandybridge;"
+#BUILD_ENV+="switch_for_module craype-sandybridge;"
 
 RTTOV_ROOT='/usr/local/pkg/for0adm'
 RTTOV_FCFLAGS="-I${RTTOV_ROOT}/include/radiance"
@@ -106,7 +106,8 @@ XML2_LIBS='-l:libxml2.a -lz'
 FC=ftn
 CC=cc
 
-FCFLAGS="-O2 ${RTTOV_FCFLAGS}"
+FCFLAGS="${RTTOV_FCFLAGS}"
+ICON_FCFLAGS="-e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv -DUSE_MPI"
 CFLAGS='-O2'
 CPPFLAGS="${ECCODES_CPPFLAGS} ${XML2_CPPFLAGS}"
 LDFLAGS="-static ${RTTOV_LDFLAGS} ${ECCODES_LDFLAGS} ${XML2_LDFLAGS}"
@@ -119,15 +120,16 @@ CFLAGS="$CFLAGS" \
 CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
+ICON_FCFLAGS="$ICON_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 --disable-mpi-checks \
 --disable-rpaths \
 --enable-active-target-sync \
---enable-ecrad \
 --enable-grib2 \
 --enable-rttov \
---enable-yaxt \
+--enable-mixed-precision \
+--disable-silent-rules \
 "$@"
 
 MAKE_PROCS=22
