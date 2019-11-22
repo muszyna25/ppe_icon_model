@@ -134,6 +134,8 @@
 !! - namelist parameter frlake_thrhld is used to specify minimum lake fraction.
 !! Modification by Guenther Zaengl, DWD (2017-02-02)
 !! - assimilation of observational data on ice fraction is introduced.
+!! Modification by Dmitrii Mironov, DWD (2019-11-22)
+!! - Some security constraints are modified (SUBROUTINE flake-driver). 
 !! 
 !
 ! History:
@@ -2862,10 +2864,10 @@ ELSE HTC_Water                                      ! Open water
     ! Security, limit T_bot by the freezing point
     T_bot_n_flk = MAX(T_bot_n_flk, tpl_T_f)
 
-    flk_str_2 = (T_bot_n_flk-tpl_T_r)*flake_buoypar(T_mnw_n_flk)
+    flk_str_2 = (T_bot_n_flk-tpl_T_r)*(T_mnw_n_flk-tpl_T_r)
 
     ! Security, avoid T_r crossover 
-    IF(flk_str_2.LT.0._wp) T_bot_n_flk = tpl_T_r  
+    IF(flk_str_2 <= 0._wp) T_bot_n_flk = tpl_T_r  
 
     T_wML_n_flk = C_T_n_flk*(1._wp-h_ML_n_flk/depth_w)
     T_wML_n_flk = (T_mnw_n_flk-T_bot_n_flk*T_wML_n_flk)/(1._wp-T_wML_n_flk)
