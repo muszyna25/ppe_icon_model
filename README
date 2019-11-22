@@ -1,241 +1,165 @@
-README file for ICON
-====================
- 
-Marco Giorgetta, MPI-M,  2011-01-27
-Modified: D. Reinert, F. Prill (DWD, 2014-06-04)
-
-This directory contains scripts and source codes of the ICON framework.
-This README file guides through the initial steps for getting started
-with a first experiment.
+ README file for ICON           Marco Giorgetta, MPI-M,  2011-01-27
+ ====================           Modified: D. Reinert, F. Prill (DWD, 2014-06-04)
+                                Modified: R. Mueller (DKRZ,11/2019)
 
 Table of Contents:
+A) Building the ICON model
+B) Run experiments
+C) Running other real-data tests (DWD example scripts)
 
+#===============================================================================
 A) Building the model
-B) Construct grids
-C) Run a pre-defined experiment file
-D) Running other real-data tests (DWD example scripts)
 
+0. out-of-source vs. in-source builds
+--------------------------------------------------------------------------------
+In-source-building is the way the old ICON building worked: you have a single
+working copy and in there the user has to decide how to build ICON. Multiple
+builds require multiple working copies of ICON. For people doing experiments
+only, this can be sufficient.
+An out-of-source build offers the flexibility to build software in different
+ways (e.g. compilers, flags, features) from a single source code. Hence it is
+possible to change something in the source code and test this change in
+different builds because these build do NOT interfere with each other. For ICON
+developers this should be the default.
 
-- See Sections B) - C) for a description of running experiments
-  pre-defined in the "/run" subdirectory.
+1. Create a directory for your desired build
+% mkdir gcc_debug && cd gcc_debug
 
-- See Section D) for some remarks on running real-data tests in the
-  DWD computing environment.
+2. Call the configure script with options or one of the example wrapper
+% $HOME/src/icon/config/archlinux/gcc.openmpi #or
+% $HOME/src/icon/configure \
+    CC=mpicc \
+    FC=mpif90 \
+    LIBS='-leccodes -lsz -laec -lnetcdff -lnetcdf -lopenblas -llapack -lxml2 -lz -llzma -licui18n -licuuc -licudata -lm -ldl' \
+    CFLAGS="$CFLAGS" --enable-grib2 --prefix=$HOME/local/icon
 
+3. If not already include in the build-wrapper, call
+% make
 
+4. If not part of the build wrapper, sync with the runscript templating of ICON
+% rsync -avz --exclude='*in' --exclude='.*' ${HOME}/src/icon/run .
+% test -d data || ln -sf ${HOME}/src/icon/data
+% test -f make_runscripts || cp ${HOME}/src/icon/make_runscripts .
+% ./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
 
-
-#-----------------------------------------------------------------------------
-
-General Remarks:
-
-Sections A) - C) are tested for the following configurations:
-(valid for revision 3272 on "trunk/icon-dev")
-
-- "./configure" + "./build_command" on Blizzard, Tornado and Squall
-- experiment "exp.test_hat_jww.run" on Blizzard, Tornado and Squall
-- "make index" on Squall and Tornado
-- "make doc" tested on Squall (software missing on Tornado)
-
-
-
-#-----------------------------------------------------------------------------
-
-
-A) Building the model
-=====================
-
-1. Configure the Makefile and make the executables
+1. Configure the build
 --------------------------------------------------
+The Autoconf configuration system is used to analyze the computer architecture
+(hardware and software) and to set user specified preferences. These
+preferences are all read from the command line and the environment. For
+readability please use the commandline. However configure was called, it will
+be saved into 'config.log' in the top building directory. If you are unsure
+what you did last time, please have a look into this file.
 
-The Autoconf configuration system is used to analyze the computer 
-architecture (hardware and software) and to set user specified 
-preferences, e.g. for the compiler.  These preferences are read 
-from config/mh-<OS>, where <OS> is the identified operating system.
-If your OS is missing, make your own based on the given mh-<OS> files.
-If different compilers are available, the mh-<OS> file may contain 
-a case construct to distinguish them.
+'config/mh-<OS>' (where <OS> is the identified operating system) is no longer present.
 
-On tornado.dkrz.de, which has a Linux operating system, the mh-linux
-file is relevant. On Tornado the following compilers are available: 
-"gcc" (=default), "nag", "intel", "pgi", and "sun".
+The new 'configure' script offers a wide range of options and variables. All of
+them are documented. Use
 
-Use "./configure" to generate the Makefile for the "gcc" compiler, and to 
-create the system specific "build" directory tree with the subordinate 
-Makefiles:
+% ./configure --help
 
-% ./configure
+and read README.md for in-detail information about these options and the
+dependencies of ICON.
 
-Now use "./build_command" to compile the source codes and build the model executables:
+For all known systems there are example scripts in the repository. These scripts
+set variables and call 'configure' in the correct way and can be found in './config/examples'
+All of them can be used for out-of-source builds.
+Another valuable set of examples are the scripts running by buildbot. These can
+be found in './config/buildbot' and are names like the builders they are used by. But: buildbot does in-source-builds at the moment'
 
-% ./build_command
+After the successful configuration of the build just call this with an appropriate N
 
-Note:
-1. For using other compilers, use:
-      % ./configure --with-fortran=<compiler>
-   with <compiler> in {gcc,nag,intel,pgi,sun}.
+% make -jN
 
-2. Instead of using "./configure" and "./build_command" you may also use:
-      % ./target_confmake.ksh <target>
-   <target> selects the machine-compiler combination. On Tornado
-   <target> can be chosen from {tornado,tornado_gcc,tornado_nag,etc}.
-   The target must be defines in the database file "target_database_ksh".
+This will create an icon binary at './bin/icon'. All make targets are documented with
 
-3. If you wish to reconfigure the build then it is advisable to make a clean
-   start by giving
-     %make distclean
+% make help
 
-2. Generate html documentation
-------------------------------
+#=============================================================================== 
+B) Run experiments
 
-2.1 HTML-ized source code
+B.1) how to get ICON grids
 
-Convert source code files to html files, with linked references
-to modules, subroutines, functions, etc., for source code viewing
-in web browsers. The html-ized source code is color coded for better
-legibility.
+Official grids can be downloaded from http://icon-downloads.zmaw.de
 
-% make index
-
-Open html/index.html in your browser.
-
-2.2 Doxygen documentation
-
-Doxygen is a tool to extract lists of types, variables, subroutines, variables 
-etc. from Fortran code. Additionally, Doxgen can generate graphs of calling
-or called subroutine. Doxygen also html-izes and color-codes the source code.
-
-If the "doxygen" software and other software used by doxygen is available 
-(this is not the case on Tornado), then make an html-formatted Doxygen 
-documentation:
-
-On Squall: % make doc
-
-This generates files in "doc/html/". Open doc/html/index.html file in
-your web browser.
-
-
-B) Construct grids
-==================
-
---------------------------------------------------------------------------------
-Please note:
-
-The following description is related to the MPI-M version of the ICON
-grid generator. For remarks on the basic (slightly different) grid
-creation procedure see the ICON user guide.
---------------------------------------------------------------------------------
-
+The grid generator is no longer a part of ICON, see https://code.mpimet.mpg.de/projects/icon-grid-generator for more information.
 
 The ICON horizontal spherical grid is based on the projection of the icosahedron
 on the sphere. The initial icosahedron grid is refined by <n>-secting the edges,
 and further refinement is obtained by iteratively bisecting the created edges.
 The grid produced at the <k> refining iteration is named "R<n>B<k>", and the
-corresponding netcdf file is iconR<n>B<k>-grid.nc. The grid files, after their
-creation,  are located in the ./grids folder.
+corresponding netcdf file is iconR<n>B<k>-grid.nc.
 
-ICON atmosphere grids of resolution R<m>B<nn> are created by the
-"grid.create_atmo_grids.run". It generates 5 levels of icon grids using
-spring dynamics and symmetry optimizations. In addition it creates an
-hierarchy of three nested grids for the exp.nat_jww_nwp_mpiomp experiment.
-The "grid.create_atmo_grids.run" is created automatically by the "./make_runscripts"
-script. Give
+All grids should have a UUID, that is also used for reference in ICON output files.
 
-% ./make_runscripts
-
-To create the "grid.create_atmo_grids.run", it is located in the "./run" folder.
-
-The script variable no_of_levels determines the horizontal resolution, and is
-set to no_of_level=5, giving in the highest resolution the triangular grid R2B05
-of 81920 triangles, with a mean distance of 70 km between triangle circumcenters,
-where scalars are defined.
-
-By default the grid files are stored in a directory "<ICON base dir>/grids/",
-which is created first, if not existing. Use ncdump and an editor to view 
-the content of the grid files, or use NCL or other graphics packages
-enabled for viewing data, as e.g. cell area, on irregular grids.
-
-
-C) Make experiments
-===================
-
-5. Make a run script
+B.2) Create a runscript
 --------------------
 
-To create the run scripts give
+Runscripts can be created in a hand-written manner for a single HPC-system or
+via ICONs templating mechanism. This mechanism is not further handled by the
+building system.
+
+-- preparation --
+For in-source builds call
+
+% ./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
+For out-of-source builds call (with ICON_DIR being the path to the ICON source code you just built)
+
+% rsync -avz --exclude='*in' --exclude='.*' ${ICON_DIR}/run .
+% test -d data || ln -sf ${ICON_DIR}/data
+% test -f make_runscripts || cp ${ICON_DIR}/make_runscripts .
+
+Runscripts and templates reside below the './run' directory. The easies way to
+create runscripts from runscript templates is 
 
 % ./make_runscripts
 
-This process will create the run scripts for running the grid generator and
-for runnig model experiments, for which experiment descriptor files exist in
-the run/ directory. Experiment descriptor files are named "exp.<name>". These
-exp-files are processed in the configuration sequence started by "./configure"
-resulting in run scripts ready to be used on the current architecture. Run
-scripts are named "exp.<name>.run". The list of generated run scripts is listed
-at the end of the configuration process. For details on how to generate
-run scripts manually, see run/README.
+This process will create the run scripts for running model experiments, for
+which experiment descriptor files exist in the run/ directory. Experiment
+templates files are named "exp.<name>". For templates in subdirectories of
+'./run' there has to be a copy or symlink be created directly in the './run'
+directory.
+Single templates can be created with
 
-For the following the run script exp.test_hat_jww.run is used, which runs the
-hydrostatic atmosphere on a triangular R2B04 grid with initial condition for
-the Jablonowski Williamson baroclinic wave test.
+% ./make_runscripts -s <name>
 
-This generates the run script run/exp.test_hat_jww.run. This script contains
-architecture and site specific parameters for parallelization, vectorization,
-etc. Read the run script.
+Please edit the runscript header according to your needs regarding accounting, number on nodes and so on.
 
+For a more sophisticated runscript generation, the wrapper
+'./config/make_target_runscript' is mode suitable. It supports many different
+variables that otherwise must be set manually. E.g. for setting the wall clock
+limit and the number of nodes, you can call from the ICON-root directory:
 
-6. Run the ICON model
----------------------
+cd run && ln -sf ./checksuite.ocean_internal/omip/exp.ocean_omip_long exp.ocean_omip_long
+./config/make_target_runscript in_script=exp.ocean_omip_long in_script=exec.iconrun EXPNAME=ocean_omip_long cpu_time=08:00:00 no_of_nodes=20
+
+#===============================================================================
+C) Run the ICON model 
 
 The model executable, the grid and the run script exist now. 
-Start the run:
+Start the run by ether submitting it on a HPC system (here with slurm)
 
 % cd run
-% qsub exp.test_hat_jww.run
-% cd ..
+% sbatch exp.<name>.run
 
-This produces a number of files in the experiment directory "$EXP", located in
-"experiments/". Here "$EXP"="test_hat_jww". Raw data are stored in 
-"test_hat_jww_R2B04L31_0001.nc".
+or by starting the script on workstation
 
-% cd experiments/test_hat_jww
-% ls -1
+% cd run
+% ./exp.<name>.run
 
-You find the following files:
-- HYB_PARAMS_31                  : Input , vertical coordinate table
-- iconR2B04-grid.nc              : Input , horizontal grid
-- NAMELIST_ICON                  : Input , namelist written by iconrun
-- NAMELIST_ICON_output           : Output, namelist completed by model
-- test_hat_jww_R2B04L31_0001.nc  : Output, raw data file in netcdf format
-- total_integrals.dat            : Output, mass and energy error diagnostic
-
-The raw data file name includes the experiment base name, the parameters
-for the horizontal and vertical grid, as discussed above. Further a file 
-counter "0001" indicates that this is the first raw data file 
-(and in this case also the only one).
-
-View the resulting data with NCL or other graphics packages enabled 
-for processing data on unstructured grids, or use "cdo remapdis" to 
-interpolate data from ICON grids to regular longitude latitude grids. 
-Then use any convenient graphics package.
-
-Here is the cdo remapping function to interpolate the data to the
-Gaussian longitude-latitude grid associated with the T63 truncation.
-The regular grid file can be viewed for example with GrADS.
-
-% cdo -r remapdis,t63grid test_hat_jww_DOM01_R2B04L31_0001.nc test_hat_jww_DOM01_T63L31_0001.nc
-
-N.B.: ICON data files include an absolute time axis, but GrADS
-      needs a relative time axis. A conversion is achieved by
-      the "-r" option used above with the cdo remapping command.
+This produces a number of files in the experiment directory located in
+'./experiments/<name>'. But this configurable during the runscript creation
+with ./config/make_target_runscript'.
 
 
+And if you don't already know what to do with this, please stop reading
+
+#==============================================================================
 D) Running other real-data tests
-================================
 
-The general procedure of creating the ICON binary and setting up
-real-data experiments is described in the ICON user manual,
-cf. "doc/userguide".
+Further information can be found on
+  https://code.mpimet.mpg.de/projects/iconpublic/wiki/Documentation
 
 Best practice settings for a real-data test case have been collected
 in the experiment file "run/exp.nh_oper".  This run script is intended
@@ -243,8 +167,7 @@ to be used like in Section C.
 
 Further stand-alone example scripts that contain basic namelist
 settings as well as batch queuing settings for the DWD Cray XC30
-platform can be found in the subdirectory
-"/run/checksuite.xce.dwd.de/".  
+platform can be found in the subdirectory './run/checksuite.xce.dwd.de/'.
 See the comments in these run scripts for details.
 
 
