@@ -7,16 +7,17 @@ ICON_DIR="${MY_DIR}/../../.."
 
 . "${MY_DIR}/init_gcc_6.3.0.sh"
 
+BUILD_ENV="export PYTHONPATH=\"${SERIALBOX2_ROOT}/python/pp_ser:\${PYTHONPATH}\";${BUILD_ENV}"
 FC=$MPICH_FC
 CC=$PLAIN_CC
 
-FCFLAGS="${NETCDFF_FCFLAGS} ${SCT_FCFLAGS} ${YAXT_FCFLAGS} ${CDI_FCFLAGS} ${MTIME_FCFLAGS} ${TIXI_FCFLAGS} ${SELF_FCFLAGS}"
+FCFLAGS="${NETCDFF_FCFLAGS} ${RTE_RRTMGP_FCFLAGS} ${CDI_FCFLAGS} ${SERIALBOX2_FCFLAGS} ${MTIME_FCFLAGS} ${YAC_FCFLAGS} ${SELF_FCFLAGS}"
 ICON_FCFLAGS='-O2 -g'
 CFLAGS=
 ICON_CFLAGS='-O2 -g'
 CPPFLAGS=
-LDFLAGS="${NETCDFF_LDFLAGS} ${SCT_LDFLAGS} ${YAXT_LDFLAGS} ${CDI_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${XML2_LDFLAGS} ${TIXI_LDFLAGS} ${SELF_LDFLAGS}"
-LIBS="${SELF_LIBS} ${TIXI_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${CDI_LIBS} ${YAXT_LIBS} ${SCT_LIBS} ${NETCDFF_LIBS}"
+LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${RTE_RRTMGP_LDFLAGS} ${CDI_LDFLAGS} ${SERIALBOX2_LDFLAGS} ${MTIME_LDFLAGS} ${BLAS_LDFLAGS} ${LAPACK_LDFLAGS} ${XML2_LDFLAGS} ${YAC_LDFLAGS} ${SELF_LDFLAGS}"
+LIBS="${SELF_LIBS} ${YAC_LIBS} ${XML2_LIBS} ${LAPACK_LIBS} ${BLAS_LIBS} ${MTIME_LIBS} ${SERIALBOX2_LIBS} ${CDI_LIBS} ${RTE_RRTMGP_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
 
 # Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
 # libraries at the configure time and when running 'make check':
@@ -26,6 +27,7 @@ BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/
 BUILD_ENV="$BUILD_ENV" \
 CC="$CC" \
 CFLAGS="$CFLAGS" \
+CLAW="$CLAW" \
 CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
@@ -33,16 +35,15 @@ ICON_CFLAGS="$ICON_CFLAGS" \
 ICON_FCFLAGS="$ICON_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
---disable-coupling \
---enable-art \
+--disable-openmp \
+--enable-claw=validate \
 --enable-grib2 \
---enable-sct \
---enable-yaxt \
+--enable-rte-rrtmgp \
+--enable-serialization \
 --with-external-cdi \
 --with-external-mtime \
---with-external-sct \
+--with-external-rte-rrtmgp \
 --with-external-self \
---with-external-tixi \
---with-external-yaxt \
+--with-external-yac \
 "$@"
 

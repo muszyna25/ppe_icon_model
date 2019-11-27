@@ -26,7 +26,7 @@ case $(uname -s) in
     case $(host $(uname -n)) in
       mpipc45.mpimet.mpg.de\ *)
         test_suite='mpim-mpipc45-spack'
-        xfail_test_names='gcc.cc_nagfor nag.cc_nagfor nag.disable_rpath' ;;
+        xfail_test_names='gcc.cc_nagfor nag.cc_nagfor' ;;
       mlogin*.hpc.dkrz.de\ *)
         test_suite='dkrz-mistral'
         ulimit -s 10240 ;;

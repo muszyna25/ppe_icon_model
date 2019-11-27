@@ -123,3 +123,5 @@ SELF_FCFLAGS="-I${SELF_ROOT}/include"
 SELF_LDFLAGS="-L${SELF_ROOT}/lib"
 SELF_LIBS='-lself'
 
+CLAW_ROOT='/scratch/local1/claw/install'
+CLAW="${CLAW_ROOT}/bin/clawfc"
