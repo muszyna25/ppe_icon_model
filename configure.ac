@@ -4,13 +4,18 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 
+dnl Currently, ICON makefiles are implemented in a way that allows for
+dnl out-of-source building even if the source directory is "dirty" (i.e.
+dnl contains results of in-source configuration and building). Nonetheless, we
+dnl enforce the source directory to be clean, because, first, it a good
+dnl practice, second, configure scripts of the bundled libraries might complain
+dnl about their "dirty" source directories anyway.
 AS_IF([test "`cd $srcdir && pwd`" != "`pwd`" && dnl
 test -f "$srcdir/config.status"],
   [AC_MSG_ERROR([source directory already configured; dnl
 run "make distclean" there first])])
 
-dnl First, we declare all the configure options and make sure that they have
-dnl valid values.
+############################# OPTION DECLARATIONS ##############################
 
 AC_ARG_ENABLE([rpaths],
   [AC_HELP_STRING([--enable-rpaths],
@@ -24,13 +29,6 @@ AC_ARG_ENABLE([silent-rules],
      [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_silent_rules=yes])],
   [enable_silent_rules=yes])
-
-AC_ARG_ENABLE([explicit-fpp],
-  [AC_HELP_STRING([--enable-explicit-fpp],
-     [enable explicit Fortran preprocessing @<:@default=auto@:>@])],
-  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
-     [enable_explicit_fpp=yes])],
-  [enable_explicit_fpp=auto])
 
 m4_divert_once([HELP_ENABLE], [[
 Model Features:]])
@@ -158,6 +156,27 @@ AC_ARG_ENABLE([yaxt],
   [AS_IF([test x"$enableval" != xno], [enable_yaxt=yes])],
   [enable_yaxt=no])
 
+AC_ARG_ENABLE([claw],
+[  --enable-claw           enable CLAW preprocessing. The value of the argument
+                          must be one of the following @<:@default=no@:>@:
+                            std|yes   enable STANDARD mode
+                            validate  enable VALIDATE mode
+                            no        disable CLAW preprocessing],
+[AS_CASE(["$enableval"],
+   [yes], [enable_claw=std],
+   [std|validate|no], [],
+   [AC_MSG_ERROR([unexpected value for the argument dnl
+--enable-claw='$enableval'; valid values are 'std', 'validate', 'yes' dnl
+(same as 'std'), 'no'])])],
+[enable_claw=no])
+
+AC_ARG_ENABLE([explicit-fpp],
+  [AC_HELP_STRING([--enable-explicit-fpp],
+     [enable explicit Fortran preprocessing @<:@default=auto@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_explicit_fpp=yes])],
+  [enable_explicit_fpp=auto])
+
 AC_ARG_ENABLE([serialization],
 [  --enable-serialization  enable the Serialbox2 serialization. The value of
                           the argument must be one of the following
@@ -264,11 +283,73 @@ AC_ARG_WITH([external-self],
   [AS_IF([test x"$withval" != xno], [with_external_self=yes])],
   [with_external_self=no])
 
+############################ MAKEFILE CONDITIONALS #############################
+
+AS_VAR_IF([enable_silent_rules], [yes],
+  [AC_SUBST([DEFAULT_VERBOSITY], [0])],
+  [AC_SUBST([DEFAULT_VERBOSITY], [1])])
+
+AS_VAR_IF([enable_jsbach], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/jsbach"
+   icon_subdir_unique_file="src/base/mo_jsb_base.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the land component JSBACH dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-jsbach)])])
+   AC_SUBST([JSBACH_ENABLED], [''])],
+  [AC_SUBST([JSBACH_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_art], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/art"
+   icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the ART component dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-art)])])
+   AC_SUBST([ART_ENABLED], [''])],
+  [AC_SUBST([ART_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_mpi], [yes],
+  [AC_SUBST([MPI_ENABLED], [''])],
+  [AC_SUBST([MPI_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_openmp], [yes],
+  [AC_SUBST([OPENMP_ENABLED], [''])],
+  [AC_SUBST([OPENMP_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_gpu], [yes],
+  [AC_SUBST([GPU_ENABLED], [''])],
+  [AC_SUBST([GPU_ENABLED], ['#'])])
+
+AS_IF([test "x$enable_claw" != xno],
+  [AC_SUBST([CLAW_ENABLED], [''])],
+  [AC_SUBST([CLAW_ENABLED], ['#'])])
+
+AS_IF([test "x$enable_explicit_fpp" = xauto && dnl
+test "x$enable_serialization" != xno],
+  [AC_MSG_NOTICE([explicit Fortran preprocessing is enabled because the dnl
+Serialbox2 serialization is requested: disable the explicit preprocessing dnl
+if required (--disable-explicit-fpp)])
+   enable_explicit_fpp=yes])
+AS_VAR_IF([enable_explicit_fpp], [yes],
+  [AC_SUBST([FPP_ENABLED], [''])],
+  [AC_SUBST([FPP_ENABLED], ['#'])])
+
+AS_IF([test "x$enable_serialization" != xno],
+  [AC_SUBST([SB2_ENABLED], [''])],
+  [AC_SUBST([SB2_ENABLED], ['#'])])
+
+############################## ENVIRONMENT CHECKS ##############################
+
 ACX_BUILD_ENVIRONMENT
 
 AC_CANONICAL_HOST
 ACX_HOST_FQDN([], [:])
 AC_SUBST([host_fqdn], [$acx_cv_host_fqdn])
+
+######################### C COMPILER COMMAND AND FLAGS #########################
+dnl We run all checks for C compiler first, which are not so many, and then
+dnl switch to our main Fortran compiler.
 
 dnl Delay the cross-compilation check:
 ACX_COMPILER_CROSS_CHECK_DELAY
@@ -324,6 +405,8 @@ dnl support/util_timer.c: sys/systemcfg.h asm/msr.h
 dnl Header files that are included from non-mandatory files
 dnl support/util_signal.c: features.h strings.h fenv.h fptrap.h
 
+###################### FORTRAN COMPILER COMMAND AND FLAGS ######################
+
 dnl Override the default flags set by AC_PROG_FC:
 FCFLAGS=${FCFLAGS-}
 AC_PROG_FC
@@ -334,8 +417,6 @@ ACX_COMPILER_FC_VENDOR_SIMPLE
 AC_SUBST([FC_VENDOR], [$acx_cv_fc_compiler_vendor])
 ACX_COMPILER_FC_VERSION_SIMPLE
 AC_SUBST([FC_VERSION], [$acx_cv_fc_compiler_version])
-
-AC_ARG_VAR([FPP], [Fortran preprocessor command (optional)])dnl
 
 AC_ARG_VAR([ICON_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
@@ -401,10 +482,7 @@ AS_VAR_IF([enable_rpaths], [yes],
      ASX_VAR_APPEND_UNIQ([LDFLAGS],
        ["$acx_cv_fc_rpath_flag$icon_L_arg"], [' '])
    done
-   ACX_SHLIB_RPATH_FLAGS_CHECK([])])
-
-AC_SUBST([DEFAULT_VERBOSITY], [0])
-AS_VAR_IF([enable_silent_rules], [no], [DEFAULT_VERBOSITY=1])
+   ACX_SHLIB_RPATH_FLAGS_CHECK])
 
 ACX_FC_ATTRIBUTE_CONTIGUOUS(
   [AS_VAR_APPEND([FCFLAGS],
@@ -419,16 +497,8 @@ AS_VAR_IF([enable_atmo], [no],
 AS_VAR_IF([enable_ocean], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
 
-AS_VAR_IF([enable_jsbach], [yes],
-  [icon_subdir_srcdir="$srcdir/externals/jsbach"
-   icon_subdir_unique_file="src/base/mo_jsb_base.f90"
-   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the land component JSBACH dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-jsbach)])])
-   AC_SUBST([JSBACH_ENABLED], [''])],
-  [AC_SUBST([JSBACH_ENABLED], ['#'])
-   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
+AS_VAR_IF([enable_jsbach], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
 
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
@@ -448,33 +518,15 @@ AS_VAR_IF([enable_rttov], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
 
 AS_VAR_IF([enable_art], [yes],
-  [icon_subdir_srcdir="$srcdir/externals/art"
-   icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
-   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
-     [AC_MSG_ERROR([unable to find sources of the ART component dnl
-($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
-(--disable-art)])])
-   AC_SUBST([ART_ENABLED], [''])
-   AS_VAR_APPEND([FCFLAGS],
-     [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])],
-  [AC_SUBST([ART_ENABLED], ['#'])])
+  [AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])])
 
-AS_VAR_IF([enable_mpi], [yes],
-  [AC_SUBST([MPI_ENABLED], [''])],
-  [AC_SUBST([MPI_ENABLED], ['#'])
-   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
+AS_VAR_IF([enable_mpi], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
 
 AS_VAR_IF([enable_active_target_sync], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"])])
-
-AS_VAR_IF([enable_openmp], [yes],
-  [AC_SUBST([OPENMP_ENABLED], [''])],
-  [AC_SUBST([OPENMP_ENABLED], ['#'])])
-
-AS_VAR_IF([enable_gpu], [yes],
-  [AC_SUBST([GPU_ENABLED], [''])],
-  [AC_SUBST([GPU_ENABLED], ['#'])])
 
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"])])
@@ -488,27 +540,18 @@ AS_VAR_IF([enable_sct], [yes],
 AS_VAR_IF([enable_yaxt], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
 
+AS_IF([test "x$enable_claw" != xno],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}_CLAW"])])
+
 AS_IF([test "x$enable_serialization" != xno],
-  [AC_SUBST([SB2_ENABLED], [''])
-   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}SERIALIZE"])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}SERIALIZE"])
    AS_CASE(["$enable_serialization"],
      [read], [AS_VAR_APPEND([FCFLAGS],
                 [" ${FC_PP_DEF}SERIALIZE_READ_REFERENCE"])],
      [perturb], [AS_VAR_APPEND([FCFLAGS],
                    [" ${FC_PP_DEF}SERIALIZE_PERTURB_REFERENCE"])],
      [create], [AS_VAR_APPEND([FCFLAGS],
-                  [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])],
-  [AC_SUBST([SB2_ENABLED], ['#'])])
-
-AS_IF([test "x$enable_explicit_fpp" = xauto && dnl
-test "x$enable_serialization" != xno],
-  [AC_MSG_NOTICE([explicit Fortran preprocessing is enabled because the dnl
-Serialbox2 serialization is requested: disable the explicit preprocessing dnl
-if required (--disable-explicit-fpp)])
-   enable_explicit_fpp=yes])
-AS_VAR_IF([enable_explicit_fpp], [yes],
-  [AC_SUBST([FPP_ENABLED], [''])],
-  [AC_SUBST([FPP_ENABLED], ['#'])])
+                  [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])])
 
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
@@ -529,6 +572,8 @@ AS_VAR_IF([enable_mixed_precision], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"])])
 
+################################ LIBRARY CHECKS ################################
+
 dnl One of the topological orderings of the ICON dependency graph:
 dnl
 dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)',
@@ -539,58 +584,27 @@ dnl '-lnetcdff', '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
+dnl Additional macro definitions to aid the dependency generator,
+dnl e.g. compiler intrinsic macros:
+AC_SUBST([DEPGEN_FCFLAGS], [''])
+
+dnl A list of Fortran modules that are used in ICON but are not part of it:
+AC_SUBST([DEPGEN_EXTERNAL_MODS], [''])
+
+dnl A list of Fortran intrinsic modules:
+AC_SUBST([DEPGEN_INTRINSIC_MODS],
+  ['iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic'])
+AS_VAR_APPEND([DEPGEN_INTRINSIC_MODS],
+  [',ieee_features,omp_lib,omp_lib_kinds,openacc'])
+dnl Intel intrinsic module (no reason to make this conditional):
+AS_VAR_APPEND([DEPGEN_INTRINSIC_MODS], [',ifcore'])
+
 dnl A list of library files (i.e. *.a files) of the enabled bundled libraries:
 AC_SUBST([BUNDLED_LIBFILES], [''])
 
 dnl A list of include search flags targeting directories of the bundled
 dnl libraries:
 bundled_includes=
-
-dnl Additional macro definitions to aid the dependency generator,
-dnl e.g. compiler intrinsic macros:
-AC_SUBST([DEPGEN_FCFLAGS], [''])
-
-dnl A list of Fortran modules that are used in ICON but are not part of it:
-dnl MPI:
-AC_SUBST([DEPGEN_EXTERNAL_MODS], ['mpi'])
-dnl RTE+RRTMGP:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'])
-dnl ECRAD:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',radiation_gas,radiation_thermodynamics,radiation_config'])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',radiation_single_level'])
-dnl RTTOV:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_rttov_ifc'])
-dnl SCT:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',sct'])
-dnl YAXT:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',yaxt'])
-dnl CDI:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_cdi'])
-dnl SERIALBOX2
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',m_serialize,utils_ppser'])
-dnl MTIME:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mtime,mtime_datetime'])
-dnl YAC:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_yac_finterface'])
-dnl TIXI:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',tixi'])
-dnl SELF:
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',self_assert,self_map,self_object,self_vector,self_vector_ref'])
-
-dnl A list of Fortran intrinsic modules:
-AC_SUBST([DEPGEN_INTRINSIC_MODS],
-  ['iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,dnl
-ieee_features,omp_lib,omp_lib_kinds,openacc'])
-
-dnl Intel intrinsic module (no reason to make this conditional):
-AS_VAR_APPEND([DEPGEN_INTRINSIC_MODS], [',ifcore'])
 
 AS_VAR_IF([enable_mpi], [yes],
   [AC_MSG_CHECKING([whether Fortran 90 interface of MPI library is available])
@@ -605,16 +619,7 @@ AS_VAR_IF([enable_mpi], [yes],
 interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
-
-AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command (optional)])dnl
-dnl The configure scripts of the most of the bundled libraries expect
-dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
-dnl accommodate when required and if possible:
-AS_IF([test -n "$MPI_LAUNCH"],
-  [AS_CASE(["$MPI_LAUNCH"],
-     [[[\\/]]* | ?:[[\\/]]*], [],
-     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
-        [MPI_LAUNCH="$acx_prog_search_path"])])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mpi'])
 
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
@@ -764,6 +769,10 @@ LIBS accordingly])])
         ["${FC_MOD_IN}externals/rte-rrtmgp/mod "])
       BUNDLED_LIBFILES="externals/rte-rrtmgp/librte.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/rte-rrtmgp/librrtmgp.a $BUNDLED_LIBFILES"])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'])
 
 AS_VAR_IF([enable_ecrad], [yes],
   [AS_VAR_IF([with_external_ecrad], [yes],
@@ -800,6 +809,11 @@ ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
       BUNDLED_LIBFILES="externals/ecrad/libutilities.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/ecrad/libifsrrtm.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',radiation_gas,radiation_thermodynamics,radiation_config'])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',radiation_single_level'])
 
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
@@ -825,6 +839,7 @@ AS_VAR_IF([enable_rttov], [yes],
       AC_MSG_FAILURE([unable to link a test program using RTTOV: either dnl
 disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_rttov_ifc'])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_IF([with_external_sct], [yes],
@@ -873,6 +888,7 @@ accordingly])])
          [MPI_LAUNCH="$MPI_LAUNCH"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/sct/src "])
       BUNDLED_LIBFILES="externals/sct/src/.libs/libsct.a $BUNDLED_LIBFILES"])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',sct'])
 
 AS_IF([test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
   [AS_VAR_IF([with_external_yaxt], [yes],
@@ -913,6 +929,7 @@ accordingly])])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yaxt/src "])
       BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a dnl
 externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',yaxt'])
 
 AS_VAR_IF([with_external_cdi], [yes],
 dnl Check whether an external version of CDI is provided:
@@ -1071,6 +1088,7 @@ dnl didn't use the C++ compiler at all (e.g. like in YAXT).
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/cdi/src "])
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_cdi'])
 
 AS_IF([test "x$enable_serialization" != xno],
   [AC_MSG_CHECKING(
@@ -1084,6 +1102,7 @@ AS_IF([test "x$enable_serialization" != xno],
       AC_MSG_FAILURE([unable to link a test program using SERIALBOX2: dnl
 either disable the serialization (--disable-serialization) or set FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',m_serialize,utils_ppser'])
 
 AS_VAR_IF([with_external_mtime], [yes],
   [AC_MSG_CHECKING([whether the Fortran interface of MTIME library is dnl
@@ -1120,6 +1139,7 @@ FCFLAGS, LDFLAGS and LIBS accordingly])])
       [--enable-silent-rules="$enable_silent_rules"], [--disable-examples]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mtime,mtime_datetime'])
 
 AC_MSG_CHECKING([whether Fortran BLAS library is available])
 AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
@@ -1195,6 +1215,7 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yac/src "])
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_yac_finterface'])
 
 AS_VAR_IF([enable_art], [yes],
   [AS_VAR_IF([with_external_tixi], [yes],
@@ -1230,6 +1251,7 @@ accordingly])])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/tixi/src "])
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a dnl
 $BUNDLED_LIBFILES"])])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',tixi'])
 
 AS_VAR_IF([with_external_self], [yes],
   [AC_MSG_CHECKING([whether Fortran SELF 0.2 library is available])
@@ -1261,23 +1283,127 @@ and LIBS accordingly])])
       [--enable-silent-rules="$enable_silent_rules"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/self/src "])
    BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"])
+AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
+  [',self_assert,self_map,self_object,self_vector,self_vector_ref'])
 
 dnl Prepend the include search flags to FCFLAGS:
 AS_IF([test -n "$bundled_includes"], [FCFLAGS="${bundled_includes}${FCFLAGS}"])
 
+##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
+
+AC_PROG_INSTALL
+AC_PROG_MKDIR_P
+dnl The message generated by AC_PROG_LN_S is misleading in our case, therefore
+dnl we do what the standard macro does but without the message:
+AC_SUBST([LN_S], [$as_ln_s])
+
 AC_ARG_VAR([PYTHON], [Python interpreter command])dnl
 ACX_PROG_SEARCH([PYTHON], [python python3],
   [icon_prog_try=dnl
-'$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
+'$acx_candidate $srcdir/utils/mkhelper/depgen.py -h >/dev/null'
    AC_TRY_EVAL([icon_prog_try])],
   [PYTHON=$acx_candidate])
 
 AC_ARG_VAR([PERL], [Perl interpreter command])dnl
 ACX_PROG_SEARCH([PERL], [perl],
-  [icon_prog_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
+  [icon_prog_try='$acx_candidate $srcdir/utils/pvcs.pl --help >/dev/null'
    AC_TRY_EVAL([icon_prog_try])
    test $ac_status -eq 0 || test $ac_status -eq 1],
   [PERL=$acx_candidate])
+
+AC_ARG_VAR([CLAW], [CLAW preprocessor command (optional)])dnl
+AC_SUBST([CLAW_FLAGS], [''])
+AS_IF([test "x$enable_claw" != xno],
+  [icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
+   icon_subdir_unique_file="self/0.2/self_object.xmod"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find precompiled module files for OMNI dnl
+compiler required for CLAW preprocessing ($icon_subdir_unique_file) in dnl
+'$icon_subdir_srcdir': disable CLAW preprocessing (--disable-claw)])])
+   AS_VAR_IF([with_external_mtime], [yes],
+     [icon_subdir_srcdir="$srcdir/externals/mtime"
+      icon_subdir_unique_file="src/libmtime.f90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which dnl
+are required for CLAW preprocessing even if an external version of the dnl
+library is used: disable CLAW preprocessing (--disable-claw)])],
+        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
+'$icon_subdir_unique_file' and other source files of the bundled version of dnl
+MTIME in '$icon_subdir_srcdir' even if an external version of the library is dnl
+used: it is strongly recommended to switch to the bundled version of MTIME dnl
+(--without-external-mtime) to avoid potential inconsistency])])])
+   AS_VAR_IF([with_external_cdi], [yes],
+     [icon_subdir_srcdir="$srcdir/externals/cdi"
+      icon_subdir_unique_file="src/mo_cdi.f90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are dnl
+required for CLAW preprocessing even if an external version of the library dnl
+is used: disable CLAW preprocessing (--disable-claw)])],
+        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
+'$icon_subdir_unique_file' and other source files of the bundled version of dnl
+CDI in '$icon_subdir_srcdir' even if an external version of the library is dnl
+used: it is strongly recommended to switch to the bundled version of CDI dnl
+(--without-external-cdi) to avoid potential inconsistency])])])
+   AS_VAR_IF([enable_openmp], [yes],
+     [AC_MSG_WARN([CLAW preprocessing is not compatible with OpenMP: it is dnl
+strongly recommended to disable OpenMP support (--disable-openmp)])])
+dnl
+  AS_VAR_IF([enable_gpu], [yes],
+     [CLAW_FLAGS='--target=gpu --directive=acc'],
+     [CLAW_FLAGS='--target=cpu --directive=none'])
+   AS_VAR_IF([enable_claw], [validate],
+     [AS_VAR_IF([enable_serialization], [no],
+        [AC_MSG_ERROR([unsupported combination of the configure options: you dnl
+are trying to configure with CLAW preprocessing in VALIDATE mode but the dnl
+Serialbox2 serialization is disabled: either enable CLAW preprocessing in a dnl
+different mode (--enable-claw=std) or enable the Serialbox2 serialization dnl
+(--enable-serialization)])])
+dnl Enable serialization support and update after kernels:
+      AS_VAR_APPEND([CLAW_FLAGS], [' -x=sca_serialization_enabled:true'])
+      AS_VAR_APPEND([CLAW_FLAGS],
+        [' -x=sca_serialization_enabled_direction:write'])
+      AS_VAR_APPEND([CLAW_FLAGS],
+        [' -x=sca_forward_update_enabled_direction:out'])],
+     [dnl
+dnl Disable serialization support and updates by kernel:
+      AS_VAR_APPEND([CLAW_FLAGS], [' -x=sca_serialization_enabled:false'])
+      AS_VAR_APPEND([CLAW_FLAGS], [' -x=sca_forward_update_enabled:false'])])
+dnl Check for CLAW:
+   AC_LANG_ASSERT([Fortran])
+   AC_MSG_CHECKING([for CLAW preprocessor command])
+   icon_claw_result=unknown
+   AS_MKDIR_P([conftest.dir])
+   cd conftest.dir
+   AC_LANG_CONFTEST([AC_LANG_SOURCE(
+[[      module conftest_module
+      end module]])])
+   icon_prog_try='$CLAW -f -o conftest.claw.$ac_ext conftest.$ac_ext'
+   AC_TRY_EVAL([icon_prog_try])
+   AS_IF([test $ac_status -eq 0 && test -f conftest.claw.$ac_ext && dnl
+test -f conftest_module.xmod],
+     [mv conftest.claw.$ac_ext conftest.$ac_ext
+      AC_COMPILE_IFELSE([], [icon_claw_result=$CLAW])])
+   cd ..
+   rm -rf conftest.dir
+   AC_MSG_RESULT([$icon_claw_result])
+   AS_VAR_IF([icon_claw_result], [unknown],
+     [AC_MSG_FAILURE([unable to find a valid CLAW preprocessor command: dnl
+either disable CLAW preprocessing (--disable-claw) or set CLAW accordingly])])
+dnl
+   AC_CONFIG_FILES([claw.mk])],
+  [CLAW=])
+
+AC_ARG_VAR([FPP], [Fortran preprocessor command (optional)])dnl
+AS_VAR_IF([enable_explicit_fpp], [yes],
+  [ACX_PROG_FPP([FPP],
+     [FPP=$acx_cv_prog_fpp],
+     [AC_MSG_FAILURE([unable to find a valid Fortran preprocessor command: dnl
+either disable explicit Fortran preprocessing (--disable-explicit-fpp) or dnl
+set FPP accordingly])],
+     [$FC_INC_FLAG_PP_f90], [$FC_PP_DEF], [utils/fpp-wrappers])],
+  [FPP=])
 
 AC_ARG_VAR([SB2PP], [Serialbox2 preprocessor command (optional)])dnl
 AS_IF([test "x$enable_serialization" != xno],
@@ -1308,20 +1434,17 @@ sure that path to the 'pp_ser' module is in the PYTHONPATH environment dnl
 variable, or set SB2PP accordingly])])],
    [SB2PP=])
 
-AS_VAR_IF([enable_explicit_fpp], [yes],
-  [ACX_PROG_FPP([FPP],
-     [FPP=$acx_cv_prog_fpp],
-     [AC_MSG_FAILURE([unable to find a valid Fortran preprocessor command: dnl
-disable explicit Fortran preprocessing (--disable-explicit-fpp) or set FPP dnl
-accordingly])],
-     [$FC_INC_FLAG_PP_f90], [$FC_PP_DEF], [utils/fpp-wrappers])],
-  [FPP=])
+AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command (optional)])dnl
+dnl The configure scripts of the most of the bundled libraries expect
+dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
+dnl accommodate when required and if possible:
+AS_IF([test -n "$MPI_LAUNCH"],
+  [AS_CASE(["$MPI_LAUNCH"],
+     [[[\\/]]* | ?:[[\\/]]*], [],
+     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
+        [MPI_LAUNCH="$acx_prog_search_path"])])])
 
-AC_PROG_INSTALL
-AC_PROG_MKDIR_P
-dnl The message generated by AC_PROG_LN_S is misleading in our case, therefore
-dnl we do what the standard macro does but without the message:
-AC_SUBST([LN_S], [$as_ln_s])
+#################################### OUTPUT ####################################
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([

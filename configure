@@ -587,28 +587,23 @@ PACKAGE_URL=''
 ac_unique_file="src/drivers/icon.f90"
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+MPI_LAUNCH
+SB2PP
+FPP
+CLAW_FLAGS
+CLAW
+PERL
+PYTHON
 LN_S
 MKDIR_P
 INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
-SB2PP
-PERL
-PYTHON
 subdirs_extra
-MPI_LAUNCH
+BUNDLED_LIBFILES
 DEPGEN_INTRINSIC_MODS
 DEPGEN_EXTERNAL_MODS
 DEPGEN_FCFLAGS
-BUNDLED_LIBFILES
-FPP_ENABLED
-SB2_ENABLED
-GPU_ENABLED
-OPENMP_ENABLED
-MPI_ENABLED
-ART_ENABLED
-JSBACH_ENABLED
-DEFAULT_VERBOSITY
 FC_PP_DEF
 FC_INC_ORDER_PP_f90
 FC_INC_FLAG_PP_f90
@@ -621,7 +616,6 @@ FC_MOD_IN
 ICON_BUNDLED_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_FCFLAGS
-FPP
 FC_VERSION
 FC_VENDOR
 FCFLAGS_f90
@@ -648,6 +642,15 @@ build_cpu
 build
 BUILD_ENV_MAKE
 BUILD_ENV
+SB2_ENABLED
+FPP_ENABLED
+CLAW_ENABLED
+GPU_ENABLED
+OPENMP_ENABLED
+MPI_ENABLED
+ART_ENABLED
+JSBACH_ENABLED
+DEFAULT_VERBOSITY
 target_alias
 host_alias
 build_alias
@@ -691,7 +694,6 @@ ac_user_opts='
 enable_option_checking
 enable_rpaths
 enable_silent_rules
-enable_explicit_fpp
 enable_atmo
 enable_ocean
 enable_jsbach
@@ -711,6 +713,8 @@ enable_parallel_netcdf
 enable_cdi_pio
 enable_sct
 enable_yaxt
+enable_claw
+enable_explicit_fpp
 enable_serialization
 enable_loop_exchange
 enable_intel_consistency
@@ -739,14 +743,15 @@ ICON_CFLAGS
 ICON_BUNDLED_CFLAGS
 FC
 FCFLAGS
-FPP
 ICON_FCFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_BUNDLED_FCFLAGS
-MPI_LAUNCH
 PYTHON
 PERL
-SB2PP'
+CLAW
+FPP
+SB2PP
+MPI_LAUNCH'
 
 
 # Initialize some variables set by options.
@@ -1365,7 +1370,6 @@ Optional Features:
                           [default=yes]
   --enable-silent-rules   less verbose build output (undo: "make V=1")
                           [default=yes]
-  --enable-explicit-fpp   enable explicit Fortran preprocessing [default=auto]
 
 Model Features:
   --enable-atmo           enable the atmosphere component of ICON
@@ -1400,6 +1404,12 @@ Infrastructural Features:
                           [default=no]
   --enable-sct            enable the SCT timer [default=no]
   --enable-yaxt           enable the YAXT data exchange [default=no]
+  --enable-claw           enable CLAW preprocessing. The value of the argument
+                          must be one of the following [default=no]:
+                            std|yes   enable STANDARD mode
+                            validate  enable VALIDATE mode
+                            no        disable CLAW preprocessing
+  --enable-explicit-fpp   enable explicit Fortran preprocessing [default=auto]
   --enable-serialization  enable the Serialbox2 serialization. The value of
                           the argument must be one of the following
                           [default=no]:
@@ -1455,7 +1465,6 @@ Some influential environment variables:
               linking the bundled libraries [default=$ICON_CFLAGS]
   FC          Fortran compiler command
   FCFLAGS     Fortran compiler flags
-  FPP         Fortran preprocessor command (optional)
   ICON_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               and linking ICON, e.g. optimization flags
@@ -1465,10 +1474,12 @@ Some influential environment variables:
   ICON_BUNDLED_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               and linking the bundled libraries [default=$ICON_FCFLAGS]
-  MPI_LAUNCH  interactive MPI launcher command (optional)
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
+  CLAW        CLAW preprocessor command (optional)
+  FPP         Fortran preprocessor command (optional)
   SB2PP       Serialbox2 preprocessor command (optional)
+  MPI_LAUNCH  interactive MPI launcher command (optional)
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2090,6 +2101,7 @@ if test "`cd $srcdir && pwd`" != "`pwd`" && test -f "$srcdir/config.status"; the
   as_fn_error $? "source directory already configured; run \"make distclean\" there first" "$LINENO" 5
 fi
 
+############################# OPTION DECLARATIONS ##############################
 
 # Check whether --enable-rpaths was given.
 if test "${enable_rpaths+set}" = set; then :
@@ -2108,16 +2120,6 @@ if test "${enable_silent_rules+set}" = set; then :
 fi
 else
   enable_silent_rules=yes
-fi
-
-
-# Check whether --enable-explicit-fpp was given.
-if test "${enable_explicit_fpp+set}" = set; then :
-  enableval=$enable_explicit_fpp; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
-  enable_explicit_fpp=yes
-fi
-else
-  enable_explicit_fpp=auto
 fi
 
 
@@ -2315,6 +2317,31 @@ else
 fi
 
 
+# Check whether --enable-claw was given.
+if test "${enable_claw+set}" = set; then :
+  enableval=$enable_claw; case "$enableval" in #(
+  yes) :
+    enable_claw=std ;; #(
+  std|validate|no) :
+     ;; #(
+  *) :
+    as_fn_error $? "unexpected value for the argument --enable-claw='$enableval'; valid values are 'std', 'validate', 'yes' (same as 'std'), 'no'" "$LINENO" 5 ;;
+esac
+else
+  enable_claw=no
+fi
+
+
+# Check whether --enable-explicit-fpp was given.
+if test "${enable_explicit_fpp+set}" = set; then :
+  enableval=$enable_explicit_fpp; if test x"$enableval" != xno && test x"$enableval" != xauto; then :
+  enable_explicit_fpp=yes
+fi
+else
+  enable_explicit_fpp=auto
+fi
+
+
 # Check whether --enable-serialization was given.
 if test "${enable_serialization+set}" = set; then :
   enableval=$enable_serialization; case "$enableval" in #(
@@ -2471,6 +2498,97 @@ else
   with_external_self=no
 fi
 
+
+############################ MAKEFILE CONDITIONALS #############################
+
+if test "x$enable_silent_rules" = xyes; then :
+  DEFAULT_VERBOSITY=0
+
+else
+  DEFAULT_VERBOSITY=1
+
+fi
+
+if test "x$enable_jsbach" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/jsbach"
+   icon_subdir_unique_file="src/base/mo_jsb_base.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the land component JSBACH ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-jsbach)" "$LINENO" 5
+fi
+   JSBACH_ENABLED=''
+
+else
+  JSBACH_ENABLED='#'
+
+fi
+
+if test "x$enable_art" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/art"
+   icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the ART component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-art)" "$LINENO" 5
+fi
+   ART_ENABLED=''
+
+else
+  ART_ENABLED='#'
+
+fi
+
+if test "x$enable_mpi" = xyes; then :
+  MPI_ENABLED=''
+
+else
+  MPI_ENABLED='#'
+
+fi
+
+if test "x$enable_openmp" = xyes; then :
+  OPENMP_ENABLED=''
+
+else
+  OPENMP_ENABLED='#'
+
+fi
+
+if test "x$enable_gpu" = xyes; then :
+  GPU_ENABLED=''
+
+else
+  GPU_ENABLED='#'
+
+fi
+
+if test "x$enable_claw" != xno; then :
+  CLAW_ENABLED=''
+
+else
+  CLAW_ENABLED='#'
+
+fi
+
+if test "x$enable_explicit_fpp" = xauto && test "x$enable_serialization" != xno; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&5
+$as_echo "$as_me: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&6;}
+   enable_explicit_fpp=yes
+fi
+if test "x$enable_explicit_fpp" = xyes; then :
+  FPP_ENABLED=''
+
+else
+  FPP_ENABLED='#'
+
+fi
+
+if test "x$enable_serialization" != xno; then :
+  SB2_ENABLED=''
+
+else
+  SB2_ENABLED='#'
+
+fi
+
+############################## ENVIRONMENT CHECKS ##############################
 
 
    if test -n "$BUILD_ENV"; then :
@@ -2649,6 +2767,8 @@ $as_echo "$acx_cv_host_fqdn" >&6; }
 fi
 host_fqdn=$acx_cv_host_fqdn
 
+
+######################### C COMPILER COMMAND AND FLAGS #########################
 
 acx_save_cross_compiling=$cross_compiling
    acx_save_ac_tool_warned=$ac_tool_warned
@@ -3697,6 +3817,8 @@ done
 
 
 
+###################### FORTRAN COMPILER COMMAND AND FLAGS ######################
+
 FCFLAGS=${FCFLAGS-}
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
@@ -4037,7 +4159,6 @@ fi
 $as_echo "$acx_cv_fc_compiler_version" >&6; }
 
 FC_VERSION=$acx_cv_fc_compiler_version
-
 
 
 ICON_FCFLAGS=${ICON_FCFLAGS-}
@@ -4700,12 +4821,6 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 fi
 
-DEFAULT_VERBOSITY=0
-
-if test "x$enable_silent_rules" = xno; then :
-  DEFAULT_VERBOSITY=1
-fi
-
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler supports the CONTIGUOUS attribute" >&5
 $as_echo_n "checking whether Fortran compiler supports the CONTIGUOUS attribute... " >&6; }
 if ${acx_cv_fc_attribute_contiguous+:} false; then :
@@ -4750,18 +4865,8 @@ if test "x$enable_ocean" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_OCEAN__"
 fi
 
-if test "x$enable_jsbach" = xyes; then :
-  icon_subdir_srcdir="$srcdir/externals/jsbach"
-   icon_subdir_unique_file="src/base/mo_jsb_base.f90"
-   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the land component JSBACH ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-jsbach)" "$LINENO" 5
-fi
-   JSBACH_ENABLED=''
-
-else
-  JSBACH_ENABLED='#'
-
-   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_JSBACH__"
+if test "x$enable_jsbach" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_JSBACH__"
 fi
 
 if test "x$enable_coupling" = xyes; then :
@@ -4785,46 +4890,15 @@ if test "x$enable_rttov" = xyes; then :
 fi
 
 if test "x$enable_art" = xyes; then :
-  icon_subdir_srcdir="$srcdir/externals/art"
-   icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
-   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
-  as_fn_error $? "unable to find sources of the ART component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-art)" "$LINENO" 5
-fi
-   ART_ENABLED=''
-
-   as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"
-else
-  ART_ENABLED='#'
-
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"
 fi
 
-if test "x$enable_mpi" = xyes; then :
-  MPI_ENABLED=''
-
-else
-  MPI_ENABLED='#'
-
-   as_fn_append FCFLAGS " ${FC_PP_DEF}NOMPI"
+if test "x$enable_mpi" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}NOMPI"
 fi
 
 if test "x$enable_active_target_sync" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"
-fi
-
-if test "x$enable_openmp" = xyes; then :
-  OPENMP_ENABLED=''
-
-else
-  OPENMP_ENABLED='#'
-
-fi
-
-if test "x$enable_gpu" = xyes; then :
-  GPU_ENABLED=''
-
-else
-  GPU_ENABLED='#'
-
 fi
 
 if test "x$enable_parallel_netcdf" = xyes; then :
@@ -4843,10 +4917,12 @@ if test "x$enable_yaxt" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_YAXT"
 fi
 
-if test "x$enable_serialization" != xno; then :
-  SB2_ENABLED=''
+if test "x$enable_claw" != xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}_CLAW"
+fi
 
-   as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE"
+if test "x$enable_serialization" != xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE"
    case "$enable_serialization" in #(
   read) :
     as_fn_append FCFLAGS " ${FC_PP_DEF}SERIALIZE_READ_REFERENCE" ;; #(
@@ -4857,22 +4933,6 @@ if test "x$enable_serialization" != xno; then :
   *) :
      ;;
 esac
-else
-  SB2_ENABLED='#'
-
-fi
-
-if test "x$enable_explicit_fpp" = xauto && test "x$enable_serialization" != xno; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&5
-$as_echo "$as_me: explicit Fortran preprocessing is enabled because the Serialbox2 serialization is requested: disable the explicit preprocessing if required (--disable-explicit-fpp)" >&6;}
-   enable_explicit_fpp=yes
-fi
-if test "x$enable_explicit_fpp" = xyes; then :
-  FPP_ENABLED=''
-
-else
-  FPP_ENABLED='#'
-
 fi
 
 if test "x$enable_loop_exchange" = xyes; then :
@@ -4896,36 +4956,24 @@ if test "x$enable_mixed_precision" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"
 fi
 
+################################ LIBRARY CHECKS ################################
+
+
+DEPGEN_FCFLAGS=''
+
+
+DEPGEN_EXTERNAL_MODS=''
+
+
+DEPGEN_INTRINSIC_MODS='iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic'
+
+as_fn_append DEPGEN_INTRINSIC_MODS ',ieee_features,omp_lib,omp_lib_kinds,openacc'
+as_fn_append DEPGEN_INTRINSIC_MODS ',ifcore'
 
 BUNDLED_LIBFILES=''
 
 
 bundled_includes=
-
-DEPGEN_FCFLAGS=''
-
-
-DEPGEN_EXTERNAL_MODS='mpi'
-
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'
-as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'
-as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_gas,radiation_thermodynamics,radiation_config'
-as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_single_level'
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_rttov_ifc'
-as_fn_append DEPGEN_EXTERNAL_MODS ',sct'
-as_fn_append DEPGEN_EXTERNAL_MODS ',yaxt'
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_cdi'
-as_fn_append DEPGEN_EXTERNAL_MODS ',m_serialize,utils_ppser'
-as_fn_append DEPGEN_EXTERNAL_MODS ',mtime,mtime_datetime'
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_yac_finterface'
-as_fn_append DEPGEN_EXTERNAL_MODS ',tixi'
-as_fn_append DEPGEN_EXTERNAL_MODS ',self_assert,self_map,self_object,self_vector,self_vector_ref'
-
-DEPGEN_INTRINSIC_MODS='iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc'
-
-
-as_fn_append DEPGEN_INTRINSIC_MODS ',ifcore'
 
 if test "x$enable_mpi" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran 90 interface of MPI library is available" >&5
@@ -4953,68 +5001,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-
-if test -n "$MPI_LAUNCH"; then :
-  case "$MPI_LAUNCH" in #(
-  [\\/]* | ?:[\\/]*) :
-     ;; #(
-  *) :
-    acx_prog_search_abspath=unknown
-   set dummy $MPI_LAUNCH; shift; acx_prog_exec=$1; shift; acx_prog_args="$@"
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the absolute path to $acx_prog_exec" >&5
-$as_echo_n "checking for the absolute path to $acx_prog_exec... " >&6; }
-   case $acx_prog_exec in #(
-  *[\\/]*) :
-    if as_fn_executable_p $acx_prog_exec; then :
-  acx_prog_search_abspath=$acx_prog_exec
-fi ;; #(
-  *) :
-    as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    if as_fn_executable_p "$as_dir/$acx_prog_exec"; then :
-  acx_prog_search_abspath="$as_dir/$acx_prog_exec"; break
-fi
-  done
-IFS=$as_save_IFS
- ;;
-esac
-   case $acx_prog_search_abspath in #(
-  unknown) :
-     ;; #(
-  [\\/]* | ?:[\\/]*) :
-     ;; #(
-  *) :
-    asx_dir=`echo "$acx_prog_search_abspath" | sed 's%/[^/]*$%%' 2>/dev/null`
-      asx_file=`echo "$acx_prog_search_abspath" | sed 's%.*/%%' 2>/dev/null`
-      asx_dir=`cd "$asx_dir" >/dev/null 2>&1 && pwd 2>/dev/null`
-      acx_prog_search_abspath=unknown
-      case $asx_dir in #(
-  [\\/]* | ?:[\\/]*) :
-    if as_fn_executable_p "$asx_dir/$asx_file"; then :
-  acx_prog_search_abspath="$asx_dir/$asx_file"
-fi ;; #(
-  *) :
-     ;;
-esac ;;
-esac
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_prog_search_abspath" >&5
-$as_echo "$acx_prog_search_abspath" >&6; }
-   if test "x$acx_prog_search_abspath" = xunknown; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find the absolute path to $acx_prog_exec
-See \`config.log' for more details" "$LINENO" 5; }
-else
-  if test -n "$acx_prog_args"; then :
-  as_fn_append acx_prog_search_abspath " $acx_prog_args"
-fi
-      MPI_LAUNCH="$acx_prog_search_path"
-fi ;;
-esac
-fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',mpi'
 
 if test "x$enable_openmp" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to enable OpenMP support" >&5
@@ -5568,6 +5555,8 @@ esac
       BUNDLED_LIBFILES="externals/rte-rrtmgp/librrtmgp.a $BUNDLED_LIBFILES"
 fi
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'
 
 if test "x$enable_ecrad" = xyes; then :
   if test "x$with_external_ecrad" = xyes; then :
@@ -5660,6 +5649,9 @@ esac
       BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"
 fi
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'
+as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_gas,radiation_thermodynamics,radiation_config'
+as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_single_level'
 
 if test "x$enable_rttov" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTTOV library is available" >&5
@@ -5699,6 +5691,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_rttov_ifc'
 
 if test "x$enable_sct" = xyes; then :
   if test "x$with_external_sct" = xyes; then :
@@ -5806,6 +5799,7 @@ esac
       BUNDLED_LIBFILES="externals/sct/src/.libs/libsct.a $BUNDLED_LIBFILES"
 fi
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',sct'
 
 if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
   if test "x$with_external_yaxt" = xyes; then :
@@ -5898,6 +5892,7 @@ esac
       BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"
 fi
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',yaxt'
 
 if test "x$with_external_cdi" = xyes; then :
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 2003 interface of CDI 1.8.x library is available" >&5
@@ -6117,6 +6112,7 @@ esac
    as_fn_append bundled_includes "${FC_MOD_IN}externals/cdi/src "
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_cdi'
 
 if test "x$enable_serialization" != xno; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SERIALBOX2 library is available" >&5
@@ -6143,6 +6139,7 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',m_serialize,utils_ppser'
 
 if test "x$with_external_mtime" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of MTIME library is available" >&5
@@ -6234,6 +6231,7 @@ esac
    as_fn_append bundled_includes "${FC_MOD_IN}externals/mtime/src "
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',mtime,mtime_datetime'
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
 $as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
@@ -6422,6 +6420,7 @@ esac
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"
 fi
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',mo_yac_finterface'
 
 if test "x$enable_art" = xyes; then :
   if test "x$with_external_tixi" = xyes; then :
@@ -6509,6 +6508,7 @@ esac
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a $BUNDLED_LIBFILES"
 fi
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',tixi'
 
 if test "x$with_external_self" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran SELF 0.2 library is available" >&5
@@ -6595,267 +6595,13 @@ esac
    as_fn_append bundled_includes "${FC_MOD_IN}externals/self/src "
    BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"
 fi
+as_fn_append DEPGEN_EXTERNAL_MODS ',self_assert,self_map,self_object,self_vector,self_vector_ref'
 
 if test -n "$bundled_includes"; then :
   FCFLAGS="${bundled_includes}${FCFLAGS}"
 fi
 
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for python" >&5
-$as_echo_n "checking for python... " >&6; }
-   if ${acx_cv_prog_PYTHON+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if ${PYTHON+:} false; then :
-  set dummy "$PYTHON"
-else
-  set dummy python python3
-fi
-      shift
-      for acx_candidate in "$@"; do
-        icon_prog_try='$acx_candidate $srcdir/utils/mkhelper/depgen.py -h > /dev/null'
-   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
-  (eval $icon_prog_try) 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }
-        if test $? -eq 0; then :
-  acx_cv_prog_PYTHON=$acx_candidate
-           break
-fi
-      done
-fi
-
-   if ${acx_cv_prog_PYTHON+:} false; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PYTHON" >&5
-$as_echo "$acx_cv_prog_PYTHON" >&6; }
-      PYTHON=$acx_candidate
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
-$as_echo "unknown" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find python
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-
-
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for perl" >&5
-$as_echo_n "checking for perl... " >&6; }
-   if ${acx_cv_prog_PERL+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if ${PERL+:} false; then :
-  set dummy "$PERL"
-else
-  set dummy perl
-fi
-      shift
-      for acx_candidate in "$@"; do
-        icon_prog_try='$acx_candidate $srcdir/utils/pvcs.pl --help > /dev/null'
-   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
-  (eval $icon_prog_try) 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }
-   test $ac_status -eq 0 || test $ac_status -eq 1
-        if test $? -eq 0; then :
-  acx_cv_prog_PERL=$acx_candidate
-           break
-fi
-      done
-fi
-
-   if ${acx_cv_prog_PERL+:} false; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PERL" >&5
-$as_echo "$acx_cv_prog_PERL" >&6; }
-      PERL=$acx_candidate
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
-$as_echo "unknown" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find perl
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-
-
-if test "x$enable_serialization" != xno; then :
-
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Serialbox2 preprocessor command" >&5
-$as_echo_n "checking for Serialbox2 preprocessor command... " >&6; }
-   icon_sb2pp_result=unknown
-   SB2PP=${SB2PP-'${PYTHON} -m pp_ser'}
-   cat > conftest.$ac_ext <<_ACEOF
-      program main
-      implicit none
-      !\$ser mode write
-      call ppser_set_mode(1)
-      end program
-_ACEOF
-   icon_prog_try="$SB2PP -o conftest.$ac_ext conftest.$ac_ext >&5"
-   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
-  (eval $icon_prog_try) 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }
-   if test $? -eq 0; then :
-  if ac_fn_fc_try_link "$LINENO"; then :
-  icon_sb2pp_result=$SB2PP
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext
-fi
-   rm -f conftest.$ac_ext
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_sb2pp_result" >&5
-$as_echo "$icon_sb2pp_result" >&6; }
-   if test "x$icon_sb2pp_result" = xunknown; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find a valid Serialbox2 preprocessor command: either disable the serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-else
-  SB2PP=
-fi
-
-if test "x$enable_explicit_fpp" = xyes; then :
-        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran preprocessor command" >&5
-$as_echo_n "checking for Fortran preprocessor command... " >&6; }
-   if ${acx_cv_prog_fpp+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  as_dir=conftest.dir/sub; as_fn_mkdir_p
-      cd conftest.dir
-      cat > sub/conftest.fpp_inc <<_ACEOF
-#define CONFTEST_THREE
-#ifndef CONFTEST_ZERO
-      integer conftest_zero
-#else
-      choke me
-#endif
-#ifdef CONFTEST_ONE
-      integer conftest_one
-#else
-      choke me
-#endif
-#if CONFTEST_TWO != 42
-      choke me
-#else
-      integer conftest_two
-#endif
-#ifdef CONFTEST_THREE
-      integer conftest_three
-#else
-      choke me
-#endif
-
-_ACEOF
-      acx_save_FCFLAGS=$FCFLAGS
-      if ${FPP+:} false; then :
-  set dummy "$FPP"
-else
-  ac_builddir=.
-
-case . in
-.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
-*)
-  ac_dir_suffix=/`$as_echo . | sed 's|^\.[\\/]||'`
-  # A ".." for each directory in $ac_dir_suffix.
-  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
-  case $ac_top_builddir_sub in
-  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
-  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
-  esac ;;
-esac
-ac_abs_top_builddir=$ac_pwd
-ac_abs_builddir=$ac_pwd$ac_dir_suffix
-# for backward compatibility:
-ac_top_builddir=$ac_top_build_prefix
-
-case $srcdir in
-  .)  # We are building in place.
-    ac_srcdir=.
-    ac_top_srcdir=$ac_top_builddir_sub
-    ac_abs_top_srcdir=$ac_pwd ;;
-  [\\/]* | ?:[\\/]* )  # Absolute name.
-    ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir
-    ac_abs_top_srcdir=$srcdir ;;
-  *) # Relative name.
-    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_build_prefix$srcdir
-    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
-esac
-ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
-
-         acx_prog_fpp_wrapper_dir="${ac_abs_top_srcdir}/utils/fpp-wrappers"
-         set dummy "$FC -E" "$FC -E $ac_fcflags_srcext" \
-                   "$SHELL ${acx_prog_fpp_wrapper_dir}/nag.sh $FC" \
-                   "$FC -o - -Wp,-w,-P -F $ac_fcflags_srcext" \
-                   "$SHELL ${acx_prog_fpp_wrapper_dir}/cray.sh $FC" \
-                   "$FC -F" "$FC -F $ac_fcflags_srcext"
-fi
-      shift
-      acx_prog_fpp_include_flag=$FC_INC_FLAG_PP_f90
-      acx_prog_fpp_macro_flag=$FC_PP_DEF
-      for acx_candidate in "$@"; do
-        cat > conftest.$ac_ext <<_ACEOF
-      program main
-      implicit none
-#include "conftest.fpp_inc"
-      conftest_zero = 0
-      conftest_one = 1
-      conftest_two = 2
-      conftest_three = 3
-      end
-_ACEOF
-        rm -f conftest.acx_prog_fpp
-        acx_try_fpp="$acx_candidate \$FCFLAGS conftest.\$ac_ext >conftest.acx_prog_fpp"
-        FCFLAGS="${acx_prog_fpp_include_flag}sub ${acx_prog_fpp_macro_flag}CONFTEST_ONE ${acx_prog_fpp_macro_flag}CONFTEST_TWO=42 $acx_save_FCFLAGS"
-        { { ac_try="$acx_try_fpp"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
-$as_echo "$ac_try_echo"; } >&5
-  (eval "$acx_try_fpp") 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }
-        if test $? -eq 0 && test -f conftest.acx_prog_fpp; then :
-  acx_result=`grep -c 'integer conftest' conftest.acx_prog_fpp 2>/dev/null`
-           if test $? -eq 0 && test 4 -eq "$acx_result" 2>/dev/null; then :
-  mv conftest.acx_prog_fpp conftest.$ac_ext
-              FCFLAGS=$acx_save_FCFLAGS
-              if ac_fn_fc_try_compile "$LINENO"; then :
-  acx_cv_prog_fpp=$acx_candidate
-                 break
-fi
-rm -f core conftest.err conftest.$ac_objext
-fi
-fi
-      done
-      FCFLAGS=$acx_save_FCFLAGS
-      cd ..
-      rm -rf conftest.dir
-fi
-
-   if ${acx_cv_prog_fpp+:} false; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_fpp" >&5
-$as_echo "$acx_cv_prog_fpp" >&6; }
-      FPP=$acx_cv_prog_fpp
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
-$as_echo "unknown" >&6; }
-      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find a valid Fortran preprocessor command: disable explicit Fortran preprocessing (--disable-explicit-fpp) or set FPP accordingly
-See \`config.log' for more details" "$LINENO" 5; }
-fi
-else
-  FPP=
-fi
+##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
 
 # Find a good install program.  We prefer a C program (faster),
 # so one script is as good as another.  But avoid the broken or
@@ -6994,6 +6740,414 @@ $as_echo "$MKDIR_P" >&6; }
 
 LN_S=$as_ln_s
 
+
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for python" >&5
+$as_echo_n "checking for python... " >&6; }
+   if ${acx_cv_prog_PYTHON+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if ${PYTHON+:} false; then :
+  set dummy "$PYTHON"
+else
+  set dummy python python3
+fi
+      shift
+      for acx_candidate in "$@"; do
+        icon_prog_try='$acx_candidate $srcdir/utils/mkhelper/depgen.py -h >/dev/null'
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+        if test $? -eq 0; then :
+  acx_cv_prog_PYTHON=$acx_candidate
+           break
+fi
+      done
+fi
+
+   if ${acx_cv_prog_PYTHON+:} false; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PYTHON" >&5
+$as_echo "$acx_cv_prog_PYTHON" >&6; }
+      PYTHON=$acx_candidate
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
+$as_echo "unknown" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find python
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
+
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for perl" >&5
+$as_echo_n "checking for perl... " >&6; }
+   if ${acx_cv_prog_PERL+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if ${PERL+:} false; then :
+  set dummy "$PERL"
+else
+  set dummy perl
+fi
+      shift
+      for acx_candidate in "$@"; do
+        icon_prog_try='$acx_candidate $srcdir/utils/pvcs.pl --help >/dev/null'
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+   test $ac_status -eq 0 || test $ac_status -eq 1
+        if test $? -eq 0; then :
+  acx_cv_prog_PERL=$acx_candidate
+           break
+fi
+      done
+fi
+
+   if ${acx_cv_prog_PERL+:} false; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_PERL" >&5
+$as_echo "$acx_cv_prog_PERL" >&6; }
+      PERL=$acx_candidate
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
+$as_echo "unknown" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find perl
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
+
+CLAW_FLAGS=''
+
+if test "x$enable_claw" != xno; then :
+  icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
+   icon_subdir_unique_file="self/0.2/self_object.xmod"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find precompiled module files for OMNI compiler required for CLAW preprocessing ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
+fi
+   if test "x$with_external_mtime" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/mtime"
+      icon_subdir_unique_file="src/libmtime.f90"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are required for CLAW preprocessing even if an external version of the library is used: disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of MTIME in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of MTIME (--without-external-mtime) to avoid potential inconsistency" >&5
+$as_echo "$as_me: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of MTIME in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of MTIME (--without-external-mtime) to avoid potential inconsistency" >&2;}
+fi
+fi
+   if test "x$with_external_cdi" = xyes; then :
+  icon_subdir_srcdir="$srcdir/externals/cdi"
+      icon_subdir_unique_file="src/mo_cdi.f90"
+      if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the bundled version of CDI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are required for CLAW preprocessing even if an external version of the library is used: disable CLAW preprocessing (--disable-claw)" "$LINENO" 5
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of CDI in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of CDI (--without-external-cdi) to avoid potential inconsistency" >&5
+$as_echo "$as_me: WARNING: CLAW preprocessing implies parsing '$icon_subdir_unique_file' and other source files of the bundled version of CDI in '$icon_subdir_srcdir' even if an external version of the library is used: it is strongly recommended to switch to the bundled version of CDI (--without-external-cdi) to avoid potential inconsistency" >&2;}
+fi
+fi
+   if test "x$enable_openmp" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: CLAW preprocessing is not compatible with OpenMP: it is strongly recommended to disable OpenMP support (--disable-openmp)" >&5
+$as_echo "$as_me: WARNING: CLAW preprocessing is not compatible with OpenMP: it is strongly recommended to disable OpenMP support (--disable-openmp)" >&2;}
+fi
+  if test "x$enable_gpu" = xyes; then :
+  CLAW_FLAGS='--target=gpu --directive=acc'
+else
+  CLAW_FLAGS='--target=cpu --directive=none'
+fi
+   if test "x$enable_claw" = xvalidate; then :
+  if test "x$enable_serialization" = xno; then :
+  as_fn_error $? "unsupported combination of the configure options: you are trying to configure with CLAW preprocessing in VALIDATE mode but the Serialbox2 serialization is disabled: either enable CLAW preprocessing in a different mode (--enable-claw=std) or enable the Serialbox2 serialization (--enable-serialization)" "$LINENO" 5
+fi
+      as_fn_append CLAW_FLAGS ' -x=sca_serialization_enabled:true'
+      as_fn_append CLAW_FLAGS ' -x=sca_serialization_enabled_direction:write'
+      as_fn_append CLAW_FLAGS ' -x=sca_forward_update_enabled_direction:out'
+else
+        as_fn_append CLAW_FLAGS ' -x=sca_serialization_enabled:false'
+      as_fn_append CLAW_FLAGS ' -x=sca_forward_update_enabled:false'
+fi
+
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor command" >&5
+$as_echo_n "checking for CLAW preprocessor command... " >&6; }
+   icon_claw_result=unknown
+   as_dir=conftest.dir; as_fn_mkdir_p
+   cd conftest.dir
+   cat > conftest.$ac_ext <<_ACEOF
+      module conftest_module
+      end module
+_ACEOF
+   icon_prog_try='$CLAW -f -o conftest.claw.$ac_ext conftest.$ac_ext'
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+   if test $ac_status -eq 0 && test -f conftest.claw.$ac_ext && test -f conftest_module.xmod; then :
+  mv conftest.claw.$ac_ext conftest.$ac_ext
+      if ac_fn_fc_try_compile "$LINENO"; then :
+  icon_claw_result=$CLAW
+fi
+rm -f core conftest.err conftest.$ac_objext
+fi
+   cd ..
+   rm -rf conftest.dir
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_claw_result" >&5
+$as_echo "$icon_claw_result" >&6; }
+   if test "x$icon_claw_result" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find a valid CLAW preprocessor command: either disable CLAW preprocessing (--disable-claw) or set CLAW accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+   ac_config_files="$ac_config_files claw.mk"
+
+else
+  CLAW=
+fi
+
+if test "x$enable_explicit_fpp" = xyes; then :
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran preprocessor command" >&5
+$as_echo_n "checking for Fortran preprocessor command... " >&6; }
+   if ${acx_cv_prog_fpp+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  as_dir=conftest.dir/sub; as_fn_mkdir_p
+      cd conftest.dir
+      cat > sub/conftest.fpp_inc <<_ACEOF
+#define CONFTEST_THREE
+#ifndef CONFTEST_ZERO
+      integer conftest_zero
+#else
+      choke me
+#endif
+#ifdef CONFTEST_ONE
+      integer conftest_one
+#else
+      choke me
+#endif
+#if CONFTEST_TWO != 42
+      choke me
+#else
+      integer conftest_two
+#endif
+#ifdef CONFTEST_THREE
+      integer conftest_three
+#else
+      choke me
+#endif
+
+_ACEOF
+      acx_save_FCFLAGS=$FCFLAGS
+      if ${FPP+:} false; then :
+  set dummy "$FPP"
+else
+  ac_builddir=.
+
+case . in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
+  ac_dir_suffix=/`$as_echo . | sed 's|^\.[\\/]||'`
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`$as_echo "$ac_dir_suffix" | sed 's|/[^\\/]*|/..|g;s|/||'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
+
+case $srcdir in
+  .)  # We are building in place.
+    ac_srcdir=.
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
+  [\\/]* | ?:[\\/]* )  # Absolute name.
+    ac_srcdir=$srcdir$ac_dir_suffix;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
+  *) # Relative name.
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+         acx_prog_fpp_wrapper_dir="${ac_abs_top_srcdir}/utils/fpp-wrappers"
+         set dummy "$FC -E" "$FC -E $ac_fcflags_srcext" \
+                   "$SHELL ${acx_prog_fpp_wrapper_dir}/nag.sh $FC" \
+                   "$FC -o - -Wp,-w,-P -F $ac_fcflags_srcext" \
+                   "$SHELL ${acx_prog_fpp_wrapper_dir}/cray.sh $FC" \
+                   "$FC -F" "$FC -F $ac_fcflags_srcext"
+fi
+      shift
+      acx_prog_fpp_include_flag=$FC_INC_FLAG_PP_f90
+      acx_prog_fpp_macro_flag=$FC_PP_DEF
+      for acx_candidate in "$@"; do
+        cat > conftest.$ac_ext <<_ACEOF
+      program main
+      implicit none
+#include "conftest.fpp_inc"
+      conftest_zero = 0
+      conftest_one = 1
+      conftest_two = 2
+      conftest_three = 3
+      end
+_ACEOF
+        rm -f conftest.acx_prog_fpp
+        acx_try_fpp="$acx_candidate \$FCFLAGS conftest.\$ac_ext >conftest.acx_prog_fpp"
+        FCFLAGS="${acx_prog_fpp_include_flag}sub ${acx_prog_fpp_macro_flag}CONFTEST_ONE ${acx_prog_fpp_macro_flag}CONFTEST_TWO=42 $acx_save_FCFLAGS"
+        { { ac_try="$acx_try_fpp"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$acx_try_fpp") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+        if test $? -eq 0 && test -f conftest.acx_prog_fpp; then :
+  acx_result=`grep -c 'integer conftest' conftest.acx_prog_fpp 2>/dev/null`
+           if test $? -eq 0 && test 4 -eq "$acx_result" 2>/dev/null; then :
+  mv conftest.acx_prog_fpp conftest.$ac_ext
+              FCFLAGS=$acx_save_FCFLAGS
+              if ac_fn_fc_try_compile "$LINENO"; then :
+  acx_cv_prog_fpp=$acx_candidate
+                 break
+fi
+rm -f core conftest.err conftest.$ac_objext
+fi
+fi
+      done
+      FCFLAGS=$acx_save_FCFLAGS
+      cd ..
+      rm -rf conftest.dir
+fi
+
+   if ${acx_cv_prog_fpp+:} false; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_prog_fpp" >&5
+$as_echo "$acx_cv_prog_fpp" >&6; }
+      FPP=$acx_cv_prog_fpp
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: unknown" >&5
+$as_echo "unknown" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find a valid Fortran preprocessor command: either disable explicit Fortran preprocessing (--disable-explicit-fpp) or set FPP accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+else
+  FPP=
+fi
+
+if test "x$enable_serialization" != xno; then :
+
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Serialbox2 preprocessor command" >&5
+$as_echo_n "checking for Serialbox2 preprocessor command... " >&6; }
+   icon_sb2pp_result=unknown
+   SB2PP=${SB2PP-'${PYTHON} -m pp_ser'}
+   cat > conftest.$ac_ext <<_ACEOF
+      program main
+      implicit none
+      !\$ser mode write
+      call ppser_set_mode(1)
+      end program
+_ACEOF
+   icon_prog_try="$SB2PP -o conftest.$ac_ext conftest.$ac_ext >&5"
+   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$icon_prog_try\""; } >&5
+  (eval $icon_prog_try) 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }
+   if test $? -eq 0; then :
+  if ac_fn_fc_try_link "$LINENO"; then :
+  icon_sb2pp_result=$SB2PP
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+fi
+   rm -f conftest.$ac_ext
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $icon_sb2pp_result" >&5
+$as_echo "$icon_sb2pp_result" >&6; }
+   if test "x$icon_sb2pp_result" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find a valid Serialbox2 preprocessor command: either disable the serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+else
+  SB2PP=
+fi
+
+if test -n "$MPI_LAUNCH"; then :
+  case "$MPI_LAUNCH" in #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    acx_prog_search_abspath=unknown
+   set dummy $MPI_LAUNCH; shift; acx_prog_exec=$1; shift; acx_prog_args="$@"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the absolute path to $acx_prog_exec" >&5
+$as_echo_n "checking for the absolute path to $acx_prog_exec... " >&6; }
+   case $acx_prog_exec in #(
+  *[\\/]*) :
+    if as_fn_executable_p $acx_prog_exec; then :
+  acx_prog_search_abspath=$acx_prog_exec
+fi ;; #(
+  *) :
+    as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    if as_fn_executable_p "$as_dir/$acx_prog_exec"; then :
+  acx_prog_search_abspath="$as_dir/$acx_prog_exec"; break
+fi
+  done
+IFS=$as_save_IFS
+ ;;
+esac
+   case $acx_prog_search_abspath in #(
+  unknown) :
+     ;; #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    asx_dir=`echo "$acx_prog_search_abspath" | sed 's%/[^/]*$%%' 2>/dev/null`
+      asx_file=`echo "$acx_prog_search_abspath" | sed 's%.*/%%' 2>/dev/null`
+      asx_dir=`cd "$asx_dir" >/dev/null 2>&1 && pwd 2>/dev/null`
+      acx_prog_search_abspath=unknown
+      case $asx_dir in #(
+  [\\/]* | ?:[\\/]*) :
+    if as_fn_executable_p "$asx_dir/$asx_file"; then :
+  acx_prog_search_abspath="$asx_dir/$asx_file"
+fi ;; #(
+  *) :
+     ;;
+esac ;;
+esac
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_prog_search_abspath" >&5
+$as_echo "$acx_prog_search_abspath" >&6; }
+   if test "x$acx_prog_search_abspath" = xunknown; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to find the absolute path to $acx_prog_exec
+See \`config.log' for more details" "$LINENO" 5; }
+else
+  if test -n "$acx_prog_args"; then :
+  as_fn_append acx_prog_search_abspath " $acx_prog_args"
+fi
+      MPI_LAUNCH="$acx_prog_search_path"
+fi ;;
+esac
+fi
+
+#################################### OUTPUT ####################################
 
 ac_config_headers="$ac_config_headers config.h"
 
@@ -7791,6 +7945,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
+    "claw.mk") CONFIG_FILES="$CONFIG_FILES claw.mk" ;;
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "depgen.c.config") CONFIG_FILES="$CONFIG_FILES depgen.c.config" ;;

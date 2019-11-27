@@ -23,9 +23,9 @@ bindir:= bin
 prefix:= @prefix@
 exec_prefix:= @exec_prefix@
 
-# Prefix (absolute or relative path with respect to $(srcdir)) to the directories
-# with Fortran source files (updated later if the files need to be preprocessed
-# and therefore relocated to another directory):
+# Prefix (absolute or relative path with respect to $(srcdir)) to the
+# directories with Fortran source files (updated later if the files need to be
+# preprocessed and therefore relocated to another directory):
 f90_prefix:=
 
 # Compilers and utilities:
@@ -99,6 +99,9 @@ incf_common_files:= $(filter-out $(incf_non_common_files),$(incf_files))
 # List of preprocessed header and source files:
 pp_files:=
 
+# Save the current list of files to reduce redundant preprocessing:
+@CLAW_ENABLED@CLAW_inputs:= $(addprefix $(srcdir)/,$(f90_files))
+
 # ART sources:
 @ART_ENABLED@ART_srcdir:= $(srcdir)/externals/art
 @ART_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.f90'))
@@ -111,6 +114,15 @@ pp_files:=
 @JSBACH_ENABLED@JSB_f90_files:= $(patsubst $(JSB_srcdir)/%,$(JSB_subdir)/%,$(shell find $(JSB_srcdir)/src -name '*.f90'))
 @JSBACH_ENABLED@f90_files+= $(JSB_f90_files)
 @JSBACH_ENABLED@pp_files+= $(JSB_f90_files)
+
+# CLAW preprocessing (exported variables are used in a separate makefile for CLAW preprocessing):
+@CLAW_ENABLED@export CLAW_subdir:= $(ppdir)/claw
+@CLAW_ENABLED@CLAW_f90_files:=$(addprefix $(CLAW_subdir)/,$(JSB_f90_files))
+@CLAW_ENABLED@f90_files:=$(filter-out $(JSB_f90_files),$(f90_files)) $(CLAW_f90_files)
+@CLAW_ENABLED@pp_files+= $(CLAW_f90_files)
+@CLAW_ENABLED@CLAW_inputs+= $(addprefix $(builddir)/,$(JSB_f90_files))
+@CLAW_ENABLED@export CLAW_inputs+= $(addprefix $(srcdir)/externals/,mtime/src/libmtime.f90 cdi/src/mo_cdi.f90)
+@CLAW_ENABLED@export CLAW_outputs:= $(addprefix $(builddir)/,$(CLAW_f90_files))
 
 # FPP preprocessing:
 @FPP_ENABLED@FPP_subdir:= $(ppdir)/fpp
@@ -174,7 +186,7 @@ vpath %.c $(srcdir)
 # Targets not associated with files:
 .PHONY: all depend dummy-depend preprocess mostlyclean clean \
         distclean install check force-create-version \
-        sanitize-mod-proxies
+        sanitize-mod-proxies claw
 # Targets that do not need the inclusion of the dependency files:
 NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
                  distclean
@@ -198,6 +210,7 @@ preprocess: $(pp_files)
 
 # Delete the results of compilation and linking:
 mostlyclean: $(bundled_subdirs)
+@CLAW_ENABLED@	test -f claw.mk && $(MAKE) -f claw.mk $(MAKECMDGOALS) || test xdistclean = x$(filter distclean,$(MAKECMDGOALS))
 	rm -f $(bindir)/icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files))) version.@OBJEXT@
 	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@ $(moddir)/*.@FC_MOD_FILE_EXT@.proxy
 	rm -f $(notdir $(f90_files:.f90=.i))
@@ -306,6 +319,15 @@ sanitize-mod-proxies:
 # Default dsl->f90 rule:
 @JSBACH_ENABLED@$(builddir)/$(JSB_subdir)/%.f90: $(JSB_srcdir)/%.f90 | $(dir_files)
 @JSBACH_ENABLED@	$(silent_DSL4JSB)$(PYTHON) $(JSB_srcdir)/scripts/dsl4jsb/dsl4jsb.py -i $< -o $@
+
+############################## CLAW PREPROCESSING ##############################
+
+# Delegate CLAW preprocessing to a separate makefile:
+@CLAW_ENABLED@claw: $(CLAW_inputs)
+@CLAW_ENABLED@	@$(MAKE) -f claw.mk
+
+# Make sure that all the files are preprocessed in one call:
+@CLAW_ENABLED@$(CLAW_outputs): claw;
 
 ############################ FORTRAN PREPROCESSING #############################
 

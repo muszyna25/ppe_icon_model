@@ -1,0 +1,68 @@
+# Path to the directory with the original source files:
+srcdir:= @srcdir@
+
+# Absolute path to the building directory:
+builddir:= @abs_builddir@
+
+# Relative path to the directory with the module files:
+moddir:= $(CLAW_subdir)/xmod
+
+# Compilers and utilities:
+CLAW:= @CLAW@
+
+# Compiler and preprocessor flags:
+FCFLAGS= @FCFLAGS@
+ICON_FCFLAGS= @ICON_FCFLAGS@
+CLAW_FLAGS= @CLAW_FLAGS@
+
+# Filtered compiler flags:
+nullstring:=
+space:= $(nullstring) # significant comment
+macro_FCFLAGS:= $(filter -D%,$(subst -D$(space),-D,$(FCFLAGS) $(ICON_FCFLAGS)))
+inc_FCFLAGS:= $(filter -I%,$(subst -I$(space),-I,$(FCFLAGS) $(ICON_FCFLAGS)))
+filtered_FCFLAGS:= $(macro_FCFLAGS) $(inc_FCFLAGS)
+
+# Compiler and preprocessor flags that must not be overloaded by the user:
+makefile_FCFLAGS:= $(addprefix -J,$(moddir) $(addprefix $(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2) $(sort $(dir $(CLAW_inputs)))) -I$(srcdir)/src/include
+makefile_CLAW_FLAGS:= --Wf-no-module-cache --model-config=$(srcdir)/config/claw/icon_jsbach.toml
+
+# Silent rule prefixes:
+V= @DEFAULT_VERBOSITY@
+ifeq ($(V),0)
+silent_CLAW=    @echo "  CLAW    " $@;
+silent_MKDIR=   @echo "  MKDIR   " $(@D);
+endif
+
+# Stamp files of the building subdirectories:
+dir_files= $(moddir)/.dirstamp
+
+# Run this file serially:
+.NOTPARALLEL:
+# Disable built-in suffix rules:
+.SUFFIXES:
+# Targets not associated with files:
+.PHONY: all mostlyclean clean distclean
+# Keep directory stamps:
+.PRECIOUS: $(dir_files)
+
+# Default rule:
+all: $(CLAW_outputs)
+
+# Delete files generated at the building stage:
+clean: mostlyclean
+	rm -f $(moddir)/*.xmod
+	rm -f $(dir_files)
+
+# Delete everything generated at the configure stage:
+distclean: clean
+	rm -f claw.mk
+
+# Default f90->f90 rule for files that have already been processed by some other
+# preprocessor:
+$(builddir)/$(CLAW_subdir)/%.f90: $(builddir)/%.f90 | $(dir_files)
+	$(silent_CLAW)$(CLAW) -o $@ $(makefile_CLAW_FLAGS) $(CLAW_FLAGS) $(makefile_FCFLAGS) $(filtered_FCFLAGS) $<
+
+# Directory creation rule:
+%/.dirstamp:
+	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
+
