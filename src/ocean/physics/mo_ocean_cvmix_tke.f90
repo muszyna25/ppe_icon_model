@@ -1,0 +1,493 @@
+!>
+!!
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+MODULE mo_ocean_cvmix_tke
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  USE mo_kind,                ONLY: wp
+  USE mo_ocean_nml,           ONLY: &
+    & n_zlev, bottom_drag_coeff,                              &
+    & HarmonicViscosity_reference, velocity_VerticalDiffusion_background,                 &
+    & Temperature_VerticalDiffusion_background, Salinity_VerticalDiffusion_background, no_tracer,                       &
+    & tracer_convection_MixingCoefficient,                                     &
+    & BiharmonicViscosity_scaling, HarmonicViscosity_scaling, &
+    & VelocityDiffusion_order,                                &
+    & BiharmonicViscosity_reference,                          &
+    & tracer_RichardsonCoeff, velocity_RichardsonCoeff,                    &
+    & PPscheme_type,                                &
+    & PPscheme_Constant_type,                       &
+    !& PPscheme_ICON_type,                        &
+    & PPscheme_ICON_Edge_type,                   &
+    & PPscheme_ICON_Edge_vnPredict_type,         &
+    & PPscheme_MPIOM_type,                       &
+    & use_wind_mixing,                                        &
+    & HorizontalViscosity_SmoothIterations,                   &
+    & convection_InstabilityThreshold,                        &
+    & RichardsonDiffusion_threshold,                          &
+    & lambda_wind, wma_diff, wma_visc,                        &
+    & use_reduced_mixing_under_ice,                           &
+    & k_tracer_dianeutral_parameter,                          &
+    & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
+    & GMRedi_configuration,GMRedi_combined,                   &
+    & GM_only,Redi_only,                                      &
+    & laplacian_form,                                         &
+    & HorizontalViscosity_SpatialSmoothFactor,                &
+    & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
+    & tracer_TopWindMixing, WindMixingDecayDepth,             &
+    & velocity_TopWindMixing, TracerHorizontalDiffusion_scaling, &
+    &  Temperature_HorizontalDiffusion_Background,            &
+    &  Temperature_HorizontalDiffusion_Reference,             &
+    &  Salinity_HorizontalDiffusion_Background,               &
+    &  Salinity_HorizontalDiffusion_Reference,                &
+    &  HarmonicViscosity_background,                          &
+    &  BiharmonicViscosity_background,                        &
+    &  LeithHarmonicViscosity_background, LeithHarmonicViscosity_reference,    &
+    &  LeithHarmonicViscosity_scaling,                                         &
+    &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
+    &  LeithBiharmonicViscosity_scaling,                       &
+    &  LeithClosure_order,   LeithClosure_form, &
+    &  TracerDiffusion_LeithWeight, &!Salinity_ConvectionRestrict, &
+    !&  max_turbulenece_TracerDiffusion_amplification, &
+    &  ReferencePressureIndbars,    &
+    ! cvmix_tke parameter
+    &  c_k,                         &
+    &  c_eps,                       &
+    &  alpha_tke,                   &
+    &  mxl_min,                     &
+    &  kappaM_min,                  &
+    &  kappaM_max,                  &
+    &  cd,                          &
+    &  tke_min,                     &
+    &  tke_mxl_choice,              &
+    &  tke_surf_min,                &
+    &  only_tke,                    &
+    &  use_ubound_dirichlet,        &
+    &  use_lbound_dirichlet!,        &
+
+  USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
+   !, l_convection, l_pp_scheme
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_model_domain,        ONLY: t_patch, t_patch_3d
+  USE mo_impl_constants,      ONLY: success, max_char_length, min_dolic, sea
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge,                           &
+    &                               grid_unstructured_edge, grid_unstructured_cell
+  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_onEdges_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_operator_coeff
+  USE mo_ocean_state,         ONLY: oce_config
+  USE mo_physical_constants,  ONLY: grav, sitodbar,sal_ref
+  USE mo_math_constants,      ONLY: dbl_eps
+  USE mo_dynamics_config,     ONLY: nold!, nnew
+  USE mo_run_config,          ONLY: dtime
+  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_var_list,            ONLY: add_var,                  &
+    & new_var_list,             &
+    & delete_var_list,          &
+    & default_var_list_settings,&
+    & add_ref
+  USE mo_cf_convention
+  USE mo_grib2,               ONLY: t_grib2_var, grib2_var
+  USE mo_cdi,                 ONLY: datatype_pack16, DATATYPE_FLT32, DATATYPE_FLT64, filetype_nc2, &
+    &                               GRID_UNSTRUCTURED
+  USE mo_zaxis_type,          ONLY: &
+    & za_depth_below_sea, za_depth_below_sea_half, za_surface
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, global_max, sync_patch_array_mult
+  USE  mo_ocean_thermodyn,    ONLY: calculate_density_onColumn
+  USE mo_ocean_math_operators,ONLY: div_oce_3d
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, &
+    & timer_extra10, timer_extra11
+  USE mo_statistics,          ONLY: global_minmaxmean
+  USE mo_io_config,           ONLY: lnetcdf_flt64_output
+  USE mo_math_types,      ONLY: t_cartesian_coordinates
+  USE cvmix_tke,              ONLY: init_tke, cvmix_coeffs_tke!, integrate_tke
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  !USE test,                   ONLY: test_test
+
+  IMPLICIT NONE
+  PRIVATE
+
+  PUBLIC :: calc_tke
+  PUBLIC :: setup_tke
+
+CONTAINS
+
+
+  SUBROUTINE setup_tke()
+    ! FIXME: So far this routine is not called!!!
+    ! If it is called delet definitions from cvmix_tke
+    !REAL(wp) :: c_k
+    !REAL(wp) :: c_eps
+    !REAL(wp) :: alpha_tke
+    !REAL(wp) :: mxl_min
+    !REAL(wp) :: kappaM_min
+    !REAL(wp) :: kappaM_max
+    !REAL(wp) :: cd
+    !REAL(wp) :: tke_min
+    !INTEGER  :: tke_mxl_choice
+    !REAL(wp) :: tke_surf_min
+    !LOGICAL  :: only_tke
+    !LOGICAL  :: use_ubound_dirichlet
+    !LOGICAL  :: use_lbound_dirichlet
+
+    !! FIXME: In the end this needs to go to the namelist
+    !c_k        = 0.1_wp
+    !c_eps      = 0.7_wp
+    !alpha_tke  = 30.0_wp
+    !mxl_min    = 1.d-8_wp
+    !kappaM_min = 0.0_wp
+    !kappaM_max = 100.0_wp
+    !cd         = 3.75_wp
+    !tke_min    = 1.d-6_wp
+    !tke_mxl_choice = 2
+    !tke_surf_min = 1.d-4_wp
+    !only_tke = .true.
+    !use_ubound_dirichlet = .false.
+    !use_lbound_dirichlet = .false.
+
+    !write(*,*) c_k
+    !write(*,*) c_eps
+    !write(*,*) alpha_tke
+    !write(*,*) mxl_min
+    !write(*,*) kappaM_min
+    !write(*,*) kappaM_max
+    !write(*,*) cd
+    !write(*,*) tke_min
+    !write(*,*) tke_mxl_choice
+    !write(*,*) tke_surf_min
+    !write(*,*) only_tke
+    !write(*,*) use_ubound_dirichlet
+    !write(*,*) use_lbound_dirichlet
+
+    CALL init_tke(c_k            = c_k,            &
+                  c_eps          = c_eps,          &
+                  cd             = cd,             &
+                  alpha_tke      = alpha_tke,      &
+                  mxl_min        = mxl_min,        &
+                  kappaM_min     = kappaM_min,     &
+                  kappaM_max     = kappaM_max,     &
+                  tke_mxl_choice = tke_mxl_choice, &
+                  use_ubound_dirichlet = use_ubound_dirichlet, &
+                  use_lbound_dirichlet = use_lbound_dirichlet, &
+                  only_tke       = only_tke,       &
+                  tke_min        = tke_min,        &
+                  tke_surf_min   = tke_surf_min    )
+                  !tke_userdef_constants=tke_userdef_constants)
+  END SUBROUTINE setup_tke
+
+  SUBROUTINE calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_patch), POINTER :: patch_2D
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
+    TYPE(t_hydro_ocean_state), TARGET     :: ocean_state
+    TYPE(t_atmos_fluxes)                  :: atmos_fluxes
+    !REAL(wp),          INTENT(in)         :: fu10   (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! t_atmos_for_ocean%fu10
+    TYPE(t_ho_params), INTENT(inout)      :: params_oce
+    !REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
+
+    ! pointer for convenience 
+    REAL(wp), POINTER :: dz(:,:,:)
+    REAL(wp), POINTER :: dzi(:,:,:)
+    REAL(wp), POINTER :: dzw(:,:,:)
+    REAL(wp), POINTER :: vned(:,:,:,:)
+    !REAL(wp), POINTER :: vvel(:,:,:)
+    REAL(wp), POINTER :: temp(:,:,:)
+    REAL(wp), POINTER :: salt(:,:,:)
+    REAL(wp), POINTER :: dens(:,:,:)
+    REAL(wp), POINTER :: Av_old(:,:,:)
+    REAL(wp), POINTER :: kv_old(:,:,:)
+    REAL(wp), POINTER :: tke(:,:,:)
+
+    INTEGER, POINTER :: kbot(:,:)
+
+    ! loop variables
+    INTEGER :: jc, blockNo, je,jk, tracer_index
+    INTEGER :: start_index, end_index
+    INTEGER :: levels
+
+    INTEGER :: cell_1_idx, cell_1_block, cell_2_idx,cell_2_block
+
+    REAL(wp) :: rho_up(n_zlev), rho_down(n_zlev)
+    REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
+    REAL(wp) :: Nsqr(n_zlev+1), Ssqr(n_zlev+1)
+    !REAL(wp), POINTER :: vert_density_grad(:,:,:)
+
+    INTEGER :: tstep_count
+
+    ! put this later to a global place
+    REAL(wp) :: tke_Av(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: tke_kv(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Tbpr(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Tspr(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Tdif(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Tdis(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Twin(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Tiwf(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Tbck(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Ttot(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Lmix(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: tke_Pr(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: cvmix_dummy_1(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: cvmix_dummy_2(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !REAL(wp) :: cvmix_dummy_3(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: tke_iw_alpha_c(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: tke_iwe(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: tke_iw_forcing(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: forc_tke_surf_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: forc_rho_surf_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: bottom_fric_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: tau_abs 
+    
+    REAL(wp) :: dummy_zeros(n_zlev+1)
+    dummy_zeros = 0.0
+
+    !tke = 0.0
+    tke => params_oce%cvmix_params%tke(:,:,:)
+    !tke_Tbpr = 0.0
+    !tke_Tspr = 0.0
+    !tke_Tdif = 0.0
+    !tke_Tdis = 0.0
+    !tke_Twin = 0.0
+    !tke_Tiwf = 0.0
+    !tke_Tbck = 0.0
+    !tke_Ttot = 0.0
+    !tke_Lmix = 0.0
+    !tke_Pr = 0.0
+    !cvmix_dummy_1 = 0.0
+    !cvmix_dummy_2 = 0.0
+    !cvmix_dummy_3 = 0.0
+    tke_kv = 0.0
+    tke_Av = 0.0
+    tke_iw_alpha_c = 0.0
+    tke_iwe = 0.0
+    tke_iw_forcing = 0.0
+    forc_rho_surf_2D = 0.0
+    bottom_fric_2D = 0.0
+
+    dz  => patch_3d%p_patch_1d(1)%prism_center_dist_c
+    dzi => patch_3d%p_patch_1d(1)%inv_prism_center_dist_c
+    dzw => patch_3d%p_patch_1d(1)%prism_thick_c
+    !uvel => ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x
+    temp => ocean_state%p_prog(nold(1))%tracer(:,:,:,1)
+    ! FIXME: use sal_ref in case of temp is only tracer
+    salt => ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
+
+    Av_old => params_oce%a_veloc_v(:,:,:)
+    ! Use a_tracer_v of temperature here
+    kv_old => params_oce%a_tracer_v(:,:,:,1)
+    kbot => patch_3d%p_patch_1d(1)%dolic_c(:,:)
+
+    ! renaming stuff
+    patch_2D   => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    all_cells  => patch_2D%cells%ALL
+    levels = n_zlev
+
+    !salinity(1:levels) = sal_ref
+    rho_up(:)=0.0_wp    
+    rho_down(:)=0.0_wp
+
+    !write(*,*) "TKE before:"
+    !write(*,*) tke(8,:,10)
+
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+      DO jc = start_index, end_index
+
+        ! wind stress for tke surface forcing
+        tau_abs = sqrt(    (atmos_fluxes%stress_xw(jc,blockNo))**2 &
+                    &    + (atmos_fluxes%stress_yw(jc,blockNo))**2 )
+        forc_tke_surf_2D(jc,blockNo) = tau_abs / OceanReferenceDensity
+
+        ! calculate N2
+        pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 1:levels, blockNo) * ReferencePressureIndbars
+        !rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,1), &
+        !  & salinity(1:levels-1), pressure(2:levels), levels-1)
+        !rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
+        !  & salinity(2:levels), pressure(2:levels), levels-1)
+        rho_up(1:levels-1)  = calculate_density_onColumn(&
+            & temp(jc,1:levels-1,blockNo), &
+            & salt(jc,1:levels-1,blockNo), &
+            & pressure(2:levels), levels-1)
+        rho_down(2:levels)  = calculate_density_onColumn(&
+            & temp(jc,2:levels,blockNo), &
+            & salt(jc,2:levels,blockNo), &
+            & pressure(2:levels), levels-1)
+        Nsqr = 0.
+        DO jk = 2, n_zlev 
+          Nsqr(jk) = grav/OceanReferenceDensity * (rho_down(jk) - rho_up(jk-1)) *  dzi(jc,jk,blockNo)
+        ENDDO
+
+        ! calculate shear
+        Ssqr = 0.
+        DO jk = 2, n_zlev 
+          Ssqr(jk) = SUM(((  ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x   &
+            &              - ocean_state%p_diag%p_vn(jc,jk,  blockNo)%x ) &
+            &            * dzi(jc,jk,blockNo) )**2)
+        ENDDO
+
+
+      !if (jc==8 .and. blockNo==10) then
+      !  write(*,*) 'jc = ', jc, 'blockNo = ', blockNo, 'tstep_count = ', tstep_count
+      !  !write(*,*) 'kbot(jc,blockNo) = ', patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)
+      !  write(*,*) 'kbot(jc,blockNo) = ', kbot(jc,blockNo)
+      !  write(*,*) 'temp(jc,:,blockNo) = ', temp(jc,:,blockNo)
+      !endif
+
+      ! main cvmix call to calculate tke
+      if (kbot(jc,blockNo)>0) then
+      CALL cvmix_coeffs_tke( &
+                             ! parameter
+                             i = jc,                                       &
+                             j = blockNo,                                  &
+                             tstep_count = tstep_count,             &
+                             tke_old      = tke(jc,:,blockNo),             & ! in 
+                             tke_new      = tke(jc,:,blockNo),             & ! out
+                             KappaM_out   = tke_Av(jc,:,blockNo),         & ! out
+                             KappaH_out   = tke_kv(jc,:,blockNo),         & ! out
+                             cvmix_int_1  = params_oce%cvmix_params%cvmix_dummy_1(jc,:,blockNo),   & !
+                             cvmix_int_2  = params_oce%cvmix_params%cvmix_dummy_2(jc,:,blockNo),   & !
+                             cvmix_int_3  = params_oce%cvmix_params%cvmix_dummy_3(jc,:,blockNo),   & !
+                             dzw          = dzw(jc,:,blockNo),             &
+                             dzt          = dz(jc,:,blockNo),              &
+                             nlev         = kbot(jc,blockNo),                   &
+                             max_nlev     = n_zlev,               &
+                             Ssqr         = Ssqr(:),            & ! in
+                             Nsqr         = Nsqr(:),            & ! in
+                             tke_Tbpr     = params_oce%cvmix_params%tke_Tbpr(jc,:,blockNo),        &
+                             tke_Tspr     = params_oce%cvmix_params%tke_Tspr(jc,:,blockNo),        &
+                             tke_Tdif     = params_oce%cvmix_params%tke_Tdif(jc,:,blockNo),        &
+                             tke_Tdis     = params_oce%cvmix_params%tke_Tdis(jc,:,blockNo),        &
+                             tke_Twin     = params_oce%cvmix_params%tke_Twin(jc,:,blockNo),        &
+                             tke_Tiwf     = params_oce%cvmix_params%tke_Tiwf(jc,:,blockNo),        &
+                             tke_Tbck     = params_oce%cvmix_params%tke_Tbck(jc,:,blockNo),        &
+                             tke_Ttot     = params_oce%cvmix_params%tke_Ttot(jc,:,blockNo),        &
+                             tke_Lmix     = params_oce%cvmix_params%tke_Lmix(jc,:,blockNo),        &
+                             tke_Pr       = params_oce%cvmix_params%tke_Pr(jc,:,blockNo),          &
+                             forc_tke_surf= forc_tke_surf_2D(jc,blockNo),  &
+                             E_iw         = tke_iwe(jc,:,blockNo),         & ! for IDEMIX Ri
+                             dtime        = dtime,  &
+                             bottom_fric  = bottom_fric_2D(jc,blockNo),    &
+                             old_kappaM   = Av_old(jc,:,blockNo),         & ! in
+                             old_KappaH   = kv_old(jc,:,blockNo),         & ! in
+                             iw_diss      = tke_iw_forcing(jc,:,blockNo),  & 
+                             forc_rho_surf= forc_rho_surf_2D(jc,blockNo),  &
+                             rho_ref      = OceanReferenceDensity,           &
+                             grav         = grav,                      &
+                             ! essentials
+                             ! FIXME: nils: better calc IDEMIX Ri directly in ! CVMIX/IDEMIX
+                             alpha_c      = tke_iw_alpha_c(jc,:,blockNo)  & ! for IDEMIX Ri
+                             ! forcing
+                             ! diagnostics
+                             ! debugging
+                             !tke          = tke(i,j,:),             &
+                             !tke_diss_out = tke_diss(i,j,:),        & !
+                             !KappaM_out   = avo(i,j,:),             & !
+                             !KappaH_out   = dvo(i,j,:),             & !
+                             !old_tke_diss = tke_diss(i,j,:),        &
+                             !Kappa_GM     = Kappa_GM,             & 
+                             !tke_userdef_constants = tke_userdef_constants)
+                           )
+
+      end if
+    !if (jc==8 .and. blockNo==10) then
+    !!  write(*,*) params_oce%cvmix_params%cvmix_dummy_1(jc,:,blockNo)
+    !  write(*,*) 'dzw = ', dzw(jc,:,blockNo)
+    !  write(*,*) 'dzt = ', dz(jc,:,blockNo)
+    !  stop
+    !end if
+      ENDDO
+    ENDDO
+
+    if (.true.) then
+    ! interpolate vert. visosity from cell center to edges
+    params_oce%a_veloc_v = 0.0
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
+      DO je = start_index, end_index
+        levels       = patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
+        cell_1_idx   = patch_2D%edges%cell_idx(je,blockNo,1)
+        cell_1_block = patch_2D%edges%cell_blk(je,blockNo,1)
+        cell_2_idx   = patch_2D%edges%cell_idx(je,blockNo,2)
+        cell_2_block = patch_2D%edges%cell_blk(je,blockNo,2)
+        DO jk = 2, levels
+          params_oce%a_veloc_v(je,jk,blockNo) = &
+            & 0.5_wp * (    tke_Av(cell_1_idx,jk,cell_1_block) &
+            &             + tke_Av(cell_2_idx,jk,cell_2_block) )
+        ENDDO
+      ENDDO
+    ENDDO
+    end if
+
+    if (.true.) then
+    ! write tke vert. diffusivity to vert tracer diffusivities
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+      DO jc = start_index, end_index
+        ! FIXME: nils: make loop over all tracer
+        params_oce%a_tracer_v(jc,:,blockNo,1) = tke_kv(jc,:,blockNo)
+        params_oce%a_tracer_v(jc,:,blockNo,2) = tke_kv(jc,:,blockNo)
+      ENDDO
+    ENDDO
+    end if
+
+    !write(*,*) "Stopping..."
+    !stop
+    !write(*,*) "TKE after:"
+    !write(*,*) tke(8,:,10)
+    
+    !params_oce%a_tracer_v = 1e-5
+    !write(*,*) 'a_tracer_v = ', params_oce%a_tracer_v(8,:,10,1) 
+    !write(*,*) 'kbot = ', kbot(8,10) 
+    !write(*,*) 'tke_kv = ', tke_kv(8,:,10) 
+    !write(*,*) 'tke = ', tke(8,:,10) 
+    !write(*,*) 'fu10 = ', fu10(8,10) 
+  END SUBROUTINE calc_tke
+  
+  SUBROUTINE nils_test(patch_3d, ocean_state, params_oce)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET     :: ocean_state
+    TYPE(t_ho_params), INTENT(inout)      :: params_oce
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    REAL(wp), POINTER :: dz(:,:,:)
+    REAL(wp), POINTER :: dzw(:,:,:)
+
+    INTEGER :: start_index, end_index
+    INTEGER :: jc, blockNo, je,jk, tracer_index
+
+    patch_2D         => patch_3d%p_patch_2d(1)
+    edges_in_domain  => patch_2D%edges%in_domain
+    all_cells => patch_2D%cells%ALL
+    dz  => patch_3d%p_patch_1d(1)%prism_center_dist_c
+    dzw => patch_3d%p_patch_1d(1)%prism_thick_c
+    !uvel => ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x
+    !temp => ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,1)
+    !salt => ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,2)
+    write(*,*) "Hi, here I am"
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+      DO jc = start_index, end_index
+        !write(*,*) "blockNo = ", blockNo, "; jc = ", jc
+        !write(*,*) "dz(jc,:,blockNo) = ", dz(jc,:,blockNo)
+      ENDDO
+    ENDDO
+    write(*,*) "all_cells%start_block = ", all_cells%start_block
+    write(*,*) "all_cells%end_block = ", all_cells%end_block
+    write(*,*) "start_index = ", start_index
+    write(*,*) "end_index = ", end_index
+    write(*,*) "Stopping..."
+    stop
+  END SUBROUTINE nils_test
+
+END MODULE mo_ocean_cvmix_tke

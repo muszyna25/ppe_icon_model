@@ -70,7 +70,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method, &
     &                                    ldeepatmo
   USE mo_io_config,                ONLY: is_totint_time, n_diag
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, num_prefetch_proc
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart, ldass_lhn
@@ -153,8 +153,8 @@ MODULE mo_nh_stepping
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
-  USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt, save_initial_state, &
-                                         restore_initial_state
+  USE mo_nh_init_utils,            ONLY: compute_iau_wgt, save_initial_state, restore_initial_state
+  USE mo_hydro_adjust,             ONLY: hydro_adjust_const_thetav
   USE mo_td_ext_data,              ONLY: update_nwp_phy_bcs, set_sst_and_seaice
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time, &
                                          iterate_iau, dt_iau
@@ -570,10 +570,6 @@ MODULE mo_nh_stepping
     ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
     IF (ierr /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed!')
   ENDIF
-  
-  ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
-  ! MPI communication from now on.
-  IF (test_mode > 0) iorder_sendrecv = 0
 
   IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
@@ -694,7 +690,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  call h2d_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
@@ -755,11 +751,12 @@ MODULE mo_nh_stepping
              &             TRIM(mtime_utils%ddhhmmss(time_config%tc_exp_startdate, &
              &                                       mtime_current, FMT_DDHHMMSS_DAYSEP))
       ELSE
-        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') &
+        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3)') &
              &             'Time step: ', jstep, ' model time ',                                &
              &             mtime_current%date%year,   '-', mtime_current%date%month,    '-',    &
              &             mtime_current%date%day,    ' ', mtime_current%time%hour,     ':',    &
-             &             mtime_current%time%minute, ':', mtime_current%time%second
+             &             mtime_current%time%minute, ':', mtime_current%time%second,   '.',    &
+             &             mtime_current%time%ms
       ENDIF
 
       CALL message('',message_text)
@@ -913,7 +910,7 @@ MODULE mo_nh_stepping
 
       END IF !iforcing=inwp
 
-      IF (ntracer>0) THEN
+      IF (lart .AND. ntracer>0) THEN
          !
          ! Unit conversion for output from mass mixing ratios to densities
          ! and calculation of ART diagnostics
@@ -1158,7 +1155,7 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
-  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv )
+  CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config )
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1434,7 +1431,7 @@ MODULE mo_nh_stepping
           &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
           &        p_nh_state(jg)%diag%airmass_new,                      & !in
           &        p_nh_state(jg)%diag%airmass_now,                      & !in
-          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
+          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
           &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
           &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
           &        p_nh_state(jg)%diag%vfl_tracer,                       & !out
@@ -1509,7 +1506,7 @@ MODULE mo_nh_stepping
 
 
 
-          ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
+          ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE
@@ -1557,7 +1554,7 @@ MODULE mo_nh_stepping
             &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
             &          p_nh_state(jg)%diag%airmass_new,                      & !in
             &          p_nh_state(jg)%diag%airmass_now,                      & !in
-            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !inout
+            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
             &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
             &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
             &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
@@ -1747,7 +1744,7 @@ MODULE mo_nh_stepping
               lcall_rrg = .FALSE.
             ENDIF
 
-            IF (lcall_rrg .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1) THEN
+            IF (lcall_rrg) THEN
               CALL interpol_rrg_grf(jg, jgc, jn, nnew_rcf(jg))
             ENDIF
             IF (lcall_rrg .AND. atm_phy_nwp_config(jgc)%latm_above_top) THEN
@@ -2026,8 +2023,8 @@ MODULE mo_nh_stepping
 
             ! Apply hydrostatic adjustment, using downward integration
             ! (deep-atmosphere modification should enter implicitly via reference state)
-            CALL hydro_adjust_downward(p_patch(jgc), p_nh_state(jgc)%metrics,                     &
-              p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
+            CALL hydro_adjust_const_thetav(p_patch(jgc), p_nh_state(jgc)%metrics, .TRUE.,    &
+              p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,    &
               p_nh_state(jgc)%prog(nnow(jgc))%theta_v )
 
             CALL init_exner_pr(jgc, nnow(jgc))
@@ -2903,91 +2900,92 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !!
   SUBROUTINE allocate_nh_stepping(mtime_current)
-!
-  TYPE(datetime),     POINTER          :: mtime_current     !< current datetime (mtime)
 
-  INTEGER                              :: jg
-  INTEGER                              :: ist
-  CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
-  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(datetime),     POINTER          :: mtime_current     !< current datetime (mtime)
 
-!-----------------------------------------------------------------------
+    INTEGER                              :: jg
+    INTEGER                              :: ist
+    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
-  !
-  ! allocate axiliary fields for transport
-  !
-  ALLOCATE(prep_adv(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',           &
-    &      'allocation for prep_adv failed' )
-  ENDIF
+    !-----------------------------------------------------------------------
 
-  ALLOCATE(jstep_adv(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',           &
-    &      'allocation for jstep_adv failed' )
-  ENDIF
-
-
-  ! allocate flow control variables for transport and slow physics calls
-  ALLOCATE(linit_dyn(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( modname//': perform_nh_stepping',           &
-    &      'allocation for flow control variables failed' )
-  ENDIF
-  !
-  ! initialize
-  restartAttributes => getAttributesForRestarting()
-  IF (ASSOCIATED(restartAttributes)) THEN
     !
-    ! Get attributes from restart file
-    DO jg = 1,n_dom
-      WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-      ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
-      WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-      jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
-    ENDDO
-    linit_dyn(:)      = .FALSE.
-  ELSE
-    jstep_adv(:)%marchuk_order = 0
-    linit_dyn(:)               = .TRUE.
-  ENDIF
-
-  DO jg=1, n_dom
-    ALLOCATE(                                                                      &
-      &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
-      &       STAT=ist )
+    ! allocate axiliary fields for transport
+    !
+    ALLOCATE(prep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ( modname//': perform_nh_stepping',           &
-      &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-      &      'topflx_tra failed' )
+        &      'allocation for prep_adv failed' )
+    ENDIF
+
+    ALLOCATE(jstep_adv(n_dom), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( modname//': perform_nh_stepping',           &
+        &      'allocation for jstep_adv failed' )
+    ENDIF
+
+
+    ! allocate flow control variables for transport and slow physics calls
+    ALLOCATE(linit_dyn(n_dom), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( modname//': perform_nh_stepping',           &
+        &      'allocation for flow control variables failed' )
     ENDIF
     !
-    ! initialize (as long as restart output is synchroinzed with advection,
-    ! these variables do not need to go into the restart file)
-!$OMP PARALLEL
-    CALL init(prep_adv(jg)%mass_flx_me)
-    CALL init(prep_adv(jg)%mass_flx_ic)
-    CALL init(prep_adv(jg)%vn_traj)
-    CALL init(prep_adv(jg)%topflx_tra)
-!$OMP END PARALLEL
-
-    IF (iforcing == inwp) THEN
-      ! reads elapsed_time from the restart file, to re-initialize 
-      ! NWP physics events.
-      CALL atm_phy_nwp_config(jg)%phyProcs%deserialize (mtime_current)
+    ! initialize
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
+      !
+      ! Get attributes from restart file
+      DO jg = 1,n_dom
+        WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
+        ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
+        WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
+        jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
+      ENDDO
+      linit_dyn(:)      = .FALSE.
+    ELSE
+      jstep_adv(:)%marchuk_order = 0
+      linit_dyn(:)               = .TRUE.
     ENDIF
 
-  ENDDO
+    DO jg=1, n_dom
+      ALLOCATE(                                                                      &
+        &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
+        &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
+        &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
+        &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
+        &       STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( modname//': perform_nh_stepping',           &
+          &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
+          &      'topflx_tra failed' )
+      ENDIF
+      !
+      ! initialize (as long as restart output is synchroinzed with advection,
+      ! these variables do not need to go into the restart file)
+!$OMP PARALLEL
+      CALL init(prep_adv(jg)%mass_flx_me)
+      CALL init(prep_adv(jg)%mass_flx_ic)
+      CALL init(prep_adv(jg)%vn_traj)
+      CALL init(prep_adv(jg)%topflx_tra)
+!$OMP END PARALLEL
 
-  IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
-    CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
-  ENDIF
 
-END SUBROUTINE allocate_nh_stepping
+      IF (iforcing == inwp) THEN
+        ! reads elapsed_time from the restart file, to re-initialize 
+        ! NWP physics events.
+        CALL atm_phy_nwp_config(jg)%phyProcs%deserialize (mtime_current)
+      ENDIF
+
+    ENDDO
+
+    IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
+      CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+    ENDIF
+
+  END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------
 
 END MODULE mo_nh_stepping

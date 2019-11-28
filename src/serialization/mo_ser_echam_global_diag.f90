@@ -22,10 +22,15 @@ MODULE mo_ser_echam_global_diag
   SUBROUTINE serialize_input(jg, field)
     INTEGER, INTENT(IN)                     :: jg
     TYPE(t_echam_phy_field), INTENT(INOUT)  :: field
+#if defined(SERIALIZE_ECHAM_GLOBAL_DIAG) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
     LOGICAL, SAVE :: lenabled = .TRUE.
+#else
+    LOGICAL, SAVE :: lenabled = .FALSE.
+#endif
     LOGICAL, SAVE :: lactive = .TRUE.
 
     !$ser verbatim IF (lenabled .and. lactive) THEN
@@ -75,8 +80,8 @@ MODULE mo_ser_echam_global_diag
     !$ser data echam_global_diag_radtop_gmean=field%radtop_gmean IF (ASSOCIATED(field%radtop_gmean))
     !$ser data echam_global_diag_sftof=field%sftof IF (ASSOCIATED(field%sftof))
     !$ser data echam_global_diag_fwfoce_gmean=field%fwfoce_gmean IF (ASSOCIATED(field%fwfoce_gmean))
-    !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
+    !$ser verbatim   lactive = .FALSE.
     !$ser verbatim   lenabled = .FALSE.
     !$ser verbatim END IF
 #if defined( SERIALIZE_READ_REFERENCE ) || defined( SERIALIZE_PERTURB_REFERENCE )
@@ -101,11 +106,13 @@ MODULE mo_ser_echam_global_diag
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_input
 
   SUBROUTINE serialize_output(jg, field)
     INTEGER, INTENT(IN)                     :: jg
     TYPE(t_echam_phy_field), INTENT(INOUT)  :: field
+#if defined(SERIALIZE_ECHAM_GLOBAL_DIAG) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -113,9 +120,9 @@ MODULE mo_ser_echam_global_diag
     LOGICAL, SAVE :: lactive = .TRUE.
 
     !$ser verbatim IF (lenabled .and. lactive) THEN
-    !$ser verbatim   CALL warning('SER:mo_ser_echam_diag_ini:output','Serialization is active!')
+    !$ser verbatim   CALL warning('SER:mo_ser_echam_global_diag:output','Serialization is active!')
 #if defined( _OPENACC )
-    !$ser verbatim   CALL warning('GPU:mo_ser_echam_diag_ini:output','GPU HOST synchronization forced by serialization!')
+    !$ser verbatim   CALL warning('GPU:mo_ser_echam_global_diag:output','GPU HOST synchronization forced by serialization!')
     !$ser verbatim   !$ACC UPDATE HOST( field%tas ) IF( ASSOCIATED(field%tas) )
     !$ser verbatim   !$ACC UPDATE HOST( field%tas_gmean ) IF( ASSOCIATED(field%tas_gmean) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rsdt ) IF( ASSOCIATED(field%rsdt) )
@@ -151,12 +158,13 @@ MODULE mo_ser_echam_global_diag
     !$ser data echam_global_diag_radtop_gmean=field%radtop_gmean IF (ASSOCIATED(field%radtop_gmean))
     !$ser data echam_global_diag_sftof=field%sftof IF (ASSOCIATED(field%sftof))
     !$ser data echam_global_diag_fwfoce_gmean=field%fwfoce_gmean IF (ASSOCIATED(field%fwfoce_gmean))
-    !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
+    !$ser verbatim   lactive = .FALSE.
     !$ser verbatim   lenabled = .FALSE.
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_output
 
 END MODULE mo_ser_echam_global_diag

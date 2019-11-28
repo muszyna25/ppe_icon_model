@@ -332,7 +332,6 @@ class buildbot_machines_list(object):
 ## CSCS builders
     #daint                 = self.add_machine('daint', 'default')
     #daint_cpu_cce         = daint.add_builder('DAINT_CPU_cce', '', 'Active')
-    #daint_gpu_cce         = daint.add_builder('DAINT_GPU_cce', '', 'Active')
 ## breeze builders
     #breeze                = self.add_machine('breeze', 'default')
     #breeze_gcc            = breeze.add_builder('BREEZE_gcc', '--with-fortran=gcc', 'build_only')

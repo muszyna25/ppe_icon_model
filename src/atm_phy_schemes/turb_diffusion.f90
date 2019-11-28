@@ -255,11 +255,7 @@ USE mo_physical_constants, ONLY : &
 ! From Flake model
 !-------------------------------------------------------------------------------
 
-#ifdef __COSMO__
 USE sfc_flake_data, ONLY: &
-#elif defined(__ICON__)
-USE mo_data_flake, ONLY: &
-#endif
     h_Ice_min_flk      ! Minimum ice thickness [m]
 
 !-------------------------------------------------------------------------------

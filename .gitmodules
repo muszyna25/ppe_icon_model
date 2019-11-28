@@ -13,11 +13,12 @@
 	path = externals/self
 	url = git@git.mpimet.mpg.de:libself.git
 	branch = libself-icon_v0.2
-
 [submodule "externals/tixi"]
 	path = externals/tixi
 	url = git@git.mpimet.mpg.de:libtixi.git
-
 [submodule "externals/yaxt"]
 	path = externals/yaxt
 	url = git@git.mpimet.mpg.de:yaxt
+[submodule "externals/rte-rrtmgp"]
+	path = externals/rte-rrtmgp
+	url = https://github.com/RobertPincus/rte-rrtmgp.git

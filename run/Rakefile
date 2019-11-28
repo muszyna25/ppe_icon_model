@@ -813,7 +813,7 @@ class TimeAnalyser
         end
 
         # delete the known time-constant variable from the spot files
-        ignoreVariables = ['zg']
+        ignoreVariables = ['zg','orog','fract_box']
         ignoreVariables.each {|v| spotFileVarNames.delete(v)}
         # exit if the selected variable is not in the model output
         return if ( 1 == varlist.size and not spotFileVarNames.include?(varlist.first) )

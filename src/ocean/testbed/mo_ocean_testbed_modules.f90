@@ -608,7 +608,8 @@ CONTAINS
         ENDIF
         !------------------------------------------------------------------------
 
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
+             &   physics_parameters) !by_Oliver
 
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
@@ -939,7 +940,8 @@ CONTAINS
       !---------------------------------------------------------------------
 
       if (jstep == jstep0 ) &
-        & CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, physics_parameters, operators_coefficients)
+        & CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, &
+        & physics_parameters, operators_coefficients, p_atm_f, p_oce_sfc) !by_ogut> added p_oce_sfc
 
       !------------------------------------------------------------------------
       ! solve for new free surface

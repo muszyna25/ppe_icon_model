@@ -24,11 +24,11 @@ MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg
+  USE mo_run_config,          ONLY: msg_level, ntracer, iqv, iqc, iqi, iqr, iqs, iqg, iforcing
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, kstart_tracer
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, &
@@ -40,7 +40,7 @@ MODULE mo_initicon_utils
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMO, MODE_ICONVREMAP, MODIS,                 &
     &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
-    &                               iss, iorg, ibc, iso4, idu, SUCCESS
+    &                               iss, iorg, ibc, iso4, idu, SUCCESS, iecham
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
@@ -57,10 +57,10 @@ MODULE mo_initicon_utils
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
+  USE sfc_terra_data,         ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
-  USE mo_nh_init_utils,       ONLY: hydro_adjust
-  USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
+  USE mo_hydro_adjust,        ONLY: hydro_adjust
+  USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
     &                               dict_loadfile, dict_resize
   USE mo_post_op,             ONLY: perform_post_op
@@ -68,7 +68,7 @@ MODULE mo_initicon_utils
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
   USE mo_var_list_element,    ONLY: level_type_ml
-  USE mo_flake,               ONLY: flake_coldinit
+  USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               OPERATOR(==), OPERATOR(+) 
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
@@ -630,7 +630,7 @@ MODULE mo_initicon_utils
 
     TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
 
-    INTEGER :: jg, jb, jk, jc, je
+    INTEGER :: jg, jb, jk, jc, je, idx, itracer
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
@@ -666,7 +666,7 @@ MODULE mo_initicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -702,33 +702,74 @@ MODULE mo_initicon_utils
           DO jc = 1, nlen
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = 0.0_wp
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = 0.0_wp
-            IF ( iqr /= 0 ) THEN
+            IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = 0.0_wp
             END IF
-            IF ( iqs /= 0 ) THEN
+            IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
             END IF
-            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+            IF ( (atm_phy_nwp_config(jg)%lhave_graupel) .OR. ( iqg /= 0 .AND. iqg <= ntracer) ) THEN
               p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
             END IF
           ENDDO
         ENDDO
         !
-        ! at and below kstart_moist(jg): copy from initicon%atm
-        DO jk = kstart_moist(jg), nlev
-          DO jc = 1, nlen
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
-            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
-            IF ( iqr /= 0 ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
-            END IF
-            IF ( iqs /= 0 ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
-            END IF
-            IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
-              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = initicon(jg)%atm%qg(jc,jk,jb)
-            END IF
+        IF (iforcing == iecham) THEN
+          ! at and below kstart_moist(jg): copy from initicon%atm or set to zero
+          ! HAS TO BE CHECKED for possibility to initialize
+          DO jk = kstart_moist(jg), nlev
+            DO jc = 1, nlen
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
+              IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = 0.0_wp
+              END IF
+              IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
+              END IF
+              IF ( iqg /= 0 .AND. iqg <= ntracer) THEN
+                ! as qg is not in atm initialize with zero
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = 0.0_wp
+              END IF
+            ENDDO
           ENDDO
+        ELSE
+          ! at and below kstart_moist(jg): copy from initicon%atm
+          DO jk = kstart_moist(jg), nlev
+            DO jc = 1, nlen
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = initicon(jg)%atm%qi(jc,jk,jb)
+              IF ( iqr /= 0 .AND. iqr <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = initicon(jg)%atm%qr(jc,jk,jb)
+              END IF
+              IF ( iqs /= 0 .AND. iqs <= ntracer) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = initicon(jg)%atm%qs(jc,jk,jb)
+              END IF
+              IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqg) = initicon(jg)%atm%qg(jc,jk,jb)
+              END IF
+            ENDDO
+          ENDDO
+        END IF
+
+        ! ... additional tracer variables
+        DO idx = 1, ntracer
+          IF ( ASSOCIATED(initicon(jg)%atm%tracer(idx)%field) ) THEN
+            itracer = initicon(jg)%atm%tracer(idx)%var_element%info%ncontained
+            ! above kstart_tracer(jg,itracer): set to zero
+            DO jk = 1, kstart_tracer(jg,itracer)-1
+              DO jc = 1, nlen
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer) = 0.0_wp
+              ENDDO
+            ENDDO
+            ! at and below kstart_tracer(jg,itracer): copy from initicon%atm
+            DO jk = kstart_tracer(jg,itracer), nlev
+              DO jc = 1, nlen
+                p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer) =  &
+                  &  initicon(jg)%atm%tracer(idx)%field(jc,jk,jb)
+              ENDDO
+            ENDDO
+          END IF
         ENDDO
 
         ! w at surface level
@@ -788,7 +829,7 @@ MODULE mo_initicon_utils
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::copy_fg2initicon"
-    INTEGER :: jg, jb, jk, jc, je, ierrstat
+    INTEGER :: jg, jb, jk, jc, je, ierrstat, idx, itracer
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
     REAL(wp), ALLOCATABLE :: w_ifc(:,:,:), tke_ifc(:,:,:)
 
@@ -832,7 +873,7 @@ MODULE mo_initicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -858,6 +899,19 @@ MODULE mo_initicon_utils
             initicon(jg)%atm_in%qr(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr)
             initicon(jg)%atm_in%qs(jc,jk,jb) = p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs)
           ENDDO
+        ENDDO
+
+        ! ... additional tracer variables
+        DO idx = 1, ntracer
+          IF ( ASSOCIATED(initicon(jg)%atm_in%tracer(idx)%field) ) THEN
+            itracer = initicon(jg)%atm_in%tracer(idx)%var_element%info%ncontained
+            DO jk = 1, nlev
+              DO jc = 1, nlen
+                initicon(jg)%atm_in%tracer(idx)%field(jc,jk,jb) =  &
+                  &  p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,itracer)
+              ENDDO
+            ENDDO
+          END IF
         ENDDO
 
         ! w and TKE at surface level
@@ -1616,8 +1670,13 @@ MODULE mo_initicon_utils
             &        sfc%skinres (nproma,nblks_c            ), &
             &        sfc%ls_mask (nproma,nblks_c            ), &
             &        sfc%seaice  (nproma,nblks_c            ), &
-            &        sfc%tsoil   (nproma,0:nlev_soil,nblks_c), &
-            &        sfc%wsoil   (nproma,  nlev_soil,nblks_c)  )
+            &        sfc%tsoil   (nproma,0:nlev_soil,nblks_c)  )
+            IF (  nlev_soil == 0 ) THEN
+               ALLOCATE(sfc%wsoil   (nproma,0:nlev_soil,nblks_c)  )
+            ELSE
+               ALLOCATE(sfc%wsoil   (nproma,1:nlev_soil,nblks_c)  )
+            ENDIF
+            
 !$OMP PARALLEL 
             CALL init(sfc%tskin(:,:))
             CALL init(sfc%tsnow(:,:))

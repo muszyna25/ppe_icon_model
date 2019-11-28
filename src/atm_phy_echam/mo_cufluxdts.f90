@@ -81,6 +81,13 @@ CONTAINS
     REAL(wp):: zpsubcl(kbdim), zcucov(kbdim), zdpevap(kbdim)
     !--mgs
     !
+    !$ACC DATA PRESENT( pxtenh, pmfuxt, pmfdxt ) IF( ktrac > 0 )
+    !$ACC DATA PRESENT( pmref, pqen, pqsen, ptenh, pqenh, cevapcu, paphp1, pgeoh,      &
+    !$ACC               kcbot, kctop, kdtop, ktype, lddraf, ldcum, pmfu, pmfd, pmfus,  &
+    !$ACC               pmfds, pmfuq, pmfdq, pmful, pdmfup, pdmfdp, prfl, pcpcu, pten, &
+    !$ACC               psfl, pdpmel )                                                 &
+    !$ACC       CREATE( zpsubcl, zcucov, zdpevap )
+    !
     !*             Specify constants
     !
     zcons1=cpd/(alf*pdtime)
@@ -91,15 +98,20 @@ CONTAINS
     !                  ---------------------------------
     !
     !  itop=klev
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       ! itop=MIN(itop,kctop(jl))
       IF(.NOT.ldcum(jl).OR.kdtop(jl).LT.kctop(jl)) lddraf(jl)=.FALSE.
       IF(.NOT.ldcum(jl)) ktype(jl)=0
     END DO
+    !$ACC END PARALLEL
     ktopm2=1
     DO jk=ktopm2,klev
 !DIR$ IVDEP
 !OCL NOVREC
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         IF(ldcum(jl).AND.jk.GE.kctop(jl)-1) THEN
           pmfus(jl,jk)=pmfus(jl,jk)-pmfu(jl,jk)*                                     &
@@ -117,8 +129,12 @@ CONTAINS
           END IF
         END IF
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(ldcum(jl).AND.jk.GE.kctop(jl)-1) THEN
             pmfuxt(jl,jk,jt)=pmfuxt(jl,jk,jt)-pmfu(jl,jk)*pxtenh(jl,jk,jt)
@@ -133,11 +149,14 @@ CONTAINS
           ENDIF
         END DO
       END DO
+      !$ACC END PARALLEL
       !
     END DO
     DO jk=ktopm2,klev
 !DIR$ IVDEP
 !OCL NOVREC
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( ikb, zzp )
       DO jl=jcs,kproma
         IF(ldcum(jl).AND.jk.GT.kcbot(jl)) THEN
           ikb=kcbot(jl)
@@ -149,10 +168,14 @@ CONTAINS
           pmful(jl,jk)=pmful(jl,ikb)*zzp
         END IF
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
 !DIR$ IVDEP
 !OCL NOVREC
+        !$ACC LOOP GANG VECTOR PRIVATE( ikb, zzp )
         DO jl=jcs,kproma
           IF(ldcum(jl).AND.jk.GT.kcbot(jl)) THEN
             ikb=kcbot(jl)
@@ -162,6 +185,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
+      !$ACC END PARALLEL
     END DO
     !
     !*    2.  Calculate rain/snow fall rates
@@ -169,10 +193,18 @@ CONTAINS
     !*        Calculate evaporation of precipitation
     !         --------------------------------------
     !
-    prfl(:)=0._wp
-    psfl(:)=0._wp
-      
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      prfl(jl)=0._wp
+      psfl(jl)=0._wp
+    END DO
+    !$ACC END PARALLEL
+    
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=ktopm2,klev
+      !$ACC LOOP GANG VECTOR PRIVATE( zfac, zsnmlt )
       DO jl=jcs,kproma
         IF(ldcum(jl)) THEN
           !
@@ -198,13 +230,23 @@ CONTAINS
         END IF
       END DO
     END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       zpsubcl(jl)=prfl(jl)+psfl(jl)
     END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=ktopm2,klev
-      zdpevap(jcs:kproma) = 0._wp
-      zcucov(jcs:kproma) = 0.05_wp
+      !$ACC LOOP GANG VECTOR
+      DO jl = jcs, kproma
+        zdpevap(jl) = 0._wp
+        zcucov(jl) = 0.05_wp
+      END DO
 
+      !$ACC LOOP GANG VECTOR PRIVATE( zrfl, zrnew, zrmin, zrfln, zdrfl )
       DO jl=jcs,kproma
         IF(ldcum(jl).AND.jk.GE.kcbot(jl).AND.zpsubcl(jl).GT.1.e-20_wp) THEN
           zrfl=zpsubcl(jl)
@@ -223,14 +265,21 @@ CONTAINS
       END DO
 
     END DO
+    !$ACC END PARALLEL
 
     !!baustelle!! (?)
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR PRIVATE( zrsum )
     DO jl=jcs,kproma
       zrsum=prfl(jl)+psfl(jl)
       zdpevap(jl)=zpsubcl(jl)-zrsum
       prfl(jl)=prfl(jl)+zdpevap(jl)*prfl(jl)*(1._wp/MAX(1.e-20_wp,zrsum))
       psfl(jl)=psfl(jl)+zdpevap(jl)*psfl(jl)*(1._wp/MAX(1.e-20_wp,zrsum))
     END DO
+    !$ACC END PARALLEL
+    !
+    !$ACC END DATA
+    !$ACC END DATA
     !
   END SUBROUTINE cuflx
   !>
@@ -269,19 +318,50 @@ CONTAINS
     REAL(wp) :: zrmref(kbdim,klev)
     REAL(wp) :: zalv
 
-    zrmref   (:,:)    = 1.0_wp/pmref(:,:)
-    
-    pq_cnv   (:,:)    = 0.0_wp
-    zqte_cnv (:,:)    = 0.0_wp
-    pqte_cnv (:,:)    = 0.0_wp
-    pxtte_cnv(:,:,:)  = 0.0_wp
-    zxtecl   (:,:)    = 0.0_wp
-    zxteci   (:,:)    = 0.0_wp
-    pxtecl   (:,:)    = 0.0_wp
-    pxteci   (:,:)    = 0.0_wp
-    pcon_dtrl(:)      = 0.0_wp
-    pcon_dtri(:)      = 0.0_wp
-    pcon_iqte(:)      = 0.0_wp
+    !$ACC DATA PRESENT( pmfuxt, pmfdxt, pxtte_cnv ) IF( ktrac > 0 )
+    !$ACC DATA PRESENT( ldcum, pmref, pten, pmfus, pmfds, pmfuq, pmfdq, pmful, pdmfup,&
+    !$ACC               pdmfdp, plude, pdpmel, palvsh, pcon_dtrl, pcon_dtri,          &
+    !$ACC               pcon_iqte, pq_cnv, pqte_cnv, pxtecl, pxteci )                 &
+    !$ACC       CREATE( zqte_cnv, zxtecl, zxteci, zrmref )
+
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO jk = 1, klev
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, kbdim
+        zrmref   (jl,jk)    = 1.0_wp/pmref(jl,jk)
+        pq_cnv   (jl,jk)    = 0.0_wp
+        zqte_cnv (jl,jk)    = 0.0_wp
+        pqte_cnv (jl,jk)    = 0.0_wp
+        zxtecl   (jl,jk)    = 0.0_wp
+        zxteci   (jl,jk)    = 0.0_wp
+        pxtecl   (jl,jk)    = 0.0_wp
+        pxteci   (jl,jk)    = 0.0_wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
+
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 ) 
+    !$ACC LOOP SEQ
+    DO jt = 1, ktrac
+      !$ACC LOOP SEQ
+      DO jk = 1, klev
+        !$ACC LOOP GANG VECTOR
+        DO jl = 1, kbdim
+          pxtte_cnv(jl,jk,jt)  = 0.0_wp
+        END DO
+      END DO
+    END DO
+    !$ACC END PARALLEL
+
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
+    DO jl = 1, kbdim
+      pcon_dtrl(jl)      = 0.0_wp
+      pcon_dtri(jl)      = 0.0_wp
+      pcon_iqte(jl)      = 0.0_wp
+    END DO
+    !$ACC END PARALLEL
     !----------------------------------------------------------------------
     !
     !*    2.0          Incrementation of t and q tendencies
@@ -290,6 +370,8 @@ CONTAINS
     DO jk=ktopm2,klev
       !
       IF(jk.LT.klev) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( llo1, zalv )
         DO jl=jcs,kproma
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
@@ -316,18 +398,25 @@ CONTAINS
             pxtecl(jl,jk)   =  MAX  (0.0_wp,zrmref(jl,jk)*zxtecl(jl,jk))
           ENDIF
         END DO
+        !$ACC END PARALLEL
         !
-          DO jt=1,ktrac
-              DO jl=jcs,kproma
-                IF(ldcum(jl)) THEN
-                  pxtte_cnv(jl,jk,jt) = zrmref(jl,jk)                               &
-                    &                  *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt)        &
-                    &                   +pmfdxt(jl,jk+1,jt)-pmfdxt(jl,jk,jt))
-                ENDIF
-              END DO
+        !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+        !$ACC LOOP SEQ
+        DO jt=1,ktrac
+          !$ACC LOOP GANG VECTOR
+          DO jl=jcs,kproma
+            IF(ldcum(jl)) THEN
+              pxtte_cnv(jl,jk,jt) = zrmref(jl,jk)                               &
+                &                  *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt)        &
+                &                   +pmfdxt(jl,jk+1,jt)-pmfdxt(jl,jk,jt))
+            ENDIF
           END DO
+        END DO
+        !$ACC END PARALLEL
       !
       ELSE
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( llo1, zalv )
         DO jl=jcs,kproma
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
@@ -348,15 +437,20 @@ CONTAINS
             pxtecl(jl,jk)   =  MAX  (0.0_wp,zrmref(jl,jk)*zxtecl(jl,jk))
           END IF
         END DO
+        !$ACC END PARALLEL
         !
-          DO jt=1,ktrac
-              DO jl=jcs,kproma
-                IF(ldcum(jl)) THEN
-                  pxtte_cnv(jl,jk,jt) =-zrmref(jl,jk)      &
-                    &                  *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
-                ENDIF
-              END DO
+        !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+        !$ACC LOOP SEQ
+        DO jt=1,ktrac
+          !$ACC LOOP GANG VECTOR
+          DO jl=jcs,kproma
+            IF(ldcum(jl)) THEN
+              pxtte_cnv(jl,jk,jt) =-zrmref(jl,jk)      &
+                &                  *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
+            ENDIF
           END DO
+        END DO
+        !$ACC END PARALLEL
       !
       END IF
       !
@@ -368,7 +462,10 @@ CONTAINS
     !                  ---------------------
     !
     ! do we need to account for the surface, or for the top 2 layers?
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=ktopm2,klev
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         ! water vapor
         pcon_iqte(jl)=pcon_iqte(jl)+zqte_cnv(jl,jk)
@@ -378,6 +475,10 @@ CONTAINS
         pcon_dtri(jl)=pcon_dtri(jl)+zxteci(jl,jk)
       END DO
     END DO
+    !$ACC END PARALLEL
+    !
+    !$ACC END DATA
+    !$ACC END DATA
     !
   END SUBROUTINE cudtdq
   !>
@@ -405,10 +506,22 @@ CONTAINS
     REAL(wp):: zrmref(kbdim,klev)
     REAL(wp):: zzp
 
-    zrmref  (:,:) = 1.0_wp/pmref(:,:)
-    
-    pvom_cnv(:,:) = 0._wp
-    pvol_cnv(:,:) = 0._wp
+    !$ACC DATA PRESENT( ktype, kcbot, paphp1, ldcum, pmref, puen, pven, pvom_cnv,    &
+    !$ACC               pvol_cnv, puu, pud, pvu, pvd, pmfu, pmfd )                   &
+    !$ACC       CREATE( zmfuu, zmfdu, zmfuv, zmfdv, zrmref )
+
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
+    DO jk = 1, klev
+      !$ACC LOOP GANG VECTOR
+      DO jl = 1, kbdim
+      zrmref  (jl,jk) = 1.0_wp/pmref(jl,jk)
+      
+      pvom_cnv(jl,jk) = 0._wp
+      pvol_cnv(jl,jk) = 0._wp
+      END DO
+    END DO
+    !$ACC END PARALLEL
     !
     !----------------------------------------------------------------------
     !
@@ -416,8 +529,11 @@ CONTAINS
     !                  ----------------------------------------------
     !
     IF(ktopm2.EQ.1) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
       DO jk=2,klev
         ik=jk-1
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(ldcum(jl)) THEN
             zmfuu(jl,jk)=pmfu(jl,jk)*(puu(jl,jk)-puen(jl,ik))
@@ -427,6 +543,9 @@ CONTAINS
           END IF
         END DO
       END DO
+      !$ACC END PARALLEL
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         IF(ldcum(jl)) THEN
           zmfuu(jl,1)=zmfuu(jl,2)
@@ -435,9 +554,13 @@ CONTAINS
           zmfdv(jl,1)=zmfdv(jl,2)
         END IF
       END DO
+      !$ACC END PARALLEL
     ELSE
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP SEQ
       DO jk=ktopm2,klev
         ik=jk-1
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(ldcum(jl)) THEN
             zmfuu(jl,jk)=pmfu(jl,jk)*(puu(jl,jk)-puen(jl,ik))
@@ -447,10 +570,14 @@ CONTAINS
           END IF
         END DO
       END DO
+      !$ACC END PARALLEL
     END IF
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=ktopm2,klev
 !DIR$ IVDEP
 !OCL NOVREC
+      !$ACC LOOP GANG VECTOR PRIVATE( ikb, zzp )
       DO jl=jcs,kproma
         IF(ldcum(jl).AND.jk.GT.kcbot(jl)) THEN
           ikb=kcbot(jl)
@@ -463,10 +590,14 @@ CONTAINS
         END IF
       END DO
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=ktopm2,klev
       !
       IF(jk.LT.klev) THEN
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(ldcum(jl)) THEN
             pvom_cnv(jl,jk)=zrmref(jl,jk)*(zmfuu(jl,jk+1)-zmfuu(jl,jk)+zmfdu(jl,jk+1)-zmfdu(jl,jk))
@@ -475,6 +606,7 @@ CONTAINS
         END DO
         !
       ELSE
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(ldcum(jl)) THEN
             pvom_cnv(jl,jk)=-zrmref(jl,jk)*(zmfuu(jl,jk)+zmfdu(jl,jk))
@@ -484,6 +616,9 @@ CONTAINS
       END IF
       !
     END DO
+    !$ACC END PARALLEL
+
+    !$ACC END DATA
   END SUBROUTINE cududv
 
 END MODULE mo_cufluxdts

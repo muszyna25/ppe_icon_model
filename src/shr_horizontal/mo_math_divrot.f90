@@ -3166,13 +3166,11 @@ END SUBROUTINE div_quad_twoadjcells
 !! Computes discrete rotation.
 !!
 !! Computes discrete rotation at
-!! (i) vertices of triangle cells (centers of dual grid cells) --or--
-!! (ii) edges of hexagonal cells (centers of dual grid cells)
+!! vertices of triangle cells (centers of dual hexagon cells)
 !! from a vector field given by its components in the directions normal
 !! to triangle edges.
 !! input:  lives on edges (velocity points)
-!! output: lives on dual of cells (vertices for triangular grid, edges for
-!!         hexagonal grid)
+!! output: lives on dual of cells (vertices for triangular grid)
 !!
 !! @par Revision History
 !! Developed and tested  by L.Bonaventura  (2002-4).
@@ -3304,6 +3302,7 @@ END IF
         !
         ! calculate rotation, i.e.
         ! add individual edge contributions to rotation
+        ! (remark: for pentagon points the 6th weighting is 0)
         !
 
         rot_vec(jv,jk,jb) =   &

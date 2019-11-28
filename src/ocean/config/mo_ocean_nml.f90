@@ -414,6 +414,11 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER  :: PPscheme_ICON_Edge_vnPredict_type = 4
   INTEGER  :: PPscheme_type = PPscheme_MPIOM_type
 
+  INTEGER, PARAMETER :: vmix_pp  = 1
+  INTEGER, PARAMETER :: vmix_tke = 2
+  INTEGER, PARAMETER :: vmix_kpp = 3
+  INTEGER  :: vert_mix_type = vmix_pp  ! 1: PP; 2: TKE; 3: KPP ! by_nils/by_ogut
+
   REAL(wp) :: tracer_convection_MixingCoefficient        = 0.1_wp     ! convection diffusion coefficient for tracer, used in PP scheme
   REAL(wp) :: convection_InstabilityThreshold            = -5.0E-8_wp ! used in PP scheme
   REAL(wp) :: RichardsonDiffusion_threshold              =  5.0E-8_wp ! used in PP scheme
@@ -467,6 +472,78 @@ MODULE mo_ocean_nml
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   INTEGER  :: LeithViscosity_SmoothIterations = 0
   REAL(wp) :: LeithViscosity_SpatialSmoothFactor = 0.5_wp
+  ! cvmix_tke parameters ! by_nils
+  REAL(wp) :: c_k = 0.1_wp
+  REAL(wp) :: c_eps = 0.7_wp
+  REAL(wp) :: alpha_tke = 30.0_wp
+  REAL(wp) :: mxl_min = 1.E-8_wp 
+  REAL(wp) :: kappaM_min = 0.0_wp
+  REAL(wp) :: kappaM_max = 100.0_wp
+  REAL(wp) :: cd = 3.75_wp
+  REAL(wp) :: tke_min = 1.E-6_wp
+  INTEGER  :: tke_mxl_choice = 2
+  REAL(wp) :: tke_surf_min = 1.E-4_wp
+  LOGICAL  :: only_tke = .true.
+  LOGICAL  :: use_ubound_dirichlet = .false.
+  LOGICAL  :: use_lbound_dirichlet = .false.
+  ! cvmix_kpp parameters ! by_oliver
+  REAL(wp) :: Ri_crit=0.3                    ! critical bulk-Rickardson number (Rib) used to diagnose OBL depth
+  REAL(wp) :: vonKarman=0.40                 ! von Karman constant(dimensionless)
+  REAL(wp) :: cs=98.96                       ! parameter for computing velocity scale function (dimensionless)
+  REAL(wp) :: cs2=6.32739901508              ! parameter for multiplying by non-local term
+  REAL(wp) :: minOBLdepth=0.0                ! if non-zero, sets the minimum depth for the OBL (m)
+  REAL(wp) :: minVtsqr=1e-10                 ! minimum for the squared unresolved velocity used in Rib CVMix calculation (m2/s2)
+  REAL(wp) :: langmuir_Efactor=1.0           ! Langmuir enhancement factor for turb. vertical velocity scale (w_s)
+  REAL(wp) :: surf_layer_ext=0.10            ! fraction of OBL depth considered as the surface layer (nondim) (epsilon=0.1)
+  LOGICAL  :: enhance_diffusion=.FALSE.      ! True => add enhanced diffusivity at base of boundary layer (not recommended).
+  LOGICAL  :: computeEkman=.FALSE.           ! True => compute Ekman depth limit for OBLdepth
+  LOGICAL  :: computeMoninObukhov=.FALSE.    ! True => compute Monin-Obukhov limit for OBLdepth
+  LOGICAL  :: llangmuirEF=.FALSE.            ! True => apply Langmuir enhancement factor to w_s
+  LOGICAL  :: lenhanced_entr=.FALSE.         ! True => enhance entrainment by adding Stokes shear to 
+                                             !          the unresolved vertial shear (not used atm)
+  LOGICAL  :: CS_is_one=.FALSE.              ! match diffusvity coefficients at OBL base (not recommended)
+  CHARACTER(LEN=10) :: interpType="cubic"    ! Type of interpolation in determining OBL depth: linear,quadratic,cubic
+  CHARACTER(LEN=30) :: MatchTechnique="SimpleShapes" ! Method used in CVMix for setting diffusivity and NLT profile functions:
+                                                     ! SimpleShapes      = sigma*(1-sigma)^2 for both diffusivity and NLT
+                                                     ! MatchGradient     = sigma*(1-sigma)^2 for NLT; 
+                                                     !                      diffusivity profile from matching
+                                                     ! MatchBoth         = match gradient for both diffusivity and 
+                                                     ! ParabolicNonLocal = sigma*(1-sigma)^2 for diffusivity;(1-sigma)^2 for NLT
+  CHARACTER(LEN=30) :: internal_mix_scheme="KPP"     ! Ri-number dependent mixing scheme below the OBL: 'PP' or 'KPP'
+  LOGICAL  :: lnonlocal_trans=.TRUE.         ! If True, non-local transport terms are calculated (and applied).
+                                             ! Set to .FALSE. only for testing purposes!
+  LOGICAL  :: fixedOBLdepth=.FALSE.          ! If True, will fix the OBL depth at fixedOBLdepth_value
+  LOGICAL  :: lconvection=.TRUE.             ! If True, convection param. 'enhanced diff.' is called below the OBL
+  LOGICAL  :: lnl_trans_under_sea_ice=.TRUE. ! If True, non-local transport tendencies are calculated below sea ice
+  LOGICAL  :: diag_WS=.FALSE.                ! If True, the turbulent velocity scale will be recalculated with correct OBL depth
+  LOGICAL  :: diag_vtsqr=.TRUE.              ! If True, vertical turbulent shear acting on OBL depth will be diagnosed
+  LOGICAL  :: diag_G=.TRUE.                  ! If True, the non-dimensional shape function G(sigma)=sigma(1-sigma)**2 is diagnosed
+                                             ! Note: the internally used G may be different from this form if NLT_shape 
+                                             !       is set other than "CVMIX".
+  REAL(wp) :: min_thickness=0.0              ! minimum thickness to avoid division by small numbers in 
+                                             !  the vicinity of vanished layers
+  REAL(wp) :: deepOBLoffset=0.0              ! If non-zero, is a distance from the bottom that the OBL can not penetrate through (m)
+  REAL(wp) :: fixedOBLdepth_value=30.0       ! value for the fixed OBL depth when fixedOBLdepth==True.
+  CHARACTER(LEN=30) :: SW_METHOD="SW_METHOD_ALL_SW" ! Sets method for using shortwave radiation in surface buoyancy flux
+                                             ! Alternatives:
+                                             ! SW_METHOD_ALL_SW
+                                             ! SW_METHOD_MXL_SW
+                                             ! SW_METHOD_LV1_SW
+  CHARACTER(LEN=30) :: NLT_shape="CVMIX"     ! Use a different shape function (G) for non-local transport; overwrites the result from CVMix.
+                                             ! Allowed values are:
+                                             ! CVMIX     - Uses the profiles from CVmix specified by MATCH_TECHNIQUE
+                                             ! LINEAR    - A linear profile, 1-sigma
+                                             ! PARABOLIC - A parablic profile,(1-sigma)^2
+                                             ! CUBIC     - A cubic profile, (1-sigma)^2(1+2*sigma)
+                                             ! CUBIC_LMD - The original KPP profile
+                                             ! default='CVMIX'
+  REAL(wp) :: KPP_nu_zero = 5e-3             ! leading coefficient of shear mixing formula, units: m^2/s: default= 5e-3
+  REAL(wp) :: KPP_Ri_zero = 0.7              ! critical Richardson number value, units: unitless (0.7 in LMD94)
+  REAL(wp) :: KPP_loc_exp = 3.0              ! Exponent of unitless factor of diffusities,units:unitless (3 in LMD94)
+  REAL(wp) :: PP_nu_zero = 0.01              !
+  REAL(wp) :: PP_alpha   = 5.0               !
+  REAL(wp) :: PP_loc_exp = 2.0               !
+
 
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
@@ -512,6 +589,7 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_vertical_diffusion_nml/&
     &  PPscheme_type               ,&         !2=as in MPIOM, 4=used for higher resolutions
+    &  vert_mix_type               ,&         !1: PP; 2: TKE ! by_nils
     &  VerticalViscosity_TimeWeight,&         ! timeweight of the vertical viscosity calculated from the previous velocity (valid only with PPscheme_type=4)
     &  Temperature_VerticalDiffusion_background, &
     &  Salinity_VerticalDiffusion_background,    &
@@ -528,7 +606,58 @@ MODULE mo_ocean_nml
     &  velocity_TopWindMixing,      &
     &  tracer_convection_MixingCoefficient ,    &
     &  convection_InstabilityThreshold, &
-    &  RichardsonDiffusion_threshold
+    &  RichardsonDiffusion_threshold, &
+    ! cvmix_tke parameters ! by_nils
+    &  c_k,                         &
+    &  c_eps,                       &
+    &  alpha_tke,                   &
+    &  mxl_min,                     &
+    &  kappaM_min,                  &
+    &  kappaM_max,                  &
+    &  cd,                          &
+    &  tke_min,                     &
+    &  tke_mxl_choice,              &
+    &  tke_surf_min,                &
+    &  only_tke,                    &
+    &  use_ubound_dirichlet,        &
+    &  use_lbound_dirichlet,        &
+    ! cvmix_kpp parameters ! by_oliver
+    !(FIXME: reduce number of namelist entries)
+    &  Ri_crit,                     &
+    &  vonKarman,                   &
+    &  cs,                          &
+    &  cs2,                         &
+    &  minOBLdepth,                 & 
+    &  minVtsqr,                    &
+    &  langmuir_Efactor,            &
+    &  surf_layer_ext,              &
+    &  enhance_diffusion,           &
+    &  computeEkman,                &
+    &  computeMoninObukhov,         &
+    &  llangmuirEF,                 &
+    &  lenhanced_entr,              &
+    &  CS_is_one,                   &
+    &  interpType,                  &
+    &  MatchTechnique,              &
+    &  internal_mix_scheme,         &
+    &  lnonlocal_trans,             &
+    &  fixedOBLdepth,               &
+    &  lconvection,                 &
+    &  lnl_trans_under_sea_ice,     &
+    &  diag_WS,                     &
+    &  diag_vtsqr,                  &
+    &  diag_G,                      &
+    &  min_thickness,               &
+    &  deepOBLoffset,               &
+    &  fixedOBLdepth_value,         &
+    &  SW_METHOD,                   &
+    &  NLT_shape,                   &
+    &  KPP_nu_zero,                 &
+    &  KPP_Ri_zero,                 &
+    &  KPP_loc_exp,                 &
+    &  PP_nu_zero,                  &
+    &  PP_alpha,                    &
+    &  PP_loc_exp!,                 & 
 
   !Parameters for GM-Redi configuration
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization

@@ -34,7 +34,7 @@ MODULE mo_nh_nest_utilities
   USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
   USE mo_dynamics_config,     ONLY: nnow, nsav1, nnow_rcf
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_parallel_config,     ONLY: nproma, p_test_run, cpu_min_nproma
   USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iforcing
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
@@ -243,7 +243,7 @@ CONTAINS
     nlevp1 = p_patch(jg)%nlevp1
 
     ! for dynamic nproma blocking
-    nproma_bdyintp = MIN(nproma,256)
+    nproma_bdyintp = cpu_min_nproma(nproma,256)
 
 !$OMP PARALLEL PRIVATE(nblks_bdyintp,npromz_bdyintp)
 
@@ -424,7 +424,7 @@ CONTAINS
     jk_start = nshift ! start index for tendency computation
 
     ! for dynamic nproma blocking
-    nproma_bdyintp = MIN(nproma,256)
+    nproma_bdyintp = cpu_min_nproma(nproma,256)
 
     rdt_ubc = rdt*REAL(nsubs,wp)/REAL(2*(MAX(1,nsubs-2)),wp)
     dthalf = 1._wp/(2._wp*rdt)

@@ -146,7 +146,7 @@ MODULE mo_intp_state
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ihs_ocean
-USE mo_model_domain,        ONLY: t_patch
+USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ltransport
@@ -154,12 +154,12 @@ USE mo_dynamics_config,     ONLY: iequations
 USE mo_interpol_config,     ONLY: i_cori_method, rbf_vec_dim_c, rbf_c2grad_dim, &
   &                               rbf_vec_dim_v, rbf_vec_dim_e, lsq_lin_set,    &
   &                               lsq_high_set
-USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
 USE mo_intp_rbf_coeffs,     ONLY: rbf_vec_index_cell, rbf_vec_index_edge,                &
   &                               rbf_vec_index_vertex, rbf_vec_compute_coeff_cell,      &
   &                               rbf_vec_compute_coeff_edge,                            &
   &                               rbf_vec_compute_coeff_vertex, rbf_c2grad_index,        &
-  &                               rbf_compute_coeff_c2grad
+  &                               rbf_compute_coeff_c2grad, gen_index_list_radius
 USE mo_intp_coeffs,         ONLY: compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
   &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
   &                               init_tplane_c,   tri_quadrature_pts,                 &
@@ -174,7 +174,7 @@ USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
 ! USE mo_ocean_nml,           ONLY: idisc_scheme
 USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, get_valid_local_index
 USE mo_dist_dir,            ONLY: dist_dir_get_owners
-
+USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
 
 
 IMPLICIT NONE
@@ -610,6 +610,44 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       CALL finish ('mo_interpolation:construct_int_state',&
       &            'allocation for rbf_vec_coeff_e failed')
     ENDIF
+
+    IF (     is_variable_in_output(first_output_name_list, var_name="sdi2")   &
+      & .OR. is_variable_in_output(first_output_name_list, var_name="lpi" ) ) THEN
+      ptr_int%cell_environ%is_used = .TRUE.
+    END IF
+
+    IF ( ptr_int%cell_environ%is_used ) THEN
+      !
+      ! cell_environ
+      !
+      ALLOCATE( ptr_int%cell_environ%nmbr_nghbr_cells( nproma, nblks_c), STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ('mo_interpolation:construct_int_state',&
+        &            'allocation for cell_environ%nmbr_nghbr_cells failed')
+      ENDIF
+
+      ALLOCATE( ptr_int%cell_environ%idx( nproma, nblks_c, ptr_int%cell_environ%nmbr_nghbr_cells_alloc), STAT=ist )
+      IF (ist /= SUCCESS)  THEN
+        CALL finish ('mo_interpolation:construct_int_state',&
+        &            'allocation for cell_environ%idx failed')
+      ENDIF
+      ALLOCATE( ptr_int%cell_environ%blk( nproma, nblks_c, ptr_int%cell_environ%nmbr_nghbr_cells_alloc), STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ('mo_interpolation:construct_int_state',&
+        &            'allocation for cell_environ%blk failed')
+      ENDIF
+      ALLOCATE( ptr_int%cell_environ%area_norm( nproma, nblks_c, ptr_int%cell_environ%nmbr_nghbr_cells_alloc), STAT=ist )
+      IF (ist /= SUCCESS)  THEN
+        CALL finish ('mo_interpolation:construct_int_state',&
+        &            'allocation for cell_environ%area_norm failed')
+      ENDIF
+
+      ptr_int%cell_environ%nmbr_nghbr_cells(:,:) = 0 
+      ptr_int%cell_environ%idx(:,:,:) = 0
+      ptr_int%cell_environ%blk(:,:,:) = 0
+      ptr_int%cell_environ%area_norm(:,:,:) = 0.0_wp
+
+    END IF
 
   ENDIF
 
@@ -1444,11 +1482,13 @@ END SUBROUTINE allocate_int_state
 !!
 SUBROUTINE construct_2d_interpol_state(ptr_patch, ptr_int_state)
 !
+
 TYPE(t_patch), INTENT(INOUT) :: ptr_patch(n_dom_start:)
 
 TYPE(t_int_state),     INTENT(INOUT) :: ptr_int_state(n_dom_start:)
 
-INTEGER :: jg
+INTEGER  :: jg
+REAL(wp) :: search_radius
 
 CHARACTER(len=MAX_CHAR_LENGTH) :: text
 
@@ -1508,6 +1548,13 @@ DO jg = n_dom_start, n_dom
     ! Compute coefficients needed for gradient reconstruction at cell midpoints
     CALL rbf_c2grad_index (ptr_patch(jg), ptr_int_state(jg))
     CALL rbf_compute_coeff_c2grad (ptr_patch(jg), ptr_int_state(jg))
+
+
+    IF ( ptr_int_state(jg)%cell_environ%is_used ) THEN
+      ! Determine ptr_int_state(..)%cell_environ
+      search_radius = 1.0e20_wp  ! here, the search radius shall not be used -> choose a large enough value >> dx
+      CALL gen_index_list_radius( ptr_int_state(jg), ptr_patch(jg), jg, search_radius, 1 )
+    END IF
 
     ! initialization of quadrature points and weights
     !
@@ -1602,15 +1649,15 @@ SUBROUTINE xfer_var_r3(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
 
   INTEGER :: j
 
-  IF(pos_nproma==1 .and. pos_nblks==2) THEN
+  IF(pos_nproma==1 .AND. pos_nblks==2) THEN
     DO j = 1, UBOUND(arri,3)
       CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(:,:,j),arro(:,:,j))
     ENDDO
-  ELSEIF(pos_nproma==1 .and. pos_nblks==3) THEN
+  ELSEIF(pos_nproma==1 .AND. pos_nblks==3) THEN
     DO j = 1, UBOUND(arri,2)
       CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(:,j,:),arro(:,j,:))
     ENDDO
-  ELSEIF(pos_nproma==2 .and. pos_nblks==3) THEN
+  ELSEIF(pos_nproma==2 .AND. pos_nblks==3) THEN
     DO j = 1, UBOUND(arri,1)
       CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(j,:,:),arro(j,:,:))
     ENDDO
@@ -1730,7 +1777,7 @@ SUBROUTINE xfer_idx_2(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi
 
       i_l = idx_1d(idxi(jl,jb),blki(jl,jb))
 
-      IF(i_l <= 0 .or. i_l > n_idx_l) THEN
+      IF(i_l <= 0 .OR. i_l > n_idx_l) THEN
         z_idxi(jl,jb) = 0._wp
       ELSE
         z_idxi(jl,jb) = glb_index(i_l)
@@ -1746,7 +1793,7 @@ SUBROUTINE xfer_idx_2(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi
 
       i_g = INT(z_idxo(jl,jb))
 
-      IF(i_g <= 0 .or. i_g > n_idx_g) THEN
+      IF(i_g <= 0 .OR. i_g > n_idx_g) THEN
         idxo(jl,jb) = 0
         blko(jl,jb) = 0
       ELSE
@@ -1771,17 +1818,17 @@ SUBROUTINE xfer_idx_3(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi
 
   INTEGER :: j
 
-  IF(pos_nproma==1 .and. pos_nblks==2) THEN
+  IF(pos_nproma==1 .AND. pos_nblks==2) THEN
     DO j = 1, UBOUND(idxi,3)
       CALL xfer_idx_2(type_arr,type_idx,1,2,p_p,p_lp,idxi(:,:,j),blki(:,:,j), &
                                                    & idxo(:,:,j),blko(:,:,j))
     ENDDO
-  ELSEIF(pos_nproma==1 .and. pos_nblks==3) THEN
+  ELSEIF(pos_nproma==1 .AND. pos_nblks==3) THEN
     DO j = 1, UBOUND(idxi,2)
       CALL xfer_idx_2(type_arr,type_idx,1,2,p_p,p_lp,idxi(:,j,:),blki(:,j,:), &
                                                    & idxo(:,j,:),blko(:,j,:))
     ENDDO
-  ELSEIF(pos_nproma==2 .and. pos_nblks==3) THEN
+  ELSEIF(pos_nproma==2 .AND. pos_nblks==3) THEN
     DO j = 1, UBOUND(idxi,1)
       CALL xfer_idx_2(type_arr,type_idx,1,2,p_p,p_lp,idxi(j,:,:),blki(j,:,:), &
                                                    & idxo(j,:,:),blko(j,:,:))
@@ -1955,6 +2002,20 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_C,3,4,p_p,p_lp,pi%rbf_vec_coeff_c,po%rbf_vec_coeff_c)
   CALL xfer_idx(SYNC_C,SYNC_C,2,3,p_p,p_lp,pi%rbf_c2grad_idx,pi%rbf_c2grad_blk, &
                                          & po%rbf_c2grad_idx,po%rbf_c2grad_blk)
+
+  IF ( pi%cell_environ%is_used ) THEN
+    CALL xfer_var(SYNC_C,1,2,p_p,p_lp, pi%cell_environ%nmbr_nghbr_cells, &
+      &                                po%cell_environ%nmbr_nghbr_cells)
+    CALL xfer_idx(SYNC_C,SYNC_C,1,2,p_p,p_lp, pi%cell_environ%idx, pi%cell_environ%blk, &
+      &                                       po%cell_environ%idx, po%cell_environ%blk)
+    CALL xfer_var(SYNC_C,1,2,p_p,p_lp, pi%cell_environ%area_norm, &
+      &                                po%cell_environ%area_norm)
+    po%cell_environ%is_used              = pi%cell_environ%is_used
+    po%cell_environ%max_nmbr_nghbr_cells = pi%cell_environ%max_nmbr_nghbr_cells
+    po%cell_environ%radius               = pi%cell_environ%radius
+    po%cell_environ%max_nmbr_iter        = pi%cell_environ%max_nmbr_iter
+  END IF
+
   CALL xfer_var(SYNC_C,3,4,p_p,p_lp,pi%rbf_c2grad_coeff,po%rbf_c2grad_coeff)
   CALL xfer_idx(SYNC_V,SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_idx_v,pi%rbf_vec_blk_v, &
                                          & po%rbf_vec_idx_v,po%rbf_vec_blk_v)
@@ -2248,6 +2309,27 @@ INTEGER :: ist
       CALL finish ('mo_interpolation:destruct_int_state',                      &
       &             'deallocation for rbf_vec_coeff_e failed')
     ENDIF
+
+  IF ( ptr_int%cell_environ%is_used ) THEN
+    !
+    ! cell_environ
+    !
+    DEALLOCATE( ptr_int%cell_environ%nmbr_nghbr_cells, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',&
+      &            'deallocation for cell_environ%nmbr_nghbr_cells failed')
+    ENDIF
+    DEALLOCATE( ptr_int%cell_environ%idx, STAT=ist )
+    IF (ist /= SUCCESS)  THEN
+      CALL finish ('mo_interpolation:destruct_int_state',&
+      &            'deallocation for cell_environ%idx failed')
+    ENDIF
+    DEALLOCATE( ptr_int%cell_environ%blk, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',&
+      &            'deallocation for cell_environ%blk failed')
+    ENDIF
+  END IF
 
 
   IF( ltransport .OR. iequations == 3) THEN

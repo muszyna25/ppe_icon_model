@@ -30,7 +30,7 @@ init_relax=1
 ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
 grids_folder=/pool/data/ICON/oes/input/r0002//OceanOnly_Icos_0158km_etopo40
-ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Icos_0158km_etopo40
+ocean_data_InputFolder=/pool/data/ICON/oes/input/r0003/OceanOnly_Icos_0158km_etopo40
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
 #
@@ -58,7 +58,7 @@ cat > ${ocean_namelist} << EOF
  profiling_output     = 1
  msg_timestamp        = .FALSE.
  timers_level         = 10
- debug_check_level    = 1
+ debug_check_level    = 0
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
@@ -74,7 +74,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
+  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default','group:oce_physics'
 /
 &output_nml
   output_start     = "${start_date}"
@@ -135,11 +135,13 @@ cat > ${ocean_namelist} << EOF
   select_solver                   = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
                                             ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                = 1.0E-13 ! this may further be reduced
-
-  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
-  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  solver_tolerance                = 1.0E-10 ! this may further be reduced
+  select_lhs                      = 2       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .true. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
   solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
+
+  solver_max_iter_per_restart     =  14   
+  solver_max_restart_iterations   = 100       ! outer (restart solver)
 
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
@@ -173,10 +175,11 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
+  vert_mix_type                            = 1 ! 1=PP, 2=TKE, 3=KPP
   PPscheme_type                            = 4
   velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  Temperature_VerticalDiffusion_background =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  Salinity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
   tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
   convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
   RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
@@ -185,8 +188,8 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 1.0E-5
-  velocity_TopWindMixing          = 1.0E-5
+  tracer_TopWindMixing            = 2.31480E-6 ! eqals 0.5e-3 m2s-1 (MPIOM)
+  velocity_TopWindMixing          = 2.31480E-6
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -201,7 +204,7 @@ cat > ${ocean_namelist} << EOF
   GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
   REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
-  SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
+  SLOPE_CALC_VIA_TEMPERTURE_SALINITY     =.TRUE.
   INCLUDE_SLOPE_SQUARED_IMPLICIT         =.TRUE. !think of l_with_vert_tracer_diffusion
   SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.TRUE.
 /
@@ -217,10 +220,15 @@ cat > ${ocean_namelist} << EOF
  leadclose_1                     =   0.25     ! default: 0.5 - value of MPIOM: 0.25
  leadclose_2n                    =   0.666    ! default: 0.0 - value of MPIOM: 2/3
  albedoW_sim  = 0.10         ! albedo of the ocean used in sea ice model
- albs         = 0.85         ! Albedo of snow (not melting)
- albsm        = 0.70         ! Albedo of snow (melting)
- albi         = 0.75         ! Albedo of ice (not melting)
- albim        = 0.70         ! Albedo of ice (melting)
+! albs         = 0.85         ! Albedo of snow (not melting)
+! albsm        = 0.70         ! Albedo of snow (melting)
+! albi         = 0.75         ! Albedo of ice (not melting)
+! albim        = 0.70         ! Albedo of ice (melting)
+ albs         = 0.80         ! Albedo of snow (not melting)
+ albsm        = 0.65         ! Albedo of snow (melting)
+ albi         = 0.70         ! Albedo of ice (not melting)
+ albim        = 0.65         ! Albedo of ice (melting)
+
  Pstar        = 40000
 /
 &ocean_forcing_nml

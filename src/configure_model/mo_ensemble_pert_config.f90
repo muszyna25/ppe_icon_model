@@ -199,7 +199,7 @@ MODULE mo_ensemble_pert_config
     TYPE(datetime),        POINTER       :: mtime_date
 
     INTEGER, ALLOCATABLE :: rnd_seed(:)
-    INTEGER  :: rnd_size, i, jg, ipn, iy, im, id
+    INTEGER  :: rnd_size, i, jg, ipn, iy, im, id, ih
     REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax, tkfac, svp_pert
 
 
@@ -218,8 +218,9 @@ MODULE mo_ensemble_pert_config
         iy = mtime_date%date%year
         im = mtime_date%date%month
         id = mtime_date%date%day
+        ih = mtime_date%time%hour
         DO i = 1, rnd_size
-          rnd_seed(i) =  rnd_seed(i) + (iy-1800)**2 + im**3 + (id+i)**2
+          rnd_seed(i) =  rnd_seed(i) + (iy-1800)**2 + im**3 + (id+i)**2 + ih
         ENDDO
       ENDIF
 
