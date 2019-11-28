@@ -220,12 +220,20 @@ distclean: clean
 	rm -f config.h config.log config.status depgen.c.config depgen.f90.config
 	rm -f $(dep_files)
 	rm -f $(dir_files)
-	@for dir in $(subdirs) $(bindir) $(moddir) $(ppdir) externals config; do \
+	@for dir in $(bindir) $(moddir) $(ppdir); do \
           if test -d "$$dir"; then \
             echo "find '$$dir' -type d -empty -delete"; \
             find "$$dir" -type d -empty -delete; \
           fi; \
 	done
+	@if test '.' != '$(srcdir)'; then \
+	  for dir in $(subdirs) externals; do \
+	    if test -d "$$dir"; then \
+	      echo "find '$$dir' -type d -empty -delete"; \
+	      find "$$dir" -type d -empty -delete; \
+	    fi; \
+	  done; \
+	fi
 	rm -f icon.mk
 
 # Delete files generated at the autoreconf stage:
