@@ -178,7 +178,7 @@
         REAL(wp), INTENT(IN), CONTIGUOUS :: x(:,:)
         REAL(wp), INTENT(OUT), CONTIGUOUS :: lhs(:,:)
         REAL(wp) :: gdt2_inv, gam_times_beta
-        INTEGER :: start_index, end_index, jc, blkNo, je
+        INTEGER :: start_index, end_index, jc, blkNo
         TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
 
         cells_in_domain => this%patch_2D%cells%in_domain
@@ -538,7 +538,7 @@ MODULE mo_ocean_testbed_zstar
   USE mo_ocean_solve, ONLY: t_ocean_solve, ocean_solve_ptr
   USE mo_ocean_initialization,      ONLY: is_initial_timestep
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_horz_veloc, VelocityBottomBoundaryCondition_onBlock
-  USE mo_mpi, ONLY: work_mpi_barrier
+  USE mo_mpi, ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_surface_height_lhs, ONLY: t_surface_height_lhs, lhs_surface_height_ptr
   USE mo_surface_height_lhs_zstar, ONLY: t_surface_height_lhs_zstar, lhs_surface_height_zstar_ptr
   USE mo_ocean_solve_trivial_transfer, ONLY: t_trivial_transfer, trivial_transfer_ptr
@@ -575,7 +575,8 @@ MODULE mo_ocean_testbed_zstar
 
   USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
   USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
-  USE mo_sync,                        ONLY: sync_c, sync_e, sync_c1, sync_patch_array, sync_patch_array_mult
+  USE mo_sync,                        ONLY: sync_c, sync_e, sync_c1, sync_patch_array, &
+    & sync_patch_array_mult, global_sum_array
   USE mo_surface_height_lhs_zstar, ONLY: map_edges2edges_viacell_2D_zstar
 
   !-------------------------------------------------------------------------
@@ -666,13 +667,11 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     INTEGER :: start_level, end_level            
     INTEGER :: start_index, end_index
-    INTEGER :: edge_index, level, blockNo, jc,  cell_connect, sum_lsm_quad_edge, ctr
+    INTEGER :: edge_index, level, blockNo, jc,  cell_connect, sum_lsm_quad_edge
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d    
     
     INTEGER  :: bt_lev 
-    REAL(wp) :: H_l, eta_l
-    REAL(wp) :: coeff_l(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)      
     TYPE(t_subset_range), POINTER :: all_cells 
 
     !-------------------------------------------------------------------------
@@ -1343,7 +1342,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
     
     INTEGER  :: jb, jc, je, level 
-    REAL(wp) :: delta_t, delta_z,delta_z_new, delta_z1,delta_z_new1
+    REAL(wp) :: delta_t, delta_z,delta_z_new
     REAL(wp) :: div_adv_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_adv_flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: top_bc(nproma)
@@ -1510,7 +1509,6 @@ CONTAINS
     REAL(wp) :: z_adv_low (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp) :: z_adv_high(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp) :: z2(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
-    REAL(wp) :: H_l, eta_l, coeff_l 
     INTEGER  :: bt_level 
     REAL(wp) :: H_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
@@ -1965,10 +1963,7 @@ CONTAINS
     REAL(wp) :: gdt_x_ab_beta, one_minus_ab_gam
     REAL(wp) :: z_grad_h(nproma,patch_3d%p_patch_2d(1)%nblks_e), z_grad_h_block(nproma)
     TYPE(t_subset_range), POINTER :: edges_in_domain, owned_edges
-    CHARACTER(LEN=*), PARAMETER ::     &
-      & method_name='mo_ocean_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
     TYPE(t_patch), POINTER :: patch
-    INTEGER  :: idt_src 
     !----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     !-----------------------------------------------------------------------
@@ -2024,15 +2019,13 @@ CONTAINS
     REAL(wp), INTENT(IN)               :: depth_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp), INTENT(IN)               :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     ! Local variables
-    INTEGER :: jc, jk, blockNo, je, z_dolic, start_index, end_index
-    REAL(wp) :: z_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks), z_abort
+    INTEGER :: jc, jk, blockNo, start_index, end_index
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells, cells_owned
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp), POINTER :: vertical_velocity(:,:,:)
     REAL(wp) :: div_m_c(nproma, n_zlev)
     REAL(wp) :: deta_dt 
  
-    CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_ab_timestepping_mimetic:alc_vert_velocity_mim_bottomup'
     !-----------------------------------------------------------------------
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain  => patch_2D%cells%in_domain
@@ -2096,15 +2089,13 @@ CONTAINS
     !CHARACTER(len=max_char_length), PARAMETER :: &
     !       & routine = (this_mod_name//':calc_internal_pressure')
     INTEGER :: je, jk, jb, jc, ic1,ic2,ib1,ib2
-    INTEGER :: i_startblk, i_endblk, start_index, end_index
-    REAL(wp) :: z_full_c1, z_box_c1, z_full_c2, z_box_c2
+    INTEGER :: start_index, end_index
     REAL(wp) :: z_grav_rho_inv
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
     REAL(wp), POINTER :: prism_thick_e(:,:,:)
     TYPE(t_subset_range), POINTER :: all_cells
-    REAL(wp) :: prism_center_dist !distance between prism centers without surface elevation
     REAL(wp) :: phy(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! Extra pressure term for zstar
     !-----------------------------------------------------------------------
     z_grav_rho_inv = OceanReferenceDensity_inv * grav
@@ -2351,7 +2342,6 @@ CONTAINS
 
     INTEGER :: bottom_level
     INTEGER :: edge_index, level
-    TYPE(t_patch), POINTER :: patch_2d
 
     !-----------------------------------------------------------------------
     dt_inv = 1.0_wp/dtime
@@ -2693,8 +2683,7 @@ CONTAINS
     REAL(wp), INTENT(IN   ) :: H_c      (nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
  
     ! local variables
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_surface_refactor:apply_surface_fluxes_slo'
-    INTEGER               :: jc, jb, trac_no
+    INTEGER               :: jc, jb
     INTEGER               :: i_startidx_c, i_endidx_c
     REAL(wp)              :: sss_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceOld(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -2864,7 +2853,6 @@ CONTAINS
     USE mo_model_domain,              ONLY: t_patch, t_patch_3d
     USE mo_ocean_types,               ONLY: t_hydro_ocean_state
     USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-    USE mo_impl_constants,            ONLY: sea_boundary
     USE mo_dynamics_config,           ONLY: nold
     USE mo_run_config,                ONLY: dtime
     USE mo_parallel_config,           ONLY: nproma
@@ -2932,6 +2920,47 @@ CONTAINS
     END DO
 
   END SUBROUTINE subsurface_swr_absorption_zstar
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Balance sea level to zero over global ocean
+  !!
+  SUBROUTINE balance_elevation_zstar (p_patch_3D, eta_c)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
+    REAL(wp), INTENT(INOUT) :: eta_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+
+    TYPE(t_patch), POINTER                  :: p_patch
+    TYPE(t_subset_range), POINTER           :: all_cells
+
+    INTEGER  :: i_startidx_c, i_endidx_c
+    INTEGER  :: jc, jb
+    REAL(wp) :: ocean_are, glob_slev, corr_slev
+    INTEGER  :: idt_src       
+
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    all_cells       => p_patch%cells%all
+ 
+    ! parallelize correctly
+    ocean_are = p_patch_3D%p_patch_1D(1)%ocean_area(1)
+    glob_slev = global_sum_array(p_patch%cells%area(:,:)*eta_c(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
+    corr_slev = glob_slev/ocean_are
+
+    idt_src=2
+    IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
+      & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc =  i_startidx_c, i_endidx_c
+        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          ! subtract or scale?
+          eta_c(jc,jb) = eta_c(jc,jb) - corr_slev
+        END IF
+      END DO
+    END DO
+
+  END SUBROUTINE balance_elevation_zstar
 
 
 
@@ -3091,10 +3120,9 @@ CONTAINS
     dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
     ! event at end of first timestep of day - tbd: use mtime
     IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
-      ! FIXME: What is this?
-!      CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
+      CALL balance_elevation_zstar(p_patch_3D, eta_c)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: h-old+BalElev',p_os%p_prog(nold(1))%h , routine, 2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: h-old+BalElev', eta_c, routine, 2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
 
@@ -3121,16 +3149,13 @@ CONTAINS
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     
     ! local variables
-    INTEGER :: jstep, jg, return_status
+    INTEGER :: jstep, jg
     INTEGER :: jb, jc, je, bt_lev 
     INTEGER :: start_index, end_index 
     INTEGER :: i 
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: jstep0 ! start counter for time loop
-    REAL(wp) :: mean_height, old_mean_height
-    REAL(wp) :: verticalMeanFlux(n_zlev+1)
-    INTEGER :: level
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_testbed_modules:test_zstar_core'
@@ -3138,7 +3163,6 @@ CONTAINS
     REAL(wp) :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! Surface height at cell
     REAL(wp) :: H_c  (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! Column depth at cell 
     REAL(wp) :: eta_e(nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! Surface height at edge
-    REAL(wp) :: H_e  (nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! Column depth at edge 
     REAL(wp) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
     REAL(wp) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! 
     REAL(wp) :: stretch_c_new(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
@@ -3159,25 +3183,16 @@ CONTAINS
     TYPE(t_surface_height_lhs_zstar), POINTER :: lhs_sh => NULL()
 !
     TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
-    TYPE(t_subset_range), POINTER :: all_cells, all_edges
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     INTEGER, DIMENSION(:,:,:), POINTER :: idx, blk
     INTEGER  :: id1, id2, bl1, bl2 
 
-    INTEGER, SAVE :: istep = 0
-    LOGICAL :: l_is_compare_step
     REAL(wp), PARAMETER ::  min_top_height = 0.05_wp !we have to have at least 5cm water on topLevel of sea cells)
     INTEGER :: n_it, n_it_sp, ret_status
     REAL(wp) :: rn, minmaxmean(3)
 
     CHARACTER(LEN=12)  :: str_module = 'zstar_dyn'  ! Output of module for 1 line debug)
 
-    INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
-    INTEGER :: edge_1_1_index, edge_1_2_index, edge_1_3_index
-    INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
-    INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block
-    INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
-    INTEGER :: blockNo, start_edge_index, end_edge_index
     TYPE(t_subset_range), POINTER :: edges_indomain
  
     !------------------------------------------------------------------
@@ -3604,14 +3619,11 @@ CONTAINS
     
 
     ! local variables
-    INTEGER :: jstep, jg, return_status
+    INTEGER :: jstep, jg
     INTEGER :: i 
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: jstep0 ! start counter for time loop
-    REAL(wp) :: mean_height, old_mean_height
-    REAL(wp) :: verticalMeanFlux(n_zlev+1)
-    INTEGER :: level
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_testbed_modules:test_core'
@@ -3631,8 +3643,6 @@ CONTAINS
     REAL(wp) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! 
 
     TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
-    INTEGER, SAVE :: istep = 0
-    LOGICAL :: l_is_compare_step
     REAL(wp), PARAMETER ::  min_top_height = 0.05_wp !we have to have at least 5cm water on topLevel of sea cells)
     INTEGER :: n_it, n_it_sp, ret_status
     INTEGER :: rho_switch 
