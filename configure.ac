@@ -4,6 +4,29 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 
+dnl Temporary message for the users that is emitted on the first failure of the
+dnl script. Please, remove it once all the current users are used to using the
+dnl wrappers:
+icon_usr_note="
+********************************************************************************
+Note that ICON building system has been updated. Now users are recommended to
+run site-specific wrappers instead of this generic configure script.
+
+You can find the wrappers in '${srcdir}/config/<organization>/'.
+
+If you are running a wrapper and still see this message than either you are
+using a wrong one or the wrapper is broken, or there is a problem with the new
+configure script.
+********************************************************************************
+"
+m4_define([AC_MSG_FAILURE],
+[{ AS_MESSAGE([error: in `$ac_pwd':], 2)
+AC_MSG_ERROR([$1
+See `config.log' for more details
+${icon_usr_note}], [$2]); }])
+dnl End of the temporary message injection. Delete up until this line once the
+dnl message is not needed anymore.
+
 dnl Currently, ICON makefiles are implemented in a way that allows for
 dnl out-of-source building even if the source directory is "dirty" (i.e.
 dnl contains results of in-source configuration and building). Nonetheless, we

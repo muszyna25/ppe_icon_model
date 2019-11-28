@@ -2097,6 +2097,20 @@ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
 
 
 
+icon_usr_note="
+********************************************************************************
+Note that ICON building system has been updated. Now users are recommended to
+run site-specific wrappers instead of this generic configure script.
+
+You can find the wrappers in '${srcdir}/config/<organization>/'.
+
+If you are running a wrapper and still see this message than either you are
+using a wrong one or the wrapper is broken, or there is a problem with the new
+configure script.
+********************************************************************************
+"
+
+
 if test "`cd $srcdir && pwd`" != "`pwd`" && test -f "$srcdir/config.status"; then :
   as_fn_error $? "source directory already configured; run \"make distclean\" there first" "$LINENO" 5
 fi
@@ -2670,7 +2684,8 @@ CONFIG_SHELL=\$SHELL \$SHELL $as_myself"
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "$acx_failMsg
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 fi
 
@@ -3078,7 +3093,8 @@ fi
 test -z "$CC" && { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "no acceptable C compiler found in \$PATH
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 
 # Provide some information about the compiler.
 $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler version" >&5
@@ -3193,7 +3209,8 @@ sed 's/^/| /' conftest.$ac_ext >&5
 { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error 77 "C compiler cannot create executables
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
@@ -3236,7 +3253,8 @@ else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "cannot compute suffix of executables: cannot compile and link
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f conftest conftest$ac_cv_exeext
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_exeext" >&5
@@ -3305,7 +3323,8 @@ sed 's/^/| /' conftest.$ac_ext >&5
 { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "cannot compute suffix of object files: cannot compile
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f conftest.$ac_cv_objext conftest.$ac_ext
 fi
@@ -3529,7 +3548,8 @@ if test "x$ac_cv_prog_cc_c89" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "C compiler does not support ISO C89
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $CC option to accept ISO C99" >&5
@@ -3713,7 +3733,8 @@ if test "x$ac_cv_prog_cc_c99" = xno; then :
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "C compiler does not support ISO C99
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 
          { $as_echo "$as_me:${as_lineno-$LINENO}: checking for C compiler vendor" >&5
@@ -3809,7 +3830,8 @@ else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find header file $ac_header
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 
 done
@@ -4099,7 +4121,8 @@ fi
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to compile preprocessed .f90 files
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   ac_fcflags_srcext=$acx_cv_fc_pp_srcext_f90
       FCFLAGS_f90=$ac_fcflags_srcext
@@ -4231,7 +4254,8 @@ $as_echo "$ac_try_echo"; } >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "cannot run Fortran compiled programs.
 If you meant to cross compile, use \`--host'.
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
     fi
   fi
 fi
@@ -4286,7 +4310,8 @@ fi
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to accept unlimited column source lines
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   if test -n "$acx_cv_fc_line_length_unlimited"; then :
   as_fn_append FCFLAGS " $acx_cv_fc_line_length_unlimited"
@@ -4341,7 +4366,8 @@ $as_echo "$acx_cv_fc_module_in_flag" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to specify search paths for module files
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   FC_MOD_IN=$acx_cv_fc_module_in_flag
 
@@ -4395,7 +4421,8 @@ $as_echo "$acx_cv_fc_module_out_flag" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to specify output path for module files
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   FC_MOD_OUT=$acx_cv_fc_module_out_flag
 
@@ -4444,7 +4471,8 @@ $as_echo "unknown" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler module file naming template
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   if test "x$acx_cv_fc_module_naming_upper" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: NAME.$acx_cv_fc_module_naming_ext" >&5
@@ -4497,7 +4525,8 @@ $as_echo "$acx_cv_fc_ftn_include_flag" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to specify search paths for the \"INCLUDE\" statement
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   FC_INC_FLAG=$acx_cv_fc_ftn_include_flag
 
@@ -4625,7 +4654,8 @@ $as_echo "$acx_cv_fc_pp_include_flag" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to specify search paths for the quoted form of the \"#include\" directive
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   FC_INC_FLAG_PP_f90=$acx_cv_fc_pp_include_flag
 
@@ -4749,7 +4779,8 @@ $as_echo "$acx_cv_fc_macro_flag" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to define a preprocessor macro
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   FC_PP_DEF=$acx_cv_fc_macro_flag
 
@@ -4817,7 +4848,8 @@ else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags ''
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 fi
 
@@ -4996,7 +5028,8 @@ $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using Fortran 90 interface of MPI: either disable MPI support (--disable-mpi) or set FC to the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5048,7 +5081,8 @@ fi
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to enable OpenMP support
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   as_fn_append FCFLAGS " $acx_cv_fc_openmp_flag"
          { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the value of the Fortran preprocessor macro _OPENMP" >&5
@@ -5228,7 +5262,8 @@ fi
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to detect Fortran compiler flag needed to enable OpenACC support
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   as_fn_append FCFLAGS " $acx_cv_fc_openacc_flag"
          { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the value of the Fortran preprocessor macro _OPENACC" >&5
@@ -5384,7 +5419,8 @@ $as_echo "no" >&6; }
    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using Fortran 77 interface of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5434,7 +5470,8 @@ $as_echo "$icon_netcdf_supports_parallel" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "the provided version of NetCDF does not support parallel features: either disable usage of the parallel features of NetCDF (--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 elif test x"$icon_netcdf_supports_parallel" = xunknown; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&5
 $as_echo "$as_me: WARNING: unable to check whether the provided version of NetCDF supports parallel features" >&2;}
@@ -5487,7 +5524,8 @@ $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using RTE+RRTMGP: either disable RTE+RRTMGP (--disable-rte-rrtmgp) or use the bundled version of RTE+RRTMGP (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5581,7 +5619,8 @@ $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using ECRAD: either disable ECRAD (--disable-ecrad) or use the bundled version of ECRAD (--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5686,7 +5725,8 @@ $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using RTTOV: either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5714,7 +5754,8 @@ $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using SCT: either disable SCT timer (--disable-sct) or use the bundled version of SCT (--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5823,7 +5864,8 @@ $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using YAXT: either disable the YAXT data exchange (--disable-yaxt) or use the bundled version of YAXT (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5919,7 +5961,8 @@ $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using CDI: either use the bundled version of CDI (--without-external-cdi) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5944,7 +5987,8 @@ $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "the provided version of CDI 1.8.x does not have required patches
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -5985,7 +6029,8 @@ $as_echo "$icon_cdi_format_result" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "the provided version of CDI does not support $icon_cdi_format_name
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 elif test x"$icon_cdi_format_result" = xunknown; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to check whether the provided version of CDI supports $icon_cdi_format_name" >&5
 $as_echo "$as_me: WARNING: unable to check whether the provided version of CDI supports $icon_cdi_format_name" >&2;}
@@ -6024,7 +6069,8 @@ $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using CDI-PIO: either disable the usage of the parallel features of CDI (--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6134,7 +6180,8 @@ $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using SERIALBOX2: either disable the serialization (--disable-serialization) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6165,7 +6212,8 @@ $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using MTIME: either use the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6249,7 +6297,8 @@ $as_echo "no" >&6; }
    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using BLAS: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6270,7 +6319,8 @@ $as_echo "no" >&6; }
    { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using LAPACK: set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6300,7 +6350,8 @@ $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using YAC: either disable the coupling (--disable-coupling) or use the bundled version of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6445,7 +6496,8 @@ $as_echo "no" >&6; }
          { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using TIXI: either disable the ART component (--disable-art) or use the bundled version of TIXI (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6535,7 +6587,8 @@ $as_echo "no" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to link a test program using SELF 0.2 library: either use the bundled version of SELF (--without-external-self) or set FCFLAGS, LDFLAGS and LIBS accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
@@ -6776,7 +6829,8 @@ $as_echo "unknown" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find python
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 
 
@@ -6816,7 +6870,8 @@ $as_echo "unknown" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find perl
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 
 
@@ -6899,7 +6954,8 @@ $as_echo "$icon_claw_result" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find a valid CLAW preprocessor command: either disable CLAW preprocessing (--disable-claw) or set CLAW accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
    ac_config_files="$ac_config_files claw.mk"
 
@@ -7040,7 +7096,8 @@ $as_echo "unknown" >&6; }
       { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find a valid Fortran preprocessor command: either disable explicit Fortran preprocessing (--disable-explicit-fpp) or set FPP accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 else
   FPP=
@@ -7079,7 +7136,8 @@ $as_echo "$icon_sb2pp_result" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find a valid Serialbox2 preprocessor command: either disable the serialization (--disable-serialization) or make sure that path to the 'pp_ser' module is in the PYTHONPATH environment variable, or set SB2PP accordingly
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 fi
 else
   SB2PP=
@@ -7137,7 +7195,8 @@ $as_echo "$acx_prog_search_abspath" >&6; }
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
 as_fn_error $? "unable to find the absolute path to $acx_prog_exec
-See \`config.log' for more details" "$LINENO" 5; }
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
 else
   if test -n "$acx_prog_args"; then :
   as_fn_append acx_prog_search_abspath " $acx_prog_args"
