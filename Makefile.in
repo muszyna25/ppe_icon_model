@@ -2,7 +2,7 @@
 
 SHELL= @SHELL@
 BUILD_ENV= @BUILD_ENV_MAKE@
-DELEGATED_RULES= all depend preprocess mostlyclean clean maintainer-clean install srclist check
+DELEGATED_RULES= all depend preprocess mostlyclean clean install srclist check
 DELEGATEE_FILE= icon.mk
 
 .SUFFIXES:

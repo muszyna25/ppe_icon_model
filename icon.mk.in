@@ -173,11 +173,11 @@ vpath %.c $(srcdir)
 .SUFFIXES:
 # Targets not associated with files:
 .PHONY: all depend dummy-depend preprocess mostlyclean clean \
-        distclean maintainer-clean install check force-create-version \
+        distclean install check force-create-version \
         sanitize-mod-proxies
 # Targets that do not need the inclusion of the dependency files:
 NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
-                 distclean maintainer-clean
+                 distclean
 # Call make inside the subdirectories unconditionally:
 .PHONY: $(bundled_subdirs)
 # Keep directory stamps:
@@ -235,10 +235,6 @@ distclean: clean
 	  done; \
 	fi
 	rm -f icon.mk
-
-# Delete files generated at the autoreconf stage:
-maintainer-clean: distclean
-	rm -rf autom4te.cache config.h.in~
 
 # Installation rule:
 install: all
