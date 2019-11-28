@@ -603,8 +603,7 @@ DEPGEN_FCFLAGS
 BUNDLED_LIBFILES
 FPP_ENABLED
 SB2_ENABLED
-CUDA_ENABLED
-OPENACC_ENABLED
+GPU_ENABLED
 OPENMP_ENABLED
 MPI_ENABLED
 ART_ENABLED
@@ -706,7 +705,7 @@ enable_mpi
 enable_mpi_checks
 enable_active_target_sync
 enable_openmp
-enable_openacc
+enable_gpu
 enable_grib2
 enable_parallel_netcdf
 enable_cdi_pio
@@ -1392,7 +1391,7 @@ Infrastructural Features:
                           enable MPI active target mode (otherwise, passive
                           target mode is used) [default=no]
   --enable-openmp         enable OpenMP support [default=yes]
-  --enable-openacc        enable OpenACC support [default=no]
+  --enable-gpu            enable GPU support [default=no]
   --enable-grib2          enable GRIB2 I/O [default=no]
   --enable-parallel-netcdf
                           enable usage of the parallel features of NetCDF
@@ -2256,13 +2255,13 @@ else
 fi
 
 
-# Check whether --enable-openacc was given.
-if test "${enable_openacc+set}" = set; then :
-  enableval=$enable_openacc; if test x"$enableval" != xno; then :
-  enable_openacc=yes
+# Check whether --enable-gpu was given.
+if test "${enable_gpu+set}" = set; then :
+  enableval=$enable_gpu; if test x"$enableval" != xno; then :
+  enable_gpu=yes
 fi
 else
-  enable_openacc=no
+  enable_gpu=no
 fi
 
 
@@ -4820,16 +4819,13 @@ else
 
 fi
 
-if test "x$enable_openacc" = xyes; then :
-  OPENACC_ENABLED=''
+if test "x$enable_gpu" = xyes; then :
+  GPU_ENABLED=''
 
 else
-  OPENACC_ENABLED='#'
+  GPU_ENABLED='#'
 
 fi
-
-CUDA_ENABLED='#'
-
 
 if test "x$enable_parallel_netcdf" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"
@@ -5202,7 +5198,7 @@ $as_echo "$acx_cv_fc_macro__OPENMP_defined" >&6; }
 fi
 fi
 
-if test "x$enable_openacc" = xyes; then :
+if test "x$enable_gpu" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to enable OpenACC support" >&5
 $as_echo_n "checking for Fortran compiler flag needed to enable OpenACC support... " >&6; }
    if ${acx_cv_fc_openacc_flag+:} false; then :
@@ -5332,8 +5328,8 @@ $as_echo "$as_me: WARNING: unable to detect supported OpenACC version" >&2;}
          as_fn_append DEPGEN_FCFLAGS " ${FC_PP_DEF}_OPENACC"
 else
   if test "$acx_macro_value" -lt 201711 >&5 2>&1; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Fortran compiler does not support OpenACC 2.6 (201711): it is strongly recommended to disable OpenACC support (--disable-openacc)" >&5
-$as_echo "$as_me: WARNING: Fortran compiler does not support OpenACC 2.6 (201711): it is strongly recommended to disable OpenACC support (--disable-openacc)" >&2;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Fortran compiler does not support OpenACC 2.6 (201711): it is strongly recommended to disable GPU support (--disable-gpu)" >&5
+$as_echo "$as_me: WARNING: Fortran compiler does not support OpenACC 2.6 (201711): it is strongly recommended to disable GPU support (--disable-gpu)" >&2;}
 fi
       as_fn_append DEPGEN_FCFLAGS " ${FC_PP_DEF}_OPENACC=$acx_macro_value"
 fi
@@ -5378,7 +5374,7 @@ $as_echo "$acx_cv_fc_macro__OPENACC_defined" >&6; }
    acx_macro_defined=$acx_cv_fc_macro__OPENACC_defined
 
    if test "x$acx_macro_defined" = xyes; then :
-  as_fn_error $? "Fortran compiler enables OpenACC support by default: set FCFLAGS accordingly to disable it" "$LINENO" 5
+  as_fn_error $? "Fortran compiler enables OpenACC support by default: either enable GPU support (--enable-gpu) or set FCFLAGS accordingly to disable OpenACC" "$LINENO" 5
 fi
 fi
 
@@ -5554,7 +5550,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_openacc" --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" NETCDF_FCFLAGS= NETCDF_FCLIBS= --enable-openacc="$enable_gpu" --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

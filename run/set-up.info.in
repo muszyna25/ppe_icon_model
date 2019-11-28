@@ -33,13 +33,9 @@ use_mpi='no'
 use_openmp='no'
 @OPENMP_ENABLED@use_openmp='yes'
 
-# Set use_openacc:
-use_openacc='no'
-@OPENACC_ENABLED@use_openacc='yes'
-
-# Set use_cuda:
-use_cuda='no'
-@CUDA_ENABLED@use_cuda='yes'
+# Set use_gpu:
+use_gpu='no'
+@GPU_ENABLED@use_gpu='yes'
 
 # Set use_builddir:
 use_builddir='@abs_top_builddir@'
@@ -67,10 +63,7 @@ case "$use_site" in
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
-        case "${use_cuda}${use_openacc}" in
-          *yes*) use_target='daint_gpu' ;;
-          *) use_target='daint_cpu' ;;
-        esac
+        if test xyes = x"${use_gpu}"; then use_target='daint_gpu'; else use_target='daint_cpu'; fi
       ;;
 
       *tave*)
@@ -86,10 +79,7 @@ case "$use_site" in
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
-        case "${use_cuda}${use_openacc}" in
-          *yes*) use_target='kesch_gpu' ;;
-          *) use_target='kesch_cpu' ;;
-        esac
+        if test xyes = x"${use_gpu}"; then use_target='kesch_gpu'; else use_target='kesch_cpu'; fi
       ;;
     esac
   ;;
@@ -119,10 +109,7 @@ case "$use_site" in
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun'
-        case "${use_cuda}${use_openacc}" in
-          *yes*) use_target='bullx_gpu' ;;
-          *) use_target='bullx_cpu' ;;
-        esac
+        if test xyes = x"${use_gpu}"; then use_target='bullx_gpu'; else use_target='bullx_cpu'; fi
       ;;
     esac
   ;;

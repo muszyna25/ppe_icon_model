@@ -121,11 +121,11 @@ AC_ARG_ENABLE([openmp],
   [AS_IF([test x"$enableval" != xno], [enable_openmp=yes])],
   [enable_openmp=yes])
 
-AC_ARG_ENABLE([openacc],
-  [AC_HELP_STRING([--enable-openacc],
-     [enable OpenACC support @<:@default=no@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_openacc=yes])],
-  [enable_openacc=no])
+AC_ARG_ENABLE([gpu],
+  [AC_HELP_STRING([--enable-gpu],
+     [enable GPU support @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_gpu=yes])],
+  [enable_gpu=no])
 
 AC_ARG_ENABLE([grib2],
   [AC_HELP_STRING([--enable-grib2],
@@ -472,12 +472,9 @@ AS_VAR_IF([enable_openmp], [yes],
   [AC_SUBST([OPENMP_ENABLED], [''])],
   [AC_SUBST([OPENMP_ENABLED], ['#'])])
 
-AS_VAR_IF([enable_openacc], [yes],
-  [AC_SUBST([OPENACC_ENABLED], [''])],
-  [AC_SUBST([OPENACC_ENABLED], ['#'])])
-
-dnl Support for CUDA is not implemented yet:
-AC_SUBST([CUDA_ENABLED], ['#'])
+AS_VAR_IF([enable_gpu], [yes],
+  [AC_SUBST([GPU_ENABLED], [''])],
+  [AC_SUBST([GPU_ENABLED], ['#'])])
 
 AS_VAR_IF([enable_parallel_netcdf], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"])])
@@ -638,7 +635,7 @@ AS_VAR_IF([enable_openmp], [yes],
      [AC_MSG_ERROR([Fortran compiler enables OpenMP support by default: set dnl
 FCFLAGS accordingly to disable it])])])
 
-AS_VAR_IF([enable_openacc], [yes],
+AS_VAR_IF([enable_gpu], [yes],
   [ACX_LANG_OPENACC_FLAG(
      [AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_openacc_flag"])
       ACX_LANG_MACRO_CHECK_VALUE([_OPENACC],
@@ -648,14 +645,14 @@ AS_VAR_IF([enable_openacc], [yes],
          AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENACC"])],
         [AS_IF([test "$acx_macro_value" -lt 201711 >&AS_MESSAGE_LOG_FD 2>&1],
            [AC_MSG_WARN([Fortran compiler does not support OpenACC 2.6 dnl
-(201711): it is strongly recommended to disable OpenACC support dnl
-(--disable-openacc)])])
+(201711): it is strongly recommended to disable GPU support (--disable-gpu)])])
       AS_VAR_APPEND([DEPGEN_FCFLAGS],
         [" ${FC_PP_DEF}_OPENACC=$acx_macro_value"])])])],
   [ACX_LANG_MACRO_CHECK_DEFINED([_OPENACC])
    AS_VAR_IF([acx_macro_defined], [yes],
      [AC_MSG_ERROR([Fortran compiler enables OpenACC support by default: dnl
-set FCFLAGS accordingly to disable it])])])
+either enable GPU support (--enable-gpu) or set FCFLAGS accordingly to dnl
+disable OpenACC])])])
 
 AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
 available])
@@ -761,7 +758,7 @@ LIBS accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openacc])]],
         [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
          [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
-         [--enable-openacc="$enable_openacc"],
+         [--enable-openacc="$enable_gpu"],
          [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([bundled_includes],
         ["${FC_MOD_IN}externals/rte-rrtmgp/mod "])
