@@ -31,10 +31,11 @@ AEC_LIBS="-lsz -laec"
 
 ######################
 
-ICON_DIR="$(cd "$(dirname "$0")"; pwd)/../.."
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR="${MY_DIR}/../.."
 PREFIX="${PWD}/install"
 
-BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral ; . ${ICON_DIR}/build_env_init.sh; switch_for_modules intel/17.0.6 openmpi/2.0.2p2_hpcx-intel14;"
+BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral ; . ${MY_DIR}/build_env_init.sh; switch_for_modules intel/17.0.6 openmpi/2.0.2p2_hpcx-intel14;"
 
 FC='/sw/rhel6-x64/intel/intel-17.0.6/bin/ifort'
 CC='/sw/rhel6-x64/intel/intel-17.0.6/bin/icc'

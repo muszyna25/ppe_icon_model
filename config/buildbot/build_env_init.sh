@@ -5,8 +5,7 @@
 # https://www.gnu.org/software/autoconf/manual/autoconf-2.69/html_node/Portable-Shell.html
 #
 # Example:
-# ICON_DIR=`pwd`
-# ${ICON_DIR}/configure BUILD_ENV='. ${ICON_DIR}/build_env_init.sh; switch_for_module PrgEnv-cray/6.0.4;'
+# ${ICON_DIR}/configure BUILD_ENV='. ./build_env_init.sh; switch_for_module PrgEnv-cray/6.0.4;'
 
 function switch_for_module {
   if test ! -z $1; then
