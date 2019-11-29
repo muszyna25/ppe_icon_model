@@ -396,6 +396,8 @@ MODULE mo_ext_data_types
       &  albni_dif(:,:,:)      !< (0.7 - 5.0 um)
                                ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
+    REAL(wp), POINTER ::   &   !< Broadband longwave (thermal) emissivity of the surface   [1]
+      &  lw_emiss(:,:,:)       !< index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
     !
     ! *** vegetation parameters ***

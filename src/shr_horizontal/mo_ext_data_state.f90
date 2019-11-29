@@ -64,7 +64,7 @@ MODULE mo_ext_data_state
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
-  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle
+  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle, itype_lwemiss
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              GRID_UNSTRUCTURED
@@ -1408,6 +1408,20 @@ CONTAINS
 
     ENDIF  ! albedo_type
 
+
+    IF (itype_lwemiss == 2) THEN
+
+      ! Broadband longwave surface emissiivty, monthly data
+      !
+      ! lw_emiss   p_ext_atm_td%lw_emiss(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('longwave emissivity', '-', &
+        &                   'broadband longwave surface emissivity', datatype_flt)
+      grib2_desc = grib2_var(2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'lw_emiss', p_ext_atm_td%lw_emiss,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE., isteptype=TSTEP_AVG       )
+
+    ENDIF
 
     IF (itype_vegetation_cycle > 1) THEN
       ! t2m_m     p_ext_atm_td%t2m_m(nproma,nblks_c,ntimes)

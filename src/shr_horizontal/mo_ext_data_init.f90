@@ -49,7 +49,7 @@ MODULE mo_ext_data_init
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
                                    ci_td_filename, itype_lndtbl, c_soil, c_soil_urb
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename,   &
+  USE mo_extpar_config,      ONLY: itopo, itype_lwemiss, extpar_filename, generate_filename,   &
     &                              generate_td_filename, extpar_varnames_map_file,       &
     &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext, &
     &                              itype_vegetation_cycle, read_nc_via_cdi
@@ -324,6 +324,15 @@ CONTAINS
           ENDDO
         ENDIF  ! albedo_type
 
+        IF ( itype_lwemiss == 2) THEN
+          DO jg = 1, n_dom
+            CALL interpol_monthly_mean(p_patch(jg),                      &! in
+              &                        assumePrevMidnight(this_datetime),&! in
+              &                        ext_data(jg)%atm_td%lw_emiss,     &! in
+              &                        ext_data(jg)%atm%emis_rad         )! out
+          ENDDO
+        ENDIF  ! albedo_type
+
         ! clean up
         CALL deallocateDatetime(this_datetime)
 
@@ -502,6 +511,13 @@ CONTAINS
           &  (test_cdi_varID(cdi_extpar_id, 'ALNID') == -1) .OR.    &
           &  (test_cdi_varID(cdi_extpar_id, 'ALUVD') == -1) ) THEN
           CALL finish(routine,'MODIS albedo fields missing in '//TRIM(extpar_filename))
+        ENDIF
+      ENDIF
+
+      ! Check whether external parameter file contains monthly longwave surface emissivity data
+      IF ( itype_lwemiss == 2 ) THEN
+        IF (test_cdi_varID(cdi_extpar_id, 'EMISS')   == -1) THEN
+          CALL finish(routine,'Monthly longwave surface emissvity data missing in '//TRIM(extpar_filename))
         ENDIF
       ENDIF
 
@@ -1065,7 +1081,9 @@ CONTAINS
             ext_data(jg)%atm%fr_glac(:,:) = ext_data(jg)%atm%lu_class_fraction(:,:,ext_data(jg)%atm%i_lc_snow_ice)
           ENDIF
 
-          IF ( l_emiss ) THEN
+          IF (itype_lwemiss == 2) THEN
+            CALL read_extdata('EMISS',   arr3d=ext_data(jg)%atm_td%lw_emiss)
+          ELSE IF (itype_lwemiss == 1) THEN
             CALL read_extdata('EMIS_RAD', ext_data(jg)%atm%emis_rad)
           ELSE
             ext_data(jg)%atm%emis_rad(:,:)= zemiss_def

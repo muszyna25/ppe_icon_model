@@ -8457,11 +8457,14 @@ If .TRUE., sea point heights will be reverted to original (raw data) heights aft
 \tabularnewline
 
 %\hline
-l\_emiss&
-L &
-.TRUE.&
+itype\_lwemiss&
+I &
+1 &
 &
-read and use  external surface emissivity map
+Type of data used for longwave surface emissivity: \\
+0: No data; use constant fallback value instead \\
+1: Read and use emissivities derived in extpar from landuse classes \\
+2: Read and use monthly climatologies derived from satellite measurements
 &
 itopo = 1
 \tabularnewline
