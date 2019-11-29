@@ -77,7 +77,7 @@ cd $(dirname $0)
 this_folder=$(pwd)
 base_folder=${this_folder%/*}
 
-for config_file in ${base_folder}/config/set-up.info ${base_folder}/config/create_target_header; do
+for config_file in ${base_folder}/run/set-up.info ${base_folder}/run/create_target_header; do
   if test -f ${config_file} ; then
     source ${config_file}
   else

@@ -151,7 +151,7 @@ ICON_DATA_PATH=@abs_top_srcdir@/data
 ICON_BUILD_PATH=@abs_top_builddir@
 ICON_RUN_PATH=@abs_top_builddir@/run
 #-----------------------------------------------------------------------------
-. ${thisdir}/../config/set-up.info
+. ${thisdir}/../run/set-up.info
 
 #-----------------------------------------------------------------------------
 # set default data paths

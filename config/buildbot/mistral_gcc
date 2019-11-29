@@ -8,7 +8,7 @@ MPI_FCFLAGS="-I${MPI_ROOT}/lib -I${MPI_ROOT}/include"
 MPI_LDFLAGS="-L${MPI_ROOT}/lib"
 MPI_LIBS="-Wl,-rpath -Wl,${MPI_ROOT}/lib -Wl,--enable-new-dtags -L${MPI_ROOT}/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi"
 MPI_LAUNCH="${MPI_ROOT}/bin/mpiexec"
-MPI_LAUNCH='srun'
+#MPI_LAUNCH='srun'
 
 NETCDF_ROOT='/sw/rhel6-x64/netcdf/netcdf_c-4.4.0-parallel-openmpi2-gcc64'
 NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
@@ -48,11 +48,11 @@ BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral ; . ${ICON_DIR}/build_env_init.sh
 FC='/sw/rhel6-x64/gcc/gcc-6.4.0/bin/gfortran'
 CC='/sw/rhel6-x64/gcc/gcc-6.4.0/bin/gcc'
 
-ICON_CFLAGS=-DgFortran
-ICON_FCFLAGS="-ffree-line-length-none -DHAVE_FC_ATTRIBUTE_CONTIGUOUS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -g  -cpp -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fmodule-private -fimplicit-none -fmax-identifier-length=63"
+ICON_CFLAGS="-std=gnu99 -g -O3 -march=native -DgFortran"
+ICON_FCFLAGS="-DHAVE_FC_ATTRIBUTE_CONTIGUOUS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -g -O2 -mpc64 -march=native -cpp -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-none"
 
-CFLAGS=
-FCFLAGS="${MPI_FCFLAGS} ${NETCDFF_FCFLAGS} -std=f2008"
+CFLAGS='-std=gnu99 -g -O3 -march=native'
+FCFLAGS="${MPI_FCFLAGS} ${NETCDFF_FCFLAGS} -std=f2008 -g -O2 -mpc64 -march=native"
 CPPFLAGS="${AEC_CPPFLAGS} ${MPI_CPPFLAGS} ${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS}"
 LDFLAGS="-L/sw/rhel6-x64/gcc/gcc-6.4.0/lib64 ${AEC_LDFLAGS} ${MPI_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS}"
 LIBS="${AEC_LIBS} ${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${MPI_LIBS}"
@@ -67,26 +67,15 @@ BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-
 
 ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" ICON_CFLAGS="${ICON_CFLAGS}" ICON_FCFLAGS="${ICON_FCFLAGS}" MPI_LAUNCH="${MPI_LAUNCH}" --enable-grib2  --enable-active-target-sync --disable-parallel-netcdf --disable-openmp --enable-yaxt "$@"
 
+MAKE_PROCS=22
+make -j ${MAKE_PROCS}
 
-cat > ./config/set-up.info << EOF
-##################################
-use_site='dkrz.de'
-use_target='bullx'
-use_compiler='gcc'
-use_mpi='yes'
-use_openmp='no'
-use_bindir='./install/bin'
-use_mpi_root='/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-gcc64'
-use_mpi_procs_pernode=''
-use_mpi_startrun='srun'
-use_load_modules='gcc/6.4.0 ncl/6.2.1-gccsys cdo/1.9.5-gcc64 openmpi/2.0.2p2_hpcx-gcc64'
-use_load_profile='. /etc/profile'
-use_netcdflibpath='/sw/rhel6-x64/netcdf/netcdf_c-4.4.0-parallel-openmpi2-gcc64/lib'
-use_cdilibpath=''
-use_make_command='make -j 8'
-use_submit='sbatch'
-use_sync_submit='sbatch --wait'
-use_shell=''
-use_flags_group='std'
-##################################
-EOF
+./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
+test -f make_runscripts ||  cp ${ICON_DIR}/make_runscripts .
+test -d scripts ||  ln -s ${ICON_DIR}/scripts .
+test -d data  || ln -s ${ICON_DIR}/data .
+
+# needed for out-of-source builds
+#rsync -avz --exclude='*in' --exclude='.*' ${ICON_DIR}/run .
+#rsync -avz ${ICON_DIR}/externals . --del  --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'

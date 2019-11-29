@@ -329,7 +329,7 @@ fi
 #
 #  get model
 #
-export MODEL=@abs_top_builddir@/icon
+export MODEL=@abs_top_builddir@/bin/icon
 #
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"

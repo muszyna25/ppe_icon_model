@@ -4,6 +4,7 @@ case "$use_host" in
   wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
   daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
+  melian) use_site=local.net ;;
   *) use_site=`host -n "$use_host" 2>/dev/null | awk '/has address/ {print $1}' 2>/dev/null | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}' 2>/dev/null`
      test -n "$use_site" || use_site='local.net' ;;
 esac
@@ -110,9 +111,9 @@ case "$use_site" in
 
   dkrz.de)
     case "$use_host" in
-      btlogin*|btc*|mlogin*)
+      btlogin*|btc*|mlogin*|m*)
         use_load_profile='/etc/profile'
-        use_load_modules='ncl/6.2.1-gccsys cdo/1.9.5-gcc64'
+        use_load_modules='ncl/6.2.1-gccsys cdo/1.9.5-gcc64 git python'
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun'
@@ -169,7 +170,7 @@ case "$use_site" in
 
   mpg.de)
     case "$use_host" in
-      mpipc*)
+      mpipc*|breeze*)
         use_target='mpipc'
         case "`lsb_release -c | awk '{print $2}'`" in
           stretch)
@@ -189,6 +190,17 @@ case "$use_site" in
   ecmwf.int)
   ;;
 
+  local.net)
+    case "$use_host" in
+      melian)
+        use_target='archlinux'
+        use_mpi_startrun='mpiexec'
+        use_mpi_procs_pernode=2
+        use_shell='/bin/bash'
+      ;;
+    esac
+  ;;
+
   pa.cluster)
     use_target='pacluster'
     use_submit='qsub'
@@ -196,3 +208,4 @@ case "$use_site" in
 
 esac
 
+# vim:ft=sh

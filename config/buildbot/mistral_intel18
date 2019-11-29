@@ -64,26 +64,12 @@ BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-
 
 ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="${MPI_LAUNCH}" ICON_CFLAGS="$ICON_CFLAGS" ICON_FCFLAGS="$ICON_FCFLAGS" --enable-grib2 --enable-active-target-sync --enable-parallel-netcdf --disable-openmp --enable-yaxt "$@"
 
+MAKE_PROCS=22
+make -j ${MAKE_PROCS}
 
-cat > ./config/set-up.info << EOF
-##################################
-use_site='dkrz.de'
-use_target='bullx'
-use_compiler='intel'
-use_mpi='yes'
-use_openmp='no'
-use_bindir='./install/bin'
-use_mpi_root='/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-intel14'
-use_mpi_procs_pernode=''
-use_mpi_startrun='srun'
-use_load_modules='intel/18.0.4 ncl/6.2.1-gccsys cdo/1.9.5-gcc64 openmpi/2.0.2p2_hpcx-intel14'
-use_load_profile='. /etc/profile'
-use_netcdflibpath='/sw/rhel6-x64/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14/lib'
-use_cdilibpath=''
-use_make_command='make -j 8'
-use_submit='sbatch'
-use_sync_submit='sbatch --wait'
-use_shell=''
-use_flags_group='std'
-##################################
-EOF
+./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
+test -f make_runscripts ||  cp ${ICON_DIR}/make_runscripts .
+test -d scripts ||  ln -s ${ICON_DIR}/scripts .
+test -d data  || ln -s ${ICON_DIR}/data .
+rsync -avz ${ICON_DIR}/externals . --del  --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'

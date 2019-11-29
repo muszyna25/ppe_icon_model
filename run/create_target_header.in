@@ -108,7 +108,7 @@ cat >> $output_script << EOF
 #=============================================================================
 # load profile
 if [ -a  $profile_filename ] ; then
-$use_load_profile
+. $use_load_profile
 #=============================================================================
 #=============================================================================
 # load modules
@@ -535,7 +535,7 @@ EOF
 
 
 
-set_run_target_bullx()
+set_run_target_bullx_cpu()
 {
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
@@ -713,6 +713,30 @@ $(case $use_flags_group in
 EOF
 }
 
+#=============================================================================
+set_run_target_archlinux()
+{
+
+  set_default use_nproma 64
+  use_nodes=1
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
+
+  set_default use_nodes 1
+  if [[ $use_mpi == "yes" ]]; then
+    set_default use_mpi_procs_pernode 2
+  fi
+  if [[ $use_openmp == "yes" ]]; then
+    set_default use_openmp_threads 2
+  else
+    set_default use_openmp_threads 1
+  fi
+
+  use_mpi_startrun="$use_mpi_startrun -n \$mpi_procs_pernode"
+
+  # create header
+  start_header
+}
 #=============================================================================
 set_run_target_mpipc()
 {
