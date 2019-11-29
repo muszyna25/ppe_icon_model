@@ -5,7 +5,7 @@ set -eu
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../../.."
 
-BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.5 cce/9.0.2-classic cray-netcdf;"
+BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.5 cce/9.0.2-classic cray-netcdf;"
 
 # There is a known MPI library defect of external32 data packing, which is the
 # only serialization guaranteed to be portable across different MPI

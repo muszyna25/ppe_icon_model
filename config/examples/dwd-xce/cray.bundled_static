@@ -7,7 +7,7 @@ set -eu
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../../.."
 
-BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cray-netcdf/4.3.2;"
+BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cray-netcdf/4.3.2;"
 
 # We extend BUILD_ENV here only for testing, i.e. to prevent as many tests from
 # failing as possible when running 'make check' on the login nodes with Sandy
@@ -22,7 +22,7 @@ RTTOV_FCFLAGS="-I${RTTOV_ROOT}/include/radiance"
 RTTOV_LDFLAGS="-L${RTTOV_ROOT}/lib -L${RTTOV_ROOT}/lib/unsupported"
 RTTOV_LIBS='-lradiance -lrttov10.2 -lhrit_tools'
 
-. ${ICON_DIR}/build_env_init.sh
+. ${MY_DIR}/build_env_init.sh
 switch_for_modules eccodes aec
 ECCODES_CPPFLAGS=$ECCODES_INCLUDE
 ECCODES_LDFLAGS="-L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"

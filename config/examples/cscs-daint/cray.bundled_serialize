@@ -5,7 +5,7 @@ set -eu
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../../.."
 
-BUILD_ENV=". ${ICON_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.4 cray-netcdf/4.6.1.2;"
+BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/6.0.4 cray-netcdf/4.6.1.2;"
 
 GRIBAPI_ROOT='/apps/daint/UES/6.0.UP02/sandbox-ws/grib_api'
 GRIBAPI_LIBS='-lgrib_api'
