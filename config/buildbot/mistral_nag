@@ -65,7 +65,7 @@ CPPFLAGS="${MPI_CPPFLAGS} ${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS}
 LDFLAGS="${MPI_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS} ${BLAS_LAPACK_LDFLAGS}"
 LIBS="${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${MPI_LIBS}"
 
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/ /g;s/-L[ ]/-L/g;s/[ ]\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
 ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-active-target-sync --enable-parallel-netcdf --disable-mpi-checks --disable-openmp --disable-parallel-netcdf --enable-yaxt "$@"
 

@@ -51,8 +51,6 @@
 /Rakefile
 /tempList
 cdo_diffn*.out
-config/mh-config-use
-config/set-up.info
 experiments*
 src/lnd_phy_jsbach
 

@@ -59,14 +59,14 @@ LIBS="${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${MPI_LIBS} ${B
 # -lpnetcdf but does not set RPATH flags for it. The resulting executables
 # fail because the library is not in the runtime library search path.
 # Therefore, we need to add an additional path to LD_LIBRARY_PATH:
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*-L[ ]*/:/g' -e 's/[ ][ ]*/:/g'`:/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/ /g;s/-L[ ]/-L/g;s/[ ]\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
 
 MPI_LAUNCH="${MPI_ROOT}/bin/mpiexec"
 
 CONFIG_SHELL=/bin/bash /bin/bash ${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" --enable-grib2  --enable-active-target-sync --enable-parallel-netcdf --enable-openmp --enable-yaxt "$@"
 
 
-cat > ./config/set-up.info << EOF
+cat > ./run/set-up.info << EOF
 ##################################
 use_site='dkrz.de'
 use_target='bullx'
