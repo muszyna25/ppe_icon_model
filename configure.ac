@@ -1886,7 +1886,8 @@ AC_CONFIG_COMMANDS([Makefiles],
                             clawfile="$(basename ${jsbach_file} .f90)_claw.f90"
                             #if ! cmp ${jsbach_file} externals/jsbach/pp/$(basename ${jsbach_file}) >/dev/null 2>&1 ; then
                             # Compare hash value from headers of dsl4jsb pre-processed and archived files. If hey haven't changed
-                            # there is no need to run through claw.
+                            # there is no need to run through claw but, instead, we set the modification time of the _dsl4jsb_claw.f90 file to
+                            # slightly (1 second) later than the _dsl4jsb.f90 file to avoid that make thinks it has to generate a new claw file.
                             if eval test "\$(grep 'with md5 hash' $jsbach_file|head -1|sed 's/.*: //')" != \
                                          "\$(grep 'with md5 hash' externals/jsbach/pp/$(basename $jsbach_file)|head -1|sed 's/.*: //')"
                             then
@@ -1894,6 +1895,10 @@ AC_CONFIG_COMMANDS([Makefiles],
                               echo "${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file}"
                               ${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file} || exit
                               cp -p ${jsbach_file} externals/jsbach/pp/
+                            else
+                              unixtime=$(date -r "${jsbach_file}" +%s)
+                              touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb_claw.f90 is newer than _dsl4jsb.f90
+                              touch -t ${touchtime} ${my_iconppdir}/jsbpp/${clawfile}
                             fi
                           done
                         ],
