@@ -110,6 +110,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Instantaneous moisture flux on each tile
 
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR PRIVATE( zdqv )
       DO jl = jcs, kproma

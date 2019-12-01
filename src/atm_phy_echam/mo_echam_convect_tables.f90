@@ -194,6 +194,7 @@ MODULE mo_echam_convect_tables
   REAL(wp) :: tlucubw(jptlucu1-1:jptlucu2+1)    ! table - inner dEs/dT*L/cp, water phase only
   REAL(wp) :: tlucuc(jptlucu1-1:jptlucu2+1)     ! table - L/cp, mixed phases
   REAL(wp) :: tlucucw(jptlucu1-1:jptlucu2+1)    ! table - L/cp, water phase only
+  !$acc declare create(tlucua)
 
   ! fused tables for splines
   REAL(wp) :: tlucu(1:2,lucupmin-2:lucupmax+1)     ! fused table
@@ -337,6 +338,7 @@ CONTAINS
     END DO
 
     !$ACC ENTER DATA COPYIN( tlucu, tlucuw )
+    !$acc update device( tlucua )
 
   END SUBROUTINE init_convect_tables
   !----------------------------------------------------------------------------

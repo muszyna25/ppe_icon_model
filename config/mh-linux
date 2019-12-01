@@ -345,18 +345,20 @@ case "$ac_sitename" in
                         LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
                         LAPACK_LIB  = -llapack -lblas
                         config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                        CLAWFC      = /project/d56/install/daint/claw/v2.0.1/pgi/bin/clawfc
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
                             gpu*)
                                 config_target = daint_gpu
                                 FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda10.1 -Minfo=accel,inline
                                 LDFLAGS       = -ta=nvidia:cc60,cuda10.1
-                                CLAWFC_FLAGS  = ${CLAWFC_FLAGS} --target=gpu --directive=acc
+                                CLAWFC_FLAGS  = ${CLAWFC_FLAGS} --target=gpu --directive=acc -w 132
                                 ;;
                             *)
                                 config_target = daint_cpu
                                 FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
                                 LDFLAGS       = -tp=haswell -dynamic
+                                CLAWFC_FLAGS  = ${CLAWFC_FLAGS} --target=cpu --directive=none -w 132
                                 ;;
                         esac
                         # Setup of specific version
@@ -369,7 +371,7 @@ case "$ac_sitename" in
                             gpu)
                                 load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7 cdo-icon
                                 NVCC        = nvcc
-				NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
+                                NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
@@ -388,6 +390,7 @@ case "$ac_sitename" in
                                 OTHER_LIBS  = ${OTHER_LIBS} \$(SERIALBOX2ROOT)/lib/libSerialboxFortran.a ${GCC_PATH}/snos/lib64/libstdc++fs.a -lstdc++
                                 ;;
                         esac
+                        PP_FFLAGS   = "$(echo "${FFLAGS}" | sed -E 's/-[^ D]+//g')"
                         ;;
                     cray*)
                         FFLAGS      = -DgFortran -e Z -em -hadd_paren -r am -Ktrap=divz,ovf,inv

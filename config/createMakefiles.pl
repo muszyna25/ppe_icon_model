@@ -26,6 +26,7 @@ my $enable_jsbach;
 my $enable_rte_rrtmgp;
 my $enable_testbed;
 my $enable_serialization;
+my $enable_claw;
 my $iconsrcdir = "src";
 my $iconppdir;
 
@@ -41,6 +42,7 @@ GetOptions(
             'enable_testbed=s' => \$enable_testbed,
             'enable_gpu=s' => \$enable_gpu, 
             'enable_serialization=s' => \$enable_serialization,
+            'enable_claw=s' => \$enable_claw,
             'iconsrcdir=s' => \$iconsrcdir,
             'iconppdir=s' => \$iconppdir,
 	    ) or die "\n\nUsage: config/createMakefiles.pl --target=<OS_CPU> --srcdirs=< list of src directories>\n";  
@@ -360,15 +362,44 @@ EOF
 	 "%.o: %.F90\n",
 	 "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
     } else {	
-	# Extra rule for JSBACH source files which need to be pre-processed by dsl4jsb.py
-	print MAKEFILE "%_dsl4jsb.f90: %.f90\n",
-	 "\t@ ../../../externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -v -p _dsl4jsb -i \$<  -t .\n" ,
-	 "\n",
-	 "%.o: %.f90\n",
-	 "\t\$(FC) \$(FFLAGS) -c \$<\n",
-	 "\n",
-	 "%.o: %.F90\n",
-	 "\t\$(FC) \$(FFLAGS) -c \$<\n";
+	    # Extra rules for JSBACH source files which need to be pre-processed by dsl4jsb.py
+        # and for files which need to be further pre-processed by CLAW.
+        # Since CLAW can't handle parallel make very well (overwrites .xmod files) a workaround is used below
+        # which forces CLAW to write .xmod files into a unique temp directory for each processed file. Finished
+        # .xmod files are moved to the jsbpp directory so that they can be used in subsequent passes, but for the
+        # first few files this is inefficient because .xmod files of dependencies are computed more than once.
+        if ( $enable_jsbach eq "yes" && $dir eq basename($iconppdir) ) {
+	        print MAKEFILE "jsbpp/%_dsl4jsb.f90: %.f90\n",
+	         "\t@ PYTHONIOENCODING=utf-8 ${prefix}/externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -v -p _dsl4jsb -i \$<  -t jsbpp\n" ,
+             "\t@ rsync -c \$@ ${prefix}/externals/jsbach/pp/\n" ,
+	         "\n";
+    		if ($enable_claw eq "std") {
+                print MAKEFILE "jsbpp/%_claw.f90: jsbpp/%.f90\n",
+    	        "\t@ \$(eval PP_FFLAGS := \$(shell echo \"\$(FFLAGS)\" | sed -E 's/-[^ D]+//g' | sed 's/\\\.\\\.\\\/module//g'))\n",
+                "\t@ \$(eval TMP := \$(shell mktemp -d))\n",
+	            "\t  \$(CLAWFC) \$(PP_FFLAGS) -J \$(TMP) -J jsbpp \$(CLAWFC_FLAGS) -o \$@ \$<\n" ,
+                "\t@ mv \$(TMP)/\*.xmod jsbpp/\n",
+                "\t@ rm -rf \$(TMP)\n",
+                "\t@ cp -p \$@ ${prefix}/externals/jsbach/pp/\n" ,
+	            "\n";
+            } elsif ($enable_claw eq "validate") {
+                print MAKEFILE "jsbpp/%_claw.f90: jsbpp/%.f90\n",
+    	        "\t@ \$(eval PP_FFLAGS := \$(shell echo \"\$(FFLAGS)\" | sed -E 's/-[^ D]+//g' | sed 's/\\\.\\\.\\\/module//g'))\n",
+                "\t@ \$(eval TMP := \$(shell mktemp -d))\n",
+	            "\t  \$(CLAWFC) \$(PP_FFLAGS) -J \$(TMP) -J jsbpp \$(CLAWFC_FLAGS) -o \$@ \$<\n" ,
+                "\t@ mv \$(TMP)/\*.xmod jsbpp/\n",
+                "\t@ rm -rf \$(TMP)\n",
+	            "\n";
+            }
+        	print MAKEFILE "%.o: jsbpp/%.f90\n",
+	         "\t\$(FC) \$(FFLAGS) -c \$<\n",
+	         "\n";
+        }
+	  print MAKEFILE "%.o: %.f90\n",
+	  "\t\$(FC) \$(FFLAGS) -c \$<\n",
+	  "\n",
+	  "%.o: %.F90\n",
+	  "\t\$(FC) \$(FFLAGS) -c \$<\n\n";
     }
     
 #     print MAKEFILE "%.obj: %.f90\n";
@@ -406,6 +437,7 @@ EOF
     my @objects = ();
     foreach my $src (@uniq_sources) {
 	$src =~ s/\.\S+$/\.o/;
+    $src =~ s/^jsbpp\///;
 	push @objects, $src;
     }
     print MAKEFILE "OBJS =\t", IndentList(8, 0, \@objects), "\n\n";
@@ -487,6 +519,7 @@ __EOF__
 	    my $okey = $key;
 	    if ( "$okey" eq "jsb4_driver" ) {
 	        $okey = "jsb4_driver_dsl4jsb.o" ;
+            $value = "jsbpp/jsb4_driver_dsl4jsb.f90" ;
 	    } else {
 	        $okey =~ s/ *$/.o/;
 	    }
@@ -538,11 +571,17 @@ __EOF__
 	    next if ! defined $module_definitions{$modules[$i]};
 	    ($ofile) = $module_definitions{$modules[$i]};
 	    next if ($ofile eq "");
+        if ( $ofile =~ /_claw.f90/ ) {
+            push @dependencies, "jsbpp/".$ofile ;
+        }
 	    $ofile =~ s/f90$/o/;
 	    next if $object =~ $ofile;
 	    push @dependencies, $ofile;
 	}
 	next if $object =~ $file;
+    if ( $file =~ /_dsl4jsb/ ) {  # JSBACH files are in jsbpp
+        $file = "jsbpp/" . $file ;
+    }
 	print MAKEFILE "$object: $file ",
             IndentList (length($object)+length($file)+3, 0, \@dependencies),
             "\n\n";
@@ -607,28 +646,42 @@ sub ScanDirectory {
             my $nextpath="$workpath/$name";
             ScanDirectory($name, $nextpath, $level);
         } else {
-	    if ($enable_gpu eq "yes") {
-		$suffix_list = '\.[c|f|F]{1}(u|90|95|03)?$';
-	    } else {
-		$suffix_list = '\.[c|f|F]{1}(90|95|03)?$';
-	    }
-	    if ($name =~ /$suffix_list/) {
-                if ($workpath =~ "lnd_phy_jsbach") {
-                    # For JSBACH, use the pre-processed source file located in the build directory
-                    # These files need to be initially created by configure, with an additional "_dsl4jsb" before the suffix,
-                    # so that the Makefile dependencies can be generated here.
-                    my ($bname, $path, $suffix) = fileparse($name, '\.[^\.]*');  # parts of original source file
-                    $name = $bname . "_dsl4jsb" . $suffix ;                      # name of pre-processed JSBACH files
-                    open F, '<', $iconppdir . "/" . $name
-                        or die("Cannot open file ${iconppdir}/${name}", $!);
-                } else {
-		    open F, '<', $name
-                        or die("Cannot open file $name", $!);
-                }
-		my @lines = <F>;
-		close (F);
+			if ($enable_gpu eq "yes") {
+				$suffix_list = '\.[c|f|F]{1}(u|90|95|03)?$';
+	    	} else {
+				$suffix_list = '\.[c|f|F]{1}(90|95|03)?$';
+	    	}
 
-		push @source_files, $name;
+		    if ($name =~ /$suffix_list/) {
+				open F, '<', $name
+					or die("Cannot open file $name", $!);
+				my @lines = <F>;
+				close (F);
+				if ( ($enable_jsbach eq "yes") and ($workpath =~ "lnd_phy_jsbach") ) {
+					# For JSBACH, the source files are pre-processed by dsl4jsb.py and directly passed to @lines
+            		# so that the Makefile dependencies can be generated here.
+					my ($bname, $path, $suffix) = fileparse($name, '\.[^\.]*');  # parts of original source file
+                    # pp_name will eventually be the final source file to be compiled ...
+                    #    suffix "_dsl4jsb" for all JSBACH files and an additional
+                    #    suffix "_claw" for files that contain CLAW directives
+					my $pp_name = $bname ;
+					#if (grep(/dsl4jsb_/,@lines) gt 0) {   # Preferably, only do this when needed ... TODO
+						$pp_name = $pp_name . "_dsl4jsb" ;
+						@lines = `PYTHONIOENCODING=utf-8 $prefix/externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -i $name` ; # Pre-process file into @lines
+						chomp @lines ;
+					#}
+
+					if ($enable_claw =~ /std|validate/) {
+						if (grep(/^ *\!\$claw /,@lines) gt 0) {
+							$pp_name = $pp_name . "_claw" ;
+						}
+					}
+					$pp_name = $pp_name . $suffix ;
+					$name = $pp_name ;
+					push @source_files, "jsbpp/".$pp_name;
+        		} else {
+               		push @source_files, $name;
+            	}
 
 		my @filteredLines;
 		simplifiedCPPFilter(\@lines, \@filteredLines);

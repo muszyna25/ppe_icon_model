@@ -669,6 +669,8 @@ PROFILE_LIB
 LAPACK_LIB
 LAPACK_LIB_PATH
 LAPACKROOT
+CLAWFC_FLAGS
+CLAWFC
 SERIALBOX2_INCLUDE
 SERIALBOX2_LIB
 SERIALBOX2ROOT
@@ -754,6 +756,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -784,6 +787,7 @@ enable_testbed
 enable_psrad
 enable_mixed
 enable_gpu
+enable_claw
 enable_serialization
 enable_mh_file
 with_fortran
@@ -859,6 +863,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1111,6 +1116,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1248,7 +1262,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1401,6 +1415,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1443,6 +1458,8 @@ Optional Features:
   --enable-psrad          Use psrad model component.
   --enable-mixed          Use mixed precision dycore.
   --enable-gpu            Use GPU accelerators.
+  --enable-claw           Enable CLAW Compiler. Two modes are available: std
+                          (default) or validate
   --enable-serialization  Enable Serialbox2 serialization. Three modes are
                           available: read (default), perturb, create
   --disable-mh-file       disable machine file usage
@@ -2686,6 +2703,33 @@ else
   enable_gpu=no
 fi
 
+
+
+# Check whether --enable-claw was given.
+if test "${enable_claw+set}" = set; then :
+  enableval=$enable_claw;
+else
+  enable_claw=no
+fi
+
+
+if test "x$enable_claw" = "xyes"; then :
+  enable_claw="std"
+fi
+
+if test "x$enable_claw" != "xno"; then :
+  case "$enable_claw" in #(
+  "std") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"CLAW Compiler is enable in standard mode\"" >&5
+$as_echo "$as_me: WARNING: \"CLAW Compiler is enable in standard mode\"" >&2;} ;; #(
+  "validate") :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: \"CLAW Compiler is enable in VALIDATE mode\"" >&5
+$as_echo "$as_me: WARNING: \"CLAW Compiler is enable in VALIDATE mode\"" >&2;} ;; #(
+  *) :
+    as_fn_error $? "\"CLAW Compiler is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
+esac
+
+fi
 
 
 # Check whether --enable-serialization was given.
@@ -6673,6 +6717,9 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
+my_iconsrcdir="src"
+my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+
 if test "x$enable_serialization" != "xno"; then :
 
      my_iconsrcdir="build/${build_host}/pp"
@@ -6689,10 +6736,42 @@ if test "x$enable_serialization" != "xno"; then :
     as_fn_error $? "\"Serialbox2 serialization is enabled but UNKNOWN mode was requested\"" "$LINENO" 5 ;;
 esac
 
+fi
+
+if test "x$enable_claw" != "xno"; then :
+
+      case $config_target in #(
+  *_gpu) :
+    clawfc_target_flags="--target=gpu --directive=acc" ;; #(
+  *) :
+    clawfc_target_flags="--target=cpu --directive=none"
+              ;;
+esac
+     FFLAGS="${FFLAGS} ${DEFOPT}_CLAW"
+     ROOT_DIR=$(pwd)
+     CLAWFC_FLAGS="--Wf-no-module-cache -J ${ROOT_DIR}/src/io/shared/ -J ${ROOT_DIR}/src/shared/ -J ${ROOT_DIR}/src/parallel_infrastructure/ -J ${ROOT_DIR}/externals/omni-xmod-pool/mpi/3.0/ -J ${ROOT_DIR}/externals/mtime/src/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/configure_model/ -J ${ROOT_DIR}/src/drivers/ -J ${ROOT_DIR}/src/namelists/ -J ${ROOT_DIR}/src/shr_horizontal/ -I ${ROOT_DIR}/src/include/ -I ${NETCDF_DIR}/include -J ${ROOT_DIR}/src/io/restart/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/support/ -J ${ROOT_DIR}/externals/omni-xmod-pool/self/0.2/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/lnd_phy_nwp/ -J ${ROOT_DIR}/src/atm_phy_echam/ -J ${ROOT_DIR}/src/atm_phy_psrad/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} --model-config=${ROOT_DIR}/config/claw/icon_jsbach.toml ${clawfc_target_flags}"
+
+     # Add appropriate flags for validation mode
+     if test "x$enable_claw" = "xvalidate" ; then :
+
+           if test "x$enable_serialization" = "xno" ; then :
+
+              as_fn_error $? "\"CLAW validate mode require serialization to be enabled!\"" "$LINENO" 5
+
+fi
+           # Enable serialization support and update after kernels
+           CLAWFC_FLAGS=" ${CLAWFC_FLAGS} -x=sca_serialization_enabled:true -x=sca_serialization_enabled_direction:write -x=sca_forward_update_enabled_direction:out"
+
 else
 
-     my_iconsrcdir="src"
-     my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+           # Disable serializaion support and updates by kernel
+           CLAWFC_FLAGS=" ${CLAWFC_FLAGS} -x=sca_serialization_enabled:false -x=sca_forward_update_enabled:false"
+
+fi
 
 fi
 
@@ -6790,7 +6869,8 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
-FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
+#FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
+FFLAGS="${MODOPT}../support ${FFLAGS}"
 
 #------------------------
 if test x$with_flags = x; then
@@ -7029,6 +7109,11 @@ SERIALBOX2ROOT=$SERIALBOX2ROOT
 SERIALBOX2_LIB=$SERIALBOX2_LIB
 
 SERIALBOX2_INCLUDE=$SERIALBOX2_INCLUDE
+
+
+CLAWFC=$CLAWFC
+
+CLAWFC_FLAGS=$CLAWFC_FLAGS
 
 
 LAPACKROOT=$LAPACKROOT
@@ -7432,6 +7517,10 @@ use_path=$use_path
 
 if test ! -z $CRAY_LD_LIBRARY_PATH; then :
   use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
+fi
+
+if test "x$enable_serialization" != "xno"; then :
+  use_ld_library_path=$SERIALBOX2ROOT/lib:$use_ld_library_path
 fi
 
 use_ld_library_path=$use_ld_library_path
@@ -8148,6 +8237,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
                     enable_testbed="${enable_testbed}"
                     enable_gpu="${enable_gpu}"
                     enable_serialization="${enable_serialization}"
+                    enable_claw="${enable_claw}"
                     my_preprocess_command='${my_preprocess_command}'
 
 
@@ -8716,29 +8806,79 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
   case $ac_file$ac_mode in
     "Makefiles":C)
-                    if test "x$enable_serialization" != "xno"; then :
+       if test "x$enable_serialization" != "xno"; then :
 
-                           if ! test -d ${my_iconppdir}; then :
+              if ! test -d ${my_iconppdir}; then :
 
-                                  mkdir -p ${my_iconppdir}
-
-fi
-                           eval "${my_preprocess_command}"
+                     mkdir -p ${my_iconppdir}
 
 fi
-                    if test "x$enable_jsbach" = "xyes"; then :
-
-                           if ! test -d ${my_iconppdir}; then :
-
-                                  mkdir -p ${my_iconppdir}
+              eval "${my_preprocess_command}"
 
 fi
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
+       if test "x$enable_jsbach" = "xyes"; then :
+
+              if ! test -d ${my_iconppdir}/jsbpp; then :
+
+                     mkdir -p ${my_iconppdir}/jsbpp  # All JSBACH pre-processed files will go here (dsl4jsb and claw)
 
 fi
-                    if test "x$enable_rte_rrtmgp" = "xyes"; then :
 
-			   case $config_target in #(
+              # Pre-process all JSBACH source files with dsl4jsb.py
+              PYTHONIOENCODING=utf-8 externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}/jsbpp
+
+              if test "x$enable_claw" != "xno"; then :
+
+                      PP_FFLAGS="$(echo "${FFLAGS}" | sed -E 's/-[^ D]+//g' | sed 's/\.\.\/module//g')"
+                      if  test "x${enable_claw}" = "xstd"; then :
+
+                          # Set time stamp of all _dsl4jsb.f90 JSBACH files in jsbpp to the time of the last commit of the original source file (git doesn't store
+                          # actual modification time) in order to avoid unnecessary re-creation of claw targets in make. This is done as a safeguard since some
+                          # git versions seem to set the timestamp to the time of cloning the repo, i.e. now, but the claw files extracted below from the archived
+                          # tar file will have the timestamp of their generation.
+                          # git ls-tree doesn't work on submodules so we have to cd there; one could also use 'git submodule foreach' and 'git ls-files'.
+                          jsbpp_dir=`pwd`/${my_iconppdir}/jsbpp
+                          cd externals/jsbach/src
+                          git ls-tree -r --name-only HEAD | while read filename; do
+                            unixtime=$(git log -1 --format="%at" -- "${filename}")
+                            touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb.f90 is newer than original
+                            touch -t ${touchtime} ${jsbpp_dir}/$(basename ${filename} .f90)_dsl4jsb.f90
+                          done
+                          cd ../../..
+
+                          tar -C ${my_iconppdir} -zxf externals/jsbach/pp/pp_claw.tgz
+                          # Test whether files that contain !$claw directives need to be re-generated
+                          for jsbach_file in $(grep -l -i '!$claw' ${my_iconppdir}/jsbpp/*_dsl4jsb.f90); do
+                            clawfile="$(basename ${jsbach_file} .f90)_claw.f90"
+                            #if ! cmp ${jsbach_file} externals/jsbach/pp/$(basename ${jsbach_file}) >/dev/null 2>&1 ; then
+                            # Compare hash value from headers of dsl4jsb pre-processed and archived files. If hey haven't changed
+                            # there is no need to run through claw.
+                            if eval test "\$(grep 'with md5 hash' $jsbach_file|head -1|sed 's/.*: //')" != \
+                                         "\$(grep 'with md5 hash' externals/jsbach/pp/$(basename $jsbach_file)|head -1|sed 's/.*: //')"
+                            then
+                              #rm ${my_iconppdir}/jsbpp/${clawfile}
+                              echo "${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file}"
+                              ${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file} || exit
+                              cp -p ${jsbach_file} externals/jsbach/pp/
+                            fi
+                          done
+
+else
+
+                          for jsbach_file in $(grep -l -i '!$claw' ${my_iconppdir}/jsbpp/*_dsl4jsb.f90); do
+                            clawfile="$(basename ${jsbach_file} .f90)_claw.f90"
+                            echo "${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file}"
+                            ${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file} || exit
+                          done
+
+fi
+
+fi
+
+fi
+        if test "x$enable_rte_rrtmgp" = "xyes"; then :
+
+			     case $config_target in #(
   *_gpu) :
     kernel_type=openacc ;; #(
   *) :
@@ -8759,6 +8899,7 @@ fi
                                               --enable_testbed="${enable_testbed}" \
 					      --enable_gpu="${enable_gpu}" \
                                               --enable_serialization="${enable_serialization}" \
+                                              --enable_claw="${enable_claw}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}" ;;
     "build_command":F) chmod +x build_command ;;
