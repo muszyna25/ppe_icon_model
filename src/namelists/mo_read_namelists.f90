@@ -47,6 +47,7 @@ MODULE mo_read_namelists
   USE mo_echam_mig_nml       ,ONLY: process_echam_mig_nml
   USE mo_echam_cnv_nml       ,ONLY: process_echam_cnv_nml
   USE mo_echam_cov_nml       ,ONLY: process_echam_cov_nml
+  USE mo_echam_wmo_nml       ,ONLY: process_echam_wmo_nml
   USE mo_echam_gwd_nml       ,ONLY: process_echam_gwd_nml
   USE mo_echam_rad_nml       ,ONLY: process_echam_rad_nml
   USE mo_echam_sso_nml       ,ONLY: process_echam_sso_nml
@@ -171,6 +172,7 @@ CONTAINS
        CALL process_echam_mig_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_cnv_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_cov_nml        (atm_namelist_filename(1:tlen))
+       CALL process_echam_wmo_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_gwd_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_rad_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_sso_nml        (atm_namelist_filename(1:tlen))

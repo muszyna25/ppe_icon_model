@@ -141,25 +141,22 @@ CONTAINS
 
 !$ACC DATA CREATE( r_m ), PCOPYIN( p_cc, p_rhodz_now ), PCOPY( p_mflx_tracer_v ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_mflx_tracer_v ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
     IF (p_test_run) THEN
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       r_m = 0._wp
 !$ACC END KERNELS
     ENDIF
 
-
     !
     ! 1. Compute total outward mass (loop over full levels)
     !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG PRIVATE(p_m)
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG COLLAPSE(2) PRIVATE(p_m)
     DO jk = slev, elev
-      jkp1 = jk+1
-
-      !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
+        jkp1 = jk+1
 
         ! Sum of all outgoing fluxes out of cell jk
         p_m(jc) = p_dtime                               &
@@ -180,7 +177,7 @@ CONTAINS
     ! 2. Limit outward fluxes (loop over half levels)
     !    Choose r_m depending on the sign of p_mflx_tracer_v
     !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
     !$ACC LOOP GANG VECTOR PRIVATE(jkm1,z_signum) COLLAPSE(2)
     DO jk = slev+1, elev
       DO jc = i_startidx, i_endidx
@@ -201,7 +198,7 @@ CONTAINS
 !$ACC END PARALLEL
 
 
-!$ACC UPDATE HOST( p_mflx_tracer_v ), IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
+!$ACC UPDATE HOST( p_mflx_tracer_v ), WAIT(1) IF (acc_validate .AND. i_am_accel_node .AND. acc_on)
 !$ACC END DATA
 
   END SUBROUTINE vflx_limiter_pd
@@ -278,9 +275,9 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc, p_face ), PCOPY( p_face_up, p_face_low ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_face ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_face ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
     !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
     DO jk = slev, elev
 
@@ -341,7 +338,7 @@ CONTAINS
     END DO  ! jk
 !$ACC END PARALLEL
 
-!$ACC UPDATE HOST( p_face_up, p_face_low ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE v_limit_parabola_mo
@@ -408,9 +405,9 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc, p_face ), PCOPYOUT( p_face_up, p_face_low ), &
 !$ACC      IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE DEVICE( p_cc, p_face ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE DEVICE( p_cc, p_face ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
     !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
     DO jk = slev, elev
 
@@ -468,7 +465,7 @@ CONTAINS
     END DO
 !$ACC END PARALLEL
 
-!$ACC UPDATE HOST( p_face_up, p_face_low ), IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
   END SUBROUTINE v_limit_parabola_sm

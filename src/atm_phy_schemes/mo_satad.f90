@@ -349,7 +349,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
             count = 0
             ! This loop is iterated on every thread independently for every
             ! cell.
-            DO WHILE (ABS(twork(i,k)-tworkold(i,k) > tol) .AND. count < maxiter)
+            DO WHILE (ABS(twork(i,k)-tworkold(i,k)) > tol .AND. count < maxiter)
               ! Here we still have to iterate ...
               tworkold(i,k) = twork(i,k)
               qwd  = qsat_rho(twork(i,k), rhotot(i,k))
@@ -493,11 +493,7 @@ spec_humi = rdv*pvap/( pres - o_m_rdv*pvap )
 
 END FUNCTION spec_humi
 
-! Routine with ACC ROUTINE SEQ cannot be elemental
-#ifndef _OPENACC
-ELEMENTAL &
-#endif
-FUNCTION qsat_rho(temp, rhotot)
+ELEMENTAL FUNCTION qsat_rho(temp, rhotot)
   !$ACC ROUTINE SEQ
 
     !-------------------------------------------------------------------------------
@@ -516,11 +512,7 @@ FUNCTION qsat_rho(temp, rhotot)
 
 END FUNCTION qsat_rho
 
-! Routine with ACC ROUTINE SEQ cannot be elemental
-#ifndef _OPENACC
-ELEMENTAL &
-#endif
-FUNCTION dqsatdT_rho(zqsat, temp)
+ELEMENTAL FUNCTION dqsatdT_rho(zqsat, temp)
   !$ACC ROUTINE SEQ
 
     !-------------------------------------------------------------------------------

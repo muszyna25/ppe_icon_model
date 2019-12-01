@@ -147,9 +147,16 @@ case "$fortran_compiler" in
         ;;
     pgi*)
         config_compiler  = pgi
-        compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')
+	# CRAY is using a wrapper for compilers. The wrapper is called ftn. PGI's compiler is called pgfortran.
+        if [ -z ${CRAYPE_VERSION} ]
+        then
+            compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')            
+            FC               = pgfortran
+	else
+            compiler_version = $(ftn -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')            
+            FC               = ftn
+        fi
         CFLAGS      = $CFLAGS -DgFortran
-        FC          = pgfortran
         FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk
        # FFLAGS      = -O $GEN_FLAGS $FDEBUG -Mpreprocess -Mrecursive -Mstandard  -D__LOOP_EXCHANGE
         FFLAGS      = -O $FDEBUG -Mpreprocess -Mrecursive -Mallocatable=03 -D__LOOP_EXCHANGE $INCLUDES
@@ -216,7 +223,6 @@ case "$ac_sitename" in
         case "$HOST" in
             *daint*|*dom*)
                 make_command = make -j 8
-                load_profile = /opt/modules/default/etc/modules.sh
                 submit       = sbatch
                 sync_submit  = sbatch --wait
                 CC = cc
@@ -263,7 +269,7 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5 cray-libsci
+                                load_modules = modules craype daint-gpu PrgEnv-gnu cray-netcdf cray-hdf5 cray-libsci cdo-icon
                                 NETCDFROOT   = ${NETCDF_DIR}
                                 HDF5ROOT     = ${HDF5_DIR}
                                 LAPACKROOT   = ${CRAY_LIBSCI_PREFIX_DIR}
@@ -307,7 +313,7 @@ case "$ac_sitename" in
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = PrgEnv-intel cray-netcdf cray-hdf5 cray-libsci
+                                load_modules = PrgEnv-intel cray-netcdf cray-hdf5 cray-libsci cdo-icon
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
@@ -332,10 +338,10 @@ case "$ac_sitename" in
                         #FFLAGS      = -O $FDEBUG -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         FFLAGS      = -g -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         F77FLAGS    = $FFLAGS
-                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
+                        CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -g -O2
                         SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/serialbox2_v2.4.3/pgi_18.10
                         SERIALBOX2_LIB = -L\$(SERIALBOX2ROOT)/lib -lSerialboxFortran -L${GCC_PATH}/snos/lib64/ -lstdc++fs -lstdc++
-                        OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma
+                        OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma -lstdc++
                         LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
                         LAPACK_LIB  = -llapack -lblas
                         config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
@@ -343,24 +349,27 @@ case "$ac_sitename" in
                         case "${config_tuning}" in
                             gpu*)
                                 config_target = daint_gpu
-                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda9.1 -Minfo=accel,inline -Mcuda
-                                LDFLAGS       = -ta=nvidia:cc60,cuda9.1 -Mcuda -Mnorpath
+                                FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc60,cuda10.1 -Minfo=accel,inline
+                                LDFLAGS       = -ta=nvidia:cc60,cuda10.1
+                                CLAWFC_FLAGS  = ${CLAWFC_FLAGS} --target=gpu --directive=acc
                                 ;;
                             *)
                                 config_target = daint_cpu
                                 FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
-                                LDFLAGS       = -tp=haswell -Mnorpath -dynamic
+                                LDFLAGS       = -tp=haswell -dynamic
                                 ;;
                         esac
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9 gcc cray-mpich cray-netcdf cray-hdf5 cdo-icon
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
-                            gpu*)
-                                load_modules = daint-gpu modules craype craype-haswell PrgEnv-pgi /project/c14/data-eniac/modulefiles/daint/eniac/pgi-18.10 gcc/6.2.0 cray-netcdf cray-hdf5 cudatoolkit
+                            gpu)
+                                load_modules = daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7 cdo-icon
+                                NVCC        = nvcc
+				NVCFLAGS    = -I../include/cub -std=c++11 -arch=sm_60 -g -O3
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 ;;
@@ -390,27 +399,21 @@ case "$ac_sitename" in
                         # Generic CPU/GPU setup
                         case "${config_tuning}" in
                             gpu*)
-                                config_target = daint_gpu
-                                FFLAGS      = ${FFLAGS} -hflex_mp=intolerant -hfp0 -hacc -hnoomp -O2
-                                LDFLAGS     = -Wl,--allow-multiple-definition
+                                (>&6 echo "")
+                                (>&6 echo "OpenACC is not supported with GCC.")
+                                (>&6 echo "")
+                                exit 1
                                 ;;
                             *)
                                 config_target = daint_cpu
-                                FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=intolerant -hfp1 -hnoacc -O1,cache0
-                                LDFLAGS     = -Wl,--allow-multiple-definition
+                                FFLAGS      = ${FFLAGS} -D__LOOP_EXCHANGE -hflex_mp=intolerant -homp -hfp1 -hnoacc -O1,cache0
+                                LDFLAGS     = -Wl,--allow-multiple-definition -homp
                                 ;;
                         esac
                         # Setup of specific version
                         case "${config_tuning}" in
                             default|standalone)
-                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 cray-libsci
-                                NETCDFROOT  = ${NETCDF_DIR}
-                                HDF5ROOT    = ${HDF5_DIR}
-                                LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
-                                LAPACK_LIB  = -lsci_cray
-                                ;;
-                            gpu*)
-                                load_modules = modules craype daint-gpu PrgEnv-cray cray-netcdf cray-hdf5 craype-accel-nvidia60
+                                load_modules = modules craype daint-gpu PrgEnv-cray gcc cce-icon/9.0.2-classic cray-netcdf cray-hdf5 cray-libsci cdo-icon
                                 NETCDFROOT  = ${NETCDF_DIR}
                                 HDF5ROOT    = ${HDF5_DIR}
                                 LAPACKROOT  = ${CRAY_LIBSCI_PREFIX_DIR}
@@ -444,7 +447,6 @@ case "$ac_sitename" in
                 ;;
             *tave*)
                 make_command = make -j 8
-                load_profile = /opt/modules/default/etc/modules.sh
                 submit       = sbatch
                 CC = cc
                 FC = ftn
@@ -454,14 +456,14 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     gcc)
                         config_target=tave_knl
-                        load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl
+                        load_modules =PrgEnv-gnu cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         CFLAGS      = -DgFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/GNU/5.3.0
 			;;
                     intel)
                         config_target=tave_knl
-                        load_modules = PrgEnv-intel cray-netcdf cray-mpich craype-mic-knl
+                        load_modules = PrgEnv-intel cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         CFLAGS      = -std=gnu99 -march=native -DgFortran -DHAVE_LIBNETCDF
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
@@ -472,14 +474,14 @@ case "$ac_sitename" in
 			;;
                     pgi)
                         config_target=tave_knl
-                        load_modules = PrgEnv-pgi cray-netcdf cray-mpich craype-mic-knl
+                        load_modules = PrgEnv-pgi cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF
                         NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
                         SERIALBOX2ROOT = /apps/daint/UES/6.0.UP04/sandboxes/wsawyer/serialbox2/2.4.0/PGI/18.4
 			;;
                     cray)
                         config_target=tave_knl
-                        load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-mic-knl
+                        load_modules = PrgEnv-cray cray-netcdf cray-mpich craype-mic-knl cdo-icon
                         FFLAGS      = -D__LOOP_EXCHANGE -Df2cFortran -e Z -em -hflex_mp=intolerant -hfp1 -hadd_paren -hnoacc -O1,cache0 -r am -Ktrap=divz,ovf,inv
                         CFLAGS      = -Df2cFortran -DHAVE_LIBNETCDF -O3 -DUSE_XML2
                         NETCDFROOT  = /opt/cray/pe/netcdf/default/CRAY/8.3
@@ -729,7 +731,8 @@ case "$ac_sitename" in
                 make_command=make -j 8
                 case "$fortran_compiler" in
                     cray)
-                      load_modules    = cray-netcdf cray-hdf5
+                      load_modules      = cray-netcdf cray-hdf5
+                      ignore_if_loaded  = cray-netcdf cray-hdf5
 		      #	Add "eccodes" GRIB library, if nothing else has been
 		      # set.  Note that we use an intermediate variable
 		      # "dwd_gribapi_env"! Since mh-linux is processed twice
@@ -1228,49 +1231,10 @@ case "$ac_sitename" in
         software_tree = /sw/${dist_codename}-x64
         case "$host" in
             x86_64-*-linux-*)        # 64 bit squeeze, wheezy, jessie, stretch MPI/ZMAW workstation
-                load_profile  = /client/etc/profile.zmaw
                 config_target = mpipc
                 make_command  = make -j 2
                 submit        =
                 case "$dist_codename" in
-                    *jessie*)
-                        load_modules = ncl/6.3.0-nodap-precompiled cdo/1.7.1-gcc52 python/2.7-ve6 ${load_modules}   
-                        ZLIBROOT     = /usr
-                        SZIPROOT     = $software_tree/szip-2.1-static-gccsys
-                        NETCDFFROOT  = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
-                        NETCDFROOT   = $software_tree/netcdf-4.3.3.1-static-gccsys
-                        HDF5ROOT     = $software_tree/hdf5-1.8.16-static-gccsys
-                        GRIBAPIROOT  = $software_tree/grib_api-1.14.3-static-${compiler_version}
-                        SYS_LIBS     = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
-                        SYS_LIBS     = -ljasper -ljpeg $SYS_LIBS
-                        OTHER_LIBS   = -ljasper -ljpeg -lm -ldl -lrt -lutil -lpthread -lpciaccess
-                        XML2ROOT     = /usr
-                        case "$fortran_compiler" in
-                            default|gcc)
-                                load_modules=gcc/5.2.0 ${load_modules}
-                                MPIROOT = $software_tree/mpi/openmpi-1.10.3-static-${compiler_version}
-                                MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $SYS_LIBS
-                                LDFLAGS = $LDFLAGS $SYS_LIBS
-                                ;;
-                            nag)
-                                load_modules=gcc/5.2.0 nag/6.0.1064 ${load_modules}
-                                FC = $(cd $srcdir ; pwd)/scripts/nagfor_wrapper/nagfor
-                                CFLAGS = $CFLAGS -DWITHOUT_PACK_EXTERNAL
-                                LDFLAGS = $LDFLAGS -L/usr/x86_64-linux-gnu/lib -ldl $SYS_LIBS
-                                MPIROOT = $software_tree/mpi/mpich-3.2-static-${compiler_version}
-                                MPI_LIB = -lmpifort -lmpi $SYS_LIBS
-                                ;;
-                            intel)
-                                load_modules=intel/16.0.2 ${load_modules}
-                                MPIROOT = $software_tree/mpi/openmpi-1.10.1-static-${compiler_version}
-                                MPI_LIB = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $SYS_LIBS
-                                LDFLAGS = $LDFLAGS $SYS_LIBS
-                                HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                                CC_OMPFLAG  = -fopenmp
-                                ;;
-                        esac
-                        ;;
-
                     *stretch*)
                         load_modules = cdo/1.9.6-gccsys python/2.7.14-stable ${load_modules}
                         ZLIBROOT     = /usr

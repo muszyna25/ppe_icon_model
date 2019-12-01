@@ -22,6 +22,7 @@ MODULE mo_name_list_output_printvars
     &                                             streamOpenRead, streamInqVlist, vlistinqvarname,           &
     &                                             taxisDestroy, vlistCreate, taxisCreate, institutInq,       &
     &                                             vlistDefTaxis, vlistDefInstitut
+  USE mo_mpi,                               ONLY: get_my_global_mpi_id
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS
   USE mo_cf_convention,                     ONLY: t_cf_var
@@ -34,7 +35,7 @@ MODULE mo_name_list_output_printvars
   USE mo_var_list_element,                  ONLY: t_var_list_element, level_type_ml
   USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_util_sort,                         ONLY: quicksort
-  USE mo_util_string,                       ONLY: remove_duplicates, toupper, tolower
+  USE mo_util_string,                       ONLY: remove_duplicates, toupper, tolower, int2string
   USE mo_util_file,                         ONLY: util_unlink
   USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
@@ -170,12 +171,13 @@ CONTAINS
     CHARACTER(kind=c_char, LEN=cdi_max_name+1), INTENT(OUT)   :: name
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::identify_grb2_shortname"
-    CHARACTER(LEN=*), PARAMETER :: tmp_filename = "tmpfile.grb"
-    TYPE(t_verticalAxis),     POINTER :: zaxis
-    INTEGER                           :: tmp_vlistID, tmp_gridID, tmp_zaxisID, tmp_varID,    &
-      &                                  tmp_streamID, nmiss, i, tmp_taxisID, tmp_cdiInstID, &
-      &                                  ierrstat
-    REAL(wp)                          :: tmp_var1(1)
+    CHARACTER(LEN=*), PARAMETER :: tmp_filename_base = "tmpfile.grb"
+    TYPE(t_verticalAxis),     POINTER        :: zaxis
+    INTEGER                                  :: tmp_vlistID, tmp_gridID, tmp_zaxisID, tmp_varID,    &
+      &                                         tmp_streamID, nmiss, i, tmp_taxisID, tmp_cdiInstID, &
+      &                                         ierrstat
+    REAL(wp)                                 :: tmp_var1(1)
+    CHARACTER(LEN=LEN(tmp_filename_base)+32) :: tmp_filename
 
 #ifndef HAVE_LIBGRIB_API
     name = ""
@@ -206,7 +208,8 @@ CONTAINS
       &                             info, 0._dp, FILETYPE_GRB2,                  &
       &                             gribout_config, i_lctype, out_varnames_dict)
     ! open temporary GRIB2 file, write variable:
-    tmp_streamID = streamOpenWrite(tmp_filename, FILETYPE_GRB2) 
+    tmp_filename = tmp_filename_base//"."//int2string(get_my_global_mpi_id(),'(i0)')
+    tmp_streamID = streamOpenWrite(TRIM(tmp_filename), FILETYPE_GRB2) 
     CALL streamDefVlist(tmp_streamID, tmp_vlistID) 
     tmp_var1(:) = 0._wp
     nmiss       = 0
@@ -216,13 +219,13 @@ CONTAINS
     CALL taxisDestroy(tmp_taxisID)
     CALL gridDestroy(tmp_gridID) 
     ! Re-open file:
-    tmp_streamID = streamOpenRead(tmp_filename) 
+    tmp_streamID = streamOpenRead(TRIM(tmp_filename)) 
     ! Get the variable list of the dataset 
     tmp_vlistID = streamInqVlist(tmp_streamID) 
     CALL vlistInqVarName(tmp_vlistID, tmp_varID, name)   
     ! Close the input stream 
     CALL streamClose(tmp_streamID) 
-    ierrstat = util_unlink(tmp_filename)
+    ierrstat = util_unlink(TRIM(tmp_filename))
   END SUBROUTINE identify_grb2_shortname
 
 

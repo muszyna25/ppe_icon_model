@@ -86,7 +86,7 @@ MODULE mo_cumaster
   USE mo_cuparameters , ONLY :                                   &
     & rtwat                                                     ,&
     & lmfdd    ,lmfdudv            ,lmfit                       ,&
-    & rmflic  ,rmflia  ,rmflmax, rmfsoluv                       ,&
+    & rmflic  ,rmflia  ,rmflmax, rmfsoluv, rmfdef               ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
     & rg       ,rd      ,rcpd  ,retv , rlvtt                    ,&
@@ -680,7 +680,7 @@ DO jl=kidia,kfdia
     ! deep convection
 
     IF (ktype(jl) == 1) THEN
-      zmfub(jl)=zmfmax*0.1_JPRB
+      zmfub(jl)=(PAPH(JL,IKB)-PAPH(JL,IKB-1))*rmfdef/(rg*ptsphy)
 
     ELSEIF (ktype(jl) == 2) THEN
 
@@ -694,7 +694,6 @@ DO jl=kidia,kfdia
         zmfub(jl)=zdhpbl(jl)/zdh
         zmfub(jl)=MIN(zmfub(jl),0.5_jprb*zmfmax)
       ELSE
-        zmfub(jl)=zmfmax*0.05_JPRB
         ldcum(jl)=.FALSE.
       ENDIF
       IF(lmfwstar) zmfub(jl)=zmf_shal(jl)
@@ -938,7 +937,10 @@ DO jl=kidia,kfdia
         zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
         zmfub1(jl)=zdhpbl(jl)/zdh
       ELSE
-        zmfub1(jl)=zmfub(jl)
+        !MA: cleanup convection types and set default values 
+        zmfub1(jl)=0.0_JPRB
+        ldcum(jl)=.FALSE.
+        ktype(jl)=0
       ENDIF
 
       zmfub1(jl)=MIN(zmfub1(jl),0.5_jprb*zmfmax)

@@ -19,6 +19,8 @@ MODULE mo_ser_echam_mig
 
   PUBLIC :: serialize_mig_input
   PUBLIC :: serialize_mig_output
+  PUBLIC :: serialize_mig_before_satad2
+  PUBLIC :: serialize_mig_after_satad1
 
   CONTAINS
 
@@ -51,7 +53,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-input jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-    #if defined( SERIALIZE_CREATE_REFERENCE )
+#if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -121,7 +123,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-after-satad1 jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-    #if defined( SERIALIZE_CREATE_REFERENCE )
+#if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -196,7 +198,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-before-satad2 jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-    #if defined( SERIALIZE_CREATE_REFERENCE )
+#if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb

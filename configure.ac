@@ -116,6 +116,10 @@ AC_ARG_ENABLE([mixed],
               AS_HELP_STRING([--enable-mixed],[Use mixed precision dycore.]),
               [],[enable_mixed=no])
 
+AC_ARG_ENABLE([gpu],
+              AS_HELP_STRING([--enable-gpu],[Use GPU accelerators.]),
+              [],[enable_gpu=no])
+
 dnl ######################################################################
 dnl Serialbox2 serialization setup
 
@@ -292,13 +296,13 @@ AC_MSG_NOTICE([dwd_gribapi_env = $dwd_gribapi_env.])
 export dwd_gribapi_env
 
 AS_IF([test $use_mh_file = yes],
-      [ACX_GET_MODULES_TO_LOAD([$host_frag])
+      [ACX_GET_PROFILE_TO_LOAD([$host_frag])
        AS_IF([test ! -z "$load_profile" ],
              [. "$load_profile"])
 
-       ACX_GET_PROFILE_TO_LOAD([$host_frag])
+       ACX_GET_MODULES_TO_LOAD([$host_frag])
        AS_IF([test ! -z "$load_modules" ],
-             [ACX_SWAP_MODULES(["$load_modules"])])
+             [ACX_SWAP_MODULES(["$load_modules"], ["$ignore_if_loaded"])])
 
        ACX_GET_MH($host_frag)])
 
@@ -1494,12 +1498,14 @@ AC_SUBST(AR,$AR)
 AC_SUBST(AS,$AS)
 
 AC_SUBST(CC,$CC)
+AC_SUBST(NVCC,$NVCC)
 AC_SUBST(FC,$FC)
 AC_SUBST(F77,$F77)
 
 AC_SUBST(ARFLAGS,$ARFLAGS)
 
 AC_SUBST(CFLAGS,$CFLAGS)
+AC_SUBST(NVCFLAGS,$NVCFLAGS)
 AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
@@ -1816,6 +1822,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                                               --enable_jsbach="${enable_jsbach}" \
                                               --enable_rte_rrtmgp="${kernel_type}" \
                                               --enable_testbed="${enable_testbed}" \
+					      --enable_gpu="${enable_gpu}" \
                                               --enable_serialization="${enable_serialization}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}"],
@@ -1831,6 +1838,7 @@ AC_CONFIG_COMMANDS([Makefiles],
                     enable_jsbach="${enable_jsbach}"
                     enable_rte_rrtmgp="${enable_rte_rrtmgp}"
                     enable_testbed="${enable_testbed}"
+                    enable_gpu="${enable_gpu}"
                     enable_serialization="${enable_serialization}"
                     my_preprocess_command='${my_preprocess_command}'
                     ])
@@ -1859,6 +1867,15 @@ AC_SUBST(sync_submit,$sync_submit)
 AC_SUBST(use_shell,$use_shell)                
 AC_SUBST(use_flags_group,$use_flags_group)          
 
+AS_IF([test ! -z $PATH],
+      [use_path=$PATH]) 
+AC_SUBST(use_path,$use_path)                
+
+AS_IF([test ! -z $CRAY_LD_LIBRARY_PATH],
+      [use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH]) 
+
+AC_SUBST(use_ld_library_path,$use_ld_library_path)                
+
 AC_CONFIG_FILES([config/set-up.info])
 
 #echo Creating the run scripts...
@@ -1883,6 +1900,17 @@ fi
 dnl echo ""
 dnl cat config/set-up.info
 dnl echo ""
+
+AS_IF([test "x$enable_gpu" != "xno"],
+      [
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       AS_ECHO(['!!                                                            !!'])
+       AS_CASE(["$enable_gpu"],
+               ["yes"],
+	             [AS_ECHO(["!!      GPU compiling is enabled: nvcc is required!           !!"])])
+       AS_ECHO(['!!                                                            !!'])
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       ])
 
 AS_IF([test "x$enable_serialization" != "xno"],
       [

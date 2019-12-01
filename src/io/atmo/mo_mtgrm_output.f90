@@ -1327,6 +1327,7 @@ CONTAINS
           WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
           CALL finish (routine, 'ALLOCATE of meteogram message buffer failed (collector)')
         END IF
+        mtgrm(jg)%msg_buffer(:,:) = ' '
       ELSE IF  (.NOT. ALLOCATED(mtgrm(jg)%msg_buffer)) THEN
         ! allocate buffer:
         ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, 1), stat=ierrstat)
@@ -1342,6 +1343,7 @@ CONTAINS
           WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
           CALL finish (routine, 'ALLOCATE of meteogram message buffer failed (dummy)')
         END IF
+        mtgrm(jg)%msg_buffer(:,:) = ' '
       END IF
 
     END IF
@@ -1651,7 +1653,7 @@ CONTAINS
       ! launch MPI message requests for station data on foreign PEs
       DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
-        IF ((iowner /= world_rank) .AND. (iowner > 0)) THEN
+        IF ((iowner /= world_rank) .AND. (iowner >= 0)) THEN
           CALL p_irecv_packed(mtgrm(jg)%msg_buffer(:,istation), MPI_ANY_SOURCE, &
             &                 TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, mtgrm(jg)%max_buf_size)
         END IF

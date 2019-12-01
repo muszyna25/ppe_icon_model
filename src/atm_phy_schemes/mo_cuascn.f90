@@ -836,7 +836,10 @@ DO jk=klev-1,ktdia+2,-1
             pmfu(jl,jk)=pmfu(jl,jk+1)
             pkineu(jl,jk)=0.5_JPRB
           ENDIF
-          IF(pkineu(jl,jk) > 0.0_JPRB.AND.pmfu(jl,jk) > 0.0_JPRB) THEN
+          ! determine convection top level;
+          ! the last set of criteria serves to limit the overshooting of updrafts through the tropopause
+          IF (pkineu(jl,jk) > 0.0_JPRB .AND. pmfu(jl,jk) > 0.0_JPRB .AND. (zbuo(jl,jk) > -2._JPRB .OR. &
+             (pten(jl,jk-1)-pten(jl,jk))/(zrg*(pgeo(jl,jk-1)-pgeo(jl,jk))) < -3.e-3_jprb ) ) THEN
             kctop(jl)=jk
             llo1(jl)=.TRUE.
           ELSE

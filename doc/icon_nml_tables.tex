@@ -2835,7 +2835,7 @@ diagnostic integral output interval &
 
 %\hline
 \textbf{dt\_checkpoint}&
-R& 2592000 & s&
+R& 0 & s&
 Time interval for writing restart files.
 Note that if the value of dt\_checkpoint resulting from
 model default or user's specification is longer than time\_nml:dt\_restart,
@@ -3110,6 +3110,25 @@ Smagorinsky constant &
 %\hline
 km\_min & R & 0.0 &  &
 Minimum turbulent viscosity &
+\tabularnewline
+
+%\hline
+smag\_coeff\_type & I & 1 &  &
+choose type of coefficient setting: \\
+1 = Smagorinsky model (default) \\
+2 = set coeff. externally by Km\_ext, Kh\_ext (for testing purposes, e.g. Straka et al. (1993)) &
+\tabularnewline
+
+%\hline
+Km\_ext & R & 75.0 &  m$^2$/s  &
+externally set constant kinematic viscosity  &
+smag\_coeff\_type=2
+\tabularnewline
+
+%\hline
+Kh\_ext & R & 75.0 &  m$^2$/s  &
+externally set constant diffusion coeff.   &
+smag\_coeff\_type=2
 \tabularnewline
 
 %\hline
@@ -3784,7 +3803,7 @@ Selects the calendar type to use:   \\
 %\hline
 
 \textbf{experimentReferenceDate} &
-C & experiment start date & &
+C & '' '' & ISO8601 formatted string &
 This specifies the reference date for the calendar in use. It is an
 anchor date for cycling of events on the time line.
 If this namelist parameter is unspecified, then the reference
@@ -3793,7 +3812,7 @@ date is set to the experiment start date.
 \tabularnewline
 
 \textbf{experimentStartDate} &
-C & ISO8601 formatted string & date of initial file &
+C & '' '' & ISO8601 formatted string &
 This is the start date of an experiment, which remains valid for the
 whole experiment. The start date is also the reference date of the
 experiment, which is the anchor point for cycling events. In special
@@ -3803,24 +3822,24 @@ other experiment.
 \tabularnewline
 
 \textbf{experimentStopDate} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string &
 This is the date an experiment is finished.&
 \tabularnewline
 
 \textbf{forecastLeadTime} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string & 
 Specifies the time span for a numerical weather forecast.
 It is used to set the experiment stop time with respect to
 the experiment start date. &
 \tabularnewline
 
 \textbf{checkpointTimeIntVal} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string & 
 Time interval for writing checkpoints.&
 \tabularnewline
 
 \textbf{restartTimeIntVal} &
-C & ISO8601 formatted string & n/a &
+C & '' '' & ISO8601 formatted string &
 Time interval for writing a restart file and interrupt the
 current running job.&
 \tabularnewline
@@ -4964,7 +4983,7 @@ run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \hline
 tune\_thicklayfac&
 R&
-0.0025&
+0.005&
 1/m &
 Factor for enhancing the box width for model layer thicknesses exceeding 150 m &
 run\_nml:iforcing = inwp; inwp\_cldcover = 1
@@ -4979,6 +4998,15 @@ Asymmetry factor for liquid cloud cover diagnostic&
 run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
+\hline
+tune\_sgsclifac&
+R&
+0.0 &
+ &
+Scaling factor for parameterization of subgrid-scale (turbulence-induced) cloud ice 
+(values $>$ 0 not recommended for global configurations with RRTM radiation) &
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
 
 \hline
 lcalib\_clcov&
@@ -5074,7 +5102,7 @@ I(:)&-1& &
 
 %\hline
 \textbf{file\_interval} &
-C&\'' \''& &
+C&'' ''& &
 Defines the length of a file in terms of an ISO-8601 duration string. An example for this time stamp format is given below. This namelist parameter can be set instead of \texttt{steps\_per\_file}.
 &
 \tabularnewline
@@ -5244,7 +5272,7 @@ L&.FALSE.& &
 
 %\hline
  \textbf{output\_start }&
-C(:)&\'' \''& &
+C(:)&'' ''& &
  ISO8601 time stamp for begin of output.
  An example for this time stamp format is given below.
  More than one value is possible in order to define multiple start/end/interval triples.
@@ -5254,7 +5282,7 @@ C(:)&\'' \''& &
 
 %\hline
 \textbf{output\_end }&
-C(:)&\'' \''& &
+C(:)&'' ''& &
  ISO8601 time stamp for end of output.
  An example for this time stamp format is given below.
  More than one value is possible in order to define multiple start/end/interval triples.
@@ -5264,7 +5292,7 @@ C(:)&\'' \''& &
 
 %\hline
 \textbf{output\_interval} &
-C(:)&\'' \''& &
+C(:)&'' ''& &
  ISO8601 time stamp for repeating output intervals.
  We choose  the advection time step matching or following the 
  requested output time, therefore we require \texttt{output\_bounds(3) > dtime}.
@@ -5333,7 +5361,7 @@ See namelist parameter \texttt{pe\_placement\_ml} for further details.
 
 %\hline
  ready\_file &
- C & \''default\'' & &
+ C & ''default'' & &
  A \emph{ready file} is a technique for handling dependencies between the NWP processes.
  The completion of the write process is signalled by creating a small file 
  with name \texttt{ready\_file}.
@@ -6567,7 +6595,7 @@ Calendar type: \\
 
 %\hline
 dt\_restart &
-R & 86400.*30.& s &
+R & 0. & s &
 Length of restart cycle in seconds.
 This namelist parameter specifies how long the model runs until it saves its
 state to a file and stops.
@@ -7518,7 +7546,7 @@ testcase selection&
 \tabularnewline
 &&&& '\textbf{bell}': bell shaped mountain at 0E,0N&
 \tabularnewline
-&&&& '\textbf{schaer}': hilly mountain at 0E,0N&
+&&&& '\textbf{schaer}': hilly mountain at 0E,0N  &  is\_plane\_torus=.TRUE.   
 \tabularnewline
 &&&& '\textbf{jabw}': Initializes the full Jablonowski Williamson test case.&
 \tabularnewline
@@ -7578,13 +7606,15 @@ lcoriolis = .TRUE.
 &&&&'\textbf{CBL}': convective boundary layer simulations for LES package on torus (doubly periodic) grid&
 is\_plane\_torus= .TRUE.
 \tabularnewline
+&&&&'\textbf{bb13}': linear gravity- and sound-wave expansion in a channel (Baldauf, Brdar (2013) QJRMS) &
+is\_plane\_torus= .TRUE.
+\tabularnewline
 &&&&'\textbf{lahade}': deep-atmosphere sound wave testcase providing
 comparison of numerical with analytical solution according to method of
 Laeuter, Handorf and Dethloff, J. Comp. Phys.(2005) (requires to set
 src/shared/mo\_physical\_constants: grav to a very small value, e.g. grav = 1.0E-30)&
 ldeepatmo = .TRUE. .AND. lcoriolis = .TRUE. .AND. lcentrifugal = .TRUE.
 \tabularnewline
-
 is\_toy\_chem & 
 L & .FALSE. &  &
 Terminator toy chemistry activated when .TRUE. &
@@ -7696,6 +7726,19 @@ mount\_half\_width&
 R& 1500000.0& m&
 half width of mountain in mrw(2), mwbr\_const and bell &
 nh\_test\_name= 'mrw(2)\_nh', 'mwbr\_const' and 'bell'
+\tabularnewline
+
+%\hline
+mount\_width&
+R& 1000.0& m&
+  width of mountain &
+\tabularnewline
+
+%\hline
+mount\_width\_2 &
+R& 100.0& m&
+  a 2nd width scale of mountain &
+  nh\_test\_name='schaer'
 \tabularnewline
 
 %\hline
@@ -7875,7 +7918,7 @@ R& 20. & m/s &
 zonal wind at infinity height\\
 range 0. - 45.               \\
 used to vary the wind shear&
-nh\_test\_name='wk82'
+nh\_test\_name='wk82', 'bb13'
 \tabularnewline
 
 %\hline
@@ -7897,6 +7940,20 @@ bubctr\_lon&
 R& 90.& deg&
 longitude of the center of the thermal perturbation&
 nh\_test\_name='wk82'
+\tabularnewline
+
+%\hline
+bubctr\_x&
+R& 0.0 & m&
+x-position of the center of the thermal perturbation &
+is\_plane\_grid=.TRUE.
+\tabularnewline
+
+%\hline
+bubctr\_y&
+R& 0.0 & m&
+y-position of the center of the thermal perturbation &
+is\_plane\_grid=.TRUE.
 \tabularnewline
 
 %\hline

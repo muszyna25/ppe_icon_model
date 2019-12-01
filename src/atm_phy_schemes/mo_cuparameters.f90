@@ -317,8 +317,9 @@ MODULE mo_cuparameters
   !                        0:NO  1:SURFACE SENS HEAT FLUX 2: SUBCLOUD CAPE
   !     RTAU0     REAL     PRORTIONALITY FACTOR USED FOR RCAPDCYCL TIME SCALE
   !     RMFCFL    REAL     MULTIPLE OF CFL STABILITY CRITERIUM
-  !     RMFLIC    REAL     USE CFL (1) OR ABSOLUT MASS FLUX LIMIT (0)
-  !     RMFLIA    REAL     VALUE OF ABSOLUT MASS FLUX LIMIT
+  !     RMFLIC    REAL     USE CFL (1) OR ABSOLUTE MASS FLUX LIMIT (0)
+  !     RMFLIA    REAL     VALUE OF ABSOLUTE MASS FLUX LIMIT
+  !     RMFDEF    REAL     DEFAULT FIRST-GUESS MASS FLUX VALUE FOR DEEP CONVECTION
   !     RMFSOLCT  REAL     SOLVER FOR MASSFLUX ADVECTION EQUATION FOR TRACERS
   !                        0 : EXPLICIT  0-1 : SEMI-IMPLICIT >=1 : FULLY IMPLICIT
   !     RMFSOLUV  REAL     SOLVER FOR MASSFLUX ADVECTION EQUATION FOR MOMENTUM
@@ -336,6 +337,7 @@ MODULE mo_cuparameters
   ! REAL(KIND=jprb) :: rmfcfl -> moved into phy_params because it is resolution-dependent
   REAL(KIND=jprb) :: rmflic
   REAL(KIND=jprb) :: rmflia
+  REAL(KIND=jprb) :: rmfdef
   REAL(KIND=jprb) :: rmflmax
   REAL(KIND=jprb) :: rmfsoluv
   REAL(KIND=jprb) :: rmfsoltq
@@ -482,7 +484,7 @@ MODULE mo_cuparameters
           & rmfcmax  ,rmfcmin   ,detrpen            ,&
           & lmfdd    ,lmfdudv                       ,&
           & lmfit    ,rmflic                       ,&
-          & rmflia   ,rmfsoluv ,rmflmax            ,&
+          & rmflia   ,rmfsoluv ,rmflmax, rmfdef    ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
           & entrdd   ,& ! njkt1     ,&
@@ -1123,7 +1125,7 @@ nflevg=klev
 !     DETRPEN: AVERAGE DETRAINMENT RATE FOR PENETRATIVE CONVECTION (1/M)
 !     -------
 
-detrpen=0.75E-4_JPRB
+detrpen=0.75E-4_JPRB*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 !         NOTA:SHALLOW/DEEP ENTRAINMENT RATES ARE 
 !              VERTICALLY SCALED BY FUNCTION  (qs/qsb)**3
@@ -1142,7 +1144,7 @@ ENTSHALP=2.0_JPRB
 
 !     ENTSTPC1,2: SHALLOW ENTRAINMENT CONSTANTS FOR TRIGGER TEST PARCEL ONLY
 !     ----------
-IF (lshallow_only) THEN
+IF (lshallow_only .OR. rsltn < 5.e3_jprb) THEN
   entstpc1 = 1.0_JPRB
   entstpc2 = 2.E-4_JPRB
 ELSE
@@ -1184,11 +1186,8 @@ ENDIF
 
 !     RDEPTHS:   MAXIMUM ALLOWED SHALLOW CLOUD DEPTH (Pa)
 !     -------
-IF (lshallow_only) THEN
-  phy_params%rdepths=0.65_jprb*tune_rdepths/MAX(1._jprb,(5.e3_jprb/rsltn)**0.75_jprb)
-ELSE
-  phy_params%rdepths=tune_rdepths
-ENDIF
+
+phy_params%rdepths=tune_rdepths/MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 !     RPRCON:    COEFFICIENTS FOR DETERMINING CONVERSION FROM CLOUD WATER
 !     ------
@@ -1249,11 +1248,7 @@ ENDIF
 
 
 ! tuning parameter for organized entrainment of deep convection
-phy_params%entrorg = tune_entrorg !!! + 1.2E-4_JPRB*LOG(zres_thresh/rsltn)
-
-IF (lshallow_only) THEN
-  phy_params%entrorg = phy_params%entrorg*MAX(1.25_jprb,SQRT(5.e3_jprb/rsltn))
-ENDIF
+phy_params%entrorg = tune_entrorg*MAX(1._jprb,SQRT(5.e3_jprb/rsltn))
 
 ! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
 
@@ -1329,8 +1324,8 @@ lmfglac =.TRUE.   ! glaciation of precip in updraught
 
 !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
 !     -------
-IF (lshallow_only) THEN
-  phy_params%mfcfl = 1._JPRB
+IF (lshallow_only .OR. rsltn < 5.e3_jprb) THEN
+  phy_params%mfcfl = 1.5_JPRB
 ELSE
   phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)
 ENDIF
@@ -1338,6 +1333,7 @@ ENDIF
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit
 rmflmax=1.75_jprb ! mass flux limit following a suggestion by P. Bechtold [kg/(m**2s)]
+rmfdef=0.1_JPRB   ! first-guess mass flux value for deep convection (M. Ahlgrimm)
 
 
 !     MASSFLUX SOLVERs FOR MOMEMTUM AND TRACERS

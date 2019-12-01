@@ -25,7 +25,7 @@ MODULE mo_nh_init_utils
 
   USE mo_kind,                  ONLY: wp
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_nonhydro_types,        ONLY: t_nh_metrics, t_nh_state
+  USE mo_nonhydro_types,        ONLY: t_nh_state
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -54,6 +54,7 @@ MODULE mo_nh_init_utils
   USE mo_fortran_tools,         ONLY: init, copy
   USE mo_ifs_coord,             ONLY: geopot
 
+
   IMPLICIT NONE
 
   PRIVATE
@@ -61,9 +62,13 @@ MODULE mo_nh_init_utils
 
   TYPE(t_saveinit_state), ALLOCATABLE  :: saveinit(:)
 
-  PUBLIC :: hydro_adjust, compute_smooth_topo, interp_uv_2_vn,  &
-    &       init_w, adjust_w, convert_thdvars, convert_omega2w, &
-    &       hydro_adjust_downward
+  ! subroutines
+  !
+  PUBLIC :: compute_smooth_topo 
+  PUBLIC :: interp_uv_2_vn
+  PUBLIC :: init_w, adjust_w
+  PUBLIC :: convert_thdvars
+  PUBLIC :: convert_omega2w
   PUBLIC :: save_initial_state, restore_initial_state
   PUBLIC :: compute_iau_wgt
   PUBLIC :: compute_input_pressure_and_height
@@ -181,177 +186,7 @@ CONTAINS
   END SUBROUTINE compute_input_pressure_and_height
 
 
-  !-------------
-  !>
-  !! SUBROUTINE hydro_adjust
-  !! Computes hydrostatically balanced initial condition by bottom-up integration
-  !! Virtual temperature is kept constant during the adjustment process
-  !!
-  !! Input/Output: density, Exner pressure, virtual potential temperature
-  !!
-  !! @par Revision History
-  !! Initial version by Guenther Zaengl, DWD(2011-06-29)
-  !!
-  !!
-  !!
-  SUBROUTINE hydro_adjust(p_patch, p_nh_metrics, rho, exner, theta_v )
 
-
-    TYPE(t_patch),      INTENT(IN)       :: p_patch
-    TYPE(t_nh_metrics), INTENT(IN)       :: p_nh_metrics
-
-    ! Thermodynamic fields - all defined at full model levels
-    REAL(wp), INTENT(INOUT) :: rho(:,:,:)        ! density (kg/m**3)
-    REAL(wp), INTENT(INOUT) :: exner(:,:,:)      ! Exner pressure
-    REAL(wp), INTENT(INOUT) :: theta_v(:,:,:)    ! virtual potential temperature (K)
-
-
-    ! LOCAL VARIABLES
-    REAL(wp) :: temp_v(nproma,p_patch%nlev) ! virtual temperature
-    REAL(wp), DIMENSION(nproma) :: z_fac1, z_fac2, z_fac3, za, zb, zc
-
-    INTEGER :: jb, jk, jc
-    INTEGER :: nlen, nlev
-
-    nlev = p_patch%nlev
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,temp_v,z_fac1,z_fac2,z_fac3,za,zb,zc) ICON_OMP_DEFAULT_SCHEDULE
-
-    ! The full model grid including the lateral boundary interpolation zone of
-    ! nested domains and MPI-halo points is processed; depending on the setup
-    ! of the parallel-read routine, the input fields may need to be synchronized
-    ! before entering this routine.
-
-    DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
-
-      ! Compute virtual temperature
-      DO jk = 1, nlev
-        DO jc = 1, nlen
-          temp_v(jc,jk) = theta_v(jc,jk,jb)*exner(jc,jk,jb)
-        ENDDO
-      ENDDO
-
-      ! Now compute hydrostatically balanced prognostic fields:
-      ! The following expressions are derived from the discretized (!) third
-      ! equation of motion, assuming dw/dt = 0, and solved for the exner pressure.
-      ! Because the vertical discretization differs between the triangular and
-      ! hexagonal NH cores, a case discrimination is needed here
-      DO jk = nlev-1, 1, -1
-        DO jc = 1, nlen
-          z_fac1(jc) = p_nh_metrics%wgtfac_c(jc,jk+1,jb)*(temp_v(jc,jk+1) &
-            - p_nh_metrics%theta_ref_mc(jc,jk+1,jb)*exner(jc,jk+1,jb))    &
-            - (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))                   &
-            * p_nh_metrics%theta_ref_mc(jc,jk,jb)*exner(jc,jk+1,jb)
-
-          z_fac2(jc) = (1._wp-p_nh_metrics%wgtfac_c(jc,jk+1,jb))*temp_v(jc,jk) &
-            *exner(jc,jk+1,jb)
-
-          z_fac3(jc) = p_nh_metrics%exner_ref_mc(jc,jk+1,jb)     &
-            -p_nh_metrics%exner_ref_mc(jc,jk,jb)-exner(jc,jk+1,jb)
-
-          za(jc) = (p_nh_metrics%theta_ref_ic(jc,jk+1,jb)                     &
-            *exner(jc,jk+1,jb)+z_fac1(jc))/p_nh_metrics%ddqz_z_half(jc,jk+1,jb)
-
-          zb(jc) = -(za(jc)*z_fac3(jc)+z_fac2(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
-            + z_fac1(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-
-          zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
-            + z_fac2(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-        ENDDO !jc
-
-        DO jc = 1, nlen
-          exner(jc,jk,jb)      = (zb(jc)+SQRT(zb(jc)**2+4._wp*za(jc)*zc(jc)))/(2._wp*za(jc))
-          theta_v(jc,jk,jb)    = temp_v(jc,jk)/exner(jc,jk,jb)
-          rho(jc,jk,jb)        = exner(jc,jk,jb)**cvd_o_rd*p0ref/(rd*theta_v(jc,jk,jb))
-        ENDDO
-
-      ENDDO
-
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  END SUBROUTINE hydro_adjust
-
-  !-------------
-  !>
-  !! SUBROUTINE hydro_adjust_downward
-  !! Computes hydrostatically balanced initial condition by top-down integration
-  !! In contrast to the above routine, virtual potential temperature is kept constant
-  !! during the adjustment, leading to a simpler formula
-  !!
-  !! Input/Output: density, Exner pressure, virtual potential temperature
-  !!
-  !! @par Revision History
-  !! Initial version by Guenther Zaengl, DWD(2012-12-28)
-  !!
-  !!
-  !!
-  SUBROUTINE hydro_adjust_downward(p_patch, p_nh_metrics, rho, exner, theta_v)
-
-
-    TYPE(t_patch),      INTENT(IN)       :: p_patch
-    TYPE(t_nh_metrics), INTENT(IN)       :: p_nh_metrics
-
-    ! Thermodynamic fields - all defined at full model levels
-    REAL(wp), INTENT(INOUT) :: rho(:,:,:)        ! density (kg/m**3)
-    REAL(wp), INTENT(INOUT) :: exner(:,:,:)      ! Exner pressure
-    REAL(wp), INTENT(INOUT) :: theta_v(:,:,:)    ! virtual potential temperature (K)
-
-
-    ! LOCAL VARIABLES
-    REAL(wp), DIMENSION(nproma) :: theta_v_pr_ic
-
-    INTEGER :: jb, jk, jc
-    INTEGER :: nlen, nlev
-
-    nlev = p_patch%nlev
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,theta_v_pr_ic) ICON_OMP_DEFAULT_SCHEDULE
-
-    ! The full model grid including the lateral boundary interpolation zone of
-    ! nested domains and MPI-halo points is processed; depending on the setup
-    ! of the parallel-read routine, the input fields may need to be synchronized
-    ! before entering this routine.
-
-    DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
-
-      ! Now compute hydrostatically balanced prognostic fields:
-      ! The following expressions are derived from the discretized (!) third
-      ! equation of motion, assuming dw/dt = 0, and solved for the exner pressure.
-      DO jk = 2, nlev
-        DO jc = 1, nlen
-          theta_v_pr_ic(jc) = p_nh_metrics%wgtfac_c(jc,jk,jb) *        &
-           (theta_v(jc,jk,jb) - p_nh_metrics%theta_ref_mc(jc,jk,jb)) + &
-           (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb)) *                   &
-           (theta_v(jc,jk-1,jb)-p_nh_metrics%theta_ref_mc(jc,jk-1,jb)  )
-
-          exner(jc,jk,jb) = exner(jc,jk-1,jb) + p_nh_metrics%exner_ref_mc(jc,jk,jb) -      &
-            p_nh_metrics%exner_ref_mc(jc,jk-1,jb) + p_nh_metrics%ddqz_z_half(jc,jk,jb)*    &
-            theta_v_pr_ic(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk,jb)/(theta_v_pr_ic(jc)+ &
-            p_nh_metrics%theta_ref_ic(jc,jk,jb))
-
-          rho(jc,jk,jb) = exner(jc,jk,jb)**cvd_o_rd*p0ref/(rd*theta_v(jc,jk,jb))
-        ENDDO
-      ENDDO
-
-    ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-  END SUBROUTINE hydro_adjust_downward
 
   !-------------
   !>
