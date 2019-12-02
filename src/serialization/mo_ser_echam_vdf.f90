@@ -387,8 +387,6 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m_tile ) IF( ASSOCIATED(field%z0m_tile))
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m ) IF( ASSOCIATED(field%z0m))
     !$ser verbatim   !$ACC UPDATE HOST( field%totte ) IF( ASSOCIATED(field%totte))
-    !$ser verbatim   !$ACC UPDATE HOST( field%sh_vdiff ) IF( ASSOCIATED(field%sh_vdiff))
-    !$ser verbatim   !$ACC UPDATE HOST( field%qv_vdiff ) IF( ASSOCIATED(field%qv_vdiff))
     !$ser verbatim   !$ACC UPDATE HOST( field%ts_tile ) IF( ASSOCIATED(field%ts_tile))
     !$ser verbatim   !$ACC UPDATE HOST( field%u_stress ) IF( ASSOCIATED(field%u_stress))
     !$ser verbatim   !$ACC UPDATE HOST( field%v_stress ) IF( ASSOCIATED(field%v_stress))
@@ -484,8 +482,6 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_z0m_tile=field%z0m_tile(:,jb,:) IF (ASSOCIATED(field%z0m_tile))
     !$ser data echam_vdf_z0m=field%z0m(:,jb) IF (ASSOCIATED(field%z0m))
     !$ser data echam_vdf_totte=field%totte(:,:,jb) IF (ASSOCIATED(field%totte))
-    !$ser data echam_vdf_sh_vdiff=field%sh_vdiff(:,jb) IF (ASSOCIATED(field%sh_vdiff))
-    !$ser data echam_vdf_qv_vdiff=field%qv_vdiff(:,jb) IF (ASSOCIATED(field%qv_vdiff))
     !$ser data echam_vdf_ts_tile=field%ts_tile(:,jb,:) IF (ASSOCIATED(field%ts_tile))
     !$ser data echam_vdf_u_stress=field%u_stress(:,jb) IF (ASSOCIATED(field%u_stress))
     !$ser data echam_vdf_v_stress=field%v_stress(:,jb) IF (ASSOCIATED(field%v_stress))
@@ -1031,8 +1027,6 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m ) IF( ASSOCIATED(field%z0m) )
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m_tile ) IF( ASSOCIATED(field%z0m_tile) )
     !$ser verbatim   !$ACC UPDATE HOST( field%kedisp ) IF( ASSOCIATED(field%kedisp) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%sh_vdiff ) IF( ASSOCIATED(field%sh_vdiff) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%qv_vdiff ) IF( ASSOCIATED(field%qv_vdiff) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_vdf ) IF( ASSOCIATED(field%q_vdf) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_vdf_vi ) IF( ASSOCIATED(field%q_vdf_vi) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_vdf ) IF( ASSOCIATED(tend%ta_vdf) )
@@ -1110,8 +1104,6 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_chk_h_z0m=field%z0m IF (ASSOCIATED(field%z0m))
     !$ser data echam_vdf_chk_h_z0m_tile=field%z0m_tile IF (ASSOCIATED(field%z0m_tile))
     !$ser data echam_vdf_chk_h_kedisp=field%kedisp IF (ASSOCIATED(field%kedisp))
-    !$ser data echam_vdf_chk_h_sh_vdiff=field%sh_vdiff IF (ASSOCIATED(field%sh_vdiff))
-    !$ser data echam_vdf_chk_h_qv_vdiff=field%qv_vdiff IF (ASSOCIATED(field%qv_vdiff))
     !$ser data echam_vdf_chk_h_q_vdf=field%q_vdf IF (ASSOCIATED(field%q_vdf))
     !$ser data echam_vdf_chk_h_q_vdf_vi=field%q_vdf_vi IF (ASSOCIATED(field%q_vdf_vi))
     !$ser data echam_vdf_chk_h_ta_vdf=tend%ta_vdf IF (ASSOCIATED(tend%ta_vdf))
@@ -2085,8 +2077,6 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m )
     !$ser verbatim   !$ACC UPDATE HOST( pthvvar )
     !$ser verbatim   !$ACC UPDATE HOST( field%totte )
-    !$ser verbatim   !$ACC UPDATE HOST( field%sh_vdiff )
-    !$ser verbatim   !$ACC UPDATE HOST( field%qv_vdiff )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
@@ -2106,9 +2096,7 @@ MODULE mo_ser_echam_vdf
     !$ser&     echam_vdf_vu_pxite_vdf=tend_qtrc_vdf(:,:,iqi)       &
     !$ser&     echam_vdf_vu_pz0m=field%z0m(:,jb)                   &
     !$ser&     echam_vdf_vu_pthvvar=pthvvar                        &
-    !$ser&     echam_vdf_vu_ptotte=field%totte(:,:,jb)             &
-    !$ser&     echam_vdf_vu_psh_vdiff=field%sh_vdiff(:,jb)         &
-    !$ser&     echam_vdf_vu_pqv_vdiff=field%qv_vdiff(:,jb)
+    !$ser&     echam_vdf_vu_ptotte=field%totte(:,:,jb)             
     !$ser data echam_vdf_vu_pxtte_vdf=tend_qtrc_vdf(:,:,iqt:) IF (SIZE(tend_qtrc_vdf(:,:,iqt:))>0)
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN

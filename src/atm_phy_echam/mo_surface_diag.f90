@@ -88,11 +88,6 @@ CONTAINS
     !$ACC               pevap_lice, pevap_tile, plhflx_lnd, plhflx_lwtr,       &
     !$ACC               pshflx_tile )
 
-    !===================================================================
-    ! If surface heat fluxes (incl. latent) are switched off, set
-    ! corresponding values to zero and return to the calling subroutine.
-    !===================================================================
-
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
@@ -100,15 +95,10 @@ CONTAINS
       DO jk = 1, kbdim
         plhflx_tile(jk,jsfc) = 0._wp
         pshflx_tile(jk,jsfc) = 0._wp
+        pevap_tile (jk,jsfc) = 0._wp
       END DO
     END DO
     !$ACC END PARALLEL
-    ! DO jsfc = 1,ksfc_type
-    !   IF (jsfc /= idx_lnd) THEN  ! for JSBACH land, the fluxes are already in these arrays
-    !     plhflx_tile(jcs:kproma,jsfc) = 0._wp
-    !     pshflx_tile(jcs:kproma,jsfc) = 0._wp
-    !   END IF
-    ! END DO
 
     !===================================================================
     ! Otherwise compute diagnostics
@@ -119,16 +109,6 @@ CONTAINS
     ! Moisture fluxes (aka evaporation rates)
     !-------------------------------------------------------------------
     ! Instantaneous moisture flux on each tile
-
-    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
-    !$ACC LOOP SEQ
-    DO jsfc = 1,ksfc_type
-      !$ACC LOOP GANG VECTOR
-      DO jk = 1, kbdim
-        pevap_tile(jk,jsfc) = 0._wp
-      END DO
-    END DO
-    !$ACC END PARALLEL
 
     !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
@@ -146,8 +126,8 @@ CONTAINS
         ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
         ! quantity used.
 
-        zdqv =   bb_btm(jl,jsfc,iqv)*pca(jl,jsfc)          &
-                       & - tpfac2*pqsat_tile(jl,jsfc)*pcs(jl,jsfc)
+        zdqv =   bb_btm(jl,jsfc,iqv) * pca(jl,jsfc)           &
+          &    - tpfac2 * pqsat_tile(jl,jsfc) * pcs(jl,jsfc)
 
         ! Moisture flux ( = evaporation). Formula:
         ! (g*psteplen)**(-1)*[  tpfac1*g*psteplen*(air density)*(exchange coef)
@@ -156,48 +136,32 @@ CONTAINS
         ! On solid land (i.e. without lakes)
         !
         IF (jsfc == idx_lnd) THEN
-          pevap_tile(jl,jsfc) = pevap_lnd(jl)
+          IF (lsmask(jl) > 0._wp) THEN
+            pevap_tile(jl,jsfc) = pevap_lnd(jl)
+          END IF
         END IF
 
         ! On open water, ocean and lakes
         !
         IF (jsfc == idx_wtr) THEN
-  !!$        WHERE (alake(jl) > 0._wp)
-  !!$          pevap_tile(jl,idx_wtr) = pevap_lwtr(jl)
-  !!$        ELSE WHERE
-  !!$          pevap_tile(jl,idx_wtr) =  zconst*pfac_sfc(jl)   &
-  !!$                                       & *pcfh_tile(jl,idx_wtr) &
-  !!$                                       & *zdqv
-  !!$        END WHERE
           IF (lsmask(jl) < 1._wp) THEN
-              pevap_tile(jl,jsfc) = alake(jl)*pevap_lwtr(jl)               & ! lakes
-                   &                     +(1._wp-lsmask(jl)-alake(jl))           & ! ocean
-                   &                     *zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc) &
-                   &                     *zdqv
-              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc)/(1._wp-lsmask(jl))
-          ELSE
-              pevap_tile(jl,jsfc) = 0.0_wp
+              pevap_tile(jl,jsfc) =   alake(jl) * pevap_lwtr(jl)                   & ! lakes
+                   &                + (1._wp - lsmask(jl) - alake(jl))             & ! ocean
+                   &                  * zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) &
+                   &                  * zdqv
+              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc) / (1._wp - lsmask(jl))
           END IF
         END IF
 
         ! On ice covered water, ocean and lakes
         !
         IF (jsfc == idx_ice) THEN
-  !!$        WHERE (alake(jl) > 0._wp)
-  !!$          pevap_tile(jl,idx_ice) = pevap_lice(jl)
-  !!$        ELSE WHERE
-  !!$          pevap_tile(jl,idx_ice) =  zconst*pfac_sfc(jl)   &
-  !!$                                       & *pcfh_tile(jl,idx_ice) &
-  !!$                                       & *zdqv
-  !!$        END WHERE
            IF (lsmask(jl) < 1._wp) THEN
-              pevap_tile(jl,jsfc) = alake(jl)*pevap_lice(jl)               & ! lakes
-                   &                     +(1._wp-lsmask(jl)-alake(jl))           & ! ocean
-                   &                     *zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc) &
-                   &                     *zdqv
-              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc)/(1._wp-lsmask(jl))
-           ELSE
-              pevap_tile(jl,jsfc) = 0.0_wp
+              pevap_tile(jl,jsfc) =   alake(jl) * pevap_lice(jl)                   & ! lakes
+                   &                + (1._wp - lsmask(jl) - alake(jl))             & ! ocean
+                   &                  * zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) &
+                   &                  * zdqv
+              pevap_tile(jl,jsfc) = pevap_tile(jl,jsfc) / (1._wp - lsmask(jl))
            END IF
         END IF
 
@@ -220,7 +184,7 @@ CONTAINS
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        pevap_gbm(jl) = pevap_gbm(jl) + pfrc(jl,jsfc)*pevap_tile(jl,jsfc)
+        pevap_gbm(jl) = pevap_gbm(jl) + pfrc(jl,jsfc) * pevap_tile(jl,jsfc)
       END DO
       !$ACC END PARALLEL
     ENDDO
@@ -234,7 +198,9 @@ CONTAINS
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        plhflx_tile(jl,idx_lnd) = plhflx_lnd(jl)
+        IF (lsmask(jl) > 0._wp) THEN
+          plhflx_tile(jl,idx_lnd) = plhflx_lnd(jl)
+        END IF
       END DO
       !$ACC END PARALLEL
     END IF
@@ -245,7 +211,7 @@ CONTAINS
         IF (alake(jl) > 0._wp) THEN
           plhflx_tile(jl,idx_wtr) = plhflx_lwtr(jl)
         ELSE
-          plhflx_tile(jl,idx_wtr) = alv*pevap_tile(jl,idx_wtr)
+          plhflx_tile(jl,idx_wtr) = alv * pevap_tile(jl,idx_wtr)
         END IF
       END DO
       !$ACC END PARALLEL
@@ -257,7 +223,7 @@ CONTAINS
         IF (alake(jl) > 0._wp) THEN
           plhflx_tile(jl,idx_ice) = plhflx_lice(jl)
         ELSE
-          plhflx_tile(jl,idx_ice) = als*pevap_tile(jl,idx_ice)
+          plhflx_tile(jl,idx_ice) = als * pevap_tile(jl,idx_ice)
         END IF
       END DO
       !$ACC END PARALLEL
@@ -298,25 +264,27 @@ CONTAINS
         ! bb was replaced by bb_btm (according to E. Roeckner), now not blended
         ! quantity used.
 
-        zdcptv = bb_btm(jl,jsfc,ih) - tpfac2*pcptv_tile(jl,jsfc)
+        zdcptv = bb_btm(jl,jsfc,ih) - tpfac2 * pcptv_tile(jl,jsfc)
 
         ! Flux of dry static energy
 
         IF (jsfc == idx_lnd) THEN
-          pshflx_tile(jl,jsfc) = pshflx_lnd(jl)
+          IF (lsmask(jl) > 0._wp) THEN
+            pshflx_tile(jl,jsfc) = pshflx_lnd(jl)
+          END IF
         END IF
         IF (jsfc == idx_wtr) THEN
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lwtr(jl)
           ELSE
-            pshflx_tile(jl,jsfc) =  zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc)*zdcptv
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
           END IF
         END IF
         IF (jsfc == idx_ice) THEN
           IF (alake(jl) > 0._wp) THEN
             pshflx_tile(jl,jsfc) = pshflx_lice(jl)
           ELSE
-           pshflx_tile(jl,jsfc) =  zconst*pfac_sfc(jl)*pcfh_tile(jl,jsfc)*zdcptv
+            pshflx_tile(jl,jsfc) = zconst * pfac_sfc(jl) * pcfh_tile(jl,jsfc) * zdcptv
           END IF
         END IF
 
@@ -337,7 +305,7 @@ CONTAINS
       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
-        pshflx_gbm(jl) = pshflx_gbm(jl) + pfrc(jl,jsfc)*pshflx_tile(jl,jsfc)
+        pshflx_gbm(jl) = pshflx_gbm(jl) + pfrc(jl,jsfc) * pshflx_tile(jl,jsfc)
       END DO
       !$ACC END PARALLEL
     ENDDO
