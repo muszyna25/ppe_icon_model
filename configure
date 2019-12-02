@@ -3757,6 +3757,7 @@ elif $CC --version | grep '^gcc' >/dev/null 2>&1; then :
 else
   acx_cv_c_compiler_vendor=unknown
 fi
+      rm -f a.out a.out.dSYM a.exe b.out
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_c_compiler_vendor" >&5
 $as_echo "$acx_cv_c_compiler_vendor" >&6; }
@@ -3772,7 +3773,7 @@ else
   nag) :
     acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
-    acx_cv_c_compiler_version=`$CC -V | sed -n 's/pgcc \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'` ;; #(
+    acx_cv_c_compiler_version=`$CC -V 2>/dev/null | sed -n 's/pgcc \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'` ;; #(
   cray) :
     acx_cv_c_compiler_version=`$CC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`
          if test -z "$acx_cv_c_compiler_version"; then :
@@ -3784,10 +3785,14 @@ else
   acx_cv_c_compiler_version="classic:${acx_cv_c_compiler_version}"
 fi ;; #(
   gnu) :
-    acx_cv_c_compiler_version=`$CC -dumpfullversion 2>/dev/null || $CC -dumpversion 2>/dev/null` ;; #(
+    acx_cv_c_compiler_version=`$CC -dumpfullversion 2>/dev/null`
+         if test $? -ne 0 || test -z "$acx_cv_c_compiler_version"; then :
+  acx_cv_c_compiler_version=`$CC -dumpversion 2>/dev/null`
+fi ;; #(
   *) :
     acx_cv_c_compiler_version=unknown ;;
 esac
+      rm -f a.out a.out.dSYM a.exe b.out
       if test -z "$acx_cv_c_compiler_version"; then :
   acx_cv_c_compiler_version=unknown
 fi
@@ -4149,6 +4154,7 @@ elif $FC --version 2>/dev/null | grep '^GNU Fortran' >/dev/null 2>&1; then :
 else
   acx_cv_fc_compiler_vendor=unknown
 fi
+      rm -f a.out a.out.dSYM a.exe b.out
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_compiler_vendor" >&5
 $as_echo "$acx_cv_fc_compiler_vendor" >&6; }
@@ -4166,14 +4172,18 @@ else
   nag) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*Build \([0-9][0-9]*\)/\1.\2/p'` ;; #(
   portland) :
-    acx_cv_fc_compiler_version=`$FC -V | sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
+    acx_cv_fc_compiler_version=`$FC -V 2>/dev/null | sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
   cray) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   gnu) :
-    acx_cv_fc_compiler_version=`$FC -dumpfullversion 2>/dev/null || $FC -dumpversion 2>/dev/null` ;; #(
+    acx_cv_fc_compiler_version=`$FC -dumpfullversion 2>/dev/null`
+         if test $? -ne 0 || test -z "$acx_cv_fc_compiler_version"; then :
+  acx_cv_fc_compiler_version=`$FC -dumpversion 2>/dev/null`
+fi ;; #(
   *) :
     acx_cv_fc_compiler_version=unknown ;;
 esac
+      rm -f a.out a.out.dSYM a.exe b.out
       if test -z "$acx_cv_fc_compiler_version"; then :
   acx_cv_fc_compiler_version=unknown
 fi

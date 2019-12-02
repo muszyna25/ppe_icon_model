@@ -69,7 +69,8 @@ grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1],
         [AS_VAR_GET([_AC_CC]) --version 2>/dev/null | dnl
 grep '^GNU Fortran' >/dev/null 2>&1],
         [acx_cache_var=gnu],
-        [acx_cache_var=unknown])])
+        [acx_cache_var=unknown])
+      rm -f a.out a.out.dSYM a.exe b.out])
    m4_popdef([acx_cache_var])])
 
 # ACX_COMPILER_FC_VERSION()
@@ -114,15 +115,17 @@ AC_DEFUN([ACX_COMPILER_FC_VERSION_SIMPLE],
 [sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*]dnl
 [Build \([0-9][0-9]*\)/\1.\2/p'`]],
         [portland],
-        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -V | dnl
+        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -V 2>/dev/null | dnl
 [sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'`]],
         [cray],
         [acx_cache_var=`AS_VAR_GET([_AC_CC]) -V 2>&1 | dnl
 [sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`]],
         [gnu],
-        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -dumpfullversion 2>/dev/null dnl
-|| AS_VAR_GET([_AC_CC]) -dumpversion 2>/dev/null`],
+        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -dumpfullversion 2>/dev/null`
+         AS_IF([test $? -ne 0 || test -z "$acx_cache_var"],
+           [acx_cache_var=`AS_VAR_GET([_AC_CC]) -dumpversion 2>/dev/null`])],
         [acx_cache_var=unknown])
+      rm -f a.out a.out.dSYM a.exe b.out
       AS_IF([test -z "$acx_cache_var"], [acx_cache_var=unknown])])
    m4_popdef([acx_cache_var])])
 
@@ -175,7 +178,8 @@ grep '^Cray clang' >/dev/null 2>&1],
         [acx_cache_var=cray],
         [AS_VAR_GET([_AC_CC]) --version | grep '^gcc' >/dev/null 2>&1],
         [acx_cache_var=gnu],
-        [acx_cache_var=unknown])])
+        [acx_cache_var=unknown])
+      rm -f a.out a.out.dSYM a.exe b.out])
    m4_popdef([acx_cache_var])])
 
 # ACX_COMPILER_CC_VERSION()
@@ -220,7 +224,7 @@ AC_DEFUN([ACX_COMPILER_CC_VERSION_SIMPLE],
 [sed -n 's/^NAG Fortran Compiler Release \([0-9][0-9]*\.[0-9][0-9]*\).*]dnl
 [Build \([0-9][0-9]*\)/\1.\2/p'`]],
         [portland],
-        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -V | dnl
+        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -V 2>/dev/null | dnl
 [sed -n 's/pgcc \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\1.\2/p'`]],
         [cray],
         [acx_cache_var=`AS_VAR_GET([_AC_CC]) -V 2>&1 | dnl
@@ -232,9 +236,11 @@ AC_DEFUN([ACX_COMPILER_CC_VERSION_SIMPLE],
               [acx_cache_var="clang:${acx_cache_var}"])],
            [acx_cache_var="classic:${acx_cache_var}"])],
         [gnu],
-        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -dumpfullversion 2>/dev/null dnl
-|| AS_VAR_GET([_AC_CC]) -dumpversion 2>/dev/null`],
+        [acx_cache_var=`AS_VAR_GET([_AC_CC]) -dumpfullversion 2>/dev/null`
+         AS_IF([test $? -ne 0 || test -z "$acx_cache_var"],
+           [acx_cache_var=`AS_VAR_GET([_AC_CC]) -dumpversion 2>/dev/null`])],
         [acx_cache_var=unknown])
+      rm -f a.out a.out.dSYM a.exe b.out
       AS_IF([test -z "$acx_cache_var"], [acx_cache_var=unknown])])
    m4_popdef([acx_cache_var])])
 
