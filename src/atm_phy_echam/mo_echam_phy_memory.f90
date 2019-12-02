@@ -2980,16 +2980,16 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                   & lrestart = .TRUE., initval = 1.e-4_wp, ldims=shape3d,      &
                   & lopenacc=.TRUE.)
-
       
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfm')) THEN
-         cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '', datatype_flt)
-         grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-         CALL add_var( field_list, prefix//'cfm', field%cfm,                      &
-                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
-                     & lrestart = .FALSE., ldims=shape3d,                         &
-                     &  lopenacc=.TRUE.)
-      END IF
+      ! REMARK: required for art emmision handling
+      !IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfm')) THEN      
+      cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '', datatype_flt)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( field_list, prefix//'cfm', field%cfm,                      &
+           &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+           &        lrestart = .FALSE., ldims=shape3d,                         &
+           &        lopenacc=.TRUE.)
+      !END IF
       !
       contvar_is_in_output = .FALSE.
       DO jsfc = 1,ksfc_type
@@ -3023,15 +3023,15 @@ CONTAINS
          END IF
       END DO
 
-
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfh')) THEN
-         cf_desc    = t_cf_var('turb_exchng_coeff_heat', '', '', datatype_flt)
-         grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-         CALL add_var( field_list, prefix//'cfh', field%cfh,                      &
-                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
-                     & lrestart = .FALSE., ldims=shape3d,                         &
-                     &  lopenacc=.TRUE.)
-      END IF
+      ! REMARK: required for art sedimentation handling
+      !IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfh')) THEN
+      cf_desc    = t_cf_var('turb_exchng_coeff_heat', '', '', datatype_flt)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( field_list, prefix//'cfh', field%cfh,                      &
+           &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+           &        lrestart = .FALSE., ldims=shape3d,                         &
+           &        lopenacc=.TRUE.)
+      !END IF
       !
       contvar_is_in_output = .FALSE.
       DO jsfc = 1,ksfc_type

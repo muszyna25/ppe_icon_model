@@ -26,18 +26,19 @@ MODULE mo_art_sedi_interface
   USE mo_kind,                          ONLY: wp
   USE mo_parallel_config,               ONLY: nproma
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_impl_constants,                ONLY: min_rlcell_int
+  USE mo_impl_constants,                ONLY: min_rlcell_int, iecham, inwp
   USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_metrics,t_nh_diag
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_nonhydrostatic_config,         ONLY: kstart_tracer
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
-  USE mo_run_config,                    ONLY: lart,iqr,iqc,iqv
+  USE mo_run_config,                    ONLY: lart,iqr,iqc,iqv, iforcing
   USE mo_exception,                     ONLY: finish
   USE mo_advection_vflux,               ONLY: upwind_vflux_ppm, implicit_sedim_tracer
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_sedInt
+  USE mo_physical_constants,            ONLY: grav
 #ifdef __ICON_ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -52,6 +53,7 @@ MODULE mo_art_sedi_interface
   USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
   USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
   USE mo_art_diagnostics,               ONLY: art_get_diag_tracer_index
+  USE mo_art_util,                      ONLY: t_art_phys_container
 #endif
 
   IMPLICIT NONE
@@ -66,7 +68,7 @@ CONTAINS
 !!-------------------------------------------------------------------------
 !!
 SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, &
-              &                   prm_diag, tracer, lprint_cfl)
+              &                   phy_to_art_for_sedimentation, tracer, lprint_cfl)
 !! Interface for ART routines for calculation of
 !! sedimentation and deposition velocities
 !!
@@ -83,8 +85,8 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
     &  p_metrics                         !< Metrical fields
   TYPE(t_nh_diag), INTENT(IN)       :: &
     &  p_diag                            !< diagnostic variables
-  TYPE(t_nwp_phy_diag), INTENT(in)  :: &
-    &  prm_diag                          !< list of diagnostic fields (physics)
+  TYPE(t_art_phys_container), INTENT(in)  :: &
+    &  phy_to_art_for_sedimentation      !< list of diagnostic fields (physics)
   REAL(wp), INTENT(IN)              :: &
     &  p_dtime,                        & !< Time step (dynamics)
     &  rho(:,:,:)                        !< density of air at full levels
@@ -261,15 +263,26 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
             END IF
            
             ! Calculate deposition velocities for 0th and 3rd moment
-            CALL art_calc_v_dep(p_diag%temp(:,nlev,jb), p_diag%temp_ifc(:,nlev+1,jb),             &
-              &     p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb), rho(:,nlev,jb),prm_diag%tcm(:,jb),  &
-              &     prm_diag%tch(:,jb),tracer(:,nlev,jb,iqv),tracer(:,nlev,jb,iqc),               &
-              &     tracer(:,nlev,jb,iqr), p_prog%theta_v(:,nlev,jb), prm_diag%gz0(:,jb),         &
-              &     p_metrics%ddqz_z_full(:,nlev,jb),                                             &
-              &     p_art_data(jg)%air_prop%art_dyn_visc(:,nlev,jb), fields%diameter(:,nlev,jb),  &
-              &     fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(:,nlev),             &
-              &     vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
-            ! Store deposition velocities for the use in turbulence scheme
+            IF (iforcing == inwp) THEN              
+              CALL art_calc_v_dep(p_diag%temp(:,nlev,jb), p_diag%temp_ifc(:,nlev+1,jb),                                             &
+                   &              p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb), rho(:,nlev,jb),phy_to_art_for_sedimentation%tcm(:,jb),  &
+                   &              phy_to_art_for_sedimentation%tch(:,jb),tracer(:,nlev,jb,iqv),tracer(:,nlev,jb,iqc),               &
+                   &              tracer(:,nlev,jb,iqr), p_prog%theta_v(:,nlev,jb), phy_to_art_for_sedimentation%gz0(:,jb),         &
+                   &              p_metrics%ddqz_z_full(:,nlev,jb),                                                                 &
+                   &              p_art_data(jg)%air_prop%art_dyn_visc(:,nlev,jb), fields%diameter(:,nlev,jb),                      &
+                   &              fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(:,nlev),                                 &
+                   &              vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
+            ELSE IF (iforcing == iecham) THEN
+              CALL art_calc_v_dep(p_diag%temp(:,nlev,jb), p_diag%temp_ifc(:,nlev+1,jb),                                             &
+                   &              p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb), rho(:,nlev,jb),phy_to_art_for_sedimentation%tcm(:,jb),  &
+                   &              phy_to_art_for_sedimentation%tch(:,jb),tracer(:,nlev,jb,iqv),tracer(:,nlev,jb,iqc),               &
+                   &              tracer(:,nlev,jb,iqr), p_prog%theta_v(:,nlev,jb), grav*phy_to_art_for_sedimentation%z0m(:,jb),    &
+                   &              p_metrics%ddqz_z_full(:,nlev,jb),                                                                 &
+                   &              p_art_data(jg)%air_prop%art_dyn_visc(:,nlev,jb), fields%diameter(:,nlev,jb),                      &
+                   &              fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(:,nlev),                                 &
+                   &              vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
+            ENDIF
+              ! Store deposition velocities for the use in turbulence scheme
             ALLOCATE(jsp_ar(fields%ntr-1))
             DO i =1, fields%ntr-1
               jsp_ar(i) = fields%itr3(i)

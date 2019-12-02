@@ -146,11 +146,13 @@ MODULE mo_nh_stepping
   USE mo_name_list_output_init,    ONLY: output_file
   USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,                 ONLY: t_simulation_status
+
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
-
+  USE mo_art_util,                 ONLY: t_art_phys_container
+  
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt, save_initial_state, &
@@ -1232,6 +1234,9 @@ MODULE mo_nh_stepping
 
     REAL(wp)                             :: sim_time !< elapsed simulation time on this grid level
 
+    TYPE(t_art_phys_container) :: phy_to_art_for_emissions
+    TYPE(t_art_phys_container) :: phy_to_art_for_sedimentation    
+    
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
     sim_time = getElapsedSimTimeInSeconds(datetime_local(jg)%ptr) 
@@ -1522,12 +1527,13 @@ MODULE mo_nh_stepping
         IF ( ltransport) THEN
 
           IF (lart) THEN
+            CALL phy_to_art_for_emissions%fill(iforcing, jg)
             CALL art_emission_interface(                       &
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in
               &      p_nh_state(jg),                           &!in
-              &      prm_diag(jg),                             &!in
+              &      phy_to_art_for_emissions,                 &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
               &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
               &      datetime_local(jg)%ptr,                   &!in
@@ -1582,13 +1588,14 @@ MODULE mo_nh_stepping
         !     Optional internal substepping with nart_substeps_sedi
         !-----------------------
           IF (lart) THEN
+            CALL phy_to_art_for_sedimentation%fill(iforcing, jg)
             CALL art_sedi_interface( p_patch(jg),             &!in
                &      dt_loc,                                 &!in
                &      p_nh_state(jg)%prog(n_new_rcf),         &!in
                &      p_nh_state(jg)%metrics,                 &!in
                &      p_nh_state(jg)%prog(nnew(jg))%rho,      &!in
                &      p_nh_state(jg)%diag,                    &!in
-               &      prm_diag(jg),                           &!in
+               &      phy_to_art_for_sedimentation,           &!in
                &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart
