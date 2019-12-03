@@ -97,7 +97,7 @@ then
             then
                 module_swap $current_prgenv $mod
             fi
-            module unload $mod
+            module unload $(echo $mod | sed 's|/.*||')
             module load $mod        
         done
     else

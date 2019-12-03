@@ -729,7 +729,7 @@ case "$ac_sitename" in
                 make_command=make -j 8
                 case "$fortran_compiler" in
                     cray)
-                      load_modules      = cray-netcdf cray-hdf5
+                      load_modules      = cce/8.7.11 cray-mpich/7.7.10.1 cray-netcdf/4.6.3.0 cray-hdf5/1.10.5.0
                       ignore_if_loaded  = cray-netcdf cray-hdf5
 		      #	Add "eccodes" GRIB library, if nothing else has been
 		      # set.  Note that we use an intermediate variable
@@ -739,10 +739,14 @@ case "$ac_sitename" in
                       if test -n "$dwd_gribapi_env"; then
                         load_modules    = $load_modules aec eccodes 
                       fi  
-                      RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
+                      # Settings for RTTOV library:
+                      RTTOV_ROOT      = /e/uhome/rfaulwet/icon/rttov12/xc_cray
+                      RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L${RTTOV_ROOT} -lrttov12
                       OTHER_LIBS      = $RTTOV_LIBS $OTHER_LIBS
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-                      FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
+                      FFLAGS          = ${FFLAGS} -I${RTTOV_ROOT} -I${RTTOV_ROOT}/include
+                      # lapack needs to be turned off in order to avoid double references
+                      LAPACKROOT      = ' '
                       ;;
                     default|gcc)
                       FFLAGS          = ${FFLAGS}
