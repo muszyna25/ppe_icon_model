@@ -4,6 +4,7 @@
 
 # Configure stage files:
 *.c.d
+*.cu.d
 *.f90.d
 .dirstamp
 /Makefile

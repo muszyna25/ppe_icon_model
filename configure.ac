@@ -306,6 +306,12 @@ AC_ARG_WITH([external-self],
   [AS_IF([test x"$withval" != xno], [with_external_self=yes])],
   [with_external_self=no])
 
+AC_ARG_WITH([external-cub],
+  [AC_HELP_STRING([--with-external-cub],
+     [use external CUB library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_cub=yes])],
+  [with_external_cub=no])
+
 ############################ MAKEFILE CONDITIONALS #############################
 
 AS_VAR_IF([enable_silent_rules], [yes],
@@ -370,65 +376,9 @@ AC_CANONICAL_HOST
 ACX_HOST_FQDN([], [:])
 AC_SUBST([host_fqdn], [$acx_cv_host_fqdn])
 
-######################### C COMPILER COMMAND AND FLAGS #########################
-dnl We run all checks for C compiler first, which are not so many, and then
-dnl switch to our main Fortran compiler.
-
+###################### FORTRAN COMPILER COMMAND AND FLAGS ######################
 dnl Delay the cross-compilation check:
 ACX_COMPILER_CROSS_CHECK_DELAY
-
-dnl Override the default flags set by AC_PROG_CC:
-CFLAGS=${CFLAGS-}
-AC_PROG_CC
-
-dnl Supporting ISO C89 means that the following header files are available:
-dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
-dnl errno.h, ctype.h assert.h.
-AS_VAR_IF([ac_cv_prog_cc_c89], [no],
-  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
-
-dnl Some of the C source files require support for ISO C99. Supporting ISO C99
-dnl also means that the following header files are available:
-dnl stdbool.h.
-AC_PROG_CC_C99
-AS_VAR_IF([ac_cv_prog_cc_c99], [no],
-  [AC_MSG_FAILURE([C compiler does not support ISO C99])])
-
-ACX_COMPILER_CC_VENDOR_SIMPLE
-ACX_COMPILER_CC_VERSION_SIMPLE
-
-AC_ARG_VAR([ICON_CFLAGS],
-  [C compiler flags to be appended to CFLAGS when compiling ICON,
-e.g. optimization flags])dnl
-ICON_CFLAGS=${ICON_CFLAGS-}
-
-AC_ARG_VAR([ICON_BUNDLED_CFLAGS],
-  [C compiler flags to be appended to CFLAGS when compiling and linking
-the bundled libraries @<:@default=$ICON_CFLAGS@:>@])dnl
-subdir_CFLAGS="$CFLAGS ${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}"
-
-dnl Check for headers that are protected with HAVE_* macros in the code
-dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
-dnl annoying checks; already fixed in the autoconf master branch):
-AC_CHECK_HEADERS([execinfo.h ucontext.h link.h], [], [],
-  [[// override default includes]])
-
-dnl Check for headers that are not protected at all:
-AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
-  [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],
-  [], [AC_MSG_FAILURE([unable to find header file $ac_header])],
-  [[// override default includes]])
-
-dnl Other header files that are protected in the code but not with the HAVE_*
-dnl macros:
-dnl support/util_hash.c: endian.h
-dnl support/util_sysinfo.c: mcheck.h sys/systemcfg.h
-dnl support/util_timer.c: sys/systemcfg.h asm/msr.h
-
-dnl Header files that are included from non-mandatory files
-dnl support/util_signal.c: features.h strings.h fenv.h fptrap.h
-
-###################### FORTRAN COMPILER COMMAND AND FLAGS ######################
 
 dnl Override the default flags set by AC_PROG_FC:
 FCFLAGS=${FCFLAGS-}
@@ -532,8 +482,6 @@ AS_VAR_IF([enable_psrad], [no],
 AS_VAR_IF([enable_ecrad], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__ECRAD"])])
 
-dnl Currently, the macro __NO_RTE_RRTMGP__ is not used anywhere in the code but
-dnl is set in the configure script of icon-2.6.0-rc:
 AS_VAR_IF([enable_rte_rrtmgp], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
 
@@ -595,6 +543,83 @@ AS_VAR_IF([enable_mixed_precision], [yes],
   [AS_VAR_APPEND([FCFLAGS],
      [" ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"])])
 
+######################### C COMPILER COMMAND AND FLAGS #########################
+dnl Override the default flags set by AC_PROG_CC:
+CFLAGS=${CFLAGS-}
+AC_PROG_CC
+AC_LANG([C])
+
+dnl Supporting ISO C89 means that the following header files are available:
+dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
+dnl errno.h, ctype.h assert.h.
+AS_VAR_IF([ac_cv_prog_cc_c89], [no],
+  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
+
+dnl Some of the C source files require support for ISO C99. Supporting ISO C99
+dnl also means that the following header files are available:
+dnl stdbool.h.
+AC_PROG_CC_C99
+AS_VAR_IF([ac_cv_prog_cc_c99], [no],
+  [AC_MSG_FAILURE([C compiler does not support ISO C99])])
+
+ACX_COMPILER_CC_VENDOR_SIMPLE
+ACX_COMPILER_CC_VERSION_SIMPLE
+
+AC_ARG_VAR([ICON_CFLAGS],
+  [C compiler flags to be appended to CFLAGS when compiling ICON,
+e.g. optimization flags])dnl
+ICON_CFLAGS=${ICON_CFLAGS-}
+
+AC_ARG_VAR([ICON_BUNDLED_CFLAGS],
+  [C compiler flags to be appended to CFLAGS when compiling and linking
+the bundled libraries @<:@default=$ICON_CFLAGS@:>@])dnl
+subdir_CFLAGS="$CFLAGS ${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}"
+
+dnl Check for headers that are protected with HAVE_* macros in the code
+dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
+dnl annoying checks; already fixed in the autoconf master branch):
+AC_CHECK_HEADERS([execinfo.h ucontext.h link.h], [], [],
+  [[// override default includes]])
+
+dnl Check for headers that are not protected at all:
+AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
+  [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],
+  [], [AC_MSG_FAILURE([unable to find header file $ac_header])],
+  [[// override default includes]])
+
+dnl Other header files that are protected in the code but not with the HAVE_*
+dnl macros:
+dnl support/util_hash.c: endian.h
+dnl support/util_sysinfo.c: mcheck.h sys/systemcfg.h
+dnl support/util_timer.c: sys/systemcfg.h asm/msr.h
+
+dnl Header files that are included from non-mandatory files
+dnl support/util_signal.c: features.h strings.h fenv.h fptrap.h
+
+########################### CUDA COMPILER AND FLAGS ############################
+
+dnl Don't use neither AS_IF nor AS_VAR_IF to prevent checking for NVCC when
+dnl GPU support is disabled:
+if test "x$enable_gpu" = xyes; then :
+  ACX_PROG_NVCC
+   AS_VAR_IF([acx_cv_prog_nvcc_cuda], [no],
+     [AC_MSG_FAILURE([unable to find a working NVIDIA CUDA Compiler: either dnl
+disable GPU support (--disable-gpu) or set NVCC accordingly])])
+   ACX_PROG_NVCC_CXX11
+   ACX_LANG_PUSH_CUDA
+   AC_CHECK_HEADER([cuda.h], [],
+     [AC_MSG_FAILURE([unable to find header file cuda.h: either disable GPU dnl
+support (--disable-gpu) or set NVCFLAGS accordingly])],
+     [[// override default includes]])
+   ACX_LANG_POP_CUDA
+   AC_LANG_PUSH([Fortran])
+   ACX_FC_CUDA_COMPATIBLE
+   AC_LANG_POP([Fortran])
+else
+  NVCC=
+  NVCFLAGS=
+fi
+
 ################################ LIBRARY CHECKS ################################
 
 dnl One of the topological orderings of the ICON dependency graph:
@@ -606,6 +631,9 @@ dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lrrtmgp -lrte',
 dnl '-lnetcdff', '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
+
+dnl Most of the following checks are for Fortran compiler:
+AC_LANG([Fortran])
 
 dnl Additional macro definitions to aid the dependency generator,
 dnl e.g. compiler intrinsic macros:
@@ -1311,6 +1339,24 @@ AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
 
 dnl Prepend the include search flags to FCFLAGS:
 AS_IF([test -n "$bundled_includes"], [FCFLAGS="${bundled_includes}${FCFLAGS}"])
+
+AS_VAR_IF([enable_gpu], [yes],
+  [AS_VAR_IF([with_external_cub], [yes],
+     [ACX_LANG_PUSH_CUDA
+      AC_CHECK_HEADER([cub/device/device_select.cuh], [],
+        [AC_MSG_FAILURE([unable to find header files of CUB library: either dnl
+disable GPU support (--disable-gpu) or use the bundled version of CUB dnl
+(--without-external-cub) or set NVCFLAGS accordingly])],
+        [[// override default includes]])
+      ACX_LANG_POP_CUDA],
+     [icon_subdir_srcdir="$srcdir/externals/cub"
+      icon_subdir_unique_file="cub/device/device_select.cuh"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of CUB dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
+GPU support (--disable-gpu) or provide an external version of CUB dnl
+(--with-external-cub) by setting NVCFLAGS accordingly])])
+      AS_VAR_APPEND([NVCFLAGS], [" -I${srcdir}/externals/cub"])])])
 
 ##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
 
