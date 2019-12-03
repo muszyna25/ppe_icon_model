@@ -3387,8 +3387,10 @@ CONTAINS
       !---------------------------------------------------------------------
  
       !! For updating ocean physics parameterization
-      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
-  
+      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, &
+        & operators_coefficients, p_atm_f, p_oce_sfc)
+
+ 
       !------------------------------------------------------------------------
       ! solve for new free surface
       !------------------------------------------------------------------------
@@ -3710,7 +3712,8 @@ CONTAINS
 
       !---------------------------------------------------------------------
 
-      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+      CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, &
+        & operators_coefficients, p_atm_f, p_oce_sfc)
 
       !------------------------------------------------------------------------
       ! solve for new free surface
@@ -3841,7 +3844,8 @@ CONTAINS
       ! transport tracers and diffuse them
 
       IF (no_tracer>=1) THEN
-          CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+          CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, &
+            & operators_coefficients, p_phys_param)
       ENDIF
 
       !------------------------------------------------------------------------
