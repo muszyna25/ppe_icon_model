@@ -88,6 +88,9 @@ MODULE mo_echam_phy_init
   USE mo_convect_tables,       ONLY: init_convect_tables
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables
 
+  ! cloud optical properties
+  USE mo_echam_cop_config,     ONLY: print_echam_cop_config, echam_cop_config
+
   ! "echam"   cloud microphysics
   USE mo_echam_cld_config,     ONLY: eval_echam_cld_config, print_echam_cld_config, echam_cld_config
 
@@ -127,9 +130,6 @@ MODULE mo_echam_phy_init
   USE mo_psrad_setup,          ONLY: psrad_basic_setup
   USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
-  ! for microphysics  (graupel)
-  USE gscp_data,              ONLY: gscp_set_coefficients
-  USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
   ! ART
   USE mo_art_config,         ONLY: art_config
@@ -221,13 +221,17 @@ CONTAINS
     END DO
     IF (lany) THEN
       !
+      ! Radiation configuration
       CALL  eval_echam_rad_config
       CALL print_echam_rad_config
       !
+      ! Cloud optical properties
+      CALL print_echam_cop_config
+      !
       ! Radiation constants for gas and cloud optics
       CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
-        &                    echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-        &                    echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+        &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+        &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       !
       ! If there are concurrent psrad processes, set up communication 
       ! between the atmo and psrad processes

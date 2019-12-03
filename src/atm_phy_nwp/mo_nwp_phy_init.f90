@@ -64,7 +64,7 @@ MODULE mo_nwp_phy_init
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
   USE mo_psrad_setup    ,     ONLY: psrad_basic_setup
-  USE mo_echam_cld_config,  ONLY: echam_cld_config
+  USE mo_echam_cop_config,    ONLY: echam_cop_config
   USE mo_psrad_general,         ONLY: nbndsw
 #ifdef __ECRAD
   USE mo_nwp_ecrad_init,      ONLY: setup_ecrad
@@ -815,8 +815,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         CALL setup_newcld_optics(cldopt_filename)
       CASE(3) ! PSRAD init
         CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
-          & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-          & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+          & echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+          & echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       CASE(4)
 #ifdef __ECRAD
         ! Do ecrad initialization only once

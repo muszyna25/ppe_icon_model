@@ -83,21 +83,7 @@ MODULE mo_echam_cld_config
      REAL(wp) :: ccsaut   !          coefficient of autoconversion of cloud ice to snow
      REAL(wp) :: ccsacl   !          coefficient of accretion of cloud droplets by falling snow
      !
-     ! cloud droplet number concentration
-     REAL(wp) :: cn1lnd   ! [1e6/m3] over land, p <= 100 hPa
-     REAL(wp) :: cn2lnd   ! [1e6/m3] over land, p >= 800 hPa
-     REAL(wp) :: cn1sea   ! [1e6/m3] over sea , p <= 100 hPa
-     REAL(wp) :: cn2sea   ! [1e6/m3] over sea , p >= 800 hPa
-     !
-     ! cloud optics
-     REAL(wp) :: cinhomi  !          ice    cloud inhomogeneity factor
-     !
-     !                    !          liquid cloud inhomogeneity factor:
-     REAL(wp) :: cinhoml1 !          - ktype = 0 = stratiform clouds
-     REAL(wp) :: cinhoml2 !          - ktype = 4 = shallow conv. (cf. clwprat)
-     REAL(wp) :: cinhoml3 !          - ktype = 1 = deep convection             and
-     !                    !            ktype = 2 = shallow conv. (cf. clwprat) and
-     !                    !            ktype = 3 = mid-level conv.
+     ! cloud liquid/ice path ratio
      REAL(wp) :: clwprat  !          critical ratio of cloud liq.+ice paths below and above
      !                    !          the top of shallow convection
      !                    !          for ratio > clwprat -> change ktype from 2 to 4
@@ -155,17 +141,7 @@ CONTAINS
     echam_cld_config(:)% ccsaut   =  2.0_wp
     echam_cld_config(:)% ccsacl   = 0.10_wp
     !
-    ! cloud droplet number concentration
-    echam_cld_config(:)% cn1lnd   =  20._wp
-    echam_cld_config(:)% cn2lnd   = 180._wp
-    echam_cld_config(:)% cn1sea   =  20._wp
-    echam_cld_config(:)% cn2sea   =  80._wp
-    !
-    ! cloud optics
-    echam_cld_config(:)% cinhomi  = 0.80_wp
-    echam_cld_config(:)% cinhoml1 = 0.80_wp
-    echam_cld_config(:)% cinhoml2 = 0.40_wp
-    echam_cld_config(:)% cinhoml3 = 0.80_wp
+    ! cloud liquid/ice path ratio
     echam_cld_config(:)% clwprat  = 4.0_wp
     !
     ! tropopause diagnostics
@@ -253,19 +229,9 @@ CONTAINS
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% ceffmax  ',echam_cld_config(jg)% ceffmax )
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% crhoi    ',echam_cld_config(jg)% crhoi   )
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% crhosno  ',echam_cld_config(jg)% crhosno )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn0s     ',echam_cld_config(jg)% cn0s  )
+       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn0s     ',echam_cld_config(jg)% cn0s    )
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsaut   ',echam_cld_config(jg)% ccsaut  )
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsacl   ',echam_cld_config(jg)% ccsacl  )
-       CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn1lnd   ',echam_cld_config(jg)% cn1lnd  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn2lnd   ',echam_cld_config(jg)% cn2lnd  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn1sea   ',echam_cld_config(jg)% cn1sea  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cn2sea   ',echam_cld_config(jg)% cn2sea  )
-       CALL message    ('','')
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhomi  ',echam_cld_config(jg)% cinhomi )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml1 ',echam_cld_config(jg)% cinhoml1)
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml2 ',echam_cld_config(jg)% cinhoml2)
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cinhoml3 ',echam_cld_config(jg)% cinhoml3)
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
        CALL message    ('','')
 !!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cptop    ',echam_cld_config(jg)% cptop   )

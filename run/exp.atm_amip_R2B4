@@ -250,6 +250,8 @@ cat > ${atm_namelist} << EOF
 /
 &echam_cld_nml
 /
+&echam_cop_nml
+/
 &echam_cov_nml
 /
 &sea_ice_nml
