@@ -682,7 +682,6 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
  echam_rad_config(1)%irad_aero  =  0
- echam_rad_config(1)%ighg       =  0
  echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
  echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
@@ -703,11 +702,13 @@ cat > ${atm_namelist} << EOF
 /
 &echam_cld_nml
  echam_cld_config(1)%csecfrl    = 0.5e-5     ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- echam_cld_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
- echam_cld_config(1)%ccraut     = 2.0       ! default: 15.0
- echam_cld_config(1)%ccsaut     = 2.0       ! default: 95.0
- echam_cld_config(1)%cauloc     = 1.0       ! default: 10.0
+ echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (default was 15.0)
+ echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (default was 95.0)
+ echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
+/
+&echam_cov_nml
+ !echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
+ !echam_cov_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
 /
@@ -852,7 +853,7 @@ add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_lan
 add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
 add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
 #
-# - HD model input
+# - HD model input by Tom Riddick (test version)
 #
 datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
 add_link_file $datadir/hdpara_icon_${atmos_gridID}_G_250719_1545.nc     ./bc_land_hd.nc
@@ -1340,40 +1341,39 @@ cat >> ${oce_namelist} << EOF
   solver_tolerance                           = 1.0E-13 ! this may further be reduced
   solver_FirstGuess                          = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
 
-! solver_tolerance                           = 7.5E-14          ! old value
-! solver_max_iter_per_restart                = 19               ! old value
-! solver_max_restart_iterations              = 100              ! outer (restart solver)
+! solver_tolerance                           = 7.5E-14     ! old value
+! solver_max_iter_per_restart                = 19          ! old value
+! solver_max_restart_iterations              = 100         ! outer (restart solver)
 
-  fast_performance_level                     = 200              ! performance level 12: for cell-based; 5: default
-  use_continuity_correction                  = .TRUE.           ! height adjustment according to vertical velocity in dynamics
+  fast_performance_level                     = 200         ! performance level 12: for cell-based; 5: default
+  use_continuity_correction                  = .TRUE.      ! height adjustment according to vertical velocity in dynamics
   cfl_check                                  = .FALSE.
   cfl_write                                  = .FALSE.
 
   i_bc_veloc_top                             = 1
-  i_bc_veloc_bot                             = 1                ! 0: (def) bottom friction off, 1: on
+  i_bc_veloc_bot                             = 1           ! 0: (def) bottom friction off, 1: on
 /
 &ocean_tracer_transport_nml
-  flux_calculation_horz                      = 5                ! 1=upwind, 2=central, 3=Lax-Friedrichs,
-                                                                ! 4=Miura, 5=FCT with Zalesak limiter (default)
-  flux_calculation_vert                      = 7                ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
+  flux_calculation_horz                      = 5           ! 1=upwind, 2=central, 3=Lax-Friedrichs,
+                                                           ! 4=Miura, 5=FCT with Zalesak limiter (default)
+  flux_calculation_vert                      = 7           ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
   ! define low and high order methods to be used in
   ! horizontal flux corrected transport methods
   ! (flux_calculation_horz=4,5)
-  fct_low_order_flux                         = 1                ! horizontal low  order method: 1=upwind (def), no other implemented
-  fct_high_order_flux                        = 5                ! horizontal high order method: 1=upwind, 2=central, 3=lax_friedrichs, 4=miura_order1
-  fct_limiter_horz                           = 100              ! zalesak
-  threshold_min_T                            = -4.0             ! to avoid abort
+  fct_low_order_flux                         = 1           ! horizontal low  order method: 1=upwind (def), no other implemented
+  fct_high_order_flux                        = 5           ! horizontal high order method: 1=upwind, 2=central, 3=lax_friedrichs, 4=miura_order1
+  fct_limiter_horz                           = 100         ! zalesak
 /
 &ocean_horizontal_diffusion_nml
-  laplacian_form                             = 1                ! 1=curlcurl-graddiv
-  VelocityDiffusion_order                    = 1                ! 21=biharmonic+laplacian (for the laplacian leith)
-                                                                !
+  laplacian_form                             = 1           ! 1=curlcurl-graddiv
+  VelocityDiffusion_order                    = 1           ! 21=biharmonic+laplacian (for the laplacian leith)
+                                                           !
   BiharmonicViscosity_scaling                = 1
-  BiharmonicViscosity_reference              = 1.0E15           ! [m2/s] constant horizontal viscosity coefficient for velocity
-  BiharmonicViscosity_background             = 0.0              ! [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicViscosity_reference              = 1.0E15      ! [m2/s] constant horizontal viscosity coefficient for velocity
+  BiharmonicViscosity_background             = 0.0         ! [m2/s] constant horizontal viscosity coefficient for velocity
 
   HarmonicViscosity_scaling                  = 1
-  HarmonicViscosity_reference                = 3.0E+4           ! [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_reference                = 3.0E+4      ! [m2/s] constant horizontal viscosity coefficient for velocity
   HarmonicViscosity_background               = 0.0  
 
   TracerHorizontalDiffusion_scaling          = 1
@@ -1384,64 +1384,65 @@ cat >> ${oce_namelist} << EOF
 /
 &ocean_vertical_diffusion_nml
   PPscheme_type                              = 4
-  velocity_VerticalDiffusion_background      = 5.0E-5           ! [m2/s]  vertical background viscosity coefficient for velocity
-  temperature_VerticalDiffusion_background   = 1.0E-5           ! [m2/s]  vertical background diffusion coefficient for temperature
-  salinity_VerticalDiffusion_background      = 1.0E-5           ! [m2/s]  vertical background diffusion coefficient for salinity
-  tracer_convection_MixingCoefficient        = 0.1              ! max vertical tracer diffusion for convection used in case of instability
-  convection_InstabilityThreshold            = -1.0E-6          ! used in update_ho_params - default=-5e-8
-  richardsonDiffusion_threshold              = 0.0              ! used in update_ho_params - default=+5e-8
-  tracer_RichardsonCoeff                     = 2.0E-3           ! factor for vertical diffusion coefficient in PP scheme
-  velocity_RichardsonCoeff                   = 2.0E-3           ! factor for vertical viscosity coefficient in PP scheme
-  bottom_drag_coeff                          = 3.0E-3           ! default=2.5E-3; active for i_bc_veloc_bot=1
-  use_wind_mixing                            = .TRUE.           ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
+  velocity_VerticalDiffusion_background      = 5.0E-5      ! [m2/s]  vertical background viscosity coefficient for velocity
+  temperature_VerticalDiffusion_background   = 1.0E-5      ! [m2/s]  vertical background diffusion coefficient for temperature
+  salinity_VerticalDiffusion_background      = 1.0E-5      ! [m2/s]  vertical background diffusion coefficient for salinity
+  tracer_convection_MixingCoefficient        = 0.1         ! max vertical tracer diffusion for convection used in case of instability
+  convection_InstabilityThreshold            = -1.0E-6     ! used in update_ho_params - default=-5e-8
+  richardsonDiffusion_threshold              = 0.0         ! used in update_ho_params - default=+5e-8
+  tracer_RichardsonCoeff                     = 2.0E-3      ! factor for vertical diffusion coefficient in PP scheme
+  velocity_RichardsonCoeff                   = 2.0E-3      ! factor for vertical viscosity coefficient in PP scheme
+  bottom_drag_coeff                          = 3.0E-3      ! default=2.5E-3; active for i_bc_veloc_bot=1
+  use_wind_mixing                            = .TRUE.      ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                                = 0.03
   tracer_TopWindMixing                       = 1.0E-5
   velocity_TopWindMixing                     = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration                       = 0                ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration                       = 0           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme                            = 1
   GMRedi_usesRelativeMaxSlopes               = .FALSE.
-  S_max                                      = 1.0e-3           ! 1.0
-  S_d                                        = 1.0e-4           ! 5e-3 to 5e-4
-                                                                !
-  k_tracer_GM_kappa_parameter                = 1000.0           !
-  k_tracer_isoneutral_parameter              = 1000.0           ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
-  k_tracer_dianeutral_parameter              = 0.0              ! 1.0E-5  !
-                                                                !
+  S_max                                      = 1.0e-3      ! 1.0
+  S_d                                        = 1.0e-4      ! 5e-3 to 5e-4
+                                                           !
+  k_tracer_GM_kappa_parameter                = 1000.0      !
+  k_tracer_isoneutral_parameter              = 1000.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_dianeutral_parameter              = 0.0         ! 1.0E-5  !
+                                                           !
   switch_off_diagonal_vert_expl              = .TRUE.
   gmredi_combined_diagnostic                 = .FALSE.
-! switch_on_redi_balance_diagnostic          = .FALSE.          ! not yet available in icon-aes-dyamond++
+! switch_on_redi_balance_diagnostic          = .FALSE.     ! not yet available in icon-aes-dyamond++
   revert_vertical_recon_and_transposed       = .TRUE.
   slope_calc_via_temperture_salinity         = .TRUE.
-  include_slope_squared_implicit             = .TRUE.           ! think of l_with_vert_tracer_diffusion
+  include_slope_squared_implicit             = .TRUE.      ! think of l_with_vert_tracer_diffusion
   switch_on_tapering_horizontal_diffusion    = .TRUE.
 /
 &ocean_physics_nml
-  i_sea_ice                                  = 1                ! 0 = no sea ice; 1 = sea ice model on; default=1
+  i_sea_ice                                  = 1           ! 0 = no sea ice; 1 = sea ice model on; default=1
 /                                           
 &sea_ice_nml
-  i_ice_therm                                = 1                ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-  i_ice_dyn                                  = 1                ! 1/0=switch on/off AWI ice dynamics
-! i_Qio_type                                 = 3                ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
-! use_constant_tfreez                        = .TRUE.           ! default: TRUE
-! use_no_flux_gradients                      = .FALSE.          ! default: TRUE
-! leadclose_1                                = 0.25             ! default: 0.5 - value of MPIOM: 0.25
-! leadclose_2n                               = 0.666            ! default: 0.0 - value of MPIOM: 2/3
+  i_ice_therm                                = 1           ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
+  i_ice_dyn                                  = 1           ! 1/0=switch on/off AWI ice dynamics
+! i_Qio_type                                 = 3           ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
+! use_constant_tfreez                        = .TRUE.      ! default: TRUE
+! use_no_flux_gradients                      = .FALSE.     ! default: TRUE
+! leadclose_1                                = 0.25        ! default: 0.5 - value of MPIOM: 0.25
+! leadclose_2n                               = 0.666       ! default: 0.0 - value of MPIOM: 2/3
 /
 &ocean_forcing_nml
-  iforc_oce                                  = 14               ! ocean forcing: 14 from coupling via YAC
-  type_surfRelax_Temp                        = -1               ! -1: use net surface heat flux from atmosphere
-                                                                !  0: no relaxation used
-                                                                !  1: relaxation switched on for reading (init_oce_relax=1)
-                                                                !     or some testcases only
-  forcing_enable_freshwater                  = .TRUE.           ! enable/disable freshwater flux
-  forcing_windstress_u_type                  = 2                ! 0: zero wind stress, 1: read from file, 2: none
-  forcing_windstress_v_type                  = 2                ! 0: zero wind stress, 1: read from file, 2: none
-                                                                ! salt-change due to internal fluxes only
-  limit_seaice                               = .TRUE.           ! default: TRUE
-  seaice_limit                               = 0.8              ! hard limit set to 80% of upper layer for sea ice
-  limit_elevation                            = .FALSE.          ! true: adjust daily to zero, default=false: free surface
+  iforc_oce                                  = 14          ! ocean forcing: 14 from coupling via YAC
+  type_surfRelax_Temp                        = -1          ! -1: use net surface heat flux from atmosphere
+                                                           !  0: no relaxation used
+                                                           !  1: relaxation switched on for reading (init_oce_relax=1)
+                                                           !     or some testcases only
+  forcing_enable_freshwater                  = .TRUE.      ! enable/disable freshwater flux
+  forcing_windstress_u_type                  = 2           ! 0: zero wind stress, 1: read from file, 2: none
+  forcing_windstress_v_type                  = 2           ! 0: zero wind stress, 1: read from file, 2: none
+                                                           ! salt-change due to internal fluxes only
+  limit_seaice                               = .TRUE.      ! default: TRUE
+  seaice_limit                               = 0.8         ! hard limit set to 80% of upper layer for sea ice
+  limit_elevation                            = .FALSE.     ! true: adjust daily to zero, default=false: free surface
+! lswr_jerlov                                = .FALSE.     ! SW-penetration (Jerlov-radiation, default=T) - not yet
 /
 EOF
 #
