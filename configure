@@ -590,7 +590,7 @@ LIBOBJS
 MPI_LAUNCH
 SB2PP
 FPP
-CLAW_FLAGS
+CLAWFLAGS
 CLAW
 PERL
 PYTHON
@@ -754,6 +754,7 @@ NVCFLAGS
 PYTHON
 PERL
 CLAW
+CLAWFLAGS
 FPP
 SB2PP
 MPI_LAUNCH'
@@ -1485,6 +1486,7 @@ Some influential environment variables:
   PYTHON      Python interpreter command
   PERL        Perl interpreter command
   CLAW        CLAW preprocessor command (optional)
+  CLAWFLAGS   CLAW preprocessor flags (optional)
   FPP         Fortran preprocessor command (optional)
   SB2PP       Serialbox2 preprocessor command (optional)
   MPI_LAUNCH  interactive MPI launcher command (optional)
@@ -7310,8 +7312,6 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 
 
-CLAW_FLAGS=''
-
 if test "x$enable_claw" != xno; then :
   icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
    icon_subdir_unique_file="self/0.2/self_object.xmod"
@@ -7343,20 +7343,20 @@ fi
 $as_echo "$as_me: WARNING: CLAW preprocessing is not compatible with OpenMP: it is strongly recommended to disable OpenMP support (--disable-openmp)" >&2;}
 fi
   if test "x$enable_gpu" = xyes; then :
-  CLAW_FLAGS='--target=gpu --directive=acc'
+  as_fn_append CLAWFLAGS ' --target=gpu --directive=acc'
 else
-  CLAW_FLAGS='--target=cpu --directive=none'
+  as_fn_append CLAWFLAGS ' --target=cpu --directive=none'
 fi
    if test "x$enable_claw" = xvalidate; then :
   if test "x$enable_serialization" = xno; then :
   as_fn_error $? "unsupported combination of the configure options: you are trying to configure with CLAW preprocessing in VALIDATE mode but the Serialbox2 serialization is disabled: either enable CLAW preprocessing in a different mode (--enable-claw=std) or enable the Serialbox2 serialization (--enable-serialization)" "$LINENO" 5
 fi
-      as_fn_append CLAW_FLAGS ' -x=sca_serialization_enabled:true'
-      as_fn_append CLAW_FLAGS ' -x=sca_serialization_enabled_direction:write'
-      as_fn_append CLAW_FLAGS ' -x=sca_forward_update_enabled_direction:out'
+      as_fn_append CLAWFLAGS ' -x=sca_serialization_enabled:true'
+      as_fn_append CLAWFLAGS ' -x=sca_serialization_enabled_direction:write'
+      as_fn_append CLAWFLAGS ' -x=sca_forward_update_enabled_direction:out'
 else
-        as_fn_append CLAW_FLAGS ' -x=sca_serialization_enabled:false'
-      as_fn_append CLAW_FLAGS ' -x=sca_forward_update_enabled:false'
+        as_fn_append CLAWFLAGS ' -x=sca_serialization_enabled:false'
+      as_fn_append CLAWFLAGS ' -x=sca_forward_update_enabled:false'
 fi
 
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor command" >&5

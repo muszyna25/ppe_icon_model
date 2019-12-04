@@ -13,7 +13,7 @@ CLAW:= @CLAW@
 # Compiler and preprocessor flags:
 FCFLAGS= @FCFLAGS@
 ICON_FCFLAGS= @ICON_FCFLAGS@
-CLAW_FLAGS= @CLAW_FLAGS@
+CLAWFLAGS= @CLAWFLAGS@
 
 # Filtered compiler flags:
 nullstring:=
@@ -24,7 +24,7 @@ filtered_FCFLAGS:= $(macro_FCFLAGS) $(inc_FCFLAGS)
 
 # Compiler and preprocessor flags that must not be overloaded by the user:
 makefile_FCFLAGS:= $(addprefix -J,$(moddir) $(addprefix $(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2) $(sort $(dir $(CLAW_inputs)))) -I$(srcdir)/src/include
-makefile_CLAW_FLAGS:= --Wf-no-module-cache --model-config=$(srcdir)/config/claw/icon_jsbach.toml
+makefile_CLAWFLAGS:= --Wf-no-module-cache --model-config=$(srcdir)/config/claw/icon_jsbach.toml
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
@@ -60,7 +60,7 @@ distclean: clean
 # Default f90->f90 rule for files that have already been processed by some other
 # preprocessor:
 $(builddir)/$(CLAW_subdir)/%.f90: $(builddir)/%.f90 | $(dir_files)
-	$(silent_CLAW)$(CLAW) -o $@ $(makefile_CLAW_FLAGS) $(CLAW_FLAGS) $(makefile_FCFLAGS) $(filtered_FCFLAGS) $<
+	$(silent_CLAW)$(CLAW) -o $@ $(makefile_CLAWFLAGS) $(CLAWFLAGS) $(makefile_FCFLAGS) $(filtered_FCFLAGS) $<
 
 # Directory creation rule:
 %/.dirstamp:

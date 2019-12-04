@@ -1381,7 +1381,7 @@ ACX_PROG_SEARCH([PERL], [perl],
   [PERL=$acx_candidate])
 
 AC_ARG_VAR([CLAW], [CLAW preprocessor command (optional)])dnl
-AC_SUBST([CLAW_FLAGS], [''])
+AC_ARG_VAR([CLAWFLAGS], [CLAW preprocessor flags (optional)])dnl
 AS_IF([test "x$enable_claw" != xno],
   [icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
    icon_subdir_unique_file="self/0.2/self_object.xmod"
@@ -1420,8 +1420,8 @@ used: it is strongly recommended to switch to the bundled version of CDI dnl
 strongly recommended to disable OpenMP support (--disable-openmp)])])
 dnl
   AS_VAR_IF([enable_gpu], [yes],
-     [CLAW_FLAGS='--target=gpu --directive=acc'],
-     [CLAW_FLAGS='--target=cpu --directive=none'])
+     [AS_VAR_APPEND([CLAWFLAGS], [' --target=gpu --directive=acc'])],
+     [AS_VAR_APPEND([CLAWFLAGS], [' --target=cpu --directive=none'])])
    AS_VAR_IF([enable_claw], [validate],
      [AS_VAR_IF([enable_serialization], [no],
         [AC_MSG_ERROR([unsupported combination of the configure options: you dnl
@@ -1430,15 +1430,15 @@ Serialbox2 serialization is disabled: either enable CLAW preprocessing in a dnl
 different mode (--enable-claw=std) or enable the Serialbox2 serialization dnl
 (--enable-serialization)])])
 dnl Enable serialization support and update after kernels:
-      AS_VAR_APPEND([CLAW_FLAGS], [' -x=sca_serialization_enabled:true'])
-      AS_VAR_APPEND([CLAW_FLAGS],
+      AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_serialization_enabled:true'])
+      AS_VAR_APPEND([CLAWFLAGS],
         [' -x=sca_serialization_enabled_direction:write'])
-      AS_VAR_APPEND([CLAW_FLAGS],
+      AS_VAR_APPEND([CLAWFLAGS],
         [' -x=sca_forward_update_enabled_direction:out'])],
      [dnl
 dnl Disable serialization support and updates by kernel:
-      AS_VAR_APPEND([CLAW_FLAGS], [' -x=sca_serialization_enabled:false'])
-      AS_VAR_APPEND([CLAW_FLAGS], [' -x=sca_forward_update_enabled:false'])])
+      AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_serialization_enabled:false'])
+      AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_forward_update_enabled:false'])])
 dnl Check for CLAW:
    AC_LANG_ASSERT([Fortran])
    AC_MSG_CHECKING([for CLAW preprocessor command])
