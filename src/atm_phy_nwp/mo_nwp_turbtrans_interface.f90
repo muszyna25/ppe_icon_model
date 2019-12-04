@@ -55,7 +55,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_lnd, ntiles_water, llake,  &
-    &                                isub_lake, isub_seaice, lseaice
+    &                                isub_lake, lseaice
   USE mo_vupdz0_tile,          ONLY: vupdz0_tile
   USE mo_vexcs,                ONLY: vexcs
 
@@ -146,7 +146,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
    lhfl_s_t, qhfl_s_t, umfl_s_t, vmfl_s_t
 
   REAL(wp), DIMENSION(nproma) :: &
-   PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZKHLEV,ZBUOMTI,ZZDLTI,  &
+   PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZBUOMTI,ZZDLTI,  &
    ZZ0MTI,ZZ0HTI,ZZ0QTI
   REAL(wp) :: rho_s
 
@@ -186,7 +186,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !$OMP t_g_t,qv_s_t,t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,     &
 !$OMP temp_t,pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,  &
 !$OMP area_frac,shfl_s_t,lhfl_s_t,qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm,jk_gust,epr_t,              &
-!$OMP PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZKHLEV,ZBUOMTI,ZZDLTI,      &
+!$OMP PGEOMLEV,PCPTGZLEV,PCPTSTI,PUCURR,PVCURR,ZCFMTI,PCFHTI,PCFQTI,ZBUOMTI,ZZDLTI,             &
 !$OMP ZZ0MTI,ZZ0HTI,ZZ0QTI,rho_s ) ICON_OMP_GUIDED_SCHEDULE
 !MR:>
 
@@ -394,10 +394,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%u_10m(i_startidx:i_endidx,jb) = prm_diag%u_10m_t(i_startidx:i_endidx,jb,1)
         prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
 
-        prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-          &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
-        prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-          &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
+        ! instantaneous max/min 2m temperature over tiles (trivial operation for 1 tile)
+        prm_diag%t_tilemax_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
+        prm_diag%t_tilemin_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
 
       ELSE ! tile approach used
 
@@ -582,6 +581,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         ! note that dyn_gust is an instantaneous field
         prm_diag%dyn_gust(i_startidx:i_endidx,jb) = 0._wp
 
+        prm_diag%t_tilemax_inst_2m(i_startidx:i_endidx,jb) = -999._wp
+        prm_diag%t_tilemin_inst_2m(i_startidx:i_endidx,jb) = 999._wp
 
          ! ii) loop over index lists
         DO  jt = 1, ntiles_total + ntiles_water
@@ -630,8 +631,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%u_10m (jc,jb) = prm_diag%u_10m(jc,jb) + u_10m_t(ic,jt) * area_frac
             prm_diag%v_10m (jc,jb) = prm_diag%v_10m(jc,jb) + v_10m_t(ic,jt) * area_frac
 
-            prm_diag%tmax_2m(jc,jb) = MAX(t_2m_t(ic,jt), prm_diag%tmax_2m(jc,jb))
-            prm_diag%tmin_2m(jc,jb) = MIN(t_2m_t(ic,jt), prm_diag%tmin_2m(jc,jb))
+            prm_diag%t_tilemax_inst_2m(jc,jb) = MAX(t_2m_t(ic,jt),prm_diag%t_tilemax_inst_2m(jc,jb))
+            prm_diag%t_tilemin_inst_2m(jc,jb) = MIN(t_2m_t(ic,jt),prm_diag%t_tilemin_inst_2m(jc,jb))
+
+!!$            prm_diag%tmax_2m(jc,jb) = MAX(t_2m_t(ic,jt), prm_diag%tmax_2m(jc,jb))
+!!$            prm_diag%tmin_2m(jc,jb) = MIN(t_2m_t(ic,jt), prm_diag%tmin_2m(jc,jb))
 
             ! Store
             prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
@@ -756,10 +760,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb),p_metrics%mask_mtnpoints_g(jc,jb) )
       ENDDO
 
-      prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-        &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
-      prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-        &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
+      ! instantaneous max/min 2m temperature over tiles (trivial operation for 1 tile)
+      prm_diag%t_tilemax_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
+      prm_diag%t_tilemin_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
+
 
       DO jt = 1, ntiles_total+ntiles_water
         DO jc = i_startidx, i_endidx
@@ -881,10 +885,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb),p_metrics%mask_mtnpoints_g(jc,jb) )
       ENDDO
 
-      prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-        &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
-      prm_diag%tmin_2m(i_startidx:i_endidx,jb) = MIN(prm_diag%t_2m(i_startidx:i_endidx,jb), &
-        &                                        prm_diag%tmin_2m(i_startidx:i_endidx,jb) )
+      ! instantaneous max/min 2m temperature over tiles (trivial operation for 1 tile)
+      prm_diag%t_tilemax_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
+      prm_diag%t_tilemin_inst_2m(i_startidx:i_endidx,jb) = prm_diag%t_2m(i_startidx:i_endidx,jb)
+
 
       ! -- end GME code
 

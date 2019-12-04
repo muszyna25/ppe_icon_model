@@ -179,6 +179,7 @@ CONTAINS
     ! wind
     !-----------
     ! - maximum gust (including convective contribution)
+    ! - max/min 2m temperature
     !
     ! cloud/rain
     !-----------
@@ -214,8 +215,33 @@ CONTAINS
     ! - surface downward photosynthetically active flux
 
 !$OMP PARALLEL
-    IF ( p_sim_time > 1.e-6_wp) THEN
+    IF ( p_sim_time <= 1.e-6_wp) THEN
 
+      ! ensure that extreme value fields are equal to instantaneous fields 
+      ! at VV=0.
+      ! In addition, set extreme value fields to instantaneous fields prior 
+      ! to first regular time step (i.e. for IAU) 
+
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+
+          ! set to instantaneous values
+          prm_diag%gust10(jc,jb)  = prm_diag%dyn_gust(jc,jb) + prm_diag%con_gust(jc,jb)
+          prm_diag%tmax_2m(jc,jb) = prm_diag%t_2m(jc,jb)
+          prm_diag%tmin_2m(jc,jb) = prm_diag%t_2m(jc,jb)
+        ENDDO
+
+      ENDDO  ! jb
+!$OMP END DO
+
+    ELSE  ! regular time steps
+  
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
@@ -285,6 +311,20 @@ CONTAINS
             END DO
           END DO
         END IF
+
+
+        ! max/min 2m temperature
+        !
+        ! note that we do not use the instantaneous aggregated 2m temperature prm_diag%t_2m, 
+        ! but the instantaneous max/min over all tiles. In case of no tiles both are equivalent.
+        IF (lcall_phy_jg(itturb)) THEN
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            prm_diag%tmax_2m(jc,jb) = MAX(prm_diag%t_tilemax_inst_2m(jc,jb), prm_diag%tmax_2m(jc,jb) )
+            prm_diag%tmin_2m(jc,jb) = MIN(prm_diag%t_tilemin_inst_2m(jc,jb), prm_diag%tmin_2m(jc,jb) )
+          END DO
+        ENDIF
+
 
         IF (lflux_avg) THEN
 

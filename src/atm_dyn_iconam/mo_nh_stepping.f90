@@ -839,6 +839,7 @@ MODULE mo_nh_stepping
     ! turn on calculation of averaged and accumulated quantities at the first regular time step
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
+
     ! read boundary data if necessary
     IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
       CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)

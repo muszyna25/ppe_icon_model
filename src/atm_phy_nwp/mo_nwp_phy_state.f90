@@ -2284,6 +2284,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 
 
+    ! &      diag%t_tilemax_inst_2m(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_tilemax_inst_2m', 'K ', &
+      &                   'instantaneous temperature in 2m, maximum over tiles', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 't_tilemax_inst_2m', diag%t_tilemax_inst_2m, &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE.,                                  &
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
+
+
+    ! &      diag%t_tilemin_inst_2m(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_tilemin_inst_2m', 'K ', &
+      &                   'instantaneous temperature in 2m, minimum over tiles', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 't_tilemin_inst_2m', diag%t_tilemin_inst_2m, &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE.,                                  &
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
+
+
+
     ! &      diag%t_2m_land(nproma,nblks_c)
     cf_desc    = t_cf_var('t_2m_land', 'K ','temperature in 2m over land fraction', &
       &          datatype_flt)

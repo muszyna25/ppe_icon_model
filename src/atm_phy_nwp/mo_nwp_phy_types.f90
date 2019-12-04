@@ -303,6 +303,8 @@ MODULE mo_nwp_phy_types
       t_2m_land(:,:)  ,    & !! temperature in 2m (land tiles only)           (  K  )
       tmax_2m(:,:)    ,    & !! maximum temperature in 2m (for specified timerange) ( K )
       tmin_2m(:,:)    ,    & !! minimum temperature in 2m (for specified timerange) ( K )
+      t_tilemax_inst_2m(:,:), & !! instantaneous 2m temperature; maximum over tiles (  K  )
+      t_tilemin_inst_2m(:,:), & !! instantaneous 2m temperature; minimum over tiles (  K  )
       qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
       td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )
       rh_2m (:,:)     ,    & !! relative humidity in 2m                       (  %  )
