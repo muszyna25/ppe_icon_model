@@ -5301,18 +5301,18 @@ ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
-         { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler can link objects compiled with CUDA compiler" >&5
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler can link objects compiled with CUDA compiler" >&5
 $as_echo_n "checking whether Fortran compiler can link objects compiled with CUDA compiler... " >&6; }
 if ${acx_cv_fc_cuda_compatible+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  ac_ext=cu
+        ac_ext=cu
 ac_compile='$NVCC -c $NVCFLAGS conftest.$ac_ext >&5'
 ac_link='$NVCC -o conftest$ac_exeext $NVCFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$acx_cv_nvcc_compiler_gnu
 
-      acx_cv_fc_cuda_compatible=no
-      cat > conftest.$ac_ext <<_ACEOF
+   acx_fc_cuda_compatiable=no
+   cat > conftest.$ac_ext <<_ACEOF
 
 #ifdef __cplusplus
 extern "C"
@@ -5330,9 +5330,9 @@ ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
-         mv ./conftest.$ac_objext ./conftest_cuda.$ac_objext
-         acx_save_LIBS=$LIBS; LIBS="./conftest_cuda.$ac_objext $LIBS"
-         cat > conftest.$ac_ext <<_ACEOF
+      mv ./conftest.$ac_objext ./conftest_cuda.$ac_objext
+      acx_save_LIBS=$LIBS; LIBS="./conftest_cuda.$ac_objext $LIBS"
+      cat > conftest.$ac_ext <<_ACEOF
       program conftest
       implicit none
       interface
@@ -5343,24 +5343,25 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
       end program
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :
-  acx_cv_fc_cuda_compatible=yes
+  acx_fc_cuda_compatiable=yes
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-         LIBS=$acx_save_LIBS
-         rm -f conftest_cuda.$ac_objext
-         ac_ext=cu
+      LIBS=$acx_save_LIBS
+      rm -f conftest_cuda.$ac_objext
+      ac_ext=cu
 ac_compile='$NVCC -c $NVCFLAGS conftest.$ac_ext >&5'
 ac_link='$NVCC -o conftest$ac_exeext $NVCFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$acx_cv_nvcc_compiler_gnu
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-      ac_ext=${ac_fc_srcext-f}
+   ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 
+      acx_cv_fc_cuda_compatible=$acx_fc_cuda_compatiable
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_cuda_compatible" >&5
 $as_echo "$acx_cv_fc_cuda_compatible" >&6; }
@@ -5369,7 +5370,84 @@ $as_echo "$acx_cv_fc_cuda_compatible" >&6; }
 else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fortran compiler cannot link objects compiled with CUDA compiler
+as_fn_error $? "Fortran compiler cannot link objects compiled with CUDA compiler: a possible reason is that it cannot find CUDA runtime libraries (e.g. '-lcudart'): set LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler can link objects compiled with CUDA compiler that require C++ standard library" >&5
+$as_echo_n "checking whether Fortran compiler can link objects compiled with CUDA compiler that require C++ standard library... " >&6; }
+if ${acx_cv_fc_cuda_stdcxx_compatible+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+        ac_ext=cu
+ac_compile='$NVCC -c $NVCFLAGS conftest.$ac_ext >&5'
+ac_link='$NVCC -o conftest$ac_exeext $NVCFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$acx_cv_nvcc_compiler_gnu
+
+   acx_fc_cuda_compatiable=no
+   cat > conftest.$ac_ext <<_ACEOF
+
+#include <vector>
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+void conftest_foo();
+#ifdef __cplusplus
+}
+#endif
+void conftest_foo() {
+  std::vector<int> b = std::vector<int>();
+  b.push_back(1);
+}
+_ACEOF
+if ac_fn_nvcc_try_compile "$LINENO"; then :
+  ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+      mv ./conftest.$ac_objext ./conftest_cuda.$ac_objext
+      acx_save_LIBS=$LIBS; LIBS="./conftest_cuda.$ac_objext $LIBS"
+      cat > conftest.$ac_ext <<_ACEOF
+      program conftest
+      implicit none
+      interface
+      subroutine conftest_foo() bind(c)
+      end subroutine
+      end interface
+      call conftest_foo()
+      end program
+_ACEOF
+if ac_fn_fc_try_link "$LINENO"; then :
+  acx_fc_cuda_compatiable=yes
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+      LIBS=$acx_save_LIBS
+      rm -f conftest_cuda.$ac_objext
+      ac_ext=cu
+ac_compile='$NVCC -c $NVCFLAGS conftest.$ac_ext >&5'
+ac_link='$NVCC -o conftest$ac_exeext $NVCFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$acx_cv_nvcc_compiler_gnu
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+   ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+      acx_cv_fc_cuda_stdcxx_compatible=$acx_fc_cuda_compatiable
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_cuda_stdcxx_compatible" >&5
+$as_echo "$acx_cv_fc_cuda_stdcxx_compatible" >&6; }
+   if test "x$acx_cv_fc_cuda_stdcxx_compatible" = xyes; then :
+
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Fortran compiler cannot link objects compiled with CUDA compiler that require C++ standard library: a possible reason is that it cannot find C++ standard library (i.e. '-lstdc++'): set LDFLAGS and LIBS accordingly
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi

@@ -613,7 +613,15 @@ support (--disable-gpu) or set NVCFLAGS accordingly])],
      [[// override default includes]])
    ACX_LANG_POP_CUDA
    AC_LANG_PUSH([Fortran])
-   ACX_FC_CUDA_COMPATIBLE
+   ACX_FC_CUDA_COMPATIBLE([],
+     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+CUDA compiler: a possible reason is that it cannot find CUDA runtime dnl
+libraries (e.g. '-lcudart'): set LDFLAGS and LIBS accordingly])])
+   ACX_FC_CUDA_STDCXX_COMPATIBLE([],
+     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+CUDA compiler that require C++ standard library: a possible reason is that dnl
+it cannot find C++ standard library (i.e. '-lstdc++'): set LDFLAGS and LIBS dnl
+accordingly])])
    AC_LANG_POP([Fortran])
 else
   NVCC=
