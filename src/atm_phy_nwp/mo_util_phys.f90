@@ -1867,7 +1867,7 @@ CONTAINS
     i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,cld_base_found), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
@@ -2377,7 +2377,7 @@ CONTAINS
       END DO
 
       DO jc = i_startidx, i_endidx
-        uh_max(jc,jb) = MAX( uh_max(jc,jb), uhel( jc) )
+        uh_max(jc,jb) = MERGE(uhel(jc), uh_max(jc,jb), ABS(uhel(jc)) > ABS(uh_max(jc,jb)) )
       END DO
 
     END DO
@@ -2439,14 +2439,15 @@ CONTAINS
 
           IF ( ( p_metrics%z_mc( jc, jk, jb) >= zmin(jc) ) .AND.     &
             &  ( p_metrics%z_mc( jc, jk, jb) <= zmax(jc) ) ) THEN
-            vort(jc) = MAX( vort(jc), ABS( p_diag%vor(jc,jk,jb) ) )
+            vort(jc) = vort(jc) + p_diag%vor(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
           END IF
 
         END DO
       END DO
 
       DO jc = i_startidx, i_endidx
-        vorw_ctmax(jc,jb) = MAX( vorw_ctmax(jc,jb), vort(jc) )
+        vort(jc) = vort(jc) / (zmax(jc) - zmin(jc))
+        vorw_ctmax(jc,jb) = MERGE(vort(jc), vorw_ctmax(jc,jb), ABS(vort(jc)) > ABS(vorw_ctmax(jc,jb)) )
       END DO
 
     END DO

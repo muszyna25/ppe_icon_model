@@ -682,7 +682,7 @@ MODULE mo_nh_stepping
   lret = addEventToEventGroup(restartEvent, checkpointEventGroup)
 
   ! --- create Event for LPI_MAX maximization:
-  eventInterval  = newTimedelta("PT00H03M")    ! time interval 3 mins 
+  eventInterval => newTimedelta("PT00H03M")    ! time interval 3 mins 
   lpiMaxEvent => newEvent( 'lpi_max', time_config%tc_exp_startdate,  &   ! "anchor date"
      &                     time_config%tc_exp_startdate,             &   ! start
      &                     time_config%tc_exp_stopdate,              &
@@ -705,7 +705,7 @@ MODULE mo_nh_stepping
 
 
   ! --- create Event for TCOND_MAX maximization:
-  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
+  eventInterval   => newTimedelta("PT00H02M")    ! time interval 2 mins 
   tcond_max_Event => newEvent( 'tcond_max', time_config%tc_exp_startdate,  &   ! "anchor date"
      &                     time_config%tc_exp_startdate,             &   ! start
      &                     time_config%tc_exp_stopdate,              &
@@ -725,8 +725,8 @@ MODULE mo_nh_stepping
   ENDIF
 
   ! --- create Event for UH_MAX maximization:
-  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
-  uh_max_Event => newEvent( 'uh_max', time_config%tc_exp_startdate, &   ! "anchor date"
+  eventInterval => newTimedelta("PT00H02M")    ! time interval 2 mins 
+  uh_max_Event  => newEvent( 'uh_max', time_config%tc_exp_startdate, &   ! "anchor date"
      &                     time_config%tc_exp_startdate,            &   ! start
      &                     time_config%tc_exp_stopdate,             &
      &                     eventInterval, errno=ierr )
@@ -745,7 +745,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   ! --- create Event for VORW_CTMAX maximization:
-  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
+  eventInterval  => newTimedelta("PT00H02M")    ! time interval 2 mins 
   vorw_ctmax_Event => newEvent( 'vorw_ctmax', time_config%tc_exp_startdate,  &   ! "anchor date"
      &                     time_config%tc_exp_startdate,             &   ! start
      &                     time_config%tc_exp_stopdate,              &
@@ -765,7 +765,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   ! --- create Event for W_CTMAX maximization:
-  eventInterval  = newTimedelta("PT00H02M")    ! time interval 2 mins 
+  eventInterval => newTimedelta("PT00H02M")    ! time interval 2 mins 
   w_ctmax_Event => newEvent( 'w_ctmax', time_config%tc_exp_startdate,  &   ! "anchor date"
      &                     time_config%tc_exp_startdate,             &   ! start
      &                     time_config%tc_exp_stopdate,              &
