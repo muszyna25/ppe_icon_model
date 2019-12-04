@@ -102,12 +102,6 @@ MODULE mo_echam_cld_config
      !                    !          the top of shallow convection
      !                    !          for ratio > clwprat -> change ktype from 2 to 4
      !
-     ! tropopause diagnostics
-!!$     REAL(wp) :: cptop    ! [Pa]     pressure of highest level for tropopause calculation
-!!$     REAL(wp) :: cpbot    ! [Pa]     pressure of lowest  level for tropopause calculation
-     INTEGER  :: ncctop   !          index of highest level for tropopause calculation
-     INTEGER  :: nccbot   !          index of lowest  level for tropopause calculation
-     !
   END TYPE t_echam_cld_config
 
   !>

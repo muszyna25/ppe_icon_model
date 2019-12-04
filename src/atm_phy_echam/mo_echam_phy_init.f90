@@ -338,13 +338,15 @@ CONTAINS
          &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
     END IF
 
-    ! cloud cover
+    ! cloud cover diagnostics
     !
-    lany=.TRUE.
-    IF (lany) THEN
-      CALL  eval_echam_cov_config
-      CALL print_echam_cov_config
-    END IF
+    CALL  eval_echam_cov_config
+    CALL print_echam_cov_config
+
+    ! WMO tropopause diagnostics
+    !
+    CALL  eval_echam_wmo_config
+    CALL print_echam_wmo_config
 
     ! WMO tropopause
     !

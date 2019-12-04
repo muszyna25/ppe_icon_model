@@ -54,10 +54,10 @@ MODULE mo_echam_wmo_config
      ! ------------------------
      !
      ! vertical loop limits
-     REAL(wp) :: zmaxwmo      !          maximum height (m) for tropopause calculation
-     REAL(wp) :: zminwmo      !          minimum height (m) for tropopause calculation
-     INTEGER  :: jkswmo_bot   !          vertical end   index for tropopause calculation
-     INTEGER  :: jkswmo_top   !          vertical start index for tropopause calculation
+     REAL(wp) :: zmaxwmo  !          maximum height (m) for tropopause calculation
+     REAL(wp) :: zminwmo  !          minimum height (m) for tropopause calculation
+     INTEGER  :: jkswmo   !          vertical start index for tropopause calculation
+     INTEGER  :: jkewmo   !          vertical end   index for tropopause calculation
      !                               diagnosed in eval_echam_wmo_config
   END TYPE t_echam_wmo_config
 
@@ -91,31 +91,28 @@ CONTAINS
   SUBROUTINE eval_echam_wmo_config
     !
     INTEGER           :: jg, jk, klev
-    CHARACTER(LEN=2)  :: cg
     !
     klev = SIZE(vct_a)-1
     !
     DO jg = 1,n_dom
        !
-       WRITE(cg,'(i0)') jg
+       ! diagnose jkswmo = start index
        !
-       ! diagnose jkswmo_top
-       !
-       echam_wmo_config(jg)% jkswmo_top = 1
+       echam_wmo_config(jg)% jkswmo = 1
        DO jk = 1,klev
           IF ((vct_a(jk)+vct_a(jk+1))*0.5_wp > echam_wmo_config(jg)% zmaxwmo) THEN
-             echam_wmo_config(jg)% jkswmo_top = echam_wmo_config(jg)% jkswmo_top + 1
+             echam_wmo_config(jg)% jkswmo = jk + 1
           ELSE
              EXIT
           END IF
        END DO
        !
-       ! diagnose jkswmo_bot
+       ! diagnose jkewmo = end index
        !
-       echam_wmo_config(jg)% jkswmo_bot = echam_wmo_config(jg)% jkswmo_top
-       DO jk = echam_wmo_config(jg)% jkswmo_top,klev
+       echam_wmo_config(jg)% jkewmo = echam_wmo_config(jg)% jkswmo
+       DO jk = echam_wmo_config(jg)% jkswmo,klev
           IF ((vct_a(jk)+vct_a(jk+1))*0.5_wp > echam_wmo_config(jg)% zminwmo) THEN
-             echam_wmo_config(jg)% jkswmo_bot = echam_wmo_config(jg)% jkswmo_bot + 1
+             echam_wmo_config(jg)% jkewmo = jk + 1
           ELSE
              EXIT
           END IF
@@ -149,10 +146,10 @@ CONTAINS
        CALL message    ('','For domain '//cg)
        CALL message    ('','------------')
        CALL message    ('','')
-       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% zmaxwmo    ',echam_wmo_config(jg)% zmaxwmo )
-       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% zminwmo    ',echam_wmo_config(jg)% zminwmo )
-       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% jkswmo_top ',echam_wmo_config(jg)% jkswmo_top  )
-       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% jkswmo_bot ',echam_wmo_config(jg)% jkswmo_bot    )
+       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% zmaxwmo ',echam_wmo_config(jg)% zmaxwmo )
+       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% zminwmo ',echam_wmo_config(jg)% zminwmo )
+       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% jkswmo  ',echam_wmo_config(jg)% jkswmo  )
+       CALL print_value('    echam_wmo_config('//TRIM(cg)//')% jkewmo  ',echam_wmo_config(jg)% jkewmo    )
        CALL message    ('','')
        !
     END DO
