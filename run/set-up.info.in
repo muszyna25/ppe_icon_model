@@ -7,8 +7,9 @@ case "$use_host" in
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
   melian*) use_site=local.net ;;
   *mpimet.mpg.de) use_site=mpg.de ;;
-  *) use_site=`echo "$use_host" | sed 's/^[^.]*\\.//'` ;;
 esac
+test -z "$use_site" && test x"$ICON_DOCKER" = x1 && use_site=docker
+test -n "$use_site" || use_site=`echo "$use_host" | sed 's/^[^.]*\\.//'`
 test -n "$use_site" || use_site='local.net'
 
 # Set use_compiler:
@@ -193,6 +194,10 @@ case "$use_site" in
   pa.cluster)
     use_target='pacluster'
     use_submit='qsub'
+  ;;
+
+  docker)
+    if test xyes = x"${use_gpu}"; then use_target='docker_gpu'; else use_target='docker_cpu'; fi
   ;;
 
 esac

@@ -858,6 +858,38 @@ set_run_target_mpimac()
   start_header
 }
 
+set_run_target_docker_cpu()
+{
+  set_default use_nproma 16
+  set_default use_nodes 1
+  set_default use_mpi_procs_pernode 1
+  set_default use_openmp_threads 1
+  set default use_nodes 1
+  tasks_per_node=1
+  use_OMP_SCHEDULE="static,12"
+  poolFolder_prefix=/icon-data-pool
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}}
+  # create header
+  start_header
+}
+
+#=============================================================================
+set_run_target_docker_gpu()
+{
+  set_default use_nproma 20480
+  set_default use_nodes 1
+  set_default use_mpi_procs_pernode 1
+  set_default use_openmp_threads 1
+  set default use_nodes 1
+  tasks_per_node=1
+  use_OMP_SCHEDULE="static,12"
+  poolFolder_prefix=/icon-data-pool
+  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}}
+  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}}
+  # create header
+  start_header
+}
 
 #=============================================================================
 set_run_target_oflws()
