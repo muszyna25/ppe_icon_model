@@ -78,6 +78,7 @@ silent_GEN=     @echo "  GEN     " $@;
 silent_MKDIR=   @echo "  MKDIR   " $(@D);
 silent_NVCC=    @echo "  NVCC    " $@;
 silent_SB2=     @echo "  SB2PP   " $@;
+silent_none=    @
 endif
 
 # Path suffixes (i.e. without $(srcdir) prefix) of the source files:
@@ -459,8 +460,8 @@ c_binding.d: icon.mk
 	  echo '$(f90_prefix)src/shared/mo_util_uuid.@OBJEXT@:| support/util_uuid.@OBJEXT@' && \
 	  echo '$(f90_prefix)src/shared/mo_util_vcs.@OBJEXT@:| version.@OBJEXT@' && \
 	  echo '$(f90_prefix)src/art/shared/mo_art_util_vcs.@OBJEXT@:| version.@OBJEXT@'; \
-@GPU_ENABLED@	echo '$(f90_prefix)src/shared/mo_index_list.@OBJEXT@:| src/shared_cuda/index_list_cuda.@OBJEXT@'; \
 	} >$@
+@GPU_ENABLED@	  $(silent_none)echo '$(f90_prefix)src/shared/mo_index_list.@OBJEXT@:| src/shared_cuda/index_list_cuda.@OBJEXT@' >>$@
 
 # Dependency generation rule for undetectable Fortran dependencies:
 extra_f90.d: icon.mk
