@@ -21,19 +21,22 @@ BLAS_LAPACK_LIBS='-llapack -lblas'
 
 FC='mpif90'
 CC='mpicc'
-NVCC='/home/cscs/.local/easybuild/software/PGI/19.10-GCC-7.3.0-2.30/linux86-64/2019/cuda/10.1/bin/nvcc'
 
 CFLAGS='-g -O2'
 FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60,cuda10.1 -Minfo=accel,inline -Mcuda ${NETCDFF_FCFLAGS}"
 CPPFLAGS="${NETCDF_CPPFLAGS}"
-NVCFLAGS='--std=c++11'
+NVCFLAGS='--std=c++11 -arch=sm_60 -g -O3'
 LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS}"
 LIBS="${BLAS_LAPACK_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} -lstdc++"
+
+NVCC='/home/cscs/.local/easybuild/software/PGI/19.10-GCC-7.3.0-2.30/linux86-64/2019/cuda/10.1/bin/nvcc'
+CLAW='/home/cscs/.local/claw/bin/clawfc'
 
 "${ICON_DIR}/configure" \
 BUILD_ENV="$BUILD_ENV" \
 CC="$CC" \
 CFLAGS="$CFLAGS" \
+CLAW="$CLAW" \
 CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
@@ -42,9 +45,9 @@ LIBS="$LIBS" \
 NVCC="$NVCC" \
 NVCFLAGS="$NVCFLAGS" \
 --disable-coupling \
---disable-jsbach \
 --disable-loop-exchange \
 --disable-openmp \
+--enable-claw \
 --enable-gpu \
 "$@"
 

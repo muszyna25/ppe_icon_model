@@ -5,19 +5,28 @@ set -eu
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../../.."
 
-BUILD_ENV="MODULEPATH=\"/project/d56/modules:\${MODULEPATH}\";. ${MY_DIR}/build_env_init.sh; switch_for_modules daint-gpu modules craype craype-haswell PrgEnv-pgi/6.0.5 pgi-icon/19.9 gcc cray-mpich cray-netcdf cray-hdf5;"
+BUILD_ENV="MODULEPATH=\"/project/d56/modules:\${MODULEPATH}\";. ${MY_DIR}/build_env_init.sh; switch_for_modules daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.10 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7; export CUDA_HOME=\$CUDATOOLKIT_HOME;"
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
 
 FC=ftn
 CC=cc
 
-FCFLAGS='-g -O -Mrecursive -Mallocatable=03'
+FCFLAGS='-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60'
 CFLAGS='-g -O2'
 CPPFLAGS=
-LDFLAGS="-tp=haswell"
-LIBS="${BLAS_LAPACK_LIBS}"
+LDFLAGS=
+LIBS="${BLAS_LAPACK_LIBS} -lstdc++"
+
+# We have to tell CLAW where to look for netcdf.inc
+eval "$BUILD_ENV"
+CLAWFLAGS="-I${NETCDF_DIR}/include"
+
+NVCFLAGS='-std=c++11 -arch=sm_60 -g -O3'
+
 MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
+CLAW='/project/d56/install/daint/claw/v2.0.1/pgi/bin/clawfc'
+NVCC='nvcc'
 
 # ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
 # which depends on libomptarget.so but doesn't have an RPATH to it. For this
@@ -31,14 +40,21 @@ LIBS="${LIBS} -lomptarget"
 BUILD_ENV="$BUILD_ENV" \
 CC="$CC" \
 CFLAGS="$CFLAGS" \
+CLAW="$CLAW" \
+CLAWFLAGS="$CLAWFLAGS" \
 CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
+NVCC="$NVCC" \
+NVCFLAGS="$NVCFLAGS" \
 --disable-coupling \
+--disable-loop-exchange \
 --disable-openmp \
+--enable-claw \
+--enable-gpu \
 "$@"
 
 # Copy runscript-related files when building out-of-source:
