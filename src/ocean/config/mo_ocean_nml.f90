@@ -103,6 +103,8 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
+  LOGICAL            :: use_ssh_in_momentum_eq = .TRUE.   ! if true use dz(1) + ssh in the momentum eq.
+
   ! Parameters for tracer transport scheme
   !
   !identifiers for different modes of updating the tracer state (substep
@@ -335,6 +337,7 @@ MODULE mo_ocean_nml
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
+    &                 use_ssh_in_momentum_eq       , &
     &                 iswm_oce                     , &
     &                 l_RIGID_LID                  , &
     &                 l_edge_based                 , &
