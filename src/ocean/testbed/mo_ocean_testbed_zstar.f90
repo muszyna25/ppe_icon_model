@@ -444,141 +444,106 @@
 !!
 MODULE mo_ocean_testbed_zstar
   !-------------------------------------------------------------------------
-  USE mo_kind,                   ONLY: wp
-  USE mo_impl_constants,         ONLY: max_char_length, sea_boundary, zero_coriolis, min_dolic
-  USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
-  USE mo_grid_config,            ONLY: n_dom, grid_sphere_radius, grid_angular_velocity
-  USE mo_math_constants,         ONLY: pi, pi_2, rad2deg, deg2rad, dbl_eps
-  USE mo_math_types,             ONLY: t_cartesian_coordinates
-  USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
-    & atmos_flux_analytical_type, no_tracer, OceanReferenceDensity, l_with_vert_tracer_advection, &
-    & tracer_update_mode, use_none, l_edge_based, iforc_oce, type_surfRelax_Temp, type_surfRelax_Salt,  &
-    & No_Forcing, Analytical_Forcing, OMIP_FluxFromFile, Coupled_FluxFromAtmo,                    &
-    & i_sea_ice, zero_freshwater_flux, atmos_flux_analytical_type, atmos_precip_const,            &  
-    & limit_elevation, lhamocc, lswr_jerlov, lhamocc, lfb_bgc_oce,                                &
-    & createSolverMatrix, solver_FirstGuess, l_solver_compare, l_rigid_lid, solver_tolerance,     &
-    & solver_comp_nsteps, select_transfer, select_gmres, select_gmres_r, select_gmres_mp_r,       &
-    & select_cg, select_cg_mp, select_cgj, select_bcgs, select_legacy_gmres, select_mres,         &
-    & solver_max_iter_per_restart, solver_max_restart_iterations,solver_tolerance_comp,           &
-    & solver_tolerance_sp, select_solver, solver_max_iter_per_restart_sp,                         &
-    & use_absolute_solver_tolerance, ab_beta, PPscheme_ICON_Edge_vnPredict_type,                  &
-    & PPscheme_type, ab_const, MASS_MATRIX_INVERSION_TYPE, MASS_MATRIX_INVERSION_ADVECTION,       &
-    & ab_gam, OceanReferenceDensity_inv, iswm_oce, MASS_MATRIX_INVERSION_ALLTERMS,                &
-    & l_relaxsal_ice, para_surfRelax_Salt, para_surfRelax_Temp, &
-    & discretization_scheme, use_continuity_correction, LinearHalineContractionCoefficient
-  USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
-  USE mo_name_list_output_init,  ONLY: isRegistered
-  USE mo_dynamics_config,        ONLY: nold, nnew
-  USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode, debug_check_level 
-  USE mo_exception,              ONLY: message, message_text, finish, warning
-  USE mo_ext_data_types,         ONLY: t_external_data
-  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total
-  USE mo_ocean_ab_timestepping,  ONLY: update_time_indices ,  &
-     & solve_free_surface_eq_ab, calc_vert_velocity, calc_normal_velocity_ab
-  USE mo_ocean_ab_timestepping_mimetic,  ONLY: calculate_explicit_term_ab, fill_rhs4surface_eq_ab 
+ 
+  USE mo_kind,                      ONLY: wp
+  USE mo_parallel_config,           ONLY: nproma
+  USE mo_sync,                      ONLY: sync_e, sync_c, sync_c1, sync_patch_array, &
+    & sync_patch_array_mult, global_sum_array
 
-  USE mo_ocean_bulk_forcing,  ONLY: update_surface_relaxation, apply_surface_relaxation, &
-                                &   update_flux_fromFile, calc_omip_budgets_ice, calc_omip_budgets_oce, &
-                                &   update_ocean_surface_stress, balance_elevation
+  USE mo_impl_constants,            ONLY: sea_boundary, max_char_length, min_dolic
+  USE mo_dbg_nml,                   ONLY: idbg_mxmn
+  USE mo_ocean_nml, ONLY: n_zlev, solver_tolerance,&
+    & l_with_vert_tracer_advection, OceanReferenceDensity, OceanReferenceDensity_inv, &
+    & para_surfRelax_Temp, para_surfRelax_Salt, l_relaxsal_ice, i_sea_ice, &
+    & type_surfRelax_Temp, type_surfRelax_Salt, Analytical_Forcing, &
+    & OMIP_FluxFromFile, lhamocc, lfb_bgc_oce, lswr_jerlov, &
+    & limit_elevation, &
+    & ab_const, ab_beta, ab_gam, iswm_oce, iforc_oce, &
+    & no_tracer, l_rigid_lid, l_edge_based,               &
+    & use_absolute_solver_tolerance, solver_max_restart_iterations, &
+    & solver_max_iter_per_restart, dhdtw_abort, select_transfer, &
+    & select_solver, select_gmres, select_gmres_r, select_mres, &
+    & select_gmres_mp_r, select_cg, select_cgj, select_bcgs, &
+    & select_legacy_gmres, use_continuity_correction, select_cg_mp, &
+    & solver_max_iter_per_restart_sp, solver_tolerance_sp, No_Forcing, &
+    & MASS_MATRIX_INVERSION_TYPE,            &
+    & MASS_MATRIX_INVERSION_ADVECTION, solver_tolerance_comp, &
+    & MASS_MATRIX_INVERSION_ALLTERMS, &
+    & PPscheme_type, PPscheme_ICON_Edge_vnPredict_type, &
+    & solver_FirstGuess, MassMatrix_solver_tolerance,     &
+    & createSolverMatrix, l_solver_compare, solver_comp_nsteps
+  USE mo_run_config,                ONLY: dtime, debug_check_level, nsteps, output_mode
+  USE mo_timer, ONLY: timer_start, timer_stop, timers_level, timer_extra1, &
+    & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc, timer_total
 
-  USE mo_ocean_surface_refactor, ONLY: update_atmos_fluxes, apply_surface_fluxes_slo
-  USE mo_ice_interface,          ONLY: ice_fast_interface, ice_slow_interface
-  
-  USE mo_swr_absorption
-
-  USE mo_random_util,            ONLY: add_random_noise_global
-  USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_operator_coeff, t_solvercoeff_singleprecision
-  USE mo_hamocc_types,           ONLY: t_hamocc_state
-  USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
-  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, no_primal_edges
-  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
-  USE mo_ocean_tracer_diffusion,    ONLY: tracer_diffusion_vertical_implicit
-  USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
-  USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
-  USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
-  USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
-  USE mo_ice_diagnostics,        ONLY: energy_in_surface, salt_in_surface
-  USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf, grav, rho_ref
-  USE mo_ocean_physics_types,    ONLY: t_ho_params
-  USE mo_master_config,          ONLY: isRestart
-  USE mo_ocean_GM_Redi,          ONLY: prepare_ocean_physics,calc_ocean_physics
-  USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi, diag_heat_salt_tendency
-  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density,&
-  &                                    calc_neutralslope_coeff_func_onColumn,calc_neutralslope_coeff_func_onColumn_UNESCO
-  USE mo_time_config,            ONLY: time_config
-  USE mo_statistics
-  USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_ocean_statistics
-  USE mo_ocean_output
-  USE mo_parallel_config,        ONLY: nproma
-  USE mo_statistics
-  USE mo_ocean_testbed_vertical_diffusion
-  USE mo_ocean_math_operators
-  USE mo_grid_subset,            ONLY: t_subset_range, get_index_range 
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d, &
-      & map_edges2cell_3d, map_scalar_center2prismtop, map_vec_prismtop2center_on_block, &
-      & map_cell2edges_3D, map_edges2edges_viacell_3d_const_z
-  USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
-  USE mo_hydro_ocean_run, ONLY: update_time_g_n, update_time_indices
-  USE mo_var_list
-  USE mo_linked_list
-  USE mo_cdi
-  use mo_cdi_constants
-  use mo_zaxis_type
-  use mo_cf_convention
-  use mo_grib2
-  USE mo_dbg_nml,                ONLY: idbg_mxmn
-  USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
-  USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
-  USE mo_memory_log,             ONLY: memory_log_add
-  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
-  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
-  USE mo_ocean_solve, ONLY: t_ocean_solve, ocean_solve_ptr
+  USE mo_dynamics_config,           ONLY: nold, nnew
+  USE mo_physical_constants,        ONLY: grav, clw, rho_ref, Tf
   USE mo_ocean_initialization,      ONLY: is_initial_timestep
-  USE mo_ocean_boundcond,           ONLY: top_bound_cond_horz_veloc, VelocityBottomBoundaryCondition_onBlock
+  USE mo_ocean_types, ONLY: t_hydro_ocean_state
+  USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
+  USE mo_model_domain,              ONLY: t_patch, t_patch_3d
+  USE mo_ext_data_types,            ONLY: t_external_data
+  USE mo_exception,                 ONLY: message, finish, warning, message_text
+  USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
+  USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
+  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad
+  USE mo_ocean_physics_types,       ONLY: t_ho_params
+  USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
+  USE mo_ocean_surface_types,       ONLY: t_ocean_surface, t_atmos_for_ocean
+  USE mo_scalar_product, ONLY: map_edges2edges_viacell_3d_const_z, map_edges2edges_viacell_2D_per_level, &
+    & calc_scalar_product_veloc_3d
+  USE mo_ocean_math_operators, ONLY: div_oce_3D_onTriangles_onBlock, smooth_onCells, div_oce_3d, &
+    & grad_fd_norm_oce_2d_onblock, grad_fd_norm_oce_2d_3d, div_oce_3D_general_onBlock, &
+    & div_oce_3D_onTriangles_onBlock, update_height_depdendent_variables
+  USE mo_ocean_velocity_advection, ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
+  USE mo_ocean_velocity_diffusion, ONLY: velocity_diffusion, velocity_diffusion_vertical_implicit_onBlock
+  USE mo_ocean_types, ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
+  USE mo_grid_subset, ONLY: t_subset_range, get_index_range
+  USE mo_grid_config, ONLY: n_dom
   USE mo_mpi, ONLY: work_mpi_barrier, my_process_is_stdio
-  USE mo_surface_height_lhs, ONLY: t_surface_height_lhs, lhs_surface_height_ptr
-  USE mo_surface_height_lhs_zstar, ONLY: t_surface_height_lhs_zstar, lhs_surface_height_zstar_ptr
+  USE mo_statistics, ONLY: global_minmaxmean, print_value_location
+  USE mo_ocean_solve, ONLY: t_ocean_solve, ocean_solve_ptr
+  USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen, lhs_agen_ptr
+  USE mo_ocean_solve_transfer, ONLY: t_transfer, transfer_ptr
   USE mo_ocean_solve_trivial_transfer, ONLY: t_trivial_transfer, trivial_transfer_ptr
   USE mo_ocean_solve_subset_transfer, ONLY: t_subset_transfer, subset_transfer_ptr
-  USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen, lhs_agen_ptr
   USE mo_ocean_solve_aux, ONLY: t_destructible, t_ocean_solve_parm, solve_gmres, solve_cg, solve_mres, &
    & ocean_solve_clear, solve_precon_none, solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
    & solve_trans_scatter, solve_trans_compact, solve_cell, solve_edge, solve_invalid
-  USE mo_ocean_solve_transfer, ONLY: t_transfer, transfer_ptr
-
-
-  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
-       &                               timedelta, newTimedelta, deallocateTimedelta,                &
-       &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
-       &                               MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
-       &                               OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*),          &
-       &                               ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
-       &                               event, eventGroup, newEvent, addEventToEventGroup,           &
-       &                               isCurrentEventActive, getNoOfSecondsElapsedInDayDateTime
-
-  USE mo_event_manager,          ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
-
-  USE mo_hamocc_types,          ONLY: t_hamocc_state
+  USE mo_primal_flip_flop_lhs, ONLY: t_primal_flip_flop_lhs, lhs_primal_flip_flop_ptr
+  USE mo_surface_height_lhs, ONLY: t_surface_height_lhs, lhs_surface_height_ptr
+  USE mo_surface_height_lhs_zstar, ONLY: t_surface_height_lhs_zstar, lhs_surface_height_zstar_ptr
+  USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
+  USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
+  USE mo_name_list_output_init,  ONLY: isRegistered
+  USE mo_hamocc_types,           ONLY: t_hamocc_state
+  USE mtime,                     ONLY: datetime, timedelta, newTimedelta, getNoOfSecondsElapsedInDayDateTime, &
+    & datetimeToString, deallocateTimedelta
+  USE mo_ocean_tracer_transport_types,  ONLY: t_ocean_transport_state, t_ocean_tracer, t_tracer_collection
+  USE mo_math_constants,         ONLY: pi, pi_2, rad2deg, deg2rad, dbl_eps
+  USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff, no_primal_edges
+  USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical 
+  USE mo_memory_log,             ONLY: memory_log_add 
+  USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor, update_atmos_fluxes
   USE mo_ocean_physics,         ONLY: update_ho_params
+  USE mo_ocean_ab_timestepping_mimetic,  ONLY: calculate_explicit_term_ab, fill_rhs4surface_eq_ab
+  USE mo_ice_interface,          ONLY: ice_fast_interface, ice_slow_interface
+  USE mo_hydro_ocean_run, ONLY: update_time_g_n, update_time_indices
+  USE mo_ocean_output, ONLY: output_ocean
+  USE mo_ocean_ab_timestepping,  ONLY: calc_vert_velocity, calc_normal_velocity_ab
+  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
+  USE mo_ocean_diagnostics,      ONLY: diag_heat_salt_tendency
+  USE mo_ocean_bulk_forcing,  ONLY: apply_surface_relaxation, update_ocean_surface_stress
+  USE mo_swr_absorption,     ONLY: dynamic_swr_absorption
+  USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
+  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_master_config,          ONLY: isRestart
+  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
+  USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
+  USE mo_ice_fem_interface,      ONLY: ice_fem_init_vel_restart, ice_fem_update_vel_restart
 
-  USE mo_ocean_tracer_transport_types
-
-  !! Needed to test advection of velocity 
-  USE mo_ocean_velocity_advection, ONLY: veloc_adv_horz_mimetic, &
-      & veloc_adv_vert_mimetic
-  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad
-  USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
-  USE mo_ocean_velocity_diffusion, ONLY: velocity_diffusion, velocity_diffusion_vertical_implicit_onBlock
-
-  USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz
-  USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
-  USE mo_sync,                        ONLY: sync_c, sync_e, sync_c1, sync_patch_array, &
-    & sync_patch_array_mult, global_sum_array
-  USE mo_surface_height_lhs_zstar, ONLY: map_edges2edges_viacell_2D_zstar
-
+ 
   !-------------------------------------------------------------------------
     IMPLICIT NONE
   PRIVATE
@@ -1768,7 +1733,7 @@ CONTAINS
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
         model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
-        this_datetime = this_datetime + model_time_step
+!        this_datetime = this_datetime + model_time_step
         CALL deallocateTimedelta(model_time_step) 
           
         CALL output_ocean( patch_3d, &
@@ -1785,6 +1750,8 @@ CONTAINS
         ! velocity
         ocean_state(jg)%p_aux%g_nm1 = ocean_state(jg)%p_aux%g_n
         ocean_state(jg)%p_aux%g_n   = 0.0_wp
+      
+        CALL update_time_g_n(ocean_state(jg))
 
     END DO
     
@@ -2448,6 +2415,7 @@ CONTAINS
       CALL calculate_explicit_vn_pred_3D_onBlock_zstar( patch_3d, ocean_state, z_gradh_e(:),    &
       & start_edge_index, end_edge_index, blockNo)
       ! calculate vertical friction, ie p_phys_param%a_veloc_v
+      ! FIXME: This is not modified for zstar
       IF (PPscheme_type == PPscheme_ICON_Edge_vnPredict_type) &
         CALL ICON_PP_Edge_vnPredict_scheme(patch_3d, blockNo, start_edge_index, end_edge_index, &
           & ocean_state, ocean_state%p_diag%vn_pred(:,:,blockNo))
@@ -3187,6 +3155,9 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: idx, blk
     INTEGER  :: id1, id2, bl1, bl2 
 
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
+ 
     REAL(wp), PARAMETER ::  min_top_height = 0.05_wp !we have to have at least 5cm water on topLevel of sea cells)
     INTEGER :: n_it, n_it_sp, ret_status
     REAL(wp) :: rn, minmaxmean(3)
@@ -3202,6 +3173,21 @@ CONTAINS
       CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
     END IF
     jg = n_dom
+
+    
+    jstep0 = 0
+
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
+      ! get start counter for time loop from restart file:
+      jstep0 = restartAttributes%getInteger("jstep")
+    END IF
+    IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
+      ! swap the g_n and g_nm1
+      CALL update_time_g_n(ocean_state(jg))
+    ENDIF
+
+    restartDescriptor => createRestartDescriptor("oce")
 
     !------------------------------------------------------------------
     patch_2d        => patch_3d%p_patch_2d(jg)
@@ -3283,7 +3269,6 @@ CONTAINS
 
 
     !------------------------------------------------------------------
-    jstep0 = 0
     jstep  = jstep0
 
     ! local time var to be passed along, so the global is kept safe 
@@ -3571,7 +3556,24 @@ CONTAINS
       ENDIF
       !------------------------------------------------------------------------
 
+      !! FIXME: Diagnostics does not use zstar
+      CALL calc_fast_oce_diagnostics( patch_2d, &
+          & patch_3d, &
+          & ocean_state(1), &
+          & patch_3d%p_patch_1d(1)%dolic_c, &
+          & patch_3d%p_patch_1d(1)%prism_thick_c, &
+          & patch_3d%p_patch_1d(1)%zlev_m, &
+          & ocean_state(jg)%p_diag, &
+          & ocean_state(jg)%p_prog(nnew(1))%h, &
+          & ocean_state(jg)%p_prog(nnew(1))%vn, &
+          & ocean_state(jg)%p_prog(nnew(1))%tracer, &
+          & p_atm_f, &
+          & p_oce_sfc, &
+          & sea_ice) 
+
       !------------------------------------------------------------------------
+        
+      CALL update_statistics
   
       CALL output_ocean( patch_3d, &
         & ocean_state,             &
@@ -3579,6 +3581,8 @@ CONTAINS
         & p_oce_sfc,          &
         & sea_ice,               &
         & jstep, jstep0)
+        
+      CALL reset_statistics
 
 
       ! Shift time indices for the next loop
@@ -3587,6 +3591,29 @@ CONTAINS
   
       ! update intermediate timestepping variables for the tracers
       CALL update_time_g_n(ocean_state(jg))
+
+      
+      ! check whether time has come for writing restart file
+      IF (isCheckpoint()) THEN
+        IF (.NOT. output_mode%l_none ) THEN
+          !
+          ! For multifile restart (restart_write_mode = "joint procs multifile")
+          ! the domain flag must be set to .TRUE. in order to activate the domain,
+          ! even though we have one currently in the ocean. Without this the
+          ! processes won't write out their data into a the patch restart files.
+          !
+          patch_2d%ldom_active = .TRUE.
+          !
+          IF (i_ice_dyn == 1) CALL ice_fem_update_vel_restart(patch_2d, sea_ice) ! write FEM vel to restart or checkpoint file
+          CALL restartDescriptor%updatePatch(patch_2d, &
+                                            &opt_nice_class=1, &
+                                            &opt_ocean_zlevels=n_zlev, &
+                                            &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                            &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%writeRestart(current_time, jstep)
+        END IF
+      END IF
+
 
       IF (isEndOfThisRun()) THEN
         ! leave time loop
