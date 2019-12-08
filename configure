@@ -8842,7 +8842,9 @@ fi
                           git ls-tree -r --name-only HEAD | while read filename; do
                             unixtime=$(git log -1 --format="%at" -- "${filename}")
                             touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb.f90 is newer than original
-                            touch -t ${touchtime} ${jsbpp_dir}/$(basename ${filename} .f90)_dsl4jsb.f90
+                            # Only set timestamp to time of last commit if file hasn't been modified
+                            git status -s ${filename} | grep -q ' M ' || \
+                              touch -t ${touchtime} ${jsbpp_dir}/$(basename ${filename} .f90)_dsl4jsb.f90
                           done
                           cd ../../..
 
