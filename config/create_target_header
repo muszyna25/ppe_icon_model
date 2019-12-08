@@ -728,6 +728,9 @@ set_run_target_daint_gpu()
 EOF
   # create header
   start_header
+  cat >>$output_script <<EOF
+export CRAY_CUDA_MPS=1
+EOF
 }
 
 #=============================================================================
