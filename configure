@@ -6753,7 +6753,7 @@ esac
      CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/configure_model/ -J ${ROOT_DIR}/src/drivers/ -J ${ROOT_DIR}/src/namelists/ -J ${ROOT_DIR}/src/shr_horizontal/ -I ${ROOT_DIR}/src/include/ -I ${NETCDF_DIR}/include -J ${ROOT_DIR}/src/io/restart/"
      CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/support/ -J ${ROOT_DIR}/externals/omni-xmod-pool/self/0.2/"
      CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/lnd_phy_nwp/ -J ${ROOT_DIR}/src/atm_phy_echam/ -J ${ROOT_DIR}/src/atm_phy_psrad/"
-     CLAWFC_FLAGS="${CLAWFC_FLAGS} --model-config=${ROOT_DIR}/config/claw/icon_jsbach.toml ${clawfc_target_flags}"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} --model-config=${ROOT_DIR}/externals/jsbach/config/icon_jsbach.toml ${clawfc_target_flags}"
 
      # Add appropriate flags for validation mode
      if test "x$enable_claw" = "xvalidate" ; then :
@@ -8842,7 +8842,9 @@ fi
                           git ls-tree -r --name-only HEAD | while read filename; do
                             unixtime=$(git log -1 --format="%at" -- "${filename}")
                             touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb.f90 is newer than original
-                            touch -t ${touchtime} ${jsbpp_dir}/$(basename ${filename} .f90)_dsl4jsb.f90
+                            # Only set timestamp to time of last commit if file hasn't been modified
+                            git status -s ${filename} | grep -q ' M ' || \
+                              touch -t ${touchtime} ${jsbpp_dir}/$(basename ${filename} .f90)_dsl4jsb.f90
                           done
                           cd ../../..
 

@@ -339,7 +339,7 @@ case "$ac_sitename" in
                         FFLAGS      = -g -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
                         F77FLAGS    = $FFLAGS
                         CFLAGS      = -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -g -O2
-                        SERIALBOX2ROOT = /project/c14/install/daint/serialbox2/serialbox2_v2.4.3/pgi_18.10
+                        SERIALBOX2ROOT = /project/d56/install/daint/serialbox2/2.4.3/pgi/19.9
                         SERIALBOX2_LIB = -L\$(SERIALBOX2ROOT)/lib -lSerialboxFortran -L${GCC_PATH}/snos/lib64/ -lstdc++fs -lstdc++
                         OTHER_LIBS  = -Bdynamic -L/usr/lib64 -llzma -lstdc++
                         LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
