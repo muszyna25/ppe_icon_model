@@ -24,7 +24,7 @@ filtered_FCFLAGS:= $(macro_FCFLAGS) $(inc_FCFLAGS)
 
 # Compiler and preprocessor flags that must not be overloaded by the user:
 makefile_FCFLAGS:= $(addprefix -J,$(moddir) $(addprefix $(srcdir)/externals/omni-xmod-pool/,mpi/3.0 self/0.2) $(sort $(dir $(CLAW_inputs)))) -I$(srcdir)/src/include
-makefile_CLAWFLAGS:= --Wf-no-module-cache --model-config=$(srcdir)/config/claw/icon_jsbach.toml
+makefile_CLAWFLAGS:= -w 132 --Wf-no-module-cache --model-config=$(srcdir)/externals/jsbach/config/icon_jsbach.toml
 
 # Silent rule prefixes:
 V= @DEFAULT_VERBOSITY@
