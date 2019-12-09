@@ -57,6 +57,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_sgsclifac
   PUBLIC :: icpl_turb_clc
   PUBLIC :: tune_dust_abs
+  PUBLIC :: tune_difrad_3dcont
   PUBLIC :: tune_gust_factor
   PUBLIC :: itune_albedo
   PUBLIC :: lcalib_clcov
@@ -163,6 +164,9 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !
+
+  REAL(wp) :: &                    !< Tuning factor for 3D contribution to diagnosed diffuse radiation
+    &  tune_difrad_3dcont          !
 
   REAL(wp) :: &                    !< Tuning factor for gust parameterization
     &  tune_gust_factor            !

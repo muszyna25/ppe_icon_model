@@ -29,13 +29,14 @@ MODULE mo_nwp_ecrad_utilities
   USE mo_exception,              ONLY: finish
   USE mo_impl_constants,         ONLY: MAX_CHAR_LENGTH
   USE mo_math_types,             ONLY: t_geographical_coordinates
-  USE mo_physical_constants,     ONLY: rd
+  USE mo_physical_constants,     ONLY: rd, grav
   USE mo_radiation_config,       ONLY: vmr_co2, vmr_n2o, vmr_o2, vmr_ch4,        &
                                    &   vmr_cfc11, vmr_cfc12,                     &
                                    &   irad_h2o, irad_o3, irad_co2,              &
                                    &   irad_n2o, irad_ch4,                       &
                                    &   irad_o2, irad_cfc11, irad_cfc12,          &
                                    &   vpp_ch4, vpp_n2o
+  USE mo_nwp_tuning_config,      ONLY: tune_difrad_3dcont
   USE mtime,                     ONLY: datetime
 #ifdef __ECRAD
   USE mo_ecrad,                  ONLY: ecrad_set_gas_units,                      &
@@ -66,6 +67,7 @@ MODULE mo_nwp_ecrad_utilities
   PUBLIC :: ecrad_set_clouds
   PUBLIC :: ecrad_set_gas
   PUBLIC :: ecrad_store_fluxes
+  PUBLIC :: add_3D_diffuse_rad
 
 
 CONTAINS
@@ -395,6 +397,7 @@ CONTAINS
 
     TYPE(t_ecrad_flux_type), INTENT(inout) :: &
       &  ecrad_flux               !< ecRad cloud information
+
     REAL(wp), INTENT(inout)  :: &
       &  cosmu0(:),             & !< Cosine of solar zenith angle
       &  trsolall(:,:),         & !< solar transmissivity, all sky, net down
@@ -458,6 +461,69 @@ CONTAINS
   END SUBROUTINE ecrad_store_fluxes
   !---------------------------------------------------------------------------------------
 
+
+  !---------------------------------------------------------------------------------------
+  !>
+  !! SUBROUTINE add_3D_diffuse_rad:
+  !! Adds 3D contribution to diffuse radiation by reflection of direct solar radiation on scattered low clouds
+  !!
+  !! @par Revision History
+  !! Initial release by Guenther Zaengl, Deutscher Wetterdienst, Offenbach (2019-12-06)
+  !!
+  SUBROUTINE add_3D_diffuse_rad(ecrad_flux, clc, pres, temp, cosmu0, trsol_dn_sfc_diff, i_startidx, i_endidx, nlev)
+
+    TYPE(t_ecrad_flux_type), INTENT(inout) :: ecrad_flux !< ecRad cloud information
+
+    REAL(wp), INTENT(in)  :: &
+      &  cosmu0(:),             & !< Cosine of solar zenith angle
+      &  clc(:,:),              & !< cloud cover fraction
+      &  pres(:,:),             & !< pressure
+      &  temp(:,:)                !< temperature
+
+    REAL(wp), INTENT(inout)  :: trsol_dn_sfc_diff(:) !< downward diffuse solar transmissivity at surface
+
+    INTEGER, INTENT(in)      :: &
+      &  i_startidx, i_endidx,  & !< Start and end index of nproma loop in current block
+      &  nlev                     !< Number of vertical levels
+
+    ! Local Variables
+    INTEGER                   ::  jc, jk  !< Loop indices
+
+    REAL(wp), PARAMETER :: zdecorr = 2000.0_wp, & ! decorrelation length scale for cloud overlap scheme
+                           epsi    = 1.e-20_wp
+
+    REAL(wp) :: zcloud(i_endidx), ccmax, ccran, deltaz, alpha
+
+
+    zcloud(i_startidx:i_endidx)     = 0.0_wp
+
+    ! Calculate low-level cloud cover fraction
+    DO jk = 2, nlev
+      DO jc = i_startidx, i_endidx
+        IF (pres(jc,jk)/pres(jc,nlev) > 0.75_wp) THEN
+          ccmax = MAX(clc(jc,jk),  zcloud(jc))
+          ccran = clc(jc,jk) + zcloud(jc) - clc(jc,jk)*zcloud(jc)
+
+          ! layer thickness [m] between level jk and next upper level jk-1
+          deltaz = (pres(jc,jk)-pres(jc,jk-1))/(pres(jc,jk-1)+pres(jc,jk)) * &
+                   (temp(jc,jk-1)+temp(jc,jk))*rd/grav
+
+          alpha  = MIN(EXP(-deltaz/zdecorr), clc(jc,jk-1)/MAX(epsi,clc(jc,jk)) )
+
+          zcloud(jc) = alpha * ccmax + (1-alpha) * ccran
+        ENDIF
+      ENDDO
+    ENDDO
+
+    DO jc = i_startidx, i_endidx
+      IF (cosmu0(jc) > 0.05_wp) THEN
+        trsol_dn_sfc_diff(jc) = MIN(ecrad_flux%sw_dn(jc,nlev+1)/cosmu0(jc), trsol_dn_sfc_diff(jc) + &
+          tune_difrad_3dcont*ecrad_flux%sw_dn(jc,nlev+1)/cosmu0(jc)*zcloud(jc)*(1._wp-zcloud(jc))**2)
+      ENDIF
+    ENDDO
+
+  END SUBROUTINE add_3D_diffuse_rad
+  !---------------------------------------------------------------------------------------
   !---------------------------------------------------------------------------------------
   !>
   !! Function create_rdm_seed:

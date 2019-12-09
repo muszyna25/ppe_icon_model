@@ -35,9 +35,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-#if defined __xlC__
-@PROCESS SPILL(1058)
-#endif
+
 MODULE mo_nwp_ecrad_interface
 
   USE mo_kind,                   ONLY: wp
@@ -72,7 +70,7 @@ MODULE mo_nwp_ecrad_interface
                                    &   ecrad_set_thermodynamics,                 &
                                    &   ecrad_set_clouds,                         &
                                    &   ecrad_set_gas,                            &
-                                   &   ecrad_store_fluxes
+                                   &   ecrad_store_fluxes, add_3D_diffuse_rad
 #endif
 
 
@@ -176,26 +174,23 @@ CONTAINS
       CALL ecrad_aerosol%allocate_direct(ecrad_conf, nproma, 1, nlev)
     ENDIF
 
+    CALL ecrad_flux%allocate(ecrad_conf, 1, nproma, nlev)
+
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
     i_startblk = pt_patch%cells%start_block(rl_start)
     i_endblk   = pt_patch%cells%end_block(rl_end)
 
-!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask,ecrad_flux)              &
+!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask)                         &
 !$OMP          FIRSTPRIVATE(ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,  &
-!$OMP                       ecrad_gas, ecrad_cloud)
+!$OMP                       ecrad_gas, ecrad_cloud,ecrad_flux)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
 
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
-
-      ! ecrad_flux has to be allocated within the jb loop as the fields are allocated from 
-      ! i_startidx to i_endidx. This is in contrast to the ecrad input containers which are
-      ! allocated for the full nproma length.
-      CALL ecrad_flux%allocate(ecrad_conf, i_startidx, i_endidx, nlev)
 
       cosmu0mask(:) = .FALSE.
       DO jc = i_startidx, i_endidx
@@ -279,8 +274,9 @@ CONTAINS
         &                     prm_diag%lwflx_up_sfc_rs(:,jb), prm_diag%lwflxclr_sfc(:,jb),     &
         &                     cosmu0mask(:), i_startidx, i_endidx, nlevp1)
 
-      ! CLEANUP
-      CALL ecrad_flux%deallocate
+      ! Add 3D contribution to diffuse radiation
+      CALL add_3D_diffuse_rad(ecrad_flux, prm_diag%clc(:,:,jb), pt_diag%pres(:,:,jb), pt_diag%temp(:,:,jb),      &
+        &                     prm_diag%cosmu0(:,jb), prm_diag%trsol_dn_sfc_diff(:,jb), i_startidx, i_endidx, nlev)
 
     ENDDO ! jb
 !$OMP END DO NOWAIT
@@ -458,6 +454,8 @@ CONTAINS
       CALL ecrad_aerosol%allocate_direct(ecrad_conf, nproma, 1, nlev_rg)
     ENDIF
 
+    CALL ecrad_flux%allocate(ecrad_conf, 1, nproma, nlev_rg)
+
     ALLOCATE(cosmu0mask(nproma))
 
     ! Allocate for reduced radiation grid
@@ -560,9 +558,9 @@ CONTAINS
     i_startblk = ptr_pp%cells%start_block(rl_start)
     i_endblk   = ptr_pp%cells%end_block(rl_end)
 
-!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask,ecrad_flux)              &
+!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask)                         &
 !$OMP          FIRSTPRIVATE(ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,  &
-!$OMP                       ecrad_gas, ecrad_cloud)
+!$OMP                       ecrad_gas, ecrad_cloud, ecrad_flux)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -571,11 +569,6 @@ CONTAINS
       ! It may happen that an MPI patch contains only nest boundary points
       ! In this case, no action is needed
       IF (i_startidx > i_endidx) CYCLE
-
-      ! ecrad_flux has to be allocated within the jb loop as the fields are allocated from 
-      ! i_startidx to i_endidx. This is in contrast to the ecrad input containers which are
-      ! allocated for the full nproma length.
-      CALL ecrad_flux%allocate(ecrad_conf, i_startidx, i_endidx, nlev_rg)
 
       cosmu0mask(:) = .FALSE.
       DO jc = i_startidx, i_endidx
@@ -651,7 +644,9 @@ CONTAINS
         &                     zrg_lwflx_up_sfc(:,jb), zrg_lwflx_clr_sfc(:,jb),       &
         &                     cosmu0mask(:), i_startidx, i_endidx, nlev_rgp1)
 
-      CALL ecrad_flux%deallocate
+      ! Add 3D contribution to diffuse radiation
+      CALL add_3D_diffuse_rad(ecrad_flux, zrg_clc(:,:,jb), zrg_pres(:,:,jb), zrg_temp(:,:,jb),            &
+        &                     zrg_cosmu0(:,jb), zrg_trsol_dn_sfc_diff(:,jb), i_startidx, i_endidx, nlev_rg)
 
     ENDDO !jb
 !$OMP END DO NOWAIT
@@ -673,6 +668,7 @@ CONTAINS
     CALL ecrad_gas%deallocate
     CALL ecrad_cloud%deallocate
     IF ( ecrad_conf%use_aerosols ) CALL ecrad_aerosol%deallocate
+    CALL ecrad_flux%deallocate
 
     DEALLOCATE (zrg_cosmu0, zrg_tsfc, zrg_emis_rad, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,   &
       &         zrg_albnirdif, zrg_pres_ifc, zrg_o3, zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_clc,        &
