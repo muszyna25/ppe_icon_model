@@ -884,7 +884,7 @@ CONTAINS
             field% rtype (:,:) = 0.0_wp
          END IF
          !
-         IF ( echam_phy_tc(jg)%dt_cld == dt_zero ) THEN
+         IF ( echam_phy_tc(jg)%dt_cld == dt_zero .AND. echam_phy_tc(jg)%dt_mig == dt_zero) THEN
             field% rsfl (:,:) = 0.0_wp
             field% ssfl (:,:) = 0.0_wp
          END IF
