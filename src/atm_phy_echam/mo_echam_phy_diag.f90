@@ -212,9 +212,8 @@ CONTAINS
     !$ACC END PARALLEL
 
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE( zprat, zn1, zn2, zcdnc )
     DO jk = 1,nlev
-      !$ACC LOOP VECTOR PRIVATE( zprat, zn1, zn2, zcdnc )
       DO jc = jcs,jce
         !
         zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
@@ -269,9 +268,8 @@ CONTAINS
     !$ACC DATA PRESENT( field%cpair, field%qtrc, field%cvair, field%qconv, field%mair )
 
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,nlev
-      !$ACC LOOP VECTOR
       DO jc=jcs,jce
         field%cpair(jc,jk,jb) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
         field%cvair(jc,jk,jb) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
@@ -367,18 +365,17 @@ CONTAINS
     !$ACC LOOP GANG VECTOR
     DO jc=jcs,jce
     field% pr(jc,jb) =  field% rsfl(jc,jb) & ! rain large scale
-         &                  +field% ssfl(jc,jb) & ! snow large scale
-         &                  +field% rsfc(jc,jb) & ! rain convection
-         &                  +field% ssfc(jc,jb)   ! snow convection
+         &             +field% ssfl(jc,jb) & ! snow large scale
+         &             +field% rsfc(jc,jb) & ! rain convection
+         &             +field% ssfc(jc,jb)   ! snow convection
     END DO
     !$ACC END PARALLEL
  
     ! convert the temperature tendency from physics, as computed for constant pressure conditions,
     ! to constant volume conditions, as needed for the coupling to the dynamics
     !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,nlev
-      !$ACC LOOP VECTOR
       DO jc=jcs,jce
         tend% ta_phy(jc,jk,jb) = tend% ta_phy(jc,jk,jb) * field% cpair(jc,jk,jb) / field% cvair(jc,jk,jb)
       END DO

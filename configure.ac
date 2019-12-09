@@ -116,6 +116,29 @@ AC_ARG_ENABLE([mixed],
               AS_HELP_STRING([--enable-mixed],[Use mixed precision dycore.]),
               [],[enable_mixed=no])
 
+AC_ARG_ENABLE([gpu],
+              AS_HELP_STRING([--enable-gpu],[Use GPU accelerators.]),
+              [],[enable_gpu=no])
+
+dnl ######################################################################
+dnl CLAW Compiler setup
+
+AC_ARG_ENABLE([claw],
+              AS_HELP_STRING([--enable-claw],[Enable CLAW Compiler. Two modes are available: std (default) or validate]),
+              [],[enable_claw=no])
+
+AS_IF([test "x$enable_claw" = "xyes"],
+      [enable_claw="std"],
+      [])
+
+AS_IF([test "x$enable_claw" != "xno"],
+         [AS_CASE(["$enable_claw"],
+                 ["std"], [AC_MSG_WARN(["CLAW Compiler is enable in standard mode"])],
+                 ["validate"], [AC_MSG_WARN(["CLAW Compiler is enable in VALIDATE mode"])],
+                 [AC_MSG_ERROR(["CLAW Compiler is enabled but UNKNOWN mode was requested"])])
+         ],
+      [])
+
 dnl ######################################################################
 dnl Serialbox2 serialization setup
 
@@ -292,13 +315,13 @@ AC_MSG_NOTICE([dwd_gribapi_env = $dwd_gribapi_env.])
 export dwd_gribapi_env
 
 AS_IF([test $use_mh_file = yes],
-      [ACX_GET_MODULES_TO_LOAD([$host_frag])
+      [ACX_GET_PROFILE_TO_LOAD([$host_frag])
        AS_IF([test ! -z "$load_profile" ],
              [. "$load_profile"])
 
-       ACX_GET_PROFILE_TO_LOAD([$host_frag])
+       ACX_GET_MODULES_TO_LOAD([$host_frag])
        AS_IF([test ! -z "$load_modules" ],
-             [ACX_SWAP_MODULES(["$load_modules"])])
+             [ACX_SWAP_MODULES(["$load_modules"], ["$ignore_if_loaded"])])
 
        ACX_GET_MH($host_frag)])
 
@@ -1200,6 +1223,9 @@ fi # ! CROSS
 
 test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
 
+my_iconsrcdir="src"
+my_iconppdir="build/${build_host}/${my_iconsrcdir}"
+
 AS_IF([test "x$enable_serialization" != "xno"],
     [
      my_iconsrcdir="build/${build_host}/pp"
@@ -1213,11 +1239,39 @@ AS_IF([test "x$enable_serialization" != "xno"],
              ["create"],
                 [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_CREATE_REFERENCE"],
              [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
-     ],
-    [
-     my_iconsrcdir="src"
-     my_iconppdir="build/${build_host}/${my_iconsrcdir}"
      ])
+
+AS_IF([test "x$enable_claw" != "xno"],
+    [
+      AS_CASE([$config_target],
+              [*_gpu],
+              [clawfc_target_flags="--target=gpu --directive=acc"],
+              [clawfc_target_flags="--target=cpu --directive=none"]
+             )
+     FFLAGS="${FFLAGS} ${DEFOPT}_CLAW"
+     ROOT_DIR=$(pwd)
+     CLAWFC_FLAGS="--Wf-no-module-cache -J ${ROOT_DIR}/src/io/shared/ -J ${ROOT_DIR}/src/shared/ -J ${ROOT_DIR}/src/parallel_infrastructure/ -J ${ROOT_DIR}/externals/omni-xmod-pool/mpi/3.0/ -J ${ROOT_DIR}/externals/mtime/src/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/configure_model/ -J ${ROOT_DIR}/src/drivers/ -J ${ROOT_DIR}/src/namelists/ -J ${ROOT_DIR}/src/shr_horizontal/ -I ${ROOT_DIR}/src/include/ -I ${NETCDF_DIR}/include -J ${ROOT_DIR}/src/io/restart/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/support/ -J ${ROOT_DIR}/externals/omni-xmod-pool/self/0.2/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/lnd_phy_nwp/ -J ${ROOT_DIR}/src/atm_phy_echam/ -J ${ROOT_DIR}/src/atm_phy_psrad/"
+     CLAWFC_FLAGS="${CLAWFC_FLAGS} --model-config=${ROOT_DIR}/externals/jsbach/config/icon_jsbach.toml ${clawfc_target_flags}"
+
+     # Add appropriate flags for validation mode
+     AS_IF([test "x$enable_claw" = "xvalidate" ],
+         [
+           AS_IF([test "x$enable_serialization" = "xno" ],
+           [
+              AC_MSG_ERROR(["CLAW validate mode require serialization to be enabled!"])
+           ],
+           [])
+           # Enable serialization support and update after kernels
+           CLAWFC_FLAGS=" ${CLAWFC_FLAGS} -x=sca_serialization_enabled:true -x=sca_serialization_enabled_direction:write -x=sca_forward_update_enabled_direction:out"
+         ],
+         [
+           # Disable serializaion support and updates by kernel
+           CLAWFC_FLAGS=" ${CLAWFC_FLAGS} -x=sca_serialization_enabled:false -x=sca_forward_update_enabled:false"
+         ])
+    ])
 
 my_srcdirs="support ${my_iconsrcdir}"
 
@@ -1313,7 +1367,8 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
-FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
+#FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
+FFLAGS="${MODOPT}../support ${FFLAGS}"
 
 #------------------------
 if test x$with_flags = x; then
@@ -1481,6 +1536,9 @@ AC_SUBST(SERIALBOX2ROOT,$SERIALBOX2ROOT)
 AC_SUBST(SERIALBOX2_LIB,$SERIALBOX2_LIB)
 AC_SUBST(SERIALBOX2_INCLUDE,$SERIALBOX2_INCLUDE)
 
+AC_SUBST(CLAWFC,$CLAWFC)
+AC_SUBST(CLAWFC_FLAGS,$CLAWFC_FLAGS)
+
 AC_SUBST(LAPACKROOT,$LAPACKROOT)
 AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)
 AC_SUBST(LAPACK_LIB,$LAPACK_LIB)
@@ -1494,12 +1552,14 @@ AC_SUBST(AR,$AR)
 AC_SUBST(AS,$AS)
 
 AC_SUBST(CC,$CC)
+AC_SUBST(NVCC,$NVCC)
 AC_SUBST(FC,$FC)
 AC_SUBST(F77,$F77)
 
 AC_SUBST(ARFLAGS,$ARFLAGS)
 
 AC_SUBST(CFLAGS,$CFLAGS)
+AC_SUBST(NVCFLAGS,$NVCFLAGS)
 AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
@@ -1782,27 +1842,81 @@ fi
 sync_submit=${sync_submit:=$submit}
 
 AC_CONFIG_COMMANDS([Makefiles],
-                   [
-                    AS_IF([test "x$enable_serialization" != "xno"],
+      [
+       AS_IF([test "x$enable_serialization" != "xno"],
+             [
+              AS_IF([! test -d ${my_iconppdir}],
+                    [
+                     mkdir -p ${my_iconppdir}
+                     ])
+              eval "${my_preprocess_command}"
+              ])
+       AS_IF([test "x$enable_jsbach" = "xyes"],
+             [
+              AS_IF([! test -d ${my_iconppdir}/jsbpp],
+                    [
+                     mkdir -p ${my_iconppdir}/jsbpp  # All JSBACH pre-processed files will go here (dsl4jsb and claw)
+                     ])
+
+              # Pre-process all JSBACH source files with dsl4jsb.py
+              PYTHONIOENCODING=utf-8 externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}/jsbpp
+
+              AS_IF([test "x$enable_claw" != "xno"],
+                    [
+                      PP_FFLAGS="$(echo "${FFLAGS}" | sed -E 's/-[[^ D]]+//g' | sed 's/\.\.\/module//g')"
+                      AS_IF([ test "x${enable_claw}" = "xstd"],
+                        [
+                          # Set time stamp of all _dsl4jsb.f90 JSBACH files in jsbpp to the time of the last commit of the original source file (git doesn't store
+                          # actual modification time) in order to avoid unnecessary re-creation of claw targets in make. This is done as a safeguard since some
+                          # git versions seem to set the timestamp to the time of cloning the repo, i.e. now, but the claw files extracted below from the archived
+                          # tar file will have the timestamp of their generation.
+                          # git ls-tree doesn't work on submodules so we have to cd there; one could also use 'git submodule foreach' and 'git ls-files'.
+                          jsbpp_dir=`pwd`/${my_iconppdir}/jsbpp
+                          cd externals/jsbach/src
+                          git ls-tree -r --name-only HEAD | while read filename; do 
+                            unixtime=$(git log -1 --format="%at" -- "${filename}")
+                            touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb.f90 is newer than original
+                            # Only set timestamp to time of last commit if file hasn't been modified
+                            git status -s ${filename} | grep -q ' M ' || \
+                              touch -t ${touchtime} ${jsbpp_dir}/$(basename ${filename} .f90)_dsl4jsb.f90
+                          done
+                          cd ../../..
+
+                          tar -C ${my_iconppdir} -zxf externals/jsbach/pp/pp_claw.tgz
+                          # Test whether files that contain !$claw directives need to be re-generated
+                          for jsbach_file in $(grep -l -i '!$claw' ${my_iconppdir}/jsbpp/*_dsl4jsb.f90); do
+                            clawfile="$(basename ${jsbach_file} .f90)_claw.f90"
+                            #if ! cmp ${jsbach_file} externals/jsbach/pp/$(basename ${jsbach_file}) >/dev/null 2>&1 ; then
+                            # Compare hash value from headers of dsl4jsb pre-processed and archived files. If hey haven't changed
+                            # there is no need to run through claw but, instead, we set the modification time of the _dsl4jsb_claw.f90 file to
+                            # slightly (1 second) later than the _dsl4jsb.f90 file to avoid that make thinks it has to generate a new claw file.
+                            if eval test "\$(grep 'with md5 hash' $jsbach_file|head -1|sed 's/.*: //')" != \
+                                         "\$(grep 'with md5 hash' externals/jsbach/pp/$(basename $jsbach_file)|head -1|sed 's/.*: //')"
+                            then
+                              #rm ${my_iconppdir}/jsbpp/${clawfile}
+                              echo "${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file}"
+                              ${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file} || exit
+                              cp -p ${jsbach_file} externals/jsbach/pp/
+                            else
+                              unixtime=$(date -r "${jsbach_file}" +%s)
+                              touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb_claw.f90 is newer than _dsl4jsb.f90
+                              touch -t ${touchtime} ${my_iconppdir}/jsbpp/${clawfile}
+                            fi
+                          done
+                        ],
+                        [
+                          for jsbach_file in $(grep -l -i '!$claw' ${my_iconppdir}/jsbpp/*_dsl4jsb.f90); do
+                            clawfile="$(basename ${jsbach_file} .f90)_claw.f90"
+                            echo "${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file}"
+                            ${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file} || exit
+                          done
+                        ])
+                    ])
+              ])
+        AS_IF([test "x$enable_rte_rrtmgp" = "xyes"],
                           [
-                           AS_IF([! test -d ${my_iconppdir}],
-                                 [
-                                  mkdir -p ${my_iconppdir}
-                                  ])
-                           eval "${my_preprocess_command}"
-                           ])
-                    AS_IF([test "x$enable_jsbach" = "xyes"],
-                          [
-                           AS_IF([! test -d ${my_iconppdir}],
-                                 [
-                                  mkdir -p ${my_iconppdir}
-                                  ])
-                           externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}
-                           ])
-                    AS_IF([test "x$enable_rte_rrtmgp" = "xyes"],
-                          [
-			   AS_CASE([$config_target],
-                                   [*_gpu],	  
+			     AS_CASE([$config_target],
+                                   [*_gpu],
                                    [kernel_type=openacc],
                                    [kernel_type=cpu]
                                   )
@@ -1816,7 +1930,9 @@ AC_CONFIG_COMMANDS([Makefiles],
                                               --enable_jsbach="${enable_jsbach}" \
                                               --enable_rte_rrtmgp="${kernel_type}" \
                                               --enable_testbed="${enable_testbed}" \
+					      --enable_gpu="${enable_gpu}" \
                                               --enable_serialization="${enable_serialization}" \
+                                              --enable_claw="${enable_claw}" \
                                               --iconsrcdir="${my_iconsrcdir}" \
                                               --iconppdir="${my_iconppdir}"],
                    [
@@ -1831,7 +1947,9 @@ AC_CONFIG_COMMANDS([Makefiles],
                     enable_jsbach="${enable_jsbach}"
                     enable_rte_rrtmgp="${enable_rte_rrtmgp}"
                     enable_testbed="${enable_testbed}"
+                    enable_gpu="${enable_gpu}"
                     enable_serialization="${enable_serialization}"
+                    enable_claw="${enable_claw}"
                     my_preprocess_command='${my_preprocess_command}'
                     ])
 
@@ -1859,6 +1977,18 @@ AC_SUBST(sync_submit,$sync_submit)
 AC_SUBST(use_shell,$use_shell)                
 AC_SUBST(use_flags_group,$use_flags_group)          
 
+AS_IF([test ! -z $PATH],
+      [use_path=$PATH]) 
+AC_SUBST(use_path,$use_path)                
+
+AS_IF([test ! -z $CRAY_LD_LIBRARY_PATH],
+      [use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH]) 
+
+AS_IF([test "x$enable_serialization" != "xno"],
+    [use_ld_library_path=$SERIALBOX2ROOT/lib:$use_ld_library_path])
+
+AC_SUBST(use_ld_library_path,$use_ld_library_path)                
+
 AC_CONFIG_FILES([config/set-up.info])
 
 #echo Creating the run scripts...
@@ -1883,6 +2013,17 @@ fi
 dnl echo ""
 dnl cat config/set-up.info
 dnl echo ""
+
+AS_IF([test "x$enable_gpu" != "xno"],
+      [
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       AS_ECHO(['!!                                                            !!'])
+       AS_CASE(["$enable_gpu"],
+               ["yes"],
+	             [AS_ECHO(["!!      GPU compiling is enabled: nvcc is required!           !!"])])
+       AS_ECHO(['!!                                                            !!'])
+       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
+       ])
 
 AS_IF([test "x$enable_serialization" != "xno"],
       [

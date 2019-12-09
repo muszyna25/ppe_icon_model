@@ -30,7 +30,7 @@ MODULE mo_nh_dcmip_gw
 
    USE mo_kind,                 ONLY: wp
    USE mo_physical_constants,   ONLY: rd, grav, p0ref, cpd, cvd_o_rd
-   USE mo_nh_init_utils,        ONLY: hydro_adjust
+   USE mo_hydro_adjust,         ONLY: hydro_adjust
    USE mo_math_constants,       ONLY: pi, deg2rad
    USE mo_impl_constants,       ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH
    USE mo_parallel_config,      ONLY: nproma

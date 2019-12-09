@@ -61,6 +61,7 @@ MODULE mo_cloud
                                     , lookup_uaw_spline, lookup_ubc                  &
                                     , lookup_ua_eor_uaw_spline
   USE mo_echam_cld_config,     ONLY : echam_cld_config
+  USE mo_index_list,           ONLY : generate_index_list
 
   IMPLICIT NONE
   PRIVATE
@@ -160,7 +161,7 @@ CONTAINS
 
     INTEGER:: nclcpre
     INTEGER:: jl, jk, nl, locnt, nlocnt, nphase, i1 , i2, klevtop
-    INTEGER:: i1_loc, i2_loc
+    INTEGER:: i1_loc, i2_loc, i
     LOGICAL   lo, lomask(kbdim)
     !!$ used in Revised Bergeron-Findeisen process only
     !!$  LOGICAL   locc
@@ -400,28 +401,42 @@ CONTAINS
              cond2(nl) = INT(FSEL(cqtmin-zrfl(jl)   ,0._wp,1._wp))
           END DO
           !$ACC END PARALLEL
-          i1 = jcs
-          i2 = jcs
-          !$ACC PARALLEL
-          !$ACC LOOP SEQ PRIVATE( jl, i1_loc, i2_loc )
-          DO nl = jcs,nclcpre
-             jl = jjclcpre(nl)
-             ! local copy of the index is needed for parallel execution on GPU
-             !$ACC ATOMIC CAPTURE
-             i1_loc = i1
-             i1 = i1 + cond1(nl)
-             !$ACC END ATOMIC
-             idx1(i1_loc) = jl
-             ! local copy of the index is needed for parallel execution on GPU
-             !$ACC ATOMIC CAPTURE
-             i2_loc = i2
-             i2 = i2 + cond2(nl)
-             !$ACC END ATOMIC
-             idx2(i2_loc) = jl
+!          i1 = jcs
+!          i2 = jcs
+
+
+          CALL generate_index_list(cond1, idx1, jcs, nclcpre, i1, 1)
+          CALL generate_index_list(cond2, idx2, jcs, nclcpre, i2, 1)
+
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
+          DO i = 1,MAX(i1, i2)
+            IF (i <= i1) idx1(i) = jjclcpre(idx1(i))
+            IF (i <= i2) idx2(i) = jjclcpre(idx2(i))
           END DO
-          !$ACC END PARALLEL
-          i1 = i1 - 1
-          i2 = i2 - 1
+
+          !$ACC WAIT
+
+!
+!          !$ACC PARALLEL
+!          !$ACC LOOP SEQ PRIVATE( jl, i1_loc, i2_loc )
+!          DO nl = jcs,nclcpre
+!             jl = jjclcpre(nl)
+!             ! local copy of the index is needed for parallel execution on GPU
+!             !$ACC ATOMIC CAPTURE
+!             i1_loc = i1
+!             i1 = i1 + cond1(nl)
+!             !$ACC END ATOMIC
+!             idx1(i1_loc) = jl
+!             ! local copy of the index is needed for parallel execution on GPU
+!             !$ACC ATOMIC CAPTURE
+!             i2_loc = i2
+!             i2 = i2 + cond2(nl)
+!             !$ACC END ATOMIC
+!             idx2(i2_loc) = jl
+!          END DO
+!          !$ACC END PARALLEL
+!          i1 = i1 - 1
+!          i2 = i2 - 1
           !    old if(zsfl(jl).GT.ctqmin)
           !
           IF (i1.GT.jcs-1) THEN

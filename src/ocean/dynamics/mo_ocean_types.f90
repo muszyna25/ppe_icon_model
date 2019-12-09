@@ -212,7 +212,8 @@ MODULE mo_ocean_types
       & w_bolus,                      &
       & opottemptend,                 &
       & osalttend,                    &
-      & delta_thetao, & 
+      & delta_thetao, &
+      & delta_so, &
       & uT, &  !< product of temperature and u-velocity
       & uS, &  !< product of salinity and u-velocity
       & uR, &  !< product of density and u-velocity
@@ -228,6 +229,10 @@ MODULE mo_ocean_types
       & uw, &  !< product of u-velocity and w-velocity 
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity
+      & swrab, &  !< relative swr absorption factor
+      & rsdoabsorb, &  !< Net Rate of Absorption of Shortwave Energy in Ocean Layer
+!      & dummy3d,&
+      & swr_frac, &  !< relative swr absorption factor from hamocc (LFB_BGC_OCE)
       & sigma0, &  !< potential density anomaly (desitity - 1000)
       & heat_content_liquid_water,    &
       & odensitytend
@@ -241,6 +246,11 @@ MODULE mo_ocean_types
       & mlotst           ,& ! mixed layer depth [m]. (CMIP6)
       & mlotstsq        ,& ! squared mixed layer depth [m]. (CMIP6)
       & condep           ,&! convection depth index
+      & swsum            ,& ! swr fraction absorbed in the surface layer
+      & heatabs          ,& ! ( total subsurface ) heating due to absorption [J m-2]
+!      & dummy2d          ,&
+      & heatabs_t        ,&
+      & heatabb          ,&
       & heat_content_snow ,&
       & heat_content_seaice ,&
       & delta_ice, & 
@@ -255,9 +265,15 @@ MODULE mo_ocean_types
       & global_hfl       ,& ! implied ocean heat transport global
       & atlantic_hfl     ,& ! implied ocean heat transport atlantic
       & pacific_hfl      ,& ! implied ocean heat transport pacific
+      & global_wfl       ,& ! implied ocean freshwater transport global
+      & atlantic_wfl     ,& ! implied ocean freshwater transport atlantic
+      & pacific_wfl      ,& ! implied ocean freshwater transport pacific
       & global_hfbasin   ,& ! northward ocean heat transport global
       & atlantic_hfbasin ,& ! northward ocean heat transport atlantic
-      & pacific_hfbasin     ! northward ocean heat transport pacific
+      & pacific_hfbasin  ,& ! northward ocean heat transport pacific
+      & global_sltbasin   ,& ! northward ocean salt transport global
+      & atlantic_sltbasin ,& ! northward ocean salt transport atlantic
+      & pacific_sltbasin     ! northward ocean salt transport pacific
 
    onCells_2D :: &
       & northernHemisphere ,&

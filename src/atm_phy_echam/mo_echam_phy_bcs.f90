@@ -124,16 +124,18 @@ CONTAINS
     LOGICAL, ALLOCATABLE                     :: mask_sftof(:,:)
 
 !!$    CHARACTER(*), PARAMETER :: method_name = "echam_phy_bcs"
+    LOGICAL                                  :: save_i_am_accel_node
 
     ! Shortcuts to components of echam_cld_config
     !
     INTEGER          :: jc, jb, jg
     TYPE(t_echam_phy_field) , POINTER    :: field
     !
+    !
 #ifdef _OPENACC
+    save_i_am_accel_node = i_am_accel_node
     i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
-    !
     jg        =  patch%id ! grid index
     
     !-------------------------------------------------------------------------
@@ -374,7 +376,7 @@ CONTAINS
     END IF ! luse_rad
 
 #ifdef _OPENACC
-    i_am_accel_node = my_process_is_work()    ! Activate GPUs
+    i_am_accel_node = save_i_am_accel_node    ! Reactivate GPUs if appropriate
 #endif
 
   END SUBROUTINE echam_phy_bcs

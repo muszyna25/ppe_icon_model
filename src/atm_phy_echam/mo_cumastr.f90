@@ -180,7 +180,7 @@ CONTAINS
     cmfdeps = echam_cnv_config(jg)% cmfdeps
     cmftau  = echam_cnv_config(jg)% cmftau
     !
-    zevapcu(1:klev) => cevapcu(1:klev,jg)
+    zevapcu => cevapcu(1:klev,jg)
 
     !$ACC DATA PRESENT( pxten ) IF( ktrac > 0 )
     !$ACC DATA PRESENT( pxtte_cnv ) IF( ktrac> 0 )

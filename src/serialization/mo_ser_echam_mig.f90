@@ -19,6 +19,8 @@ MODULE mo_ser_echam_mig
 
   PUBLIC :: serialize_mig_input
   PUBLIC :: serialize_mig_output
+  PUBLIC :: serialize_mig_before_satad2
+  PUBLIC :: serialize_mig_after_satad1
 
   CONTAINS
 
@@ -51,7 +53,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-input jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-    #if defined( SERIALIZE_CREATE_REFERENCE )
+#if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -89,12 +91,12 @@ MODULE mo_ser_echam_mig
 
   SUBROUTINE serialize_mig_after_satad1(jg, jb, jcs, jce, nproma, nlev, field, &
       &           xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc, &
-      &           zprec_r, zprec_s, zprec_g, zqrsflux)
+      &           zqrsflux)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     REAL(wp), DIMENSION(nproma, nlev), INTENT(INOUT) :: xlta, xlqv, xlqc, xlqi, &
       &                                                 xlqr, xlqs, xlqg, zqnc
-    REAL(wp), DIMENSION(nproma, nlev), INTENT(INOUT) :: zprec_r, zprec_s, zprec_g, zqrsflux
+    REAL(wp), DIMENSION(nproma, nlev), INTENT(INOUT) :: zqrsflux
 #if defined(SERIALIZE_ECHAM_MIG) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
@@ -116,12 +118,12 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
-    !$ser verbatim   !$ACC UPDATE HOST( zprec_r, zprec_s, zprec_g, zqrsflux )
+    !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-after-satad1 jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-    #if defined( SERIALIZE_CREATE_REFERENCE )
+#if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -140,9 +142,6 @@ MODULE mo_ser_echam_mig
     !$ser data echam_mig_qs=xlqs
     !$ser data echam_mig_qg=xlqg
     !$ser data echam_mig_qnc=zqnc
-    !$ser data echam_mig_zprec_r=zprec_r
-    !$ser data echam_mig_zprec_s=zprec_s
-    !$ser data echam_mig_zprec_g=zprec_g
     !$ser data echam_mig_zqrsflux=zqrsflux
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
@@ -154,7 +153,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
-    !$ser verbatim   !$ACC UPDATE HOST( zprec_r, zprec_s, zprec_g, zqrsflux )
+    !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
 #endif
 #endif
     !$ser verbatim ENDIF
@@ -164,12 +163,12 @@ MODULE mo_ser_echam_mig
 
   SUBROUTINE serialize_mig_before_satad2(jg, jb, jcs, jce, nproma, nlev, field, &
       &           xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc, &
-      &           zprec_r, zprec_s, zprec_g, zqrsflux)
+      &           zqrsflux)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     REAL(wp), DIMENSION(nproma, nlev), INTENT(INOUT) :: xlta, xlqv, xlqc, xlqi, &
       &                                                 xlqr, xlqs, xlqg, zqnc
-    REAL(wp), DIMENSION(nproma, nlev), INTENT(INOUT) :: zprec_r, zprec_s, zprec_g, zqrsflux
+    REAL(wp), DIMENSION(nproma, nlev), INTENT(INOUT) :: zqrsflux
 #if defined(SERIALIZE_ECHAM_MIG) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
@@ -191,12 +190,12 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
-    !$ser verbatim   !$ACC UPDATE HOST( zprec_r, zprec_s, zprec_g, zqrsflux )
+    !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
     !$ser savepoint echam_mig-before-satad2 jg=jg jb=jb jcs=jcs jce=jce nproma=nproma nlev=nlev date=TRIM(date)
-    #if defined( SERIALIZE_CREATE_REFERENCE )
+#if defined( SERIALIZE_CREATE_REFERENCE )
     !$ser mode write
 #elif defined( SERIALIZE_PERTURB_REFERENCE )
     !$ser mode read-perturb
@@ -215,9 +214,6 @@ MODULE mo_ser_echam_mig
     !$ser data echam_mig_qs=xlqs
     !$ser data echam_mig_qg=xlqg
     !$ser data echam_mig_qnc=zqnc
-    !$ser data echam_mig_zprec_r=zprec_r
-    !$ser data echam_mig_zprec_s=zprec_s
-    !$ser data echam_mig_zprec_g=zprec_g
     !$ser data echam_mig_zqrsflux=zqrsflux
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
@@ -229,7 +225,7 @@ MODULE mo_ser_echam_mig
     !$ser verbatim   !$ACC UPDATE HOST( field%presm_old ) IF( ASSOCIATED(field%presm_old) )
     !$ser verbatim   !$ACC UPDATE HOST( field%rho ) IF( ASSOCIATED(field%rho) )
     !$ser verbatim   !$ACC UPDATE HOST( xlta, xlqv, xlqc, xlqi, xlqr, xlqs, xlqg, zqnc )
-    !$ser verbatim   !$ACC UPDATE HOST( zprec_r, zprec_s, zprec_g, zqrsflux )
+    !$ser verbatim   !$ACC UPDATE HOST( zqrsflux )
 #endif
 #endif
     !$ser verbatim ENDIF

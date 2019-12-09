@@ -43,6 +43,7 @@ AC_DEFUN([ACX_SWAP_MODULES],
 
           moduleshome_in_use="${MODULESHOME-}"
           load_modules_in_use=m4_default([$1],[""])
+          check_loaded=m4_default([$2],[""])
           shell_in_use="${SHELL##*/}"
 
           # in case specific modules are required do replace those only
@@ -63,7 +64,8 @@ AC_DEFUN([ACX_SWAP_MODULES],
                  prgenv_loaded=$(module list -t 2>&1 | $AWK '/PrgEnv/{print}')	
 		 prgenv_to_be_loaded=$(echo $load_modules_in_use | $GREP -o '\bPrgEnv[-\w]*')
                  AS_IF([test ! -z "$prgenv_to_be_loaded"],
-                       [module swap $prgenv_loaded $prgenv_to_be_loaded]) 
+                       [export PATH=$CRAY_BINUTILS_BIN:$PATH
+                        module swap $prgenv_loaded $prgenv_to_be_loaded]) 
 
 		 modules_loaded=$(module list -t 2>&1 | $AWK '!/PrgEnv/{print}')
                  modules_to_be_loaded=$(echo $load_modules_in_use | $SED 's/\bPrgEnv[\S]*//')
@@ -73,12 +75,19 @@ AC_DEFUN([ACX_SWAP_MODULES],
                      is_loaded=false 
                      for mod in $modules_loaded
                      do
+                         mod_ignore=$(echo $check_loaded | $GREP -o "$replacement")
 		         AS_IF([test ${mod%%/*} = ${replacement%%/*}],
  		               [AS_IF([test "$mod" != "$replacement"],
-                                      [AS_IF([test ! -z prgenv_loaded],
-                                             [module unload $mod
-                                              module load $replacement],
-                                             [module swap $mod $replacement])],
+                                      [AS_IF([test ! -z $mod_ignore],
+                                             [AC_MSG_NOTICE([Module $mod already loaded, ignoring.])
+                                              is_loaded=true],
+                                             [
+                                              AS_IF([test ! -z prgenv_loaded],
+                                                    [module unload $mod
+                                                     module load $replacement],
+                                                   [module swap $mod $replacement])
+                                              ])
+                                      ],
                                       [is_loaded=true])])
 
 		     done

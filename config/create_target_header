@@ -588,14 +588,14 @@ set_run_target_daint_cpu()
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 2
-      set_default use_openmp_threads 3
+      set_default use_mpi_procs_pernode 4
+      set_default use_openmp_threads 6
     else
-      set_default use_mpi_procs_pernode 6
+      set_default use_mpi_procs_pernode 12
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 6
+      set_default use_openmp_threads 12
       set_default use_mpi_procs_pernode 1
      else
        is_serial_run="yes"
@@ -604,7 +604,7 @@ set_run_target_daint_cpu()
 
   case _$use_compiler in
     "_intel" )
-        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+        use_mpi_startrun="$use_mpi_startrun --verbose"
         add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
         add_free_var KMP_LIBRARY "turnaround"
         add_free_var KMP_KMP_SETTINGS "1"
@@ -641,8 +641,8 @@ set_run_target_daint_cpu()
   fi
   # ------------------------------------
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   cat >> $output_script << EOF
 #=============================================================================
@@ -653,7 +653,6 @@ set_run_target_daint_cpu()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
-# #SBATCH --workdir=$output_folder
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
@@ -670,7 +669,7 @@ set_run_target_daint_gpu()
   typeset rootFolder_prefix=/users/icontest
   icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-  set_default use_nproma 256
+  set_default use_nproma 8000
   set_default use_nodes 1
   use_OMP_SCHEDULE="static,1"
 
@@ -690,16 +689,6 @@ set_run_target_daint_gpu()
        is_serial_run="yes"
    fi
   fi
-
-  case _$use_compiler in
-    "_intel" )
-        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-        add_free_var KMP_LIBRARY "turnaround"
-        add_free_var KMP_KMP_SETTINGS "1"
-        add_free_var OMP_WAIT_POLICY "active"
-      ;;
-  esac
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
     use_nodes=1
@@ -732,8 +721,8 @@ set_run_target_daint_gpu()
 
   # ------------------------------------
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   cat >> $output_script << EOF
 #=============================================================================
@@ -744,13 +733,15 @@ set_run_target_daint_gpu()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
-#SBATCH --workdir=$output_folder
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 EOF
   # create header
   start_header
+  cat >>$output_script <<EOF
+export CRAY_CUDA_MPS=1
+EOF
 }
 
 #=============================================================================
@@ -891,6 +882,9 @@ set_run_target_tave_knl()
   fi
   # ------------------------------------
 
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
+
   cat >> $output_script << EOF
 #=============================================================================
 
@@ -899,7 +893,6 @@ set_run_target_tave_knl()
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
-# #SBATCH --workdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
@@ -979,8 +972,8 @@ set_run_target_kesch_cpu()
   fi
   # ------------------------------------
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   cat >> $output_script << EOF
 #=============================================================================
@@ -1070,8 +1063,8 @@ set_run_target_kesch_gpu()
     s_cpu_time="SBATCH --time=00:45:00"
   fi
 
-  use_nodes=\"\${SLURM_JOB_NUM_NODES}\"
-  use_mpi_procs_pernode=\"\${SLURM_NTASKS_PER_NODE}\"
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
   # ------------------------------------
 

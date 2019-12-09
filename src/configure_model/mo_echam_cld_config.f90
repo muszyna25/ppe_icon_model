@@ -88,12 +88,6 @@ MODULE mo_echam_cld_config
      !                    !          the top of shallow convection
      !                    !          for ratio > clwprat -> change ktype from 2 to 4
      !
-     ! tropopause diagnostics
-!!$     REAL(wp) :: cptop    ! [Pa]     pressure of highest level for tropopause calculation
-!!$     REAL(wp) :: cpbot    ! [Pa]     pressure of lowest  level for tropopause calculation
-     INTEGER  :: ncctop   !          index of highest level for tropopause calculation
-     INTEGER  :: nccbot   !          index of lowest  level for tropopause calculation
-     !
   END TYPE t_echam_cld_config
 
   !>
@@ -143,12 +137,6 @@ CONTAINS
     !
     ! cloud liquid/ice path ratio
     echam_cld_config(:)% clwprat  = 4.0_wp
-    !
-    ! tropopause diagnostics
-!!$    echam_cld_config(:)% cptop  = 1000.0_wp
-!!$    echam_cld_config(:)% cpbot  = 50000.0_wp
-    echam_cld_config(:)% ncctop   = 13
-    echam_cld_config(:)% nccbot   = 35
     !
   END SUBROUTINE init_echam_cld_config
 
@@ -233,11 +221,6 @@ CONTAINS
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsaut   ',echam_cld_config(jg)% ccsaut  )
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% ccsacl   ',echam_cld_config(jg)% ccsacl  )
        CALL print_value('    echam_cld_config('//TRIM(cg)//')% clwprat  ',echam_cld_config(jg)% clwprat )
-       CALL message    ('','')
-!!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cptop    ',echam_cld_config(jg)% cptop   )
-!!$       CALL print_value('    echam_cld_config('//TRIM(cg)//')% cpbot    ',echam_cld_config(jg)% cpbot   )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% ncctop   ',echam_cld_config(jg)% ncctop  )
-       CALL print_value('    echam_cld_config('//TRIM(cg)//')% nccbot   ',echam_cld_config(jg)% nccbot  )
        CALL message    ('','')
        !
     END DO

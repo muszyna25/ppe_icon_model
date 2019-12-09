@@ -320,8 +320,19 @@ EOF
 done
 fi
 #-----------------------------------------------------------------------------
+#
+# get possibly needed PATH and LD_LIBRARY_PATH
 
+if [[ ! -z $use_path ]]
+then
+    export PATH=$use_path
+fi
 
+if [[ ! -z $use_ld_library_path ]]
+then
+    export LD_LIBRARY_PATH=$use_ld_library_path
+fi
+#
 #-----------------------------------------------------------------------------
 #
 #  get model

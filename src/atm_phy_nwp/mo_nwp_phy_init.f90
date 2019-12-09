@@ -100,7 +100,7 @@ MODULE mo_nwp_phy_init
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
     &                               lseaice
-  USE mo_phyparam_soil,       ONLY: csalbw!, z0_lu
+  USE sfc_terra_data,         ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice
     &                                spec_humi !,qsat_rho !! Specific humidity

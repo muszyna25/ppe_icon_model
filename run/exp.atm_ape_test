@@ -93,6 +93,8 @@ cat > ${atmo_namelist} << EOF
 &nh_testcase_nml
  nh_test_name     = 'APE_echam'
  ape_sst_case     = 'sst_qobs'
+ zp_ape           = 101325
+ ztmc_ape         = 25.006
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
