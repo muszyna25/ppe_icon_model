@@ -191,6 +191,8 @@ vpath %.cu $(srcdir)
 
 # Disable built-in suffix rules:
 .SUFFIXES:
+# Delete partially updated files:
+.DELETE_ON_ERROR:
 # Targets not associated with files:
 .PHONY: all depend dummy-depend preprocess mostlyclean clean \
         distclean install check force-create-version \
@@ -202,8 +204,6 @@ NO_INC_TARGETS:= depend dummy-depend preprocess mostlyclean clean \
 .PHONY: $(bundled_subdirs)
 # Keep directory stamps:
 .PRECIOUS: $(dir_files)
-# Delete preprocessed files on error:
-.DELETE_ON_ERROR: $(pp_files)
 
 ################################ USER INTERFACE ################################
 
