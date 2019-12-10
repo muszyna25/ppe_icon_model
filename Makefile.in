@@ -2,15 +2,35 @@
 
 SHELL= @SHELL@
 BUILD_ENV= @BUILD_ENV_MAKE@
-DELEGATED_RULES= all depend preprocess mostlyclean clean install srclist check
 DELEGATEE_FILE= icon.mk
+# A list of targets that are explicitely delegated to $(DELEGATEE_FILE). The
+# first target in the list becomes the default one for this makefile:
+DELEGATED_RULES= all depend preprocess mostlyclean clean install srclist check
 
 .SUFFIXES:
 .NOTPARALLEL:
-.PHONY: $(DELEGATED_RULES) distclean dist snapshot help runscripts
+.PHONY: $(DELEGATED_RULES) distclean help dist snapshot runscripts force-delegate
 
 $(DELEGATED_RULES):
 	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
+
+# A rule for targets that are unkown to this makefile. For example, this allows
+# for building individual object files from the command line (e.g.
+# 'make src/atm_phy_nwp/mo_nwp_rg_interface.o'). The dependency on a phony
+# target 'force-delegate' enforces running make with $(DELEGATEE_FILE) even if
+# the requested target already exists. The fact that the rule is terminal (i.e.
+# declared with double colon) allows for building targets that are normally not
+# matched by "match-anything" patter rules (e.g. 'make version.c')
+%:: force-delegate
+	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
+
+# Disable attempts to build this makefile with the previous
+# "match-anything" pattern rule:
+Makefile:;
+
+distclean:
+	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
+	rm -f Makefile
 
 help:
 	@echo "Usage:"; \
@@ -52,8 +72,4 @@ snapshot:
 	rm -f "$$snapshot" && @LN_S@ @top_srcdir@ "$$snapshot"; \
 	GIT_DIR=; unset GIT_DIR; ($(GIT) -C @top_srcdir@ ls-files --recurse-submodules && $(GIT) -C @top_srcdir@ ls-files -o --exclude-standard -x "/$$snapshot") | sed "s%^%$$snapshot/%" | $(TAR) chf - -T - | BZIP2=$${BZIP2--9} $(BZIP2) -c > "$$snapshot.tar.bz2"; \
 	rm -f "$$snapshot"
-
-distclean:
-	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
-	rm -f Makefile
 
