@@ -73,6 +73,7 @@ MODULE mo_ocean_bulk_forcing
 
   ! Public interface
   PUBLIC :: update_surface_relaxation
+  PUBLIC :: update_surface_relaxation_zstar
   PUBLIC :: apply_surface_relaxation
 
   PUBLIC :: update_flux_fromFile
@@ -82,6 +83,7 @@ MODULE mo_ocean_bulk_forcing
   PUBLIC :: update_ocean_surface_stress
 
   PUBLIC :: balance_elevation
+  PUBLIC :: balance_elevation_zstar
 
 
   CHARACTER(len=12)           :: str_module    = 'OceanBulkForcing'  ! Output of module for 1 line debug
@@ -219,6 +221,134 @@ CONTAINS
     END IF  ! tracer_no
 
   END SUBROUTINE update_surface_relaxation
+
+  
+  !-------------------------------------------------------------------------
+  !
+  !> Calculates surface temperature and salinity tracer relaxation
+  !!   relaxation terms for tracer equation and surface fluxes are calculated
+  !!   in addition to other surface tracer fluxes
+  !!   surface tracer restoring is applied either in apply_surface_relaxation
+  !!   or in adding surface relaxation fluxes to total forcing fluxes
+  !!
+  !! Adapted for zstar
+  !
+  SUBROUTINE update_surface_relaxation_zstar(p_patch_3D, p_os, p_ice, p_oce_sfc, tracer_no, stretch_c)
+
+    TYPE (t_patch_3D ),    TARGET, INTENT(IN) :: p_patch_3D
+    TYPE (t_hydro_ocean_state), INTENT(INOUT) :: p_os
+    TYPE (t_sea_ice),              INTENT(IN) :: p_ice
+    TYPE (t_ocean_surface)                    :: p_oce_sfc
+    INTEGER,                       INTENT(IN) :: tracer_no       !  no of tracer: 1=temperature, 2=salinity
+    REAL(wp), INTENT(IN) :: stretch_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+
+    !Local variables
+    INTEGER                       :: jc, jb
+    INTEGER                       :: i_startidx_c, i_endidx_c
+    REAL(wp)                      :: relax_strength, thick
+    TYPE(t_patch), POINTER        :: p_patch
+    REAL(wp),      POINTER        :: t_top(:,:), s_top(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    REAL(wp), PARAMETER         :: seconds_per_month = 2.592e6_wp  ! TODO: use real month length
+
+    CHARACTER(LEN=max_char_length), PARAMETER :: str_module = 'mo_ocean_testbed_zstar'
+    !-----------------------------------------------------------------------
+    p_patch   => p_patch_3D%p_patch_2D(1)
+    all_cells => p_patch%cells%all
+    !-------------------------------------------------------------------------
+
+    t_top => p_os%p_prog(nold(1))%tracer(:,1,:,1)
+
+    IF (tracer_no == 1) THEN  ! surface temperature relaxation
+      !
+      ! Temperature relaxation activated as additonal forcing term in the tracer equation
+      ! implemented as simple time-dependent relaxation (time needed to restore tracer completely back to T*)
+      !    F_T  = Q_T/dz = -1/tau * (T-T*) [ K/s ]  (where Q_T is boundary condition for vertical diffusion in [K*m/s])
+      ! when using the sign convention
+      !   dT/dt = Operators + F_T
+      ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature T if T is warmer than relaxation data T*)
+
+      ! EFFECTIVE RESTORING PARAMETER: 1.0_wp/(para_surfRelax_Temp*seconds_per_month)
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+
+            relax_strength = 1.0_wp / (para_surfRelax_Temp*seconds_per_month)
+
+            ! calculate additional temperature restoring rate F_T due to relaxation [K/s]
+            p_oce_sfc%TempFlux_Relax(jc,jb) = -relax_strength*(t_top(jc,jb)-p_oce_sfc%data_surfRelax_Temp(jc,jb))
+
+            ! Diagnosed heat flux Q_surf due to relaxation
+            !  Q_surf = F_T*dz * (rho*Cp) = -dz/tau*(T-T*) * (rho*Cp)  [W/m2]
+            !  HeatFlux_Relax = thick * TempFlux_Relax * (OceanReferenceDensity*clw)
+            ! this heat flux is negative if relaxation flux is negative, i.e. heat is released if temperature decreases
+            ! this flux is for diagnosis only and not added to tracer forcing
+
+            thick = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * stretch_c(jc,jb)
+            p_oce_sfc%HeatFlux_Relax(jc,jb) = p_oce_sfc%TempFlux_Relax(jc,jb) * thick * OceanReferenceDensity*clw
+
+          ENDIF
+
+        END DO
+      END DO
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('UpdSfcRlx:HeatFlx_Rlx[W/m2]',p_oce_sfc%HeatFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx: T* to relax to'  ,p_oce_sfc%data_surfRelax_Temp,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx: 1/tau*(T*-T)'    ,p_oce_sfc%TempFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
+      !---------------------------------------------------------------------
+
+    ELSE IF (tracer_no == 2) THEN  ! surface salinity relaxation
+      !
+      ! Salinity relaxation activated as additonal forcing term in the tracer equation
+      ! implemented as simple time-dependent relaxation (time needed to restore tracer completely back to S*)
+      !    F_S  = -1/tau * (S-S*) [ psu/s ]
+      ! when using the sign convention
+      !   dS/dt = Operators + F_S
+      ! i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity S if S is saltier than relaxation data S*)
+      ! note that the freshwater flux is opposite in sign to F_S, see below,
+      ! i.e. fwf >0 for  S-S* >0 (i.e. increasing freshwater flux to decrease salinity)
+
+      s_top => p_os%p_prog(nold(1))%tracer(:,1,:,2)
+
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+
+            relax_strength = 1.0_wp / (para_surfRelax_Salt*seconds_per_month)
+            !
+            ! If sea ice is present (and l_relaxsal_ice), salinity relaxation is proportional to open water,
+            !   under sea ice, no relaxation is applied, according to the procedure in MPIOM
+            IF (l_relaxsal_ice .AND. i_sea_ice >=1) relax_strength = (1.0_wp-p_ice%concsum(jc,jb))*relax_strength
+
+            ! calculate additional salt restoring rate F_S due to relaxation [psu/s]
+            p_oce_sfc%SaltFlux_Relax(jc,jb) = -relax_strength*(s_top(jc,jb)-p_oce_sfc%data_surfRelax_Salt(jc,jb))
+
+            ! Diagnosed freshwater flux due to relaxation (equivalent to heat flux Q)
+            !  Fw_S = F_S*dz/S = dz/tau * (S-S*)/S  [m/s]
+            ! this flux is applied as volume forcing in surface equation in fill_rhs4surface_eq_ab
+            thick = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * stretch_c(jc,jb)
+            p_oce_sfc%FrshFlux_Relax(jc,jb) = -p_oce_sfc%SaltFlux_Relax(jc,jb) * thick / s_top(jc,jb)
+
+          ENDIF
+        END DO
+      END DO
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      CALL dbg_print('UpdSfcRlx:FrshFlxRelax[m/s]',p_oce_sfc%FrshFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx: S* to relax to'  ,p_oce_sfc%data_surfRelax_Salt,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx: 1/tau*(S*-S)'    ,p_oce_sfc%SaltFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
+      !---------------------------------------------------------------------
+
+    END IF  ! tracer_no
+
+  END SUBROUTINE update_surface_relaxation_zstar
+
+
 
   !-------------------------------------------------------------------------
   !
@@ -1171,6 +1301,52 @@ CONTAINS
     END DO
 
   END SUBROUTINE balance_elevation
+
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Balance sea level to zero over global ocean
+  !!
+  !! Adapted for zstar
+  !!
+  SUBROUTINE balance_elevation_zstar (p_patch_3D, eta_c)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)    :: p_patch_3D
+    REAL(wp), INTENT(INOUT) :: eta_c(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
+
+    TYPE(t_patch), POINTER                  :: p_patch
+    TYPE(t_subset_range), POINTER           :: all_cells
+
+    INTEGER  :: i_startidx_c, i_endidx_c
+    INTEGER  :: jc, jb
+    REAL(wp) :: ocean_are, glob_slev, corr_slev
+    INTEGER  :: idt_src       
+
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    all_cells       => p_patch%cells%all
+ 
+    ! parallelize correctly
+    ocean_are = p_patch_3D%p_patch_1D(1)%ocean_area(1)
+    glob_slev = global_sum_array(p_patch%cells%area(:,:)*eta_c(:,:)*p_patch_3D%wet_halo_zero_c(:,1,:))
+    corr_slev = glob_slev/ocean_are
+
+    idt_src=2
+    IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
+      & write(0,*)' BALANCE_ELEVATION(Dom): ocean_are, glob_slev, corr_slev =',ocean_are, glob_slev, glob_slev/ocean_are
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc =  i_startidx_c, i_endidx_c
+        IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+          ! subtract or scale?
+          eta_c(jc,jb) = eta_c(jc,jb) - corr_slev
+        END IF
+      END DO
+    END DO
+
+  END SUBROUTINE balance_elevation_zstar
+
+
 
 
 END MODULE mo_ocean_bulk_forcing

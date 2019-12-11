@@ -652,6 +652,23 @@ CONTAINS
         & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW,&
         & in_group=groups("oce_default", "oce_essentials","oce_prog"))
 
+      ! zstar height
+      CALL add_var(ocean_restart_list, 'eta_c'//TRIM(var_suffix), ocean_state_prog%eta_c , &
+        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+        & t_cf_var('eta_c'//TRIM(var_suffix), 'm', 'zstar sfc elevation at cell center', DATATYPE_FLT64,'eta_c'),&
+        & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW,&
+        & in_group=groups("oce_default", "oce_essentials","oce_prog"))
+
+      ! zstar stretching 
+      CALL add_var(ocean_restart_list, 'stretch_c'//TRIM(var_suffix), ocean_state_prog%stretch_c , &
+        & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
+        & t_cf_var('stretch_c'//TRIM(var_suffix), 'm', 'zstar surface stretch at cell center', &
+        & DATATYPE_FLT64,'stretch_c'),&
+        & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW,&
+        & in_group=groups("oce_default", "oce_essentials","oce_prog"))
+
       !! normal velocity component
       CALL add_var(ocean_restart_list,'normal_velocity'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
         & za_depth_below_sea, &

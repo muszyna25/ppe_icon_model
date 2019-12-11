@@ -170,7 +170,11 @@ MODULE mo_ocean_types
   TYPE t_hydro_ocean_prog
 
     onCells_2D :: h
+    onCells_2D :: eta_c !! For z* computations 
+    onCells_2D :: stretch_c !! For z* computations 
+    
     onEdges :: vn
+
     onCells_tracers :: tracer
      ! Ordering of tracers:
      !   1) pot_temp:= potential temperature, Unit: [deg C]

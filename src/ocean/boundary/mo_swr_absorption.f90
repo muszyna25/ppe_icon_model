@@ -52,6 +52,7 @@ MODULE mo_swr_absorption
 
   PUBLIC :: jerlov_swr_absorption                      &
        , subsurface_swr_absorption                  &
+       , subsurface_swr_absorption_zstar            &
        , dynamic_swr_absorption                     &
        , jerlov_atten,jerlov_bluefrac,check_hc2
 
@@ -198,6 +199,91 @@ CONTAINS
     END DO
 
   END SUBROUTINE subsurface_swr_absorption
+
+
+  SUBROUTINE subsurface_swr_absorption_zstar(patch_3d, ocean_state, stretch_c)
+ !
+ !    !>
+ !    !! This is part two of the sw-absorption scheme and should be called after
+ !    !! the surface thermodynamics -> growth )
+ !    !! This sbr calculates the subsurface absorption from the botton to level 2.
+ !    !! Absorption in the surface level is done in sbr growth.
+ !    !! SWR does not penetrate into Land. Heat from SWR that would penetrate theoreticly
+ !    !! below the bottom is added to the bottom layer.
+ !   
+ !    Adopted for zstar
+ !
+
+    USE mo_model_domain,              ONLY: t_patch, t_patch_3d
+    USE mo_ocean_types,               ONLY: t_hydro_ocean_state
+    USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
+    USE mo_dynamics_config,           ONLY: nold
+    USE mo_run_config,                ONLY: dtime
+    USE mo_parallel_config,           ONLY: nproma
+
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in)              :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout)  :: ocean_state
+    REAL(wp), INTENT(IN   ) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+
+    REAL(wp), POINTER :: swsum(:,:)
+    REAL(wp), POINTER :: swrab(:,:,:)
+    REAL(wp), POINTER :: rsdoabsorb(:,:,:)
+    REAL(wp), POINTER :: heatabs(:,:)
+
+    REAL(wp) :: heatabb(nproma, patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: heatabs_t(nproma, patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+
+    REAL(wp) :: dti, cc
+
+    INTEGER  :: blockNo, jc, start_index, end_index, level
+
+    TYPE(t_patch), POINTER                   :: patch_2d
+    TYPE(t_subset_range), POINTER            :: all_cells
+
+
+    patch_2d => patch_3D%p_patch_2d(1)
+    all_cells => patch_2d%cells%all
+
+    swsum => ocean_state%p_diag%swsum
+    swrab => ocean_state%p_diag%swrab
+    heatabs => ocean_state%p_diag%heatabs
+    rsdoabsorb => ocean_state%p_diag%rsdoabsorb
+
+    cc = clw * rho_ref
+    dti=1.0_wp/dtime
+
+    !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index,hetabs_t,level,heatabb) SCHEDULE(dynamic)
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+      DO jc =  start_index, end_index
+
+        heatabs_t(jc,blockno)=patch_3d%wet_c(jc,1,blockNo)*heatabs(jc,blockNo)*dtime/cc
+        heatabb(jc,blockno) = 0._wp
+
+       DO level=n_zlev,2,-1
+
+          heatabb(jc,blockno)=heatabb(jc,blockno)+swrab(jc,level,blockNo)*heatabs_t(jc,blockno)
+
+          ! diagnostic for subfurface sw absorbtion
+          rsdoabsorb(jc,level,blockNo)=heatabb(jc,blockno)*cc*dti
+
+          IF (patch_3d%wet_c(jc,level,blockNo) .GT. 0.5 ) THEN
+            ocean_state%p_prog(nold(1))%tracer(jc,level,blockNo,1) = &
+                 ocean_state%p_prog(nold(1))%tracer(jc,level,blockNo,1) + &
+                 & patch_3d%wet_c(jc,level,blockNo) &
+                 & * (heatabb(jc,blockno)/ &
+                 & ( stretch_c(jc, blockNo)*patch_3d%p_patch_1d(1)%prism_thick_c(jc,level,blockNo) )  )
+          ENDIF
+
+          heatabb(jc,blockno) = heatabb(jc,blockno) * ( 1.0_wp - patch_3d%wet_c(jc,level,blockNo))
+
+        END DO
+
+      END DO
+    END DO
+
+  END SUBROUTINE subsurface_swr_absorption_zstar
 
 
   !>
