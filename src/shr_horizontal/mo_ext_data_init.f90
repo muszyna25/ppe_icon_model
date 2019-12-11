@@ -1470,12 +1470,6 @@ CONTAINS
 
        ! Initialization of index list counts - moved here in order to avoid uninitialized elements
        ! along nest boundaries
-       ext_data(jg)%atm%lp_count(:) = 0
-       ext_data(jg)%atm%sp_count(:) = 0
-       ext_data(jg)%atm%fp_count(:) = 0
-
-       ext_data(jg)%atm%spi_count(:) = 0
-       ext_data(jg)%atm%spw_count(:) = 0
 
        ext_data(jg)%atm%gp_count_t(:,:) = 0
        ext_data(jg)%atm%lp_count_t(:,:) = 0
@@ -1510,13 +1504,13 @@ CONTAINS
 
            IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points
              i_count=i_count+1
-             ext_data(jg)%atm%idx_lst_lp(i_count,jb) = jc  ! write index of land-points
+             ext_data(jg)%atm%list_land%idx(i_count,jb) = jc  ! write index of land-points
 
              tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
              tile_mask(:)=.true.
              tile_mask(i_lc_water)=.false. ! exclude water points
 
-             ext_data(jg)%atm%lp_count(jb) = i_count
+             ext_data(jg)%atm%list_land%ncount(jb) = i_count
 
              IF (ntiles_lnd == 1) THEN
 
@@ -1751,8 +1745,9 @@ CONTAINS
            !
            IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
              i_count_flk=i_count_flk+1
-             ext_data(jg)%atm%idx_lst_fp(i_count_flk,jb) = jc  ! write index of lake-points
-             ext_data(jg)%atm%fp_count(jb) = i_count_flk
+             ext_data(jg)%atm%list_lake%idx(i_count_flk,jb) = jc  ! write index of lake-points
+             ext_data(jg)%atm%list_lake%ncount(jb) = i_count_flk
+
              ! set land-cover class
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_lake) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
@@ -1768,8 +1763,8 @@ CONTAINS
            IF (1._wp-ext_data(jg)%atm%fr_land(jc,jb)-ext_data(jg)%atm%fr_lake(jc,jb) &
              &   >= frsea_thrhld) THEN
              i_count_sea=i_count_sea + 1
-             ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
-             ext_data(jg)%atm%sp_count(jb) = i_count_sea
+             ext_data(jg)%atm%list_sea%idx(i_count_sea,jb) = jc  ! write index of sea-points
+             ext_data(jg)%atm%list_sea%ncount(jb) = i_count_sea
              ! set land-cover class
              ext_data(jg)%atm%lc_class_t(jc,jb,isub_water) = ext_data(jg)%atm%i_lc_water
              ! set also area fractions
@@ -1803,9 +1798,10 @@ CONTAINS
          ! (fr_lake < frlake_thrhld).
          IF (ntiles_lnd > 1) THEN
            ! Inflate fractions for land points
-           DO ic = 1, ext_data(jg)%atm%lp_count(jb)
 
-             jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+           DO ic = 1, ext_data(jg)%atm%list_land%ncount(jb)
+
+             jc = ext_data(jg)%atm%list_land%idx(ic,jb)
 
              ! sum up fractions of dominating land tiles
              sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:ntiles_lnd))
@@ -1926,16 +1922,14 @@ CONTAINS
 
 !$OMP SINGLE
        ! Some useful diagnostics
-       npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
-       npoints = global_sum_array(npoints)
+       npoints      = ext_data(jg)%atm%list_land %get_sum_global(i_startblk,i_endblk)
+       npoints_sea  = ext_data(jg)%atm%list_sea  %get_sum_global(i_startblk,i_endblk)
+       npoints_lake = ext_data(jg)%atm%list_lake %get_sum_global(i_startblk,i_endblk)
+       !
        WRITE(message_text,'(a,i3,a,i10)') 'Number of land points in domain',jg,':', npoints
        CALL message('', TRIM(message_text))
-       npoints_sea = SUM(ext_data(jg)%atm%sp_count(i_startblk:i_endblk))
-       npoints_sea = global_sum_array(npoints_sea)
        WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg,':', npoints_sea
        CALL message('', TRIM(message_text))
-       npoints_lake = SUM(ext_data(jg)%atm%fp_count(i_startblk:i_endblk))
-       npoints_lake = global_sum_array(npoints_lake)
        WRITE(message_text,'(a,i3,a,i10)') 'Number of lake points in domain',jg,':', npoints_lake
        CALL message('', TRIM(message_text))
        !

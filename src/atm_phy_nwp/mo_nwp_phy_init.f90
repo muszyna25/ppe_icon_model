@@ -480,8 +480,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           !
 
           ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
-          DO ic=1, ext_data%atm%spw_count(jb)
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+          DO ic=1, ext_data%atm%list_seawtr%ncount(jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
             IF (lseaice) THEN
               ! all points are open water points
               p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
@@ -496,21 +496,21 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
               & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          DO ic=1, ext_data%atm%spi_count(jb)
-            jc = ext_data%atm%idx_lst_spi(ic,jb)
+          DO ic=1, ext_data%atm%list_seaice%ncount(jb)
+            jc = ext_data%atm%list_seaice%idx(ic,jb)
             p_diag_lnd%qv_s    (jc,jb)    = &
               & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          DO ic=1, ext_data%atm%fp_count(jb)
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
+          DO ic=1, ext_data%atm%list_lake%ncount(jb)
+            jc = ext_data%atm%list_lake%idx(ic,jb)
             ! lake points already initialized in mo_initicon_utils:copy_initicon2prog_sfc
             p_diag_lnd%qv_s    (jc,jb)    = &
               & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          DO ic=1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
+          DO ic=1, ext_data%atm%list_land%ncount(jb)
+            jc = ext_data%atm%list_land%idx(ic,jb)
             p_diag_lnd%qv_s(jc,jb) = &
               &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
             p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
@@ -1284,8 +1284,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
           DO jt = 1, ntiles_total
 !CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, ext_data%atm%lp_count(jb)
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
+            DO ic = 1, ext_data%atm%list_land%ncount(jb)
+              jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
               gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
                (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
@@ -1293,22 +1293,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             ENDDO
           ENDDO
           IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN
-            DO ic = 1, ext_data%atm%lp_count(jb)
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
+            DO ic = 1, ext_data%atm%list_land%ncount(jb)
+              jc = ext_data%atm%list_land%idx(ic,jb)
               gz0(jc) = gz0(jc) + grav*MIN(fact_z0rough*ext_data%atm%sso_stdh_raw(jc,jb)**2,7.5_wp)
             ENDDO
           ENDIF
           DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
 !CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, ext_data%atm%lp_count(jb)
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
+            DO ic = 1, ext_data%atm%list_land%ncount(jb)
+              jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
               gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
             ENDDO
           ENDDO
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
+          DO ic = 1, ext_data%atm%list_land%ncount(jb)
+            jc = ext_data%atm%list_land%idx(ic,jb)
             prm_diag%gz0(jc,jb) = gz0(jc)
           ENDDO
         ENDDO  !jb

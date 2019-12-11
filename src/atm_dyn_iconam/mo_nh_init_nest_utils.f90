@@ -258,10 +258,10 @@ MODULE mo_nh_init_nest_utils
         ! a) initialize with t_g
         lndvars_par(:,num_lndvars,jb) = lnd_prog%t_g(:,jb)
 
-        i_count = ext_data(jg)%atm%fp_count(jb)
+        i_count = ext_data(jg)%atm%list_lake%ncount(jb)
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
 
           ! b) take lake sfc temperature where available
           lndvars_par(jc,num_lndvars,jb) = lnd_prog%t_g_t(jc,jb,isub_lake)
@@ -724,8 +724,8 @@ MODULE mo_nh_init_nest_utils
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. llake) THEN
 
         CALL flake_coldinit(                                        &
-          &   nflkgb      = ext_data(jgc)%atm%fp_count    (jb),     &  ! in
-          &   idx_lst_fp  = ext_data(jgc)%atm%idx_lst_fp(:,jb),     &  ! in
+          &   nflkgb      = ext_data(jgc)%atm%list_lake%ncount(jb), &  ! in
+          &   idx_lst_fp  = ext_data(jgc)%atm%list_lake%idx (:,jb), &  ! in
           &   depth_lk    = ext_data(jgc)%atm%depth_lk  (:,jb),     &  ! in
           ! here, a proper estimate of the lake surface temperature is required
           &   tskin       = lndvars_chi(:,num_lndvars,jb),          &  ! in

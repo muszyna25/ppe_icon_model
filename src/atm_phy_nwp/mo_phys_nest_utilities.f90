@@ -48,7 +48,7 @@ USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
 USE mo_vertical_coord_table,ONLY: vct_a
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
-USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
+USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
 USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow, lseaice, llake, &
                                   frlake_thrhld, frsea_thrhld, isub_lake, ntiles_total
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
@@ -2186,9 +2186,9 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         DO jc = i_startidx, i_endidx
           z_aux3dl2_p(jc,18,jb) = ptr_lprogp%t_g(jc,jb)
         ENDDO
-        i_count = ext_data(jg)%atm%fp_count(jb)
+        i_count = ext_data(jg)%atm%list_lake%ncount(jb)
         DO ic = 1, i_count
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
           z_aux3dl2_p(jc,18,jb) = ptr_lprogp%t_g_t(jc,jb,isub_lake)
         ENDDO
       ELSE
@@ -2409,8 +2409,8 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
         ! ensure that only nest boundary points are processed
         i_count = 0
-        DO ic = 1, ext_data(jgc)%atm%fp_count(jb)
-          jc = ext_data(jgc)%atm%idx_lst_fp(ic,jb)
+        DO ic = 1, ext_data(jgc)%atm%list_lake%ncount(jb)
+          jc = ext_data(jgc)%atm%list_lake%idx(ic,jb)
           IF (jc >= i_startidx .AND. jc <= i_endidx) THEN
             i_count = i_count + 1
             indlist(i_count) = jc

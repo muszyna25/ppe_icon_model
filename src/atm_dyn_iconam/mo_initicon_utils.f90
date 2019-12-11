@@ -364,22 +364,22 @@ MODULE mo_initicon_utils
         ! call flake_coldinit and store results on a local auxiliary array; they are used as a backup if no
         ! appropriate neighbor points are found
         CALL flake_coldinit(                                     &
-          &     nflkgb      = ext_data(jg)%atm%fp_count    (jb), &  ! in
-          &     idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb), &  ! in
-          &     depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb), &  ! in
-          &     tskin       = lnd_prog%t_g_t(:,jb,isub_lake)   , &  ! in
-          &     t_snow_lk_p = aux_lk(:,1),                       &
-          &     h_snow_lk_p = aux_lk(:,2),                       &
-          &     t_ice_p     = aux_lk(:,3),                       &
-          &     h_ice_p     = aux_lk(:,4),                       &
-          &     t_mnw_lk_p  = aux_lk(:,5),                       &
-          &     t_wml_lk_p  = aux_lk(:,6),                       &
-          &     t_bot_lk_p  = aux_lk(:,7),                       &
-          &     c_t_lk_p    = aux_lk(:,8),                       &
-          &     h_ml_lk_p   = aux_lk(:,9),                       &
-          &     t_b1_lk_p   = aux_lk(:,10),                      &
-          &     h_b1_lk_p   = aux_lk(:,11),                      &
-          &     t_g_lk_p    = aux_lk(:,12)                       )
+          &     nflkgb      = ext_data(jg)%atm%list_lake%ncount(jb),&  ! in
+          &     idx_lst_fp  = ext_data(jg)%atm%list_lake%idx(:,jb), &  ! in
+          &     depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &  ! in
+          &     tskin       = lnd_prog%t_g_t(:,jb,isub_lake)   ,    &  ! in
+          &     t_snow_lk_p = aux_lk(:,1),                          &
+          &     h_snow_lk_p = aux_lk(:,2),                          &
+          &     t_ice_p     = aux_lk(:,3),                          &
+          &     h_ice_p     = aux_lk(:,4),                          &
+          &     t_mnw_lk_p  = aux_lk(:,5),                          &
+          &     t_wml_lk_p  = aux_lk(:,6),                          &
+          &     t_bot_lk_p  = aux_lk(:,7),                          &
+          &     c_t_lk_p    = aux_lk(:,8),                          &
+          &     h_ml_lk_p   = aux_lk(:,9),                          &
+          &     t_b1_lk_p   = aux_lk(:,10),                         &
+          &     h_b1_lk_p   = aux_lk(:,11),                         &
+          &     t_g_lk_p    = aux_lk(:,12)                          ) 
 
 
         lpmask(:,:) = 0._wp
@@ -1210,8 +1210,8 @@ MODULE mo_initicon_utils
         ENDDO
         ! In addition, write skin temperature to lake points, limited to 33 deg C. We stick 
         ! to that until something more reasonable becomes available
-        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+        DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+          jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
           p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
           p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
         ENDDO
@@ -1220,8 +1220,8 @@ MODULE mo_initicon_utils
         ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
         ! are indicated with -999.9; non-ocean points are filled with zero for both fields
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+        DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+          jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
           IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 270._wp  ) THEN
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)
           ELSE
@@ -1358,8 +1358,8 @@ MODULE mo_initicon_utils
 
           IF (lseaice) THEN
 
-            DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+            DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+              jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
               frsi_in(ic)   = p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb)             
               temp_in(ic)   = initicon(jg)%sfc%tskin(jc,jb)                        
               tice_now(ic)  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (jc,jb)
@@ -1374,22 +1374,25 @@ MODULE mo_initicon_utils
               albsi_new(ic) = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%alb_si   (jc,jb)
             ENDDO  ! ic
 
-            CALL seaice_coldinit_nwp(ext_data(jg)%atm%sp_count(jb), zfrice_thrhld,  &
-              &         frsi    = frsi_in(:),                                       &
-              &         temp_in = temp_in(:),                                       &
-              &         tice_p  = tice_now(:),                                      &
-              &         hice_p  = hice_now(:),                                      &
-              &         tsnow_p = tsnow_now(:),                                     &
-              &         hsnow_p = hsnow_now(:),                                     &
-              &         albsi_p = albsi_now(:),                                     &
-              &         tice_n  = tice_new(:),                                      &
-              &         hice_n  = hice_new(:),                                      &
-              &         tsnow_n = tsnow_new(:),                                     &
-              &         hsnow_n = hsnow_new(:),                                     &
-              &         albsi_n = albsi_new(:)                                      )
 
-            DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+            CALL seaice_coldinit_nwp(                                        &
+              &         nswgb        = ext_data(jg)%atm%list_sea%ncount(jb), &
+              &         frice_thrhld = zfrice_thrhld,                        &
+              &         frsi         = frsi_in(:),                           &
+              &         temp_in      = temp_in(:),                           &
+              &         tice_p       = tice_now(:),                          &
+              &         hice_p       = hice_now(:),                          &
+              &         tsnow_p      = tsnow_now(:),                         &
+              &         hsnow_p      = hsnow_now(:),                         &
+              &         albsi_p      = albsi_now(:),                         &
+              &         tice_n       = tice_new(:),                          &
+              &         hice_n       = hice_new(:),                          &
+              &         tsnow_n      = tsnow_new(:),                         &
+              &         hsnow_n      = hsnow_new(:),                         &
+              &         albsi_n      = albsi_new(:)                          )
+
+            DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+              jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
               p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (jc,jb) = tice_now(ic)
               p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (jc,jb) = hice_now(ic)
               p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_si(jc,jb) = tsnow_now(ic)
@@ -1414,10 +1417,10 @@ MODULE mo_initicon_utils
 
           IF (llake) THEN
             CALL flake_coldinit(                                        &
-              &     nflkgb      = ext_data(jg)%atm%fp_count    (jb), &  ! in
-              &     idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb), &  ! in
-              &     depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb), &  ! in
-              &     tskin       = initicon(jg)%sfc%tskin     (:,jb), &  ! in
+              &     nflkgb      = ext_data(jg)%atm%list_lake%ncount(jb),&  ! in
+              &     idx_lst_fp  = ext_data(jg)%atm%list_lake%idx(:,jb), &  ! in
+              &     depth_lk    = ext_data(jg)%atm%depth_lk     (:,jb), &  ! in
+              &     tskin       = initicon(jg)%sfc%tskin        (:,jb), &  ! in
               &     t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
               &     h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
               &     t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
@@ -1432,16 +1435,16 @@ MODULE mo_initicon_utils
               &     t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
 
             ! t_s for lake tile
-            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+              jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
             ENDDO
 
           ELSE
 
-            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+              jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
             ENDDO

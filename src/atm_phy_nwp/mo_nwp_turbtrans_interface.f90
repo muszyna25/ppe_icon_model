@@ -84,7 +84,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
   TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
-  TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
+  TYPE(t_external_data),TARGET,INTENT(in)   :: ext_data        !< external data
   TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
   TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog          !<the prog vars
   TYPE(t_nh_prog)             ,INTENT(inout):: p_prog_rcf      !< current time levels
@@ -414,12 +414,12 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             i_count =  ext_data%atm%gp_count_t(jb,jt)
             ilist   => ext_data%atm%idx_lst_t(:,jb,jt)
           ELSE IF (jt == ntiles_total + 1) THEN ! sea points (open water)
-            i_count =  ext_data%atm%spw_count(jb)
-            ilist   => ext_data%atm%idx_lst_spw(:,jb)
+            i_count =  ext_data%atm%list_seawtr%ncount(jb)
+            ilist   => ext_data%atm%list_seawtr%idx(:,jb)
             fr_land_t(:) = 0._wp
           ELSE IF (jt == ntiles_total + 2) THEN ! lake points
-            i_count =  ext_data%atm%fp_count(jb)
-            ilist   => ext_data%atm%idx_lst_fp(:,jb)
+            i_count =  ext_data%atm%list_lake%ncount(jb)
+            ilist   => ext_data%atm%list_lake%idx(:,jb)
             fr_land_t (:) = 0._wp
             depth_lk_t(:) = 1._wp
             IF (llake) THEN
@@ -434,9 +434,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               ENDDO
             ENDIF
           ELSE IF (jt == ntiles_total + 3) THEN ! seaice points
-            ! Note that if the sea-ice scheme is not used (lseaice=.FALSE.), spi_count=0.
-            i_count =  ext_data%atm%spi_count(jb)
-            ilist   => ext_data%atm%idx_lst_spi(:,jb)
+            ! Note that if the sea-ice scheme is not used (lseaice=.FALSE.), list_seaice%ncount=0.
+            i_count =  ext_data%atm%list_seaice%ncount(jb)
+            ilist   => ext_data%atm%list_seaice%idx(:,jb)
             fr_land_t (:) = 0._wp
             depth_lk_t(:) = 0._wp
             h_ice_t   (:) = 1._wp  ! Only needed for checking whether ice is present or not
@@ -591,14 +591,14 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             i_count = ext_data%atm%gp_count_t(jb,jt)
             ilist => ext_data%atm%idx_lst_t(:,jb,jt)
           ELSE IF (jt == ntiles_total + 1) THEN ! sea points (seaice points excluded)
-            i_count = ext_data%atm%spw_count(jb)
-            ilist => ext_data%atm%idx_lst_spw(:,jb)
+            i_count = ext_data%atm%list_seawtr%ncount(jb)
+            ilist => ext_data%atm%list_seawtr%idx(:,jb)
           ELSE IF (jt == ntiles_total + 2) THEN ! lake points
-            i_count = ext_data%atm%fp_count(jb)
-            ilist => ext_data%atm%idx_lst_fp(:,jb)
+            i_count = ext_data%atm%list_lake%ncount(jb)
+            ilist => ext_data%atm%list_lake%idx(:,jb)
           ELSE ! IF (jt == ntiles_total + 3) THEN ! seaice points
-            i_count = ext_data%atm%spi_count(jb)
-            ilist => ext_data%atm%idx_lst_spi(:,jb)
+            i_count = ext_data%atm%list_seaice%ncount(jb)
+            ilist => ext_data%atm%list_seaice%idx(:,jb)
           ENDIF
 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty

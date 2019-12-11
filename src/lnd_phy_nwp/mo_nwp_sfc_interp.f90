@@ -278,7 +278,7 @@ CONTAINS
       nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       ! loop over target (ICON) land points only
-      i_count = ext_data(jg)%atm%lp_count(jb)
+      i_count = ext_data(jg)%atm%list_land%ncount(jb)
 
 
       ! Conversion of soil moisture index SMI into TERRA soil moisture [m]
@@ -293,7 +293,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
 
-          jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+          jc = ext_data(jg)%atm%list_land%idx(ic,jb)
 
           ! Catch problematic coast cases: ICON-land but Ocean for source dataset
           ! 
@@ -380,7 +380,7 @@ CONTAINS
       nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       ! loop over target (ICON) land points only
-      i_count = ext_data(jg)%atm%lp_count(jb)
+      i_count = ext_data(jg)%atm%list_land%ncount(jb)
 
       ! Conversion of TERRA soil moisture [m] into soil moisture index SMI
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
@@ -391,7 +391,7 @@ CONTAINS
 
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
-          jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
+          jc = ext_data(jg)%atm%list_land%idx(ic,jb)
           slt = ext_data(jg)%atm%soiltyp(jc,jb)
           SELECT CASE(slt)
           CASE (1,2)  !ice,rock

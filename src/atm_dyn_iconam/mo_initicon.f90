@@ -585,8 +585,8 @@ MODULE mo_initicon
 !$OMP DO PRIVATE(jb)
                     DO jb = i_startblk, i_endblk
                         CALL flake_coldinit(                                        &
-                            &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &
-                            &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &
+                            &   nflkgb      = ext_data(jg)%atm%list_lake%ncount(jb),&
+                            &   idx_lst_fp  = ext_data(jg)%atm%list_lake%idx(:,jb), &
                             &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &
                             &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&
                             &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
@@ -1924,8 +1924,8 @@ MODULE mo_initicon
           ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
           !
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+             jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
           END DO
 
@@ -1933,8 +1933,8 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+            jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
             ! Ensure that t_seasfc is filled with tf_salt on completely frozen ocean points;
@@ -1948,18 +1948,18 @@ MODULE mo_initicon
         ! construct temporary field containing both SST and lake-surface temperatures
         ! which is needed for initializing T_SO at pure water points
         z_t_seasfc(:) = 0._wp
-        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+        DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+          jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
           z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
         END DO
         IF (llake) THEN
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+            jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
           END DO
         ELSE
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+            jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
           END DO
         ENDIF

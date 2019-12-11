@@ -279,13 +279,8 @@ CONTAINS
       &     p_ext_atm%rsmin2d_t,       &
       &     p_ext_atm%ndvi_max,        &
       &     p_ext_atm%ndviratio,       &
-      &     p_ext_atm%idx_lst_lp,      &
-      &     p_ext_atm%idx_lst_sp,      &
-      &     p_ext_atm%idx_lst_fp,      &
       &     p_ext_atm%idx_lst_lp_t,    &
       &     p_ext_atm%idx_lst_t,       &
-      &     p_ext_atm%idx_lst_spw,     &
-      &     p_ext_atm%idx_lst_spi,     &
       &     p_ext_atm%snowtile_flag_t, &
       &     p_ext_atm%lc_class_t,      &
       &     p_ext_atm%lc_frac_t,       &
@@ -830,30 +825,7 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
 
       ! Control fields for tile approach
-      ! idx_lst_lp          p_ext_atm%idx_lst_lp(nproma,nblks_c)
-      cf_desc    = t_cf_var('land point index list', '-', &
-        &                   'land point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_lp', p_ext_atm%idx_lst_lp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_sp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea point index list', '-', &
-        &                   'sea point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_sp', p_ext_atm%idx_lst_sp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_fp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
-      cf_desc    = t_cf_var('lake point index list', '-', &
-        &                   'lake point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_fp', p_ext_atm%idx_lst_fp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
+      !
       ! idx_lst_lp_t        p_ext_atm%idx_lst_lp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('static land tile point index list', '-', &
         &                   'static land tile point index list', datatype_flt)
@@ -871,23 +843,6 @@ CONTAINS
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
 
-      ! idx_lst_spw      p_ext_atm%idx_lst_spw(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea water point index list', '-', &
-        &                   'sea water point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_spw', p_ext_atm%idx_lst_spw, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_spi      p_ext_atm%idx_lst_spi(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea ice point index list', '-', &
-        &                   'sea ice point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_spi', p_ext_atm%idx_lst_spi, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-
       ! snowtile_flag_t   p_ext_atm%snowtile_flag_t(nproma,nblks_c,ntiles_total)
       ! -1: no separation between snow tile and snow-free tile
       !  0: inactive
@@ -901,14 +856,8 @@ CONTAINS
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
       ! not sure if these dimensions are supported by add_var...
-      ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
-               p_ext_atm%lp_count_t(nblks_c,ntiles_total) )
-      ALLOCATE(p_ext_atm%sp_count (nblks_c),p_ext_atm%fp_count (nblks_c))
-
-      ! allocate grid point counts per block for dynamic ocean ice/water point
-      ! index lists
-      ALLOCATE(p_ext_atm%spw_count(nblks_c),p_ext_atm%spi_count(nblks_c))
-
+      ALLOCATE(p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
+               p_ext_atm%lp_count_t(nblks_c,ntiles_total)  )
 
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -986,6 +935,20 @@ CONTAINS
                 p_ext_atm%stomresmin_lcc(nclass_lu(jg)),& ! Minimum stomata resistance for each land-cover class
                 p_ext_atm%snowalb_lcc(nclass_lu(jg)),   & ! Albedo in case of snow cover for each land-cover class
                 p_ext_atm%snowtile_lcc(nclass_lu(jg))   ) ! Specification of snow tiles for land-cover class
+
+
+      ! Index lists for land, lake and water points
+      !
+      ! allocate land index list (static)
+      CALL p_ext_atm%list_land%construct(nproma,nblks_c)
+      ! allocate sea water index list (static)
+      CALL p_ext_atm%list_sea%construct(nproma,nblks_c)
+      ! allocate ice-free water index list (dynamic)
+      CALL p_ext_atm%list_seawtr%construct(nproma,nblks_c)
+      ! allocate seaice index list (dynamic)
+      CALL p_ext_atm%list_seaice%construct(nproma,nblks_c)
+      ! allocate Lake index list (static)
+      CALL p_ext_atm%list_lake%construct(nproma,nblks_c)
 
 
       !--------------------------------
@@ -1502,14 +1465,22 @@ CONTAINS
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
       CALL delete_var_list( ext_data(jg)%atm_list )
+      !
+      ! destruct index lists
+      CALL ext_data(jg)%atm%list_land  %finalize()
+      CALL ext_data(jg)%atm%list_sea   %finalize()
+      CALL ext_data(jg)%atm%list_seaice%finalize()
+      CALL ext_data(jg)%atm%list_seawtr%finalize()
+      CALL ext_data(jg)%atm%list_lake  %finalize()
     ENDDO
 
     IF (iforcing > 1 ) THEN
-    DO jg = 1,n_dom
-      ! Delete list of time-dependent atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_td_list )
-    ENDDO
+      DO jg = 1,n_dom
+        ! Delete list of time-dependent atmospheric elements
+        CALL delete_var_list( ext_data(jg)%atm_td_list )
+      ENDDO
     END IF
+
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data finished')

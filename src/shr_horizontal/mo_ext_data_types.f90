@@ -24,6 +24,7 @@ MODULE mo_ext_data_types
   USE mo_kind,               ONLY: wp
   USE mo_fortran_tools,      ONLY: t_ptr_2d3d, t_ptr_i2d3d 
   USE mo_linked_list,        ONLY: t_var_list
+  USE mo_idx_list,           ONLY: t_idx_list_blocked
 
   IMPLICIT NONE
 
@@ -252,19 +253,6 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
       & lu_class_fraction(:,:,:) ! index1=1,nproma, index2=1,nblks_c, index3=1,nclass_lu
 
-    INTEGER, POINTER ::  &    !< Static land point index list for each block  [ ]
-      & idx_lst_lp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Land point count per block       [ ]
-      & lp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Static sea point index list for each block   [ ]
-      & idx_lst_sp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
-      & sp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< static lake point index list for each block  [ ]
-      & idx_lst_fp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Lake point count per block        [ ]
-      & fp_count(:)           ! index1=1,nblks_c
-
     INTEGER, POINTER ::  &    !< Static grid point index list for each block and tile [ ]
       & idx_lst_lp_t(:,:,:)   ! index1=1,nproma, index2=1,nblks_c, index3=ntiles_total
     INTEGER, POINTER ::  &    !< Corresponding grid point count per block and tile index      [ ]
@@ -295,19 +283,31 @@ MODULE mo_ext_data_types
                               ! fr_land (extpar) + fr_lake(extpar, where fr_lake<frlake_thrhld)
                               ! index1=1,nproma, index2=1,nblks_c
 
-    ! Sub-lists for sea points (idx_lst_sp), in order to distinguish between ice-covered and open
-    ! sea points.
-    ! 
-    INTEGER, POINTER ::  &    !< Dynamic sea water point index list for each block and tile [ ]
-      & idx_lst_spw(:,:)      ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Corresponding grid point count per block                   [ ]
-      & spw_count(:)          ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Dynamic sea ice point index list for each block and tile   [ ]
-      & idx_lst_spi(:,:)      ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Corresponding grid point count per block                   [ ]
-      & spi_count(:)          ! index1=1,nblks_c
 
- 
+    ! Index lists for land, lake and water points
+    !
+    TYPE(t_idx_list_blocked) :: list_land   !< Static, blocked grid point index list
+                                            !< contains all points for which the land fraction (fr_land) 
+                                            !< exceeds the threshold frlnd_thrhld
+
+    TYPE(t_idx_list_blocked) :: list_sea    !< Static, blocked grid point index list
+                                            !< contains all points for which the sea fraction (1-fr_land-fr_lake) 
+                                            !< exceeds the threshold frsea_thrhld
+
+    TYPE(t_idx_list_blocked) :: list_seawtr !< Dynamic, blocked grid point index list
+                                            !< contains all sea points which are at least partly ice-free. 
+                                            !< I.e. for which the ice-free fraction (1-fr_ice) 
+                                            !< exceeds a certain threshold.
+
+    TYPE(t_idx_list_blocked) :: list_seaice !< Dynamic, blocked grid point index list
+                                            !< contains all sea points which are at least partly ice covered. 
+                                            !< I.e. for which the seaice fraction fr_ice 
+                                            !< exceeds the threshold frice_thrhld
+
+    TYPE(t_idx_list_blocked) :: list_lake   !< Static, blocked grid point index list
+                                            !< contains all points for which the lake fraction fr_lake 
+                                            !< exceeds the threshold frlake_thrhld
+
 
     ! *** storage for lookup table data for each landuse class ***
     ! (needed to simplify switching between GLC2000 and Globcover2009, which

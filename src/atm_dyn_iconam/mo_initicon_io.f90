@@ -1822,14 +1822,14 @@ MODULE mo_initicon_io
 
               IF (llake) THEN
                 ! take lake surface temperature from t_wml_lk
-                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+                  jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
                   lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog_now%t_wml_lk(jc,jb)
                 ENDDO
               ELSE
                 ! without lake model, take t_g as an estimate of the lake temperature
-                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+                  jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
                   lnd_prog%t_s_t(jc,jb,isub_lake) = MAX(tmelt, lnd_prog%t_g_t(jc,jb,isub_lake))
                 ENDDO
               ENDIF

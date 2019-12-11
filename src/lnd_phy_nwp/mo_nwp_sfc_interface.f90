@@ -317,8 +317,8 @@ CONTAINS
          ! 
          !> adjust humidity at water surface because of changing surface pressure
          !
-         DO ic=1,ext_data%atm%spw_count(jb)
-           jc = ext_data%atm%idx_lst_spw(ic,jb)
+         DO ic=1,ext_data%atm%list_seawtr%ncount(jb)
+           jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
            ! salinity_fac accounts for the average reduction of saturation pressure caused by the salt content of oceans
            ! sst_pert_corrfac is a tuning factor to compensate the increased evaporation due to SST ensemble perturbations
@@ -331,7 +331,7 @@ CONTAINS
 
       IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
 
-       IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+       IF (ext_data%atm%list_land%ncount(jb) == 0) CYCLE ! skip loop if there is no land point
 
        ! Copy precipitation fields for subsequent downscaling
        DO isubs = 1,ntiles_total
@@ -1344,13 +1344,13 @@ CONTAINS
       !
       ! Copy input fields
       !
-      i_count = ext_data%atm%spi_count(jb) 
+      i_count = ext_data%atm%list_seaice%ncount(jb)
 
 
       IF (i_count == 0) CYCLE ! skip loop if the index list for the given block is empty
 
       DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        jc = ext_data%atm%list_seaice%idx(ic,jb)
 
         shfl_s   (ic) = prm_diag%shfl_s_t  (jc,jb,isub_seaice)   ! sensible heat flux at sfc    [W/m^2]
         lhfl_s   (ic) = prm_diag%lhfl_s_t  (jc,jb,isub_seaice)   ! latent heat flux at sfc      [W/m^2]
@@ -1396,7 +1396,7 @@ CONTAINS
       !  Recover fields from index list
       !
       DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        jc = ext_data%atm%list_seaice%idx(ic,jb)
 
         p_prog_wtr_new%t_ice(jc,jb)     = tice_new(ic)
         p_prog_wtr_new%h_ice(jc,jb)     = hice_new(ic)
@@ -1416,28 +1416,27 @@ CONTAINS
 
       ! Update dynamic sea-ice index list
       !
-      CALL update_idx_lists_sea (                                               &
-        &              hice_n        = p_prog_wtr_new%h_ice(:,jb),              &!in
-        &              pres_sfc      = p_diag%pres_sfc(:,jb),                   &!in
-        &              idx_lst_spw   = ext_data%atm%idx_lst_spw(:,jb),          &!inout
-        &              spw_count     = ext_data%atm%spw_count(jb),              &!inout
-        &              idx_lst_spi   = ext_data%atm%idx_lst_spi(:,jb),          &!inout
-        &              spi_count     = ext_data%atm%spi_count(jb),              &!inout
-        &              frac_t_ice    = ext_data%atm%frac_t(:,jb,isub_seaice),   &!inout
-        &              frac_t_water  = ext_data%atm%frac_t(:,jb,isub_water),    &!inout
-        &              lc_frac_t_water = ext_data%atm%lc_frac_t(:,jb,isub_water), &!inout
-        &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
-        &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
-        &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
-        &              albsi_now     = p_prog_wtr_now%alb_si(:,jb),             &!inout
-        &              albsi_new     = p_prog_wtr_new%alb_si(:,jb),             &!inout
-        &              t_g_t_now     = lnd_prog_now%t_g_t(:,jb,isub_water),     &!inout
-        &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
-        &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
-        &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
-        &              qv_s_t        = p_lnd_diag%qv_s_t(:,jb,isub_water),      &!inout
-        &              t_seasfc      = p_lnd_diag%t_seasfc(:,jb)                )!inout
-
+      CALL update_idx_lists_sea (                                                 &
+        &              hice_n           = p_prog_wtr_new%h_ice(:,jb),             &!in
+        &              pres_sfc         = p_diag%pres_sfc(:,jb),                  &!in
+        &              list_seawtr_idx  = ext_data%atm%list_seawtr%idx(:,jb),     &!inout
+        &              list_seawtr_count= ext_data%atm%list_seawtr%ncount(jb),    &!inout
+        &              list_seaice_idx  = ext_data%atm%list_seaice%idx(:,jb),     &!inout
+        &              list_seaice_count= ext_data%atm%list_seaice%ncount(jb),    &!inout
+        &              frac_t_ice       = ext_data%atm%frac_t(:,jb,isub_seaice),  &!inout
+        &              frac_t_water     = ext_data%atm%frac_t(:,jb,isub_water),   &!inout
+        &              lc_frac_t_water  = ext_data%atm%lc_frac_t(:,jb,isub_water),&!inout
+        &              fr_seaice        = p_lnd_diag%fr_seaice(:,jb),             &!inout
+        &              hice_old         = p_prog_wtr_now%h_ice(:,jb),             &!inout
+        &              tice_old         = p_prog_wtr_now%t_ice(:,jb),             &!inout
+        &              albsi_now        = p_prog_wtr_now%alb_si(:,jb),            &!inout
+        &              albsi_new        = p_prog_wtr_new%alb_si(:,jb),            &!inout
+        &              t_g_t_now        = lnd_prog_now%t_g_t(:,jb,isub_water),    &!inout
+        &              t_g_t_new        = lnd_prog_new%t_g_t(:,jb,isub_water),    &!inout
+        &              t_s_t_now        = lnd_prog_now%t_s_t(:,jb,isub_water),    &!inout
+        &              t_s_t_new        = lnd_prog_new%t_s_t(:,jb,isub_water),    &!inout
+        &              qv_s_t           = p_lnd_diag%qv_s_t(:,jb,isub_water),     &!inout
+        &              t_seasfc         = p_lnd_diag%t_seasfc(:,jb)               )!inout
 
     ENDDO  ! jb
 !$OMP END DO
@@ -1542,12 +1541,12 @@ CONTAINS
       !
       ! Copy input fields
       !
-      icount_flk = ext_data%atm%fp_count(jb) 
+      icount_flk = ext_data%atm%list_lake%ncount(jb) 
 
       ! Collect data for lake points in 1D-arrays
       DO ic=1,icount_flk
 
-        jc = ext_data%atm%idx_lst_fp(ic,jb)
+        jc = ext_data%atm%list_lake%idx(ic,jb)
 
         f_c      (ic) = p_patch%cells%f_c     (jc,jb)    ! Coriolis parameter   [s^-1]
  
@@ -1627,7 +1626,7 @@ CONTAINS
       !
 !CDIR NODEP,VOVERTAKE,VOB
       DO ic = 1,icount_flk
-        jc = ext_data%atm%idx_lst_fp(ic,jb)
+        jc = ext_data%atm%list_lake%idx(ic,jb)
 
         p_prog_wtr_new%t_snow_lk(jc,jb)     = t_snow_lk_new(ic)
         p_prog_wtr_new%h_snow_lk(jc,jb)     = h_snow_lk_new(ic)

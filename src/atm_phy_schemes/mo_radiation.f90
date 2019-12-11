@@ -1508,6 +1508,7 @@ CONTAINS
 
   END SUBROUTINE rrtm_interface
 
+
   !-----------------------------------------------------------------------------
   !>
   !! Compute shortwave and longwave heating rates
@@ -1551,14 +1552,14 @@ CONTAINS
     &                 trsol_par_sfc,   & ! optional: normalized photosynthetically active downward flux at the surface
     &                 trsol_dn_sfc_diff,&! optional: normalized shortwave diffuse downward radiative flux at the surface
     &                 trsol_clr_sfc,   & ! optional: normalized shortwave clear-sky net radiative flux at the surface
-    &                 lp_count,        & ! optional: number of land points
-    &                 gp_count_t,      & ! optional: number of land points per tile
-    &                 spi_count,       & ! optional: number of seaice points
-    &                 fp_count,        & ! optional: number of lake points
-    &                 idx_lst_lp,      & ! optional: index list of land points
+    &                 list_land_count, & ! optional: number of land points
+    &                 list_land_idx,   & ! optional: index list of land points
+    &                 list_seaice_count,&! optional: number of seaice points
+    &                 list_seaice_idx, & ! optional: index list of seaice points
+    &                 list_lake_count, & ! optional: number of lake points
+    &                 list_lake_idx,   & ! optional: index list of lake points
+    &                 gp_count_t,      & ! optional: number of land points per tile 
     &                 idx_lst_t,       & ! optional: index list of land points per tile
-    &                 idx_lst_spi,     & ! optional: index list of seaice points
-    &                 idx_lst_fp,      & ! optional: index list of (f)lake points
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 cosmu0_slp,      & ! optional: slope-dependent cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
@@ -1616,13 +1617,15 @@ CONTAINS
       &     trsol_clr_sfc(kbdim),  & ! normalized shortwave clear-sky net radiative flux at the surface
       &     trsol_dn_sfc_diff(kbdim) ! normalized shortwave diffuse downward radiative flux at the surface
 
-    INTEGER, INTENT(in), OPTIONAL  ::     &
-      &     lp_count, gp_count_t(ntiles), &  ! number of land points
-      &     spi_count,                    &  ! number of seaice points
-      &     fp_count,                     &  ! number of lake points
-      &     idx_lst_lp(kbdim), idx_lst_t(kbdim,ntiles),& ! corresponding index lists
-      &     idx_lst_spi(kbdim),           &  ! sea-ice point index list
-      &     idx_lst_fp(kbdim)                ! (f)lake point index list
+    INTEGER, INTENT(in), OPTIONAL  ::   &
+      &     list_land_count,            &  ! number of land points
+      &     list_land_idx(kbdim),       &  ! index list of land points
+      &     list_lake_count,            &  ! number of lake points
+      &     list_lake_idx(kbdim),       &  ! index list of lake points
+      &     list_seaice_count,          &  ! number of seaice points
+      &     list_seaice_idx(kbdim),     &  ! index list of seaice points
+      &     gp_count_t(ntiles),         &  ! number of land points per tile
+      &     idx_lst_t(kbdim,ntiles)        ! index list of land points per tile
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
@@ -1830,8 +1833,8 @@ CONTAINS
         ! seaice points
         !
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, spi_count
-          jc = idx_lst_spi(ic)
+        DO ic = 1, list_seaice_count
+          jc = list_seaice_idx(ic)
           pflxsfcsw_t(jc,isub_seaice) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) &
             &                  + dflxsw_o_dalb(jc)*(albedo_t(jc,isub_seaice)-albedo(jc)))
           pflxsfclw_t(jc,isub_seaice) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1) &
@@ -1841,8 +1844,8 @@ CONTAINS
         ! lake points
         !
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, fp_count
-          jc = idx_lst_fp(ic)
+        DO ic = 1, list_lake_count
+          jc = list_lake_idx(ic)
           pflxsfcsw_t(jc,isub_lake) = MAX(0.1_wp*zflxsw(jc,klevp1), zflxsw(jc,klevp1) &
             &                  + dflxsw_o_dalb(jc)*(albedo_t(jc,isub_lake)-albedo(jc)))
           pflxsfclw_t(jc,isub_lake) = zflxlw(jc,klevp1) + dlwflxall_o_dtg(jc,klevp1) &
@@ -1855,22 +1858,22 @@ CONTAINS
       ELSE IF (PRESENT(pflxsfcsw_t) .AND. PRESENT(pflxsfclw_t)) THEN
 
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, lp_count
-          jc = idx_lst_lp(ic)
+        DO ic = 1, list_land_count
+          jc = list_land_idx(ic)
           pflxsfcsw_t(jc,1) = slope_corr(jc) * zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, spi_count
-          jc = idx_lst_spi(ic)
+        DO ic = 1, list_seaice_count
+          jc = list_seaice_idx(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, fp_count
-          jc = idx_lst_fp(ic)
+        DO ic = 1, list_lake_count
+          jc = list_lake_idx(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
           pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO

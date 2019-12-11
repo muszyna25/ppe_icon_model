@@ -35,7 +35,7 @@ MODULE mo_util_phys
     &                                 min_rlcell, dzsoil, grf_bdywidth_c
   USE mo_impl_constants_grf,    ONLY: grf_bdyintp_start_c,  &
     &                                 grf_ovlparea_start_c, grf_fbk_start_c
-  USE mo_model_domain,          ONLY: t_patch, p_patch_local_parent
+  USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
@@ -63,7 +63,7 @@ MODULE mo_util_phys
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
   USE mo_upatmo_config,         ONLY: upatmo_config
-  USE mo_grf_intp_data_strc,    ONLY: p_grf_state, p_grf_state_local_parent
+  USE mo_grf_intp_data_strc,    ONLY: p_grf_state_local_parent
   USE mo_communication,         ONLY: exchange_data
   USE mo_grid_config,           ONLY: l_limited_area
   USE mo_mpi,                   ONLY: get_my_mpi_work_id  ! only for debugging
@@ -791,10 +791,10 @@ CONTAINS
       ierr = 0
 
       ! loop over target (ICON) land points only
-      i_count = ext_data%atm%lp_count(jb)
+      i_count = ext_data%atm%list_land%ncount(jb)
 
       DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_lp(ic,jb)
+        jc = ext_data%atm%list_land%idx(ic,jb)
 
         DO jk = 1, nlev_soil-1
 
