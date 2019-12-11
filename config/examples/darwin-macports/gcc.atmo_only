@@ -18,7 +18,7 @@
 set -eu
 
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR="${MY_DIR}/../../.."
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
 
 FC=mpif90
 CC=mpicc

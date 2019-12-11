@@ -3,7 +3,7 @@
 set -eu
 
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR="${MY_DIR}/../../.."
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
 
 . "${MY_DIR}/init_nag_6.2.sh"
 

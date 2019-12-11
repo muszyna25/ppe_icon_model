@@ -3,7 +3,7 @@
 set -eu
 
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR="${MY_DIR}/../../.."
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
 
 BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_module modules;"
 BUILD_ENV="${BUILD_ENV} switch_for_module cce; export PATH=\"\${CRAY_BINUTILS_BIN}:\${PATH}\";"

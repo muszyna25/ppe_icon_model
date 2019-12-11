@@ -30,7 +30,7 @@ XML_LIBS='-lxml2'
 ######################
 
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR="${MY_DIR}/../../.."
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
 BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_modules /sw/rhel6-x64/pgi/pgi-18.10/modulefiles/pgi/18.10 /home/mpim/m300742/modules/mpi/openmpi-2.0.2p2_hpcx-pgi18.10;"
 
 # Note that /sw/rhel6-x64/pgi/pgi-18.10/modulefiles/pgi/18.10 sets CC and FC,
