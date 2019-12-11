@@ -5,24 +5,33 @@ set -eu
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR="${MY_DIR}/../../.."
 
-BUILD_ENV="MODULEPATH=\"/project/d56/modules:\${MODULEPATH}\";. ${MY_DIR}/build_env_init.sh; switch_for_modules daint-gpu modules craype craype-haswell cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.10 gcc cray-mpich cray-netcdf cray-hdf5 cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7; export CUDA_HOME=\$CUDATOOLKIT_HOME;"
+BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_module modules;"
+BUILD_ENV="${BUILD_ENV} switch_for_module cce; export PATH=\"\${CRAY_BINUTILS_BIN}:\${PATH}\";"
+BUILD_ENV="${BUILD_ENV} module use /project/d56/modules; switch_for_module craype cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.10 gcc cray-mpich cray-netcdf cudatoolkit/10.1.105_3.27-7.0.1.1_4.1__ga311ce7;export CUDA_HOME=\${CUDATOOLKIT_HOME};"
+
+# We will need some environment variables in this script as well:
+eval "$BUILD_ENV"
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
+
+XML2_ROOT='/apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08'
+XML2_LDFLAGS="-L${XML2_ROOT}/lib"
+XML2_CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
+XML2_LIBS='-lxml2'
 
 FC=ftn
 CC=cc
 
-FCFLAGS='-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60'
+FCFLAGS='-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60 -Minfo=accel,inline'
 CFLAGS='-g -O2'
-CPPFLAGS=
-LDFLAGS=
-LIBS="${BLAS_LAPACK_LIBS} -lstdc++"
+CPPFLAGS="${XML2_CPPFLAGS}"
+LDFLAGS="-L${GCC_PATH}/snos/lib64 ${XML2_LDFLAGS}"
+LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} -lstdc++"
 
-# We have to tell CLAW where to look for netcdf.inc
-eval "$BUILD_ENV"
+# We have to tell CLAW where to look for netcdf.inc:
 CLAWFLAGS="-I${NETCDF_DIR}/include"
 
-NVCFLAGS='-std=c++11 -arch=sm_60 -g -O3'
+NVCFLAGS='--std=c++11 -arch=sm_60 -g -O3'
 
 MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 CLAW='/project/d56/install/daint/claw/v2.0.1/pgi/bin/clawfc'
@@ -50,7 +59,6 @@ LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
 NVCC="$NVCC" \
 NVCFLAGS="$NVCFLAGS" \
---disable-coupling \
 --disable-loop-exchange \
 --disable-openmp \
 --enable-claw \

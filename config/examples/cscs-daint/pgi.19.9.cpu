@@ -7,7 +7,7 @@ ICON_DIR="${MY_DIR}/../../.."
 
 BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_module modules;"
 BUILD_ENV="${BUILD_ENV} switch_for_module cce; export PATH=\"\${CRAY_BINUTILS_BIN}:\${PATH}\";"
-BUILD_ENV="${BUILD_ENV} module use /project/d56/modules; switch_for_module craype cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.10 gcc cray-mpich cray-netcdf;"
+BUILD_ENV="${BUILD_ENV} module use /project/d56/modules; switch_for_module craype cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9 gcc cray-mpich cray-netcdf;"
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
 
