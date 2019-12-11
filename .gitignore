@@ -6,9 +6,8 @@
 /tempList
 .DS_Store
 /Makefile
-/build
-/build_command
-/config/config.h
+config.h
+version.c
 config.log
 config.status
 config/mh-config-use
@@ -30,3 +29,8 @@ externals/cdi/
 externals/ecrad/*/*.i
 externals/ecrad/*/*.lst
 externals/ecrad/Makefile_include.ecradICON
+bin
+deps
+mods
+objs
+install

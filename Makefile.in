@@ -1,205 +1,210 @@
-export
+# Source file directory:
+ICON_DIR=@srcdir@/src
+SUPPORT_DIR=@srcdir@/support
 
-SHELL = /bin/bash
+# Build directories:
+DEP_DIR=deps
+OBJ_DIR=objs
+MOD_DIR=mods
+BIN_DIR=bin
 
-ARCH = @ARCH@
-OS   = @OS@
+# Install directories:
+prefix=@prefix@
+exec_prefix=@exec_prefix@
 
-HOST = @HOST@
-SITE = @SITE@
+# Compilers, building tools and the corresponding flags:
+FC=@FC@
+FCFLAGS=@FC_MODINC@$(MOD_DIR) -I$(ICON_DIR)/include @FC_DEFS@ @FC_MODOUT@$(MOD_DIR) @FCFLAGS@
+LDFLAGS=@LDFLAGS@
+LIBS=@LIBS@
 
-srcdir = @srcdir@
-VPATH = @srcdir@
+CC=@CC@
+CFLAGS=@CFLAGS@
+CPPFLAGS=-I@builddir@ @DEFS@ @CPPFLAGS@
 
-prefix = @prefix@
-exec_prefix = @exec_prefix@
+PYTHON=@PYTHON@
+PERL=@PERL@
 
-bindir = @bindir@
-libdir = @libdir@
+INSTALL=@INSTALL@
 
-NETCDFFROOT    = @NETCDFFROOT@
-NETCDFROOT     = @NETCDFROOT@
-NETCDFLIBPATH  = @NETCDFLIBPATH@
-NETCDF_LIB     = @NETCDF_LIB@
-NETCDF_INCLUDE = @NETCDF_INCLUDE@
+DEPGEN=$(PYTHON) @srcdir@/utils/mkhelper/depgen.py
+DEPLIST=$(PYTHON) @srcdir@/utils/mkhelper/deplist.py
 
-CDIROOT     = @CDIROOT@
-CDILIBPATH  = @CDILIBPATH@
-CDI_LIB     = @CDI_LIB@
-CDI_INCLUDE = @CDI_INCLUDE@
+# List of external modules for the dependency generation:
+EXTERNAL_MODS=mo_cdi,mpi,mtime,mtime_datetime,self_object,self_vector_ref,self_vector,self_map,self_assert
 
-HDF5ROOT       = @HDF5ROOT@
-HDF5_LIB       = @HDF5_LIB@
-HDF5_INCLUDE   = @HDF5_INCLUDE@
+# Dependency generation command for Fortran source files:
+DEPGEN_f90=$(DEPGEN) $< --output $@ --obj-name $(OBJ_DIR)/$(<F:.f90=.o) --src-name $(<F) \
+           --src-root='@srcdir@' --pp-enable --pp-eval-expr \
+           --pp-inc-order='@PP_INC_ORDER_f90@' --pp-macro-flag='@FC_DEFINE@' \
+           --fc-enable --fc-mod-ext='@FC_MODULE_EXT@' --fc-mod-upper='@FC_MODULE_UPPER@' \
+           --fc-inc-order='@FC_INC_ORDER@' --fc-external-mods='$(EXTERNAL_MODS)' \
+           --fc-mod-dir-flag='@FC_MODOUT@' \
+           --
 
-SZIPROOT       = @SZIPROOT@
-SZIP_LIB       = @SZIP_LIB@
-SZIP_INCLUDE   = @SZIP_INCLUDE@
+# Dependency generation command for C source files:
+DEPGEN_c=$(DEPGEN) $< --output $@ --obj-name $(OBJ_DIR)/$(<F:.c=.o) --src-name $(<F) \
+         --src-root='@srcdir@' --pp-enable --pp-eval-expr \
+         --
 
-ZLIBROOT       = @ZLIBROOT@
-ZLIB_LIB       = @ZLIB_LIB@
-ZLIB_INCLUDE   = @ZLIB_INCLUDE@
+# List of the dependency files:
+src_f90=$(notdir $(shell find $(ICON_DIR) -name '*.f90'))
+DEP_FILES=$(addprefix $(DEP_DIR)/, $(src_f90:.f90=.f90.d))
+srcs_c=$(notdir $(shell find $(SUPPORT_DIR) -name '*.c')) version.c
+DEP_FILES+=$(addprefix $(DEP_DIR)/, $(srcs_c:.c=.c.d))
 
-GRIBAPIROOT    = @GRIBAPIROOT@
-GRIBAPI_LIB    = @GRIBAPI_LIB@
-GRIBAPI_INCLUDE= @GRIBAPI_INCLUDE@
+# Source file selective search paths:
+vpath %.f90 $(shell find $(ICON_DIR) -type d)
+vpath %.c $(shell find $(SUPPORT_DIR) -type d)
 
-SCTROOT        = @SCTROOT@
-SCT_LIB        = @SCT_LIB@
-SCT_INCLUDE    = @SCT_INCLUDE@
+# Disable built-in suffix rules:
+.SUFFIXES:
+# Targets not associated with files:
+.PHONY: all depend clean depclean distclean maintainer-clean install create-version
+# Keep sentinel files of created directories:
+.PRECIOUS: %/.sentinel
 
-XML2ROOT       = @XML2ROOT@
-XML2_LIB       = @XML2_LIB@
-XML2_INCLUDE   = @XML2_INCLUDE@
+# User interface rules:
+all: $(BIN_DIR)/icon;
 
-YAXTROOT        = @YAXTROOT@
-YAXT_LIB        = @YAXT_LIB@
-YAXT_INCLUDE    = @YAXT_INCLUDE@
-
-MPIROOT        = @MPIROOT@
-MPI_LIB        = @MPI_LIB@
-MPI_INCLUDE    = @MPI_INCLUDE@
-
-LAPACKROOT     = @LAPACKROOT@
-LAPACK_LIB_PATH= @LAPACK_LIB_PATH@
-LAPACK_LIB     = @LAPACK_LIB@
-
-PROFILE_LIB     = @PROFILE_LIB@
-PROFILE_INCLUDE = @PROFILE_INCLUDE@
-
-SERIALBOX2ROOT        = @SERIALBOX2ROOT@
-SERIALBOX2_LIB        = @SERIALBOX2_LIB@
-SERIALBOX2_INCLUDE    = @SERIALBOX2_INCLUDE@
-
-CLAWFC = @CLAWFC@
-ROOT_DIR = @abs_builddir@
-CLAWFC_FLAGS = @CLAWFC_FLAGS@
-
-OTHER_LIBS     = @OTHER_LIBS@
-
-LIBS           = @LIB@ $(LAPACK_LIB) $(NETCDF_LIB) $(CDI_LIB) $(HDF5_LIB) $(SZIP_LIB) $(ZLIB_LIB) $(GRIBAPI_LIB) $(XML2_LIB) $(YAXT_LIB) $(MPI_LIB) $(PROFILE_LIB) $(SCT_LIB) $(OTHER_LIBS) $(SERIALBOX2_LIB)
-INCLUDE        = -I../include -I../../../src/include  $(YAXT_INCLUDE) $(MPI_INCLUDE) $(NETCDF_INCLUDE) $(CDI_INCLUDE) $(HDF5_INCLUDE) $(SZIP_INCLUDE) $(ZLIB_INCLUDE) $(GRIBAPI_INCLUDE) $(XML2_INCLUDE) $(PROFILE_INCLUDE) $(SCT_INCLUDE) $(SERIALBOX2_INCLUDE)
-INCLUDES       = $(INCLUDE)
-
-AS             = @AS@
-
-CC             = @CC@
-CFLAGS         = $(INCLUDE) @CFLAGS@
-
-NVCC           = @NVCC@
-NVCFLAGS       = @NVCFLAGS@
-
-FC             = @FC@
-FFLAGS         = $(INCLUDES) @MODDIR@ @FFLAGS@
-FlibFLAGS      = $(INCLUDES) @MODDIR@ @FlibFLAGS@
-F77            = @F77@
-F77FLAGS       = @F77FLAGS@
-
-AR             = @AR@
-ARFLAGS        = @ARFLAGS@
-
-LDFLAGS        = @LDFLAGS@
-
-SRCDIRS        = @SRCDIRS@
-OBJDIRS        = @OBJDIRS@
-
-ECHO_N = @ECHO_N@
-
-.PHONY: doc
-
-all:
-	@for DIR in $(OBJDIRS) ;\
-	  do \
-	    back=`pwd`; \
-	    cd $$DIR && $(MAKE) ; status=$$? ; \
-	    if [ $$status != 0 ] ; then \
-	      echo "Exit status from make was $$status" ; exit $$status ; \
-	    fi ; \
-	    cd $$back ; \
-	  done 
-model:
-	@for DIR in $(OBJDIRS) ;\
-	  do LASTDIR=$$DIR ;\
-	done ;\
-	back=`pwd` ;\
-	cd $$LASTDIR && $(MAKE) icon  ;\
-	cd $$back
-
-one:
-	@for DIR in $(OBJDIRS) ;\
-	  do LASTDIR=$$DIR ;\
-	done ;\
-	back=`pwd` ;\
-	cd $$LASTDIR && $(MAKE) $(name)  ;\
-	cd $$back
-
-
-install:
-	@for DIR in $(OBJDIRS) ;\
-	  do \
-	  (cd $$DIR && $(MAKE) install ; if [ $$? != 0 ] ; then \
-	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
-	  done
+depend: $(DEP_FILES)
 
 clean:
-	@for DIR in $(OBJDIRS) ;\
-	  do \
-	  (cd $$DIR && $(MAKE) clean ; if [ $$? != 0 ] ; then \
-	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
-	  done
-	-rm -f ${exec_prefix}/bin/*
-	-rm -f ${exec_prefix}/lib/*.a
-	-rm -f ${exec_prefix}/module/*.mod
-	-rm -f ${exec_prefix}/src/*.o
-	-rm -f ${exec_prefix}/src/*.a
-	-rm -f ${exec_prefix}/src/*.f90
-	-rm -rf html/[a-z]*
+	rm -rf $(BIN_DIR) $(LIB_DIR) $(MOD_DIR) $(OBJ_DIR)
 
-distclean:
-	-rm -rf build
-	-rm Makefile
-	-rm build_command
-	-rm config.log
-	-rm config.status
-	-rm config/config.h
-	-rm -f config/mh-config-use
-	-rm config/set-up.info
-	-rm -rf doc/html
-	-rm -rf doc/latex
-	-rm -rf html/[a-z]*
-	-rm -f src/messy_interface
-	-rm -f src/lnd_phy_jsbach 
-	-rm -f externals/ecrad/module/*
-	-rm -f externals/ecrad/lib/*
-	-rm -f externals/ecrad/*/*.o
-	-rm -f externals/ecrad/*/*.i
-	-rm -f externals/ecrad/*/*.lst
-	-rm -f externals/ecrad/Makefile_include.ecradICON
+depclean:
+	rm -rf $(DEP_DIR)
 
-doc:
-	doxygen doc/resources/doxyfile_icon_html
-	@echo 
-	@echo "Start of HTML documentation: doc/html/index.html"
-	@echo 
+distclean: clean depclean
+	rm -f config.log config.status Makefile config.h version.c $(shell find @srcdir@/utils/mkhelper -name '*.pyc' -o -name '*.pyo')
 
-pdf: 
-	doxygen doc/resources/doxyfile_icon_pdf
+maintainer-clean: distclean
+	rm -rf autom4te.cache config.h.in~
 
-index:
-	-rm -rf html/[a-z]*
-	scripts/f2html_scripts/f2html.pl -f scripts/f2html_scripts/fgenrc -d html $(SRCDIRS)
+install: $(BIN_DIR)/icon
+	$(INSTALL) -d @bindir@
+	$(INSTALL) $(BIN_DIR)/icon @bindir@/icon
 
-checkstyle:
-	scripts/code_processing/process_src -v
+# Main building rules:
+$(BIN_DIR)/icon: $(OBJ_DIR)/icon.o $(shell $(DEPLIST) -p '*.o' -t $(OBJ_DIR)/icon.o -f $(DEP_DIR)/*.d) | $(BIN_DIR)/.sentinel
+	$(FC) $(LDFLAGS) -o $@ $^ $(LIBS)
+
+$(OBJ_DIR)/%.o: %.f90 | $(MOD_DIR)/.sentinel $(OBJ_DIR)/.sentinel
+	$(FC) -c $(FCFLAGS) -o $@ @FCFLAGS_f90@ $<
+
+$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)/.sentinel
+	$(CC) -c $(CFLAGS) $(CPPFLAGS) -o $@ $<
+
+# Auxiliary building rules:
+$(MOD_DIR)/%.@FC_MODULE_EXT@:
+	@if test -z $<; then \
+	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'." && false; \
+	elif test ! -f $@; then \
+	  rm -f $<; $(MAKE) $<; \
+	fi
+
+# Recreate version.c each time make is called:
+@builddir@/version.c: create-version
+create-version:
+	@echo "Checking for repository, branch and revision..."; \
+	$(PERL) @srcdir@/utils/pvcs.pl --srcdir @srcdir@
 
 
-check:
-	@. config/set-up.info ; \
-	mpi_total_procs=4 ; \
-	for testprog in $(exec_prefix)/bin/test_* ; do \
-	echo $(ECHO_N) "$$testprog: " | sed -e 's/^.*\///'; \
-	case "$$testprog" in  *_mp|*_mpi) \
-	eval $$use_mpi_startrun \"\$$testprog\" && echo "SUCCESS" \
-	|| echo "ERROR" ;; \
-	*) "$$testprog" && echo "SUCCESS" || echo "ERROR" ;; \
-	esac ; done
+# Some old versions of GNU Make strip the trailing slash when
+# searching for pattern rules, which is why we have to
+# create sentinel files inside the created directories:
+%/.sentinel:
+	@echo "Creating directory '$(@D)'..."; mkdir $(@D); touch $@
+
+# Common dependency generation rules:
+$(DEP_DIR)/%.f90.d: %.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS)
+
+$(DEP_DIR)/%.c.d: %.c | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_c) $(CPPFLAGS) $(CFLAGS)
+
+# Overridden dependency generation rules for source files with undetectable dependencies:
+$(DEP_DIR)/mo_interface_echam_car.f90.d: mo_interface_echam_car.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_do3dt.o >> $@
+
+$(DEP_DIR)/mo_hydro_ocean_run.f90.d: mo_hydro_ocean_run.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/bgc_icon.o  $(OBJ_DIR)/ini_bgc_icon.o >> $@
+
+$(DEP_DIR)/mo_echam_phy_init.f90.d: mo_echam_phy_init.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_pres_intp_li.o $(OBJ_DIR)/lcariolle_lat_intp_li.o $(OBJ_DIR)/lcariolle_init_o3.o $(OBJ_DIR)/lcariolle_init.o >> $@
+
+$(DEP_DIR)/lcariolle_do3dt.f90.d: lcariolle_do3dt.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/lcariolle_o3_column.o  >> $@
+
+$(DEP_DIR)/bgc_icon.f90.d: bgc_icon.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/swr_absorption.o $(OBJ_DIR)/chemcon.o $(OBJ_DIR)/ocprod.o $(OBJ_DIR)/sedshi.o >> $@
+
+# Overridden dependency generation rules for Fortran files that call C functions:
+$(DEP_DIR)/mo_util_uuid.f90.d: mo_util_uuid.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_uuid.o >> $@
+
+$(DEP_DIR)/mo_real_timer.f90.d: mo_real_timer.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_timer.o >> $@
+
+$(DEP_DIR)/mo_util_file.f90.d: mo_util_file.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_file.o >> $@
+
+$(DEP_DIR)/mo_util_vcs.f90.d: mo_util_vcs.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/version.o >> $@
+
+$(DEP_DIR)/mo_var_list.f90.d: mo_var_list.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_hash.o >> $@
+
+$(DEP_DIR)/mo_expression.f90.d: mo_expression.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_arithmetic_expr.o >> $@
+
+$(DEP_DIR)/mo_util_nml.f90.d: mo_util_nml.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/nml_annotate.o >> $@
+
+$(DEP_DIR)/mo_hierarchy_management.f90.d: mo_hierarchy_management.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_timer.o >> $@
+
+$(DEP_DIR)/mo_name_list_output_init.f90.d: mo_name_list_output_init.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_hash.o >> $@
+
+$(DEP_DIR)/mo_fortran_tools.f90.d: mo_fortran_tools.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_stride.o >> $@
+
+$(DEP_DIR)/mo_output_event_handler.f90.d: mo_output_event_handler.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_string.o >> $@
+
+$(DEP_DIR)/mo_exception.f90.d: mo_exception.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_backtrace.o $(OBJ_DIR)/util_system.o >> $@
+
+$(DEP_DIR)/mo_util_string_parse.f90.d: mo_util_string_parse.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_string_parse.o >> $@
+
+$(DEP_DIR)/mo_util_sysinfo.f90.d: mo_util_sysinfo.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_sysinfo.o >> $@
+
+$(DEP_DIR)/mo_c_restart_util.f90.d: mo_c_restart_util.f90 | $(DEP_DIR)/.sentinel
+	@$(DEPGEN_f90) $(FCFLAGS) && \
+	echo $(OBJ_DIR)/$(<F:.f90=.o): $(OBJ_DIR)/util_multifile_restart.o >> $@
+
+ifeq (,$(filter $(MAKECMDGOALS), clean depclean distclean depend maintainer-clean))
+-include $(DEP_FILES)
+endif
