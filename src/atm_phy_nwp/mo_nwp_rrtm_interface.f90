@@ -526,6 +526,17 @@ CONTAINS
       prm_diag%trsol_par_sfc(1:i_startidx-1,i_startblk) = 0
       prm_diag%trsol_dn_sfc_diff(1:i_startidx-1,i_startblk) = 0
       prm_diag%trsolclr_sfc(1:i_startidx-1,i_startblk) = 0
+
+      IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+        prm_diag%lwflx_up    (1:i_startidx-1,:,i_startblk) = 0
+        prm_diag%lwflx_dn    (1:i_startidx-1,:,i_startblk) = 0
+        prm_diag%swflx_up    (1:i_startidx-1,:,i_startblk) = 0
+        prm_diag%swflx_dn    (1:i_startidx-1,:,i_startblk) = 0
+        prm_diag%lwflx_up_clr(1:i_startidx-1,:,i_startblk) = 0
+        prm_diag%lwflx_dn_clr(1:i_startidx-1,:,i_startblk) = 0
+        prm_diag%swflx_up_clr(1:i_startidx-1,:,i_startblk) = 0
+        prm_diag%swflx_dn_clr(1:i_startidx-1,:,i_startblk) = 0
+      END IF
     END IF
 
 !$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx,dust_tunefac)
@@ -609,7 +620,17 @@ CONTAINS
         & trsol_par_sfc = prm_diag%trsol_par_sfc(:,jb), & !< out downward transmissivity for photosynthetically active rad. at surface
         & trsol_dn_sfc_diffus = prm_diag%trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
         & trsol_clr_sfc = prm_diag%trsolclr_sfc(:,jb), &   !< out clear-sky net transmissvity at surface
-        & lwflx_clr_sfc = prm_diag%lwflxclr_sfc(:,jb)  )   !< out clear-sky net LW flux at surface
+        & lwflx_clr_sfc = prm_diag%lwflxclr_sfc(:,jb), &  !< out clear-sky net LW flux at surface
+        !optional output: 3D flux output
+        &  flx_lw_dn     = prm_diag%lwflx_dn(:,:,jb),     & !< Downward LW flux (all-sky)   [Wm2]
+        &  flx_sw_dn     = prm_diag%swflx_dn(:,:,jb),     & !< Downward SW flux (all-sky)   [Wm2]
+        &  flx_lw_up     = prm_diag%lwflx_up(:,:,jb),     & !< Upward LW flux   (all-sky)   [Wm2]
+        &  flx_sw_up     = prm_diag%swflx_up(:,:,jb),     & !< Upward SW flux   (all-sky)   [Wm2]
+        &  flx_lw_dn_clr = prm_diag%lwflx_dn_clr(:,:,jb), & !< Downward LW flux (clear sky) [Wm2]
+        &  flx_sw_dn_clr = prm_diag%swflx_dn_clr(:,:,jb), & !< Downward SW flux (clear sky) [Wm2]
+        &  flx_lw_up_clr = prm_diag%lwflx_up_clr(:,:,jb), & !< Upward LW flux   (clear sky) [Wm2]
+        &  flx_sw_up_clr = prm_diag%swflx_up_clr(:,:,jb) )  !< Upward SW flux   (clear sky) [Wm2]
+
 
       ENDDO ! blocks
 
@@ -696,6 +717,14 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsol_clr_sfc   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflx_clr_sfc   (:,:)
 
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflx_up    (:,:,:)    !< longwave  3D upward   flux          
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflx_dn    (:,:,:)    !< longwave  3D downward flux           
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_swflx_up    (:,:,:)    !< shortwave 3D upward   flux          
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_swflx_dn    (:,:,:)    !< shortwave 3D downward flux          
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflx_up_clr(:,:,:)    !< longwave  3D upward   flux clear-sky
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflx_dn_clr(:,:,:)    !< longwave  3D downward flux clear-sky
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_swflx_up_clr(:,:,:)    !< shortwave 3D upward   flux clear-sky
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_swflx_dn_clr(:,:,:)    !< shortwave 3D downward flux clear-sky
 
     ! Pointer to parent patach or local parent patch for reduced grid
     TYPE(t_patch), POINTER       :: ptr_pp
@@ -728,6 +757,8 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: max_pres_ifc, max_pres, max_temp, max_acdnc
 !DIR$ ATTRIBUTES ALIGN : 64 :: max_qv,max_qc,max_qi,max_cc,min_pres_ifc,min_pres,min_temp,min_acdnc
 !DIR$ ATTRIBUTES ALIGN : 64 :: min_qv, min_qc, min_qi, min_cc
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_lwflx_up,zrg_lwflx_dn,zrg_swflx_up,zrg_swflx_dn
+!DIR$ ATTRIBUTES ALIGN : 64 :: zrg_lwflx_up_clr,zrg_lwflx_dn_clr,zrg_swflx_up_clr,zrg_swflx_dn_clr
 #endif
 
     ! Local scalars:
@@ -735,7 +766,7 @@ CONTAINS
     INTEGER:: jg                      !domain id
     INTEGER:: nlev, nlevp1, nlev_rg   !< number of full and half levels
     INTEGER:: nblks_par_c, nblks_lp_c !nblks for reduced grid
-
+    INTEGER:: np, nl                  !< dimension variables for allocation (3d fluxes)
     INTEGER:: rl_start, rl_end
     INTEGER:: i_startblk, i_endblk    !> blocks
     INTEGER:: i_startidx, i_endidx    !< slices
@@ -785,6 +816,15 @@ CONTAINS
         nlev_rg = nlev
       ENDIF
 
+      ! Set dimensions for 3D radiative flux variables
+      IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+         np = nproma
+         nl = nlev_rg+1
+      ELSE
+         np = 1
+         nl = 1
+      END IF
+
       ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),     &
         zrg_fr_land  (nproma,nblks_par_c),             &
         zrg_fr_glac  (nproma,nblks_par_c),             &
@@ -819,9 +859,16 @@ CONTAINS
         zrg_trsol_dn_sfc_diff(nproma,  nblks_par_c),   &
         zrg_trsol_clr_sfc    (nproma,  nblks_par_c),   &
         zrg_lwflx_clr_sfc    (nproma,  nblks_par_c),   &
-        zrg_lwflxall (nproma,nlev_rg+1,nblks_par_c),   &
-        zrg_trsolall (nproma,nlev_rg+1,nblks_par_c)    )
-
+        zrg_lwflxall    (nproma,nlev_rg+1,nblks_par_c),&
+        zrg_trsolall    (nproma,nlev_rg+1,nblks_par_c),&
+        zrg_lwflx_up    (np, nl, nblks_par_c),         &
+        zrg_lwflx_dn    (np, nl, nblks_par_c),         &   
+        zrg_swflx_up    (np, nl, nblks_par_c),         &
+        zrg_swflx_dn    (np, nl, nblks_par_c),         &
+        zrg_lwflx_up_clr(np, nl, nblks_par_c),         &
+        zrg_lwflx_dn_clr(np, nl, nblks_par_c),         &
+        zrg_swflx_up_clr(np, nl, nblks_par_c),         &
+        zrg_swflx_dn_clr(np, nl, nblks_par_c) )
 
       rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
       rl_end   = min_rlcell_int
@@ -841,7 +888,17 @@ CONTAINS
         zrg_trsol_dn_sfc_diff(1:i_startidx-1,i_startblk) = 0
         zrg_trsol_clr_sfc(1:i_startidx-1,i_startblk) = 0
         zrg_lwflx_clr_sfc(1:i_startidx-1,i_startblk) = 0
-      ENDIF
+        IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+          zrg_lwflx_up    (:,:,:) = 0._wp
+          zrg_lwflx_dn    (:,:,:) = 0._wp
+          zrg_swflx_up    (:,:,:) = 0._wp
+          zrg_swflx_dn    (:,:,:) = 0._wp
+          zrg_lwflx_up_clr(:,:,:) = 0._wp
+          zrg_lwflx_dn_clr(:,:,:) = 0._wp
+          zrg_swflx_up_clr(:,:,:) = 0._wp
+          zrg_swflx_dn_clr(:,:,:) = 0._wp
+        ENDIF
+     ENDIF
 
       DO jb = i_startblk, i_endblk
 
@@ -1119,7 +1176,16 @@ CONTAINS
           & trsol_par_sfc = zrg_trsol_par_sfc(:,jb), & !< downward transmissivity for photosynthetically active rad. at surface
           & trsol_dn_sfc_diffus = zrg_trsol_dn_sfc_diff(:,jb), &  !< out downward diffuse solar transmissivity at surface
           & trsol_clr_sfc = zrg_trsol_clr_sfc(:,jb), & !< out clear-sky net transmissvity at surface (used with reduced grid only)
-          & lwflx_clr_sfc = zrg_lwflx_clr_sfc(:,jb)  ) !< out clear-sky net LW flux at surface
+          & lwflx_clr_sfc = zrg_lwflx_clr_sfc(:,jb), & !< out clear-sky net LW flux at surface
+          !optional output: 3D flux output
+          &  flx_lw_dn     = zrg_lwflx_dn(:,:,jb),     & !< Downward LW flux (all-sky)   [Wm2]
+          &  flx_sw_dn     = zrg_swflx_dn(:,:,jb),     & !< Downward SW flux (all-sky)   [Wm2]
+          &  flx_lw_up     = zrg_lwflx_up(:,:,jb),     & !< Upward LW flux   (all-sky)   [Wm2]
+          &  flx_sw_up     = zrg_swflx_up(:,:,jb),     & !< Upward SW flux   (all-sky)   [Wm2]
+          &  flx_lw_dn_clr = zrg_lwflx_dn_clr(:,:,jb), & !< Downward LW flux (clear sky) [Wm2]
+          &  flx_sw_dn_clr = zrg_swflx_dn_clr(:,:,jb), & !< Downward SW flux (clear sky) [Wm2]
+          &  flx_lw_up_clr = zrg_lwflx_up_clr(:,:,jb), & !< Upward LW flux   (clear sky) [Wm2]
+          &  flx_sw_up_clr = zrg_swflx_up_clr(:,:,jb) )  !< Upward SW flux   (clear sky) [Wm2]
 
       ENDDO ! blocks
 
@@ -1127,14 +1193,18 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-      CALL downscale_rad_output(pt_patch%id, pt_par_patch%id, nlev_rg, zrg_aclcov,                &
-        &  zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_clr_sfc, zrg_lwflx_up_sfc,    &
-        &  zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_par_sfc, zrg_trsol_dn_sfc_diff,          &
-        &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld, zlp_tot_cld, zrg_pres_ifc,&
-        &  zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,           &
-        &  prm_diag%trsolall, prm_diag%lwflx_up_sfc_rs, prm_diag%trsol_up_toa,                    &
-        &  prm_diag%trsol_up_sfc, prm_diag%trsol_par_sfc, prm_diag%trsol_dn_sfc_diff,             &
-        &  prm_diag%trsolclr_sfc, prm_diag%lwflxclr_sfc )
+      CALL downscale_rad_output(pt_patch%id, pt_par_patch%id, nlev_rg, zrg_aclcov,                     &
+        &  zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_clr_sfc, zrg_lwflx_up_sfc,         &
+        &  zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_par_sfc, zrg_trsol_dn_sfc_diff,               &
+        &  zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld, zlp_tot_cld, zrg_pres_ifc,     &
+        &  zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov, prm_diag%lwflxall,                &
+        &  prm_diag%trsolall, prm_diag%lwflx_up_sfc_rs, prm_diag%trsol_up_toa,                         &
+        &  prm_diag%trsol_up_sfc, prm_diag%trsol_par_sfc, prm_diag%trsol_dn_sfc_diff,                  &
+        &  prm_diag%trsolclr_sfc, prm_diag%lwflxclr_sfc,                                               & 
+        &  zrg_lwflx_up         , zrg_lwflx_dn         , zrg_swflx_up         , zrg_swflx_dn,          &
+        &  zrg_lwflx_up_clr     , zrg_lwflx_dn_clr     , zrg_swflx_up_clr     , zrg_swflx_dn_clr,      &
+        &  prm_diag%lwflx_up    , prm_diag%lwflx_dn    , prm_diag%swflx_up    , prm_diag%swflx_dn,     &
+        &  prm_diag%lwflx_up_clr, prm_diag%lwflx_dn_clr, prm_diag%swflx_up_clr, prm_diag%swflx_dn_clr  )
 
       ! Debug output of radiation output fields
       IF (msg_level >= 16) THEN
@@ -1183,7 +1253,9 @@ CONTAINS
         zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld, zrg_clc,    &
         zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_lwflx_up_sfc, zrg_trsol_up_toa,       &
         zrg_trsol_up_sfc, zrg_trsol_par_sfc, zrg_trsol_dn_sfc_diff, zrg_trsol_clr_sfc,    &
-        zrg_lwflx_clr_sfc, zrg_fr_land, zrg_fr_glac, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld)
+        zrg_lwflx_clr_sfc, zrg_fr_land, zrg_fr_glac, zrg_emis_rad, zlp_pres_ifc, zlp_tot_cld, &
+        zrg_lwflx_up    , zrg_lwflx_dn    , zrg_swflx_up    , zrg_swflx_dn,               &
+        zrg_lwflx_up_clr, zrg_lwflx_dn_clr, zrg_swflx_up_clr, zrg_swflx_dn_clr            )
 
   END SUBROUTINE nwp_rrtm_radiation_reduced
   !---------------------------------------------------------------------------------------

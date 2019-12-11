@@ -47,6 +47,8 @@ MODULE mo_atm_phy_nwp_config
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
   USE mo_nudging_config,      ONLY: configure_nudging, nudging_config
+  USE mo_name_list_output_config,   ONLY: first_output_name_list, &
+    &                               is_variable_in_output
 
   IMPLICIT NONE
 
@@ -141,6 +143,8 @@ MODULE mo_atm_phy_nwp_config
 
     INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
                                    ! chosen grid scale microphysics
+
+    LOGICAL :: l_3d_rad_fluxes     ! logical to determine if 3d radiative flux variable are allocated
 
     ! NWP events
     TYPE(t_phyProcGroup) :: phyProcs        !> physical processes event group
@@ -667,6 +671,17 @@ CONTAINS
       ! initialize lcall_phy (will be updated by mo_phy_events:mtime_ctrl_physics)
       atm_phy_nwp_config(jg)%lcall_phy(:) = .FALSE.
 
+
+      ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
+      atm_phy_nwp_config(jg)%l_3d_rad_fluxes = is_variable_in_output(first_output_name_list, var_name="lwflx_dn") & 
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn") & 
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up") & 
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn_clr") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn_clr") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up_clr") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up_clr")
+ 
     ENDDO  ! jg
 
 

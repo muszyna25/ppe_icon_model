@@ -174,6 +174,16 @@ MODULE mo_nwp_phy_types
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
       &  tsfctrad(:,:),        & !! surface temperature at trad [K]
+
+      &  lwflx_up(:,:,:),      & !! longwave  3D upward   flux            [W/m2]
+      &  lwflx_dn(:,:,:),      & !! longwave  3D downward flux            [W/m2]
+      &  swflx_up(:,:,:),      & !! shortwave 3D upward   flux            [W/m2]
+      &  swflx_dn(:,:,:),      & !! shortwave 3D downward flux            [W/m2]
+      &  lwflx_up_clr(:,:,:),  & !! longwave  3D upward   flux clear-sky  [W/m2]
+      &  lwflx_dn_clr(:,:,:),  & !! longwave  3D downward flux clear-sky  [W/m2]
+      &  swflx_up_clr(:,:,:),  & !! shortwave 3D upward   flux clear-sky  [W/m2]
+      &  swflx_dn_clr(:,:,:),  & !! shortwave 3D downward flux clear-sky  [W/m2]
+
       &  lwflxall(:,:,:),      & !! longwave net flux           [W/m2]
       &  lwflxsfc(:,:),        & !! longwave net flux at surface [W/m2]
       &  lwflx_up_sfc(:,:),    & !! longwave upward flux at surface [W/m2]
@@ -196,6 +206,7 @@ MODULE mo_nwp_phy_types
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]
       &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
+      &  lwflxtoa(:,:),        & !! thermal net flux at toa [W/m2]
       &  lwflxsfc_a(:,:),      & !! Surface net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxsfc_a(:,:),      & !! Surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxclrsfc_a(:,:),   & !! Clear-sky surface net thermal radiation [W/m2], accumulated or mean since model start

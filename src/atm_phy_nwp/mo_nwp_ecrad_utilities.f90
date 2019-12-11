@@ -29,13 +29,14 @@ MODULE mo_nwp_ecrad_utilities
   USE mo_exception,              ONLY: finish
   USE mo_impl_constants,         ONLY: MAX_CHAR_LENGTH
   USE mo_math_types,             ONLY: t_geographical_coordinates
+  USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_physical_constants,     ONLY: rd, grav
   USE mo_radiation_config,       ONLY: vmr_co2, vmr_n2o, vmr_o2, vmr_ch4,        &
                                    &   vmr_cfc11, vmr_cfc12,                     &
                                    &   irad_h2o, irad_o3, irad_co2,              &
                                    &   irad_n2o, irad_ch4,                       &
                                    &   irad_o2, irad_cfc11, irad_cfc12,          &
-                                   &   vpp_ch4, vpp_n2o
+                                   &   vpp_ch4, vpp_n2o, tsi_radt
   USE mo_nwp_tuning_config,      ONLY: tune_difrad_3dcont
   USE mtime,                     ONLY: datetime
 #ifdef __ECRAD
@@ -391,10 +392,14 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Rieger, Deutscher Wetterdienst, Offenbach (2019-05-13)
   !!
-  SUBROUTINE ecrad_store_fluxes(ecrad_flux, cosmu0, trsolall, trsol_up_toa, trsol_up_sfc, trsol_par_sfc,  &
+  SUBROUTINE ecrad_store_fluxes(jg, ecrad_flux, cosmu0, trsolall, trsol_up_toa, trsol_up_sfc, trsol_par_sfc,  &
     &                           trsol_dn_sfc_diff, trsolclr_sfc, lwflxall, lwflx_up_sfc_rs, lwflxclr_sfc, &
+    &                           lwflx_up    , lwflx_dn    , swflx_up    , swflx_dn,                       &
+    &                           lwflx_up_clr, lwflx_dn_clr, swflx_up_clr, swflx_dn_clr,                   &
     &                           cosmu0mask, i_startidx, i_endidx, nlevp1)
 
+    INTEGER, INTENT(in)   :: &
+      &  jg                       !< domain index
     TYPE(t_ecrad_flux_type), INTENT(inout) :: &
       &  ecrad_flux               !< ecRad cloud information
 
@@ -408,7 +413,16 @@ CONTAINS
       &  trsolclr_sfc(:),       & !< clear-sky net transmissivity at surface
       &  lwflxall(:,:),         & !< terrestrial flux, all sky, net down
       &  lwflx_up_sfc_rs(:),    & !< longwave upward flux at surface
-      &  lwflxclr_sfc(:)          !< longwave clear-sky flux at surface
+      &  lwflxclr_sfc(:),       & !< longwave clear-sky flux at surface
+      &  lwflx_up(:,:),         & !< longwave  3D upward   flux            [W/m2]
+      &  lwflx_dn(:,:),         & !< longwave  3D downward flux            [W/m2]
+      &  swflx_up(:,:),         & !< shortwave 3D upward   flux            [W/m2]
+      &  swflx_dn(:,:),         & !< shortwave 3D downward flux            [W/m2]
+      &  lwflx_up_clr(:,:),     & !< longwave  3D upward   flux clear-sky  [W/m2]
+      &  lwflx_dn_clr(:,:),     & !< longwave  3D downward flux clear-sky  [W/m2]
+      &  swflx_up_clr(:,:),     & !< shortwave 3D upward   flux clear-sky  [W/m2]
+      &  swflx_dn_clr(:,:)        !< shortwave 3D downward flux clear-sky  [W/m2]
+
     LOGICAL, INTENT(in)      :: &
       &  cosmu0mask(:)            !< Mask if cosmu0 > 0
     INTEGER, INTENT(in)      :: &
@@ -437,6 +451,23 @@ CONTAINS
           lwflxall(jc,jk)       = ecrad_flux%lw_dn(jc,jk)-ecrad_flux%lw_up(jc,jk)
         ENDDO
       ENDDO
+
+      IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN    
+        DO jk = 1, nlevp1
+          DO jc = i_startidx, i_endidx
+            ! LW/SW, up/down, all/clear 3D fluxes
+            lwflx_up    (jc,jk)   = ecrad_flux%lw_up(jc,jk)
+            lwflx_dn    (jc,jk)   = ecrad_flux%lw_dn(jc,jk)
+  
+            swflx_up    (jc,jk)   = ecrad_flux%sw_up(jc,jk)       * tsi_radt
+            swflx_dn    (jc,jk)   = ecrad_flux%sw_dn(jc,jk)       * tsi_radt
+            lwflx_up_clr(jc,jk)   = ecrad_flux%lw_up_clear(jc,jk)
+            lwflx_dn_clr(jc,jk)   = ecrad_flux%lw_dn_clear(jc,jk)
+            swflx_up_clr(jc,jk)   = ecrad_flux%sw_up_clear(jc,jk) * tsi_radt
+            swflx_dn_clr(jc,jk)   = ecrad_flux%sw_dn_clear(jc,jk) * tsi_radt   
+          ENDDO
+        ENDDO
+      END IF
 
       ! Store output of 2-D Fluxes
       DO jc = i_startidx, i_endidx

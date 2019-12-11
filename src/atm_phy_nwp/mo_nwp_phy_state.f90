@@ -318,7 +318,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), &
       &        shape3dsubsw(3), shape3d_synsat(3),     &
       &        shape2d_synsat(2), shape3d_aero(3)
-    INTEGER :: shape3dkp1(3)
+    INTEGER :: shape3dkp1(3), shape3dflux(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist
     CHARACTER(len=NF_MAX_NAME) :: long_name
@@ -327,7 +327,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
-    LOGICAL :: lrestart
+    LOGICAL :: lrestart, lrestart_flux
 
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
@@ -1528,6 +1528,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & ldims=shape2d, lrestart=.FALSE.,                                    &
       & in_group=groups("rad_vars"))
 
+    ! &      diag%lwflxtoa(nproma,nblks_c)
+    cf_desc    = t_cf_var('thb_t', 'W m-2', 'thermal net flux at TOA', datatype_flt)
+    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'thb_t', diag%lwflxtoa,                        &
+      & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,                &
+      & ldims=shape2d, lrestart=.FALSE.,                                    &
+      & in_group=groups("rad_vars"))
+
     ! &      diag%trsolclr_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('trsolclr_sfc', '', 'shortwave clear-sky transmisivity at suface', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2029,14 +2037,71 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     cf_desc    = t_cf_var('lwflxall', 'W m-2 ', 'longwave net flux', datatype_flt)
     grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflxall', diag%lwflxall,                   &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,      &
-      & ldims=shape3dkp1 )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dkp1 )
 
     ! &      diag%trsolall(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('trsolall', '', 'shortwave net tranmissivity', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'trsolall', diag%trsolall,                             &
+    CALL add_var( diag_list, 'trsolall', diag%trsolall,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dkp1)
+      
+    ! Set dimensions for 3D radiative flux variables
+    IF (atm_phy_nwp_config(k_jg)%l_3d_rad_fluxes) THEN
+       shape3dflux = (/ nproma, klevp1, kblks /)
+       lrestart_flux = .TRUE.
+    ELSE
+       shape3dflux = (/ 1, 1, kblks/)
+       lrestart_flux = .FALSE.
+    END IF
+
+    ! &      diag%lwflx_up(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_up', 'W m-2 ', 'longwave upward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 201, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_up', diag%lwflx_up,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%lwflx_dn(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_dn', 'W m-2 ', 'longwave downward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_dn', diag%lwflx_dn,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_up(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_up', 'W m-2 ', 'shortave upward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_up', diag%swflx_up,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_dn(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_dn', 'W m-2 ', 'shortave downward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_dn', diag%swflx_dn,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%lwflx_up_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_up_clr', 'W m-2 ', 'longwave upward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 205, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_up_clr', diag%lwflx_up_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+ 
+    ! &      diag%lwflx_dn_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_dn_clr', 'W m-2 ', 'longwave downward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_dn_clr', diag%lwflx_dn_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_up_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_up_clr', 'W m-2 ', 'shortave upward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 207, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_up_clr', diag%swflx_up_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_dn_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_dn_clr', 'W m-2 ', 'shortave downward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 208, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_dn_clr', diag%swflx_dn_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+
 
     !------------------
     !Turbulence 2D variables
