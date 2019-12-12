@@ -135,7 +135,7 @@ CONTAINS
 
 
     ! Check if the SST and Sea ice fraction have to be updated (sstice_mode 3,4,5)
-    IF ( ANY((/SSTICE_ANA_CLINC, SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
+    IF ( ANY((/SSTICE_ANA_CLINC,SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
       & ) THEN
 
       CALL set_sst_and_seaice (.FALSE., target_datetime,                   &
@@ -352,7 +352,7 @@ CONTAINS
     CASE (SSTICE_AVG_DAILY) !SST and sea ice fraction updated based
       !  on the actual daily values
       !Not implemented
-      WRITE( message_text,'(a)') 'ext_data_mode == 4 not yet implemented '
+      WRITE( message_text,'(a)') 'ext_data_mode == 5 not yet implemented '
       CALL finish  (routine, TRIM(message_text))
 
     CASE DEFAULT

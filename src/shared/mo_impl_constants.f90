@@ -425,6 +425,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: SSTICE_CLIM        = 3     ! SST and sea ice based on climatology (monthly fields)
   INTEGER, PARAMETER :: SSTICE_AVG_MONTHLY = 4     ! SST and sea ice based on monthly averages
   INTEGER, PARAMETER :: SSTICE_AVG_DAILY   = 5     ! SST and sea ice based on daily averages
+  INTEGER, PARAMETER :: SSTICE_INST        = 6     ! SST and sea ice based on instantanous values
 
 
   !---------------------!

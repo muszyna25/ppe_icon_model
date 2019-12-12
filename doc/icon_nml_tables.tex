@@ -3632,7 +3632,8 @@ increments on a daily basis. The sea ice fraction can be modified by the seaice 
 3: SST and sea ice fraction are updated daily, based on climatological monthly
 means\\
 4: SST and sea ice fraction are updated daily, based on actual monthly means\\
-5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented})&
+5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented}) \\
+6: SST and sea ice fraction are updated with user-defined interval &
 iequations=3\\
 iforcing=3
 \tabularnewline
@@ -3643,8 +3644,9 @@ C&
 &
 Filename of SST input files for time dependent SST.
 Default is "$<$path$>$SST\_$<$year$>$\_<month>\_$<$gridfile$>$". May contain the
-keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=3,4,5
+keyword $<$path$>$ which will be substituted by model\_base\_dir \newline
+In case sstice\_mode=6, SST data for all time steps in the current simulation should be prepared in one single file, variable should be named SST in this file. &
+sstice\_mode=3,4,5,6
 \tabularnewline
 %\hline
 ci\_td\_filename &
@@ -3653,8 +3655,9 @@ C&
 &
 Filename of sea ice fraction input files for time dependent sea ice fraction.
 Default is "$<$path$>$CI\_$<$year$>$\_$<$month$>$\_$<$gridfile$>$". May contain
-the keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=3,4,5
+the keyword $<$path$>$ which will be substituted by model\_base\_dir \newline
+In case sstice\_mode=6, sea ice data for all time steps in the current simulation should be prepared in one single file, variable should be named SIC in this file. &
+sstice\_mode=3,4,5,6
 \tabularnewline
 \end{longtab}
 

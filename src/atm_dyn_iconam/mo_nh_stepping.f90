@@ -85,8 +85,10 @@ MODULE mo_nh_stepping
   USE mo_ensemble_pert_config,     ONLY: compute_ensemble_pert, use_ensemble_pert
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
-  USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
+  USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode, sst_td_filename, &
+    &                                    ci_td_filename 
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
+  USE sfc_seaice,                  ONLY: frsi_min
   USE mo_ext_data_state,           ONLY: ext_data
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch
@@ -113,8 +115,8 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
     &                                    inoforcing, iheldsuarez, inwp, iecham,             &
     &                                    MODE_IAU, MODE_IAU_OLD, SSTICE_CLIM,               &
-    &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, max_dom,     &
-    &                                    min_rlcell, min_rlvert
+    &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, SSTICE_INST, &
+    &                                    max_dom, min_rlcell, min_rlvert
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -123,7 +125,8 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_comm_work
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm,      &
+    &                                    p_comm_work, my_process_is_mpi_workroot
   USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP, &
     &                                    getElapsedSimTimeInSeconds
 
@@ -138,7 +141,7 @@ MODULE mo_nh_stepping
   USE mo_phys_nest_utilities,      ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf, copy_rrg_ubc
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_config,            ONLY: isRestart
+  USE mo_master_config,            ONLY: isRestart, getModelBaseDir
   USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -151,7 +154,9 @@ MODULE mo_nh_stepping
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
 
-  USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars
+  USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sst_and_seaice
+  USE mo_reader_sst_sic,           ONLY: t_sst_sic_reader
+  USE mo_interpolate_time,         ONLY: t_time_intp
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
   USE mo_nh_init_utils,            ONLY: compute_iau_wgt, save_initial_state, restore_initial_state
   USE mo_hydro_adjust,             ONLY: hydro_adjust_const_thetav
@@ -217,6 +222,7 @@ MODULE mo_nh_stepping
   USE mo_nh_deepatmo_solve,        ONLY: solve_nh_deepatmo
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
+  USE mo_extpar_config,            ONLY: generate_td_filename
   USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
   USE mo_nudging,                  ONLY: nudging_interface  
 
@@ -238,6 +244,12 @@ MODULE mo_nh_stepping
   TYPE(eventGroup), POINTER :: checkpointEventGroup => NULL()
 
   PUBLIC :: perform_nh_stepping
+
+  TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
+  TYPE(t_time_intp)      :: sst_intp
+  TYPE(t_time_intp)      :: sic_intp
+  REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
+  REAL(wp), ALLOCATABLE  :: sic_dat(:,:,:,:)
 
   TYPE t_datetime_ptr
     TYPE(datetime), POINTER :: ptr => NULL()
@@ -262,8 +274,15 @@ MODULE mo_nh_stepping
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
     &  routine = modname//':perform_nh_stepping'
+  CHARACTER(filename_max) :: sst_td_file !< file name for reading in
+  CHARACTER(filename_max) :: ci_td_file
 
   INTEGER                              :: jg, jgc, jn
+  INTEGER                              :: month, year
+  LOGICAL                              :: is_mpi_workroot
+  LOGICAL                              :: l_exist
+  is_mpi_workroot = my_process_is_mpi_workroot()
+
 
 
 !!$  INTEGER omp_get_num_threads
@@ -293,16 +312,67 @@ MODULE mo_nh_stepping
     IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_pr(jg, nnow(jg))
   ENDDO
 
+  IF (iforcing == inwp) THEN
+    IF (ANY((/SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode)) THEN
+      ! t_seasfc and fr_seaice have to be set again from the ext_td_data files;
+      ! the values from the analysis have to be overwritten.
+      ! In the case of a restart, the call is required to open the file and read the data
+      DO jg=1, n_dom
+        CALL set_sst_and_seaice (.TRUE., assumePrevMidnight(mtime_current),      &
+          &                      assumePrevMidnight(mtime_current), sstice_mode, &
+          &                      p_patch(jg), ext_data(jg), p_lnd_state(jg))
+      ENDDO
+    END IF
 
-  IF (ANY((/SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) .AND. iforcing == inwp) THEN
-    ! t_seasfc and fr_seaice have to be set again from the ext_td_data files;
-    ! the values from the analysis have to be overwritten.
-    ! In the case of a restart, the call is required to open the file and read the data
-    DO jg=1, n_dom
-      CALL set_sst_and_seaice (.TRUE., assumePrevMidnight(mtime_current),      &
-        &                      assumePrevMidnight(mtime_current), sstice_mode, &
-        &                      p_patch(jg), ext_data(jg), p_lnd_state(jg))
-    ENDDO
+    IF (sstice_mode == SSTICE_INST) THEN
+      DO jg = 1, n_dom
+        month = mtime_current%date%month
+        year = mtime_current%date%year
+        sst_td_file= generate_td_filename(sst_td_filename,                &
+           &                             getModelBaseDir(),               &
+           &                             TRIM(p_patch(jg)%grid_filename), &
+           &                             month, year                      )
+        ci_td_file= generate_td_filename(ci_td_filename,                  &
+           &                             getModelBaseDir(),               &
+           &                             TRIM(p_patch(jg)%grid_filename), &
+           &                             month, year                      )
+
+        IF(is_mpi_workroot) THEN
+
+          INQUIRE (FILE=sst_td_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(routine,'Instant SST data file is not found.')
+          ENDIF
+
+          INQUIRE (FILE=ci_td_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(routine,'Instant sea-ice data file is not found.')
+          ENDIF
+
+        ENDIF
+
+        CALL sst_sic_reader%init(p_patch(jg), sst_td_filename)
+        CALL sst_intp%init(sst_sic_reader, mtime_current, "SST")
+        CALL sst_intp%intp(mtime_current, sst_dat)
+
+        WHERE (sst_dat(:,1,:,1) > 0.0_wp)
+          p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
+        END WHERE
+
+        CALL sst_sic_reader%init(p_patch(jg), ci_td_filename)
+        CALL sic_intp%init(sst_sic_reader, mtime_current, "SIC")
+        CALL sic_intp%intp(mtime_current, sic_dat)
+
+        WHERE (sic_dat(:,1,:,1) < frsi_min)
+          p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0.0_wp
+        ELSEWHERE  (sic_dat(:,1,:,1) > 1.0_wp-frsi_min)
+          p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 1.0_wp
+        ELSEWHERE
+          p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = sic_dat(:,1,:,1)
+        ENDWHERE
+
+      ENDDO
+    END IF
   END IF
 
   ! Save initial state if IAU iteration mode is chosen
@@ -800,6 +870,29 @@ MODULE mo_nh_stepping
         mtime_old = mtime_current
 
       END IF ! end update of surface parameter fields
+
+      IF (sstice_mode == SSTICE_INST) THEN
+        DO jg=1, n_dom
+          CALL sst_intp%intp(mtime_current, sst_dat)
+          WHERE (sst_dat(:,1,:,1) > 0.0_wp)
+            p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
+          END WHERE
+
+          CALL sic_intp%intp(mtime_current, sic_dat)
+          WHERE (sic_dat(:,1,:,1) < frsi_min)
+            p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 0.0_wp
+          ELSEWHERE  (sic_dat(:,1,:,1) > 1.0_wp-frsi_min)
+            p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = 1.0_wp
+          ELSEWHERE
+            p_lnd_state(jg)%diag_lnd%fr_seaice(:,:) = sic_dat(:,1,:,1)
+          ENDWHERE
+
+          CALL update_sst_and_seaice( p_patch(jg), ext_data(jg), p_lnd_state(jg),        &
+               &              p_nh_state(jg), sstice_mode, time_config%tc_exp_startdate, &
+               &              mtime_current )
+        ENDDO
+      END IF
+
     ENDIF  ! iforcing == inwp
 
 
@@ -2891,6 +2984,8 @@ MODULE mo_nh_stepping
     CALL finish ( modname//': perform_nh_stepping',    &
       &    'deallocation for linit_dyn failed' )
   ENDIF
+
+  CALL sst_sic_reader%deinit 
 
   END SUBROUTINE deallocate_nh_stepping
   !-------------------------------------------------------------------------

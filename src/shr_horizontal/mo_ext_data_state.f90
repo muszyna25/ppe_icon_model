@@ -41,7 +41,8 @@ MODULE mo_ext_data_state
     &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
-    &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
+    &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY,           & 
+    &                              SSTICE_INST
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_exception,          ONLY: message, finish
   USE mo_model_domain,       ONLY: t_patch
@@ -1221,7 +1222,9 @@ CONTAINS
         CASE(SSTICE_AVG_MONTHLY)
           shape3d_sstice = (/ nproma, nblks_c,  2 /)
         CASE(SSTICE_AVG_DAILY)
-          CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+          CALL finish (TRIM(routine), 'sstice_mode=5  not implemented!')
+        CASE(SSTICE_INST)
+          shape3d_sstice = (/ nproma, nblks_c,  2 /)
         CASE DEFAULT
           CALL finish (TRIM(routine), 'sstice_mode not valid!')
       END SELECT
