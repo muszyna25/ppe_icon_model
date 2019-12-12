@@ -39,7 +39,8 @@ MODULE mo_ocean_testbed_zstar
     & MASS_MATRIX_INVERSION_ALLTERMS, &
     & PPscheme_type, PPscheme_ICON_Edge_vnPredict_type, &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
-    & createSolverMatrix, l_solver_compare, solver_comp_nsteps
+    & createSolverMatrix, l_solver_compare, solver_comp_nsteps, &
+    & Cartesian_Mixing, GMRedi_configuration
   USE mo_run_config,                ONLY: dtime, debug_check_level, nsteps, output_mode
   USE mo_timer, ONLY: timer_start, timer_stop, timers_level, timer_extra1, &
     & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc, timer_total
@@ -115,7 +116,7 @@ MODULE mo_ocean_testbed_zstar
     & solve_free_surface_eq_zstar, update_zstar_variables
   USE mo_ocean_tracer_zstar, ONLY:advect_individual_tracers_zstar, advect_ocean_tracers_zstar
   USE mo_swr_absorption, ONLY: subsurface_swr_absorption_zstar
-
+  USE mo_ocean_tracer_GMRedi, ONLY: advect_ocean_tracers_GMRedi_zstar
   !-------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -534,9 +535,16 @@ CONTAINS
     ! FIXME zstar: GM diffusion not implemented
     ! transport tracers and diffuse them
     IF (no_tracer>=1) THEN
-  
+
+      IF (GMRedi_configuration==Cartesian_Mixing) THEN
+        !! Note that zstar has no horizontal diffusion
         CALL advect_ocean_tracers_zstar(old_tracer_collection, new_tracer_collection, &
           & transport_state, operators_coefficients, stretch_e, stretch_c, stretch_c_new)
+      ELSE
+        CALL  advect_ocean_tracers_GMRedi_zstar(old_tracer_collection, new_tracer_collection, &
+          &  ocean_state, transport_state, p_phys_param, operators_coefficients, &
+          &  stretch_c, stretch_e, stretch_c_new)
+      ENDIF
  
     ENDIF
     !------------------------------------------------------------------------
@@ -617,6 +625,7 @@ CONTAINS
     REAL(wp), PARAMETER ::  min_top_height = 0.05_wp !we have to have at least 5cm water on topLevel of sea cells)
     INTEGER :: n_it, n_it_sp, ret_status
     INTEGER  :: rn
+    INTEGER :: it 
 
     CHARACTER(LEN=12)  :: str_module = 'zstar_dyn'  ! Output of module for 1 line debug)
 
@@ -663,7 +672,7 @@ CONTAINS
     !------------------------------------------------------------------
 
     !! Start time stepping
-    DO
+    DO 
       ! optional memory loggin
       CALL memory_log_add
 

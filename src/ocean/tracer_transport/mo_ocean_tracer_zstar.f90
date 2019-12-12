@@ -22,7 +22,9 @@ MODULE mo_ocean_tracer_zstar
 
   PUBLIC :: advect_ocean_tracers_zstar
   PUBLIC :: advect_individual_tracers_zstar
-
+  PUBLIC :: upwind_zstar_hflux_oce
+  PUBLIC :: limiter_ocean_zalesak_horz_zstar
+  PUBLIC :: tracer_diffusion_vertical_implicit_zstar
 CONTAINS
 
   !-------------------------------------------------------------------------
