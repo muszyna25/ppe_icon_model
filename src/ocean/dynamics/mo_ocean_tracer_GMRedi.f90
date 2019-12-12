@@ -56,7 +56,8 @@ MODULE mo_ocean_tracer_GMRedi
   USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_dif_vert, timer_extra30
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
-  USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
+  USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics, &
+    & calc_ocean_physics_zstar, prepare_ocean_physics_zstar
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z, map_edges2edges_sc_zstar
   USE mo_physical_constants,        ONLY: clw, rho_ref,sitodbar
@@ -696,6 +697,83 @@ CONTAINS
   END SUBROUTINE prepare_tracer_transport_GMRedi
   !-------------------------------------------------------------------------
 
+  
+  !-------------------------------------------------------------------------
+  !>
+  !!    SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
+  !!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
+  !!    actual velocity. This information is required by MIURA-scheme and is identical
+  !!    for all tracers.
+  !!
+  !! Adapted for zstar
+  !!
+  SUBROUTINE prepare_tracer_transport_GMRedi_zstar(patch_3d, p_os, p_param, p_op_coeff, stretch_c)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET :: p_os
+    TYPE(t_ho_params),        INTENT(inout) :: p_param
+    TYPE(t_operator_coeff),INTENT(inout) :: p_op_coeff
+    REAL(wp), INTENT(IN)         :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    !
+    !Local variables
+    INTEGER :: startLevel, fin_level
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: je, level, jb,jc         !< index of edge, vert level, block
+    INTEGER :: edge_cell_index(2), edge_cell_block(2)
+!     INTEGER :: edge_vert_index(2), edge_vert_block(2)
+    INTEGER :: upwind_index
+    REAL(wp) :: delta_z, half_time
+    INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc
+    TYPE(t_cartesian_coordinates):: flux_sum
+    !-------------------------------------------------------------------------------
+    TYPE(t_patch), POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells
+    !-------------------------------------------------------------------------------
+    patch_2d        => patch_3d%p_patch_2d(1)
+    all_cells       => patch_2d%cells%all
+    edges_in_domain => patch_2d%edges%in_domain
+
+    startLevel = 1
+    half_time = 0.5_wp * dtime
+
+!ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, je, edge_cell_index, edge_cell_block, &
+!ICON_OMP fin_level, level, upwind_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_edge_index, end_edge_index)
+      DO je = start_edge_index, end_edge_index
+        !Get indices of two adjacent cells
+        edge_cell_index(1) = patch_2d%edges%cell_idx(je,jb,1)
+        edge_cell_block(1) = patch_2d%edges%cell_blk(je,jb,1)
+        edge_cell_index(2) = patch_2d%edges%cell_idx(je,jb,2)
+        edge_cell_block(2) = patch_2d%edges%cell_blk(je,jb,2)
+        fin_level  = patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+
+        DO level = startLevel, fin_level
+          upwind_index = MERGE(1, 2, p_os%p_diag%vn_time_weighted(je,level,jb) > 0.0_wp)
+
+          p_op_coeff%upwind_cell_idx(je,level,jb) = edge_cell_index(upwind_index)
+          p_op_coeff%upwind_cell_blk(je,level,jb) = edge_cell_block(upwind_index)
+
+        END DO
+
+      END DO
+    END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+
+    !calculation of isopycnical slopes and tapering
+
+    CALL prepare_ocean_physics_zstar(patch_3d, &
+      & p_os,    &
+      & p_param, &
+      & p_op_coeff, stretch_c)
+
+
+  !  ENDIF
+  END SUBROUTINE prepare_tracer_transport_GMRedi_zstar
+  !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   SUBROUTINE check_min_max_tracer(info_text, tracer, min_tracer, max_tracer, tracer_name, in_subset)
@@ -778,7 +856,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------------
     patch_3d => old_tracers%patch_3d
-    CALL prepare_tracer_transport_GMRedi(patch_3d, p_os, p_param, p_op_coeff)
+    CALL prepare_tracer_transport_GMRedi_zstar(patch_3d, p_os, p_param, p_op_coeff, stretch_c)
 
     DO tracer_index = 1, old_tracers%no_of_tracers
 
@@ -918,7 +996,7 @@ CONTAINS
     !---------------------------------------------------------------------
 
     !calculate horizontal and vertical Redi and GM fluxes
-    CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
+    CALL calc_ocean_physics_zstar(patch_3d, p_os, p_param,p_op_coeff, tracer_index, stretch_c)
     
     !calculate horizontal divergence of diffusive flux
     CALL div_oce_3d( p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
