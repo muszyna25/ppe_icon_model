@@ -925,7 +925,8 @@ CONTAINS
                  &   patch_3d, &
                  &   p_op_coeff%div_coeff, &
                  &   div_diff_flux_horz )
-                                   
+    
+    !! FIXME zstar: needs to be multiplied with stretch_c
     !vertical div of GMRedi-flux
     CALL verticalDiv_scalar_onFullLevels( patch_3d, &
       & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
@@ -953,7 +954,8 @@ CONTAINS
       DO jc = start_cell_index, end_cell_index
         !! d_z*(coeff*w*C) = coeff*d_z(w*C) since coeff is constant for each column
         div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
-        
+        div_diff_flx_vert(jc, :, jb) = stretch_c(jc, jb)*div_diff_flx_vert(jc, :, jb)
+
         !! Apply boundary conditions
         DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
           delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)*stretch_c(jc, jb)

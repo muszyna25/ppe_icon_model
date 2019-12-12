@@ -748,7 +748,7 @@ CONTAINS
           & patch_3d%p_patch_1d(1)%prism_thick_c, &
           & patch_3d%p_patch_1d(1)%zlev_m, &
           & ocean_state(jg)%p_diag, &
-          & ocean_state(jg)%p_prog(nnew(1))%h, &
+          & ocean_state(jg)%p_prog(nnew(1))%eta_c, &
           & ocean_state(jg)%p_prog(nnew(1))%vn, &
           & ocean_state(jg)%p_prog(nnew(1))%tracer, &
           & p_atm_f, &

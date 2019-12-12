@@ -708,7 +708,7 @@ CONTAINS
     TYPE(t_patch), POINTER:: p_patch
     TYPE(t_subset_range), POINTER :: all_cells
     
-    CHARACTER(LEN=max_char_length), PARAMETER :: str_module = 'testbed_zstar'
+    CHARACTER(LEN=max_char_length), PARAMETER :: str_module = 'ocean_sfc_refactor_zstar'
     
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
@@ -756,7 +756,7 @@ CONTAINS
 
     END IF
 
-    CALL dbg_print('UpdSfc: h-old',p_os%p_prog(nold(1))%h,         str_module, 1, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: eta-old', eta_c,    str_module, 1, in_subset=p_patch%cells%owned)
     ! apply volume flux to surface elevation
     !  - add to h_old before explicit term
     !  - change in salt concentration applied here

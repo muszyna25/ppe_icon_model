@@ -877,7 +877,7 @@ CONTAINS
       INTEGER :: n_it, n_it_sp, ret_status
     
       CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_ocean_testbed_modules:test_zstar_core'
+      & routine = 'mo_ocean_timestepping_zstar:solve_free_sfc'
     
       CHARACTER(LEN=12)  :: str_module = 'zstar_surf'  ! Output of module for 1 line debug)
     
@@ -907,7 +907,6 @@ CONTAINS
       CALL dbg_print('test    : h var'   ,ocean_state(1)%p_prog(nold(1))%h ,str_module, 2, in_subset=owned_cells)
       CALL dbg_print('on entry: h-new'   ,eta_c_new                         ,str_module, 2, in_subset=owned_cells)
       CALL dbg_print('on entry: vn-new'  ,ocean_state(1)%p_prog(nnew(1))%vn,str_module, 2, in_subset=owned_edges)
-      CALL dbg_print('UpdSfc: h-old', eta_c,         str_module, 1, in_subset=owned_cells)
 
       ! Apply windstress
       CALL top_bound_cond_horz_veloc(patch_3d, ocean_state(1), operators_coefficients, p_oce_sfc)
