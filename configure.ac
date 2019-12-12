@@ -640,6 +640,10 @@ dnl '-lnetcdff', '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
 dnl We check these dependencies in the reverse order.
 
+dnl Currently, we assume that the Fortran compiler implicitly links to libm and
+dnl libc, which are required by ICON itself and some of the bundled libraries
+dnl (including the mandatory ones).
+
 dnl Most of the following checks are for Fortran compiler:
 AC_LANG([Fortran])
 
@@ -948,6 +952,18 @@ accordingly])])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/sct/src "])
       BUNDLED_LIBFILES="externals/sct/src/.libs/libsct.a $BUNDLED_LIBFILES"])])
 AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',sct'])
+dnl SCT might require librt, which we need to add to LIBS to be able to link the
+dnl bundled version of SCT statically. First, we check whether we already have
+dnl '-lrt' in the LIBS. If that is not the case, we check whether the configure
+dnl script of SCT "decided" to include '-lrt' in the LIBS of SCT and if yes,
+dnl prepend LIBS of ICON with '-lrt':
+AC_CONFIG_COMMANDS_PRE(
+  [AS_CASE([" $subdirs_extra "],
+     [*' externals/sct '*],
+     [AS_CASE([" $LIBS "],
+        [*' -lrt '*], [],
+        [ACX_CONFIG_SUBDIR_VAR([sct_LIBS], [externals/sct], [@LIBS@])
+         AS_CASE([" $sct_LIBS "], [*' -lrt '*], [LIBS="-lrt $LIBS"])])])])
 
 AS_IF([test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
   [AS_VAR_IF([with_external_yaxt], [yes],

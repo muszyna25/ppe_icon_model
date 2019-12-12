@@ -5465,6 +5465,7 @@ fi
 ################################ LIBRARY CHECKS ################################
 
 
+
 ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
@@ -6321,6 +6322,7 @@ esac
 fi
 fi
 as_fn_append DEPGEN_EXTERNAL_MODS ',sct'
+
 
 if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
   if test "x$with_external_yaxt" = xyes; then :
@@ -7931,6 +7933,28 @@ fi
                $as_echo "$as_me:${as_lineno-$LINENO}: ===" >&5
 fi
 fi
+case " $subdirs_extra " in #(
+  *' externals/sct '*) :
+    case " $LIBS " in #(
+  *' -lrt '*) :
+     ;; #(
+  *) :
+    acx_exec_result=`$as_echo @LIBS@ | "externals/sct/config.status" -q --file=- 2>/dev/null`
+   if test $? -eq 0; then :
+  sct_LIBS=$acx_exec_result
+else
+  as_fn_error $? "unable to run 'externals/sct/config.status'" "$LINENO" 5
+fi
+         case " $sct_LIBS " in #(
+  *' -lrt '*) :
+    LIBS="-lrt $LIBS" ;; #(
+  *) :
+     ;;
+esac ;;
+esac ;; #(
+  *) :
+     ;;
+esac
 
 : "${CONFIG_STATUS=./config.status}"
 ac_write_fail=0
