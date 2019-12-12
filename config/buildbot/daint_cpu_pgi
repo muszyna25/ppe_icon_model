@@ -1,0 +1,65 @@
+#!/bin/bash
+
+set -eu
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
+
+BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_module modules;"
+BUILD_ENV="${BUILD_ENV} switch_for_module cce; export PATH=\"\${CRAY_BINUTILS_BIN}:\${PATH}\";"
+BUILD_ENV="${BUILD_ENV} module use /project/d56/modules; switch_for_module craype cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9 gcc cray-mpich cray-netcdf;"
+
+BLAS_LAPACK_LIBS='-llapack -lblas'
+
+XML2_ROOT='/apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08'
+XML2_LDFLAGS="-L${XML2_ROOT}/lib"
+XML2_CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
+XML2_LIBS='-lxml2'
+
+FC=ftn
+CC=cc
+
+FCFLAGS='-g -O -Mrecursive -Mallocatable=03 -tp=haswell'
+CFLAGS='-g -O2'
+CPPFLAGS="${XML2_CPPFLAGS}"
+LDFLAGS="${XML2_LDFLAGS}"
+LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS}"
+
+MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
+
+# ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
+# which depends on libomptarget.so but doesn't have an RPATH to it. For this
+# reason, it becomes impossible to run the executable without setting
+# LD_LIBRARY_PATH in advance (e.g. by loading an environment module). To solve
+# this issue, we overlink to libomptarget.so so that it can be found through
+# RPATH entries of the executable, which are injected by the compiler.
+LIBS="${LIBS} -lomptarget"
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+MPI_LAUNCH="$MPI_LAUNCH" \
+--disable-openmp \
+"$@"
+
+MAKE_PROCS=22
+make -j ${MAKE_PROCS}
+
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+fi
+
+# Generate input file for runscript generation:
+./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
