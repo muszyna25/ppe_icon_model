@@ -45,7 +45,7 @@ MODULE mo_initicon
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMO,       &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
-    &                               min_rlcell_int, dzsoil_icon => dzsoil
+    &                               min_rlcell_int
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom, l_limited_area
@@ -56,7 +56,7 @@ MODULE mo_initicon
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, &
-    &                               frlake_thrhld, lprog_albsi
+    &                               frlake_thrhld, lprog_albsi, dzsoil_icon => dzsoil
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE sfc_seaice,             ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero

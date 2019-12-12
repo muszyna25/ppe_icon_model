@@ -29,9 +29,10 @@
 MODULE mo_lnd_nwp_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: zml_soil, dzsoil, GLOBCOVER2009, GLC2000, VARNAME_LEN
+  USE mo_impl_constants,     ONLY: max_nsoil, GLOBCOVER2009, GLC2000, VARNAME_LEN
   USE mo_io_units,           ONLY: filename_max
   USE mo_nwp_sfc_tiles,      ONLY: t_tile_list, setup_tile_list
+  USE mo_exception,          ONLY: finish
 
 
   IMPLICIT NONE
@@ -44,7 +45,7 @@ MODULE mo_lnd_nwp_config
 
 
   ! VARIABLES
-  PUBLIC :: nlev_soil, nlev_snow, ibot_w_so, ntiles_total, ntiles_lnd, ntiles_water
+  PUBLIC :: dzsoil, zml_soil, nlev_soil, nlev_snow, ibot_w_so, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice, lprog_albsi, llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
@@ -103,13 +104,16 @@ MODULE mo_lnd_nwp_config
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
 
   ! derived variables
-  INTEGER ::  nlev_soil    !< number of soil layers (based on zml_soil in impl_constants)
   INTEGER ::  ibot_w_so    !< number of hydrological active soil layers 
   INTEGER ::  isub_water   !< (open) water points tile number
   INTEGER ::  isub_lake    !< lake points tile number
   INTEGER ::  isub_seaice  !< seaice tile number
   INTEGER ::  ntiles_total !< total number of TILES
   INTEGER ::  ntiles_water !< number of extra tiles for ocean, seaice and lakes
+  INTEGER ::  nlev_soil    !< number of soil layers
+  REAL(wp), ALLOCATABLE :: zml_soil(:)   !< soil layer full level heights read in and used by ICON
+  REAL(wp), ALLOCATABLE :: dzsoil(:)     !< soil layer thickness
+  REAL(wp), ALLOCATABLE :: depth_hl(:)   !< depths of half levels
 
 !  END TYPE t_nwp_lnd_config
 
@@ -142,31 +146,33 @@ CONTAINS
   SUBROUTINE configure_lnd_nwp()
   !
     ! local variables
-    INTEGER  :: kso              ! soil loop index
-    REAL(wp) :: depth_hl         ! half level depth
+    INTEGER  :: js              ! soil loop index
 
     CHARACTER(len=*), PARAMETER::  &
       &  routine = modname//"::configure_lnd_nwp"
 
     !-----------------------------------------------------------------------
 
-    ! number of soil layers
-    ! Note that this number must be consistent with the number of entries 
-    ! in zml_soil. zml_soil provides soil layer full level heights (confirmed).
-    nlev_soil = SIZE(zml_soil)
+    ! calculate the soil layer thickness based on depth of the soil full layers
 
+    ALLOCATE(dzsoil(nlev_soil))
+    ALLOCATE(depth_hl(nlev_soil))     ! half level depth
 
-    ! number of hydraulical active soil layers ibot_w_so
-    !
-    ! currently, we take all those layers which are located completely 
-    ! above 2.5m soil depth
-    DO kso=1,nlev_soil
-      depth_hl = zml_soil(kso) + 0.5_wp*dzsoil(kso)
-      IF (depth_hl<=2.5_wp) ibot_w_so=kso
+    depth_hl(1) = 2.0_wp*zml_soil(1)  ! depth of first half level
+    dzsoil(1)=depth_hl(1)             ! layer thickness betw. half levels of uppermost layer
+    DO js=2,nlev_soil
+      ! depth of half levels
+      depth_hl(js) = depth_hl(js-1) + 2.0_wp*(zml_soil(js) - depth_hl(js-1))
+      ! layer thickness betw. half levels
+      dzsoil(js)   = depth_hl(js) - depth_hl(js-1)
+    ENDDO
+
+    ! Determine ibot_w_so
+    DO js=1,nlev_soil
+      IF (depth_hl(js) <= 2.5_wp) ibot_w_so=js
     ENDDO
     ! make sure that ibot_w_so>=2
     ibot_w_so = MAX(2, ibot_w_so)
-
 
     !
     ! settings dealing with surface tiles

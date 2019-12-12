@@ -50,7 +50,7 @@ MODULE mo_nwp_lnd_state
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB, &
     &                                HINTP_TYPE_LONLAT_BCTR, TLEV_NNOW_RCF,           &
-    &                                ALB_SI_MISSVAL, TASK_COMPUTE_SMI, zml_soil
+    &                                ALB_SI_MISSVAL, TASK_COMPUTE_SMI
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
@@ -61,7 +61,7 @@ MODULE mo_nwp_lnd_state
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
     &                                itype_interception, l2lay_rho_snow, itype_trvg, &
-    &                                itype_snowevap, groups_smi
+    &                                itype_snowevap, groups_smi, zml_soil
   USE mo_extpar_config,        ONLY: itype_vegetation_cycle
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
@@ -869,26 +869,6 @@ MODULE mo_nwp_lnd_state
 
     ENDIF  ! lmulti_snow
 
-
-    p_prog_lnd%t_so_t(:,1,:,:) = 290.4_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,2,:,:) = 290.4_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,3,:,:) = 290.7_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,4,:,:) = 291.4_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,5,:,:) = 292.7_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,6,:,:) = 293.2_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,7,:,:) = 291.1_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,8,:,:) = 283.1_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,9,:,:) = 282.1_wp !!HW: be careful about the indices!!
-
-    p_prog_lnd%w_so_t(:,1,:,:) = 1.8E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,2,:,:) = 3.7E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,3,:,:) = 11.3E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,4,:,:) = 35.1E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,5,:,:) = 56.7E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,6,:,:) = 254.6E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,7,:,:) = 763.9E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,8,:,:) = 2291.5E-3_wp*2._wp !! JH
- 
     END IF !inwp_surface > 0
 
   END SUBROUTINE new_nwp_lnd_prog_list

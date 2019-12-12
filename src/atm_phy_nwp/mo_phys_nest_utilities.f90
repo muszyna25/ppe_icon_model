@@ -41,7 +41,7 @@ USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi
 USE mo_grid_config,         ONLY: l_limited_area
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_nonhydro_state,      ONLY: p_nh_state
-USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest, dzsoil
+USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest
 USE mo_physical_constants,  ONLY: rd, grav, stbo, vtmpc1, tmelt
 USE mo_satad,               ONLY: qsat_rho
 USE mo_loopindices,         ONLY: get_indices_c
@@ -49,8 +49,9 @@ USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_
 USE mo_vertical_coord_table,ONLY: vct_a
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
-USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow, lseaice, llake, &
-                                  frlake_thrhld, frsea_thrhld, isub_lake, ntiles_total
+USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow, lseaice, llake,    &
+                                  frlake_thrhld, frsea_thrhld, isub_lake, ntiles_total, &
+                                  dzsoil
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE sfc_terra_data,         ONLY: cadp
 USE mo_mpi,                 ONLY: my_process_is_mpi_seq

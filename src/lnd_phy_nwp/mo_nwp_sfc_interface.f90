@@ -26,7 +26,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf, icosmo
+  USE mo_impl_constants,      ONLY: min_rlcell_int, iedmf, icosmo
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -41,7 +41,7 @@ MODULE mo_nwp_sfc_interface
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
     &                               isub_lake, itype_interception, l2lay_rho_snow,    &
-    &                               lprog_albsi, itype_trvg, itype_snowevap
+    &                               lprog_albsi, itype_trvg, itype_snowevap, zml_soil
   USe mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_ensemble_pert_config,ONLY: sst_pert_corrfac
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice

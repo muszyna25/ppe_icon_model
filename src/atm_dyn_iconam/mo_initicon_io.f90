@@ -60,7 +60,7 @@ MODULE mo_initicon_io
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
     &                               isub_lake, llake, lprog_albsi, itype_trvg, &
-    &                               itype_snowevap
+    &                               itype_snowevap, nlev_soil
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
@@ -1554,6 +1554,7 @@ MODULE mo_initicon_io
 
     INTEGER :: jg, error
     REAL(wp), POINTER :: my_ptr2d(:,:)
+    REAL(dp), POINTER :: levels(:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     TYPE(t_wtr_prog), POINTER :: wtr_prog
@@ -1633,6 +1634,17 @@ MODULE mo_initicon_io
                 ENDIF
             END IF ! lmulti_snow
 
+            ! Consistency check for number of soil levels, account for the additional level of t_so compared to smi
+            IF (ASSOCIATED(params%requestList%findIconName('t_so'))) THEN
+                      levels => params%requestList%getLevels('t_so',jg)
+            ELSE
+              CALL finish(routine, "t_so not found in input data")
+            ENDIF
+            IF ( (SIZE(levels)-1) /= nlev_soil ) THEN
+              WRITE(message_text,'(a,i3,a,i3,a)') 'Numbers of soil levels in initial data (=',SIZE(levels)-1, &
+                &                                  ') and model (=',nlev_soil,') do not match!'
+              CALL finish(routine, message_text)
+            ENDIF
 
             ! multi layer fields
             !

@@ -27,9 +27,8 @@ MODULE mo_nwp_sfc_interp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma 
   USE mo_initicon_types,      ONLY: t_init_state
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so, zml_soil, dzsoil_icon => dzsoil
   USE mo_run_config,          ONLY: msg_level
-  USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
   USE sfc_terra_data,         ONLY: cporv, cadp, cfcap, cpwp
   USE mo_ext_data_state,      ONLY: ext_data

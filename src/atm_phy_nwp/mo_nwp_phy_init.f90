@@ -36,7 +36,7 @@ MODULE mo_nwp_phy_init
   USE mo_exception,           ONLY: message, finish !, message_text
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, io3_ape,            &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
     &                               iprog, igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,   &
     &                               MODE_COSMO, MODE_ICONVREMAP, iss, iorg, ibc, iso4, idu
@@ -100,7 +100,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_sfc_utils,       ONLY: nwp_surface_init, init_snowtile_lists, init_sea_lists, &
     &                               aggregate_tg_qvs, copy_lnd_prog_now2new
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, lsnowtile, ntiles_water, &
-    &                               lseaice
+    &                               lseaice, zml_soil
   USE sfc_terra_data,         ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice

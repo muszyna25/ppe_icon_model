@@ -432,19 +432,11 @@ MODULE mo_impl_constants
   !        LAND         !
   !---------------------!
 
-  ! full level heights [m]
-  REAL(wp), PARAMETER, DIMENSION(8)::                               &
-    & zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp, &
-    & 4.86_wp,14.58_wp /)
-
-  ! Soil layer thicknesses [m]
-  REAL(wp), PARAMETER, DIMENSION(8)::                               &
-    & dzsoil=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,    &
-    & 4.86_wp,14.58_wp/)
-
   ! identifier for MODIS albedo
   INTEGER, PARAMETER :: MODIS   = 2
 
+  ! maximum number of soil layers
+  INTEGER, PARAMETER :: max_nsoil = 20
 
   !---------------------!
   !        OCEAN        !

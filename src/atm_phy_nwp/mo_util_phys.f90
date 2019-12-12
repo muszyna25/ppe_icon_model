@@ -32,10 +32,10 @@ MODULE mo_util_phys
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
-    &                                 min_rlcell, dzsoil, grf_bdywidth_c
+    &                                 min_rlcell, grf_bdywidth_c
   USE mo_impl_constants_grf,    ONLY: grf_bdyintp_start_c,  &
     &                                 grf_ovlparea_start_c, grf_fbk_start_c
-  USE mo_model_domain,          ONLY: t_patch, p_patch_local_parent
+  USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
@@ -49,7 +49,7 @@ MODULE mo_util_phys
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
-  USE mo_lnd_nwp_config,        ONLY: nlev_soil
+  USE mo_lnd_nwp_config,        ONLY: nlev_soil, dzsoil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
   USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_satad,                 ONLY: qsat_rho

@@ -35,7 +35,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o, tmelt
   USE sfc_terra_data,           ONLY: crhosminf, cporv, cadp, csalb, ist_seawtr
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, &
-    &                                 MAX_CHAR_LENGTH, dzsoil, inwp, nclass_aero, ALB_SI_MISSVAL
+    &                                 MAX_CHAR_LENGTH, inwp, nclass_aero, ALB_SI_MISSVAL
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -51,7 +51,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_fbk_start_c
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice, itype_trvg, &
-    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, itype_snowevap
+    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, &
+    &                                 itype_snowevap, dzsoil
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config, iprog_aero

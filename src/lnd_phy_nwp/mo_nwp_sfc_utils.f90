@@ -36,7 +36,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: tmelt, tf_salt, grav, salinity_fac, rhoh2o
   USE mo_math_constants,      ONLY: dbl_eps, rad2deg
-  USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, zml_soil, min_rlcell, dzsoil, &
+  USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rlcell, &
     &                               MODE_IAU, SSTICE_ANA_CLINC, ALB_SI_MISSVAL
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE sfc_flake_data,         ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
@@ -52,7 +52,7 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               itype_interception, l2lay_rho_snow, lprog_albsi, itype_trvg, &
-                                    itype_snowevap
+                                    itype_snowevap, zml_soil, dzsoil
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
   USE mo_run_config,          ONLY: msg_level
