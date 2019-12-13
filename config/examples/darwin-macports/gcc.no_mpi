@@ -41,4 +41,5 @@ LIBS="$LIBS" \
 --disable-mpi \
 --disable-ocean \
 --disable-psrad \
+--enable-openmp \
 "$@"

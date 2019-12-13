@@ -37,6 +37,7 @@ LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
 --disable-coupling \
 --enable-grib2 \
+--enable-openmp \
 --enable-sct \
 --enable-yaxt \
 --with-external-cdi \

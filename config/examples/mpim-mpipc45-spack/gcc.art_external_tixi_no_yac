@@ -36,6 +36,7 @@ LIBS="$LIBS" \
 --disable-coupling \
 --enable-art \
 --enable-grib2 \
+--enable-openmp \
 --enable-sct \
 --enable-yaxt \
 --with-external-cdi \

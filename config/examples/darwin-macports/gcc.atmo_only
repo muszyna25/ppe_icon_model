@@ -42,4 +42,5 @@ MPI_LAUNCH="$MPI_LAUNCH" \
 --disable-coupling \
 --disable-jsbach \
 --disable-ocean \
+--enable-openmp \
 "$@"

@@ -36,6 +36,7 @@ LIBS="$LIBS" \
 --enable-cdi-pio \
 --enable-ecrad \
 --enable-grib2 \
+--enable-openmp \
 --enable-rte-rrtmgp \
 --enable-sct \
 --with-external-cdi \

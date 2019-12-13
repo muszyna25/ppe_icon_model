@@ -37,6 +37,7 @@ LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
 --enable-ecrad \
 --enable-grib2 \
+--enable-openmp \
 --enable-rte-rrtmgp \
 --enable-sct \
 --enable-yaxt \

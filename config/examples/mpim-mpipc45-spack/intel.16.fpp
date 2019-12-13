@@ -34,6 +34,7 @@ ICON_FCFLAGS="$ICON_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 --enable-explicit-fpp \
+--enable-openmp \
 --with-external-cdi \
 --with-external-mtime \
 --with-external-self \

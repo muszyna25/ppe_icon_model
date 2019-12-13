@@ -36,6 +36,7 @@ LIBS="$LIBS" \
 --enable-ecrad \
 --enable-grib2 \
 --enable-mixed-precision \
+--enable-openmp \
 --enable-sct \
 --enable-yaxt \
 --with-external-cdi \

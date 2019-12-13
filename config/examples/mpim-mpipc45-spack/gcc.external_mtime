@@ -35,6 +35,7 @@ ICON_FCFLAGS="$ICON_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
+--enable-openmp \
 --enable-sct \
 --with-external-mtime \
 "$@"

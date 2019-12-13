@@ -75,6 +75,7 @@ FCFLAGS="$FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 --enable-active-target-sync \
+--enable-openmp \
 --enable-serialization \
 --enable-yaxt \
 "$@"

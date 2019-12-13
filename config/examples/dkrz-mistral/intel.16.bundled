@@ -67,5 +67,6 @@ LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 --enable-active-target-sync \
 --enable-grib2 \
+--enable-openmp \
 --enable-parallel-netcdf \
 "$@"

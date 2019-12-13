@@ -38,6 +38,7 @@ MPI_LAUNCH="$MPI_LAUNCH" \
 --disable-ocean \
 --enable-ecrad \
 --enable-grib2 \
+--enable-openmp \
 --enable-rte-rrtmgp \
 --enable-sct \
 --enable-yaxt \

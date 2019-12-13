@@ -126,6 +126,7 @@ LIBS="$LIBS" \
 --enable-active-target-sync \
 --enable-ecrad \
 --enable-grib2 \
+--enable-openmp \
 --enable-rttov \
 --enable-yaxt \
 "$@"

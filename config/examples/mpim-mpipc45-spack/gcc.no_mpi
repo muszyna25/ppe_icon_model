@@ -34,6 +34,7 @@ ICON_FCFLAGS="$ICON_FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 --disable-mpi \
+--enable-openmp \
 --enable-sct \
 "$@"
 
