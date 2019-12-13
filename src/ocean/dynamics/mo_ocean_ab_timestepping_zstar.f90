@@ -1,4 +1,7 @@
 !>
+!! Contains the implementation of the semi-implicit Adams-Bashforth timestepping
+!! for the ICON ocean model using the z* vertical co-ordinate.
+!! 
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in

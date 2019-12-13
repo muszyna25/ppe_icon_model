@@ -2323,8 +2323,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
 
     !! Convert vertical gradients from d/ds to d/dz
     start_level = 1
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, end_level) &
-!ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, jc, level, end_level) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
@@ -2342,7 +2341,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
 
       END DO
     END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO_PARALLEL
 
     CALL calc_tapering_function(patch_3d, param, ocean_state)
     
@@ -2482,8 +2481,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
     
       !! Convert vertical gradients from d/ds to d/dz
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, cell_index, blockNo, level, end_level) &
-!ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, cell_index, level, end_level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       DO cell_index = start_cell_index, end_cell_index
@@ -2494,7 +2492,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
          END DO
       END DO
     END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO_PARALLEL
 
     ENDIF
 

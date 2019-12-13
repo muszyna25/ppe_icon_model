@@ -737,6 +737,7 @@ CONTAINS
     startLevel = 1
     half_time = 0.5_wp * dtime
 
+!ICON_OMP_PARALLEL 
 !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, je, edge_cell_index, edge_cell_block, &
 !ICON_OMP fin_level, level, upwind_index) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
