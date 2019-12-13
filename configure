@@ -1400,7 +1400,7 @@ Infrastructural Features:
   --enable-active-target-sync
                           enable MPI active target mode (otherwise, passive
                           target mode is used) [default=no]
-  --enable-openmp         enable OpenMP support [default=yes]
+  --enable-openmp         enable OpenMP support [default=no]
   --enable-gpu            enable GPU support [default=no]
   --enable-grib2          enable GRIB2 I/O [default=no]
   --enable-parallel-netcdf
@@ -2345,7 +2345,7 @@ if test "${enable_openmp+set}" = set; then :
   enable_openmp=yes
 fi
 else
-  enable_openmp=yes
+  enable_openmp=no
 fi
 
 

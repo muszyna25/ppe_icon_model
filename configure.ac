@@ -138,9 +138,9 @@ AC_ARG_ENABLE([active-target-sync],
 
 AC_ARG_ENABLE([openmp],
   [AC_HELP_STRING([--enable-openmp],
-     [enable OpenMP support @<:@default=yes@:>@])],
+     [enable OpenMP support @<:@default=no@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_openmp=yes])],
-  [enable_openmp=yes])
+  [enable_openmp=no])
 
 AC_ARG_ENABLE([gpu],
   [AC_HELP_STRING([--enable-gpu],
