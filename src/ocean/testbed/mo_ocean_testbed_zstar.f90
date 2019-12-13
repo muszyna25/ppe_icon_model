@@ -9,7 +9,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!!
+!----------------------------
+#include "icon_definitions.inc"
+!----------------------------
 MODULE mo_ocean_testbed_zstar
   !-------------------------------------------------------------------------
  
@@ -40,10 +42,14 @@ MODULE mo_ocean_testbed_zstar
     & PPscheme_type, PPscheme_ICON_Edge_vnPredict_type, &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
     & createSolverMatrix, l_solver_compare, solver_comp_nsteps, &
-    & Cartesian_Mixing, GMRedi_configuration
+    & Cartesian_Mixing, GMRedi_configuration, atm_pressure_included_in_ocedyn, &
+    & cfl_check, cfl_threshold, cfl_stop_on_violation,   &
+    & cfl_write, Coupled_FluxFromAtmo, use_tides
   USE mo_run_config,                ONLY: dtime, debug_check_level, nsteps, output_mode
   USE mo_timer, ONLY: timer_start, timer_stop, timers_level, timer_extra1, &
-    & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc, timer_total
+    & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc, &
+    & timer_total, timer_solve_ab, timer_upd_flx, timer_vert_veloc, &
+    & timer_extra20, timer_extra21, timer_normal_veloc, timer_scalar_prod_veloc
 
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_physical_constants,        ONLY: grav, clw, rho_ref, Tf
@@ -53,9 +59,9 @@ MODULE mo_ocean_testbed_zstar
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,            ONLY: t_external_data
   USE mo_exception,                 ONLY: message, finish, warning, message_text
-  USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
+  USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean, debug_printValue
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
-  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad
+  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad, calc_potential_density
   USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
   USE mo_ocean_surface_types,       ONLY: t_ocean_surface, t_atmos_for_ocean
@@ -63,7 +69,9 @@ MODULE mo_ocean_testbed_zstar
     & calc_scalar_product_veloc_3d, map_edges2edges_sc_zstar, map_edges2edges_3d_zstar
   USE mo_ocean_math_operators, ONLY: div_oce_3D_onTriangles_onBlock, smooth_onCells, div_oce_3d, &
     & grad_fd_norm_oce_2d_onblock, grad_fd_norm_oce_2d_3d, div_oce_3D_general_onBlock, &
-    & div_oce_3D_onTriangles_onBlock, update_height_depdendent_variables
+    & div_oce_3D_onTriangles_onBlock, update_height_depdendent_variables, &
+    & check_cfl_horizontal, check_cfl_vertical
+
   USE mo_ocean_velocity_advection, ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   USE mo_ocean_velocity_diffusion, ONLY: velocity_diffusion, velocity_diffusion_vertical_implicit_onBlock
   USE mo_ocean_types, ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
@@ -117,6 +125,9 @@ MODULE mo_ocean_testbed_zstar
   USE mo_ocean_tracer_zstar, ONLY:advect_individual_tracers_zstar, advect_ocean_tracers_zstar
   USE mo_swr_absorption, ONLY: subsurface_swr_absorption_zstar
   USE mo_ocean_tracer_GMRedi, ONLY: advect_ocean_tracers_GMRedi_zstar
+  USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
+  USE mo_ocean_tides,         ONLY: tide    
+  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   !-------------------------------------------------------------------------
   IMPLICIT NONE
   PRIVATE
@@ -125,6 +136,7 @@ MODULE mo_ocean_testbed_zstar
   PUBLIC :: test_stepping_zstar 
   PUBLIC :: test_stepping_z
  
+  INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
 
   !-------------------------------------------------------------------------
 CONTAINS
@@ -625,7 +637,10 @@ CONTAINS
     REAL(wp), PARAMETER ::  min_top_height = 0.05_wp !we have to have at least 5cm water on topLevel of sea cells)
     INTEGER :: n_it, n_it_sp, ret_status
     INTEGER  :: rn
-    INTEGER :: it 
+    INTEGER :: it, level 
+    REAL(wp) :: verticalMeanFlux(n_zlev+1)
+    REAL(wp) :: mean_height, old_mean_height
+    INTEGER :: return_status
 
     CHARACTER(LEN=12)  :: str_module = 'zstar_dyn'  ! Output of module for 1 line debug)
 
@@ -685,26 +700,58 @@ CONTAINS
       CALL message (TRIM(routine), message_text)
      
       !! Get kinetic energy
+      start_timer(timer_scalar_prod_veloc,2)
       CALL calc_scalar_product_veloc_3d( patch_3d,  &
         & ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_diag,                     &
         & operators_coefficients)
+       stop_timer(timer_scalar_prod_veloc,2)
      
       !! Updates velocity, tracer boundary condition
       !! Changes height based on ice etc
       !! Ice eqn sends back heat fluxes and volume fluxes
       !! Tracer relaxation and surface flux boundary conditions
+      start_timer(timer_upd_flx,3)
       CALL update_ocean_surface_refactor_zstar( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, p_oce_sfc, &
            & current_time, operators_coefficients, ocean_state(jg)%p_prog(nold(1))%eta_c, &
            & ocean_state(jg)%p_prog(nold(1))%stretch_c)
- 
+      stop_timer(timer_upd_flx,3)
+
       !------------------------------------------------------------------
  
+      !! Update stretch variables 
       CALL update_zstar_variables( patch_3d, ocean_state(jg)%p_prog(nold(1))%eta_c, &
         & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e)
 
       !---------------------------------------------------------------------
- 
+      ! compute tidal potential
+      ! FIXME zstar: Not modified for zstar
+      IF (use_tides) THEN
+        CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
+      ENDIF
+      ! total top potential
+      IF (atm_pressure_included_in_ocedyn) THEN
+        ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential  &
+          & + p_as%pao * OceanReferenceDensity_inv
+      ELSE
+        ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
+      ENDIF 
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('on entry: h-old'           ,ocean_state(jg)%p_prog(nold(1))%eta_c ,str_module,idt_src, &
+        & patch_2d%cells%owned )
+      CALL dbg_print('on entry: h-new'           ,ocean_state(jg)%p_prog(nnew(1))%eta_c ,str_module,idt_src, &
+        & patch_2d%cells%owned )
+      CALL dbg_print('HydOce: ScaProdVel kin'    ,ocean_state(jg)%p_diag%kin        ,str_module,idt_src, &
+        & patch_2d%cells%owned )
+      CALL dbg_print('HydOce: ScaProdVel ptp_vn' ,ocean_state(jg)%p_diag%ptp_vn     ,str_module,idt_src, &
+        & patch_2d%edges%owned )
+      CALL dbg_print('HydOce: fu10'              ,p_as%fu10                         ,str_module,idt_src, &
+        & in_subset=patch_2d%cells%owned)
+      CALL dbg_print('HydOce: concsum'           ,sea_ice%concsum                   ,str_module,idt_src, &
+        & in_subset=patch_2d%cells%owned)
+      !------------------------------------------------------------------------
+
       !! For updating ocean physics parameterization
       CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, &
         & operators_coefficients, p_atm_f, p_oce_sfc)
@@ -712,10 +759,13 @@ CONTAINS
       !------------------------------------------------------------------------
       ! solve for new free surface
       !------------------------------------------------------------------------
+      start_timer(timer_solve_ab,1)
       CALL solve_free_surface_eq_zstar( patch_3d, ocean_state, p_ext_data,  &
         & p_oce_sfc , p_as, p_phys_param, operators_coefficients, solvercoeff_sp, &
         & jstep, ocean_state(jg)%p_prog(nold(1))%eta_c, ocean_state(jg)%p_prog(nold(1))%stretch_c, &
         & stretch_e, ocean_state(jg)%p_prog(nnew(1))%eta_c, ocean_state(jg)%p_prog(nnew(1))%stretch_c)
+
+      stop_timer(timer_solve_ab,1)
 
       !------------------------------------------------------------------------
       ! Step 4: calculate final normal velocity from predicted horizontal
@@ -808,8 +858,9 @@ CONTAINS
         RETURN
       END IF
 
-
     END DO
+
+
 
   END SUBROUTINE test_stepping_zstar
 
