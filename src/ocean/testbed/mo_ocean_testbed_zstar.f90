@@ -720,7 +720,8 @@ CONTAINS
       !------------------------------------------------------------------
  
       !! Update stretch variables 
-      CALL update_zstar_variables( patch_3d, ocean_state(jg)%p_prog(nold(1))%eta_c, &
+      CALL update_zstar_variables( patch_3d, ocean_state(jg), operators_coefficients, &
+        & ocean_state(jg)%p_prog(nold(1))%eta_c, &
         & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e)
 
       !---------------------------------------------------------------------

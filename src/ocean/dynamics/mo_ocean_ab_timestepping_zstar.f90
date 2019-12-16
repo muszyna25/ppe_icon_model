@@ -55,12 +55,13 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_exception,                 ONLY: message, finish, warning, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
-  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad_zstar
+  USE mo_ocean_thermodyn,           ONLY: calculate_density_zstar, calc_internal_press_grad_zstar
   USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
   USE mo_ocean_surface_types,       ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_scalar_product, ONLY: map_edges2edges_viacell_3d_const_z, map_edges2edges_viacell_2D_per_level, &
-    & calc_scalar_product_veloc_3d, map_edges2edges_sc_zstar, map_edges2edges_3d_zstar
+    & calc_scalar_product_veloc_3d, map_edges2edges_sc_zstar, map_edges2edges_3d_zstar, &
+    & map_scalar_center2prismtop
   USE mo_ocean_math_operators, ONLY: div_oce_3D_onTriangles_onBlock, smooth_onCells, div_oce_3d, &
     & grad_fd_norm_oce_2d_onblock, grad_fd_norm_oce_2d_3d, div_oce_3D_general_onBlock, &
     & div_oce_3D_onTriangles_onBlock, update_height_depdendent_variables
@@ -97,7 +98,6 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_ocean_physics,         ONLY: update_ho_params
   USE mo_ocean_ab_timestepping_mimetic,  ONLY: calculate_explicit_term_ab, fill_rhs4surface_eq_ab
   USE mo_ice_interface,          ONLY: ice_fast_interface, ice_slow_interface
-  USE mo_hydro_ocean_run, ONLY: update_time_g_n, update_time_indices
   USE mo_ocean_output, ONLY: output_ocean
   USE mo_ocean_ab_timestepping,  ONLY: calc_vert_velocity, calc_normal_velocity_ab
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
@@ -141,9 +141,12 @@ CONTAINS
  
 
   !! Update stretching variables based on new surface height
-  SUBROUTINE update_zstar_variables( patch_3d, eta_c, stretch_c, stretch_e)
+  SUBROUTINE update_zstar_variables( patch_3d, ocean_state, operators_coefficients, &
+      & eta_c, stretch_c, stretch_e)
     
     TYPE(t_patch_3d ), POINTER, INTENT(in)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: ocean_state
+    TYPE(t_operator_coeff), INTENT(in)              :: operators_coefficients
     REAL(wp), INTENT(INOUT) :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! sfc ht 
     REAL(wp), INTENT(INOUT) :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp), INTENT(INOUT) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
@@ -151,9 +154,19 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
     
     REAL(wp) :: H_c  (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! Column depth at cell 
+
+    REAL(wp) :: z_depth  (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: temp     (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp) :: flux_vz  (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp) :: flux_v   (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp) :: div_vz   (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: div_v    (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     
-    INTEGER  :: jb, jc, je, bt_lev 
+    INTEGER  :: jb, jc, je, bt_lev, level 
     INTEGER  :: start_index, end_index 
+
+    REAL(wp) :: w_temp(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
+    REAL(wp) :: w_deriv(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
 
     INTEGER, DIMENSION(:,:,:), POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
@@ -174,6 +187,7 @@ CONTAINS
 !ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
 
+    z_depth = 0.0_wp
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
@@ -181,6 +195,13 @@ CONTAINS
       DO jc = start_index, end_index
         
         bt_lev = patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
+ 
+        !! Get physical depth of levels for later use
+        !! FIXME TODO: Something is wrong here
+        IF(patch_3D%lsm_c(jc, 1, jb) <= sea_boundary)THEN
+          z_depth(jc, 1:bt_lev, jb) =  patch_3d%p_patch_1d(1)%depth_CellMiddle(jc, 1:bt_lev, jb) &
+            & *stretch_c(jc, jb) + eta_c(jc, jb)  
+        ENDIF
  
         H_c  (jc, jb)      = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, bt_lev + 1, jb)
         if ( patch_3D%lsm_c(jc, 1, jb) <= sea_boundary ) THEN
@@ -198,38 +219,105 @@ CONTAINS
 !ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
 
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, je, &
+!ICON_OMP  id1, id2, bl1, bl2, st1, st2) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+      DO je = start_index, end_index
+        
+        !Get indices of two adjacent triangles
+        id1 = idx(je, jb, 1)
+        bl1 = blk(je, jb, 1)
+        id2 = idx(je, jb, 2)
+        bl2 = blk(je, jb, 2)
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, je, jk, id1, id2, bl1, bl2, st1, st2) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, jb, start_index, end_index)
-        DO je = start_index, end_index
-          id1 = idx(je, jb, 1)
-          id2 = idx(je, jb, 2)
-          bl1 = blk(je, jb, 1)
-          bl2 = blk(je, jb, 2)
-   
-          st1 = stretch_c(id1, bl1) 
-          st2 = stretch_c(id2, bl2) 
-  
-          !! FIXME: There seem to be edge cases where this does not work
-          IF(patch_3D%lsm_e(je, 1, jb) <= sea_boundary)THEN
-            stretch_e(je, jb) = 0.5_wp*(st1 + st2)
-          ELSE
-            stretch_e(je, jb) = 1.0_wp
-          ENDIF
-  
-  
-        ENDDO
+        !! Get coefficient for scalar by getting magnitude of vector coefficient
+        st1 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc_t(je, 1, jb, 1)%x, &
+          & operators_coefficients%edge2cell_coeff_cc_t(je, 1, jb ,1)%x)  
+        st1 = SQRT(st1)
+        st2 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc_t(je, 1, jb, 2)%x, &
+          & operators_coefficients%edge2cell_coeff_cc_t(je, 1, jb, 2)%x)
+        st2 = SQRT(st2)
+
+        IF(patch_3D%lsm_e(je, 1, jb) <= sea_boundary)THEN
+          stretch_e(je, jb) = st1*stretch_c(id1, bl1) + st2*stretch_c(id2, bl2)
+        ELSE
+          stretch_e(je, jb) = 1.0_wp
+        ENDIF
+        
       END DO
-!ICON_OMP_END_PARALLEL_DO
+    END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+!ICON_OMP_END_PARALLEL_DO    
+
 
 !ICON_OMP_MASTER
       CALL sync_patch_array(sync_e, patch_2D, stretch_e)
 !ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
 
+
+  !-------------------------------------------------------------------------
+  !! Transform w* to w
+  !-------------------------------------------------------------------------
+  
+!    CALL map_edges2edges_viacell_3d_const_z( patch_3d, &
+!       & ocean_state%p_prog(nold(1))%vn,        &
+!       & operators_coefficients,                &
+!       & flux_v)
+! 
+!    !! FIXME zstar: This does not work with the default map_edges2edges
+!    !! and for some reason works with the zstar version
+!    temp = 1.0_wp
+!    CALL map_edges2edges_sc_zstar( patch_3d, ocean_state%p_prog(nold(1))%vn, z_depth, &
+!     & operators_coefficients, temp, flux_vz)
+!
+!
+!    CALL div_oce_3d( flux_vz, patch_3D, operators_coefficients%div_coeff, &
+!      & div_vz, subset_range=cells_in_domain)
+!    CALL div_oce_3d( flux_v, patch_3D, operators_coefficients%div_coeff, &
+!      & div_v, subset_range=cells_in_domain)
+!
+!    w_temp = 0.0_wp
+!!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
+!    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
+!      DO jc = start_index, end_index
+!        
+!        bt_lev = patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
+! 
+!        IF(patch_3D%lsm_c(jc, 1, jb) <= sea_boundary)THEN
+!          w_temp(jc, 1:bt_lev, jb) =  (div_vz(jc, 1:bt_lev, jb) - &
+!            & z_depth(jc, 1:bt_lev, jb)*div_v(jc, 1:bt_lev, jb) )  &
+!            & * (1.0_wp/stretch_c(jc, jb)) 
+!        ENDIF
+! 
+!      END DO
+!    END DO ! blockNo
+!!ICON_OMP_END_PARALLEL_DO
+!    
+!    CALL map_scalar_center2prismtop(patch_3d, w_temp, operators_coefficients, w_deriv)
+!
+!    w_deriv(:, 1, :) = 0.0_wp
+!!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
+!    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
+!      DO jc = start_index, end_index
+!        
+!        bt_lev = patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
+! 
+!        !! Get physical depth of levels for later use
+!        w_deriv(jc, 2:bt_lev, jb) =  ocean_state%p_diag%w(jc, 2:bt_lev, jb)*(1.0_wp/stretch_c(jc, jb)) &
+!          & + w_deriv(jc, 2:bt_lev, jb)
+! 
+!      END DO
+!    END DO ! blockNo
+!!ICON_OMP_END_PARALLEL_DO
+  
+!    CALL dbg_print('on entry: w'   , ocean_state%p_diag%w,'check', 1, in_subset=cells_in_domain)
+!    CALL dbg_print('on entry: wstar'   , w_deriv,'check', 1, in_subset=cells_in_domain)
   END SUBROUTINE update_zstar_variables
  
+
    
   !! Init variables related to surface height elliptic solver
   SUBROUTINE init_free_sfc(patch_3d, ocean_state, op_coeffs, solverCoeff_sp, str_e, free_sfc_solver, &
@@ -505,9 +593,8 @@ CONTAINS
     ! STEP 2: compute 3D contributions: gradient of hydrostatic pressure and vertical velocity advection
       
     ! calculate density from EOS using temperature and salinity at timelevel n
-    ! FIXME zstar: Uses depth to calculate pressure, will need fix 
-    CALL calculate_density( patch_3d,                         &
-     & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+    CALL calculate_density_zstar( patch_3d,                              &
+     & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer), eta_c, stretch_c, &
      & ocean_state%p_diag%rho(:,:,:) )
 
     CALL calc_internal_press_grad_zstar( patch_3d,&
@@ -518,7 +605,7 @@ CONTAINS
        &                          stretch_c,             &
        &                          ocean_state%p_diag%press_grad)     
     ! calculate vertical velocity advection
-    !! FIXME: All derivatives are calculated from level = 2
+    !! All derivatives are calculated from level = 2
     !! Level=1 derivatives seem to be assumed to be 0
     !! With this assumption no changes would be required
     CALL veloc_adv_vert_mimetic(          &
@@ -579,11 +666,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   SUBROUTINE calculate_explicit_vn_pred_3D_onBlock_zstar( patch_3d, ocean_state, z_gradh_e, &
-    & start_edge_index, end_edge_index, blockNo)
+    & start_edge_index, end_edge_index, blockNo, stretch_e)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     REAL(wp) :: z_gradh_e(nproma)
     INTEGER, INTENT(in) :: start_edge_index, end_edge_index, blockNo
+    REAL(wp), INTENT(IN) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     INTEGER :: je, jk, bottom_level
     !-----------------------------------------------------------------------
     DO je = start_edge_index, end_edge_index
@@ -610,12 +698,12 @@ CONTAINS
       IF(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)>=min_dolic) THEN
         ocean_state%p_diag%vn_pred(je,1,blockNo) =  ocean_state%p_diag%vn_pred(je,1,blockNo)      &
           & + dtime*ocean_state%p_aux%bc_top_vn(je,blockNo)                                  &
-          & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) ! Change to prism_thick_e ?
+          & /(stretch_e(je, blockNo) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) )
         bottom_level = patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
         ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                                  &
           & = ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                            &
           & - dtime*ocean_state%p_aux%bc_bot_vn(je,blockNo)                                  &
-          & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,bottom_level,blockNo)
+          & /( stretch_e(je, blockNo) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,bottom_level,blockNo) )
       ENDIF
     END DO
   END SUBROUTINE calculate_explicit_vn_pred_3D_onBlock_zstar
@@ -752,7 +840,7 @@ CONTAINS
         & start_edge_index, end_edge_index, blockNo)
         
       CALL calculate_explicit_vn_pred_3D_onBlock_zstar( patch_3d, ocean_state, z_gradh_e(:),    &
-      & start_edge_index, end_edge_index, blockNo)
+      & start_edge_index, end_edge_index, blockNo, stretch_e)
       ! calculate vertical friction, ie p_phys_param%a_veloc_v
       ! FIXME zstar: This is not modified for zstar
       ! requires density gradient, where is that calculated 
@@ -895,7 +983,7 @@ CONTAINS
       ! solve for new free surface
       !------------------------------------------------------------------------
       
-      !! FIXME: The RHS can be filled explicitly here, however, the LHS requires
+      !! The RHS can be filled explicitly here, however, the LHS requires
       !! multiplying the Beta*Gamma term with (H+eta)/H
       !! The height goes in using map_edges2edges_viacell_2D 
       !! init sfc solver related objects, if necessary
@@ -950,7 +1038,8 @@ CONTAINS
       !-------- end of solver ---------------
       !---------------------------------------------------------------------
  
-      CALL update_zstar_variables( patch_3d, eta_c_new, stretch_c_new, stretch_e)
+      CALL update_zstar_variables( patch_3d, ocean_state(1), operators_coefficients, &
+        & eta_c_new, stretch_c_new, stretch_e)
 
       !------------------------------------------------------------------------
       ! end solve for free surface and update stretching

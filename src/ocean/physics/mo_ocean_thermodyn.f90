@@ -50,6 +50,7 @@ MODULE mo_ocean_thermodyn
   ! PUBLIC :: ocean_correct_ThermoExpansion
   PUBLIC :: calc_internal_press
   PUBLIC :: calculate_density,calc_potential_density
+  PUBLIC :: calculate_density_zstar
   PUBLIC :: calculate_density_onColumn
   PUBLIC :: calc_internal_press_grad
   PUBLIC :: calc_internal_press_grad_zstar
@@ -593,6 +594,44 @@ CONTAINS
   END SUBROUTINE calculate_density
   !-------------------------------------------------------------------------
 
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Calculates the density via a call to the equation-of-state.
+  !! Several options for EOS are provided.
+  !!
+  !! Adapted for zstar
+  !!
+  SUBROUTINE calculate_density_zstar(patch_3d,tracer, eta_c, stretch_c, rho)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp),    INTENT(in), TARGET :: tracer(:,:,:,:)     !< input of S and T
+    REAL(wp), INTENT(in)            :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(in)            :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(inout), TARGET :: rho   (:,:,:)       !< density
+   
+    !! FIXME zstar: only mpiom adapted to zstar
+    !For calculate_density_lin_EOS and calculate_density_MPIOM the conversion to in-situ temperature is done
+    !internally.
+    SELECT CASE (eos_type)
+    CASE(1)
+      CALL calculate_density_linear(patch_3d, tracer, rho)
+    CASE(2)
+      CALL calculate_density_mpiom_zstar(patch_3d, tracer, eta_c, stretch_c, rho)
+    CASE(3)
+      CALL calculate_density_jmdwfg06(patch_3d, tracer, rho)
+      !CALL calculate_density_JM_EOS(patch_2D, tracer, rho)k
+    CASE(5)
+      CALL calculate_density_lin(patch_3d, tracer, rho)
+    CASE(10)
+      CALL calculate_density_EOS10(patch_3d, tracer, rho)
+    CASE default
+      
+    END SELECT
+    
+  END SUBROUTINE calculate_density_zstar
+  !-------------------------------------------------------------------------
+
+
   !-------------------------------------------------------------------------
   ! pressure is in dbars !
   FUNCTION calculate_density_onColumn(temperatute, salinity, p, levels) result(rho)
@@ -960,6 +999,78 @@ CONTAINS
     CALL dbg_print('calculate_density_mpiom: rho', rho , "" ,5, patch_2D%cells%in_domain)
 
   END SUBROUTINE calculate_density_mpiom
+  !-------------------------------------------------------------------------
+
+  
+  !----------------------------------------------------------------
+  !>
+  !!  Calculates density as a function of potential temperature and salinity
+  !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! The code below is copied from MPIOM
+  !!
+  !! Adapted for zstar
+  !!
+  SUBROUTINE calculate_density_mpiom_zstar(patch_3d, tracer, eta_c, stretch_c, rho)
+    !
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
+    REAL(wp), INTENT(in)                   :: eta_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(in)                   :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp), INTENT(inout)                :: rho(:,:,:)       !< density
+
+    ! !LOCAL VARIABLES:
+    ! loop indices
+    REAL(wp):: z_p(n_zlev), salinityReference_column(n_zlev)
+    INTEGER :: jc, jk, jb
+    INTEGER :: levels
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3d%p_patch_2d(1)
+    all_cells => patch_2D%cells%ALL
+    salinityReference_column(1:n_zlev) = sal_ref
+    !-------------------------------------------------------------------------
+
+    !  tracer 1: potential temperature
+    !  tracer 2: salinity
+    IF (no_tracer == 2) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc, levels, z_p) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index) 
+        DO jc = start_index, end_index
+          levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          z_p(1:levels) = ( stretch_c(jc, jb) * patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) &
+            & + eta_c(jc, jb) ) &
+            & * OceanReferenceDensity * sitodbar
+          rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
+            & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ELSE
+      
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc, levels, z_p) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+          levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          z_p(1:levels) = ( stretch_c(jc, jb) * patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) &
+            & + eta_c(jc, jb) ) &
+            & * OceanReferenceDensity * sitodbar
+          rho(jc,1:levels,jb) = calculate_density_mpiom_onColumn( &
+             & tracer(jc,1:levels,jb,1),  salinityReference_column(1:levels), z_p(1:levels), levels)
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF ! no_tracer==2
+    
+
+    CALL dbg_print('calculate_density_mpiom: rho', rho , "" ,5, patch_2D%cells%in_domain)
+
+  END SUBROUTINE calculate_density_mpiom_zstar
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
