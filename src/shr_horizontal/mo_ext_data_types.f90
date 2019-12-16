@@ -189,6 +189,11 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< ground fraction covered by deciduous forest [ ]
       &  for_d(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< skin conductivity                   [ W/m^2/K ]
+      &  skinc(:,:)            ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< skin conductivity                   [ W/m^2/K ]
+      &  skinc_t(:,:,:)        ! index1=1,nproma, index2=1,nblks_c, ntiles_total
+
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
       &  rsmin(:,:)            ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
@@ -322,6 +327,8 @@ MODULE mo_ext_data_types
       & laimax_lcc(:)          ! index1=1,23
     REAL(wp), POINTER ::  &    !< Maximum root depth for each land-cover class  [ ]
       & rootdmax_lcc(:)        ! index1=1,23
+    REAL(wp), POINTER ::  &    !< Skin conductivity for each land use class [ ]
+      & skinc_lcc(:)           ! index1=1,23
     REAL(wp), POINTER ::  &    !< Minimum stomata resistance for each land-cover class  [ ]
       & stomresmin_lcc(:)      ! index1=1,23
     REAL(wp), POINTER ::  &    !< Albedo in case of snow cover for each land-cover class  [ ]

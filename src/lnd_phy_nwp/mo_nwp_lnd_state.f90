@@ -384,6 +384,7 @@ MODULE mo_nwp_lnd_state
     ! Ensure that all pointers have a defined association status.
     !------------------------------
     NULLIFY(p_prog_lnd%t_s_t, &
+    &       p_prog_lnd%t_sk_t, &
     &       p_prog_lnd%t_g, &
     &       p_prog_lnd%t_g_t, &
     &       p_prog_lnd%w_i_t, &
@@ -466,8 +467,32 @@ MODULE mo_nwp_lnd_state
            & vname_prefix//'t_s_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
            & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-           & t_cf_var('t_s_t_'//csfc, '', '', datatype_flt),             &
+           & t_cf_var('t_s_t_'//csfc, '', '', datatype_flt),               &
            & grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
+           & ldims=shape2d,                                                &
+           & var_class=CLASS_TILE,                                         &
+           & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+    ENDDO
+
+
+    ! & p_prog_lnd%t_sk_t(nproma,nblks_c,ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('t_sk_t', 'K', 'skin temperature', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'t_sk_t'//suffix, p_prog_lnd%t_sk_t,  &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+         & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
+
+    ! fill the separate variables belonging to the container t_sk
+    ALLOCATE(p_prog_lnd%t_sk_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      NULLIFY(p_prog_lnd%t_sk_ptr(jsfc)%p_2d, p_prog_lnd%t_sk_ptr(jsfc)%p_3d)
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'t_sk_t'//suffix,             &
+           & vname_prefix//'t_sk_t_'//TRIM(ADJUSTL(csfc))//suffix,         &
+           & p_prog_lnd%t_sk_ptr(jsfc)%p_2d,                               &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+           & t_cf_var('t_sk_t_'//csfc, '', '', datatype_flt),              &
+           & grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE,                                         &
            & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
@@ -1198,6 +1223,7 @@ MODULE mo_nwp_lnd_state
     !------------------------------
     NULLIFY(p_diag_lnd%qv_s, &
     &       p_diag_lnd%t_s, &
+    &       p_diag_lnd%t_sk, &
     &       p_diag_lnd%t_seasfc, &
     &       p_diag_lnd%w_i, &
     &       p_diag_lnd%w_p, &
@@ -1303,6 +1329,14 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('t_s', 'K', 'weighted temperature of ground surface', datatype_flt)
     grib2_desc = grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_s', p_diag_lnd%t_s,                &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+
+
+    ! & p_diag_lnd%t_sk(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_sk', 'K', 'skin temperature', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'t_sk', p_diag_lnd%t_sk,                &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
 

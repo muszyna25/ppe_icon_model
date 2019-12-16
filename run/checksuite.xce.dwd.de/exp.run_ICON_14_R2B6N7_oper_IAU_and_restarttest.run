@@ -383,6 +383,9 @@ cat > ${atmo_namelist} << EOF
  itype_evsl                     = 4
  itype_trvg                     = 3
  cwimax_ml                      = 5.e-4
+ itype_canopy                   = 2
+ cskinc                         = -1.0
+ cimpl                          = 20.0
  c_soil                         = 1.25
  c_soil_urb                     = 0.5
  sstice_mode                    = 2  ! 1: constant SST; 2: with climatological SST increments

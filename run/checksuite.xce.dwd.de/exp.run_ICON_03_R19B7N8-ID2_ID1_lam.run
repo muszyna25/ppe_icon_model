@@ -348,6 +348,9 @@ tune_minsnowfrac = 0.3
   itype_evsl     = 4
   itype_root     = 2
   cwimax_ml      = 5.e-4
+  itype_canopy   = 2
+  cskinc         = -1.0
+  cimpl          = 150.0
   c_soil         = 1.75
   c_soil_urb     = 0.5
 /

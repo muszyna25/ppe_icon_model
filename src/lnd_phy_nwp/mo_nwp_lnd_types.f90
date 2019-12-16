@@ -57,6 +57,7 @@ MODULE mo_nwp_lnd_types
 #endif
     &  ::                         &
     &  t_s_t          (:,:,:)   , & ! temperature of the ground surface             (  K  )
+    &  t_sk_t         (:,:,:)   , & ! skin temperature                              (  K  )
     &  t_g            (:,:)     , & ! weighted surface temperature                  (  K  )
     &  t_g_t          (:,:,:)   , & ! weighted surface temperature on tiles         (  K  )
     &  w_i_t          (:,:,:)   , & ! water content of interception water           (m H2O)
@@ -77,6 +78,7 @@ MODULE mo_nwp_lnd_types
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_snow_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_snow_mult_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_s_ptr(:)
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_sk_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_gt_ptr(:) 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: w_snow_ptr(:) 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: rho_snow_ptr(:)
@@ -135,6 +137,7 @@ MODULE mo_nwp_lnd_types
     &  ::                     &
     &  qv_s         (:,:)   , & ! specific humidity at the surface              (kg/kg)
     &  t_s          (:,:)   , & ! temperature of the ground surface             (  K  )
+    &  t_sk         (:,:)   , & ! skin temperature                              (  K  )
     &  t_seasfc     (:,:)   , & ! temperature of the sea surface                (  K  )
     &  t2m_bias     (:,:)   , & ! filtered T2M bias from surface analysis         [K]
     &  w_i          (:,:)   , & ! water content of interception water           (m H2O)

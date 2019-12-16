@@ -58,6 +58,9 @@ MODULE mo_lnd_nwp_nml
     &                               config_itype_evsl  => itype_evsl    , &
     &                              config_itype_lndtbl => itype_lndtbl  , &
     &                               config_itype_root  => itype_root    , &
+    &                             config_itype_canopy  => itype_canopy  , &
+    &                             config_cskinc        => cskinc        , &
+    &                             config_cimpl         => cimpl         , &
     &                               config_lstomata    => lstomata      , &
     &                               config_l2tls       => l2tls         , &
     &                            config_itype_heatcond => itype_heatcond, &
@@ -93,6 +96,9 @@ MODULE mo_lnd_nwp_nml
   REAL(wp)::  cwimax_ml         !< scaling parameter for maximum interception storage
   REAL(wp)::  c_soil            !< surface area density of the (evaporative) soil surface
   REAL(wp)::  c_soil_urb        !< surface area density of the (evaporative) soil surface, urban areas
+  INTEGER ::  itype_canopy      !< type of canopy parameterisation with respect to the surface energy balance
+  REAL(wp)::  cskinc            !< skin conductivity (W/m**2/K)
+  REAL(wp)::  cimpl             !< stability parameter for the computation of the skin temperature
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
   INTEGER ::  itype_snowevap    !< treatment of snow evaporation in the presence of vegetation      
@@ -127,6 +133,7 @@ MODULE mo_lnd_nwp_nml
     &               itype_heatcond                                  , & 
     &               itype_interception                              , & 
     &               itype_hydbound                                  , & 
+    &               itype_canopy, cskinc, cimpl                     , &
     &               lstomata                                        , & 
     &               l2tls                                           , & 
     &               lana_rho_snow, l2lay_rho_snow                   , & 
@@ -214,6 +221,15 @@ MODULE mo_lnd_nwp_nml
     c_soil         = 1._wp   ! surface area density of the (evaporative) soil surface
     c_soil_urb     = 1._wp   ! surface area density of the (evaporative) soil surface, urban areas
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
+    !
+    itype_canopy   = 1       ! type of canopy parameterisation with respect to the surface energy balance
+                             !  1: surface energy balance equation solved at the ground surface,
+                             !     canopy energetically not represented
+                             !  2: skin temperature formulation by Schulz and Vogel (2017),
+                             !     based on Viterbo and Beljaars (1995)
+    cskinc         = -1._wp  ! skin conductivity (W/m**2/K)
+    cimpl          = 120._wp ! stability parameter for the computation of the skin temperature
+    !
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
     lana_rho_snow  =.TRUE.   ! if .TRUE., take rho_snow-values from analysis file 
@@ -302,6 +318,9 @@ MODULE mo_lnd_nwp_nml
       config_itype_evsl  = itype_evsl
       config_itype_lndtbl= itype_lndtbl
       config_itype_root  = itype_root
+      config_itype_canopy = itype_canopy
+      config_cskinc      = cskinc
+      config_cimpl       = cimpl
       config_lstomata    = lstomata
       config_l2tls       = l2tls
       config_itype_heatcond = itype_heatcond

@@ -1333,12 +1333,16 @@ MODULE mo_initicon_utils
               ENDDO
             ENDDO
 
-            ! set t_s for land tiles to t_so_t(1)
+            ! set t_s and t_sk for land tiles to t_so_t(1)
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,jt)= &
                 &                                              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,1,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_sk_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_sk_t(jc,jb,jt)= &
                 &                                              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,1,jb,jt)
             ENDDO
           ENDDO

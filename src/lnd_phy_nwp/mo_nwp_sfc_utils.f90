@@ -52,7 +52,7 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               itype_interception, l2lay_rho_snow, lprog_albsi, itype_trvg, &
-                                    itype_snowevap
+    &                               itype_snowevap
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode, lanaread_tseasfc, use_lakeiceana
   USE mo_run_config,          ONLY: msg_level
@@ -146,16 +146,19 @@ CONTAINS
         ! tiled
         p_prog_lnd_now%t_g_t(jc,jb,:)    = tmelt
         p_prog_lnd_now%t_s_t(jc,jb,:)    = tmelt
+        p_prog_lnd_now%t_sk_t(jc,jb,:)   = tmelt
         p_prog_lnd_now%t_so_t(jc,:,jb,:) = tmelt
         !
         p_prog_lnd_new%t_g_t(jc,jb,:)    = tmelt
         p_prog_lnd_new%t_s_t(jc,jb,:)    = tmelt
+        p_prog_lnd_new%t_sk_t(jc,jb,:)   = tmelt
         p_prog_lnd_new%t_so_t(jc,:,jb,:) = tmelt
         !
         ! agg
         p_prog_lnd_now%t_g(jc,jb)    = tmelt
         p_prog_lnd_new%t_g(jc,jb)    = tmelt
         p_lnd_diag%t_s(jc,jb)        = tmelt
+        p_lnd_diag%t_sk(jc,jb)       = tmelt
         p_lnd_diag%t_so(jc,:,jb)     = tmelt
       ENDDO
 
@@ -214,6 +217,10 @@ CONTAINS
     REAL(wp) :: t_s_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_g_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_s_new_t(nproma, p_patch%nblks_c, ntiles_total)
+
+    REAL(wp) :: t_sk_now_t(nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: t_sk_new_t(nproma, p_patch%nblks_c, ntiles_total)
+
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: h_snow_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rho_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -343,12 +350,16 @@ CONTAINS
         jc = ext_data%atm%list_seawtr%idx(ic,jb)
         p_prog_lnd_now%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
         p_prog_lnd_new%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
+        p_prog_lnd_now%t_sk_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
+        p_prog_lnd_new%t_sk_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
       ENDDO
 
       DO ic = 1, ext_data%atm%list_seaice%ncount(jb)
         jc = ext_data%atm%list_seaice%idx(ic,jb)
         p_prog_lnd_now%t_s_t(jc,jb,isub_seaice) = tf_salt
         p_prog_lnd_new%t_s_t(jc,jb,isub_seaice) = tf_salt
+        p_prog_lnd_now%t_sk_t(jc,jb,isub_seaice) = tf_salt
+        p_prog_lnd_new%t_sk_t(jc,jb,isub_seaice) = tf_salt
       ENDDO
 
 
@@ -380,6 +391,9 @@ CONTAINS
           t_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%t_snow_t(jc,jb,isubs)
           t_s_now_t(ic,jb,isubs)             =  p_prog_lnd_now%t_s_t(jc,jb,isubs)
           t_s_new_t(ic,jb,isubs)             =  p_prog_lnd_new%t_s_t(jc,jb,isubs)
+          t_sk_now_t(ic,jb,isubs)            =  p_prog_lnd_now%t_sk_t(jc,jb,isubs)
+          t_sk_new_t(ic,jb,isubs)            =  p_prog_lnd_new%t_sk_t(jc,jb,isubs)
+
           w_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%w_snow_t(jc,jb,isubs)
           rho_snow_now_t(ic,jb,isubs)        =  p_prog_lnd_now%rho_snow_t(jc,jb,isubs)
 
@@ -526,6 +540,8 @@ CONTAINS
         &  t_rhosnowini      = t_rhosnowini_t(:,jb,isubs)       , & ! temperature used for snow density initialization (  K  )
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
+        &  t_sk_now          = t_sk_now_t(:,jb,isubs)           , & ! skin temperature (  K  )
+        &  t_sk_new          = t_sk_new_t(:,jb,isubs)           , & ! skin temperature (  K  )
         &  w_snow_now        = w_snow_now_t(:,jb,isubs)         , & ! water content of snow             (m H2O)
         &  h_snow            = h_snow_t(:,jb,isubs)             , & ! snow depth                        (m H2O)
         &  rho_snow_now      = rho_snow_now_t(:,jb,isubs)       , & ! snow density                      (kg/m**3)
@@ -542,19 +558,19 @@ CONTAINS
 
         IF (.NOT. lsnowtile_warmstart .OR. isubs > ntiles_lnd) THEN
 
-          CALL diag_snowfrac_tg(                           &
-            &  istart = 1, iend = i_count                , & ! start/end indices
-            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
-            &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
-            &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
-            &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
-            &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
-            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
-            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
-            &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
-            &  z0        = z0_t              (:,jb,isubs), & ! vegetation roughness length
-            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
-            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+          CALL diag_snowfrac_tg(                                  &
+            &  istart     = 1, iend = i_count                   , & ! start/end indices
+            &  lc_class   = lc_class_t              (:,jb,isubs), & ! land-cover class
+            &  i_lc_urban = ext_data%atm%i_lc_urban             , & ! land-cover class index for urban areas
+            &  t_snow     = t_snow_now_t            (:,jb,isubs), & ! snow temperature
+            &  t_soiltop  = t_sk_now_t              (:,jb,isubs), & ! soil top temperature or skin temperature
+            &  w_snow     = w_snow_now_t            (:,jb,isubs), & ! snow WE
+            &  rho_snow   = rho_snow_now_t          (:,jb,isubs), & ! snow depth
+            &  freshsnow  = freshsnow_t             (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma  = sso_sigma_t             (:,jb,isubs), & ! sso stdev
+            &  z0         = z0_t                    (:,jb,isubs), & ! vegetation roughness length
+            &  snowfrac   = snowfrac_t              (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g        = t_g_t                   (:,jb,isubs)  ) ! OUT: averaged ground temperature
 
         ENDIF
 
@@ -566,6 +582,8 @@ CONTAINS
           p_prog_lnd_now%t_snow_t(jc,jb,isubs)   = t_snow_now_t(ic,jb,isubs)
           p_prog_lnd_now%t_s_t(jc,jb,isubs)      = t_s_now_t(ic,jb,isubs)
           p_prog_lnd_new%t_s_t(jc,jb,isubs)      = t_s_new_t(ic,jb,isubs)
+          p_prog_lnd_now%t_sk_t(jc,jb,isubs)     = t_sk_now_t(ic,jb,isubs)
+          p_prog_lnd_new%t_sk_t(jc,jb,isubs)     = t_sk_new_t(ic,jb,isubs)
           p_prog_lnd_now%w_snow_t(jc,jb,isubs)   = w_snow_now_t(ic,jb,isubs)
           p_lnd_diag%h_snow_t(jc,jb,isubs)       = h_snow_t(ic,jb,isubs)
           p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = rho_snow_now_t(ic,jb,isubs)
@@ -781,6 +799,8 @@ CONTAINS
           ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
           p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = p_prog_wtr_now%t_wml_lk (jc,jb)
           p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_prog_lnd_now%t_s_t(jc,jb,isub_lake)
+          p_prog_lnd_now%t_sk_t(jc,jb,isub_lake) = p_prog_wtr_now%t_wml_lk (jc,jb)
+          p_prog_lnd_new%t_sk_t(jc,jb,isub_lake) = p_prog_lnd_now%t_s_t(jc,jb,isub_lake)
 
 
           ! In addition, initialize prognostic Flake fields at time step 'new'
@@ -1262,6 +1282,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           lnd_diag%t_snow   (jc,jb) = lnd_prog%t_snow_t   (jc,jb,1)
           lnd_diag%t_s      (jc,jb) = lnd_prog%t_s_t      (jc,jb,1)
+          lnd_diag%t_sk     (jc,jb) = lnd_prog%t_sk_t     (jc,jb,1)
           lnd_diag%w_snow   (jc,jb) = lnd_prog%w_snow_t   (jc,jb,1)
           lnd_diag%rho_snow (jc,jb) = lnd_prog%rho_snow_t (jc,jb,1)
           lnd_diag%w_i      (jc,jb) = lnd_prog%w_i_t      (jc,jb,1)
@@ -1325,6 +1346,7 @@ CONTAINS
         !
         lnd_diag%t_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%t_s      (i_startidx:i_endidx,jb)  = 0._wp
+        lnd_diag%t_sk     (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%w_snow   (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%w_i      (i_startidx:i_endidx,jb)  = 0._wp
         lnd_diag%h_snow   (i_startidx:i_endidx,jb)  = 0._wp
@@ -1482,6 +1504,8 @@ CONTAINS
 
             lnd_diag%t_s(jc,jb)       = lnd_diag%t_s(jc,jb) + tilefrac       &
               &                         * lnd_prog%t_s_t(jc,jb,isubs)
+            lnd_diag%t_sk(jc,jb)      = lnd_diag%t_sk(jc,jb) + tilefrac       &
+              &                         * lnd_prog%t_sk_t(jc,jb,isubs)
           ENDDO
         ENDDO
 
@@ -2107,7 +2131,7 @@ CONTAINS
     &                              frac_t_water, lc_frac_t_water, fr_seaice,            &
     &                              hice_old, tice_old, albsi_now, albsi_new,            &
     &                              t_g_t_now, t_g_t_new, t_s_t_now, t_s_t_new,          &
-    &                              qv_s_t, t_seasfc )
+    &                              t_sk_t_now, t_sk_t_new, qv_s_t, t_seasfc )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea-ice depth at new time level  [m]
@@ -2156,6 +2180,12 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< surface temperature of water tile (new)  [K]
       &  t_s_t_new(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< skin temperature of water tile (now)  [K]
+      &  t_sk_t_now(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< skin temperature of water tile (new)  [K]
+      &  t_sk_t_new(:)
 
     REAL(wp),    INTENT(INOUT) ::  &   !< surface specific humidity        [kg/kg]
       &  qv_s_t(:)
@@ -2268,6 +2298,9 @@ CONTAINS
             t_s_t_new(jc) = tf_salt ! otherwise aggregated t_so and t_s will be 
                                     ! 0 at these points
             t_s_t_now(jc) = tf_salt
+
+            t_sk_t_new(jc) = tf_salt
+            t_sk_t_now(jc) = tf_salt
 
             t_seasfc(jc)  = tf_salt
 
@@ -2448,8 +2481,10 @@ CONTAINS
           !
           p_lnd_state%prog_lnd(n_now)%t_g_t(jc,jb,isub_water) = new_sst
           p_lnd_state%prog_lnd(n_now)%t_s_t(jc,jb,isub_water) = new_sst
+          p_lnd_state%prog_lnd(n_now)%t_sk_t(jc,jb,isub_water)= new_sst
           p_lnd_state%prog_lnd(n_new)%t_g_t(jc,jb,isub_water) = new_sst
           p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water) = new_sst
+          p_lnd_state%prog_lnd(n_new)%t_sk_t(jc,jb,isub_water)= new_sst
 
           ! includes reduction of saturation pressure due to salt content
           p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water) = salinity_fac *                       & 
@@ -2639,10 +2674,12 @@ CONTAINS
               p_lnd_state%prog_wtr(n_new)%alb_si(jc,jb) = albsi_new(ic)
             ENDIF
 
-            p_lnd_state%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice) = tice_now(ic)
-            p_lnd_state%prog_lnd(n_new)%t_g_t(jc,jb,isub_seaice) = tice_new(ic) ! == tice_now(ic)
-            p_lnd_state%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice) = tf_salt
-            p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_seaice) = tf_salt
+            p_lnd_state%prog_lnd(n_now)%t_g_t (jc,jb,isub_seaice) = tice_now(ic)
+            p_lnd_state%prog_lnd(n_new)%t_g_t (jc,jb,isub_seaice) = tice_new(ic) ! == tice_now(ic)
+            p_lnd_state%prog_lnd(n_now)%t_s_t (jc,jb,isub_seaice) = tf_salt
+            p_lnd_state%prog_lnd(n_new)%t_s_t (jc,jb,isub_seaice) = tf_salt
+            p_lnd_state%prog_lnd(n_now)%t_sk_t(jc,jb,isub_seaice) = tf_salt
+            p_lnd_state%prog_lnd(n_new)%t_sk_t(jc,jb,isub_seaice) = tf_salt
             p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_seaice)    = spec_humi(sat_pres_ice(tice_now(ic)),&
               &                                                 p_nh_state%diag%pres_sfc(jc,jb) )
           ENDDO  ! ic
@@ -2675,10 +2712,12 @@ CONTAINS
             ENDIF
 
             IF (ntiles_total > 1) THEN
-              p_lnd_state%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice) = tmelt
-              p_lnd_state%prog_lnd(n_new)%t_g_t(jc,jb,isub_seaice) = tmelt
-              p_lnd_state%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice) = tmelt
-              p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_seaice) = tmelt
+              p_lnd_state%prog_lnd(n_now)%t_g_t (jc,jb,isub_seaice) = tmelt
+              p_lnd_state%prog_lnd(n_new)%t_g_t (jc,jb,isub_seaice) = tmelt
+              p_lnd_state%prog_lnd(n_now)%t_s_t (jc,jb,isub_seaice) = tmelt
+              p_lnd_state%prog_lnd(n_new)%t_s_t (jc,jb,isub_seaice) = tmelt
+              p_lnd_state%prog_lnd(n_now)%t_sk_t(jc,jb,isub_seaice) = tmelt
+              p_lnd_state%prog_lnd(n_new)%t_sk_t(jc,jb,isub_seaice) = tmelt
               !p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_seaice)       =
             ENDIF
           ENDDO  ! ic
@@ -2696,10 +2735,12 @@ CONTAINS
             jc = list_water_retained%idx(ic,jb)
 
             t_water = p_lnd_state%diag_lnd%t_seasfc(jc,jb)
-            p_lnd_state%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= t_water
-            p_lnd_state%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= t_water
-            p_lnd_state%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)= t_water
-            p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_now)%t_g_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_now)%t_s_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_now)%t_sk_t(jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_new)%t_g_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_new)%t_s_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_new)%t_sk_t(jc,jb,isub_water)= t_water
             !
             ! includes reduction of saturation pressure due to salt content
             p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  salinity_fac *      &
@@ -2717,10 +2758,13 @@ CONTAINS
             jc = list_water_created%idx(ic,jb)
 
             t_water = MAX(tf_salt,p_lnd_state%diag_lnd%t_seasfc(jc,jb))
-            p_lnd_state%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= t_water
-            p_lnd_state%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= t_water
-            p_lnd_state%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)= t_water
-            p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_now)%t_g_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_now)%t_s_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_now)%t_sk_t(jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_new)%t_g_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_new)%t_s_t (jc,jb,isub_water)= t_water
+            p_lnd_state%prog_lnd(n_new)%t_sk_t(jc,jb,isub_water)= t_water
+
             !
             ! includes reduction of saturation pressure due to salt content
             p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  salinity_fac *      &
@@ -2737,7 +2781,8 @@ CONTAINS
           ! we would otherwise overwrite t_g_t, t_s_t, qv_s_t, which has already been 
           ! initialized for newly generated seaice points (list_seaice_created).
           IF (ntiles_total > 1) THEN
-            ! III) destroyed water points points
+            !
+            ! III) destroyed water points
             !      now pure seaice points
             !
             ! re-initialize water temperature which is in contact with overlying seaice
@@ -2745,10 +2790,12 @@ CONTAINS
 
               jc = list_water_destroyed%idx(ic,jb)
 
-              p_lnd_state%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= tf_salt
-              p_lnd_state%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= tf_salt
-              p_lnd_state%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)= tf_salt
-              p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= tf_salt
+              p_lnd_state%prog_lnd(n_now)%t_g_t (jc,jb,isub_water)= tf_salt
+              p_lnd_state%prog_lnd(n_now)%t_s_t (jc,jb,isub_water)= tf_salt
+              p_lnd_state%prog_lnd(n_now)%t_sk_t(jc,jb,isub_water)= tf_salt
+              p_lnd_state%prog_lnd(n_new)%t_g_t (jc,jb,isub_water)= tf_salt
+              p_lnd_state%prog_lnd(n_new)%t_s_t (jc,jb,isub_water)= tf_salt
+              p_lnd_state%prog_lnd(n_new)%t_sk_t(jc,jb,isub_water)= tf_salt
               !
               ! includes reduction of saturation pressure due to salt content
               p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  salinity_fac *      &
@@ -2812,9 +2859,13 @@ CONTAINS
                    p_lnd_state%diag_lnd%t_seasfc(jc,jb)
               p_lnd_state%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)=   &
                    p_lnd_state%diag_lnd%t_seasfc(jc,jb)
+              p_lnd_state%prog_lnd(n_now)%t_sk_t(jc,jb,isub_water)=  &
+                   p_lnd_state%diag_lnd%t_seasfc(jc,jb)
               p_lnd_state%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)=   &
                    p_lnd_state%diag_lnd%t_seasfc(jc,jb)
               p_lnd_state%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)=   &
+                   p_lnd_state%diag_lnd%t_seasfc(jc,jb)
+              p_lnd_state%prog_lnd(n_new)%t_sk_t(jc,jb,isub_water)=  &
                    p_lnd_state%diag_lnd%t_seasfc(jc,jb)
               ! includes reduction of saturation pressure due to salt content
               p_lnd_state%diag_lnd%qv_s_t(jc,jb,isub_water)    =  salinity_fac *        &
@@ -3144,6 +3195,7 @@ CONTAINS
 
       DO jt = 1, ntiles_total+ntiles_water
         p_prog_lnd_new%t_s_t(is:ie,jb,jt) = p_prog_lnd_now%t_s_t(is:ie,jb,jt)
+        p_prog_lnd_new%t_sk_t(is:ie,jb,jt) = p_prog_lnd_now%t_sk_t(is:ie,jb,jt)
       ENDDO
 
       DO jt = 1, ntiles_total

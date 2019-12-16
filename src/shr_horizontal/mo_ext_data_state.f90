@@ -275,6 +275,8 @@ CONTAINS
       &     p_ext_atm%rootdp_t,        &
       &     p_ext_atm%for_e,           &
       &     p_ext_atm%for_d,           &
+      &     p_ext_atm%skinc,           &
+      &     p_ext_atm%skinc_t,         &
       &     p_ext_atm%rsmin,           &
       &     p_ext_atm%rsmin2d_t,       &
       &     p_ext_atm%ndvi_max,        &
@@ -763,6 +765,7 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+
       ! evergreen forest
       !
       ! for_e        p_ext_atm%for_e(nproma,nblks_c)
@@ -773,8 +776,6 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
-
-
       ! deciduous forest
       !
       ! for_d     p_ext_atm%for_d(nproma,nblks_c)
@@ -784,6 +785,24 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'for_d', p_ext_atm%for_d,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c )
+
+
+      ! Skin conductivity
+      !
+      ! skinc        p_ext_atm%skinc(nproma,nblks_c)
+      cf_desc    = t_cf_var('skinc', 'W m-2 K-1', 'Skin conductivity', datatype_flt)
+      grib2_desc = grib2_var( 2, 0, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'skinc', p_ext_atm%skinc,               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,            &
+        &           isteptype=TSTEP_CONSTANT )
+
+      ! skinc_t        p_ext_atm%skinc_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('skinc', 'W m-2 K-1', 'Skin conductivity', datatype_flt)
+      grib2_desc = grib2_var( 2, 0, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'skinc_t', p_ext_atm%skinc_t,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
 
       ! Minimal stomata resistence
@@ -802,6 +821,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'rsmin2d_t', p_ext_atm%rsmin2d_t,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+
 
       ! NDVI yearly maximum
       !
@@ -932,6 +952,7 @@ CONTAINS
                 p_ext_atm%plcovmax_lcc(nclass_lu(jg)),  & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(nclass_lu(jg)),    & ! Maximum leaf area index for each land-cover class
                 p_ext_atm%rootdmax_lcc(nclass_lu(jg)),  & ! Maximum root depth each land-cover class
+                p_ext_atm%skinc_lcc(nclass_lu(jg)),     & ! Skin conductivity for each land use class
                 p_ext_atm%stomresmin_lcc(nclass_lu(jg)),& ! Minimum stomata resistance for each land-cover class
                 p_ext_atm%snowalb_lcc(nclass_lu(jg)),   & ! Albedo in case of snow cover for each land-cover class
                 p_ext_atm%snowtile_lcc(nclass_lu(jg))   ) ! Specification of snow tiles for land-cover class

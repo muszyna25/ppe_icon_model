@@ -3502,7 +3502,6 @@ I & 1 &  & Type of snow-fraction diagnosis:\\
 (shold be used only in combination with lsnowtile=.TRUE.&
 \tabularnewline
 
-
 %\hline
 itype\_snowevap &
 I & 2 &  & Tuning of snow evaporation in vegetated areas:\\ 
@@ -3513,58 +3512,80 @@ I & 2 &  & Tuning of snow evaporation in vegetated areas:\\
 lsnowtile=.TRUE.
 \tabularnewline
 
-
 %\hline
 itype\_lndtbl &
 I & 3 &  & Table values used for associating surface parameters to land-cover classes: \\
-1 = defaults from extpar (GLC2000 and GLOBCOVER2009)\\
-2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only)\\
+1 = defaults from extpar (GLC2000 and GLOBCOVER2009) \\
+2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only) \\
 3 = even more tuned operational version (GLOBCOVER2009 only) \\
 4 = tuned version for new bare soil evaporation scheme (itype\_evsl=4) &
 \tabularnewline
 
 %\hline
 itype\_root &
-I & 2 &  & root density distribution: \\
-1 = constant\\
+I & 2 &  & type of root density distribution \\
+1 = constant \\
 2 = exponential &
 \tabularnewline
 
 %\hline
 itype\_evsl &
 I & 2 &  & type of bare soil evaporation parameterization \\
-2 = Dickinson (1984)\\
-3 = Noilhan and Planton (1989) \\
-4 = Resistance-based scheme by Jan-Peter Schulz &
+2 = BATS scheme, Dickinson (1984) \\
+3 = ISBA scheme, Noilhan and Planton (1989) \\
+4 = Resistance-based scheme by Schulz and Vogel (2016) &
 \tabularnewline
 
 %\hline
 itype\_trvg &
 I & 2 &  & type of plant transpiration parameterization \\
-2 = BATS scheme, Dickinson (1984)\\
+2 = BATS scheme, Dickinson (1984) \\
 3 = Extended BATS scheme with additional prognostic variable for integrated plant transpiration since sunrise; 
 should be used only with an appropriate first guess for this variable coming from the DWD assimilation cycle &
 \tabularnewline
 
 %\hline
+itype\_canopy &
+I & 1 &  & Type of canopy parameterization with respect to surface energy balance \\
+1 = Surface energy balance equation solved at the ground surface, canopy energetically not represented \\
+2 = Skin temperature formulation by Schulz and Vogel (2017), based on Viterbo and Beljaars (1995) &
+\tabularnewline
+
+%\hline
+cskinc &
+R & $-1.0$ & $\mathrm{W m^{-2} K^{-1}}$ & Skin conductivity \\
+For cskinc < 0, an external parameter field SKC is read and used \\
+For cskinc > 0, this globally constant value is used in the whole model domain \\
+Reasonable range: 10.0 -- 1000.0 &
+\tabularnewline
+
+%\hline
+cimpl &
+R & $150.0$ &  & Stability parameter for the computation of the skin temperature \\
+The default value works well for model domains with 2.2 km mesh size. For coarser grids and longer timesteps,
+lower values are appropriate. \\
+Reasonable range: 4.0 -- 200.0 &
+\tabularnewline
+
+%\hline
 itype\_heatcond &
 I & 2 &  & type of soil heat conductivity \\
-1 = constant soil heat conductivity\\
-2 = moisture dependent soil heat conductivity\\
+1 = constant soil heat conductivity \\
+2 = moisture dependent soil heat conductivity, cf.\ Schulz et al.\ (2016) \\
 3 = variant of option 2 with reduced near-surface heat conductivity in the presence of plant cover &
 \tabularnewline
 
 %\hline
 itype\_interception &
 I & 1 &  & type of plant interception \\
-1 = standard scheme, effectively switched off by tiny value cwimax\_ml\\
+1 = standard scheme, effectively switched off by tiny value cwimax\_ml \\
 2 = Rain and snow interception (\textcolor{red}{to be removed}) &
 \tabularnewline
 
 %\hline
 cwimax\_ml &
-R & 1.e-6 & m & scaling parameter for maximum interception storage (almost switched off); \\
-use 5.e-4 to activate interception storage & itype\_interception = 1
+R & $1.e-6$ & m & scaling parameter for maximum interception storage (almost switched off); \\
+use $5.e-4$ to activate interception storage & itype\_interception = 1 
 \tabularnewline
 
 %\hline
