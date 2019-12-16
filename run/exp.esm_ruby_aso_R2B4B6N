@@ -55,13 +55,13 @@ ocean_gridID="0031"
 ocean_refinement="R02B06"
 
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
-#  - set to false as ocean was initialised
+#  - set to false if ocean was already initialised
 initialiseOcean="fromRestart"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 # restart=.true.
 
-#mpi_oce_nodes=34 - suitable value for 60 nodes = 26 atm + 34 oce nodes
+#mpi_oce_nodes=32   #  this is a suitable value for 60 nodes = 26 atm + 34 oce nodes
 mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 

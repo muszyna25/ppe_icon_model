@@ -57,7 +57,8 @@ ocean_refinement="R02B04"
 nproma_atm=48
 nproma_oce=48
 
-# use alternatively: full restart, init from (ocean) restart, init from climatology
+# use alternatively: full restart, init from (ocean) restart, init from climatology or false
+#  - set to false if ocean was already initialised
 initialiseOcean="fromRestart"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
