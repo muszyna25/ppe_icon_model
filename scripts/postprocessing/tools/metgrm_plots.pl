@@ -344,9 +344,11 @@ sub read_nc_variable {
 
 sub write_info {
     my ( $text, $m, @list) = @_;
-    print "$text:";
+    print "$text:\n";
     my $i = 0;
-    while ( my $l = shift @list) {
+    my $l;
+    while ( defined( $l = shift @list)) {
+	next unless ( length($l));
         print "\t $l";
 	print "\n" if ( ++$i%$m == 0);
     }
