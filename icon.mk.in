@@ -221,24 +221,24 @@ depend: $(dep_files)
 # Explicit preprocessing rule:
 preprocess: $(pp_files)
 
+# A general rule for clean recipes is to delete only those files that have been
+# created explicitly, abandoning the idea of trying to delete all possible side
+# effect files, e.g. Cray's *.i and *.lst files, MacOS's *.dSYM directories,
+# Python's cache files, etc.
+
 # Delete the results of compilation and linking:
 mostlyclean: $(bundled_subdirs)
 @CLAW_ENABLED@	test -f claw.mk && $(MAKE) -f claw.mk $(MAKECMDGOALS) || test xdistclean = x$(filter distclean,$(MAKECMDGOALS))
 	rm -f $(bindir)/icon@EXEEXT@ $(addsuffix .@OBJEXT@,$(basename $(f90_files) $(c_files) $(cu_files))) version.@OBJEXT@
 	rm -f $(moddir)/*.@FC_MOD_FILE_EXT@ $(moddir)/*.@FC_MOD_FILE_EXT@.proxy
-	rm -f $(notdir $(f90_files:.f90=.i))
-	rm -rf icon@EXEEXT@.dSYM
 
 # Delete files generated at the building stage:
-#   1. The value of the variable pp_files can be very long, which might lead
-#      to an error "execvp: /bin/bash: Argument list too long". Our first
-#      attempt to overcome this issue is to turn the absolute paths of the files
-#      into relative ones.
-#   2. Python cache files are generated in the source directory, we delete them
-#      only if we are not building out-of-source.
+#   Note that the value of the variable $(pp_files) can be very long, which
+#   might lead to an error "execvp: /bin/bash: Argument list too long". Our
+#   first attempt to overcome this issue is to turn the absolute paths of the
+#   files into relative ones.
 clean: mostlyclean
 	rm -f srclist $(patsubst $(builddir)/%,%,$(pp_files)) version.c
-	find . -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
 
 # Delete everything generated at the configure stage (and clean the created
 # directories if they are empty):
