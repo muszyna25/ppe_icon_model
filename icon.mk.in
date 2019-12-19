@@ -83,13 +83,18 @@ endif
 
 # Path suffixes (i.e. without $(srcdir) prefix) of the source files:
 src_roots:= $(addprefix $(srcdir)/,$(subdirs))
-f90_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90'))
+all_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90' -o -name '*.inc' -o -name '*.incf' -o -name '*.c' -o -name '*.cu'))
+
+# Fortran '.f90' source files:
+f90_files:= $(filter %.f90,$(all_files))
 # Files included with the preprocessor #include "filename.inc" directives:
-inc_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.inc'))
+inc_files:= $(filter %.inc,$(all_files))
 # Files included with the Fortran INCLUDE "filename.incf" statements:
-incf_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.incf'))
-c_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.c'))
-@GPU_ENABLED@cu_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.cu'))
+incf_files:= $(filter %.incf,$(all_files))
+# C '.c' source files:
+c_files:= $(filter %.c,$(all_files))
+# CUDA '*.cu' source files:
+@GPU_ENABLED@cu_files:= $(filter %.cu,$(all_files))
 
 # Files that need to be transferred along with the source files because they
 # are not accessible with the '@FC_INC_FLAG_PP_f90@' compiler flag:
