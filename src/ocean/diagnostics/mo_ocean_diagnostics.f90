@@ -58,7 +58,8 @@ MODULE mo_ocean_diagnostics
     & ab_const, ab_beta, ab_gam, iswm_oce, discretization_scheme, &
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
     & diagnose_for_horizontalVelocity, OceanReferenceDensity, &
-    & eddydiag
+    & eddydiag, &
+    & vert_cor_type
   USE mo_sea_ice_nml,        ONLY: kice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -495,6 +496,7 @@ CONTAINS
   END SUBROUTINE compute_vertical_volume
   !-------------------------------------------------------------------------
 
+  
 
 !<Optimize:inUse>
   SUBROUTINE calc_fast_oce_diagnostics(patch_2d, patch_3d, ocean_state, dolic, prism_thickness, depths, &
@@ -512,6 +514,8 @@ CONTAINS
      TYPE(t_atmos_fluxes ),    INTENT(IN)        :: p_atm_f
     TYPE(t_ocean_surface), INTENT(IN)           :: p_oce_sfc
     TYPE(t_sea_ice),          INTENT(inout)     :: ice
+
+    REAL(wp) :: w(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
 
     !Local variables
     INTEGER :: start_cell_index, end_cell_index,i
@@ -699,11 +703,16 @@ CONTAINS
       END IF
       monitor%ice_extent_sh = ice_extent_sh/1.0e6_wp !scaling to km^2
 
+      w = p_diag%w
+      IF ( ( vert_cor_type == 1 ) ) THEN
+        w = p_diag%w_deriv
+      ENDIF
+ 
       ! energy/enstrophy
       global_mean_potEnergy = 0.0_wp
       IF (isRegistered('pot_energy_global')) THEN
         global_mean_potEnergy = potential_energy(& 
-            & p_diag%w, &
+            & w, &
 !TODO       & p_prog(nold(1))%h,&
             & sea_surface_height , & ! this is h_new, the old implementation used h_old
             & p_diag%rho, &
@@ -759,8 +768,9 @@ CONTAINS
            isRegistered('global_sltbasin') .OR. isRegistered('atlant_sltbasin') .OR. isRegistered('pacind_sltbasin') .OR. &
            isRegistered('global_hfbasin') .OR. isRegistered('atlant_hfbasin') .OR. isRegistered('pacind_hfbasin') ) THEN
         CALL timer_start(timer_calc_moc)
+        
         CALL calc_moc(patch_2d, patch_3d, &
-             & p_diag%w, &
+             & w, &
              & p_oce_sfc%heatflux_total, &
              & p_oce_sfc%frshflux_volumetotal, &
              & p_diag%delta_thetao, &

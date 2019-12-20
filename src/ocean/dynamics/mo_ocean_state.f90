@@ -1236,6 +1236,13 @@ CONTAINS
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
+     CALL add_var(ocean_restart_list, 'w_deriv', ocean_state_diag%w_deriv, grid_unstructured_cell, &
+       & za_depth_below_sea_half, &
+       & t_cf_var('w_der','m/s','physical vertical velocity at cells for zstar', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag","oce_default"), &
+       & lrestart_cont=.TRUE.)
+
     ! tendency of snow
       CALL add_var(ocean_default_list, 'delta_snow', ocean_state_diag%delta_snow , &
        &         grid_unstructured_cell, za_surface,&

@@ -298,7 +298,8 @@ MODULE mo_ocean_types
       & w_old          ,& ! vertical velocity from previous timestep. Unit [m/s].
 !       & w_prev         ,& ! vertical velocity at cells, from previous timestep. Unit [m/s]
 !       & w_time_weighted,& ! predicted normal velocity vector at cells
-      & cfl_vert          ! vertical cfl values
+      & cfl_vert       ,&   ! vertical cfl values
+      & w_deriv
 
     onEdges_tracers :: &
       & GMRedi_flux_horz 

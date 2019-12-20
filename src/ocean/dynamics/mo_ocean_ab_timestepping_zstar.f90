@@ -61,7 +61,7 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_ocean_surface_types,       ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_scalar_product, ONLY: map_edges2edges_viacell_3d_const_z, map_edges2edges_viacell_2D_per_level, &
     & calc_scalar_product_veloc_3d, map_edges2edges_sc_zstar, map_edges2edges_3d_zstar, &
-    & map_scalar_center2prismtop
+    & map_scalar_center2prismtop, map_edges2cell_3d
   USE mo_ocean_math_operators, ONLY: div_oce_3D_onTriangles_onBlock, smooth_onCells, div_oce_3d, &
     & grad_fd_norm_oce_2d_onblock, grad_fd_norm_oce_2d_3d, div_oce_3D_general_onBlock, &
     & div_oce_3D_onTriangles_onBlock, update_height_depdendent_variables
@@ -162,24 +162,27 @@ CONTAINS
     REAL(wp) :: div_vz   (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp) :: div_v    (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     
-    INTEGER  :: jb, jc, je, bt_lev, level 
+    INTEGER  :: jb, jc, je, bt_lev, level, jk, start_level 
     INTEGER  :: start_index, end_index 
 
     REAL(wp) :: w_temp(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
-    REAL(wp) :: w_deriv(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
+    REAL(wp) :: w_edg(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
+    REAL(wp) :: w_deriv(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
 
     INTEGER, DIMENSION(:,:,:), POINTER :: idx, blk
-    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
+    TYPE(t_subset_range), POINTER :: all_cells, all_edges 
     INTEGER  :: id1, id2, bl1, bl2 
-    REAL(wp) :: st1, st2 
+    INTEGER  :: edge_1_index, edge_1_block, edge_2_index, edge_2_block, edge_3_index, edge_3_block
+    REAL(wp) :: st1, st2, st3 
+    REAL(wp) :: dz_dt 
 
     !------------------------------------------------------------------
     patch_2d        => patch_3d%p_patch_2d(1)
     idx             => patch_3D%p_patch_2D(1)%edges%cell_idx
     blk             => patch_3D%p_patch_2D(1)%edges%cell_blk
     
-    cells_in_domain  => patch_2D%cells%in_domain
-    edges_in_domain  => patch_2D%edges%in_domain
+    all_cells => patch_2d%cells%ALL
+    all_edges => patch_2d%edges%ALL
     !------------------------------------------------------------------
  
 !ICON_OMP_MASTER
@@ -190,8 +193,8 @@ CONTAINS
     z_depth = 0.0_wp
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
       DO jc = start_index, end_index
         
         bt_lev = patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
@@ -199,7 +202,7 @@ CONTAINS
         !! Get physical depth of levels for later use
         !! FIXME TODO: Something is wrong here
         IF(patch_3D%lsm_c(jc, 1, jb) <= sea_boundary)THEN
-          z_depth(jc, 1:bt_lev, jb) =  patch_3d%p_patch_1d(1)%depth_CellMiddle(jc, 1:bt_lev, jb) &
+          z_depth(jc, 1:bt_lev, jb) =  -1.0_wp*patch_3d%p_patch_1d(1)%depth_CellMiddle(jc, 1:bt_lev, jb) &
             & *stretch_c(jc, jb) + eta_c(jc, jb)  
         ENDIF
  
@@ -221,8 +224,8 @@ CONTAINS
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, je, &
 !ICON_OMP  id1, id2, bl1, bl2, st1, st2) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, start_index, end_index)
       DO je = start_index, end_index
         
         !Get indices of two adjacent triangles
@@ -258,63 +261,101 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !! Transform w* to w
+  !! w* = (w - v.grad z)*(dz/dz*)^(-1)
   !-------------------------------------------------------------------------
-  
-!    CALL map_edges2edges_viacell_3d_const_z( patch_3d, &
-!       & ocean_state%p_prog(nold(1))%vn,        &
-!       & operators_coefficients,                &
-!       & flux_v)
-! 
-!    !! FIXME zstar: This does not work with the default map_edges2edges
-!    !! and for some reason works with the zstar version
-!    temp = 1.0_wp
-!    CALL map_edges2edges_sc_zstar( patch_3d, ocean_state%p_prog(nold(1))%vn, z_depth, &
-!     & operators_coefficients, temp, flux_vz)
+
+  w_edg = 0.0_wp
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, id1, bl1, id2, bl2, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, start_index, end_index)
+
+      DO je = start_index, end_index
+
+        id1=patch_2D%edges%cell_idx(je,jb,1)
+        bl1=patch_2D%edges%cell_blk(je,jb,1)
+        id2=patch_2D%edges%cell_idx(je,jb,2)
+        bl2=patch_2D%edges%cell_blk(je,jb,2)
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+
+          w_edg(je,jk,jb)=&
+            & (z_depth(id2,jk,bl2)-z_depth(id1,jk,bl1))*operators_coefficients%grad_coeff(je,jk,jb)* &
+            & ocean_state%p_prog(nold(1))%vn(je, jk, jb)
+        END DO
+          
+      END DO
+    END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+
+
+    w_temp = 0.0_wp
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, st1, st2, st3, &
+!ICON_OMP edge_1_index, edge_1_block, edge_2_index, edge_2_block, edge_3_index, edge_3_block,  &
+!ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+
+        edge_1_index = patch_2d%cells%edge_idx(jc,jb,1)
+        edge_1_block = patch_2d%cells%edge_blk(jc,jb,1)
+        edge_2_index = patch_2d%cells%edge_idx(jc,jb,2)
+        edge_2_block = patch_2d%cells%edge_blk(jc,jb,2)
+        edge_3_index = patch_2d%cells%edge_idx(jc,jb,3)
+        edge_3_block = patch_2d%cells%edge_blk(jc,jb,3)
+
+        st1 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 1)%x, &
+          & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,1)%x)  
+        st2 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 2)%x, &
+          & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,2)%x)  
+        st3 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 3)%x, &
+          & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,3)%x)  
+
+        st1 = st1/( st1 + st2 + st3 )
+        st2 = st2/( st1 + st2 + st3 )
+        st3 = st3/( st1 + st2 + st3 )
+
+        DO level = 1, MIN(patch_3D%p_patch_1D(1)%dolic_c(jc,jb), n_zlev)
+          
+          !! dz/dt = d(eta)/dt * (1 + z*/H )
+          !! Remember z* = 0:-H, hence the negative sign
+          dz_dt = ( ( ocean_state%p_prog(nnew(1))%eta_c(jc, jb) - &
+          & ocean_state%p_prog(nold(1))%eta_c(jc, jb) )/dtime ) * &
+          & ( 1.0_wp - patch_3d%p_patch_1d(1)%depth_CellMiddle(jc, level, jb)/H_c(jc, jb) )
+
+          w_temp(jc, level, jb) =  ( w_edg(edge_1_index, level, edge_1_block)*st1 + &
+            & w_edg(edge_2_index, level, edge_2_block)*st2 +                        &
+            & w_edg(edge_3_index, level, edge_3_block)*st3 ) + dz_dt                         
+        END DO
+          
+      END DO
+
+    END DO ! blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_END_PARALLEL_DO
+
+    w_deriv = 0.0_wp
+    CALL map_scalar_center2prismtop(patch_3d, w_temp, operators_coefficients, w_deriv)
+
+    ocean_state%p_diag%w_deriv = 0.0_wp
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        DO jk = 1, MIN(patch_3D%p_patch_1D(1)%dolic_c(jc,jb), n_zlev)
+          ocean_state%p_diag%w_deriv(jc, jk, jb) =  ocean_state%p_diag%w(jc, jk, jb)*stretch_c(jc, jb) &
+            & + w_deriv(jc, jk, jb)
+        END DO
+      END DO
+    END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO
+    
+
+!    write(*, *) '1', maxval(ocean_state%p_diag%w), maxval(ocean_state%p_diag%w_deriv)
+!    write(*, *) '2', minval(ocean_state%p_diag%w), minval(ocean_state%p_diag%w_deriv)
+!    write(*, *) '3', SUM(ocean_state%p_diag%w), SUM(ocean_state%p_diag%w_deriv)
 !
-!
-!    CALL div_oce_3d( flux_vz, patch_3D, operators_coefficients%div_coeff, &
-!      & div_vz, subset_range=cells_in_domain)
-!    CALL div_oce_3d( flux_v, patch_3D, operators_coefficients%div_coeff, &
-!      & div_v, subset_range=cells_in_domain)
-!
-!    w_temp = 0.0_wp
-!!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
-!    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
-!      DO jc = start_index, end_index
-!        
-!        bt_lev = patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
-! 
-!        IF(patch_3D%lsm_c(jc, 1, jb) <= sea_boundary)THEN
-!          w_temp(jc, 1:bt_lev, jb) =  (div_vz(jc, 1:bt_lev, jb) - &
-!            & z_depth(jc, 1:bt_lev, jb)*div_v(jc, 1:bt_lev, jb) )  &
-!            & * (1.0_wp/stretch_c(jc, jb)) 
-!        ENDIF
-! 
-!      END DO
-!    END DO ! blockNo
-!!ICON_OMP_END_PARALLEL_DO
-!    
-!    CALL map_scalar_center2prismtop(patch_3d, w_temp, operators_coefficients, w_deriv)
-!
-!    w_deriv(:, 1, :) = 0.0_wp
-!!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, bt_lev) ICON_OMP_DEFAULT_SCHEDULE
-!    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-!      CALL get_index_range(cells_in_domain, jb, start_index, end_index)
-!      DO jc = start_index, end_index
-!        
-!        bt_lev = patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
-! 
-!        !! Get physical depth of levels for later use
-!        w_deriv(jc, 2:bt_lev, jb) =  ocean_state%p_diag%w(jc, 2:bt_lev, jb)*(1.0_wp/stretch_c(jc, jb)) &
-!          & + w_deriv(jc, 2:bt_lev, jb)
-! 
-!      END DO
-!    END DO ! blockNo
-!!ICON_OMP_END_PARALLEL_DO
-  
-!    CALL dbg_print('on entry: w'   , ocean_state%p_diag%w,'check', 1, in_subset=cells_in_domain)
-!    CALL dbg_print('on entry: wstar'   , w_deriv,'check', 1, in_subset=cells_in_domain)
+!    CALL dbg_print('on entry: wstar', ocean_state%p_diag%w,'check', 1, in_subset=cells_in_domain)
+!    CALL dbg_print('on entry: w    ', w_edg,'check', 1, in_subset=edges_in_domain)
   END SUBROUTINE update_zstar_variables
  
 
