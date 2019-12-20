@@ -64,7 +64,10 @@ LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
 ${EXTRA_CONFIG_ARGS} \
-"$@"
+"
+
+MAKE_PROCS=8
+make -j ${MAKE_PROCS}$@"
 
 for arg in "$@"; do
   case $arg in
