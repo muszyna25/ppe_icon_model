@@ -15,7 +15,7 @@
 !!
 MODULE mo_surface
 
-  USE mo_kind,              ONLY: wp
+  USE mo_kind,              ONLY: wp, i1
 #ifdef _OPENACC
   USE mo_exception,         ONLY: warning
 #endif
@@ -36,6 +36,7 @@ MODULE mo_surface
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
   USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
+  USE mo_index_list,        ONLY: generate_index_list_batched
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface,     ONLY: jsbach_interface
 #endif
@@ -43,6 +44,11 @@ MODULE mo_surface
 #ifndef __NO_ICON_OCEAN__
   USE mo_ice_interface,     ONLY: ice_fast
   USE mo_ml_ocean,          ONLY: ml_ocean
+#endif
+
+#if defined(SERIALIZE) && (defined(SERIALIZE_JSBACH) || defined(SERIALIZE_ALL))
+  USE utils_ppser
+  USE m_serialize
 #endif
 
   IMPLICIT NONE
@@ -235,8 +241,9 @@ CONTAINS
 
 ! locals
 
-    INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
-    INTEGER  :: is     (ksfc_type)       !< counter for masks
+    INTEGER(i1) :: pfrc_test(kbdim,ksfc_type) !< integer mask to pass to CUB (can be removed later)
+    INTEGER     :: loidx    (kbdim,ksfc_type) !< counter for masks
+    INTEGER     :: is       (      ksfc_type) !< counter for masks
 
     INTEGER  :: jsfc, jk, jkm1, im, k, jl, jls, js
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
@@ -261,6 +268,9 @@ CONTAINS
       & zalbvis, zalbnir,                                          &
       & zalbedo_lwtr(kbdim), zalbedo_lice(kbdim),                  &
       & zwindspeed_lnd(kbdim), zwindspeed10m_lnd(kbdim)
+
+   REAL(wp) :: rain_tmp(kbdim), snow_tmp(kbdim), drag_srf_tmp(kbdim), &
+      & pch_tmp(kbdim), drag_wtr_tmp(kbdim), drag_ice_tmp(kbdim)
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type)
 
@@ -298,12 +308,11 @@ CONTAINS
     !$ACC               albnirdif_ice )                                        &
     !$ACC           IF( idx_ice <= ksfc_type .AND. echam_phy_config(jg)%lice )
 
-    !$ACC DATA PCREATE( loidx, is, se_sum, qv_sum, wgt_sum, wgt, zca, zcs,     &
-    !$ACC               zfrc_oce, zen_h, zfn_h, zen_qv, zfn_qv, zlhflx_lnd,    &
-    !$ACC               zlhflx_lwtr, zlhflx_lice, zshflx_lnd, zshflx_lwtr,     &
-    !$ACC               zshflx_lice )
-
-    !$ACC DATA PCREATE( zevap_lnd, zevap_lwtr, zevap_lice,                      &
+    !$ACC DATA PCREATE( loidx, is, se_sum, qv_sum, wgt_sum, wgt, zca, zcs,      &
+    !$ACC               zfrc_oce, zen_h, zfn_h, zen_qv, zfn_qv, zlhflx_lnd,     &
+    !$ACC               zlhflx_lwtr, zlhflx_lice, zshflx_lnd, zshflx_lwtr,      &
+    !$ACC               zshflx_lice, pfrc_test ),                               &
+    !$ACC      PCREATE( zevap_lnd, zevap_lwtr, zevap_lice,                      &
     !$ACC               qsat_lnd, qsat_lwtr, qsat_lice,                         &
     !$ACC               zcpt_lnd, zcpt_lwtr, zcpt_lice,                         &
     !$ACC               ztsfc_lnd, ztsfc_lnd_eff, ztsfc_wtr, ztsfc_lwtr,        &
@@ -311,7 +320,9 @@ CONTAINS
     !$ACC               fract_par_diffuse, zalbedo_lwtr, zalbedo_lice,          &
     !$ACC               zgrnd_hflx, zgrnd_hcap, Tfw, swflx_ice, nonsolar_ice,   &
     !$ACC               dnonsolardT, conc_sum, mask, zwindspeed_lnd,            &
-    !$ACC               zwindspeed10m_lnd )
+    !$ACC               zwindspeed10m_lnd,                                      &
+    !$ACC               rain_tmp, snow_tmp, drag_srf_tmp, pch_tmp, drag_wtr_tmp,&
+    !$ACC               drag_ice_tmp)
 
     ! Shortcuts to components of echam_vdf_config
     !
@@ -320,18 +331,16 @@ CONTAINS
   
     ! check for masks
     !
-    ! GPU: Compute index list on CPU due to issues with ACC ATOMIC
-    !$ACC UPDATE HOST( pfrc )
+    ! DA: compute the index lists on the GPU
+    !$ACC PARALLEL LOOP COLLAPSE(2) DEFAULT(NONE) ASYNC(1)
     DO jsfc = 1,ksfc_type
-      is(jsfc) = 0
       DO jl = jcs,kproma
-        IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-          is(jsfc) = is(jsfc) + 1
-          loidx(is(jsfc),jsfc) = jl
-        ENDIF
-      ENDDO
-    ENDDO
-    !$ACC UPDATE DEVICE( is, loidx )
+        pfrc_test(jl, jsfc) = MERGE(1, 0, pfrc(jl, jsfc) > 0.0_wp)
+      END DO
+    END DO
+
+    CALL generate_index_list_batched(pfrc_test(jcs:,:), loidx, jcs, kproma, is, 1)
+    !$ACC UPDATE WAIT(1) SELF(is)
 
     ! Compute factor for conversion temperature to dry static energy
     !DO jsfc=1,ksfc_type
@@ -348,12 +357,13 @@ CONTAINS
     IF (lsfc_mom_flux) THEN
        CALL wind_stress( jcs, kproma, kbdim, ksfc_type,       &! in
             &            pdtime,                              &! in
+            &            loidx, is,                           &! in
             &            pfrc, pcfm_tile, pfac_sfc,           &! in
             &            bb(:,klev,iu), bb(:,klev,iv),        &! in
             &            pu_stress_gbm,  pv_stress_gbm,       &! out
             &            pu_stress_tile, pv_stress_tile       )! out
     ELSE
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP SEQ
        DO jsfc = 1,ksfc_type
          !$ACC LOOP GANG VECTOR
@@ -364,7 +374,7 @@ CONTAINS
        END DO
        !$ACC END PARALLEL
 
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR
        DO jk = 1, kbdim
          pu_stress_gbm (jk)   = 0._wp
@@ -375,7 +385,7 @@ CONTAINS
     END IF
 
     ! Compute downward shortwave surface fluxes
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       rvds(jl)      = rvds_dif(jl) + rvds_dir(jl)
@@ -403,7 +413,7 @@ CONTAINS
     END IF
 
     ! Set defaults
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -417,7 +427,7 @@ CONTAINS
     !===========================================================================
     ! all surfaces
     !===========================================================================
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -434,7 +444,7 @@ CONTAINS
     ! Land surface
     !===========================================================================
     
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       zlhflx_lnd(jk)    = 0._wp
@@ -474,6 +484,9 @@ CONTAINS
 
       ! If land is present, JSBACH is currently the only surface scheme supported by ECHAM physcis package
 #ifndef __NO_JSBACH__
+
+      ! DA: wait while the other kernels are not async
+      !$ACC WAIT
 
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR
@@ -518,10 +531,31 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
 
+     ! Prepare temporary fields to be passed to JSBACH since they cannot be
+     ! computed in arguments.
+
+
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP
+      DO jl = jcs, kproma
+        rain_tmp(jl) = prsfl(jl) + prsfc(jl)
+        snow_tmp(jl) = pssfl(jl) + pssfc(jl)
+        drag_srf_tmp(jl) = grav*pfac_sfc(jl) * pcfh_tile(jl,idx_lnd)
+        IF(lsm(jl)>0._wp) THEN
+          pch_tmp(jl) = pch_tile(jl,idx_lnd) ! MERGE(pch_tile(jcs:kproma,idx_lnd),1._wp,lsm(jcs:kproma)>0._wp)
+        ELSE
+          pch_tmp(jl) = 1._wp
+        END IF
+        drag_wtr_tmp(jl) = grav*pfac_sfc(jl) * pcfh_tile(jl,idx_wtr)
+        drag_ice_tmp(jl) = grav*pfac_sfc(jl) * pcfh_tile(jl,idx_ice)
+      END DO
+      !$ACC END PARALLEL
+
+
 #ifdef _OPENACC
-     CALL warning('GPU:update_surface', 'GPU host synchronization for JSBACH should be remove when port is done!')
-#endif
-      !$ACC UPDATE HOST( aa_btm, bb_btm, fract_par_diffuse,                    &
+#ifndef _CLAW
+      CALL warning('GPU:update_surface', 'GPU host synchronization for JSBACH since CLAW is not used!')
+      !$ACC UPDATE HOST( aa_btm, bb_btm, fract_par_diffuse, &
       !$ACC              is, lake_ice_frc, loidx, pu_stress_gbm,               &
       !$ACC              pu_stress_tile, pv_stress_gbm, pv_stress_tile,        &
       !$ACC              q_snocpymlt, rnds, rpds, rvds, pco2, pco2_flux_tile,  &
@@ -536,14 +570,16 @@ CONTAINS
       !$ACC              pcsat, zevap_lnd, zgrnd_hcap, albvisdir_tile,         &
       !$ACC              albnirdir_tile, albvisdif_tile, albnirdif_tile,       &
       !$ACC              zevap_lwtr, zalbedo_lwtr, zevap_lice, zalbedo_lice )
+#endif
+#endif
 
       IF (echam_phy_config(jg)%ljsb ) THEN
       IF (echam_phy_config(jg)%llake) THEN
         CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                     & ! in
           & t_air             = ptemp(jcs:kproma),                                           & ! in
           & q_air             = pq(jcs:kproma),                                              & ! in
-          & rain              = prsfl(jcs:kproma) + prsfc(jcs:kproma),                       & ! in
-          & snow              = pssfl(jcs:kproma) + pssfc(jcs:kproma),                       & ! in
+          & rain              = rain_tmp(jcs:kproma),                                        & ! in
+          & snow              = snow_tmp(jcs:kproma),                                        & ! in
           & wind_air          = zwindspeed_lnd(jcs:kproma),                                  & ! in
           & wind_10m          = zwindspeed10m_lnd(jcs:kproma),                               & ! in
           & lw_srf_down       = rlds(jcs:kproma),                                            & ! in
@@ -552,18 +588,18 @@ CONTAINS
           & swpar_srf_down    = rpds(jcs:kproma),                                            & ! in
           & fract_par_diffuse = fract_par_diffuse(jcs:kproma),                               & ! in
           & press_srf         = ps(jcs:kproma),                                              & ! in
-          & drag_srf          = grav*pfac_sfc(jcs:kproma) * pcfh_tile(jcs:kproma,idx_lnd),     & ! in
+          & drag_srf          = drag_srf_tmp(jcs:kproma),                                    & ! in
           & t_acoef           = zen_h(jcs:kproma, idx_lnd),                                  & ! in
           & t_bcoef           = zfn_h(jcs:kproma, idx_lnd),                                  & ! in
           & q_acoef           = zen_qv(jcs:kproma, idx_lnd),                                 & ! in
           & q_bcoef           = zfn_qv(jcs:kproma, idx_lnd),                                 & ! in
-          & pch               = MERGE(pch_tile(jcs:kproma,idx_lnd),1._wp,lsm(jcs:kproma)>0._wp),  & ! in
+          & pch               = pch_tmp(jcs:kproma),                                         & ! in
           & cos_zenith_angle  = pcosmu0(jcs:kproma),                                         & ! in
           & CO2_air           = pco2(jcs:kproma),                                            & ! in
           & t_srf             = ztsfc_lnd(jcs:kproma),                                       & ! out (T_s^(n+1)) surface temp
-                                                                                             ! (filtered, if Asselin)
+                                                                                               ! (filtered, if Asselin)
           & t_eff_srf         = ztsfc_lnd_eff(jcs:kproma),                                   & ! out (T_s^eff) surface temp
-                                                                                             ! (effective, for longwave rad)
+                                                                                               ! (effective, for longwave rad)
           & qsat_srf          = qsat_lnd(jcs:kproma),                                        & ! out
           & s_srf             = zcpt_lnd(jcs:kproma),                                        & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(jcs:kproma),                                           & ! out
@@ -582,8 +618,8 @@ CONTAINS
           & alb_nir_dif       = albnirdif_tile(jcs:kproma, idx_lnd),                         & ! out
           & co2_flux          = pco2_flux_tile(jcs:kproma, idx_lnd),                         & ! out
           !
-          & drag_wtr          = grav*pfac_sfc(jcs:kproma) * pcfh_tile(jcs:kproma,idx_wtr),     & ! in
-          & drag_ice          = grav*pfac_sfc(jcs:kproma) * pcfh_tile(jcs:kproma,idx_ice),     & ! in
+          & drag_wtr          = drag_wtr_tmp(jcs:kproma),                                    & ! in
+          & drag_ice          = drag_ice_tmp(jcs:kproma),                                    & ! in
           & t_acoef_wtr       = zen_h(jcs:kproma, idx_wtr),                                  & ! in
           & t_bcoef_wtr       = zfn_h(jcs:kproma, idx_wtr),                                  & ! in
           & q_acoef_wtr       = zen_qv(jcs:kproma, idx_wtr),                                 & ! in
@@ -608,24 +644,75 @@ CONTAINS
           & albedo_lice       = zalbedo_lice(jcs:kproma),                                    & ! out
           & ice_fract_lake    = lake_ice_frc(jcs:kproma)                                     & ! out
           )
-#ifdef _OPENACC
-     CALL warning('GPU:update_surface', 'GPU device synchronization for JSBACH should be remove when port is done!')
+
+#if defined(SERIALIZE) && (defined(SERIALIZE_JSBACH) || defined(SERIALIZE_ALL))
+
+       !$ACC UPDATE HOST( ztsfc_lnd, ztsfc_lnd_eff, qsat_lnd, qsat_lwtr, qsat_lice,   &
+       !$ACC                zcpt_lnd, zcpt_lwtr, zcpt_lice,                           &
+       !$ACC                pcair, pcsat, zevap_lnd, zlhflx_lnd,     &
+       !$ACC                zshflx_lnd, zgrnd_hflx, zgrnd_hcap, z0h_lnd, z0m_tile,      &
+       !$ACC                q_snocpymlt, albvisdir_tile, albnirdir_tile, albvisdif_tile,&
+       !$ACC                albnirdif_tile, ztsfc_lwtr, zevap_lwtr, zlhflx_lwtr,        &
+       !$ACC                zshflx_lwtr, zalbedo_lwtr, ztsfc_lice, zevap_lice,          &
+       !$ACC                zlhflx_lice, zshflx_lice, zalbedo_lice, lake_ice_frc,       &
+       !$ACC                pco2_flux_tile )
+
+       call fs_create_savepoint('jsb_interface_output1', ppser_savepoint)
+       call fs_write_field(ppser_serializer, ppser_savepoint, 't_eff_srf', ztsfc_lnd_eff(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'qsat_srf', qsat_lnd(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 's_srf', zcpt_lnd(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'fact_q_air', pcair(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'fact_qsat_srf', pcsat(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'evapotrans', zevap_lnd(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'latent_hflx', zlhflx_lnd(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'sensible_hflx', zshflx_lnd(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'grnd_hflx', zgrnd_hflx(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'grnd_hcap', zgrnd_hcap(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'rough_h_srf', z0h_lnd(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'rough_m_srf', z0m_tile(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'q_snocpymlt', q_snocpymlt(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_vis_dir', albvisdir_tile(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_nir_dir', albnirdir_tile(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_vis_dif', albvisdif_tile(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_nir_dif', albnirdif_tile(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'co2_flux', pco2_flux_tile(jcs:kproma,idx_lnd))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 't_lwtr', ztsfc_lwtr(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'qsat_lwtr', qsat_lwtr(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'zcpt_lwtr', zcpt_lwtr(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'evapo_wtr', zevap_lwtr(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'latent_hflx_wtr', zlhflx_lwtr(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'sensible_hflx_wtr', zshflx_lwtr(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'albedo_lwtr', zalbedo_lwtr(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 't_lice', ztsfc_lice(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'qsat_lice', qsat_lice(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'zcpt_lice', zcpt_lice(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'evapo_ice', zevap_lice(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'latent_hflx_ice', zlhflx_lice(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'sensible_hflx_ice', zshflx_lice(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'albedo_lice', zalbedo_lice(jcs:kproma))
+       call fs_write_field(ppser_serializer, ppser_savepoint, 'ice_fract_lake', lake_ice_frc(jcs:kproma))
 #endif
-          !$ACC UPDATE DEVICE( ztsfc_lnd, ztsfc_lnd_eff, qsat_lnd, qsat_lwtr, qsat_lice,   &
-          !$ACC                zcpt_lnd, zcpt_lwtr, zcpt_lice,                             &
-          !$ACC                pcair, pcsat, zevap_lnd, zlhflx_lnd,     &
-          !$ACC                zshflx_lnd, zgrnd_hflx, zgrnd_hcap, z0h_lnd, z0m_tile,      &
-          !$ACC                q_snocpymlt, albvisdir_tile, albnirdir_tile, albvisdif_tile,&
-          !$ACC                albnirdif_tile, ztsfc_lwtr, zevap_lwtr, zlhflx_lwtr,        &
-          !$ACC                zshflx_lwtr, zalbedo_lwtr, ztsfc_lice, zevap_lice,          &
-          !$ACC                zlhflx_lice, zshflx_lice, zalbedo_lice, lake_ice_frc,       &
-          !$ACC                pco2_flux_tile )
+
+#ifdef _OPENACC
+#ifndef _CLAW
+       CALL warning('GPU:update_surface', 'GPU device synchronization for JSBACH since CLAW is not used!')
+       !$ACC UPDATE DEVICE( ztsfc_lnd, ztsfc_lnd_eff, qsat_lnd, qsat_lwtr, qsat_lice,   &
+       !$ACC                zcpt_lnd, zcpt_lwtr, zcpt_lice,                             &
+       !$ACC                pcair, pcsat, zevap_lnd, zlhflx_lnd,     &
+       !$ACC                zshflx_lnd, zgrnd_hflx, zgrnd_hcap, z0h_lnd, z0m_tile,      &
+       !$ACC                q_snocpymlt, albvisdir_tile, albnirdir_tile, albvisdif_tile,&
+       !$ACC                albnirdif_tile, ztsfc_lwtr, zevap_lwtr, zlhflx_lwtr,        &
+       !$ACC                zshflx_lwtr, zalbedo_lwtr, ztsfc_lice, zevap_lice,          &
+       !$ACC                zlhflx_lice, zshflx_lice, zalbedo_lice, lake_ice_frc,       &
+       !$ACC                pco2_flux_tile )
+#endif
+#endif
       ELSE
-        CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                    & ! in
+        CALL jsbach_interface ( jg, nblock, jcs, kproma, pdtime, pdtime,                     & ! in
           & t_air             = ptemp(jcs:kproma),                                           & ! in
           & q_air             = pq(jcs:kproma),                                              & ! in
-          & rain              = prsfl(jcs:kproma) + prsfc(jcs:kproma),                         & ! in
-          & snow              = pssfl(jcs:kproma) + pssfc(jcs:kproma),                         & ! in
+          & rain              = rain_tmp(jcs:kproma),                                        & ! in
+          & snow              = snow_tmp(jcs:kproma),                                        & ! in
           & wind_air          = zwindspeed_lnd(jcs:kproma),                                  & ! in
           & wind_10m          = zwindspeed10m_lnd(jcs:kproma),                               & ! in
           & lw_srf_down       = rlds(jcs:kproma),                                            & ! in
@@ -634,18 +721,18 @@ CONTAINS
           & swpar_srf_down    = rpds(jcs:kproma),                                            & ! in
           & fract_par_diffuse = fract_par_diffuse(jcs:kproma),                               & ! in
           & press_srf         = ps(jcs:kproma),                                              & ! in
-          & drag_srf          = grav*pfac_sfc(jcs:kproma) * pcfh_tile(jcs:kproma,idx_lnd),     & ! in
+          & drag_srf          = drag_srf_tmp(jcs:kproma),                                    & ! in
           & t_acoef           = zen_h(jcs:kproma, idx_lnd),                                  & ! in
           & t_bcoef           = zfn_h(jcs:kproma, idx_lnd),                                  & ! in
           & q_acoef           = zen_qv(jcs:kproma, idx_lnd),                                 & ! in
           & q_bcoef           = zfn_qv(jcs:kproma, idx_lnd),                                 & ! in
-          & pch               = MERGE(pch_tile(jcs:kproma,idx_lnd),1._wp,lsm(jcs:kproma)>0._wp),  & ! in
+          & pch               = pch_tmp(jcs:kproma),                                         & ! in
           & cos_zenith_angle  = pcosmu0(jcs:kproma),                                         & ! in
           & CO2_air           = pco2(jcs:kproma),                                            & ! in
           & t_srf             = ztsfc_lnd(jcs:kproma),                                       & ! out (T_s^(n+1)) surface temp 
-                                                                                             ! (filtered, if Asselin)
+                                                                                               ! (filtered, if Asselin)
           & t_eff_srf         = ztsfc_lnd_eff(jcs:kproma),                                   & ! out (T_s^eff) surface temp 
-                                                                                             ! (effective, for longwave rad)
+                                                                                               ! (effective, for longwave rad)
           & qsat_srf          = qsat_lnd(jcs:kproma),                                        & ! out
           & s_srf             = zcpt_lnd(jcs:kproma),                                        & ! out (s_s^star, for vdiff scheme)
           & fact_q_air        = pcair(jcs:kproma),                                           & ! out
@@ -664,14 +751,47 @@ CONTAINS
           & alb_nir_dif       = albnirdif_tile(jcs:kproma, idx_lnd),                         & ! out
           & co2_flux          = pco2_flux_tile(jcs:kproma, idx_lnd)                          & ! out
         )
-#ifdef _OPENACC
-     CALL warning('GPU:update_surface', 'GPU device synchronization for JSBACH should be remove when port is done!')
+
+
+#if defined(SERILIAZE) && (defined(SERIALIZE_JSBACH) || defined(SERIALIZE_ALL))
+        !$ACC UPDATE HOST( ztsfc_lnd, ztsfc_lnd_eff, qsat_lnd,                          &
+        !$ACC              zcpt_lnd, pcair, pcsat, zevap_lnd, zlhflx_lnd,      &
+        !$ACC              zshflx_lnd, zgrnd_hflx, zgrnd_hcap, z0h_lnd, z0m_tile,       &
+        !$ACC              q_snocpymlt, albvisdir_tile, albnirdir_tile, albvisdif_tile, &
+        !$ACC              albnirdif_tile, pco2_flux_tile )
+
+        call fs_create_savepoint('jsb_interface_output1', ppser_savepoint)
+        call fs_write_field(ppser_serializer, ppser_savepoint, 't_srf', ztsfc_lnd(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 't_eff_srf', ztsfc_lnd_eff(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'qsat_srf', qsat_lnd(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 's_srf', zcpt_lnd(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'fact_q_air', pcair(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'fact_qsat_srf', pcsat(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'evapotrans', zevap_lnd(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'latent_hflx', zlhflx_lnd(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'sensible_hflx', zshflx_lnd(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'grnd_hflx', zgrnd_hflx(jcs:kproma,idx_lnd))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'grnd_hcap', zgrnd_hcap(jcs:kproma,idx_lnd))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'rough_h_srf', z0h_lnd(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'rough_m_srf', z0m_tile(jcs:kproma,idx_lnd))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'q_snocpymlt', q_snocpymlt(jcs:kproma))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_vis_dir', albvisdir_tile(jcs:kproma,idx_lnd))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_nir_dir', albnirdir_tile(jcs:kproma,idx_lnd))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_vis_dif', albvisdif_tile(jcs:kproma,idx_lnd))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'alb_nir_dif', albnirdif_tile(jcs:kproma,idx_lnd))
+        call fs_write_field(ppser_serializer, ppser_savepoint, 'co2_flux', pco2_flux_tile(jcs:kproma,idx_lnd))
 #endif
+
+#ifdef _OPENACC
+#ifndef _CLAW
+        CALL warning('GPU:update_surface', 'GPU device synchronization for JSBACH since CLAW is not used!')
         !$ACC UPDATE DEVICE( ztsfc_lnd, ztsfc_lnd_eff, qsat_lnd,                          &
-        !$ACC                zcpt_lnd, pcair, pcsat, zevap_lnd, zlhflx_lnd,      &
+        !$ACC                zcpt_lnd, pcair, pcsat, zevap_lnd, zlhflx_lnd,               &
         !$ACC                zshflx_lnd, zgrnd_hflx, zgrnd_hcap, z0h_lnd, z0m_tile,       &
         !$ACC                q_snocpymlt, albvisdir_tile, albnirdir_tile, albvisdif_tile, &
         !$ACC                albnirdif_tile, pco2_flux_tile )
+#endif
+#endif
       END IF ! llake
       END IF ! ljsb
 
@@ -758,7 +878,7 @@ CONTAINS
       ! Set the evapotranspiration coefficients, to be used later in
       ! blending and in diagnosing surface fluxes.
       !
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         zca(jl,idx_lnd) = pcair(jl)
@@ -778,7 +898,7 @@ CONTAINS
 
 #ifndef __NO_ICON_OCEAN__
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         rsns(jl)      = rsds(jl) - rsus(jl)
@@ -794,7 +914,7 @@ CONTAINS
           & psoflw=rsns(:),                       &
           & ptsw=ztsfc_wtr(:) )                     ! out
 #ifdef _OPENACC
-        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
         !$ACC LOOP GANG VECTOR
         DO jl = jcs,kproma
           IF (alake(jl) < EPSILON(1._wp)) THEN
@@ -812,7 +932,7 @@ CONTAINS
 
       ! Albedo model for the ocean
       ! TBD: This should be replaced by routine mo_surface_ocean:update_albedo_ocean from ECHAM6.2
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         IF (alake(jl) < EPSILON(1._wp)) THEN
@@ -831,6 +951,9 @@ CONTAINS
     !===========================================================================
 
     IF (idx_ice <= ksfc_type .AND. echam_phy_config(jg)%lice) THEN
+
+      ! DA: wait while the other kernels are not async
+      !$ACC WAIT
 
 #ifndef __NO_ICON_OCEAN__
       ! LL This is a temporary solution,
@@ -968,13 +1091,13 @@ CONTAINS
     !===================================================================
 
     ! calculate grid box mean surface of co2
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       pco2nat(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -991,7 +1114,7 @@ CONTAINS
     !   bb_btm(:,jsfc,ih) : tpfac2*land%ztklevl, tpfac2*ice%ztklevi, tpfac2*ocean%ztklevw
     !   bb_btm(:,jsfc,iqv): tpfac2*land%zqklevl, tpfac2*ice%zqklevi, tpfac2*ocean%zqklevw
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -1012,7 +1135,7 @@ CONTAINS
     !   bb(:,klev,ih) : ztdif_new
     !   bb(:,klev,iqv): zqdif_new
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
        se_sum(jl) = 0._wp    ! sum of weighted solution
@@ -1021,8 +1144,9 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP SEQ
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
              wgt(jl) = pfrc(jl,jsfc)
@@ -1030,11 +1154,11 @@ CONTAINS
           se_sum(jl) = se_sum(jl) + bb_btm(jl,jsfc,ih ) * wgt(jl)
           qv_sum(jl) = qv_sum(jl) + bb_btm(jl,jsfc,iqv) * wgt(jl)
       ENDDO
-      !$ACC END PARALLEL
     ENDDO
+    !$ACC END PARALLEL
 
     IF (lsfc_heat_flux) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         bb(jl,klev,ih ) = se_sum(jl)/wgt_sum(jl)
@@ -1042,7 +1166,7 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     ELSE
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR PRIVATE(jsfc)
       DO jl = jcs,kproma
         jsfc = 1
@@ -1063,7 +1187,7 @@ CONTAINS
     ! need to be scaled by the same factor.
 
     IF (idx_wtr.LE.ksfc_type) THEN   ! Open water is considered
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         IF (idx_ice.LE.ksfc_type) THEN ! Sea ice is also considered
@@ -1088,7 +1212,7 @@ CONTAINS
     jk   = klev    ! Bottom level index
     jkm1 = jk - 1
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       aa(jl,jk,2,im) =  aa(jl,jk,2,im) - aa(jl,jk,1,im)*aa(jl,jkm1,3,im)
@@ -1120,7 +1244,7 @@ CONTAINS
             &               plhflx_tile, pshflx_tile,             &! out
             &               pevap_tile )                           ! out
     ELSE
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP SEQ
        DO jsfc = 1,ksfc_type
          !$ACC LOOP GANG VECTOR
@@ -1131,7 +1255,7 @@ CONTAINS
          END DO
        END DO
        !$ACC END PARALLEL
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR
        DO jk = 1,kbdim
          plhflx_gbm (jk)   = 0._wp
@@ -1141,7 +1265,7 @@ CONTAINS
        !$ACC END PARALLEL
     END IF
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -1173,14 +1297,14 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! calculate grid box mean surface temperature
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       ptsfc(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
     DO jsfc=1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl= jcs,kproma
         ptsfc(jl) = ptsfc(jl) + pfrc(jl,jsfc) * ptsfc_tile(jl,jsfc)
@@ -1189,21 +1313,21 @@ CONTAINS
     ENDDO
 
     ! calculate grid box mean radiative temperature for use in radiation
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       ptsfc_rad(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
     DO jsfc=1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl= jcs,kproma
         ptsfc_rad(jl) = ptsfc_rad(jl) + pfrc(jl,jsfc) * ptsfc_tile(jl,jsfc)**4
       END DO
       !$ACC END PARALLEL
     ENDDO
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       ptsfc_rad(jl) = ptsfc_rad(jl)**0.25_wp
@@ -1211,7 +1335,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! Compute lw and sw surface radiation fluxes on tiles
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR PRIVATE(js)
@@ -1235,14 +1359,14 @@ CONTAINS
     ! Merge sw and lw surface fluxes
     ! This includes the update of the lw flux on land due to the new surface temperature where only part
     ! of the net radiation was used (due to the Taylor truncation in the surface energy balance)
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       rlns(jk) = 0._wp
     END DO
     !$ACC END PARALLEL
     DO jsfc=1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR PRIVATE(js)
       DO jls = 1,is(jsfc)
         ! set index
@@ -1251,7 +1375,7 @@ CONTAINS
       END DO
       !$ACC END PARALLEL
     END DO
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       rlus(jl) = rlds(jl) -rlns(jl)
@@ -1259,7 +1383,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! Merge surface albedos
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jk = 1, kbdim
       albvisdir(jk) = 0._wp
@@ -1269,7 +1393,7 @@ CONTAINS
       albedo   (jk) = 0._wp
     END DO
     !$ACC END PARALLEL
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,nsfc_type
       !$ACC LOOP GANG VECTOR
@@ -1284,14 +1408,14 @@ CONTAINS
     !$ACC END PARALLEL
 
     ! Mask out tiled variables
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = 1, kproma
       mask(jl) = .FALSE.
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jsfc=1,ksfc_type
       !$ACC LOOP GANG VECTOR
@@ -1331,7 +1455,7 @@ CONTAINS
     ! For consistency z0m_tile for ice is masked out here
     !----------------------------------------------------------------------------
     IF (idx_ice<=ksfc_type) THEN  ! ice surface exists in the simulation
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = jcs, kproma
         mask(jl) = pfrc(jl,idx_ice) == 0._wp
@@ -1356,7 +1480,8 @@ CONTAINS
     !$ACC END DATA
     !$ACC END DATA
     !$ACC END DATA
-    !$ACC END DATA
+
+    !$ACC WAIT
 
     END SUBROUTINE update_surface
   !-------------

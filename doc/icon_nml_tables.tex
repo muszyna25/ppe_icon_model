@@ -1487,6 +1487,25 @@ echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
 \end{longtab}
 
 %------------------------------------------------------------------------------
+% echam_wmp_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_wmo\_nml}
+
+The diagnostics of the tropopause pressure, following the WMO definition is configured by a data structure \textit{echam\_wmo\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains:
+
+\begin{longtab}
+%
+echam\_wmo\_config(jg)\% zmaxwmo & R & 38000. & m &
+maximum height for tropopause search &
+\tabularnewline
+%
+echam\_wmo\_config(jg)\% zminwmo & R & 5000. & m &
+minimum height for tropopause search &
+\tabularnewline
+%
+\end{longtab}
+
+%------------------------------------------------------------------------------
 % ensemble_pert_nml:
 %------------------------------------------------------------------------------
 \subsection{ensemble\_pert\_nml}

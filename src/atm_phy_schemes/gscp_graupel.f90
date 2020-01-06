@@ -1687,9 +1687,8 @@ SUBROUTINE graupel     (             &
     !$ACC PRESENT( ddt_tend_t, t, t_in )
 
     !$ACC PARALLEL
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO k=k_start,ke
-      !$ACC LOOP VECTOR
       DO iv=iv_start,iv_end
         ddt_tend_t (iv,k) = (t (iv,k) - t_in (iv,k))*zdtr
       END DO
@@ -1705,9 +1704,8 @@ SUBROUTINE graupel     (             &
     !$ACC PRESENT(ddt_tend_qi,qv_in,qc_in,qr_in,qs_in,qi_in)
 
     !$ACC PARALLEL
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO k=k_start,ke
-      !$ACC LOOP VECTOR
       DO iv=iv_start,iv_end
         ddt_tend_qv(iv,k) = MAX(-qv_in(iv,k)*zdtr,(qv(iv,k) - qv_in(iv,k))*zdtr)
         ddt_tend_qc(iv,k) = MAX(-qc_in(iv,k)*zdtr,(qc(iv,k) - qc_in(iv,k))*zdtr)

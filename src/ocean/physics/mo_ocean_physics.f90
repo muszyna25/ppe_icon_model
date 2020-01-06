@@ -38,6 +38,7 @@ MODULE mo_ocean_physics
     & BiharmonicViscosity_reference,                          &
     & tracer_RichardsonCoeff, velocity_RichardsonCoeff,                    &
     & use_wind_mixing,                                        &
+    & vert_mix_type, vmix_pp, vmix_tke, vmix_kpp,             & ! by_nils / by_ogut
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
@@ -66,6 +67,8 @@ MODULE mo_ocean_physics
     &  TracerDiffusion_LeithWeight,             &
     &  max_turbulenece_TracerDiffusion,                       &
     &  LeithViscosity_SmoothIterations, LeithViscosity_SpatialSmoothFactor 
+  USE mo_ocean_surface_types,            ONLY:  &
+      t_ocean_surface                             ! contains p_oce_sfc
 
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -101,8 +104,11 @@ MODULE mo_ocean_physics
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
+  USE mo_ocean_cvmix_tke,     ONLY: calc_tke, setup_tke
+  USE mo_ocean_cvmix_kpp,     ONLY: calc_kpp, setup_kpp
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, &
    & WindMixingDecay, WindMixingLevel
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_ocean_velocity_diffusion, ONLY: veloc_diff_harmonic_div_grad
   
 
@@ -260,6 +266,21 @@ CONTAINS
       WindMixingDecay(jk) = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/WindMixingDecayDepth)
       WindMixingLevel(jk) = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
     ENDDO 
+
+    ! setup tke scheme
+    SELECT CASE(vert_mix_type)
+    CASE(vmix_pp)
+      write(*,*) ''
+    CASE(vmix_tke)
+      write(*,*) 'Setup cvmix/tke scheme.'
+      CALL setup_tke()   ! by_nils
+    CASE(vmix_kpp)
+      write(*,*) 'Setup cvmix/kpp scheme.'
+      CALL setup_kpp()   ! by_ogut
+    CASE default
+      write(*,*) "Unknown vert_mix_type!"
+      stop
+    END SELECT
 
   END SUBROUTINE init_ho_params
   !-------------------------------------------------------------------------
@@ -740,16 +761,20 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
 !<Optimize:inUse:done>
-  SUBROUTINE update_ho_params(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs) !, calculate_density_func)
+  SUBROUTINE update_ho_params(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs, atmos_fluxes, p_oce_sfc)
+    !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
     REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
     REAL(wp), TARGET                     :: concsum(:,:) ! t_sea_ice%concsum
     TYPE(t_ho_params), INTENT(inout)     :: params_oce
+    TYPE (t_ocean_surface), INTENT(IN)   :: p_oce_sfc
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    TYPE(t_atmos_fluxes)                 :: atmos_fluxes
 
     INTEGER :: tracer_index
+    !INTEGER :: vert_mix_type=2 ! by_nils ! FIXME: make this a namelist parameter
     !-------------------------------------------------------------------------
     start_timer(timer_upd_phys,1)
 
@@ -759,7 +784,17 @@ CONTAINS
 !   and the Richardson Number ; shall be used in PP and possibly TKE
     CALL calc_vertical_stability(patch_3d, ocean_state)
 
-    CALL update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs)
+    SELECT CASE(vert_mix_type)
+    CASE(1)
+      CALL update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs)
+    CASE(2)
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+    CASE(3) ! by_ogut 
+      CALL calc_kpp(patch_3d, ocean_state, params_oce, atmos_fluxes, p_oce_sfc, concsum)
+    CASE default
+      write(*,*) "Unknown vert_mix_type!"
+    END SELECT
+ 
 
     IF (LeithClosure_order == 1 .or.  LeithClosure_order == 21) THEN
       IF (LeithClosure_form == 1) THEN

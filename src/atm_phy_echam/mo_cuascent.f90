@@ -53,6 +53,7 @@ MODULE mo_cuascent
   USE mo_physical_constants,   ONLY : grav, tmelt, vtmpc1, rv, rd, alv, als
   USE mo_echam_cnv_config,     ONLY : echam_cnv_config
   USE mo_cuadjust,             ONLY : cuadjtq
+  USE mo_index_list,           ONLY : generate_index_list
 
   IMPLICIT NONE
   PRIVATE
@@ -325,16 +326,15 @@ CONTAINS
           &          zmfuv                                                           )
       ENDIF
       !
-      locnt = jcs-1
-      !$ACC UPDATE HOST( klab )
+      !$ACC PARALLEL LOOP DEFAULT(NONE) ASYNC(1)
       DO jl=jcs,kproma
         IF(klab(jl,jk+1).EQ.0) klab(jl,jk)=0
-        IF(klab(jl,jk+1).GT.0) THEN
-          locnt = locnt + 1
-          loidx(locnt) = jl
-        END IF
       END DO
-      !$ACC UPDATE DEVICE( loidx, klab )
+      !
+      CALL generate_index_list(klab(:,jk+1), loidx(jcs:), jcs, kproma, locnt, 1)
+      !$acc wait
+      locnt = locnt + jcs-1
+      !
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR PRIVATE( zmfmax, zfac)
       DO jl=jcs,kproma

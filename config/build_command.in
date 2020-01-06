@@ -95,9 +95,12 @@ then
         do
             if [ "${mod%%-*}" = "PrgEnv" ]
             then
+                export PATH=$CRAY_BINUTILS_BIN:$PATH
                 module_swap $current_prgenv $mod
             fi
-            module unload $(echo $mod | sed 's|/.*||')
+
+#GZ            module unload $(echo $mod | sed 's|/.*||')
+            module unload ${mod%%/*}
             module load $mod        
         done
     else
@@ -120,6 +123,14 @@ then
     echo Modules loaded for compiling
     echo
     module list
+    echo
+    if [ -n ${CRAY_LD_LIBRARY_PATH:=} ]
+    then
+        if [ -n ${LD_LIBRARY_PATH:=} ]
+        then
+	    export LD_LIBRARY_PATH=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH
+        fi
+    fi
     echo
     echo "______________________________________________________________________"
     echo
