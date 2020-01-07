@@ -5,7 +5,7 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='modules craype PrgEnv-cray cce-icon/9.0.2-classic cray-mpich cray-netcdf cray-hdf5'
+MODULES='modules craype PrgEnv-cray cce-icon/9.0.2-classic cray-mpich cray-netcdf'# cray-hdf5'
 
 XML2_ROOT='/apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08'
 XML2_LIBS='-lxml2'
@@ -20,6 +20,7 @@ CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
 FCFLAGS='-em -hadd_paren -r am -Ktrap=divz,ovf,inv -hflex_mp=intolerant -hfp1 -hnoacc -O1,cache0'
+FCFLAGS='-hadd_paren -r am -Ktrap=divz,ovf,inv -hflex_mp=intolerant -hfp1 -O1,cache0'
 
 LDFLAGS="-L${XML2_ROOT}/lib"
 LIBS="-Wl,--as-needed ${XML2_LIBS}"
