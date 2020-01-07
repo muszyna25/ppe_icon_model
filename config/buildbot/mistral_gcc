@@ -1,82 +1,9 @@
 #!/bin/bash
 
-set -eu
-
-MPI_ROOT='/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-gcc64'
-MPI_CPPFLAGS="-I${MPI_ROOT}/include"
-MPI_FCFLAGS="-I${MPI_ROOT}/lib -I${MPI_ROOT}/include"
-MPI_LDFLAGS="-L${MPI_ROOT}/lib"
-MPI_LIBS="-Wl,-rpath -Wl,${MPI_ROOT}/lib -Wl,--enable-new-dtags -L${MPI_ROOT}/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi"
-MPI_LAUNCH="${MPI_ROOT}/bin/mpiexec"
-#MPI_LAUNCH='srun'
-
-NETCDF_ROOT='/sw/rhel6-x64/netcdf/netcdf_c-4.4.0-parallel-openmpi2-gcc64'
-NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
-NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
-NETCDF_LIBS='-lnetcdf'
-
-NETCDFF_ROOT='/sw/rhel6-x64/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-gcc64'
-NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
-NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
-NETCDFF_LIBS='-lnetcdff'
-
-GRIBAPI_ROOT='/sw/rhel6-x64/grib_api/grib_api-1.15.0-gcc48'
-GRIBAPI_CPPFLAGS="-I${GRIBAPI_ROOT}/include"
-GRIBAPI_LDFLAGS="-L${GRIBAPI_ROOT}/lib"
-GRIBAPI_LIBS='-lgrib_api'
-
-MKLROOT='/sw/rhel6-x64/intel/intel-18.0.4/mkl'
-BLAS_LAPACK_LDFLAGS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl"
-BLAS_LAPACK_FCFLAGS="-DMKL_ILP64 -m64 -I${MKLROOT}/include"
-BLAS_LAPACK_LDFLAGS=" ${MKLROOT}/lib/intel64/libmkl_blas95_lp64.a ${MKLROOT}/lib/intel64/libmkl_lapack95_lp64.a -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl"
-BLAS_LAPACK_FCFLAGS=" -I${MKLROOT}/include/intel64/lp64 -m64 -I${MKLROOT}/include"
-
-XML_ROOT='/usr'
-XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
-XML_LDFLAGS="-L${XML_ROOT}/lib64"
-XML_LIBS='-lxml2'
-
-AEC_ROOT='/sw/rhel6-x64/sys/libaec-0.3.2-gcc48'
-AEC_CPPFLAGS="-I${AEC_ROOT}/include"
-AEC_LDFLAGS="-L${AEC_ROOT}/lib"
-AEC_LIBS="-lsz -laec"
-
-######################
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
-BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral ; . ${MY_DIR}/build_env_init.sh; switch_for_modules gcc/6.4.0 openmpi/2.0.2p1_hpcx-gcc64;"
 
-FC='/sw/rhel6-x64/gcc/gcc-6.4.0/bin/gfortran'
-CC='/sw/rhel6-x64/gcc/gcc-6.4.0/bin/gcc'
+${ICON_DIR}/config/dkrz/mistral.gcc --enable-yaxt --disable-openmp
 
-ICON_CFLAGS="-std=gnu99 -g -O3 -march=native -DgFortran"
-ICON_FCFLAGS="-DHAVE_FC_ATTRIBUTE_CONTIGUOUS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__LOOP_EXCHANGE -g -O2 -mpc64 -march=native -cpp -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-none"
-
-CFLAGS='-std=gnu99 -g -O3 -march=native'
-FCFLAGS="${MPI_FCFLAGS} ${NETCDFF_FCFLAGS} -std=f2008 -g -O2 -mpc64 -march=native"
-CPPFLAGS="${AEC_CPPFLAGS} ${MPI_CPPFLAGS} ${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS}"
-LDFLAGS="-L/sw/rhel6-x64/gcc/gcc-6.4.0/lib64 ${AEC_LDFLAGS} ${MPI_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS}"
-LIBS="${AEC_LIBS} ${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${MPI_LIBS}"
-
-# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
-# libraries at the configure time and when running 'make check'. Note that
-# some of the bundled libraries use libtool, which explicitly links to
-# -lpnetcdf but does not set RPATH flags for it. The resulting executables
-# fail because the library is not in the runtime library search path.
-# Therefore, we need to add an additional path to LD_LIBRARY_PATH:
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/ /g;s/-L[ ]/-L/g;s/[ ]\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
-
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" ICON_CFLAGS="${ICON_CFLAGS}" ICON_FCFLAGS="${ICON_FCFLAGS}" MPI_LAUNCH="${MPI_LAUNCH}" --enable-grib2  --enable-active-target-sync --disable-parallel-netcdf --disable-openmp --enable-yaxt "$@"
-
-MAKE_PROCS=22
+MAKE_PROCS=8
 make -j ${MAKE_PROCS}
-
-./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
-
-test -f make_runscripts ||  cp ${ICON_DIR}/make_runscripts .
-test -d scripts ||  ln -s ${ICON_DIR}/scripts .
-test -d data  || ln -s ${ICON_DIR}/data .
-
-# needed for out-of-source builds
-#rsync -avz --exclude='*in' --exclude='.*' ${ICON_DIR}/run .
-#rsync -avz ${ICON_DIR}/externals . --del  --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'

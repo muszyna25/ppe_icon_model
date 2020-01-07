@@ -1,75 +1,9 @@
 #!/bin/bash
 
-set -eu
-
-################################################################################
-MPI_ROOT='/sw/stretch-x64/mpi/openmpi-2.1.5-intel17'
-MPI_CPPFLAGS="-I${MPI_ROOT}/include"
-MPI_FCFLAGS="-I${MPI_ROOT}/lib -I${MPI_ROOT}/include"
-MPI_LDFLAGS="-L${MPI_ROOT}/lib"
-MPI_LIBS="-Wl,-rpath -Wl,${MPI_ROOT}/lib -L${MPI_ROOT}/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess"
-MPI_LAUNCH="${MPI_ROOT}/bin/mpiexec"
-
-NETCDF_ROOT='/sw/stretch-x64/netcdf/netcdf_c-4.6.1'
-NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
-NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
-NETCDF_LIBS='-lnetcdf'
-
-NETCDFF_ROOT='/sw/stretch-x64/netcdf/netcdf_fortran-4.4.4-intel17'
-NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
-NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
-NETCDFF_LIBS='-lnetcdff'
-
-GRIBAPI_ROOT='/sw/stretch-x64/grib_api/grib_api-1.21.0-gccsys'
-GRIBAPI_CPPFLAGS="-I${GRIBAPI_ROOT}/include"
-GRIBAPI_LDFLAGS="-L${GRIBAPI_ROOT}/lib"
-GRIBAPI_LIBS='-lgrib_api'
-
-BLAS_LAPACK_LDFLAGS='-mkl=sequential'
-BLAS_LAPACK_FCFLAGS='-mkl=sequential'
-
-XML_ROOT='/usr'
-XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
-XML_LDFLAGS="-L${XML_ROOT}/lib64"
-XML_LIBS='-lxml2'
-
-AEC_ROOT='/sw/rhel6-x64/sys/libaec-0.3.2-gcc48'
-AEC_CPPFLAGS="-I${AEC_ROOT}/include"
-AEC_LDFLAGS="-L${AEC_ROOT}/lib"
-AEC_LIBS="-lsz -laec"
-
-################################################################################
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
-PREFIX="${ICON_DIR}/install"
-BUILD_ENV=". /etc/profile.d/mpim.sh ; . ${MY_DIR}/build_env_init.sh; switch_for_modules intel/17.0.2;"
 
-FC="${MPI_ROOT}/bin/mpif90"
-CC="${MPI_ROOT}/bin/mpicc"
-AR='/sw/stretch-x64/intel/intel-17.0.2/bin/xiar'
+${ICON_DIR}/config/mpim/stretch.intel --enable-yaxt --disable-openmp
 
-ICON_FCFLAGS='-O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE -g -pc64 -fpp -D__LOOP_EXCHANGE -assume realloc_lhs'
-ICON_CFLAGS='-Dgfortran -O2 -g'
-ICON_OCEAN_FCFLAGS=
-
-FCFLAGS="${NETCDFF_FCFLAGS}"
-CFLAGS=
-CPPFLAGS="${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS}"
-LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS}"
-LIBS="${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
-MPI_LAUNCH=$MPI_LAUNCH
-
-# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
-# libraries at the configure time and when running 'make check':
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/ /g;s/-L[ ]/-L/g;s/[ ]\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
-
-"${ICON_DIR}"/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" MPI_LAUNCH="$MPI_LAUNCH" ICON_FCFLAGS="${ICON_FCFLAGS}" ICON_CFLAGS="${ICON_CFLAGS}" AR="${AR}" --disable-sct --enable-grib2 --prefix="${PREFIX}" "$@"
-
-MAKE_PROCS=22
+MAKE_PROCS=8
 make -j ${MAKE_PROCS}
-
-# copy the run scripting stuff from the source directory
-rsync -avz --exclude='*in' --exclude='.*' ${ICON_DIR}/run .
-test -d data || ln -sf ${ICON_DIR}/data
-test -f make_runscripts || cp ${ICON_DIR}/make_runscripts .
-./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info

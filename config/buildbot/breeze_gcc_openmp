@@ -1,70 +1,9 @@
 #!/bin/bash
 
-set -eu
-
-################################################################################
-NETCDF_ROOT='/sw/stretch-x64/netcdf/netcdf_c-4.6.1'
-NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
-NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
-NETCDF_LIBS='-lnetcdf'
-
-NETCDFF_ROOT='/sw/stretch-x64/netcdf/netcdf_fortran-4.4.4-gcc63'
-NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
-NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
-NETCDFF_LIBS='-lnetcdff'
-
-GRIBAPI_ROOT='/sw/stretch-x64/grib_api/grib_api-1.21.0-gccsys'
-GRIBAPI_CPPFLAGS="-I${GRIBAPI_ROOT}/include"
-GRIBAPI_LDFLAGS="-L${GRIBAPI_ROOT}/lib"
-GRIBAPI_LIBS='-lgrib_api'
-
-MKLROOT='/sw/stretch-x64/intel/intel-18.0.4/mkl'
-BLAS_LAPACK_LDFLAGS="-L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -lpthread -lm -ldl"
-BLAS_LAPACK_FCFLAGS="-DMKL_ILP64 -m64 -I${MKLROOT}/include"
-BLAS_LAPACK_LDFLAGS=" ${MKLROOT}/lib/intel64/libmkl_blas95_lp64.a ${MKLROOT}/lib/intel64/libmkl_lapack95_lp64.a -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl"
-BLAS_LAPACK_FCFLAGS=" -I${MKLROOT}/include/intel64/lp64 -m64 -I${MKLROOT}/include"
-
-XML_ROOT='/usr'
-XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
-XML_LDFLAGS="-L${XML_ROOT}/lib64"
-XML_LIBS='-lxml2'
-
-AEC_ROOT='/sw/rhel6-x64/sys/libaec-0.3.2-gcc48'
-AEC_CPPFLAGS="-I${AEC_ROOT}/include"
-AEC_LDFLAGS="-L${AEC_ROOT}/lib"
-AEC_LIBS="-lsz -laec"
-
-################################################################################
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
-PREFIX="${ICON_DIR}/install"
-BUILD_ENV=". /etc/profile.d/mpim.sh ; . ${MY_DIR}/build_env_init.sh; switch_for_modules gcc/6.3.0;"
 
-_base='/sw/stretch-x64/gcc/gcc-6.3.0/bin'
-FC="${_base}/gfortran"
-CC="${_base}/gcc"
+${ICON_DIR}/config/mpim/stretch.gcc --disable-mpi --enable-openmp
 
-ICON_FCFLAGS='-std=f2008 -fopenmp -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -cpp -march=native -fbacktrace -fbounds-check -fstack-protector-all  -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -march=native -O2 -mpc64 -D__LOOP_EXCHANGE'
-ICON_CFLAGS='-Dgfortran -O2 -g'
-ICON_OCEAN_FCFLAGS=
-
-FCFLAGS="${NETCDFF_FCFLAGS}"
-CFLAGS=
-CPPFLAGS="${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS}"
-LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS}"
-LIBS="${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDF_LIBS} ${NETCDFF_LIBS}"
-
-# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
-# libraries at the configure time and when running 'make check':
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/ /g;s/-L[ ]/-L/g;s/[ ]\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
-
-"${ICON_DIR}"/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" ICON_FCFLAGS="${ICON_FCFLAGS}" ICON_CFLAGS="${ICON_CFLAGS}" --disable-sct --enable-grib2 --prefix="${PREFIX}" --disable-mpi --enable-openmp "$@"
-
-MAKE_PROCS=22
+MAKE_PROCS=8
 make -j ${MAKE_PROCS}
-
-# copy the run scripting stuff from the source directory
-rsync -avz --exclude='*in' --exclude='.*' ${ICON_DIR}/run .
-test -d data || ln -sf ${ICON_DIR}/data
-test -f make_runscripts || cp ${ICON_DIR}/make_runscripts .
-./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info

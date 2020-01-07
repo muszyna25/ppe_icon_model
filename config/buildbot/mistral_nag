@@ -1,80 +1,9 @@
 #!/bin/bash
 
-set -eu
-software_tree='/sw/rhel6-x64'
-
-MPI_ROOT='/work/mh0287/m214089/mvapich2-2.3-static-nag60'
-MPI_ROOT='/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62'
-MPI_ROOT='/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64/nag-6.2/mpich-3.2.1-zxw7jhgz7qk4kim5jtziybfzigtiauxj'
-MPI_CPPFLAGS="-I${MPI_ROOT}/include"
-MPI_FCFLAGS="-I${MPI_ROOT}/lib -I${MPI_ROOT}/include"
-MPI_LDFLAGS="-L${MPI_ROOT}/lib"
-MPI_LIBS='-lmpifort -lmpi -libmad -lrdmacm -libumad -libverbs -lnuma -ldl -lrt -lm -lpthread'
-MPI_LIBS='-Wl,--enable-new-dtags  -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -lutil -lrt'
-MPI_LIBS='-Wl,-Wl,,-rpath -Wl,-Wl,,${MPI_ROOT}/lib  -L${MPI_ROOT}/lib -lmpi    -lrt -lpthread'
-MPI_LIBS=''
-
-NETCDF_ROOT="${software_tree}/netcdf/netcdf_c-4.3.2-gcc48"
-NETCDF_ROOT="${software_tree}/netcdf/netcdf_c-4.6.1-parallel-openmpi2-nag62"
-NETCDF_ROOT='/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64/gcc-8.3.0-works/netcdf-4.7.0-eftv5u36ogb5awbb27hffiiv5rib4kqj'
-NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
-NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
-NETCDF_LIBS='-lnetcdf'
-
-NETCDFF_ROOT="${software_tree}/netcdf/netcdf_fortran-4.4.2-static-nag60"
-NETCDFF_ROOT="${software_tree}/netcdf/netcdf_fortran-4.4.4-parallel-openmpi2-nag62/"
-NETCDFF_ROOT='/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64/nag-6.2/netcdf-fortran-4.4.4-2n3j56hyspbfqrv34ayg4brybtptkfid'
-NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
-NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
-NETCDFF_LIBS='-lnetcdff -L/sw/rhel6-x64/netcdf/netcdf_c-4.6.1-parallel-openmpi2-nag62/lib -L/sw/rhel6-x64/hdf4/hdf-4.2.13-gcc64/lib -L/sw/rhel6-x64/hdf5/hdf5-1.8.20-parallel-openmpi2-nag62/lib -L/sw/rhel6-x64/netcdf/parallel_netcdf-1.10.0-openmpi2-nag62/lib -L/sw/rhel6-x64/sys/libaec-1.0.2-gcc64/lib -L/sw/rhel6-x64/sys/zlib-1.2.8/lib  -ljpeg -lz -ldl -lm -lcurl'
-
-
-BLAS_LAPACK_ROOT="/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64/nag-6.2/netlib-lapack-3.8.0-gzreja7qdcv5zozdpjvtucml5dh64bya"
-BLAS_LAPACK_LDFLAGS="-L${BLAS_LAPACK_ROOT}/lib64 -lblas -llapack"
-BLAS_LAPACK_FCFLAGS="-I${BLAS_LAPACK_ROOT}/include"
-
-GRIBAPI_ROOT="${software_tree}/grib_api/grib_api-1.15.0-gcc48"
-GRIBAPI_ROOT="/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64/nag-6.2/eccodes-2.5.0-givay23bqhgzreuk5um2wtjsumebwbt4"
-GRIBAPI_CPPFLAGS="-I${GRIBAPI_ROOT}/include"
-GRIBAPI_LDFLAGS="-L${GRIBAPI_ROOT}/lib"
-GRIBAPI_LIBS='-leccodes'
-
-
-XML_ROOT='/usr'
-XML_CPPFLAGS="-I${XML_ROOT}/include/libxml2"
-XML_LDFLAGS="-L${XML_ROOT}/lib64"
-XML_LIBS='-lxml2'
-
-######################
-
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
-BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral ; . ${MY_DIR}/build_env_init.sh; switch_for_modules gcc/4.9.2 nag/6.2 openmpi/2.0.2p2_hpcx-nag62 ;"
 
-FC='/sw/rhel6-x64/nag/nag-6.2/bin/nagfor'
-CC='/sw/rhel6-x64/gcc/gcc-6.4.0/bin/gcc'
-FC=/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/bin/mpifort
-CC=/sw/rhel6-x64/mpi/openmpi-2.0.2p2_hpcx-nag62/bin/mpicc
-FC="${MPI_ROOT}/bin/mpifort"
-CC="${MPI_ROOT}/bin/mpicc"
+${ICON_DIR}/config/dkrz/mistral.nag --enable-yaxt --disable-openmp
 
-CFLAGS="-std=gnu99 -g -O2 -march=native -DNAGf90Fortran"
-FCFLAGS="${MPI_FCFLAGS} ${NETCDFF_FCFLAGS} -mismatch -dcfuns -Dlib_free=free_c -f2008 -O0 -Wc,-g -float-store -nan -gline -g -colour -fpp -w=uep -kind=byte"
-CPPFLAGS="${MPI_CPPFLAGS} ${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML_CPPFLAGS} ${BLAS_LAPACK_FCFLAGS}"
-
-LDFLAGS="${MPI_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${BLAS_LAPACK_LDFLAGS} ${XML_LDFLAGS} ${BLAS_LAPACK_LDFLAGS}"
-LIBS="${XML_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${MPI_LIBS}"
-
-BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/ /g;s/-L[ ]/-L/g;s/[ ]\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:/sw/rhel6-x64/netcdf/parallel_netcdf-1.6.1-openmpi2-intel14/lib:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
-
-${ICON_DIR}/configure BUILD_ENV="$BUILD_ENV" FC="$FC" FCFLAGS="$FCFLAGS" CC="$CC" CFLAGS="$CFLAGS" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS" --enable-grib2 --enable-active-target-sync --enable-parallel-netcdf --disable-mpi-checks --disable-openmp --disable-parallel-netcdf --enable-yaxt "$@"
-
-MAKE_PROCS=22
+MAKE_PROCS=8
 make -j ${MAKE_PROCS}
-
-./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
-
-test -f make_runscripts ||  cp ${ICON_DIR}/make_runscripts .
-test -d scripts ||  ln -s ${ICON_DIR}/scripts .
-test -d data  || ln -s ${ICON_DIR}/data .
-rsync -avz ${ICON_DIR}/externals . --del  --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
