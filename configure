@@ -7725,7 +7725,7 @@ fi
 
 ac_config_headers="$ac_config_headers config.h"
 
-ac_config_files="$ac_config_files Makefile depgen.c.config depgen.f90.config icon.mk"
+ac_config_files="$ac_config_files Makefile depgen.c.config depgen.f90.config deplist.config icon.mk"
 
 
 ac_config_commands="$ac_config_commands depfiles"
@@ -8546,6 +8546,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "depgen.c.config") CONFIG_FILES="$CONFIG_FILES depgen.c.config" ;;
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
+    "deplist.config") CONFIG_FILES="$CONFIG_FILES deplist.config" ;;
     "icon.mk") CONFIG_FILES="$CONFIG_FILES icon.mk" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
 

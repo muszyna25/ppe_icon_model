@@ -185,7 +185,7 @@ dep_files:= $(addsuffix .d,$(f90_files) $(c_files) $(cu_files)) c_binding.d extr
 dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files)))) $(moddir)/.dirstamp $(bindir)/.dirstamp)
 
 # Root ICON object file:
-ICON_obj_file= $(f90_prefix)src/drivers/icon.@OBJEXT@
+obj_root_file= $(f90_prefix)src/drivers/icon.@OBJEXT@
 
 # Selective search paths:
 vpath %.f90 $(srcdir)
@@ -243,7 +243,7 @@ clean: mostlyclean
 # Delete everything generated at the configure stage (and clean the created
 # directories if they are empty):
 distclean: clean
-	rm -f config.h config.log config.status depgen.c.config depgen.f90.config
+	rm -f config.h config.log config.status depgen.c.config depgen.f90.config deplist.config
 	rm -f $(dep_files)
 	rm -f $(dir_files)
 	@for dir in $(bindir) $(moddir) $(ppdir); do \
@@ -269,7 +269,7 @@ install: all
 # Generate a list of files that are going to be compiled in the current
 # configuration:
 srclist: $(dep_files)
-	$(silent_GEN)$(DEPLIST) -t $(ICON_obj_file) -p '*.f90' -p '*.c' -p '*.cu' -p '*.inc' -p '*.incf' -p '*.h' --inc-oo -f $^ | sort > $@
+	$(silent_GEN)$(DEPLIST) @deplist.config -t $(obj_root_file) -f $^ 2>/dev/null | sed '/\(\.@OBJEXT@\|\.@FC_MOD_FILE_EXT@\.proxy\)$$/d' | sort > $@
 
 # Check rule (run the tests serially to make the output readable and prevent
 # from possible overloading due to multiple simultaneous MPI runs):
@@ -286,7 +286,7 @@ check: all
 ########################### COMPILATION AND LINKING ############################
 
 # ICON executable linking rule:
-$(bindir)/icon@EXEEXT@: $(ICON_obj_file) $(shell $(DEPLIST) -t $(ICON_obj_file) -p '*.@OBJEXT@' --inc-oo -f $(dep_files)) $(BUNDLED_LIBFILES) | $(dir_files)
+$(bindir)/icon@EXEEXT@: $(filter %.@OBJEXT@,$(shell $(DEPLIST) @deplist.config -t $(obj_root_file) -f $(dep_files))) $(BUNDLED_LIBFILES) | $(dir_files)
 	$(silent_FCLD)$(FC) -o $@ $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $^ $(LIBS)
 
 # Note that old versions of make (3.81 and earlier) take the first matching

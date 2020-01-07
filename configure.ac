@@ -1544,6 +1544,7 @@ AC_CONFIG_FILES([
   Makefile
   depgen.c.config
   depgen.f90.config
+  deplist.config
   icon.mk
 ])
 
