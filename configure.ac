@@ -630,7 +630,8 @@ fi
 
 ################################ LIBRARY CHECKS ################################
 
-dnl One of the topological orderings of the ICON dependency graph:
+dnl One of the topological orderings of the ICON dependency graph
+dnl (run ./utils/icon_sorted_deps.sh):
 dnl
 dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)',
 dnl '-lmtime', '-lSerialboxFortranShared', '-lcdi_f2003 -lcdi',
