@@ -310,7 +310,7 @@ $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
 ';fi)
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
-#SBATCH --workdir=$output_folder
+#SBATCH --chdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=2
 # the following is needed to work around a bug that otherwise leads to
@@ -415,7 +415,7 @@ $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
 ';fi)
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
-#SBATCH --workdir=$output_folder
+#SBATCH --chdir=$output_folder
 #SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=1
 # the following is needed to work around a bug that otherwise leads to
