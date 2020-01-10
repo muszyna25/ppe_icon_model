@@ -56,7 +56,7 @@ else
 fi
 
 #GZ ./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.cfdc2654_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
-RS ./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.b37a11b5_icon-les/${BB_SYSTEM}_${BB_SLAVE}/
+./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.b37a11b5_icon-les/${BB_SYSTEM}_${BB_SLAVE}/
 #./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.c8db0dea_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
 STATUS=$?
 
