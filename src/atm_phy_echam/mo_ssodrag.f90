@@ -17,6 +17,9 @@ MODULE mo_ssodrag
        &                              gfrcrit, grcrit, grahilo,       &
        &                              gsigcr , gssec , gtsec , gvsec
 
+  USE mo_index_list,            ONLY: generate_index_list
+
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ssodrag
@@ -123,7 +126,8 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   INTEGER  :: igwd, jk, jl, ji
 
   ! Local arrays:
-  INTEGER  :: idx(kbdim), itest(kbdim)
+  INTEGER  :: idx(kbdim)
+  INTEGER  :: itest(kbdim)
   REAL(wp) :: zhgeo(kbdim,klev)     ! geopot. height above ground (m)
   REAL(wp) :: zdu_oro(kbdim,klev)   ! tendency due to ORO GW DRAG  (m/s)
   REAL(wp) :: zdv_oro(kbdim,klev)   ! tendency due to ORO GW DRAG  (m/s)
@@ -153,19 +157,15 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
   !*         1.    initialization
   !                --------------
 
-  !$ACC PARALLEL DEFAULT(PRESENT)
-  !$ACC LOOP GANG VECTOR
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
   DO jl = 1, kbdim
     pustrgw (jl)   = 0.0_wp
     pvstrgw (jl)   = 0.0_wp
     pvdisgw (jl)   = 0.0_wp
   END DO
-  !$ACC END PARALLEL
 
-  !$ACC PARALLEL DEFAULT(PRESENT)
-  !$ACC LOOP SEQ
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
   DO jk = 1, klev
-    !$ACC LOOP GANG VECTOR
     DO jl = 1, kbdim
       pdis_sso(jl,jk) = 0.0_wp
       pdu_sso (jl,jk) = 0.0_wp
@@ -182,29 +182,27 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
       zdis_lif(jl,jk) = 0.0_wp
     END DO
   END DO
-  !$ACC END PARALLEL
 
 
   !  SELECTION  POINTS WHERE THE SCHEME IS ACTIVE
 
   igwd=0
-  !$ACC PARALLEL DEFAULT(PRESENT)
-  !$ACC LOOP GANG VECTOR
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
   DO jl = 1, kbdim
     idx(jl) = 0
   END DO
-  !$ACC END PARALLEL
-  !$ACC PARALLEL DEFAULT(PRESENT)
-  !$ACC LOOP SEQ
+
+  !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
   DO jl=jcs,kproma
      itest(jl)=0
      IF (((ppic(jl)-pmea(jl)) > gpicmea).AND.(pstd(jl) > gstd)) THEN
         itest(jl)=1
-        igwd=igwd+1
-        idx(igwd)=jl
      ENDIF
   ENDDO
-  !$ACC END PARALLEL
+
+  CALL generate_index_list(itest, idx, jcs, kproma, igwd, 1)
+
+  !$acc wait
 
 
   IF (.NOT.((gkwake == 0.0_wp).AND.(gkdrag == 0.0_wp))) THEN
@@ -282,7 +280,7 @@ SUBROUTINE ssodrag ( jg            ,& ! in,  grid index
 
 END SUBROUTINE ssodrag
 
-SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                    &
+SUBROUTINE orodrag( jg, jcs, kproma, kbdim,  klev,                   &
                     pdtime,                                          &
                     kgwd,   kdx,                                     &
                     phgeo,  paphm1, papm1,                           &
@@ -1535,7 +1533,7 @@ SUBROUTINE orolift( jg, jcs, kproma, kbdim, klev,  &
 
   ! array arguments with intent(IN):
   ! Input 1D
-  INTEGER,  INTENT(in)  :: ktest(kbdim)  ! Flags to indicate active points
+  INTEGER,  INTENT(in) :: ktest(kbdim)  ! Flags to indicate active points
 
   REAL(wp), INTENT(in)  :: pmea(kbdim)   ! Mean Orography (m)
   REAL(wp), INTENT(in)  :: pstd(kbdim)   ! SSO standard deviation (m)

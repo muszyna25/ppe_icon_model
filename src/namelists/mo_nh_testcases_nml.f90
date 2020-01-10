@@ -68,7 +68,7 @@ MODULE mo_nh_testcases_nml
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
-    &       tracer_inidist_list
+    &       tracer_inidist_list, zp_ape, ztmc_ape
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
@@ -102,6 +102,8 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: tpe_psfc               ! initial surface pressure for terra planet [Pa]
   REAL(wp) :: tpe_temp               ! iitial atmospheric temperature for terra planet [K]
   REAL(wp) :: ape_sst_val            ! (degC) value to be used for SST computation for aqua planet
+  REAL(wp) :: zp_ape                 ! surface pressure (Pa)
+  REAL(wp) :: ztmc_ape               ! total atmospheric moisture content (g/m3 ?)
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 
@@ -159,7 +161,7 @@ MODULE mo_nh_testcases_nml
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
                             rh_at_1000hpa, qv_max,                           &
                             tpe_moist, tpe_psfc, tpe_temp,                   &
-                            ape_sst_case, ape_sst_val,                       &
+                            ape_sst_case, ape_sst_val, zp_ape, ztmc_ape,     &
                             linit_tracer_fv, lhs_fric_heat,                  &
                             qv_max_wk, u_infty_wk,                           &
                             bubctr_lat, bubctr_lon, bubctr_z,                &
@@ -239,6 +241,8 @@ MODULE mo_nh_testcases_nml
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
     ape_sst_val            = 29.0_wp ! 29 degC
+    zp_ape                 = 101325._wp
+    ztmc_ape               = 25.006_wp
     sol_const              = 1361.371_wp ! [W/m2] default value for amip
     zenithang              = 38._wp ! value used for Popke et al. exps with no diurn cycle
     ! assuming that default is on triangles the next switch is set

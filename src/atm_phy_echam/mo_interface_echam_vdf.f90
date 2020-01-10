@@ -214,7 +214,8 @@ CONTAINS
     nice   = prm_field(jg)%kice
 
     !$ACC DATA PCREATE( zxt_emis ) IF( ntrac > 0 )
-    !$ACC DATA PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
+    !$ACC DATA PRESENT( field ),                                                &
+    !$ACC      PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
     !$ACC               zbhn_tile, zbm_tile, zbh_tile, dummy, dummyx,           &
     !$ACC               wstar, qs_sfc_tile, hdtcbl, ri_atm, mixlen, cfm,        &
     !$ACC               cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa,      &
@@ -246,10 +247,9 @@ CONTAINS
        IF ( is_active ) THEN
           !
           ! Set dummy values to zero to prevent invalid floating point operations:
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = 1,nproma
               dummy (jl,jk) = 0._wp
               dummyx(jl,jk) = 0._wp 
@@ -261,10 +261,9 @@ CONTAINS
           !
           ! - default is no emission
           IF (ntrac > 0) THEN
-            !$ACC PARALLEL DEFAULT(PRESENT) IF( ntrac > 0 )
-            !$ACC LOOP SEQ
+            !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( ntrac > 0 )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jt = 1,ntrac
-              !$ACC LOOP GANG VECTOR
               DO jl = jcs,jce
                 zxt_emis(jl,jt) = 0._wp
               END DO
@@ -291,7 +290,7 @@ CONTAINS
              ! of interface_echam_vdf/update_surface/jsbach.
              ! The original parameter echam_rad_config(jg)%vmr_co2 is replaced by its value:
              !
-             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zco2(jl) = 348.0e-06_wp * amco2/amd
@@ -302,7 +301,7 @@ CONTAINS
              !
              ! co2 flux at the surface
              !$ACC DATA PRESENT( field%fco2nat )
-             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zxt_emis(jl,ico2-(iqt-1)) = field%fco2nat(jl,jb)
@@ -312,7 +311,7 @@ CONTAINS
              !
              ! co2 concentration in the lowermost layer
              !$ACC DATA PRESENT( field%qtrc )
-             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zco2(jl) = field% qtrc(jl,nlev,jb,ico2)
@@ -324,7 +323,7 @@ CONTAINS
              !
              ! co2 flux at the surface
              !$ACC DATA PRESENT( field%fco2nat )
-             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
              !$ACC LOOP GANG VECTOR
              DO jl = jcs,jce
                zxt_emis(jl,ico2-(iqt-1)) = field%fco2nat(jl,jb)
@@ -337,14 +336,14 @@ CONTAINS
              CASE (2)
                 mmr_co2 = ccycle_config(jg)%vmr_co2   * amco2/amd
                 !
-                !$ACC PARALLEL DEFAULT(PRESENT)
+                !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
                 !$ACC LOOP GANG VECTOR
                 DO jl = jcs,jce
                   zco2(jl) = mmr_co2
                 END DO
                 !$ACC END PARALLEL
              CASE (4)
-                !$ACC PARALLEL DEFAULT(PRESENT)
+                !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
                 !$ACC LOOP GANG VECTOR
                 DO jl = jcs,jce
                   zco2(jl) = ghg_co2mmr
@@ -353,20 +352,17 @@ CONTAINS
              END SELECT
              !
           END SELECT
-          !$ACC DATA PRESENT( field%qtrc )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs,jce
               zqx(jl,jk) =  field%qtrc(jl,jk,jb,iqc) + field%qtrc(jl,jk,jb,iqi)
             END DO
           END DO
           !$ACC END PARALLEL
-          !$ACC END DATA
           !
           !$ACC DATA PRESENT( field%ustar, field%cair, field%csat, field%z0h_lnd, field%rlus )
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP GANG VECTOR
           DO jl = jcs,jce
             ustar   (jl) = field% ustar   (jl,jb)
@@ -379,10 +375,9 @@ CONTAINS
           !$ACC END DATA
           !
           !$ACC DATA PRESENT( field%ts_tile, field%wstar_tile, field%z0m_tile )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jsfc=1,nsfc_type
-            !$ACC LOOP GANG VECTOR
             DO jl=jcs,jce
               ts_tile   (jl,jsfc) = field% ts_tile   (jl,jb,jsfc)
               wstar_tile(jl,jsfc) = field% wstar_tile(jl,jb,jsfc)
@@ -394,10 +389,9 @@ CONTAINS
           !
           !
           !$ACC DATA PRESENT( field%albvisdir_ice, field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jice=1,nice
-            !$ACC LOOP GANG VECTOR
             DO jl=jcs,jce
               albvisdir_ice (jl,jice) = field% albvisdir_ice(jl,jice,jb)
               albnirdir_ice (jl,jice) = field% albnirdir_ice(jl,jice,jb)
@@ -429,6 +423,8 @@ CONTAINS
           !$ser verbatim   wstar, qs_sfc_tile, hdtcbl, ri_atm, ri_tile, mixlen, cfm,&
           !$ser verbatim   cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa, zaa_btm,&
           !$ser verbatim   zbb, zbb_btm, zfactor_sfc, zcpt_sfc_tile, zcptgz, zthvvar, ztottevn)
+          !
+          ! DA: this routine is async aware, so it's safe not not wait here
           !
           CALL vdiff_down(jg,                              &! in
                &          jb,                              &! in  used for debugging only
@@ -498,6 +494,8 @@ CONTAINS
                &          pcair = cair(:),                 &! in, optional, area fraction with wet land surface (air)
                &          paz0lh = z0h_lnd(:)          )    ! in, optional, roughness length for heat over land
           !
+          ! DA: before the rest of the kernels here are async, we need to wait
+          !$ACC WAIT
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
           !$ser verbatim call serialize_vdf_vd_output(jg, jb, jcs, jce, nproma,&
@@ -916,7 +914,7 @@ CONTAINS
           IF (ASSOCIATED(field% q_vdf)) THEN
             !$ACC DATA PRESENT( field%q_vdf, q_vdf )
             !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG 
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
               DO jl = jcs,jce
@@ -1231,9 +1229,8 @@ CONTAINS
           !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
           !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk)
               tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk)
@@ -1265,9 +1262,8 @@ CONTAINS
              !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
              !$ACC               field%qtrc, tend_qtrc_vdf )
              !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG
+             !$ACC LOOP GANG VECTOR COLLAPSE(2)
              DO jk = 1,nlev
-               !$ACC LOOP VECTOR
                DO jl = jcs, jce
                  field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk)     *pdtime
                  field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk)     *pdtime
@@ -1288,9 +1284,8 @@ CONTAINS
             ! 2-tl-scheme
             !$ACC DATA PRESENT( field%tottem1, field%totte )
             !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
             DO jk = 1,nlev
-              !$ACC LOOP VECTOR
               DO jl = jcs, jce
               field% tottem1   (jl,jk,jb) = field% totte (jl,jk,jb)
               END DO

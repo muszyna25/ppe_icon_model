@@ -218,46 +218,36 @@ CONTAINS
 
     ! geopotential height above ground
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klev
-         !$ACC LOOP GANG VECTOR
          DO jl = 1,kbdim
             zghf(jl,jk) = pzf(jl,jk) - pzh(jl,klevp1)
          END DO
     END DO
 
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klevp1
-         !$ACC LOOP GANG VECTOR
          DO jl = 1,kbdim
-            zghh (jl,jk)      = pzh(jl,jk) - pzh(jl,klevp1)
+            zghh (jl,jk) = pzh(jl,jk) - pzh(jl,klevp1)
          END DO
     END DO
-    !$ACC END PARALLEL
 
     ! reciprocal layer mass
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klev
-         !$ACC LOOP GANG VECTOR
          DO jl = jcs,kproma
             zrmairm(jl,jk) = 1._wp / pmair(jl,jk)
             zrmrefm(jl,jk) = 1._wp / pmref(jl,jk)
          END DO
     END DO
-    !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klevm1
-      !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         zrmairh(jl,jk) = 2._wp / (pmair(jl,jk) + pmair(jl,jk+1))
       END DO
     END DO
-    !$ACC END PARALLEL
 
     !----------------------------------------------------------------------
     ! 1. Compute various thermodynamic variables; Diagnose PBL extension;
@@ -265,6 +255,7 @@ CONTAINS
     !    Get TTE and variance of theta_v at intermediate time step.
     !----------------------------------------------------------------------
 
+    ! DA: this routine is async aware, so it's safe not not wait here
     CALL atm_exchange_coeff( jg,                                      &! in
                            & jb,                                      &! in, for debugging only
                            & jcs, kproma, kbdim, klev, klevm1, klevp1,&! in
@@ -286,18 +277,17 @@ CONTAINS
                            & pri(:,1:klevm1), pmixlen(:,1:klevm1)     )! out, for output
 
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO jl = 1,kproma
       pmixlen(jl,klev) = -999._wp
     END DO
-    !$ACC END PARALLEL
 
     !-----------------------------------------------------------------------
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
     !    Get boundary condition for TTE and variance of theta_v.
     !-----------------------------------------------------------------------
 
+    ! DA: this routine is async, no need to wait
     CALL sfc_exchange_coeff( jg,                                    &! in
                            & jcs, kproma, kbdim, ksfc_type,         &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
@@ -346,7 +336,7 @@ CONTAINS
 
     zconst = tpfac1*pdtime
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,klevm1
       DO jl = jcs,kproma
@@ -355,7 +345,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       zfactor(jl,klev) = zfactor(jl, klev)*zconst
@@ -371,7 +361,7 @@ CONTAINS
                           & aa, aa_btm                                    )! out
 
     ! Save for output, to be used in "update_surface"
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       pfactor_sfc(jl) = zfactor(jl,klev)
@@ -398,6 +388,8 @@ CONTAINS
 
     !$ACC END DATA
     !$ACC END DATA
+
+    !$ACC WAIT
 
   END SUBROUTINE vdiff_down
   !-------------
