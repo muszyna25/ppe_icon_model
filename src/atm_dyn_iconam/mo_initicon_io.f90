@@ -60,7 +60,7 @@ MODULE mo_initicon_io
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, lsnowtile, &
     &                               isub_lake, llake, lprog_albsi, itype_trvg, &
-    &                               itype_snowevap
+    &                               itype_snowevap, itype_canopy
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
@@ -1642,6 +1642,9 @@ MODULE mo_initicon_io
             CALL fetchTiledSurface(params, 't_snow', jg, ntiles_total, lnd_prog%t_snow_t)
             CALL fetchTiledSurface(params, 'rho_snow', jg, ntiles_total, lnd_prog%rho_snow_t)
 
+            IF (itype_canopy == 2) THEN
+              CALL fetchTiledSurface(params, 't_sk', jg, ntiles_total + ntiles_water, lnd_prog%t_sk_t)
+            ENDIF
             IF (itype_trvg == 3) THEN
               CALL fetchTiledSurface(params, 'plantevap', jg, ntiles_total, lnd_diag%plantevap_t)
             ENDIF
@@ -1831,6 +1834,19 @@ MODULE mo_initicon_io
                 DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
                   jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
                   lnd_prog%t_s_t(jc,jb,isub_lake) = MAX(tmelt, lnd_prog%t_g_t(jc,jb,isub_lake))
+                ENDDO
+              ENDIF
+
+              IF (itype_canopy == 1 .OR. inputInstructions(jg)%ptr%sourceOfVar('t_sk') == kInputSourceCold) THEN
+                DO jt = 1, ntiles_total + ntiles_water
+                  IF (jb == p_patch(jg)%nblks_c) THEN
+                    i_endidx = p_patch(jg)%npromz_c
+                  ELSE
+                    i_endidx = nproma
+                  END IF
+                  DO jc = 1, i_endidx
+                    lnd_prog%t_sk_t(jc,jb,jt) = lnd_prog%t_s_t(jc,jb,jt)
+                  ENDDO
                 ENDDO
               ENDIF
 

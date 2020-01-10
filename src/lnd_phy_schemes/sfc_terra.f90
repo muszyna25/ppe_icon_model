@@ -202,7 +202,7 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              itype_trvg, itype_evsl,          &
   &                              itype_root, itype_heatcond,      &
   &                              itype_hydbound,                  &
-  &                              itype_canopy, cskinc, cimpl,     &
+  &                              itype_canopy, cskinc, tau_skin,  &
   &                              lstomata,                        &
   &                              max_toplaydepth, itype_interception, &
   &                              cwimax_ml
@@ -969,7 +969,6 @@ CONTAINS
     zrocg_soil  (nvec,ke_soil+1)   , & ! volumetric heat capacity of bare soil
     zrocs       (nvec)             , & ! heat capacity of snow
     ztsn        (nvec)             , & ! new value of zts
-    ztskn       (nvec)             , & ! new value of ztsk
     ztsnown     (nvec)             , & ! new value of ztsnow
     ztsnown_mult(nvec,0:ke_snow)   , & ! new value of ztsnow
     znlgw1f     (ke_soil)              ! utility variable
@@ -1269,7 +1268,7 @@ enddo
   !$acc present(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
   !$acc present(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
   !$acc present(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
-  !$acc present(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
+  !$acc present(zrocs, ztsn, ztsnown, ztsnown_mult, znlgw1f)         &
   !$acc present(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
   !$acc present(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
   !$acc present(t_new, rho_new, wl_new, dz_old, z_old)               &
@@ -2756,11 +2755,12 @@ enddo
 
   ! Ensure that the sum of the evaporation terms does not exceed the potential evaporation
   !$acc parallel
-  !$acc loop gang vector private(ze_sum, zzz)
+  !$acc loop gang vector private(ze_sum, zxx, zzz)
   DO i = ivstart, ivend
     ze_sum = zdwsndt(i) + zdwidt(i) + zesoil(i) + ztrangs(i)
-    IF (zep_s(i) < 0._wp .AND. ze_sum < zep_s(i)) THEN
-      zzz = zep_s(i)/ze_sum
+    zxx    = zf_snow(i)*zep_snow(i) + (1._wp-zf_snow(i))*zep_s(i) ! snow-weighted potential evaporation
+    IF (zxx < 0._wp .AND. ze_sum < zxx) THEN
+      zzz = zxx/ze_sum
       zdwsndt(i) = zdwsndt(i)*zzz
       zdwidt(i)  = zdwidt(i) *zzz
       zesoil(i)  = zesoil(i) *zzz
@@ -4433,42 +4433,10 @@ enddo
 
       ! Calculation of the surface energy balance
 
-      IF (itype_canopy == 1) THEN
-
-        ! total forcing for uppermost soil layer
-        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) ) &
-                       * (1._wp - zf_snow(i)) + zsprs(i) &
-                    + zf_snow(i) * (1._wp-ztsnow_pm(i)) * zgsb(i)
-
-      ELSE IF (itype_canopy == 2) THEN
-
-        ! Calculation of the skin temperature (snow free area).
-        ! Implemented by Jan-Peter Schulz (07/2016), based on Viterbo and Beljaars (1995).
-
-        IF (cskinc < 0.0_wp) THEN
-          ztskn(i)  = ( MAX(5.0_wp,skinc(i))*zts(i)                                     &
-                      + zrnet_s(i)                                                      &
-                      + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**4                          &
-                      + zshfl_s(i) + zlhfl_s(i) + zsprs(i)                            ) &
-                    / ( MAX(5.0_wp,skinc(i)) + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**3 )
-        ELSE
-          ztskn(i)  = ( cskinc*zts(i)                                                   &
-                      + zrnet_s(i)                                                      &
-                      + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**4                          &
-                      + zshfl_s(i) + zlhfl_s(i) + zsprs(i)                            ) &
-                    / ( cskinc               + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**3 )
-        END IF
-
-        IF ((zwsnew(i) .GT. eps_soil) .OR. (zf_snow(i) .GT. 0.0_wp)) ztskn(i) = ztsnow(i)
-
-        ! total forcing for uppermost soil layer
-
-        zfor_s(i) = ( zrnet_s(i)                                                        &
-                    - cimpl*sigma*(1._wp - ztalb)*ztsk(i)**3 *(ztskn(i)-ztsk(i))        &
-                    + zshfl_s(i) + zlhfl_s(i)                                    )      &
-                    * (1._wp - zf_snow(i)) + zsprs(i)                                   &
-                  +   zf_snow(i) * (1._wp-ztsnow_pm(i)) * zgsb(i)
-      END IF
+      ! total forcing for uppermost soil layer
+      zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) ) &
+                     * (1._wp - zf_snow(i)) + zsprs(i) &
+                  + zf_snow(i) * (1._wp-ztsnow_pm(i)) * zgsb(i)
 
     END DO
     !$acc end parallel
@@ -5485,12 +5453,22 @@ enddo
     ! t_so(i,0,nnew) predicted by the heat conduction equation is used
     t_s_new   (i)    = t_so_new(i,1)
     t_so_new  (i,0)  = t_so_new(i,1)
+    w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
     IF (itype_canopy == 1) THEN
       t_sk_new(i)    = t_s_new(i)
     ELSE IF (itype_canopy == 2) THEN
-      t_sk_new(i)    = ztskn(i)
+
+      ! Calculation of the skin temperature (snow free area), based on Viterbo and Beljaars (1995)
+      ! A Newtonian relaxation approach is used to ensure numerical stability
+
+      IF (w_snow_now(i) > eps_soil .OR. w_snow_new(i) > eps_soil) THEN
+        t_sk_new(i) = t_s_new(i) ! needs to be t_s rather than t_snow in order to obtain correct t_g afterwards
+      ELSE
+        t_sk_new(i) = t_sk_now(i) + 0.5_wp*(t_s_new(i) - t_s_now(i)) + zdt/tau_skin *                           &
+          ( (zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i))/MAX(5.0_wp,skinc(i)) - (t_sk_now(i) - t_s_now(i)) )
+      ENDIF
+
     END IF
-    w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
     IF (itype_interception == 1) THEN
       w_i_new   (i)  = w_i_now(i) + zdt*zdwidt   (i)/rho_w
     ELSE IF (itype_interception == 2) THEN
@@ -5514,6 +5492,9 @@ enddo
     ENDIF
   ENDDO
   !$acc end parallel
+
+! GZ: this additional computation is obsolete with snow tiles because grid points with completely melted snow
+!     are deleted afterwards
 
 !>JH New solution of heat conduction for snow points which melted completly
 !    during time step
@@ -5797,8 +5778,6 @@ enddo
     t_so_new  (i,0)  = t_so_new(i,1)
     IF (itype_canopy == 1) THEN
       t_sk_new(i)    = t_s_new(i)
-    ELSE IF (itype_canopy == 2) THEN
-      t_sk_new(i)    = ztskn(i)
     END IF
     w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
     IF (itype_interception == 1) THEN

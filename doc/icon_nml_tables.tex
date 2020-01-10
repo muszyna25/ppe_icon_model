@@ -3579,11 +3579,8 @@ Reasonable range: 10.0 -- 1000.0 &
 \tabularnewline
 
 %\hline
-cimpl &
-R & $150.0$ &  & Stability parameter for the computation of the skin temperature \\
-The default value works well for model domains with 2.2 km mesh size. For coarser grids and longer timesteps,
-lower values are appropriate. \\
-Reasonable range: 4.0 -- 200.0 &
+tau\_skin &
+R & 3600. & s & Relaxation time scale for the computation of the skin temperature  &
 \tabularnewline
 
 %\hline

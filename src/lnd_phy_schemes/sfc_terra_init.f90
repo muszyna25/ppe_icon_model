@@ -161,8 +161,6 @@ SUBROUTINE terra_init (            &
 #endif
                 t_s_now          , & ! temperature of the ground surface             (  K  )
                 t_s_new          , & ! temperature of the ground surface             (  K  )
-                t_sk_now         , & ! skin temperature                              (  K  )
-                t_sk_new         , & ! skin temperature                              (  K  )
                 w_snow_now       , & ! water content of snow                         (m H2O)
                 h_snow           , & ! snow depth                                   (m H2O)
                 rho_snow_now     , & ! snow density                                  (kg/m**3)
@@ -210,10 +208,6 @@ SUBROUTINE terra_init (            &
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(OUT) :: &
                   t_s_new              ! temperature of the ground surface             (  K  )
-  REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(INOUT) :: &
-                  t_sk_now              ! skin temperature                             (  K  )
-  REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(OUT) :: &
-                  t_sk_new              ! skin temperature                             (  K  )
   REAL    (KIND = wp)    , DIMENSION(nvec), INTENT(INOUT) :: &
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   rho_snow_now         ! snow density                                  (kg/m**3)
@@ -315,7 +309,7 @@ SUBROUTINE terra_init (            &
   !$acc present(zmls, soiltyp_subs, rootdp, plcov                      ) &
 
   ! Subroutine parameters INOUT
-  !$acc present(t_snow_now, t_snow_mult_now, t_s_now, t_sk_now         ) &
+  !$acc present(t_snow_now, t_snow_mult_now, t_s_now                   ) &
 #ifdef __ICON__
   !$acc present(t_rhosnowini                                           ) &
 #endif
@@ -324,7 +318,7 @@ SUBROUTINE terra_init (            &
   !$acc present(wtot_snow_now, dzh_snow_now                            ) &
 
   ! Subroutine parameters OUT
-  !$acc present(t_s_new, t_sk_new, t_so_new, w_so_new, w_so_ice_new    ) &
+  !$acc present(t_s_new, t_so_new, w_so_new, w_so_ice_new              ) &
 
   ! Local arrays
   !$acc present(m_styp, zicount1, zicount2                             ) &
@@ -441,8 +435,6 @@ SUBROUTINE terra_init (            &
 
     t_s_now(i)  = t_so_now(i,0)
     t_s_new(i)  = t_so_now(i,0)
-    t_sk_now(i) = t_s_now(i)
-    t_sk_new(i) = t_s_new(i)
 
     ! Set level 1 to level 0 for t_so for every landpoint
     t_so_now(i,1) = t_so_now(i,0)

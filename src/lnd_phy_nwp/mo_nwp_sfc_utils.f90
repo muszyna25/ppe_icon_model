@@ -540,8 +540,6 @@ CONTAINS
         &  t_rhosnowini      = t_rhosnowini_t(:,jb,isubs)       , & ! temperature used for snow density initialization (  K  )
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
-        &  t_sk_now          = t_sk_now_t(:,jb,isubs)           , & ! skin temperature (  K  )
-        &  t_sk_new          = t_sk_new_t(:,jb,isubs)           , & ! skin temperature (  K  )
         &  w_snow_now        = w_snow_now_t(:,jb,isubs)         , & ! water content of snow             (m H2O)
         &  h_snow            = h_snow_t(:,jb,isubs)             , & ! snow depth                        (m H2O)
         &  rho_snow_now      = rho_snow_now_t(:,jb,isubs)       , & ! snow density                      (kg/m**3)

@@ -60,7 +60,7 @@ MODULE mo_lnd_nwp_nml
     &                               config_itype_root  => itype_root    , &
     &                             config_itype_canopy  => itype_canopy  , &
     &                             config_cskinc        => cskinc        , &
-    &                             config_cimpl         => cimpl         , &
+    &                             config_tau_skin      => tau_skin      , &
     &                               config_lstomata    => lstomata      , &
     &                               config_l2tls       => l2tls         , &
     &                            config_itype_heatcond => itype_heatcond, &
@@ -98,7 +98,7 @@ MODULE mo_lnd_nwp_nml
   REAL(wp)::  c_soil_urb        !< surface area density of the (evaporative) soil surface, urban areas
   INTEGER ::  itype_canopy      !< type of canopy parameterisation with respect to the surface energy balance
   REAL(wp)::  cskinc            !< skin conductivity (W/m**2/K)
-  REAL(wp)::  cimpl             !< stability parameter for the computation of the skin temperature
+  REAL(wp)::  tau_skin          !< relaxation time scale for the computation of the skin temperature
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
   INTEGER ::  itype_snowevap    !< treatment of snow evaporation in the presence of vegetation      
@@ -133,7 +133,7 @@ MODULE mo_lnd_nwp_nml
     &               itype_heatcond                                  , & 
     &               itype_interception                              , & 
     &               itype_hydbound                                  , & 
-    &               itype_canopy, cskinc, cimpl                     , &
+    &               itype_canopy, cskinc, tau_skin                  , &
     &               lstomata                                        , & 
     &               l2tls                                           , & 
     &               lana_rho_snow, l2lay_rho_snow                   , & 
@@ -228,7 +228,7 @@ MODULE mo_lnd_nwp_nml
                              !  2: skin temperature formulation by Schulz and Vogel (2017),
                              !     based on Viterbo and Beljaars (1995)
     cskinc         = -1._wp  ! skin conductivity (W/m**2/K)
-    cimpl          = 120._wp ! stability parameter for the computation of the skin temperature
+    tau_skin      = 3600._wp ! relaxation time scale for the computation of the skin temperature
     !
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
@@ -320,7 +320,7 @@ MODULE mo_lnd_nwp_nml
       config_itype_root  = itype_root
       config_itype_canopy = itype_canopy
       config_cskinc      = cskinc
-      config_cimpl       = cimpl
+      config_tau_skin    = tau_skin
       config_lstomata    = lstomata
       config_l2tls       = l2tls
       config_itype_heatcond = itype_heatcond

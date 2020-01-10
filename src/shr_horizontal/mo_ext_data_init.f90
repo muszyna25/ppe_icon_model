@@ -47,7 +47,7 @@ MODULE mo_ext_data_init
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
-                                   ci_td_filename, itype_lndtbl, c_soil, c_soil_urb
+                                   ci_td_filename, itype_lndtbl, c_soil, c_soil_urb, cskinc
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_extpar_config,      ONLY: itopo, itype_lwemiss, extpar_filename, generate_filename,   &
     &                              generate_td_filename, extpar_varnames_map_file,       &
@@ -855,23 +855,23 @@ CONTAINS
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp, 200._wp  / ! undefined
 
 ! Yet another tuned version by Guenther Zaengl (adjusted to resistance-based bare soil evaporation scheme)
- DATA lu_gcv2009_v4 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 190.0_wp,  0.72_wp, 1._wp,  30._wp, & ! irrigated croplands
-                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp,  30._wp, & ! rainfed croplands
+ DATA lu_gcv2009_v4 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 225.0_wp,  0.72_wp, 1._wp, 100._wp, & ! irrigated croplands
+                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp,  50._wp, & ! rainfed croplands
                    &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 130.0_wp,  0.55_wp, 1._wp,  30._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
-                   &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp,  30._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
-                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp, 1._wp,  50._wp, & ! closed broadleaved evergreen forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp,1.25_wp, 300.0_wp,  0.31_wp, 1._wp,  50._wp, & ! closed broadleaved deciduous forest
-                   &   0.50_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp,  30._wp, & ! open broadleaved deciduous forest
+                   &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp,  40._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp, 1._wp,  40._wp, & ! closed broadleaved evergreen forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp,1.25_wp, 300.0_wp,  0.31_wp, 1._wp,  30._wp, & ! closed broadleaved deciduous forest
+                   &   0.50_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp,  50._wp, & ! open broadleaved deciduous forest
                    &   1.00_wp,  0.8_wp,  5.0_wp,0.75_wp, 300.0_wp,  0.27_wp, 1._wp,  50._wp, & ! closed needleleaved evergreen forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp,  50._wp, & ! open needleleaved deciduous forest
-                   &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 270.0_wp,  0.29_wp, 1._wp,  50._wp, & ! mixed broadleaved and needleleaved forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp,  15._wp, & ! open needleleaved deciduous forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 270.0_wp,  0.29_wp, 1._wp,  20._wp, & ! mixed broadleaved and needleleaved forest
                    &   0.20_wp,  0.8_wp,  2.5_wp, 1.1_wp, 170.0_wp,  0.60_wp, 1._wp,  30._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
                    &   0.20_wp,  0.8_wp,  2.5_wp, 0.9_wp, 170.0_wp,  0.65_wp, 1._wp,  30._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
-                   &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 180.0_wp,  0.65_wp, 1._wp,  50._wp, & ! closed to open shrubland
-                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.82_wp, 1._wp,  30._wp, & ! closed to open herbaceous vegetation
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 1.5_wp, 180.0_wp,  0.65_wp, 1._wp,  75._wp, & ! closed to open shrubland
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.82_wp, 1._wp,  70._wp, & ! closed to open herbaceous vegetation
                    &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp, 140.0_wp,  0.76_wp, 1._wp,  30._wp, & ! sparse vegetation
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed to open forest regulary flooded
-                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  50._wp, & ! closed forest or shrubland permanently flooded
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp,  80._wp, & ! closed forest or shrubland permanently flooded
                    &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  0.76_wp, 1._wp,  30._wp, & ! closed to open grassland regularly flooded
                    &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 300.0_wp,  0.50_wp, 1._wp, 200._wp, & ! artificial surfaces
                    &   0.05_wp,  0.01_wp, 0.2_wp, 0.3_wp, 300.0_wp,  0.82_wp, 1._wp, 200._wp, & ! bare areas
@@ -1003,7 +1003,11 @@ CONTAINS
             ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv(i+5)  ! Albedo in case of snow cover for each land-cover class
             ext_data(jg)%atm%snowtile_lcc(ilu)    = &
               &          MERGE(.TRUE.,.FALSE.,lu_gcv(i+6)>0._wp) ! Existence of snow tiles for land-cover class
-            ext_data(jg)%atm%skinc_lcc(ilu)       = lu_gcv(i+7)  ! Skin conductivity for each land use class
+            IF (cskinc <= 0._wp) THEN
+              ext_data(jg)%atm%skinc_lcc(ilu)       = lu_gcv(i+7)  ! Skin conductivity for each land use class
+            ELSE
+              ext_data(jg)%atm%skinc_lcc(ilu)       = cskinc       ! constant value specified in namelist
+            ENDIF
           ENDDO
         ENDIF
 
@@ -1434,7 +1438,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     LOGICAL  :: tile_mask(num_lcc)
-    REAL(wp) :: tile_frac(num_lcc), sum_frac, dtdz_clim, t2mclim_hc
+    REAL(wp) :: tile_frac(num_lcc), sum_frac, dtdz_clim, t2mclim_hc, lat
     INTEGER  :: lu_subs, it_count(ntiles_total)
     INTEGER  :: npoints, npoints_sea, npoints_lake
     INTEGER  :: i_lc_water
@@ -1488,7 +1492,7 @@ CONTAINS
        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
-!$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in,t2mclim_hc ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in,t2mclim_hc,lat ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
 
          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -1701,7 +1705,13 @@ CONTAINS
                  ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = MERGE(c_soil_urb,c_soil,lu_subs == ext_data(jg)%atm%i_lc_urban)
 
                  ! skin conductivity
-                 ext_data(jg)%atm%skinc_t(jc,jb,i_lu)    = ext_data(jg)%atm%skinc_lcc(lu_subs)
+                 lat = p_patch(jg)%cells%center(jc,jb)%lat*rad2deg
+                 IF (itype_lndtbl == 4 .AND. lat > -10._wp .AND. lat < 42.5_wp) THEN
+                   ext_data(jg)%atm%skinc_t(jc,jb,i_lu) = MIN(200._wp,ext_data(jg)%atm%skinc_lcc(lu_subs)*            &
+                                                          (1._wp+MIN(1._wp,0.4_wp*(42.5_wp-lat),0.4_wp*(lat+10._wp))) )
+                 ELSE
+                   ext_data(jg)%atm%skinc_t(jc,jb,i_lu)    = ext_data(jg)%atm%skinc_lcc(lu_subs)
+                 ENDIF
 
                  ! minimal stomata resistance
                  ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)

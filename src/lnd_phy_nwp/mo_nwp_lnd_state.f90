@@ -494,8 +494,8 @@ MODULE mo_nwp_lnd_state
            & t_cf_var('t_sk_t_'//csfc, '', '', datatype_flt),              &
            & grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
            & ldims=shape2d,                                                &
-           & var_class=CLASS_TILE,                                         &
-           & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+           & var_class=CLASS_TILE, tlev_source=TLEV_NNOW_RCF,              & ! for output take field from nnow_rcf slice
+           & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t")         )
     ENDDO
 
 
@@ -1337,8 +1337,9 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('t_sk', 'K', 'skin temperature', datatype_flt)
     grib2_desc = grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_sk', p_diag_lnd%t_sk,                &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                &
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE., in_group=              &
+         & groups("dwd_fg_sfc_vars", "mode_iau_fg_in", "mode_dwd_fg_in")           )
 
 
     ! & p_diag_lnd%t_seasfc(nproma,nblks_c)

@@ -50,7 +50,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
             itype_hydbound, idiag_snowfrac, itype_snowevap, cwimax_ml, c_soil, c_soil_urb
-  PUBLIC :: itype_canopy, cskinc, cimpl
+  PUBLIC :: itype_canopy, cskinc, tau_skin
   PUBLIC :: lstomata, l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
@@ -83,7 +83,7 @@ MODULE mo_lnd_nwp_config
   REAL(wp)::  c_soil_urb         !< surface area density of the (evaporative) soil surface, urban areas
   INTEGER ::  itype_canopy       !< type of canopy parameterisation with respect to the surface energy balance
   REAL(wp)::  cskinc             !< skin conductivity (W/m**2/K)
-  REAL(wp)::  cimpl              !< stability parameter for the computation of the skin temperature
+  REAL(wp)::  tau_skin           !< relaxation time scale for the computation of the skin temperature
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
   INTEGER ::  itype_snowevap     !< treatment of snow evaporation in the presence of vegetation      
