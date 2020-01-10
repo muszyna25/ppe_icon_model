@@ -79,7 +79,7 @@ MODULE mo_initicon
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
-                                    kInputSourceBoth, kInputSourceCold
+                                    kInputSourceBoth, kInputSourceCold, kInputSourceAnaI, kInputSourceFgAnaI
   USE mo_util_uuid_types,     ONLY: t_uuid
   USE mo_nwp_sfc_utils,       ONLY: seaice_albedo_coldstart
   USE mo_fortran_tools,       ONLY: init
@@ -541,7 +541,7 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMO)
             ! process DWD land/surface analysis data / increments
-            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
+            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon, inputInstructions)
             ! Add increments to time-shifted first guess in one go.
             ! The following CALL must not be moved after create_dwdana_sfc()!
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
@@ -1588,8 +1588,8 @@ MODULE mo_initicon
     TYPE(t_external_data)         ,INTENT(IN)    :: ext_data(:)
     TYPE(t_readInstructionListPtr),INTENT(INOUT) :: inputInstructions(:)
 
-    INTEGER :: jg, jb, jt, jk, jc, ic    ! loop indices
-    INTEGER :: nblks_c                   ! number of blocks
+    INTEGER :: jg, jb, jt, jk, jc, ic              ! loop indices
+    INTEGER :: nblks_c                             ! number of blocks
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
     INTEGER :: ist
@@ -1607,7 +1607,6 @@ MODULE mo_initicon
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
 
-    INTEGER :: source_of_t_2m
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_iau_sfc'
   !-------------------------------------------------------------------------
@@ -1625,12 +1624,6 @@ MODULE mo_initicon
       lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
-      ! making this query in the parallel region is not allowed since it's not thread-safe
-      IF (itype_vegetation_cycle == 3) THEN
-        source_of_t_2m = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
-      ELSE
-        source_of_t_2m = -1
-      END IF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac)
@@ -1832,14 +1825,17 @@ MODULE mo_initicon
 
           ENDDO  ! jt
 
+
           ! Time-filtering of analyzed T2M bias
           ! only if t_2m is read from analysis
-          IF (itype_vegetation_cycle == 3 .AND. source_of_t_2m == kInputSourceAna) THEN
-            DO jc = i_startidx, i_endidx
-              lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
-                0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
-            ENDDO
-          ENDIF
+          IF (itype_vegetation_cycle == 3 ) THEN
+            IF (ANY((/kInputSourceAna,kInputSourceAnaI/) == inputInstructions(jg)%ptr%sourceOfVar('t_2m'))) THEN
+              DO jc = i_startidx, i_endidx
+                lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
+                  0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
+              ENDDO
+            ENDIF
+          ENDIF  ! itype_vegetation_cycle
 
         ENDIF  ! MODE_IAU
 
@@ -1869,12 +1865,12 @@ MODULE mo_initicon
   !-------------------------------------------------------------------------
   SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data, inputInstructions)
 
-    TYPE(t_patch),    TARGET ,INTENT(INOUT) :: p_patch(:)
-    TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
-    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
+    TYPE(t_patch),                  INTENT(INOUT) :: p_patch(:)
+    TYPE(t_lnd_state),              INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),          INTENT(INOUT) :: ext_data(:)
+    TYPE(t_readInstructionListPtr), INTENT(IN   ) :: inputInstructions(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt, ist     ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(dp):: missval
@@ -1882,8 +1878,16 @@ MODULE mo_initicon
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lp_mask(nproma)
     REAL(wp):: z_t_seasfc(nproma)              ! temporary field containing both SST 
-                                               ! and lake-surface temperatures 
+                                               ! and lake-surface temperatures
+
+    INTEGER :: source_ana_tseasfc(2)           ! possible input sources for t_seasfc analysis
+    INTEGER :: source_ana_tso(4)               ! possible input sources for t_so analysis
   !-------------------------------------------------------------------------
+
+    ! possible input sources for t_so/t_seasfc analysis
+    source_ana_tseasfc = (/kInputSourceAna,kInputSourceAnaI/)
+    source_ana_tso     = (/kInputSourceAna,kInputSourceAnaI,kInputSourceBoth,kInputSourceFgAnaI/)
+
 
     ! get CDImissval
     missval = cdiInqMissval()
@@ -1899,15 +1903,11 @@ MODULE mo_initicon
       rl_end   = min_rlcell
 
 
-      ! check, whether t_so is read from analysis
-      IF (lp2cintp_sfcana(jg)) THEN
-        jgch = p_patch(jg)%parent_id
-      ELSE
-        jgch = jg
-      ENDIF
+      lanaread_tseasfc(jg) =                                                                  &
+         &     ANY( source_ana_tseasfc == inputInstructions(jg)%ptr%sourceOfVar('t_seasfc'))  &
+         &     .OR.                                                                           &
+         &     ANY( source_ana_tso == inputInstructions(jg)%ptr%sourceOfVar('t_so'))
 
-      lanaread_tseasfc(jg) = ( inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna .OR. &
-              ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so')) )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist,z_t_seasfc) ICON_OMP_DEFAULT_SCHEDULE

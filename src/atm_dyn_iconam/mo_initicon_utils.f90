@@ -23,7 +23,7 @@
 MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, ntracer, iqv, iqc, iqi, iqr, iqs, iqg, iforcing
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
@@ -47,7 +47,7 @@ MODULE mo_initicon_utils
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, &
-    p_comm_work_test, p_comm_work, my_process_is_mpi_workroot
+    &                               p_comm_work, my_process_is_mpi_workroot
   USE mo_util_string,         ONLY: tolower
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld,             &

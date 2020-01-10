@@ -46,7 +46,7 @@ MODULE mo_initicon_io
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
-    &                               VARNAME_LEN, max_ntracer
+    &                               VARNAME_LEN
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -2010,10 +2010,11 @@ MODULE mo_initicon_io
 
   ! Fill remaining tiles for snow variables if tile approach is used
   ! Only fields that are actually read from the snow analysis are copied; note that MODE_IAU is mandatory when using tiles
-  SUBROUTINE process_input_dwdana_sfc (p_patch, p_lnd_state, initicon)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
+  SUBROUTINE process_input_dwdana_sfc (p_patch, p_lnd_state, initicon, inputInstructions)
+    TYPE(t_patch),                  INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state),      TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_initicon_state),         INTENT(INOUT) :: initicon(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(n_dom)
 
     INTEGER :: jg, jt, jb, jc, i_endidx
     TYPE(t_lnd_prog), POINTER :: lnd_prog
@@ -2024,7 +2025,7 @@ MODULE mo_initicon_io
       IF(p_patch(jg)%ldom_active .AND. ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode)) THEN
         IF (lp2cintp_sfcana(jg)) THEN
           ! Perform parent-to-child interpolation of surface fields read from the analysis
-          CALL interpolate_sfcana(initicon, p_patch(jg)%parent_id, jg)
+          CALL interpolate_sfcana(initicon, inputInstructions, p_patch(jg)%parent_id, jg)
 
         ELSE IF (ntiles_total>1 .AND. init_mode == MODE_IAU_OLD) THEN
           ! MODE_IAU_OLD: H_SNOW, FRESHSNOW, W_SNOW and RHO_SNOW are read from analysis (full fields)
