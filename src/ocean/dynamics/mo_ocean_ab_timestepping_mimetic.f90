@@ -44,7 +44,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & MASS_MATRIX_INVERSION_ALLTERMS, &
     & PPscheme_type, PPscheme_ICON_Edge_vnPredict_type, &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
-    & createSolverMatrix, l_solver_compare, solver_comp_nsteps
+    & createSolverMatrix, l_solver_compare, solver_comp_nsteps, &
+    & use_ssh_in_momentum_eq
   USE mo_run_config,                ONLY: dtime, debug_check_level
   USE mo_timer, ONLY: timer_start, timer_stop, timers_level, timer_extra1, &
     & timer_extra2, timer_extra3, timer_extra4, timer_ab_expl, timer_ab_rhs4sfc
@@ -681,9 +682,17 @@ CONTAINS
     !Below is the code that adds surface forcing to explicit term of momentum eq.
     DO je = start_edge_index, end_edge_index
       IF(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)>=min_dolic) THEN
-        ocean_state%p_diag%vn_pred(je,1,blockNo) =  ocean_state%p_diag%vn_pred(je,1,blockNo)      &
-          & + dtime*ocean_state%p_aux%bc_top_vn(je,blockNo)                                  &
-          & /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) ! Change to prism_thick_e ?
+
+        IF (use_ssh_in_momentum_eq) THEN  
+          ocean_state%p_diag%vn_pred(je,1,blockNo) =  ocean_state%p_diag%vn_pred(je,1,blockNo)      &
+               + dtime*ocean_state%p_aux%bc_top_vn(je,blockNo)                                  &
+               /patch_3d%p_patch_1d(1)%prism_thick_e(je,1,blockNo)
+        ELSE ! old formulation without ssh for backward compatibility
+          ocean_state%p_diag%vn_pred(je,1,blockNo) =  ocean_state%p_diag%vn_pred(je,1,blockNo)      &
+               + dtime*ocean_state%p_aux%bc_top_vn(je,blockNo)                                  &
+               /patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) ! Change to prism_thick_e ?
+        ENDIF
+
         bottom_level = patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
         ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                                  &
           & = ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                            &
