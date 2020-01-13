@@ -84,10 +84,14 @@
 
     IF (GMRedi_configuration==Cartesian_Mixing) THEN
         CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients,v_params)
-    ELSE
-      CALL finish("tracer_biochemistry_transport", "GMRedi_configuration is not activated")
+    ELSE 
+       ! GMRedi cannot be used by hamocc, for the moment just use regular advection
+       CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients,v_params)
     ENDIF
-        ! the GMRedi will be treated in the sequential case; for the moment we will skip it
+!    ELSE
+!      CALL finish("tracer_biochemistry_transport", "GMRedi_configuration is not activated")
+!    ENDIF
+!        ! the GMRedi will be treated in the sequential case; for the moment we will skip it
 !       ELSE
 !         CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
 !           &  ocean_state, transport_state, p_phys_param, operators_coefficients)
