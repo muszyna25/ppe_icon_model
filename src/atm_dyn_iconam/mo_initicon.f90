@@ -1663,19 +1663,18 @@ MODULE mo_initicon
 
           DO jk = 1, nlev_soil
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
-              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              ist = ext_data(jg)%atm%soiltyp(jc,jb)
 
-              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND.  &
-                  cporv(ext_data(jg)%atm%soiltyp(jc,jb)) > 1.e-9_wp) THEN
+              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND. cporv(ist) > 1.e-9_wp) THEN
                 ! This should only happen for a tile coldstart; in this case,
-                ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
+                ! set soil water content to 0.5*(fcap+pwp)
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*(cfcap(ist)+cpwp(ist))*dzsoil_icon(jk)
               ELSE ! add w_so increment from SMA
                 lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) + wso_inc(jc,jk)
               ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
-              ist = ext_data(jg)%atm%soiltyp(jc,jb)
               SELECT CASE(ist)
 
                 CASE (3,4,5,6,7,8) ! soil types with non-zero water content
@@ -2032,11 +2031,13 @@ MODULE mo_initicon
           DO jk = 1, nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
-               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
-               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
-                  ! set dummy value (50% of pore volume)
+               jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+               ist = ext_data(jg)%atm%soiltyp_t(jc,jb,jt)
+               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp) .AND. &
+                 &  cporv(ist) > 1.e-9_wp ) THEN
+                  ! set dummy value: 0.5*(fcap+pwp)
                   p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
-                    &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
+                    &  0.5_wp * (cfcap(ist)+cpwp(ist)) * dzsoil_icon(jk)
                ENDIF
                ! And temperature for ICON-land but COSMODE ocean
                IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN

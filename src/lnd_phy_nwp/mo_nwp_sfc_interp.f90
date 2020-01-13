@@ -293,17 +293,17 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
 
-          jc = ext_data(jg)%atm%list_land%idx(ic,jb)
+          jc  = ext_data(jg)%atm%list_land%idx(ic,jb)
+          ist = ext_data(jg)%atm%soiltyp(jc,jb)
 
           ! Catch problematic coast cases: ICON-land but Ocean for source dataset
           ! 
           ! can we do better than this??
           IF ( wsoil(jc,jk,jb) <= -999._wp )  THEN   ! check for missing value
-            ! set dummy value (50% of pore volume)
-            zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
+            ! set dummy value: 0.5*(fcap+pwp)
+            zwsoil(jc) = 0.5_wp * (cfcap(ist)+cpwp(ist)) * dzsoil_icon(jk)
 
           ELSE
-            ist = ext_data(jg)%atm%soiltyp(jc,jb)
             SELECT CASE(ist)
             CASE (1,2)  ! ice,rock
               ! set wsoil to 0 for ice and rock
