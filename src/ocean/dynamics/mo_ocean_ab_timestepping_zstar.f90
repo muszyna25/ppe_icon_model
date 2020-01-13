@@ -734,7 +734,7 @@ CONTAINS
     !i.e. if it part of explicit term in momentum and tracer eqs.
     !in this case, topLevel boundary ondition of vertical Laplacians are homogeneous.
     !Below is the code that adds surface forcing to explicit term of momentum eq.
-    !FIXME zstar: Do these boundary conditions make sense 
+    ! The top BC is equivalent to using it in the vertical diffusion implicit solver
     DO je = start_edge_index, end_edge_index
       IF(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)>=min_dolic) THEN
         ocean_state%p_diag%vn_pred(je,1,blockNo) =  ocean_state%p_diag%vn_pred(je,1,blockNo)      &
