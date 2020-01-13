@@ -353,7 +353,8 @@ MODULE mo_nwp_lnd_state
     INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)
     INTEGER :: shape4d_snow_subs(4)
     INTEGER :: ibits
-    INTEGER :: jsfc          !< tile counter
+    INTEGER :: jsfc               !< tile counter
+    INTEGER :: DATATYPE_PACK_VAR  !< variable packing accuracy for t_so
     INTEGER :: datatype_flt
 
     CHARACTER(len=4) suffix
@@ -366,7 +367,15 @@ MODULE mo_nwp_lnd_state
       datatype_flt = DATATYPE_FLT32
     ENDIF
 
-    ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
+    ibits = DATATYPE_PACK16 ! packing accuracy of horizontal slice
+
+    IF (gribout_config(p_jg)%lgribout_24bit) THEN  ! analysis
+      ! higher accuracy for t_so
+      DATATYPE_PACK_VAR = DATATYPE_PACK24
+    ELSE
+      ! standard accuracy for all variables
+      DATATYPE_PACK_VAR = DATATYPE_PACK16
+    ENDIF
 
     ! predefined array shapes
     shape2d              = (/nproma,            kblks            /)
@@ -583,7 +592,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_so_t(nproma,nlev_soil+1,nblks_c,ntiles_total) 
     cf_desc    = t_cf_var('t_so_t', 'K', 'soil temperature (main level)', datatype_flt)
-    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(2, 3, 18, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_so_t'//suffix, p_prog_lnd%t_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,ntiles_total/),                      &
@@ -1191,7 +1200,7 @@ MODULE mo_nwp_lnd_state
     INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)
     INTEGER :: jsfc          !< tile counter
     INTEGER :: ibits
-    INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
+    INTEGER :: DATATYPE_PACK_VAR  !< variable packing accuracy for some fields
     INTEGER :: datatype_flt
 
     IF ( lnetcdf_flt64_output ) THEN
@@ -1202,13 +1211,13 @@ MODULE mo_nwp_lnd_state
 
 !--------------------------------------------------------------
 
-    ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
+    ibits = DATATYPE_PACK16 ! packing accuracy of horizontal slice
 
     IF (gribout_config(p_jg)%lgribout_24bit) THEN  ! analysis
-      ! higher accuracy for atmospheric thermodynamic fields
+      ! higher accuracy for some accuracy-sensitive variables
       DATATYPE_PACK_VAR = DATATYPE_PACK24
     ELSE
-      ! standard accuracy for atmospheric thermodynamic fields
+      ! standard accuracy for all variables
       DATATYPE_PACK_VAR = DATATYPE_PACK16
     ENDIF
 
@@ -1421,7 +1430,7 @@ MODULE mo_nwp_lnd_state
 
       ! duration of current snow-cover peiod
       cf_desc    = t_cf_var('snow_age', 'd', 'duration of snow cover', datatype_flt)
-      grib2_desc = grib2_var(0, 1, 17, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'snow_age', p_diag_lnd%snow_age,                  &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
              & ldims=shape2d, lrestart=.TRUE.,                                   &
@@ -1685,7 +1694,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%h_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('h_snow_t', 'm', 'snow height', datatype_flt)
-    grib2_desc = grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 11, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'h_snow_t', p_diag_lnd%h_snow_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  

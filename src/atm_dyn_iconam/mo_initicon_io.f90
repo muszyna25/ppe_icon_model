@@ -1642,9 +1642,10 @@ MODULE mo_initicon_io
             CALL fetchTiledSurface(params, 't_snow', jg, ntiles_total, lnd_prog%t_snow_t)
             CALL fetchTiledSurface(params, 'rho_snow', jg, ntiles_total, lnd_prog%rho_snow_t)
 
-            IF (itype_canopy == 2) THEN
-              CALL fetchTiledSurface(params, 't_sk', jg, ntiles_total + ntiles_water, lnd_prog%t_sk_t)
-            ENDIF
+            ! t_sk is always fetched if present in the input data because using itype_canopy=1 with input data containing
+            ! t_sk causes an error otherwise
+            CALL fetchTiledSurface(params, 't_sk', jg, ntiles_total + ntiles_water, lnd_prog%t_sk_t)
+
             IF (itype_trvg == 3) THEN
               CALL fetchTiledSurface(params, 'plantevap', jg, ntiles_total, lnd_diag%plantevap_t)
             ENDIF
@@ -1848,6 +1849,14 @@ MODULE mo_initicon_io
                     lnd_prog%t_sk_t(jc,jb,jt) = lnd_prog%t_s_t(jc,jb,jt)
                   ENDDO
                 ENDDO
+              ELSE
+                ! Ensure that t_sk is filled with meaningful values on all existing land points (may not be the case after changing extpar data)
+                DO jt = 1, ntiles_total
+                  DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                    jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                    IF (lnd_prog%t_sk_t(jc,jb,jt) < 100._wp) lnd_prog%t_sk_t(jc,jb,jt) = lnd_prog%t_s_t(jc,jb,jt)
+                  ENDDO
+                ENDDO  ! ntiles
               ENDIF
 
               ! NOTE: Initialization of sea-water and sea-ice tiles 
