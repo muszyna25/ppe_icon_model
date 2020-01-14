@@ -2543,7 +2543,7 @@ init\_mode=5,6
 %\hline
 qcana\_mode&
 I & 0 & &
-If $>$ 0, analysis increments for cloud water are read and processed. \\
+If $>$ 0, analysis increments for cloud water concentration are read and processed. \\
 1: QC increments are added to QV increments \\
 2: QC increments are added to QC if clouds are present, otherwise to QV increments &
 init\_mode=5
@@ -2552,15 +2552,25 @@ init\_mode=5
 %\hline
 qiana\_mode&
 I & 0 & &
-1: analysis increments for cloud ice are read and processed.  &
+1: analysis increments for cloud ice concentration are read and processed.  &
 init\_mode=5
 \tabularnewline
 
 %\hline
 qrsgana\_mode&
 I & 0 & &
-1: analysis increments for rain, snow and graupel are read and processed.  &
+1: analysis increments for rain, snow and graupel mass concentrations are read and processed. In case of the 2-moment microphysics (inwp\_gscp=4,5,6), also hail mass concentration increments are processed. &
 init\_mode=5
+\tabularnewline
+
+% \hline
+qnxana\_2mom\_mode&
+I & 0 & &
+Only effective in case of 2-moment microphysics (inwp\_gscp=4,5,6).
+Affects the analysis increments of the the number concentrations of those hydrometeors in IAU which have been selected by the settings of qcana\_mode, qiana\_mode and qrsgana\_mode: \\
+0: analysis increments are not taken from analysis files but diagnosed based on the mass concentrations (from fg) and mass increments.  \\
+1: analysis increments are taken from the analysis files. If missing for a specific hydrometeor type, they are diagnosed similar to option 0 as a fallback. &
+init\_mode=5, inwp\_gscp=4,5,6
 \tabularnewline
 
 %\hline

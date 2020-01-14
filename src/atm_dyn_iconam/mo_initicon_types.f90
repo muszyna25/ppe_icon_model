@@ -89,6 +89,13 @@ MODULE mo_initicon_types
       &                                    qr      => NULL(), &
       &                                    qs      => NULL(), &
       &                                    qg      => NULL(), &
+      &                                    qh      => NULL(), &
+      &                                    qnc     => NULL(), &
+      &                                    qni     => NULL(), &
+      &                                    qnr     => NULL(), &
+      &                                    qns     => NULL(), &
+      &                                    qng     => NULL(), &
+      &                                    qnh     => NULL(), &
       &                                    rho     => NULL(), &
       &                                    theta_v => NULL(), &
       &                                    tke     => NULL()
@@ -150,7 +157,8 @@ MODULE mo_initicon_types
     INTEGER :: nlev
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
-                                               pres, qv, qc, qi, qr, qs, qg, tke
+                                               pres, qv, qc, qi, qr, qs, qg, tke, &
+                                               qh, qnc, qni, qnr, qns, qng, qnh
 
     TYPE (t_pi_tracer), DIMENSION(max_ntracer) :: tracer
 
@@ -287,6 +295,13 @@ CONTAINS
     CALL DO_PTR_DEALLOCATE(atm_in%qr)
     CALL DO_PTR_DEALLOCATE(atm_in%qs)
     CALL DO_PTR_DEALLOCATE(atm_in%qg)
+    CALL DO_PTR_DEALLOCATE(atm_in%qh)
+    CALL DO_PTR_DEALLOCATE(atm_in%qnc)
+    CALL DO_PTR_DEALLOCATE(atm_in%qni)
+    CALL DO_PTR_DEALLOCATE(atm_in%qnr)
+    CALL DO_PTR_DEALLOCATE(atm_in%qns)
+    CALL DO_PTR_DEALLOCATE(atm_in%qng)
+    CALL DO_PTR_DEALLOCATE(atm_in%qnh)
     CALL DO_PTR_DEALLOCATE(atm_in%rho)
     CALL DO_PTR_DEALLOCATE(atm_in%theta_v)
     CALL DO_PTR_DEALLOCATE(atm_in%tke)
@@ -354,6 +369,13 @@ CONTAINS
     CALL DO_DEALLOCATE(atm%qr)
     CALL DO_DEALLOCATE(atm%qs)
     CALL DO_DEALLOCATE(atm%qg)
+    CALL DO_DEALLOCATE(atm%qh)
+    CALL DO_DEALLOCATE(atm%qnc)
+    CALL DO_DEALLOCATE(atm%qni)
+    CALL DO_DEALLOCATE(atm%qnr)
+    CALL DO_DEALLOCATE(atm%qns)
+    CALL DO_DEALLOCATE(atm%qng)
+    CALL DO_DEALLOCATE(atm%qnh)
     CALL DO_DEALLOCATE(atm%tke)
 
     DO idx=1, ntracer

@@ -915,7 +915,7 @@ MODULE mo_nonhydro_state
             &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
             &                           "mode_iau_fg_in"                               &
 ! also necessary???  &                  "mode_iau_old_fg_in",                          &
-! ???       &                           "LATBC_PREFETCH_VARS",                         &
+! ???       &                           "LATBC_PREFETCH_VARS"                          &
 ! ???       &                           "mode_iniana","icon_lbc_vars") )
             &                          )                             )
         END IF ! inwp_gscp==2
@@ -944,6 +944,7 @@ MODULE mo_nonhydro_state
             &           in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars", &
             &                           "LATBC_PREFETCH_VARS")  )
           !QNI_NUC activated ice nuclei tracking var # per kg, local
+          ! NO OFFICIAL GRIB CODINGS YET! THE "0, 1, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(vname_prefix)//'qni_nuc'//suffix, p_prog%tracer_ptr(iqni_nuc)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -994,6 +995,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                               & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars", &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
 
             !hail (iqh=7) 
@@ -1016,6 +1020,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  ),                               & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars", &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
 
             !ice number concentration (iqni=8)
@@ -1038,6 +1045,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp  ),                                & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
 
             !rain droplet concentration (iqnr=9)
@@ -1046,7 +1056,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qnr',                              &
                     &  ' kg-1 ','number concentration rain droplet', datatype_flt),    &
-                    & grib2_var(0, 1, 228, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                    & grib2_var(0, 1, 100, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
                     & ldims=shape3d_c,                                                 &
                     & tlev_source=TLEV_NNOW_RCF,                                       &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,            &
@@ -1060,6 +1070,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp  ),                                & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
 
             !snow concentration (iqns=10)
@@ -1068,7 +1081,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qns',                              &
                     &  ' kg-1 ','number concentration snow', datatype_flt),            &
-                    & grib2_var(0, 1, 217, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                    & grib2_var(0, 1, 101, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
                     & ldims=shape3d_c,                                                 &
                     & tlev_source=TLEV_NNOW_RCF,                                       &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,            &
@@ -1082,6 +1095,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp  ),                                & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
 
             !graupel concentration (iqng=11)
@@ -1090,7 +1106,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qng',                              &
                     &  ' kg-1 ','number concentration graupel', datatype_flt),         &
-                    & grib2_var(0, 1, 218, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                    & grib2_var(0, 1, 102, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
                     & ldims=shape3d_c,                                                 &
                     & tlev_source=TLEV_NNOW_RCF,                                       &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,            &
@@ -1104,6 +1120,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp  ),                                & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
 
             !hail concentration (iqnh=12)
@@ -1112,7 +1131,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qnh',                              &
                     &  ' kg-1 ','number concentration hail', datatype_flt),            &
-                    & grib2_var(0, 1, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                    & grib2_var(0, 1, 103, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
                     & ldims=shape3d_c,                                                 &
                     & tlev_source=TLEV_NNOW_RCF,                                       &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,            &
@@ -1126,6 +1145,9 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp  ),                                & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
          
             ! cloud droplet concentration (iqnc=13)
@@ -1149,8 +1171,12 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,              &
                     &             lower_limit=0._wp  ),                                & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars",  &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
         
+            ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(vname_prefix)//'ninact'//suffix, p_prog%tracer_ptr(ininact)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -1174,6 +1200,7 @@ MODULE mo_nonhydro_state
 
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN
             ! concentration of cloud condensation nuclei
+            ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(vname_prefix)//'nccn'//suffix, p_prog%tracer_ptr(inccn)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -1193,6 +1220,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
+            ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(vname_prefix)//'ninpot'//suffix, p_prog%tracer_ptr(ininpot)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -1602,6 +1630,13 @@ MODULE mo_nonhydro_state
     &       p_diag%rhor_incr, &
     &       p_diag%rhos_incr, &
     &       p_diag%rhog_incr, &
+    &       p_diag%rhoh_incr, &
+    &       p_diag%rhonc_incr, &
+    &       p_diag%rhoni_incr, &
+    &       p_diag%rhonr_incr, &
+    &       p_diag%rhons_incr, &
+    &       p_diag%rhong_incr, &
+    &       p_diag%rhonh_incr, &
     &       p_diag%u_avg, &
     &       p_diag%v_avg, &
     &       p_diag%pres_avg, &
@@ -2689,8 +2724,101 @@ MODULE mo_nonhydro_state
                     & lrestart=.FALSE., loutput=.TRUE.,                              &
                     & lopenacc = .TRUE. )
         __acc_attach(p_diag%rhog_incr)
+
+        IF ( atm_phy_nwp_config(p_patch%id)%l2moment ) THEN
+
+          ! rhoh_incr  p_diag%rhoh_incr(nproma,nlev,nblks_c)
+          !
+          cf_desc    = t_cf_var('rhoh_incr', ' ',                   &
+            &                   'partial density of hail increment from DA', datatype_flt)
+          grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( p_diag_list, 'rhoh_incr', p_diag%rhoh_incr,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                      & ldims=shape3d_c, &
+                      & lrestart=.FALSE., loutput=.TRUE.,                              &
+                      & lopenacc = .TRUE. )
+          __acc_attach(p_diag%rhoh_incr)
+        END IF
       END IF
-      
+
+      IF (atm_phy_nwp_config(p_patch%id)%l2moment) THEN
+        IF (qcana_mode > 0) THEN
+          ! rhonc_incr  p_diag%rhonc_incr(nproma,nlev,nblks_c)
+          !
+          cf_desc    = t_cf_var('rhonc_incr', ' ',                   &
+               &                'number density of cloud water increment from DA', datatype_flt)
+          grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( p_diag_list, 'rhonc_incr', p_diag%rhonc_incr,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                      & ldims=shape3d_c, &
+                      & lrestart=.FALSE., loutput=.TRUE.,                              &
+                      & lopenacc = .TRUE. )
+          __acc_attach(p_diag%rhonc_incr)
+        END IF
+        IF (qiana_mode > 0) THEN
+          ! rhoni_incr  p_diag%rhoni_incr(nproma,nlev,nblks_c)
+          !
+          cf_desc    = t_cf_var('rhoni_incr', ' ',                   &
+               &                'number density of cloud ice increment from DA', datatype_flt)
+          grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( p_diag_list, 'rhoni_incr', p_diag%rhoni_incr,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                      & ldims=shape3d_c, &
+                      & lrestart=.FALSE., loutput=.TRUE.,                              &
+                      & lopenacc = .TRUE. )
+          __acc_attach(p_diag%rhoni_incr)
+        END IF
+        IF (qrsgana_mode > 0) THEN
+          ! rhonr_incr  p_diag%rhonr_incr(nproma,nlev,nblks_c)
+          !
+          cf_desc    = t_cf_var('rhonr_incr', ' ',                   &
+               &                'number density of rain increment from DA', datatype_flt)
+          grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( p_diag_list, 'rhonr_incr', p_diag%rhonr_incr,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                      & ldims=shape3d_c, &
+                      & lrestart=.FALSE., loutput=.TRUE.,                              &
+                      & lopenacc = .TRUE. )
+          __acc_attach(p_diag%rhonr_incr)
+
+          ! rhons_incr  p_diag%rhons_incr(nproma,nlev,nblks_c)
+          !
+          cf_desc    = t_cf_var('rhons_incr', ' ',                   &
+               &                'number density of snow increment from DA', datatype_flt)
+          grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( p_diag_list, 'rhons_incr', p_diag%rhons_incr,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                      & ldims=shape3d_c, &
+                      & lrestart=.FALSE., loutput=.TRUE.,                              &
+                      & lopenacc = .TRUE. )
+          __acc_attach(p_diag%rhons_incr)
+          
+          ! rhong_incr  p_diag%rhong_incr(nproma,nlev,nblks_c)
+          !
+          cf_desc    = t_cf_var('rhong_incr', ' ',                   &
+               &                'number density of graupel increment from DA', datatype_flt)
+          grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( p_diag_list, 'rhong_incr', p_diag%rhong_incr,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                      & ldims=shape3d_c, &
+                      & lrestart=.FALSE., loutput=.TRUE.,                              &
+                      & lopenacc = .TRUE. )
+          __acc_attach(p_diag%rhong_incr)
+
+          ! rhonh_incr  p_diag%rhonh_incr(nproma,nlev,nblks_c)
+          !
+          cf_desc    = t_cf_var('rhonh_incr', ' ',                   &
+               &                'number density of hail increment from DA', datatype_flt)
+          grib2_desc = grib2_var( 255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_var( p_diag_list, 'rhonh_incr', p_diag%rhonh_incr,                    &
+                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,     &
+                      & ldims=shape3d_c, &
+                      & lrestart=.FALSE., loutput=.TRUE.,                              &
+                      & lopenacc = .TRUE. )
+          __acc_attach(p_diag%rhonh_incr)
+
+        END IF
+      END IF
     ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN

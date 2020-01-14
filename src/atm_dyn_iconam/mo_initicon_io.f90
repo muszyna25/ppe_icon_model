@@ -25,7 +25,8 @@ MODULE mo_initicon_io
   USE mo_kind,                ONLY: wp, dp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg, &
+                                    iqh, iqnc, iqni, iqnr, iqns, iqng, iqnh
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -40,13 +41,14 @@ MODULE mo_initicon_io
   USE mo_initicon_config,     ONLY: init_mode, l_sst_in, generate_filename,             &
     &                               ifs2icon_filename, lread_vn, lread_tke,             &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
-    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode, qrsgana_mode
+    &                               lvert_remap_fg, aerosol_fg_present, nlevsoil_in, qcana_mode, qiana_mode, qrsgana_mode, &
+    &                               qnxana_2mom_mode
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
-    &                               VARNAME_LEN
+    &                               VARNAME_LEN, min_rlcell_int
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -64,7 +66,9 @@ MODULE mo_initicon_io
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
-  USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
+  USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc, &
+       &                            init_qnx_from_qx_twomom, init_qnxinc_from_qxinc_twomom, &
+       &                            get_diag_stat_str_3d
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1, tmelt
   USE mo_fortran_tools,       ONLY: init
   USE mo_input_request_list,  ONLY: t_InputRequestList
@@ -908,6 +912,29 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetch3d
 
+  ! Wrapper around fetch3D which allows to have a correct summary table entry
+  !  for optional input fields. It continues in case of missing field in input
+  !  data, sets correct "FG read attempt" etc. entries in the summary table
+  !  and returns a logical flag if success or not:
+  SUBROUTINE fetch3d_with_status (caller, context, params, varName, jg, field3d, lfound)
+      
+    CHARACTER (len=*), INTENT(in)      :: caller   ! string to identify the caller in the diagn. message below
+    CHARACTER (len=*), INTENT(in)      :: context  ! string to identify the calling context in the diagn. message below
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER (len=*), INTENT(in)      :: varName  ! name of vari
+    INTEGER, INTENT(in)                :: jg
+    REAL(wp), INTENT(inout)            :: field3d(:,:,:)
+    LOGICAL, INTENT (out)              :: lfound
+
+    CALL fetch3d(params, TRIM(varName), jg, field3d, lfound)
+    ! Error handler and summary table entry
+    CALL params%inputInstructions(jg)%ptr%handleError(lfound, TRIM(varName), params%routine, params%isFg)
+    IF (.NOT. lfound) THEN
+      CALL message(TRIM(caller), 'Variable '//TRIM(varName)//' not found in '//TRIM(context))
+    END IF
+    
+  END SUBROUTINE fetch3d_with_status
+
   SUBROUTINE fetchSurface(params, varName, jg, field, found)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
@@ -1123,24 +1150,56 @@ MODULE mo_initicon_io
             CALL fetch3d(params, 'qv', jg, my_ptr3d)
 
             my_ptr3d => prognosticFields%tracer(:,:,:,iqc)
-            CALL fetch3d(params, 'qc', jg, my_ptr3d)
+            CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qc', jg, my_ptr3d, &
+                 atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqc))
 
             my_ptr3d => prognosticFields%tracer(:,:,:,iqi)
-            CALL fetch3d(params, 'qi', jg, my_ptr3d)
+            CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qi', jg, my_ptr3d, &
+                 atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqi))
 
             IF ( iqr /= 0 ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqr)
-              CALL fetch3d(params, 'qr', jg, my_ptr3d)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qr', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqr))
             END IF
 
             IF ( iqs /= 0 ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqs)
-              CALL fetch3d(params, 'qs', jg, my_ptr3d)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qs', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqs))
             END IF
 
             IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqg)
-              CALL fetch3d(params, 'qg', jg, my_ptr3d)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qg', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqg))
+            END IF
+
+            IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqh)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qh', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqh))
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqnc)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qnc', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqnc))
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqni)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qni', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqni))
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqnr)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qnr', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqnr))
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqns)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qns', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqns))
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqng)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qng', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqng))
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqnh)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qnh', jg, my_ptr3d, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqnh))
+              ! If any of the number conc. qnx could not be read from fg, this will diagnose them from qx:
+              CALL init_qnx_from_qx_twomom (TRIM(routine), p_patch(jg), prognosticFields, &
+                                            .NOT. atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) )
             END IF
 
             IF (lvert_remap_fg) THEN
@@ -1434,7 +1493,8 @@ MODULE mo_initicon_io
 
             IF (init_mode == MODE_IAU .AND. qcana_mode > 0) THEN
               lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceFg
-              CALL fetch3d(params, 'qc', jg, my_ptr%qc)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qc', jg, my_ptr%qc, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqc))
               IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qc', kInputSourceBoth)
               END IF
@@ -1442,7 +1502,8 @@ MODULE mo_initicon_io
 
             IF (init_mode == MODE_IAU .AND. qiana_mode > 0) THEN
               lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceFg
-              CALL fetch3d(params, 'qi', jg, my_ptr%qi)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qi', jg, my_ptr%qi, &
+                   atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqi))
               IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qi', kInputSourceBoth)
               END IF
@@ -1451,44 +1512,152 @@ MODULE mo_initicon_io
             IF (init_mode == MODE_IAU .AND. qrsgana_mode > 0) THEN
               IF ( iqr /= 0 ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qr') == kInputSourceFg
-                CALL fetch3d(params, 'qr', jg, my_ptr%qr)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qr', jg, my_ptr%qr, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqr))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qr') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qr', kInputSourceBoth)
                 END IF
               END IF
               IF ( iqs /= 0 ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qs') == kInputSourceFg
-                CALL fetch3d(params, 'qs', jg, my_ptr%qs)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qs', jg, my_ptr%qs, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqs))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qs') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qs', kInputSourceBoth)
                 END IF
               END IF
               IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qg') == kInputSourceFg
-                CALL fetch3d(params, 'qg', jg, my_ptr%qg)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qg', jg, my_ptr%qg, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqg))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qg') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qg', kInputSourceBoth)
                 END IF
               END IF
-            ENDIF
+
+              IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qh') == kInputSourceFg
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qh', jg, my_ptr%qh, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqh))
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qh') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qh', kInputSourceBoth)
+                END IF
+
+              END IF
+            END IF
+
+            IF (init_mode == MODE_IAU .AND. atm_phy_nwp_config(jg)%l2moment) THEN
+
+              IF (qnxana_2mom_mode > 0) THEN
+
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qnc') == kInputSourceFg
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnc', jg, my_ptr%qnc, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnc))
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qnc') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qnc', kInputSourceBoth)
+                END IF
+                
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qni') == kInputSourceFg
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qni', jg, my_ptr%qni, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqni))
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qni') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qni', kInputSourceBoth)
+                END IF
+                
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qnr') == kInputSourceFg
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnr', jg, my_ptr%qnr, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnr))
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qnr') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qnr', kInputSourceBoth)
+                END IF
+                
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qns') == kInputSourceFg
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qns', jg, my_ptr%qns, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqns))
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qns') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qns', kInputSourceBoth)
+                END IF
+                
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qng') == kInputSourceFg
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qng', jg, my_ptr%qng, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqng))
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qng') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qng', kInputSourceBoth)
+                END IF
+                
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qnh') == kInputSourceFg
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnh', jg, my_ptr%qnh, &
+                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnh))
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qnh') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('qnh', kInputSourceBoth)
+                END IF
+
+                ! QNX increments which were not available from dwdana file are diagnosed based on the QX from fg and ana increments:
+                CALL init_qnxinc_from_qxinc_twomom ( TRIM(routine), p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                                     initicon(jg), &
+                                                     atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:), &
+                                                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:), &
+                                                     .NOT. atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) )
+              ELSE
+
+                ! QNX increments not read from dwdana file, but diagnosed based on the QX from fg and ana increments:
+                CALL init_qnxinc_from_qxinc_twomom ( TRIM(routine), p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                                     initicon(jg), &
+                                                     atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:), &
+                                                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:), &
+                                                     atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) .OR. .TRUE. )
+
+              END IF
+
+            END IF
 
             ! For the time being, these are identical to qc, qi, qr, and qs from FG => usually read from FG
             IF ( .NOT. ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
               my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-              CALL fetch3d(params, 'qc', jg, my_ptr3d)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qc', jg, &
+                   my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqc))
               my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-              CALL fetch3d(params, 'qi', jg, my_ptr3d)
+              CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qi', jg, &
+                   my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqi))
               IF ( iqr /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-                CALL fetch3d(params, 'qr', jg, my_ptr3d)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qr', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqr))
               END IF
               IF ( iqs /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-                CALL fetch3d(params, 'qs', jg, my_ptr3d)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qs', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqs))
               END IF
               IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqg)
-                CALL fetch3d(params, 'qg', jg, my_ptr3d)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qg', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqg))
+              END IF
+
+              IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqh)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qh', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqh))
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqnc)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnc', jg, &
+                   my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnc))
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqni)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qni', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqni))
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqnr)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnr', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnr))
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqns)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qns', jg, &
+                   my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqns))
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqng)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qng', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqng))
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqnh)
+                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnh', jg, &
+                     my_ptr3d, atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnh))
               END IF
             ENDIF
 

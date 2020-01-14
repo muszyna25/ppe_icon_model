@@ -137,6 +137,9 @@ MODULE mo_atm_phy_nwp_config
                                    !       non-standard fields is specified in the output namelist.
 
     LOGICAL :: lhave_graupel       ! Flag if microphysics scheme has a prognostic variable for graupel
+    LOGICAL :: l2moment            ! Flag if 2-moment microphysics scheme is used 
+    LOGICAL :: lhydrom_read_from_fg(1:20)  ! Flag for each hydrometeor tracer, if it has been read from fg file
+    LOGICAL :: lhydrom_read_from_ana(1:20) ! Flag for each hydrometeor tracer, if it has been read from ana file
 
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
@@ -308,13 +311,20 @@ CONTAINS
         &  atm_phy_nwp_config(jg)%lenabled(itgwd)     = .TRUE.
 
 
-      ! Set flag for the presence of graupel
+      ! Set flags for the microphysics schemes:
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-      CASE (2,4,5,6)
+      CASE (2)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
+        atm_phy_nwp_config(jg)%l2moment = .FALSE.
+      CASE (4,5,6)
+        atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
+        atm_phy_nwp_config(jg)%l2moment = .TRUE.
       CASE DEFAULT
         atm_phy_nwp_config(jg)%lhave_graupel = .FALSE.
+        atm_phy_nwp_config(jg)%l2moment = .FALSE.
       END SELECT
+      atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
+      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
 
       ! Configure LES physics (if activated)
       !

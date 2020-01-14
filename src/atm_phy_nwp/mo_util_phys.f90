@@ -39,7 +39,8 @@ MODULE mo_util_phys
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
-       &                              iqm_max, nqtendphy, lart
+       &                              iqm_max, nqtendphy, lart, &
+       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
@@ -47,7 +48,7 @@ MODULE mo_util_phys
   USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
-  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode
+  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_lnd_nwp_config,        ONLY: nlev_soil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
@@ -1528,6 +1529,8 @@ CONTAINS
 
     qg_scale_inv = 1.0_wp / ( qg_upp_limit - qg_low_limit )
 
+
+!!$ UB: need to check this threshold for ICON-D2!
     ! for the 'updraft in environment'-criterion:
     w_thresh = 0.5_wp  ! in m/s; threshold for w
                        ! see Lynn, Yair (2010)
@@ -1577,11 +1580,23 @@ CONTAINS
             q_liqu  = p_prog%tracer(jc,jk,jb,iqc)   &
                     + p_prog%tracer(jc,jk,jb,iqr)
 
-            q_solid =    p_prog%tracer(jc,jk,jb,iqg) *                                              &
-              &  ( SQRT( p_prog%tracer(jc,jk,jb,iqi) * p_prog%tracer(jc,jk,jb,iqg) )                &
-              &   / MAX( p_prog%tracer(jc,jk,jb,iqi) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) +   &
-              &    SQRT( p_prog%tracer(jc,jk,jb,iqs) * p_prog%tracer(jc,jk,jb,iqg) )                &
-              &   / MAX( p_prog%tracer(jc,jk,jb,iqs) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) )
+            IF (atm_phy_nwp_config(jg)%l2moment) THEN
+              q_solid =    p_prog%tracer(jc,jk,jb,iqg) *                                              &
+                &  ( SQRT( p_prog%tracer(jc,jk,jb,iqi) * (p_prog%tracer(jc,jk,jb,iqg) +               &
+                &          p_prog%tracer(jc,jk,jb,iqh)) )                                             &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqi) + p_prog%tracer(jc,jk,jb,iqg) +                &
+                &          p_prog%tracer(jc,jk,jb,iqh), 1.0e-20_wp) +                                 &
+                &    SQRT( p_prog%tracer(jc,jk,jb,iqs) * (p_prog%tracer(jc,jk,jb,iqg) +               &
+                &          p_prog%tracer(jc,jk,jb,iqh)) )                                             &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqs) + p_prog%tracer(jc,jk,jb,iqg) +                &
+                &          p_prog%tracer(jc,jk,jb,iqh), 1.0e-20_wp) )
+            ELSE
+              q_solid =    p_prog%tracer(jc,jk,jb,iqg) *                                              &
+                &  ( SQRT( p_prog%tracer(jc,jk,jb,iqi) * p_prog%tracer(jc,jk,jb,iqg) )                &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqi) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) +   &
+                &    SQRT( p_prog%tracer(jc,jk,jb,iqs) * p_prog%tracer(jc,jk,jb,iqg) )                &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqs) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) )
+            END IF
 
             epsw = 2.0_wp * SQRT( q_liqu * q_solid ) / MAX( q_liqu + q_solid, 1.0e-20_wp)
 
@@ -1591,7 +1606,12 @@ CONTAINS
               lpi_incr = w_c * w_c * epsw * delta_z
 
               ! additional 'Graupel-criterion' in the LPI integral
-              lpi_incr = lpi_incr * MAX( MIN( (p_prog%tracer(jc,jk,jb,iqg) -qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
+              IF (atm_phy_nwp_config(jg)%l2moment) THEN
+                lpi_incr = lpi_incr * MAX( MIN( (p_prog%tracer(jc,jk,jb,iqg)+p_prog%tracer(jc,jk,jb,iqh) - &
+                                                 qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
+              ELSE
+                lpi_incr = lpi_incr * MAX( MIN( (p_prog%tracer(jc,jk,jb,iqg) -qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
+              END IF
 
             ELSE
               lpi_incr = 0.0_wp
@@ -2118,7 +2138,13 @@ CONTAINS
         END DO
       END IF
 
-      !MB: what about hail?
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqh)
+          END DO
+        END DO
+      END IF
 
       ! calculate vertically integrated mass
 
@@ -2193,6 +2219,14 @@ CONTAINS
         DO jk = kstart_moist(jg), ptr_patch%nlev
           DO jc = i_startidx, i_endidx
             q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqg)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqh)
           END DO
         END DO
       END IF
@@ -2293,7 +2327,13 @@ CONTAINS
         END DO
       END IF
 
-      !MB: what about hail?
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqh)
+          END DO
+        END DO
+      END IF
 
       ! calculate vertically integrated mass
 
@@ -2610,6 +2650,28 @@ CONTAINS
           pt_prog_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqg) + &
             iau_wgt_adv * pt_diag%rhog_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
         ENDIF
+        IF (atm_phy_nwp_config(jg)%l2moment) THEN
+          IF (qcana_mode > 0) THEN
+            pt_prog_rcf%tracer(jc,jk,jb,iqnc) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnc) + &
+                 iau_wgt_adv * pt_diag%rhonc_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          END IF
+          IF (qiana_mode > 0) THEN
+            pt_prog_rcf%tracer(jc,jk,jb,iqni) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqni) + &
+                 iau_wgt_adv * pt_diag%rhoni_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          END IF
+          IF (qrsgana_mode > 0) THEN
+            pt_prog_rcf%tracer(jc,jk,jb,iqh) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqh) + &
+                 iau_wgt_adv * pt_diag%rhoh_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqnr) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnr) + &
+                 iau_wgt_adv * pt_diag%rhonr_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqns) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqns) + &
+                 iau_wgt_adv * pt_diag%rhons_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqng) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqng) + &
+                 iau_wgt_adv * pt_diag%rhong_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqnh) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnh) + &
+                 iau_wgt_adv * pt_diag%rhonh_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          END IF
+        ENDIF
       ENDDO
     ENDDO
 
@@ -2747,7 +2809,7 @@ CONTAINS
     ENDDO
     
     ! clipping for number concentrations
-    IF(ANY((/4,5,6/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
+    IF(atm_phy_nwp_config(jg)%l2moment)THEN
       DO jt=iqni, ininact  ! qni,qnr,qns,qng,qnh,qnc and ninact (but not yet ninpot)
         DO jk = kstart_moist(jg), kend
           DO jc = i_startidx, i_endidx

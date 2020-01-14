@@ -25,7 +25,8 @@ MODULE mo_initicon
   USE mo_kind,                ONLY: dp, wp, vp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqm_max, iforcing, check_uuid_gracefully
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqm_max, iforcing, check_uuid_gracefully, &
+                                    iqh, iqnc, iqnr, iqni, iqns, iqng, iqnh
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -59,7 +60,7 @@ MODULE mo_initicon
     &                               frlake_thrhld, lprog_albsi
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE sfc_seaice,             ONLY: frsi_min
-  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
   USE sfc_terra_data,         ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE sfc_terra_init,         ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
@@ -447,6 +448,7 @@ MODULE mo_initicon
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', &
+                                                          'qh', 'qnc', 'qni', 'qnr', 'qns', 'qng', 'qnh', &
                                                         & 'w_so', 'h_snow', 'freshsnow', 't_2m']
                 CASE(MODE_IAU_OLD)
                     incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
@@ -459,7 +461,9 @@ MODULE mo_initicon
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', 'qv       ', &
-                      &                    'qc       ', 'qi       ', 'qr       ', 'qs       ', 'qg       '/)
+                      &                    'qc       ', 'qi       ', 'qr       ', 'qs       ', 'qg       ', &
+                                           'qh       ', 'qnc      ', 'qni      ', 'qnr      ', 'qns      ', &
+                                           'qng      ', 'qnh      '                                        /)
                       &                    'w_so     ', 'h_snow   ', 'freshsnow'/)
                     CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
                       lHardCheckUuids = .NOT.check_uuid_gracefully)
@@ -983,7 +987,28 @@ MODULE mo_initicon
         !
 
         ! Compute virtual temperature
-        IF ( iqc /= 0 .AND. iqi /= 0 .AND. iqr /= 0 .AND. iqs /= 0 ) THEN
+        IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               qr=p_prog_now%tracer(:,:,:,iqr), & !in
+            &               qs=p_prog_now%tracer(:,:,:,iqs), & !in
+            &               qg=p_prog_now%tracer(:,:,:,iqg), & !in
+            &               qh=p_prog_now%tracer(:,:,:,iqh), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               qr=p_prog_now%tracer(:,:,:,iqr), & !in
+            &               qs=p_prog_now%tracer(:,:,:,iqs), & !in
+            &               qg=p_prog_now%tracer(:,:,:,iqg), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE IF ( iqc /= 0 .AND. iqi /= 0 .AND. iqr /= 0 .AND. iqs /= 0 ) THEN
           CALL virtual_temp(p_patch=p_patch(jg),             &
             &               temp=initicon(jg)%atm%temp,      & !in
             &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
@@ -1227,7 +1252,37 @@ MODULE mo_initicon
                 p_diag%rhog_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qg(jc,jk,jb)
               ENDDO
             ENDIF
-          ENDIF
+          END IF
+
+          IF (atm_phy_nwp_config(jg)%l2moment) THEN
+            IF (qcana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonc_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnc(jc,jk,jb)
+              ENDDO
+            END IF
+            IF (qiana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhoni_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qni(jc,jk,jb)
+              ENDDO
+            END IF
+            IF (qrsgana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhoh_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qh(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonr_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnr(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhons_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qns(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhong_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qng(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonh_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnh(jc,jk,jb)
+              ENDDO
+            END IF
+          END IF
 
         ENDDO  ! jk
 
@@ -1484,6 +1539,36 @@ MODULE mo_initicon
                                                                    p_diag%rhog_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
                 ENDDO
               ENDIF
+              IF (atm_phy_nwp_config(jg)%l2moment) THEN
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqh) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqh)+&
+                                                                   p_diag%rhoh_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnc) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnc)+&
+                                                                    p_diag%rhonc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqni) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqni)+&
+                                                                    p_diag%rhoni_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnr) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnr)+&
+                                                                    p_diag%rhonr_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqns) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqns)+&
+                                                                    p_diag%rhons_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqng) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqng)+&
+                                                                    p_diag%rhong_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnh) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnh)+&
+                                                                    p_diag%rhonh_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+              END IF
             ENDIF
 
           ENDDO  ! jk

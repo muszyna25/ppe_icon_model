@@ -159,6 +159,13 @@ MODULE mo_nonhydro_types
     &  rhor_incr (:,:,:),   & ! rain partial density increment [kg/m^3]
     &  rhos_incr (:,:,:),   & ! snow partial density increment [kg/m^3]
     &  rhog_incr (:,:,:),   & ! graupel partial density increment [kg/m^3]
+    &  rhoh_incr (:,:,:),   & ! hail partial density increment [kg/m^3]
+    &  rhonc_incr (:,:,:),   & ! cloud water number density increment [1/m^3]
+    &  rhoni_incr (:,:,:),   & ! cloud ice number density increment [1/m^3]
+    &  rhonr_incr (:,:,:),   & ! rain number density increment [1/m^3]
+    &  rhons_incr (:,:,:),   & ! snow number density increment [1/m^3]
+    &  rhong_incr (:,:,:),   & ! graupel number density increment [1/m^3]
+    &  rhonh_incr (:,:,:),   & ! hail number density increment [1/m^3]
     ! tendencies, physics increments and derived velocity fields
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
