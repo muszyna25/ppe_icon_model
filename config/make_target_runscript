@@ -126,6 +126,7 @@ fi
 
 job_name=${job_name:=$output_name}
 # echo job_name=$job_name
+eval "$(egrep '^ *use_[a-zA-Z1-9_]+=' $base_folder/$input_folder/$first_name)"
 create_target_header
 
 input_script=$base_folder/$input_folder/$input_name
