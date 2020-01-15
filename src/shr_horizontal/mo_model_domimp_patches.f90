@@ -2760,8 +2760,6 @@ CONTAINS
 
         iidx = iidx + 1
         dst_idx(iidx) = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
-        ! (we need a shift of -1 to distinguish between zero values
-        ! and unset values:)
         in_data(iidx) = p_p%cells%refin_ctrl(jc_c,jb_c) 
       END DO
     END DO
