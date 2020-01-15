@@ -170,8 +170,8 @@ output_oce_moc=yes      #  calc_moc is called every timestep - switch off for hi
 output_oce_ice=yes
 
 # standard debug-flux arrays at surface
-output_atm_dbg=yes
-output_oce_dbg=yes
+output_atm_dbg=no 
+output_oce_dbg=no 
 output_lnd_dbg=yes
 
 # land masks
@@ -708,17 +708,19 @@ cat > ${atm_namelist} << EOF
 &echam_gwd_nml
 /
 &echam_sso_nml
- !echam_sso_config(1)%gkdrag     = 0.02      ! default: 0.05
+ echam_sso_config(1)%gkdrag     = 0.05      ! default: 0.05
+ echam_sso_config(1)%gkwake     = 0.05      ! default: 0.05
 /
 &echam_vdf_nml
+ echam_vdf_config(1)%pr0        = 0.8       ! neutral limit Prandtl no - default:  1.0
 /
 &echam_cnv_nml
- echam_cnv_config(1)%entrpen    = 0.0003    ! default:  0.0002
- echam_cnv_config(1)%cmfctop    = 0.1       ! default:  0.2
- echam_cnv_config(1)%entrscv    = 0.0003    ! default:  0.003
+ echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
+ echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1       (old default:  0.2)
+ echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
 /
 &echam_cld_nml
- echam_cld_config(1)%csecfrl    = 1.0e-5     ! threshold for ice and water in clouds, default 5.e-6
+ echam_cld_config(1)%csecfrl    = 5.0e-6    ! threshold for ice and water in clouds, default 5.e-6
  echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (default was 15.0)
  echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (default was 95.0)
  echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
@@ -1137,6 +1139,9 @@ if [[ "$output_lnd_dbg" == "yes" ]]; then
                     'hydro_discharge_ocean_box'   , 'hydro_discharge_box'    ,
 /
 EOF
+# or using - like in exp.esm_R2B3_R2B4
+# ml_varlist       = 'group:jsb_all_basic','hd_water_error_box','hydro_discharge_ocean_box','hydro_discharge_box' 
+
 fi
 
 if [[ "$output_lnd_msk" == "yes" ]]; then
@@ -1551,8 +1556,10 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  # link to latest OMIP-spinup by Helmuth used for ocean restart-file; initialise atmosphere
-  add_link_file /work/mh0033/m211054/projects/icon/icon-oes-1.0.11/icon-oes/experiments/ocean_omip_long_r2b6_19224-YVF/restart/ocean_omip_long_r2b6_19224-YVF_restart_oce_22500101T000000Z.nc init-restart-oce.nc
+  # initialise atmosphere:
+  # link to OMIP-spinup 19224-YVF by Helmuth used for ocean restart-file - first OMIP with new setup
+  # link to OMIP-spinup 19346-PCA by Helmuth used for ocean restart-file - second OMIP
+  add_link_file /pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}/ocean/restart/ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc init-restart-oce.nc
   add_link_file init-restart-oce.nc restart_oce_DOM01.nc
 fi
 #
