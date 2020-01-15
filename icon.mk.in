@@ -429,23 +429,23 @@ version.c: force-create-version
 # ICON-Ocean Fortran dependency generation rules:
 ICON_OCEAN_DEPGEN= $(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS)
 
-$(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 Makefile icon.mk | preprocess $(dir_files)
+$(f90_prefix)src/hamocc/%.f90.d: $(f90_prefix)src/hamocc/%.f90 icon.mk depgen.f90.config | preprocess $(dir_files)
 	$(ICON_OCEAN_DEPGEN)
-$(f90_prefix)src/ocean/%.f90.d: $(f90_prefix)src/ocean/%.f90 Makefile icon.mk | preprocess $(dir_files)
+$(f90_prefix)src/ocean/%.f90.d: $(f90_prefix)src/ocean/%.f90 icon.mk depgen.f90.config | preprocess $(dir_files)
 	$(ICON_OCEAN_DEPGEN)
-$(f90_prefix)src/sea_ice/%.f90.d: $(f90_prefix)src/sea_ice/%.f90 Makefile icon.mk | preprocess $(dir_files)
+$(f90_prefix)src/sea_ice/%.f90.d: $(f90_prefix)src/sea_ice/%.f90 icon.mk depgen.f90.config | preprocess $(dir_files)
 	$(ICON_OCEAN_DEPGEN)
 
 # Default Fortran dependency generation rule:
-%.f90.d: %.f90 Makefile icon.mk | preprocess $(dir_files)
+%.f90.d: %.f90 Makefile icon.mk depgen.f90.config | preprocess $(dir_files)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.f90.config -o $@ --obj-name $(@:.f90.d=.@OBJEXT@) -i $< -- $(DEPGEN_FCFLAGS) $(makefile_FCFLAGS) $(FCFLAGS) $(ICON_FCFLAGS)
 
 # Default C dependency generation rule:
-%.c.d: %.c Makefile icon.mk | $(dir_files)
+%.c.d: %.c icon.mk depgen.c.config | $(dir_files)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config -o $@ --obj-name $(@:.c.d=.@OBJEXT@) -i $< -- $(CFLAGS) $(ICON_CFLAGS) $(makefile_CPPFLAGS) $(CPPFLAGS)
 
 # Default CUDA dependency generation rule:
-%.cu.d: %.cu Makefile icon.mk | $(dir_files)
+%.cu.d: %.cu icon.mk depgen.c.config | $(dir_files)
 	$(silent_DEPGEN)$(DEPGEN) @depgen.c.config --pp-inc-sys -o $@ --obj-name $(@:.cu.d=.@OBJEXT@) -i $< -- $(NVCFLAGS)
 
 # Dependency generation rule for Fortran-to-C bindings:
