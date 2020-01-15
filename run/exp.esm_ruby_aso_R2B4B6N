@@ -1435,7 +1435,8 @@ cat >> ${oce_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0
 /
 &ocean_vertical_diffusion_nml
-  PPscheme_type                              = 4
+  vert_mix_type                              = 2           ! 1: PP; 2: TKE
+  PPscheme_type                              = 0           ! 4: current PPscheme - 0: switched off
   velocity_VerticalDiffusion_background      = 5.0E-5      ! [m2/s]  vertical background viscosity coefficient for velocity
   temperature_VerticalDiffusion_background   = 1.0E-5      ! [m2/s]  vertical background diffusion coefficient for temperature
   salinity_VerticalDiffusion_background      = 1.0E-5      ! [m2/s]  vertical background diffusion coefficient for salinity
@@ -1451,6 +1452,20 @@ cat >> ${oce_namelist} << EOF
   !  velocity_TopWindMixing                     = 1.0E-5
   tracer_TopWindMixing                       = 2.31480E-6  ! eqals 0.5e-3 m2s-1 (MPIOM)
   velocity_TopWindMixing                     = 2.31480E-6
+  ! cvmix/tke parameters
+  c_k        = 0.1
+  c_eps      = 0.7
+  alpha_tke  = 30.0
+  mxl_min    = 1.d-8
+  kappaM_min = 0.0
+  kappaM_max = 100.0
+  cd         = 3.75
+  tke_min    = 1.d-6
+  tke_mxl_choice = 2
+  tke_surf_min = 1.d-4
+  only_tke = .true.
+  use_ubound_dirichlet = .false.
+  use_lbound_dirichlet = .false.
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                       = 0           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
