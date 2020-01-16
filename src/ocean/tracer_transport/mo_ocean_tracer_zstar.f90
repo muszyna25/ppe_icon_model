@@ -554,12 +554,12 @@ CONTAINS
 
 
     TYPE(t_patch_3d), POINTER, INTENT(in)                :: patch_3d
-    TYPE(t_ocean_transport_state), INTENT(in)            :: transport_state
+    TYPE(t_ocean_transport_state), TARGET                :: transport_state
     TYPE(t_operator_coeff),   INTENT(in)                 :: operators_coefficients
     REAL(wp), INTENT(IN)               :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
     REAL(wp), INTENT(IN)               :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     REAL(wp), INTENT(IN)               :: stretch_c_new(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
-    TYPE(t_ocean_tracer), INTENT(IN)   :: old_tracer
+    TYPE(t_ocean_tracer), TARGET       :: old_tracer
     TYPE(t_ocean_tracer), INTENT(OUT)  :: new_tracer
 
     TYPE(t_patch), POINTER :: patch_2d
