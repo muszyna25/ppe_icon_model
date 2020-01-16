@@ -34,13 +34,14 @@ ${ICON_DIR}/configure \
   LIBS='-leccodes -lsz -laec -lnetcdff -lnetcdf -lopenblas -llapack -lxml2 -lz -llzma -licui18n -licuuc -licudata -lm -ldl' \
   CFLAGS="$CFLAGS" --enable-grib2 --prefix=$PREFIX
 
-make -j8
 
 # copy the run scripting stuff from the source directory
 rsync -avz --exclude='*in' --exclude='.*' ${ICON_DIR}/run .
 test -d data || ln -sf ${ICON_DIR}/data
 test -f make_runscripts || cp ${ICON_DIR}/make_runscripts .
 ./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
+make -j8
 
 # ==============================================================================
 # INSTALLATION WORKFLOW
