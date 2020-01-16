@@ -13,8 +13,8 @@
 # the following is needed to work around a bug that otherwise leads to
 # a too low number of ranks when using compute,compute2 as queue
 #SBATCH --mem=0
-#SBATCH --output=/home/m221078/prj/switch/icon-oes/run/LOG.exp.khwX135.run.%j.o
-#SBATCH --error=/home/m221078/prj/switch/icon-oes/run/LOG.exp.khwX135.run.%j.o
+#SBATCH --output=%{SCRIPT_DIR}/%{EXD_ID}.run.%j.log
+#SBATCH --error=%{SCRIPT_DIR}/%{EXD_ID}.run.%j.log
 #SBATCH --exclusive
 #SBATCH --time=02:00:00
 
@@ -29,7 +29,13 @@
 # submit with sbatch
 # 
 #=============================================================================
-set -x
+set -xe
+
+MODEL_DIR=%{MODEL_DIR}
+SCRIPT_DIR=%{SCRIPT_DIR}
+
+# Make sure that 'add_run_routines'' picks up the right base directory
+cd $MODEL_DIR/run
 . ./add_run_routines
 #-----------------------------------------------------------------------------
 # target parameters
@@ -93,7 +99,7 @@ icon_data_poolFolder="/pool/data/ICON"
 icon_data_buildbotFolder="/pool/data/ICON/buildbot_data"
 icon_data_buildbotFolder_aes="/pool/data/ICON/buildbot_data/aes"
 icon_data_buildbotFolder_oes="/pool/data/ICON/buildbot_data/oes"
-export EXPNAME="khwX135"
+export EXPNAME=%{EXP_ID}
 export KMP_AFFINITY="verbose,granularity=core,compact,1,1"
 export KMP_LIBRARY="turnaround"
 export KMP_KMP_SETTINGS="1"
@@ -360,6 +366,14 @@ atm_namelist=NAMELIST_${EXPNAME}_atm
 lnd_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
 
+#-------------------------------------------------------------------------------
+
+# Write namelist files directly to working directory, create this if missing
+
+EXPDIR=%{WORK_DIR}
+
+mkdir -vp $EXPDIR
+cd $EXPDIR
 
 #--------------------------------------------------------------------------------------------------
 # I. coupling section
@@ -410,7 +424,7 @@ oce_lag=1
 #
 # component names in coupling.xml must (!) match with modelname_list[*]
 #
-cat > coupling_${EXPNAME}.xml << EOF
+cat > coupling.xml << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -712,7 +726,6 @@ EOF
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/run/coupling_${EXPNAME}.xml          ./coupling.xml
 add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
@@ -948,11 +961,6 @@ EOF
 #
 add_link_file ${basedir}/data/lsdata.nc                                 ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
-
-# namelist files
-# --------------
-add_required_file ${basedir}/run/${atm_namelist}                        ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -1880,41 +1888,22 @@ fi
 # Marco Giorgetta, MPI-M, 2010-04-21
 #
 #-----------------------------------------------------------------------------
-final_status_file=${ICON_BASE_PATH}/run/${job_name}.final_status
-rm -f ${final_status_file}
-#-----------------------------------------------------------------------------
 #
 # directories definition
 #
-ICONDIR=${ICON_BASE_PATH}
-RUNSCRIPTDIR=${ICONDIR}/run
+ICONDIR=$MODEL_DIR
+RUNSCRIPTDIR=$SCRIPT_DIR
 if [ x$grids_folder = x ] ; then
    HGRIDDIR=${ICONDIR}/grids
 else
    HGRIDDIR=$grids_folder
 fi
 
-# experiment directory, with plenty of space, create if new
-EXPDIR=${ICONDIR}/experiments/${EXPNAME}
-if [ ! -d ${EXPDIR} ] ;  then
-  mkdir -p ${EXPDIR}
-fi
-#
-ls -ld ${EXPDIR}
-if [ ! -d ${EXPDIR} ] ;  then
-    mkdir ${EXPDIR}
-#else
-#   rm -rf ${EXPDIR}
-#   mkdir  ${EXPDIR}
-fi
-ls -ld ${EXPDIR}
-check_error $? "${EXPDIR} does not exist?"
-
-cd ${EXPDIR}
-
 #-----------------------------------------------------------------------------
+# Reset files and file names for check_error and check_final_status
 final_status_file=${RUNSCRIPTDIR}/${job_name}.final_status
-rm -f ${final_status_file}
+current_status_file=${RUNSCRIPTDIR}/${job_name}.status
+rm -f ${final_status_file} ${current_status_file}
 
 #-----------------------------------------------------------------------------
 # set up the model lists if they do not exist
@@ -2120,12 +2109,9 @@ cat >> $master_namelist << EOF
 EOF
 
 #-----------
-#get namelist
-  if [ -f ${RUNSCRIPTDIR}/$model_namelist_filename ] ; then
-    mv -f ${RUNSCRIPTDIR}/$model_namelist_filename ${EXPDIR}
-    check_error $? "mv -f ${RUNSCRIPTDIR}/$model_namelist_filename"
-  else
-    check_error 1 "${RUNSCRIPTDIR}/$model_namelist_filename does not exist"
+#check namelist file
+  if [[ ! -f $model_namelist_filename ]] ; then
+    check_error 1 "$model_namelist_filename does not exist"
   fi  
 
 }
@@ -2181,12 +2167,8 @@ do
  model_namelist_filename = "${lnd_namelist}${domain_suffix}"
 /
 EOF
-  if [[ -f ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} && -f ${EXPDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} ]] ; then
-    # namelist file has already been copied to expdir by copy_required_files above
-    rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix}
-    check_error $? "rm ${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix}"
-  else
-    check_error 1 "${RUNSCRIPTDIR}/NAMELIST_${EXPNAME}_lnd${domain_suffix} does not exist"
+  if [[ ! -f ${lnd_namelist}${domain_suffix} ]] ; then
+    check_error 1 "${lnd_namelist}${domain_suffix} does not exist"
   fi
   j=`expr ${j} + 1`
 done

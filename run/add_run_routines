@@ -7,17 +7,16 @@ check_final_status()
     #   $1 = error status: 0 = OK, not 0 = ERROR
     #   $2 = error message
 
-    if [ "_${STATUS_FILE}" = "_" ]
+    if [ "${current_status_file}" = "" ]
     then
-      STATUS_FILE=${basedir}/.status.file
+      current_status_file=${basedir}/run/${job_name}.status
     fi
     if [ "${final_status_file}" = "" ]
     then
       final_status_file=${basedir}/run/${job_name}.final_status
     fi
     
-    echo "$1" > ${STATUS_FILE}
-    echo "$1" > ${basedir}/run/${job_name}.status
+    echo "$1" > $current_status_file
     echo "$1" > $final_status_file
 
     if [ $1 != 0 ] 
@@ -40,13 +39,12 @@ check_error()
       check_final_status $1 "$2"
     fi
 
-    if [ "${STATUS_FILE}" = "" ]
+    if [ "${current_status_file}" = "" ]
     then
-      STATUS_FILE=${basedir}/.status.file
+      current_status_file=${basedir}/run/${job_name}.status
     fi
     
-    echo "$1" > ${STATUS_FILE}
-    echo "$1" > ${basedir}/run/${job_name}.status
+    echo "$1" > $current_status_file
 }
 
 warning()
