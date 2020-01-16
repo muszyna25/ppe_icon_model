@@ -123,8 +123,8 @@ link_required_files()
   i=0
   while [ $i -lt $number_of_linked_files ]
   do
-    rm ${output_linked_file[${i}]}   # remove in order to replace the link if necessary
-    ln -sf ${input_linked_file[${i}]} ${output_linked_file[${i}]}
+    rm -f ${output_linked_file[${i}]}   # remove in order to replace the link if necessary
+    ln -s ${input_linked_file[${i}]} ${output_linked_file[${i}]}
    (( i=i+1 ))
   done    
 }
