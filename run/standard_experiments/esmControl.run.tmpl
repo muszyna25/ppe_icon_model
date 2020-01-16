@@ -3,20 +3,21 @@
 # =====================================
 # mistral batch job parameters
 #-----------------------------------------------------------------------------
-#SBATCH --account=bk0988
-
-#SBATCH --job-name=exp.khwX135.run
+#SBATCH --account=%{ACCOUNT}
+#% if JOB.qos is defined:
+#SBATCH --qos=%{JOB.qos}
+#% endif
+#SBATCH --job-name=%{EXP_ID}.run
 #SBATCH --partition=compute2,compute
-#SBATCH --chdir=/home/m221078/prj/switch/icon-oes/run
-#SBATCH --nodes=20
+#SBATCH --nodes=%{JOB.nodes}
 #SBATCH --threads-per-core=2
 # the following is needed to work around a bug that otherwise leads to
 # a too low number of ranks when using compute,compute2 as queue
 #SBATCH --mem=0
-#SBATCH --output=%{SCRIPT_DIR}/%{EXD_ID}.run.%j.log
-#SBATCH --error=%{SCRIPT_DIR}/%{EXD_ID}.run.%j.log
+#SBATCH --output=%{SCRIPT_DIR}/%{EXP_ID}.run.%j.log
+#SBATCH --error=%{SCRIPT_DIR}/%{EXP_ID}.run.%j.log
 #SBATCH --exclusive
-#SBATCH --time=02:00:00
+#SBATCH --time=%{JOB.time_limit}
 
 #=============================================================================
 #
@@ -46,7 +47,7 @@ compiler="intel"
 loadmodule="intel/17.0.6 ncl/6.2.1-gccsys cdo/1.9.5-gcc64 svn/1.8.13  openmpi/2.0.2p1_hpcx-intel14"
 with_mpi="yes"
 with_openmp="no"
-job_name="exp.khwX135.run"
+job_name="%{EXP_ID}.run"
 submit="sbatch"
 #-----------------------------------------------------------------------------
 # openmp environment variables
@@ -267,24 +268,24 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-start_date=${start_date:="1000-01-01T00:00:00Z"}
-    end_date=${end_date:="1020-01-01T00:00:00Z"}
+start_date=${start_date:="%{INITIAL_DATE}T00:00:00Z"}
+    end_date=${end_date:="%{FINAL_DATE}T00:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
-restart_interval="P10Y"
-checkpoint_interval="P10Y"
+restart_interval="%{INTERVAL}"
+checkpoint_interval="%{INTERVAL}"
 
 # file interval is restart-interval
-atm_file_interval="P10Y"
-oce_file_interval="P10Y"
-lnd_file_interval="P10Y"
-hamocc_file_interval="P10Y"
+atm_file_interval="%{INTERVAL}"
+oce_file_interval="%{INTERVAL}"
+lnd_file_interval="%{INTERVAL}"
+hamocc_file_interval="%{INTERVAL}"
 
-atm_output_interval="P1Y"
-oce_output_interval="P1Y"
-lnd_output_interval="P1Y"
-hamocc_output_interval="P1Y"
+atm_output_interval="%{OUTPUT_INTERVAL}"
+oce_output_interval="%{OUTPUT_INTERVAL}"
+lnd_output_interval="%{OUTPUT_INTERVAL}"
+hamocc_output_interval="%{OUTPUT_INTERVAL}"
 
 # asynchronous diagnostic output processes
 # ----------------------------------------
@@ -965,8 +966,7 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                           ./
+add_required_file ${basedir}/run/dict.iconam.mpim                       ./${dict_file}
 
 # initial conditions
 #
@@ -1831,8 +1831,6 @@ cat >> ${oce_namelist} << EOF
   lkeep_in_sync                              = .TRUE.           ! sync after each timestep
 /
 EOF
-
-add_required_file ${basedir}/run/${oce_namelist} ./
 
 #-----------------------------------------------------------------------------
 #
