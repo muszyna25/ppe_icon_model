@@ -2130,7 +2130,7 @@ CONTAINS
         END DO
       END IF
 
-      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d ) ) THEN
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d) .AND. atm_phy_nwp_config(jg)%lhave_graupel ) THEN
         DO jk = kstart_moist(jg), ptr_patch%nlev
           DO jc = i_startidx, i_endidx
             q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqg)
@@ -2138,7 +2138,7 @@ CONTAINS
         END DO
       END IF
 
-      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d ) ) THEN
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d) .AND. atm_phy_nwp_config(jg)%l2moment ) THEN
         DO jk = kstart_moist(jg), ptr_patch%nlev
           DO jc = i_startidx, i_endidx
             q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqh)
@@ -2215,7 +2215,7 @@ CONTAINS
         END DO
       END IF
 
-      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d ) ) THEN
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d) .AND. atm_phy_nwp_config(jg)%lhave_graupel ) THEN
         DO jk = kstart_moist(jg), ptr_patch%nlev
           DO jc = i_startidx, i_endidx
             q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqg)
@@ -2223,7 +2223,7 @@ CONTAINS
         END DO
       END IF
 
-      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d ) ) THEN
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d) .AND. atm_phy_nwp_config(jg)%l2moment ) THEN
         DO jk = kstart_moist(jg), ptr_patch%nlev
           DO jc = i_startidx, i_endidx
             q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqh)
@@ -2319,7 +2319,7 @@ CONTAINS
         END DO
       END IF
 
-      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d ) ) THEN
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d) .AND. atm_phy_nwp_config(jg)%lhave_graupel ) THEN
         DO jk = kstart_moist(jg), ptr_patch%nlev
           DO jc = i_startidx, i_endidx
             q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqg)
@@ -2327,7 +2327,7 @@ CONTAINS
         END DO
       END IF
 
-      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d ) ) THEN
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d) .AND. atm_phy_nwp_config(jg)%l2moment ) THEN
         DO jk = kstart_moist(jg), ptr_patch%nlev
           DO jc = i_startidx, i_endidx
             q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqh)
