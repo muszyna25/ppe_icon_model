@@ -1,0 +1,95 @@
+#! /usr/bin/env python
+'''\
+Post-process ICON experiment data for a given period
+'''
+
+import argparse
+import os
+import re
+import sys
+
+sys.path.append(os.path.join('%{MODEL_DIR}', 'lib', 'python'))
+import libmtime as mt
+
+def check_date(arg):
+    if not re.match(r'\d+-?\d\d-?\d\d$', arg):
+        raise argparse.ArgumentTypeError('%r is not a valid date' % arg)
+    return arg
+
+command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
+command_line.add_argument('start_date', type=check_date, help=
+    'first date of period (YYYY-MM-DD or YYYYMMDD)')
+command_line.add_argument('-V', '--version', action='version', version='0.0.1')
+args = command_line.parse_args()
+
+template_dict = {}
+template_dict['start_date'] = args.start_date.translate(None, '-')
+
+# Do time computations using mtime
+
+mt.setCalendar(mt.CALENDAR_TYPE.proleptic_gregorian)
+
+initial_date = mt.newDateTime('%{INITIAL_DATE}')
+start_date = mt.newDateTime(args.start_date)
+interval = mt.newTimeDelta('%{INTERVAL}')
+output_interval = mt.newTimeDelta('%{OUTPUT_INTERVAL}')
+next_date = mt.newDateTime(args.start_date)
+next_date = mt.addTimeDeltaToDateTime(next_date, interval, next_date)
+comparison = mt.compareDatetime(start_date, initial_date)
+
+if comparison < 0:
+    sys.stderr.write("Oops: start_date is before initial_date\n")
+    sys.exit(1)
+
+shift_time = ''
+for (name,ctype) in reversed(output_interval.contents._fields_):
+    if name == 'sign': continue
+    value = output_interval.contents.__getattribute__(name)
+    if value: shift_time += ' -shifttime,-{0}{1}'.format(value, name)
+
+template_dict['next_date'] = mt.dateToString(next_date).translate(None, '-')
+template_dict['start_step'] = 1 + comparison # 1 if comparison == 0 else 2
+template_dict['shift_time'] = shift_time.lstrip()
+
+mt.deallocateDateTime(initial_date)
+mt.deallocateDateTime(start_date)
+mt.deallocateDateTime(next_date)
+mt.deallocateTimeDelta(interval)
+mt.deallocateTimeDelta(output_interval)
+
+# Generate Makefile
+
+tags = ['atm_2d_ml', 'atm_3d_ml', 'atm_dbg_ml', 'atm_mon', 'hamocc', 'hamocc_2d_tendencies', 'hamocc_3d_tendencies', 'hamocc_EU_tendencies', 'hamocc_monitor', 'hamocc_sediment', 'lnd_basic_ml', 'oce_dbg oce_def', 'oce_ice', 'oce_moc', 'oce_mon']
+
+template_dict['tags'] = ' '.join(tags)
+
+makefile_template = '''
+CDO = cdo
+CDOFLAGS = -r -O
+
+TAGS = {tags}
+
+all: $(TAGS:%=%{EXP_ID}_%_{start_date}.nc)
+
+clean:
+	$(RM) $(TAGS:%=%{EXP_ID}_%_{start_date}.nc)
+
+%{EXP_ID}_atm_%_{start_date}.nc: %{EXP_ID}_atm_%_{start_date}T000000Z.nc %{EXP_ID}_atm_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,2/`cdo -s ntime %{EXP_ID}_atm_$*_{start_date}T000000Z.nc` %{EXP_ID}_atm_$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_atm_$*_{next_date}T000000Z.nc $@
+
+%{EXP_ID}_lnd_%_{start_date}.nc: %{EXP_ID}_lnd_%_{start_date}T000000Z.nc %{EXP_ID}_lnd_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,2/`cdo -s ntime %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc` %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_lnd_$*_{next_date}T000000Z.nc $@
+
+%{EXP_ID}_oce_def_{start_date}.nc: %{EXP_ID}_oce_def_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) -shifttime,-1year %{EXP_ID}_oce_def_{next_date}T000000Z.nc $@
+
+%{EXP_ID}_oce_%_{start_date}.nc: %{EXP_ID}_oce_%_{start_date}T000000Z.nc %{EXP_ID}_oce_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_oce_$*_{start_date}T000000Z.nc` %{EXP_ID}_oce_$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_oce_$*_{next_date}T000000Z.nc $@
+
+%{EXP_ID}_hamoc%_{start_date}.nc: %{EXP_ID}_hamoc%_{start_date}T000000Z.nc %{EXP_ID}_hamoc%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc` %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_hamoc$*_{next_date}T000000Z.nc $@
+'''
+
+print(makefile_template.format(**template_dict))
+
+
