@@ -217,9 +217,9 @@ mpi_oce_nodes=6
 # tested: atmTimeStep="PT20M" / atm_substeps=10 with hdiff_smag_fac=0.15
 
 radTimeStep="PT2H"               # radiation time step:    12 time steps per day
-atmTimeStep="PT20M"              # atmosphere time step:   72 time steps per day
+atmTimeStep="%{ATMO_TIME_STEP}" # atmosphere time step
 atm_substeps=10                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
-oceTimeStep="PT60M"              # ocean time step:        24 time steps per day
+oceTimeStep="%{OCEAN_TIME_STEP}" # ocean time step
 couplingTimeStep="PT60M"         # coupling time step:      2 time steps per radTimeStep 
 
 #--------------------------------------------------------------------------------------------------
@@ -499,6 +499,7 @@ cat > coupling.xml << EOF
    <dates>
       <start_date>+1800-01-01T00:00:00.000</start_date>
       <end_date>+2100-01-01T00:00:00.000</end_date>
+      <!-- TODO: calendar not used (a/t Rene Redler, 2020-01-20 ) -->
       <calendar>proleptic-gregorian</calendar>
    </dates>
    <timestep_unit>ISO_format</timestep_unit>
@@ -2056,20 +2057,13 @@ cat > $master_namelist << EOF
 /
 EOF
 else
-if [ x$calendar = x ]; then
-  calendar='proleptic gregorian'
-  calendar_type=1
-else
-  calendar=$calendar
-  calendar_type=$calendar_type
-fi
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
  read_restart_namelists = $read_restart_namelists
 /
 &master_time_control_nml
- calendar             = "$calendar"
+ calendar             = "%{CALENDAR}"
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
  experimentStartDate  = "$start_date" 

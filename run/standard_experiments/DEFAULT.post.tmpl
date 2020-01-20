@@ -9,7 +9,9 @@ import re
 import sys
 
 sys.path.append(os.path.join('%{MODEL_DIR}', 'lib', 'python'))
-import libmtime as mt
+import mtime
+
+# Process command line options
 
 def check_date(arg):
     if not re.match(r'\d+-?\d\d-?\d\d$', arg):
@@ -22,45 +24,42 @@ command_line.add_argument('start_date', type=check_date, help=
 command_line.add_argument('-V', '--version', action='version', version='0.0.1')
 args = command_line.parse_args()
 
-template_dict = {}
-template_dict['start_date'] = args.start_date.translate(None, '-')
-
 # Do time computations using mtime
 
-mt.setCalendar(mt.CALENDAR_TYPE.proleptic_gregorian)
+mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
 
-initial_date = mt.newDateTime('%{INITIAL_DATE}')
-start_date = mt.newDateTime(args.start_date)
-interval = mt.newTimeDelta('%{INTERVAL}')
-output_interval = mt.newTimeDelta('%{OUTPUT_INTERVAL}')
-next_date = mt.newDateTime(args.start_date)
-next_date = mt.addTimeDeltaToDateTime(next_date, interval, next_date)
-comparison = mt.compareDatetime(start_date, initial_date)
+initial_date = mtime.DateTime('%{INITIAL_DATE}')
+start_date = mtime.DateTime(args.start_date)
 
-if comparison < 0:
+if start_date < initial_date:
     sys.stderr.write("Oops: start_date is before initial_date\n")
     sys.exit(1)
+    
+interval = mtime.TimeDelta('%{INTERVAL}')
+next_date = start_date + interval
 
-shift_time = ''
-for (name,ctype) in reversed(output_interval.contents._fields_):
-    if name == 'sign': continue
-    value = output_interval.contents.__getattribute__(name)
-    if value: shift_time += ' -shifttime,-{0}{1}'.format(value, name)
+atmo_time_step = mtime.TimeDelta('%{ATMO_TIME_STEP}')
+ocean_time_step = mtime.TimeDelta('%{OCEAN_TIME_STEP}')
 
-template_dict['next_date'] = mt.dateToString(next_date).translate(None, '-')
-template_dict['start_step'] = 1 + comparison # 1 if comparison == 0 else 2
-template_dict['shift_time'] = shift_time.lstrip()
+# Format cdo shifttime commands for Makefile generation
 
-mt.deallocateDateTime(initial_date)
-mt.deallocateDateTime(start_date)
-mt.deallocateDateTime(next_date)
-mt.deallocateTimeDelta(interval)
-mt.deallocateTimeDelta(output_interval)
+atmo_shift_list = ['-shifttime,-{0}{1}'.format(value, name)
+    for (name, value) in atmo_time_step.items() if name != 'sign' and value]
+ocean_shift_list = ['-shifttime,-{0}{1}'.format(value, name)
+    for (name, value) in ocean_time_step.items() if name != 'sign' and value]
 
-# Generate Makefile
+# Define required output
 
 tags = ['atm_2d_ml', 'atm_3d_ml', 'atm_dbg_ml', 'atm_mon', 'hamocc', 'hamocc_2d_tendencies', 'hamocc_3d_tendencies', 'hamocc_EU_tendencies', 'hamocc_monitor', 'hamocc_sediment', 'lnd_basic_ml', 'oce_dbg oce_def', 'oce_ice', 'oce_moc', 'oce_mon']
 
+# Generate Makefile
+
+template_dict = {}
+template_dict['start_date'] = args.start_date.translate(None, '-')
+template_dict['start_step'] = 1 if start_date == initial_date else 2
+template_dict['next_date'] = str(next_date.date).translate(None, '-')
+template_dict['atmo_shift_spec'] = ' '.join(reversed(atmo_shift_list))
+template_dict['ocean_shift_spec'] = ' '.join(reversed(ocean_shift_list))
 template_dict['tags'] = ' '.join(tags)
 
 makefile_template = '''
@@ -75,19 +74,19 @@ clean:
 	$(RM) $(TAGS:%=%{EXP_ID}_%_{start_date}.nc)
 
 %{EXP_ID}_atm_%_{start_date}.nc: %{EXP_ID}_atm_%_{start_date}T000000Z.nc %{EXP_ID}_atm_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,2/`cdo -s ntime %{EXP_ID}_atm_$*_{start_date}T000000Z.nc` %{EXP_ID}_atm_$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_atm_$*_{next_date}T000000Z.nc $@
+	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime %{EXP_ID}_atm_$*_{start_date}T000000Z.nc` %{EXP_ID}_atm_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 %{EXP_ID}_atm_$*_{next_date}T000000Z.nc $@
 
 %{EXP_ID}_lnd_%_{start_date}.nc: %{EXP_ID}_lnd_%_{start_date}T000000Z.nc %{EXP_ID}_lnd_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,2/`cdo -s ntime %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc` %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_lnd_$*_{next_date}T000000Z.nc $@
+	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc` %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 %{EXP_ID}_lnd_$*_{next_date}T000000Z.nc $@
 
 %{EXP_ID}_oce_def_{start_date}.nc: %{EXP_ID}_oce_def_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) -shifttime,-1year %{EXP_ID}_oce_def_{next_date}T000000Z.nc $@
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} %{EXP_ID}_oce_def_{next_date}T000000Z.nc $@
 
 %{EXP_ID}_oce_%_{start_date}.nc: %{EXP_ID}_oce_%_{start_date}T000000Z.nc %{EXP_ID}_oce_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_oce_$*_{start_date}T000000Z.nc` %{EXP_ID}_oce_$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_oce_$*_{next_date}T000000Z.nc $@
+	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_oce_$*_{start_date}T000000Z.nc` %{EXP_ID}_oce_$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 %{EXP_ID}_oce_$*_{next_date}T000000Z.nc $@
 
 %{EXP_ID}_hamoc%_{start_date}.nc: %{EXP_ID}_hamoc%_{start_date}T000000Z.nc %{EXP_ID}_hamoc%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {shift_time} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc` %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc {shift_time} -seltimestep,1 %{EXP_ID}_hamoc$*_{next_date}T000000Z.nc $@
+	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc` %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 %{EXP_ID}_hamoc$*_{next_date}T000000Z.nc $@
 '''
 
 print(makefile_template.format(**template_dict))
