@@ -1,23 +1,23 @@
 [submodule "externals/mtime"]
 	path = externals/mtime
-	url = git@git.mpimet.mpg.de:libmtime.git
+	url = git@gitlab.dkrz.de:icon-libraries/libmtime.git
 	branch = develop
 [submodule "externals/jsbach"]
 	path = externals/jsbach
-	url = git@git.mpimet.mpg.de:jsbach.git
+	url = git@gitlab.dkrz.de:jsbach/jsbach.git
 	branch = develop
 [submodule "externals/yac"]
 	path = externals/yac
-	url = git@git.mpimet.mpg.de:YAC.git
+	url = git@gitlab.dkrz.de:dkrz-sw/YAC.git
 [submodule "externals/self"]
 	path = externals/self
-	url = git@git.mpimet.mpg.de:libself.git
+	url = git@gitlab.dkrz.de:libself/libself.git
 	branch = libself-icon_v0.2
 
 [submodule "externals/tixi"]
 	path = externals/tixi
-	url = git@git.mpimet.mpg.de:libtixi.git
+	url = git@gitlab.dkrz.de:icon-libraries/libtixi.git
 
 [submodule "externals/yaxt"]
 	path = externals/yaxt
-	url = git@git.mpimet.mpg.de:yaxt
+	url = git@gitlab.dkrz.de:dkrz-sw/yaxt.git
