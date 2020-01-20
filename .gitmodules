@@ -5,7 +5,7 @@
 [submodule "externals/jsbach"]
 	path = externals/jsbach
 	url = git@gitlab.dkrz.de:jsbach/jsbach.git
-	branch = feature/claw
+	branch = develop
 [submodule "externals/yac"]
 	path = externals/yac
 	url = git@gitlab.dkrz.de:dkrz-sw/YAC.git
