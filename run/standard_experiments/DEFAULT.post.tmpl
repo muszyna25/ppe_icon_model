@@ -1,4 +1,17 @@
 #! /usr/bin/env python
+#SBATCH --account=%{ACCOUNT}
+#%  if JOB.qos is defined:
+#SBATCH --qos=%{JOB.qos}
+#%  endif
+#SBATCH --job-name=%{EXP_ID}.%{JOB.id}
+#SBATCH --partition=prepost,shared
+#SBATCH --ntasks=%{JOB.tasks}
+#%  if JOB.hardware_threads|default('') is not set:
+#SBATCH --ntasks-per-core=1
+#%  endif
+#SBATCH --output=%{SCRIPT_DIR}/%x.%j.log
+#SBATCH --time=%{JOB.time_limit}
+
 '''\
 Post-process ICON experiment data for a given period
 '''
@@ -24,6 +37,8 @@ command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
 command_line.add_argument('start_date', type=check_date, help=
     'first date of period (YYYY-MM-DD or YYYYMMDD)')
 command_line.add_argument('-V', '--version', action='version', version='0.0.1')
+command_line.add_argument('-c', '--clean', action='store_true', help=
+    'remove output files -- Do _not_ use if raw data files were removed!')
 args = command_line.parse_args()
 
 # Do time computations using mtime
@@ -92,7 +107,7 @@ logging.info('working directory is {0}'.format(post_dir))
 
 makefile_template = '''\
 CDO = cdo
-CDOFLAGS = -r -O -z zip
+CDOFLAGS = -r -O
 
 EXP_ID = %{EXP_ID}
 DATA_DIR = %{DATA_DIR}
@@ -100,7 +115,6 @@ WORK_DIR = %{WORK_DIR}
 
 TAGS = {tags}
 
-VPATH = $(WORK_DIR)
 TARGETS = $(TAGS:%=$(DATA_DIR)/$(EXP_ID)_%_{start_date}.nc)
 
 all: $(TARGETS)
@@ -108,20 +122,20 @@ all: $(TARGETS)
 clean:
 	$(RM) $(TARGETS)
 
-$(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(EXP_ID)_atm_%_{start_date}T000000Z.nc $(EXP_ID)_atm_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $(EXP_ID)_atm_$*_{start_date}T000000Z.nc` $(EXP_ID)_atm_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 $(EXP_ID)_atm_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_atm_%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_atm_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $<` $< {atmo_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_atm_$*_{next_date}T000000Z.nc $@
 
-$(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(EXP_ID)_lnd_%_{start_date}T000000Z.nc $(EXP_ID)_lnd_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $(EXP_ID)_lnd_$*_{start_date}T000000Z.nc` $(EXP_ID)_lnd_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 $(EXP_ID)_lnd_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_lnd_%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_lnd_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $<` $< {atmo_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_lnd_$*_{next_date}T000000Z.nc $@
 
-$(DATA_DIR)/$(EXP_ID)_oce_def_{start_date}.nc: $(EXP_ID)_oce_def_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $(EXP_ID)_oce_def_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_oce_def_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_oce_def_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@
 
-$(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(EXP_ID)_oce_%_{start_date}T000000Z.nc $(EXP_ID)_oce_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $(EXP_ID)_oce_$*_{start_date}T000000Z.nc` $(EXP_ID)_oce_$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 $(EXP_ID)_oce_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_oce_%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_oce_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< {ocean_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_oce_$*_{next_date}T000000Z.nc $@
 
-$(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(EXP_ID)_hamoc%_{start_date}T000000Z.nc $(EXP_ID)_hamoc%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $(EXP_ID)_hamoc$*_{start_date}T000000Z.nc` $(EXP_ID)_hamoc$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 $(EXP_ID)_hamoc$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_hamoc%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_hamoc%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< {ocean_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_hamoc$*_{next_date}T000000Z.nc $@
 '''
 
 makefile_name = 'Makefile'
@@ -131,7 +145,8 @@ makefile.close()
 
 # Run the actual make process
 
-make_args = ['make', '-j', '%{JOB.tasks|d(1)}']
+make_args = ['make', '-k', '-j', '%{JOB.tasks|d(1)}']
+if args.clean: make_args.append('clean')
 make = subprocess.Popen(make_args,
                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 for line in make.stdout:

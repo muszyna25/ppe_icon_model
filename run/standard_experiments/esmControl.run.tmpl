@@ -268,8 +268,8 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-start_date=${start_date:="%{INITIAL_DATE}T00:00:00Z"}
-    end_date=${end_date:="%{FINAL_DATE}T00:00:00Z"}
+initial_date=${initial_date:="%{INITIAL_DATE}T00:00:00Z"}
+final_date=${final_date:="%{FINAL_DATE}T00:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
@@ -361,12 +361,6 @@ else
   pft_file_tag=""
 fi
 
-# namelist files
-# --------------
-atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
-oce_namelist=NAMELIST_${EXPNAME}_oce
-
 #-------------------------------------------------------------------------------
 
 # Write namelist files directly to working directory, create this if missing
@@ -375,6 +369,29 @@ EXPDIR=%{WORK_DIR}
 
 mkdir -vp $EXPDIR
 cd $EXPDIR
+
+# Read and compute time control information
+
+start_date_file=${EXPNAME}.date
+
+start_date=$initial_date
+if [[ -f $start_date_file ]]
+then
+    read start_date < $start_date_file
+fi
+
+export PYTHONPATH=$MODEL_DIR/lib/python${PYTHONPATH:+:}$PYTHONPATH
+python -c "
+import mtime
+mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
+print(str(DateTime('$start_date') + mtime.TimeDelta('$restart_interval'))
+"
+
+# namelist files
+# --------------
+atm_namelist=NAMELIST_${EXPNAME}_atm
+lnd_namelist=NAMELIST_${EXPNAME}_lnd
+oce_namelist=NAMELIST_${EXPNAME}_oce
 
 #--------------------------------------------------------------------------------------------------
 # I. coupling section
@@ -1073,8 +1090,8 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  filetype         = 5
  remap            = 0
  output_grid      = .TRUE.
- output_start     = "${start_date}"           ! output_start = output_end
- output_end       = "${start_date}"           ! --> write once only irrespective of
+ output_start     = "${initial_date}"         ! output_start = output_end
+ output_end       = "${initial_date}"         ! --> write once only irrespective of
  output_interval  = "${atm_output_interval}"  !     the output interval and
  file_interval    = "${atm_file_interval}"    !     the file interval
  ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
@@ -1093,8 +1110,8 @@ if [[ "$output_atm_mon" == "yes" ]]; then
  mode             = 1                                ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  operation        = 'mean'                           ! mean over output interval
  output_grid      = .FALSE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
@@ -1114,8 +1131,8 @@ if [[ "$output_atm_dbg" == "yes" ]]; then
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
@@ -1161,8 +1178,8 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  remap            = 0
  operation        = 'mean'
  output_grid      = .FALSE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
@@ -1188,8 +1205,8 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  remap            = 0
  operation        = 'mean'
  output_grid      = .FALSE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
@@ -1227,8 +1244,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  remap            = 0
  operation        = 'mean'
  output_grid      = .FALSE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
@@ -1260,8 +1277,8 @@ if [[ "$output_lnd" != "none" ]]; then
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${lnd_output_interval}"
  file_interval    = "${lnd_file_interval}"
  include_last     = .FALSE.
@@ -1279,8 +1296,8 @@ case "${output_lnd}" in
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${lnd_output_interval}"
  file_interval    = "${lnd_file_interval}"
  include_last     = .FALSE.
@@ -1299,8 +1316,8 @@ case "${output_lnd}" in
  remap            = 0
  operation        = 'mean'
  output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
+ output_start     = "${initial_date}"
+ output_end       = "${final_date}"
  output_interval  = "${lnd_output_interval}"
  file_interval    = "${lnd_file_interval}"
  include_last     = .FALSE.
@@ -1388,8 +1405,8 @@ cat >> ${oce_namelist} << EOF
   filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_filename  = "${EXPNAME}_oce_fx"
   filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${start_date}"                  ! end date in ISO-format
+  output_start     = "${initial_date}"                ! start date in ISO-format
+  output_end       = "${initial_date}"                ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
@@ -1406,8 +1423,8 @@ if [[ "$output_oce_def" == "yes" ]]; then
   filetype                   = 5
   output_filename            = "${EXPNAME}_oce_def"
   filename_format            = "<output_filename>_<datetime2>"
-  output_start               = "${start_date}"                  ! start in ISO-format
-  output_end                 = "${end_date}"                    ! end in ISO-format
+  output_start               = "${initial_date}"                ! start in ISO-format
+  output_end                 = "${final_date}"                  ! end in ISO-format
   output_interval            = "${oce_output_interval_def}"     ! interval in ISO-format
   file_interval              = "${oce_file_interval}"
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
@@ -1425,8 +1442,8 @@ if [[ "$output_oce_ice" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
 
 &output_nml
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_start     = "${initial_date}"                ! start date in ISO-format
+  output_end       = "${final_date}"                  ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -1448,8 +1465,8 @@ if [[ "$output_oce_mon" == "yes" ]]; then
   filetype                   = 4
   output_filename            = "${EXPNAME}_oce_mon"
   filename_format            = "<output_filename>_<datetime2>"
-  output_start               = "${start_date}"                  ! start in ISO-format
-  output_end                 = "${end_date}"                    ! end in ISO-format
+  output_start               = "${initial_date}"                ! start in ISO-format
+  output_end                 = "${final_date}"                  ! end in ISO-format
   output_interval            = "${oce_output_interval}"
   file_interval              = "${oce_file_interval}"
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
@@ -1470,8 +1487,8 @@ if [[ "$output_oce_moc" == "yes" ]]; then
   filetype                   = 5
   output_filename            = "${EXPNAME}_oce_moc"
   filename_format            = "<output_filename>_<datetime2>"
-  output_start               = "${start_date}"                  ! start in ISO-format
-  output_end                 = "${end_date}"                    ! end in ISO-format
+  output_start               = "${initial_date}"                ! start in ISO-format
+  output_end                 = "${final_date}"                  ! end in ISO-format
   output_interval            = "${oce_output_interval}"
   file_interval              = "${oce_file_interval}"
   mode                       = 1                                ! 1: forecast mode (relative t-axis)
@@ -1492,8 +1509,8 @@ if [[ "$output_oce_dbg" == "yes" ]]; then
   filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_filename  = "${EXPNAME}_oce_dbg"
   filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${end_date}"                    ! end date in ISO-format
+  output_start     = "${initial_date}"                ! start date in ISO-format
+  output_end       = "${final_date}"                  ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
@@ -1521,8 +1538,8 @@ cat >> ${oce_namelist} << EOF
 &output_nml
   output_filename  = "${EXPNAME}_hamocc_monitor"
   filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${start_date}"
-  output_end       = "${end_date}"
+  output_start     = "${initial_date}"
+  output_end       = "${final_date}"
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .false.
@@ -1538,8 +1555,8 @@ cat >> ${oce_namelist} << EOF
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
   output_filename  = "${EXPNAME}_hamocc"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
+  output_start     = "${initial_date}"                ! start in ISO-format
+  output_end       = "${final_date}"                  ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
@@ -1555,8 +1572,8 @@ cat >> ${oce_namelist} << EOF
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
   output_filename  = "${EXPNAME}_hamocc_sediment"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
+  output_start     = "${initial_date}"                ! start in ISO-format
+  output_end       = "${final_date}"                  ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
@@ -1572,8 +1589,8 @@ cat >> ${oce_namelist} << EOF
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
   output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
+  output_start     = "${initial_date}"                ! start in ISO-format
+  output_end       = "${final_date}"                  ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
@@ -1589,8 +1606,8 @@ cat >> ${oce_namelist} << EOF
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
   output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
+  output_start     = "${initial_date}"                ! start in ISO-format
+  output_end       = "${final_date}"                  ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -1608,8 +1625,8 @@ cat >> ${oce_namelist} << EOF
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   filename_format  = "<output_filename>_<datetime2>"
   output_filename  = "${EXPNAME}_hamocc_2d_tendencies"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
+  output_start     = "${initial_date}"                ! start in ISO-format
+  output_end       = "${final_date}"                  ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
  !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval    = "${hamocc_file_interval}"
@@ -2042,13 +2059,13 @@ read_restart_namelists=${read_restart_namelists:=".true."}
 #-----------------------------------------------------------------------------
 # create master_namelist
 master_namelist=icon_master.namelist
-if [ x$end_date = x ]; then
+if [ x$final_date = x ]; then
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
 /
 &master_time_control_nml
- experimentStartDate  = "$start_date" 
+ experimentStartDate  = "$initial_date" 
  restartTimeIntval    = "$restart_interval" 
  checkpointTimeIntval = "$checkpoint_interval" 
 /
@@ -2066,8 +2083,8 @@ cat > $master_namelist << EOF
  calendar             = "%{CALENDAR}"
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
- experimentStartDate  = "$start_date" 
- experimentStopDate   = "$end_date" 
+ experimentStartDate  = "$initial_date" 
+ experimentStopDate   = "$final_date" 
 /
 &time_nml
  is_relative_time = .false.
@@ -2280,10 +2297,10 @@ fi
 
 cd $RUNSCRIPTDIR
 
-#-----------------------------------------------------------------------------
+#% for job in JOB['.trigger']|list:
+%{JOB.batch_command} %{EXP_ID}.%{job} $start_date
+#% endfor
 
-	
-# exit 0
-#
+#-----------------------------------------------------------------------------
 # vim:ft=sh
 #-----------------------------------------------------------------------------
