@@ -30,7 +30,7 @@
 # submit with sbatch
 # 
 #=============================================================================
-set -xe
+set -e
 
 MODEL_DIR=%{MODEL_DIR}
 SCRIPT_DIR=%{SCRIPT_DIR}
@@ -79,8 +79,8 @@ BUILDDIR=build/x86_64-unknown-linux-gnu
 #-----------------------------------------------------------------------------
 #=============================================================================
 # load profile
-if [ -a  /etc/profile ] ; then
-. /etc/profile
+if [ -a $MODULESHOME/init/ksh ] ; then
+. $MODULESHOME/init/ksh
 #=============================================================================
 #=============================================================================
 # load modules
@@ -287,6 +287,24 @@ oce_output_interval="%{OUTPUT_INTERVAL}"
 lnd_output_interval="%{OUTPUT_INTERVAL}"
 hamocc_output_interval="%{OUTPUT_INTERVAL}"
 
+# Read and compute time control information
+
+start_date_file=$SCRIPT_DIR/$EXPNAME.date
+
+start_date=$initial_date
+[[ -f $start_date_file ]] && read start_date < $start_date_file
+
+export PYTHONPATH=$MODEL_DIR/lib/python${PYTHONPATH:+:}$PYTHONPATH
+eval $(python -c "
+import mtime
+mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
+next_date = mtime.DateTime('$start_date') + mtime.TimeDelta('$restart_interval')
+end_date = next_date + mtime.TimeDelta('-$atmTimeStep')
+
+print('end_date=' + str(end_date))
+print('next_date=' + str(next_date))
+")
+
 # asynchronous diagnostic output processes
 # ----------------------------------------
 
@@ -369,23 +387,6 @@ EXPDIR=%{WORK_DIR}
 
 mkdir -vp $EXPDIR
 cd $EXPDIR
-
-# Read and compute time control information
-
-start_date_file=${EXPNAME}.date
-
-start_date=$initial_date
-if [[ -f $start_date_file ]]
-then
-    read start_date < $start_date_file
-fi
-
-export PYTHONPATH=$MODEL_DIR/lib/python${PYTHONPATH:+:}$PYTHONPATH
-python -c "
-import mtime
-mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
-print(str(DateTime('$start_date') + mtime.TimeDelta('$restart_interval'))
-"
 
 # namelist files
 # --------------
@@ -2210,6 +2211,11 @@ if [ -r finish.status ] ; then
 else
   check_final_status -1 "${START} ${MODEL}"
 fi
+
+# Update date info for next run
+
+echo $next_date > $start_date_file
+
 #
 #-----------------------------------------------------------------------------
 #
