@@ -4,8 +4,10 @@ Post-process ICON experiment data for a given period
 '''
 
 import argparse
+import logging
 import os
 import re
+import subprocess
 import sys
 
 sys.path.append(os.path.join('%{MODEL_DIR}', 'lib', 'python'))
@@ -37,6 +39,7 @@ if start_date < initial_date:
     
 interval = mtime.TimeDelta('%{INTERVAL}')
 next_date = start_date + interval
+end_date = next_date + mtime.TimeDelta('-P1D')
 
 atmo_time_step = mtime.TimeDelta('%{ATMO_TIME_STEP}')
 ocean_time_step = mtime.TimeDelta('%{OCEAN_TIME_STEP}')
@@ -52,43 +55,102 @@ ocean_shift_list = ['-shifttime,-{0}{1}'.format(value, name)
 
 tags = ['atm_2d_ml', 'atm_3d_ml', 'atm_dbg_ml', 'atm_mon', 'hamocc', 'hamocc_2d_tendencies', 'hamocc_3d_tendencies', 'hamocc_EU_tendencies', 'hamocc_monitor', 'hamocc_sediment', 'lnd_basic_ml', 'oce_dbg oce_def', 'oce_ice', 'oce_moc', 'oce_mon']
 
-# Generate Makefile
+# Set-up template variables
 
 template_dict = {}
 template_dict['start_date'] = args.start_date.translate(None, '-')
 template_dict['start_step'] = 1 if start_date == initial_date else 2
 template_dict['next_date'] = str(next_date.date).translate(None, '-')
+template_dict['end_date'] = str(end_date.date).translate(None, '-')
 template_dict['atmo_shift_spec'] = ' '.join(reversed(atmo_shift_list))
 template_dict['ocean_shift_spec'] = ' '.join(reversed(ocean_shift_list))
 template_dict['tags'] = ' '.join(tags)
 
-makefile_template = '''
+# Prolog
+
+logging.basicConfig(format='%(asctime)s: %(levelname)s%(message)s',
+                    level=logging.INFO)
+logging.addLevelName(logging.DEBUG, 'Debug: ')
+logging.addLevelName(logging.INFO, '')
+logging.addLevelName(logging.WARNING, 'Hey: ')
+logging.addLevelName(logging.ERROR, 'Oops: ')
+logging.addLevelName(logging.CRITICAL, 'Sorry: ')
+
+logging.info('post processing started '
+             'for {start_date}-{end_date}'.format(**template_dict))
+
+# Set-up directory structure
+
+post_dir = os.path.join('%{WORK_DIR}',
+                        'post_{start_date}-{end_date}'.format(**template_dict))
+if not os.path.isdir(post_dir): os.makedirs(post_dir)
+os.chdir(post_dir)
+
+logging.info('working directory is {0}'.format(post_dir))
+
+# Generate Makefile
+
+makefile_template = '''\
 CDO = cdo
-CDOFLAGS = -r -O
+CDOFLAGS = -r -O -z zip
+
+EXP_ID = %{EXP_ID}
+DATA_DIR = %{DATA_DIR}
+WORK_DIR = %{WORK_DIR}
 
 TAGS = {tags}
 
-all: $(TAGS:%=%{EXP_ID}_%_{start_date}.nc)
+VPATH = $(WORK_DIR)
+TARGETS = $(TAGS:%=$(DATA_DIR)/$(EXP_ID)_%_{start_date}.nc)
+
+all: $(TARGETS)
 
 clean:
-	$(RM) $(TAGS:%=%{EXP_ID}_%_{start_date}.nc)
+	$(RM) $(TARGETS)
 
-%{EXP_ID}_atm_%_{start_date}.nc: %{EXP_ID}_atm_%_{start_date}T000000Z.nc %{EXP_ID}_atm_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime %{EXP_ID}_atm_$*_{start_date}T000000Z.nc` %{EXP_ID}_atm_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 %{EXP_ID}_atm_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(EXP_ID)_atm_%_{start_date}T000000Z.nc $(EXP_ID)_atm_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $(EXP_ID)_atm_$*_{start_date}T000000Z.nc` $(EXP_ID)_atm_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 $(EXP_ID)_atm_$*_{next_date}T000000Z.nc $@
 
-%{EXP_ID}_lnd_%_{start_date}.nc: %{EXP_ID}_lnd_%_{start_date}T000000Z.nc %{EXP_ID}_lnd_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc` %{EXP_ID}_lnd_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 %{EXP_ID}_lnd_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(EXP_ID)_lnd_%_{start_date}T000000Z.nc $(EXP_ID)_lnd_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $(EXP_ID)_lnd_$*_{start_date}T000000Z.nc` $(EXP_ID)_lnd_$*_{start_date}T000000Z.nc {atmo_shift_spec} -seltimestep,1 $(EXP_ID)_lnd_$*_{next_date}T000000Z.nc $@
 
-%{EXP_ID}_oce_def_{start_date}.nc: %{EXP_ID}_oce_def_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) {ocean_shift_spec} %{EXP_ID}_oce_def_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_oce_def_{start_date}.nc: $(EXP_ID)_oce_def_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $(EXP_ID)_oce_def_{next_date}T000000Z.nc $@
 
-%{EXP_ID}_oce_%_{start_date}.nc: %{EXP_ID}_oce_%_{start_date}T000000Z.nc %{EXP_ID}_oce_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_oce_$*_{start_date}T000000Z.nc` %{EXP_ID}_oce_$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 %{EXP_ID}_oce_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(EXP_ID)_oce_%_{start_date}T000000Z.nc $(EXP_ID)_oce_%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $(EXP_ID)_oce_$*_{start_date}T000000Z.nc` $(EXP_ID)_oce_$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 $(EXP_ID)_oce_$*_{next_date}T000000Z.nc $@
 
-%{EXP_ID}_hamoc%_{start_date}.nc: %{EXP_ID}_hamoc%_{start_date}T000000Z.nc %{EXP_ID}_hamoc%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc` %{EXP_ID}_hamoc$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 %{EXP_ID}_hamoc$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(EXP_ID)_hamoc%_{start_date}T000000Z.nc $(EXP_ID)_hamoc%_{next_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $(EXP_ID)_hamoc$*_{start_date}T000000Z.nc` $(EXP_ID)_hamoc$*_{start_date}T000000Z.nc {ocean_shift_spec} -seltimestep,1 $(EXP_ID)_hamoc$*_{next_date}T000000Z.nc $@
 '''
 
-print(makefile_template.format(**template_dict))
+makefile_name = 'Makefile'
+makefile = open(makefile_name, mode='w')
+makefile.write(makefile_template.format(**template_dict))
+makefile.close()
 
+# Run the actual make process
 
+make_args = ['make', '-j', '%{JOB.tasks|d(1)}']
+make = subprocess.Popen(make_args,
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+for line in make.stdout:
+    logging.info(line.rstrip('\n\r'))
+
+make_result = make.wait()
+if make_result:
+    logging.error("'{0}' returned {1}".format(' '.join(make_args), make_result))
+    sys.exit(1)
+
+os.remove(makefile_name)
+os.chdir('%{SCRIPT_DIR}')
+os.removedirs(post_dir)
+
+# Epilog
+
+logging.info('post processing finished '
+             'for {start_date}-{end_date}'.format(**template_dict))
+
+#% for job in JOB['.trigger']|list:
+subprocess.check_call(['%{JOB.batch_command}', '%{EXP_ID}.%{job}', args.start_date])
+#% endfor
