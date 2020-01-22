@@ -34,8 +34,6 @@ MODULE mo_lnd_nwp_nml
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
-
-<<<<<<< HEAD
   USE mo_lnd_nwp_config,      ONLY: config_nlev_snow          => nlev_snow         , &
     &                               config_ntiles             => ntiles_lnd        , &
     &                               config_frlnd_thrhld       => frlnd_thrhld      , &
