@@ -38,7 +38,7 @@ def check_date(arg):
 command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
 command_line.add_argument('start_date', type=check_date, help=
     'first date of period (YYYY-MM-DD... or YYYYMMDD...)')
-command_line.add_argument('-V', '--version', action='version', version='0.0.1')
+command_line.add_argument('-V', '--version', action='version', version='%{VERSIONS_|join(" ")|trim()}')
 command_line.add_argument('-c', '--clean', action='store_true', help=
     'remove output files. '
     'Use ONLY after you made absolutely sure that the raw data still exists!')
