@@ -1,0 +1,52 @@
+#%Module1.0
+
+set specs       [split [module-info name] /]
+set name        [lindex $specs 0]
+set version     [lindex $specs 1]
+set prefix      /work/bk0988/sw/$name-$version
+set exec_prefix ${prefix}
+set datarootdir ${prefix}/share
+set libdir      ${prefix}/lib
+
+conflict $name
+
+proc ModulesHelp { } {
+    global name version
+    puts stderr "\t$name - loads version $version of the $name package"
+}
+
+module-whatis "loads the $name package"
+
+proc prepend-path-if-exists {var path} {
+    if [file isdirectory $path] {
+        prepend-path $var $path
+    }
+}
+
+prepend-path-if-exists PATH            ${exec_prefix}/bin
+prepend-path-if-exists MANPATH         ${datarootdir}/man
+prepend-path-if-exists INFOPATH        ${datarootdir}/info
+prepend-path-if-exists PYTHONPATH      ${libdir}/python2.7/site-packages
+prepend-path-if-exists PKG_CONFIG_PATH ${libdir}/pkgconfig
+
+set mkexp_dir ${datarootdir}/mpiesm/run
+if [file isdirectory $mkexp_dir] {
+    prepend-path MKEXP_PATH .
+    prepend-path MKEXP_PATH $mkexp_dir
+    setenv MPIESM_DIR ${datarootdir}/mpiesm   
+}
+
+proc set_dependencies {dependencies} {
+    foreach dependency $dependencies {
+        set dep_info [split $dependency /]
+        set dep_name [lindex $dep_info 0]
+        set dep_version [lindex $dep_info 1]
+        if [expr ! [module-info mode remove] && \
+                 [is-loaded $dep_name] && \
+                 ! [is-loaded $dependency]] {
+            module sw $dependency
+            puts stderr "Hey: switched $dep_name to $dep_version"
+        }
+        module add $dependency
+    }
+}
