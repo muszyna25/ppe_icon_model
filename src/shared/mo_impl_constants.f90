@@ -375,7 +375,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: iup_v       = 1
   INTEGER, PARAMETER :: ippm_v      = 3
   INTEGER, PARAMETER :: ipsm_v      = 4
-  INTEGER, PARAMETER :: ippm4gpu_v  = 5
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0
@@ -581,6 +580,11 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SDI2      = 16 !< task: compute supercell detection index
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_LPI       = 17 !< task: compute lightning potential index
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SMI       = 18 !< task: compute soil moisture index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_CEILING   = 19 !< task: compute ceiling height
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_HBAS_SC   = 20 !< task: compute height of base from shallow conv. param.
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_HTOP_SC   = 21 !< task: compute height of top  from shallow conv. param.
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_TWATER    = 22 !< task: compute total column integrated water
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_Q_SEDIM   = 23 !< task: compute specific content of precipitation particles
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !

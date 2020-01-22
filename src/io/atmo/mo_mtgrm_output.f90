@@ -614,13 +614,13 @@ CONTAINS
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "H_ICE", "m", "sea ice depth", &
       &              jg, p_lnd_state%prog_wtr(nnow(jg))%h_ice(:,:))
 
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCT", "%", "total cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCT", "-", "total cloud cover", &
       &              jg, prm_diag%clct(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCL", "%", "low level cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCL", "-", "low level cloud cover", &
       &              jg, prm_diag%clcl(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCM", "%", "mid level cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCM", "-", "mid level cloud cover", &
       &              jg, prm_diag%clcm(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "%", "high level cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "-", "high level cloud cover", &
       &              jg, prm_diag%clch(:,:))
 
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "hbas_con", "m", "height of convective cloud base",&

@@ -26,6 +26,7 @@ MODULE mo_srtm
     &    srtm_taumol24, srtm_taumol25, srtm_taumol26, srtm_taumol27, &
     &    srtm_taumol28, srtm_taumol29
   USE mo_radiation_config, ONLY: icld_overlap
+  USE mo_nwp_tuning_config, ONLY: tune_difrad_3dcont
 
   IMPLICIT NONE
 
@@ -577,10 +578,10 @@ CONTAINS
 
 
       IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation, including simple empirical parameterization
-        DO ic = 1, icount             ! for reflected radiation on low-level clouds
+        DO ic = 1, icount             ! for 3D reflected radiation on low-level clouds
           jl = idx(ic)
           flxd_dff_sfc(jl) = MIN(zflxd_sw(ic,klev+1), &
-                             zflxd_diff(ic) + 0.5_wp*zflxd_sw(ic,klev+1)*zcloud_ll(ic)*(1._wp-zcloud_ll(ic))**2)
+                             zflxd_diff(ic) + tune_difrad_3dcont*zflxd_sw(ic,klev+1)*zcloud_ll(ic)*(1._wp-zcloud_ll(ic))**2)
    !       flxd_dff_sfc(jl) = zflxd_diff(ic)
         ENDDO
       ENDIF

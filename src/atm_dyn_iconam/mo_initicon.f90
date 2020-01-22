@@ -25,7 +25,8 @@ MODULE mo_initicon
   USE mo_kind,                ONLY: dp, wp, vp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqm_max, iforcing, check_uuid_gracefully, &
+                                    iqh, iqnc, iqnr, iqni, iqns, iqng, iqnh
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -38,7 +39,7 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, lvert_remap_fg, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
     &                               niter_divdamp, niter_diffu, lanaread_tseasfc, qcana_mode, qiana_mode, &
-    &                               fgFilename, anaFilename, ana_varnames_map_file
+    &                               qrsgana_mode, fgFilename, anaFilename, ana_varnames_map_file
   USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, max_dom,   &
@@ -59,7 +60,7 @@ MODULE mo_initicon
     &                               frlake_thrhld, lprog_albsi, dzsoil_icon => dzsoil
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE sfc_seaice,             ONLY: frsi_min
-  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
   USE sfc_terra_data,         ONLY: cporv, cadp, cpwp, cfcap, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE sfc_terra_init,         ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
@@ -79,7 +80,7 @@ MODULE mo_initicon
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
-                                    kInputSourceBoth, kInputSourceCold
+                                    kInputSourceBoth, kInputSourceCold, kInputSourceAnaI, kInputSourceFgAnaI
   USE mo_util_uuid_types,     ONLY: t_uuid
   USE mo_nwp_sfc_utils,       ONLY: seaice_albedo_coldstart
   USE mo_fortran_tools,       ONLY: init
@@ -446,7 +447,8 @@ MODULE mo_initicon
 #if !defined __GFORTRAN__ || __GNUC__ >= 6
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
-                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', &
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', &
+                                                          'qh', 'qnc', 'qni', 'qnr', 'qns', 'qng', 'qnh', &
                                                         & 'w_so', 'h_snow', 'freshsnow', 't_2m']
                 CASE(MODE_IAU_OLD)
                     incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
@@ -459,7 +461,10 @@ MODULE mo_initicon
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', 'qv       ', &
-                      &                    'qc       ', 'qi       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
+                      &                    'qc       ', 'qi       ', 'qr       ', 'qs       ', 'qg       ', &
+                                           'qh       ', 'qnc      ', 'qni      ', 'qnr      ', 'qns      ', &
+                                           'qng      ', 'qnh      '                                        /)
+                      &                    'w_so     ', 'h_snow   ', 'freshsnow'/)
                     CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
                       lHardCheckUuids = .NOT.check_uuid_gracefully)
             write(0,*) "incrementsList_IAU: ", incrementsList_IAU
@@ -540,7 +545,7 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMO)
             ! process DWD land/surface analysis data / increments
-            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
+            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon, inputInstructions)
             ! Add increments to time-shifted first guess in one go.
             ! The following CALL must not be moved after create_dwdana_sfc()!
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
@@ -584,8 +589,8 @@ MODULE mo_initicon
 !$OMP DO PRIVATE(jb)
                     DO jb = i_startblk, i_endblk
                         CALL flake_coldinit(                                        &
-                            &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &
-                            &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &
+                            &   nflkgb      = ext_data(jg)%atm%list_lake%ncount(jb),&
+                            &   idx_lst_fp  = ext_data(jg)%atm%list_lake%idx(:,jb), &
                             &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &
                             &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&
                             &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
@@ -982,7 +987,28 @@ MODULE mo_initicon
         !
 
         ! Compute virtual temperature
-        IF ( iqc /= 0 .AND. iqi /= 0 .AND. iqr /= 0 .AND. iqs /= 0 ) THEN
+        IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               qr=p_prog_now%tracer(:,:,:,iqr), & !in
+            &               qs=p_prog_now%tracer(:,:,:,iqs), & !in
+            &               qg=p_prog_now%tracer(:,:,:,iqg), & !in
+            &               qh=p_prog_now%tracer(:,:,:,iqh), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+          CALL virtual_temp(p_patch=p_patch(jg),             &
+            &               temp=initicon(jg)%atm%temp,      & !in
+            &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
+            &               qc=p_prog_now%tracer(:,:,:,iqc), & !in
+            &               qi=p_prog_now%tracer(:,:,:,iqi), & !in
+            &               qr=p_prog_now%tracer(:,:,:,iqr), & !in
+            &               qs=p_prog_now%tracer(:,:,:,iqs), & !in
+            &               qg=p_prog_now%tracer(:,:,:,iqg), & !in
+            &               temp_v=p_diag%tempv              ) !out
+        ELSE IF ( iqc /= 0 .AND. iqi /= 0 .AND. iqr /= 0 .AND. iqs /= 0 ) THEN
           CALL virtual_temp(p_patch=p_patch(jg),             &
             &               temp=initicon(jg)%atm%temp,      & !in
             &               qv=p_prog_now%tracer(:,:,:,iqv), & !in
@@ -1216,6 +1242,48 @@ MODULE mo_initicon
             ENDDO
           ENDIF
 
+          IF (qrsgana_mode > 0) THEN
+            DO jc = i_startidx, i_endidx
+              p_diag%rhor_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qr(jc,jk,jb)
+              p_diag%rhos_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qs(jc,jk,jb)
+            ENDDO
+            IF (iqg <= iqm_max) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhog_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qg(jc,jk,jb)
+              ENDDO
+            ENDIF
+          END IF
+
+          IF (atm_phy_nwp_config(jg)%l2moment) THEN
+            IF (qcana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonc_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnc(jc,jk,jb)
+              ENDDO
+            END IF
+            IF (qiana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhoni_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qni(jc,jk,jb)
+              ENDDO
+            END IF
+            IF (qrsgana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_diag%rhoh_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qh(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonr_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnr(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhons_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qns(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhong_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qng(jc,jk,jb)
+              ENDDO
+              DO jc = i_startidx, i_endidx
+                p_diag%rhonh_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qnh(jc,jk,jb)
+              ENDDO
+            END IF
+          END IF
+
         ENDDO  ! jk
 
       ENDDO  ! jb
@@ -1447,15 +1515,60 @@ MODULE mo_initicon
             IF (qcana_mode > 0) THEN
               DO jc = i_startidx, i_endidx
                 p_prog_now_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqc)+&
-                 p_diag%rhoc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                     p_diag%rhoc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
               ENDDO
             ENDIF
 
             IF (qiana_mode > 0) THEN
               DO jc = i_startidx, i_endidx
                 p_prog_now_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,p_prog_now_rcf%tracer(jc,jk,jb,iqi)+&
-                 p_diag%rhoi_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                     p_diag%rhoi_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
               ENDDO
+            ENDIF
+
+            IF (qrsgana_mode > 0) THEN
+              DO jc = i_startidx, i_endidx
+                p_prog_now_rcf%tracer(jc,jk,jb,iqr) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqr)+&
+                                                                 p_diag%rhor_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                p_prog_now_rcf%tracer(jc,jk,jb,iqs) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqs)+&
+                                                                 p_diag%rhos_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+              ENDDO
+              IF (iqg <= iqm_max) THEN
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqg)+&
+                                                                   p_diag%rhog_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+              ENDIF
+              IF (atm_phy_nwp_config(jg)%l2moment) THEN
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqh) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqh)+&
+                                                                   p_diag%rhoh_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnc) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnc)+&
+                                                                    p_diag%rhonc_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqni) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqni)+&
+                                                                    p_diag%rhoni_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnr) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnr)+&
+                                                                    p_diag%rhonr_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqns) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqns)+&
+                                                                    p_diag%rhons_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqng) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqng)+&
+                                                                    p_diag%rhong_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+                DO jc = i_startidx, i_endidx
+                  p_prog_now_rcf%tracer(jc,jk,jb,iqnh) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqnh)+&
+                                                                    p_diag%rhonh_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
+                ENDDO
+              END IF
             ENDIF
 
           ENDDO  ! jk
@@ -1560,8 +1673,8 @@ MODULE mo_initicon
     TYPE(t_external_data)         ,INTENT(IN)    :: ext_data(:)
     TYPE(t_readInstructionListPtr),INTENT(INOUT) :: inputInstructions(:)
 
-    INTEGER :: jg, jb, jt, jk, jc, ic    ! loop indices
-    INTEGER :: nblks_c                   ! number of blocks
+    INTEGER :: jg, jb, jt, jk, jc, ic              ! loop indices
+    INTEGER :: nblks_c                             ! number of blocks
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
     INTEGER :: ist
@@ -1579,7 +1692,6 @@ MODULE mo_initicon
     REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
 
-    INTEGER :: source_of_t_2m
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_iau_sfc'
   !-------------------------------------------------------------------------
@@ -1597,12 +1709,6 @@ MODULE mo_initicon
       lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
       lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
-      ! making this query in the parallel region is not allowed since it's not thread-safe
-      IF (itype_vegetation_cycle == 3) THEN
-        source_of_t_2m = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
-      ELSE
-        source_of_t_2m = -1
-      END IF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist,wso_inc,wfac)
@@ -1642,19 +1748,18 @@ MODULE mo_initicon
 
           DO jk = 1, nlev_soil
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
-              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              ist = ext_data(jg)%atm%soiltyp(jc,jb)
 
-              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND.  &
-                  cporv(ext_data(jg)%atm%soiltyp(jc,jb)) > 1.e-9_wp) THEN
+              IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND. cporv(ist) > 1.e-9_wp) THEN
                 ! This should only happen for a tile coldstart; in this case,
-                ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
+                ! set soil water content to 0.5*(fcap+pwp)
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*(cfcap(ist)+cpwp(ist))*dzsoil_icon(jk)
               ELSE ! add w_so increment from SMA
                 lnd_prog_now%w_so_t(jc,jk,jb,jt) = lnd_prog_now%w_so_t(jc,jk,jb,jt) + wso_inc(jc,jk)
               ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
-              ist = ext_data(jg)%atm%soiltyp(jc,jb)
               SELECT CASE(ist)
 
                 CASE (3,4,5,6,7,8) ! soil types with non-zero water content
@@ -1804,14 +1909,17 @@ MODULE mo_initicon
 
           ENDDO  ! jt
 
+
           ! Time-filtering of analyzed T2M bias
           ! only if t_2m is read from analysis
-          IF (itype_vegetation_cycle == 3 .AND. source_of_t_2m == kInputSourceAna) THEN
-            DO jc = i_startidx, i_endidx
-              lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
-                0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
-            ENDDO
-          ENDIF
+          IF (itype_vegetation_cycle == 3 ) THEN
+            IF (ANY((/kInputSourceAna,kInputSourceAnaI/) == inputInstructions(jg)%ptr%sourceOfVar('t_2m'))) THEN
+              DO jc = i_startidx, i_endidx
+                lnd_diag%t2m_bias(jc,jb) = lnd_diag%t2m_bias(jc,jb) + &
+                  0.4_wp*(initicon(jg)%sfc_inc%t_2m(jc,jb)-lnd_diag%t2m_bias(jc,jb))
+              ENDDO
+            ENDIF
+          ENDIF  ! itype_vegetation_cycle
 
         ENDIF  ! MODE_IAU
 
@@ -1841,12 +1949,12 @@ MODULE mo_initicon
   !-------------------------------------------------------------------------
   SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data, inputInstructions)
 
-    TYPE(t_patch),    TARGET ,INTENT(INOUT) :: p_patch(:)
-    TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
-    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
+    TYPE(t_patch),                  INTENT(INOUT) :: p_patch(:)
+    TYPE(t_lnd_state),              INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),          INTENT(INOUT) :: ext_data(:)
+    TYPE(t_readInstructionListPtr), INTENT(IN   ) :: inputInstructions(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt, ist     ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(dp):: missval
@@ -1854,8 +1962,16 @@ MODULE mo_initicon
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lp_mask(nproma)
     REAL(wp):: z_t_seasfc(nproma)              ! temporary field containing both SST 
-                                               ! and lake-surface temperatures 
+                                               ! and lake-surface temperatures
+
+    INTEGER :: source_ana_tseasfc(2)           ! possible input sources for t_seasfc analysis
+    INTEGER :: source_ana_tso(4)               ! possible input sources for t_so analysis
   !-------------------------------------------------------------------------
+
+    ! possible input sources for t_so/t_seasfc analysis
+    source_ana_tseasfc = (/kInputSourceAna,kInputSourceAnaI/)
+    source_ana_tso     = (/kInputSourceAna,kInputSourceAnaI,kInputSourceBoth,kInputSourceFgAnaI/)
+
 
     ! get CDImissval
     missval = cdiInqMissval()
@@ -1871,15 +1987,11 @@ MODULE mo_initicon
       rl_end   = min_rlcell
 
 
-      ! check, whether t_so is read from analysis
-      IF (lp2cintp_sfcana(jg)) THEN
-        jgch = p_patch(jg)%parent_id
-      ELSE
-        jgch = jg
-      ENDIF
+      lanaread_tseasfc(jg) =                                                                  &
+         &     ANY( source_ana_tseasfc == inputInstructions(jg)%ptr%sourceOfVar('t_seasfc'))  &
+         &     .OR.                                                                           &
+         &     ANY( source_ana_tso == inputInstructions(jg)%ptr%sourceOfVar('t_so'))
 
-      lanaread_tseasfc(jg) = ( inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna .OR. &
-              ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so')) )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist,z_t_seasfc) ICON_OMP_DEFAULT_SCHEDULE
@@ -1896,8 +2008,8 @@ MODULE mo_initicon
           ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
           !
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+             jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
           END DO
 
@@ -1905,8 +2017,8 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+            jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
             ! Ensure that t_seasfc is filled with tf_salt on completely frozen ocean points;
@@ -1920,18 +2032,18 @@ MODULE mo_initicon
         ! construct temporary field containing both SST and lake-surface temperatures
         ! which is needed for initializing T_SO at pure water points
         z_t_seasfc(:) = 0._wp
-        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+        DO ic = 1, ext_data(jg)%atm%list_sea%ncount(jb)
+          jc = ext_data(jg)%atm%list_sea%idx(ic,jb)
           z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
         END DO
         IF (llake) THEN
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+            jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
           END DO
         ELSE
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%list_lake%ncount(jb)
+            jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
             z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
           END DO
         ENDIF
@@ -2004,11 +2116,13 @@ MODULE mo_initicon
           DO jk = 1, nlev_soil
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
-               jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
-               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
-                  ! set dummy value (50% of pore volume)
+               jc  = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+               ist = ext_data(jg)%atm%soiltyp_t(jc,jb,jt)
+               IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp) .AND. &
+                 &  cporv(ist) > 1.e-9_wp ) THEN
+                  ! set dummy value: 0.5*(fcap+pwp)
                   p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = &
-                    &  0.5_wp * cporv(ext_data(jg)%atm%soiltyp_t(jc,jb,jt)) * dzsoil_icon(jk)
+                    &  0.5_wp * (cfcap(ist)+cpwp(ist)) * dzsoil_icon(jk)
                ENDIF
                ! And temperature for ICON-land but COSMODE ocean
                IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN

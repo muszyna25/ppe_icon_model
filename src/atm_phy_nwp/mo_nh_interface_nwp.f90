@@ -1139,6 +1139,7 @@ CONTAINS
         prm_diag%swflxsfc (:,jb)=0._wp
         prm_diag%lwflxsfc (:,jb)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
+        prm_diag%lwflxtoa (:,jb)=0._wp
 
 #ifdef __CRAY8_5_5_WORKAROUND
         ! workaround for Cray Fortran 8.5.5
@@ -1178,14 +1179,14 @@ CONTAINS
           & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
           & albedo=prm_diag%albdif(:,jb)           ,&! in     grid-box average shortwave albedo
           & albedo_t=prm_diag%albdif_t(:,jb,:)     ,&! in     tile-specific shortwave albedo
-          & lp_count=ext_data%atm%lp_count(jb)     ,&! in     number of land points
-          & gp_count_t=ext_data%atm%gp_count_t(jb,:),&! in    number of land points per tile
-          & spi_count =ext_data%atm%spi_count(jb)  ,&! in     number of seaice points
-          & fp_count  =ext_data%atm%fp_count(jb)   ,&! in     number of (f)lake points
-          & idx_lst_lp=ext_data%atm%idx_lst_lp(:,jb), &! in   index list of land points
-          & idx_lst_t=ext_data%atm%idx_lst_t(:,jb,:), &! in   index list of land points per tile
-          & idx_lst_spi=ext_data%atm%idx_lst_spi(:,jb),&! in  index list of seaice points
-          & idx_lst_fp=ext_data%atm%idx_lst_fp(:,jb),&! in    index list of (f)lake points
+          & list_land_count  = ext_data%atm%list_land%ncount(jb),  &! in number of land points
+          & list_land_idx    = ext_data%atm%list_land%idx(:,jb),   &! in index list of land points
+          & list_seaice_count= ext_data%atm%list_seaice%ncount(jb),&! in number of seaice points
+          & list_seaice_idx  = ext_data%atm%list_seaice%idx(:,jb), &! in index list of seaice points
+          & list_lake_count  = ext_data%atm%list_lake%ncount(jb),  &! in number of (f)lake points
+          & list_lake_idx    = ext_data%atm%list_lake%idx(:,jb),   &! in index list of (f)lake points
+          & gp_count_t       = ext_data%atm%gp_count_t(jb,:),      &! in number of land points per tile
+          & idx_lst_t        = ext_data%atm%idx_lst_t(:,jb,:),     &! in index list of land points per tile
           & cosmu0=zcosmu0(:,jb)                   ,&! in     cosine of solar zenith angle (w.r.t. plain surface)
           & cosmu0_slp=cosmu0_slope(:,jb)          ,&! in     slope-dependent cosine of solar zenith angle
           & opt_nh_corr=.TRUE.                     ,&! in     switch for NH mode
@@ -1212,6 +1213,7 @@ CONTAINS
           & pflxsfcsw_t=prm_diag%swflxsfc_t (:,jb,:)   ,&   ! out tile-specific shortwave surface net flux [W/m2]
           & pflxsfclw_t=prm_diag%lwflxsfc_t (:,jb,:)   ,&   ! out tile-specific longwave surface net flux  [W/m2]
           & pflxtoasw =prm_diag%swflxtoa (:,jb)        ,&   ! out shortwave toa net flux     [W/m2]
+          & pflxtoalw =prm_diag%lwflxtoa (:,jb)        ,&   ! out longwave  toa net flux     [W/m2]
           & lwflx_up_sfc=prm_diag%lwflx_up_sfc(:,jb)   ,&   ! out longwave upward flux at surface [W/m2]
           & swflx_up_toa=prm_diag%swflx_up_toa(:,jb)   ,&   ! out shortwave upward flux at the TOA [W/m2]
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
@@ -1266,6 +1268,7 @@ CONTAINS
           & pflxsfcsw =prm_diag%swflxsfc (:,jb)   ,&        ! out shortwave surface net flux [W/m2]
           & pflxsfclw =prm_diag%lwflxsfc (:,jb)   ,&        ! out longwave surface net flux  [W/m2]
           & pflxtoasw =prm_diag%swflxtoa (:,jb)   ,&        ! out shortwave toa net flux     [W/m2]
+          & pflxtoalw =prm_diag%lwflxtoa (:,jb)   ,&        ! out longwave  toa net flux     [W/m2]
           & lwflx_up_sfc=prm_diag%lwflx_up_sfc(:,jb)   ,&   ! out longwave upward flux at surface [W/m2]
           & swflx_up_toa=prm_diag%swflx_up_toa(:,jb)   ,&   ! out shortwave upward flux at the TOA [W/m2]
           & swflx_up_sfc=prm_diag%swflx_up_sfc(:,jb)   ,&   ! out shortwave upward flux at the surface [W/m2]
@@ -1832,7 +1835,7 @@ CONTAINS
                         & pt_patch, p_metrics,           & !in
                         & pt_prog, pt_prog_rcf,          & !in
                         & pt_diag,                       & !inout
-                        & prm_diag                       ) !inout
+                        & prm_diag, lnd_diag             ) !inout
 
     IF (lart) THEN
       ! Call the ART diagnostics

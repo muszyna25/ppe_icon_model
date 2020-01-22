@@ -202,17 +202,18 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
- dom                          =  1                       ! write all domains
+ dom                          =  1                       ! -1: write all domains
  output_bounds                =  0., 10000000., 3600.    ! start, end, increment
  steps_per_file               =  1
  mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .FALSE.
  output_filename              = 'ICON_D2'
  filename_format              = '<output_filename>_<ddhhmmss>'                   ! file name base
- ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', 
-'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi', 'group:land_vars', 'freshsnow', 'albdif',
+ ml_varlist = 'u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', 
+'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi','tqr','tqs','tqg', 'group:land_vars', 'freshsnow', 'albdif',
 't_2m','td_2m','rh_2m','pres_sfc','u_10m','v_10m','gust10','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S', 'ASHFL_S', 'ASOB_S', 'ASOB_T',
- 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M'
+ 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M', 'sdi2', 'lpi', 'lpi_max',
+'ceiling', 'hbas_sc', 'htop_sc', 'twater', 'q_sedim',  'TCOND_MAX', 'TCOND10_MAX', 'UH_MAX', 'VORW_CTMAX', 'W_CTMAX',
 ! output_grid                  =  .TRUE.
  stream_partitions_ml = 2
  remap = 1
@@ -222,7 +223,7 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
- dom                          =  1                       ! write all domains
+ dom                          =  1                       ! -1: write all domains
  output_bounds                =  0., 0., 3600.    ! start, end, increment
  steps_per_file               =  1
  mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
@@ -239,17 +240,18 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
- dom                          =  2                       ! write all domains
+ dom                          =  2                       ! -1: write all domains
  output_bounds                =  0., 10000000., 3600.    ! start, end, increment
  steps_per_file               =  1
  mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .FALSE.
  output_filename              = 'ICON_D1'
  filename_format              = '<output_filename>_<ddhhmmss>'                   ! file name base
- ml_varlist='u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', 
-'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi', 'group:land_vars', 'freshsnow', 'albdif',
+ ml_varlist = 'u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', 
+'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi','tqr','tqs','tqg', 'group:land_vars', 'freshsnow', 'albdif',
 't_2m','td_2m','rh_2m','pres_sfc','u_10m','v_10m','gust10','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S', 'ASHFL_S', 'ASOB_S', 'ASOB_T',
- 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M'
+ 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M', 'sdi2', 'lpi', 'lpi_max',
+'ceiling', 'hbas_sc', 'htop_sc', 'twater', 'q_sedim',  'TCOND_MAX', 'TCOND10_MAX', 'UH_MAX', 'VORW_CTMAX', 'W_CTMAX',
 ! output_grid                  =  .TRUE.
  stream_partitions_ml = 2
  remap = 1
@@ -259,14 +261,14 @@ cat > ${atmo_namelist} << EOF
 /
 &output_nml
  filetype                     =  2                        ! output format: 2=GRIB2, 4=NETCDFv2
- dom                          =  2                       ! write all domains
+ dom                          =  2                       ! -1: write all domains
  output_bounds                =  0., 0., 3600.    ! start, end, increment
  steps_per_file               =  1
  mode                         =  1                        ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                 = .FALSE.
  output_filename              = 'ICON_D1'
  filename_format              = '<output_filename>_<ddhhmmss>c'                   ! file name base
- ml_varlist='z_ifc','topography_c','fr_land','DEPTH_LK', 'FR_LAKE', 'LAI', 'PLCOV', 'ROOTDP', 'SOILTYP',
+ ml_varlist = 'z_ifc','topography_c','fr_land','DEPTH_LK', 'FR_LAKE', 'LAI', 'PLCOV', 'ROOTDP', 'SOILTYP',
 ! output_grid                  =  .TRUE.
  stream_partitions_ml = 2
  remap = 1
@@ -346,6 +348,8 @@ tune_minsnowfrac = 0.3
   itype_evsl     = 4
   itype_root     = 2
   cwimax_ml      = 5.e-4
+  itype_canopy   = 2
+  cskinc         = -1.0
   c_soil         = 1.75
   c_soil_urb     = 0.5
 /

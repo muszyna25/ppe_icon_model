@@ -56,7 +56,9 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_box_liq_asy => tune_box_liq_asy, &
     &                               config_tune_thicklayfac => tune_thicklayfac, &
     &                               config_tune_sgsclifac => tune_sgsclifac,     &
+    &                               config_icpl_turb_clc  => icpl_turb_clc,      &
     &                               config_tune_dust_abs  => tune_dust_abs,      &  
+    &                               config_tune_difrad_3dcont => tune_difrad_3dcont, &  
     &                               config_tune_gust_factor => tune_gust_factor, &  
     &                               config_itune_albedo   => itune_albedo,       &
     &                               config_lcalib_clcov   => lcalib_clcov,       &
@@ -153,8 +155,15 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     &  tune_sgsclifac              ! (in case of inwp_cldcover = 1)
 
+  INTEGER :: &                     !< Mode of coupling between turbulence and cloud cover
+    &  icpl_turb_clc               ! 1: strong dependency of box width on rcld with upper and lower limit
+                                   ! 2: weak dependency of box width on rcld with additive term and upper limit
+
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !
+
+  REAL(wp) :: &                    !< Tuning factor for 3D contribution to diagnosed diffuse radiation
+    &  tune_difrad_3dcont          !
 
   REAL(wp) :: &                    !< Tuning factor for gust parameterization
     &  tune_gust_factor            !
@@ -180,7 +189,8 @@ MODULE mo_nwp_tuning_nml
     &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,        &
     &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,&
     &                      tune_icesedi_exp, tune_rprcon, tune_gust_factor, &
-    &                      tune_rdepths, tune_thicklayfac, tune_sgsclifac
+    &                      tune_rdepths, tune_thicklayfac, tune_sgsclifac,  &
+    &                      icpl_turb_clc, tune_difrad_3dcont
 
 CONTAINS
 
@@ -292,10 +302,12 @@ CONTAINS
     tune_box_liq_asy = 3._wp       ! asymmetry factor for liquid cloud parameterization
     tune_sgsclifac   = 0._wp       ! Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     lcalib_clcov     = .TRUE.      ! use calibration of layer-wise cloud cover diagnostics over land
+    icpl_turb_clc    = 1           ! use strong dependency of box with on rcld (with factor 4) and upper and lower limit
 
     tune_gust_factor = 8.0_wp      ! tuning factor for gust parameterization
 
     tune_dust_abs   = 0._wp        ! no tuning of LW absorption of mineral dust
+    tune_difrad_3dcont = 0.5_wp    ! tuning factor for 3D contribution to diagnosed diffuse radiation (no impact on prognostic results!)
     itune_albedo    = 0            ! original (measured) albedo
     !
     ! IAU increment tuning
@@ -393,7 +405,9 @@ CONTAINS
     config_tune_box_liq_asy      = tune_box_liq_asy
     config_tune_thicklayfac      = tune_thicklayfac
     config_tune_sgsclifac        = tune_sgsclifac
+    config_icpl_turb_clc         = icpl_turb_clc
     config_tune_dust_abs         = tune_dust_abs
+    config_tune_difrad_3dcont    = tune_difrad_3dcont
     config_tune_gust_factor      = tune_gust_factor
     config_itune_albedo          = itune_albedo
     config_lcalib_clcov          = lcalib_clcov

@@ -592,7 +592,7 @@ cat > ${atm_namelist} << EOF
 /
 &extpar_nml
  itopo             = 1           ! 1: read topography from the grid file
- l_emiss           = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode         = 2           ! 2: initialize from IFS analysis

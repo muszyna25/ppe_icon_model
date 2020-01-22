@@ -46,8 +46,7 @@ MODULE mo_var_list
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
-       &                         append_list_element,               &
-       &                         delete_list_element
+       &                         append_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
@@ -470,7 +469,7 @@ CONTAINS
     INTEGER :: get_var_timelevel
     TYPE(t_var_metadata), INTENT(IN) :: info
     ! local variable
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_timelevel'
     INTEGER :: idx
 
     idx = INDEX(info%name,TIMELEVEL_SUFFIX)
@@ -488,7 +487,7 @@ CONTAINS
   ! return logical if a variable name has a timelevel encoded
   LOGICAL FUNCTION has_time_level(varname)
     CHARACTER(LEN=*) :: varname
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:has_time_level'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':has_time_level'
     INTEGER :: idx
 
     idx = INDEX(varname,TIMELEVEL_SUFFIX)
@@ -502,7 +501,7 @@ CONTAINS
     INTEGER :: get_var_tileidx
     CHARACTER(LEN=*) :: varname
     ! local variable
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_tileidx'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_tileidx'
     INTEGER :: idx
 
     idx = INDEX(varname,'_t_')
@@ -823,6 +822,9 @@ CONTAINS
     ! Create data on GPU
     CALL assign_if_present(info%lopenacc, lopenacc)
 
+    ! perform consistency checks on variable's meta-data:
+    CALL check_metadata_consistency(info)
+
     !
     ! printout (optional)
     !
@@ -838,7 +840,7 @@ CONTAINS
   ! (private routine within this module)
   !
   SUBROUTINE set_var_metadata_dyn(this_info_dyn,tracer_info)
-    TYPE(t_var_metadata_dynamic),INTENT(OUT) :: this_info_dyn
+    TYPE(t_var_metadata_dynamic),INTENT(INOUT) :: this_info_dyn
     CLASS(t_tracer_meta),INTENT(IN),OPTIONAL :: tracer_info
 
     CALL assign_if_present_tracer_meta(this_info_dyn%tracer,tracer_info)
@@ -3677,6 +3679,23 @@ CONTAINS
   END SUBROUTINE add_var_list_reference_i2d
 
 
+  !================================================================================================
+  !------------------------------------------------------------------------------------------------
+  !
+  ! perform consistency checks on variable's meta-data.
+  !
+  SUBROUTINE check_metadata_consistency(info)
+    TYPE(t_var_metadata), INTENT(IN) :: info  ! variable meta data
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':check_metadata_consistency'
+
+    IF (info%lrestart .AND. info%lcontainer) THEN
+      CALL finish(routine//' - '//TRIM(info%name), &
+        &         'Container variables are not restartable! Use var references instead.')
+    END IF
+    ! ... put other consistency checks here ...
+  END SUBROUTINE check_metadata_consistency
+
+
 
   !================================================================================================
   !------------------------------------------------------------------------------------------------
@@ -3736,33 +3755,7 @@ CONTAINS
     END SUBROUTINE locate
     !
   END SUBROUTINE add_var_list_reference
-  !------------------------------------------------------------------------------------------------
-  !
-  ! remove one element from the list
-  ! the element is identified by its name
-  !
-  SUBROUTINE delete_var_list_element (this_list, name)
-    TYPE(t_var_list), INTENT(inout) :: this_list
-    CHARACTER(len=*), INTENT(in)    :: name
-    !
-    TYPE(t_list_element), POINTER :: ptr
-    !
-    IF (this_list%p%first_list_element%field%info%name == name) THEN
-      CALL delete_list_element (this_list, this_list%p%first_list_element)
-      RETURN
-    ELSE
-      ptr => this_list%p%first_list_element
-      DO
-        IF (.NOT.ASSOCIATED (ptr%next_list_element)) EXIT
-        IF (ptr%next_list_element%field%info%name == name) THEN
-          CALL delete_list_element (this_list, ptr%next_list_element)
-          EXIT
-        ENDIF
-        ptr => ptr%next_list_element
-      END DO
-    ENDIF
-    !
-  END SUBROUTINE delete_var_list_element
+
   !------------------------------------------------------------------------------------------------
   !
   ! Print routines for control output and debuggung

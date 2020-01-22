@@ -159,6 +159,9 @@ MODULE mo_pp_scheduler
     &                                   TASK_INTP_VER_PLEV, TASK_INTP_SYNC, TASK_INTP_MSL,  &
     &                                   TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_COMPUTE_SMI, &
     &                                   TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI,                &
+    &                                   TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,         &
+    &                                   TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM,          &
+    &                                   TASK_COMPUTE_CEILING,                               &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
@@ -296,6 +299,31 @@ CONTAINS
             ! lightning potential index (LPI)
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
               &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_LPI )
+            !
+          CASE (TASK_COMPUTE_CEILING) 
+            ! ceiling height
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_CEILING )
+            !
+          CASE (TASK_COMPUTE_HBAS_SC) 
+            ! height of base over MSL from shallow convection parameterization
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_HBAS_SC )
+            !
+          CASE (TASK_COMPUTE_HTOP_SC)
+            ! height of top over MSL from shallow convection parameterization
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_HTOP_SC )
+            !
+          CASE (TASK_COMPUTE_TWATER) 
+            ! Total column integrated water
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_TWATER )
+            !
+          CASE (TASK_COMPUTE_Q_SEDIM)
+            ! Specific content of precipitation particles
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_Q_SEDIM )
             !
           CASE (TASK_COMPUTE_SMI) 
             ! soil moisture index
@@ -1598,8 +1626,10 @@ CONTAINS
       CASE ( TASK_INTP_MSL )
         CALL pp_task_intp_msl(ptr_task)
 
-        ! compute relative humidty, vertical velocity, potential vorticity
-      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI, TASK_COMPUTE_SMI )
+        ! compute relative humidty, vertical velocity, potential vorticity, ...
+      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SDI2,             &
+        &    TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING, TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,  &
+        &    TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM, TASK_COMPUTE_SMI )
         CALL pp_task_compute_field(ptr_task)
 
         ! vector reconstruction on cell centers:

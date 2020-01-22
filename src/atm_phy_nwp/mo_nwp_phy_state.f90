@@ -53,6 +53,11 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               TASK_COMPUTE_RH, TASK_COMPUTE_PV,   &
   &                               TASK_COMPUTE_SDI2,                  &
   &                               TASK_COMPUTE_LPI,                   &
+  &                               TASK_COMPUTE_CEILING,               &
+  &                               TASK_COMPUTE_HBAS_SC,               &
+  &                               TASK_COMPUTE_HTOP_SC,               &
+  &                               TASK_COMPUTE_TWATER,                &
+  &                               TASK_COMPUTE_Q_SEDIM,               &
   &                               iedmf,                              &
   &                               HINTP_TYPE_LONLAT_NNB,              &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
@@ -154,13 +159,25 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
-SUBROUTINE construct_nwp_phy_state( p_patch, l_rh, l_pv, l_sdi2, l_lpi)
+SUBROUTINE construct_nwp_phy_state( p_patch, l_rh, l_pv, l_sdi2, l_lpi, l_lpi_max, l_ceiling, l_hbas_sc, l_htop_sc,   &
+                                    l_twater, l_q_sedim, l_tcond_max, l_tcond10_max, l_uh_max, l_vorw_ctmax, l_w_ctmax )
 
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
-LOGICAL, INTENT(IN) :: l_rh(n_dom),   & !< Flag. TRUE if computation of relative humidity desired
-                       l_pv(n_dom),   & !< Flag. TRUE if computation of potential vorticity desired
-                       l_sdi2(n_dom), & !< Flag. TRUE if computation of supercell detection index desired
-                       l_lpi(n_dom)     !< Flag. TRUE if computation of lightning potential index desired
+LOGICAL, INTENT(IN) :: l_rh(n_dom),      & !< Flag. TRUE if computation of relative humidity desired
+                       l_pv(n_dom),      & !< Flag. TRUE if computation of potential vorticity desired
+                       l_sdi2(n_dom),    & !< Flag. TRUE if computation of supercell detection index desired
+                       l_lpi(n_dom),     & !< Flag. TRUE if computation of lightning potential index desired
+                       l_lpi_max(n_dom), & !< Flag. TRUE if computation of lightning potential index, max desired
+                       l_ceiling(n_dom), & !< Flag. TRUE if computation of ceiling height desired
+                       l_hbas_sc(n_dom), & !< Flag. TRUE if computation of height of base from shallow conv. param. desired
+                       l_htop_sc(n_dom), & !< Flag. TRUE if computation of height of top  from shallow conv. param. desired
+                       l_twater(n_dom),  & !< Flag. TRUE if computation of total column integrated water desired
+                       l_q_sedim(n_dom), & !< Flag. TRUE if computation of specific content of precipitation particles desired
+                       l_tcond_max(n_dom),   & !< Flag. TRUE if computation of total column-integrated condensate desired
+                       l_tcond10_max(n_dom), & !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
+                       l_uh_max(n_dom),      & !< Flag. TRUE if computation of updraft helicity desired
+                       l_vorw_ctmax(n_dom),  & !< Flag. TRUE if computation of maximum rotation amplitude desired
+                       l_w_ctmax(n_dom)        !< Flag. TRUE if computation of maximum updraft track desired
 
 CHARACTER(len=max_char_length) :: listname
 INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
@@ -197,8 +214,11 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
      
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
 
-     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, TRIM(listname),   &
-       &                         prm_nwp_diag_list(jg), prm_diag(jg), l_rh(jg), l_pv(jg), l_sdi2(jg), l_lpi(jg))
+     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, TRIM(listname),                              &
+       &                         prm_nwp_diag_list(jg), prm_diag(jg), l_rh(jg), l_pv(jg), l_sdi2(jg),    &
+       &                         l_lpi(jg), l_lpi_max(jg), l_ceiling(jg), l_hbas_sc(jg), l_htop_sc(jg),  &
+       &                         l_twater(jg), l_q_sedim(jg), l_tcond_max(jg), l_tcond10_max(jg),        &
+       &                         l_uh_max(jg), l_vorw_ctmax(jg), l_w_ctmax(jg) )
      !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
      CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
@@ -261,7 +281,9 @@ END SUBROUTINE destruct_nwp_phy_state
 
      !
 SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
-                     & listname, diag_list, diag, l_rh, l_pv, l_sdi2, l_lpi)
+                     &  listname, diag_list, diag, l_rh, l_pv, l_sdi2, l_lpi, l_lpi_max, l_ceiling,   &
+                     &  l_hbas_sc, l_htop_sc, l_twater, l_q_sedim, l_tcond_max, l_tcond10_max,        &
+                     &  l_uh_max, l_vorw_ctmax, l_w_ctmax )
 
     INTEGER,INTENT(IN) :: klev, klevp1, kblks, k_jg !< dimension sizes
 
@@ -272,12 +294,23 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
     TYPE(t_var_list)    ,INTENT(INOUT) :: diag_list
     TYPE(t_nwp_phy_diag),INTENT(INOUT) :: diag
-    LOGICAL, INTENT(IN) :: l_rh,   & !< Flag. TRUE if computation of relative humidity desired
-                           l_pv,   & !< Flag. TRUE if computation of potential vorticity desired
-                           l_sdi2, & !< Flag. TRUE if computation of supercell detection index desired
-                           l_lpi     !< Flag. TRUE if computation of lightning potential index desired
-    ! Local variables
+    LOGICAL, INTENT(IN) :: l_rh,      & !< Flag. TRUE if computation of relative humidity desired
+                           l_pv,      & !< Flag. TRUE if computation of potential vorticity desired
+                           l_sdi2,    & !< Flag. TRUE if computation of supercell detection index desired
+                           l_lpi,     & !< Flag. TRUE if computation of lightning potential index desired
+                           l_lpi_max, & !< Flag. TRUE if computation of lightning potential index, max desired
+                           l_ceiling, & !< Flag. TRUE if computation of ceiling height desired
+                           l_hbas_sc, & !< Flag. TRUE if computation of height of base from shallow conv. param. desired
+                           l_htop_sc, & !< Flag. TRUE if computation of height of top  from shallow conv. param. desired
+                           l_twater,  & !< Flag. TRUE if computation of total column integrated water desired
+                           l_q_sedim, & !< Flag. TRUE if computation of specific content of precipitation particles desired
+                           l_tcond_max,   & !< Flag. TRUE if computation of total column-integrated condensate desired
+                           l_tcond10_max, & !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
+                           l_uh_max,      & !< Flag. TRUE if computation of updraft helicity desired
+                           l_vorw_ctmax,  & !< Flag. TRUE if computation of maximum rotation amplitude desired
+                           l_w_ctmax        !< Flag. TRUE if computation of maximum updraft track desired
 
+    ! Local variables
     INTEGER :: n_updown = 7 !> number of up/downdrafts variables
 
     TYPE(t_cf_var)    ::    cf_desc, new_cf_desc
@@ -286,7 +319,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     INTEGER :: shape2d(2), shape3d(3), shape3dsubs(3), &
       &        shape3dsubsw(3), shape3d_synsat(3),     &
       &        shape2d_synsat(2), shape3d_aero(3)
-    INTEGER :: shape3dkp1(3)
+    INTEGER :: shape3dkp1(3), shape3dflux(3)
     INTEGER :: ibits,  kcloud
     INTEGER :: jsfc, ist
     CHARACTER(len=NF_MAX_NAME) :: long_name
@@ -295,7 +328,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
-    LOGICAL :: lrestart
+    LOGICAL :: lrestart, lrestart_flux
 
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
@@ -846,6 +879,17 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &                   datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'k800', diag%k800,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
+                & isteptype=TSTEP_CONSTANT,                                    &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
+    ! &      diag%k700(nproma,nblks_c)
+    cf_desc    = t_cf_var('k700', '', 'level index corresponding to the HAG of the 700hPa level', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'k700', diag%k700,                                &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
                 & isteptype=TSTEP_CONSTANT,                                    &
@@ -1498,6 +1542,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & ldims=shape2d, lrestart=.FALSE.,                                    &
       & in_group=groups("rad_vars"))
 
+    ! &      diag%lwflxtoa(nproma,nblks_c)
+    cf_desc    = t_cf_var('thb_t', 'W m-2', 'thermal net flux at TOA', datatype_flt)
+    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'thb_t', diag%lwflxtoa,                        &
+      & GRID_UNSTRUCTURED_CELL, ZA_TOA, cf_desc, grib2_desc,                &
+      & ldims=shape2d, lrestart=.FALSE.,                                    &
+      & in_group=groups("rad_vars"))
+
     ! &      diag%trsolclr_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('trsolclr_sfc', '', 'shortwave clear-sky transmisivity at suface', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1999,14 +2051,71 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     cf_desc    = t_cf_var('lwflxall', 'W m-2 ', 'longwave net flux', datatype_flt)
     grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflxall', diag%lwflxall,                   &
-      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,      &
-      & ldims=shape3dkp1 )
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dkp1 )
 
     ! &      diag%trsolall(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('trsolall', '', 'shortwave net tranmissivity', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( diag_list, 'trsolall', diag%trsolall,                             &
+    CALL add_var( diag_list, 'trsolall', diag%trsolall,                   &
       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dkp1)
+      
+    ! Set dimensions for 3D radiative flux variables
+    IF (atm_phy_nwp_config(k_jg)%l_3d_rad_fluxes) THEN
+       shape3dflux = (/ nproma, klevp1, kblks /)
+       lrestart_flux = .TRUE.
+    ELSE
+       shape3dflux = (/ 1, 1, kblks/)
+       lrestart_flux = .FALSE.
+    END IF
+
+    ! &      diag%lwflx_up(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_up', 'W m-2 ', 'longwave upward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 201, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_up', diag%lwflx_up,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%lwflx_dn(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_dn', 'W m-2 ', 'longwave downward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_dn', diag%lwflx_dn,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_up(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_up', 'W m-2 ', 'shortave upward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_up', diag%swflx_up,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_dn(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_dn', 'W m-2 ', 'shortave downward flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_dn', diag%swflx_dn,                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%lwflx_up_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_up_clr', 'W m-2 ', 'longwave upward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 205, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_up_clr', diag%lwflx_up_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+ 
+    ! &      diag%lwflx_dn_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('lwflx_dn_clr', 'W m-2 ', 'longwave downward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'lwflx_dn_clr', diag%lwflx_dn_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_up_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_up_clr', 'W m-2 ', 'shortave upward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 207, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_up_clr', diag%swflx_up_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+  
+    ! &      diag%swflx_dn_clr(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('swflx_dn_clr', 'W m-2 ', 'shortave downward clear-sky flux', datatype_flt)
+    grib2_desc = grib2_var(255, 255, 208, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'swflx_dn_clr', diag%swflx_dn_clr,           &
+      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, ldims=shape3dflux, lrestart=lrestart_flux )
+
 
     !------------------
     !Turbulence 2D variables
@@ -2252,6 +2361,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & in_group=in_group,                                                &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
+
+
+    ! &      diag%t_tilemax_inst_2m(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_tilemax_inst_2m', 'K ', &
+      &                   'instantaneous temperature in 2m, maximum over tiles', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 't_tilemax_inst_2m', diag%t_tilemax_inst_2m, &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE.,                                  &
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
+
+
+    ! &      diag%t_tilemin_inst_2m(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_tilemin_inst_2m', 'K ', &
+      &                   'instantaneous temperature in 2m, minimum over tiles', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 't_tilemin_inst_2m', diag%t_tilemin_inst_2m, &
+      & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
+      & ldims=shape2d, lrestart=.FALSE.,                                  &
+      & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
+      &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
+
 
 
     ! &      diag%t_2m_land(nproma,nblks_c)
@@ -3127,6 +3259,164 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                     & ldims=shape2d,                                                 &
                     & isteptype=TSTEP_INSTANT,                                       &
                     & l_pp_scheduler_task=TASK_COMPUTE_LPI, lrestart=.FALSE. )
+    END IF
+
+    IF (l_lpi_max) THEN
+      cf_desc    = t_cf_var('lpi_max', 'J kg-1',                   &
+        &                   'lightning potential index, maximum over last output interval', datatype_flt)
+      grib2_desc = grib2_var( 0, 17, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list, 'lpi_max', diag%lpi_max,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                  & cf_desc, grib2_desc,                                     &
+                  & ldims=shape2d,                                           &
+                  & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                  & resetval=0.0_wp,                                         &
+                  & action_list=actions( new_action( ACTION_RESET, "PT01H" ) ) )
+    END IF
+
+    IF (l_ceiling) THEN
+      cf_desc    = t_cf_var('ceiling', 'm', 'ceiling height', datatype_flt)
+      grib2_desc = grib2_var(0, 6, 13, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list,                                                       &
+                    & "ceiling", diag%ceiling_height,                                &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape2d,                                                 &
+                    & isteptype=TSTEP_INSTANT,                                       &
+                    & l_pp_scheduler_task=TASK_COMPUTE_CEILING, lrestart=.FALSE. )
+    END IF
+
+    IF (l_hbas_sc) THEN
+      cf_desc    = t_cf_var('hbas_sc', 'm', 'cloud base above msl, shallow convection', datatype_flt)
+      grib2_desc = grib2_var(0, 6, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)         &
+        &              + t_grib2_int_key("typeOfSecondFixedSurface", 101)
+      CALL add_var( diag_list,                                                       &
+                    & "hbas_sc", diag%hbas_sc,                                       &
+                    & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_BASE,                         &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape2d,                                                 &
+                    & isteptype=TSTEP_INSTANT,                                       &
+                    & l_pp_scheduler_task=TASK_COMPUTE_HBAS_SC, lrestart=.FALSE. )
+    END IF
+
+    IF (l_htop_sc) THEN
+      cf_desc    = t_cf_var('htop_sc', 'm', 'cloud top above msl, shallow convection', datatype_flt)
+      grib2_desc = grib2_var(0, 6, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL)         &
+        &              + t_grib2_int_key("typeOfSecondFixedSurface", 101)
+      CALL add_var( diag_list,                                                       &
+                    & "htop_sc", diag%htop_sc,                                       &
+                    & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape2d,                                                 &
+                    & isteptype=TSTEP_INSTANT,                                       &
+                    & l_pp_scheduler_task=TASK_COMPUTE_HTOP_SC, lrestart=.FALSE. )
+    END IF
+
+    IF (l_twater) THEN
+      cf_desc    = t_cf_var('twater', 'kg m-2', 'Total column integrated water', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 78, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list,                                                       &
+                    & "twater", diag%twater,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape2d,                                                 &
+                    & isteptype=TSTEP_INSTANT,                                       &
+                    & l_pp_scheduler_task=TASK_COMPUTE_TWATER, lrestart=.FALSE. )
+    END IF
+
+    IF (l_q_sedim) THEN
+      cf_desc    = t_cf_var('q_sedim', 'kg kg-1', 'Specific content of precipitation particles', datatype_flt)
+      grib2_desc = grib2_var(0, 1, 196, ibits, GRID_UNSTRUCTURED, GRID_CELL)         &
+        &              + t_grib2_int_key("typeOfSecondFixedSurface", 150)
+      CALL add_var( diag_list,                                                       &
+                    & "q_sedim", diag%q_sedim,                                       &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d,                                                 &
+                    & isteptype=TSTEP_INSTANT,                                       &
+                    & l_pp_scheduler_task=TASK_COMPUTE_Q_SEDIM, lrestart=.FALSE. )
+    END IF
+
+    IF (l_tcond_max) THEN
+      cf_desc    = t_cf_var('tcond_max', 'kg m-2',                           &
+        &                   'total column-integrated condensate, max. during the last hour', datatype_flt)
+      grib2_desc = grib2_var( 0, 1, 81, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
+        &              + t_grib2_int_key("typeOfSecondFixedSurface", 8)
+      CALL add_var( diag_list, 'tcond_max', diag%tcond_max,                  &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                  & cf_desc, grib2_desc,                                     &
+                  & ldims=shape2d,                                           &
+                  & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                  & resetval=0.0_wp,                                         &
+                  & action_list=actions( new_action( ACTION_RESET, "PT01H" ) ) )
+    END IF
+
+    IF (l_tcond10_max) THEN
+      cf_desc    = t_cf_var('tcond10_max', 'kg m-2',                         &
+        &                   'total column-integrated condensate above z(T=-10 degC), max. during the last hour', datatype_flt)
+      grib2_desc = grib2_var( 0, 1, 81, ibits, GRID_UNSTRUCTURED, GRID_CELL)       &
+        &              + t_grib2_int_key("typeOfFirstFixedSurface",           20)  &
+        &              + t_grib2_int_key("typeOfSecondFixedSurface",           8)  &
+        &              + t_grib2_int_key("scaledValueOfFirstFixedSurface", 26315)  &
+        &              + t_grib2_int_key("scaleFactorOfFirstFixedSurface",     2)
+      CALL add_var( diag_list, 'tcond10_max', diag%tcond10_max,              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                  & cf_desc, grib2_desc,                                     &
+                  & ldims=shape2d,                                           &
+                  & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                  & resetval=0.0_wp,                                         &
+                  & action_list=actions( new_action( ACTION_RESET, "PT01H" ) ) )
+    END IF
+
+    IF (l_uh_max) THEN
+      cf_desc    = t_cf_var('uh_max', 'm2 s-2',                   &
+        &                   'updraft helicity, max.  during the last hour', datatype_flt)
+      grib2_desc = grib2_var( 0, 7, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL)    &
+        &           + t_grib2_int_key("typeOfFirstFixedSurface",          102)  &
+        &           + t_grib2_int_key("typeOfSecondFixedSurface",         102)  &
+        &           + t_grib2_int_key("scaledValueOfFirstFixedSurface",  2000)  &
+        &           + t_grib2_int_key("scaledValueOfSecondFixedSurface", 8000)
+      CALL add_var( diag_list, 'uh_max', diag%uh_max,                        &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                  & cf_desc, grib2_desc,                                     &
+                  & ldims=shape2d,                                           &
+                  & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                  & resetval=0.0_wp,                                         &
+                  & action_list=actions( new_action( ACTION_RESET, "PT01H" ) ) )
+    END IF
+
+    IF (l_vorw_ctmax) THEN
+      cf_desc    = t_cf_var('vorw_ctmax', 's-1',                   &
+        &                   'Maximum rotation amplitude during the last hour', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL)   &
+        &           + t_grib2_int_key("typeOfFirstFixedSurface",          102)  &
+        &           + t_grib2_int_key("typeOfSecondFixedSurface",         102)  &
+        &           + t_grib2_int_key("scaledValueOfFirstFixedSurface",     0)  &
+        &           + t_grib2_int_key("scaledValueOfSecondFixedSurface", 3000)
+      CALL add_var( diag_list, 'vorw_ctmax', diag%vorw_ctmax,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                  & cf_desc, grib2_desc,                                     &
+                  & ldims=shape2d,                                           &
+                  & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                  & resetval=0.0_wp,                                         &
+                  & action_list=actions( new_action( ACTION_RESET, "PT01H" ) ) )
+    END IF
+
+    IF (l_w_ctmax) THEN
+      cf_desc    = t_cf_var('w_ctmax', ' m s-1',                   &
+        &                   'Maximum updraft track during the last hour', datatype_flt)
+      grib2_desc = grib2_var( 0, 2, 207, ibits, GRID_UNSTRUCTURED, GRID_CELL)    &
+        &           + t_grib2_int_key("typeOfFirstFixedSurface",           102)  &
+        &           + t_grib2_int_key("typeOfSecondFixedSurface",          102)  &
+        &           + t_grib2_int_key("scaledValueOfFirstFixedSurface",      0)  &
+        &           + t_grib2_int_key("scaledValueOfSecondFixedSurface", 10000)
+      CALL add_var( diag_list, 'w_ctmax', diag%w_ctmax,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                      &
+                  & cf_desc, grib2_desc,                                     &
+                  & ldims=shape2d,                                           &
+                  & lrestart=.TRUE., loutput=.TRUE., isteptype=TSTEP_MAX,    &
+                  & resetval=0.0_wp,                                         &
+                  & action_list=actions( new_action( ACTION_RESET, "PT01H" ) ) )
     END IF
 
     !  Height of 0 deg C level

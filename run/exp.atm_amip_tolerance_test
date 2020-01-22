@@ -120,7 +120,7 @@ cat > ${atmo_namelist} << EOF
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
@@ -150,8 +150,9 @@ cat > ${atmo_namelist} << EOF
 &transport_nml
 !                   hus,clw,cli, o3
  ivadv_tracer     =   3,  3,  3,  3
+ itype_vlimit     =   2,  2,  2,  2
  itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+ ihadv_tracer     =   2,  2,  2,  2
 /
 &echam_phy_nml
 !
