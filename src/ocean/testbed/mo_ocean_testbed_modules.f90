@@ -2056,42 +2056,42 @@ CONTAINS
 
       do cell_index = start_index, end_index
  
-          bt_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
-          H1       = patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, bt_level+1, blockNo)
-          eta1     = eta(cell_index, blockNo) 
-
-          z_adv_u_i(cell_index, :)%x(1) = z_adv_u_i(cell_index, :)%x(1)*( H1/(H1 + eta1)  )
-          z_adv_u_i(cell_index, :)%x(2) = z_adv_u_i(cell_index, :)%x(2)*( H1/(H1 + eta1)  )
-          z_adv_u_i(cell_index, :)%x(3) = z_adv_u_i(cell_index, :)%x(3)*( H1/(H1 + eta1)  )
-
-          DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
-          
-              ht1   = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(cell_index, level, blockNo) 
-              z1    = ht1*(H1 + eta1)/H1 + eta1
-
-              !! Multiply with u.grad(z) = div(uz) - z*div(u)
-              coeff  = div_v_z(cell_index, level, blockNo) - z1*div_v(cell_index, level, blockNo)  
-
-              dz_dy  = (2._wp*(1._wp + ht1/H1))/44106._wp
-
-              !! Show that v.grad(z) is exact
-!              write(*, *) level, coeff, (1._wp + 0.05_wp*z1)*dz_dy 
-!              write(*, *) level, div_v_z(cell_index, level, blockNo), & 
-!                  & dz_dy + 0.1*z1*dz_dy
-!              write(*, *) level, div_v(cell_index, level, blockNo) , & 
-!                  & 0.05_wp*dz_dy
-
-              z_adv_u_i(cell_index, level)%x(1) = z_adv_u_i(cell_index, level)%x(1)*coeff  
-              z_adv_u_i(cell_index, level)%x(2) = z_adv_u_i(cell_index, level)%x(2)*coeff
-              z_adv_u_i(cell_index, level)%x(3) = z_adv_u_i(cell_index, level)%x(3)*coeff
-
-          END DO
+!          bt_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+!          H1       = patch_3d%p_patch_1d(1)%depth_CellInterface(cell_index, bt_level+1, blockNo)
+!          eta1     = eta(cell_index, blockNo) 
+!
+!          z_adv_u_i(cell_index, :)%x(1) = z_adv_u_i(cell_index, :)%x(1)*( H1/(H1 + eta1)  )
+!          z_adv_u_i(cell_index, :)%x(2) = z_adv_u_i(cell_index, :)%x(2)*( H1/(H1 + eta1)  )
+!          z_adv_u_i(cell_index, :)%x(3) = z_adv_u_i(cell_index, :)%x(3)*( H1/(H1 + eta1)  )
+!
+!          DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+!          
+!              ht1   = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(cell_index, level, blockNo) 
+!              z1    = ht1*(H1 + eta1)/H1 + eta1
+!
+!              !! Multiply with u.grad(z) = div(uz) - z*div(u)
+!              coeff  = div_v_z(cell_index, level, blockNo) - z1*div_v(cell_index, level, blockNo)  
+!
+!              dz_dy  = (2._wp*(1._wp + ht1/H1))/44106._wp
+!
+!              !! Show that v.grad(z) is exact
+!!              write(*, *) level, coeff, (1._wp + 0.05_wp*z1)*dz_dy 
+!!              write(*, *) level, div_v_z(cell_index, level, blockNo), & 
+!!                  & dz_dy + 0.1*z1*dz_dy
+!!              write(*, *) level, div_v(cell_index, level, blockNo) , & 
+!!                  & 0.05_wp*dz_dy
+!
+!              z_adv_u_i(cell_index, level)%x(1) = z_adv_u_i(cell_index, level)%x(1)*coeff  
+!              z_adv_u_i(cell_index, level)%x(2) = z_adv_u_i(cell_index, level)%x(2)*coeff
+!              z_adv_u_i(cell_index, level)%x(3) = z_adv_u_i(cell_index, level)%x(3)*coeff
+!
+!          END DO
 
       END DO
      
-      !! Project values to prism middle from top
-      CALL map_vec_prismtop2center_on_block(patch_3d, z_adv_u_i, z_adv_u_m(:,:,blockNo), &
-        & blockNo, start_index, end_index)
+!      !! Project values to prism middle from top
+!      CALL map_vec_prismtop2center_on_block(patch_3d, z_adv_u_i, z_adv_u_m(:,:,blockNo), &
+!        & blockNo, start_index, end_index)
 
     END DO
 
@@ -2121,43 +2121,43 @@ CONTAINS
       DO edge_index = start_edges_index, end_edges_index
         bt_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)      
         DO level = 2, bt_level - 1 ! FIXME: starts from second level
-          id1 = (idx(edge_index, edge_block, 1))
-          id2 = (idx(edge_index, edge_block, 2))
-          bl1 = (blk(edge_index, edge_block, 1))
-          bl2 = (blk(edge_index, edge_block, 2))
-    
-          !! Get height of the cell center at mid point from the bottom
-          H1  = patch_3d%p_patch_1d(1)%depth_CellInterface(id1,bt_level+1,bl1)
-          ht1 = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
-          H2  = patch_3d%p_patch_1d(1)%depth_CellInterface(id2,bt_level+1,bl2) 
-          ht2 = H2 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
-          
-          eta1 = eta(id1, bl1) 
-          eta2 = eta(id2, bl2) 
-    
-          !! Transform to z from zstar
-          z1   = ht1*(H1 + eta1)/H1 + eta1
-          z2   = ht2*(H2 + eta2)/H2 + eta2
-          
-          !! Get height of edge as average of the centers of the 2 adjoining cells
-          ht_edge = 0.5_wp*( z1 + z2 )
-
-          pv_x1  = pvn(id1, level, bl1)%x(1) 
-          pv_x2  = pvn(id2, level, bl2)%x(1)
-          pv_y1  = pvn(id1, level, bl1)%x(2) 
-          pv_y2  = pvn(id2, level, bl2)%x(2)
-
-          ke1    = 0.5_wp*( pv_x1**2._wp + pv_y1**2._wp )
-          ke2    = 0.5_wp*( pv_x2**2._wp + pv_y2**2._wp )
-  
-          dz_dn    =  (z1 - z2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
-          dpvx_dn  =  (pv_x1 - pv_x2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
-          dpvy_dn  =  (pv_y1 - pv_y2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
-          
-          dpv_dn   = dpvx_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v1 + &
-              & dpvy_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v2 
-          
-          dk_dn    =  (ke1 - ke2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
+!          id1 = (idx(edge_index, edge_block, 1))
+!          id2 = (idx(edge_index, edge_block, 2))
+!          bl1 = (blk(edge_index, edge_block, 1))
+!          bl2 = (blk(edge_index, edge_block, 2))
+!    
+!          !! Get height of the cell center at mid point from the bottom
+!          H1  = patch_3d%p_patch_1d(1)%depth_CellInterface(id1,bt_level+1,bl1)
+!          ht1 = H1 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id1, level, bl1) 
+!          H2  = patch_3d%p_patch_1d(1)%depth_CellInterface(id2,bt_level+1,bl2) 
+!          ht2 = H2 - patch_3d%p_patch_1d(1)%depth_CellMiddle(id2, level, bl2) 
+!          
+!          eta1 = eta(id1, bl1) 
+!          eta2 = eta(id2, bl2) 
+!    
+!          !! Transform to z from zstar
+!          z1   = ht1*(H1 + eta1)/H1 + eta1
+!          z2   = ht2*(H2 + eta2)/H2 + eta2
+!          
+!          !! Get height of edge as average of the centers of the 2 adjoining cells
+!          ht_edge = 0.5_wp*( z1 + z2 )
+!
+!          pv_x1  = pvn(id1, level, bl1)%x(1) 
+!          pv_x2  = pvn(id2, level, bl2)%x(1)
+!          pv_y1  = pvn(id1, level, bl1)%x(2) 
+!          pv_y2  = pvn(id2, level, bl2)%x(2)
+!
+!          ke1    = 0.5_wp*( pv_x1**2._wp + pv_y1**2._wp )
+!          ke2    = 0.5_wp*( pv_x2**2._wp + pv_y2**2._wp )
+!  
+!          dz_dn    =  (z1 - z2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
+!          dpvx_dn  =  (pv_x1 - pv_x2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
+!          dpvy_dn  =  (pv_y1 - pv_y2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
+!          
+!          dpv_dn   = dpvx_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v1 + &
+!              & dpvy_dn*patch_2d%edges%primal_normal(edge_index,edge_block)%v2 
+!          
+!          dk_dn    =  (ke1 - ke2)*operators_coefficients%grad_coeff(edge_index,level,edge_block)
               
 !          !! Show that after vn and PTP(vn) are the same 
 !          write(*, *) level, ocean_state(jg)%p_prog(nold(1))%vn(edge_index, level, edge_block), & 
