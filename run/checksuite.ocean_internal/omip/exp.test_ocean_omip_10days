@@ -162,7 +162,6 @@ cat > ${ocean_namelist} << EOF
   str_mod_tst='all'               ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
- vert_cor_type = 1
 ! 40 unevenly spaced levels used by MPIOM/GR30
  n_zlev             =   $ocean_vertical_levels
  dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
