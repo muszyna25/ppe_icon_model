@@ -37,6 +37,8 @@ class Date (MTime):
         super(Date, self).__init__()
         self._lib = libmtime
         self._my = libmtime.newDate(str(spec))
+        if not self._my:
+            raise ValueError("invalid date spec '{0}'".format(spec))
     def __del__(self):
         self._lib.deallocateDate(self._my)
     def __str__(self):
@@ -47,6 +49,8 @@ class Time (MTime):
         super(Time, self).__init__()
         self._lib = libmtime
         self._my = libmtime.newTime(str(spec))
+        if not self._my:
+            raise ValueError("invalid time spec '{0}'".format(spec))
     def __del__(self):
         self._lib.deallocateTime(self._my)
     def __str__(self):
@@ -56,6 +60,8 @@ class DateTime (MTime):
     def __init__(self, spec):
         super(DateTime, self).__init__()
         self._my = libmtime.newDateTime(str(spec))
+        if not self._my:
+            raise ValueError("invalid date time spec '{0}'".format(spec))
     def __del__(self):
         self._lib.deallocateDateTime(self._my)
     def __str__(self):
@@ -79,6 +85,8 @@ class TimeDelta (MTime):
         super(TimeDelta, self).__init__()
         self._lib = libmtime
         self._my = libmtime.newTimeDelta(str(spec))
+        if not self._my:
+            raise ValueError("invalid time delta spec '{0}'".format(spec))
     def __del__(self):
         self._lib.deallocateTimeDelta(self._my)
     def __str__(self):

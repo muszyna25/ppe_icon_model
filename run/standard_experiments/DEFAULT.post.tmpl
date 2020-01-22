@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python #%# -*- mode: python -*- vi: set ft=python :
 #SBATCH --account=%{ACCOUNT}
 #%  if JOB.qos is defined:
 #SBATCH --qos=%{JOB.qos}
@@ -29,16 +29,19 @@ import mtime
 # Process command line options
 
 def check_date(arg):
-    if not re.match(r'\d+-?\d\d-?\d\d$', arg):
-        raise argparse.ArgumentTypeError('%r is not a valid date' % arg)
-    return arg
+    try:
+        value = mtime.DateTime(arg)
+    except ValueError as ve:
+        raise argparse.ArgumentTypeError(ve.message)
+    return str(value.date)
 
 command_line = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
 command_line.add_argument('start_date', type=check_date, help=
-    'first date of period (YYYY-MM-DD or YYYYMMDD)')
+    'first date of period (YYYY-MM-DD... or YYYYMMDD...)')
 command_line.add_argument('-V', '--version', action='version', version='0.0.1')
 command_line.add_argument('-c', '--clean', action='store_true', help=
-    'remove output files -- Do _not_ use if raw data files were removed!')
+    'remove output files. '
+    'Use ONLY after you made absolutely sure that the raw data still exists!')
 args = command_line.parse_args()
 
 # Do time computations using mtime
