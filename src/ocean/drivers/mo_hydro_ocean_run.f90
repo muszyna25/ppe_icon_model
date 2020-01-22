@@ -35,7 +35,8 @@ MODULE mo_hydro_ocean_run
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
     &  lswr_jerlov, &
     &  Cartesian_Mixing, GMRedi_configuration, use_tides, OceanReferenceDensity_inv, &
-    &  atm_pressure_included_in_ocedyn
+    &  atm_pressure_included_in_ocedyn, &
+    &  vert_mix_type,vmix_kpp
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -76,6 +77,7 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output_types, ONLY: t_output_file
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_master_config,          ONLY: isRestart
+  USE mo_master_control,         ONLY: get_my_process_name
   USE mo_time_config,            ONLY: time_config, t_time_config
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
@@ -83,17 +85,14 @@ MODULE mo_hydro_ocean_run
   USE mo_var_list
   USE mo_swr_absorption,         ONLY: jerlov_swr_absorption
   USE mo_ocean_statistics
-  USE mo_ocean_to_hamocc_interface, ONLY: ocean_to_hamocc_interface
+  USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_interface
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
-  USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
-  USE mo_hamocc_diagnostics,     ONLY: get_inventories
-  USE mo_hamocc_nml,             ONLY: io_stdo_bgc
-  USE mo_end_bgc,                ONLY: cleanup_hamocc
-  USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
+  USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
   USE mo_ocean_tides,         ONLY: tide    
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
+  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
   IMPLICIT NONE
 
@@ -260,7 +259,7 @@ CONTAINS
       CALL update_time_g_n(ocean_state(jg))
     ENDIF
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
 
     ! local time var to be passed along, so the global is kept safe 
     current_time => newNullDatetime()
@@ -483,12 +482,12 @@ CONTAINS
         !------------------------------------------------------------------------
 
       !------------------------------------------------------------------------
-      ! Optional : nudge temperature and salinity
-      IF (no_tracer>=1) THEN
-        CALL nudge_ocean_tracers( patch_3d, ocean_state(jg))
-      ENDIF
+        ! Optional : nudge temperature and salinity
+        IF (no_tracer>=1) THEN
+          CALL nudge_ocean_tracers( patch_3d, ocean_state(jg))
+        ENDIF
 
-      !------------------------------------------------------------------------
+        !------------------------------------------------------------------------
         ! perform accumulation for special variables
         start_detail_timer(timer_extra20,5)     
         IF (no_tracer>=1) THEN
@@ -501,30 +500,32 @@ CONTAINS
             & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
             & ocean_state(jg)%p_diag%u_vint, current_time)
           CALL dbg_print('calc_psi: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 3, in_subset=patch_2d%cells%owned)
-            
-          ! calculate diagnostic barotropic stream function with vn
-      !  not yet mature
-      !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
-      !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
-      !     & operators_coefficients,                                       &
-      !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, current_time)
-      !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
-      !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
+          
+        ! calculate diagnostic barotropic stream function with vn
+    !  not yet mature
+    !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
+    !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
+    !     & operators_coefficients,                                       &
+    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, current_time)
+    !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
+    !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
         ENDIF
 
-      CALL calc_fast_oce_diagnostics( patch_2d, &
-          & patch_3d, &
-          & ocean_state(1), &
-          & patch_3d%p_patch_1d(1)%dolic_c, &
-          & patch_3d%p_patch_1d(1)%prism_thick_c, &
-          & patch_3d%p_patch_1d(1)%zlev_m, &
-          & ocean_state(jg)%p_diag, &
-          & ocean_state(jg)%p_prog(nnew(1))%h, &
-        & ocean_state(jg)%p_prog(nnew(1))%vn, &
-          & ocean_state(jg)%p_prog(nnew(1))%tracer, &
-          & p_atm_f, &
-        & p_oce_sfc, &
-          & sea_ice) 
+        CALL fill_auxiliary_diagnostics(patch_3d, ocean_state(1))
+        
+        CALL calc_fast_oce_diagnostics( patch_2d, &
+            & patch_3d, &
+            & ocean_state(1), &
+            & patch_3d%p_patch_1d(1)%dolic_c, &
+            & patch_3d%p_patch_1d(1)%prism_thick_c, &
+            & patch_3d%p_patch_1d(1)%zlev_m, &
+            & ocean_state(jg)%p_diag, &
+            & ocean_state(jg)%p_prog(nnew(1))%h, &
+            & ocean_state(jg)%p_prog(nnew(1))%vn, &
+            & ocean_state(jg)%p_prog(nnew(1))%tracer, &
+            & p_atm_f, &
+            & p_oce_sfc, &
+            & sea_ice) 
 
         stop_detail_timer(timer_extra20,5)
 
@@ -682,9 +683,8 @@ CONTAINS
     IF (no_tracer>=1) THEN
       start_timer(timer_tracer_ab,1)
 
-      IF (GMRedi_configuration==Cartesian_Mixing) THEN
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
-          &   p_phys_param) !by_Oliver
+      IF (GMRedi_configuration == Cartesian_Mixing .AND. vert_mix_type .NE. vmix_kpp ) THEN
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
       ELSE
         CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
           &  ocean_state, transport_state, p_phys_param, operators_coefficients)
@@ -741,6 +741,49 @@ CONTAINS
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE fill_auxiliary_diagnostics(patch_3d, ocean_state)
+    TYPE(t_patch_3D), INTENT(IN) :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state
+  
+    TYPE(t_patch), POINTER :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells, owned_cells
+    INTEGER :: block,j,cell_idx,cells_startidx,cells_endidx, neigbor, vertex_idx, vertex_blk
+  
+    patch_2d => patch_3d%p_patch_2d(1)
+    owned_cells => patch_2D%cells%owned
+
+! !ICON_OMP_PARALLEL_DO PRIVATE(block,j,cell_idx,cells_startidx,cells_endidx, neigbor, vertex_idx, vertex_blk)
+!     DO block = owned_cells%start_block, owned_cells%end_block
+!       CALL get_index_range(owned_cells, block, cells_startidx, cells_endidx)
+!       DO cell_idx = cells_startidx, cells_endidx
+!         ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) = 0.0_wp        
+!         DO neigbor=1,patch_2D%cells%max_connectivity
+!           vertex_blk = patch_2d%cells%vertex_blk(cell_idx,block,neigbor)
+!           vertex_idx = patch_2d%cells%vertex_idx(cell_idx,block,neigbor)
+!           ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) =  ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) + &
+!             & ocean_state%p_diag%vort(vertex_idx,15,vertex_blk)
+!         ENDDO
+!         ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) = ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) / &
+!           & (REAL(patch_2D%cells%max_connectivity, wp) *  patch_2D%cells%f_c(cell_idx,block))
+!       
+! #ifndef NAGFOR
+!         IF (isnan(ocean_state%p_diag%vort_f_cells_50m(cell_idx,block))) &
+!           & ocean_state%p_diag%vort_f_cells_50m(cell_idx,block) = 999.0_wp
+! #endif
+! 
+!       ENDDO
+!     ENDDO
+! !ICON_OMP_END_PARALLEL_DO
+! 
+! !     ocean_state%p_diag%vort_50m(:,:) = ocean_state%p_diag%vort(:,15,:)
+!     ocean_state%p_diag%T_50m(:,:)    = ocean_state%p_prog(nnew(1))%tracer_collection%tracer(1)%concentration(:,15,:)
+!     ocean_state%p_diag%u_50m(:,:)    = ocean_state%p_diag%u(:,15,:)
+!     ocean_state%p_diag%v_50m(:,:)    = ocean_state%p_diag%v(:,15,:)
+ 
+  END SUBROUTINE fill_auxiliary_diagnostics
+  !-------------------------------------------------------------------------
+ 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE update_time_g_n(ocean_state)

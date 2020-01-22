@@ -289,8 +289,8 @@ CONTAINS
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
-         &                          num_prefetch_proc, num_test_pe,      &
-         &                          pio_type, opt_comp_id=atmo_process)
+         &                          atmo_process, num_prefetch_proc, num_test_pe,      &
+         &                          pio_type) 
 #ifdef _OPENACC
     CALL update_nproma_on_device( my_process_is_work() )
 #endif

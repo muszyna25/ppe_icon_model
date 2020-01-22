@@ -378,7 +378,7 @@ CONTAINS
       !---------------------------------------------------------------------
       CALL dbg_print('vn-new',ocean_state%p_prog(nnew(1))%vn,str_module, 2,in_subset=owned_edges)
       minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
-      CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, 1)
+      CALL debug_print_MaxMinMean('h-new after ocean solver', minmaxmean, str_module, 1)
       IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
 !          CALL finish(method_name, "height below min_top_height")
         CALL warning(method_name, "height below min_top_height")

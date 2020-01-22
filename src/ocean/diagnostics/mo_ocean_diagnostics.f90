@@ -18,6 +18,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 MODULE mo_ocean_diagnostics
+  USE mo_master_control,     ONLY: get_my_process_name
   USE mo_kind,               ONLY: wp, dp, i8
 #ifdef _OPENMP
   USE omp_lib
@@ -196,7 +197,7 @@ CONTAINS
     WRITE(listname,'(a)')  'horizontal_velocity_diagnostics'
     CALL new_var_list(horizontal_velocity_diagnostics, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( horizontal_velocity_diagnostics,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+      & lrestart=.FALSE.,model_type=TRIM(get_my_process_name()),loutput=.TRUE. )
     !-----------------------------------------------------------------------
     IF (diagnose_for_horizontalVelocity) THEN
       CALL add_var(horizontal_velocity_diagnostics, 'veloc_adv_horz_u', veloc_adv_horz_u, &
@@ -912,7 +913,10 @@ CONTAINS
      
       IF (isRegistered('verticallyTotal_mass_flux_e')) THEN
         CALL verticallyIntegrated_field(ocean_state%p_diag%verticallyTotal_mass_flux_e, &
-          & ocean_state%p_diag%mass_flx_e, owned_edges, patch_3D%p_patch_1d(1)%prism_thick_e)
+          & ocean_state%p_diag%mass_flx_e, owned_edges)
+        CALL dbg_print('Total_mass_flux_e ', ocean_state%p_diag%verticallyTotal_mass_flux_e, &
+           str_module, 1, in_subset=owned_edges)
+
       ENDIF
       
 !TODO       CASE (10)

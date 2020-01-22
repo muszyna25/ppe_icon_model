@@ -47,6 +47,9 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
+ num_prefetch_proc = 0 
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -79,7 +82,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default','group:oce_physics'
+  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default','group:oce_physics','group:oce_eddy'
 /
 &output_nml
   output_start     = "${start_date}"
@@ -131,7 +134,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_cvmix_tke', 'group:oce_physics'
+  ml_varlist       = 'group:oce_cvmix_tke'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -189,7 +192,7 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
   fct_high_order_flux   = 5      ! horizontal high order method: 1=upwind, 2=central, 3=lax_friedrichs, 4=miura_order1
   fct_limiter_horz      = 100    ! zalesak
-  threshold_min_T       = -4.0   ! to avoid abort
+  threshold_min_T       = -2.0   ! to avoid abort
 /
 &ocean_horizontal_diffusion_nml
   laplacian_form = 1                   ! 1=curlcurl-graddiv
@@ -210,19 +213,19 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 &ocean_vertical_diffusion_nml
   vert_mix_type                            = 2  ! 1: PP; 2: TKE
   PPscheme_type                            = 0
-  velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
-  tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
-  convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
-  RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
-  tracer_RichardsonCoeff          =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
-  velocity_RichardsonCoeff        =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-  bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
-  use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
-  lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 2.31480E-6 ! eqals 0.5e-3 m2s-1 (MPIOM)
-  velocity_TopWindMixing          = 2.31480E-6
+  !velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
+  !Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  !Salinity_VerticalDiffusion_background    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  !tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
+  !convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
+  !RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
+  !tracer_RichardsonCoeff          =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
+  !velocity_RichardsonCoeff        =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
+  !bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
+  !use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  !lambda_wind                     = 0.03
+  !tracer_TopWindMixing            = 0.5E-3 ! [m2/s] windmixing diffusivity in MPIOM-type pp-scheme
+  !velocity_TopWindMixing          = 0.5E-3 ! [m2/s] windmixing viscosity in MPIOM-type pp-scheme
   ! cvmix/tke parameters
   c_k        = 0.1
   c_eps      = 0.7
@@ -250,10 +253,10 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
   GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
   SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
-  REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.FALSE.
-  SLOPE_CALC_VIA_TEMPERTURE_SALINITY     =.FALSE.
-  INCLUDE_SLOPE_SQUARED_IMPLICIT         =.FALSE. !think of l_with_vert_tracer_diffusion
-  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.FALSE.
+  REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
+  SLOPE_CALC_VIA_TEMPERTURE_SALINITY     =.TRUE.
+  INCLUDE_SLOPE_SQUARED_IMPLICIT         =.TRUE. !think of l_with_vert_tracer_diffusion
+  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.TRUE.
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
@@ -267,10 +270,6 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
  leadclose_1                     =   0.25     ! default: 0.5 - value of MPIOM: 0.25
  leadclose_2n                    =   0.666    ! default: 0.0 - value of MPIOM: 2/3
  albedoW_sim  = 0.10         ! albedo of the ocean used in sea ice model
-! albs         = 0.85         ! Albedo of snow (not melting)
-! albsm        = 0.70         ! Albedo of snow (melting)
-! albi         = 0.75         ! Albedo of ice (not melting)
-! albim        = 0.70         ! Albedo of ice (melting)
  albs         = 0.80         ! Albedo of snow (not melting)
  albsm        = 0.65         ! Albedo of snow (melting)
  albi         = 0.70         ! Albedo of ice (not melting)
@@ -297,7 +296,7 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
                                               ! salt-change due to internal fluxes only
   limit_seaice                    = .TRUE.    ! default: true
-  seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
+  seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
   atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
   atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
@@ -313,6 +312,7 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
 &ocean_diagnostics_nml
   diagnostics_level            = 1
   diagnose_for_horizontalVelocity = .false.
+  eddydiag = .true.
 /
 &io_nml
   restart_file_type = 5

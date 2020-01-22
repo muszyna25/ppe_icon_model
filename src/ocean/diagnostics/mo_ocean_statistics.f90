@@ -43,7 +43,6 @@ MODULE mo_ocean_statistics
   USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   USE mo_ocean_physics_types,    ONLY: t_ho_params
-  USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_linked_list,            ONLY: t_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_statistics
