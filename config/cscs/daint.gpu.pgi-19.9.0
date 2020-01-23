@@ -12,8 +12,11 @@ XML2_LIBS='-lxml2'
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
 
+SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.4.3/pgi/19.9'
+SERIALBOX2_LIBS='-lSerialboxFortran'
+
 # The rest of libraries required by CUDA will be provided by PGI compiler:
-CUDA_LIBS='-lstdc++'
+STDCPP_LIBS='-lstdc++'
 
 ################################################################################
 
@@ -27,9 +30,9 @@ CFLAGS='-g -O2'
 CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
-FCFLAGS='-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60,cuda10.1 -Minfo=accel,inline'
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60,cuda10.1 -Minfo=accel,inline -I${SERIALBOX2_ROOT}/include"
 
-LDFLAGS="-L${GCC_PATH}/snos/lib64 -L${XML2_ROOT}/lib"
+LDFLAGS="-L${GCC_PATH}/snos/lib64 -L${SERIALBOX2_ROOT}/lib -L${XML2_ROOT}/lib"
 
 # ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
 # which depends on libomptarget.so but doesn't have an RPATH to it. For this
@@ -37,7 +40,7 @@ LDFLAGS="-L${GCC_PATH}/snos/lib64 -L${XML2_ROOT}/lib"
 # LD_LIBRARY_PATH in advance (e.g. by loading an environment module). To solve
 # this issue, we overlink to libomptarget.so so that it can be found through
 # RPATH entries of the executable, which are injected by the compiler.
-LIBS="-lomptarget -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${CUDA_LIBS}"
+LIBS="-lomptarget -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${SERIALBOX2_LIBS} ${STDCPP_LIBS}"
 
 CLAW='/project/d56/install/daint/claw/v2.0.1/pgi/bin/clawfc'
 # We have to tell CLAW where to look for netcdf.inc:
@@ -45,6 +48,8 @@ CLAWFLAGS="-I${NETCDF_DIR}/include"
 
 NVCC='nvcc'
 NVCFLAGS='--std=c++11 -arch=sm_60 -g -O3'
+
+SB2PP="${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
 
 MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 
@@ -69,6 +74,7 @@ LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
 NVCC="$NVCC" \
 NVCFLAGS="$NVCFLAGS" \
+SB2PP="$SB2PP" \
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 

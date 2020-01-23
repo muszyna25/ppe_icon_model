@@ -5,12 +5,15 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='modules craype cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9 gcc cray-mpich cray-netcdf cray-hdf5'
+MODULES='modules craype cdt/19.10 PrgEnv-pgi/6.0.5 pgi-icon/19.9 cray-mpich cray-netcdf cray-hdf5'
 
 XML2_ROOT='/apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08'
 XML2_LIBS='-lxml2'
 
 BLAS_LAPACK_LIBS='-llapack -lblas'
+
+SERIALBOX2_ROOT='/project/d56/install/daint/serialbox2/2.4.3/pgi/19.9'
+SERIALBOX2_LIBS='-lSerialboxFortran'
 
 ################################################################################
 
@@ -21,9 +24,9 @@ CFLAGS='-g -O2'
 CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
-FCFLAGS='-g -O -Mrecursive -Mallocatable=03 -tp=haswell'
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${SERIALBOX2_ROOT}/include"
 
-LDFLAGS="-L${XML2_ROOT}/lib"
+LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${XML2_ROOT}/lib"
 
 # ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
 # which depends on libomptarget.so but doesn't have an RPATH to it. For this
@@ -31,7 +34,9 @@ LDFLAGS="-L${XML2_ROOT}/lib"
 # LD_LIBRARY_PATH in advance (e.g. by loading an environment module). To solve
 # this issue, we overlink to libomptarget.so so that it can be found through
 # RPATH entries of the executable, which are injected by the compiler.
-LIBS="-lomptarget -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS}"
+LIBS="-lomptarget -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${SERIALBOX2_LIBS}"
+
+SB2PP="${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"
 
 MPI_LAUNCH='/apps/daint/UES/xalt/production/bin/srun -p debug -C gpu'
 
@@ -50,6 +55,7 @@ FCFLAGS="$FCFLAGS" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 MPI_LAUNCH="$MPI_LAUNCH" \
+SB2PP="$SB2PP" \
 ${EXTRA_CONFIG_ARGS} \
 "$@"
 
