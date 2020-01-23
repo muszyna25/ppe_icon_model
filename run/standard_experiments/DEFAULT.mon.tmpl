@@ -21,7 +21,6 @@ Create monitoring from ICON experiment data for a given period
 import argparse
 import logging
 import os
-import re
 import subprocess
 import sys
 
@@ -87,7 +86,9 @@ logging.info('monitoring started '
 
 # Set-up directory structure
 
-if not os.path.isdir('%{MON_DIR}'): os.makedirs('%{MON_DIR}')
+targets_dir = os.path.join('%{MON_DIR}', 'targets')
+if not os.path.isdir(targets_dir): os.makedirs(targets_dir)
+template_dict['targets_dir'] = targets_dir
 
 work_dir = os.path.join('%{WORK_DIR}',
                         '%{JOB.id}_{start_date}-{end_date}'.format(**template_dict))
@@ -101,31 +102,35 @@ logging.info('working directory is {0}'.format(work_dir))
 makefile_template = '''\
 CDO = cdo
 CDOFLAGS = -O
+PLOT_TIMESER = plot_timeser
 
 EXP_ID = %{EXP_ID}
 DATA_DIR = %{DATA_DIR}
 MON_DIR = %{MON_DIR}
 
+START_DATE = {start_date}
 TAGS = {tags}
+TARGETS_DIR = {targets_dir}
 
-TARGETS = $(TAGS:%=$(MON_DIR)/$(EXP_ID)_%.pdf)
+TARGETS = $(TAGS:%=$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf)
 
 all: $(TARGETS)
 
 clean:
-	$(RM) $(TARGETS)
+	$(RM) $(TARGETS) $(TARGETS:.pdf=.nc)
 
-.PHONY: $(MON_DIR)/$(EXP_ID)_%.nc $(MON_DIR)/$(EXP_ID)_%.pdf
+.PRECIOUS: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
 
-$(MON_DIR)/$(EXP_ID)_%.nc: $(DATA_DIR)/$(EXP_ID)_%_{start_date}.nc FORCE
-	[ -f $@ ] || cp $< $@
-	$(CDO) $(CDOFLAGS) mergetime $< $@ $(@F)
-	mv $(@F) $@
+$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_DATE).nc
+	[ -f $(MON_DIR)/$(EXP_ID)_$*.nc ] || cp $< $(MON_DIR)/$(EXP_ID)_$*.nc
+	$(CDO) $(CDOFLAGS) mergetime $< $(MON_DIR)/$(EXP_ID)_$*.nc $(EXP_ID)_$*.nc
+	mv $(EXP_ID)_$*.nc $(MON_DIR)/$(EXP_ID)_$*.nc
+	touch $@
 
-$(MON_DIR)/$(EXP_ID)_%.pdf: $(MON_DIR)/$(EXP_ID)_%.nc FORCE
-	plot_timeser --manifest=$(@:.pdf=.lst) --mode=monitoring --with1=$< --output=$(@:.pdf=)
+$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
+	$(PLOT_TIMESER) --manifest=$(EXP_ID)_$*.lst --mode=monitoring --with1=$(MON_DIR)/$(EXP_ID)_$*.nc --output=$(MON_DIR)/$(EXP_ID)_$*
+	touch $@
 
-FORCE:
 '''
 
 makefile_name = 'Makefile'
