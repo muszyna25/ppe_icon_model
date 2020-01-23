@@ -3,10 +3,6 @@
 set specs       [split [module-info name] /]
 set name        [lindex $specs 0]
 set version     [lindex $specs 1]
-set prefix      /work/bk0988/sw/$name-$version
-set exec_prefix ${prefix}
-set datarootdir ${prefix}/share
-set libdir      ${prefix}/lib
 
 conflict $name
 
@@ -21,19 +17,6 @@ proc prepend-path-if-exists {var path} {
     if [file isdirectory $path] {
         prepend-path $var $path
     }
-}
-
-prepend-path-if-exists PATH            ${exec_prefix}/bin
-prepend-path-if-exists MANPATH         ${datarootdir}/man
-prepend-path-if-exists INFOPATH        ${datarootdir}/info
-prepend-path-if-exists PYTHONPATH      ${libdir}/python2.7/site-packages
-prepend-path-if-exists PKG_CONFIG_PATH ${libdir}/pkgconfig
-
-set mkexp_dir ${datarootdir}/mpiesm/run
-if [file isdirectory $mkexp_dir] {
-    prepend-path MKEXP_PATH .
-    prepend-path MKEXP_PATH $mkexp_dir
-    setenv MPIESM_DIR ${datarootdir}/mpiesm   
 }
 
 proc set_dependencies {dependencies} {
