@@ -6733,6 +6733,8 @@ fi
      ;; #(
   -enable-examples|-enable-examples=*|--enable-examples|--enable-examples=*|-disable-examples|--disable-examples) :
      ;; #(
+  -enable-openmp|-enable-openmp=*|--enable-openmp|--enable-openmp=*|-disable-openmp|--disable-openmp) :
+     ;; #(
   *) :
 
            case $acx_config_subdir_arg in #(
@@ -6747,7 +6749,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples ; shift
+   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" --enable-static --disable-shared --enable-silent-rules="$enable_silent_rules" --disable-examples --enable-openmp="$enable_openmp" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

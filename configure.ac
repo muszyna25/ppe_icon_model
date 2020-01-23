@@ -1209,10 +1209,12 @@ FCFLAGS, LDFLAGS and LIBS accordingly])])
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
-      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])]],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openmp])]],
      [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
       [--enable-static], [--disable-shared],
-      [--enable-silent-rules="$enable_silent_rules"], [--disable-examples]])
+      [--enable-silent-rules="$enable_silent_rules"], [--disable-examples],
+      [--enable-openmp="$enable_openmp"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"])
 AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mtime,mtime_datetime'])
