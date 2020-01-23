@@ -283,6 +283,12 @@ MODULE mo_ocean_types
       & northernHemisphere ,&
       & southernHemisphere
       
+    onCells_2D :: &
+      & u_50m,    &
+      & v_50m,    &
+      & T_50m,    &
+      & vort_f_cells_50m
+
     onCells_Type(t_cartesian_coordinates) :: &
       & p_vn              ! reconstructed velocity at cell center in cartesian coordinates
       
@@ -328,6 +334,10 @@ MODULE mo_ocean_types
     onVertices :: &
       & vort            ! vorticity at triangle vertices. Unit [1/s]
       
+    onVertices_2D :: &
+      & vort_50m,    &     ! vorticity at 20 and 70 meters
+      & vort_70m
+
     onVertices_Type(t_cartesian_coordinates) :: &
       & p_vn_dual
     

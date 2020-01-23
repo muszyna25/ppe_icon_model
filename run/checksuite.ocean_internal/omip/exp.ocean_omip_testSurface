@@ -49,7 +49,10 @@ cat > ${ocean_namelist} << EOF
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.     
- l_fast_sum     = .true.          ! false: results are reproducable, gmres_oce_old is used; true: production run
+ l_fast_sum     = .true.
+ num_prefetch_proc = 0 
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",

@@ -1032,7 +1032,7 @@ CONTAINS
 
       IF (no_tracer>=1) THEN
           CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, &
-            & operators_coefficients, p_phys_param)
+            operators_coefficients)
       ENDIF
 
       !------------------------------------------------------------------------

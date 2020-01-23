@@ -131,6 +131,21 @@ link_required_files()
   done    
 }
 
+
+get_2digits()
+{
+  local in=$1
+  local outname=$2
+  
+  if [ $in -lt  10 ] ; then
+    local f2dig=0$in
+  else
+    local f2dig=$in
+  fi
+  
+ eval $outname=$f2dig
+}
+
 #-----------------------------------------------------------------------------
 export F_NORCW=65535
 ulimit -s unlimited

@@ -42,10 +42,12 @@ MODULE mo_ocean_initial_conditions
     & forcing_temperature_poleLat, InitialState_InputFileName,                  &
     & smooth_initial_height_weights, smooth_initial_salinity_weights,           &
     & smooth_initial_temperature_weights, &
-    & initial_perturbation_waveNumber, initial_perturbation_max_ratio,         &
+    & initial_perturbation_waveNumber, initial_perturbation_max_ratio,          &
     & smooth_initial_salinity_iterations, &
-    & smooth_initial_height_iterations, smooth_initial_temperature_iterations,&
-    & OceanReferenceDensity, LinearThermoExpansionCoefficient
+    & smooth_initial_height_iterations, smooth_initial_temperature_iterations,  &
+    & OceanReferenceDensity, LinearThermoExpansionCoefficient,                  &
+    & smooth_initial_velocity_iterations, smooth_initial_velocity_weights
+    
   USE mo_sea_ice_nml,        ONLY: use_IceInitialization_fromTemperature
 
   USE mo_impl_constants,     ONLY: sea_boundary
@@ -84,6 +86,7 @@ MODULE mo_ocean_initial_conditions
   CHARACTER(LEN=12), PARAMETER :: module_name = 'oceInitCond'
 
   TYPE(t_operator_coeff), POINTER :: this_operators_coeff
+  TYPE(t_hydro_ocean_state), POINTER :: this_ocean_state
 
   ! Should be replaced by reading a file
   REAL(wp), PARAMETER :: tprof(20)=&
@@ -210,7 +213,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
-
     
     CALL message (TRIM(method_name), TRIM(name)//"...")
     ! read temperature
@@ -240,6 +242,9 @@ CONTAINS
 
     CALL sync_patch_array(sync_c, patch_2D, variable)
     
+    WRITE(message_text,*) "miss value=", missValue, has_missValue
+    CALL message(TRIM(method_name),TRIM(message_text))
+   
   END SUBROUTINE init_cell_2D_variable_fromFile
   !-------------------------------------------------------------------------
 
@@ -727,7 +732,107 @@ CONTAINS
 
   END SUBROUTINE init_ocean_temperature
   !-------------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_velocity_fromFile(patch_3d, normal_velocity)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: normal_velocity(:,:,:)
 
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_cartesian_coordinates), ALLOCATABLE ::cellVelocity_cc(:,:,:)
+    REAL(wp), ALLOCATABLE :: u(:,:,:), v(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET :: suv(:,:,:)
+    INTEGER :: i, level
+    INTEGER :: cell_block, cell_index
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp) :: point_lon, point_lat     ! latitude of point
+    REAL(wp) :: x1, x2, x3, lon, lat
+    REAL(wp) :: uu, vv      ! zonal,  meridional velocity
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_velocity_fromFile'
+    !-------------------------------------------------------------------------
+
+    ! CALL message(TRIM(method_name), ' ')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    ! fisrt calculate th velocyt at cell centers
+    ALLOCATE(u(nproma,n_zlev, patch_2d%alloc_cell_blocks), &
+             v(nproma,n_zlev, patch_2d%alloc_cell_blocks))
+!     ALLOCATE(u(nproma,n_zlev, patch_2d%alloc_cell_blocks), &
+!              v(nproma,n_zlev, patch_2d%alloc_cell_blocks))
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(method_name), ': init from file')
+    CALL init_cell_3D_variable_fromFile(patch_3d, variable=u, name="u", &
+      & has_missValue=has_missValue, missValue=missValue)
+    CALL init_cell_3D_variable_fromFile(patch_3d, variable=v, name="v", &
+      & has_missValue=has_missValue, missValue=missValue)
+      
+    IF (smooth_initial_velocity_iterations > 0) THEN
+      ALLOCATE(suv(nproma,n_zlev, patch_2d%alloc_cell_blocks))
+      DO i=1,smooth_initial_velocity_iterations
+        WRITE(message_text,*) "Smoothing velicities..., miss value=", missValue
+        CALL message(TRIM(method_name),TRIM(message_text))
+
+        suv = u
+        CALL smooth_onCells(patch_3D=patch_3d, &
+          & in_value=suv, out_value=u,  &
+          & smooth_weights=smooth_initial_velocity_weights,      &
+          & has_missValue=has_missValue, missValue=missValue)
+        suv = v
+        CALL smooth_onCells(patch_3D=patch_3d, &
+          & in_value=suv, out_value=v,  &
+          & smooth_weights=smooth_initial_velocity_weights,      &
+          & has_missValue=has_missValue, missValue=missValue)
+      ENDDO
+      DEALLOCATE(suv)
+    
+    ENDIF
+    
+    CALL message(TRIM(method_name),"fillVerticallyMissingValues...")
+    CALL fillVerticallyMissingValues(patch_3d=patch_3d, ocean_tracer=u, &
+      & has_missValue=has_missValue, missValue=missValue)
+    CALL fillVerticallyMissingValues(patch_3d=patch_3d, ocean_tracer=v, &
+      & has_missValue=has_missValue, missValue=missValue)
+ 
+    CALL message(TRIM(method_name),"gvec2cvec ...")
+    ALLOCATE(cellVelocity_cc(nproma,n_zlev, patch_2d%alloc_cell_blocks))
+
+    DO cell_block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, cell_block, start_cell_index, end_cell_index)
+      DO cell_index = start_cell_index, end_cell_index
+        lon = patch_2d%cells%center(cell_index,cell_block)%lon
+        lat = patch_2d%cells%center(cell_index,cell_block)%lat
+ 
+        DO level = 1, n_zlev
+          CALL gvec2cvec (u(cell_index, level, cell_block), &
+                  &  v(cell_index, level, cell_block), &
+                  &  lon, lat,                         &
+                  & cellVelocity_cc(cell_index, level, cell_block)%x(1), &
+                  & cellVelocity_cc(cell_index, level, cell_block)%x(2), &
+                  & cellVelocity_cc(cell_index, level, cell_block)%x(3), &
+                  & patch_2D%geometry_info)
+    
+        ENDDO
+      ENDDO
+    ENDDO
+        
+    CALL message(TRIM(method_name),"map_cell2edges_3D ...")
+    CALL map_cell2edges_3D( patch_3D, cellVelocity_cc, normal_velocity, this_operators_coeff)
+    CALL sync_patch_array(sync_e, patch_2D, normal_velocity)
+
+    CALL message(TRIM(method_name),"DEALLOCATE ...")
+    DEALLOCATE(cellVelocity_cc)
+    DEALLOCATE(u, v)
+ 
+  END SUBROUTINE init_ocean_velocity_fromFile
+  !-------------------------------------------------------------------------------
+
+        
   !-------------------------------------------------------------------------------
   SUBROUTINE init_ocean_velocity(patch_3d, normal_velocity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
@@ -738,9 +843,16 @@ CONTAINS
 
     normal_velocity(:,:,:) = 0.0_wp
 
-    IF (initial_velocity_type < 200) RETURN ! not analytic velocity
+    ! IF (initial_velocity_type < 200) RETURN ! not analytic velocity
 
     SELECT CASE (initial_velocity_type)
+
+    CASE (000)
+      RETURN
+ 
+    CASE (001)
+      CALL init_ocean_velocity_fromFile(patch_3d, normal_velocity)
+        
     !------------------------------
     CASE (200)
       ! uniform velocity
