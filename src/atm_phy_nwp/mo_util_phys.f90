@@ -28,7 +28,7 @@ MODULE mo_util_phys
     &                                 grav,            &
     &                                 tmelt, earth_radius, &
     &                                 alvdcp, rd_o_cpd
-  USE mo_exception,             ONLY: finish
+  USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
@@ -39,7 +39,8 @@ MODULE mo_util_phys
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
-       &                              iqm_max, nqtendphy, lart
+       &                              iqm_max, nqtendphy, lart, &
+       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
@@ -47,7 +48,7 @@ MODULE mo_util_phys
   USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
-  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode
+  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_lnd_nwp_config,        ONLY: nlev_soil, dzsoil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
@@ -63,10 +64,13 @@ MODULE mo_util_phys
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
   USE mo_upatmo_config,         ONLY: upatmo_config
-  USE mo_grf_intp_data_strc,    ONLY: p_grf_state, p_grf_state_local_parent
+  USE mo_grf_intp_data_strc,    ONLY: p_grf_state_local_parent
   USE mo_communication,         ONLY: exchange_data
   USE mo_grid_config,           ONLY: l_limited_area
   USE mo_mpi,                   ONLY: get_my_mpi_work_id  ! only for debugging
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -86,6 +90,16 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_pv
   PUBLIC :: compute_field_sdi
   PUBLIC :: compute_field_lpi
+  PUBLIC :: maximize_field_lpi
+  PUBLIC :: compute_field_ceiling
+  PUBLIC :: compute_field_hbas_sc
+  PUBLIC :: compute_field_htop_sc
+  PUBLIC :: compute_field_twater
+  PUBLIC :: compute_field_q_sedim
+  PUBLIC :: compute_field_tcond_max
+  PUBLIC :: compute_field_uh_max
+  PUBLIC :: compute_field_vorw_ctmax
+  PUBLIC :: compute_field_w_ctmax
   PUBLIC :: compute_field_smi
   PUBLIC :: iau_update_tracer
   PUBLIC :: tracer_add_phytend
@@ -146,6 +160,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2014-03-25)
   !!
   ELEMENTAL FUNCTION nwp_con_gust( u_850, u_950, v_850, v_950) RESULT(vgust_con)
+!$ACC ROUTINE SEQ
 
     REAL(wp), INTENT(IN) :: u_850, &    ! zonal wind component at 850 hPa [m/s]
       &                     u_950, &    ! zonal wind component at 950 hPa [m/s]
@@ -275,6 +290,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by D. Reinert, DWD (2014-09-18) 
   ELEMENTAL FUNCTION swdir_s(albedo, swdifd_s, sobs)
+!$ACC ROUTINE SEQ
     REAL(wp)             :: swdir_s
     REAL(wp), INTENT(IN) :: albedo      ! shortwave broadband albedo
     REAL(wp), INTENT(IN) :: swdifd_s    ! shortwave diffuse downward flux (sfc)
@@ -293,6 +309,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  :  F. Prill, DWD (2012-07-03) 
   ELEMENTAL FUNCTION rel_hum(temp, qv, p_ex)
+
     REAL(wp) :: rel_hum
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
       &                     qv,   &  ! spec. water vapor content
@@ -323,6 +340,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision  by Daniel Reinert, DWD (2013-07-15) 
   ELEMENTAL FUNCTION rel_hum_ifs(temp, qv, p_ex)
+
     REAL(wp) :: rel_hum_ifs
     REAL(wp), INTENT(IN) :: temp, &  ! temperature
       &                     qv,   &  ! spec. water vapor content
@@ -419,6 +437,7 @@ CONTAINS
 
         END DO
       END DO
+
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -507,6 +526,7 @@ CONTAINS
 
         END DO
       END DO
+
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -523,6 +543,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-07-25) 
   ELEMENTAL FUNCTION vap_pres(qv,pres)
+
   IMPLICIT NONE
 
     REAL(wp), INTENT(IN)  :: qv   ! specific humidity         [kg/kg]
@@ -684,7 +705,7 @@ CONTAINS
 
 
     ! local
-    REAL(wp):: w_avg(nproma)       ! vertical velocity averaged to full level
+    REAL(wp):: w_avg               ! vertical velocity averaged to full level
     INTEGER :: slev, elev          ! vertical start and end index
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_nchdom
@@ -714,6 +735,8 @@ CONTAINS
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
         i_startidx, i_endidx, rl_start, rl_end)
       
+!$ACC PARALLEL DEFAULT(PRESENT) PRIVATE(w_avg) IF( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -722,12 +745,13 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 #endif
           ! half level to full level interpolation
-          w_avg(jc) = 0.5_wp * (p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb))
+          w_avg = 0.5_wp * (p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb))
 
-          out_var(jc,jk,jb) = -p_prog%rho(jc,jk,jb)*grav*w_avg(jc)
+          out_var(jc,jk,jb) = -p_prog%rho(jc,jk,jb)*grav*w_avg
 
         ENDDO
       ENDDO
+!$ACC END PARALLEL
 
     ENDDO  ! jb
 !$OMP END DO NOWAIT
@@ -781,10 +805,10 @@ CONTAINS
       ierr = 0
 
       ! loop over target (ICON) land points only
-      i_count = ext_data%atm%lp_count(jb)
+      i_count = ext_data%atm%list_land%ncount(jb)
 
       DO ic = 1, i_count
-        jc = ext_data%atm%idx_lst_lp(ic,jb)
+        jc = ext_data%atm%list_land%idx(ic,jb)
 
         DO jk = 1, nlev_soil-1
 
@@ -867,6 +891,9 @@ CONTAINS
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_startblk = p_patch%cells%start_blk (rl_start,1)
     i_endblk   = p_patch%cells%end_blk   (rl_end,i_nchdom)
+
+!$ACC DATA CREATE( pv_ef, vt, theta_cf, theta_vf, theta_ef, w_vh, w_eh, ddtw_eh, ddnw_eh, &
+!$ACC              ddtth_ef, ddnth_ef, vor_ef ) IF ( i_am_accel_node )
     
 !$OMP PARALLEL    
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
@@ -876,6 +903,8 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
       
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 
@@ -883,6 +912,7 @@ CONTAINS
           
         ENDDO
       ENDDO
+!$ACC END PARALLEL
     
     END DO
 !$OMP END DO NOWAIT
@@ -927,26 +957,27 @@ CONTAINS
       
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
-     
+
+!$ACC PARALLEL DEFAULT(PRESENT) PRIVATE( ivd1, ivd2, vdfac )
+!$ACC LOOP GANG VECTOR COLLAPSE(2)     
       DO jk = slev, elev
-      
-        !Get indices for vertical derivatives of full level variables
-        IF ( jk == slev ) THEN
-          ivd1=slev
-          ivd2=slev+1
-          vdfac=1_wp
-        ELSE IF ( jk == elev ) THEN
-          ivd1=elev-1
-          ivd2=elev
-          vdfac=1_wp
-        ELSE
-          ivd1=jk-1
-          ivd2=jk+1
-          vdfac=2_wp
-        END IF
-          
         DO je = i_startidx, i_endidx
 
+          !Get indices for vertical derivatives of full level variables
+          IF ( jk == slev ) THEN
+            ivd1=slev
+            ivd2=slev+1
+            vdfac=1_wp
+          ELSE IF ( jk == elev ) THEN
+            ivd1=elev-1
+            ivd2=elev
+            vdfac=1_wp
+          ELSE
+            ivd1=jk-1
+            ivd2=jk+1
+            vdfac=2_wp
+          END IF
+          
           !Ertel-PV calculation on edges
           pv_ef(je,jk,jb) =                                                                                     &
             &     (   0.5_wp*(ddnw_eh(je,jk,jb)+ddnw_eh(je,jk+1,jb))                                            &
@@ -974,6 +1005,8 @@ CONTAINS
                    
         ENDDO
       ENDDO
+!$ACC END PARALLEL
+
     ENDDO 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1008,6 +1041,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL    
 
+!$ACC END DATA
         
   END SUBROUTINE compute_field_pv
 
@@ -1105,7 +1139,7 @@ CONTAINS
     z_min = 1500.0  ! in m
     z_max = 5500.0  ! in m
 
-    ! --- to prevent errors at the boundaries, set output field(s) to 0:
+    ! --- to prevent errors at the boundaries, set some field(s) to 0:
 
     i_rlstart = 1
     i_rlend   = grf_bdywidth_c
@@ -1123,6 +1157,13 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         !sdi_1   ( jc, jb ) = 0.0_wp
         sdi_2 ( jc, jb ) = 0.0_wp
+
+        w_vmean        (jc,jb) = 0.0_wp
+        zeta_vmean     (jc,jb) = 0.0_wp
+        w_w_vmean      (jc,jb) = 0.0_wp
+        zeta_zeta_vmean(jc,jb) = 0.0_wp
+        w_zeta_vmean   (jc,jb) = 0.0_wp
+
       END DO
     END DO
 !$OMP END DO NOWAIT
@@ -1414,7 +1455,6 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Michael Baldauf, DWD (2019-05-27) 
   !!
-
   SUBROUTINE compute_field_LPI( ptr_patch, jg, ptr_patch_local_parent, p_int,   &
                                 p_metrics, p_prog, p_diag,                &
                                 lpi )
@@ -1489,6 +1529,8 @@ CONTAINS
 
     qg_scale_inv = 1.0_wp / ( qg_upp_limit - qg_low_limit )
 
+
+!!$ UB: need to check this threshold for ICON-D2!
     ! for the 'updraft in environment'-criterion:
     w_thresh = 0.5_wp  ! in m/s; threshold for w
                        ! see Lynn, Yair (2010)
@@ -1538,11 +1580,23 @@ CONTAINS
             q_liqu  = p_prog%tracer(jc,jk,jb,iqc)   &
                     + p_prog%tracer(jc,jk,jb,iqr)
 
-            q_solid =    p_prog%tracer(jc,jk,jb,iqg) *                                              &
-              &  ( SQRT( p_prog%tracer(jc,jk,jb,iqi) * p_prog%tracer(jc,jk,jb,iqg) )                &
-              &   / MAX( p_prog%tracer(jc,jk,jb,iqi) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) +   &
-              &    SQRT( p_prog%tracer(jc,jk,jb,iqs) * p_prog%tracer(jc,jk,jb,iqg) )                &
-              &   / MAX( p_prog%tracer(jc,jk,jb,iqs) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) )
+            IF (atm_phy_nwp_config(jg)%l2moment) THEN
+              q_solid =    p_prog%tracer(jc,jk,jb,iqg) *                                              &
+                &  ( SQRT( p_prog%tracer(jc,jk,jb,iqi) * (p_prog%tracer(jc,jk,jb,iqg) +               &
+                &          p_prog%tracer(jc,jk,jb,iqh)) )                                             &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqi) + p_prog%tracer(jc,jk,jb,iqg) +                &
+                &          p_prog%tracer(jc,jk,jb,iqh), 1.0e-20_wp) +                                 &
+                &    SQRT( p_prog%tracer(jc,jk,jb,iqs) * (p_prog%tracer(jc,jk,jb,iqg) +               &
+                &          p_prog%tracer(jc,jk,jb,iqh)) )                                             &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqs) + p_prog%tracer(jc,jk,jb,iqg) +                &
+                &          p_prog%tracer(jc,jk,jb,iqh), 1.0e-20_wp) )
+            ELSE
+              q_solid =    p_prog%tracer(jc,jk,jb,iqg) *                                              &
+                &  ( SQRT( p_prog%tracer(jc,jk,jb,iqi) * p_prog%tracer(jc,jk,jb,iqg) )                &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqi) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) +   &
+                &    SQRT( p_prog%tracer(jc,jk,jb,iqs) * p_prog%tracer(jc,jk,jb,iqg) )                &
+                &   / MAX( p_prog%tracer(jc,jk,jb,iqs) + p_prog%tracer(jc,jk,jb,iqg), 1.0e-20_wp) )
+            END IF
 
             epsw = 2.0_wp * SQRT( q_liqu * q_solid ) / MAX( q_liqu + q_solid, 1.0e-20_wp)
 
@@ -1552,7 +1606,12 @@ CONTAINS
               lpi_incr = w_c * w_c * epsw * delta_z
 
               ! additional 'Graupel-criterion' in the LPI integral
-              lpi_incr = lpi_incr * MAX( MIN( (p_prog%tracer(jc,jk,jb,iqg) -qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
+              IF (atm_phy_nwp_config(jg)%l2moment) THEN
+                lpi_incr = lpi_incr * MAX( MIN( (p_prog%tracer(jc,jk,jb,iqg)+p_prog%tracer(jc,jk,jb,iqh) - &
+                                                 qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
+              ELSE
+                lpi_incr = lpi_incr * MAX( MIN( (p_prog%tracer(jc,jk,jb,iqg) -qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
+              END IF
 
             ELSE
               lpi_incr = 0.0_wp
@@ -1581,10 +1640,15 @@ CONTAINS
 
       ! normalization
       DO jc = i_startidx, i_endidx
-        lpi(jc,jb) = lpi(jc,jb) / vol(jc)
+        IF ( vol(jc) > 1.0e-30_wp ) THEN
+          lpi(jc,jb) = lpi(jc,jb) / vol(jc)
+        ELSE
+          lpi(jc,jb) = 0.0_wp
+        END IF
       END DO
 
     END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1753,6 +1817,763 @@ CONTAINS
   END SUBROUTINE compute_field_LPI
 
 
+  !>
+  !! Do a maximization step for the calculation of the LPI_MAX.
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-09-17) 
+  !!
+  SUBROUTINE maximize_field_LPI( ptr_patch, jg, ptr_patch_local_parent, p_int,   &
+                                p_metrics, p_prog, p_diag,                &
+                                lpi_max )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    INTEGER,            INTENT(IN)    :: jg                ! domain ID of main grid
+    TYPE(t_patch), TARGET, INTENT(IN) :: ptr_patch_local_parent  !< parent grid for larger exchange halo
+    TYPE(t_int_state),  INTENT(IN)    :: p_int
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp), INTENT(INOUT) :: lpi_max( nproma, ptr_patch%nblks_c )
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jc
+
+    REAL(wp) :: lpi( nproma, ptr_patch%nblks_c )
+
+    CALL compute_field_LPI( ptr_patch, jg, ptr_patch_local_parent, p_int,   &
+                            p_metrics, p_prog, p_diag,                &
+                            lpi )
+
+    ! Maximize
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        lpi_max(jc,jb) = MAX( lpi_max(jc,jb), lpi(jc,jb) )
+      END DO
+    END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE maximize_field_LPI
+
+
+  !>
+  !! Calculate the ceiling height
+  !! = height above MSL, for which cloud coverage > 4/8
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-21) 
+  !!
+  SUBROUTINE compute_field_ceiling( ptr_patch, jg,    &
+                                p_metrics, prm_diag,  &
+                                ceiling_height )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    INTEGER,              INTENT(IN)  :: jg            ! domain ID of main grid
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nwp_phy_diag), INTENT(IN)  :: prm_diag
+
+    REAL(wp),             INTENT(OUT) :: ceiling_height(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    LOGICAL ::  cld_base_found( nproma ) 
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,cld_base_found), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        cld_base_found(jc) = .FALSE.
+        ceiling_height(jc,jb) = p_metrics%z_mc(jc,1,jb)  ! arbitrary default value
+      END DO
+
+      DO jk = ptr_patch%nlev, kstart_moist(jg), -1
+
+        DO jc = i_startidx, i_endidx
+
+          IF ( .NOT.(cld_base_found(jc)) .AND. (prm_diag%clc(jc,jk,jb) > 0.5_wp) ) THEN
+            ceiling_height(jc,jb) = p_metrics%z_mc(jc,jk,jb)
+            cld_base_found(jc) = .TRUE.
+          ENDIF
+
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_ceiling
+
+
+  !>
+  !! Calculate the height of base over MSL from the shallow convection parameterization.
+  !!
+  !! This subroutine is quite similar to compute_field_htop_sc.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-22) 
+  !!
+  SUBROUTINE compute_field_hbas_sc( ptr_patch,        &
+                                p_metrics, prm_diag,  &
+                                hbas_sc )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nwp_phy_diag), INTENT(IN)  :: prm_diag
+
+    REAL(wp),             INTENT(OUT) :: hbas_sc(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jc, idx
+
+    REAL(wp), PARAMETER :: undefValue = 0.0_wp
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,idx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+
+        IF ( prm_diag%ktype(jc,jb) == 2 ) THEN
+          ! the column is identified as shallow convection
+          idx = prm_diag%mbas_con( jc, jb)
+          hbas_sc(jc,jb) = p_metrics%z_mc( jc, idx, jb)
+       ELSE
+          hbas_sc(jc,jb) = undefValue
+        END IF
+
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_hbas_sc
+
+
+  !>
+  !! Calculate the height of top over MSL from the shallow convection parameterization.
+  !!
+  !! This subroutine is quite similar to compute_field_hbas_sc.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-22) 
+  !!
+  SUBROUTINE compute_field_htop_sc( ptr_patch,        &
+                                p_metrics, prm_diag,  &
+                                htop_sc )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nwp_phy_diag), INTENT(IN)  :: prm_diag
+
+    REAL(wp),             INTENT(OUT) :: htop_sc(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jc, idx
+
+    REAL(wp), PARAMETER :: undefValue = 0.0_wp
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,idx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+
+        IF ( prm_diag%ktype(jc,jb) == 2 ) THEN
+          ! the column is identified as shallow convection
+          idx = prm_diag%mtop_con( jc, jb)
+          htop_sc(jc,jb) = p_metrics%z_mc( jc, idx, jb)
+       ELSE
+          htop_sc(jc,jb) = undefValue
+        END IF
+
+      END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_htop_sc
+
+
+  !>
+  !! Calculate total column integrated water (twater)
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_twater( ptr_patch, jg,      &
+                                   p_metrics, p_prog,  &
+                                   twater )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    INTEGER,              INTENT(IN)  :: jg            ! domain ID of main grid
+    TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics
+    TYPE(t_nh_prog),      INTENT(IN)  :: p_prog
+
+    REAL(wp),             INTENT(OUT) :: twater(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: q_water( nproma, ptr_patch%nlev )
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+    twater( :, 1:i_startblk-1 ) = 0.0_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,q_water), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          q_water(jc,jk) = p_prog%tracer(jc,jk,jb,iqv)   &
+            &            + p_prog%tracer(jc,jk,jb,iqc)
+        END DO
+      END DO
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqi)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqi)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqr)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqr)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqs)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqs)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d) .AND. atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqg)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d) .AND. atm_phy_nwp_config(jg)%l2moment ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_water(jc,jk) = q_water(jc,jk) + p_prog%tracer(jc,jk,jb,iqh)
+          END DO
+        END DO
+      END IF
+
+      ! calculate vertically integrated mass
+
+      twater(:, jb) = 0.0_wp
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          twater(jc,jb) = twater(jc,jb)       &
+            &            + p_prog%rho(jc,jk,jb) * q_water(jc,jk) * p_metrics%ddqz_z_full(jc,jk,jb)
+        END DO
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_twater
+
+
+  !>
+  !! Calculate specific content of precipitation particles
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_q_sedim( ptr_patch, jg, p_prog, q_sedim )
+
+    IMPLICIT NONE
+
+    TYPE(t_patch),        INTENT(IN)  :: ptr_patch     !< patch on which computation is performed
+    INTEGER,              INTENT(IN)  :: jg            ! domain ID of main grid
+    TYPE(t_nh_prog),      INTENT(IN)  :: p_prog
+
+    REAL(wp),             INTENT(OUT) :: q_sedim(:,:,:)  !< output variable, dim: (nproma,nlev,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+    q_sedim( :, :, 1:i_startblk-1 ) = 0.0_wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      ! it is assumed that at least a warm rain Kessler scheme is used, i.e. qr is available too
+      DO jk = kstart_moist(jg), ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          q_sedim(jc,jk,jb) = p_prog%tracer(jc,jk,jb,iqr)
+        END DO
+      END DO
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqs)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqs)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d) .AND. atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqg)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d) .AND. atm_phy_nwp_config(jg)%l2moment ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_sedim(jc,jk,jb) = q_sedim(jc,jk,jb) + p_prog%tracer(jc,jk,jb,iqh)
+          END DO
+        END DO
+      END IF
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_q_sedim
+
+
+  !>
+  !! Calculate 
+  !!     TCOND_MAX   (total column-integrated condensate, max. during the last hour)
+  !! and TCOND10_MAX (total column-integrated condensate above z(T=-10 degC), max. during the last hour)
+  !! Here, compute columnwise amximum of these input fields and the newly computed fields.
+  !! 
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_tcond_max( ptr_patch, jg,                 &
+                                   p_metrics, p_prog, p_diag,        &
+                                   flag_tcond_max, flag_tcond10_max, &
+                                   tcond_max,      tcond10_max )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    INTEGER,            INTENT(IN)    :: jg                ! domain ID of main grid
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    LOGICAL,            INTENT(IN)    :: flag_tcond_max    ! if true, then calculate tcond_max
+    LOGICAL,            INTENT(IN)    :: flag_tcond10_max  ! if true, then calculate tcond10_max
+
+    REAL(wp),           INTENT(INOUT) :: tcond_max  (:,:)    !< output variable, dim: (nproma,nblks_c)
+    REAL(wp),           INTENT(INOUT) :: tcond10_max(:,:)    !< output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: q_cond( nproma, ptr_patch%nlev )
+    REAL(wp) :: tcond( nproma )
+
+    REAL(wp), PARAMETER :: Tzero_m_10K = 263.15    ! in K
+
+    ! Consistency check:
+    IF ( (.NOT. flag_tcond_max) .AND. (.NOT. flag_tcond10_max) ) THEN
+      CALL finish( "compute_field_tcond_max", "at least one of the two flags must be set to .TRUE." )
+    END IF
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,q_cond,tcond), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      ! it is assumed that at least a warm rain Kessler scheme is used, i.e. qr is available too
+      DO jk = kstart_moist(jg), ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+          q_cond(jc,jk) = p_prog%tracer(jc,jk,jb,iqc)  &
+            &           + p_prog%tracer(jc,jk,jb,iqr)
+        END DO
+      END DO
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqi)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqi)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqs)%p_3d ) ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqs)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqg)%p_3d) .AND. atm_phy_nwp_config(jg)%lhave_graupel ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqg)
+          END DO
+        END DO
+      END IF
+
+      IF ( ASSOCIATED( p_prog%tracer_ptr(iqh)%p_3d) .AND. atm_phy_nwp_config(jg)%l2moment ) THEN
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            q_cond(jc,jk) = q_cond(jc,jk) + p_prog%tracer(jc,jk,jb,iqh)
+          END DO
+        END DO
+      END IF
+
+      ! calculate vertically integrated mass
+
+      IF ( flag_tcond_max ) THEN
+        tcond( i_startidx: i_endidx) = 0.0_wp
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            tcond(jc) = tcond(jc)       &
+              &       + p_prog%rho(jc,jk,jb) * q_cond(jc,jk) * p_metrics%ddqz_z_full(jc,jk,jb)
+          END DO
+        END DO
+
+        DO jc = i_startidx, i_endidx
+          tcond_max( jc,jb ) = MAX( tcond_max( jc,jb ), tcond(jc) )
+        END DO
+      END IF
+
+      IF ( flag_tcond10_max ) THEN
+        tcond( i_startidx: i_endidx) = 0.0_wp
+        DO jk = kstart_moist(jg), ptr_patch%nlev
+          DO jc = i_startidx, i_endidx
+            IF ( p_diag%temp( jc,jk,jb) <= Tzero_m_10K ) THEN
+              tcond(jc) = tcond(jc)       &
+                &       + p_prog%rho(jc,jk,jb) * q_cond(jc,jk) * p_metrics%ddqz_z_full(jc,jk,jb)
+            END IF
+          END DO
+        END DO
+
+        DO jc = i_startidx, i_endidx
+          tcond10_max( jc,jb ) = MAX( tcond10_max( jc,jb ), tcond(jc) )
+        END DO
+      END IF
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+
+  END SUBROUTINE compute_field_tcond_max
+
+
+  !>
+  !! Calculate UH_MAX (updraft helicity, max.  during the last hour)
+  !! For the definition see: Kain et al. (2008) Wea. Forecasting
+  !!
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_uh_max( ptr_patch,                 &
+                                   p_metrics, p_prog, p_diag, &
+                                   uh_max )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp),           INTENT(INOUT) :: uh_max(:,:)    !< input/output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: zmin( nproma )
+    REAL(wp) :: zmax( nproma )
+    REAL(wp) :: uhel( nproma )
+    REAL(wp) :: w_c
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,zmin,zmax,uhel,w_c), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        zmin(jc) = MAX( p_metrics%z_ifc( jc, ptr_patch%nlev+1, jb) + 500.0_wp, 2000.0_wp )
+        zmax(jc) = zmin(jc) + 6000.0
+      END DO
+
+      uhel( i_startidx:i_endidx ) = 0.0_wp
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF ( ( p_metrics%z_mc( jc, jk, jb) >= zmin(jc) ) .AND.     &
+            &  ( p_metrics%z_mc( jc, jk, jb) <= zmax(jc) ) ) THEN
+
+            w_c = 0.5_wp * ( p_prog%w(jc,jk,jb) + p_prog%w(jc,jk+1,jb) )
+            ! a simple vertical integration; only updrafts are counted:
+            uhel(jc) = uhel(jc) + MAX( w_c, 0.0_wp) * p_diag%vor(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
+          END IF
+
+        END DO
+      END DO
+
+      DO jc = i_startidx, i_endidx
+        uh_max(jc,jb) = MERGE(uhel(jc), uh_max(jc,jb), ABS(uhel(jc)) > ABS(uh_max(jc,jb)) )
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_uh_max
+
+
+  !>
+  !! Calculate VORW_CTMAX (Maximum rotation amplitude during the last hour)
+  !!
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_vorw_ctmax( ptr_patch,          &
+                                       p_metrics, p_diag,  &
+                                       vorw_ctmax )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_diag),    INTENT(IN)    :: p_diag
+
+    REAL(wp),           INTENT(INOUT) :: vorw_ctmax(:,:)  !< input/output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    REAL(wp) :: zmin( nproma )
+    REAL(wp) :: zmax( nproma )
+    REAL(wp) :: vort( nproma )
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,zmin,zmax,vort), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jc = i_startidx, i_endidx
+        zmin(jc) = p_metrics%z_ifc( jc, ptr_patch%nlev+1, jb)
+        zmax(jc) = MAX( 3000.0_wp,  zmin(jc) + 1500.0_wp )
+      END DO
+
+      vort( i_startidx:i_endidx ) = 0.0_wp
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF ( ( p_metrics%z_mc( jc, jk, jb) >= zmin(jc) ) .AND.     &
+            &  ( p_metrics%z_mc( jc, jk, jb) <= zmax(jc) ) ) THEN
+            vort(jc) = vort(jc) + p_diag%vor(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
+          END IF
+
+        END DO
+      END DO
+
+      DO jc = i_startidx, i_endidx
+        vort(jc) = vort(jc) / (zmax(jc) - zmin(jc))
+        vorw_ctmax(jc,jb) = MERGE(vort(jc), vorw_ctmax(jc,jb), ABS(vort(jc)) > ABS(vorw_ctmax(jc,jb)) )
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_vorw_ctmax
+
+
+  !>
+  !! Calculate W_CTMAX (Maximum updraft track during the last hour)
+  !!
+  !! Implementation analogous to those of Uli Blahak in COSMO.
+  !!
+  !! @par Revision History
+  !! Initial revision by Michael Baldauf, DWD (2019-10-23) 
+  !!
+  SUBROUTINE compute_field_w_ctmax( ptr_patch,             &
+                                    p_metrics, p_prog,     &
+                                    w_ctmax )
+
+    TYPE(t_patch),      INTENT(IN)    :: ptr_patch         !< patch on which computation is performed
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog),    INTENT(IN)    :: p_prog
+
+    REAL(wp),           INTENT(INOUT) :: w_ctmax(:,:)    !< input/output variable, dim: (nproma,nblks_c)
+
+    INTEGER :: i_rlstart,  i_rlend
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_startidx, i_endidx
+    INTEGER :: jb, jk, jc
+
+    ! without halo or boundary  points:
+    i_rlstart = grf_bdywidth_c + 1
+    i_rlend   = min_rlcell_int
+
+    i_startblk = ptr_patch%cells%start_block( i_rlstart )
+    i_endblk   = ptr_patch%cells%end_block  ( i_rlend   )
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
+                          i_startidx, i_endidx, i_rlstart, i_rlend)
+
+      DO jk = 1, ptr_patch%nlev
+        DO jc = i_startidx, i_endidx
+
+          IF ( p_metrics%z_mc( jc, jk, jb) <= 10000.0_wp ) THEN
+            w_ctmax(jc,jb) = MAX( w_ctmax(jc,jb), p_prog%w(jc,jk,jb) )
+          END IF
+
+        END DO
+      END DO
+
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_field_w_ctmax
+
+
   !
   ! Add IAU increment to qv during IAU phase
   !
@@ -1818,6 +2639,38 @@ CONTAINS
         IF (qiana_mode > 0) THEN
           pt_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqi) + &
             iau_wgt_adv*pt_diag%rhoi_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ENDIF
+        IF (qrsgana_mode > 0) THEN
+          pt_prog_rcf%tracer(jc,jk,jb,iqr) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqr) + &
+            iau_wgt_adv * pt_diag%rhor_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          pt_prog_rcf%tracer(jc,jk,jb,iqs) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqs) + &
+            iau_wgt_adv * pt_diag%rhos_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ENDIF
+        IF (qrsgana_mode > 0 .AND. iqg <= iqm_max) THEN
+          pt_prog_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqg) + &
+            iau_wgt_adv * pt_diag%rhog_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+        ENDIF
+        IF (atm_phy_nwp_config(jg)%l2moment) THEN
+          IF (qcana_mode > 0) THEN
+            pt_prog_rcf%tracer(jc,jk,jb,iqnc) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnc) + &
+                 iau_wgt_adv * pt_diag%rhonc_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          END IF
+          IF (qiana_mode > 0) THEN
+            pt_prog_rcf%tracer(jc,jk,jb,iqni) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqni) + &
+                 iau_wgt_adv * pt_diag%rhoni_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          END IF
+          IF (qrsgana_mode > 0) THEN
+            pt_prog_rcf%tracer(jc,jk,jb,iqh) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqh) + &
+                 iau_wgt_adv * pt_diag%rhoh_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqnr) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnr) + &
+                 iau_wgt_adv * pt_diag%rhonr_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqns) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqns) + &
+                 iau_wgt_adv * pt_diag%rhons_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqng) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqng) + &
+                 iau_wgt_adv * pt_diag%rhong_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,iqnh) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnh) + &
+                 iau_wgt_adv * pt_diag%rhonh_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          END IF
         ENDIF
       ENDDO
     ENDDO
@@ -1956,7 +2809,7 @@ CONTAINS
     ENDDO
     
     ! clipping for number concentrations
-    IF(ANY((/4,5,6/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
+    IF(atm_phy_nwp_config(jg)%l2moment)THEN
       DO jt=iqni, ininact  ! qni,qnr,qns,qng,qnh,qnc and ninact (but not yet ninpot)
         DO jk = kstart_moist(jg), kend
           DO jc = i_startidx, i_endidx

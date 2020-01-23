@@ -66,7 +66,7 @@ MODULE mo_nwp_gscp_interface
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph, set_qnc, &
-       &                             set_qnr,set_qni,set_qns,set_qng
+       &                             set_qnr,set_qni,set_qns,set_qng,set_qnh
   USE mo_art_clouds_interface, ONLY: art_clouds_interface_2mom
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE gscp_data,               ONLY: cloud_num
@@ -128,7 +128,7 @@ CONTAINS
 
     INTEGER :: jc,jb,jg,jk               !<block indices
 
-    REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
+    REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma),rholoc,rhoinv
     LOGICAL  :: l_nest_other_micro
     LOGICAL  :: ltwomoment, ldiag_ttend, ldiag_qtend
 
@@ -183,7 +183,7 @@ CONTAINS
           i_endblk   = p_patch%cells%end_blk(i_rlend,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,rholoc,rhoinv) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = i_startblk, i_endblk
 
              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -191,11 +191,14 @@ CONTAINS
              
              DO jk = 1, nlev
                 DO jc = i_startidx, i_endidx
-                   p_prog_rcf%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_rcf%tracer(jc,jk,jb,iqc))
-                   p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr))
-                   p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi))
-                   p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs))
-                   p_prog_rcf%tracer(jc,jk,jb,iqng) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqg))
+                   rholoc = p_prog_rcf%rho(jc,jk,jb)
+                   rhoinv = 1.0_wp / rholoc
+                   p_prog_rcf%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_rcf%tracer(jc,jk,jb,iqc)*rholoc)*rhoinv
+                   p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr)*rholoc)*rhoinv
+                   p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi)*rholoc)*rhoinv
+                   p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs)*rholoc)*rhoinv
+                   p_prog_rcf%tracer(jc,jk,jb,iqng) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqg)*rholoc)*rhoinv
+                   p_prog_rcf%tracer(jc,jk,jb,iqnh) = set_qnh(p_prog_rcf%tracer(jc,jk,jb,iqh)*rholoc)*rhoinv
                 ENDDO
              ENDDO
           ENDDO

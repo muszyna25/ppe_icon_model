@@ -29,7 +29,7 @@ MODULE mo_td_ext_data
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_io_config,           ONLY: default_read_method
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_extpar_config,       ONLY: generate_td_filename, itopo, itype_vegetation_cycle
+  USE mo_extpar_config,       ONLY: generate_td_filename, itopo, itype_vegetation_cycle, itype_lwemiss
   USE mo_lnd_nwp_config,      ONLY: sst_td_filename, ci_td_filename, sstice_mode
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_radiation_config,    ONLY: albedo_type
@@ -169,6 +169,16 @@ CONTAINS
         &                        target_datetime,            &! in
         &                        ext_data%atm_td%albni_dif,  &! in
         &                        ext_data%atm%albni_dif      )! out
+
+    ENDIF
+
+    ! Interpolate also longwave emissivity data if monthly climatology is available
+    IF (itype_lwemiss == 2) THEN
+
+      CALL interpol_monthly_mean(p_patch,                   &! in
+        &                        target_datetime,           &! in
+        &                        ext_data%atm_td%lw_emiss,  &! in
+        &                        ext_data%atm%emis_rad      )! out
 
     ENDIF
 

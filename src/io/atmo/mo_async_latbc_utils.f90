@@ -27,7 +27,7 @@
     USE mpi
     USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
          &                            p_comm_work,                              &
-         &                            my_process_is_mpi_test
+         &                            my_process_is_mpi_test, get_my_global_mpi_id
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
@@ -302,12 +302,9 @@
       REAL(wp), ALLOCATABLE                 :: z_ifc_in(:,:,:)
 
       INTEGER, TARGET                       :: idummy(1)
-      INTEGER                               :: vlistID, taxisID, errno,  &
-        &                                      idate, iyear, imonth, iday, itime, ihour,   &
-        &                                      iminute, isecond, nlevs_read, nlevs
+      INTEGER                               :: errno, nlevs_read, nlevs
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
-      TYPE(datetime), POINTER               :: mtime_vdate
       LOGICAL                               :: l_exist
 
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
@@ -413,6 +410,15 @@
       ! Read atmospheric latbc data for nominal start date if necessary
       IF (.NOT. isRestart() .AND. (.NOT. latbc_config%init_latbc_from_fg .OR. timeshift%dt_shift < 0)) THEN
         latbc_read_datetime => newDatetime(time_config%tc_exp_startdate)
+        IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
+          latbc_filename      = generate_filename(nroot, latbc%patch_data%level, &
+            &                                     time_config%tc_exp_startdate, time_config%tc_exp_startdate)
+          latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
+
+          ! Compare validity date of the file with the requested date
+          CALL check_validity_date_and_print_filename(fileID_latbc, latbc_read_datetime, TRIM(latbc_full_filename))
+        ENDIF
+
         CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int_state, timelev, read_params, latbc_dict)
       ENDIF
 
@@ -470,8 +476,6 @@
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
         CALL finish(routine, "File not found: "//TRIM(latbc_full_filename))
-      ELSE
-        CALL message("","reading boundary data: "//TRIM(latbc_full_filename))
       ENDIF
 
       IF (my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN
@@ -483,19 +487,9 @@
           CALL finish(routine, "File "//TRIM(latbc_full_filename)//" cannot be opened: "//TRIM(cdiErrorText))
         ENDIF
 
-        ! consistency check: Make sure that the requested date is
-        ! actually contained in the file.
-      
-        vlistID = streamInqVlist(fileID_latbc)
-        taxisID = vlistInqTaxis(vlistID)
-        idate   = taxisInqVDate(taxisID)
-        itime   = taxisInqVTime(taxisID)
-        CALL cdiDecodeDate(idate, iyear, imonth, iday)
-        CALL cdiDecodeTime(itime, ihour, iminute, isecond)
-        mtime_vdate => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
-        IF (mtime_vdate /= latbc_read_datetime) THEN
-          CALL finish(routine, "requested date does not match file '"//TRIM(latbc_full_filename))
-        END IF
+        ! Compare validity date of the file with the requested date
+        CALL check_validity_date_and_print_filename(fileID_latbc, latbc_read_datetime, latbc_full_filename)
+
       ENDIF
 
       read_params(icell)%cdi_params = makeInputParameters(fileID_latbc, p_patch%n_patch_cells_g, p_patch%comm_pat_scatter_c)
@@ -908,13 +902,10 @@
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::prefetch_latbc_data"
 
       INTEGER(KIND=MPI_ADDRESS_KIND)        :: ioff(0:num_work_procs-1)
-      INTEGER                               :: jm, latbc_fileID, vlistID, taxisID, errno,  &
-        &                                      idate, iyear, imonth, iday, itime, ihour,   &
-        &                                      iminute, isecond, nlevs_read, nlevs
+      INTEGER                               :: jm, latbc_fileID, errno, nlevs_read, nlevs
       LOGICAL                               :: l_exist
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstringA, dstringB
       TYPE(datetime), POINTER               :: mtime_vdate
       LOGICAL                               :: lconst_data_only
       TYPE(datetime), POINTER               :: vDateTime_ptr  ! pointer to vDateTime
@@ -930,8 +921,6 @@
       latbc_filename = generate_filename(nroot, latbc%patch_data%level, &
         &                                latbc_read_datetime, time_config%tc_exp_startdate)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
-
-      WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
 
       ! Optional idle-wait-and-retry: Read process waits if files are
       ! not present. This is *not* performed for the first two time
@@ -951,26 +940,9 @@
          CALL finish(routine, "File "//TRIM(latbc_full_filename)//" cannot be opened: "//TRIM(cdiErrorText))
       ENDIF
 
-      ! consistency check: Make sure that the requested date is
-      ! actually contained in the file.
-      
-      vlistID = streamInqVlist(latbc_fileID)
-      taxisID = vlistInqTaxis(vlistID)
-      idate   = taxisInqVDate(taxisID)
-      itime   = taxisInqVTime(taxisID)
-      CALL cdiDecodeDate(idate, iyear, imonth, iday)
-      CALL cdiDecodeTime(itime, ihour, iminute, isecond)
-      mtime_vdate => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
-      IF (mtime_vdate /= latbc_read_datetime) THEN
-        CALL finish(routine, "requested date does not match file '"//TRIM(latbc_full_filename))
-      END IF
-      IF (msg_level >= 10) THEN
-        CALL datetimeToString(latbc_read_datetime, dstringA)
-        CALL datetimeToString(mtime_vdate, dstringB)
-        WRITE (0,*) "  read date: ", TRIM(dstringA)
-        WRITE (0,*) "  file date: ", TRIM(dstringB)
-      END IF
-
+      ! Compare validity date of the file with the requested date
+      CALL check_validity_date_and_print_filename(latbc_fileID, latbc_read_datetime, latbc_full_filename,   &
+        &                                         mtime_vdate=mtime_vdate)
 
       ! store validity datetime of current boundary data timeslice
       latbc%buffer%vDateTime = mtime_vdate
@@ -1060,6 +1032,65 @@
 #endif
     END SUBROUTINE prefetch_latbc_data
 
+    !-------------------------------------------------------------------------
+    !>
+    !! Consistency check: Make sure that the requested date is actually contained in the file.
+    !!                    Print the file name of the boundary file which will be read.
+    !!
+    SUBROUTINE check_validity_date_and_print_filename(fileID_latbc, latbc_read_datetime,  &
+      &                                               latbc_full_filename, mtime_vdate)
+
+      INTEGER, INTENT(IN)     :: &
+        &  fileID_latbc            !< LatBC file identifier
+      TYPE(datetime), INTENT(IN) :: &
+        &  latbc_read_datetime     !< Requested datetime of LatBC file
+      CHARACTER(LEN=*), INTENT(IN) :: &
+        &  latbc_full_filename     !< Path and file name of LatBC file
+      TYPE(datetime), POINTER, INTENT(INOUT),OPTIONAL :: &
+        &  mtime_vdate             !< LatBC file validity date as mtime object
+      ! Local variables
+      TYPE(datetime), POINTER :: &
+        &  mtime_vdate_loc         !< LatBC file validity date as mtime object
+      INTEGER                 :: &
+        &  errno,                & !< Error number
+        &  vlistID, taxisID,     & !< CDI identifiers for variables list and time axis
+        &  idate, iyear,         & !< Integer value of validity date: total date and year
+        &  imonth, iday,         & !< Integer value of validity date: month and day
+        &  itime, ihour,         & !< Integer value of validity time: total time and hour
+        &  iminute, isecond        !< Integer value of validity time: minute and second
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: &
+        &  dstringA,             & !< Requested date (used to generate filename) as string
+        &  dstringB                !< File validity date as string
+      CHARACTER(LEN=*),PARAMETER :: &
+        &  routine = modname//"::check_validity_date_and_print_filename"
+
+      vlistID = streamInqVlist(fileID_latbc)
+      taxisID = vlistInqTaxis(vlistID)
+      idate   = taxisInqVDate(taxisID)
+      itime   = taxisInqVTime(taxisID)
+      CALL cdiDecodeDate(idate, iyear, imonth, iday)
+      CALL cdiDecodeTime(itime, ihour, iminute, isecond)
+      mtime_vdate_loc => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
+      IF (msg_level >= 10) THEN
+        CALL datetimeToString(latbc_read_datetime, dstringA)
+        WRITE (message_text, '(5 A)')  TRIM(routine), ":: reading boundary data from file ",         &
+          &                            TRIM(latbc_full_filename), " for date: ", TRIM(dstringA)
+        WRITE (0,*) TRIM(message_text)
+      END IF
+      IF (mtime_vdate_loc /= latbc_read_datetime) THEN
+        CALL datetimeToString(latbc_read_datetime, dstringA)
+        CALL datetimeToString(mtime_vdate_loc, dstringB)
+        WRITE (message_text, '(6 A)')  "File validity date ", TRIM(dstringB)," of file ",            &
+          &                            TRIM(latbc_full_filename), " does not match requested date ", &
+          &                            TRIM(dstringA)
+        CALL finish(TRIM(routine), TRIM(message_text))
+      END IF
+
+      IF (PRESENT(mtime_vdate)) mtime_vdate => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
+
+      CALL deallocateDatetime(mtime_vdate_loc)
+
+    END SUBROUTINE check_validity_date_and_print_filename
 
     !-------------------------------------------------------------------------
     !>
@@ -1362,13 +1393,10 @@
     !
     SUBROUTINE async_pref_send_handshake()
 #ifndef NOMPI
-      INTEGER :: msg
       ! Simply send a message from Input prefetching PE 0 to work PE 0
       ! p_pe_work == 0 signifies processor 0 in Input prefetching PEs
       IF(p_pe_work == 0) THEN
-        msg = msg_pref_done
-        CALL p_isend(msg, p_work_pe0, TAG_PREFETCH2WORK)
-        CALL p_wait()
+        CALL p_send(msg_pref_done, p_work_pe0, TAG_PREFETCH2WORK)
       ENDIF
 #endif
     END SUBROUTINE async_pref_send_handshake
@@ -1393,6 +1421,7 @@
            CALL finish(routine, 'Compute PE: Got illegal prefetching tag: '//int2string(msg,'(i0)'))
          END IF
       ENDIF
+
       ! Wait in barrier until message is here
       CALL p_barrier(p_comm_work)
 #endif

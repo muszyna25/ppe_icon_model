@@ -34,8 +34,6 @@ MODULE mo_lnd_nwp_nml
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
-
-  USE mo_initicon_config,     ONLY: nlevsoil_in
   USE mo_lnd_nwp_config,      ONLY: config_nlev_snow          => nlev_snow         , &
     &                               config_ntiles             => ntiles_lnd        , &
     &                               config_frlnd_thrhld       => frlnd_thrhld      , &
@@ -59,6 +57,9 @@ MODULE mo_lnd_nwp_nml
     &                               config_itype_evsl         => itype_evsl        , &
     &                               config_itype_lndtbl       => itype_lndtbl      , &
     &                               config_itype_root         => itype_root        , &
+    &                               config_itype_canopy       => itype_canopy      , &
+    &                               config_cskinc             => cskinc            , &
+    &                               config_tau_skin           => tau_skin          , &
     &                               config_lstomata           => lstomata          , &
     &                               config_l2tls              => l2tls             , &
     &                               config_itype_heatcond     => itype_heatcond    , &
@@ -98,6 +99,9 @@ MODULE mo_lnd_nwp_nml
   REAL(wp)::  cwimax_ml         !< scaling parameter for maximum interception storage
   REAL(wp)::  c_soil            !< surface area density of the (evaporative) soil surface
   REAL(wp)::  c_soil_urb        !< surface area density of the (evaporative) soil surface, urban areas
+  INTEGER ::  itype_canopy      !< type of canopy parameterisation with respect to the surface energy balance
+  REAL(wp)::  cskinc            !< skin conductivity (W/m**2/K)
+  REAL(wp)::  tau_skin          !< relaxation time scale for the computation of the skin temperature
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
   INTEGER ::  itype_snowevap    !< treatment of snow evaporation in the presence of vegetation      
@@ -132,6 +136,7 @@ MODULE mo_lnd_nwp_nml
     &               itype_heatcond                                  , & 
     &               itype_interception                              , & 
     &               itype_hydbound                                  , & 
+    &               itype_canopy, cskinc, tau_skin                  , &
     &               lstomata                                        , & 
     &               l2tls                                           , & 
     &               lana_rho_snow, l2lay_rho_snow                   , & 
@@ -220,6 +225,15 @@ MODULE mo_lnd_nwp_nml
     c_soil         = 1._wp   ! surface area density of the (evaporative) soil surface
     c_soil_urb     = 1._wp   ! surface area density of the (evaporative) soil surface, urban areas
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
+    !
+    itype_canopy   = 1       ! type of canopy parameterisation with respect to the surface energy balance
+                             !  1: surface energy balance equation solved at the ground surface,
+                             !     canopy energetically not represented
+                             !  2: skin temperature formulation by Schulz and Vogel (2017),
+                             !     based on Viterbo and Beljaars (1995)
+    cskinc         = -1._wp  ! skin conductivity (W/m**2/K)
+    tau_skin      = 3600._wp ! relaxation time scale for the computation of the skin temperature
+    !
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
     lana_rho_snow  =.TRUE.   ! if .TRUE., take rho_snow-values from analysis file 
@@ -311,40 +325,43 @@ MODULE mo_lnd_nwp_nml
     ! 5. Fill the configuration state
     !----------------------------------------------------
 
-    config_nlev_snow   = nlev_snow
-    config_ntiles      = ntiles
-    config_frlnd_thrhld = frlnd_thrhld
-    config_frlndtile_thrhld = frlndtile_thrhld
-    config_frlake_thrhld = frlake_thrhld
-    config_frsea_thrhld = frsea_thrhld
-    config_lseaice     = lseaice
-    config_lprog_albsi = lprog_albsi 
-    config_llake       = llake
-    config_lmelt       = lmelt
-    config_lmelt_var   = lmelt_var
-    config_lmulti_snow = lmulti_snow
-    config_max_toplaydepth = max_toplaydepth
-    config_idiag_snowfrac = idiag_snowfrac
-    config_itype_snowevap = itype_snowevap
-    config_itype_trvg  = itype_trvg
-    config_itype_evsl  = itype_evsl
-    config_itype_lndtbl= itype_lndtbl
-    config_itype_root  = itype_root
-    config_lstomata    = lstomata
-    config_l2tls       = l2tls
-    config_itype_heatcond = itype_heatcond
+    config_nlev_snow          = nlev_snow
+    config_ntiles             = ntiles
+    config_frlnd_thrhld       = frlnd_thrhld
+    config_frlndtile_thrhld   = frlndtile_thrhld
+    config_frlake_thrhld      = frlake_thrhld
+    config_frsea_thrhld       = frsea_thrhld
+    config_lseaice            = lseaice
+    config_lprog_albsi        = lprog_albsi 
+    config_llake              = llake
+    config_lmelt              = lmelt
+    config_lmelt_var          = lmelt_var
+    config_lmulti_snow        = lmulti_snow
+    config_max_toplaydepth    = max_toplaydepth
+    config_idiag_snowfrac     = idiag_snowfrac
+    config_itype_snowevap     = itype_snowevap
+    config_itype_trvg         = itype_trvg
+    config_itype_evsl         = itype_evsl
+    config_itype_lndtbl       = itype_lndtbl
+    config_itype_root         = itype_root
+    config_itype_canopy       = itype_canopy
+    config_cskinc             = cskinc
+    config_tau_skin           = tau_skin
+    config_lstomata           = lstomata
+    config_l2tls              = l2tls
+    config_itype_heatcond     = itype_heatcond
     config_itype_interception = itype_interception
-    config_cwimax_ml   = cwimax_ml
-    config_c_soil      = c_soil
-    config_c_soil_urb  = c_soil_urb
-    config_itype_hydbound = itype_hydbound
-    config_lana_rho_snow  = lana_rho_snow
-    config_l2lay_rho_snow = l2lay_rho_snow
-    config_lsnowtile   = lsnowtile
-    config_sstice_mode   = sstice_mode
-    config_sst_td_filename = sst_td_filename
-    config_ci_td_filename = ci_td_filename
-    config_nlev_soil = nlev_soil
+    config_cwimax_ml          = cwimax_ml
+    config_c_soil             = c_soil
+    config_c_soil_urb         = c_soil_urb
+    config_itype_hydbound     = itype_hydbound
+    config_lana_rho_snow      = lana_rho_snow
+    config_l2lay_rho_snow     = l2lay_rho_snow
+    config_lsnowtile          = lsnowtile
+    config_sstice_mode        = sstice_mode
+    config_sst_td_filename    = sst_td_filename
+    config_ci_td_filename     = ci_td_filename
+    config_nlev_soil          = nlev_soil
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

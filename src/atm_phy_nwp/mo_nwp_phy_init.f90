@@ -44,8 +44,7 @@ MODULE mo_nwp_phy_init
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
   USE mo_fortran_tools,       ONLY: copy
-  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg, iqnc,  &
-    &                               iqnr, iqni, iqns, iqng, inccn, ininpot, msg_level
+  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
     &                               cldopt_filename, icpl_aero_conv, iprog_aero
   USE mo_extpar_config,       ONLY: itype_vegetation_cycle
@@ -74,9 +73,7 @@ MODULE mo_nwp_phy_init
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
-  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
-    &                               set_qnc, set_qnr, set_qni,   &
-    &                               set_qns, set_qng
+  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init
   USE mo_art_clouds_interface,ONLY: art_clouds_interface_2mom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
@@ -181,6 +178,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
   REAL(wp), PARAMETER :: pr800  = 800._wp / 1013.25_wp
   REAL(wp), PARAMETER :: pr400  = 400._wp / 1013.25_wp
+  REAL(wp), PARAMETER :: pr700  = 700._wp / 1013.25_wp
 
   REAL(wp) :: ttropo, ptropo, temp, zfull
 
@@ -482,8 +480,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           !
 
           ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
-          DO ic=1, ext_data%atm%spw_count(jb)
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+          DO ic=1, ext_data%atm%list_seawtr%ncount(jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
             IF (lseaice) THEN
               ! all points are open water points
               p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
@@ -498,21 +496,21 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
               & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          DO ic=1, ext_data%atm%spi_count(jb)
-            jc = ext_data%atm%idx_lst_spi(ic,jb)
+          DO ic=1, ext_data%atm%list_seaice%ncount(jb)
+            jc = ext_data%atm%list_seaice%idx(ic,jb)
             p_diag_lnd%qv_s    (jc,jb)    = &
               & spec_humi(sat_pres_ice(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          DO ic=1, ext_data%atm%fp_count(jb)
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
+          DO ic=1, ext_data%atm%list_lake%ncount(jb)
+            jc = ext_data%atm%list_lake%idx(ic,jb)
             ! lake points already initialized in mo_initicon_utils:copy_initicon2prog_sfc
             p_diag_lnd%qv_s    (jc,jb)    = &
               & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          DO ic=1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
+          DO ic=1, ext_data%atm%list_land%ncount(jb)
+            jc = ext_data%atm%list_land%idx(ic,jb)
             p_diag_lnd%qv_s(jc,jb) = &
               &  spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
             p_diag_lnd%qv_s(jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb), &
@@ -666,25 +664,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
     IF (jg == 1) CALL two_moment_mcrph_init(igscp=atm_phy_nwp_config(jg)%inwp_gscp, msg_level=msg_level )
 
-    IF (linit_mode) THEN ! Initial condition for number densities
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
-       DO jb = i_startblk, i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-               &                i_startidx, i_endidx, rl_start, rl_end)
-          DO jk=1,nlev
-             DO jc=i_startidx,i_endidx
-                p_prog_now%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_now%tracer(jc,jk,jb,iqc))
-                p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
-                p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
-                p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
-                p_prog_now%tracer(jc,jk,jb,iqng) = set_qng(p_prog_now%tracer(jc,jk,jb,iqg))
-             END DO
-          END DO
-       END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    END IF
+    ! Init of number concentrations moved to mo_initicon_io.f90 !!!
 
   CASE (5) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
@@ -692,77 +672,43 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     IF (jg == 1) CALL two_moment_mcrph_init(atm_phy_nwp_config(jg)%inwp_gscp,&
          &                                  N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
 
-    IF (linit_mode) THEN ! Initial condition for number densities
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
-       DO jb = i_startblk, i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-               &                i_startidx, i_endidx, rl_start, rl_end)
-          DO jk=1,nlev
-             DO jc=i_startidx,i_endidx
-                p_prog_now%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_now%tracer(jc,jk,jb,iqc))
-                p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
-                p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
-                p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
-                p_prog_now%tracer(jc,jk,jb,iqng) = set_qng(p_prog_now%tracer(jc,jk,jb,iqg))
-             END DO
-          END DO
-       END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    END IF
+    ! Init of number concentrations moved to mo_initicon_io.f90 !!!
 
+    ! This needs to be coupled to the aerosols (e.g., Tegen climatology)
     IF (linit_mode) THEN ! Initial condition for CCN and IN fields
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jk1,jc,i_startidx,i_endidx,zfull) ICON_OMP_GUIDED_SCHEDULE
-       DO jb = i_startblk, i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-               &                i_startidx, i_endidx, rl_start, rl_end)
-          DO jk=1,nlev
-             DO jc=i_startidx,i_endidx
-                jk1 = jk + nshift
-                zfull = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
-                IF(zfull > z0_nccn) THEN
-                   p_prog_now%tracer(jc,jk,jb,inccn) = N_cn0*exp((z0_nccn-zfull)/z1e_nccn)
-                ELSE
-                   p_prog_now%tracer(jc,jk,jb,inccn) = N_cn0
-                END IF
-                IF(zfull > z0_nin) THEN
-                   p_prog_now%tracer(jc,jk,jb,ininpot)  = N_in0*exp((z0_nin -zfull)/z1e_nin)
-                ELSE
-                   p_prog_now%tracer(jc,jk,jb,ininpot)  = N_in0
-                END IF
-             END DO
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                i_startidx, i_endidx, rl_start, rl_end)
+        DO jk=1,nlev
+          DO jc=i_startidx,i_endidx
+            jk1 = jk + nshift
+            zfull = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
+            IF(zfull > z0_nccn) THEN
+              p_prog_now%tracer(jc,jk,jb,inccn) = N_cn0*EXP((z0_nccn-zfull)/z1e_nccn)
+            ELSE
+              p_prog_now%tracer(jc,jk,jb,inccn) = N_cn0
+            END IF
+            IF(zfull > z0_nin) THEN
+              p_prog_now%tracer(jc,jk,jb,ininpot)  = N_in0*EXP((z0_nin -zfull)/z1e_nin)
+            ELSE
+              p_prog_now%tracer(jc,jk,jb,ininpot)  = N_in0
+            END IF
           END DO
-       END DO
+        END DO
+      END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     END IF
   CASE (6) ! two-moment scheme with prognostic cloud droplet number
            ! and chemical composition taken from the ART extension
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: ART two-moment')
-
+    
     IF (jg == 1) CALL art_clouds_interface_2mom_init(msg_level)
 
-    IF (linit_mode) THEN ! Initial condition for number densities
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
-       DO jb = i_startblk, i_endblk
-          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-               &                i_startidx, i_endidx, rl_start, rl_end)
-          DO jk=1,nlev
-             DO jc=i_startidx,i_endidx
-                p_prog_now%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_now%tracer(jc,jk,jb,iqc))
-                p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
-                p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
-                p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
-                p_prog_now%tracer(jc,jk,jb,iqng) = set_qng(p_prog_now%tracer(jc,jk,jb,iqg))
-             END DO
-          END DO
-       END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-    END IF
+    ! Init of number concentrations moved to mo_initicon_io.f90 !!!
+
   END SELECT
 
   ! Compute lookup tables for aerosol-microphysics coupling
@@ -1154,11 +1100,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   ! convective contribution to wind gusts
   !
   ! k800, k400 will be used for inwp_convection==0 as well. 
+  ! k700 is used for LHN data assimilation
   ! Thus we need to make sure that they are initialized.
   prm_diag%k850(:,:) = nlev
   prm_diag%k950(:,:) = nlev
   prm_diag%k800(:,:) = nlev
   prm_diag%k400(:,:) = nlev
+  prm_diag%k700(:,:) = nlev
 
   rl_start = 1  ! Initialization should be done for all points
   rl_end   = min_rlcell
@@ -1201,6 +1149,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       DO jk=nlev-1, 2, -1
         zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
         IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
+        IF (zpres/zpres0 >= pr700) prm_diag%k700(jc,jb) = jk
         IF (zpres/zpres0 >= pr400*SQRT(p0ref/zpres0)) THEN
           prm_diag%k400(jc,jb) = jk
         ELSE
@@ -1283,8 +1232,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
           DO jt = 1, ntiles_total
 !CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, ext_data%atm%lp_count(jb)
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
+            DO ic = 1, ext_data%atm%list_land%ncount(jb)
+              jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
               gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav * (             &
                (1._wp-p_diag_lnd%snowfrac_t(jc,jb,jt))*ext_data%atm%z0_lcc(lc_class)+  &
@@ -1292,22 +1241,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             ENDDO
           ENDDO
           IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN
-            DO ic = 1, ext_data%atm%lp_count(jb)
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
+            DO ic = 1, ext_data%atm%list_land%ncount(jb)
+              jc = ext_data%atm%list_land%idx(ic,jb)
               gz0(jc) = gz0(jc) + grav*MIN(fact_z0rough*ext_data%atm%sso_stdh_raw(jc,jb)**2,7.5_wp)
             ENDDO
           ENDIF
           DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
 !CDIR NODEP,VOVERTAKE,VOB
-            DO ic = 1, ext_data%atm%lp_count(jb)
-              jc = ext_data%atm%idx_lst_lp(ic,jb)
+            DO ic = 1, ext_data%atm%list_land%ncount(jb)
+              jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
               gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
             ENDDO
           ENDDO
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data%atm%lp_count(jb)
-            jc = ext_data%atm%idx_lst_lp(ic,jb)
+          DO ic = 1, ext_data%atm%list_land%ncount(jb)
+            jc = ext_data%atm%list_land%idx(ic,jb)
             prm_diag%gz0(jc,jb) = gz0(jc)
           ENDDO
         ENDDO  !jb

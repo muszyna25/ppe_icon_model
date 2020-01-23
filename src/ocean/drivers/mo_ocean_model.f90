@@ -108,7 +108,7 @@ MODULE mo_ocean_model
   USE mo_ocean_diagnostics,    ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
   USE mo_ocean_testbed,        ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
-  USE mo_io_config,            ONLY: restartWritingParameters
+  USE mo_io_config,            ONLY: restartWritingParameters, write_initial_state
   USE mo_ocean_time_events,    ONLY: init_ocean_time_events, getCurrentDate_to_String
   !-------------------------------------------------------------
   ! For the coupling
@@ -192,7 +192,7 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
-    IF (output_mode%l_nml .and. .true.) THEN
+    IF (output_mode%l_nml .and. write_initial_state) THEN
       CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_oce_sfc,v_sea_ice, operators_coefficients)
     ENDIF
     !------------------------------------------------------------------

@@ -33,6 +33,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
+    &  lswr_jerlov, &
     &  Cartesian_Mixing, GMRedi_configuration, use_tides, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
@@ -80,6 +81,7 @@ MODULE mo_hydro_ocean_run
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
   USE mo_var_list
+  USE mo_swr_absorption,         ONLY: jerlov_swr_absorption
   USE mo_ocean_statistics
   USE mo_ocean_to_hamocc_interface, ONLY: ocean_to_hamocc_interface
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
@@ -161,6 +163,14 @@ CONTAINS
 !       & ocean_state(1)%p_diag,                     &
 !       & operators_coefficients)
 !     CALL update_ho_params(patch_3d, ocean_state(1), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+
+    ! calculate the constant jerlov type subsurface sw absoption factor
+   
+    IF ( lswr_jerlov ) THEN
+
+      CALL jerlov_swr_absorption(patch_3d, ocean_state)
+
+    ENDIF
 
  ! 
   END SUBROUTINE prepare_ho_stepping
@@ -393,8 +403,9 @@ CONTAINS
           & in_subset=patch_2d%cells%owned)
 
         !---------------------------------------------------------------------
-
-        CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+        !by_ogut: added p_oce_sfc
+        CALL update_ho_params(patch_3d, ocean_state(jg), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients, &
+                              p_atm_f, p_oce_sfc)
 
         !------------------------------------------------------------------------
         IF (debug_check_level > 5) THEN
@@ -672,7 +683,8 @@ CONTAINS
       start_timer(timer_tracer_ab,1)
 
       IF (GMRedi_configuration==Cartesian_Mixing) THEN
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
+          &   p_phys_param) !by_Oliver
       ELSE
         CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
           &  ocean_state, transport_state, p_phys_param, operators_coefficients)

@@ -220,6 +220,16 @@ lhn\_relax = .TRUE.
 \tabularnewline
 
 %\hline
+ {lhn\_wweight}&
+L&
+.FALSE.&
+&
+Reduction of the LHN temperature increment in case of strong advection, messured by horizontal wind in 950, 850 and 700 hPa.\\
+The reduction is done linearly down to cero.&
+\tabularnewline
+
+
+%\hline
  {lhn\_artif}&
 L&
 .TRUE.&
@@ -234,6 +244,15 @@ R&
 5.0&
 &
 Value of the ratio of radar to model precipitation rate, from which an artificial temperature profile is applied&
+lhn\_artif=.TRUE.
+\tabularnewline
+
+%\hline
+ {fac\_lhn\_artif\_tune}&
+R&
+1.0&
+&
+Tuning factor to optimize the effectiveness of the artificial profile.&
 lhn\_artif=.TRUE.
 \tabularnewline
 
@@ -336,7 +355,7 @@ Apply a blacklist information in the radar data obtained by comparison against s
 %\hline
  {blacklist\_file(:)}&
 C (n\_dom)&
-&
+'radarblacklist.nc'&
 &
 Name of blacklist file, containing a mask concerning the quality of the radar data.\\
 Value 1: good quality\\
@@ -356,7 +375,7 @@ Apply a model intern bright band detection to avoid strong overestimation due to
 %\hline
  {height\_file(:)}&
 C (n\_dom)&
-&
+'radarheight.nc'&
 &
 Name of file containing the height of the lowest scan for each possible radar station within the given radar composite.\\
 This file is required, when applying bright band detection.\\
@@ -367,9 +386,9 @@ lhn\_bright=.TRUE.
 %\hline
  {nradar}&
 I (n\_dom)&
-200&
+20&
 &
-Maximal number of radar station contained within height\_file&
+Maximal number of radar height layers contained within height\_file&
 lhn\_bright=.TRUE.
 \tabularnewline
 
@@ -1468,6 +1487,25 @@ echam\_phy\_config(jg)\% dt\_vdf > 0.000s \tabularnewline
 \end{longtab}
 
 %------------------------------------------------------------------------------
+% echam_wmp_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_wmo\_nml}
+
+The diagnostics of the tropopause pressure, following the WMO definition is configured by a data structure \textit{echam\_wmo\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains:
+
+\begin{longtab}
+%
+echam\_wmo\_config(jg)\% zmaxwmo & R & 38000. & m &
+maximum height for tropopause search &
+\tabularnewline
+%
+echam\_wmo\_config(jg)\% zminwmo & R & 5000. & m &
+minimum height for tropopause search &
+\tabularnewline
+%
+\end{longtab}
+
+%------------------------------------------------------------------------------
 % ensemble_pert_nml:
 %------------------------------------------------------------------------------
 \subsection{ensemble\_pert\_nml}
@@ -2505,7 +2543,7 @@ init\_mode=5,6
 %\hline
 qcana\_mode&
 I & 0 & &
-If $>$ 0, analysis increments for cloud water are read and processed. \\
+If $>$ 0, analysis increments for cloud water concentration are read and processed. \\
 1: QC increments are added to QV increments \\
 2: QC increments are added to QC if clouds are present, otherwise to QV increments &
 init\_mode=5
@@ -2514,8 +2552,25 @@ init\_mode=5
 %\hline
 qiana\_mode&
 I & 0 & &
-1: analysis increments for cloud ice are read and processed.  &
+1: analysis increments for cloud ice concentration are read and processed.  &
 init\_mode=5
+\tabularnewline
+
+%\hline
+qrsgana\_mode&
+I & 0 & &
+1: analysis increments for rain, snow and graupel mass concentrations are read and processed. In case of the 2-moment microphysics (inwp\_gscp=4,5,6), also hail mass concentration increments are processed. &
+init\_mode=5
+\tabularnewline
+
+% \hline
+qnxana\_2mom\_mode&
+I & 0 & &
+Only effective in case of 2-moment microphysics (inwp\_gscp=4,5,6).
+Affects the analysis increments of the the number concentrations of those hydrometeors in IAU which have been selected by the settings of qcana\_mode, qiana\_mode and qrsgana\_mode: \\
+0: analysis increments are not taken from analysis files but diagnosed based on the mass concentrations (from fg) and mass increments.  \\
+1: analysis increments are taken from the analysis files. If missing for a specific hydrometeor type, they are diagnosed similar to option 0 as a fallback. &
+init\_mode=5, inwp\_gscp=4,5,6
 \tabularnewline
 
 %\hline
@@ -3509,7 +3564,6 @@ I & 1 &  & Type of snow-fraction diagnosis:\\
 (shold be used only in combination with lsnowtile=.TRUE.&
 \tabularnewline
 
-
 %\hline
 itype\_snowevap &
 I & 2 &  & Tuning of snow evaporation in vegetated areas:\\ 
@@ -3520,58 +3574,77 @@ I & 2 &  & Tuning of snow evaporation in vegetated areas:\\
 lsnowtile=.TRUE.
 \tabularnewline
 
-
 %\hline
 itype\_lndtbl &
 I & 3 &  & Table values used for associating surface parameters to land-cover classes: \\
-1 = defaults from extpar (GLC2000 and GLOBCOVER2009)\\
-2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only)\\
+1 = defaults from extpar (GLC2000 and GLOBCOVER2009) \\
+2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only) \\
 3 = even more tuned operational version (GLOBCOVER2009 only) \\
 4 = tuned version for new bare soil evaporation scheme (itype\_evsl=4) &
 \tabularnewline
 
 %\hline
 itype\_root &
-I & 2 &  & root density distribution: \\
-1 = constant\\
+I & 2 &  & type of root density distribution \\
+1 = constant \\
 2 = exponential &
 \tabularnewline
 
 %\hline
 itype\_evsl &
 I & 2 &  & type of bare soil evaporation parameterization \\
-2 = Dickinson (1984)\\
-3 = Noilhan and Planton (1989) \\
-4 = Resistance-based scheme by Jan-Peter Schulz &
+2 = BATS scheme, Dickinson (1984) \\
+3 = ISBA scheme, Noilhan and Planton (1989) \\
+4 = Resistance-based scheme by Schulz and Vogel (2016) &
 \tabularnewline
 
 %\hline
 itype\_trvg &
 I & 2 &  & type of plant transpiration parameterization \\
-2 = BATS scheme, Dickinson (1984)\\
+2 = BATS scheme, Dickinson (1984) \\
 3 = Extended BATS scheme with additional prognostic variable for integrated plant transpiration since sunrise; 
 should be used only with an appropriate first guess for this variable coming from the DWD assimilation cycle &
 \tabularnewline
 
 %\hline
+itype\_canopy &
+I & 1 &  & Type of canopy parameterization with respect to surface energy balance \\
+1 = Surface energy balance equation solved at the ground surface, canopy energetically not represented \\
+2 = Skin temperature formulation by Schulz and Vogel (2017), based on Viterbo and Beljaars (1995) &
+\tabularnewline
+
+%\hline
+cskinc &
+R & $-1.0$ & $\mathrm{W m^{-2} K^{-1}}$ & Skin conductivity \\
+For cskinc < 0, an external parameter field SKC is read and used \\
+For cskinc > 0, this globally constant value is used in the whole model domain \\
+Reasonable range: 10.0 -- 1000.0 &
+\tabularnewline
+
+%\hline
+tau\_skin &
+R & 3600. & s & Relaxation time scale for the computation of the skin temperature  &
+\tabularnewline
+
+%\hline
 itype\_heatcond &
 I & 2 &  & type of soil heat conductivity \\
-1 = constant soil heat conductivity\\
-2 = moisture dependent soil heat conductivity\\
+1 = constant soil heat conductivity \\
+2 = moisture dependent soil heat conductivity, cf.\ Schulz et al.\ (2016) \\
 3 = variant of option 2 with reduced near-surface heat conductivity in the presence of plant cover &
 \tabularnewline
 
 %\hline
 itype\_interception &
 I & 1 &  & type of plant interception \\
-1 = standard scheme, effectively switched off by tiny value cwimax\_ml\\
+1 = standard scheme, effectively switched off by tiny value cwimax\_ml \\
 2 = Rain and snow interception (\textcolor{red}{to be removed}) &
 \tabularnewline
 
 %\hline
 cwimax\_ml &
-R & 1.e-6 & m & scaling parameter for maximum interception storage (almost switched off); \\
-use 5.e-4 to activate interception storage & itype\_interception = 1
+R & $1.e-6$ & m & scaling parameter for maximum interception storage (almost switched off); \\
+use $5.e-4$ to activate interception storage & itype\_interception = 1 
 \tabularnewline
 
 %\hline
@@ -5045,6 +5118,17 @@ run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
 \hline
+icpl\_turb\_clc&
+I&
+1&
+&
+Mode of coupling between turbulence and cloud cover\\
+1: strong dependency of box width on rcld with upper and lower limit \\
+2: weak dependency of box width on rcld with additive term and upper limit &
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+\hline
 lcalib\_clcov&
 L&
 .TRUE.&
@@ -5080,6 +5164,15 @@ MODIS albedo tuning\\
 1: dimmed sahara&
 run\_nml:iforcing = inwp\\
 albedo\_type=2
+\tabularnewline
+
+\hline
+tune\_difrad\_3dcont&
+R&
+0.5&
+&
+Tuning factor for 3D contribution to diagnosed diffuse radiation (no impact on prognostic results!) &
+inwp\_radiation = 1 or 4
 \tabularnewline
 
 
@@ -8466,11 +8559,14 @@ If .TRUE., sea point heights will be reverted to original (raw data) heights aft
 \tabularnewline
 
 %\hline
-l\_emiss&
-L &
-.TRUE.&
+itype\_lwemiss&
+I &
+1 &
 &
-read and use  external surface emissivity map
+Type of data used for longwave surface emissivity: \\
+0: No data; use constant fallback value instead \\
+1: Read and use emissivities derived in extpar from landuse classes \\
+2: Read and use monthly climatologies derived from satellite measurements
 &
 itopo = 1
 \tabularnewline

@@ -71,6 +71,10 @@ SERIALBOX2ROOT        = @SERIALBOX2ROOT@
 SERIALBOX2_LIB        = @SERIALBOX2_LIB@
 SERIALBOX2_INCLUDE    = @SERIALBOX2_INCLUDE@
 
+CLAWFC = @CLAWFC@
+ROOT_DIR = @abs_builddir@
+CLAWFC_FLAGS = @CLAWFC_FLAGS@
+
 OTHER_LIBS     = @OTHER_LIBS@
 
 LIBS           = @LIB@ $(LAPACK_LIB) $(NETCDF_LIB) $(CDI_LIB) $(HDF5_LIB) $(SZIP_LIB) $(ZLIB_LIB) $(GRIBAPI_LIB) $(XML2_LIB) $(YAXT_LIB) $(MPI_LIB) $(PROFILE_LIB) $(SCT_LIB) $(OTHER_LIBS) $(SERIALBOX2_LIB)
@@ -81,6 +85,10 @@ AS             = @AS@
 
 CC             = @CC@
 CFLAGS         = $(INCLUDE) @CFLAGS@
+
+NVCC           = @NVCC@
+NVCFLAGS       = @NVCFLAGS@
+
 FC             = @FC@
 FFLAGS         = $(INCLUDES) @MODDIR@ @FFLAGS@
 FlibFLAGS      = $(INCLUDES) @MODDIR@ @FlibFLAGS@
@@ -154,7 +162,7 @@ distclean:
 	-rm config.log
 	-rm config.status
 	-rm config/config.h
-	-rm config/mh-config-use
+	-rm -f config/mh-config-use
 	-rm config/set-up.info
 	-rm -rf doc/html
 	-rm -rf doc/latex

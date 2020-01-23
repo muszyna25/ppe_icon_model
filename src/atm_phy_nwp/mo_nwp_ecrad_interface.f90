@@ -35,9 +35,7 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-#if defined __xlC__
-@PROCESS SPILL(1058)
-#endif
+
 MODULE mo_nwp_ecrad_interface
 
   USE mo_kind,                   ONLY: wp
@@ -72,7 +70,7 @@ MODULE mo_nwp_ecrad_interface
                                    &   ecrad_set_thermodynamics,                 &
                                    &   ecrad_set_clouds,                         &
                                    &   ecrad_set_gas,                            &
-                                   &   ecrad_store_fluxes
+                                   &   ecrad_store_fluxes, add_3D_diffuse_rad
 #endif
 
 
@@ -142,6 +140,7 @@ CONTAINS
       &  fact_reffc               !< Factor in the calculation of cloud droplet effective radius
     INTEGER                  :: &
       &  jc, jb,                & !< Loop indices
+      &  jg,                    & !< Domain index
       &  nlev, nlevp1,          & !< Number of vertical levels (full, half)
       &  rl_start, rl_end,      & !< 
       &  i_startblk, i_endblk,  & !< blocks
@@ -151,6 +150,7 @@ CONTAINS
 
     nlev      = pt_patch%nlev
     nlevp1    = nlev+1
+    jg        = pt_patch%id
 
     fact_reffc = (3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
     
@@ -176,26 +176,23 @@ CONTAINS
       CALL ecrad_aerosol%allocate_direct(ecrad_conf, nproma, 1, nlev)
     ENDIF
 
+    CALL ecrad_flux%allocate(ecrad_conf, 1, nproma, nlev)
+
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
     i_startblk = pt_patch%cells%start_block(rl_start)
     i_endblk   = pt_patch%cells%end_block(rl_end)
 
-!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask,ecrad_flux)              &
+!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask)                         &
 !$OMP          FIRSTPRIVATE(ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,  &
-!$OMP                       ecrad_gas, ecrad_cloud)
+!$OMP                       ecrad_gas, ecrad_cloud,ecrad_flux)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
 
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
-
-      ! ecrad_flux has to be allocated within the jb loop as the fields are allocated from 
-      ! i_startidx to i_endidx. This is in contrast to the ecrad input containers which are
-      ! allocated for the full nproma length.
-      CALL ecrad_flux%allocate(ecrad_conf, i_startidx, i_endidx, nlev)
 
       cosmu0mask(:) = .FALSE.
       DO jc = i_startidx, i_endidx
@@ -268,19 +265,25 @@ CONTAINS
         &        ecrad_gas,                               & !< ecRad gas configuration object (input)
         &        ecrad_cloud,                             & !< ecRad cloud configuration object (input)
         &        ecrad_aerosol,                           & !< ecRad aerosol configuration object (input)
-        &        ecrad_flux                               ) !< ecRad fluxes (output)
+        &        ecrad_flux                               ) !< ecRad fluxes in the longwave BUT flux/solar constant in the shortwave (output)
+
 !---------------------------------------------------------------------------------------
 
 ! Update ICON variables with fluxes from ecRad
-      CALL ecrad_store_fluxes(ecrad_flux, prm_diag%cosmu0(:,jb), prm_diag%trsolall(:,:,jb),    &
-        &                     prm_diag%trsol_up_toa(:,jb), prm_diag%trsol_up_sfc(:,jb),        &
-        &                     prm_diag%trsol_par_sfc(:,jb), prm_diag%trsol_dn_sfc_diff(:,jb),  &
-        &                     prm_diag%trsolclr_sfc(:,jb), prm_diag%lwflxall(:,:,jb),          &
-        &                     prm_diag%lwflx_up_sfc_rs(:,jb), prm_diag%lwflxclr_sfc(:,jb),     &
+      CALL ecrad_store_fluxes(jg, ecrad_flux, prm_diag%cosmu0(:,jb), prm_diag%trsolall    (:,:,jb),  &
+        &                     prm_diag%trsol_up_toa   (:,jb), prm_diag%trsol_up_sfc     (:,jb),  &
+        &                     prm_diag%trsol_par_sfc  (:,jb), prm_diag%trsol_dn_sfc_diff(:,jb),  &
+        &                     prm_diag%trsolclr_sfc   (:,jb), prm_diag%lwflxall       (:,:,jb),  &
+        &                     prm_diag%lwflx_up_sfc_rs(:,jb), prm_diag%lwflxclr_sfc     (:,jb),  &
+        &                     prm_diag%lwflx_up     (:,:,jb), prm_diag%lwflx_dn       (:,:,jb),  &
+        &                     prm_diag%swflx_up     (:,:,jb), prm_diag%swflx_dn       (:,:,jb),  &
+        &                     prm_diag%lwflx_up_clr (:,:,jb), prm_diag%lwflx_dn_clr   (:,:,jb),  &
+        &                     prm_diag%swflx_up_clr (:,:,jb), prm_diag%swflx_dn_clr   (:,:,jb),  &  
         &                     cosmu0mask(:), i_startidx, i_endidx, nlevp1)
 
-      ! CLEANUP
-      CALL ecrad_flux%deallocate
+      ! Add 3D contribution to diffuse radiation
+      CALL add_3D_diffuse_rad(ecrad_flux, prm_diag%clc(:,:,jb), pt_diag%pres(:,:,jb), pt_diag%temp(:,:,jb),      &
+        &                     prm_diag%cosmu0(:,jb), prm_diag%trsol_dn_sfc_diff(:,jb), i_startidx, i_endidx, nlev)
 
     ENDDO ! jb
 !$OMP END DO NOWAIT
@@ -363,7 +366,8 @@ CONTAINS
       &  nlev_rg, nlev_rgp1,    & !< number of full and half levels at reduced grid
       &  rl_start, rl_end,      & !< 
       &  i_startblk, i_endblk,  & !< blocks
-      &  i_startidx, i_endidx     !< slices
+      &  i_startidx, i_endidx,  & !< slices
+      &  np, nl                   !< dimension variables for allocation (3d fluxes)
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
@@ -399,7 +403,15 @@ CONTAINS
       &  zrg_trsol_clr_sfc(:,:),     & !< Clear-sky net transmissvity at surface on reduced grid
       &  zrg_aclcov(:,:),            & !< Cloud cover on reduced grid
       &  zrg_trsol_par_sfc(:,:),     & !< Photosynthetically active radiation
-      &  zrg_lwflx_clr_sfc(:,:)        !< clear-sky net LW flux at surface
+      &  zrg_lwflx_clr_sfc(:,:),     & !< clear-sky net LW flux at surface
+      &  zrg_lwflx_up    (:,:,:),    & !< longwave  3D upward   flux          
+      &  zrg_lwflx_dn    (:,:,:),    & !< longwave  3D downward flux           
+      &  zrg_swflx_up    (:,:,:),    & !< shortwave 3D upward   flux          
+      &  zrg_swflx_dn    (:,:,:),    & !< shortwave 3D downward flux          
+      &  zrg_lwflx_up_clr(:,:,:),    & !< longwave  3D upward   flux clear-sky
+      &  zrg_lwflx_dn_clr(:,:,:),    & !< longwave  3D downward flux clear-sky
+      &  zrg_swflx_up_clr(:,:,:),    & !< shortwave 3D upward   flux clear-sky
+      &  zrg_swflx_dn_clr(:,:,:)       !< shortwave 3D downward flux clear-sky
     ! Some unused variables to be up- and downscaled (to not change the interface to up- and downscale)
     REAL(wp), ALLOCATABLE, TARGET :: &
       &  aclcov(:,:),                & !< Cloud cover
@@ -458,6 +470,8 @@ CONTAINS
       CALL ecrad_aerosol%allocate_direct(ecrad_conf, nproma, 1, nlev_rg)
     ENDIF
 
+    CALL ecrad_flux%allocate(ecrad_conf, 1, nproma, nlev_rg)
+
     ALLOCATE(cosmu0mask(nproma))
 
     ! Allocate for reduced radiation grid
@@ -479,10 +493,27 @@ CONTAINS
       &      zrg_trsol_clr_sfc    (nproma,nblks_par_c),     &
       &      zrg_lwflx_clr_sfc    (nproma,nblks_par_c),     &
       &      aclcov               (nproma,pt_patch%nblks_c))
+      
+    ! Set dimensions for 3D radiative flux variables
+    IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+       np = nproma
+       nl = nlev_rgp1
+    ELSE
+       np = 1
+       nl = 1
+    END IF
 
-    ALLOCATE(zrg_pres_ifc (nproma,nlev_rgp1,nblks_par_c),   &
-      &      zrg_lwflxall (nproma,nlev_rgp1,nblks_par_c),   &
-      &      zrg_trsolall (nproma,nlev_rgp1,nblks_par_c))
+    ALLOCATE(zrg_pres_ifc    (nproma,nlev_rgp1,nblks_par_c),&
+      &      zrg_lwflxall    (nproma,nlev_rgp1,nblks_par_c),&
+      &      zrg_trsolall    (nproma,nlev_rgp1,nblks_par_c),&
+      &      zrg_lwflx_up    (np, nl, nblks_par_c),&
+      &      zrg_lwflx_dn    (np, nl, nblks_par_c),&   
+      &      zrg_swflx_up    (np, nl, nblks_par_c),&
+      &      zrg_swflx_dn    (np, nl, nblks_par_c),&
+      &      zrg_lwflx_up_clr(np, nl, nblks_par_c),&
+      &      zrg_lwflx_dn_clr(np, nl, nblks_par_c),&
+      &      zrg_swflx_up_clr(np, nl, nblks_par_c),&
+      &      zrg_swflx_dn_clr(np, nl, nblks_par_c) )
 
     ALLOCATE(zrg_pres     (nproma,nlev_rg  ,nblks_par_c),   &
       &      zrg_temp     (nproma,nlev_rg  ,nblks_par_c),   &
@@ -523,6 +554,17 @@ CONTAINS
     CALL init(zrg_lwflx_up_sfc(:,:)     )
     CALL init(zrg_lwflx_clr_sfc(:,:)    )
     CALL init(zrg_aclcov(:,:)           )
+ 
+    IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
+      CALL init(zrg_lwflx_up    (:,:,:), 0._wp)   
+      CALL init(zrg_lwflx_dn    (:,:,:), 0._wp)     
+      CALL init(zrg_swflx_up    (:,:,:), 0._wp)  
+      CALL init(zrg_swflx_dn    (:,:,:), 0._wp) 
+      CALL init(zrg_lwflx_up_clr(:,:,:), 0._wp)
+      CALL init(zrg_lwflx_dn_clr(:,:,:), 0._wp)
+      CALL init(zrg_swflx_up_clr(:,:,:), 0._wp)
+      CALL init(zrg_swflx_dn_clr(:,:,:), 0._wp)
+    END IF
 
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -560,9 +602,9 @@ CONTAINS
     i_startblk = ptr_pp%cells%start_block(rl_start)
     i_endblk   = ptr_pp%cells%end_block(rl_end)
 
-!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask,ecrad_flux)              &
+!$OMP PARALLEL PRIVATE(jb,jc,i_startidx,i_endidx,cosmu0mask)                         &
 !$OMP          FIRSTPRIVATE(ecrad_aerosol,ecrad_single_level, ecrad_thermodynamics,  &
-!$OMP                       ecrad_gas, ecrad_cloud)
+!$OMP                       ecrad_gas, ecrad_cloud, ecrad_flux)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -571,11 +613,6 @@ CONTAINS
       ! It may happen that an MPI patch contains only nest boundary points
       ! In this case, no action is needed
       IF (i_startidx > i_endidx) CYCLE
-
-      ! ecrad_flux has to be allocated within the jb loop as the fields are allocated from 
-      ! i_startidx to i_endidx. This is in contrast to the ecrad input containers which are
-      ! allocated for the full nproma length.
-      CALL ecrad_flux%allocate(ecrad_conf, i_startidx, i_endidx, nlev_rg)
 
       cosmu0mask(:) = .FALSE.
       DO jc = i_startidx, i_endidx
@@ -644,28 +681,38 @@ CONTAINS
 !---------------------------------------------------------------------------------------
 
 ! Update ICON variables with fluxes from ecRad
-      CALL ecrad_store_fluxes(ecrad_flux, zrg_cosmu0(:,jb), zrg_trsolall(:,:,jb),    &
-        &                     zrg_trsol_up_toa(:,jb), zrg_trsol_up_sfc(:,jb),        &
-        &                     zrg_trsol_par_sfc(:,jb), zrg_trsol_dn_sfc_diff(:,jb),  &
-        &                     zrg_trsol_clr_sfc(:,jb), zrg_lwflxall(:,:,jb),         &
-        &                     zrg_lwflx_up_sfc(:,jb), zrg_lwflx_clr_sfc(:,jb),       &
+      CALL ecrad_store_fluxes(jg, ecrad_flux, zrg_cosmu0(:,jb), zrg_trsolall   (:,:,jb),    &
+        &                     zrg_trsol_up_toa  (:,jb), zrg_trsol_up_sfc     (:,jb),    &
+        &                     zrg_trsol_par_sfc (:,jb), zrg_trsol_dn_sfc_diff(:,jb),    &
+        &                     zrg_trsol_clr_sfc (:,jb), zrg_lwflxall       (:,:,jb),    &
+        &                     zrg_lwflx_up_sfc  (:,jb), zrg_lwflx_clr_sfc    (:,jb),    &
+        &                     zrg_lwflx_up    (:,:,jb), zrg_lwflx_dn       (:,:,jb),    &
+        &                     zrg_swflx_up    (:,:,jb), zrg_swflx_dn       (:,:,jb),    &
+        &                     zrg_lwflx_up_clr(:,:,jb), zrg_lwflx_dn_clr   (:,:,jb),    &
+        &                     zrg_swflx_up_clr(:,:,jb), zrg_swflx_dn_clr   (:,:,jb),    &  
         &                     cosmu0mask(:), i_startidx, i_endidx, nlev_rgp1)
 
-      CALL ecrad_flux%deallocate
+      ! Add 3D contribution to diffuse radiation
+      CALL add_3D_diffuse_rad(ecrad_flux, zrg_clc(:,:,jb), zrg_pres(:,:,jb), zrg_temp(:,:,jb),            &
+        &                     zrg_cosmu0(:,jb), zrg_trsol_dn_sfc_diff(:,jb), i_startidx, i_endidx, nlev_rg)
 
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ! Downscale radiative fluxes from reduced radiation grid to full grid
-    CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                                     &
-      &  nlev_rg, zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_clr_sfc, &
-      &  zrg_lwflx_up_sfc, zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_par_sfc,               &
-      &  zrg_trsol_dn_sfc_diff, zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,    &
-      &  zlp_tot_cld, zrg_pres_ifc, zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov,   &
-      &  prm_diag%lwflxall, prm_diag%trsolall, prm_diag%lwflx_up_sfc_rs, prm_diag%trsol_up_toa, &
-      &  prm_diag%trsol_up_sfc, prm_diag%trsol_par_sfc, prm_diag%trsol_dn_sfc_diff,             &
-      &  prm_diag%trsolclr_sfc, prm_diag%lwflxclr_sfc )
+    CALL downscale_rad_output(pt_patch%id, pt_par_patch%id,                                         &
+      &  nlev_rg, zrg_aclcov, zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_clr_sfc,     &
+      &  zrg_lwflx_up_sfc, zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_par_sfc,                   &
+      &  zrg_trsol_dn_sfc_diff, zrg_tsfc, zrg_albdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,        &
+      &  zlp_tot_cld, zrg_pres_ifc, zlp_pres_ifc, prm_diag%tsfctrad, prm_diag%albdif, aclcov,       &
+      &  prm_diag%lwflxall, prm_diag%trsolall, prm_diag%lwflx_up_sfc_rs, prm_diag%trsol_up_toa,     &
+      &  prm_diag%trsol_up_sfc, prm_diag%trsol_par_sfc, prm_diag%trsol_dn_sfc_diff,                 &
+      &  prm_diag%trsolclr_sfc, prm_diag%lwflxclr_sfc,                                              & 
+      &  zrg_lwflx_up         , zrg_lwflx_dn         , zrg_swflx_up         , zrg_swflx_dn,         &
+      &  zrg_lwflx_up_clr     , zrg_lwflx_dn_clr     , zrg_swflx_up_clr     , zrg_swflx_dn_clr,     &
+      &  prm_diag%lwflx_up    , prm_diag%lwflx_dn    , prm_diag%swflx_up    , prm_diag%swflx_dn,    &
+      &  prm_diag%lwflx_up_clr, prm_diag%lwflx_dn_clr, prm_diag%swflx_up_clr, prm_diag%swflx_dn_clr )
 
 ! CLEANUP
     CALL ecrad_single_level%deallocate
@@ -673,13 +720,16 @@ CONTAINS
     CALL ecrad_gas%deallocate
     CALL ecrad_cloud%deallocate
     IF ( ecrad_conf%use_aerosols ) CALL ecrad_aerosol%deallocate
+    CALL ecrad_flux%deallocate
 
     DEALLOCATE (zrg_cosmu0, zrg_tsfc, zrg_emis_rad, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,   &
       &         zrg_albnirdif, zrg_pres_ifc, zrg_o3, zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_clc,        &
       &         zrg_aeq4, zrg_aeq5, zrg_tot_cld, zrg_pres, zrg_temp, zrg_trsolall, zrg_lwflxall,   &
       &         zrg_lwflx_up_sfc, zrg_trsol_up_toa, zrg_trsol_up_sfc, zrg_trsol_dn_sfc_diff,       &
       &         zrg_trsol_clr_sfc, zrg_aclcov, zrg_trsol_par_sfc, zrg_fr_land, zrg_fr_glac, aclcov,&
-      &         zrg_acdnc, zrg_albdif, zrg_rtype, zlp_pres_ifc, zlp_tot_cld, zrg_lwflx_clr_sfc)
+      &         zrg_acdnc, zrg_albdif, zrg_rtype, zlp_pres_ifc, zlp_tot_cld, zrg_lwflx_clr_sfc,    &
+      &         zrg_lwflx_up    , zrg_lwflx_dn    , zrg_swflx_up    , zrg_swflx_dn,                &
+      &         zrg_lwflx_up_clr, zrg_lwflx_dn_clr, zrg_swflx_up_clr, zrg_swflx_dn_clr             )
 
     DEALLOCATE(cosmu0mask)
 

@@ -21,6 +21,14 @@ qc                  QC
 qi                  QI
 qr                  QR
 qs                  QS
+qg                  QG
+qh                  QH
+qnc                 NCCLOUD
+qnr                 NCRAIN
+qni                 NCICE
+qns                 NCSNOW
+qng                 NCGRAUPEL
+qnh                 NCHAIL
 t_g                 T_G
 qv_s                QV_S
 fr_seaice           FR_ICE
@@ -44,6 +52,7 @@ w_so                W_SO
 w_so_ice            W_SO_ICE
 smi                 SMI
 t_so                T_SO
+t_sk                SKT
 t_seasfc            T_SEA
 gz0                 Z0
 t_mnw_lk            T_MNW_LK

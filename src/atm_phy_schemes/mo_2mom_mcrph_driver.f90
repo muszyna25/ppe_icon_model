@@ -1098,54 +1098,71 @@ CONTAINS
 
   FUNCTION set_qnc(qc)
 
-    REAL(wp), INTENT(in)  :: qc
+    REAL(wp), INTENT(in)  :: qc  ! either [kg/kg] or [kg/m^3]
     REAL(wp) :: set_qnc
     REAL(wp), PARAMETER   :: Dmean = 10e-6_wp    ! Diameter of mean particle mass:
 
-    set_qnc = qc * 6.0_wp / (pi * rhoh2o * Dmean**3.0_wp)
+!    set_qnc = qc * 6.0_wp / (pi * rhoh2o * Dmean**3.0_wp)
+    set_qnc = qc * 6.0_wp / (pi * rhoh2o * EXP(LOG(Dmean)*3.0_wp) )
 
   END FUNCTION set_qnc
 
   FUNCTION set_qni(qi)
     REAL(wp) :: set_qni
-    REAL(wp), INTENT(in)  :: qi
+    REAL(wp), INTENT(in)  :: qi  ! either [kg/kg] or [kg/m^3]
     !  REAL(wp), PARAMETER   :: Dmean = 100e-6_wp  ! Diameter of mean particle mass:
 
-    set_qni  = qi / 1e-10   !  qiin / ( ( Dmean / ageo) ** (1.0_wp / bgeo) )
+!    set_qni  = qi / 1e-10   !  qiin / ( ( Dmean / ageo) ** (1.0_wp / bgeo) )
+    set_qni  = qi / 1e-10   !  qiin / ( exp(log(( Dmean / ageo)) * (1.0_wp / bgeo)) )
 
   END FUNCTION set_qni
 
   FUNCTION set_qnr(qr)
     REAL(wp) :: set_qnr
-    REAL(wp), INTENT(in)  :: qr
+    REAL(wp), INTENT(in)  :: qr  ! has to be [kg/m^3]
     REAL(wp), PARAMETER   :: N0r = 8000.0e3_wp ! intercept of MP distribution
 
-    set_qnr = N0r * ( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp)))**(0.25_wp)
+!    set_qnr = N0r * ( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp)))**(0.25_wp)
+    set_qnr = N0r * EXP( LOG( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp))) * (0.25_wp) )
 
   END FUNCTION set_qnr
 
   FUNCTION set_qns(qs)
     REAL(wp) :: set_qns
-    REAL(wp), INTENT(in)  :: qs
+    REAL(wp), INTENT(in)  :: qs  ! has to be [kg/m^3]
     REAL(wp), PARAMETER :: N0s = 800.0e3_wp
 
     REAL(wp), PARAMETER :: ams = 0.038_wp  ! needs to be connected to snow-type
     REAL(wp), PARAMETER :: bms = 2.0_wp
 
-    set_qns = N0s * ( qs / ( ams * N0s * gfct(bms+1.0_wp)))**( 1.0_wp/(1.0_wp+bms) )
+!    set_qns = N0s * ( qs / ( ams * N0s * gfct(bms+1.0_wp)))**( 1.0_wp/(1.0_wp+bms) )
+    set_qns = N0s * EXP( LOG( qs / ( ams * N0s * gfct(bms+1.0_wp))) * ( 1.0_wp/(1.0_wp+bms) ) )
 
   END FUNCTION set_qns
 
   FUNCTION set_qng(qg)
     REAL(wp) :: set_qng
-    REAL(wp), INTENT(in)  :: qg
+    REAL(wp), INTENT(in)  :: qg  ! has to be [kg/m^3]
 
     REAL(wp), PARAMETER   :: N0g = 4000.0e3_wp
     REAL(wp), PARAMETER   :: amg = 169.6_wp     ! needs to be connected to graupel-type
     REAL(wp), PARAMETER   :: bmg = 3.1_wp
 
-    set_qng = N0g * ( qg / ( amg * N0g * gfct(bmg+1.0_wp)))**( 1.0_wp/(1.0_wp+bmg) )
+!    set_qng = N0g * ( qg / ( amg * N0g * gfct(bmg+1.0_wp)))**( 1.0_wp/(1.0_wp+bmg) )
+    set_qng = N0g * EXP( LOG ( qg / ( amg * N0g * gfct(bmg+1.0_wp))) * ( 1.0_wp/(1.0_wp+bmg) ) )
 
   END FUNCTION set_qng
+
+  FUNCTION set_qnh(qh)
+
+    REAL(wp), INTENT(in)  :: qh  ! either [kg/kg] or [kg/m^3]
+    REAL(wp) :: set_qnh
+    REAL(wp), PARAMETER   :: Dmean = 5e-3_wp    ! Diameter of mean particle mass
+    REAL(wp), PARAMETER   :: rhob_hail = 750.0  ! assumed bulk density of hail
+
+!    set_qnh = qh * 6.0_wp / (pi * rhob_hail * Dmean**3.0_wp)
+    set_qnh = qh * 6.0_wp / (pi * rhob_hail * EXP(LOG(Dmean)*3.0_wp) )
+
+  END FUNCTION set_qnh
 
 END MODULE mo_mcrph_sb
