@@ -11,5 +11,23 @@
 --fc-inc-flag=@FC_INC_FLAG@
 --fc-inc-order=@FC_INC_ORDER@
 --fc-mod-dir-flag=@FC_MOD_OUT@
---fc-intrinsic-mods=@DEPGEN_INTRINSIC_MODS@
---fc-external-mods=@DEPGEN_EXTERNAL_MODS@
+--fc-intrinsic-mods=iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic,ieee_features,omp_lib,omp_lib_kinds,openacc,ifcore
+#
+# ICON external modules (i.e. Fortran modules that are used in ICON but are not
+# declared in its source code):
+#   MPI: mpi
+#   RTE-RRTMGP: mo_gas_optics_rrtmgp, mo_gas_concentrations, mo_optical_props,
+#               mo_source_functions, mo_rte_kind, mo_fluxes, mo_rte_lw,mo_rte_sw
+#   ECRAD: radiation_cloud, radiation_interface, radiation_flux,
+#          radiation_aerosol, radiation_gas, radiation_thermodynamics,
+#          radiation_config, radiation_single_level
+#   RTTOV: mo_rttov_ifc
+#   SCT: sct
+#   YAXT: yaxt
+#   CDI: mo_cdi
+#   SERIALBOX2: m_serialize, utils_ppser
+#   MTIME: mtime, mtime_datetime
+#   YAC: mo_yac_finterface
+#   TIXI: tixi
+#   SELF: self_assert, self_map, self_object, self_vector, self_vector_ref
+--fc-external-mods=mpi,mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props,mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw,radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol,radiation_gas,radiation_thermodynamics,radiation_config,radiation_single_level,mo_rttov_ifc,sct,yaxt,mo_cdi,m_serialize,utils_ppser,mtime,mtime_datetime,mo_yac_finterface,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref

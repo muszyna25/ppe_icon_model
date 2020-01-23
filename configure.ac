@@ -652,17 +652,6 @@ dnl Additional macro definitions to aid the dependency generator,
 dnl e.g. compiler intrinsic macros:
 AC_SUBST([DEPGEN_FCFLAGS], [''])
 
-dnl A list of Fortran modules that are used in ICON but are not part of it:
-AC_SUBST([DEPGEN_EXTERNAL_MODS], [''])
-
-dnl A list of Fortran intrinsic modules:
-AC_SUBST([DEPGEN_INTRINSIC_MODS],
-  ['iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic'])
-AS_VAR_APPEND([DEPGEN_INTRINSIC_MODS],
-  [',ieee_features,omp_lib,omp_lib_kinds,openacc'])
-dnl Intel intrinsic module (no reason to make this conditional):
-AS_VAR_APPEND([DEPGEN_INTRINSIC_MODS], [',ifcore'])
-
 dnl A list of library files (i.e. *.a files) of the enabled bundled libraries:
 AC_SUBST([BUNDLED_LIBFILES], [''])
 
@@ -683,7 +672,6 @@ AS_VAR_IF([enable_mpi], [yes],
 interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mpi'])
 
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
@@ -833,10 +821,6 @@ LIBS accordingly])])
         ["${FC_MOD_IN}externals/rte-rrtmgp/mod "])
       BUNDLED_LIBFILES="externals/rte-rrtmgp/librte.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/rte-rrtmgp/librrtmgp.a $BUNDLED_LIBFILES"])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'])
 
 AS_VAR_IF([enable_ecrad], [yes],
   [AS_VAR_IF([with_external_ecrad], [yes],
@@ -873,11 +857,6 @@ ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
       BUNDLED_LIBFILES="externals/ecrad/libutilities.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/ecrad/libifsrrtm.a $BUNDLED_LIBFILES"
       BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',radiation_gas,radiation_thermodynamics,radiation_config'])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',radiation_single_level'])
 
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
@@ -903,7 +882,6 @@ AS_VAR_IF([enable_rttov], [yes],
       AC_MSG_FAILURE([unable to link a test program using RTTOV: either dnl
 disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_rttov_ifc'])
 
 AS_VAR_IF([enable_sct], [yes],
   [AS_VAR_IF([with_external_sct], [yes],
@@ -952,7 +930,6 @@ accordingly])])
          [MPI_LAUNCH="$MPI_LAUNCH"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/sct/src "])
       BUNDLED_LIBFILES="externals/sct/src/.libs/libsct.a $BUNDLED_LIBFILES"])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',sct'])
 dnl SCT might require librt, which we need to add to LIBS to be able to link the
 dnl bundled version of SCT statically. First, we check whether we already have
 dnl '-lrt' in the LIBS. If that is not the case, we check whether the configure
@@ -1005,7 +982,6 @@ accordingly])])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yaxt/src "])
       BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a dnl
 externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',yaxt'])
 
 AS_VAR_IF([with_external_cdi], [yes],
 dnl Check whether an external version of CDI is provided:
@@ -1164,7 +1140,6 @@ dnl didn't use the C++ compiler at all (e.g. like in YAXT).
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/cdi/src "])
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a dnl
 externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_cdi'])
 
 AS_IF([test "x$enable_serialization" != xno],
   [AC_MSG_CHECKING(
@@ -1178,7 +1153,6 @@ AS_IF([test "x$enable_serialization" != xno],
       AC_MSG_FAILURE([unable to link a test program using SERIALBOX2: dnl
 either disable the serialization (--disable-serialization) or set FCFLAGS, dnl
 LDFLAGS and LIBS accordingly])])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',m_serialize,utils_ppser'])
 
 AS_VAR_IF([with_external_mtime], [yes],
   [AC_MSG_CHECKING([whether the Fortran interface of MTIME library is dnl
@@ -1217,7 +1191,6 @@ FCFLAGS, LDFLAGS and LIBS accordingly])])
       [--enable-openmp="$enable_openmp"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mtime,mtime_datetime'])
 
 AC_MSG_CHECKING([whether Fortran BLAS library is available])
 AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
@@ -1293,7 +1266,6 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yac/src "])
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',mo_yac_finterface'])
 
 AS_VAR_IF([enable_art], [yes],
   [AS_VAR_IF([with_external_tixi], [yes],
@@ -1329,7 +1301,6 @@ accordingly])])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/tixi/src "])
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a dnl
 $BUNDLED_LIBFILES"])])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS], [',tixi'])
 
 AS_VAR_IF([with_external_self], [yes],
   [AC_MSG_CHECKING([whether Fortran SELF 0.2 library is available])
@@ -1361,8 +1332,6 @@ and LIBS accordingly])])
       [--enable-silent-rules="$enable_silent_rules"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/self/src "])
    BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"])
-AS_VAR_APPEND([DEPGEN_EXTERNAL_MODS],
-  [',self_assert,self_map,self_object,self_vector,self_vector_ref'])
 
 dnl Prepend the include search flags to FCFLAGS:
 AS_IF([test -n "$bundled_includes"], [FCFLAGS="${bundled_includes}${FCFLAGS}"])

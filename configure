@@ -601,8 +601,6 @@ INSTALL_SCRIPT
 INSTALL_PROGRAM
 subdirs_extra
 BUNDLED_LIBFILES
-DEPGEN_INTRINSIC_MODS
-DEPGEN_EXTERNAL_MODS
 DEPGEN_FCFLAGS
 NVCFLAGS
 NVCC
@@ -5475,14 +5473,6 @@ ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 DEPGEN_FCFLAGS=''
 
 
-DEPGEN_EXTERNAL_MODS=''
-
-
-DEPGEN_INTRINSIC_MODS='iso_c_binding,iso_fortran_env,ieee_exceptions,ieee_arithmetic'
-
-as_fn_append DEPGEN_INTRINSIC_MODS ',ieee_features,omp_lib,omp_lib_kinds,openacc'
-as_fn_append DEPGEN_INTRINSIC_MODS ',ifcore'
-
 BUNDLED_LIBFILES=''
 
 
@@ -5515,7 +5505,6 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',mpi'
 
 if test "x$enable_openmp" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to enable OpenMP support" >&5
@@ -6074,8 +6063,6 @@ esac
       BUNDLED_LIBFILES="externals/rte-rrtmgp/librrtmgp.a $BUNDLED_LIBFILES"
 fi
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props'
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw'
 
 if test "x$enable_ecrad" = xyes; then :
   if test "x$with_external_ecrad" = xyes; then :
@@ -6169,9 +6156,6 @@ esac
       BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"
 fi
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol'
-as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_gas,radiation_thermodynamics,radiation_config'
-as_fn_append DEPGEN_EXTERNAL_MODS ',radiation_single_level'
 
 if test "x$enable_rttov" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran RTTOV library is available" >&5
@@ -6212,7 +6196,6 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_rttov_ifc'
 
 if test "x$enable_sct" = xyes; then :
   if test "x$with_external_sct" = xyes; then :
@@ -6321,7 +6304,6 @@ esac
       BUNDLED_LIBFILES="externals/sct/src/.libs/libsct.a $BUNDLED_LIBFILES"
 fi
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',sct'
 
 
 if test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes; then :
@@ -6416,7 +6398,6 @@ esac
       BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"
 fi
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',yaxt'
 
 if test "x$with_external_cdi" = xyes; then :
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran 2003 interface of CDI 1.8.x library is available" >&5
@@ -6640,7 +6621,6 @@ esac
    as_fn_append bundled_includes "${FC_MOD_IN}externals/cdi/src "
    BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_cdi'
 
 if test "x$enable_serialization" != xno; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of SERIALBOX2 library is available" >&5
@@ -6668,7 +6648,6 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',m_serialize,utils_ppser'
 
 if test "x$with_external_mtime" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the Fortran interface of MTIME library is available" >&5
@@ -6763,7 +6742,6 @@ esac
    as_fn_append bundled_includes "${FC_MOD_IN}externals/mtime/src "
    BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',mtime,mtime_datetime'
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran BLAS library is available" >&5
 $as_echo_n "checking whether Fortran BLAS library is available... " >&6; }
@@ -6955,7 +6933,6 @@ esac
       BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"
 fi
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',mo_yac_finterface'
 
 if test "x$enable_art" = xyes; then :
   if test "x$with_external_tixi" = xyes; then :
@@ -7044,7 +7021,6 @@ esac
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a $BUNDLED_LIBFILES"
 fi
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',tixi'
 
 if test "x$with_external_self" = xyes; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran SELF 0.2 library is available" >&5
@@ -7132,7 +7108,6 @@ esac
    as_fn_append bundled_includes "${FC_MOD_IN}externals/self/src "
    BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"
 fi
-as_fn_append DEPGEN_EXTERNAL_MODS ',self_assert,self_map,self_object,self_vector,self_vector_ref'
 
 if test -n "$bundled_includes"; then :
   FCFLAGS="${bundled_includes}${FCFLAGS}"
