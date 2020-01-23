@@ -101,7 +101,7 @@ logging.info('working directory is {0}'.format(work_dir))
 
 makefile_template = '''\
 CDO = cdo
-CDOFLAGS = -O
+CDOFLAGS = -s -O
 PLOT_TIMESER = plot_timeser
 
 EXP_ID = %{EXP_ID}
@@ -112,14 +112,14 @@ START_DATE = {start_date}
 TAGS = {tags}
 TARGETS_DIR = {targets_dir}
 
-TARGETS = $(TAGS:%=$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf)
+TARGETS = $(TAGS:%=$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).html)
 
 all: $(TARGETS)
 
 clean:
-	$(RM) $(TARGETS) $(TARGETS:.pdf=.nc)
+	$(RM) $(TARGETS) $(TARGETS:.html=.pdf) $(TARGETS:.html=.nc)
 
-.PRECIOUS: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
+.PRECIOUS: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
 
 $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_DATE).nc
 	[ -f $(MON_DIR)/$(EXP_ID)_$*.nc ] || cp $< $(MON_DIR)/$(EXP_ID)_$*.nc
@@ -128,9 +128,12 @@ $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_DAT
 	touch $@
 
 $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
-	$(PLOT_TIMESER) --manifest=$(EXP_ID)_$*.lst --mode=monitoring --with1=$(MON_DIR)/$(EXP_ID)_$*.nc --output=$(MON_DIR)/$(EXP_ID)_$*
+	cd $(MON_DIR) && $(PLOT_TIMESER) --manifest=$(EXP_ID)_$*.lst --mode=monitoring --with1=$(EXP_ID)_$*.nc --output=$(EXP_ID)_$*
 	touch $@
 
+$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).html: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf
+	cd $(MON_DIR) && create_plot_browser -t '$(EXP_ID) $*' $(EXP_ID)_$*.lst > $(EXP_ID)_$*.html
+	touch $@ 
 '''
 
 makefile_name = 'Makefile'
