@@ -27,6 +27,10 @@ machine=mistral
 ./addbuilder MISTRAL_nag            --machine $machine       --build_script="./config/buildbot/mistral_nag"        --configureflags="--with-mpi    --without-openmp"          --builderflags="Active"  --list $list
 ./addbuilder MISTRAL_nag_serial     --machine $machine       --build_script="./config/buildbot/mistral_nag_serial" --configureflags="--without-mpi --without-openmp"          --builderflags="Inactive"  --list $list
 
+./addbuilder MISTRAL_ocean_intel17  --machine $machine       --build_script="./config/buildbot/mistral_intel17_ocean"        --configureflags="--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no" --builderflags="Inactive"  --list $list
+./addbuilder MISTRAL_ocean_intel18  --machine $machine       --build_script="./config/buildbot/mistral_intel18_ocean"        --configureflags="--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no" --builderflags="Inactive"  --list $list
+#---------------------------------------------------------------
+
 # breeze builders
 machine=breeze
 ./addmachine $machine --list $list
