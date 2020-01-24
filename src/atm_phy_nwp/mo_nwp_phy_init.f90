@@ -1602,9 +1602,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     IF (ighg > 0) THEN
       ! read annual means
 
-!$OMP SINGLE
       CALL read_bc_greenhouse_gases(ghg_filename)
-!$OMP END SINGLE
 
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the
