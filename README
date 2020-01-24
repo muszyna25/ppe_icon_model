@@ -61,11 +61,13 @@ them are documented. Use
 and read README.md for in-detail information about these options and the
 dependencies of ICON.
 
-For all known systems there are example scripts in the repository. These scripts
+For already known HPC systems there are example scripts in the repository. These scripts
 set variables and call 'configure' in the correct way and can be found in './config/examples'
 All of them can be used for out-of-source builds.
 Another valuable set of examples are the scripts running by buildbot. These can
-be found in './config/buildbot' and are names like the builders they are used by. But: buildbot does in-source-builds at the moment'
+be found in './config/buildbot' and are named like the builders they are used
+by. But: buildbot does in-source-builds at the moment and calles the default
+wrappers for the corresponding system.
 
 After the successful configuration of the build just call this with an appropriate N
 
@@ -82,7 +84,7 @@ B.1) how to get ICON grids
 
 Official grids can be downloaded from http://icon-downloads.zmaw.de
 
-The grid generator is no longer a part of ICON, see https://code.mpimet.mpg.de/projects/icon-grid-generator for more information.
+The grid generator is no longer part of ICON, see https://code.mpimet.mpg.de/projects/icon-grid-generator for more information.
 
 The ICON horizontal spherical grid is based on the projection of the icosahedron
 on the sphere. The initial icosahedron grid is refined by <n>-secting the edges,
@@ -169,6 +171,3 @@ Further stand-alone example scripts that contain basic namelist
 settings as well as batch queuing settings for the DWD Cray XC30
 platform can be found in the subdirectory './run/checksuite.xce.dwd.de/'.
 See the comments in these run scripts for details.
-
-
-
