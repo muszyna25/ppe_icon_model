@@ -930,18 +930,36 @@ accordingly])])
          [MPI_LAUNCH="$MPI_LAUNCH"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/sct/src "])
       BUNDLED_LIBFILES="externals/sct/src/.libs/libsct.a $BUNDLED_LIBFILES"])])
-dnl SCT might require librt, which we need to add to LIBS to be able to link the
-dnl bundled version of SCT statically. First, we check whether we already have
-dnl '-lrt' in the LIBS. If that is not the case, we check whether the configure
-dnl script of SCT "decided" to include '-lrt' in the LIBS of SCT and if yes,
-dnl prepend LIBS of ICON with '-lrt':
+dnl The bundled version of SCT, which we link statically, might require
+dnl additional linker flags:
+dnl   1) a flag enabling linking to librt;
+dnl   2) a flag enabling the Fortran compiler to link C code that uses OpenMP.
 AC_CONFIG_COMMANDS_PRE(
   [AS_CASE([" $subdirs_extra "],
      [*' externals/sct '*],
+dnl First, we check whether we already have '-lrt' in the LIBS:
      [AS_CASE([" $LIBS "],
         [*' -lrt '*], [],
+dnl If that is not the case, check whether the configure script of SCT "decided"
+dnl to include '-lrt' in the LIBS of SCT:
         [ACX_CONFIG_SUBDIR_VAR([sct_LIBS], [externals/sct], [@LIBS@])
-         AS_CASE([" $sct_LIBS "], [*' -lrt '*], [LIBS="-lrt $LIBS"])])])])
+         AS_CASE([" $sct_LIBS "],
+           [*' -lrt '*],
+dnl If yes, prepend LIBS of ICON with '-lrt':
+           [LIBS="-lrt $LIBS"])])
+dnl Second, get the flags enabling the Fortran compiler to link C code that uses
+dnl OpenMP.
+      AS_VAR_IF([enable_openmp], [yes],
+        [ACX_CONFIG_SUBDIR_VAR([sct_OPENMP_FC_C_FLAGS], [externals/sct],
+           [@OPENMP_FC_C_FLAGS@])
+dnl Check, whether we already have the flag in the linking command:
+         AS_IF([test -n "$sct_OPENMP_FC_C_FLAGS"],
+           [AS_CASE([" $FC $FCFLAGS $ICON_FCFLAGS $LDFLAGS $LIBS "],
+dnl (note that the following does not properly account for multiple flags, which
+dnl is, however, very unlikely):
+              [*" $sct_OPENMP_FC_C_FLAGS "*], [],
+dnl If that is not the case, prepend libs with the flag:
+              [LIBS="$sct_OPENMP_FC_C_FLAGS $LIBS"])])])])])
 
 AS_IF([test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
   [AS_VAR_IF([with_external_yaxt], [yes],

@@ -7912,11 +7912,11 @@ fi
 fi
 case " $subdirs_extra " in #(
   *' externals/sct '*) :
-    case " $LIBS " in #(
+         case " $LIBS " in #(
   *' -lrt '*) :
      ;; #(
   *) :
-    acx_exec_result=`$as_echo @LIBS@ | "externals/sct/config.status" -q --file=- 2>/dev/null`
+            acx_exec_result=`$as_echo @LIBS@ | "externals/sct/config.status" -q --file=- 2>/dev/null`
    if test $? -eq 0; then :
   sct_LIBS=$acx_exec_result
 else
@@ -7924,11 +7924,27 @@ else
 fi
          case " $sct_LIBS " in #(
   *' -lrt '*) :
-    LIBS="-lrt $LIBS" ;; #(
+               LIBS="-lrt $LIBS" ;; #(
   *) :
      ;;
 esac ;;
-esac ;; #(
+esac
+      if test "x$enable_openmp" = xyes; then :
+  acx_exec_result=`$as_echo @OPENMP_FC_C_FLAGS@ | "externals/sct/config.status" -q --file=- 2>/dev/null`
+   if test $? -eq 0; then :
+  sct_OPENMP_FC_C_FLAGS=$acx_exec_result
+else
+  as_fn_error $? "unable to run 'externals/sct/config.status'" "$LINENO" 5
+fi
+         if test -n "$sct_OPENMP_FC_C_FLAGS"; then :
+  case " $FC $FCFLAGS $ICON_FCFLAGS $LDFLAGS $LIBS " in #(
+                *" $sct_OPENMP_FC_C_FLAGS "*) :
+     ;; #(
+  *) :
+                  LIBS="$sct_OPENMP_FC_C_FLAGS $LIBS" ;;
+esac
+fi
+fi ;; #(
   *) :
      ;;
 esac
