@@ -319,9 +319,13 @@ EOF
   j=`expr ${j} + 1`
 done
 fi
-#-----------------------------------------------------------------------------
+#_____________________________________________________________________________
+# get possibly needed PATH and LD_LIBRARY_PATH updates
 #
-# get possibly needed PATH and LD_LIBRARY_PATH
+. $(pwd)/../config/set-up.info
+#
+# removing this is breaking PGI GPU version on daint@CSCS and maybe other
+# machines at CSCS
 
 if [[ ! -z $use_path ]]
 then
@@ -332,8 +336,7 @@ if [[ ! -z $use_ld_library_path ]]
 then
     export LD_LIBRARY_PATH=$use_ld_library_path
 fi
-#
-#-----------------------------------------------------------------------------
+#_____________________________________________________________________________
 #
 #  get model
 #
