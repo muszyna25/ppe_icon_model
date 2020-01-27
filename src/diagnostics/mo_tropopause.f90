@@ -68,11 +68,17 @@ CONTAINS
   SUBROUTINE WMO_tropopause( jg,                         &
                              jcs, kproma, kbdim, klev,   &
                              ptm1, papm1,                &
-                             ptropo                      )
+    ! Routines of ART use this subroutine also in combination with NWP physics.
+    ! Therefore, the parameters iplimb and iplimt must not be limited to
+    ! ECHAM physics in this case.
+                             ptropo, iplimb, iplimt      )
 
     ! scalar arguments
     INTEGER, INTENT(in) :: jg
     INTEGER, INTENT(in) :: jcs, kproma, kbdim, klev
+
+    INTEGER, INTENT(in), OPTIONAL :: iplimb     ! bottom level to search for the tropopause
+    INTEGER, INTENT(in), OPTIONAL :: iplimt     !   top  level to search for the tropopause
 
     ! array arguments
     REAL(wp), INTENT(in)    :: ptm1(kbdim,klev), papm1(kbdim,klev)
@@ -90,9 +96,6 @@ CONTAINS
 
     INTEGER :: jl, jk, jj
 
-    INTEGER :: iplimb     ! bottom level to search for the tropopause
-    INTEGER :: iplimt     !   top  level to search for the tropopause
-
     INTEGER :: kcount
 
     REAL(wp) :: zasum, zamean
@@ -104,8 +107,13 @@ CONTAINS
     zgwmo    = -0.002_wp
     zdeltaz  = 2000.0_wp
 
-    iplimb   = echam_wmo_config(jg)%jkewmo
-    iplimt   = echam_wmo_config(jg)%jkswmo+2
+    IF (.NOT. PRESENT(iplimb)) THEN
+      iplimb   = echam_wmo_config(jg)%jkewmo
+    END IF
+
+    IF (.NOT. PRESENT(iplimt)) THEN
+      iplimt   = echam_wmo_config(jg)%jkswmo+2
+    END IF
 
     !$ACC DATA PRESENT( ptm1, papm1, ptropo ) &
     !$ACC       CREATE( ztropo, zpmk, zpm, za, zb, ztm, zdtdz, zplimb, zplimt, zpapm1 )
