@@ -119,6 +119,7 @@ MODULE mo_timer
   PUBLIC :: timer_phys_acc_par
   PUBLIC :: timer_phys_sync_ddt_u
   PUBLIC :: timer_phys_sync_vn
+  PUBLIC :: timer_phys_reff
 
   PUBLIC :: timer_held_suarez_intr
 
@@ -261,6 +262,7 @@ MODULE mo_timer
   INTEGER :: timer_phys_acc_par
   INTEGER :: timer_phys_sync_ddt_u
   INTEGER :: timer_phys_sync_vn
+  INTEGER :: timer_phys_reff
   INTEGER :: timer_dyn_theta, timer_dyn_temp
 !   INTEGER :: timer_sync_wait
 !   INTEGER :: timer_sync_delay,timer_sync_outbuffer
@@ -646,6 +648,7 @@ CONTAINS
     timer_phys_sync_vn  = new_timer("phys_sync_vn")
     timer_prep_echam_phy = new_timer("prep_echam_phy")
     timer_prep_phy = new_timer("prep_phy")
+    timer_phys_reff = new_timer("phys_reff")    
 
     timer_update_prog_phy = new_timer("update_prog_phy")
     timer_nh_diagnostics = new_timer("nh_diagnostics")

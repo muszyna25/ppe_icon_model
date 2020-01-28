@@ -116,6 +116,7 @@ MODULE mo_atm_phy_nwp_config
                                    !! coefficient
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
+    INTEGER  :: icalc_reff         !! type of effective radius calculation
 
 
     ! Derived variables

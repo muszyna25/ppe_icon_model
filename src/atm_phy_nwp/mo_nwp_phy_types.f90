@@ -351,7 +351,13 @@ MODULE mo_nwp_phy_types
                              !! a means average values if lflux_avg=.TRUE.
                              !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
       qcfl_s(:,:)      ,   & !! cloud water turbulent deposition flux         (kg/m2/s)
-      qifl_s(:,:)            !! cloud ice turbulent deposition flux           (kg/m2/s)
+      qifl_s(:,:)      ,   & !! cloud ice turbulent deposition flux           (kg/m2/s)
+      reff_qc(:,:,:)   ,   & !! effective radius of cloud water               (m)
+      reff_qi(:,:,:)   ,   & !! effective radius of cloud ice                 (m)
+      reff_qr(:,:,:)   ,   & !! effective radius of cloud rain                (m)
+      reff_qs(:,:,:)   ,   & !! effective radius of cloud snow                (m)
+      reff_qg(:,:,:)   ,   & !! effective radius of cloud graupel             (m)
+      reff_qh(:,:,:)         !! effective radius of cloud hail                (m)
 
     ! need only for EDMF
     REAL(wp), POINTER       &

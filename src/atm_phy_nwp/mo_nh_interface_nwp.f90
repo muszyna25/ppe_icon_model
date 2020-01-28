@@ -111,6 +111,7 @@ MODULE mo_nh_interface_nwp
   USE mo_assimilation_config,     ONLY: assimilation_config
   USE mo_upatmo_config,           ONLY: upatmo_config
   USE mo_nudging_config,          ONLY: nudging_config
+  USE mo_nwp_reff_interface,      ONLY: set_reff 
 
   IMPLICIT NONE
 
@@ -1061,6 +1062,23 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
+
+
+
+    !-------------------------------------------------------------------------
+    !> Effective Radius
+    !-------------------------------------------------------------------------
+
+    !! Call effective radius diagnostic calculation (only for radiation time steps)
+
+    IF ( lcall_phy_jg(itrad)  .AND. atm_phy_nwp_config(jg)%icalc_reff .GT. 0 ) THEN
+      IF (timers_level > 10) CALL timer_start(timer_phys_reff)
+      CALL  set_reff (prm_diag,pt_patch, pt_prog, pt_diag,ext_data) 
+      IF (timers_level > 10) CALL timer_stop(timer_phys_reff)
+    END IF
+
+
+
 
     !-------------------------------------------------------------------------
     !> Radiation

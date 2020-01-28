@@ -4852,6 +4852,20 @@ C(:)&
 NetCDF file with RRTM Cloud Optical Properties for ECHAM6. &
 \tabularnewline
 
+%\hline
+ireff\_calc &
+I (max\_ dom) &
+0 &
+&
+Parameterization set for diagnostic calculations of effective radius: \\
+0 \,\,\,  = No calculation \\
+1-9 = Consistent with microphysics given by ireff\_calc (naming same convention as inwp\_gscp) \\
+100 = Consistent with current microphysics (it sets ireff\_calc = inwp\_gscp) \\
+101 = Reff given by RRTM parameterization
+&run\_nml:iforcing = inwp
+\tabularnewline
+
+
 \end{longtab}
 
 

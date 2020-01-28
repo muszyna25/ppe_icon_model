@@ -292,6 +292,7 @@ MODULE mo_2mom_mcrph_processes
   PUBLIC :: ice_riming, snow_riming
   PUBLIC :: ccn_activation_sk, ccn_activation_hdcp2
   PUBLIC :: sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf
+  PUBLIC :: rho_ice
 
 CONTAINS
   

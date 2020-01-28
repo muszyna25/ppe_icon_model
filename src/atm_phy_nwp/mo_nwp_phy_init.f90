@@ -120,10 +120,12 @@ MODULE mo_nwp_phy_init
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop,   &
-    &                               timer_init_nwp_phy
+    &                               timer_init_nwp_phy, timer_phys_reff
   USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                               bc_greenhouse_gases_file_read, ghg_co2mmr
+  USE mo_nwp_reff_interface,  ONLY: init_reff
 
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -710,6 +712,16 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     ! Init of number concentrations moved to mo_initicon_io.f90 !!!
 
   END SELECT
+
+
+  ! Initiate parameters for reff calculations
+  IF (atm_phy_nwp_config(jg)%icalc_reff .GT. 0) THEN
+    IF (timers_level > 10) CALL timer_start(timer_phys_reff)
+    CALL init_reff ( prm_diag, p_patch, p_prog_now) 
+    IF (timers_level > 10) CALL timer_stop(timer_phys_reff)
+  END IF
+
+    
 
   ! Compute lookup tables for aerosol-microphysics coupling
   IF (jg == 1 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) &

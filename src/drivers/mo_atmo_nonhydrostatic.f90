@@ -127,6 +127,7 @@ USE mo_sleve_config,        ONLY: flat_height
 USE mo_vertical_coord_table, ONLY: vct_a
 USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
 USE mo_nudging_config,      ONLY: l_global_nudging
+USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -785,6 +786,9 @@ CONTAINS
     ENDIF
 
     IF (iforcing == inwp) THEN
+      DO jg = 1, n_dom
+        IF ( atm_phy_nwp_config(jg)%icalc_reff .GT. 0 ) CALL reff_calc_dom(jg)%destruct()
+      ENDDO
       CALL destruct_nwp_phy_state
       CALL destruct_nwp_lnd_state( p_lnd_state )
       DO jg = 1, n_dom
