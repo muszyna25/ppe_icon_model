@@ -322,7 +322,7 @@ fi
 #_____________________________________________________________________________
 # get possibly needed PATH and LD_LIBRARY_PATH updates
 #
-. $(pwd)/../config/set-up.info
+. ${basedir}/config/set-up.info
 #
 # removing this is breaking PGI GPU version on daint@CSCS and maybe other
 # machines at CSCS
@@ -342,6 +342,8 @@ fi
 #
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"
+#
+ldd -v ${MODEL}
 #
 #-----------------------------------------------------------------------------
 #
