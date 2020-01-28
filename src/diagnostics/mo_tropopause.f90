@@ -77,8 +77,8 @@ CONTAINS
     INTEGER, INTENT(in) :: jg
     INTEGER, INTENT(in) :: jcs, kproma, kbdim, klev
 
-    INTEGER, INTENT(in), OPTIONAL :: iplimb     ! bottom level to search for the tropopause
-    INTEGER, INTENT(in), OPTIONAL :: iplimt     !   top  level to search for the tropopause
+    INTEGER, INTENT(inout), OPTIONAL :: iplimb     ! bottom level to search for the tropopause
+    INTEGER, INTENT(inout), OPTIONAL :: iplimt     !   top  level to search for the tropopause
 
     ! array arguments
     REAL(wp), INTENT(in)    :: ptm1(kbdim,klev), papm1(kbdim,klev)
