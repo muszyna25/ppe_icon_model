@@ -71,14 +71,14 @@ CONTAINS
     ! Routines of ART use this subroutine also in combination with NWP physics.
     ! Therefore, the parameters iplimb and iplimt must not be limited to
     ! ECHAM physics in this case.
-                             ptropo, iplimb, iplimt      )
+                             ptropo, iplimb_in, iplimt_in      )
 
     ! scalar arguments
     INTEGER, INTENT(in) :: jg
     INTEGER, INTENT(in) :: jcs, kproma, kbdim, klev
 
-    INTEGER, INTENT(inout), OPTIONAL :: iplimb     ! bottom level to search for the tropopause
-    INTEGER, INTENT(inout), OPTIONAL :: iplimt     !   top  level to search for the tropopause
+    INTEGER, INTENT(in), OPTIONAL :: iplimb_in     ! bottom level to search for the tropopause
+    INTEGER, INTENT(in), OPTIONAL :: iplimt_in     !   top  level to search for the tropopause
 
     ! array arguments
     REAL(wp), INTENT(in)    :: ptm1(kbdim,klev), papm1(kbdim,klev)
@@ -96,6 +96,10 @@ CONTAINS
 
     INTEGER :: jl, jk, jj
 
+    INTEGER :: iplimb     ! bottom level to search for the tropopause
+    INTEGER :: iplimt     !   top  level to search for the tropopause
+
+
     INTEGER :: kcount
 
     REAL(wp) :: zasum, zamean
@@ -107,11 +111,15 @@ CONTAINS
     zgwmo    = -0.002_wp
     zdeltaz  = 2000.0_wp
 
-    IF (.NOT. PRESENT(iplimb)) THEN
+    IF (PRESENT(iplimb_in)) THEN
+      iplimb = ip_limb_in
+    ELSE
       iplimb   = echam_wmo_config(jg)%jkewmo
     END IF
 
-    IF (.NOT. PRESENT(iplimt)) THEN
+    IF (PRESENT(iplimt_in)) THEN
+      iplimt = iplimt_in
+    ELSE
       iplimt   = echam_wmo_config(jg)%jkswmo+2
     END IF
 
