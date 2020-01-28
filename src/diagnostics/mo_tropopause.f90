@@ -112,15 +112,15 @@ CONTAINS
     zdeltaz  = 2000.0_wp
 
     IF (PRESENT(iplimb_in)) THEN
-      iplimb = ip_limb_in
+      iplimb = iplimb_in
     ELSE
-      iplimb   = echam_wmo_config(jg)%jkewmo
+      iplimb = echam_wmo_config(jg)%jkewmo
     END IF
 
     IF (PRESENT(iplimt_in)) THEN
       iplimt = iplimt_in
     ELSE
-      iplimt   = echam_wmo_config(jg)%jkswmo+2
+      iplimt = echam_wmo_config(jg)%jkswmo+2
     END IF
 
     !$ACC DATA PRESENT( ptm1, papm1, ptropo ) &
