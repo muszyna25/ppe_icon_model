@@ -82,6 +82,7 @@ CONTAINS
 
     LOGICAL  :: ldland(nproma)               !< land sea mask for using dlev_land or dlev_ocean
 
+    INTEGER  :: ictop(nproma)                !< level index of convective cloud top
     REAL(wp) :: ztop(nproma)                 !< convective cloud top pressure   [Pa]
     REAL(wp) :: zta    (nproma,nlev)         !< provisional temperature         [K]
     REAL(wp), TARGET :: zqtrc  (nproma,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
@@ -108,7 +109,7 @@ CONTAINS
     nlevm1 = nlev-1
     nlevp1 = nlev+1
 
-    !$ACC DATA CREATE( itype, q_cnv, tend_ta_cnv, tend_ua_cnv, tend_va_cnv, tend_qtrc_cnv, ldland, &
+    !$ACC DATA CREATE( ictop, itype, q_cnv, tend_ta_cnv, tend_ua_cnv, tend_va_cnv, tend_qtrc_cnv, ldland, &
     !$ACC              ztop, zta, zqtrc, zua, zva, zqtrc_cnd, ztend_qv )
     
     IF ( is_in_sd_ed_interval ) THEN
@@ -186,7 +187,7 @@ CONTAINS
                &             ztend_qv  (:,:),        &! in
                &       field% thvsig   (:,  jb),     &! in
                &       itype           (:),          &! out
-               &       field% ictop    (:,  jb),     &! out
+               &       ictop           (:),          &! out
                &       field% rsfc     (:,  jb),     &! out
                &       field% ssfc     (:,  jb),     &! out
                &       field% con_dtrl (:,jb),       &! out
@@ -201,14 +202,6 @@ CONTAINS
                &        tend_qtrc_cnv  (:,:,iqc),    &! out
                &        tend_qtrc_cnv  (:,:,iqi),    &! out
                &             ztop      (:)           )! out
-          !
-          ! store convection type as real value
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR
-          DO jc = jcs, jce
-            field% rtype(jc,jb) = REAL(itype(jc),wp)
-          END DO
-          !$ACC END PARALLEL
           !
           ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
           IF (ASSOCIATED(field% topmax)) THEN
@@ -448,28 +441,48 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          !$ACC DATA PRESENT( field%ua, field%va, field%ta, field%qtrc )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
-          DO jk = 1, nlev
-            !$ACC LOOP VECTOR
-            DO jc = jcs, jce
-              field%   ua(jc,jk,jb)      = field%   ua(jc,jk,jb)      + tend_ua_cnv  (jc,jk)     *pdtime
-              field%   va(jc,jk,jb)      = field%   va(jc,jk,jb)      + tend_va_cnv  (jc,jk)     *pdtime
-              field%   ta(jc,jk,jb)      = field%   ta(jc,jk,jb)      + tend_ta_cnv  (jc,jk)     *pdtime
-              field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv)  + tend_qtrc_cnv(jc,jk,iqv) *pdtime
-              field% qtrc(jc,jk,jb,iqc)  = field% qtrc(jc,jk,jb,iqc)  + tend_qtrc_cnv(jc,jk,iqc) *pdtime
-              field% qtrc(jc,jk,jb,iqi)  = field% qtrc(jc,jk,jb,iqi)  + tend_qtrc_cnv(jc,jk,iqi) *pdtime
-              !$ACC LOOP SEQ
-              DO jt = iqt, ntracer
-                field% qtrc(jc,jk,jb,jt) = field% qtrc(jc,jk,jb,jt) + tend_qtrc_cnv(jc,jk,jt)*pdtime
-              END DO
-            END DO
-          END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-       END IF
+       SELECT CASE(fc_cnv)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             ! prognostic
+             !$ACC DATA PRESENT( field%ua, field%va, field%ta, field%qtrc )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG
+             DO jk = 1, nlev
+               !$ACC LOOP VECTOR
+               DO jc = jcs, jce
+                 field%   ua(jc,jk,jb)      = field%   ua(jc,jk,jb)      + tend_ua_cnv  (jc,jk)     *pdtime
+                 field%   va(jc,jk,jb)      = field%   va(jc,jk,jb)      + tend_va_cnv  (jc,jk)     *pdtime
+                 field%   ta(jc,jk,jb)      = field%   ta(jc,jk,jb)      + tend_ta_cnv  (jc,jk)     *pdtime
+                 field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv)  + tend_qtrc_cnv(jc,jk,iqv) *pdtime
+                 field% qtrc(jc,jk,jb,iqc)  = field% qtrc(jc,jk,jb,iqc)  + tend_qtrc_cnv(jc,jk,iqc) *pdtime
+                 field% qtrc(jc,jk,jb,iqi)  = field% qtrc(jc,jk,jb,iqi)  + tend_qtrc_cnv(jc,jk,iqi) *pdtime
+                 !$ACC LOOP SEQ
+                 DO jt = iqt, ntracer
+                   field% qtrc(jc,jk,jb,jt) = field% qtrc(jc,jk,jb,jt) + tend_qtrc_cnv(jc,jk,jt)*pdtime
+                 END DO
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+             !
+             ! diagnostic
+             ! store convection type as real value
+             !$ACC DATA PRESENT( field%rtype, field%ictop )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG VECTOR
+             DO jc = jcs, jce
+               field% rtype(jc,jb) = REAL(itype(jc),wp)
+               field% ictop(jc,jb) = ictop(jc)
+             END DO
+             !
+             !$ACC END PARALLEL
+             !$ACC END DATA
+          END IF
+       END SELECT
        !
     ELSE
        !$ACC DATA PRESENT( field%rtype, field%ictop, field%rsfc, field%ssfc, field%con_dtrl, field%con_dtri, &

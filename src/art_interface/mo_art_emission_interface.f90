@@ -57,6 +57,9 @@ MODULE mo_art_emission_interface
   USE mo_util_mtime,                    ONLY: getElapsedSimTimeInSeconds
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_emissInt
+  ! ART
+  USE mo_art_util,                      ONLY: t_art_phys_container, td_and_t2rh
+
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -86,7 +89,6 @@ MODULE mo_art_emission_interface
   USE omp_lib
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
   USE mo_art_diagnostics,               ONLY: art_save_aerosol_emission
-  USE mo_art_util,                      ONLY: t_art_phys_container, td_and_t2rh
 #endif
 
   IMPLICIT NONE

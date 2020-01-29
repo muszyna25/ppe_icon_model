@@ -421,7 +421,9 @@ MODULE mo_nwp_phy_types
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &
       rh(:,:,:),          &   !> relative humidity
-      pv(:,:,:)               !> potential vorticity
+      pv(:,:,:),          &   !> potential vorticity
+      sdi2(:,:),          &   !> supercell detection index (SDI2)
+      lpi(:,:)                !> lightning potential index (LPI)
 
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation

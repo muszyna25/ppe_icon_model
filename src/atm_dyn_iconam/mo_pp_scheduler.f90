@@ -158,6 +158,7 @@ MODULE mo_pp_scheduler
     &                                   TASK_FINALIZE_IPZ, TASK_INTP_HOR_LONLAT,            &
     &                                   TASK_INTP_VER_PLEV, TASK_INTP_SYNC, TASK_INTP_MSL,  &
     &                                   TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_COMPUTE_SMI, &
+    &                                   TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI,                &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
@@ -285,6 +286,16 @@ CONTAINS
             ! potential vorticity
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
               &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PV )
+            !
+          CASE (TASK_COMPUTE_SDI2) 
+            ! super cell detection index (SDI2)
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_SDI2 )
+            !
+          CASE (TASK_COMPUTE_LPI) 
+            ! lightning potential index (LPI)
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_LPI )
             !
           CASE (TASK_COMPUTE_SMI) 
             ! soil moisture index
@@ -1588,7 +1599,7 @@ CONTAINS
         CALL pp_task_intp_msl(ptr_task)
 
         ! compute relative humidty, vertical velocity, potential vorticity
-      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SMI )
+      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI, TASK_COMPUTE_SMI )
         CALL pp_task_compute_field(ptr_task)
 
         ! vector reconstruction on cell centers:

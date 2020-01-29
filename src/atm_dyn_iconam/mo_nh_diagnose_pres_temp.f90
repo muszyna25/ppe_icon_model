@@ -150,7 +150,7 @@ MODULE mo_nh_diagnose_pres_temp
     i_endblk   = pt_patch%cells%end_block(i_rlend)
 
 
-    !$ACC DATA COPYIN( advection_config(jg)%trHydroMass%list ) IF(i_am_accel_node)
+    !$ACC DATA PRESENT( advection_config(jg)%trHydroMass%list ) IF(i_am_accel_node)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -188,10 +188,9 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp_ifc ) THEN
         
         !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
-        !$ACC LOOP GANG
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = MAX(slev+1,2), nlev
 !DIR$ IVDEP
-          !$ACC LOOP VECTOR
           DO jc =  i_startidx, i_endidx
             pt_diag%temp_ifc(jc,jk,jb) = &
               p_metrics%wgtfac_c(jc,jk,jb)*pt_diag%temp(jc,jk,jb) +      &
@@ -428,12 +427,9 @@ MODULE mo_nh_diagnose_pres_temp
     !$ACC      CREATE(z_qsum), &
     !$ACC      IF(i_am_accel_node)
     
-    !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
-    !$ACC LOOP GANG VECTOR
-    DO jk = slev, slev_moist-1
-      z_qsum(:,jk) = 0._wp
-    ENDDO
-    !$ACC END PARALLEL
+    !$ACC KERNELS DEFAULT(PRESENT) IF(i_am_accel_node)
+    z_qsum(:,slev:slev_moist-1) = 0._wp
+    !$ACC END KERNELS
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF(i_am_accel_node)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)

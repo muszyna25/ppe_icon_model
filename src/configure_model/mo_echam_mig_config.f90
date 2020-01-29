@@ -51,18 +51,20 @@ MODULE mo_echam_mig_config
      ! configuration parameters
      ! ------------------------
      !
-     ! copies of the according nwp settings
-     !
      ! thresholds
-     REAL(wp) :: qi0_nwp        ! cloud ice threshold for autoconversion
-     REAL(wp) :: qc0_nwp        ! cloud water threshold for autoconversion
+     REAL(wp) :: qi0            ! cloud ice threshold for autoconversion
+     REAL(wp) :: qc0            ! cloud water threshold for autoconversion
      !
      ! grid scale microphysics
-     REAL(wp) :: tune_zceff_min
-     REAL(wp) :: tune_v0snow    ! previous ICON value was 20
-     REAL(wp) :: tune_zvz0i     ! original value of Heymsfield+Donner 1990: 3.29
-     REAL(wp) :: mu_rain        ! COSMO_EU default
+     REAL(wp) :: zceff_min      ! minimum value for sticking efficiency
+     REAL(wp) :: v0snow         ! factor in the terminal velocity for snow
+     REAL(wp) :: zvz0i          ! terminal fall velocity of ice
+     REAL(wp) :: icesedi_exp    ! exponent for density correction of cloud ice sedimentation
+     REAL(wp) :: mu_rain        ! parameter in gamma distribution for rain
+     REAL(wp) :: rain_n0_factor ! tuning factor for intercept parameter of raindrop size distribution
      !
+     LOGICAL  :: ldiag_ttend
+     LOGICAL  :: ldiag_qtend
      !
   END TYPE t_echam_mig_config
 
@@ -84,14 +86,19 @@ CONTAINS
     ! --------------------------------------
     !
     ! general thresholds
-    echam_mig_config(:)% qi0_nwp         = 0.0_wp
-    echam_mig_config(:)% qc0_nwp         = 0.0_wp
+    echam_mig_config(:)% qi0            = 0.0_wp
+    echam_mig_config(:)% qc0            = 0.0_wp
     !
     ! grid scale microphysics
-    echam_mig_config(:)% tune_zceff_min  = 0.075_wp
-    echam_mig_config(:)% tune_v0snow     = 25.0_wp      ! previous ICON value was 20
-    echam_mig_config(:)% tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
-    echam_mig_config(:)% mu_rain         = 0.0_wp       ! COSMO_EU default
+    echam_mig_config(:)% zceff_min      = 0.01_wp
+    echam_mig_config(:)% v0snow         = 25.0_wp
+    echam_mig_config(:)% zvz0i          = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
+    echam_mig_config(:)% icesedi_exp    = 0.33_wp
+    echam_mig_config(:)% mu_rain        = 0.0_wp
+    echam_mig_config(:)% rain_n0_factor = 1.0_wp
+    !
+    echam_mig_config(:)% ldiag_ttend    = .FALSE.
+    echam_mig_config(:)% ldiag_qtend    = .FALSE.
     !
   END SUBROUTINE init_echam_mig_config
 
@@ -130,13 +137,18 @@ CONTAINS
        CALL message    ('','For domain '//cg)
        CALL message    ('','------------')
        CALL message    ('','')
-       CALL print_value('    echam_mig_config('//TRIM(cg)//')% qi0_nwp        ',echam_mig_config(jg)% qi0_nwp  )
-       CALL print_value('    echam_mig_config('//TRIM(cg)//')% qc0_nwp        ',echam_mig_config(jg)% qc0_nwp  )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% qi0            ',echam_mig_config(jg)% qi0            )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% qc0            ',echam_mig_config(jg)% qc0            )
        CALL message    ('','')
-       CALL print_value('    echam_mig_config('//TRIM(cg)//')% tune_zceff_min ',echam_mig_config(jg)% tune_zceff_min  )
-       CALL print_value('    echam_mig_config('//TRIM(cg)//')% tune_v0snow    ',echam_mig_config(jg)% tune_v0snow )
-       CALL print_value('    echam_mig_config('//TRIM(cg)//')% tune_zvz0i     ',echam_mig_config(jg)% tune_zvz0i  )
-       CALL print_value('    echam_mig_config('//TRIM(cg)//')% mu_rain        ',echam_mig_config(jg)% mu_rain  )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% zceff_min      ',echam_mig_config(jg)% zceff_min      )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% v0snow         ',echam_mig_config(jg)% v0snow         )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% zvz0i          ',echam_mig_config(jg)% zvz0i          )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% icesedi_exp    ',echam_mig_config(jg)% icesedi_exp    )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% mu_rain        ',echam_mig_config(jg)% mu_rain        )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% rain_n0_factor ',echam_mig_config(jg)% rain_n0_factor )
+       CALL message    ('','')
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% ldiag_ttend    ',echam_mig_config(jg)% ldiag_ttend    )
+       CALL print_value('    echam_mig_config('//TRIM(cg)//')% ldiag_qtend    ',echam_mig_config(jg)% ldiag_qtend    )
        CALL message    ('','')
        !
     END DO

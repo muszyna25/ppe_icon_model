@@ -24,8 +24,6 @@ MODULE mo_interface_echam_wmo
 
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_wmo
 
-  USE mo_echam_cld_config    ,ONLY: echam_cld_config
-
   USE mo_tropopause          ,ONLY: WMO_tropopause
   !$ser verbatim USE mo_ser_echam_wmo, ONLY: serialize_wmo_input,&
   !$ser verbatim                             serialize_wmo_output
@@ -48,14 +46,6 @@ CONTAINS
     !
     TYPE(t_echam_phy_field) ,POINTER    :: field
     !
-    INTEGER  :: itrpwmo(nproma), itrpwmop1(nproma)         !< for submodel - dummy not in use yet
-    LOGICAL  :: lresum                                     !< for WMO_tropopause
-    ! Shortcuts to components of echam_cld_config
-    !  for WMO_tropopause
-    INTEGER, POINTER :: ncctop, nccbot
-
-    ncctop => echam_cld_config(jg)% ncctop
-    nccbot => echam_cld_config(jg)% nccbot
 
     IF (ltimer) call timer_start(timer_wmo)
 
@@ -65,20 +55,12 @@ CONTAINS
     ! Serialbox2 input fields serialization
     !$ser verbatim call serialize_wmo_input(jg, jb, jcs, jce, nproma, nlev, field)
 
-    !
-    lresum=.FALSE.
-    !
-    !$ACC DATA CREATE( itrpwmo, itrpwmop1 )
-    !
-    CALL WMO_tropopause( jcs, jce, nproma, nlev,   &! in
-                       & ncctop, nccbot, lresum,   &! in
+    CALL WMO_tropopause( jg,                       &! in
+                       & jcs, jce, nproma, nlev,   &! in
                        & field% ta(:,:,jb),        &! in
                        & field% presm_old(:,:,jb), &! in
-                       & field% ptp(:,jb),         &! inout for diagnostics
-                       & itrpwmo, itrpwmop1        )! out for submodel
+                       & field% ptp(:,jb)          )! inout for diagnostics
     !
-
-    !$ACC END DATA
 
     ! Serialbox2 output fields serialization
     !$ser verbatim call serialize_wmo_output(jg, jb, jcs, jce, nproma, nlev, field)

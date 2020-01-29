@@ -31,7 +31,6 @@ MODULE mo_interface_echam_vdf
   USE mo_timer               ,ONLY: ltimer, timer_start, timer_stop, timer_vdf, &
     &                               timer_vdf_dn, timer_vdf_sf, timer_vdf_up
 
-  USE mo_echam_rad_config    ,ONLY: echam_rad_config
   USE mo_ccycle_config       ,ONLY: ccycle_config
   USE mo_physical_constants  ,ONLY: amco2, amd
   USE mo_bc_greenhouse_gases ,ONLY: ghg_co2mmr
@@ -85,17 +84,16 @@ CONTAINS
     ! Pointers
     !
     LOGICAL                 ,POINTER    :: lparamcpl
-    LOGICAL                 ,POINTER    :: lmig
     INTEGER                 ,POINTER    :: fc_vdf
-    REAL(wp)                ,POINTER    :: vmr_co2
     TYPE(t_echam_phy_field) ,POINTER    :: field
     TYPE(t_echam_phy_tend)  ,POINTER    :: tend
 
     ! Local variables
     !
-    INTEGER  :: jl, jk, jsfc, jt
+    INTEGER  :: jl, jk, jsfc, jt, jice
     INTEGER  :: nlevm1, nlevp1
     INTEGER  :: ntrac
+    INTEGER  :: nice        ! for simplicity (ice classes)
     !
     REAL(wp) :: zxt_emis(nproma,ntracer-iqt+1)   !< tracer tendency due to surface emission
 
@@ -128,6 +126,16 @@ CONTAINS
     REAL(wp) :: zbm_tile (nproma,nsfc_type)  !< for "nsurf_diag"
     REAL(wp) :: zbh_tile (nproma,nsfc_type)  !< for "nsurf_diag"
 
+    ! inout variables of vdiff
+    !
+    REAL(wp) :: ts_tile(nproma,nsfc_type)
+    REAL(wp) :: z0m_tile(nproma,nsfc_type)
+
+    ! inout variables of vdiff_down
+    !
+    REAL(wp) :: ustar     (nproma)
+    REAL(wp) :: wstar_tile(nproma,nsfc_type)
+
     ! output variables of vdiff_down
     !
     REAL(wp) :: wstar      (nproma)
@@ -142,6 +150,15 @@ CONTAINS
     REAL(wp) :: cfv        (nproma,nlev)
     REAL(wp) :: cftotte    (nproma,nlev)
     REAL(wp) :: cfthv      (nproma,nlev)
+    REAL(wp) :: thvsig     (nproma)
+
+    ! inout variables of update_surface
+    !
+    REAL(wp) :: rlus            (nproma)
+    REAL(wp) :: albvisdir_ice   (nproma,prm_field(jg)%kice)
+    REAL(wp) :: albnirdir_ice   (nproma,prm_field(jg)%kice)
+    REAL(wp) :: albvisdif_ice   (nproma,prm_field(jg)%kice)
+    REAL(wp) :: albnirdif_ice   (nproma,prm_field(jg)%kice)
 
     ! output variables of update_surface
     !
@@ -149,6 +166,23 @@ CONTAINS
     REAL(wp) :: tend_ta_sfc     (nproma)
     REAL(wp) :: q_rlw_impl      (nproma)
     REAL(wp) :: tend_ta_rlw_impl(nproma)
+    REAL(wp) :: ts              (nproma)
+    REAL(wp) :: ts_rad          (nproma)
+    REAL(wp) :: evap            (nproma)
+    REAL(wp) :: cair            (nproma)
+    REAL(wp) :: csat            (nproma)
+    REAL(wp) :: z0h_lnd         (nproma)
+
+    REAL(wp) :: albvisdir       (nproma)
+    REAL(wp) :: albnirdir       (nproma)
+    REAL(wp) :: albvisdif       (nproma)
+    REAL(wp) :: albnirdif       (nproma)
+    REAL(wp) :: albvisdir_tile  (nproma,nsfc_type)
+    REAL(wp) :: albnirdir_tile  (nproma,nsfc_type)
+    REAL(wp) :: albvisdif_tile  (nproma,nsfc_type)
+    REAL(wp) :: albnirdif_tile  (nproma,nsfc_type)
+    REAL(wp) :: albedo          (nproma)
+    REAL(wp) :: albedo_tile     (nproma,nsfc_type)
 
     ! output variables of vdiff_up
     !
@@ -166,9 +200,7 @@ CONTAINS
 
     ! associate pointers
     lparamcpl => echam_phy_config(jg)%lparamcpl
-    lmig      => echam_phy_config(jg)%lmig
     fc_vdf    => echam_phy_config(jg)%fc_vdf
-    vmr_co2   => echam_rad_config(jg)%vmr_co2
     field     => prm_field(jg)
     tend      => prm_tend (jg)
 
@@ -178,16 +210,25 @@ CONTAINS
     nlevm1 = nlev-1
     nlevp1 = nlev+1
     ntrac  = ntracer-iqt+1  ! number of tracers excluding water vapour and hydrometeors
+ 
+    nice   = prm_field(jg)%kice
 
     !$ACC DATA PCREATE( zxt_emis ) IF( ntrac > 0 )
-    !$ACC DATA PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
+    !$ACC DATA PRESENT( field ),                                                &
+    !$ACC      PCREATE( zcpt_sfc_tile, ri_tile, zqx, zcptgz, zbn_tile,          &
     !$ACC               zbhn_tile, zbm_tile, zbh_tile, dummy, dummyx,           &
     !$ACC               wstar, qs_sfc_tile, hdtcbl, ri_atm, mixlen, cfm,        &
     !$ACC               cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa,      &
-    !$ACC               zaa_btm, zbb, zbb_btm, zfactor_sfc, zcpt_sfc_tile,      &
+    !$ACC               zaa_btm, zbb, zbb_btm, zfactor_sfc,                     &
     !$ACC               zthvvar, ztottevn, zch_tile, kedisp, tend_ua_vdf,       &
     !$ACC               tend_va_vdf, q_vdf, tend_qtrc_vdf, q_snocpymlt, zco2,   &
-    !$ACC               tend_ta_sfc, q_rlw_impl, tend_ta_rlw_impl, tend_ta_vdf )
+    !$ACC               tend_ta_sfc, q_rlw_impl, tend_ta_rlw_impl, tend_ta_vdf, &
+    !$ACC               ts_tile, z0m_tile, ustar, wstar_tile, thvsig, rlus,     &
+    !$ACC               albvisdir_ice, albnirdir_ice, albvisdif_ice,            &
+    !$ACC               albnirdif_ice, ts, ts_rad, evap, cair, csat, z0h_lnd,   &
+    !$ACC               albvisdir, albnirdir, albvisdif, albnirdif,             &
+    !$ACC               albvisdir_tile, albnirdir_tile, albvisdif_tile,         &
+    !$ACC               albnirdif_tile, albedo, albedo_tile  )
 
     !$ser verbatim zaa = 0._wp
     !$ser verbatim zbb = 0._wp
@@ -197,79 +238,18 @@ CONTAINS
 !!$    IF (ntrac>0) THEN
 !!$       CALL tracer_emission()
 !!$    ENDIF
-    !
-    ! default setting for all tracers
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( ntrac > 0 )
-    !$ACC LOOP SEQ
-    DO jt = 1,ntrac
-      !$ACC LOOP GANG VECTOR
-      DO jl = jcs,jce
-        zxt_emis(jl,jt) = 0._wp
-      END DO
-    END DO
-    !$ACC END PARALLEL
-    !
-
-!    ! set emissions of co2, if any (hardcoded, co2-tracer 5 eq. zxt_emis(:,2))
-!    !  should never be set for lmig or lart set to true
-
-!    IF (ntrac>=2 .AND. .NOT. lmig .AND. .NOT. lart) THEN
-!      IF (ccycle_config(jg)%iccy_co2conc .EQ. 1 .AND. ccycle_config(jg)%iccy_co2flux .EQ. 2) THEN
-!        !$ACC DATA PRESENT( field%fco2nat )
-!        !$ACC PARALLEL DEFAULT(PRESENT)
-!        !$ACC LOOP GANG VECTOR
-!        DO jl = jcs,jce
-!          zxt_emis(jl,2) = field%fco2nat(jl,jb)
-!        END DO
-!        !$ACC END PARALLEL
-!        !$ACC END DATA
-!      ELSE
-!        CALL warning('echam_vdf','co2 emissions not possible in this setup. Please check your settings!')
-!      END IF
-!    END IF
+!!$    !
 !!$    ! Dry deposition of aerosols or other tracers (not implemented yet)
 !!$    CALL dry_deposition()
-
-    !
-    ! setting of co2 for jsbach
-    !
-    mmr_co2 = vmr_co2   * amco2/amd
-
-    IF(ccycle_config(jg)%iccy_co2conc .EQ. 0) THEN   !  default
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
-      DO jl = 1,nproma
-        zco2(jl) = mmr_co2
-      END DO
-      !$ACC END PARALLEL
-    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 2 .OR. ccycle_config(jg)%iccy_co2conc .EQ. 4) THEN
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
-      DO jl = 1,nproma
-        zco2(jl) = ghg_co2mmr
-      END DO
-      !$ACC END PARALLEL
-    ELSE IF (ccycle_config(jg)%iccy_co2conc .EQ. 1) THEN
-      !$ACC DATA PRESENT( field%qtrc )
-      !$ACC PARALLEL DEFAULT(PRESENT)
-      !$ACC LOOP GANG VECTOR
-      DO jl = 1,nproma
-        zco2(jl) = field% qtrc(jl,nlev,jb,ico2)
-      END DO
-      !$ACC END PARALLEL
-      !$ACC END DATA
-    ELSE
-      CALL finish('echam_vdf: setting of co2 not recommended. Please check your setting!')
-    END IF
 
     IF ( is_in_sd_ed_interval ) THEN
        !
        IF ( is_active ) THEN
+          !
           ! Set dummy values to zero to prevent invalid floating point operations:
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = 1,nproma
               dummy (jl,jk) = 0._wp
               dummyx(jl,jk) = 0._wp 
@@ -277,17 +257,151 @@ CONTAINS
           END DO
           !$ACC END PARALLEL
           !
-          !$ACC DATA PRESENT( field%qtrc )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          ! Surface emissions of extra tracers if ntrac > 0
+          !
+          ! - default is no emission
+          IF (ntrac > 0) THEN
+            !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( ntrac > 0 )
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
+            DO jt = 1,ntrac
+              DO jl = jcs,jce
+                zxt_emis(jl,jt) = 0._wp
+              END DO
+            END DO
+            !$ACC END PARALLEL
+          END IF
+          !
+          ! Carbon cycle
+          ! ------------
+          ! (see also after vdiff_up)
+          ! If the c-cycle is used then the surface co2 flux and the
+          ! atmospheric co2 concentration must be prepared for the
+          ! vertical diffusion.
+          !
+          IF (ccycle_config(jg)%iccycle /= 0 .AND. (ico2 < iqt .OR. ntracer < ico2)) THEN
+             CALL finish('interface_echam_vdf','The C-cycle cannot be used without CO2 tracer (ico2<iqt or ntracer<ico2)')
+          END IF
+          !
+          SELECT CASE (ccycle_config(jg)%iccycle)
+             !
+          CASE (0) ! no c-cycle
+             !
+             ! This should have no meaning, but strangely changing zco2(:) changes the result
+             ! of interface_echam_vdf/update_surface/jsbach.
+             ! The original parameter echam_rad_config(jg)%vmr_co2 is replaced by its value:
+             !
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+             !$ACC LOOP GANG VECTOR
+             DO jl = jcs,jce
+               zco2(jl) = 348.0e-06_wp * amco2/amd
+             END DO
+             !$ACC END PARALLEL
+             !
+          CASE (1) ! c-cycle with interactive atm. co2 concentration
+             !
+             ! co2 flux at the surface
+             !$ACC DATA PRESENT( field%fco2nat )
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+             !$ACC LOOP GANG VECTOR
+             DO jl = jcs,jce
+               zxt_emis(jl,ico2-(iqt-1)) = field%fco2nat(jl,jb)
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+             !
+             ! co2 concentration in the lowermost layer
+             !$ACC DATA PRESENT( field%qtrc )
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+             !$ACC LOOP GANG VECTOR
+             DO jl = jcs,jce
+               zco2(jl) = field% qtrc(jl,nlev,jb,ico2)
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+             !
+          CASE (2) ! c-cycle with prescribed atm. co2 concentration
+             !
+             ! co2 flux at the surface
+             !$ACC DATA PRESENT( field%fco2nat )
+             !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+             !$ACC LOOP GANG VECTOR
+             DO jl = jcs,jce
+               zxt_emis(jl,ico2-(iqt-1)) = field%fco2nat(jl,jb)
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+             !
+             ! co2 concentration in the lowermost layer
+             SELECT CASE (ccycle_config(jg)%ico2conc)
+             CASE (2)
+                mmr_co2 = ccycle_config(jg)%vmr_co2   * amco2/amd
+                !
+                !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+                !$ACC LOOP GANG VECTOR
+                DO jl = jcs,jce
+                  zco2(jl) = mmr_co2
+                END DO
+                !$ACC END PARALLEL
+             CASE (4)
+                !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+                !$ACC LOOP GANG VECTOR
+                DO jl = jcs,jce
+                  zco2(jl) = ghg_co2mmr
+                END DO
+                !$ACC END PARALLEL
+             END SELECT
+             !
+          END SELECT
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs,jce
               zqx(jl,jk) =  field%qtrc(jl,jk,jb,iqc) + field%qtrc(jl,jk,jb,iqi)
             END DO
           END DO
           !$ACC END PARALLEL
+          !
+          !$ACC DATA PRESENT( field%ustar, field%cair, field%csat, field%z0h_lnd, field%rlus )
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR
+          DO jl = jcs,jce
+            ustar   (jl) = field% ustar   (jl,jb)
+            cair    (jl) = field% cair    (jl,jb)
+            csat    (jl) = field% csat    (jl,jb)
+            z0h_lnd (jl) = field% z0h_lnd (jl,jb)
+            rlus    (jl) = field% rlus    (jl,jb)
+          END DO
+          !$ACC END PARALLEL
           !$ACC END DATA
+          !
+          !$ACC DATA PRESENT( field%ts_tile, field%wstar_tile, field%z0m_tile )
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jsfc=1,nsfc_type
+            DO jl=jcs,jce
+              ts_tile   (jl,jsfc) = field% ts_tile   (jl,jb,jsfc)
+              wstar_tile(jl,jsfc) = field% wstar_tile(jl,jb,jsfc)
+              z0m_tile  (jl,jsfc) = field% z0m_tile  (jl,jb,jsfc)
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
+          !
+          !
+          !$ACC DATA PRESENT( field%albvisdir_ice, field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jice=1,nice
+            DO jl=jcs,jce
+              albvisdir_ice (jl,jice) = field% albvisdir_ice(jl,jice,jb)
+              albnirdir_ice (jl,jice) = field% albnirdir_ice(jl,jice,jb)
+              albvisdif_ice (jl,jice) = field% albvisdif_ice(jl,jice,jb)
+              albnirdif_ice (jl,jice) = field% albnirdif_ice(jl,jice,jb)
+            END DO
+          END DO
+          !$ACC END PARALLEL
+          !$ACC END DATA
+          !
           !
           ! Serialbox2 intermediate output serialization
           !$ser verbatim call serialize_vdf_chk_A_output(jg, jb, jcs, jce, nproma,&
@@ -310,6 +424,8 @@ CONTAINS
           !$ser verbatim   cfm_tile, cfh, cfh_tile, cfv, cftotte, cfthv, zaa, zaa_btm,&
           !$ser verbatim   zbb, zbb_btm, zfactor_sfc, zcpt_sfc_tile, zcptgz, zthvvar, ztottevn)
           !
+          ! DA: this routine is async aware, so it's safe not not wait here
+          !
           CALL vdiff_down(jg,                              &! in
                &          jb,                              &! in  used for debugging only
                &          jcs, jce, nproma,                &! in
@@ -321,7 +437,7 @@ CONTAINS
                &          field%   zf(:,:,jb),             &! in, geopot. height above sea level, full level
                &          field%   zh(:,:,jb),             &! in, geopot. height above sea level, half level
                &          field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
-               &          field% ts_tile(:,jb,:),          &! in, surface temperature
+               &                 ts_tile(:,:),             &! in, surface temperature
                &          field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                &          field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
                &          field% presi_old(:,nlevp1,jb),   &! in, sfc pressure
@@ -342,11 +458,11 @@ CONTAINS
                &          zxt_emis,                        &! in, zxtems
                &          dummy(:,:),                      &! in, variance of theta_v at step t-dt
                &          dummyx(:,:),                     &! in
-               &          field% z0m_tile(:,jb,:),         &! in
+               &                 z0m_tile(:,:),            &! in
                &          field%  tottem1(:,:,jb),         &! in, TTE at step t-dt
-               &          field%  ustar  (:,  jb),         &! inout
-               &                  wstar  (:),              &! out, convective velocity scale
-               &          field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
+               &                 ustar  (:),               &! inout
+               &                 wstar  (:),               &! out, convective velocity scale
+               &                 wstar_tile(:,:),          &! inout, convective velocity scale (each sfc type)
                &                 qs_sfc_tile(:,   :),      &! out, sfc specific humidity at saturation
                &                 hdtcbl  (:),              &! out, for output
                &                 ri_atm  (:,:),            &! out, for output
@@ -364,7 +480,7 @@ CONTAINS
                &          zcpt_sfc_tile(:,:),              &! out, for "vdiff_up"
                &          zcptgz(:,:),                     &! out, for "vdiff_up"
                &          zthvvar(:,:),                    &! out, for "vdiff_up"
-               &          field%   thvsig(:,  jb),         &! out, for "cucall"
+               &          thvsig(:),                       &! out, for "cucall"
                &          ztottevn (:,:),                  &! out, for "vdiff_up"
                &          zch_tile(:,:),                   &! out, for "nsurf_diag"
 !!$               &          zchn_tile(:,:),                  &! out, for "nsurf_diag"
@@ -374,10 +490,12 @@ CONTAINS
                &          zbhn_tile(:,:),                  &! out, for "nsurf_diag"
                &          zbm_tile(:,:),                   &! out, for "nsurf_diag"
                &          zbh_tile(:,:),                   &! out, for "nsurf_diag"
-               &          pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
-               &          pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
-               &          paz0lh = field% z0h_lnd(:,jb))    ! in, optional, roughness length for heat over land
+               &          pcsat = csat(:),                 &! in, optional, area fraction with wet land surface
+               &          pcair = cair(:),                 &! in, optional, area fraction with wet land surface (air)
+               &          paz0lh = z0h_lnd(:)          )    ! in, optional, roughness length for heat over land
           !
+          ! DA: before the rest of the kernels here are async, we need to wait
+          !$ACC WAIT
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
           !$ser verbatim call serialize_vdf_vd_output(jg, jb, jcs, jce, nproma,&
@@ -589,20 +707,20 @@ CONTAINS
                &              zaa, zaa_btm, zbb, zbb_btm,                     &! inout
                &               zcpt_sfc_tile(:,:),                            &! inout, from "vdiff_down", for "vdiff_up"
                &                 qs_sfc_tile(:,   :),                         &! inout, from "vdiff_down", for "vdiff_up"
-               &              field% ts_tile(:,jb,:),                         &! inout
+               &                     ts_tile(:,   :),                         &! inout
                &              field%u_stress    (:,  jb),                     &! out
                &              field%v_stress    (:,  jb),                     &! out
                &              field% lhflx      (:,  jb),                     &! out
                &              field% shflx      (:,  jb),                     &! out
-               &              field%  evap      (:,  jb),                     &! out, for "cucall"
+               &                     evap       (:),                          &! out, for "cucall"
                &              field%u_stress_tile  (:,jb,:),                  &! out
                &              field%v_stress_tile  (:,jb,:),                  &! out
                &              field% lhflx_tile    (:,jb,:),                  &! out
                &              field% shflx_tile    (:,jb,:),                  &! out
                &              field%  evap_tile    (:,jb,:),                  &! out
-               &              field%  fco2nat      (:,  jb),                  &! inout
+               &              field%  fco2nat      (:,  jb),                  &! out
                &              nblock = jb,                                    &! in
-               &              lsm = field%lsmask(:,jb),                       &!< in, land-sea mask
+               &              lsm = field%lsmask(:,jb),                       &! in, land-sea mask
                &              alake = field%alake(:,jb),                      &! in, lake fraction
                &              pu    = field% ua(:,nlev,jb),                   &! in, um1
                &              pv    = field% va(:,nlev,jb),                   &! in, vm1
@@ -614,7 +732,7 @@ CONTAINS
                &              pssfl = field% ssfl(:,jb),                      &! in, snow surface large scale (from cloud)
                &              pssfc = field% ssfc(:,jb),                      &! in, snow surface concective (from cucall)
                &              rlds        = field% rlds (:,jb),               &! in,  downward surface  longwave flux [W/m2]
-               &              rlus        = field% rlus (:,jb),               &! inout, upward surface  longwave flux [W/m2]
+               &              rlus        =        rlus (:),                  &! inout, upward surface  longwave flux [W/m2]
                &              rsds        = field% rsds (:,jb),               &! in,  downward surface shortwave flux [W/m2]
                &              rsus        = field% rsus (:,jb),               &! in,  upward surface shortwave flux [W/m2]
                !
@@ -628,40 +746,40 @@ CONTAINS
                &              ps = field% presi_old(:,nlevp1,jb),             &! in, paphm1, half level pressure
                &              pcosmu0 = field% cosmu0(:,jb),                  &! in, amu0_x, cos of zenith angle
                &              pch_tile = zch_tile(:,:),                       &! in, from "vdiff_down" for JSBACH
-               &              pcsat = field%csat(:,jb),                       &! inout, area fraction with wet land surface
-               &              pcair = field%cair(:,jb),                       &! inout, area fraction with wet land surface (air)
+               &              pcsat = csat(:),                                &! inout, area fraction with wet land surface
+               &              pcair = cair(:),                                &! inout, area fraction with wet land surface (air)
                &              q_snocpymlt    = q_snocpymlt(:),                &! out, heating  by melting snow on the canopy [W/m2]
-               &              z0m_tile = field% z0m_tile(:,jb,:),             &! inout, roughness length for momentum over tiles
-               &              z0h_lnd  = field% z0h_lnd (:,jb),               &! out, roughness length for heat over land
-               &              albvisdir      = field% albvisdir     (:,jb)  , &! inout
-               &              albnirdir      = field% albnirdir     (:,jb)  , &! inout
-               &              albvisdif      = field% albvisdif     (:,jb)  , &! inout
-               &              albnirdif      = field% albnirdif     (:,jb)  , &! inout
-               &              albvisdir_tile = field% albvisdir_tile(:,jb,:), &! inout
-               &              albnirdir_tile = field% albnirdir_tile(:,jb,:), &! inout
-               &              albvisdif_tile = field% albvisdif_tile(:,jb,:), &! inout
-               &              albnirdif_tile = field% albnirdif_tile(:,jb,:), &! inout
-               &              albedo         = field% albedo        (:,jb)  , &! inout
-               &              albedo_tile    = field% albedo_tile(:,jb,:),    &! inout
-               &              emissivity     = field% emissivity    (:,jb)  , &! inout
+               &              z0m_tile = z0m_tile(:,:),                       &! inout, roughness length for momentum over tiles
+               &              z0h_lnd  = z0h_lnd (:),                         &! out, roughness length for heat over land
+               &              albvisdir      = albvisdir     (:)  ,           &! out
+               &              albnirdir      = albnirdir     (:)  ,           &! out
+               &              albvisdif      = albvisdif     (:)  ,           &! out
+               &              albnirdif      = albnirdif     (:)  ,           &! out
+               &              albvisdir_tile = albvisdir_tile(:,:),           &! out
+               &              albnirdir_tile = albnirdir_tile(:,:),           &! out
+               &              albvisdif_tile = albvisdif_tile(:,:),           &! out
+               &              albnirdif_tile = albnirdif_tile(:,:),           &! out
+               &              albedo         = albedo        (:)  ,           &! out
+               &              albedo_tile    = albedo_tile   (:,:),           &! out
+               &              emissivity     = field% emissivity    (:,jb)  , &! in
                &              pco2_flux_tile = field% co2_flux_tile(:,jb,:),  &! inout
-               &              ptsfc     = field%ts    (:,jb),                 &! out
-               &              ptsfc_rad = field%ts_rad(:,jb),                 &! out
+               &              ptsfc     = ts    (:),                          &! out
+               &              ptsfc_rad = ts_rad(:),                          &! out
                &              rlns_tile = field%lwflxsfc_tile(:,jb,:),        &! out (for coupling)
                &              rsns_tile = field%swflxsfc_tile(:,jb,:),        &! out (for coupling)
                &              lake_ice_frc = field%lake_ice_frc(:,jb),        &! out
                &              Tsurf = field% Tsurf(:,:,jb),                   &! inout, for sea ice
                &              T1    = field% T1   (:,:,jb),                   &! inout, for sea ice
                &              T2    = field% T2   (:,:,jb),                   &! inout, for sea ice
-               &              hi    = field% hi   (:,:,jb),                   &! in, for sea ice
-               &              hs    = field% hs   (:,:,jb),                   &! in, for sea ice
-               &              conc  = field% conc (:,:,jb),                   &! in, for sea ice
-               &              Qtop  = field% Qtop (:,:,jb),                   &! out, for sea ice
-               &              Qbot  = field% Qbot (:,:,jb),                   &! out, for sea ice
-               &              albvisdir_ice = field% albvisdir_ice(:,:,jb),   &! inout ice albedos
-               &              albnirdir_ice = field% albnirdir_ice(:,:,jb),   &! inout
-               &              albvisdif_ice = field% albvisdif_ice(:,:,jb),   &! inout
-               &              albnirdif_ice = field% albnirdif_ice(:,:,jb))    ! inout
+               &              hi    = field% hi   (:,:,jb),                   &! in   , for sea ice
+               &              hs    = field% hs   (:,:,jb),                   &! inout, for sea ice
+               &              conc  = field% conc (:,:,jb),                   &! in   , for sea ice
+               &              Qtop  = field% Qtop (:,:,jb),                   &! out  , for sea ice
+               &              Qbot  = field% Qbot (:,:,jb),                   &! out  , for sea ice
+               &              albvisdir_ice = albvisdir_ice(:,:),             &! inout ice albedos
+               &              albnirdir_ice = albnirdir_ice(:,:),             &! inout
+               &              albvisdif_ice = albvisdif_ice(:,:),             &! inout
+               &              albnirdif_ice = albnirdif_ice(:,:))              ! inout
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
@@ -707,12 +825,12 @@ CONTAINS
           !$ser verbatim   nlevm1, ntrac, nsfc_type, iwtr, pdtime, field,&
           !$ser verbatim   cfm_tile, zaa, zcptgz, ztottevn, zbb, zthvvar, dummyx, kedisp)
           !
-          IF(ntracer .GT. iqt) THEN
+          IF(ntracer >= iqt) THEN
             tend_qtrc_vdf_iqt => tend_qtrc_vdf(:,:,iqt:)
           ELSE
             tend_qtrc_vdf_iqt => tend_qtrc_vdf_dummy
           ENDIF
- 
+          !
           CALL vdiff_up(jcs, jce, nproma, nlev, nlevm1,  &! in
                &        ntrac, nsfc_type,                &! in
                &        iwtr,                            &! in, indices of different sfc types
@@ -725,17 +843,17 @@ CONTAINS
                &        field%   va(:,:,jb),             &! in, vm1
                &        field%   ta(:,:,jb),             &! in, tm1
                &        field% mair(:,:,jb),             &! in, moist     air mass [kg/m2]
-               &        field% mref(:,:,jb),             &! in, reference air mass [kg/m2]
+!!$               &        field% mref(:,:,jb),             &! in, reference air mass [kg/m2]
                &        field% qtrc(:,:,jb,iqv),         &! in, qm1
                &        field% qtrc(:,:,jb,iqc),         &! in, xlm1
                &        field% qtrc(:,:,jb,iqi),         &! in, xim1
                &        field% qtrc(:,:,jb,iqt:),        &! in, xtm1
                &        field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                &             ztottevn(:,:),              &! in, TTE at intermediate time step
-               &        zbb,                             &! in
-               &        zthvvar(:,:),                    &! inout
+               &        zbb,                             &! inout
+               &        zthvvar(:,:),                    &! in
                &        dummyx(:,:),                     &! inout
-               &        field% z0m_tile(:,jb,:),         &! inout
+               &        z0m_tile(:,:),                   &! inout
                &                 kedisp(:),              &! out, vert. integr. diss. kin. energy [W/m2]
                &          tend_ua_vdf(:,:),              &! out
                &          tend_va_vdf(:,:),              &! out
@@ -747,9 +865,29 @@ CONTAINS
                &        tend_qtrc_vdf_iqt, & ! out
                &        field%   z0m   (:,  jb),         &! out, for the next step
                &        dummy(:,:),                      &! 
-               &        field%      totte(:,:,jb),       &! out
-               &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
-               &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+               &        field%      totte(:,:,jb)        )! out
+!!$               &        field%      totte(:,:,jb),       &! out
+!!$               &        field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
+!!$               &        field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+          !
+          ! Carbon -cycle
+          ! -------------
+          ! (see also before vdiff_down)
+          ! For now do not change the co2 tracer if a prescribed co2 concentration
+          ! is used as input to land (and ocean).
+          IF (ccycle_config(jg)%iccycle == 2) THEN
+            !$ACC DATA PRESENT( tend_qtrc_vdf )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1,nlev
+              !$ACC LOOP VECTOR
+              DO jl = jcs,jce
+                tend_qtrc_vdf(jl,jk,ico2) = 0.0_wp
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
           !
           !----------------------------------------------------------------------------------------
           ! Serialbox2 output fields serialization
@@ -776,7 +914,7 @@ CONTAINS
           IF (ASSOCIATED(field% q_vdf)) THEN
             !$ACC DATA PRESENT( field%q_vdf, q_vdf )
             !$ACC PARALLEL DEFAULT(PRESENT)
-            !$ACC LOOP GANG
+            !$ACC LOOP GANG 
             DO jk = 1,nlev
               !$ACC LOOP VECTOR
               DO jl = jcs,jce
@@ -1003,16 +1141,22 @@ CONTAINS
           END SELECT
           !
           ! update physics state for input to the next physics process
-          IF (lparamcpl) THEN
-             !$ACC DATA PRESENT( field%ta, tend_ta_sfc )
-             !$ACC PARALLEL DEFAULT(PRESENT)
-             !$ACC LOOP GANG VECTOR
-             DO jl = jcs, jce
-                field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_sfc(jl)*pdtime
-             END DO
-             !$ACC END PARALLEL
-             !$ACC END DATA
-          END IF
+          SELECT CASE(fc_vdf)
+          CASE(0)
+             ! diagnostic, do not use tendency
+          CASE(1,2)
+             ! use tendency to update the physics state
+             IF (lparamcpl) THEN
+                !$ACC DATA PRESENT( field%ta, tend_ta_sfc )
+                !$ACC PARALLEL DEFAULT(PRESENT)
+                !$ACC LOOP GANG VECTOR
+                DO jl = jcs, jce
+                   field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_sfc(jl)*pdtime
+                END DO
+                !$ACC END PARALLEL
+                !$ACC END DATA
+             END IF
+          END SELECT
           !
           ! Serialbox2 intermediate output serialization
           !$ser verbatim call serialize_vdf_chk_F_output(jg, jb, jcs, jce, nproma,&
@@ -1085,9 +1229,8 @@ CONTAINS
           !$ACC DATA PRESENT( tend%ua_phy, tend_ua_vdf, tend%va_phy, tend_va_vdf, tend%ta_phy, &
           !$ACC               tend%qtrc_phy, tend_qtrc_vdf )
           !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = 1,nlev
-            !$ACC LOOP VECTOR
             DO jl = jcs, jce
               tend%   ua_phy(jl,jk,jb)      = tend%   ua_phy(jl,jk,jb)      + tend_ua_vdf  (jl,jk)
               tend%   va_phy(jl,jk,jb)      = tend%   va_phy(jl,jk,jb)      + tend_va_vdf  (jl,jk)
@@ -1109,29 +1252,115 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
-          !$ACC               field%qtrc, tend_qtrc_vdf )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG
-          DO jk = 1,nlev
-            !$ACC LOOP VECTOR
-            DO jl = jcs, jce
-              field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk)     *pdtime
-              field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk)     *pdtime
-              field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_vdf  (jl,jk)     *pdtime
-              field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,iqv) *pdtime
-              field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,iqc) *pdtime
-              field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,iqi) *pdtime
-              !$ACC LOOP SEQ
-              DO jt = iqt,ntracer
-                field% qtrc(jl,jk,jb,jt) = field% qtrc(jl,jk,jb,jt) + tend_qtrc_vdf(jl,jk,jt)*pdtime
+       SELECT CASE(fc_vdf)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             ! prognostic
+             !$ACC DATA PRESENT( field%ua, tend_ua_vdf, field%va, tend_va_vdf, field%ta,  &
+             !$ACC               field%qtrc, tend_qtrc_vdf )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP GANG VECTOR COLLAPSE(2)
+             DO jk = 1,nlev
+               DO jl = jcs, jce
+                 field%   ua(jl,jk,jb)      = field%   ua(jl,jk,jb)      + tend_ua_vdf  (jl,jk)     *pdtime
+                 field%   va(jl,jk,jb)      = field%   va(jl,jk,jb)      + tend_va_vdf  (jl,jk)     *pdtime
+                 field%   ta(jl,jk,jb)      = field%   ta(jl,jk,jb)      + tend_ta_vdf  (jl,jk)     *pdtime
+                 field% qtrc(jl,jk,jb,iqv)  = field% qtrc(jl,jk,jb,iqv)  + tend_qtrc_vdf(jl,jk,iqv) *pdtime
+                 field% qtrc(jl,jk,jb,iqc)  = field% qtrc(jl,jk,jb,iqc)  + tend_qtrc_vdf(jl,jk,iqc) *pdtime
+                 field% qtrc(jl,jk,jb,iqi)  = field% qtrc(jl,jk,jb,iqi)  + tend_qtrc_vdf(jl,jk,iqi) *pdtime
+                 !$ACC LOOP SEQ
+                 DO jt = iqt,ntracer
+                   field% qtrc(jl,jk,jb,jt) = field% qtrc(jl,jk,jb,jt) + tend_qtrc_vdf(jl,jk,jt)*pdtime
+                 END DO
               END DO
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+            !
+            ! diagnostic
+            ! 2-tl-scheme
+            !$ACC DATA PRESENT( field%tottem1, field%totte )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR COLLAPSE(2)
+            DO jk = 1,nlev
+              DO jl = jcs, jce
+              field% tottem1   (jl,jk,jb) = field% totte (jl,jk,jb)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+            !
+
+            !$ACC DATA PRESENT( field%ts, field%ts_rad, field%ustar, field%evap,        &
+            !$ACC               field%thvsig, field%cair, field%csat, field%z0h_lnd,    &
+            !$ACC               field%rlus, field%albvisdir, field%albnirdir,           &
+            !$ACC               field%albvisdif, field%albnirdif, field%albedo          )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jl = jcs, jce
+              field% ts        (jl,jb)   = ts        (jl)
+              field% ts_rad    (jl,jb)   = ts_rad    (jl)
+              field% ustar     (jl,jb)   = ustar     (jl)
+              field% evap      (jl,jb)   = evap      (jl)
+              field% thvsig    (jl,jb)   = thvsig    (jl)
+              field% cair      (jl,jb)   = cair      (jl)
+              field% csat      (jl,jb)   = csat      (jl)
+              field% z0h_lnd   (jl,jb)   = z0h_lnd   (jl)
+              field% rlus      (jl,jb)   = rlus      (jl)
+              !
+              field% albvisdir (jl,jb)   = albvisdir (jl)
+              field% albnirdir (jl,jb)   = albnirdir (jl)
+              field% albvisdif (jl,jb)   = albvisdif (jl) 
+              field% albnirdif (jl,jb)   = albnirdif (jl)
+              field% albedo    (jl,jb)   = albedo    (jl)
+            END DO
+            !
+            !$ACC END PARALLEL
+            !$ACC END DATA
+
+            !$ACC DATA PRESENT( field%ts_tile, field%wstar_tile, field%z0m_tile,                  &
+            !$ACC               field%albvisdir_tile, field%albnirdir_tile, field%albvisdif_tile, &
+            !$ACC               field%albnirdif_tile, field%albedo_tile )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jsfc = 1,nsfc_type
+              !$ACC LOOP GANG VECTOR
+              DO jl = jcs,jce
+                field% ts_tile   (jl,jb,jsfc) = ts_tile   (jl,jsfc)
+                field% wstar_tile(jl,jb,jsfc) = wstar_tile(jl,jsfc)
+                field% z0m_tile  (jl,jb,jsfc) = z0m_tile  (jl,jsfc)
+                !
+                field% albvisdir_tile (jl,jb,jsfc) = albvisdir_tile(jl,jsfc)
+                field% albnirdir_tile (jl,jb,jsfc) = albnirdir_tile(jl,jsfc)
+                field% albvisdif_tile (jl,jb,jsfc) = albvisdif_tile(jl,jsfc)
+                field% albnirdif_tile (jl,jb,jsfc) = albnirdif_tile(jl,jsfc)
+                field% albedo_tile    (jl,jb,jsfc) = albedo_tile   (jl,jsfc)
+                !
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+
+            !$ACC DATA PRESENT( field%albvisdir_ice, field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP SEQ
+            DO jice=1,nice
+              !$ACC LOOP GANG VECTOR
+              DO jl=jcs,jce
+                field% albvisdir_ice(jl,jice,jb) = albvisdir_ice(jl,jice)
+                field% albnirdir_ice(jl,jice,jb) = albnirdir_ice(jl,jice)
+                field% albvisdif_ice(jl,jice,jb) = albvisdif_ice(jl,jice)
+                field% albnirdif_ice(jl,jice,jb) = albnirdif_ice(jl,jice)
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+            !
+          END IF
+       END SELECT
        !
        !
        ! Correction related to implicitness, due to the fact that surface model only used
@@ -1223,30 +1452,23 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          !$ACC DATA PRESENT( field%ta, tend_ta_rlw_impl )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR
-          DO jl = jcs,jce
-            field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_rlw_impl(jl)*pdtime
-          END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-       END IF
+       SELECT CASE(fc_vdf)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+            !$ACC DATA PRESENT( field%ta, tend_ta_rlw_impl )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG VECTOR
+            DO jl = jcs,jce
+              field% ta(jl,nlev,jb) = field% ta(jl,nlev,jb) + tend_ta_rlw_impl(jl)*pdtime
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+       END SELECT
 
-       ! 2-tl-scheme
-       !$ACC DATA PRESENT( field%tottem1, field%totte )
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG
-       DO jk = 1,nlev
-         !$ACC LOOP VECTOR
-         DO jl = jcs,jce
-           field% tottem1(jl,jk,jb) = field% totte (jl,jk,jb)
-         END DO
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
-       !
        ! Serialbox2 intermediate output serialization
        !$ser verbatim call serialize_vdf_chk_G_output(jg, jb, jcs, jce, nproma,&
        !$ser verbatim   nlev, ntrac, nsfc_type, pdtime,&
@@ -1562,18 +1784,18 @@ CONTAINS
        !$ACC               field%albnirdir_ice, field%albvisdif_ice, field%albnirdif_ice )
        !$ACC PARALLEL DEFAULT(PRESENT)
        !$ACC LOOP GANG
-       DO jk = 1,nlev
+       DO jice=1,nice
          !$ACC LOOP VECTOR
          DO jl = jcs,jce
-           field% Tsurf          (jl,jk,jb) = 0.0_wp
-           field% T1             (jl,jk,jb) = 0.0_wp
-           field% T2             (jl,jk,jb) = 0.0_wp
-           field% Qtop           (jl,jk,jb) = 0.0_wp
-           field% Qbot           (jl,jk,jb) = 0.0_wp
-           field% albvisdir_ice  (jl,jk,jb) = 0.0_wp
-           field% albnirdir_ice  (jl,jk,jb) = 0.0_wp
-           field% albvisdif_ice  (jl,jk,jb) = 0.0_wp
-           field% albnirdif_ice  (jl,jk,jb) = 0.0_wp
+           field% Tsurf          (jl,jice,jb) = 0.0_wp
+           field% T1             (jl,jice,jb) = 0.0_wp
+           field% T2             (jl,jice,jb) = 0.0_wp
+           field% Qtop           (jl,jice,jb) = 0.0_wp
+           field% Qbot           (jl,jice,jb) = 0.0_wp
+           field% albvisdir_ice  (jl,jice,jb) = 0.0_wp
+           field% albnirdir_ice  (jl,jice,jb) = 0.0_wp
+           field% albvisdif_ice  (jl,jice,jb) = 0.0_wp
+           field% albnirdif_ice  (jl,jice,jb) = 0.0_wp
          END DO
        END DO
        !$ACC END PARALLEL
@@ -1637,15 +1859,15 @@ CONTAINS
          !$ACC END PARALLEL
          !$ACC END DATA
        END IF
-       !$ACC DATA PRESENT( field%sh_vdiff, field%qv_vdiff )
-       !$ACC PARALLEL DEFAULT(PRESENT)
-       !$ACC LOOP GANG VECTOR
-       DO jl = jcs,jce
-         field% sh_vdiff(jl,jb) = 0.0_wp
-         field% qv_vdiff(jl,jb) = 0.0_wp
-       END DO
-       !$ACC END PARALLEL
-       !$ACC END DATA
+!!$       !$ACC DATA PRESENT( field%sh_vdiff, field%qv_vdiff )
+!!$       !$ACC PARALLEL DEFAULT(PRESENT)
+!!$       !$ACC LOOP GANG VECTOR
+!!$       DO jl = jcs,jce
+!!$         field% sh_vdiff(jl,jb) = 0.0_wp
+!!$         field% qv_vdiff(jl,jb) = 0.0_wp
+!!$       END DO
+!!$       !$ACC END PARALLEL
+!!$       !$ACC END DATA
        !
        IF (ASSOCIATED(field% q_vdf)) THEN
          !$ACC DATA PRESENT( field%q_vdf )
@@ -1744,7 +1966,6 @@ CONTAINS
     ! disassociate pointers
     NULLIFY(lparamcpl)
     NULLIFY(fc_vdf)
-    NULLIFY(vmr_co2)
     NULLIFY(field)
     NULLIFY(tend)
 

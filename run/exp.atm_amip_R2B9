@@ -194,7 +194,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -206,13 +205,13 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
- echam_cld_config(1)%jks        = 1
- echam_cld_config(1)%crs        = 1.0
- echam_cld_config(1)%crt        = 1.0
  echam_cld_config(1)%cinhomi    = 1.0
  echam_cld_config(1)%cinhoml1   = 1.0
  echam_cld_config(1)%cinhoml2   = 1.0
  echam_cld_config(1)%cinhoml3   = 1.0
+/
+&echam_cov_nml
+ echam_cov_config(1)%icov       = 2     ! 0/1 cloud cover based on rel. hum.
 /
 &sea_ice_nml
 /
@@ -676,7 +675,8 @@ if [[ "$output_lnd" == "full" ]]; then
                     'hydro_w_snow_veg'             , 'hydro_q_snocpymlt_veg'  ,
                     'hydro_fract_snow_soil_veg'    , 'hydro_w_snow_soil_veg'  , 'hydro_snow_accum_veg'         ,
                     'hydro_fract_snow_can_veg'     , 'hydro_w_snow_can_veg'   ,
-                    'hydro_water_stress_veg'       , 'hydro_canopy_cond_veg'  , 'hydro_canopy_cond_limited_veg'
+                    'hydro_water_stress_veg'       , 
+                    'hydro_canopy_cond_unlimited_veg' , 'hydro_canopy_cond_limited_veg' ,
                     'hydro_evapotranspiration_glac', 'hydro_evapopot_glac'    ,
                     'hydro_snowmelt_glac'          , 'hydro_q_snocpymlt_glac'
 /

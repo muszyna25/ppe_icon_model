@@ -22,3 +22,9 @@
 [submodule "externals/rte-rrtmgp"]
 	path = externals/rte-rrtmgp
 	url = https://github.com/RobertPincus/rte-rrtmgp.git
+[submodule "externals/cub"]
+	path = externals/cub
+	url = https://github.com/NVlabs/cub.git
+[submodule "externals/omni-xmod-pool"]
+	path = externals/omni-xmod-pool
+	url = https://github.com/claw-project/omni-xmod-pool.git

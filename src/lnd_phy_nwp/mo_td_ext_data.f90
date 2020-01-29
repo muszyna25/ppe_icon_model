@@ -46,7 +46,7 @@ MODULE mo_td_ext_data
   USE mo_nwp_sfc_utils,       ONLY: update_sst_and_seaice, update_ndvi_dependent_fields
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_seaice_nwp,          ONLY: frsi_min
+  USE sfc_seaice,             ONLY: frsi_min
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               datetimeToString, MAX_DATETIME_STR_LEN
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &

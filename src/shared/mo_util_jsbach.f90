@@ -792,7 +792,7 @@ MODULE mo_jsb_io_netcdf_iface
   USE mo_io_units,           ONLY: filename_max
   USE mo_jsb_domain_iface,   ONLY: t_patch
   USE mo_jsb_parallel_iface, ONLY: my_process_is_mpi_parallel, my_process_is_stdio, p_bcast, p_io, mpi_comm
-  USE mo_read_interface, ONLY: read_1D, read_2D, read_2D_time, read_2D_extdim, openInputFile, closeFile, on_cells, &
+  USE mo_read_interface, ONLY: read_1D, read_2D, read_2D_time, read_2D_extdim, read_2D_int, openInputFile, closeFile, on_cells, &
                                t_stream_id, read_netcdf_broadcast_method
 
   IMPLICIT NONE
@@ -811,6 +811,7 @@ MODULE mo_jsb_io_netcdf_iface
     PROCEDURE :: Read_2d        => netcdf_read_real_2d
     PROCEDURE :: Read_2d_time   => netcdf_read_real_2d_time
     PROCEDURE :: Read_2d_extdim => netcdf_read_real_2d_extdim
+    PROCEDURE :: Read_2d_int    => netcdf_read_int_2d
     PROCEDURE :: Has_dim        => netcdf_file_has_dim
     PROCEDURE :: Has_var        => netcdf_file_has_var
   END TYPE t_input_file
@@ -975,6 +976,27 @@ CONTAINS
     END IF
 
   END FUNCTION netcdf_read_real_2d_extdim
+
+  FUNCTION netcdf_read_int_2d(input_file, variable_name, fill_array)
+
+    CLASS(t_input_file), INTENT(inout) :: input_file
+    CHARACTER(LEN=*),   INTENT(in)     :: variable_name
+    INTEGER, TARGET, OPTIONAL          :: fill_array(:,:)
+    INTEGER, POINTER                   :: netcdf_read_int_2d(:,:)
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':netcdf_read_int_2d'
+
+    NULLIFY(netcdf_read_int_2d)
+
+    IF (input_file%type == 1) THEN
+      CALL read_2D_int(input_file%stream_id, on_cells, TRIM(variable_name), fill_array, netcdf_read_int_2d)
+    ELSE IF (input_file%type == 2) THEN
+      CALL finish(TRIM(routine), 'Incompatible input file type')
+    ELSE
+      CALL finish(TRIM(routine), 'Input file type not recognized.')
+    END IF
+
+  END FUNCTION netcdf_read_int_2d
 
   LOGICAL FUNCTION netcdf_file_has_dim(input_file, dimname)
 
@@ -1165,6 +1187,7 @@ MODULE mo_jsb_varlist_iface
                                    get_var_list,                      &
                                    add_var_icon => add_var,           &
                                    find_list_element
+  USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output, first_output_name_list
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,        ONLY: t_var_list, t_list_element
@@ -1176,7 +1199,7 @@ MODULE mo_jsb_varlist_iface
 
   PUBLIC :: VARNAME_LEN
   PUBLIC :: t_var_list, t_var_metadata, t_list_element, get_var_list
-  PUBLIC :: new_var_list
+  PUBLIC :: new_var_list, is_variable_in_output
   PUBLIC :: add_var_list_element_r2d, add_var_list_element_r3d
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_varlist_iface'
@@ -1210,6 +1233,14 @@ CONTAINS
                      )
 
   END SUBROUTINE new_var_list
+
+  LOGICAL FUNCTION is_variable_in_output(name)
+
+    CHARACTER(LEN=*), INTENT(in) :: name
+
+    is_variable_in_output = var_in_out(first_output_name_list, name)
+
+  END FUNCTION is_variable_in_output
 
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,                             &
     hgrid, vgrid, cf, grib2, code, table, ldims, gdims, levelindx, loutput, lcontainer, &
@@ -1271,12 +1302,14 @@ CONTAINS
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups), verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups),                                   &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5,                                                               &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     END IF
     element => find_list_element(this_list, TRIM(name))
     element%field%info%ndims = 2
@@ -1344,12 +1377,14 @@ CONTAINS
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups), new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups),                  &
+        lopenacc=.TRUE., new_element=new_element)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5,                                                               &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     END IF
     element => find_list_element(this_list, TRIM(name))
     element%field%info%ndims = 3

@@ -374,20 +374,25 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-         !$ACC DATA PRESENT( tend%ta )
-         !$ACC PARALLEL DEFAULT(PRESENT)
-         !$ACC LOOP GANG
-         DO jk = 1, nlev
-           !$ACC LOOP VECTOR
-           DO jc = jcs, jce
-             field% ta(jc,jk,jb) = field% ta(jc,jk,jb) + tend_ta_rad(jc,jk)*pdtime
-           END DO
-         END DO
-         !$ACC END PARALLEL
-         !$ACC END DATA
-       END IF
-
+       SELECT CASE(fc_rht)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+            !$ACC DATA PRESENT( tend%ta )
+            !$ACC PARALLEL DEFAULT(PRESENT)
+            !$ACC LOOP GANG
+            DO jk = 1, nlev
+              !$ACC LOOP VECTOR
+              DO jc = jcs, jce
+                field% ta(jc,jk,jb) = field% ta(jc,jk,jb) + tend_ta_rad(jc,jk)*pdtime
+              END DO
+            END DO
+            !$ACC END PARALLEL
+            !$ACC END DATA
+          END IF
+       END SELECT
        !$ACC END DATA
        !
     ELSE

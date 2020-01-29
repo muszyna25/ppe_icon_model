@@ -61,6 +61,7 @@ MODULE mo_cloud
                                     , lookup_uaw_spline, lookup_ubc                  &
                                     , lookup_ua_eor_uaw_spline
   USE mo_echam_cld_config,     ONLY : echam_cld_config
+  USE mo_index_list,           ONLY : generate_index_list
 
   IMPLICIT NONE
   PRIVATE
@@ -160,7 +161,7 @@ CONTAINS
 
     INTEGER:: nclcpre
     INTEGER:: jl, jk, nl, locnt, nlocnt, nphase, i1 , i2, klevtop
-    INTEGER:: i1_loc, i2_loc
+    INTEGER:: i1_loc, i2_loc, i
     LOGICAL   lo, lomask(kbdim)
     !!$ used in Revised Bergeron-Findeisen process only
     !!$  LOGICAL   locc
@@ -196,7 +197,7 @@ CONTAINS
 
     ! Shortcuts to components of echam_cld_config
     !
-    INTEGER   :: jks
+    INTEGER   :: jkscld
     REAL(wp)  :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
          &       clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
          &       ccsaut, ccsacl , ccracl , ccwmin , clwprat
@@ -213,7 +214,7 @@ CONTAINS
     !$ACC               zqsm1, zdtdt, zstar1, zlo2, za, ub, ua, dua, uaw, duaw,              &
     !$ACC               loidx, nloidx, jjclcpre, cond1, cond2, idx1, idx2, lomask )
     !
-    jks      = echam_cld_config(jg)% jks
+    jkscld   = echam_cld_config(jg)% jkscld
     cqtmin   = echam_cld_config(jg)% cqtmin
     cvtfall  = echam_cld_config(jg)% cvtfall
     crhosno  = echam_cld_config(jg)% crhosno
@@ -297,7 +298,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     !
-    DO 831 jk = jks,klev  ! the big jk-loop
+    DO 831 jk = jkscld,klev  ! the big jk-loop
     !
     !       1.3   Air density
     !
@@ -400,28 +401,42 @@ CONTAINS
              cond2(nl) = INT(FSEL(cqtmin-zrfl(jl)   ,0._wp,1._wp))
           END DO
           !$ACC END PARALLEL
-          i1 = jcs
-          i2 = jcs
-          !$ACC PARALLEL
-          !$ACC LOOP SEQ PRIVATE( jl, i1_loc, i2_loc )
-          DO nl = jcs,nclcpre
-             jl = jjclcpre(nl)
-             ! local copy of the index is needed for parallel execution on GPU
-             !$ACC ATOMIC CAPTURE
-             i1_loc = i1
-             i1 = i1 + cond1(nl)
-             !$ACC END ATOMIC
-             idx1(i1_loc) = jl
-             ! local copy of the index is needed for parallel execution on GPU
-             !$ACC ATOMIC CAPTURE
-             i2_loc = i2
-             i2 = i2 + cond2(nl)
-             !$ACC END ATOMIC
-             idx2(i2_loc) = jl
+!          i1 = jcs
+!          i2 = jcs
+
+
+          CALL generate_index_list(cond1, idx1, jcs, nclcpre, i1, 1)
+          CALL generate_index_list(cond2, idx2, jcs, nclcpre, i2, 1)
+
+          !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
+          DO i = 1,MAX(i1, i2)
+            IF (i <= i1) idx1(i) = jjclcpre(idx1(i))
+            IF (i <= i2) idx2(i) = jjclcpre(idx2(i))
           END DO
-          !$ACC END PARALLEL
-          i1 = i1 - 1
-          i2 = i2 - 1
+
+          !$ACC WAIT
+
+!
+!          !$ACC PARALLEL
+!          !$ACC LOOP SEQ PRIVATE( jl, i1_loc, i2_loc )
+!          DO nl = jcs,nclcpre
+!             jl = jjclcpre(nl)
+!             ! local copy of the index is needed for parallel execution on GPU
+!             !$ACC ATOMIC CAPTURE
+!             i1_loc = i1
+!             i1 = i1 + cond1(nl)
+!             !$ACC END ATOMIC
+!             idx1(i1_loc) = jl
+!             ! local copy of the index is needed for parallel execution on GPU
+!             !$ACC ATOMIC CAPTURE
+!             i2_loc = i2
+!             i2 = i2 + cond2(nl)
+!             !$ACC END ATOMIC
+!             idx2(i2_loc) = jl
+!          END DO
+!          !$ACC END PARALLEL
+!          i1 = i1 - 1
+!          i2 = i2 - 1
           !    old if(zsfl(jl).GT.ctqmin)
           !
           IF (i1.GT.jcs-1) THEN
@@ -1441,7 +1456,7 @@ CONTAINS
     !
     !$ACC PARALLEL DEFAULT(PRESENT)
     !$ACC LOOP SEQ
-    DO 923 jk      = jks+1,klev
+    DO 923 jk      = jkscld+1,klev
 !IBM* NOVECTOR
       !$ACC LOOP GANG VECTOR
       DO 922 jl    = jcs,kproma
@@ -1470,7 +1485,7 @@ CONTAINS
     !
     !$ACC PARALLEL DEFAULT(PRESENT)
     !$ACC LOOP SEQ
-    DO 933 jk     = jks,klev
+    DO 933 jk     = jkscld,klev
        !$ACC LOOP GANG VECTOR
        DO 932 jl   = jcs,kproma
           zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
@@ -1485,7 +1500,7 @@ CONTAINS
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
        !$ACC LOOP SEQ
-       DO 936 jk = jks, klevtop
+       DO 936 jk = jkscld, klevtop
           zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmref(jl,jk)
 936    END DO
 938 END DO

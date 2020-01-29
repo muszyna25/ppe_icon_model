@@ -64,6 +64,7 @@ CONTAINS
     REAL(wp) :: shflx      ! prescribed sensible heat flux (Km/s)
     REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)
     INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux, 3=fixed buyancy flux
+    INTEGER  :: smag_coeff_type  ! 1=Smagorinsky model; 2=set coeff. externally by Km_ext, Kh_ext (for tests)
 
     REAL(wp) :: ufric      ! friction velocity
 
@@ -77,6 +78,8 @@ CONTAINS
     REAL(wp) :: smag_constant
     REAL(wp) :: turb_prandtl
     REAL(wp) :: km_min         !min mass weighted turbulent viscosity
+    REAL(wp) :: Km_ext         !externally set constant kinematic viscosity (m2/s)
+    REAL(wp) :: Kh_ext         !externally set constant diffusion coeff.    (m2/s)
     REAL(wp) :: max_turb_scale !max turbulence length scale
     REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
 
@@ -93,7 +96,7 @@ CONTAINS
          smag_constant, turb_prandtl, bflux, tran_coeff,   &
          vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
          expname, ldiag_les_out, km_min, min_sfc_wind, les_metric, &
-         max_turb_scale
+         max_turb_scale, Km_ext, Kh_ext, smag_coeff_type
 
     !-----------------------
     ! 1. default settings
@@ -110,7 +113,10 @@ CONTAINS
     !parameters
     smag_constant    = 0.23_wp
     turb_prandtl     = 0.33333333333_wp
-    km_min           = 0.001_wp  
+    km_min           = 0.001_wp
+    Km_ext           = 75.0_wp
+    Kh_ext           = 75.0_wp
+    smag_coeff_type  = 1
     max_turb_scale   = 300._wp
     min_sfc_wind     = 1._wp !Default from Holstag and Boville 1991
 
@@ -196,6 +202,9 @@ CONTAINS
       les_config(jg)% avg_interval_sec  =  avg_interval_sec
       les_config(jg)% sampl_freq_sec    =  sampl_freq_sec
       les_config(jg)% km_min            =  km_min
+      les_config(jg)% Km_ext            =  Km_ext
+      les_config(jg)% Kh_ext            =  Kh_ext
+      les_config(jg)% smag_coeff_type   =  smag_coeff_type
       les_config(jg)% max_turb_scale    =  max_turb_scale
       les_config(jg)% min_sfc_wind      =  min_sfc_wind
       les_config(jg)% les_metric        =  les_metric

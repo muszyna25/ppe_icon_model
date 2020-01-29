@@ -39,6 +39,10 @@ MODULE mo_art_sedi_interface
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_sedInt
   USE mo_physical_constants,            ONLY: grav
+
+  !ART
+  USE mo_art_util,                      ONLY: t_art_phys_container
+
 #ifdef __ICON_ART
 ! infrastructure routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -53,7 +57,6 @@ MODULE mo_art_sedi_interface
   USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
   USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
   USE mo_art_diagnostics,               ONLY: art_get_diag_tracer_index
-  USE mo_art_util,                      ONLY: t_art_phys_container
 #endif
 
   IMPLICIT NONE

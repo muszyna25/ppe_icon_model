@@ -51,7 +51,7 @@ CONTAINS
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
                        & ptottem1,                                      &! in
-                       & pustar,     pwstar,    pwstar_tile,            &! inout
+                       & pustar,     pwstar,    pwstar_tile,            &! inout, out, inout
                        & pqsat_tile, phdtcbl,                           &! out
                        & pri,        pri_tile,  pmixlen,                &! out
                        & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
@@ -65,7 +65,7 @@ CONTAINS
                        & pbm_tile,   pbh_tile,                          &! out, for "nsurf_diag"
                        & pcsat,                                         &! in
                        & pcair,                                         &! in
-                       & paz0lh)
+                       & paz0lh)                                         ! in
 
 
     INTEGER, INTENT(IN) :: jg
@@ -116,20 +116,20 @@ CONTAINS
     ! used in the computation of PBL height (then mixing length);
     ! Out: computed in sfc_exchange_coeff at step t-dt.
 
-    REAL(wp),INTENT(INOUT) :: pustar (:),      & !< (kbdim)
-                            & pwstar (:),      & !< (kbdim)
-                            & pwstar_tile(:,:)   !< (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pustar (:)         !< (kbdim)
+    REAL(wp),INTENT(OUT)   :: pwstar (:)         !< (kbdim)
+    REAL(wp),INTENT(INOUT) :: pwstar_tile(:,:)   !< (kbdim,ksfc_type)
 
     ! Variables with intent(out)
 
-    REAL(wp),INTENT(INOUT) :: pqsat_tile(:,:) !< (kbdim,ksfc_type) saturation specific     out
+    REAL(wp),INTENT(OUT) :: pqsat_tile(:,:)   !< (kbdim,ksfc_type) saturation specific
                                               !< humidity at sfc.
                                               !< (step t-dt)
 
-    REAL(wp),INTENT(INOUT) :: phdtcbl(:)  !< (kbdim) height of the top of the atmospheric dry
+    REAL(wp),INTENT(OUT) :: phdtcbl(:)    !< (kbdim) height of the top of the atmospheric dry
                                           !< convective boundary layer
 
-    REAL(wp),INTENT(INOUT) ::      &   ! out
+    REAL(wp),INTENT(OUT) ::      &   ! out
       & pri      (:,:)  ,&!< (kbdim,klev) Richardson number
       & pri_tile (:,:)  ,&!< (kbdim,ksfc_type) Richardson number
       & pmixlen  (:,:)  ,&!< (kbdim,klev) mixing length
@@ -144,7 +144,7 @@ CONTAINS
     ! Coefficient matrices and right-hand-side vectors.
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
 
-    REAL(wp),INTENT(INOUT) ::           &  ! out
+    REAL(wp),INTENT(OUT) ::           &  ! out
       & aa     (:,:,:,:)    ,&!< (kbdim,klev,3,nmatrix) coeff. matrices, all variables
       & aa_btm (:,:,:,imh:) ,&!< (kbdim,3,ksfc_type,imh:imqv) last row of coeff. matrix of heat and moisture
       & bb     (:,:,:)      ,&!< (kbdim,klev,nvar_vdiff) r.h.s., all variables
@@ -152,7 +152,7 @@ CONTAINS
 
     ! Other variables to be passed on to the second part of turbulence solver
 
-    REAL(wp),INTENT(INOUT) ::       &  ! out
+    REAL(wp),INTENT(OUT) ::       &  ! out
       & pfactor_sfc(:)  ,&!< (kbdim) prefactor for the exchange coeff.
       & pcpt_tile (:,:) ,&!< (kbdim,ksfc_type) dry static energy at surface
       & pcptgz    (:,:) ,&!< (kbdim,klev) dry static energy
@@ -218,46 +218,36 @@ CONTAINS
 
     ! geopotential height above ground
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klev
-         !$ACC LOOP GANG VECTOR
          DO jl = 1,kbdim
             zghf(jl,jk) = pzf(jl,jk) - pzh(jl,klevp1)
          END DO
     END DO
 
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klevp1
-         !$ACC LOOP GANG VECTOR
          DO jl = 1,kbdim
-            zghh (jl,jk)      = pzh(jl,jk) - pzh(jl,klevp1)
+            zghh (jl,jk) = pzh(jl,jk) - pzh(jl,klevp1)
          END DO
     END DO
-    !$ACC END PARALLEL
 
     ! reciprocal layer mass
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klev
-         !$ACC LOOP GANG VECTOR
          DO jl = jcs,kproma
             zrmairm(jl,jk) = 1._wp / pmair(jl,jk)
             zrmrefm(jl,jk) = 1._wp / pmref(jl,jk)
          END DO
     END DO
-    !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
     DO jk = 1,klevm1
-      !$ACC LOOP GANG VECTOR
       DO jl = jcs,kproma
         zrmairh(jl,jk) = 2._wp / (pmair(jl,jk) + pmair(jl,jk+1))
       END DO
     END DO
-    !$ACC END PARALLEL
 
     !----------------------------------------------------------------------
     ! 1. Compute various thermodynamic variables; Diagnose PBL extension;
@@ -265,6 +255,7 @@ CONTAINS
     !    Get TTE and variance of theta_v at intermediate time step.
     !----------------------------------------------------------------------
 
+    ! DA: this routine is async aware, so it's safe not not wait here
     CALL atm_exchange_coeff( jg,                                      &! in
                            & jb,                                      &! in, for debugging only
                            & jcs, kproma, kbdim, klev, klevm1, klevp1,&! in
@@ -286,18 +277,17 @@ CONTAINS
                            & pri(:,1:klevm1), pmixlen(:,1:klevm1)     )! out, for output
 
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
     DO jl = 1,kproma
       pmixlen(jl,klev) = -999._wp
     END DO
-    !$ACC END PARALLEL
 
     !-----------------------------------------------------------------------
     ! 2. Compute exchange coefficients at the air-sea/ice/land interface.
     !    Get boundary condition for TTE and variance of theta_v.
     !-----------------------------------------------------------------------
 
+    ! DA: this routine is async, no need to wait
     CALL sfc_exchange_coeff( jg,                                    &! in
                            & jcs, kproma, kbdim, ksfc_type,         &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
@@ -312,8 +302,8 @@ CONTAINS
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & ptottem1(:,klev),pzthvvar(:,klevm1),   &! in
-                           & pthvsig(:),                            &! inout
-                           & pwstar(:),       pwstar_tile(:,:),     &! inout
+                           & pthvsig(:),                            &! out
+                           & pwstar(:),       pwstar_tile(:,:),     &! out, inout
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
                            & pri    (:,klev), pri_tile(:,:),        &! out
                            & pcfm   (:,klev), pcfm_tile(:,:),       &! out
@@ -346,7 +336,7 @@ CONTAINS
 
     zconst = tpfac1*pdtime
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = 1,klevm1
       DO jl = jcs,kproma
@@ -355,7 +345,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       zfactor(jl,klev) = zfactor(jl, klev)*zconst
@@ -371,7 +361,7 @@ CONTAINS
                           & aa, aa_btm                                    )! out
 
     ! Save for output, to be used in "update_surface"
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       pfactor_sfc(jl) = zfactor(jl,klev)
@@ -398,6 +388,8 @@ CONTAINS
 
     !$ACC END DATA
     !$ACC END DATA
+
+    !$ACC WAIT
 
   END SUBROUTINE vdiff_down
   !-------------

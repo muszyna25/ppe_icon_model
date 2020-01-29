@@ -147,19 +147,25 @@ CONTAINS
        END SELECT
        !
        ! update physics state for input to the next physics process
-       IF (lparamcpl) THEN
-          !$ACC DATA PRESENT( field%qtrc )
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP SEQ
-          DO jk = 1, nlev
-            !$ACC LOOP GANG VECTOR
-            DO jc = jcs, jce
-              field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv) + tend_qtrc_mox(jc,jk,iqv)*pdtime
-            END DO
-          END DO
-          !$ACC END PARALLEL
-          !$ACC END DATA
-       END IF
+       SELECT CASE(fc_mox)
+       CASE(0)
+          ! diagnostic, do not use tendency
+       CASE(1,2)
+          ! use tendency to update the physics state
+          IF (lparamcpl) THEN
+             !$ACC DATA PRESENT( field%qtrc )
+             !$ACC PARALLEL DEFAULT(PRESENT)
+             !$ACC LOOP SEQ
+             DO jk = 1, nlev
+               !$ACC LOOP GANG VECTOR
+               DO jc = jcs, jce
+                 field% qtrc(jc,jk,jb,iqv)  = field% qtrc(jc,jk,jb,iqv) + tend_qtrc_mox(jc,jk,iqv)*pdtime
+               END DO
+             END DO
+             !$ACC END PARALLEL
+             !$ACC END DATA
+          END IF
+       END SELECT
        !
     ELSE
        !

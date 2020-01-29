@@ -46,18 +46,19 @@ MODULE mo_read_namelists
   USE mo_echam_cld_nml       ,ONLY: process_echam_cld_nml
   USE mo_echam_mig_nml       ,ONLY: process_echam_mig_nml
   USE mo_echam_cnv_nml       ,ONLY: process_echam_cnv_nml
+  USE mo_echam_cov_nml       ,ONLY: process_echam_cov_nml
+  USE mo_echam_wmo_nml       ,ONLY: process_echam_wmo_nml
   USE mo_echam_gwd_nml       ,ONLY: process_echam_gwd_nml
   USE mo_echam_rad_nml       ,ONLY: process_echam_rad_nml
   USE mo_echam_sso_nml       ,ONLY: process_echam_sso_nml
   USE mo_echam_vdf_nml       ,ONLY: process_echam_vdf_nml
+  USE mo_ccycle_nml          ,ONLY: process_ccycle_nml
   
   USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
   USE mo_psrad_interface     ,ONLY: read_psrad_nml
-  USE mo_ccycle_nml          ,ONLY: read_ccycle_nml
-  USE mo_ccycle_config       ,ONLY: init_ccycle_config
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
   USE mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
@@ -170,17 +171,19 @@ CONTAINS
        CALL process_echam_cld_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_mig_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_cnv_nml        (atm_namelist_filename(1:tlen))
+       CALL process_echam_cov_nml        (atm_namelist_filename(1:tlen))
+       CALL process_echam_wmo_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_gwd_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_rad_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_sso_nml        (atm_namelist_filename(1:tlen))
        CALL process_echam_vdf_nml        (atm_namelist_filename(1:tlen))
        !
+       ! Carbon cycle for ECHAM physics/JSBACH/HAMOCC
+       CALL process_ccycle_nml           (atm_namelist_filename(1:tlen))
+       !
        CALL read_sea_ice_namelist        (atm_namelist_filename(1:tlen))
        CALL read_art_namelist            (atm_namelist_filename(1:tlen))
        CALL read_psrad_nml               (atm_namelist_filename(1:tlen))
-       ! carbon cycle
-       CALL init_ccycle_config
-       CALL read_ccycle_nml              (atm_namelist_filename(1:tlen))
        !
     CASE (INWP)
        !

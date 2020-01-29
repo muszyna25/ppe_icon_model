@@ -336,28 +336,6 @@ function tolerance_check
     TOL_STATUS=0
     cd $MODEL_DIR
 
-    # make sure that repos do not exist
-    if [ -d probtest ]; then
-        rm -rf probtest
-    fi
-    if [ -d icon-test-references ]; then
-        rm -rf icon-test-references
-    fi
-    
-    # Clone the testsuite
-    git clone --depth 1 https://github.com/remodietlicher/probtest.git
-
-    # Clone the reference data
-    git clone https://github.com/remodietlicher/icon-test-references.git
-
-    # This variable stores the version of the reference data
-    REFERENCE_HASH=2798c17b24bb2532cc6d96752c7ead038e60b0af
-
-    # change to the relevant version of the reference data
-    cd icon-test-references
-    git reset --hard ${REFERENCE_HASH}
-    cd ..
-
     case ${BB_SLAVE} in 
         *pgi*)
             COMPILER=pgi ;;
@@ -378,7 +356,7 @@ function tolerance_check
     # --ref the reference from the repository
     # and write the output to a file (tolerance.log)
     python probtest/probtest.py icon-test-references/config.cfg stats check \
-        -o ${MODEL_DIR}/experiments \
+        -o ${MODEL_DIR}/experiments/${EXP_BASE} \
         -e ${EXP_BASE} \
         -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
         --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
@@ -400,7 +378,7 @@ function tolerance_check
     echo "Running tolerance check with GCC reference"
     COMPILER=gcc
     python probtest/probtest.py icon-test-references/config.cfg stats check \
-        -o ${MODEL_DIR}/experiments \
+        -o ${MODEL_DIR}/experiments/${EXP_BASE} \
         -e ${EXP_BASE} \
         -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
         --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
@@ -415,9 +393,7 @@ function tolerance_check
        echo "Careful, no validation against GCC"
     fi
 
-    rm -rf probtest icon-test-references
-
-    return TOL_STATUS
+    return $TOL_STATUS
 }
 #################### main script ########################################
 

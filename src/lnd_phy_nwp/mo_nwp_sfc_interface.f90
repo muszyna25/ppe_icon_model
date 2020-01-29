@@ -45,12 +45,12 @@ MODULE mo_nwp_sfc_interface
   USe mo_extpar_config,       ONLY: itype_vegetation_cycle
   USE mo_ensemble_pert_config,ONLY: sst_pert_corrfac
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi, dqsatdT_ice
-  USE mo_soil_ml,             ONLY: terra_multlay
+  USE sfc_terra,              ONLY: terra
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
-  USE mo_flake,               ONLY: flake_interface
-  USE mo_data_flake,          ONLY: h_Ice_min_flk
-  USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
-  USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
+  USE sfc_flake,              ONLY: flake_interface
+  USE sfc_flake_data,         ONLY: h_Ice_min_flk
+  USE sfc_seaice,             ONLY: seaice_timestep_nwp
+  USE sfc_terra_data                ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt, grav, salinity_fac
 
   
@@ -616,119 +616,121 @@ CONTAINS
 !
 !---------- END Copy index list fields
 
-        CALL terra_multlay(                                    &
-        &  icant=icant                                       , & !IN canopy-type
-        &  ie=nproma                                         , & !IN array dimensions
-        &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
-        &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
+        CALL terra (                                           &
+        &  nvec         = nproma                             , & !IN array dimensions
+        &  ivstart      = 1                                  , & !IN optional start/end indicies
+        &  ivend        = i_count                            , & !IN optional start/end indicies
+        &  iblock       = jb                                 , & !IN actual block number
+        &  ke_soil      = nlev_soil-1                        , & !IN without lowermost (climat.) soil layer
+        &  ke_snow      = nlev_snow                          , & !IN without lowermost (climat.) soil layer
         &  ke_soil_hy   = ibot_w_so                          , & !IN number of hydrological active soil layers
-        &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & !IN processing soil level structure 
-        &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , & !IN !!! Dangerous HACK !!!
+        &  zmls         = zml_soil                           , & !IN processing soil level structure 
+        &  icant        = icant                              , & !IN canopy-type
         &  nclass_gscp  = atm_phy_nwp_config(jg)%nclass_gscp , & !IN number of hydrometeor classes
-        &  dt=tcall_sfc_jg                                   , & !IN 
-        &  soiltyp_subs = soiltyp_t              , & !IN type of the soil (keys 0-9)         --    
-        &  plcov        = plcov_t                , & !IN fraction of plant cover             --
-        &  rootdp       = rootdp_t               , & !IN depth of the roots                ( m  )
-        &  sai          = sai_t                  , & !IN surface area index                  --
-        &  tai          = tai_t                  , & !IN surface area index                  --
-        &  laifac       = laifac_t               , & !IN ratio between current LAI and laimax                 --
-        &  eai          = eai_t                  , & !IN surface area index                  --
-        &  rsmin2d      = rsmin2d_t              , & !IN minimum stomata resistance        ( s/m )
-        &  z0           = z0_t                   , & !IN vegetation roughness length        ( m )
+        &  dt           = tcall_sfc_jg                       , & !IN 
+        &  soiltyp_subs = soiltyp_t                          , & !IN type of the soil (keys 0-9)         --    
+        &  plcov        = plcov_t                            , & !IN fraction of plant cover             --
+        &  rootdp       = rootdp_t                           , & !IN depth of the roots                ( m  )
+        &  sai          = sai_t                              , & !IN surface area index                  --
+        &  tai          = tai_t                              , & !IN surface area index                  --
+        &  laifac       = laifac_t                           , & !IN ratio between current LAI and laimax                 --
+        &  eai          = eai_t                              , & !IN surface area index                  --
+        &  rsmin2d      = rsmin2d_t                          , & !IN minimum stomata resistance        ( s/m )
+        &  z0           = z0_t                               , & !IN vegetation roughness length        ( m )
 !
-        &  u  =  u_t                             , & !IN zonal wind speed
-        &  v  =  v_t                             , & !IN meridional wind speed 
-        &  t  =  t_t                             , & !IN temperature                       (  K  )
-        &  qv =  qv_t                            , & !IN specific water vapor content      (kg/kg)
-        &  p0 =  p0_t                            , & !IN base state pressure               ( Pa  ) 
-        &  ps =  ps_t                            , & !IN surface pressure                  ( Pa  )
+        &  u            =  u_t                               , & !IN zonal wind speed
+        &  v            =  v_t                               , & !IN meridional wind speed 
+        &  t            =  t_t                               , & !IN temperature                       (  K  )
+        &  qv           =  qv_t                              , & !IN specific water vapor content      (kg/kg)
+        &  ptot         =  p0_t                              , & !IN base state pressure               ( Pa  ) 
+        &  ps           =  ps_t                              , & !IN surface pressure                  ( Pa  )
 !
-        &  t_snow_now    = t_snow_now_t          , & !INOUT temperature of the snow-surface (  K  )
-        &  t_snow_new    = t_snow_new_t          , & !OUT temperature of the snow-surface   (  K  )
+        &  t_snow_now    = t_snow_now_t                      , & !INOUT temperature of the snow-surface (  K  )
+        &  t_snow_new    = t_snow_new_t                      , & !OUT temperature of the snow-surface   (  K  )
 !
-        &  t_snow_mult_now = t_snow_mult_now_t , & !INOUT temperature of the snow-surface (  K  )
-        &  t_snow_mult_new = t_snow_mult_new_t , & !OUT temperature of the snow-surface   (  K  )
+        &  t_snow_mult_now = t_snow_mult_now_t               , & !INOUT temperature of the snow-surface (  K  )
+        &  t_snow_mult_new = t_snow_mult_new_t               , & !OUT temperature of the snow-surface   (  K  )
 !
-        &  t_s_now       = t_s_now_t             , & !INOUT temperature of the ground surface (  K  )
-        &  t_s_new       = t_s_new_t             , & !OUT temperature of the ground surface   (  K  )
+        &  t_s_now       = t_s_now_t                         , & !INOUT temperature of the ground surface (  K  )
+        &  t_s_new       = t_s_new_t                         , & !OUT temperature of the ground surface   (  K  )
 !
-        &  t_g           = t_g_t                 , & !INOUT weighted surface temperature      (  K  )
-        &  qv_s          = qv_s_t                , & !INOUT specific humidity at the surface  (kg/kg)
+        &  t_g           = t_g_t                             , & !INOUT weighted surface temperature      (  K  )
+        &  qv_s          = qv_s_t                            , & !INOUT specific humidity at the surface  (kg/kg)
 !
-        &  w_snow_now    = w_snow_now_t          , & !INOUT water content of snow         (m H2O) 
-        &  w_snow_new    = w_snow_new_t          , & !OUT water content of snow           (m H2O) 
+        &  w_snow_now    = w_snow_now_t                      , & !INOUT water content of snow         (m H2O) 
+        &  w_snow_new    = w_snow_new_t                      , & !OUT water content of snow           (m H2O) 
 !
-        &  rho_snow_now      = rho_snow_now_t    , & !IN  snow density                    (kg/m**3)
-        &  rho_snow_new      = rho_snow_new_t    , & !OUT snow density                    (kg/m**3)
+        &  rho_snow_now      = rho_snow_now_t                , & !IN  snow density                    (kg/m**3)
+        &  rho_snow_new      = rho_snow_new_t                , & !OUT snow density                    (kg/m**3)
 !
-        &  rho_snow_mult_now = rho_snow_mult_now_t, & !INOUT snow density               (kg/m**3) 
-        &  rho_snow_mult_new = rho_snow_mult_new_t, & !OUT snow density                 (kg/m**3) 
+        &  rho_snow_mult_now = rho_snow_mult_now_t           , & !INOUT snow density               (kg/m**3) 
+        &  rho_snow_mult_new = rho_snow_mult_new_t           , & !OUT snow density                 (kg/m**3) 
 !
-        &  h_snow        = h_snow_t              , & !INOUT snow height
-        &  h_snow_gp     = h_snow_gp_t           , & !IN grid-point averaged snow height
-        &  meltrate      = meltrate              , & !OUT snow melting rate
-        &  tsnred        = tsnred                , & !IN temperature offset for computing snow evaporation
+        &  h_snow        = h_snow_t                          , & !INOUT snow height
+        &  h_snow_gp     = h_snow_gp_t                       , & !IN grid-point averaged snow height
+        &  meltrate      = meltrate                          , & !OUT snow melting rate
+        &  tsnred        = tsnred                            , & !IN temperature offset for computing snow evaporation
 !
-        &  w_i_now       = w_i_now_t             , & !INOUT water content of interception water(m H2O)
-        &  w_i_new       = w_i_new_t             , & !OUT water content of interception water(m H2O)
+        &  w_i_now       = w_i_now_t                         , & !INOUT water content of interception water(m H2O)
+        &  w_i_new       = w_i_new_t                         , & !OUT water content of interception water(m H2O)
 !
-        &  w_p_now       = w_p_now_t             , & !INOUT water content of interception water(m H2O)
-        &  w_p_new       = w_p_new_t             , & !OUT water content of interception water(m H2O)
+        &  w_p_now       = w_p_now_t                         , & !INOUT water content of interception water(m H2O)
+        &  w_p_new       = w_p_new_t                         , & !OUT water content of interception water(m H2O)
 !
-        &  w_s_now       = w_s_now_t             , & !INOUT water content of interception water(m H2O)
-        &  w_s_new       = w_s_new_t             , & !OUT water content of interception water(m H2O)
+        &  w_s_now       = w_s_now_t                         , & !INOUT water content of interception water(m H2O)
+        &  w_s_new       = w_s_new_t                         , & !OUT water content of interception water(m H2O)
 !
-        &  t_so_now      = t_so_now_t          , & !INOUT soil temperature (main level)    (  K  )
-        &  t_so_new      = t_so_new_t          , & !OUT soil temperature (main level)      (  K  )
+        &  t_so_now      = t_so_now_t                        , & !INOUT soil temperature (main level)    (  K  )
+        &  t_so_new      = t_so_new_t                        , & !OUT soil temperature (main level)      (  K  )
 !
-        &  w_so_now      = w_so_now_t          , & !IN  total water content (ice + liquid water) (m H20)
-        &  w_so_new      = w_so_new_t          , & !OUT total water content (ice + liquid water) (m H20)
+        &  w_so_now      = w_so_now_t                        , & !IN  total water content (ice + liquid water) (m H20)
+        &  w_so_new      = w_so_new_t                        , & !OUT total water content (ice + liquid water) (m H20)
 !
-        &  w_so_ice_now  = w_so_ice_now_t      , & !IN  ice content   (m H20)
-        &  w_so_ice_new  = w_so_ice_new_t      , & !OUT ice content   (m H20)
+        &  w_so_ice_now  = w_so_ice_now_t                    , & !IN  ice content   (m H20)
+        &  w_so_ice_new  = w_so_ice_new_t                    , & !OUT ice content   (m H20)
 !
-        &  u_10m         = u_10m_t               , & !IN zonal wind in 10m                 ( m/s )
-        &  v_10m         = v_10m_t               , & !IN meridional wind in 10m            ( m/s )
-        &  freshsnow     = freshsnow_t           , & !INOUT indicator for age of snow in top of snow layer (  -  )
-        &  zf_snow       = snowfrac_t            , & !INOUT snow-cover fraction                            (  -  )
+        &  u_10m         = u_10m_t                           , & !IN zonal wind in 10m                 ( m/s )
+        &  v_10m         = v_10m_t                           , & !IN meridional wind in 10m            ( m/s )
+        &  freshsnow     = freshsnow_t                       , & !INOUT indicator for age of snow in top of snow layer (  -  )
+        &  zf_snow       = snowfrac_t                        , & !INOUT snow-cover fraction                            (  -  )
 !
-        &  wliq_snow_now = wliq_snow_now_t     , & !INOUT liquid water content in the snow     (m H2O)
-        &  wliq_snow_new = wliq_snow_new_t     , & !OUT liquid water content in the snow       (m H2O)
+        &  wliq_snow_now = wliq_snow_now_t                   , & !INOUT liquid water content in the snow     (m H2O)
+        &  wliq_snow_new = wliq_snow_new_t                   , & !OUT liquid water content in the snow       (m H2O)
 !                                                            
-        &  wtot_snow_now = wtot_snow_now_t     , & !INOUT total (liquid + solid) water content of snow  (m H2O)
-        &  wtot_snow_new = wtot_snow_new_t     , & !OUT total (liquid + solid) water content of snow  (m H2O)
+        &  wtot_snow_now = wtot_snow_now_t                   , & !INOUT total (liquid + solid) water content of snow  (m H2O)
+        &  wtot_snow_new = wtot_snow_new_t                   , & !OUT total (liquid + solid) water content of snow  (m H2O)
 !
-        &  dzh_snow_now  = dzh_snow_now_t      , & !INOUT layer thickness between half levels in snow (  m  )
-        &  dzh_snow_new  = dzh_snow_new_t      , & !OUT layer thickness between half levels in snow   (  m  )
+        &  dzh_snow_now  = dzh_snow_now_t                    , & !INOUT layer thickness between half levels in snow (  m  )
+        &  dzh_snow_new  = dzh_snow_new_t                    , & !OUT layer thickness between half levels in snow   (  m  )
 !
-        &  prr_con       = prr_con_t             , & !IN precipitation rate of rain, convective       (kg/m2*s)
-        &  prs_con       = prs_con_t             , & !IN precipitation rate of snow, convective       (kg/m2*s)
-        &  conv_frac     = conv_frac             , & !IN convective area fraction
-        &  prr_gsp       = prr_gsp_t             , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
-        &  prs_gsp       = prs_gsp_t             , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
-        &  prg_gsp       = prg_gsp_t             , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
+        &  prr_con       = prr_con_t                         , & !IN precipitation rate of rain, convective       (kg/m2*s)
+        &  prs_con       = prs_con_t                         , & !IN precipitation rate of snow, convective       (kg/m2*s)
+        &  conv_frac     = conv_frac                         , & !IN convective area fraction
+        &  prr_gsp       = prr_gsp_t                         , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
+        &  prs_gsp       = prs_gsp_t                         , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
+        &  prg_gsp       = prg_gsp_t                         , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
 !
-        &  tch           = tch_t                 , & !INOUT turbulent transfer coefficient for heat     ( -- )
-        &  tcm           = tcm_t                 , & !INOUT turbulent transfer coefficient for momentum ( -- )
-        &  tfv           = tfv_t                 , & !INOUT laminar reduction factor for evaporation    ( -- )
+        &  tch           = tch_t                             , & !INOUT turbulent transfer coefficient for heat     ( -- )
+        &  tcm           = tcm_t                             , & !INOUT turbulent transfer coefficient for momentum ( -- )
+        &  tfv           = tfv_t                             , & !INOUT laminar reduction factor for evaporation    ( -- )
 !
-        &  sobs          = sobs_t                , & !IN solar radiation at the ground               (W/m2)
-        &  thbs          = thbs_t                , & !IN thermal radiation at the ground             (W/m2)
-        &  pabs          = pabs_t                , & !IN photosynthetic active radiation             (W/m2)
+        &  sobs          = sobs_t                            , & !IN solar radiation at the ground               (W/m2)
+        &  thbs          = thbs_t                            , & !IN thermal radiation at the ground             (W/m2)
+        &  pabs          = pabs_t                            , & !IN photosynthetic active radiation             (W/m2)
 !
-        &  runoff_s      = runoff_s_t            , & !INOUT surface water runoff; sum over forecast  (kg/m2)
-        &  runoff_g      = runoff_g_t            , & !INOUT soil water runoff; sum over forecast     (kg/m2)
+        &  runoff_s      = runoff_s_t                        , & !INOUT surface water runoff; sum over forecast  (kg/m2)
+        &  runoff_g      = runoff_g_t                        , & !INOUT soil water runoff; sum over forecast     (kg/m2)
 !
-        &  zshfl_s       = shfl_soil_t           , & !OUT sensible heat flux soil/air interface    (W/m2) 
-        &  zlhfl_s       = lhfl_soil_t           , & !OUT latent   heat flux soil/air interface    (W/m2) 
-        &  zshfl_snow    = shfl_snow_t           , & !OUT sensible heat flux snow/air interface    (W/m2) 
-        &  zlhfl_snow    = lhfl_snow_t           , & !OUT latent   heat flux snow/air interface    (W/m2) 
-        &  lhfl_bs       = lhfl_bs_t             , & !OUT latent heat flux from bare soil evap.    (W/m2)
-        &  lhfl_pl       = lhfl_pl_t             , & !OUT latent heat flux from bare soil evap.    (W/m2)
-        &  plevap        = plevap_t              , & !INOUT accumulated plant evaporation          (kg/m2)
-        &  rstom         = rstom_t               , & !OUT stomatal resistance                      ( s/m )
-        &  zshfl_sfc     = shfl_s_t              , & !OUT sensible heat flux surface interface     (W/m2) 
-        &  zlhfl_sfc     = lhfl_s_t              , & !OUT latent   heat flux surface interface     (W/m2) 
+        &  zshfl_s       = shfl_soil_t                       , & !OUT sensible heat flux soil/air interface    (W/m2) 
+        &  zlhfl_s       = lhfl_soil_t                       , & !OUT latent   heat flux soil/air interface    (W/m2) 
+        &  zshfl_snow    = shfl_snow_t                       , & !OUT sensible heat flux snow/air interface    (W/m2) 
+        &  zlhfl_snow    = lhfl_snow_t                       , & !OUT latent   heat flux snow/air interface    (W/m2) 
+        &  lhfl_bs       = lhfl_bs_t                         , & !OUT latent heat flux from bare soil evap.    (W/m2)
+        &  lhfl_pl       = lhfl_pl_t                         , & !OUT latent heat flux from bare soil evap.    (W/m2)
+        &  plevap        = plevap_t                          , & !INOUT accumulated plant evaporation          (kg/m2)
+        &  rstom         = rstom_t                           , & !OUT stomatal resistance                      ( s/m )
+        &  zshfl_sfc     = shfl_s_t                          , & !OUT sensible heat flux surface interface     (W/m2) 
+        &  zlhfl_sfc     = lhfl_s_t                          , & !OUT latent   heat flux surface interface     (W/m2) 
         &  zqhfl_sfc     = qhfl_s_t                ) !OUT moisture flux surface interface          (kg/m2/s) 
 
 

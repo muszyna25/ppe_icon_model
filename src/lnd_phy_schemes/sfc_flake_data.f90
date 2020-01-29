@@ -46,7 +46,7 @@
 !!
 !! @par Revision History
 !!
-!! COSMO history:
+!! Old COSMO History:
 !! Version    Date       Name
 !! ---------- ---------- ----
 !! 3.18       2006/03/03 Dmitrii Mironov
@@ -56,6 +56,7 @@
 !! V4_24        2012/06/22 Dmitrii Mironov
 !!  Introduced a maximum value for EXP arguments
 !!
+!! ICON history
 !! Initial ICON release by Dmitrii Mironov, DWD (2013-02-08)
 !! (adaptation of the COSMO code for ICON)
 !!
@@ -65,6 +66,13 @@
 !! Modification by Dmitrii Mironov, DWD (2015-10-16)
 !! - parameter fr_lake_min is removed  
 !!
+!
+! History:
+! Version      Date       Name
+! ------------ ---------- ----
+! V5_4e        2017-03-23 Ulrich Schaettler
+!  Initial release for COSMO (taken from ICON version)
+!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -85,23 +93,19 @@
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
-MODULE mo_data_flake
+MODULE sfc_flake_data
 
 !===================================================================================================
 
 ! The following '#ifdef' statements make it possible to use 
-! "mo_data_flake" within both ICON and COSMO.
+! "sfc_flake_data" within both ICON and COSMO.
 
 #ifdef __COSMO__
-  USE data_parameters, ONLY :             &
-                            & ireals    , &  ! KIND-type parameter for real variables
-                            & iintegers      ! KIND-type parameter for standard integer variables
+  USE kind_parameters, ONLY : wp      ! KIND-type parameter for real variables
 #endif
 
 #ifdef __ICON__
-  USE mo_kind, ONLY:                   &
-                   & ireals    => wp , &  ! KIND-type parameter for real variables
-                   & iintegers => i4      ! KIND-type parameter for standard integer variables
+  USE mo_kind        , ONLY : wp      ! KIND-type parameter for real variables
 #endif
 
 !===================================================================================================
@@ -120,16 +124,16 @@ MODULE mo_data_flake
 ! -----------------
 
   ! Albedo for water, ice, and snow.
-  REAL (KIND = ireals), PARAMETER ::        &
-    albedo_water_ref       = 0.07_ireals  , & ! Water [-]
-    albedo_whiteice_ref    = 0.60_ireals  , & ! White ice [-]
-    albedo_blueice_ref     = 0.10_ireals  , & ! Blue ice [-]
-    albedo_drysnow_ref     = 0.60_ireals  , & ! Dry snow [-]
-    albedo_meltingsnow_ref = 0.10_ireals      ! Melting snow [-]
+  REAL (KIND = wp), PARAMETER ::        &
+    albedo_water_ref       = 0.07_wp  , & ! Water [-]
+    albedo_whiteice_ref    = 0.60_wp  , & ! White ice [-]
+    albedo_blueice_ref     = 0.10_wp  , & ! Blue ice [-]
+    albedo_drysnow_ref     = 0.60_wp  , & ! Dry snow [-]
+    albedo_meltingsnow_ref = 0.10_wp      ! Melting snow [-]
 
   ! Empirical parameters.
-  REAL (KIND = ireals), PARAMETER :: &
-    c_albice_MR = 95.6_ireals        ! Constant in the interpolation formula for the ice albedo 
+  REAL (KIND = wp), PARAMETER :: &
+    c_albice_MR = 95.6_wp            ! Constant in the interpolation formula for the ice albedo 
                                      ! (Mironov and Ritter 2004, Mironov et al. 2012) [-]
 
 !---------------------------------------------------------------------------------------------------
@@ -149,8 +153,8 @@ MODULE mo_data_flake
   ! wave is set to a reference value defined below, and the temperature at
   ! this depth is set to the temperature of maximum density of the fresh water.
 
-  REAL (KIND = ireals), PARAMETER :: &
-    rflk_depth_bs_ref = 10.0_ireals  
+  REAL (KIND = wp), PARAMETER :: &
+    rflk_depth_bs_ref = 10.0_wp
 
   ! Reference value of the depth of the thermally active layer of bottom
   ! sediments [m].  This value is used to (formally) define the depth
@@ -169,16 +173,16 @@ MODULE mo_data_flake
   ! A storage for a ten-band approximation is allocated,
   ! although a smaller number of bands is actually used.
 
-  INTEGER (KIND = iintegers), PARAMETER :: & 
-    nband_optic_max = 10_iintegers
+  INTEGER, PARAMETER :: & 
+    nband_optic_max = 10
 
   !  Define TYPE "opticpar_medium"
   TYPE opticpar_medium
 
-    INTEGER (KIND = iintegers)          :: & 
+    INTEGER          :: & 
       nband_optic                            ! Number of wave-length bands [-]
 
-    REAL (KIND = ireals)                :: & 
+    REAL (KIND = wp) ::                    & 
       frac_optic       (nband_optic_max),  & ! Fractions of total radiation flux [-] 
       extincoef_optic  (nband_optic_max)     ! Extinction coefficients [m^{-1}]
 
@@ -195,18 +199,18 @@ MODULE mo_data_flake
   ! Dimensionless constants in the equations for the mixed-layer depth and for
   ! the shape factor with respect to the temperature profile in the thermocline
 
-  REAL (KIND = ireals), PARAMETER :: &
-    c_cbl_1    = 0.17_ireals  , & ! Constant in the CBL entrainment equation [-]
-    c_cbl_2    = 1.0_ireals   , & ! Constant in the CBL entrainment equation [-]
-    c_sbl_ZM_n = 0.5_ireals   , & ! Constant in the ZM1996 equation for the 
+  REAL (KIND = wp), PARAMETER :: &
+    c_cbl_1    = 0.17_wp      , & ! Constant in the CBL entrainment equation [-]
+    c_cbl_2    = 1.0_wp       , & ! Constant in the CBL entrainment equation [-]
+    c_sbl_ZM_n = 0.5_wp       , & ! Constant in the ZM1996 equation for the 
                                   !       equilibrium SBL depth [-]
-    c_sbl_ZM_s = 10.0_ireals  , & ! Constant in the ZM1996 equation for the 
+    c_sbl_ZM_s = 10.0_wp      , & ! Constant in the ZM1996 equation for the 
                                   !       equilibrium SBL depth [-]
-    c_sbl_ZM_i = 20.0_ireals  , & ! Constant in the ZM1996 equation for the 
+    c_sbl_ZM_i = 20.0_wp      , & ! Constant in the ZM1996 equation for the 
                                   !       equilibrium SBL depth [-]
-    c_relax_h  = 0.010_ireals , & ! Constant in the relaxation equation for the 
+    c_relax_h  = 0.010_wp     , & ! Constant in the relaxation equation for the 
                                   !       SBL depth [-]
-    c_relax_C  = 0.0030_ireals    ! Constant in the relaxation equation for the 
+    c_relax_C  = 0.0030_wp        ! Constant in the relaxation equation for the 
                                   !       shape factor with respect to the 
                                   !       temperature profile in the thermocline [-]
 
@@ -217,91 +221,91 @@ MODULE mo_data_flake
   ! "pr0" and "pr1" denote zeta derivatives of the corresponding shape function 
   ! at "zeta=0" ad "zeta=1", respectively.
 
-  REAL (KIND = ireals), PARAMETER ::        &
-    C_T_min       = 0.5_ireals            , & ! Minimum value of the shape factor 
+  REAL (KIND = wp), PARAMETER ::            &
+    C_T_min       = 0.5_wp                , & ! Minimum value of the shape factor 
                                               !    C_T (thermocline) [-]
-    C_T_max       = 0.8_ireals            , & ! Maximum value of the shape factor 
+    C_T_max       = 0.8_wp                , & ! Maximum value of the shape factor 
                                               !    C_T (thermocline) [-]
-    Phi_T_pr0_1   = 40._ireals/3._ireals  , & ! Constant in the expression for the 
+    Phi_T_pr0_1   = 40.0_wp / 3.0_wp      , & ! Constant in the expression for the 
                                               !    T shape-function derivative [-]
-    Phi_T_pr0_2   = 20._ireals/3._ireals  , & ! Constant in the expression for the 
+    Phi_T_pr0_2   = 20.0_wp / 3.0_wp      , & ! Constant in the expression for the 
                                               !    T shape-function derivative [-]
-    C_TT_1        = 11._ireals/18._ireals , & ! Constant in the expression for 
+    C_TT_1        = 11.0_wp / 18.0_wp     , & ! Constant in the expression for 
                                               !    C_TT (thermocline) [-]
-    C_TT_2        = 7._ireals/45._ireals  , & ! Constant in the expression for 
+    C_TT_2        = 7.0_wp  / 45.0_wp     , & ! Constant in the expression for 
                                               !    C_TT (thermocline) [-]
-    C_B1          = 2._ireals/3._ireals   , & ! Shape factor (upper layer of 
+    C_B1          = 2.0_wp  / 3.0_wp      , & ! Shape factor (upper layer of 
                                               !    bottom sediments) [-]
-    C_B2          = 3._ireals/5._ireals   , & ! Shape factor (lower layer of 
+    C_B2          = 3.0_wp  / 5.0_wp      , & ! Shape factor (lower layer of 
                                               !    bottom sediments) [-]
-    Phi_B1_pr0    = 2._ireals             , & ! B1 shape-function derivative [-] 
-    C_S_lin       = 0.5_ireals            , & ! Shape factor (linear temperature 
+    Phi_B1_pr0    = 2.0_wp                , & ! B1 shape-function derivative [-] 
+    C_S_lin       = 0.5_wp                , & ! Shape factor (linear temperature 
                                               !    profile in the snow layer) [-]
-    Phi_S_pr0_lin = 1._ireals             , & ! S shape-function derivative 
+    Phi_S_pr0_lin = 1.0_wp                , & ! S shape-function derivative 
                                               !    (linear profile) [-] 
-    C_I_lin       = 0.5_ireals            , & ! Shape factor (linear temperature 
+    C_I_lin       = 0.5_wp                , & ! Shape factor (linear temperature 
                                               !    profile in the ice layer) [-]
-    Phi_I_pr0_lin = 1._ireals             , & ! I shape-function derivative 
+    Phi_I_pr0_lin = 1.0_wp                , & ! I shape-function derivative 
                                               !    (linear profile) [-] 
-    Phi_I_pr1_lin = 1._ireals             , & ! I shape-function derivative 
+    Phi_I_pr1_lin = 1.0_wp                , & ! I shape-function derivative 
                                               !    (linear profile) [-] 
-    Phi_I_ast_MR  = 2._ireals             , & ! Constant in the MR2004 expression 
+    Phi_I_ast_MR  = 2.0_wp                , & ! Constant in the MR2004 expression 
                                               !    for I shape factor [-]
-    C_I_MR        = 1._ireals/12._ireals  , & ! Constant in the MR2004 expression
+    C_I_MR        = 1.0_wp    /12.0_wp    , & ! Constant in the MR2004 expression
                                               !    for I shape factor [-]
-    H_Ice_max     = 3._ireals                 ! Maximum ice thickness in the 
+    H_Ice_max     = 3.0_wp                    ! Maximum ice thickness in the 
                                               !    Mironov and Ritter ice model [m] 
 
   ! Security constants
-  REAL (KIND = ireals), PARAMETER ::     &
-    h_Snow_min_flk = 1.0E-5_ireals     , & ! Minimum snow thickness [m]
-    h_Ice_min_flk  = 1.0E-9_ireals     , & ! Minimum ice thickness [m]
-    h_ML_min_flk   = 1.0E-2_ireals     , & ! Minimum mixed-layer depth [m]
-    h_ML_max_flk   = 1.0E+3_ireals     , & ! Maximum mixed-layer depth [m]
-    H_B1_min_flk   = 1.0E-3_ireals     , & ! Minimum thickness of the upper 
+  REAL (KIND = wp), PARAMETER ::         &
+    h_Snow_min_flk = 1.0E-5_wp         , & ! Minimum snow thickness [m]
+    h_Ice_min_flk  = 1.0E-9_wp         , & ! Minimum ice thickness [m]
+    h_ML_min_flk   = 1.0E-2_wp         , & ! Minimum mixed-layer depth [m]
+    h_ML_max_flk   = 1.0E+3_wp         , & ! Maximum mixed-layer depth [m]
+    H_B1_min_flk   = 1.0E-3_wp         , & ! Minimum thickness of the upper 
                                            !     layer of bottom sediments [m]
-    u_star_min_flk = 1.0E-6_ireals         ! Minimum value of the surface 
+    u_star_min_flk = 1.0E-6_wp             ! Minimum value of the surface 
                                            !     friction velocity [m s^{-1}]
 
   ! Security constants
-  REAL (KIND = ireals), PARAMETER ::     &
-    c_small_flk    = 1.0E-10_ireals    , & ! A small number
-    c_maxearg_flk  = 1.0E+02_ireals        ! Maximum value of the EXP function argument [-]
+  REAL (KIND = wp), PARAMETER ::         &
+    c_small_flk    = 1.0E-10_wp        , & ! A small number
+    c_maxearg_flk  = 1.0E+02_wp            ! Maximum value of the EXP function argument [-]
 
 !_cdm>
 ! Parameter "fr_lake_min" is no longer used. 
 ! ICON namelist parameter "frlake_thrhld" is used to set the minimum lake fraction.
 !_cdm<
 !_nu  ! Parameter(s) required to use FLake as a lake parameterization scheme in atmospheric models
-!_nu  REAL (KIND = ireals), PARAMETER ::     &
-!_nu    fr_lake_min    = 3.0E-02_ireals        ! Minimum lake fraction within a host 
+!_nu  REAL (KIND = wp), PARAMETER ::     &
+!_nu    fr_lake_min    = 3.0E-02_wp            ! Minimum lake fraction within a host 
 !_nu                                           ! atmospheric model grid box [-]
 
   ! Thermodynamic parameters
-  REAL (KIND = ireals), PARAMETER ::        &
-    tpl_grav          = 9.81_ireals       , & ! Acceleration due to gravity [m s^{-2}]
-    tpl_T_r           = 277.13_ireals     , & ! Temperature of maximum density of fresh water [K]
-    tpl_T_f           = 273.15_ireals     , & ! Fresh water freezing point [K]
-    tpl_a_T           = 1.6509E-05_ireals , & ! Constant in the fresh-water equation of state [K^{-2}]
-    tpl_rho_w_r       = 1.0E+03_ireals    , & ! Maximum density of fresh water [kg m^{-3}]
-    tpl_rho_I         = 9.1E+02_ireals    , & ! Density of ice [kg m^{-3}]
-    tpl_rho_S_min     = 1.0E+02_ireals    , & ! Minimum snow density [kg m^{-3}]
-    tpl_rho_S_max     = 4.0E+02_ireals    , & ! Maximum snow density [kg m^{-3}]
-    tpl_Gamma_rho_S   = 2.0E+02_ireals    , & ! Empirical parameter in the expression 
+  REAL (KIND = wp), PARAMETER ::            &
+    tpl_grav          = 9.81_wp           , & ! Acceleration due to gravity [m s^{-2}]
+    tpl_T_r           = 277.13_wp         , & ! Temperature of maximum density of fresh water [K]
+    tpl_T_f           = 273.15_wp         , & ! Fresh water freezing point [K]
+    tpl_a_T           = 1.6509E-05_wp     , & ! Constant in the fresh-water equation of state [K^{-2}]
+    tpl_rho_w_r       = 1.0E+03_wp        , & ! Maximum density of fresh water [kg m^{-3}]
+    tpl_rho_I         = 9.1E+02_wp        , & ! Density of ice [kg m^{-3}]
+    tpl_rho_S_min     = 1.0E+02_wp        , & ! Minimum snow density [kg m^{-3}]
+    tpl_rho_S_max     = 4.0E+02_wp        , & ! Maximum snow density [kg m^{-3}]
+    tpl_Gamma_rho_S   = 2.0E+02_wp        , & ! Empirical parameter in the expression 
                                               ! for the snow density [kg m^{-4}]
-    tpl_L_f           = 3.3E+05_ireals    , & ! Latent heat of fusion [J kg^{-1}]
-    tpl_c_w           = 4.2E+03_ireals    , & ! Specific heat of water [J kg^{-1} K^{-1}]
-    tpl_c_I           = 2.1E+03_ireals    , & ! Specific heat of ice [J kg^{-1} K^{-1}]
-    tpl_c_S           = 2.1E+03_ireals    , & ! Specific heat of snow [J kg^{-1} K^{-1}]
-    tpl_kappa_w       = 5.46E-01_ireals   , & ! Molecular heat conductivity of water 
+    tpl_L_f           = 3.3E+05_wp        , & ! Latent heat of fusion [J kg^{-1}]
+    tpl_c_w           = 4.2E+03_wp        , & ! Specific heat of water [J kg^{-1} K^{-1}]
+    tpl_c_I           = 2.1E+03_wp        , & ! Specific heat of ice [J kg^{-1} K^{-1}]
+    tpl_c_S           = 2.1E+03_wp        , & ! Specific heat of snow [J kg^{-1} K^{-1}]
+    tpl_kappa_w       = 5.46E-01_wp       , & ! Molecular heat conductivity of water 
                                               ! [J m^{-1} s^{-1} K^{-1}]
-    tpl_kappa_I       = 2.29_ireals       , & ! Molecular heat conductivity of ice 
+    tpl_kappa_I       = 2.29_wp           , & ! Molecular heat conductivity of ice 
                                               ! [J m^{-1} s^{-1} K^{-1}]
-    tpl_kappa_S_min   = 0.2_ireals        , & ! Minimum molecular heat conductivity of snow 
+    tpl_kappa_S_min   = 0.2_wp            , & ! Minimum molecular heat conductivity of snow 
                                               ! [J m^{-1} s^{-1} K^{-1}]
-    tpl_kappa_S_max   = 1.5_ireals        , & ! Maximum molecular heat conductivity of snow 
+    tpl_kappa_S_max   = 1.5_wp            , & ! Maximum molecular heat conductivity of snow 
                                               ! [J m^{-1} s^{-1} K^{-1}]
-    tpl_Gamma_kappa_S = 1.3_ireals            ! Empirical parameter in expression 
+    tpl_Gamma_kappa_S = 1.3_wp                ! Empirical parameter in expression 
                                               ! for the snow heat conductivity 
                                               ! [J m^{-2} s^{-1} K^{-1}] 
 
@@ -326,7 +330,7 @@ MODULE mo_data_flake
   ! can be used to prevent penetration of the solar radiation 
   ! through the snow-ice cover.
  
-  INTEGER (KIND = iintegers), PRIVATE :: & ! Help variable(s)
+  INTEGER, PRIVATE :: & ! Help variable(s)
     i                                      ! DO loop index
 
   ! Optical characteristics for water, ice, and snow.
@@ -334,42 +338,116 @@ MODULE mo_data_flake
   TYPE (opticpar_medium), PARAMETER ::                           & 
     ! Water (reference)
     opticpar_water_ref = opticpar_medium(1,                      &
-      (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
-      (/3._ireals, (1.E+10_ireals,i=2,nband_optic_max)/))      , &
+      (/1.0_wp, (0.0_wp       ,i=2,nband_optic_max)/),           &
+      (/3.0_wp, (1.E+10_wp    ,i=2,nband_optic_max)/))         , &
     ! Transparent water (two-band)
-    opticpar_water_trans = opticpar_medium(2,                             & 
-      (/0.10_ireals, 0.90_ireals, (0._ireals,i=3,nband_optic_max)/),      &
-      (/2.0_ireals, 0.20_ireals, (1.E+10_ireals,i=3,nband_optic_max)/)) , &
+    opticpar_water_trans = opticpar_medium(2,                    & 
+      (/0.10_wp, 0.90_wp, (0._wp    ,i=3,nband_optic_max)/),     &
+      (/2.0_wp , 0.20_wp, (1.E+10_wp,i=3,nband_optic_max)/))   , &
     ! Transparent water (one-band)
 !_nu  opticpar_water_trans = opticpar_medium(1,                    & 
-!_nu    (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
-!_nu    (/0.30_ireals, (1.E+10_ireals,i=2,nband_optic_max)/))    , &
+!_nu    (/1._wp      , (0._wp    ,i=2,nband_optic_max)/),          &
+!_nu    (/0.30_wp    , (1.E+10_wp    ,i=2,nband_optic_max)/))    , &
     ! White ice
     opticpar_whiteice_ref = opticpar_medium(1,                   & 
-      (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &   
-      (/17.1_ireals, (1.E+10_ireals,i=2,nband_optic_max)/))    , &
+      (/1.0_wp    , (0.0_wp   ,i=2,nband_optic_max)/),           &   
+      (/17.1_wp   , (1.E+10_wp,i=2,nband_optic_max)/))         , &
     ! Blue ice
     opticpar_blueice_ref = opticpar_medium(1,                    & 
-      (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
-      (/8.4_ireals, (1.E+10_ireals,i=2,nband_optic_max)/))     , &
+      (/1.0_wp    , (0.0_wp   ,i=2,nband_optic_max)/),           &
+      (/8.4_wp    , (1.E+10_wp,i=2,nband_optic_max)/))         , &
     ! Dry snow 
     opticpar_drysnow_ref = opticpar_medium(1,                    & 
-      (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
-      (/25.0_ireals, (1.E+10_ireals,i=2,nband_optic_max)/))    , &
-    ! Melting snow 
+      (/1.0_wp    , (0.0_wp   ,i=2,nband_optic_max)/),           &
+      (/25.0_wp   , (1.E+10_wp,i=2,nband_optic_max)/))         , &
+    ! Melting snow
     opticpar_meltingsnow_ref = opticpar_medium(1,                & 
-      (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
-      (/15.0_ireals, (1.E+10_ireals,i=2,nband_optic_max)/))    , &
+      (/1.0_wp    , (0.0_wp   ,i=2,nband_optic_max)/),           &
+      (/15.0_wp   , (1.E+10_wp,i=2,nband_optic_max)/))         , &
     ! Opaque ice
     opticpar_ice_opaque = opticpar_medium(1,                     & 
-      (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
-      (/1.0E+07_ireals, (1.E+10_ireals,i=2,nband_optic_max)/)) , &
+      (/1.0_wp    , (0.0_wp   ,i=2,nband_optic_max)/),           &
+      (/1.0E+07_wp, (1.E+10_wp,i=2,nband_optic_max)/))         , &
     ! Opaque snow
     opticpar_snow_opaque = opticpar_medium(1,                    & 
-      (/1._ireals, (0._ireals,i=2,nband_optic_max)/),            &
-      (/1.0E+07_ireals, (1.E+10_ireals,i=2,nband_optic_max)/)) 
+      (/1.0_wp    , (0.0_wp   ,i=2,nband_optic_max)/),           &
+      (/1.0E+07_wp, (1.E+10_wp,i=2,nband_optic_max)/)) 
+
+
+#ifdef __COSMO__
+!US needed because of ICON
+  REAL (KIND=wp) :: frlake_thrhld = 0.5_wp
+#endif
+
+!---------------------------------------------------------------------------------------------------
+
+#ifdef ALLOC_WKARR
+! Local arrays defined as allocatables here:
+! ------------------------------------------
+
+! All arrays are time tendencies
+
+  REAL(KIND = wp), ALLOCATABLE    :: &
+
+    dtsnowdt  (:)     , & ! snow surface temperature                                  [K s^{-1}]
+    dhsnowdt  (:)     , & ! snow thickness                                            [m s^{-1}]
+    dticedt   (:)     , & ! ice surface temperature                                   [K s^{-1}]
+    dhicedt   (:)     , & ! ice thickness                                             [m s^{-1}]
+    dtmnwlkdt (:)     , & ! mean temperature of the water column                      [K s^{-1}]
+    dtwmllkdt (:)     , & ! mixed-layer temperature                                   [K s^{-1}]
+    dtbotlkdt (:)     , & ! temperature at the water-bottom sediment interface        [K s^{-1}]
+    dctlkdt   (:)     , & ! shape factor with respect to the temperature profile 
+                          !     in lake thermocline                                     [s^{-1}]
+    dhmllkdt  (:)     , & ! the mixed-layer thickness                                 [m s^{-1}]
+    dtb1lkdt  (:)     , & ! temperature at the bottom of the upper layer of sediments [K s^{-1}]
+    dhb1lkdt  (:)     , & ! thickness of the upper layer of sediments                 [m s^{-1}]
+    dtsfclkdt (:)         ! lake surface temperature                                  [K s^{-1}]
+
+!==============================================================================
+
+CONTAINS
+
+!==============================================================================
+
+SUBROUTINE flake_wkarr_alloc (nproma, istat)
+
+  INTEGER, INTENT(IN)  :: nproma
+  INTEGER, INTENT(OUT) :: istat
+
+  istat = 0
+
+  ALLOCATE (                 &
+    dtsnowdt  (nproma)     , &
+    dhsnowdt  (nproma)     , &
+    dticedt   (nproma)     , &
+    dhicedt   (nproma)     , &
+    dtmnwlkdt (nproma)     , &
+    dtwmllkdt (nproma)     , &
+    dtbotlkdt (nproma)     , &
+    dctlkdt   (nproma)     , &
+    dhmllkdt  (nproma)     , &
+    dtb1lkdt  (nproma)     , &
+    dhb1lkdt  (nproma)     , &
+    dtsfclkdt (nproma)     ,          STAT=istat)
+
+END SUBROUTINE flake_wkarr_alloc
+
+!==============================================================================
+
+SUBROUTINE flake_wkarr_dealloc (istat)
+
+  INTEGER, INTENT(OUT) :: istat
+
+  istat = 0
+
+  DEALLOCATE (               &
+    dtsnowdt  , dhsnowdt  , dticedt   , dhicedt   , dtmnwlkdt , dtwmllkdt ,            &
+    dtbotlkdt , dctlkdt   , dhmllkdt  , dtb1lkdt  , dhb1lkdt  , dtsfclkdt ,   STAT=istat)
+
+END SUBROUTINE flake_wkarr_dealloc
+#endif
 
 !===================================================================================================
 
-END MODULE mo_data_flake
+END MODULE sfc_flake_data
 

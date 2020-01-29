@@ -21,10 +21,13 @@
 !!
 MODULE mo_turbulence_diag
 
-  USE mo_kind,              ONLY: wp
+  USE mo_kind,              ONLY: wp, i1
   USE mo_convect_tables,    ONLY: prepare_ua_index_spline, lookup_ua_spline, &
     &                             compute_qsat
-!!$  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline, lookup_ua_spline
+
+  ! DA: is it fine??
+  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline_batch, lookup_ua_spline_batch
+
   USE mo_echam_vdf_config,  ONLY: echam_vdf_config
   USE mo_echam_vdiff_params,ONLY: ckap, cb,cc, chneu, da1,                  &
     &                             eps_shear, eps_corio, totte_min, cons5,   &
@@ -32,6 +35,7 @@ MODULE mo_turbulence_diag
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
     &                             vtmpc1, tmelt, alv, als, p0ref
   USE mo_grid_config       ,ONLY: grid_angular_velocity
+  USE mo_index_list        ,ONLY: generate_index_list_batched
 
   IMPLICIT NONE
   PRIVATE
@@ -62,7 +66,7 @@ CONTAINS
   SUBROUTINE atm_exchange_coeff( jg,                                      &! in
                                & jb,                                      &! in, for debugging only
                                & jcs, kproma, kbdim,                      &! in
-                               & klev, klevm1, klevp1,     &! in
+                               & klev, klevm1, klevp1,                    &! in
                                & pdtime, pcoriol,                         &! in
                                & pghf, pghh,                              &! in
                                & pum1, pvm1, ptm1, ptvm1,                 &! in
@@ -75,7 +79,7 @@ CONTAINS
                                & pcfm, pcfh, pcfv, pcftotte, pcfthv,      &! out
                                & pprfac, ptheta_b, pthetav_b, pthetal_b,  &! out
                                & pqsat_b, plh_b,                          &! out
-                               & pri, pmixlen                             )
+                               & pri, pmixlen                             )! out
     ! Arguments
 
     INTEGER, INTENT(IN) :: jg
@@ -161,6 +165,14 @@ CONTAINS
 
     REAL(wp) :: zonethird
 
+#ifdef _OPENACC
+    ! DA: for GPU it's much better to collapse the jk and jl loops,
+    !     therefore we need to use 2D temporary arrays
+    INTEGER  :: idx_batch(kbdim,klev)
+    REAL(wp) :: za_batch (kbdim,klev), zua_batch(kbdim,klev)
+    REAL(wp) :: zpapm1i_s
+#endif
+
     ! Shortcuts to components of echam_vdf_config
     !
     REAL(wp) :: f_tau0, f_theta0, c_f, c_n, c_e, pr0, fbl
@@ -175,7 +187,8 @@ CONTAINS
     !---- Argument arrays - Module Variables
     !$ACC CREATE(zlh,ztheta,zthetav,zthetal,zqsat,km,kh,zlhmid,zdgmid) &
     !$ACC CREATE(zccovermid,zqxmid,zqmid,zqsatmid,zthetamid,zthetavmid,ztmid,ztvmid) &
-    !$ACC CREATE(ihpbl,ihpblc,ihpbld,idx,za,zhdyn,zpapm1i,zua)
+    !$ACC CREATE(ihpbl,ihpblc,ihpbld,idx,za,zhdyn,zpapm1i,zua) &
+    !$ACC CREATE(idx_batch,za_batch,zua_batch)
 
     f_tau0   = echam_vdf_config(jg)% f_tau0
     f_theta0 = echam_vdf_config(jg)% f_theta0
@@ -196,6 +209,7 @@ CONTAINS
     ! 2. NEW THERMODYNAMIC VARIABLES
     !-------------------------------------
 
+#ifndef _OPENACC
     DO 212 jk=1,klev
       CALL prepare_ua_index_spline('vdiff (1)',jcs,kproma,ptm1(:,jk),idx,za       &
       &                                       ,klev=jk,kblock=jb,kblock_size=kbdim)
@@ -233,9 +247,44 @@ CONTAINS
       !$ACC END PARALLEL
 212 END DO
 
+#else
+    ! DA: warning: those are from ECHAM convect tables!!
+    CALL prepare_ua_index_spline_batch(jg, 'vdiff (1)', jcs, kproma, klev, &
+      &                                ptm1, idx_batch, za_batch,          &
+      &                                kblock=jb,kblock_size=kbdim)
+    CALL lookup_ua_spline_batch(jcs, kproma, klev, idx_batch, za_batch, zua_batch)
+
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
+    DO jk=1,klev
+      DO jl=jcs,kproma
+        zpapm1i_s = 1._wp/papm1(jl,jk)
+        ztheta(jl,jk) = (p0ref*zpapm1i_s)**rd_o_cpd
+
+        ! Virtual dry static energy, potential temperature, virtual potential
+        ! temperature
+
+        pcptgz (jl,jk) = pghf(jl,jk)*grav+ptm1(jl,jk)*(cpd+(cpv-cpd)*pqm1(jl,jk))
+        ztheta (jl,jk) = ptm1(jl,jk)*ztheta(jl,jk)
+        zthetav(jl,jk) = ztheta(jl,jk)*(1._wp+vtmpc1*pqm1(jl,jk)-pxm1(jl,jk))
+
+        ! Latent heat, liquid (and ice) potential temperature
+
+        zlh(jl,jk)     = FSEL(ptm1(jl,jk)-tmelt,alv,als) ! latent heat
+        zusus1         = zlh(jl,jk)/cpd*ztheta(jl,jk)/ptm1(jl,jk)*pxm1(jl,jk)
+        zthetal(jl,jk) = ztheta(jl,jk)-zusus1
+
+        zes=zua_batch(jl,jk)*zpapm1i_s              ! (sat. vapour pressure)*Rd/Rv/ps
+        zes=MIN(zes,0.5_wp)
+        zqsat(jl,jk)=zes/(1._wp-vtmpc1*zes)  ! specific humidity at saturation
+      END DO
+    END DO
+    !$ACC END PARALLEL
+#endif
+
     ! Copy bottom-level values to dummy arguments
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       ptheta_b (jl) = ztheta (jl,klev)
@@ -252,10 +301,9 @@ CONTAINS
     ! Vertical interpolation from full levels to mid-levels
     ! using linear interpolation in pressure coordinate
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO 214 jk=1,klevm1
-      !$ACC LOOP GANG VECTOR
       DO 213 jl=jcs,kproma
         zdgmid(jl,jk) = pghf(jl,jk) - pghf(jl,jk+1)
 
@@ -288,7 +336,7 @@ CONTAINS
     ! 4. Compute convective dry boundary layer height
     !------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs,kproma
       zcor=MAX(ABS(pcoriol(jl)),eps_corio)
@@ -298,7 +346,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP SEQ
     DO jk=klevm1,1,-1
       !$ACC LOOP GANG VECTOR
@@ -311,7 +359,7 @@ CONTAINS
     END DO
     !$ACC END PARALLEL
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       ihpbl (jl) = MIN(ihpblc(jl),ihpbld(jl))
@@ -329,10 +377,9 @@ CONTAINS
     ! 5. Compute exchange coefficients
     !--------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP SEQ
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO 372 jk=1,klevm1
-      !$ACC LOOP GANG VECTOR
       DO 361 jl=jcs,kproma
 
         ! gradient of specific humidity, wind shear, buoyancy, Ri-number
@@ -496,8 +543,8 @@ CONTAINS
                                & ptheta_b, pthetav_b,                    &! in
                                & pthetal_b, paclc_b,                     &! in
                                & ptotte_b, pthvvar_b,                    &! in
-                               & pthvsig_b,                              &! inout
-                               & pwstar, pwstar_tile,                    &! inout
+                               & pthvsig_b,                              &! out
+                               & pwstar, pwstar_tile,                    &! out, inout
                                & pqsat_tile, pcpt_tile,                  &! out
                                & pri_gbm, pri_tile,                      &! out
                                & pcfm_gbm, pcfm_tile,                    &! out
@@ -608,6 +655,7 @@ CONTAINS
     REAL(wp) :: f_theta   (kbdim,ksfc_type) !< stability finction for heat
     REAL(wp) :: z0h       (kbdim,ksfc_type) !
  
+    INTEGER(i1)::pfrc_test(kbdim,ksfc_type) !< integer mask to pass to CUB (can be removed later)
     INTEGER  :: loidx     (kbdim,ksfc_type) !< counter for masks
     INTEGER  :: is        (ksfc_type)       !< counter for masks
 
@@ -656,7 +704,7 @@ CONTAINS
     !$ACC PRESENT(pwstar_tile,pthvsig_b) &
     !---- Argument arrays - Local Variables                                    
     !$ACC CREATE(pchn_tile,pcdn_tile,pcfnc_tile,pthvsig_tile,zdu2,zcfnch,zustar,zqts,zthetavmid) &
-    !$ACC CREATE(zdthetal,lmix,e_kin,e_pot,f_tau,f_theta,z0h,loidx,is)
+    !$ACC CREATE(zdthetal,lmix,e_kin,e_pot,f_tau,f_theta,z0h,pfrc_test,loidx,is)
     !-------------------
     ! Some constants
     !-------------------
@@ -679,7 +727,7 @@ CONTAINS
     ! computed using air temperature of the lowest model level at time step n-1.
     !------------------------------------------------------------------------------
     
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       pprfac_sfc(jl) =  ppsfc(jl)                                     &
@@ -696,7 +744,7 @@ CONTAINS
     !-------------------------------------------------------------
     !    preset values to zero
     
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
      DO jsfc = 1,ksfc_type
       DO jl = 1, kbdim
@@ -708,28 +756,23 @@ CONTAINS
     ENDDO
     !$ACC END PARALLEL
 
-    ! Required for index list computation of CPU
-    !$ACC UPDATE HOST( pfrc )
+    ! DA: compute the index lists on the GPU
+    !$ACC PARALLEL LOOP COLLAPSE(2) DEFAULT(NONE) ASYNC(1)
+    DO jsfc = 1,ksfc_type
+      DO jl = jcs,kproma
+        pfrc_test(jl, jsfc) = MERGE(1, 0, pfrc(jl, jsfc) > 0.0_wp)
+      END DO
+    END DO
+
+    CALL generate_index_list_batched(pfrc_test(jcs:,:), loidx, jcs, kproma, is, 1)
+    !$ACC UPDATE WAIT(1) SELF(is)
 
     DO jsfc = 1,ksfc_type
-
-      ! check for masks
-      !
-      !$ACC UPDATE HOST( is, loidx )
-      is(jsfc) = 0
-      DO jl = jcs,kproma
-        IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
-          is(jsfc) = is(jsfc) + 1
-          isCap = is(jsfc)
-          loidx(isCap,jsfc) = jl
-        ENDIF
-      ENDDO
-      !$ACC UPDATE DEVICE( is, loidx )
 
       CALL compute_qsat( kproma, is(jsfc), loidx(:,jsfc), ppsfc, ptsfc(:,jsfc), pqsat_tile(:,jsfc) )
      ! loop over mask only
      !
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jls = 1,is(jsfc)
         js=loidx(jls,jsfc)
@@ -868,7 +911,7 @@ CONTAINS
     IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered
 
 !  Preset values to zero
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jsfc = 1,ksfc_type
       DO jl = 1, kbdim
@@ -880,7 +923,7 @@ CONTAINS
 
 !  Multiply neutral coefficients by stability functions
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP SEQ
       DO jsfc = 1,ksfc_type
         !$ACC LOOP GANG VECTOR
@@ -916,7 +959,7 @@ CONTAINS
 
     IF (.NOT.lsfc_mom_flux ) THEN  ! Surface momentum flux is switched off
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jsfc = 1,ksfc_type
         DO jl = jcs, kproma
@@ -928,7 +971,7 @@ CONTAINS
 
     IF (.NOT.lsfc_heat_flux) THEN  ! Surface heat flux is switched off
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jsfc = 1,ksfc_type
         DO jl = jcs, kproma
@@ -945,7 +988,7 @@ CONTAINS
     ! new t2m, 2m dew point, 10m wind components
     !------------------------------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jsfc = 1,ksfc_type
       DO jl = 1, kbdim
@@ -958,7 +1001,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jls = 1,is(jsfc)
       js=loidx(jls,jsfc)
@@ -991,7 +1034,7 @@ CONTAINS
     ! Add aggregated Richardson number for the surface
     !-------------------------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = 1, kbdim
       pcfm_gbm(jl) = 0._wp
@@ -1001,7 +1044,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jls = 1,is(jsfc)
       js=loidx(jls,jsfc)
@@ -1021,7 +1064,7 @@ CONTAINS
     ! to zero.
     !-------------------------------------------------------------------------
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = 1, kbdim
       pcfv_sfc(jl) = 0._wp
@@ -1037,7 +1080,7 @@ CONTAINS
     IF (lsfc_mom_flux) THEN  ! Surface momentum flux is switched on
 
       DO jsfc = 1,ksfc_type
-        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
         !$ACC LOOP GANG VECTOR
         DO jls = 1,is(jsfc)
         js=loidx(jls,jsfc)
@@ -1059,7 +1102,7 @@ CONTAINS
  !  this factor is included as "prefactor for the exchange coefficients" in
  !  subroutine matrix_setup_elim
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jl = 1, kbdim
         pustarm(jl) = 0._wp
@@ -1069,7 +1112,7 @@ CONTAINS
       !$ACC END PARALLEL
 
       DO jsfc = 1,ksfc_type
-        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
         !$ACC LOOP GANG VECTOR
         DO jls = 1,is(jsfc)
         js=loidx(jls,jsfc)
@@ -1082,7 +1125,7 @@ CONTAINS
 
     ELSE ! Surface momentum flux is off. Friction velocity is by definition zero.
 
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jsfc = 1,ksfc_type
         DO jl = 1, kproma
@@ -1106,7 +1149,7 @@ CONTAINS
     !---------------------------------------------------
     ! The exchange coefficient of TTE is set to the same value as for momentum
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       pcftotte_sfc(jl) = pcfm_gbm(jl)
@@ -1115,7 +1158,7 @@ CONTAINS
 
     ! TTE at the surface
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = 1, kbdim
       ptottevn_sfc(jl) = 0._wp
@@ -1123,7 +1166,7 @@ CONTAINS
     !$ACC END PARALLEL
 
     DO jsfc = 1,ksfc_type
-      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR
       DO jls = 1,is(jsfc)
       js=loidx(jls,jsfc)
@@ -1141,7 +1184,7 @@ CONTAINS
       !$ACC END PARALLEL
     END DO
 
-    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
     !$ACC LOOP GANG VECTOR
     DO jl = jcs, kproma
       ptottevn_sfc(jl) = MAX( totte_min,ptottevn_sfc(jl) )

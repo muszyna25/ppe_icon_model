@@ -117,13 +117,13 @@ CONTAINS
     echam_cnv_config(:)% lmfdd      = .TRUE.
     echam_cnv_config(:)% lmfdudv    = .TRUE.
     !
-    echam_cnv_config(:)% entrscv    = 3.0e-3_wp
+    echam_cnv_config(:)% entrscv    = 3.0e-4_wp
     echam_cnv_config(:)% entrmid    = 2.0e-4_wp
-    echam_cnv_config(:)% entrpen    = 2.0e-4_wp
+    echam_cnv_config(:)% entrpen    = 3.0e-4_wp
     echam_cnv_config(:)% entrdd     = 4.0e-4_wp
     !
     echam_cnv_config(:)% cprcon     = 2.5e-4_wp
-    echam_cnv_config(:)% cmfctop    = 0.2_wp
+    echam_cnv_config(:)% cmfctop    = 0.1_wp
     echam_cnv_config(:)% cmfdeps    = 0.3_wp
     !
     echam_cnv_config(:)% cminbuoy   = 0.2_wp

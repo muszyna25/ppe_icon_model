@@ -74,9 +74,14 @@ MODULE mo_echam_phy_memory
   USE mo_sea_ice_nml,         ONLY: kice
     !ART
   USE mo_art_config,          ONLY: ctracer_art
-  USE mo_run_config,          ONLY: lart
+  USE mo_run_config,          ONLY: lart,               &
+    &                               iqv ,iqc ,iqi ,     &
+    &                               iqr ,iqs ,iqg ,     &
+    &                               io3 ,ico2,ich4,in2o
     !
   USE mo_echam_phy_config,    ONLY: echam_phy_config
+
+#include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
   PRIVATE
@@ -261,6 +266,9 @@ MODULE mo_echam_phy_memory
       & rsfc      (:,  :)=>NULL(),  &!< sfc rain flux, convective  [kg m-2 s-1]
       & ssfl      (:,  :)=>NULL(),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :)=>NULL(),  &!< sfc snow flux, convective  [kg m-2 s-1]
+      & rain_gsp_rate(:,  :)=>NULL(),  &!< gridscale rain rate     [kg m-2 s-1]
+      & snow_gsp_rate(:,  :)=>NULL(),  &!< gridscale snow rate     [kg m-2 s-1]
+      & graupel_gsp_rate(:,  :)=>NULL(),  &!< gridscale graupel rate     [kg m-2 s-1]
       & pr        (:,  :)=>NULL()    !< precipitation flux         [kg m-2 s-1]
 
     ! Tropopause
@@ -311,8 +319,8 @@ MODULE mo_echam_phy_memory
       & q_sso    (:,:,:)=>NULL(),   &!< Layer heating by orographic gravity wave dissipation
       & q_sso_vi (:,  :)=>NULL(),   &!< Vertically integrated heating by orographic gravity wave dissipation
       !
-      & sh_vdiff (:,  :)=>NULL(),   &!< sensible heat flux of vdiff
-      & qv_vdiff (:,  :)=>NULL(),   &!< qv flux of vdiff
+!!$      & sh_vdiff (:,  :)=>NULL(),   &!< sensible heat flux of vdiff
+!!$      & qv_vdiff (:,  :)=>NULL(),   &!< qv flux of vdiff
       & con_dtrl (:,  :)=>NULL(),   &!< detrainment of liquid from convection
       & con_dtri (:,  :)=>NULL(),   &!< detrainment of ice from convection 
       & con_iteqv(:,  :)=>NULL()     !< v. int. tendency of water vapor within convection
@@ -518,11 +526,6 @@ MODULE mo_echam_phy_memory
       & radtop_gmean (:)=>NULL(),      &!< [W/m2] global mean toa total radiation, derived variable
       & fwfoce_gmean (:)=>NULL(),      &!< [kg/m2/s] global mean freshwater flux over ocean area, derived variable
       & icefrc_gmean (:)=>NULL()!,      &!< global mean ice cover given as the fraction of grid box
-   
-    ! coupling to HAMOCC lcpl_co2_atmoce
-    REAL(wp),POINTER :: &
-      & co2mmr(:,:) =>NULL(),  &  !< co2 mixing ratio
-      & co2flux(:,:)=>NULL()      !< co2 flux
 
   END TYPE t_echam_phy_field
 
@@ -677,64 +680,26 @@ CONTAINS
 
     IF (lart) THEN
         ctracer = ctracer_art
-    ELSE !!! IF (ANY(echam_phy_config(:)%lmig)) THEN
+    ELSE
 
-    ! Define tracer names to be used in the construction of tracer related variables
-    !
-      DO jtrc = 1,ntracer
-        !
-        ! specific names
-        SELECT CASE (jtrc)
-        CASE(1)
-          ctracer(jtrc) = 'hus'
-        CASE(2)
-          ctracer(jtrc) = 'clw'
-        CASE(3)
-          ctracer(jtrc) = 'cli'
-        CASE(4)
-          ctracer(jtrc) = 'qr'
-        CASE(5)
-          ctracer(jtrc) = 'qs'
-        CASE(6)
-          ctracer(jtrc) = 'qg'
-        CASE(7)
-          ctracer(jtrc) = 'o3'
-        CASE(8)
-          ctracer(jtrc) = 'co2'
-        CASE(9)
-          ctracer(jtrc) = 'ch4'
-        CASE(10)
-          ctracer(jtrc) = 'n2o'
-        CASE DEFAULT
+       ! Define tracer names to be used in the construction of tracer related variables
+       !
+       ! first set generic names for all tracers
+       DO jtrc = 1,ntracer
           WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-        END SELECT
-      END DO
-  !  ELSE
-  !
-  !  ! Define tracer names to be used in the construction of tracer related variables
-  !  !
-  !    DO jtrc = 1,ntracer
-  !      !
-  !      ! specific names
-  !      SELECT CASE (jtrc)
-  !      CASE(1)
-  !        ctracer(jtrc) = 'hus'
-  !      CASE(2)
-  !        ctracer(jtrc) = 'clw'
-  !      CASE(3)
-  !        ctracer(jtrc) = 'cli'
-  !      CASE(4)
-  !        ctracer(jtrc) = 'o3'
-  !      CASE(5)
-  !        ctracer(jtrc) = 'co2'
-  !      CASE(6)
-  !        ctracer(jtrc) = 'ch4'
-  !      CASE(7)
-  !        ctracer(jtrc) = 'n2o'
-  !      CASE DEFAULT
-  !        WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-  !      END SELECT
-  !    END DO
+       END DO
+       !
+       ! then set specific names for active indexed tracers
+       IF (iqv  > 0) ctracer(iqv ) = 'hus'
+       IF (iqc  > 0) ctracer(iqc ) = 'clw'
+       IF (iqi  > 0) ctracer(iqi ) = 'cli'
+       IF (iqr  > 0) ctracer(iqr ) = 'qr'
+       IF (iqs  > 0) ctracer(iqs ) = 'qs'
+       IF (iqg  > 0) ctracer(iqg ) = 'qg'
+       IF (io3  > 0) ctracer(io3 ) = 'o3'
+       IF (ico2 > 0) ctracer(ico2) = 'co2'
+       IF (ich4 > 0) ctracer(ich4) = 'ch4'
+       IF (in2o > 0) ctracer(in2o) = 'n2o'
 
     ENDIF
 
@@ -878,6 +843,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT,                                     &
                 & lopenacc = .TRUE.  )
+    __acc_attach(field%clon)
 
     cf_desc    = t_cf_var('cell_latitude', 'rad',                               &
                 &         'cell center latitude',                               &
@@ -889,6 +855,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT,                                     &
                 & lopenacc = .TRUE.  )
+    __acc_attach(field%clat)
 
     cf_desc    = t_cf_var('cell_area', 'm2',                                    &
                 &         'Atmosphere Grid-Cell Area',                          &
@@ -900,6 +867,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT,                                     &
                 & lopenacc = .TRUE.  )
+    __acc_attach(field%areacella)
 
     cf_desc    = t_cf_var('geometric_height_at_half_level', 'm',                &
                 &         'Geometric height at half level in physics',          &
@@ -914,6 +882,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT,                                     &
                 & lopenacc = .TRUE.  )
+    __acc_attach(field%zh)
 
     cf_desc    = t_cf_var('geometric_height_at_full_level', 'm',                &
                 &         'Geometric height at full level in physics',          &
@@ -928,6 +897,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT,                                     &
                 & lopenacc = .TRUE.  )
+    __acc_attach(field%zf)
 
     cf_desc    = t_cf_var('geometric_height_thickness', 'm',                    &
                 &         'Geometric height thickness in physics',              &
@@ -942,6 +912,7 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT,                                     &
                 & lopenacc = .TRUE.  )
+    __acc_attach(field%dz)
 
 
     !------------------------------
@@ -957,6 +928,7 @@ CONTAINS
                 & vert_interp = &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%ua)
 
     ! &       field% va        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind in physics', datatype_flt)
@@ -967,6 +939,7 @@ CONTAINS
                 & vert_interp = &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%va)
 
     ! &       field% vor       (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vorticity', 's-1', 'relative vorticity in physics', datatype_flt)
@@ -978,6 +951,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%vor)
 
     ! &       field% ta        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('temperature', 'K', 'temperature in physics', datatype_flt)
@@ -989,6 +963,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%ta)
 
     ! &       field% tv        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature in physics', datatype_flt)
@@ -1000,6 +975,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%tv)
 
     ! OZONE 
     ! &       field% o3        (nproma,nlev  ,nblks),          &
@@ -1012,6 +988,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%o3)
 
     ! aerosol optical properties
     ! at 533 nm
@@ -1027,6 +1004,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
                 &   l_extrapol=.FALSE. ),                                      &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aer_aod_533)
     cf_desc    = t_cf_var('aer_ssa_533','-',                                   &
                 & 'aerosol single scattering albedo at 533 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,103, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1039,6 +1017,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
                 &   l_extrapol=.FALSE. ),                                      &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aer_ssa_533)
     cf_desc    = t_cf_var('aer_asy_533','-',                                   &
                 & 'aerosol asymmetry factor at 533 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,104, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1050,6 +1029,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                       &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aer_asy_533)
     ! at 2325 nm
     cf_desc    = t_cf_var('aer_aod_2325','-',                                  &
                 & 'aerosol optical depth at 2325 nm', datatype_flt)
@@ -1063,6 +1043,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
                 &   l_extrapol=.FALSE. ),                                      &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aer_aod_2325)
     cf_desc    = t_cf_var('aer_ssa_2325','-',                                  &
                 & 'aerosol single scattering albedo at 2325 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,103, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1075,6 +1056,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
                 &   l_extrapol=.FALSE. ),                                      &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aer_ssa_2325)
     cf_desc    = t_cf_var('aer_asy_2325','-',                                  &
                 & 'aerosol asymmetry factor at 2325 nm', datatype_flt)
     grib2_desc = grib2_var(0,20,104, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1087,6 +1069,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
                 &   l_extrapol=.FALSE. ),                                      &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aer_asy_2325)
     ! at 9731 nm
     cf_desc    = t_cf_var('aer_aod_9731','-',                                  &
                 & 'effective aerosol optical depth at 9731 nm', datatype_flt)
@@ -1100,6 +1083,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
                 &   l_extrapol=.FALSE. ),                                      &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aer_aod_9731)
 
     ! &       field% qtrc      (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'qtrc_phy', field%qtrc,                  &
@@ -1111,6 +1095,7 @@ CONTAINS
                 & ldims = (/kproma,klev,kblks,ktracer/),                       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%qtrc)
 
     ! &       field% mtrc      (nproma,nlev  ,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'mtrc_phy', field%mtrc,                  &
@@ -1122,6 +1107,7 @@ CONTAINS
                 & ldims = (/kproma,klev,kblks,ktracer/),                       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%mtrc)
 
     ! &       field% mtrcvi      (nproma,nblks,ntracer),  &
     CALL add_var( field_list, prefix//'mtrcvi_phy', field%mtrcvi,              &
@@ -1133,6 +1119,7 @@ CONTAINS
                 & ldims = (/kproma,kblks,ktracer/),                            &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%mtrcvi)
 
     ALLOCATE(field%qtrc_ptr(ktracer))
     ALLOCATE(field%mtrc_ptr(ktracer))
@@ -1263,6 +1250,7 @@ CONTAINS
          &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
          &                    lower_limit=0._wp  ),                            &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%rho)
 
     ! &       field% mh2o        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('h2o_mass', 'kg m-2', 'h2o (vap+liq+ice) mass in layer', &
@@ -1278,6 +1266,7 @@ CONTAINS
          &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
          &                    lower_limit=0._wp  ),                            &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mh2o)
 
     ! &       field% mh2ovi     (nproma,nblks),          &
     cf_desc    = t_cf_var('atmosphere_h2o_content', 'kg m-2', 'h2o (vap+liq+ice) path (physics)', &
@@ -1290,6 +1279,7 @@ CONTAINS
          &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT,                                     &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mh2ovi)
 
     ! &       field% mair        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('air_mass', 'kg m-2', 'air mass in layer', &
@@ -1305,6 +1295,7 @@ CONTAINS
          &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
          &                    lower_limit=0._wp  ),                            &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mair)
 
     ! &       field% mairvi     (nproma,nblks),          &
     cf_desc    = t_cf_var('atmosphere_air_content', 'kg m-2', 'air path (physics)', &
@@ -1317,6 +1308,7 @@ CONTAINS
          &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT,                                     &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mairvi)
 
     ! &       field% mdry        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('dry_air_mass', 'kg m-2', 'dry air mass in layer', &
@@ -1332,6 +1324,7 @@ CONTAINS
          &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
          &                    lower_limit=0._wp  ),                            &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mdry)
 
     ! &       field% mdryvi     (nproma,nblks),          &
     cf_desc    = t_cf_var('atmosphere_dry_air_content', 'kg m-2', 'dry air path (physics)', &
@@ -1344,6 +1337,7 @@ CONTAINS
          &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT,                                     &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mdryvi)
 
     ! &       field% mref        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('ref_air_mass', 'kg m-2', 'ref air mass in layer', &
@@ -1359,6 +1353,7 @@ CONTAINS
          &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
          &                    lower_limit=0._wp  ),                            &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mref)
 
     ! &       field% mrefvi     (nproma,nblks),          &
     cf_desc    = t_cf_var('atmosphere_ref_air_content', 'kg m-2', 'ref air path (physics)', &
@@ -1371,6 +1366,7 @@ CONTAINS
          &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT,                                     &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%mrefvi)
 
     ! &       field% xref        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('ratio_mair_mdry', '', 'ratio mair/mdry', &
@@ -1386,6 +1382,7 @@ CONTAINS
          &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
          &                    lower_limit=0._wp  ),                            &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%xref)
 
     ! &       field% omega     (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity in physics', datatype_flt)
@@ -1398,6 +1395,7 @@ CONTAINS
                 &             vert_intp_method=VINTP_METHOD_LIN,               &
                 &             l_loglin=.FALSE., l_extrapol=.FALSE.),           &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%omega)
 
     ! &       field% geom      (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential above surface', datatype_flt)
@@ -1411,6 +1409,7 @@ CONTAINS
                 &             vert_intp_method=VINTP_METHOD_LIN,               &
                 &             l_extrapol=.TRUE., l_pd_limit=.FALSE.),          &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%geom)
 
     ! &       field% presm_old (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', datatype_flt)
@@ -1422,6 +1421,7 @@ CONTAINS
                 &             vert_intp_type=vintp_types("Z","I"),             &
                 &             vert_intp_method=VINTP_METHOD_PRES ),            &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%presm_old)
 
     ! &       field% presm_new (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', datatype_flt)
@@ -1433,6 +1433,7 @@ CONTAINS
                 &             vert_intp_type=vintp_types("Z","I"),             &
                 &             vert_intp_method=VINTP_METHOD_PRES ),            &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%presm_new)
 
 
     !-- Variables defined at layer interfaces --
@@ -1447,6 +1448,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                     &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                  &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%geoi)
 
     ! &       field% presi_old (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', datatype_flt)
@@ -1458,6 +1460,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("Z","I"),                        &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%presi_old)
 
     ! &       field% presi_new (nproma,nlevp1,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', datatype_flt)
@@ -1469,6 +1472,7 @@ CONTAINS
                 &   vert_intp_type=vintp_types("Z","I"),                        &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%presi_new)
 
     !------------------
     ! Radiation
@@ -1486,6 +1490,7 @@ CONTAINS
          &       lrestart = .FALSE.                         , &
          &       ldims=shape2d                              , &
          &       lopenacc=.TRUE.                            )
+    __acc_attach(field%cosmu0)
 
     cf_desc    = t_cf_var( 'cosmu0_rt'                                    , &
          &                 ''                                             , &
@@ -1498,6 +1503,7 @@ CONTAINS
          &       lrestart = .TRUE.                               , &
          &       ldims=shape2d                                   , &
          &       lopenacc=.TRUE.                                 )
+    __acc_attach(field%cosmu0_rt)
 
     cf_desc    = t_cf_var( 'daylght_frc', &
          &                 ''           , &
@@ -1510,6 +1516,7 @@ CONTAINS
          &       lrestart = .FALSE.                                  , &
          &       ldims=shape2d                                       , &
          &       lopenacc=.TRUE.                                     )
+    __acc_attach(field%daylght_frc)
 
     cf_desc    = t_cf_var( 'daylght_frc_rt' , &
          &                 ''               , &
@@ -1522,6 +1529,7 @@ CONTAINS
          &       lrestart = .TRUE.                                         , &
          &       ldims=shape2d                                             , &
          &       lopenacc=.TRUE.                                           )
+    __acc_attach(field%daylght_frc_rt)
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
        !
@@ -1542,6 +1550,7 @@ CONTAINS
             &         (vert_intp_type=vintp_types("P","Z","I") ,  &
             &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1), &
             &       lopenacc=.TRUE.)
+       __acc_attach(field%rsd_rt     )
 
        cf_desc    = t_cf_var('upwelling_shortwave_flux_in_air', &
             &                'W m-2'                          , &
@@ -1557,6 +1566,7 @@ CONTAINS
             &         (vert_intp_type=vintp_types("P","Z","I") ,  &
             &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1), &
             &       lopenacc=.TRUE.)
+       __acc_attach(field%rsu_rt    )
 
        cf_desc    = t_cf_var('downwelling_shortwave_flux_in_air_assuming_clear_sky', &
             &                'W m-2'                                               , &
@@ -1572,6 +1582,7 @@ CONTAINS
             &         (vert_intp_type=vintp_types("P","Z","I") ,   &
             &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1),  &
             &       lopenacc=.TRUE.)
+       __acc_attach(field%rsdcs_rt )
 
        cf_desc    = t_cf_var('upwelling_shortwave_flux_in_air_assuming_clear_sky', &
             &                'W m-2'                                             , &
@@ -1587,6 +1598,7 @@ CONTAINS
             &         (vert_intp_type=vintp_types("P","Z","I") ,   &
             &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1),  &
             &       lopenacc=.TRUE.)
+       __acc_attach(field%rsucs_rt )
 
        ! - at the top of the atmosphere
        !
@@ -1601,6 +1613,7 @@ CONTAINS
             &       lrestart = .FALSE.                    , &
             &       ldims=shape2d                         , &
             &       lopenacc=.TRUE.                       )
+       __acc_attach(field%rsdt)
 
        cf_desc    = t_cf_var('toa_outgoing_shortwave_flux'     , &
             &                'W m-2'                           , &
@@ -1613,6 +1626,7 @@ CONTAINS
             &       lrestart = .FALSE.                    , &
             &       ldims=shape2d                         , &
             &       lopenacc=.TRUE.                       )
+       __acc_attach(field%rsut)
 
        cf_desc    = t_cf_var('toa_outgoing_shortwave_flux_assuming_clear_sky', &
             &                'W m-2'                                         , &
@@ -1625,6 +1639,7 @@ CONTAINS
             &       lrestart = .FALSE.                        , &
             &       ldims=shape2d                             , &
             &       lopenacc=.TRUE.                           )
+       __acc_attach(field%rsutcs)
 
     END IF
 
@@ -1641,6 +1656,7 @@ CONTAINS
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         , &
          &       lopenacc=.TRUE.                       )
+    __acc_attach(field%rsds)
 
     cf_desc    = t_cf_var('surface_upwelling_shortwave_flux_in_air', &
          &                'W m-2'                                  , &
@@ -1653,6 +1669,7 @@ CONTAINS
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         , &
          &       lopenacc=.TRUE.                       )
+    __acc_attach(field%rsus)
 
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
@@ -1668,6 +1685,7 @@ CONTAINS
             &       lrestart = .FALSE.                        , &
             &       ldims=shape2d                             , &
             &       lopenacc=.TRUE.                           )
+       __acc_attach(field%rsdscs)
 
        cf_desc    = t_cf_var('surface_upwelling_shortwave_flux_in_air_assuming_clear_sky', &
             &                'W m-2'                                                     , &
@@ -1680,6 +1698,7 @@ CONTAINS
             &       lrestart = .FALSE.                        , &
             &       ldims=shape2d                             , &
             &       lopenacc=.TRUE.                           )
+       __acc_attach(field%rsuscs)
 
        !-----------------------------------------------------------------------------------
        ! shortwave flux components at the surface
@@ -1695,6 +1714,7 @@ CONTAINS
             &       lrestart = .TRUE.                                   , &
             &       ldims=shape2d                                       , &
             &       lopenacc=.TRUE.                                     )
+       __acc_attach(field%rvds_dir_rt)
 
        cf_desc    = t_cf_var('surface_downwelling_direct_par_flux_in_air_at_rad_time'                          , &
             &                'W m-2'                                                                           , &
@@ -1707,6 +1727,7 @@ CONTAINS
             &       lrestart = .TRUE.                                   , &
             &       ldims=shape2d                                       , &
             &       lopenacc=.TRUE.                                     )
+       __acc_attach(field%rpds_dir_rt)
 
        cf_desc    = t_cf_var('surface_downwelling_direct_nearir_flux_in_air_at_rad_time'           , &
             &                'W m-2'                                                               , &
@@ -1719,6 +1740,7 @@ CONTAINS
             &       lrestart = .TRUE.                                   , &
             &       ldims=shape2d                                       , &
             &       lopenacc=.TRUE.                                     )
+       __acc_attach(field%rnds_dir_rt)
 
 
        cf_desc    = t_cf_var('surface_downwelling_diffuse_visible_flux_in_air_at_rad_time'    , &
@@ -1732,6 +1754,7 @@ CONTAINS
             &       lrestart = .TRUE.                                   , &
             &       ldims=shape2d                                       , &
             &       lopenacc=.TRUE.                                     )
+       __acc_attach(field%rvds_dif_rt)
 
        cf_desc    = t_cf_var('surface_downwelling_diffuse_par_flux_in_air_at_rad_time'                          , &
             &                'W m-2'                                                                            , &
@@ -1744,6 +1767,7 @@ CONTAINS
             &       lrestart = .TRUE.                                   , &
             &       ldims=shape2d                                       , &
             &       lopenacc=.TRUE.                                     )
+       __acc_attach(field%rpds_dif_rt)
 
        cf_desc    = t_cf_var('surface_downwelling_diffuse_nearir_flux_in_air_at_rad_time'           , &
             &                'W m-2'                                                                , &
@@ -1756,6 +1780,7 @@ CONTAINS
             &       lrestart = .TRUE.                                   , &
             &       ldims=shape2d                                       , &
             &       lopenacc=.TRUE.                                     )
+       __acc_attach(field%rnds_dif_rt)
 
 
        cf_desc    = t_cf_var('surface_upwelling_visible_flux_in_air_at_rad_time'    , &
@@ -1769,6 +1794,7 @@ CONTAINS
             &       lrestart = .TRUE.                           , &
             &       ldims=shape2d                               , &
             &       lopenacc=.TRUE.                             )
+       __acc_attach(field%rvus_rt)
 
        cf_desc    = t_cf_var('surface_upwelling_par_flux_in_air_at_rad_time'                          , &
             &                'W m-2'                                                                  , &
@@ -1781,6 +1807,7 @@ CONTAINS
             &       lrestart = .TRUE.                           , &
             &       ldims=shape2d                               , &
             &       lopenacc=.TRUE.                             )
+       __acc_attach(field%rpus_rt)
 
        cf_desc    = t_cf_var('surface_upwelling_nearir_flux_in_air_at_rad_time'           , &
             &                'W m-2'                                                      , &
@@ -1793,6 +1820,7 @@ CONTAINS
             &       lrestart = .TRUE.                           , &
             &       ldims=shape2d                               , &
             &       lopenacc=.TRUE.                             )
+       __acc_attach(field%rnus_rt)
 
     END IF
 
@@ -1810,6 +1838,7 @@ CONTAINS
          &       lrestart = .FALSE.                            , &
          &       ldims=shape2d                                 , &
          &       lopenacc=.TRUE.                               )
+    __acc_attach(field%rvds_dir)
 
     cf_desc    = t_cf_var('surface_downwelling_direct_par_flux_in_air'                    , &
          &                'W m-2'                                                         , &
@@ -1822,6 +1851,7 @@ CONTAINS
          &       lrestart = .FALSE.                            , &
          &       ldims=shape2d                                 , &
          &       lopenacc=.TRUE.                               )
+    __acc_attach(field%rpds_dir)
 
     cf_desc    = t_cf_var('surface_downwelling_direct_nearir_flux_in_air'     , &
          &                'W m-2'                                             , &
@@ -1834,6 +1864,7 @@ CONTAINS
          &       lrestart = .FALSE.                            , &
          &       ldims=shape2d                                 , &
          &       lopenacc=.TRUE.                               )
+    __acc_attach(field%rnds_dir)
 
 
     cf_desc    = t_cf_var('surface_downwelling_diffuse_visible_flux_in_air', &
@@ -1847,6 +1878,7 @@ CONTAINS
          &       lrestart = .FALSE.                            , &
          &       ldims=shape2d                                 , &
          &       lopenacc=.TRUE.                               )
+    __acc_attach(field%rvds_dif)
 
     cf_desc    = t_cf_var('surface_downwelling_diffuse_par_flux_in_air'                    , &
          &                'W m-2'                                                          , &
@@ -1859,6 +1891,7 @@ CONTAINS
          &       lrestart = .FALSE.                            , &
          &       ldims=shape2d                                 , &
          &       lopenacc=.TRUE.                               )
+    __acc_attach(field%rpds_dif)
 
     cf_desc    = t_cf_var('surface_downwelling_diffuse_nearir_flux_in_air'     , &
          &                'W m-2'                                              , &
@@ -1871,6 +1904,7 @@ CONTAINS
          &       lrestart = .FALSE.                            , &
          &       ldims=shape2d                                 , &
          &       lopenacc=.TRUE.                               )
+    __acc_attach(field%rnds_dif)
 
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
@@ -1886,6 +1920,7 @@ CONTAINS
             &       lrestart = .FALSE.                    , &
             &       ldims=shape2d                         , &
             &       lopenacc=.TRUE.                       )
+       __acc_attach(field%rvus)
 
        cf_desc    = t_cf_var('surface_upwelling_par_flux_in_air'                    , &
             &                'W m-2'                                                , &
@@ -1898,6 +1933,7 @@ CONTAINS
             &       lrestart = .FALSE.                    , &
             &       ldims=shape2d                         , &
             &       lopenacc=.TRUE.                       )
+       __acc_attach(field%rpus)
 
        cf_desc    = t_cf_var('surface_upwelling_nearir_flux_in_air'     , &
             &                'W m-2'                                    , &
@@ -1910,6 +1946,7 @@ CONTAINS
             &       lrestart = .FALSE.                    , &
             &       ldims=shape2d                         , &
             &       lopenacc=.TRUE.                       )
+       __acc_attach(field%rnus)
        !---------------------------------------------------------
 
     END IF
@@ -1936,6 +1973,7 @@ CONTAINS
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
          &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1),  &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%rld_rt     )
 
     cf_desc    = t_cf_var('upwelling_longwave_flux_in_air', &
          &                'W m-2'                         , &
@@ -1951,6 +1989,7 @@ CONTAINS
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
          &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1),  &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%rlu_rt     )
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
        !
@@ -1968,6 +2007,7 @@ CONTAINS
             &         (vert_intp_type=vintp_types("P","Z","I") ,   &
             &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1),  &
             &       lopenacc=.TRUE.)
+       __acc_attach(field%rldcs_rt )
 
        cf_desc    = t_cf_var('upwelling_longwave_flux_in_air_assuming_clear_sky', &
             &                'W m-2'                                            , &
@@ -1983,6 +2023,7 @@ CONTAINS
             &         (vert_intp_type=vintp_types("P","Z","I") ,   &
             &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1),  &
             &       lopenacc=.TRUE.)
+       __acc_attach(field%rlucs_rt )
 
        ! - at the top of the atmosphere
        !
@@ -1997,6 +2038,7 @@ CONTAINS
             &       lrestart = .FALSE.                    , &
             &       ldims=shape2d                         , &
             &       lopenacc=.TRUE.                       )
+       __acc_attach(field%rlut)
 
        cf_desc    = t_cf_var('toa_outgoing_longwave_flux_assuming_clear_sky', &
             &                'W m-2'                                        , &
@@ -2009,6 +2051,7 @@ CONTAINS
             &       lrestart = .FALSE.                        , &
             &       ldims=shape2d                             , &
             &       lopenacc=.TRUE.                           )
+       __acc_attach(field%rlutcs)
 
     END IF
 
@@ -2025,6 +2068,7 @@ CONTAINS
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         , &
          &       lopenacc=.TRUE.                       )
+    __acc_attach(field%rlds)
 
     cf_desc    = t_cf_var('surface_upwelling_longwave_flux_in_air', &
          &                'W m-2'                                 , &
@@ -2037,6 +2081,7 @@ CONTAINS
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         , &
          &       lopenacc=.TRUE.                       )
+    __acc_attach(field%rlus)
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
        !
@@ -2051,6 +2096,7 @@ CONTAINS
             &       lrestart = .FALSE.                        , &
             &       ldims=shape2d                             , &
             &       lopenacc=.TRUE.                           )
+       __acc_attach(field%rldscs)
 
        cf_desc    = t_cf_var('surface_upwelling_longwave_flux_in_air_assuming_clear_sky', &
             &                'W m-2'                                                    , &
@@ -2063,6 +2109,7 @@ CONTAINS
             &       lrestart = .FALSE.                        , &
             &       ldims=shape2d                             , &
             &       lopenacc=.TRUE.                           )
+       __acc_attach(field%rluscs)
 
        !
     END IF
@@ -2082,6 +2129,7 @@ CONTAINS
          &        lrestart = .FALSE.,                                 &
          &        isteptype=TSTEP_INSTANT,                            &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%dlwflxsfc_dT)
 
     cf_desc    = t_cf_var('siced', 'm', 'sea ice thickness', datatype_flt)
     grib2_desc = grib2_var(10,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2089,6 +2137,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d,                        &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%siced)
 
     cf_desc    = t_cf_var('alb', '', 'surface albedo from external file', datatype_flt)
     grib2_desc = grib2_var(0,19,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2096,6 +2145,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%alb)
 
     cf_desc    = t_cf_var('ts_rad', 'K', 'radiative surface temperature', datatype_flt)
     grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2103,6 +2153,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d,                        &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%ts_rad)
 
     cf_desc    = t_cf_var('ts_rad_rt', 'K', 'radiative surface temperature at rad. time', datatype_flt)
     grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2110,6 +2161,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d,                        &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%ts_rad_rt)
 
     IF (echam_phy_tc(jg)%dt_vdf > time_config%tc_dt_dyn(jg) .OR.                            &
       & is_variable_in_output(first_output_name_list, var_name=prefix//'q_snocpymlt')) THEN
@@ -2119,6 +2171,7 @@ CONTAINS
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%q_snocpymlt)
     END IF
 
     IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rlw_impl')) THEN
@@ -2128,6 +2181,7 @@ CONTAINS
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d,                     &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%q_rlw_impl)
     END IF
 
     cf_desc    = t_cf_var('q_rlw_nlev', 'W/m2', 'LW heating in the lowest layer', datatype_flt)
@@ -2136,6 +2190,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape2d,                     &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%q_rlw_nlev)
     !
     !------------------
     !
@@ -2150,6 +2205,8 @@ CONTAINS
                 & lrestart = .TRUE., initval =  0.0_wp, ldims=shape2d,         &
                 & lopenacc=.TRUE. )
 
+    __acc_attach(field%fco2nat)
+
     ! &       field% co2_flux_tile(nproma,nblks,nsfc_type), &
     CALL add_var( field_list, prefix//'co2_flux_tile', field%co2_flux_tile,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
@@ -2159,6 +2216,7 @@ CONTAINS
                 & ldims=shapesfc, initval=0.0_wp,                              &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                         &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%co2_flux_tile)
 
     ALLOCATE(field%co2_flux_tile_ptr(ksfc_type))
 
@@ -2192,6 +2250,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & isteptype=TSTEP_CONSTANT,                                &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%oromea)
        !
        cf_desc    = t_cf_var('standard_deviation_of_height', 'm',     &
                    &         'Standard deviation of height above sea level of sub-grid scale orography', &
@@ -2202,6 +2261,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & isteptype=TSTEP_CONSTANT,                                &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%orostd)
        !
        cf_desc    = t_cf_var('slope_of_terrain', '-',                 &
                    &         'Slope of sub-gridscale orography', datatype_flt)
@@ -2211,6 +2271,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & isteptype=TSTEP_CONSTANT,                                &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%orosig)
        !
        cf_desc    = t_cf_var('anisotropy_factor', '-',                &
                    &         'Anisotropy of sub-gridscale orography', datatype_flt)
@@ -2220,6 +2281,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & isteptype=TSTEP_CONSTANT,                                &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%orogam)
        !
        cf_desc    = t_cf_var('angle_of_principal_axis', 'radians',    &
                    &         'Angle of sub-gridscale orography', datatype_flt)
@@ -2229,6 +2291,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & isteptype=TSTEP_CONSTANT,                                &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%orothe)
        !
        cf_desc    = t_cf_var('height_of_peaks', 'm', 'Height above sea level of peaks', datatype_flt)
        grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2237,6 +2300,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & isteptype=TSTEP_CONSTANT,                                &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%oropic)
        !
        cf_desc    = t_cf_var('height_of_valleys', 'm', 'Height above sea level of valleys', datatype_flt)
        grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2245,6 +2309,7 @@ CONTAINS
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    & isteptype=TSTEP_CONSTANT,                                &
                    & lopenacc=.TRUE. )
+       __acc_attach(field%oroval)
        !
     END IF
     !
@@ -2257,6 +2322,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., initval =  1.0_wp, ldims=shape2d,     &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%csat)
 
     cf_desc    = t_cf_var('cair', '', '', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2264,6 +2330,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., initval =  1.0_wp, ldims=shape2d,     &
                 & lopenacc=.TRUE. )
+    __acc_attach(field%cair)
 
     !-------------------------
     ! Sea ice
@@ -2278,30 +2345,36 @@ CONTAINS
       &          grib2_var(10,2,8, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
       &          ldims=shapeice, lrestart=.TRUE.,                             &
       &          lopenacc=.TRUE.)
+
+    __acc_attach(field%Tsurf )
     CALL add_var( field_list, prefix//'t1_icecl', field%T1 ,                  &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('t1_icecl','C','Temperature upper layer',datatype_flt), &
       &          grib2_var(10,2,8, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
       &          ldims=shapeice, lrestart=.TRUE.,                             &
       &          lopenacc=.TRUE.)
+    __acc_attach(field%T1 )
     CALL add_var( field_list, prefix//'t2_icecl', field%T2 ,                  &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('t2_icecl','C','Temperature lower layer', datatype_flt),&
       &          grib2_var(10,2,8, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
       &          ldims=shapeice, lrestart=.TRUE.,                             &
       &          lopenacc=.TRUE.)
+    __acc_attach(field%T2 )
     CALL add_var( field_list, prefix//'sit_icecl', field%hi ,                 &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('sit_icecl', 'm', 'ice thickness', datatype_flt),   &
       &          grib2_var(10,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
       &          ldims=shapeice, lrestart=.TRUE.,                             &
       &          lopenacc=.TRUE.)
+    __acc_attach(field%hi )
     CALL add_var( field_list, prefix//'hs_icecl', field%hs ,                  &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('hs_icecl', 'm', 'snow thickness', datatype_flt),   &
       &          grib2_var(10,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
       &          ldims=shapeice, lrestart=.TRUE.,                             &
       &          lopenacc=.TRUE.)
+    __acc_attach(field%hs )
     CALL add_var( field_list, prefix//'qtop_icecl', field%Qtop ,              &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('qtop_icecl', 'W/m^2', 'Energy flux available for surface melting', &
@@ -2309,12 +2382,14 @@ CONTAINS
       &          grib2_var(10,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
       &          ldims=shapeice, lrestart=.FALSE.,                            &
       &          lopenacc=.TRUE.)
+    __acc_attach(field%Qtop )
     CALL add_var( field_list, prefix//'qbot_icecl', field%Qbot ,              &
       &          GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE,                      &
       &          t_cf_var('qbot_icecl', 'W/m^2', 'Energy flux at ice-ocean interface', datatype_flt),&
       &          grib2_var(10,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
       &          ldims=shapeice, lrestart=.FALSE.,                            &
       &          lopenacc=.TRUE.)
+    __acc_attach(field%Qbot )
 
 
     CALL add_var( field_list, prefix//'sic_icecl', field%conc ,               &
@@ -2324,6 +2399,9 @@ CONTAINS
       &          ldims=shapeice, lrestart=.TRUE.,                             &
       &          lopenacc=.TRUE.)
 
+
+    __acc_attach(field%conc )
+
     ! &       field% albvisdir_ice (nproma,field%kice,nblks),          &
     cf_desc    = t_cf_var('albvisdir_icecl', '', 'ice albedo VIS direct', datatype_flt)
     grib2_desc = grib2_var(192,128,15, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2331,6 +2409,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, &
                 & ldims=shapeice, lrestart=.TRUE. ,                            &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albvisdir_ice)
 
     ! &       field% albvisdif_ice (nproma,field%kice,nblks),          &
     cf_desc    = t_cf_var('albvisdif_icecl', '', 'ice albedo VIS diffuse', datatype_flt)
@@ -2339,6 +2418,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, &
                 & ldims=shapeice, lrestart=.TRUE. ,                            &
                 &          lopenacc=.TRUE.)
+    __acc_attach(field%albvisdif_ice)
 
     ! &       field% albnirdir_ice (nproma,field%kice,nblks),          &
     cf_desc    = t_cf_var('albnirdir_icecl', '', 'ice albedo NIR direct', datatype_flt)
@@ -2347,6 +2427,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, &
                 & ldims=shapeice, lrestart=.TRUE. ,                            &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albnirdir_ice)
 
     ! &       field% albnirdif_ice (nproma,field%kice,nblks),          &
     cf_desc    = t_cf_var('albnirdif_icecl', '', 'ice albedo NIR diffuse', datatype_flt)
@@ -2355,6 +2436,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_GENERIC_ICE, cf_desc, grib2_desc, &
                 & ldims=shapeice, lrestart=.TRUE. ,                            &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albnirdif_ice)
 
 
     !-------------------------
@@ -2372,6 +2454,7 @@ CONTAINS
                 &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,                    &
                 &             lower_limit=0._wp ),                                       &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%aclc)
 
     cf_desc    = t_cf_var('clt', 'm2 m-2', &
                & 'total cloud cover', datatype_flt)
@@ -2383,6 +2466,7 @@ CONTAINS
          &        lrestart = .FALSE.,                            &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%aclcov)
 
     ! &       field% acdnc  (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('acdnc', 'm-3', 'cloud droplet number concentration', datatype_flt)
@@ -2397,6 +2481,7 @@ CONTAINS
                 &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                     &
                 &             lower_limit=0._wp ),                                       &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%acdnc)
 
     IF (is_variable_in_output(first_output_name_list, var_name=prefix//'hur')) THEN
        cf_desc    = t_cf_var('relative_humidity', '', 'relative humidity', datatype_flt)
@@ -2411,6 +2496,7 @@ CONTAINS
                    &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,                     &
                    &             lower_limit=0._wp ),                                       &
                    &  lopenacc=.TRUE.)
+       __acc_attach(field%hur   )
     END IF
 
     cf_desc    = t_cf_var('prlr', 'kg m-2 s-1',    &
@@ -2423,6 +2509,7 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%rsfl)
 
     cf_desc    = t_cf_var('prcr', 'kg m-2 s-1',    &
                & 'convective precipitation flux (water)', datatype_flt)
@@ -2434,6 +2521,7 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%rsfc)
 
     cf_desc    = t_cf_var('prls', 'kg m-2 s-1',    &
                & 'large-scale precipitation flux (snow)', datatype_flt)
@@ -2445,11 +2533,46 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%ssfl)
 
     cf_desc    = t_cf_var('prcs', 'kg m-2 s-1',    &
                & 'convective precipitation flux (snow)', datatype_flt)
     grib2_desc = grib2_var(0,1,58, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'prcs', field%ssfc,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+    __acc_attach(field%ssfc)
+
+    cf_desc    = t_cf_var('rain_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale rain rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,77, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rain_gsp_rate', field%rain_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
+    cf_desc    = t_cf_var('snow_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale snow rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,56, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'snow_gsp_rate', field%snow_gsp_rate,        &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .TRUE.,                             &
+         &        isteptype=TSTEP_INSTANT,                       &
+         &        lopenacc=.TRUE.)
+
+    cf_desc    = t_cf_var('graupel_gsp_rate', 'kg m-2 s-1',    &
+               & 'gridscale graupel rate ', datatype_flt)
+    grib2_desc = grib2_var(0,1,75, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'graupel_gsp_rate', field%graupel_gsp_rate,        &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
@@ -2468,6 +2591,7 @@ CONTAINS
          &        lrestart = .FALSE.,                            &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%pr)
 
     ! &       field% rintop (nproma,       nblks), &
     cf_desc    = t_cf_var('rintop', '', '', datatype_flt)
@@ -2476,6 +2600,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%rintop)
 
     ! &       field% rtype  (nproma,       nblks), &
     cf_desc    = t_cf_var('convection_type', '', 'convection_type (0...3)', datatype_flt)
@@ -2484,6 +2609,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d,                        &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%rtype)
 
     IF (is_variable_in_output(first_output_name_list, var_name=prefix//'topmax')) THEN
        cf_desc    = t_cf_var('topmax', 'Pa', 'maximum height of convective cloud tops', &
@@ -2496,6 +2622,7 @@ CONTAINS
                    & isteptype=TSTEP_MIN,                                     &
                    & action_list=actions(new_action(ACTION_RESET,"P1D")),     &
                    &  lopenacc=.TRUE.)
+       __acc_attach(field%topmax)
     END IF
 
     ! &       field% ictop  (nproma,       nblks), &
@@ -2507,6 +2634,7 @@ CONTAINS
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & isteptype=TSTEP_INSTANT,                                 &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%ictop)
 
     ! &       field% totte  (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('total_turbulent_energy', 'J kg-1', 'total turbulent energy', &
@@ -2522,6 +2650,7 @@ CONTAINS
                 &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,       &
                 &             lower_limit=0._wp ),                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%totte)
 
     ! &       field% thvsig (nproma,       nblks), &
     cf_desc    = t_cf_var('thvsig', 'K', '', datatype_flt)
@@ -2530,6 +2659,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., initval = 1.e-2_wp, ldims=shape2d,   &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%thvsig)
 
     !---------------------------
     ! WMO tropopause
@@ -2545,6 +2675,7 @@ CONTAINS
          &        lrestart = .TRUE., initval = 20000.0_wp,       &
          &        isteptype=TSTEP_INSTANT,                       &
          &        lopenacc=.TRUE.)
+    __acc_attach(field%ptp)
 
     !---------------------------
     ! Variables for energy diagnostic of echam6 physics
@@ -2563,6 +2694,8 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%cpair)
+
     CALL add_var( field_list, prefix//'cvair', field%cvair,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                 & t_cf_var('cvair', 'J/kg/K',                                     &
@@ -2575,6 +2708,8 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                      &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%cvair)
 
     CALL add_var( field_list, prefix//'qconv', field%qconv,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
@@ -2589,6 +2724,8 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%qconv)
+
     IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_phy')) THEN
        CALL add_var( field_list, prefix//'q_phy', field%q_phy,                       &
                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
@@ -2602,6 +2739,7 @@ CONTAINS
                    &   vert_intp_type=vintp_types("P","Z","I"),                      &
                    &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                    & lopenacc=.TRUE.)
+       __acc_attach(field%q_phy)
     END IF
 
     IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_phy_vi')) THEN
@@ -2614,6 +2752,7 @@ CONTAINS
                    & ldims=shape2d,                                                  &
                    & lrestart = .FALSE.,                                             &
                    & lopenacc=.TRUE.)
+       __acc_attach(field%q_phy_vi)
     END IF
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
@@ -2631,6 +2770,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_rad)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rad_vi')) THEN
@@ -2643,6 +2783,7 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_rad_vi)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rlw')) THEN
@@ -2658,6 +2799,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_rlw)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rlw_vi')) THEN
@@ -2670,6 +2812,7 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_rlw_vi)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rsw')) THEN
@@ -2685,6 +2828,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_rsw)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rsw_vi')) THEN
@@ -2697,6 +2841,7 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_rsw_vi)
        END IF
        !
     END IF
@@ -2717,6 +2862,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_vdf)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_vdf_vi')) THEN
@@ -2729,6 +2875,7 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_vdf_vi)
        END IF
        !
     END IF
@@ -2749,6 +2896,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_cnv)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_cnv_vi')) THEN
@@ -2761,6 +2909,7 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_cnv_vi)
        END IF
        !
     END IF
@@ -2781,6 +2930,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_cld)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_cld_vi')) THEN
@@ -2793,6 +2943,7 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_cld_vi)
        END IF
        !
     END IF
@@ -2813,6 +2964,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_gwd)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_gwd_vi')) THEN
@@ -2825,6 +2977,7 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_gwd_vi)
        END IF
        !
     END IF
@@ -2845,6 +2998,7 @@ CONTAINS
                       &   vert_intp_type=vintp_types("P","Z","I"),                      &
                       &   vert_intp_method=VINTP_METHOD_LIN ),                          &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_sso)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_sso_vi')) THEN
@@ -2857,40 +3011,47 @@ CONTAINS
                       & ldims=shape2d,                                                  &
                       & lrestart = .FALSE.,                                             &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%q_sso_vi)
        END IF
        !
     END IF
 
-       cf_desc    = t_cf_var('sh_vdiff','J m-2 s-1', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, prefix//'sh_vdiff', field%sh_vdiff,          &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d,                       &
-                   &  lopenacc=.TRUE.)
+!!$       cf_desc    = t_cf_var('sh_vdiff','J m-2 s-1', '', datatype_flt)
+!!$       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+!!$       CALL add_var( field_list, prefix//'sh_vdiff', field%sh_vdiff,          &
+!!$                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+!!$                   & lrestart = .FALSE., ldims=shape2d,                       &
+!!$                   &  lopenacc=.TRUE.)
+!!$       __acc_attach(field%sh_vdiff)
+
        cf_desc    = t_cf_var('con_dtrl','?', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'con_dtrl', field%con_dtrl,          &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    &  lopenacc=.TRUE.)
+       __acc_attach(field%con_dtrl)
        cf_desc    = t_cf_var('con_dtri','?', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'con_dtri', field%con_dtri,          &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    &  lopenacc=.TRUE.)
+       __acc_attach(field%con_dtri)
        cf_desc    = t_cf_var('con_iteqv','?', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'con_iteqv', field%con_iteqv,        &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d,                       &
                    &  lopenacc=.TRUE.)
-       cf_desc    = t_cf_var('qv_vdiff','kg/m^2/s', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, prefix//'qv_vdiff', field%qv_vdiff,          &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d,                       &
-                   &  lopenacc=.TRUE.)
+
+                   !!$       cf_desc    = t_cf_var('qv_vdiff','kg/m^2/s', '', datatype_flt)
+!!$       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+!!$       CALL add_var( field_list, prefix//'qv_vdiff', field%qv_vdiff,          &
+!!$                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+!!$                   & lrestart = .FALSE., ldims=shape2d,                       &
+!!$                   &  lopenacc=.TRUE.)
+!!$       __acc_attach(field%qv_vdiff)
 
     IF ( echam_phy_tc(jg)%dt_sso > dt_zero ) THEN
        !
@@ -2908,6 +3069,7 @@ CONTAINS
                       & lrestart = .FALSE.,                                             &
                       & isteptype=TSTEP_INSTANT,                                        &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%u_stress_sso)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'tauv_sso')) THEN
@@ -2921,6 +3083,7 @@ CONTAINS
                       & lrestart = .FALSE.,                                             &
                       & isteptype=TSTEP_INSTANT,                                        &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%v_stress_sso)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'diss_sso')) THEN
@@ -2934,6 +3097,7 @@ CONTAINS
                       & lrestart = .FALSE.,                                             &
                       & isteptype=TSTEP_INSTANT,                                        &
                       & lopenacc=.TRUE.)
+          __acc_attach(field%dissipation_sso)
        END IF
     !
     END IF
@@ -2954,6 +3118,7 @@ CONTAINS
                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape3d,                         &
                    &  lopenacc=.TRUE.)
+         __acc_attach(field%ri_atm)
       END IF
 
       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'mixlen')) THEN
@@ -2963,6 +3128,7 @@ CONTAINS
                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., initval = -999._wp, ldims=shape3d,     &
                    &  lopenacc=.TRUE.)
+         __acc_attach(field%mixlen)
       END IF
 
       ! &       field% tottem0 (nproma,nlev,nblks), &
@@ -2972,6 +3138,7 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                   & lrestart = .FALSE., initval = 1.e-4_wp, ldims=shape3d,     &
                   & lopenacc=.TRUE.)
+      __acc_attach(field%tottem0)
 
       ! &       field% tottem1  (nproma,nlev,nblks), &
       cf_desc    = t_cf_var('totte', 'm2 s-2', 'TTE at step t-dt', datatype_flt)
@@ -2981,6 +3148,8 @@ CONTAINS
                   & lrestart = .TRUE., initval = 1.e-4_wp, ldims=shape3d,      &
                   & lopenacc=.TRUE.)
       
+      __acc_attach(field%tottem1)
+      
       ! REMARK: required for art emmision handling
       !IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfm')) THEN      
       cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '', datatype_flt)
@@ -2989,6 +3158,8 @@ CONTAINS
            &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
            &        lrestart = .FALSE., ldims=shape3d,                         &
            &        lopenacc=.TRUE.)
+
+      __acc_attach(field%cfm)
       !END IF
       !
       contvar_is_in_output = .FALSE.
@@ -3007,6 +3178,7 @@ CONTAINS
                      & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
                      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%cfm_tile)
          ALLOCATE(field%cfm_tile_ptr(ksfc_type))
       END IF
       !
@@ -3023,14 +3195,16 @@ CONTAINS
          END IF
       END DO
 
+
       ! REMARK: required for art sedimentation handling
       !IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfh')) THEN
       cf_desc    = t_cf_var('turb_exchng_coeff_heat', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'cfh', field%cfh,                      &
-           &        GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
-           &        lrestart = .FALSE., ldims=shape3d,                         &
-           &        lopenacc=.TRUE.)
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
+                  & lrestart = .FALSE., ldims=shape3d,                         &
+                  &  lopenacc=.TRUE.)
+      __acc_attach(field%cfh)
       !END IF
       !
       contvar_is_in_output = .FALSE.
@@ -3049,6 +3223,7 @@ CONTAINS
                      & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
                      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%cfh_tile)
          ALLOCATE(field%cfh_tile_ptr(ksfc_type))
       END IF
       !
@@ -3074,6 +3249,7 @@ CONTAINS
                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                      & lrestart = .FALSE., ldims=shape3d,                          &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%cfv)
       END IF
 
       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfv')) THEN
@@ -3083,6 +3259,7 @@ CONTAINS
                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                      & lrestart = .FALSE., ldims=shape3d,                         &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%cftotte)
       END IF
 
       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfthv')) THEN
@@ -3092,6 +3269,7 @@ CONTAINS
                      & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, &
                      & lrestart = .FALSE., ldims=shape3d,                         &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%cfthv)
       END IF
 
       cf_desc    = t_cf_var('Coriolis_param', 's-1', 'Coriolis parameter', datatype_flt)
@@ -3100,6 +3278,7 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                   & lrestart = .FALSE., ldims=shape2d,                       &
                   & lopenacc=.TRUE.)
+      __acc_attach(field%coriol)
 
       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'hdtcbl')) THEN
          cf_desc    = t_cf_var('height_pbl_top', 'm', 'height of PBL top', datatype_flt)
@@ -3108,6 +3287,7 @@ CONTAINS
                      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                      & lrestart = .FALSE., ldims=shape2d,                       &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%hdtcbl)
       END IF
 
       !-----------------------------------
@@ -3119,6 +3299,7 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                   & lrestart = .FALSE., ldims=shape2d,                       &
                   & lopenacc=.TRUE.)
+      __acc_attach(field%z0m)
 
       ! &       field% z0m_tile(nproma,nblks,nsfc_type), &
       CALL add_var( field_list, prefix//'z0m_tile', field%z0m_tile,                         &
@@ -3128,6 +3309,7 @@ CONTAINS
                   & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,                       &
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,                   &
                   & lopenacc=.TRUE.)
+      __acc_attach(field%z0m_tile)
 
       ALLOCATE(field%z0m_tile_ptr(ksfc_type))
       DO jsfc = 1,ksfc_type
@@ -3152,6 +3334,7 @@ CONTAINS
                   & lrestart = .TRUE., ldims=shape2d,                        &
                   & lmiss=.TRUE., missval=cdimissval,                        &
                   & lopenacc=.TRUE.)
+      __acc_attach(field%z0h_lnd)
 
       !-----------------------------------
 
@@ -3162,6 +3345,7 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                   & lrestart = .TRUE., initval = 1._wp, ldims=shape2d,       &
                   & lopenacc=.TRUE.)
+      __acc_attach(field%ustar)
 
       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'wstar')) THEN
          cf_desc    = t_cf_var('conv_velocity_scale', 'm s-1', 'convective velocity scale', datatype_flt)
@@ -3170,6 +3354,7 @@ CONTAINS
                      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                      & lrestart = .FALSE., ldims=shape2d,                       &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%wstar)
       END IF
 
       ! &       field% wstar_tile(nproma,nblks,nsfc_type), &
@@ -3180,6 +3365,7 @@ CONTAINS
                   & ldims=shapesfc, lcontainer=.TRUE.,                           &
                   & lrestart=.FALSE., loutput=.FALSE.,                           &
                   & lopenacc=.TRUE.)
+      __acc_attach(field%wstar_tile)
 
       ALLOCATE(field%wstar_tile_ptr(ksfc_type))
       DO jsfc = 1,ksfc_type
@@ -3200,6 +3386,7 @@ CONTAINS
                      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                      & lrestart=.FALSE., ldims=shape2d,                         &
                      &  lopenacc=.TRUE.)
+         __acc_attach(field%kedisp)
       END IF
 
       ! &       field% ocu    (nproma,nblks),                &
@@ -3210,6 +3397,7 @@ CONTAINS
         &           cf_desc, grib2_desc, ldims=shape2d,   &
         &           lrestart=.TRUE.,                      &
         & lopenacc=.TRUE.)
+      __acc_attach(field%ocu)
 
       ! &       field% ocv    (nproma,nblks),                &
       cf_desc    = t_cf_var('ocean_sfc_v', 'm/s', 'v-component of ocean current/ice', datatype_flt)
@@ -3219,6 +3407,7 @@ CONTAINS
         &           cf_desc, grib2_desc, ldims=shape2d,   &
         &           lrestart=.TRUE.,                      &
         & lopenacc=.TRUE.)
+      __acc_attach(field%ocv)
 
     !-----------------------
     ! Surface
@@ -3232,6 +3421,7 @@ CONTAINS
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & isteptype=TSTEP_CONSTANT,                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%orog)
 
     cf_desc    = t_cf_var('land_area_fraction', 'm2/m2',   &
                 &         'cell area fraction occupied by land including lakes', datatype_flt)
@@ -3241,6 +3431,7 @@ CONTAINS
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & isteptype=TSTEP_CONSTANT,                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%sftlf)
 
     cf_desc    = t_cf_var('land_ice_area_fraction', 'm2/m2',   &
                 &         'cell area fraction occupied by land ice', datatype_flt)
@@ -3250,6 +3441,7 @@ CONTAINS
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & isteptype=TSTEP_CONSTANT,                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%sftgif)
 
     cf_desc    = t_cf_var('ocean_area_fraction', 'm2/m2',   &
                 &         'cell area fraction occupied by ocean', datatype_flt)
@@ -3259,6 +3451,7 @@ CONTAINS
                 & lrestart = .FALSE., ldims=shape2d,                       &
                 & isteptype=TSTEP_CONSTANT,                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%sftof)
 
 
     ! &       field% lsmask (nproma, nblks),                 &
@@ -3268,6 +3461,7 @@ CONTAINS
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & lrestart=.FALSE., ldims=shape2d,                         &
               & lopenacc=.TRUE.)
+    __acc_attach(field%lsmask)
 
     ! &       field% glac   (nproma, nblks),                 &
     cf_desc    = t_cf_var('glacier_cover', '', 'fraction of land covered by glaciers', &
@@ -3277,6 +3471,7 @@ CONTAINS
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & lrestart=.FALSE., ldims=shape2d,                         &
               & lopenacc=.TRUE.)
+    __acc_attach(field%glac)
 
     ! &       field% seaice (nproma, nblks),                 &
     cf_desc    = t_cf_var('sea_ice_cover', '', 'fraction of ocean covered by sea ice', &
@@ -3287,6 +3482,7 @@ CONTAINS
       &           cf_desc, grib2_desc, ldims=shape2d,         &
       &           lrestart=.TRUE.,                            &
       & lopenacc=.TRUE.)
+    __acc_attach(field%seaice)
 
     ! &       field% alake (nproma, nblks),                 &
     cf_desc    = t_cf_var('alake', '', 'fraction of lakes', &
@@ -3296,6 +3492,7 @@ CONTAINS
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & lrestart=.FALSE., ldims=shape2d,                         &
               & lopenacc=.TRUE.)
+    __acc_attach(field%alake)
 
     ! &       field% lake_ice_frc (nproma, nblks),                 &
     cf_desc    = t_cf_var('lake_ice_frc', '', 'fraction of ice on lakes', & 
@@ -3305,6 +3502,7 @@ CONTAINS
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
               & initval=0._wp, lrestart=.TRUE., ldims=shape2d,             &
               & lopenacc=.TRUE.)
+    __acc_attach(field%lake_ice_frc)
 
     !-----------------------------------
     ! &       field% ts(nproma,nblks), &
@@ -3314,6 +3512,7 @@ CONTAINS
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & lrestart=.TRUE., ldims=shape2d,                          &
               & lopenacc=.TRUE.)
+    __acc_attach(field%ts)
 
     ! &       field% ts_tile(nproma,nblks,nsfc_type), &
     CALL add_var( field_list, prefix//'ts_tile', field%ts_tile,                &
@@ -3323,6 +3522,7 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%ts_tile)
 
     ALLOCATE(field%ts_tile_ptr(ksfc_type))
     DO jsfc = 1,ksfc_type
@@ -3353,6 +3553,7 @@ CONTAINS
                    & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
                    & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                    &  lopenacc=.TRUE.)
+       __acc_attach(field%qs_sfc_tile)
        ALLOCATE(field%qs_sfc_tile_ptr(ksfc_type))
     END IF
     !
@@ -3377,6 +3578,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart=.FALSE., ldims=shape2d,                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albedo)
 
     ! &       field% albvisdir (nproma,nblks),          &
     cf_desc    = t_cf_var('albvisdir', '', 'albedo VIS direct', datatype_flt)
@@ -3385,6 +3587,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart=.TRUE., ldims=shape2d ,                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albvisdir)
 
     ! &       field% albvisdif (nproma,nblks),          &
     cf_desc    = t_cf_var('albvisdif', '', 'albedo VIS diffuse', datatype_flt)
@@ -3393,6 +3596,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart=.TRUE., ldims=shape2d ,                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albvisdif)
 
     ! &       field% albnirdir (nproma,nblks),          &
     cf_desc    = t_cf_var('albnirdir', '', 'albedo NIR direct', datatype_flt)
@@ -3401,6 +3605,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart=.TRUE., ldims=shape2d ,                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albnirdir)
 
     ! &       field% albnirdif (nproma,nblks),          &
     cf_desc    = t_cf_var('albnirdif', '', 'albedo NIR diffuse', datatype_flt)
@@ -3409,6 +3614,7 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart=.TRUE., ldims=shape2d ,                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albnirdif)
 
     ! &       field% albvisdir_tile (nproma,nblks,nsfc_type),          &
     cf_desc    = t_cf_var('albvisdir_tile', '', 'albedo VIS direct', datatype_flt)
@@ -3418,6 +3624,7 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,                       &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                                    &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albvisdir_tile)
 
     ! &       field% albvisdif_tile (nproma,nblks,nsfc_type),          &
     cf_desc    = t_cf_var('albvisdif_tile', '', 'albedo VIS diffuse', datatype_flt)
@@ -3427,6 +3634,7 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,                       &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                                    &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albvisdif_tile)
 
     ! &       field% albnirdir_tile (nproma,nblks,nsfc_type),          &
     cf_desc    = t_cf_var('albnirdir_tile', '', 'albedo NIR direct', datatype_flt)
@@ -3436,6 +3644,7 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,                       &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                                    &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albnirdir_tile)
 
     ! &       field% albnirdif_tile (nproma,nblks,nsfc_type),          &
     cf_desc    = t_cf_var('albnirdif_tile', '', 'albedo NIR diffuse', datatype_flt)
@@ -3445,6 +3654,7 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,                       &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                                    &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albnirdif_tile)
 
     ! &       field% albedo_tile (nproma,nblks,nsfc_type),          &
     cf_desc    = t_cf_var('albedo_tile', '', 'albedo', datatype_flt)
@@ -3454,6 +3664,7 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,                       &
                 & lcontainer=.TRUE., lrestart=.FALSE.,                                    &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%albedo_tile)
 
     ALLOCATE(field%albvisdir_tile_ptr(ksfc_type), field%albvisdif_tile_ptr(ksfc_type), &
              field%albnirdir_tile_ptr(ksfc_type), field%albnirdif_tile_ptr(ksfc_type), &
@@ -3504,21 +3715,12 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart=.FALSE., ldims=shape2d,                         &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%emissivity)
 
     !---------------------------
     ! Surface fluxes
     !---------------------------
     ! gridbox mean
-    CALL add_var( field_list, prefix//'co2flux', field%co2flux,           &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('co2flux', 'kg m-2 s-1', 'co2 flux',           &
-                & datatype_flt),                                          &
-                & grib2_var(255,255,255,iextbits, GRID_UNSTRUCTURED, GRID_CELL),&
-                & ldims=shape2d,                                          &
-                & lrestart = .FALSE.,                                     &
-                & isteptype=TSTEP_INSTANT,                                &
-                & lopenacc=.TRUE.)
-
 
     CALL add_var( field_list, prefix//'evspsbl', field%evap,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
@@ -3530,6 +3732,9 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                &
                 & lopenacc=.TRUE.)
 
+
+    __acc_attach(field%evap)
+
     CALL add_var( field_list, prefix//'hfls', field%lhflx,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('lhflx', 'W m-2 ', 'latent heat flux',         &
@@ -3540,6 +3745,8 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%lhflx)
+
     CALL add_var( field_list, prefix//'hfss', field%shflx,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('shflx', 'W m-2 ', 'sensible heat flux',       &
@@ -3549,6 +3756,8 @@ CONTAINS
                 & lrestart = .FALSE.,                                     &
                 & isteptype=TSTEP_INSTANT,                                &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%shflx)
 
     !---------------------------------
     ! values on tiles
@@ -3563,6 +3772,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,   &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%swflxsfc_tile)
+
     CALL add_var( field_list, prefix//'rlns_tile',field%lwflxsfc_tile,    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('rlns_tile', 'W m-2',                          &
@@ -3573,6 +3784,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,   &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%lwflxsfc_tile)
+
     CALL add_var( field_list, prefix//'evspsbl_tile', field%evap_tile,    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('evspsbl_tile', 'kg m-2 s-1',                  &
@@ -3581,6 +3794,8 @@ CONTAINS
                 & ldims=shapesfc,                                         &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,   &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%evap_tile)
 
     CALL add_var( field_list, prefix//'hfls_tile', field%lhflx_tile,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
@@ -3591,6 +3806,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,   &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%lhflx_tile)
+
     CALL add_var( field_list, prefix//'hfss_tile', field%shflx_tile,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('hfss_tile', 'W m-2',                          &
@@ -3600,6 +3817,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,   &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%shflx_tile)
+
     CALL add_var( field_list, prefix//'frac_tile', field%frac_tile,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('frac_tile', '%',                              &
@@ -3608,6 +3827,8 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,   &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%frac_tile)
 
     ALLOCATE(field%swflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%lwflxsfc_tile_ptr(ksfc_type))
@@ -3690,6 +3911,8 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%u_stress        )
+
     CALL add_var( field_list, prefix//'tauv', field%v_stress,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('v_stress','N m-2','v-momentum flux at the surface', &
@@ -3699,6 +3922,8 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%v_stress)
 
     ! wind stress, instantaneous tile values 
 
@@ -3712,6 +3937,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,         &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%u_stress_tile)
+
     CALL add_var( field_list, prefix//'tauv_tile', field%v_stress_tile,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('v_stress_tile', 'N m-2',                            &
@@ -3721,6 +3948,8 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,         &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%v_stress_tile)
 
     ALLOCATE(field%u_stress_tile_ptr(ksfc_type))
     ALLOCATE(field%v_stress_tile_ptr(ksfc_type))
@@ -3752,16 +3981,6 @@ CONTAINS
     ! near surface diagnostics, grid box mean
     !-----------------------------------------
 
-    CALL add_var( field_list, prefix//'co2mmr', field%co2mmr,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('CO2 MR','kg kg-1','co2 mixing ratio',               &
-                &          datatype_flt),                                       &
-                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-                & ldims=shape2d,                                                &
-                & lrestart = .FALSE.,                                           &
-                & isteptype=TSTEP_INSTANT,                                      &
-                & lopenacc=.TRUE.)
-
     CALL add_var( field_list, prefix//'sfcwind', field%sfcwind,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('sfcwind','m s-1','10m windspeed',                   &
@@ -3771,6 +3990,8 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%sfcwind)
 
     CALL add_var( field_list, prefix//'uas', field%uas,                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
@@ -3782,6 +4003,8 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%uas)
+
     CALL add_var( field_list, prefix//'vas', field%vas,                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('vas','m s-1','meridional wind in 10m',              &
@@ -3791,6 +4014,8 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%vas)
 
     CALL add_var( field_list, prefix//'tas', field%tas,                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
@@ -3802,6 +4027,8 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%tas)
+
     CALL add_var( field_list, prefix//'dew2', field%dew2,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('dew2','K','dew point temperature in 2m',            &
@@ -3811,6 +4038,8 @@ CONTAINS
                 & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%dew2)
 
     CALL add_var( field_list, prefix//'tasmax', field%tasmax,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
@@ -3824,6 +4053,8 @@ CONTAINS
                 & action_list=actions(new_action(ACTION_RESET,"P1D")),          &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%tasmax)
+
     CALL add_var( field_list, prefix//'tasmin', field%tasmin,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('tasmin','K','minimum 2m temperature',               &
@@ -3835,6 +4066,8 @@ CONTAINS
                 & isteptype=TSTEP_MIN,                                          &
                 & action_list=actions(new_action(ACTION_RESET,"P1D")),          &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%tasmin)
 
     !--------------------------------------
     ! near surface diagnostics, tile values
@@ -3850,6 +4083,8 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%sfcwind_tile)
+
     CALL add_var( field_list, prefix//'uas_tile', field%uas_tile,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('uas_tile','m s-1','zonal wind in 10m on tiles',     &
@@ -3859,6 +4094,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%uas_tile)
 
     CALL add_var( field_list, prefix//'vas_tile', field%vas_tile,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
@@ -3870,6 +4107,8 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%vas_tile)
+
     CALL add_var( field_list, prefix//'tas_tile', field%tas_tile,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('tas_tile','K','temperature in 2m on tiles',         &
@@ -3880,6 +4119,8 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
 
+    __acc_attach(field%tas_tile)
+
     CALL add_var( field_list, prefix//'dew2_tile', field%dew2_tile,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                 & t_cf_var('dew2_tile','K','dew point temperature in 2m on tiles',&
@@ -3889,6 +4130,8 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT,                                      &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(field%dew2_tile)
 
 
     ALLOCATE(field%sfcwind_tile_ptr(ksfc_type))
@@ -3958,6 +4201,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%tas_gmean)
 
     cf_desc    = t_cf_var('rsdt_gmean', 'W m-2', 'global mean toa incident shortwave radiation', datatype_flt,'rsdt_gmean')
     grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
@@ -3965,6 +4209,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%rsdt_gmean)
 
     cf_desc    = t_cf_var('rsut_gmean', 'W m-2', 'global mean toa outgoing shortwave radiation', datatype_flt,'rsut_gmean')
     grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
@@ -3972,6 +4217,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%rsut_gmean)
 
     cf_desc    = t_cf_var('rlut_gmean', 'W m-2', 'global mean toa outgoing longwave radiation', datatype_flt,'rlut_gmean')
     grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
@@ -3979,6 +4225,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%rlut_gmean)
 
     cf_desc    = t_cf_var('prec_gmean', 'kg m-2 s-1', 'global mean precipitation flux', datatype_flt,'prec_gmean')
     grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
@@ -3986,6 +4233,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%prec_gmean)
 
     cf_desc    = t_cf_var('evap_gmean', 'kg m-2 s-1', 'global mean evaporation flux', datatype_flt,'evap_gmean')
     grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_LONLAT)
@@ -3993,6 +4241,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%evap_gmean)
 
 !   derived variable
     cf_desc    = t_cf_var('radtop_gmean', 'W m-2', 'global mean toa total radiation', datatype_flt,'radtop_gmean')
@@ -4001,6 +4250,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%radtop_gmean)
 !   derived variable
     cf_desc    = t_cf_var('fwfoce_gmean', 'kg m-2 s-1', 'mean surface freshwater flux over ocean surface', &
                 & datatype_flt,'fwfoce_gmean')
@@ -4009,6 +4259,7 @@ CONTAINS
                 & GRID_LONLAT, ZA_SURFACE, cf_desc, grib2_desc,                &
                 & lrestart = .FALSE., ldims=(/1/),                             &
                 & lopenacc=.TRUE.)
+    __acc_attach(field%fwfoce_gmean)
 
 ! icefrc not allocated in atmosphere
 !   cf_desc    = t_cf_var('icefrc_gmean', 'frac', 'global mean ice cover of grid box', datatype_flt,'icefrc_gmean')
@@ -4081,6 +4332,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%ta)
 
     ! &       tend% ta_dyn  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_dyn', 'K s-1',                           &
@@ -4094,6 +4346,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%  ta_dyn)
 
     ! &       tend% ta_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1',                           &
@@ -4107,6 +4360,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%  ta_phy)
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
        !
@@ -4122,6 +4376,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_rsw)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_rlw')) THEN
@@ -4136,6 +4391,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_rlw)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_rad')) THEN
@@ -4150,6 +4406,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_rad)
        END IF
        !
     END IF
@@ -4163,6 +4420,7 @@ CONTAINS
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,               &
                    & ldims=(/kproma,kblks/),                                                 &
                    & lopenacc=.TRUE.)
+       __acc_attach(tend%  ta_rlw_impl)
     END IF
 
     IF ( echam_phy_tc(jg)%dt_cld > dt_zero ) THEN
@@ -4179,6 +4437,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_cld)
        END IF
        !
     END IF
@@ -4197,6 +4456,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_mig)
        END IF
        !
     END IF
@@ -4215,6 +4475,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_cnv)
        END IF
        !
     END IF
@@ -4233,6 +4494,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_vdf)
        END IF
        !
        IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_sfc')) THEN
@@ -4244,6 +4506,7 @@ CONTAINS
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                    &
                       & cf_desc, grib2_desc, ldims=shape2d,                                    &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_sfc)
        END IF
        !
     END IF
@@ -4262,6 +4525,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_gwd)
        END IF
        !
     END IF
@@ -4281,6 +4545,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%  ta_sso)
        END IF
        !
     END IF
@@ -4300,6 +4565,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%ua)
 
     ! &       tend%    ua_dyn (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_dyn', 'm s-2',                                &
@@ -4313,6 +4579,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%ua_dyn)
 
     ! &       tend%    ua_phy (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_phy', 'm s-2',                                &
@@ -4326,6 +4593,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%ua_phy)
 
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !
@@ -4342,6 +4610,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%ua_cnv)
        END IF
        !
     END IF
@@ -4361,6 +4630,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%ua_vdf)
        END IF
        !
     END IF
@@ -4380,6 +4650,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%ua_gwd)
        END IF
        !
     END IF
@@ -4399,6 +4670,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%ua_sso)
        END IF
        !
     END IF
@@ -4418,6 +4690,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%va)
 
     ! &       tend%    va_dyn (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_dyn', 'm s-2',                                &
@@ -4431,6 +4704,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%va_dyn)
 
     ! &       tend%    va_phy (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_phy', 'm s-2',                                &
@@ -4444,6 +4718,7 @@ CONTAINS
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ),                                                &
                 & lopenacc=.TRUE.)
+    __acc_attach(tend%va_phy)
 
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !
@@ -4460,6 +4735,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%va_cnv)
        END IF
        !
     END IF
@@ -4479,6 +4755,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%va_vdf)
        END IF
        !
     END IF
@@ -4498,6 +4775,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%va_gwd)
        END IF
        !
     END IF
@@ -4517,6 +4795,7 @@ CONTAINS
                       &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                       &   l_extrapol=.FALSE. ),                                                &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%va_sso)
        END IF
        !
     END IF
@@ -4535,6 +4814,8 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(tend%qtrc)
     ALLOCATE(tend% qtrc_ptr(ktracer))
 
     CALL add_var( tend_list, prefix//'qtrc_dyn', tend%qtrc_dyn,                &
@@ -4547,6 +4828,8 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(tend%qtrc_dyn)
     ALLOCATE(tend% qtrc_dyn_ptr(ktracer))
 
     CALL add_var( tend_list, prefix//'qtrc_phy', tend%qtrc_phy,                &
@@ -4559,6 +4842,8 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(tend%qtrc_phy)
     ALLOCATE(tend% qtrc_phy_ptr(ktracer))
 
     IF ( echam_phy_tc(jg)%dt_cld > dt_zero ) THEN
@@ -4584,6 +4869,7 @@ CONTAINS
                       & ldims = shape_trc,                                           &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%qtrc_cld)
           ALLOCATE(tend% qtrc_cld_ptr(ktracer))
        END IF
        !
@@ -4635,6 +4921,7 @@ CONTAINS
                       & ldims = shape_trc,                                           &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%qtrc_mig)
           ALLOCATE(tend% qtrc_mig_ptr(ktracer))
        END IF
        !
@@ -4686,6 +4973,7 @@ CONTAINS
                       & ldims = shape_trc,                                           &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%qtrc_cnv)
           ALLOCATE(tend% qtrc_cnv_ptr(ktracer))
        END IF
        !
@@ -4738,6 +5026,7 @@ CONTAINS
                       & ldims = shape_trc,                                           &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%qtrc_vdf)
           ALLOCATE(tend% qtrc_vdf_ptr(ktracer))
        END IF
        !
@@ -4789,6 +5078,7 @@ CONTAINS
                       & ldims = shape_trc,                                           &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%qtrc_mox)
           ALLOCATE(tend% qtrc_mox_ptr(ktracer))
        END IF
        !
@@ -4840,6 +5130,7 @@ CONTAINS
                       & ldims = shape_trc,                                           &
                       & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                       & lopenacc=.TRUE.)
+          __acc_attach(tend%qtrc_car)
           ALLOCATE(tend% qtrc_car_ptr(ktracer))
        END IF
        !
@@ -4878,6 +5169,8 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(tend%mtrc_phy)
     ALLOCATE(tend% mtrc_phy_ptr(ktracer))
 
     CALL add_var( tend_list, prefix//'mtrcvi_phy', tend%mtrcvi_phy,            &
@@ -4890,6 +5183,8 @@ CONTAINS
                 & ldims = (/kproma,kblks,ktracer/),                            &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,        &
                 & lopenacc=.TRUE.)
+
+    __acc_attach(tend%mtrcvi_phy)
     ALLOCATE(tend% mtrcvi_phy_ptr(ktracer))
 
     ! Referrence to individual tracer, for I/O
