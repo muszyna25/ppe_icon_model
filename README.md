@@ -1126,22 +1126,22 @@ cloning the git repository:
 
 ## Runscript generation details
 
-Single templates can be created with
-    ```console
+Single templates can be created with:
+```console
     $ ./make_runscripts -s <expname>
-    ```
+```
 Please edit the runscript header according to your needs regarding accounting,
-number on nodes and so on.
+number of nodes and so on.
 
 For a more sophisticated runscript generation, the wrapper
 './run/make_target_runscript' is better suited. It supports many different
 variables that otherwise must be set manually. E.g. for setting the wall clock
 limit and the number of nodes, you can call from the ICON-build directory:
-    ```
+```console
     $ cd run && ln -sf ./checksuite.ocean_internal/omip/exp.ocean_omip_long exp.ocean_omip_long
     $ ./run/make_target_runscript in_script=exp.ocean_omip_long in_script=exec.iconrun \
-        EXPNAME=ocean_omip_long cpu_time=08:00:00 no_of_nodes=20
-    ```
+       EXPNAME=ocean_omip_long cpu_time=08:00:00 no_of_nodes=20
+```
 
 # FAQ
 <a name="faq-1" href="#faq-1">1. **I run the configure script without any
