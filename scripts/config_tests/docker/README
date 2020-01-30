@@ -15,10 +15,10 @@ image has been added to the local Docker registry.
 
 Now you can run the image:
 
-  docker run -it -v /absoulute/path/to/icon/source/directory:/icon -v /absolute/path/to/poolFolder_prefix:/icon-data-pool --rm icon-base:pgi-mpich
+  docker run -it -v /absolute/path/to/icon/source/directory:/icon -v /absolute/path/to/poolFolder_prefix:/icon-data-pool --rm icon-base:pgi-mpich
 
 where /absolute/path/to/poolFolder_prefix is a directory on your machine
 containing input files for your experiments (e.g. ICON grid files).
 
 At this point you can run the configure wrappers of ICON, which you can find
-inside '/icon/config/examples/docker'.
+inside '/icon/scripts/config_tests/docker'.
