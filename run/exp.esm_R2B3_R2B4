@@ -59,6 +59,7 @@ nproma_oce=48
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
 initialiseOcean="fromRestart"
+# initialiseOcean="fromRestartwithHamocc"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 
@@ -78,11 +79,11 @@ mpi_oce_nodes=2
 
 # standard atmosphere timestep: 15 min, 8 substeps (r2b4 values)
 # atmospheric timesteps > 15 min are possible with a higher value in hdiff_smag_fac, see diffusion nml
-# tested: atmTimeStep="PT20M" / atm_substeps=10 with hdiff_smag_fac=0.15
+# tested: atmTimeStep="PT20M" / atm_substeps=15 with hdiff_smag_fac=0.15
 
 radTimeStep="PT2H"               # radiation time step:    12 time steps per day
 atmTimeStep="PT20M"              # atmosphere time step:   72 time steps per day
-atm_substeps=10                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
+atm_substeps=15                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
 oceTimeStep="PT60M"              # ocean time step:        24 time steps per day
 couplingTimeStep="PT60M"         # coupling time step:      2 time steps per radTimeStep 
 
@@ -1183,11 +1184,10 @@ ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 
 #-----------------------------------------------------------------------------
 # HAMOCC
-
-# CAUTION: - at the moment GMRedi has to be turned off for using hamocc!
-#          - running with hamocc will give nan's in the hamocc output after ~5 years
-#          -> use this only for testing
 #
+
+# CAUTION: HAMOCC tracer transport does not include GMRedi transport, even if ocean does
+
 use_hamocc=no
 
 
@@ -1610,9 +1610,9 @@ cat >> ${oce_namelist} << EOF
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
 l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
 l_bgc_check                       = .FALSE.   ! mass check at every time step
-deltacalc                         = 0.        ! CaCO3 weathering rate [kmol/yr] 
-deltaorg                          = 0.        ! OC weathering rate [kmol/yr]
-deltasil                          = 0.        ! Si(OH)4 weathering rate [kmol/yr]
+deltacalc                         = 2460.2        ! CaCO3 weathering rate [kmol/s] 
+deltaorg                          = 93.5        ! OC weathering rate [kmol/s]
+deltasil                          = 12627.6        ! Si(OH)4 weathering rate [kmol/s]
 atm_co2                           = 284.3      ! atmospheric CO2 (default 278)
 atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
 atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
@@ -1651,7 +1651,7 @@ cat >> ${oce_namelist} << EOF
 /
 EOF
 #
-if [[ "$initialiseOcean" == "fromRestart" ]]; then
+if [[ "$initialiseOcean" == "fromRestart"]] || [[ "$initialiseOcean" == "fromRestartwithHamocc"  ]]; then
   #
   cat >> ${oce_namelist} << EOF
 &ocean_initialConditions_nml
@@ -1705,14 +1705,20 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
  # for restart from rar0026 plus 200 additional years of spinup:
  add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_oce_DOM01.nc 
- 
- # old restart:
- #add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_oce_DOM01.nc 
-fi
-#
+ fi
+
+if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
+ # for a restart file containing Hamocc, interpolated from a cmip6 control run to the icon grid.
+ # Ocean restart is from a long tuning run, which arrived at a good state.
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_oce_DOM01.nc 
+ fi
+
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
+  # for initializing from Levitus:
   add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/ts_phc3.0_annual_icon_grid_0014_R02B04_O_L40.nc initial_state.nc
 fi
+
+#
 # Ocean grid
 #
 add_required_file ${ocean_grid_folder}/${ocean_grid} ./
