@@ -1,168 +1,122 @@
-#!/bin/ksh
-#==============================================================================
+#! /bin/bash
+#______________________________________________________________________________
 #
-# This script makes the run scripts for the icon_testbed 
+# This script makes finally the run scripts
 #
-# Leonidas Linardakis, MPI-M, 2010-11-22
-#
-#==============================================================================
-scriptname=$0
-# echo "$scriptname: Start"
+# Original version by Leonidas Linardakis, MPI-M, 2010-11-22
+#______________________________________________________________________________
 
 IFS=" ="
 eval_argument ()
 {
-  case $1 in
-  "with_mpi" ) use_mpi=$2
-  ;;
-  "with_openmp" ) use_openmp=$2
-  ;;
-  "cpu_time" ) use_cpu_time=$2
-#     echo "use_cpu_time=$use_cpu_time"
-  ;;
-  "mpi_procs_pernode" ) use_mpi_procs_pernode=$2
-#     echo "use_mpi_procs_pernode=$use_mpi_procs_pernode"
-  ;;
-  "nproma" ) use_nproma=$2
-  ;;
-  "openmp_threads" ) use_openmp_threads=$2
-#     echo "use_openmp_threads=$use_openmp_threads"
-  ;;
-  "omp_stacksize" ) use_omp_stacksize=$2
-  ;;
-  "resources" ) use_resources=$2
-  ;;
-  "memory_model" ) use_memory_model=$2
-  ;;
-  "memory" ) use_memory=$2
-  ;;
-  "node_usage" ) use_node_usage=$2
-  ;;
-  "no_of_nodes" ) use_nodes=$2
-  ;;
-  "account_no" ) use_account_no=$2
-  ;;
-  "queue" ) use_queue=$2
-  ;;
-  "out_script" ) output_name=$2
-#     echo "output_name=$output_name"
-  ;;
-  "in_script" ) input_name="$input_name $2"
-  ;;
-  "job_name" ) job_name="$2"
-  ;;
-  "in_folder" ) input_folder=$2
-  ;;
-  "out_folder" ) output_folder=$2
-  ;;
-  "with_shell" ) use_shell=$2
-  ;;
-  *) let "no_of_free_variables=$no_of_free_variables+1"
-     free_variable[$no_of_free_variables]=$1
-     free_variable_value[$no_of_free_variables]=$2 
-#      echo "free_variable=${free_variable[$no_of_free_variables]} with value=${free_variable_value[$no_of_free_variables]}"
-#      exit -1 ;;
-  esac
+    case $1 in
+        "with_mpi" )          use_mpi=$2 ;;
+        "with_openmp" )       use_openmp=$2 ;;
+        "cpu_time" )          use_cpu_time=$2 ;;
+        "mpi_procs_pernode" ) use_mpi_procs_pernode=$2 ;;
+        "nproma" )            use_nproma=$2 ;;
+        "openmp_threads" )    use_openmp_threads=$2 ;;
+        "omp_stacksize" )     use_omp_stacksize=$2 ;;
+        "resources" )         use_resources=$2 ;;
+        "memory_model" )      use_memory_model=$2 ;;
+        "memory" )            use_memory=$2 ;;
+        "node_usage" )        use_node_usage=$2 ;;
+        "no_of_nodes" )       use_nodes=$2 ;;
+        "account_no" )        use_account_no=$2 ;;
+        "queue" )             use_queue=$2 ;;
+        "out_script" )        output_name=$2 ;;
+        "in_script" )         input_name="$2" ;;
+        "job_name" )          job_name="$2" ;;
+        "in_folder" )         input_folder=$2 ;;
+        "out_folder" )        output_folder=$2 ;;
+        "with_shell" )        use_shell=$2 ;;
+        *)
+            (( no_of_free_variables++ ))
+            free_variable[$no_of_free_variables]=$1
+            free_variable_value[$no_of_free_variables]=$2
+    esac
 }
 
-get_first_name()
-{
-  first_name=$1
-}
-
-
+#______________________________________________________________________________
+# main program
 
 call_folder=$(pwd)
 cd $(dirname $0)
 this_folder=$(pwd)
 base_folder=${this_folder%/*}
 
-# initialize "use_..." variables, which characterize the target system,
-# with values stored up by the "configure" script in set-up.info
+# initialize "use_..." variables, which characterize the target
+# system, with values stored up by the "configure" script in
+# set-up.info
+
 . $base_folder/config/set-up.info
 
-# now use arguments passed to make_target_runscript to adjust "use_..." variables
-echo "Arguments for make_target_runscript:"
-let "no_of_free_variables=0"
+# now use arguments passed to make_target_runscript to adjust
+# "use_..." variables echo "Arguments for make_target_runscript:"
+
+no_of_free_variables=0
+
 for arg
 do
-  echo "$arg"
   eval_argument $arg
 done
 
-
 if [[ "x$input_name" == "x" ]] ; then
-  echo "Specify in_script=<name>.  Exit"
+  echo "[ERROR] Specify in_script=<name>."
   exit -1
 fi
 
-echo $input_name
-get_first_name $input_name
-
+first_name="$input_name"
 
 if [[ "x$output_name" == "x" ]] ; then
-  output_name=$first_name.run
+  output_name="$first_name.run"
 fi
 
 if [[ "x$input_folder" == "x" ]] ; then
-  input_folder=run
-fi
-
-if [[ "x$input_folder" == "x" ]] ; then
-  run_folder=run
+  run_folder="run"
 else
-  run_folder=$input_folder
+  run_folder="$input_folder"
 fi
 
 if [[ "x$output_folder" == "x" ]] ; then
-  output_local_folder=$input_folder
+  output_local_folder="$input_folder"
 fi
 
-output_folder=$base_folder/$output_local_folder
-output_script=$output_folder/$output_name
+output_folder="$base_folder/$output_local_folder"
+output_script="$output_folder/$output_name"
 
 if [[ ! -d $output_folder ]] ; then
   mkdir $output_folder
 fi
 
-
 job_name=${job_name:=$output_name}
-# echo job_name=$job_name
 
-echo " "
-echo "Create the run script  $output_script"
-echo "1. Use create_target_header to create the header"
-# execute the script create_target_header to define the shell function create_target_header
+echo -n "Creating the run script  $output_script ... "
+
+# source the script create_target_header to define the shell function create_target_header
 . $base_folder/config/create_target_header
+
 # execute the shell function create_target_header to create the header
 create_target_header
 
-echo "2. Add the scripts for the experiment and the execution:"
+# add the script for the experiment and the execution:
 input_script=$base_folder/$input_folder/$input_name
 for in_name in $input_name
 do
   cat_file=$base_folder/$input_folder/$in_name
   if [[ ! -f $cat_file ]] ; then
-    echo "script $cat_file not found"
+    echo "[ERROR] script $cat_file not found"
     exit 1
   fi
-  echo "   - adding: $cat_file"
   cat $cat_file >> $output_script
 done
 
 chmod +x $output_script
 
-echo " "
-echo "$output_script is created."
-
-if [[ "x$use_submit" != "x" ]] ; then
-  echo "Submit is $use_submit."
-fi
-
-# echo "---------------------------"
-
+echo "done."
 
 cd $call_folder
-exit
-#------------------------------------------------------------------------------
 
+exit 0
+
+#______________________________________________________________________________
