@@ -5,6 +5,22 @@ read it in a plain text editor. Please, visit ICON project page on DKRZ GitLab
 viewer of your choice (https://www.google.com/search?q=markdown+viewer).
 -->
 
+# Introduction
+
+The **ICON modelling framework** is a joint project between the
+[German Weather Service](https://www.dwd.de/EN/Home/home_node.html) and the
+[Max Planck Institute for Meteorology](https://www.mpimet.mpg.de/en/home/) for
+developing a unified next-generation global numerical weather prediction and
+climate modelling system. The ICON model has been introduced into DWD's
+operational forecast system in January 2015.
+
+This document provides technical details on how to build the model, as well as
+the description of basic steps required to run it. More information about
+ICON is available in the
+[corresponding section](https://code.mpimet.mpg.de/projects/iconpublic/wiki/Documentation)
+of the
+[project's public web page](https://code.mpimet.mpg.de/projects/iconpublic).
+
 # Table of contents
 1. [Quick start](#quick-start)
 2. [Configuration](#configuration)
@@ -26,9 +42,7 @@ viewer of your choice (https://www.google.com/search?q=markdown+viewer).
     - [Source provenance collection](#source-provenance-collection)
 4. [Running](#running)
     - [Out-of-build runs](#out-of-build-runs)
-    - [Runscript generation details](#runscript-generation-details)
 5. [FAQ](#faq)
-6. [Further Information](#further-information)
 
 # Quick start
 
@@ -718,12 +732,12 @@ preprocessed at this step) are preprocessed with the
 [CLAW](https://claw-project.github.io/) compiler. The result of this procedure
 is stored to the `./pp/claw` subdirectory.
 > **_NOTE:_** Unlike the rest of the preprocessing steps, the instructions for
-> CLAW preprocessing are moved to a separate makefile called `claw.mk`, which
-> is generated based on the [claw.mk.in](./claw.mk.in) template. This is done
-> to employ the
-> [.NOTPARALLEL](https://www.gnu.org/software/make/manual/html_node/Special-Targets.html#index-parallel-execution_002c-overriding)
-> feature of GNU make, which is required to meet the limitation of the CLAW
-> compiler manifested in the fact that the files must be processed serially.
+CLAW preprocessing are moved to a separate makefile called `claw.mk`, which is
+generated based on the [claw.mk.in](./claw.mk.in) template. This is done to
+employ the
+[.NOTPARALLEL](https://www.gnu.org/software/make/manual/html_node/Special-Targets.html#index-parallel-execution_002c-overriding)
+feature of GNU make, which is required to meet the limitation of the CLAW
+compiler manifested in the fact that the files must be processed serially.
 3. Depending on whether the *explicit Fortran preprocessing* is enabled
 (`--enable-explicit-fpp`), the results of the **actual** previous preprocessing
 step, together with Fortran source and header files of ICON (including the ART
@@ -917,13 +931,13 @@ the message:
 >Cannot find Fortran source file providing module 'missing_module'.
 >```
 >However, it might be the case that the module is not actually missing but just
->not part of the ICON codebase, e.g. `mpi`, `sct`, `yaxt`, etc. Such modules are
->external to ICON and need to be explicitly specified as such in the file
->`depgen.f90.config` residing in the current build directory. The file is
->generated at configuration time based on a template file residing in the
->source directory. Therefore, in order to make the modifications persistent,
->you need to introduce them in the file
->[depgen.f90.config.in](./depgen.f90.config.in).
+not part of the ICON codebase, e.g. `mpi`, `sct`, `yaxt`, etc. Such modules are
+external to ICON and need to be explicitly specified as such in the file
+`depgen.f90.config` residing in the current build directory. The file is
+generated at configuration time based on a template file residing in the
+source directory. Therefore, in order to make the modifications persistent, you
+need to introduce them in the file
+[depgen.f90.config.in](./depgen.f90.config.in).
 
 ### Compilation cascade prevention
 
@@ -1074,9 +1088,32 @@ $ cd /path/to/icon-builddir
 $ ./make_runscripts
 ```
 
-The generated runscripts are saved to the `./run` subdirectory of the build
-directory and can be submitted for execution. For example:
+> **_NOTE:_** By default, the generator creates runscripts for multiple
+experiments. The users can also chose to generate a single runscript for the
+experiment of their choice, for example:
+>```console
+>$ ./make_runscripts -s atm_amip
+>```
 
+The generated runscripts are saved to the `./run` subdirectory of the build
+directory. The headers of the runscripts containing arguments for the HPC
+workload manager, e.g. [SLURM](https://slurm.schedmd.com/), might require
+additional manual adjustments regarding CPU time accounting, node allocation,
+etc.
+
+> **_NOTE:_** Alternatively, the users can employ the
+[low-level tool](./run/make_target_runscript) for runscript generation offering
+a more fine-grained control over certain parameters. For example, the wall clock
+limit and the number of allocated node can be injected into the runscript as
+follows:
+>```console
+>$ cd ./run && ln -sf ./checksuite.ocean_internal/omip/exp.ocean_omip_long exp.ocean_omip_long
+>$ ./make_target_runscript in_script=exp.ocean_omip_long in_script=exec.iconrun \
+>   EXPNAME=ocean_omip_long cpu_time=08:00:00 no_of_nodes=20
+>```
+
+Once created and adjusted, the runscript can be submitted for execution. For
+example:
 ```console
 $ cd ./run && sbatch ./exp.atm_amip.run
 ```
@@ -1124,25 +1161,6 @@ cloning the git repository:
     $ cd ./run && sbatch ./exp.atm_amip.run
     ```
 
-## Runscript generation details
-
-Single templates can be created with:
-```console
-    $ ./make_runscripts -s <expname>
-```
-Please edit the runscript header according to your needs regarding accounting,
-number of nodes and so on.
-
-For a more sophisticated runscript generation, the wrapper
-'./run/make_target_runscript' is better suited. It supports many different
-variables that otherwise must be set manually. E.g. for setting the wall clock
-limit and the number of nodes, you can call from the ICON-build directory:
-```console
-    $ cd run && ln -sf ./checksuite.ocean_internal/omip/exp.ocean_omip_long exp.ocean_omip_long
-    $ ./run/make_target_runscript in_script=exp.ocean_omip_long in_script=exec.iconrun \
-       EXPNAME=ocean_omip_long cpu_time=08:00:00 no_of_nodes=20
-```
-
 # FAQ
 <a name="faq-1" href="#faq-1">1. **I run the configure script without any
 arguments and it fails. What should I do?**</a>
@@ -1180,8 +1198,3 @@ following command:
 ```console
 $ git submodule update --init
 ```
-
-# Further Information
-
-General information about ICON can be found on [the public ICON
-webpage](https://code.mpimet.mpg.de/projects/iconpublic/wiki/Documentation).
