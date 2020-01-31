@@ -62,7 +62,7 @@ done
 #______________________________________________________________________________
 #==============================================================================
 
-. ./config/set-up.info
+source ./config/set-up.info
 use_shell=${use_shell:="/bin/bash"}
 
 # default for options
@@ -90,12 +90,12 @@ then
     #       EXPNAME=<name> variable
     #__________________________________________________________________________
     
-    $use_shell ./config/make_target_runscript \
-	       in_folder=${in_folder} \
-	       in_script=exp.${name} \
-	       in_script=exec.iconrun EXPNAME=${name} \
-	       memory_model="large" \
-	       omp_stacksize=200M
+    ./config/make_target_runscript \
+	in_folder=${in_folder} \
+	in_script=exp.${name} \
+	in_script=exec.iconrun EXPNAME=${name} \
+	memory_model="large" \
+	omp_stacksize=200M
 fi
 
 # post-processing runscript
@@ -114,14 +114,14 @@ then
     #    with_mpi="no" with_openmp="no"
     #__________________________________________________________________________
     
-    $use_shell ./config/make_target_runscript \
-	       in_folder=${in_folder} \
-	       in_script=post.${name} \
-	       out_script=post.${name}.run \
-	       EXPNAME=${name} \
-	       with_mpi="no" \
-	       with_openmp="no" \
-	       queue="express"
+    ./config/make_target_runscript \
+	in_folder=${in_folder} \
+	in_script=post.${name} \
+	out_script=post.${name}.run \
+	EXPNAME=${name} \
+	with_mpi="no" \
+	with_openmp="no" \
+	queue="express"
 fi
 
 # do not remove the all case as this is heavily used in infrastructure testing
@@ -132,13 +132,13 @@ then
     for experiment in $all_experiments
     do
 	expname=${experiment##*.}
-	$use_shell ./config/make_target_runscript \
-		   in_folder=${in_folder} \
-		   in_script=${experiment} \
-		   in_script=exec.iconrun \
-		   EXPNAME=${expname} \
-		   memory_model="large" \
-		   omp_stacksize=200M
+	./config/make_target_runscript \
+	    in_folder=${in_folder} \
+	    in_script=${experiment} \
+	    in_script=exec.iconrun \
+	    EXPNAME=${expname} \
+	    memory_model="large" \
+	    omp_stacksize=200M
     done
 else
     # error message if nothing found

@@ -13,6 +13,10 @@
 # use_mpi_procs_pernode = number of mpi procs per node
 #______________________________________________________________________________
 
+set -eu
+
+BB_SYSTEM=${BB_SYSTEM:=""}
+
 add_free_var()
 {
     varName=$1
@@ -50,17 +54,18 @@ start_header()
 set -x
 ulimit -s unlimited
 #=============================================================================
-
-# ICON run script. Created by $scriptname
-# target machine is $use_target
-# target use_compiler is $use_compiler
-# with_mpi=$use_mpi
-# with_openmp=$use_openmp
-# memory_model=$use_memory_model
-# submit with $use_submit
-
+#
+# ICON run script: 
+# - created by $0
+# - target machine is $use_target
+# - target use_compiler is $use_compiler
+# - with_mpi=$use_mpi
+# - with_openmp=$use_openmp
+# - memory_model=$use_memory_model
+# - submit with $use_submit
+#
 #=============================================================================
-
+#
 # OpenMP environment variables
 # ----------------------------
 export OMP_NUM_THREADS=${use_openmp_threads}
@@ -68,17 +73,17 @@ export ICON_THREADS=${use_openmp_threads}
 export OMP_SCHEDULE=${use_OMP_SCHEDULE}
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=${use_omp_stacksize}
-
+#
 # MPI variables
 # -------------
 no_of_nodes=${use_nodes}
 mpi_procs_pernode=$use_mpi_procs_pernode
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
-
+#
 # blocking length
 # ---------------
 nproma=$use_nproma
-
+#
 #=============================================================================
 
 # load local setting, if existing
@@ -1268,10 +1273,9 @@ create_target_header()
     set_default use_memory_model "default"
     set_default use_omp_stacksize 32M
       
-    cat > $output_script <<EOF 
+    cat > $output_script << EOF 
 #! $use_shell
 EOF
-    
     set_run_target_${use_target}
 }
 
