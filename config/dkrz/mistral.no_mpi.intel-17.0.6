@@ -44,7 +44,7 @@ ICON_OCEAN_FCFLAGS='-O3 -assume norealloc_lhs -reentrancy threaded -qopt-report-
 LDFLAGS="-L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib ${MKL_LDFLAGS}"
 LIBS="-Wl,--as-needed ${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS}"
 
-EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --disable-parallel-netcdf --disable-mpi'
+EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --disable-parallel-netcdf --disable-mpi --disable-yaxt'
 
 ################################################################################
 
