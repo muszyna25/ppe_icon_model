@@ -134,8 +134,15 @@ MODULE mo_nwp_reff_interface
         CALL message('',message_text)
         available_acdnc = .false.
       END IF
-    ELSE ! Use constant number cloud_num
-      available_acdnc = .false.
+    ELSE 
+      IF ( ASSOCIATED ( prm_diag%acdnc ) ) THEN
+        available_acdnc = .true.
+      ELSE ! Use constant number cloud_num if acdnc is not allocated        
+        available_acdnc = .false.
+        WRITE (message_text,*) 'Warnning Reff: 1 mom cannot generate cloud droplet &
+                            &numbers for current options (acdnc is not allocated). &
+                            &Using constant number'
+      END IF
     END IF
 
     ! Current Microphysical scheme
