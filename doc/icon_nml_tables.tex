@@ -6189,12 +6189,40 @@ iforcing=inwp
 I&
 4&
 &
-Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency)\\
-1: SZA dependency following Ritter-Geleyn; applied to unconditionally all grid points\\
-2: SZA dependency following Zaengl (pers.\ comm.). Same as 1 for water, but for 'rough surfaces' over land the direct albedo 
-   is not allowed to exceed the corresponding broadband diffuse albedo.\\
-3: SZA dependency following Yang (2008) for snow-free land points. Same as 1 for water/ice and 2 for snow.\\
-4: SZA dependency following Briegleb (1992) for snow-free land points. Same as 1 for water/ice and 2 for snow.
+Direct beam surface albedo over land and sea-ice. Options mainly differ in terms of their solar zenith angle (SZA) dependency.\\
+1: Ritter-Geleyn (1992) \\
+2: Z\"angl (pers.\ comm.): For 'rough surfaces' over land direct albedo
+   is not allowed to exceed the corresponding broadband diffuse
+   albedo. Ritter-Geleyn for ice. \\
+3: Yang et al (2008) for snow-free land points. Ritter-Geleyn for ice and Z\"angl for snow. \\
+4: Briegleb and Ramanathan (1992) for snow-free land points. Ritter-Geleyn for ice and Z\"angl for snow.
+&
+iforcing=inwp\\
+albedo\_type=2
+\tabularnewline
+
+%\hline
+\textbf{direct\_albedo\_water}&
+I&
+2&
+&
+Direct beam surface albedo over water (ocean or lake). Options mainly differ in terms of their solar zenith angle (SZA) dependency.\\
+1: Ritter-Geleyn (1992) \\
+2: Yang (2008), originally designed for land\\
+3: Taylor et al (1996) for direct and 0.06 for diffuse albedo as in the IFS. 
+&
+iforcing=inwp\\
+albedo\_type=2
+\tabularnewline
+
+%\hline
+\textbf{albedo\_whitecap}&
+I&
+0&
+&
+Ocean albedo increase by foam from breaking waves (whitecaps). Not applied over lakes.\\
+0: off \\
+1: whitecap describtion by Seferian et al 2018
 &
 iforcing=inwp\\
 albedo\_type=2

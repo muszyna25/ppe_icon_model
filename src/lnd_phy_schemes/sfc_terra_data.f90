@@ -105,7 +105,7 @@ PUBLIC           ! All constants and variables in this module are public
 ! 1. Data arrays for properties of different soil types (array index)     
 ! -------------------------------------------------------------------
  
-  REAL  (KIND=wp)     ::  &
+  REAL  (KIND=wp) , TARGET    ::  &
 !   a) parameters describing the soil water budget
     cporv (10), &  !  pore volume (fraction of volume)
     cfcap (10), &  !  field capacity (fraction of volume)
@@ -124,7 +124,7 @@ PUBLIC           ! All constants and variables in this module are public
     crhoc (10), &  !  soil heat capacity  (J/K*m**3)
     cala0 (10), &  !  parameters for the determination of
     cala1 (10), &  !      the soil heat conductivity (W/(K*m))
-    csalb (10), &  !  solar albedo for dry soil                            
+    csalb1(10), csalb2(10), &  !  options for diffuse solar albedo; selection is made in mo_radiation_nml
     csalbw(10), &  !  slope of solar albedo with respect to soil water content     
 
 !   c) additional parameters for the BATS scheme (Dickinson)
@@ -136,6 +136,8 @@ PUBLIC           ! All constants and variables in this module are public
     csandf(10), &  !  mean fraction of sand (weight percent)
     cclayf(10)     !  mean fraction of clay (weight percent)
  
+  REAL  (KIND=wp) , POINTER ::  csalb(:)
+
   !$acc declare copyin(clgk0)
 
   ! Initialization of soil type parameters except cdz1 
@@ -162,7 +164,8 @@ PUBLIC           ! All constants and variables in this module are public
   DATA  crock / 0.0_wp   , 0.0_wp   , 1.0_wp    , 1.0_wp    , 1.0_wp    , 1.0_wp    , 1.0_wp    , 1.0_wp    , 0.0_wp   ,  0.0_wp   /
   DATA  cala0 / 2.26_wp  , 2.41_wp  , 0.30_wp   , 0.28_wp   , 0.25_wp   , 0.21_wp   , 0.18_wp   , 0.06_wp   , 1.0_wp   ,  2.26_wp  /
   DATA  cala1 / 2.26_wp  , 2.41_wp  , 2.40_wp   , 2.40_wp   , 1.58_wp   , 1.55_wp   , 1.50_wp   , 0.50_wp   , 1.0_wp   ,  2.26_wp  /
-  DATA  csalb / 0.70_wp  , 0.30_wp  , 0.30_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.20_wp   , 0.07_wp  ,  0.70_wp  /
+  DATA  csalb1/ 0.70_wp  , 0.30_wp  , 0.30_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.20_wp   , 0.07_wp  ,  0.70_wp  /
+  DATA  csalb2/ 0.70_wp  , 0.30_wp  , 0.30_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.25_wp   , 0.20_wp   , 0.06_wp  ,  0.70_wp  /
   DATA  csalbw/ 0.00_wp  , 0.00_wp  , 0.44_wp   , 0.27_wp   , 0.24_wp   , 0.23_wp   , 0.22_wp   , 0.10_wp   , 0.00_wp  ,  0.00_wp  /
   DATA  ck0di / 1.E-4_wp , 1.E-4_wp , 2.E-4_wp  , 2.E-5_wp  , 6.E-6_wp  , 2.E-6_wp  , 1.E-6_wp  , 1.5E-6_wp , 0.00_wp  ,  0.00_wp  /
   DATA  cbedi / 1.00_wp  , 1.00_wp  , 3.5_wp    , 4.8_wp    , 6.1_wp    , 8.6_wp    , 10.0_wp   , 9.0_wp    , 0.00_wp  ,  0.00_wp  /

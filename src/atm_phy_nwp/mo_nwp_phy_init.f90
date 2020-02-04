@@ -100,8 +100,8 @@ MODULE mo_nwp_phy_init
     &                               lseaice, zml_soil
   USE sfc_terra_data,         ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-    &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice
-    &                                spec_humi !,qsat_rho !! Specific humidity
+    &                               sat_pres_ice, &    !! saturation vapor pressure w.r.t. ice
+    &                               spec_humi          !! Specific humidity
 
   USE data_gwd,               ONLY: sugwwms
 
@@ -668,7 +668,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
     ! Init of number concentrations moved to mo_initicon_io.f90 !!!
 
-  CASE (5) !two moment micrphysics
+  CASE (5) !two moment microphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
     IF (jg == 1) CALL two_moment_mcrph_init(atm_phy_nwp_config(jg)%inwp_gscp,&

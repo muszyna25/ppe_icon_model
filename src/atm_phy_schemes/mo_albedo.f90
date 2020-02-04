@@ -41,7 +41,7 @@ MODULE mo_albedo
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_parallel_config,      ONLY: nproma
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_radiation_config,     ONLY: rad_csalbw, direct_albedo
+  USE mo_radiation_config,     ONLY: rad_csalbw, direct_albedo, direct_albedo_water, albedo_whitecap
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,             &
     &                                lseaice, lprog_albsi, llake, isub_water, isub_lake, &
     &                                isub_seaice
@@ -111,6 +111,8 @@ CONTAINS
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
     REAL(wp):: zsalb_snow              !< snow albedo (predictor)
     REAL(wp):: zsnow_alb               !< snow albedo (corrector)
+    REAL(wp):: wc_fraction             !< whitecap fraction
+    REAL(wp):: wc_albedo               !< whitecap albedo
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -140,7 +142,9 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,zvege,zsnow,  &
 !$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea, &
-!$OMP            i_count_flk,i_count_seaice,zminsnow_alb,t_fac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            i_count_flk,i_count_seaice,zminsnow_alb,t_fac,    &
+!$OMP            wc_fraction, wc_albedo) ICON_OMP_DEFAULT_SCHEDULE
+
     DO jb = i_startblk, i_endblk
 
 
@@ -301,6 +305,21 @@ CONTAINS
             prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
           ENDDO
 
+          ! whitecap albedo by breaking ocean waves
+
+          IF (albedo_whitecap == 1) THEN
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+
+            ENDDO
+          ENDIF
+
           !
           ! Sea-ice points
           !
@@ -357,7 +376,23 @@ CONTAINS
             ENDIF
 
             prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist)
+
           ENDDO
+
+          ! whitecap albedo by breaking ocean waves
+
+          IF (albedo_whitecap == 1) THEN
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+
+            ENDDO
+          ENDIF
 
         ENDIF  ! seaice
 
@@ -596,6 +631,8 @@ CONTAINS
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
     REAL(wp):: zsnow_alb               !< snow albedo
     REAL(wp):: zsnowfrac(nproma)       !< aggregated snow-cover fraction
+    REAL(wp):: wc_fraction             !< whitecap fraction
+    REAL(wp):: wc_albedo               !< whitecap albedo
 
     ! Auxiliaries for tile-specific calculation of direct beam albedo
     REAL(wp):: zalbvisdir_t(nproma,ntiles_total+ntiles_water)
@@ -630,7 +667,9 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,               &
 !$OMP            zsnow_alb,ilu,i_count_lnd,i_count_sea,i_count_flk,                 &
 !$OMP            i_count_seaice,zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu, &
-!$OMP            zalbvisdir_t,zalbnirdir_t,zsnowfrac) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            zalbvisdir_t,zalbnirdir_t,zsnowfrac, wc_fraction, wc_albedo)       &
+!$OMP            ICON_OMP_DEFAULT_SCHEDULE
+
     DO jb = i_startblk, i_endblk
 
 
@@ -733,7 +772,7 @@ CONTAINS
 
             ! direct albedo (black sky) (vis and nir)
             !
-            IF ( direct_albedo == 1 ) THEN ! Ritter-Geleyn
+            IF ( direct_albedo == 1 ) THEN       ! Ritter and Geleyn (1992)
               zalbvisdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
                 &                                        prm_diag%albvisdif_t(jc,jb,jt))
               zalbnirdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
@@ -750,7 +789,7 @@ CONTAINS
                 &                                          ext_data%atm%z0_lcc(ilu),       &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))
 
-            ELSE IF ( direct_albedo == 3 ) THEN  ! Yang (2008)
+            ELSE IF ( direct_albedo == 3 ) THEN  ! Yang et al (2008)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
                 &                                          zsnow_alb,                          &
@@ -769,7 +808,7 @@ CONTAINS
                 &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
                 &                                       ext_data%atm%albni_dif(jc,jb))
 
-            ELSE IF ( direct_albedo == 4 ) THEN  ! Briegleb (1992)
+            ELSE IF ( direct_albedo == 4 ) THEN  ! Briegleb and Ramanathan (1992)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
                 &                                          zsnow_alb,                          &
@@ -814,16 +853,54 @@ CONTAINS
           DO ic = 1, i_count_sea
             jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
+            ! diffuse albedo
+
             prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist_seawtr)
             prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
-              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
-            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
-              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
+
+            SELECT CASE (direct_albedo_water)
+              CASE (1)                      ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (2,4)                      ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (3)                      ! Taylor et al (1996)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+            END SELECT
+
           ENDDO
+
+          ! whitecap albedo by breaking ocean waves
+
+          IF (albedo_whitecap == 1) THEN
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t   (jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t   (jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albvisdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albvisdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albnirdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albnirdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              zalbvisdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbvisdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+              zalbnirdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbnirdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+
+            ENDDO
+          ENDIF
 
           !
           ! Sea-ice points
@@ -892,13 +969,49 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
-            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
-              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
+            SELECT CASE (direct_albedo_water)
+              CASE (1)                      ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (2,4)                      ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_water))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_water))
+              CASE (3)                      ! Taylor et al (1996)
+                zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+            END SELECT
+
           ENDDO
 
-        ENDIF
+          ! whitecap albedo by breaking ocean waves
+
+          IF (albedo_whitecap == 1) THEN
+
+            DO ic = 1, i_count_sea
+              jc = ext_data%atm%list_seawtr%idx(ic,jb)
+
+              wc_fraction = 0.000397_wp * min(prm_diag%sp_10m(jc,jb),20.0_wp) ** 1.59_wp
+              wc_albedo   = 0.174_wp
+  
+              prm_diag%albdif_t   (jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albdif_t   (jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albvisdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albvisdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              prm_diag%albnirdif_t(jc,jb,isub_water) = wc_fraction * wc_albedo + &
+            & prm_diag%albnirdif_t(jc,jb,isub_water) * (1.0_wp - wc_fraction)
+              zalbvisdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbvisdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+              zalbnirdir_t           (jc,isub_water) = wc_fraction * wc_albedo + &
+            & zalbnirdir_t           (jc,isub_water) * (1.0_wp - wc_fraction)
+            ENDDO
+
+          ENDIF
+
+       ENDIF
 
 
 
@@ -940,12 +1053,23 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
-            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
-          ENDDO
+            SELECT CASE (direct_albedo_water)
+              CASE (1,4)                     ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (2)                     ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (3)                     ! Taylor et al (1996)
+                zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+            END SELECT
 
+          ENDDO
 
         ELSE
 
@@ -972,10 +1096,22 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,isub_lake) = csalb(ist)
 
             ! direct albedo
-            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
-            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
-              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
+            SELECT CASE (direct_albedo_water)
+              CASE (1,4)                     ! Ritter and Geleyn (1992)
+                zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (2)                     ! Yang et al (2008)
+                zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albvisdif_t(jc,jb,isub_lake))
+                zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb), &
+                  &                          prm_diag%albnirdif_t(jc,jb,isub_lake))
+              CASE (3)                     ! Taylor et al (1996)
+                zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+                zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_taylor(prm_diag%cosmu0(jc,jb))
+            END SELECT
+
           ENDDO
 
 
@@ -1124,6 +1260,28 @@ CONTAINS
        &     / (1.0_wp + (cosmu0 * (1.0_wp/alb_dif - 1.0_wp)))**2)
 
   END FUNCTION sfc_albedo_dir_rg
+
+
+  !>
+  !! Surface albedo for direct beam - water surface (ocean or lake)
+  !! accoring to IFS (43r1)
+  !!
+  !! Reference: Taylor et al. (1996, QJRMS), based on aircraft data
+  !!
+  !! @par Revision History
+  !! Initial revision by Martin Koehler, DWD (2019-05-03)
+  !!
+  FUNCTION sfc_albedo_dir_taylor (cosmu0)  RESULT (alb_dir)
+
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp) :: alb_dir
+  !------------------------------------------------------------------------------
+
+    alb_dir = MAX( 1.E-10_wp,                                    &
+      &  0.037_wp / (1.1_wp * MIN(MAX(cosmu0,0.0_wp),1.0_wp) ** 1.4_wp + 0.15_wp) )
+
+  END FUNCTION sfc_albedo_dir_taylor
 
 
   !>
