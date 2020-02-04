@@ -64,7 +64,8 @@ AC_DEFUN([ACX_SWAP_MODULES],
                  prgenv_loaded=$(module list -t 2>&1 | $AWK '/PrgEnv/{print}')	
 		 prgenv_to_be_loaded=$(echo $load_modules_in_use | $GREP -o '\bPrgEnv[-\w]*')
                  AS_IF([test ! -z "$prgenv_to_be_loaded"],
-                       [module swap $prgenv_loaded $prgenv_to_be_loaded]) 
+                       [export PATH=$CRAY_BINUTILS_BIN:$PATH
+                        module swap $prgenv_loaded $prgenv_to_be_loaded]) 
 
 		 modules_loaded=$(module list -t 2>&1 | $AWK '!/PrgEnv/{print}')
                  modules_to_be_loaded=$(echo $load_modules_in_use | $SED 's/\bPrgEnv[\S]*//')

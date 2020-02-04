@@ -375,7 +375,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: iup_v       = 1
   INTEGER, PARAMETER :: ippm_v      = 3
   INTEGER, PARAMETER :: ipsm_v      = 4
-  INTEGER, PARAMETER :: ippm4gpu_v  = 5
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0
@@ -425,25 +424,18 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: SSTICE_CLIM        = 3     ! SST and sea ice based on climatology (monthly fields)
   INTEGER, PARAMETER :: SSTICE_AVG_MONTHLY = 4     ! SST and sea ice based on monthly averages
   INTEGER, PARAMETER :: SSTICE_AVG_DAILY   = 5     ! SST and sea ice based on daily averages
+  INTEGER, PARAMETER :: SSTICE_INST        = 6     ! SST and sea ice based on instantanous values
 
 
   !---------------------!
   !        LAND         !
   !---------------------!
 
-  ! full level heights [m]
-  REAL(wp), PARAMETER, DIMENSION(8)::                               &
-    & zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp, &
-    & 4.86_wp,14.58_wp /)
-
-  ! Soil layer thicknesses [m]
-  REAL(wp), PARAMETER, DIMENSION(8)::                               &
-    & dzsoil=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,    &
-    & 4.86_wp,14.58_wp/)
-
   ! identifier for MODIS albedo
   INTEGER, PARAMETER :: MODIS   = 2
 
+  ! maximum number of soil layers
+  INTEGER, PARAMETER :: max_nsoil = 20
 
   !---------------------!
   !        OCEAN        !
@@ -588,6 +580,11 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SDI2      = 16 !< task: compute supercell detection index
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_LPI       = 17 !< task: compute lightning potential index
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SMI       = 18 !< task: compute soil moisture index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_CEILING   = 19 !< task: compute ceiling height
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_HBAS_SC   = 20 !< task: compute height of base from shallow conv. param.
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_HTOP_SC   = 21 !< task: compute height of top  from shallow conv. param.
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_TWATER    = 22 !< task: compute total column integrated water
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_Q_SEDIM   = 23 !< task: compute specific content of precipitation particles
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !

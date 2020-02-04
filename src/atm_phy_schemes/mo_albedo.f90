@@ -293,10 +293,10 @@ CONTAINS
           !
           ! - loop over sea points (points which are at least partly ice-free) 
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
 
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
             prm_diag%albdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
           ENDDO
@@ -306,12 +306,12 @@ CONTAINS
           !
           ! - loop over sea-ice points (points which are at least partly ice-covered)
           !
-          i_count_seaice = ext_data%atm%spi_count(jb)
+          i_count_seaice = ext_data%atm%list_seaice%ncount(jb)
 
           PrognosticSeaIceAlbedo: IF ( lprog_albsi ) THEN
             ! Use prognostic sea-ice albedo (computed within the routines of the sea-ice scheme)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
               prm_diag%albdif_t(jc,jb,isub_seaice) = MAX(0._wp,wtr_prog%alb_si(jc,jb))
               ! Note that missing values for alb_si are chosen to be negative (usually -1)
               ! If something goes wrong with the sea-ice index list, or if the initialization 
@@ -322,7 +322,7 @@ CONTAINS
           ELSE 
             ! Use diagnostic sea-ice albedo (computed here)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
               ! In case the sea ice model is used, compute ice albedo for seaice 
               ! points with an empirical formula taken from GME.
               ! The ice albedo is the lower the warmer, and therefore wetter 
@@ -344,10 +344,10 @@ CONTAINS
           !
           ! - loop over sea points (including sea-ice points)
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
 
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
@@ -372,12 +372,11 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
-
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             !  In case ice is present at lake points, compute ice albedo 
             !  for lake points with an empirical formulation 
@@ -404,10 +403,10 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 
@@ -810,10 +809,10 @@ CONTAINS
           !
           ! - loop over sea points  (points which are at least partly ice-free) 
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
 
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
             prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist_seawtr)
             prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist_seawtr)
@@ -832,12 +831,12 @@ CONTAINS
           ! - loop over sea-ice points (points which are at least partly ice-covered)
           !
           !
-          i_count_seaice = ext_data%atm%spi_count(jb)
+          i_count_seaice = ext_data%atm%list_seaice%ncount(jb)
 
           PrognosticSeaIceAlbedo_modis: IF ( lprog_albsi ) THEN 
             ! Use prognostic diffuse sea-ice albedo (computed within the routines of the sea-ice scheme)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
 
               prm_diag%albdif_t(jc,jb,isub_seaice) = MAX(0._wp,wtr_prog%alb_si(jc,jb))
               ! Note that missing values for alb_si are chosen to be negative (usually -1)
@@ -849,13 +848,13 @@ CONTAINS
           ELSE 
             ! Use diagnostic diffuse sea-ice albedo (computed here)
             DO ic = 1, i_count_seaice
-              jc = ext_data%atm%idx_lst_spi(ic,jb)
+              jc = ext_data%atm%list_seaice%idx(ic,jb)
               prm_diag%albdif_t(jc,jb,isub_seaice) = alb_seaice_equil( wtr_prog%t_ice(jc,jb) )
             ENDDO
           ENDIF PrognosticSeaIceAlbedo_modis
 
           DO ic = 1, i_count_seaice
-            jc = ext_data%atm%idx_lst_spi(ic,jb)
+            jc = ext_data%atm%list_seaice%idx(ic,jb)
 
             ! diffuse albedo             
             prm_diag%albvisdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
@@ -875,10 +874,10 @@ CONTAINS
           !
           ! - loop over sea points
           !
-          i_count_sea = ext_data%atm%spw_count(jb)
+          i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
 
           DO ic = 1, i_count_sea
-            jc = ext_data%atm%idx_lst_spw(ic,jb)
+            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_water) < tf_salt) THEN 
@@ -912,12 +911,11 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
-
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             !  In case ice is present at lake points, compute ice albedo 
             !  for lake points with an empirical formulation 
@@ -956,10 +954,10 @@ CONTAINS
           !
           ! - loop over lake points
           !
-          i_count_flk = ext_data%atm%fp_count(jb)
+          i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
           DO ic = 1, i_count_flk
-            jc = ext_data%atm%idx_lst_fp(ic,jb)
+            jc = ext_data%atm%list_lake%idx(ic,jb)
 
             ! special handling of sea ice points
             IF (lnd_prog%t_g_t(jc,jb,isub_lake) < tpl_T_f) THEN 

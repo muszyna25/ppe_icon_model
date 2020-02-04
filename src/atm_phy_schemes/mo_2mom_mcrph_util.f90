@@ -87,6 +87,7 @@ MODULE mo_2mom_mcrph_util
 
   ! Type declaration for a general 2D equidistant lookup table:
   TYPE lookupt_2D
+    LOGICAL :: is_initialized = .FALSE.
     INTEGER :: n1  ! number of grid points in x1-direction
     INTEGER :: n2  ! number of grid points in x2-direction
     REAL(wp), DIMENSION(:), POINTER :: x1    ! grid vector in x1-direction
@@ -100,6 +101,7 @@ MODULE mo_2mom_mcrph_util
 
   ! Type declaration for a general 4D equidistant lookup table:
   TYPE lookupt_4D
+    LOGICAL :: is_initialized = .FALSE.
     INTEGER :: n1  ! number of grid points in x1-direction
     INTEGER :: n2  ! number of grid points in x2-direction
     INTEGER :: n3  ! number of grid points in x3-direction
@@ -144,6 +146,7 @@ MODULE mo_2mom_mcrph_util
   ! accuracy of the table lookup as compared to be achievable with the low resolution table.
 
   TYPE gamlookuptable
+    LOGICAL :: is_initialized = .FALSE.
     ! Number of bins in the tables:
     INTEGER                         :: n        ! Internal number of bins (low res part)
     INTEGER                         :: nhr      ! Internal number of bins (high res part)
@@ -168,6 +171,33 @@ CONTAINS
 
   DOUBLE PRECISION FUNCTION gfct(x)
     !*******************************************************************************
+    !                                                                              *
+    !       gamma function from Numerical Recipes (F77)                            *
+    !       (slightly modified, accounting for inlinig and verctorization          *
+    !*******************************************************************************
+    IMPLICIT NONE
+
+    DOUBLE PRECISION, INTENT(in) :: x
+
+    DOUBLE PRECISION :: tmp, p
+
+    DOUBLE PRECISION, PARAMETER :: c1 =  76.18009173d0
+    DOUBLE PRECISION, PARAMETER :: c2 = -86.50532033d0
+    DOUBLE PRECISION, PARAMETER :: c3 =  24.01409822d0
+    DOUBLE PRECISION, PARAMETER :: c4 = -1.231739516d0
+    DOUBLE PRECISION, PARAMETER :: c5 =  0.120858003d-2
+    DOUBLE PRECISION, PARAMETER :: c6 = -0.536382d-5
+    DOUBLE PRECISION, PARAMETER :: stp = 2.50662827465d0
+
+    tmp = x + 4.5d0;
+    p = stp * (1d0 + c1/x + c2/(x+1d0) + c3/(x+2d0) + c4/(x+3d0) + c5/(x+4d0) + c6/(x+5d0))
+    gfct = p * EXP( (x-0.5d0) * LOG(tmp) - tmp )
+
+    RETURN
+  END FUNCTION gfct
+
+  DOUBLE PRECISION FUNCTION gfct_orig(x)
+    !*******************************************************************************
     ! Gammafunktion aus Numerical Recipes (F77)                                    *
     ! (intrinsic function in Fortran2008)                                          *
     !*******************************************************************************
@@ -190,9 +220,9 @@ CONTAINS
     gamma = tmp + LOG(stp*ser)
     gamma = EXP(gamma)
 
-    gfct = gamma
+    gfct_orig = gamma
     RETURN
-  END FUNCTION gfct
+  END FUNCTION gfct_orig
 
   DOUBLE PRECISION FUNCTION gammln(x)
   !*******************************************************************************
@@ -469,70 +499,76 @@ CONTAINS
          c3 =  0.339332937820052d0,  &
          c4 =  1.156369000458310d0
 
-    ! Store parameters in the structure ltable:
-    ltable%a = a
-    ltable%n = nl
-    ltable%nhr = nlhr
+    IF (.NOT. ltable%is_initialized) THEN
 
-    ! Allocate Memory for the table vectors:
-    NULLIFY(ltable%x)
-    NULLIFY(ltable%xhr)
-    NULLIFY(ltable%igf)
-    NULLIFY(ltable%igfhr)
+      ! Store parameters in the structure ltable:
+      ltable%a = a
+      ltable%n = nl
+      ltable%nhr = nlhr
 
-    ALLOCATE(ltable%x(nl), STAT=err)
-    IF (err /= 0) THEN
-      WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error x' ; CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+      ! Allocate Memory for the table vectors:
+      NULLIFY(ltable%x)
+      NULLIFY(ltable%xhr)
+      NULLIFY(ltable%igf)
+      NULLIFY(ltable%igfhr)
+
+      ALLOCATE(ltable%x(nl), STAT=err)
+      IF (err /= 0) THEN
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error x' ; CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+      END IF
+      ALLOCATE(ltable%xhr(nlhr), STAT=err)
+      IF (err /= 0) THEN
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error xhr' ; CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+      END IF
+      ALLOCATE(ltable%igf(nl), STAT=err)
+      IF (err /= 0) THEN
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igf' ; CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+      END IF
+      ALLOCATE(ltable%igfhr(nlhr), STAT=err)
+      IF (err /= 0) THEN
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igfhr' ; CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+      END IF
+
+      !==================================================================
+      ! low resolution part of the table:
+      !==================================================================
+
+      ! maximum x-value of the lookup table (99.5-%-value):
+      ltable%x(ltable%n-1) = c1 * ( 1.0d0 - EXP(c2*a**c3) ) + c4*a
+
+      ! create lookup table vectors:
+      ltable%dx = ltable%x(ltable%n-1) / (ltable%n-2.0d0)
+      ltable%odx = 1.0d0 / ltable%dx
+      ! Diese Schleife vektorisiert nicht wg. incgfct_lower():
+      DO i = 1, ltable%n - 1
+        ltable%x(i) = (i-1) * ltable%dx
+        ltable%igf(i) = incgfct_lower(a,ltable%x(i))
+      END DO
+
+      ! The last value is for x = infinity:
+      ltable%x(ltable%n) = (ltable%n-1) * ltable%dx
+      ltable%igf(ltable%n) = gfct2(a)
+
+      !==================================================================
+      ! high resolution part of the table (lowest 2 % of the X-values):
+      !==================================================================
+
+      ! create lookup table vectors:
+      ltable%dxhr = ltable%x(NINT(0.01*(ltable%n-1))) / (ltable%nhr-1.0d0)
+      ltable%odxhr = 1.0d0 / ltable%dxhr
+      ! Diese Schleife vektorisiert nicht wg. incgfct_lower():
+      DO i = 1, ltable%nhr
+        ltable%xhr(i) = (i-1) * ltable%dxhr
+        ltable%igfhr(i) = incgfct_lower(a,ltable%xhr(i))
+      END DO
+
+      ltable%is_initialized = .TRUE.
+
     END IF
-    ALLOCATE(ltable%xhr(nlhr), STAT=err)
-    IF (err /= 0) THEN
-      WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error xhr' ; CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
-    END IF
-    ALLOCATE(ltable%igf(nl), STAT=err)
-    IF (err /= 0) THEN
-      WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igf' ; CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
-    END IF
-    ALLOCATE(ltable%igfhr(nlhr), STAT=err)
-    IF (err /= 0) THEN
-      WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igfhr' ; CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
-    END IF
-
-    !==================================================================
-    ! low resolution part of the table:
-    !==================================================================
-
-    ! maximum x-value of the lookup table (99.5-%-value):
-    ltable%x(ltable%n-1) = c1 * ( 1.0d0 - EXP(c2*a**c3) ) + c4*a
-
-    ! create lookup table vectors:
-    ltable%dx = ltable%x(ltable%n-1) / (ltable%n-2.0d0)
-    ltable%odx = 1.0d0 / ltable%dx
-    ! Diese Schleife vektorisiert nicht wg. incgfct_lower():
-    DO i = 1, ltable%n - 1
-      ltable%x(i) = (i-1) * ltable%dx
-      ltable%igf(i) = incgfct_lower(a,ltable%x(i))
-    END DO
-
-    ! The last value is for x = infinity:
-    ltable%x(ltable%n) = (ltable%n-1) * ltable%dx
-    ltable%igf(ltable%n) = gfct2(a)
-
-    !==================================================================
-    ! high resolution part of the table (lowest 2 % of the X-values):
-    !==================================================================
-
-    ! create lookup table vectors:
-    ltable%dxhr = ltable%x(NINT(0.01*(ltable%n-1))) / (ltable%nhr-1.0d0)
-    ltable%odxhr = 1.0d0 / ltable%dxhr
-    ! Diese Schleife vektorisiert nicht wg. incgfct_lower():
-    DO i = 1, ltable%nhr
-      ltable%xhr(i) = (i-1) * ltable%dxhr
-      ltable%igfhr(i) = incgfct_lower(a,ltable%xhr(i))
-    END DO
 
     RETURN
   END SUBROUTINE incgfct_lower_lookupcreate
@@ -894,43 +930,71 @@ CONTAINS
 
     READ (unitnr,*) anzp_wg, anzT_wg, anzi_wg, anzw_wg
 
-    ALLOCATE(pvec_wg_g(anzp_wg))
-    ALLOCATE(Tvec_wg_g(anzT_wg))
-    ALLOCATE(qwvec_wg_g(anzw_wg))
-    ALLOCATE(qivec_wg_g(anzi_wg))
-    ALLOCATE(dmin_wg_g(anzp_wg,anzT_wg,anzw_wg,anzi_wg))
+    IF (ALLOCATED(pvec_wg_g)) THEN
 
-    READ (unitnr,*,iostat=error) pvec_wg_g(1:anzp_wg)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'init_dmin_wetgrowth: Error reading pvec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      IF (anzp_wg /= SIZE(pvec_wg_g)) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading pvec from ' // TRIM(dateiname) // ': wrong size anzp'
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      IF (anzT_wg /= SIZE(Tvec_wg_g)) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading Tvec from ' // TRIM(dateiname) // ': wrong size anzT'
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      IF (anzi_wg /= SIZE(qivec_wg_g)) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading qivec from ' // TRIM(dateiname) // ': wrong size anzi'
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      IF (anzw_wg /= SIZE(qwvec_wg_g)) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading qwvec from ' // TRIM(dateiname) // ': wrong size anzw'
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+
+    ELSE
+
+      CALL message(routine,'init_dmin_wetgrowth: Initializing non-equidistant lookup table for graupel wet growth diameter (2mom)')
+
+      ALLOCATE(pvec_wg_g(anzp_wg))
+      ALLOCATE(Tvec_wg_g(anzT_wg))
+      ALLOCATE(qwvec_wg_g(anzw_wg))
+      ALLOCATE(qivec_wg_g(anzi_wg))
+      ALLOCATE(dmin_wg_g(anzp_wg,anzT_wg,anzw_wg,anzi_wg))
+
+      READ (unitnr,*,iostat=error) pvec_wg_g(1:anzp_wg)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading pvec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      READ (unitnr,*,iostat=error) Tvec_wg_g(1:anzT_wg)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading Tvec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      READ (unitnr,*,iostat=error) qwvec_wg_g(1:anzw_wg)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qwvec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      READ (unitnr,*,iostat=error) qivec_wg_g(1:anzi_wg)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qivec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      READ (unitnr,*,iostat=error) dmin_wg_g(1:anzp_wg,1:anzT_wg,1:anzw_wg,1:anzi_wg)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading dmin from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+      END IF
+      CLOSE(unitnr)
     END IF
-    READ (unitnr,*,iostat=error) Tvec_wg_g(1:anzT_wg)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'init_dmin_wetgrowth: Error reading Tvec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-    END IF
-    READ (unitnr,*,iostat=error) qwvec_wg_g(1:anzw_wg)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qwvec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-    END IF
-    READ (unitnr,*,iostat=error) qivec_wg_g(1:anzi_wg)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qivec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-    END IF
-    READ (unitnr,*,iostat=error) dmin_wg_g(1:anzp_wg,1:anzT_wg,1:anzw_wg,1:anzi_wg)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'init_dmin_wetgrowth: Error reading dmin from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-    END IF
-    CLOSE(unitnr)
 
     RETURN
   END SUBROUTINE init_dmin_wetgrowth
@@ -1088,7 +1152,7 @@ CONTAINS
     INTEGER, INTENT(in) :: unitnr
     ! Desired number of elements for the fine equidistant grid vector for T:
     INTEGER, INTENT(in) :: ndT
-    TYPE(lookupt_4D), INTENT(out) :: ltab
+    TYPE(lookupt_4D), INTENT(inout) :: ltab
 
     ! grid spacings of the desired fine grid vectors:
     REAL(wp) :: minT, maxT
@@ -1101,111 +1165,127 @@ CONTAINS
     ! 1) Read the original lookup table from a file. This table may be made of a nonequidistant grid vector for T.
     !    The grid vectors for p, qw and qi have to be equidistant.
 
-    OPEN(unitnr, file=TRIM(dateiname), status='old', form='formatted', iostat=error)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'dmin_wg_gr_ltab_equi: lookup-table ' // TRIM(dateiname) // ' not found'
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in dmin_wg_gr_ltab_equi')
-    END IF
+    IF (.NOT. ltab%is_initialized) THEN 
 
-    READ (unitnr,*) ltab%n1, anzT_wg_loc, ltab%n3, ltab%n4
+      CALL message(routine,'init_dmin_wg_gr_ltab_equi: '// &
+                           'Initializing equidistant lookup table for graupel wet growth diameter (2mom)')
+     
+      OPEN(unitnr, file=TRIM(dateiname), status='old', form='formatted', iostat=error)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: lookup-table ' // TRIM(dateiname) // ' not found'
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
+      END IF
 
-    ALLOCATE( Tvec_wg_g_loc(anzT_wg_loc) )
-    ALLOCATE( ltab%x1(ltab%n1) )
-    ALLOCATE( ltab%x3(ltab%n3) )
-    ALLOCATE( ltab%x4(ltab%n4) )
-    ALLOCATE( dmin_wg_g_loc(ltab%n1,anzT_wg_loc,ltab%n3,ltab%n4) )
+      READ (unitnr,*) ltab%n1, anzT_wg_loc, ltab%n3, ltab%n4
 
-    READ (unitnr,*,iostat=error) ltab%x1(1:ltab%n1)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'dmin_wg_gr_ltab_equi: Error reading pvec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in dmin_wg_gr_ltab_equi')
-    END IF
-    READ (unitnr,*,iostat=error) Tvec_wg_g_loc(1:anzT_wg_loc)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'min_wg_gr_ltab_equi: Error reading Tvec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in dmin_wg_gr_ltab_equi')
-    END IF
-    READ (unitnr,*,iostat=error) ltab%x3(1:ltab%n3)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'dmin_wg_gr_ltab_equi: Error reading qwvec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in dmin_wg_gr_ltab_equi')
-    END IF
-    READ (unitnr,*,iostat=error) ltab%x4(1:ltab%n4)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'dmin_wg_gr_ltab_equi: Error reading qivec from ' // TRIM(dateiname)
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in dmin_wg_gr_ltab_equi')
-    END IF
+      NULLIFY ( ltab%x1 )
+      NULLIFY ( ltab%x3 )
+      NULLIFY ( ltab%x4 )
 
-    DO l=1, ltab%n4
-      DO k=1, ltab%n3
-        DO j=1, anzT_wg_loc
-          DO i=1,ltab%n1
-            READ (unitnr,*,iostat=error) dmin_wg_g_loc(i,j,k,l)
-            IF (error /= 0) THEN
-              WRITE (txt,*) l,k,j,i
-              WRITE (txt,*) 'dmin_wg_gr_ltab_equi: Error reading dmin from ' // TRIM(dateiname)
-              CALL message(routine,TRIM(txt))
-              CALL finish(TRIM(routine),'Error in dmin_wg_gr_ltab_equi')
-            END IF
+      ALLOCATE( Tvec_wg_g_loc(anzT_wg_loc) )
+      ALLOCATE( ltab%x1(ltab%n1) )
+      ALLOCATE( ltab%x3(ltab%n3) )
+      ALLOCATE( ltab%x4(ltab%n4) )
+      ALLOCATE( dmin_wg_g_loc(ltab%n1,anzT_wg_loc,ltab%n3,ltab%n4) )
+
+      READ (unitnr,*,iostat=error) ltab%x1(1:ltab%n1)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading pvec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
+      END IF
+      READ (unitnr,*,iostat=error) Tvec_wg_g_loc(1:anzT_wg_loc)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_min_wg_gr_ltab_equi: Error reading Tvec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
+      END IF
+      READ (unitnr,*,iostat=error) ltab%x3(1:ltab%n3)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading qwvec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
+      END IF
+      READ (unitnr,*,iostat=error) ltab%x4(1:ltab%n4)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading qivec from ' // TRIM(dateiname)
+        CALL message(routine,TRIM(txt))
+        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
+      END IF
+
+      DO l=1, ltab%n4
+        DO k=1, ltab%n3
+          DO j=1, anzT_wg_loc
+            DO i=1,ltab%n1
+              READ (unitnr,*,iostat=error) dmin_wg_g_loc(i,j,k,l)
+              IF (error /= 0) THEN
+                WRITE (txt,*) l,k,j,i
+                WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading dmin from ' // TRIM(dateiname)
+                CALL message(routine,TRIM(txt))
+                CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
+              END IF
+            END DO
           END DO
         END DO
       END DO
-    END DO
 
-    CLOSE(unitnr)
+      CLOSE(unitnr)
 
-    ! 2) Generate equidistant table vectors and construct the
-    !    equidistant Dmin-lookuptable by linear oversampling:
-    ltab%n2 = ndT
+      ! 2) Generate equidistant table vectors and construct the
+      !    equidistant Dmin-lookuptable by linear oversampling:
+      ltab%n2 = ndT
 
-    ALLOCATE( ltab%x2(ltab%n2) )
-    ALLOCATE( ltab%ltable(ltab%n1,ltab%n2,ltab%n3,ltab%n4) )
+      NULLIFY ( ltab%x2 )
+      NULLIFY ( ltab%ltable )
 
-    minT  = Tvec_wg_g_loc (1)
-    maxT  = Tvec_wg_g_loc (anzT_wg_loc)
+      ALLOCATE( ltab%x2(ltab%n2) )
+      ALLOCATE( ltab%ltable(ltab%n1,ltab%n2,ltab%n3,ltab%n4) )
 
-    ltab%dx1      = ltab%x1(2) - ltab%x1(1)
-    ltab%odx1     = 1.0d0 / ltab%dx1
-    ltab%dx2      = (maxT - minT) / (ndT - 1.0d0)
-    ltab%odx2     = 1.0d0 / ltab%dx2
-    ltab%dx3      = ltab%x3(2) - ltab%x3(1)
-    ltab%odx3     = 1.0d0 / ltab%dx3
-    ltab%dx4      = ltab%x4(2) - ltab%x4(1)
-    ltab%odx4     = 1.0d0 / ltab%dx4
+      minT  = Tvec_wg_g_loc (1)
+      maxT  = Tvec_wg_g_loc (anzT_wg_loc)
 
-    ! Equidistant grid vectors for T:
-    DO j=1, ltab%n2
-      ltab%x2(j) = minT + (j-1) * ltab%dx2
-    END DO
+      ltab%dx1      = ltab%x1(2) - ltab%x1(1)
+      ltab%odx1     = 1.0d0 / ltab%dx1
+      ltab%dx2      = (maxT - minT) / (ndT - 1.0d0)
+      ltab%odx2     = 1.0d0 / ltab%dx2
+      ltab%dx3      = ltab%x3(2) - ltab%x3(1)
+      ltab%odx3     = 1.0d0 / ltab%dx3
+      ltab%dx4      = ltab%x4(2) - ltab%x4(1)
+      ltab%odx4     = 1.0d0 / ltab%dx4
 
-    ! Linear interpolation w.r.t. T of the equidistant Dmin-lookuptable from
-    ! the original table in the datafile, which may be non-equidistant
-    ! w.r.t. T:
-    DO j=1, ltab%n2
-
-      ju = 1
-      DO ii=1, anzT_wg_loc-1
-        IF (ltab%x2(j) >= Tvec_wg_g_loc(ii) .AND. ltab%x2(j) <= Tvec_wg_g_loc(ii+1)) THEN
-          ju = ii
-          EXIT
-        END IF
+      ! Equidistant grid vectors for T:
+      DO j=1, ltab%n2
+        ltab%x2(j) = minT + (j-1) * ltab%dx2
       END DO
-      jo = ju + 1
 
-      ! Linear interplation of Dmin with respect to T:
-      ltab%ltable(:,j,:,:) = dmin_wg_g_loc(:,ju,:,:) + &
-           (dmin_wg_g_loc(:,jo,:,:) - dmin_wg_g_loc(:,ju,:,:)) / &
-           (Tvec_wg_g_loc(jo)-Tvec_wg_g_loc(ju))  * (ltab%x2(j)-Tvec_wg_g_loc(ju))
+      ! Linear interpolation w.r.t. T of the equidistant Dmin-lookuptable from
+      ! the original table in the datafile, which may be non-equidistant
+      ! w.r.t. T:
+      DO j=1, ltab%n2
 
-    END DO
+        ju = 1
+        DO ii=1, anzT_wg_loc-1
+          IF (ltab%x2(j) >= Tvec_wg_g_loc(ii) .AND. ltab%x2(j) <= Tvec_wg_g_loc(ii+1)) THEN
+            ju = ii
+            EXIT
+          END IF
+        END DO
+        jo = ju + 1
 
-    ! clean up memory:
-    DEALLOCATE(Tvec_wg_g_loc,dmin_wg_g_loc)
+        ! Linear interplation of Dmin with respect to T:
+        ltab%ltable(:,j,:,:) = dmin_wg_g_loc(:,ju,:,:) + &
+             (dmin_wg_g_loc(:,jo,:,:) - dmin_wg_g_loc(:,ju,:,:)) / &
+             (Tvec_wg_g_loc(jo)-Tvec_wg_g_loc(ju))  * (ltab%x2(j)-Tvec_wg_g_loc(ju))
+
+      END DO
+
+      ! clean up memory:
+      DEALLOCATE(Tvec_wg_g_loc,dmin_wg_g_loc)
+
+      ltab%is_initialized = .TRUE.
+
+    END IF
 
     RETURN
   END SUBROUTINE init_dmin_wg_gr_ltab_equi

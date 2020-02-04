@@ -89,11 +89,12 @@ PUBLIC :: t_InputRequestList, InputRequestList_create
         PROCEDURE :: printInventory => InputRequestList_printInventory
         PROCEDURE :: checkRuntypeAndUuids => InputRequestList_checkRuntypeAndUuids
 
+        PROCEDURE :: findIconName => InputRequestList_findIconName    !< Retrieve a t_ListEntry for the given ICON variable name if it exists already.
+
         PROCEDURE :: destruct => InputRequestList_destruct  !< Destructor.
 
         PROCEDURE, PRIVATE :: checkRequests => InputRequestList_checkRequests   !< Check that all processes IN the communicator have the same view on which variables are needed.
         PROCEDURE, PRIVATE :: translateNames => InputRequestList_translateNames !< Recalculates the translatedNames of all list entries using the given dictionary.
-        PROCEDURE, PRIVATE :: findIconName => InputRequestList_findIconName    !< Retrieve a t_ListEntry for the given ICON variable name if it exists already.
         PROCEDURE, PRIVATE :: findTranslatedName => InputRequestList_findTranslatedName    !< As findIconName, but uses the translatedVarName.
         PROCEDURE, PRIVATE :: sendStopMessage => InputRequestList_sendStopMessage
         PROCEDURE, PRIVATE :: sendFieldMetadata => InputRequestList_sendFieldMetadata

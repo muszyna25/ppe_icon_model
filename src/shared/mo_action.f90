@@ -47,6 +47,7 @@ MODULE mo_action
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
+  USE mo_cdi_constants,      ONLY: GRID_REGULAR_LONLAT
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
     &                              isCurrentEventActive, deallocateDatetime,         &
     &                              MAX_DATETIME_STR_LEN,                             &
@@ -81,7 +82,7 @@ MODULE mo_action
   ! PARAMETER
   PUBLIC :: ACTION_NAMES
 
-  INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be
+  INTEGER, PARAMETER :: NMAX_VARS = 100 ! maximum number of fields that can be
                                         ! assigned to a single action
 
 
@@ -199,6 +200,9 @@ CONTAINS
           element => element%next_list_element
         ENDIF
         IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
+
+        ! skip fields on lon-lat grids 
+        IF (element%field%info%hgrid == GRID_REGULAR_LONLAT) CYCLE
 
         ! point to variable specific action list
         action_list => element%field%info%action_list

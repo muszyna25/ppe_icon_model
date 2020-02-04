@@ -611,8 +611,9 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &            'allocation for rbf_vec_coeff_e failed')
     ENDIF
 
-    IF (     is_variable_in_output(first_output_name_list, var_name="sdi2")   &
-      & .OR. is_variable_in_output(first_output_name_list, var_name="lpi" ) ) THEN
+    IF (     is_variable_in_output( first_output_name_list, var_name="sdi2")   &
+      & .OR. is_variable_in_output( first_output_name_list, var_name="lpi" )   &
+      & .OR. is_variable_in_output( first_output_name_list, var_name="lpi_max" ) ) THEN
       ptr_int%cell_environ%is_used = .TRUE.
     END IF
 

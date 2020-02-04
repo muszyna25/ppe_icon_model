@@ -201,7 +201,9 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
 USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              itype_trvg, itype_evsl,          &
   &                              itype_root, itype_heatcond,      &
-  &                              itype_hydbound, lstomata,        &
+  &                              itype_hydbound,                  &
+  &                              itype_canopy, cskinc, tau_skin,  &
+  &                              lstomata,                        &
   &                              max_toplaydepth, itype_interception, &
   &                              cwimax_ml
 !
@@ -261,9 +263,7 @@ CONTAINS
                   laifac           , & ! ratio between current LAI and laimax            --
 #endif
                   eai              , & ! earth area (evaporative surface area) index     --
-#ifdef __COSMO__
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
-#endif
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
                   z0               , & ! vegetation roughness length                   ( m   )
 ! for TERRA_URB
@@ -288,10 +288,8 @@ CONTAINS
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
 !
-#ifdef __COSMO__
                   t_sk_now         , & ! skin temperature                              (  K  )
                   t_sk_new         , & ! skin temperature                              (  K  )
-#endif
 !
                   t_g              , & ! weighted surface temperature                  (  K  )
                   qv_s             , & ! specific humidity at the surface              (kg/kg)
@@ -411,9 +409,7 @@ CONTAINS
                   laifac           , & ! ratio between current LAI and laimax
 #endif
                   eai              , & ! earth area (evaporative surface area) index     --
-#ifdef __COSMO__
                   skinc            , & ! skin conductivity                        ( W/m**2/K )
-#endif
 ! for TERRA_URB
 !                 fr_paved         , & ! fraction of paved ared                          --
 !                 sa_uf            , & ! total impervious surface-area index
@@ -455,6 +451,7 @@ CONTAINS
   REAL    (KIND = wp), DIMENSION(nvec), INTENT(INOUT) :: &
                   t_snow_now       , & ! temperature of the snow-surface (K)
                   t_s_now          , & ! temperature of the ground surface             (  K  )
+                  t_sk_now         , & ! skin temperature                              (  K  )
                   t_g              , & ! weighted surface temperature                  (  K  )
                   qv_s             , & ! specific humidity at the surface              (kg/kg)
                   w_snow_now       , & ! water content of snow                         (m H2O)
@@ -476,6 +473,7 @@ CONTAINS
   REAL    (KIND = wp), DIMENSION(nvec), INTENT(OUT) :: &
                   t_snow_new       , & !
                   t_s_new          , & ! temperature of the ground surface             (  K  )
+                  t_sk_new         , & ! skin temperature                              (  K  )
                   w_snow_new       , & ! water content of snow                         (m H2O)
                   rho_snow_new     , & ! snow density                                  (kg/m**3)
                   meltrate         , & ! snow melting rate
@@ -488,13 +486,6 @@ CONTAINS
                   zlhfl_snow       , & ! latent   heat flux snow/air interface         (W/m2)
                   rstom            , & ! stomata resistance                            ( s/m )
                   lhfl_bs              ! latent heat flux from bare soil evap.         ( W/m2)
-
-#ifdef __COSMO__
-  REAL    (KIND = wp), DIMENSION(nvec), INTENT(INOUT) :: &
-                  t_sk_now             ! skin temperature                              (  K  )
-  REAL    (KIND = wp), DIMENSION(nvec), INTENT(OUT) :: &
-                  t_sk_new             ! skin temperature                              (  K  )
-#endif
 
 
   REAL    (KIND = wp), DIMENSION(nvec,0:ke_snow), INTENT(INOUT) :: &
@@ -978,7 +969,6 @@ CONTAINS
     zrocg_soil  (nvec,ke_soil+1)   , & ! volumetric heat capacity of bare soil
     zrocs       (nvec)             , & ! heat capacity of snow
     ztsn        (nvec)             , & ! new value of zts
-    ztskn       (nvec)             , & ! new value of ztsk
     ztsnown     (nvec)             , & ! new value of ztsnow
     ztsnown_mult(nvec,0:ke_snow)   , & ! new value of ztsnow
     znlgw1f     (ke_soil)              ! utility variable
@@ -1066,7 +1056,6 @@ CONTAINS
 
 #ifdef __ICON__
   INTEGER :: my_cart_id,        &
-             itype_canopy = 1,  &
              itype_mire   = 0
 #endif
 
@@ -1128,7 +1117,7 @@ mvid =   8
         WRITE(*,'(A,F28.16)') '   sai              :  ', sai         (i)
         WRITE(*,'(A,F28.16)') '   tai              :  ', tai         (i)
         WRITE(*,'(A,F28.16)') '   eai              :  ', eai         (i)
-!       WRITE(*,'(A,F28.16)') '   skinc            :  ', skinc       (i)
+        WRITE(*,'(A,F28.16)') '   skinc            :  ', skinc       (i)
 ! for TERRA_URB
 !       WRITE(*,'(A,F28.16)') '   fr_paved         :  ', fr_paved    (i)
 !       WRITE(*,'(A,F28.16)') '   sa_uf            :  ', sa_uf       (i)
@@ -1228,9 +1217,7 @@ enddo
 #ifdef __ICON__
   !$acc present(laifac)                                              &
 #endif
-#ifdef __COSMO__
-  !$acc present(skinc, t_sk_now, t_sk_new)                           &
-#endif
+  !$acc present(skinc)                                               &
   !$acc present(rsmin2d, u, v, t, qv, ptot, ps, h_snow_gp, u_10m)    &
   !$acc present(v_10m, prr_con, prs_con, conv_frac, prr_gsp,prs_gsp) &
 #ifdef TWOMOM_SB
@@ -1239,7 +1226,8 @@ enddo
   !$acc present(prg_gsp, sobs, thbs, pabs, zdzhs,tsnred)             &
 
   ! Subroutine parameters INOUT
-  !$acc present(t_snow_now, t_s_now, t_g, qv_s, w_snow_now)          &
+  !$acc present(t_snow_now, t_s_now, t_sk_now, t_g)                  &
+  !$acc present(qv_s, w_snow_now)                                    &
   !$acc present(rho_snow_now, h_snow, w_i_now, w_p_now, w_s_now)     &
   !$acc present(freshsnow, zf_snow, tch, tcm, tfv, runoff_s)         &
   !$acc present(runoff_g, t_snow_mult_now, rho_snow_mult_now)        &
@@ -1247,7 +1235,8 @@ enddo
   !$acc present(t_so_now, w_so_now, w_so_ice_now)                    &
 
   ! Subroutine parameters OUT
-  !$acc present(t_snow_new, t_s_new, w_snow_new, rho_snow_new)       &
+  !$acc present(t_snow_new, t_s_new, t_sk_new)                       &
+  !$acc present(w_snow_new, rho_snow_new)                            &
   !$acc present(meltrate, w_i_new, w_p_new, w_s_new, zshfl_s)        &
   !$acc present(zlhfl_s,          zshfl_snow, zlhfl_snow, rstom)     &
   !$acc present(lhfl_bs, t_snow_mult_new, rho_snow_mult_new)         &
@@ -1279,7 +1268,7 @@ enddo
   !$acc present(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
   !$acc present(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
   !$acc present(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
-  !$acc present(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
+  !$acc present(zrocs, ztsn, ztsnown, ztsnown_mult, znlgw1f)         &
   !$acc present(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
   !$acc present(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
   !$acc present(t_new, rho_new, wl_new, dz_old, z_old)               &
@@ -2101,20 +2090,14 @@ enddo
     ! therefore we need not take care of it in this loop
     ! ztsnow   (i) = t_snow(i,nx)
     zts       (i) = t_s_now   (i)
-!US as long as itype_canopy is not really implemented in ICON
-#ifdef __COSMO__
-    ztsk      (i) = t_sk_now  (i)
-#else
-    ! skin temperature not yet implemented in ICON
-    ztsk      (i) = t_s_now  (i)
-#endif
+    IF (itype_canopy == 1) THEN
+      ztsk    (i) = t_s_now  (i)
+    ELSE IF (itype_canopy == 2) THEN
+      ztsk    (i) = t_sk_now  (i)
+    END IF
     zts_pm    (i) = zsf_heav(zts   (i) - t0_melt)
     ztsk_pm   (i) = zsf_heav(ztsk  (i) - t0_melt)
-    IF (itype_canopy == 1) THEN
-      ztfunc  (i) = MAX(0.0_wp,1.0_wp - MAX(0.0_wp,0.5_wp*(zts(i)-t0_melt)))
-    ELSE IF (itype_canopy == 2) THEN
-      ztfunc  (i) = MAX(0.0_wp,1.0_wp - MAX(0.0_wp,0.5_wp*(ztsk(i)-t0_melt)))
-    END IF
+    ztfunc    (i) = MAX(0.0_wp,1.0_wp - MAX(0.0_wp,0.5_wp*(ztsk(i)-t0_melt)))
     ztsnow_pm (i) = zsf_heav(ztsnow(i) - t0_melt)
 
     IF (itype_interception == 1) THEN
@@ -2138,20 +2121,14 @@ enddo
     zrhoch(i)   = ztmch(i)*(1._wp/g) + eps_soil
 
     ! saturation specific humidity for t_s and t_snow and first derivative
-    IF (itype_canopy == 1) THEN
-      z2iw      = zts_pm(i)*b2w + (1._wp - zts_pm(i))*b2i
-      z4iw      = zts_pm(i)*b4w + (1._wp - zts_pm(i))*b4i
-      zqs       = zsf_qsat( zsf_psat_iw(zts(i), z2iw,z4iw), ps(i) )
-    ELSE IF (itype_canopy == 2) THEN
-      z2iw      = ztsk_pm(i)*b2w + (1._wp - ztsk_pm(i))*b2i
-      z4iw      = ztsk_pm(i)*b4w + (1._wp - ztsk_pm(i))*b4i
-      zqs       = zsf_qsat( zsf_psat_iw(ztsk(i), z2iw,z4iw), ps(i) )
-    END IF
-    zdqs        = zqvlow - zqs
+    z2iw      = ztsk_pm(i)*b2w + (1._wp - ztsk_pm(i))*b2i
+    z4iw      = ztsk_pm(i)*b4w + (1._wp - ztsk_pm(i))*b4i
+    zqs       = zsf_qsat( zsf_psat_iw(ztsk(i), z2iw,z4iw), ps(i) )
+    zdqs      = zqvlow - zqs
     IF (ABS(zdqs).LT.0.01_wp*eps_soil) zdqs = 0.0_wp
-    z2iw        = ztsnow_pm(i)*b2w + (1._wp - ztsnow_pm(i))*b2i
-    z4iw        = ztsnow_pm(i)*b4w + (1._wp - ztsnow_pm(i))*b4i
-    z234iw      = z2iw*(b3 - z4iw)
+    z2iw      = ztsnow_pm(i)*b2w + (1._wp - ztsnow_pm(i))*b2i
+    z4iw      = ztsnow_pm(i)*b4w + (1._wp - ztsnow_pm(i))*b4i
+    z234iw    = z2iw*(b3 - z4iw)
     zqsnow    = zsf_qsat(zsf_psat_iw(ztsnow(i)-MAX(0.0_wp,tsnred(i)),z2iw,z4iw), ps(i))
 
     zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
@@ -2239,13 +2216,8 @@ enddo
     ! Formation of dew or rime, if zep_s > 0 . distinction between
     ! dew or rime is only controlled by sign of surface temperature
     ! and not effected by presence of snow !
-    IF (itype_canopy == 1) THEN
-      zrr(i)=zsf_heav(zep_s   (i))*zep_s   (i)*        zts_pm(i)
-      zrs(i)=zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-zts_pm(i))
-    ELSE IF (itype_canopy == 2) THEN
-      zrr(i)=zsf_heav(zep_s   (i))*zep_s   (i)*        ztsk_pm(i)
-      zrs(i)=zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-ztsk_pm(i))
-    END IF
+    zrr(i)=zsf_heav(zep_s   (i))*zep_s   (i)*        ztsk_pm(i)
+    zrs(i)=zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-ztsk_pm(i))
   ENDDO
   !$acc end parallel
 
@@ -2263,13 +2235,8 @@ enddo
       zepd(i)=zsf_heav(-zep_s(i)) * (1._wp - zf_wi(i))*zf_pd(i)*zep_s(i) ! bare soil part
       zept(i)=zsf_heav(-zep_s(i)) * zep_s(i) ! potential evaporation
       zesn(i)=zsf_heav(-zep_snow(i)) * zep_snow(i) ! Snow evaporation
-      IF (itype_canopy == 1) THEN
-        zdrr(i) = zsf_heav(zep_s   (i))*zep_s   (i)*        zts_pm(i)
-        zrrs(i) = zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-zts_pm(i))
-      ELSE IF (itype_canopy == 2) THEN
-        zdrr(i) = zsf_heav(zep_s   (i))*zep_s   (i)*        ztsk_pm(i)
-        zrrs(i) = zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-ztsk_pm(i))
-      END IF
+      zdrr(i)=zsf_heav(zep_s   (i))*zep_s   (i)*        ztsk_pm(i)
+      zrrs(i)=zsf_heav(zep_snow(i))*zep_snow(i)*(1.0_wp-ztsk_pm(i))
     END DO
     !$acc end parallel
 
@@ -2653,13 +2620,8 @@ enddo
                      (t(i)-t0_melt)*(ctend-t(i))/(ctend-t0_melt)**2))
 
         ! Saturation deficit function (not used, see below)
-        ! IF (itype_canopy == 1) THEN
-        !   z2iw     = zts_pm(i)*b2w + (1._wp - zts_pm(i))*b2i
-        !   z4iw     = zts_pm(i)*b4w + (1._wp - zts_pm(i))*b4i
-        ! ELSE IF (itype_canopy == 2) THEN
-        !   z2iw     = ztsk_pm(i)*b2w + (1.0_wp - ztsk_pm(i))*b2i
-        !   z4iw     = ztsk_pm(i)*b4w + (1.0_wp - ztsk_pm(i))*b4i
-        ! END IF
+        ! z2iw       = ztsk_pm(i)*b2w + (1.0_wp - ztsk_pm(i))*b2i
+        ! z4iw       = ztsk_pm(i)*b4w + (1.0_wp - ztsk_pm(i))*b4i
         ! zepsat     = zsf_psat_iw(t(i),z2iw,z4iw)
         ! zepke      = qv(i) * ps(i) / (rdv + o_m_rdv*qv(i))
         ! zf_sat     = MAX(0.0_wp,MIN(1.0_wp,1.0_wp - (zepsat - zepke)/csatdef))
@@ -2793,11 +2755,12 @@ enddo
 
   ! Ensure that the sum of the evaporation terms does not exceed the potential evaporation
   !$acc parallel
-  !$acc loop gang vector private(ze_sum, zzz)
+  !$acc loop gang vector private(ze_sum, zxx, zzz)
   DO i = ivstart, ivend
     ze_sum = zdwsndt(i) + zdwidt(i) + zesoil(i) + ztrangs(i)
-    IF (zep_s(i) < 0._wp .AND. ze_sum < zep_s(i)) THEN
-      zzz = zep_s(i)/ze_sum
+    zxx    = zf_snow(i)*zep_snow(i) + (1._wp-zf_snow(i))*zep_s(i) ! snow-weighted potential evaporation
+    IF (zxx < 0._wp .AND. ze_sum < zxx) THEN
+      zzz = zxx/ze_sum
       zdwsndt(i) = zdwsndt(i)*zzz
       zdwidt(i)  = zdwidt(i) *zzz
       zesoil(i)  = zesoil(i) *zzz
@@ -4394,16 +4357,9 @@ enddo
         ztalb = Ctalb
 !     END IF
 
-      IF (itype_canopy == 1) THEN
-        zgstr     =   sigma*(1._wp - ztalb) * ( (1._wp - zf_snow(i))* &
-                      zts(i) + zf_snow(i)*ztsnow(i) )**4 + thbs(i)
-        zthsoi(i) = - sigma*(1._wp - ztalb)*zts(i)**4 + zgstr
-      ELSE IF (itype_canopy == 2) THEN
-        zgstr     =   sigma*(1._wp - ztalb) * ( (1._wp - zf_snow(i))* &
-                      ztsk(i) + zf_snow(i)*ztsnow(i) )**4 + thbs(i)
-        zthsoi(i) = - sigma*(1._wp - ztalb)*ztsk(i)**4 + zgstr
-      END IF
-
+      zgstr     =   sigma*(1._wp - ztalb) * ( (1._wp - zf_snow(i))* &
+                    ztsk(i) + zf_snow(i)*ztsnow(i) )**4 + thbs(i)
+      zthsoi(i) = - sigma*(1._wp - ztalb)*ztsk(i)**4 + zgstr
       zthsnw(i) = - sigma*(1._wp - ztalb)*ztsnow(i)**4 + zgstr
 
       ! the estimation of the solar component would require the availability
@@ -4415,17 +4371,9 @@ enddo
       ! net radiation, sensible and latent heat flux
 
       zrnet_s(i) = sobs(i) + zthsoi(i)
-
-      IF (itype_canopy == 1) THEN
-        zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
-        zlhfl_s(i) = (zts_pm(i)*lh_v + (1._wp-zts_pm(i))*lh_s)*zverbo(i) &
-                     / MAX(eps_div,(1._wp - zf_snow(i)))  ! take out (1-f) scaling
-      ELSE IF (itype_canopy == 2) THEN
-        zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - ztsk(i))
-        zlhfl_s(i) = (ztsk_pm(i)*lh_v + (1._wp-ztsk_pm(i))*lh_s)*zverbo(i) &
-                     / MAX(eps_div,(1._wp - zf_snow(i)))  ! take out (1-f) scaling
-      END IF
-
+      zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - ztsk(i))
+      zlhfl_s(i) = (ztsk_pm(i)*lh_v + (1._wp-ztsk_pm(i))*lh_s)*zverbo(i) &
+                   / MAX(eps_div,(1._wp - zf_snow(i)))  ! take out (1-f) scaling
       zqhfl_s(i) = zverbo(i)/ MAX(eps_div,(1._wp - zf_snow(i)))  ! take out (1-f) scaling
       zsprs  (i) = 0.0_wp
 
@@ -4485,44 +4433,10 @@ enddo
 
       ! Calculation of the surface energy balance
 
-      IF (itype_canopy == 1) THEN
-
-        ! total forcing for uppermost soil layer
-        zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) ) &
-                       * (1._wp - zf_snow(i)) + zsprs(i) &
-                    + zf_snow(i) * (1._wp-ztsnow_pm(i)) * zgsb(i)
-
-#ifdef __COSMO__
-      ELSE IF (itype_canopy == 2) THEN
-
-        ! Calculation of the skin temperature (snow free area).
-        ! Implemented by Jan-Peter Schulz (07/2016), based on Viterbo and Beljaars (1995).
-
-        IF (cskinc < 0.0_wp) THEN
-          ztskn(i)  = ( MAX(5.0_wp,skinc(i))*zts(i)                                     &
-                      + zrnet_s(i)                                                      &
-                      + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**4                          &
-                      + zshfl_s(i) + zlhfl_s(i) + zsprs(i)                            ) &
-                    / ( MAX(5.0_wp,skinc(i)) + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**3 )
-        ELSE
-          ztskn(i)  = ( cskinc*zts(i)                                                   &
-                      + zrnet_s(i)                                                      &
-                      + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**4                          &
-                      + zshfl_s(i) + zlhfl_s(i) + zsprs(i)                            ) &
-                    / ( cskinc               + cimpl*sigma*(1._wp - ztalb)*ztsk(i)**3 )
-        END IF
-
-        IF ((zwsnew(i) .GT. eps_soil) .OR. (zf_snow(i) .GT. 0.0_wp)) ztskn(i) = ztsnow(i)
-
-        ! total forcing for uppermost soil layer
-
-        zfor_s(i) = ( zrnet_s(i)                                                        &
-                    - cimpl*sigma*(1._wp - ztalb)*ztsk(i)**3 *(ztskn(i)-ztsk(i))        &
-                    + zshfl_s(i) + zlhfl_s(i)                                    )      &
-                    * (1._wp - zf_snow(i)) + zsprs(i)                                   &
-                  +   zf_snow(i) * (1._wp-ztsnow_pm(i)) * zgsb(i)
-#endif
-      END IF
+      ! total forcing for uppermost soil layer
+      zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) ) &
+                     * (1._wp - zf_snow(i)) + zsprs(i) &
+                  + zf_snow(i) * (1._wp-ztsnow_pm(i)) * zgsb(i)
 
     END DO
     !$acc end parallel
@@ -5539,14 +5453,22 @@ enddo
     ! t_so(i,0,nnew) predicted by the heat conduction equation is used
     t_s_new   (i)    = t_so_new(i,1)
     t_so_new  (i,0)  = t_so_new(i,1)
-#ifdef __COSMO__
+    w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
     IF (itype_canopy == 1) THEN
       t_sk_new(i)    = t_s_new(i)
     ELSE IF (itype_canopy == 2) THEN
-      t_sk_new(i)    = ztskn(i)
+
+      ! Calculation of the skin temperature (snow free area), based on Viterbo and Beljaars (1995)
+      ! A Newtonian relaxation approach is used to ensure numerical stability
+
+      IF (w_snow_now(i) > eps_soil .OR. w_snow_new(i) > eps_soil) THEN
+        t_sk_new(i) = t_s_new(i) ! needs to be t_s rather than t_snow in order to obtain correct t_g afterwards
+      ELSE
+        t_sk_new(i) = t_sk_now(i) + 0.5_wp*(t_s_new(i) - t_s_now(i)) + zdt/tau_skin *                           &
+          ( (zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i))/MAX(5.0_wp,skinc(i)) - (t_sk_now(i) - t_s_now(i)) )
+      ENDIF
+
     END IF
-#endif
-    w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
     IF (itype_interception == 1) THEN
       w_i_new   (i)  = w_i_now(i) + zdt*zdwidt   (i)/rho_w
     ELSE IF (itype_interception == 2) THEN
@@ -5570,6 +5492,9 @@ enddo
     ENDIF
   ENDDO
   !$acc end parallel
+
+! GZ: this additional computation is obsolete with snow tiles because grid points with completely melted snow
+!     are deleted afterwards
 
 !>JH New solution of heat conduction for snow points which melted completly
 !    during time step
@@ -5851,6 +5776,9 @@ enddo
     ! t_so(i,0,nnew) predicted by the heat conduction equation is used
     t_s_new   (i)    = t_so_new(i,1)
     t_so_new  (i,0)  = t_so_new(i,1)
+    IF (itype_canopy == 1) THEN
+      t_sk_new(i)    = t_s_new(i)
+    END IF
     w_snow_new(i)  = w_snow_now(i) + zdt*zdwsndt  (i)/rho_w
     IF (itype_interception == 1) THEN
       w_i_new   (i)  = w_i_now(i) + zdt*zdwidt   (i)/rho_w

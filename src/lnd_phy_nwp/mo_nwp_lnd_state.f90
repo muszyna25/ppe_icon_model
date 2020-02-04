@@ -50,7 +50,7 @@ MODULE mo_nwp_lnd_state
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB, &
     &                                HINTP_TYPE_LONLAT_BCTR, TLEV_NNOW_RCF,           &
-    &                                ALB_SI_MISSVAL, TASK_COMPUTE_SMI, zml_soil
+    &                                ALB_SI_MISSVAL, TASK_COMPUTE_SMI
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
@@ -61,7 +61,7 @@ MODULE mo_nwp_lnd_state
   USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, ntiles_total, &
     &                                lmulti_snow, ntiles_water, lseaice, llake, &
     &                                itype_interception, l2lay_rho_snow, itype_trvg, &
-    &                                itype_snowevap, groups_smi
+    &                                itype_snowevap, groups_smi, zml_soil
   USE mo_extpar_config,        ONLY: itype_vegetation_cycle
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
@@ -353,7 +353,8 @@ MODULE mo_nwp_lnd_state
     INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)
     INTEGER :: shape4d_snow_subs(4)
     INTEGER :: ibits
-    INTEGER :: jsfc          !< tile counter
+    INTEGER :: jsfc               !< tile counter
+    INTEGER :: DATATYPE_PACK_VAR  !< variable packing accuracy for t_so
     INTEGER :: datatype_flt
 
     CHARACTER(len=4) suffix
@@ -366,7 +367,15 @@ MODULE mo_nwp_lnd_state
       datatype_flt = DATATYPE_FLT32
     ENDIF
 
-    ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
+    ibits = DATATYPE_PACK16 ! packing accuracy of horizontal slice
+
+    IF (gribout_config(p_jg)%lgribout_24bit) THEN  ! analysis
+      ! higher accuracy for t_so
+      DATATYPE_PACK_VAR = DATATYPE_PACK24
+    ELSE
+      ! standard accuracy for all variables
+      DATATYPE_PACK_VAR = DATATYPE_PACK16
+    ENDIF
 
     ! predefined array shapes
     shape2d              = (/nproma,            kblks            /)
@@ -384,6 +393,7 @@ MODULE mo_nwp_lnd_state
     ! Ensure that all pointers have a defined association status.
     !------------------------------
     NULLIFY(p_prog_lnd%t_s_t, &
+    &       p_prog_lnd%t_sk_t, &
     &       p_prog_lnd%t_g, &
     &       p_prog_lnd%t_g_t, &
     &       p_prog_lnd%w_i_t, &
@@ -466,11 +476,35 @@ MODULE mo_nwp_lnd_state
            & vname_prefix//'t_s_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
            & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-           & t_cf_var('t_s_t_'//csfc, '', '', datatype_flt),             &
+           & t_cf_var('t_s_t_'//csfc, '', '', datatype_flt),               &
            & grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE,                                         &
            & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+    ENDDO
+
+
+    ! & p_prog_lnd%t_sk_t(nproma,nblks_c,ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('t_sk_t', 'K', 'skin temperature', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'t_sk_t'//suffix, p_prog_lnd%t_sk_t,  &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
+         & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
+
+    ! fill the separate variables belonging to the container t_sk
+    ALLOCATE(p_prog_lnd%t_sk_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      NULLIFY(p_prog_lnd%t_sk_ptr(jsfc)%p_2d, p_prog_lnd%t_sk_ptr(jsfc)%p_3d)
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'t_sk_t'//suffix,             &
+           & vname_prefix//'t_sk_t_'//TRIM(ADJUSTL(csfc))//suffix,         &
+           & p_prog_lnd%t_sk_ptr(jsfc)%p_2d,                               &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+           & t_cf_var('t_sk_t_'//csfc, '', '', datatype_flt),              &
+           & grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
+           & ldims=shape2d,                                                &
+           & var_class=CLASS_TILE, tlev_source=TLEV_NNOW_RCF,              & ! for output take field from nnow_rcf slice
+           & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t")         )
     ENDDO
 
 
@@ -558,7 +592,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_so_t(nproma,nlev_soil+1,nblks_c,ntiles_total) 
     cf_desc    = t_cf_var('t_so_t', 'K', 'soil temperature (main level)', datatype_flt)
-    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(2, 3, 18, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_so_t'//suffix, p_prog_lnd%t_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,ntiles_total/),                      &
@@ -869,26 +903,6 @@ MODULE mo_nwp_lnd_state
 
     ENDIF  ! lmulti_snow
 
-
-    p_prog_lnd%t_so_t(:,1,:,:) = 290.4_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,2,:,:) = 290.4_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,3,:,:) = 290.7_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,4,:,:) = 291.4_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,5,:,:) = 292.7_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,6,:,:) = 293.2_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,7,:,:) = 291.1_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,8,:,:) = 283.1_wp !!HW: be careful about the indices!!
-    p_prog_lnd%t_so_t(:,9,:,:) = 282.1_wp !!HW: be careful about the indices!!
-
-    p_prog_lnd%w_so_t(:,1,:,:) = 1.8E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,2,:,:) = 3.7E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,3,:,:) = 11.3E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,4,:,:) = 35.1E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,5,:,:) = 56.7E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,6,:,:) = 254.6E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,7,:,:) = 763.9E-3_wp*2._wp !! JH
-    p_prog_lnd%w_so_t(:,8,:,:) = 2291.5E-3_wp*2._wp !! JH
- 
     END IF !inwp_surface > 0
 
   END SUBROUTINE new_nwp_lnd_prog_list
@@ -1166,7 +1180,7 @@ MODULE mo_nwp_lnd_state
     INTEGER :: shape2d(2), shape3d_subs(3), shape3d_subsw(3)
     INTEGER :: jsfc          !< tile counter
     INTEGER :: ibits
-    INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
+    INTEGER :: DATATYPE_PACK_VAR  !< variable packing accuracy for some fields
     INTEGER :: datatype_flt
 
     IF ( lnetcdf_flt64_output ) THEN
@@ -1177,13 +1191,13 @@ MODULE mo_nwp_lnd_state
 
 !--------------------------------------------------------------
 
-    ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
+    ibits = DATATYPE_PACK16 ! packing accuracy of horizontal slice
 
     IF (gribout_config(p_jg)%lgribout_24bit) THEN  ! analysis
-      ! higher accuracy for atmospheric thermodynamic fields
+      ! higher accuracy for some accuracy-sensitive variables
       DATATYPE_PACK_VAR = DATATYPE_PACK24
     ELSE
-      ! standard accuracy for atmospheric thermodynamic fields
+      ! standard accuracy for all variables
       DATATYPE_PACK_VAR = DATATYPE_PACK16
     ENDIF
 
@@ -1198,6 +1212,7 @@ MODULE mo_nwp_lnd_state
     !------------------------------
     NULLIFY(p_diag_lnd%qv_s, &
     &       p_diag_lnd%t_s, &
+    &       p_diag_lnd%t_sk, &
     &       p_diag_lnd%t_seasfc, &
     &       p_diag_lnd%w_i, &
     &       p_diag_lnd%w_p, &
@@ -1307,6 +1322,15 @@ MODULE mo_nwp_lnd_state
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
 
 
+    ! & p_diag_lnd%t_sk(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_sk', 'K', 'skin temperature', datatype_flt)
+    grib2_desc = grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'t_sk', p_diag_lnd%t_sk,                &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,                &
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE., in_group=              &
+         & groups("dwd_fg_sfc_vars", "mode_iau_fg_in", "mode_dwd_fg_in")           )
+
+
     ! & p_diag_lnd%t_seasfc(nproma,nblks_c)
     cf_desc    = t_cf_var('t_seasfc', 'K', 'sea surface temperature', datatype_flt)
     grib2_desc = grib2_var(10, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1386,7 +1410,7 @@ MODULE mo_nwp_lnd_state
 
       ! duration of current snow-cover peiod
       cf_desc    = t_cf_var('snow_age', 'd', 'duration of snow cover', datatype_flt)
-      grib2_desc = grib2_var(0, 1, 17, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'snow_age', p_diag_lnd%snow_age,                  &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
              & ldims=shape2d, lrestart=.TRUE.,                                   &
@@ -1480,6 +1504,14 @@ MODULE mo_nwp_lnd_state
            & ) )
 
 
+    ! & p_diag_lnd%runoff_s_inst_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('runoff_s_inst_t', 'kg m-2', &
+         &                'surface water runoff; instantaneous value', datatype_flt)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'runoff_s_inst_t', p_diag_lnd%runoff_s_inst_t,  &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S, cf_desc, grib2_desc,       &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+
     ! & p_diag_lnd%runoff_s_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_s_t', 'kg m-2', &
          &                'surface water runoff; sum over forecast', datatype_flt)
@@ -1504,6 +1536,14 @@ MODULE mo_nwp_lnd_state
                & ldims=shape2d )
     END DO
 
+
+    ! & p_diag_lnd%runoff_g_inst_t(nproma,nblks_c,ntiles_total)
+    cf_desc    = t_cf_var('runoff_g_inst_t', 'kg m-2', &
+         &                'soil water runoff; instantaneous value', datatype_flt)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'runoff_g_inst_t', p_diag_lnd%runoff_g_inst_t,    &
+           & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! & p_diag_lnd%runoff_g_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_g_t', 'kg m-2', &
@@ -1634,7 +1674,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%h_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('h_snow_t', 'm', 'snow height', datatype_flt)
-    grib2_desc = grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 11, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'h_snow_t', p_diag_lnd%h_snow_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  

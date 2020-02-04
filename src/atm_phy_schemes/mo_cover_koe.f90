@@ -51,7 +51,7 @@ MODULE mo_cover_koe
 
   USE mo_impl_constants,     ONLY: iedmf
 
-  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac
+  USE mo_nwp_tuning_config,  ONLY: tune_box_liq, tune_box_liq_asy, tune_thicklayfac, tune_sgsclifac, icpl_turb_clc
 
   IMPLICIT NONE
 
@@ -180,7 +180,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , dqsdt,   & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , zqs, &
   & zf_ice , deltaq , qisat_grid, zdeltaq, zrcld, thicklay_fac, tfac, satdef_fac, rhcrit_sgsice, &
-  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, par2, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc
+  & vap_pres, zaux, zqisat_m50, zqisat_m25, qi_mod, par1, qcc, box_liq_asy, fac_aux, fac_ic, fac_sfc, rcld_asyfac
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim, zdqlsat_dT
@@ -222,6 +222,12 @@ zqisat_m50 = fgqs ( fgee(223.15_wp), 0._wp, 20000._wp )
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
 
 rhcrit_sgsice = 1._wp - 0.05_wp*tune_sgsclifac
+
+IF (icpl_turb_clc == 1) THEN
+  rcld_asyfac = 0._wp
+ELSE
+  rcld_asyfac = 2._wp
+ENDIF
 
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
@@ -290,7 +296,12 @@ CASE( 1 )
       thicklay_fac = MIN(0.6_wp,MAX(0._wp,tune_thicklayfac*(deltaz(jl,jk)-150._wp))) ! correction for thick model layers
       zdeltaq = MIN(tune_box_liq*(1._wp+0.5_wp*thicklay_fac), zagl_lim(jl,jk)) * zqlsat(jl,jk)
       zrcld = 0.5_wp*(rcld(jl,jk)+rcld(jl,jk+1))
-      deltaq = MAX(0.8_wp*zdeltaq,MIN((4._wp+thicklay_fac)*zrcld,2._wp*zdeltaq))
+      IF (icpl_turb_clc == 1) THEN
+        deltaq = MAX(0.8_wp*zdeltaq,(4._wp+thicklay_fac)*zrcld)
+      ELSE
+        deltaq = 0.8_wp*zdeltaq+(1._wp+0.25_wp*thicklay_fac)*zrcld
+      ENDIF
+        deltaq = MIN(deltaq,2._wp*zdeltaq)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
@@ -302,16 +313,15 @@ CASE( 1 )
         fac_ic  = fac_aux*MIN(1._wp,qi(jl,jk)/(1.e-3_wp*zqisat_m50))
         fac_sfc = MAX(0._wp,zqlsat(jl,jk)-(qv(jl,jk)+deltaq))/deltaq*MAX(0._wp,(tune_box_liq-zagl_lim(jl,jk))/zagl_lim(jl,jk))
         fac_ic  = MAX(fac_ic,MIN(1._wp,fac_sfc))
-        box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac)*(1._wp-fac_ic) + 2._wp*fac_ic
+        box_liq_asy = tune_box_liq_asy*(1._wp+0.5_wp*thicklay_fac+rcld_asyfac*zrcld/zqlsat(jl,jk))*(1._wp-fac_ic) + 2._wp*fac_ic
         par1 = box_liq_asy+1._wp
-        par2 = par1**4
         !
         zaux = qv(jl,jk) + qc(jl,jk) + box_liq_asy*deltaq - zqlsat(jl,jk)
         cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
         ! compensating reduction of cloud water content if the thick-layer correction is active
         fac_aux = 1._wp + (alvdcp*zdqlsat_dT(jl,jk)+thicklay_fac)*MIN(1._wp,2._wp*(1._wp-cc_turb_liq(jl,jk)))
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = zaux**4 / (fac_aux*par2*deltaq**3)
+          qc_turb  (jl,jk) = deltaq*cc_turb_liq(jl,jk)**2/fac_aux
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF

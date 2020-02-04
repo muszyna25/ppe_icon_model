@@ -41,7 +41,8 @@ MODULE mo_ext_data_state
     &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
     &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
     &                              SSTICE_ANA, SSTICE_ANA_CLINC, SSTICE_CLIM,      &
-    &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
+    &                              SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY,           & 
+    &                              SSTICE_INST
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_exception,          ONLY: message, finish
   USE mo_model_domain,       ONLY: t_patch
@@ -64,7 +65,7 @@ MODULE mo_ext_data_state
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
-  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle
+  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext, itype_vegetation_cycle, itype_lwemiss
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              GRID_UNSTRUCTURED
@@ -275,17 +276,14 @@ CONTAINS
       &     p_ext_atm%rootdp_t,        &
       &     p_ext_atm%for_e,           &
       &     p_ext_atm%for_d,           &
+      &     p_ext_atm%skinc,           &
+      &     p_ext_atm%skinc_t,         &
       &     p_ext_atm%rsmin,           &
       &     p_ext_atm%rsmin2d_t,       &
       &     p_ext_atm%ndvi_max,        &
       &     p_ext_atm%ndviratio,       &
-      &     p_ext_atm%idx_lst_lp,      &
-      &     p_ext_atm%idx_lst_sp,      &
-      &     p_ext_atm%idx_lst_fp,      &
       &     p_ext_atm%idx_lst_lp_t,    &
       &     p_ext_atm%idx_lst_t,       &
-      &     p_ext_atm%idx_lst_spw,     &
-      &     p_ext_atm%idx_lst_spi,     &
       &     p_ext_atm%snowtile_flag_t, &
       &     p_ext_atm%lc_class_t,      &
       &     p_ext_atm%lc_frac_t,       &
@@ -768,6 +766,7 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
+
       ! evergreen forest
       !
       ! for_e        p_ext_atm%for_e(nproma,nblks_c)
@@ -778,8 +777,6 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
-
-
       ! deciduous forest
       !
       ! for_d     p_ext_atm%for_d(nproma,nblks_c)
@@ -789,6 +786,24 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'for_d', p_ext_atm%for_d,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c )
+
+
+      ! Skin conductivity
+      !
+      ! skinc        p_ext_atm%skinc(nproma,nblks_c)
+      cf_desc    = t_cf_var('skinc', 'W m-2 K-1', 'Skin conductivity', datatype_flt)
+      grib2_desc = grib2_var( 2, 0, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'skinc', p_ext_atm%skinc,               &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
+        &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,            &
+        &           isteptype=TSTEP_CONSTANT )
+
+      ! skinc_t        p_ext_atm%skinc_t(nproma,nblks_c,ntiles_total)
+      cf_desc    = t_cf_var('skinc', 'W m-2 K-1', 'Skin conductivity', datatype_flt)
+      grib2_desc = grib2_var( 2, 0, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'skinc_t', p_ext_atm%skinc_t,           &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
 
       ! Minimal stomata resistence
@@ -807,6 +822,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'rsmin2d_t', p_ext_atm%rsmin2d_t,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+
 
       ! NDVI yearly maximum
       !
@@ -830,30 +846,7 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.  )
 
       ! Control fields for tile approach
-      ! idx_lst_lp          p_ext_atm%idx_lst_lp(nproma,nblks_c)
-      cf_desc    = t_cf_var('land point index list', '-', &
-        &                   'land point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_lp', p_ext_atm%idx_lst_lp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_sp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea point index list', '-', &
-        &                   'sea point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_sp', p_ext_atm%idx_lst_sp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_fp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
-      cf_desc    = t_cf_var('lake point index list', '-', &
-        &                   'lake point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_fp', p_ext_atm%idx_lst_fp, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
+      !
       ! idx_lst_lp_t        p_ext_atm%idx_lst_lp_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('static land tile point index list', '-', &
         &                   'static land tile point index list', datatype_flt)
@@ -871,23 +864,6 @@ CONTAINS
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
 
-      ! idx_lst_spw      p_ext_atm%idx_lst_spw(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea water point index list', '-', &
-        &                   'sea water point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_spw', p_ext_atm%idx_lst_spw, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-      ! idx_lst_spi      p_ext_atm%idx_lst_spi(nproma,nblks_c)
-      cf_desc    = t_cf_var('sea ice point index list', '-', &
-        &                   'sea ice point index list', datatype_flt)
-      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'idx_lst_spi', p_ext_atm%idx_lst_spi, &
-        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,          &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
-
-
       ! snowtile_flag_t   p_ext_atm%snowtile_flag_t(nproma,nblks_c,ntiles_total)
       ! -1: no separation between snow tile and snow-free tile
       !  0: inactive
@@ -901,14 +877,8 @@ CONTAINS
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
       ! not sure if these dimensions are supported by add_var...
-      ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
-               p_ext_atm%lp_count_t(nblks_c,ntiles_total) )
-      ALLOCATE(p_ext_atm%sp_count (nblks_c),p_ext_atm%fp_count (nblks_c))
-
-      ! allocate grid point counts per block for dynamic ocean ice/water point
-      ! index lists
-      ALLOCATE(p_ext_atm%spw_count(nblks_c),p_ext_atm%spi_count(nblks_c))
-
+      ALLOCATE(p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
+               p_ext_atm%lp_count_t(nblks_c,ntiles_total)  )
 
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -983,9 +953,24 @@ CONTAINS
                 p_ext_atm%plcovmax_lcc(nclass_lu(jg)),  & ! Maximum plant cover fraction for each land-cover class
                 p_ext_atm%laimax_lcc(nclass_lu(jg)),    & ! Maximum leaf area index for each land-cover class
                 p_ext_atm%rootdmax_lcc(nclass_lu(jg)),  & ! Maximum root depth each land-cover class
+                p_ext_atm%skinc_lcc(nclass_lu(jg)),     & ! Skin conductivity for each land use class
                 p_ext_atm%stomresmin_lcc(nclass_lu(jg)),& ! Minimum stomata resistance for each land-cover class
                 p_ext_atm%snowalb_lcc(nclass_lu(jg)),   & ! Albedo in case of snow cover for each land-cover class
                 p_ext_atm%snowtile_lcc(nclass_lu(jg))   ) ! Specification of snow tiles for land-cover class
+
+
+      ! Index lists for land, lake and water points
+      !
+      ! allocate land index list (static)
+      CALL p_ext_atm%list_land%construct(nproma,nblks_c)
+      ! allocate sea water index list (static)
+      CALL p_ext_atm%list_sea%construct(nproma,nblks_c)
+      ! allocate ice-free water index list (dynamic)
+      CALL p_ext_atm%list_seawtr%construct(nproma,nblks_c)
+      ! allocate seaice index list (dynamic)
+      CALL p_ext_atm%list_seaice%construct(nproma,nblks_c)
+      ! allocate Lake index list (static)
+      CALL p_ext_atm%list_lake%construct(nproma,nblks_c)
 
 
       !--------------------------------
@@ -1221,7 +1206,9 @@ CONTAINS
         CASE(SSTICE_AVG_MONTHLY)
           shape3d_sstice = (/ nproma, nblks_c,  2 /)
         CASE(SSTICE_AVG_DAILY)
-          CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+          CALL finish (TRIM(routine), 'sstice_mode=5  not implemented!')
+        CASE(SSTICE_INST)
+          shape3d_sstice = (/ nproma, nblks_c,  2 /)
         CASE DEFAULT
           CALL finish (TRIM(routine), 'sstice_mode not valid!')
       END SELECT
@@ -1409,6 +1396,20 @@ CONTAINS
     ENDIF  ! albedo_type
 
 
+    IF (itype_lwemiss == 2) THEN
+
+      ! Broadband longwave surface emissiivty, monthly data
+      !
+      ! lw_emiss   p_ext_atm_td%lw_emiss(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('longwave emissivity', '-', &
+        &                   'broadband longwave surface emissivity', datatype_flt)
+      grib2_desc = grib2_var(2, 3, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'lw_emiss', p_ext_atm_td%lw_emiss,       &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+        &           ldims=shape3d_c, loutput=.FALSE., isteptype=TSTEP_AVG       )
+
+    ENDIF
+
     IF (itype_vegetation_cycle > 1) THEN
       ! t2m_m     p_ext_atm_td%t2m_m(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('t2m_m', 'K', &
@@ -1488,14 +1489,22 @@ CONTAINS
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
       CALL delete_var_list( ext_data(jg)%atm_list )
+      !
+      ! destruct index lists
+      CALL ext_data(jg)%atm%list_land  %finalize()
+      CALL ext_data(jg)%atm%list_sea   %finalize()
+      CALL ext_data(jg)%atm%list_seaice%finalize()
+      CALL ext_data(jg)%atm%list_seawtr%finalize()
+      CALL ext_data(jg)%atm%list_lake  %finalize()
     ENDDO
 
     IF (iforcing > 1 ) THEN
-    DO jg = 1,n_dom
-      ! Delete list of time-dependent atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_td_list )
-    ENDDO
+      DO jg = 1,n_dom
+        ! Delete list of time-dependent atmospheric elements
+        CALL delete_var_list( ext_data(jg)%atm_td_list )
+      ENDDO
     END IF
+
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data finished')

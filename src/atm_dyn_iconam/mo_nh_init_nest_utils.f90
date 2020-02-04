@@ -32,10 +32,10 @@ MODULE mo_nh_init_nest_utils
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: ltransport, msg_level, ntracer, iforcing
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf, nnew_rcf
-  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o, tmelt
+  USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, tmelt
   USE sfc_terra_data,           ONLY: crhosminf, cporv, cadp, csalb, ist_seawtr
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, &
-    &                                 MAX_CHAR_LENGTH, dzsoil, inwp, nclass_aero, ALB_SI_MISSVAL
+    &                                 MAX_CHAR_LENGTH, inwp, nclass_aero, ALB_SI_MISSVAL
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -51,7 +51,9 @@ MODULE mo_nh_init_nest_utils
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_fbk_start_c
   USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice, itype_trvg, &
-    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, itype_snowevap
+    &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld, lprog_albsi, &
+    &                                 itype_snowevap, dzsoil
+  USE mo_extpar_config,         ONLY: itype_vegetation_cycle
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config, iprog_aero
@@ -63,6 +65,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_nwp_sfc_interp,        ONLY: smi_to_wsoil, wsoil_to_smi
   USE sfc_flake,                ONLY: flake_coldinit
   USE mo_upatmo_config,         ONLY: upatmo_config
+  USE mo_input_instructions,    ONLY: t_readInstructionListPtr, kStateFailedFetch, &
+    &                                 kInputSourceAnaI, kInputSourceFgAnaI
 
   IMPLICIT NONE
 
@@ -200,7 +204,8 @@ MODULE mo_nh_init_nest_utils
     ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
-                  5+7+1                ! single-layer prognostic variables + t_g, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, snow_age + aux variable for lake temp
+                  5+9+1                ! single-layer prognostic variables + t_g, t_sk, freshsnow, t_seasfc, qv_s, plantevap, hsnow_max, 
+                                       ! snow_age, t2m_bias + aux variable for lake temp
     num_wtrvars  = 6                   ! water state fields + fr_seaice + alb_si
     num_phdiagvars = 25                ! number of physics diagnostic variables (copied from interpol_phys_grf)
 
@@ -258,10 +263,10 @@ MODULE mo_nh_init_nest_utils
         ! a) initialize with t_g
         lndvars_par(:,num_lndvars,jb) = lnd_prog%t_g(:,jb)
 
-        i_count = ext_data(jg)%atm%fp_count(jb)
+        i_count = ext_data(jg)%atm%list_lake%ncount(jb)
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          jc = ext_data(jg)%atm%list_lake%idx(ic,jb)
 
           ! b) take lake sfc temperature where available
           lndvars_par(jc,num_lndvars,jb) = lnd_prog%t_g_t(jc,jb,isub_lake)
@@ -392,6 +397,12 @@ MODULE mo_nh_init_nest_utils
             lndvars_par(jc,jk1+11,jb) = 0._wp
             lndvars_par(jc,jk1+12,jb) = 0._wp
           ENDIF
+          IF (itype_vegetation_cycle == 3) THEN
+            lndvars_par(jc,jk1+13,jb) = p_parent_ldiag%t2m_bias(jc,jb)
+          ELSE
+            lndvars_par(jc,jk1+13,jb) = 0._wp
+          ENDIF
+          lndvars_par(jc,jk1+14,jb) = p_parent_ldiag%t_sk(jc,jb)
         ENDDO
       ENDIF
 
@@ -681,6 +692,12 @@ MODULE mo_nh_init_nest_utils
               p_child_ldiag%hsnow_max(jc,jb) = lndvars_chi(jc,jk1+11,jb)
               p_child_ldiag%snow_age(jc,jb)  = lndvars_chi(jc,jk1+12,jb)
             ENDIF
+            IF (itype_vegetation_cycle == 3) THEN
+              p_child_ldiag%t2m_bias(jc,jb) = lndvars_chi(jc,jk1+13,jb)
+            ENDIF
+            p_child_ldiag%t_sk(jc,jb)      = lndvars_chi(jc,jk1+14,jb)
+            p_child_lprog%t_sk_t(jc,jb,jt) = p_child_ldiag%t_sk(jc,jb)
+            p_child_lprog2%t_sk_t(jc,jb,jt) = p_child_ldiag%t_sk(jc,jb)
           ENDDO
         ENDDO
         DO jt = ntiles_total+1, ntiles_total+ntiles_water
@@ -724,8 +741,8 @@ MODULE mo_nh_init_nest_utils
       IF (atm_phy_nwp_config(jgc)%inwp_surface == 1 .AND. llake) THEN
 
         CALL flake_coldinit(                                        &
-          &   nflkgb      = ext_data(jgc)%atm%fp_count    (jb),     &  ! in
-          &   idx_lst_fp  = ext_data(jgc)%atm%idx_lst_fp(:,jb),     &  ! in
+          &   nflkgb      = ext_data(jgc)%atm%list_lake%ncount(jb), &  ! in
+          &   idx_lst_fp  = ext_data(jgc)%atm%list_lake%idx (:,jb), &  ! in
           &   depth_lk    = ext_data(jgc)%atm%depth_lk  (:,jb),     &  ! in
           ! here, a proper estimate of the lake surface temperature is required
           &   tskin       = lndvars_chi(:,num_lndvars,jb),          &  ! in
@@ -940,23 +957,30 @@ MODULE mo_nh_init_nest_utils
 
   END SUBROUTINE interpolate_vn_increments
 
+
   !-------------
   !>
   !! SUBROUTINE interpolate_sfcana
   !!
   !! Driver routine for interpolating surface analysis data from a parent domain to a child domain
-  !! The routine is supposed to work incombination with incremental analysis update only;
-  !! it processes sst (i.e. t_so(0) over sea points only), w_so increments, fr_ice, w_snow, rho_snow,
-  !! h_snow and freshsnow
-  !!
+  !! The routine is supposed to work in combination with incremental analysis update only (MODE_IAU);
+  !! it processes 
+  !! * w_so      (increments) 
+  !! * freshsnow (increments)
+  !! * h_snow    (increments)
+  !! * t_2m      (increments)
+  !! * fr_ice    (full field)
+  !! * sst       (full field)
+  !!   i.e. t_so(0) over sea points only or t_seasfc
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2014-12-12)
   !!
   !!
-  SUBROUTINE interpolate_sfcana(initicon, jg, jgc)
+  SUBROUTINE interpolate_sfcana(initicon, inputInstructions, jg, jgc )
 
-    TYPE(t_initicon_state), TARGET, INTENT(INOUT) :: initicon(:)
+    TYPE(t_initicon_state),         INTENT(INOUT) :: initicon(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER, INTENT(IN) :: jg   ! parent (source) domain ID
     INTEGER, INTENT(IN) :: jgc  ! child  (target) domain ID
@@ -965,11 +989,8 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_patch),         POINTER  :: p_pp, p_pc
     TYPE(t_gridref_state), POINTER  :: p_grf
     TYPE(t_int_state),     POINTER  :: p_int
-
-    TYPE(t_lnd_prog),   POINTER     :: p_parent_lprog
-    TYPE(t_lnd_prog),   POINTER     :: p_child_lprog
-    TYPE(t_lnd_diag),   POINTER     :: p_parent_ldiag
-    TYPE(t_lnd_diag),   POINTER     :: p_child_ldiag
+    TYPE(t_lnd_diag),      POINTER  :: p_parent_ldiag
+    TYPE(t_lnd_diag),      POINTER  :: p_child_ldiag
 
     ! local variables
 
@@ -999,8 +1020,6 @@ MODULE mo_nh_init_nest_utils
 
     l_parallel = my_process_is_mpi_parallel()
 
-    p_parent_lprog    => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-    p_child_lprog     => p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc))
     p_parent_ldiag    => p_lnd_state(jg)%diag_lnd
     p_child_ldiag     => p_lnd_state(jgc)%diag_lnd
 
@@ -1060,10 +1079,15 @@ MODULE mo_nh_init_nest_utils
       DO jc = i_startidx, i_endidx
         lndvars_par(jc,jk1+1,jb) = initicon(jg)%sfc%sst(jc,jb)
         lndvars_par(jc,jk1+2,jb) = p_parent_ldiag%fr_seaice(jc,jb)
-        lndvars_par(jc,jk1+3,jb) = p_parent_lprog%w_snow_t(jc,jb,1)
-        lndvars_par(jc,jk1+4,jb) = MAX(crhosminf,p_parent_lprog%rho_snow_t(jc,jb,1))
-        lndvars_par(jc,jk1+5,jb) = p_parent_ldiag%freshsnow_t(jc,jb,1)
+        lndvars_par(jc,jk1+3,jb) = initicon(jg)%sfc_inc%h_snow(jc,jb)
+        lndvars_par(jc,jk1+4,jb) = initicon(jg)%sfc_inc%freshsnow(jc,jb)
       ENDDO
+
+      IF (itype_vegetation_cycle == 3) THEN
+        DO jc = i_startidx, i_endidx
+          lndvars_par(jc,jk1+5,jb) = initicon(jg)%sfc_inc%t_2m(jc,jb)
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO NOWAIT
@@ -1122,27 +1146,65 @@ MODULE mo_nh_init_nest_utils
       jk1 = nlev_soil
 
       DO jc = i_startidx, i_endidx
-        initicon(jgc)%sfc%sst(jc,jb)       = lndvars_chi(jc,jk1+1,jb)
-        p_child_ldiag%fr_seaice(jc,jb)     = lndvars_chi(jc,jk1+2,jb)
-        p_child_lprog%w_snow_t(jc,jb,1)    = lndvars_chi(jc,jk1+3,jb)
-        p_child_lprog%rho_snow_t(jc,jb,1)  = lndvars_chi(jc,jk1+4,jb)
-        p_child_ldiag%freshsnow_t(jc,jb,1) = lndvars_chi(jc,jk1+5,jb)
-
-        ! diagnose h_snow after interpolation
-        p_child_ldiag%h_snow_t(jc,jb,1) = p_child_lprog%w_snow_t(jc,jb,1)/p_child_lprog%rho_snow_t(jc,jb,1)*rhoh2o
+        initicon(jgc)%sfc%sst(jc,jb)           = lndvars_chi(jc,jk1+1,jb)
+        p_child_ldiag%fr_seaice(jc,jb)         = lndvars_chi(jc,jk1+2,jb)
+        initicon(jgc)%sfc_inc%h_snow(jc,jb)    = lndvars_chi(jc,jk1+3,jb)
+        initicon(jgc)%sfc_inc%freshsnow(jc,jb) = lndvars_chi(jc,jk1+4,jb)
 
         ! set limits
         p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,p_child_ldiag%fr_seaice(jc,jb)))
-        p_child_ldiag%freshsnow_t(jc,jb,1) = MIN(1._wp,p_child_ldiag%freshsnow_t(jc,jb,1))
       ENDDO
+
+      IF (itype_vegetation_cycle == 3) THEN
+        DO jc = i_startidx, i_endidx
+          initicon(jgc)%sfc_inc%t_2m(jc,jb) = lndvars_chi(jc,jk1+5,jb)
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+
+    ! set information about input source for interpolated fields
+    !
+    ! w_so (full field: fg, increment: ana(intp))
+    CALL inputInstructions(jgc)%ptr%setSource('w_so', kInputSourceFgAnaI)
+    !
+    ! sst
+    ! Branching is necessary here, as sst can either be read via the field t_seasfc of t_so(0)
+    IF (inputInstructions(jg)%ptr%fetchStatus('t_seasfc', lIsFg=.FALSE.) == kStateFailedFetch) THEN
+      ! since we cannot distinguish between t_so which is read from fg and 
+      ! t_so(0)==sst which is read/interpolated from ana, we set
+      ! full field: fg, ana(intp), increment: none
+      CALL inputInstructions(jgc)%ptr%setSource('t_so', kInputSourceFgAnaI)
+    ELSE
+      ! full field: ana(intp), increment: none
+      CALL inputInstructions(jgc)%ptr%setSource('t_seasfc', kInputSourceAnaI)
+    ENDIF
+    !
+    ! fr_seaice (full field: ana(intp), increment: none)
+    CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', kInputSourceAnaI)
+    !
+    ! h_snow (full field: fg, increment: ana(intp))
+    CALL inputInstructions(jgc)%ptr%setSource('h_snow', kInputSourceFgAnaI)
+    !
+    ! freshsnow (full field: fg, increment: ana(intp))
+    CALL inputInstructions(jgc)%ptr%setSource('freshsnow', kInputSourceFgAnaI)
+    !
+    ! t_2m (full field: none, increment: ana(intp))
+    IF (itype_vegetation_cycle == 3) THEN
+      CALL inputInstructions(jgc)%ptr%setSource('t_2m', kInputSourceAnaI)
+    ENDIF
+
+
+    ! cleanup
     DEALLOCATE(lndvars_par, lndvars_chi, lndvars_lp)
 
   END SUBROUTINE interpolate_sfcana
+
+
+
 
 
   RECURSIVE SUBROUTINE topo_blending_and_fbk(jg)

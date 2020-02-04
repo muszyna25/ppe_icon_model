@@ -29,7 +29,9 @@ MODULE mo_pp_tasks
     & TASK_FINALIZE_IPZ,                                              &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV,                       &
     & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_COMPUTE_SMI,             &
-    & TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI,                            &
+    & TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING,      &
+    & TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,                     &
+    & TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM,                      &
     & TASK_INTP_VER_ZLEV,                                             &
     & TASK_INTP_VER_ILEV,                                             &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
@@ -74,10 +76,16 @@ MODULE mo_pp_tasks
     &                                   compute_field_pv,                        &
     &                                   compute_field_sdi,                       &
     &                                   compute_field_lpi,                       &
+    &                                   compute_field_ceiling,                   &
+    &                                   compute_field_hbas_sc, compute_field_htop_sc, &
+    &                                   compute_field_twater, compute_field_q_sedim,  &
     &                                   compute_field_smi
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
   USE mo_grid_config,             ONLY: l_limited_area, n_dom_start
   USE mo_interpol_config,         ONLY: support_baryctr_intp
+#ifdef _OPENACC
+  USE mo_mpi,                   ONLY: i_am_accel_node
+#endif
 
   ! Workaround for SMI computation. Not nice, however by making 
   ! direct use of the states below, we avoid enhancing the type t_data_input.
@@ -1025,6 +1033,9 @@ CONTAINS
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1,    & !out
         &                 vcoeff%lin_cell%kpbl2, vcoeff%lin_cell%wfacpbl2   )   !out
       ! Interpolate pressure on z-level "0": 
+! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
+!        Ultimately this calculation needs to be performed on the device
+!$ACC UPDATE HOST( p_diag%pres, p_diag%tempv ) IF (i_am_accel_node)
       CALL diagnose_pmsl(p_diag%pres, p_diag%tempv, p_metrics%z_mc,           &
         &                pmsl_aux(:,1,:),                                     &
         &                nblks_c, npromz_c, p_patch%nlev,                       &
@@ -1038,6 +1049,9 @@ CONTAINS
 
       IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_GME")
       ! Interpolate pressure on z-level "0":
+! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
+!        Ultimately this calculation needs to be performed on the device
+!$ACC UPDATE HOST( p_diag%pres, p_diag%pres_sfc, p_diag%temp ) IF (i_am_accel_node)
       CALL diagnose_pmsl_gme(p_diag%pres, p_diag%pres_sfc, p_diag%temp, &  ! in
         &                    p_metrics%z_ifc,                           &  ! in
         &                    pmsl_aux(:,1,:),                           &  ! out
@@ -1059,6 +1073,9 @@ CONTAINS
         &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%zextrap,     & !out
         &                 vcoeff%lin_cell%wfacpbl1)                             !out
       ! Interpolate pressure on z-level "0":
+! TODO:  This is a temporary solution to update the needed arrays on host and calculate pmsl_avg there
+!        Ultimately this calculation needs to be performed on the device
+!$ACC UPDATE HOST( p_diag%pres_sfc, p_diag%temp ) IF (i_am_accel_node)
       CALL diagnose_pmsl_ifs(p_diag%pres_sfc, p_diag%temp, p_metrics%z_ifc,   & ! in
         &                    pmsl_aux(:,1,:),                                 & ! out
         &                    nblks_c, npromz_c, p_patch%nlev,                 & ! in
@@ -1077,6 +1094,8 @@ CONTAINS
 
     CALL cell_avg(pmsl_aux, p_patch, p_int_state(jg)%c_bln_avg, pmsl_avg)
     out_var%r_ptr(:,:,out_var_idx,1,1) = pmsl_avg(:,1,:)
+
+!$ACC UPDATE DEVICE(  out_var%r_ptr(:,:,out_var_idx,1,1) )  IF (i_am_accel_node)
 
   END SUBROUTINE pp_task_intp_msl
 
@@ -1153,7 +1172,7 @@ CONTAINS
 
     CASE (TASK_COMPUTE_SDI2)
       IF ( jg >= n_dom_start+1 ) THEN
-        ! obviously the p_patch_local_parent(jg) exists
+        ! p_patch_local_parent(jg) seems to exist
         CALL compute_field_sdi( p_patch, jg, p_patch_local_parent(jg), p_int_state_local_parent(jg),     &
           &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &
           &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
@@ -1163,13 +1182,37 @@ CONTAINS
 
     CASE (TASK_COMPUTE_LPI)
       IF ( jg >= n_dom_start+1 ) THEN
-        ! obviously the p_patch_local_parent(jg) exists (??)
+        ! p_patch_local_parent(jg) seems to exist
         CALL compute_field_lpi( p_patch, jg, p_patch_local_parent(jg), p_int_state_local_parent(jg),     &
           &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &
           &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
       ELSE
         CALL message( "pp_task_compute_field", "WARNING: LPI cannot be computed since no reduced grid is available" )
       END IF
+
+    CASE (TASK_COMPUTE_CEILING)
+      CALL compute_field_ceiling( p_patch, jg,                                       &
+          &   ptr_task%data_input%p_nh_state%metrics, ptr_task%data_input%prm_diag,  &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_HBAS_SC)
+      CALL compute_field_hbas_sc( p_patch,                                           &
+          &   ptr_task%data_input%p_nh_state%metrics, ptr_task%data_input%prm_diag,  &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_HTOP_SC)
+      CALL compute_field_htop_sc( p_patch,                                           &
+          &   ptr_task%data_input%p_nh_state%metrics, ptr_task%data_input%prm_diag,  &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_TWATER)
+      CALL compute_field_twater( p_patch, jg,                       &
+          &   ptr_task%data_input%p_nh_state%metrics, p_prog,       &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_Q_SEDIM)
+      CALL compute_field_q_sedim( p_patch, jg, p_prog,          &
+          &   out_var%r_ptr(:,:,:,out_var_idx,1))   ! unused dimensions are filled up with 1
 
     CASE (TASK_COMPUTE_SMI)
       CALL compute_field_smi(p_patch, p_lnd_state(jg)%diag_lnd, &

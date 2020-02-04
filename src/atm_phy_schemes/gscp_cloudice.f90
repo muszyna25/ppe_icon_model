@@ -205,7 +205,7 @@ USE gscp_data, ONLY: &          ! all variables are used here
     zbsmel,    zcsmel,    icesedi_exp,                                   &
     iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
     tmin_iceautoconv,     zceff_fac, zceff_min,                          &
-    mma, mmb
+    mma, mmb, v_sedi_rain_min, v_sedi_snow_min
 
 #ifdef __ICON__
 ! this is (at the moment) an ICON part
@@ -860,6 +860,8 @@ SUBROUTINE cloudice (             &
       zvz0s (iv) = ccsvel*EXP(ccsvxp * LOG(zn0s(iv)))
 
       zlnqsk = zvz0s(iv) * EXP (ccswxp * LOG (zqsk(iv))) * zrho1o2(iv)
+      ! Prevent terminal fall speed of snow from being zero at the surface level
+      IF ( k == ke ) zlnqsk = MAX( zlnqsk, v_sedi_snow_min )
       zpks(iv) = zqsk (iv) * zlnqsk
 
       IF (zvzs(iv) == 0.0_wp) THEN
@@ -873,6 +875,8 @@ SUBROUTINE cloudice (             &
       iv = ivdx2(i1d)
 
       zlnqrk = zvz0r * EXP (zvzxp * LOG (zqrk(iv))) * zrho1o2(iv)
+      ! Prevent terminal fall speed of rain from being zero at the surface level
+      IF ( k == ke ) zlnqrk = MAX( zlnqrk, v_sedi_rain_min )
       zpkr(iv) = zqrk(iv) * zlnqrk
 
       IF (zvzr(iv) == 0.0_wp) THEN
@@ -893,6 +897,13 @@ SUBROUTINE cloudice (             &
       ENDIF
     ENDDO loop_over_qi_sedi
 
+    ! Prevent terminal fall speeds of precip hydrometeors from being zero at the surface level
+    IF ( k == ke ) THEN
+      DO iv = iv_start, iv_end
+        zvzr(iv) = MAX( zvzr(iv), v_sedi_rain_min )
+        zvzs(iv) = MAX( zvzs(iv), v_sedi_snow_min )
+      ENDDO
+    ENDIF
 
   !----------------------------------------------------------------------------
   ! Section 3:

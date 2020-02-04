@@ -239,7 +239,11 @@ REAL    (KIND=wp   ), PARAMETER ::  &
   zmi0   = 1.0E-12_wp,      & ! initial crystal mass for cloud ice nucleation
   zmimax = 1.0E-9_wp,       & ! maximum mass of cloud ice crystals   
   zmsmin = 3.0E-9_wp,       & ! initial mass of snow crystals        
-  zbvi   = 0.16_wp            ! v = zvz0i*rhoqi^zbvi
+  zbvi   = 0.16_wp,         & ! v = zvz0i*rhoqi^zbvi
+!
+  v_sedi_rain_min    = 0.7_wp, & ! in m/s; minimum terminal fall velocity of rain    particles (applied only near the ground)
+  v_sedi_snow_min    = 0.1_wp, & ! in m/s; minimum terminal fall velocity of snow    particles (applied only near the ground)
+  v_sedi_graupel_min = 0.4_wp    ! in m/s; minimum terminal fall velocity of graupel particles (applied only near the ground)
 
 
 ! Constant exponents in the transfer rate equations

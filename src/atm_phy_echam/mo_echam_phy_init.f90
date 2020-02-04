@@ -98,6 +98,9 @@ MODULE mo_echam_phy_init
   ! cloud cover
   USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config, echam_cov_config
 
+  ! WMO tropopause
+  USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
+
   ! Cariolle interactive ozone scheme
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
     &                                read_bcast_real_1d_wrap, &
@@ -335,13 +338,15 @@ CONTAINS
          &                       tune_rain_n0_factor = echam_mig_config(jg)% rain_n0_factor )
     END IF
 
-    ! cloud cover
+    ! cloud cover diagnostics
     !
-    lany=.TRUE.
-    IF (lany) THEN
-      CALL  eval_echam_cov_config
-      CALL print_echam_cov_config
-    END IF
+    CALL  eval_echam_cov_config
+    CALL print_echam_cov_config
+
+    ! WMO tropopause diagnostics
+    !
+    CALL  eval_echam_wmo_config
+    CALL print_echam_wmo_config
 
     ! atmospheric gravity wave drag
     !
@@ -707,7 +712,7 @@ CONTAINS
       !
       ! read annual means
       IF (.NOT. bc_greenhouse_gases_file_read) THEN
-        CALL read_bc_greenhouse_gases
+        CALL read_bc_greenhouse_gases('bc_greenhouse_gases.nc')
       END IF
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the
@@ -871,7 +876,7 @@ CONTAINS
             field% rtype (:,:) = 0.0_wp
          END IF
          !
-         IF ( echam_phy_tc(jg)%dt_cld == dt_zero ) THEN
+         IF ( echam_phy_tc(jg)%dt_cld == dt_zero .AND. echam_phy_tc(jg)%dt_mig == dt_zero) THEN
             field% rsfl (:,:) = 0.0_wp
             field% ssfl (:,:) = 0.0_wp
          END IF

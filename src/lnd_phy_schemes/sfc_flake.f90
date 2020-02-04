@@ -134,6 +134,8 @@
 !! - namelist parameter frlake_thrhld is used to specify minimum lake fraction.
 !! Modification by Guenther Zaengl, DWD (2017-02-02)
 !! - assimilation of observational data on ice fraction is introduced.
+!! Modification by Dmitrii Mironov, DWD (2019-11-22)
+!! - Some security constraints are modified (SUBROUTINE flake-driver). 
 !! 
 !
 ! History:
@@ -2552,7 +2554,7 @@ HTC_Water: IF (h_ice_n_flk >= h_Ice_min_flk) THEN    ! Ice exists
 
   IF(l_ice_create) THEN                  ! Ice has just been created 
     IF(h_ML_p_flk.GE.depth_w-h_ML_min_flk) THEN ! h_ML=D when ice is created 
-      h_ML_n_flk = 0._wp             ! Set h_ML to zero 
+      h_ML_n_flk = 0._wp                 ! Set h_ML to zero 
       C_T_n_flk = C_T_min                ! Set C_T to its minimum value 
     ELSE                                 ! h_ML<D when ice is created 
       h_ML_n_flk = h_ML_p_flk            ! h_ML remains unchanged 
@@ -2571,7 +2573,7 @@ HTC_Water: IF (h_ice_n_flk >= h_Ice_min_flk) THEN    ! Ice exists
                                          ! Update the bottom temperature 
 
   ELSE                                   ! Ice exists and T_bot = T_r, 
-                                         !convection due to bottom heating 
+                                         ! convection due to bottom heating 
     T_bot_n_flk = tpl_T_r                ! T_bot is equal to the temperature 
                                          ! of maximum density 
     IF(h_ML_p_flk.GE.c_small_flk) THEN   ! h_ML > 0 
@@ -2579,11 +2581,17 @@ HTC_Water: IF (h_ice_n_flk >= h_Ice_min_flk) THEN    ! Ice exists
       h_ML_n_flk = depth_w*(1._wp-(T_wML_n_flk-T_mnw_n_flk)/            &
                                        (T_wML_n_flk-T_bot_n_flk)/C_T_n_flk)
       h_ML_n_flk = MAX(h_ML_n_flk, 0._wp)   ! Update the mixed-layer depth  
+      ! Security, h_ML is equal or very close to the lake depth
+      IF(h_ML_n_flk >= (depth_w-h_ML_min_flk)) THEN
+        h_ML_n_flk = 0._wp                     ! Set mixed-layer depth to zero
+        T_bot_n_flk = T_wML_n_flk - (T_wML_n_flk-T_mnw_n_flk)/C_T_n_flk
+                                               ! Adjust the bottom temperature 
+      END IF
     ELSE                                 ! h_ML = 0 
       h_ML_n_flk = h_ML_p_flk            ! h_ML remains unchanged 
       C_T_n_flk = (T_wML_n_flk-T_mnw_n_flk)/(T_wML_n_flk-T_bot_n_flk) 
       C_T_n_flk = MIN(C_T_max, MAX(C_T_n_flk, C_T_min)) 
-                                      ! Update the shape factor (thermocline)
+                                         ! Update the shape factor (thermocline)
     END IF 
   END IF 
 
@@ -2862,10 +2870,10 @@ ELSE HTC_Water                                      ! Open water
     ! Security, limit T_bot by the freezing point
     T_bot_n_flk = MAX(T_bot_n_flk, tpl_T_f)
 
-    flk_str_2 = (T_bot_n_flk-tpl_T_r)*flake_buoypar(T_mnw_n_flk)
+    flk_str_2 = (T_bot_n_flk-tpl_T_r)*(T_mnw_n_flk-tpl_T_r)
 
     ! Security, avoid T_r crossover 
-    IF(flk_str_2.LT.0._wp) T_bot_n_flk = tpl_T_r  
+    IF(flk_str_2 <= 0._wp) T_bot_n_flk = tpl_T_r  
 
     T_wML_n_flk = C_T_n_flk*(1._wp-h_ML_n_flk/depth_w)
     T_wML_n_flk = (T_mnw_n_flk-T_bot_n_flk*T_wML_n_flk)/(1._wp-T_wML_n_flk)
@@ -2881,6 +2889,15 @@ ELSE HTC_Water                                      ! Open water
     T_bot_n_flk = T_mnw_n_flk
     C_T_n_flk = C_T_min
 
+  END IF
+
+  ! In case of unstable stratification, force mixing down to the bottom
+  flk_str_2 = (T_wML_n_flk-T_bot_n_flk)*(T_mnw_n_flk-tpl_T_r)
+  IF(flk_str_2 < 0._wp) THEN 
+    h_ML_n_flk = depth_w
+    T_wML_n_flk = T_mnw_n_flk
+    T_bot_n_flk = T_mnw_n_flk
+    C_T_n_flk = C_T_min
   END IF
 
 END IF HTC_Water
@@ -2969,34 +2986,6 @@ ELSE Use_sediment
   T_B1_n_flk = tpl_T_r
 
 END IF Use_sediment
-
-!------------------------------------------------------------------------------
-!  Impose additional constraints.
-!------------------------------------------------------------------------------
-
-! In case of unstable stratification, force mixing down to the bottom
-flk_str_2 = (T_wML_n_flk-T_bot_n_flk)*flake_buoypar(T_mnw_n_flk)
-IF(flk_str_2.LT.0._wp) THEN 
-
-!_dbg>
-!IF (idbg > 10) THEN
-!  PRINT *, 'FLake: inverse (unstable) stratification !!! '
-!  PRINT *, '       Mixing down to the bottom is forced.'
-!  PRINT *, '  T_wML_p, T_wML_n ', T_wML_p_flk-tpl_T_f, T_wML_n_flk-tpl_T_f
-!  PRINT *, '  T_mnw_p, T_mnw_n ', T_mnw_p_flk-tpl_T_f, T_mnw_n_flk-tpl_T_f
-!  PRINT *, '  T_bot_p, T_bot_n ', T_bot_p_flk-tpl_T_f, T_bot_n_flk-tpl_T_f
-!  PRINT *, '  h_ML_p,  h_ML_n  ', h_ML_p_flk,          h_ML_n_flk
-!  PRINT *, '  C_T_p,   C_T_n   ', C_T_p_flk,           C_T_n_flk
-!ENDIF
-!_dbg<
-
-  h_ML_n_flk = depth_w
-  T_wML_n_flk = T_mnw_n_flk
-  T_bot_n_flk = T_mnw_n_flk
-  C_T_n_flk = C_T_min
-
-END IF
-
 
 !------------------------------------------------------------------------------
 !  Update the surface temperature.

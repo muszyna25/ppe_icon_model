@@ -293,11 +293,13 @@ PUBLIC           ! All constants and variables in this module are public
     crsmax     = 4000.0_wp        !  BATS (s/m)
     ! crsmax increased from 1000 to 4000 s/m (to reduce latent heat flux).
 
+#ifdef __COSMO__
   ! Parameters for the skin temperature formulation
 
   REAL  (KIND=wp)           ::  &
     cskinc                    , & ! skin conductivity (W/m**2/K)
     cimpl                         ! stability parameter for the computation of the skin temperature
+#endif
 
 ! 3. Additional variables for the soil geometry
 ! ---------------------------------------------

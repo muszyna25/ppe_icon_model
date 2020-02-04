@@ -2593,7 +2593,7 @@ CONTAINS
 
             ! ensure that the extrapolated wind does not change sign and
             ! stays within the specified limit of speed reduction
-            IF (uv_out(jc,jk,jb)*uv_in(jc,nlevs_in,jb) >= 0._wp) THEN ! still correct sign
+            IF (uv_out(jc,jk,jb)*uv_mod(jc,nlevs_in) >= 0._wp) THEN ! still correct sign
 
               uv_out(jc,jk,jb) = SIGN(MAX(ABS(uv_out(jc,jk,jb)),  &
                 ABS(mult_limit*uv_mod(jc,nlevs_in))), uv_mod(jc,nlevs_in))
