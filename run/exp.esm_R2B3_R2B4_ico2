@@ -17,12 +17,23 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 # - and no (!) aerosols
 #
 # A test version for HD is included. Model is water mass conserving now.
-# Hamocc can be turned on, but is deactivated by default
 #
-# Here, the ocean is already spun up from Levitus climatology for 250 years.
-# initializing the Ocean from long tuning run (3600y) and hamocc variables from cmip6 restart is
-# is possible (initialiseOcean="fromRestartwithHamocc")
-# initialiseOcean="fromClimatology" is possible, see below.
+# Hamocc is activated by default.
+#
+#####################################################################################
+#
+# This is a TEST script for the interactive carbon cycle which needs DEBUGGING
+# -> running with fully interactive CO2 currently results in lookup table overflow after 6 days
+#    (very extreme fluxes over ocean)
+# -> running with CO2 exchange, but fixed atmospheric co2 concentration results in hCFL errors
+#    after ~3 months
+#
+#####################################################################################
+#
+# Here, ocean is initialized from long (3600y) tuning run with good AMOC and sea-ice.
+# Hamocc is initialized with cmip6 data interpolated to icon-ocean grid.
+#
+#
 #
 # The coupling:
 #
@@ -33,6 +44,7 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 # . total_heat_flux
 # . atmosphere_sea_ice_bundle
 # . river_runoff
+# . co2_mixing_ratio
 #
 # ocean -> atmosphere:
 # . sea_surface_temperature
@@ -40,9 +52,6 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 # . northward_sea_water_velocity
 # . ocean_sea_ice_bundle
 # . 10m_wind_speed
-#
-# currently not activated for coupling:
-# . co2_mixing_ratio
 # . co2_flux
 #
 #--------------------------------------------------------------------------------------------------
@@ -61,8 +70,8 @@ nproma_oce=48
 
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
-initialiseOcean="fromRestart"
-# initialiseOcean="fromRestartwithHamocc"
+# initialiseOcean="fromRestart"
+initialiseOcean="fromRestartwithHamocc"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 
@@ -71,7 +80,7 @@ initialiseOcean="fromRestart"
 # 1 ocean node is sufficient for low resolution, 9 nodes for coupled is suitable.
 # faster: 2 nodes for ocean, 16 nodes in total
 #         running with Hamocc: 8 nodes for ocean, 22 in total for similar performance
-mpi_oce_nodes=2
+mpi_oce_nodes=8
 #mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 #
@@ -137,23 +146,23 @@ atmo_dyn_grid=${atm_grid_name}.nc
 # start and end date+time of experiment
 # -------------------------------------
 start_date=${start_date:="1000-01-01T00:00:00Z"}
-    end_date=${end_date:="1010-01-01T00:00:00Z"}
+    end_date=${end_date:="1002-01-01T00:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
-restart_interval="P10Y"
-checkpoint_interval="P10Y"
+restart_interval="P1Y"
+checkpoint_interval="P1Y"
 
 # file interval is restart-interval
-atm_file_interval="P10Y"
-oce_file_interval="P10Y"
-lnd_file_interval="P10Y"
-hamocc_file_interval="P10Y"
+atm_file_interval="P2Y"
+oce_file_interval="P2Y"
+lnd_file_interval="P2Y"
+hamocc_file_interval="P2Y"
 
-atm_output_interval="P1Y"
-oce_output_interval="P1Y"
-lnd_output_interval="P1Y"
-hamocc_output_interval="P1Y"
+atm_output_interval="P1M"
+oce_output_interval="P1M"
+lnd_output_interval="P1M"
+hamocc_output_interval="P1M"
 
 # asynchronous diagnostic output processes
 # ----------------------------------------
@@ -213,7 +222,7 @@ output_hamocc_3d=yes
 run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
-jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
+jsbach_with_carbon=yes         # yes needs jsbach_pfts usecase
 
 # Some further processing for land configuration
 # ----------------------------------------------
@@ -577,6 +586,45 @@ cat > coupling_${EXPNAME}.xml << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
+         <transient_couple transient_id="12">
+            <source component_ref="1" transient_grid_ref="12"/>
+            <target transient_grid_ref="12"/>
+            <timestep>
+               <source>${atmTimeStep}</source>
+               <target>${oceTimeStep}</target>
+               <coupling_period operation="average">${couplingTimeStep}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>${oce_lag}</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="bernstein_bezier"/>
+               <interpolation method="n-nearest_neighbor" n="4" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.9"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+         <transient_couple transient_id="13">
+            <source component_ref="2" transient_grid_ref="13"/>
+            <target transient_grid_ref="13"/>
+            <timestep>
+               <source>${oceTimeStep}</source>
+               <target>${atmTimeStep}</target>
+               <coupling_period operation="average">${couplingTimeStep}</coupling_period>
+               <source_timelag>${oce_lag}</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
+               <interpolation method="fixed_value" user_value="-999.9"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
       </couple>
    </couples>
    <created date="16-04-2019 15:49" tool="YAC-CouplingGUI v.1.5"/>
@@ -615,7 +663,10 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
+ ntracer          = 5           ! number of tracers
+                                ! 3: hus, clw, cli
+                                ! 4: hus, clw, cli, o3
+                                ! 5: hus, clw, cli, o3, co2
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -654,10 +705,10 @@ cat > ${atm_namelist} << EOF
  hdiff_smag_fac   = 0.15       ! default: 0.015  too high values are very diffusive! Upper limit should be 0.15
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+!                   hus,clw,cli, o3, co2
+ ivadv_tracer     =   3,  3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  3,  3
+ ihadv_tracer     =  52,  2,  2, 52, 52
 /
 &echam_phy_nml
 !
@@ -695,7 +746,7 @@ cat > ${atm_namelist} << EOF
 !
  echam_rad_config(1)%isolrad    =  6
  echam_rad_config(1)%irad_h2o   =  1
- echam_rad_config(1)%irad_co2   =  2
+ echam_rad_config(1)%irad_co2   =  1
  echam_rad_config(1)%irad_ch4   =  2
  echam_rad_config(1)%irad_n2o   =  2
  echam_rad_config(1)%irad_o3    =  2          ! constant annual cycle climatology
@@ -732,6 +783,13 @@ cat > ${atm_namelist} << EOF
 &echam_cov_nml
  echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
  echam_cov_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
+/
+&ccycle_nml
+ ccycle_config(1)%iccycle   = 2      ! 0: no ccycle
+                                     ! 1: ccycle (interactive atm. co2)
+                                     ! 2: ccycle (prescribed atm. co2)
+ ccycle_config(1)%ico2conc  = 2      ! atm. co2 source (if iccycle=2) (2: const., 4: transient from file)
+ ccycle_config(1)%vmr_co2   = 284.3e-06    ! CO2 volume mixing ratio (if ico2conc = 2), default: 284.3e-06
 /
 &sea_ice_nml
 /
@@ -1038,7 +1096,8 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
-!                    'qo3_phy' ,
+                    'qco2_phy', 'mco2vi_phy', 'tend_mco2vi_phy'
+!                    'qo3_phy' ,                                   
 /
 EOF
 fi
@@ -1077,7 +1136,9 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'    ,
-                    'ptp'
+                    'ptp'     ,
+                    'co2_flux_wtr' , 'co2_flux_ice' , 'co2_flux_lnd' ,
+                    'fco2nat'
 /
 EOF
 fi
@@ -1191,7 +1252,7 @@ ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 
 # CAUTION: HAMOCC tracer transport does not include GMRedi transport, even if ocean does
 
-use_hamocc=no
+use_hamocc=yes
 
 
 if [  "x${use_hamocc}"  = "xyes" ]; then
@@ -1484,7 +1545,7 @@ cat >> ${oce_namelist} << EOF
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
   operation       = 'mean'
-  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
+  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min', 'co2mr'
 /
 EOF
 fi
@@ -1614,7 +1675,7 @@ if [  "x${use_hamocc}"  = "xyes" ]; then
 cat >> ${oce_namelist} << EOF
 &hamocc_nml
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
-l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
+l_cpl_co2                         = .TRUE.   ! CO2 coupled to land carbon cycle
 l_bgc_check                       = .FALSE.   ! mass check at every time step
 deltacalc                         = 2460.2        ! CaCO3 weathering rate [kmol/s] 
 deltaorg                          = 93.5        ! OC weathering rate [kmol/s]
