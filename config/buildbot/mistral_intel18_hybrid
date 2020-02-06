@@ -3,7 +3,7 @@
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/dkrz/mistral.intel-18.0.4 --enable-yaxt --enable-openmp
+${ICON_DIR}/config/dkrz/mistral.intel-18.0.5 --enable-yaxt --enable-openmp
 
 MAKE_PROCS=22
 make -j ${MAKE_PROCS}
