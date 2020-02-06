@@ -30,7 +30,7 @@ XML2_LIBS='-lxml2'
 
 AR='xiar'
 
-BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; module purge; module load ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
 
 CC='mpicc'
 CFLAGS='-gdwarf-4 -O3 -qno-opt-dynamic-align -ftz -march=native -g'
