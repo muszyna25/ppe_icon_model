@@ -3,7 +3,8 @@
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/dkrz/mistral.no_mpi.intel-17.0.6 --enable-openmp
+${ICON_DIR}/config/dkrz/mistral.intel-17.0.6 --enable-openmp --disable-mpi --disable-yaxt --disable-parallel-netcdf
+
 
 MAKE_PROCS=8
 make -j ${MAKE_PROCS}
