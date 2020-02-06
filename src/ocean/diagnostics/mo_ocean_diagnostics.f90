@@ -825,7 +825,8 @@ CONTAINS
            isRegistered('wT') .OR. isRegistered('wS') .OR. isRegistered('wR') .OR. &
            isRegistered('uu') .OR. isRegistered('uv') .OR. isRegistered('uw') .OR. &
            isRegistered('vv') .OR. isRegistered('ww') .OR. isRegistered('vw') .OR. &
-           isRegistered('sigma0') ) &
+           isRegistered('sigma0') .OR. isRegistered('hflR') .OR. isRegistered('fwR') .OR. &
+           isRegistered('tauxU') .OR. isRegistered('tauyV') ) &
           ) THEN
 
         CALL calc_eddydiag(patch_3d, p_diag%u, p_diag%v, p_diag%w_prismcenter  &
@@ -833,8 +834,11 @@ CONTAINS
                ,p_diag%uT, p_diag%uS, p_diag%uR, p_diag%uu    &
                ,p_diag%vT, p_diag%vS, p_diag%vR, p_diag%vv    &
                ,p_diag%wT, p_diag%wS, p_diag%wR, p_diag%ww    &
-               ,p_diag%uv, p_diag%uw, p_diag%vw, p_diag%sigma0 )
-
+               ,p_diag%uv, p_diag%uw, p_diag%vw, p_diag%sigma0 &
+               ,p_diag%hflR, p_diag%fwR, p_diag%tauxU, p_diag%tauyV &
+               ,p_oce_sfc%topbc_windstress_u, p_oce_sfc%topbc_windstress_v &
+               ,p_oce_sfc%heatflux_total, p_oce_sfc%frshflux_volumetotal )
+               
       ENDIF
 
       IF (isRegistered('mld')) THEN
@@ -2303,7 +2307,10 @@ END SUBROUTINE diag_heat_salt_tendency
   SUBROUTINE calc_eddydiag(patch_3d,u,v,w,T,S,R &
                ,uT, uS, uR, uu    &
                ,vT, vS, vR, vv    &
-               ,wT, wS, wR, ww, uv, uw, vw, sigma0)
+               ,wT, wS, wR, ww, uv, uw, vw, sigma0   &
+               ,hflr, fwr, tauxu, tauyv & 
+               , topbc_windstress_u, topbc_windstress_v &
+               ,heatflux_total, frshflux_volumetotal)
 
     TYPE(t_patch_3d), TARGET, INTENT(in)  :: patch_3d
 
@@ -2313,10 +2320,18 @@ END SUBROUTINE diag_heat_salt_tendency
     REAL(wp), INTENT(IN)   :: T(:,:,:) !< temerature
     REAL(wp), INTENT(IN)   :: S(:,:,:) !< salinity
     REAL(wp), INTENT(IN)   :: R(:,:,:) !< density
+    REAL(wp), INTENT(in)  :: heatflux_total(:,:)   !< net heatflux
+    REAL(wp), INTENT(in)  :: frshflux_volumetotal(:,:)   !< net fresh water flux 
+    REAL(wp), INTENT(in)  :: topbc_windstress_u(:,:)  !< windstress x 
+    REAL(wp), INTENT(in)  :: topbc_windstress_v(:,:)  !< windstress y
 
 
     REAL(wp), INTENT(INOUT)  :: sigma0(:,:,:) !< density - 1000
 
+    REAL(wp), INTENT(INOUT)  :: hflR(:,:) !< product of netheatflux and density
+    REAL(wp), INTENT(INOUT)  :: fwR(:,:) !< product of fw flux and density
+    REAL(wp), INTENT(INOUT)  :: tauxU(:,:) !< product of x-windstress and u-velocity
+    REAL(wp), INTENT(INOUT)  :: tauyV(:,:) !< product of y-windstress and v-velocity 
     REAL(wp), INTENT(INOUT)  :: uT(:,:,:) !< product of temperature and u-velocity
     REAL(wp), INTENT(INOUT)  :: uS(:,:,:) !< product of salinity and u-velocity
     REAL(wp), INTENT(INOUT)  :: uR(:,:,:) !< product of density and u-velocity
@@ -2346,6 +2361,12 @@ END SUBROUTINE diag_heat_salt_tendency
     DO blk = subset%start_block, subset%end_block
       CALL get_index_range(subset, blk, cellStart, cellEnd)
       DO cell = cellStart, cellEnd
+
+          hflR(cell,blk) = heatflux_total(cell,blk) * ( R(cell,1,blk) -1000.0_wp )
+          fwR(cell,blk) = frshflux_volumetotal(cell,blk) * ( R(cell,1,blk) -1000.0_wp )
+          tauxu(cell,blk) = topbc_windstress_u(cell,blk) * U(cell,1,blk)
+          tauyv(cell,blk) = topbc_windstress_v(cell,blk) * V(cell,1,blk)
+
 
         DO level=1,subset%vertical_levels(cell,blk)
 

@@ -220,13 +220,13 @@ MODULE mo_ocean_types
       & uu, &  !< square of u-velocity
       & vT, &  !< product of temperature and v-velocity
       & vS, &  !< product of salinity and v-velocity
-      & vR, &  !< product of density and v-velocity  
+      & vR, &  !< product of density and v-velocity
       & vv, &  !< square of  v-velocity
       & wT, &  !< product of temperature and w-velocity
       & wS, &  !< product of salinity and w-velocity
       & wR, &  !< product of density and w-velocity
-      & ww, &  !< square of w-velocity 
-      & uw, &  !< product of u-velocity and w-velocity 
+      & ww, &  !< square of w-velocity
+      & uw, &  !< product of u-velocity and w-velocity
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity
       & swrab, &  !< relative swr absorption factor
@@ -251,6 +251,10 @@ MODULE mo_ocean_types
 !      & dummy2d          ,&
       & heatabs_t        ,&
       & heatabb          ,&
+      & hflR, &  !< product of net heatflux and density
+      & fwR, &  !< product of fw flux and density
+      & tauxU, &  !< product of x-windstress and u-velocity
+      & tauyV, &  !< product of y-windstress and v-velocity
       & heat_content_snow ,&
       & heat_content_seaice ,&
       & delta_ice, & 

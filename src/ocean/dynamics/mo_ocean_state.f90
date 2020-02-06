@@ -1258,9 +1258,9 @@ CONTAINS
        & t_cf_var('odensitytend','','complete density tendency at cells', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
-       
+
     ENDIF ! diagnose_for_tendencies
-       
+
       IF (eddydiag) THEN
        CALL add_var(ocean_default_list, 'sigma0', ocean_state_diag%sigma0,&
        & grid_unstructured_cell, &
@@ -1268,6 +1268,34 @@ CONTAINS
        & t_cf_var('sigma0','kg m-3','density anomaly', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'hflR', ocean_state_diag%hflR,&
+       & grid_unstructured_cell, &
+       & za_surface, &
+       & t_cf_var('hflR','kg2ms-3','product of net heatflux and density', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'fwR', ocean_state_diag%fwR,&
+       & grid_unstructured_cell, &
+       & za_surface, &
+       & t_cf_var('fwR','kg m-2s-1','product of fw flux and density', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'tauxu', ocean_state_diag%tauxu,&
+       & grid_unstructured_cell, &
+       & za_surface, &
+       & t_cf_var('tauxu','Pa m-s','product of x windstress and u-velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'tauyv', ocean_state_diag%tauyv,&
+       & grid_unstructured_cell, &
+       & za_surface, &
+       & t_cf_var('tauyv','Pa m-s','product of y windstress and v-velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_eddy"))
 
        CALL add_var(ocean_default_list, 'uT', ocean_state_diag%uT,&
        & grid_unstructured_cell, &
