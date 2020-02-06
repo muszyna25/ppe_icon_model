@@ -5,7 +5,7 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='gcc/6.4.0 openmpi/2.0.2p2_hpcx-gcc64'
+MODULES='gcc/6.4.0 openmpi/2.0.2p1_hpcx-gcc64'
 
 SW_ROOT='/sw/rhel6-x64'
 
@@ -29,7 +29,7 @@ XML2_LIBS='-lxml2'
 
 ################################################################################
 
-BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:${MKL_ROOT}/lib/intel64:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; module purge; module load ${MODULES}; export LD_LIBRARY_PATH=\"${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${GRIBAPI_ROOT}/lib:${MKL_ROOT}/lib/intel64:\${LD_LIBRARY_PATH}\";"
 
 CC='mpicc'
 CFLAGS='-g -march=native -mpc64'
