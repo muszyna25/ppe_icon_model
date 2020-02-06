@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([icon], [2.6.0-rc], [icon@mpimet.mpg.de], [icon-2.6.0-rc])
+AC_INIT([icon], [2.6.0], [], [icon-2.6.0])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([utils])
 AC_CONFIG_SRCDIR([src/drivers/icon.f90])
