@@ -329,6 +329,7 @@ CONTAINS
         ALLOCATE(checkpoint(i)%albnirdir(nproma,1,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%albnirdif(nproma,1,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%Wind_Speed_10m(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%CO2_Mixing_Ratio(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_Total(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_Shortwave(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_LongWave(nproma,alloc_cell_blocks),stat=status)
@@ -338,8 +339,6 @@ CONTAINS
         ALLOCATE(checkpoint(i)%FrshFlux_Evaporation(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%FrshFlux_SnowFall(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%FrshFlux_Runoff(nproma,alloc_cell_blocks),stat=status)
-        ALLOCATE(checkpoint(i)%FrshFlux_AtmHD(nproma,alloc_cell_blocks),stat=status)
-        ALLOCATE(checkpoint(i)%FrshFlux_BelowIce(nproma,alloc_cell_blocks),stat=status)
 
         ALLOCATE(checkpoint(i)%SaltFlux_Relax(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%FrshFlux_Relax(nproma,alloc_cell_blocks),stat=status)
@@ -863,18 +862,6 @@ CONTAINS
     CALL add_var(ocean_default_list, 'FrshFlux_Runoff_global', ocean_state_diag%monitor%FrshFlux_Runoff , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('FrshFlux_Runoff', 'm/s', 'FrshFlux_Runoff', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & in_group=groups("ocean_monitor"),ldims=(/1/))
-
-    CALL add_var(ocean_default_list, 'FrshFlux_AtmHD_global', ocean_state_diag%monitor%FrshFlux_AtmHD , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_AtmHD', 'm/s', 'FrshFlux_AtmHD', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & in_group=groups("ocean_monitor"),ldims=(/1/))
-
-    CALL add_var(ocean_default_list, 'FrshFlux_BelowIce_global', ocean_state_diag%monitor%FrshFlux_BelowIce , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('FrshFlux_BelowIce', 'm/s', 'FrshFlux_BelowIce', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 

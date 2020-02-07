@@ -878,6 +878,11 @@ CONTAINS
          !
       END IF
 
+      ! set initial co2 flux to 0 everywhere if no restart
+      IF (.NOT. isrestart()) THEN
+         field% co2_flux_tile(:,:,:) = 0.0_wp
+      END IF
+
       ! vertical diffusion
       IF (.NOT. isrestart()) THEN
         IF (echam_phy_tc(jg)%dt_vdf > dt_zero) THEN

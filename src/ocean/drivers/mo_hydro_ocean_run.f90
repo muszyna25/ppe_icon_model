@@ -89,7 +89,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
   USE mo_hamocc_diagnostics,     ONLY: get_inventories
-  USE mo_hamocc_nml,             ONLY: io_stdo_bgc
+  USE mo_hamocc_nml,             ONLY: io_stdo_bgc, l_cpl_co2
   USE mo_end_bgc,                ONLY: cleanup_hamocc
   USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
   USE mo_ocean_tides,         ONLY: tide    
@@ -131,6 +131,11 @@ CONTAINS
         ! Initialize 10m Wind Speed from restart file when run in coupled mode
         p_as%fu10 = p_oce_sfc%Wind_Speed_10m
         p_as%pao = p_oce_sfc%sea_level_pressure
+    ENDIF
+
+    IF (is_restart .AND. is_coupled_run() .AND. l_cpl_co2 ) THEN
+        ! Initialize CO" Mixing Ration from restart file when run in coupled mode with HAMOCC
+        p_as%co2 = p_oce_sfc%CO2_Mixing_Ratio
     ENDIF
 
     IF (is_restart .AND. (i_ice_dyn == 1)) THEN
@@ -552,6 +557,10 @@ CONTAINS
           p_oce_sfc%HeatFlux_Sensible      = p_atm_f%HeatFlux_Sensible
           p_oce_sfc%HeatFlux_Latent        = p_atm_f%HeatFlux_Latent
           p_oce_sfc%FrshFlux_Runoff        = p_atm_f%FrshFlux_Runoff
+
+          IF ( l_cpl_co2 ) THEN
+            p_oce_sfc%CO2_Mixing_Ratio     = p_as%co2
+          ENDIF
 
         ENDIF
 

@@ -18,18 +18,6 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 #
 # A test version for HD is included. Model is water mass conserving now.
 #
-# Hamocc is activated by default.
-#
-#####################################################################################
-#
-# This is a TEST script for the interactive carbon cycle which needs DEBUGGING
-# -> running with fully interactive CO2 currently results in lookup table overflow after 6 days
-#    (very extreme fluxes over ocean)
-# -> running with CO2 exchange, but fixed atmospheric co2 concentration results in hCFL errors
-#    after ~3 months
-#
-#####################################################################################
-#
 # Here, ocean is initialized from long (3600y) tuning run with good AMOC and sea-ice.
 # Hamocc is initialized with cmip6 data interpolated to icon-ocean grid.
 #
@@ -785,7 +773,7 @@ cat > ${atm_namelist} << EOF
  echam_cov_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
 /
 &ccycle_nml
- ccycle_config(1)%iccycle   = 2      ! 0: no ccycle
+ ccycle_config(1)%iccycle   = 1      ! 0: no ccycle
                                      ! 1: ccycle (interactive atm. co2)
                                      ! 2: ccycle (prescribed atm. co2)
  ccycle_config(1)%ico2conc  = 2      ! atm. co2 source (if iccycle=2) (2: const., 4: transient from file)
@@ -1273,9 +1261,9 @@ else
 lhamocc=".FALSE."
 lbgcadv=".FALSE."
 fi
-l_init_bgc=".true." # initialize HAMOCC (if HAMOCC state variables are not in restart)
-if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
-  l_init_bgc=".false."
+l_init_bgc=".false." # Hamocc state variables are in restart
+if [[ "$initialiseOcean" == "fromRestart" ]] || [[ "$initialiseOcean" == "fromClimatology" ]]; then
+  l_init_bgc=".true." # initialize HAMOCC (HAMOCC state variables are not in restart)
 fi
 # ----------------------------------------------------------------------------
 #
