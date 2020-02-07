@@ -20,9 +20,9 @@ MODULE mo_storage
 
   USE ISO_C_BINDING,                    ONLY: C_INT32_T, C_INT64_T
   USE mo_kind,                          ONLY: wp
-  USE mo_exception,                     ONLY: finish
+  USE mo_exception,                     ONLY: finish, message, message_text
   USE mo_util_string,                   ONLY: tolower
-  USE mo_hash_table,                    ONLY: t_HashTable, hashTable_make
+  USE mo_hash_table,                    ONLY: t_HashTable, hashTable_make, t_DestructibleContainer
   USE mo_fortran_tools,                 ONLY: t_Destructible
   USE mo_impl_constants,                ONLY: SUCCESS
 
@@ -78,6 +78,7 @@ MODULE mo_storage
       PROCEDURE, PRIVATE :: get_string
       PROCEDURE, PRIVATE :: get_logical
       GENERIC,   PUBLIC  :: get      => get_real, get_int, get_string, get_logical
+      PROCEDURE, PUBLIC  :: dump     => dump_storage
   END TYPE t_storage
   
   CHARACTER(len=*), PARAMETER :: modname = 'mo_storage'
@@ -119,6 +120,58 @@ SUBROUTINE init_storage(this_storage,lcase_sensitivity)
  this_storage%container = tmp_container
  DEALLOCATE(tmp_container)
 END SUBROUTINE init_storage
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE dump_storage(this_storage,opt_label_in)
+  CLASS(t_storage),INTENT(inout)           :: &
+    &  this_storage
+  CHARACTER(LEN = *), INTENT(IN),OPTIONAL  :: &
+    &  opt_label_in
+  CHARACTER(LEN = *), PARAMETER            :: routine = modname//":dump_storage"
+  CHARACTER(LEN = 3)                       :: i_string
+  CHARACTER(LEN = 128)                     :: opt_label
+  INTEGER :: i
+  CLASS(t_DestructibleContainer),POINTER :: keys(:),vals(:)
+
+  opt_label = ""
+  IF(PRESENT(opt_label_in)) THEN
+    opt_label = TRIM(opt_label_in)
+  ENDIF
+
+  CALL this_storage%container%dumpPrepare(keys,vals)
+
+  IF(.NOT.(ASSOCIATED(keys).AND.ASSOCIATED(vals))) THEN
+    CALL message(routine,"Storage structure is empty")
+  ELSE
+    WRITE(message_text,"(A)") "START STORAGE DUMP ("//TRIM(opt_label)//")"
+    CALL message(routine,message_text)
+    DO i=1,SIZE(keys)
+      WRITE(message_text,"(A,I2.2,A)") ">> ",i,": key="
+      SELECT TYPE(p_key => keys(i)%dest)
+        TYPE IS(t_stringVal)
+          WRITE(message_text,"(A,A,A20,A)") TRIM(message_text),"'",p_key%stringVal,"'"
+        CLASS DEFAULT
+          WRITE(message_text,"(A,A20)") TRIM(message_text),"<invalid>"
+      END SELECT
+      WRITE(message_text,"(A)") TRIM(message_text)//" ; value="
+      SELECT TYPE(p_val => vals(i)%dest)
+        TYPE IS(t_stringVal)
+          WRITE(message_text,"(A,A)") TRIM(message_text),"'"//TRIM(p_val%stringVal)//"'"
+        TYPE IS(t_intVal)
+          WRITE(message_text,"(A,I0)") TRIM(message_text),p_val%intVal
+        TYPE IS(t_realVal)
+          WRITE(message_text,"(A,F)") TRIM(message_text),p_val%realVal
+        TYPE IS(t_logVal)
+          WRITE(message_text,"(A,L)") TRIM(message_text),p_val%logVal
+        CLASS DEFAULT
+          WRITE(message_text,"(A,A)") TRIM(message_text),"<invalid>"
+      END SELECT
+      CALL message(routine,message_text)
+    END DO
+    CALL message(routine,"END OF STORAGE DUMP ("//TRIM(opt_label)//")")
+  END IF
+END SUBROUTINE dump_storage
 !!
 !!-------------------------------------------------------------------------
 !!

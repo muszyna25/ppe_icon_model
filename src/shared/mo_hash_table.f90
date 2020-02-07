@@ -20,13 +20,14 @@
 
 MODULE mo_hash_table
     USE ISO_C_BINDING, ONLY: C_INT32_T
-    USE mo_exception, ONLY: finish
+    USE mo_exception, ONLY: finish, message, message_text
     USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_impl_constants, ONLY: SUCCESS
 
     IMPLICIT NONE
 
     PUBLIC :: t_HashTable, hashTable_make, t_HashIterator
+    PUBLIC :: t_DestructibleContainer
     PRIVATE
 
     ABSTRACT INTERFACE
@@ -53,6 +54,7 @@ MODULE mo_hash_table
         PROCEDURE :: removeEntry => hashTable_removeEntry
         PROCEDURE :: getEntry => hashTable_getEntry
         PROCEDURE :: destruct => hashTable_destruct
+        PROCEDURE :: dumpPrepare => hashTable_dumpPrepare
 
         PROCEDURE, PRIVATE :: findBin => hashTable_findBin
         PROCEDURE, PRIVATE :: growTable => hashTable_growTable
@@ -80,6 +82,10 @@ MODULE mo_hash_table
         CLASS(t_Destructible), POINTER :: key, val
         TYPE(t_HashEntryPtr) :: next
         INTEGER(C_INT32_T) :: hash
+    END TYPE
+
+    TYPE :: t_DestructibleContainer
+        CLASS(t_Destructible), POINTER :: dest
     END TYPE
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_hash_table"
@@ -281,6 +287,32 @@ CONTAINS
         END DO
         DEALLOCATE(me%table)
     END SUBROUTINE hashTable_destruct
+
+    SUBROUTINE hashTable_dumpPrepare(me,keys_con,vals_con)
+        CLASS(t_HashTable), INTENT(INOUT)   :: me
+        CLASS(t_DestructibleContainer),POINTER, INTENT(INOUT) :: &
+          &  keys_con(:), vals_con(:)
+        INTEGER                             :: i,it
+        TYPE(t_HashEntry), POINTER          :: current_entry
+        
+        IF(me%entryCount == 0) THEN
+          keys_con => NULL()
+          vals_con => NULL() 
+        ELSE
+          ALLOCATE(keys_con(me%entryCount))
+          ALLOCATE(vals_con(me%entryCount))
+          i = 1
+          DO it=1,SIZE(me%table)
+            current_entry => me%table(it)%ptr
+            DO WHILE(ASSOCIATED(current_entry))
+              keys_con(i)%dest => current_entry%key
+              vals_con(i)%dest => current_entry%val
+              current_entry => current_entry%next%ptr
+              i = i + 1
+            END DO
+          END DO
+        ENDIF
+    END SUBROUTINE hashTable_dumpPrepare
 
     SUBROUTINE hashIterator_init(me, table)
         CLASS(t_HashIterator), INTENT(INOUT) :: me
