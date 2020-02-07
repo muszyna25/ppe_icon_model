@@ -11,8 +11,5 @@ prepend-path-if-exists PERLLIB $ADD_BASE/lib/perl5/x86_64-linux-thread-multi
 prepend-path-if-exists PYTHONPATH $ADD_BASE/lib/python2.7/site-packages
 
 set_dependencies {
-    intel/17.0.6
-    openmpi/2.0.2p1_hpcx-intel14
-    ncl/6.5.0-gccsys
-    cdo/1.9.8-magicsxx-gcc64
+    python/2.7.12
 }

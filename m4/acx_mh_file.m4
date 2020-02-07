@@ -147,6 +147,7 @@ EOF
           export hostname
           export with_mpi
           export host
+          export srcdir
           AS_IF([test -z "$CONFIG_SHELL"],[CONFIG_SHELL=$SHELL]) 
           load_modules=$($CONFIG_SHELL -c '. ./conftest; echo "$load_modules"')
           ignore_if_loaded=$($CONFIG_SHELL -c '. ./conftest; echo "$ignore_if_loaded"')
@@ -208,6 +209,7 @@ EOF
           export hostname
           export with_mpi
           export host
+          export srcdir
           AS_IF([test -z "$CONFIG_SHELL"],[CONFIG_SHELL=$SHELL]) 
           load_profile=$($CONFIG_SHELL -c '. ./conftest; echo "$load_profile"')
           /bin/rm -f confsed conftest

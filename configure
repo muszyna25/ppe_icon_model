@@ -2923,6 +2923,7 @@ EOF
           export hostname
           export with_mpi
           export host
+          export srcdir
           if test -z "$CONFIG_SHELL"; then :
   CONFIG_SHELL=$SHELL
 fi
@@ -2986,6 +2987,7 @@ EOF
           export hostname
           export with_mpi
           export host
+          export srcdir
           if test -z "$CONFIG_SHELL"; then :
   CONFIG_SHELL=$SHELL
 fi
@@ -3036,24 +3038,22 @@ fi
                      for mod in $modules_loaded
                      do
                          mod_ignore=$(echo $check_loaded | $GREP -o "$replacement")
-		         if test ${mod%%/*} = ${replacement%%/*}; then
-  if test "$mod" != "$replacement"; then
-  if test ! -z $mod_ignore; then
-  { $as_echo "$as_me:$LINENO: Module $mod already loaded, ignoring." >&5
+		         if test ${mod%/*} = ${replacement%/*}; then :
+  if test "$mod" != "$replacement"; then :
+  if test ! -z $mod_ignore; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Module $mod already loaded, ignoring." >&5
 $as_echo "$as_me: Module $mod already loaded, ignoring." >&6;}
                                               is_loaded=true
 else
 
-                                              if test ! -z prgenv_loaded; then
+                                              if test ! -z prgenv_loaded; then :
   module unload $mod
                                                      module load $replacement
 else
   module swap $mod $replacement
 fi
 
-
 fi
-
 
 else
   is_loaded=true

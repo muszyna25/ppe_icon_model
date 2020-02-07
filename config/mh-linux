@@ -797,7 +797,7 @@ case "$ac_sitename" in
     dkrz.de|bullx)
         case "$(hostname)" in
             btlogin*|btc*|mlogin*)
-                load_modules  = ncl/6.2.1-gccsys cdo/1.9.5-gcc64 svn/1.8.13 ${load_modules}
+                load_modules  = ncl/6.5.0-gccsys cdo/1.9.8-gcc64 git/2.25.0 $(cd $srcdir;pwd)/etc/Modules/icon-switch ${load_modules}
                 load_profile  = /etc/profile
                 software_tree = /sw/rhel6-x64
                 config_target = bullx_cpu

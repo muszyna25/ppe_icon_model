@@ -75,7 +75,7 @@ AC_DEFUN([ACX_SWAP_MODULES],
                      for mod in $modules_loaded
                      do
                          mod_ignore=$(echo $check_loaded | $GREP -o "$replacement")
-		         AS_IF([test ${mod%%/*} = ${replacement%%/*}],
+		         AS_IF([test ${mod%/*} = ${replacement%/*}],
  		               [AS_IF([test "$mod" != "$replacement"],
                                       [AS_IF([test ! -z $mod_ignore],
                                              [AC_MSG_NOTICE([Module $mod already loaded, ignoring.])

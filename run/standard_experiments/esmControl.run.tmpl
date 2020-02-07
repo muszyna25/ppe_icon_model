@@ -41,14 +41,14 @@ cd $MODEL_DIR/run
 #-----------------------------------------------------------------------------
 # target parameters
 # ----------------------------
-site="dkrz.de"
-target="bullx_cpu"
-compiler="intel"
-loadmodule="intel/17.0.6 ncl/6.2.1-gccsys cdo/1.9.5-gcc64 svn/1.8.13  openmpi/2.0.2p1_hpcx-intel14"
-with_mpi="yes"
-with_openmp="no"
+site="%{use_site}"
+target="%{use_target}"
+compiler="%{use_compiler}"
+loadmodule="%{use_load_modules}"
+with_mpi="%{use_mpi}"
+with_openmp="%{use_openmpi}"
 job_name="%{EXP_ID}.run"
-submit="sbatch"
+submit="%{use_submit}"
 #-----------------------------------------------------------------------------
 # openmp environment variables
 # ----------------------------
