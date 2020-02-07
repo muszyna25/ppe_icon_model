@@ -721,68 +721,143 @@ CONTAINS
     integer :: index
 
     index = -1
-    if (source%field%info%lcontained) then
-      index = source%field%info%ncontained
 
-      ! tackle 4d containers
-      SELECT CASE(source%field%info%var_ref_pos)
-      CASE(1)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)
-      CASE(2)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)
-      CASE(3)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:)
-      CASE(4)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
-      END SELECT
+    IF (.NOT. ASSOCIATED(source%field%r_ptr)) THEN
+      CALL add_sp()
     ELSE
-      ! tackle 1d, 2d and 3d
-      SELECT CASE(destination%field%info%ndims)
-      CASE(3)
-       !hack for sea ice variables which uses vertical level for ice class
-        IF (1 == destination%field%info%used_dimensions(2)) THEN
-          call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=1, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-          call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=destination%field%info%used_dimensions(2), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE
-          call add_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ENDIF
-      CASE(2)
-        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-          call add_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE
-          call add_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ENDIF
-      CASE DEFAULT
-        destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
-      END SELECT
-    endif
+      CALL add_wp()
+    ENDIF
     counter                 = counter + 1
+
+    CONTAINS
+      SUBROUTINE add_wp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:)
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
+          END SELECT
+        ELSE
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
+          END SELECT
+        ENDIF
+      END SUBROUTINE add_wp
+      SUBROUTINE add_sp() 
+        IF (source%field%info%lcontained) then
+          index = source%field%info%ncontained
+          ! tackle 4d containers
+          if (my_process_is_stdio()) print *,'sheeep:',shape(source%field%s_ptr)
+          if (my_process_is_stdio()) print *,'deeeep:',shape(destination%field%s_ptr)
+          if (my_process_is_stdio()) print *,'index:',trim(int2string(index))
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(index:index,:,:,:,:),wp)
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,index:index,:,:,:),wp)
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,index:index,:,:) ,wp)
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,:,index:index,:),wp)
+          END SELECT
+        ELSE
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%s_ptr(:,:,:,:,:),wp)
+          END SELECT
+        ENDIF
+      END SUBROUTINE add_sp
   END SUBROUTINE statistics_add
 
   ! methods needed for update statistics each timestep
@@ -797,69 +872,143 @@ CONTAINS
     integer :: index
 
     index = -1
-    if (source%field%info%lcontained) then
-      index = source%field%info%ncontained
 
-      ! tackle 4d containers
-      SELECT CASE(source%field%info%var_ref_pos)
-      CASE(1)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)**2
-      CASE(2)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)**2
-      CASE(3)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:)**2
-      CASE(4)
-        destination%field%r_ptr(:,:,:,:,:) = &
-          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)**2
-      END SELECT
+    IF (.NOT. ASSOCIATED(source%field%r_ptr)) THEN
+      CALL add_sqr_sp()
     ELSE
-      ! tackle 1d, 2d and 3d
-      SELECT CASE(destination%field%info%ndims)
-      CASE(3)
-       !hack for sea ice variables which uses vertical level for ice class
-        IF (1 == destination%field%info%used_dimensions(2)) THEN
-          call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=1, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-          call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=destination%field%info%used_dimensions(2), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE
-          call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ENDIF
-      CASE(2)
-        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-          call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE
-          call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ENDIF
-      CASE DEFAULT
-        destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)**2
-      END SELECT
-    endif
+      CALL add_sqr_wp()
+    ENDIF
     counter                 = counter + 1
+
+    CONTAINS
+      SUBROUTINE add_sqr_wp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)**2
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)**2
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:)**2
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)**2
+          END SELECT
+        ELSE
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)**2
+          END SELECT
+        ENDIF
+      END SUBROUTINE add_sqr_wp
+      SUBROUTINE add_sqr_sp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(index:index,:,:,:,:),wp)**2
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,index:index,:,:,:),wp)**2
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,index:index,:,:),wp)**2
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+              & destination%field%r_ptr (:,:,:,:,:) + REAL(source%field%r_ptr(:,:,:,index:index,:),wp)**2
+          END SELECT
+        ELSE
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_sqr_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call add_sqr_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)**2
+          END SELECT
+        ENDIF
+      END SUBROUTINE add_sqr_sp
   END SUBROUTINE statistics_add_sqr
+
   SUBROUTINE statistics_assign(source, destination, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
@@ -868,65 +1017,135 @@ CONTAINS
     integer :: index
 
     index = -1
-    if (source%field%info%lcontained) then
-      index = source%field%info%ncontained
 
-      ! tackle 4d containers
-      SELECT CASE(source%field%info%var_ref_pos)
-      CASE(1)
-        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(index:index,:,:,:,:)
-      CASE(2)
-        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,index:index,:,:,:)
-      CASE(3)
-        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,index:index,:,:)
-      CASE(4)
-        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,index:index,:)
-      END SELECT
+    IF (.NOT. ASSOCIATED(source%field%r_ptr)) THEN
+      CALL assign_sp()
     ELSE
-      ! tackle 1d, 2d and 3d
-      SELECT CASE(destination%field%info%ndims)
-      CASE(3)
-       !hack for sea ice variables which uses vertical level for ice class
-        IF (1 == destination%field%info%used_dimensions(2)) THEN
-          call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=1, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-          call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=destination%field%info%used_dimensions(2), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+      CALL assign_wp()
+    ENDIF
+    counter                 = counter + 1
+
+    CONTAINS
+      SUBROUTINE assign_wp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(index:index,:,:,:,:)
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,index:index,:,:,:)
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,index:index,:,:)
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,index:index,:)
+          END SELECT
         ELSE
-          call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,:,:)
+          END SELECT
         ENDIF
-      CASE(2)
-        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-          call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+      END SUBROUTINE assign_wp
+      SUBROUTINE assign_sp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(index:index,:,:,:,:),wp)
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,index:index,:,:,:),wp)
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,:,index:index,:,:),wp)
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,:,:,index:index,:),wp)
+          END SELECT
         ELSE
-          call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call assign_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call assign_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = REAL(source%field%r_ptr(:,:,:,:,:),wp)
+          END SELECT
         ENDIF
-      CASE DEFAULT
-        destination%field%r_ptr(:,:,:,:,:) = source%field%r_ptr(:,:,:,:,:)
-      END SELECT
-    endif
-    counter = counter + 1
+      END SUBROUTINE assign_sp
   END SUBROUTINE statistics_assign
+
   SUBROUTINE statistics_max(source, destination, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
@@ -935,80 +1154,165 @@ CONTAINS
     integer :: index
 
     index = -1
-    if (source%field%info%lcontained) then
-      index = source%field%info%ncontained
 
-      ! tackle 4d containers
-      SELECT CASE(source%field%info%var_ref_pos)
-      CASE(1)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(index:index,:,:,:,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(index:index,:,:,:,:))
-      CASE(2)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(:,index:index,:,:,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,index:index,:,:,:))
-      CASE(3)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(:,:,index:index,:,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,index:index,:,:))
-      CASE(4)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(:,:,:,index:index,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,:,index:index,:))
-      END SELECT
+    IF (.NOT. ASSOCIATED(source%field%r_ptr)) THEN
+      CALL max_sp()
     ELSE
-      ! tackle 1d, 2d and 3d
-      SELECT CASE(destination%field%info%ndims)
-      CASE(3)
-       !hack for sea ice variables which uses vertical level for ice class
-        IF (1 == destination%field%info%used_dimensions(2)) THEN
-          call max_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=1, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-          call max_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=destination%field%info%used_dimensions(2), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+      CALL max_wp()
+    ENDIF
+    counter                 = counter + 1
+
+    CONTAINS
+      SUBROUTINE max_wp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(index:index,:,:,:,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(index:index,:,:,:,:))
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(:,index:index,:,:,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,index:index,:,:,:))
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(:,:,index:index,:,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,index:index,:,:))
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(:,:,:,index:index,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.source%field%r_ptr(:,:,:,index:index,:))
+          END SELECT
         ELSE
-          call max_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ENDIF
-      CASE(2)
-        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-          call max_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = &
+                & merge(destination%field%r_ptr, &
+                &       source%field%r_ptr, &
+                &       destination%field%r_ptr.gt.source%field%r_ptr)
+          END SELECT
+        ENDIf
+      END SUBROUTINE max_wp
+      SUBROUTINE max_sp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(index:index,:,:,:,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(index:index,:,:,:,:),wp))
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(:,index:index,:,:,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(:,index:index,:,:,:),wp))
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(:,:,index:index,:,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(:,:,index:index,:,:),wp))
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(:,:,:,index:index,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).gt.REAL(source%field%r_ptr(:,:,:,index:index,:),wp))
+          END SELECT
         ELSE
-          call max_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ENDIF
-      CASE DEFAULT
-        destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr, &
-            &       source%field%r_ptr, &
-            &       destination%field%r_ptr.gt.source%field%r_ptr)
-      END SELECT
-    endif
-    counter = counter + 1
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call max_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call max_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = &
+                & merge(destination%field%r_ptr, &
+                &       REAL(source%field%s_ptr,wp), &
+                &       destination%field%r_ptr.gt.REAL(source%field%s_ptr,wp))
+          END SELECT
+        ENDIf
+      END SUBROUTINE max_sp
   END SUBROUTINE statistics_max
+
   SUBROUTINE statistics_min(source, destination, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
@@ -1017,79 +1321,162 @@ CONTAINS
     integer :: index
 
     index = -1
-    if (source%field%info%lcontained) then
-      index = source%field%info%ncontained
-
-      ! tackle 4d containers
-      SELECT CASE(source%field%info%var_ref_pos)
-      CASE(1)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(index:index,:,:,:,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(index:index,:,:,:,:))
-      CASE(2)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(:,index:index,:,:,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,index:index,:,:,:))
-      CASE(3)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(:,:,index:index,:,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,index:index,:,:))
-      CASE(4)
-        destination%field%r_ptr(:,:,:,:,:) = &
-        & merge(destination%field%r_ptr (:,:,:,:,:), &
-        &       source%field%r_ptr(:,:,:,index:index,:), &
-        &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,:,index:index,:))
-      END SELECT
+    IF (.NOT. ASSOCIATED(source%field%r_ptr)) THEN
+      CALL min_sp()
     ELSE
-      ! tackle 1d, 2d and 3d
-      SELECT CASE(destination%field%info%ndims)
-      CASE(3)
-       !hack for sea ice variables which uses vertical level for ice class
-        IF (1 == destination%field%info%used_dimensions(2)) THEN
-          call min_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=1, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
-        ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
-          call min_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             levels=destination%field%info%used_dimensions(2), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+      CALL min_wp()
+    ENDIF
+    counter                 = counter + 1
+
+    CONTAINS
+      SUBROUTINE min_wp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(index:index,:,:,:,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(index:index,:,:,:,:))
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(:,index:index,:,:,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,index:index,:,:,:))
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(:,:,index:index,:,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,index:index,:,:))
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       source%field%r_ptr(:,:,:,index:index,:), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.source%field%r_ptr(:,:,:,index:index,:))
+          END SELECT
         ELSE
-          call min_fields(destination%field%r_ptr(:,:,:,1,1), &
-            &             source%field%r_ptr(:,:,:,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%r_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%r_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = &
+                & merge(destination%field%r_ptr, &
+                &       source%field%r_ptr, &
+                &       destination%field%r_ptr.lt.source%field%r_ptr)
+          END SELECT
         ENDIF
-      CASE(2)
-        IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
-          call min_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+      END SUBROUTINE min_wp
+      SUBROUTINE min_sp()
+        IF (source%field%info%lcontained) THEN
+          index = source%field%info%ncontained
+
+          ! tackle 4d containers
+          SELECT CASE(source%field%info%var_ref_pos)
+          CASE(1)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(index:index,:,:,:,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%s_ptr(index:index,:,:,:,:),wp))
+          CASE(2)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(:,index:index,:,:,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%r_ptr(:,index:index,:,:,:),wp))
+          CASE(3)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(:,:,index:index,:,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%r_ptr(:,:,index:index,:,:),wp))
+          CASE(4)
+            destination%field%r_ptr(:,:,:,:,:) = &
+            & merge(destination%field%r_ptr (:,:,:,:,:), &
+            &       REAL(source%field%s_ptr(:,:,:,index:index,:),wp), &
+            &       destination%field%r_ptr(:,:,:,:,:).lt.REAL(source%field%r_ptr(:,:,:,index:index,:),wp))
+          END SELECT
         ELSE
-          call min_fields(destination%field%r_ptr(:,:,1,1,1), &
-            &             source%field%r_ptr(:,:,1,1,1), &
-            &             destination%field%info%subset, &
-            &             has_missvals=destination%field%info%lmiss, &
-            &             missval=destination%field%info%missval%rval)
+          ! tackle 1d, 2d and 3d
+          SELECT CASE(destination%field%info%ndims)
+          CASE(3)
+           !hack for sea ice variables which uses vertical level for ice class
+            IF (1 == destination%field%info%used_dimensions(2)) THEN
+              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=1, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE IF (ZA_OCEAN_SEDIMENT == destination%field%info%vgrid) THEN
+              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             levels=destination%field%info%used_dimensions(2), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call min_fields(destination%field%r_ptr(:,:,:,1,1), &
+                &             source%field%s_ptr(:,:,:,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE(2)
+            IF (GRID_ZONAL .EQ. destination%field%info%hgrid) THEN
+              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ELSE
+              call min_fields(destination%field%r_ptr(:,:,1,1,1), &
+                &             source%field%s_ptr(:,:,1,1,1), &
+                &             destination%field%info%subset, &
+                &             has_missvals=destination%field%info%lmiss, &
+                &             missval=destination%field%info%missval%rval)
+            ENDIF
+          CASE DEFAULT
+            destination%field%r_ptr(:,:,:,:,:) = &
+                & merge(destination%field%r_ptr, &
+                &       REAL(source%field%r_ptr,wp), &
+                &       destination%field%r_ptr.lt.REAL(source%field%r_ptr,wp))
+          END SELECT
         ENDIF
-      CASE DEFAULT
-        destination%field%r_ptr(:,:,:,:,:) = &
-            & merge(destination%field%r_ptr, &
-            &       source%field%r_ptr, &
-            &       destination%field%r_ptr.lt.source%field%r_ptr)
-      END SELECT
-    endif
-    counter = counter + 1
+      END SUBROUTINE min_sp
   END SUBROUTINE statistics_min
   !>
   !! Execute the accumulation forall internal variables and compute mean values

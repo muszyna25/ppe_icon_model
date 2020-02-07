@@ -1256,9 +1256,8 @@ IF (ptr_patch%geometry_info%cell_type == 3) THEN
       DO jk = slev, elev
 #else
 !CDIR UNROLL=6
-    !$ACC LOOP GANG
+    !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev, elev
-      !$ACC LOOP VECTOR
       DO jc = 1, nlen
 #endif
 

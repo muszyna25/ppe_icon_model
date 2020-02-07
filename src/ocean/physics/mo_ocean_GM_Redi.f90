@@ -51,7 +51,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_exception,                 ONLY: finish, message !, message_text, message
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
   USE mo_ocean_physics_types,       ONLY: t_ho_params 
-  USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff, Get3DVectorTo2DLocal_array3D
+  USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_patch_array_mult, sync_c, sync_e, sync_patch_array
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_dif_vert
@@ -102,7 +102,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
-    TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
+    TYPE(t_operator_coeff),            INTENT(in) :: op_coeff
    !-------------------------------------------------------------------------------
 
 
@@ -480,7 +480,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
-    TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
+    TYPE(t_operator_coeff),            INTENT(in) :: op_coeff
     
     !Local variables
     REAL(wp) :: grad_T_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)

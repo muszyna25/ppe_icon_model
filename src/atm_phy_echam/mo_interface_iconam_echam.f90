@@ -65,10 +65,11 @@
 MODULE mo_interface_iconam_echam
 
   USE mo_kind                  ,ONLY: wp
-  USE mo_exception             ,ONLY: finish, print_value
+  USE mo_exception             ,ONLY: warning, finish, print_value
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
+  USE mo_advection_config      ,ONLY: advection_config
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqm_max
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
@@ -105,11 +106,15 @@ MODULE mo_interface_iconam_echam
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
-  !$ser verbatim USE mo_ser_iconam_echam, ONLY: serialize_iconam_input,&
-  !$ser verbatim                                serialize_iconam_output
-
   USE mo_run_config,            ONLY: lart
   USE mo_art_config,            ONLY: art_config
+#if defined( _OPENACC )
+  USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
+#endif
+  !$ser verbatim USE mo_ser_iconam_echam, ONLY: serialize_iconam_input,&
+  !$ser verbatim                                serialize_iconam_output
+  !$ser verbatim USE mo_ser_diagnose_pres_temp, ONLY: serialize_prestemp_input => serialize_input,&
+  !$ser verbatim                                      serialize_prestemp_output => serialize_output
 
   USE mo_upatmo_config         ,ONLY: upatmo_config, idamtr
 
@@ -248,6 +253,27 @@ CONTAINS
     datetime_old      =  datetime_new + neg_dt_loc_mtime
     CALL deallocateTimedelta(neg_dt_loc_mtime)
 
+    !$ACC DATA PRESENT( pt_prog_old%vn, pt_prog_old%theta_v, pt_prog_old%exner,                 &
+    !$ACC               pt_prog_old_rcf%tracer, pt_prog_new%vn, pt_prog_new%w, pt_prog_new%rho, &
+    !$ACC               pt_prog_new%exner, pt_prog_new%theta_v,                                 &
+    !$ACC               pt_prog_new_rcf%tracer,                                                 &
+    !$ACC               pt_diag%u, pt_diag%v, pt_diag%vor, pt_diag%temp, pt_diag%tempv,         &
+    !$ACC               pt_diag%pres, pt_diag%pres_ifc, pt_diag%ddt_tracer_adv,                 &
+    !$ACC               pt_diag%ddt_vn_phy, pt_diag%exner_pr, pt_diag%ddt_exner_phy,            &
+    !$ACC               pt_diag%exner_dyn_incr,                                                 &
+    !$ACC               pt_int_state%c_lin_e,  advection_config(jg)%trHydroMass%list,           &
+    !$ACC               patch%edges%cell_idx, patch%edges%primal_normal_cell,                   &
+    !$ACC               field%ua, field%va, field%vor, field%ta, field%tv, field%presm_old,     &
+    !$ACC               field%presm_new, field%rho, field%mair, field%dz, field%mh2o,           &
+    !$ACC               field%mdry, field%mref, field%xref, field%omega, field%presi_old,       &
+    !$ACC               field%presi_new, field%clon, field%clat, field%mtrc, field%qtrc,        &
+    !$ACC               field%mtrcvi, field%mh2ovi, field%mairvi, field%mdryvi, field%mrefvi,   &
+    !$ACC               tend%ua, tend%va, tend%ta, tend%ua_dyn, tend%va_dyn, tend%ta_dyn,       &
+    !$ACC               tend%ua_phy, tend%va_phy, tend%ta_phy, tend%qtrc, tend%qtrc_dyn,        &
+    !$ACC               tend%qtrc_phy, tend%mtrc_phy, tend%mtrcvi_phy, p_metrics%deepatmo_t1mc )&
+    !$ACC       CREATE( deepatmo_vol )                                                          &
+    !$ACC       COPYIN( echam_phy_config(jg) )
+
     jt_end = ntracer
 
     ! Preparation for deep-atmosphere modifications:
@@ -262,10 +288,20 @@ CONTAINS
     !   However, at the cost of the considerable memory consumption of an additional 3d-array.
     IF (upatmo_config(jg)%phy%l_shallowatmo) THEN
       ! no cell volume modification
-      deepatmo_vol(1:patch%nlev) = 1._wp
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jk = 1, patch%nlev
+        deepatmo_vol(jk) = 1._wp
+      END DO
+      !$ACC END PARALLEL
     ELSE
       ! cell volume modification factors from 'p_metrics'
-      deepatmo_vol(1:patch%nlev) = p_metrics%deepatmo_t1mc(1:patch%nlev,idamtr%t1mc%vol)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jk = 1, patch%nlev
+        deepatmo_vol(jk) = p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
+      END DO
+      !$ACC END PARALLEL
     END IF
 
     !=====================================================================================
@@ -292,12 +328,14 @@ CONTAINS
       !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt = 1,ntracer
-        DO jb = jbs_c,jbe_c
-          !
-          CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-          IF (jcs>jce) CYCLE
-          !
+      DO jb = jbs_c,jbe_c
+        !
+        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+        IF (jcs>jce) CYCLE
+        !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR COLLAPSE(3)
+        DO jt = 1,ntracer
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
@@ -306,11 +344,13 @@ CONTAINS
               !
             END DO
           END DO
-          !
         END DO
+        !$ACC END PARALLEL
+        !
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
+
       !
     ELSE
       !
@@ -334,7 +374,6 @@ CONTAINS
     !
     !=====================================================================================
 
-
     !=====================================================================================
     !
     ! (2) Diagnostics
@@ -348,6 +387,7 @@ CONTAINS
     !
     ! For the old state:
     !
+    !$ser verbatim call serialize_prestemp_input(jg, pt_prog_old, pt_prog_old_rcf, pt_diag, patch)
     CALL diagnose_pres_temp( p_metrics                ,&
       &                      pt_prog_old              ,&
       &                      pt_prog_old_rcf          ,&
@@ -357,6 +397,7 @@ CONTAINS
       &                      opt_calc_pres=.TRUE.     ,&
       &                      opt_rlend=min_rlcell_int ,& 
       &                      opt_lconstgrav=upatmo_config(jg)%phy%l_constgrav )
+    !$ser verbatim call serialize_prestemp_output(jg, pt_diag)
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
 
@@ -386,6 +427,8 @@ CONTAINS
       CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
       IF (jcs>jce) CYCLE
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1,nlev
         DO jc = jcs, jce
           tend% ua(jc,jk,jb) = pt_diag% u   (jc,jk,jb)
@@ -393,6 +436,7 @@ CONTAINS
           tend% ta(jc,jk,jb) = pt_diag% temp(jc,jk,jb)
         END DO
       END DO
+      !$ACC END PARALLEL
       !
     END DO ! jb
 !$OMP END DO
@@ -454,6 +498,8 @@ CONTAINS
       CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
       IF (jcs>jce) CYCLE
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1,nlev
         DO jc = jcs, jce
           !
@@ -548,7 +594,10 @@ CONTAINS
           !
         END DO
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = 1,nlev+1
         DO jc = jcs, jce
           !
@@ -557,26 +606,33 @@ CONTAINS
           !
         END DO
       END DO
+      !$ACC END PARALLEL
       !
     END DO ! jb
 !$OMP END DO
 !$OMP END PARALLEL
 
+#ifdef _OPENACC
+    CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_d2p triggered output!')
+#endif
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-    DO jt = 1,ntracer
-      DO jb = jbs_c,jbe_c
-        !
-        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-        IF (jcs>jce) CYCLE
-        !
+    DO jb = jbs_c,jbe_c
+      !
+      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+      IF (jcs>jce) CYCLE
+      !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(3)
+      DO jt = 1,ntracer
         DO jk = 1,nlev
           DO jc = jcs, jce
             !
             ! Handling of negative tracer mass fractions resulting from dynamics
             !
             IF (echam_phy_config(jg)%iqneg_d2p /= 0) THEN
-               IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
+                IF (pt_prog_new_rcf% tracer(jc,jk,jb,jt) < 0.0_wp) THEN
+#ifndef _OPENACC
                   IF (echam_phy_config(jg)%iqneg_d2p == 1 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
                      CALL print_value('grid   index jg',jg)
                      CALL print_value('tracer index jt',jt)
@@ -586,6 +642,7 @@ CONTAINS
                      CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
                      CALL print_value('pt_prog_new_rcf%tracer',pt_prog_new_rcf% tracer(jc,jk,jb,jt))
                   END IF
+#endif
                   IF (echam_phy_config(jg)%iqneg_d2p == 2 .OR. echam_phy_config(jg)%iqneg_d2p == 3) THEN
                      pt_prog_new_rcf% tracer(jc,jk,jb,jt) = 0.0_wp
                   END IF
@@ -635,8 +692,9 @@ CONTAINS
             !
           END DO
         END DO
-        !
       END DO
+      !$ACC END PARALLEL
+      !
     END DO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -701,11 +759,23 @@ CONTAINS
     !
     !
     IF ( is_coupled_run() ) THEN
+#if defined( _OPENACC )
+      CALL warning('GPU:interface_echam_ocean','GPU host synchronization should be removed when port is done!')
+      CALL gpu_d2h_var_list('prm_field_D', jg)
+      CALL gpu_d2h_var_list('prm_tend_D', jg)
+#endif
+
       IF (ltimer) CALL timer_start(timer_coupling)
 
-      CALL interface_echam_ocean( patch )
+      CALL interface_echam_ocean( patch , pt_diag )
 
       IF (ltimer) CALL timer_stop(timer_coupling)
+
+#if defined( _OPENACC )
+      CALL warning('GPU:interface_echam_ocean','GPU device synchronization should be removed when port is done!')
+      CALL gpu_h2d_var_list('prm_field_D', jg)
+      CALL gpu_h2d_var_list('prm_tend_D', jg)
+#endif
     END IF
     !
     !=====================================================================================
@@ -726,8 +796,19 @@ CONTAINS
     IF (return_status > 0) THEN
       CALL finish (module_name//method_name, 'ALLOCATE(zdudt,zdvdt)')
     END IF
-    zdudt(:,:,:) = 0.0_wp
-    zdvdt(:,:,:) = 0.0_wp
+    !$ACC DATA CREATE( zdudt, zdvdt )
+
+    DO jb = 1, patch%nblks_c
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1, nlev
+        DO jc = 1, nproma
+          zdudt(jc,jk,jb) = 0.0_wp
+          zdvdt(jc,jk,jb) = 0.0_wp
+        END DO
+      END DO
+      !$ACC END PARALLEL
+    END DO
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -736,8 +817,15 @@ CONTAINS
       CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
       IF (jcs>jce) CYCLE
       !
-      zdudt(jcs:jce,:,jb) = tend% ua_phy(jcs:jce,:,jb)
-      zdvdt(jcs:jce,:,jb) = tend% va_phy(jcs:jce,:,jb)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1, nlev
+        DO jc = jcs, jce
+          zdudt(jc,jk,jb) = tend% ua_phy(jc,jk,jb)
+          zdvdt(jc,jk,jb) = tend% va_phy(jc,jk,jb)
+        END DO
+      END DO
+      !$ACC END PARALLEL
       !
     END DO
 !$OMP END DO NOWAIT
@@ -758,6 +846,8 @@ CONTAINS
       CALL get_indices_e(patch, jb,jbs_e,jbe_e, jes,jee, rls_e,rle_e)
       IF (jes>jee) CYCLE
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jcn, jbn, zvn1, zvn2 ) COLLAPSE(2)
       DO jk = 1,nlev
         DO je = jes,jee
           !
@@ -776,11 +866,13 @@ CONTAINS
           !
         END DO ! je
       END DO ! jk
+      !$ACC END PARALLEL
       !
     END DO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
+    !$ACC END DATA
     DEALLOCATE(zdudt, zdvdt)
 
     IF (ltimer) CALL timer_stop(timer_p2d_prep)
@@ -818,6 +910,8 @@ CONTAINS
         CALL get_indices_e(patch, jb,jbs_e,jbe_e, jes,jee, rls_e,rle_e)
         IF (jes>jee) CYCLE
         !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = 1, nlev
           DO je = jes, jee
             !
@@ -832,26 +926,40 @@ CONTAINS
             !
           END DO
         END DO
+        !$ACC END PARALLEL
         !
       END DO !jb
 !$OMP END DO
 !$OMP END PARALLEL
+
 IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
+
+#ifdef _OPENACC
+    CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_p2d triggered output!')
+#endif
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt = 1,jt_end
-        DO jb = jbs_c,jbe_c
-          !
-          CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-          IF (jcs>jce) CYCLE
-          !
+      DO jb = jbs_c,jbe_c
+        !
+        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+        IF (jcs>jce) CYCLE
+        !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR COLLAPSE(2)
+        DO jt = 1,jt_end
           DO jc = jcs, jce
             field% mtrcvi    (jc,jb,jt) = 0.0_wp
             tend%  mtrcvi_phy(jc,jb,jt) = 0.0_wp
           END DO
-          !
-          DO jk = 1,nlev
+        END DO
+        !$ACC END PARALLEL
+        !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP SEQ
+        DO jk = 1,nlev
+          !$ACC LOOP GANG VECTOR COLLAPSE(2)
+          DO jt = 1,jt_end
             DO jc = jcs, jce
               !
               ! Diagnose the total tendencies
@@ -865,43 +973,56 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
                 &                            *field% mref(jc,jk,jb)
               !
               ! tracer path tendency
+              ! DA this guy prevents collapsing loops!!
+              ! DA TODO: try this with atomic. nlev is not too big, it may (?) work
               tend% mtrcvi_phy(jc,   jb,jt) = tend% mtrcvi_phy(jc,   jb,jt) &
                 &                            +tend% mtrc_phy  (jc,jk,jb,jt)
               !
-              ! new tracer mass
-              field% mtrc     (jc,jk,jb,jt) = field% mtrc(jc,jk,jb,jt) &
-                &                            +tend% mtrc_phy(jc,jk,jb,jt) &
-                &                            *dt_loc
-              !
-              ! Handling of negative tracer mass coming from physics
-              !   qtrc as well as other fields are derived from mtrc.
-              !   Therefore check mtrc for negative values.
-              !
-              IF (echam_phy_config(jg)%iqneg_p2d /= 0) THEN
-                 IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
-                    IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                       CALL print_value('grid   index jg',jg)
-                       CALL print_value('tracer index jt',jt)
-                       CALL print_value('level  index jk',jk)
-                       CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
-                       CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
-                       CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
-                       CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
+              ! If the physics tendency is /= 0 then change the tracer mass
+              ! and optionally check and correct negative values.
+              IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
+                  !
+                  ! new tracer mass
+                  field% mtrc     (jc,jk,jb,jt) = field% mtrc(jc,jk,jb,jt) &
+                    &                            +tend% mtrc_phy(jc,jk,jb,jt) &
+                    &                            *dt_loc
+                  !
+                  ! Handling of negative tracer mass coming from physics
+                  !   qtrc as well as other fields are derived from mtrc.
+                  !   Therefore check mtrc for negative values.
+                  !
+                  IF (echam_phy_config(jg)%iqneg_p2d /= 0) THEN
+                    IF (field% mtrc(jc,jk,jb,jt) < 0.0_wp) THEN
+#ifndef _OPENACC
+                        IF (echam_phy_config(jg)%iqneg_p2d == 1 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                          CALL print_value('grid   index jg',jg)
+                          CALL print_value('tracer index jt',jt)
+                          CALL print_value('level  index jk',jk)
+                          CALL print_value('pressure   [Pa]',field% presm_new(jc,jk,jb))
+                          CALL print_value('longitude [deg]',field% clon(jc,jb)*rad2deg)
+                          CALL print_value('latitude  [deg]',field% clat(jc,jb)*rad2deg)
+                          CALL print_value('field%mtrc     ',field% mtrc(jc,jk,jb,jt))
+                        END IF
+#endif
+                        IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
+                          field% mtrc(jc,jk,jb,jt) = 0.0_wp
+                        END IF
                     END IF
-                    IF (echam_phy_config(jg)%iqneg_p2d == 2 .OR. echam_phy_config(jg)%iqneg_p2d == 3) THEN
-                       field% mtrc(jc,jk,jb,jt) = 0.0_wp
-                    END IF
-                 END IF
+                  END IF
+                  !
               END IF
               !
               ! new tracer path
+              ! DA this guy prevents collapsing loops!!
+              ! DA TODO: try this with atomic. nlev is not too big, it may (?) work
               field% mtrcvi   (jc,   jb,jt) = field% mtrcvi  (jc,   jb,jt) &
                 &                            +field% mtrc    (jc,jk,jb,jt)
               !
             END DO
           END DO
-          !
         END DO
+        !$ACC END PARALLEL
+        !
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -914,6 +1035,8 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
         CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
         IF (jcs>jce) CYCLE
         !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jc = jcs, jce
           ! initialize vertical integrals
           field% mh2ovi(jc,jb) = 0.0_wp
@@ -921,8 +1044,12 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
           field% mdryvi(jc,jb) = 0.0_wp
           field% mrefvi(jc,jb) = 0.0_wp
         END DO
+        !$ACC END PARALLEL
         !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP SEQ
         DO jk = 1,nlev
+          !$ACC LOOP GANG VECTOR
           DO jc = jcs, jce
             !
             ! new h2o mass
@@ -957,6 +1084,8 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
             END IF
             !
             ! h2o path
+            ! DA these guys prevent collapsing loops!!
+            ! DA TODO: figure out how to best optimize that
             field% mh2ovi(jc,   jb) = field% mh2ovi(jc,   jb) &
                 &                    +field% mh2o  (jc,jk,jb)
             !
@@ -974,6 +1103,7 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
             !
           END DO
         END DO
+        !$ACC END PARALLEL
         !
       END DO
 !$OMP END DO
@@ -982,12 +1112,14 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
       ! Loop over cells
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jt =1,jt_end 
-        DO jb = jbs_c,jbe_c
-          !
-          CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-          IF (jcs>jce) CYCLE
-          !
+      DO jb = jbs_c,jbe_c
+        !
+        CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+        IF (jcs>jce) CYCLE
+        !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR COLLAPSE(3)
+        DO jt =1,jt_end 
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
@@ -995,13 +1127,28 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
               field%           qtrc   (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
                 &                                     /field%  mref(jc,jk,jb)
               !
-              pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
-                &                                     /field%  mair(jc,jk,jb)
+              IF (echam_phy_config(jg)%ldrymoist) THEN
+                 ! in this case mtrc or mair or both may have changed, and
+                 ! terefore always re-compute the tracer variable
+                 pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
+                   &                                     /field%  mair(jc,jk,jb)
+                 !
+              ELSE
+                 ! in this case mair is unchanged, and the tracer variable
+                 ! is re-computed only if the mtrc is changed due to a physical
+                 ! tendency so that changes of only numerical origin are avoided
+                 IF (tend% mtrc_phy  (jc,jk,jb,jt) /= 0.0_wp) THEN
+                    pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = field%  mtrc(jc,jk,jb,jt) &
+                      &                                     /field%  mair(jc,jk,jb)
+                 END IF
+                 !
+              END IF
               !
             END DO
           END DO
-          !
         END DO
+        !$ACC END PARALLEL
+        !
       END DO   
 !$OMP END DO
 !$OMP END PARALLEL
@@ -1009,19 +1156,19 @@ IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
 IF (lart) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-    DO jt = jt_end+1,ntracer
-        DO jb = jbs_c,jbe_c
+    DO jb = jbs_c,jbe_c
 
-          CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
-          
-          DO jk = 1,nlev
-            DO jc = jcs, jce
+      CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
+      
+      DO jt = jt_end+1,ntracer
+        DO jk = 1,nlev
+          DO jc = jcs, jce
 
-               pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
+              pt_prog_new_rcf% tracer(jc,jk,jb,jt) = prm_field(jg)%qtrc(jc,jk,jb,jt)  +prm_tend(jg)%qtrc_phy(jc,jk,jb,jt)*dt_loc
 
-            ENDDO
           ENDDO
         ENDDO
+      ENDDO
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -1035,6 +1182,8 @@ ENDIF
         CALL get_indices_c(patch, jb,jbs_c,jbe_c, jcs,jce, rls_c,rle_c)
         IF (jcs>jce) CYCLE
         !
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR PRIVATE( z_qsum, z_exner ) COLLAPSE(2)
         DO jk = 1,nlev
           DO jc = jcs, jce
             !
@@ -1043,41 +1192,51 @@ ENDIF
             tend% va(jc,jk,jb) = tend% va_dyn(jc,jk,jb) + tend% va_phy(jc,jk,jb)
             tend% ta(jc,jk,jb) = tend% ta_dyn(jc,jk,jb) + tend% ta_phy(jc,jk,jb)
             !
-            ! (3) Exner function and virtual potential temperature
-            !
-            ! (a) Update T, then compute Temp_v, Exner and Theta_v
-            !
-            pt_diag% temp (jc,jk,jb) =   pt_diag% temp  (jc,jk,jb)             &
-              &                        + tend%    ta_phy(jc,jk,jb) * dt_loc
-            !
-            z_qsum = pt_prog_new_rcf% tracer(jc,jk,jb,iqc) + pt_prog_new_rcf% tracer(jc,jk,jb,iqi)
-            !
-            pt_diag% tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                            &
-              &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf% tracer(jc,jk,jb,iqv) - z_qsum)
-            !
-            ! Save provisional "new" exner from the slow-physics-forced dynamics
-            z_exner = pt_prog_new% exner(jc,jk,jb)
-            !
-            ! Compute final new exner
-            pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
-            !
-            ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
-            pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
-            !
-!!$            ! (b) Update Exner, then compute Temp_v
-!!$            !
-!!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new% exner(jc,jk,jb)                 &
-!!$              &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
-!!$            pt_diag%exner_old(jc,jk,jb) = pt_diag% exner_old(jc,jk,jb)                 &
-!!$              &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
-!!$            !
-!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
-!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
-!!$            !
-            !
-            ! (a) and (b) Compute Theta_v
-            !
-            pt_prog_new% theta_v(jc,jk,  jb) = pt_diag% tempv(jc,jk,jb) / pt_prog_new% exner(jc,jk,jb)
+            ! Re-compute new exner, tempv and theta_v only if physics tendencies
+            ! of temperature and water traces are non-zero in order to avoid
+            ! purely numerical changes.
+            IF (      tend% ta_phy   (jc,jk,jb)     /= 0.0_wp &
+               & .OR. tend% mtrc_phy (jc,jk,jb,iqv) /= 0.0_wp &
+               & .OR. tend% mtrc_phy (jc,jk,jb,iqc) /= 0.0_wp &
+               & .OR. tend% mtrc_phy (jc,jk,jb,iqi) /= 0.0_wp ) THEN
+               !
+               ! (3) Exner function and virtual potential temperature
+               !
+               ! (a) Update T, then compute Temp_v, Exner and Theta_v
+               !
+               pt_diag% temp (jc,jk,jb) =   pt_diag% temp  (jc,jk,jb)             &
+                 &                        + tend%    ta_phy(jc,jk,jb) * dt_loc
+               !
+               z_qsum = SUM(pt_prog_new_rcf%tracer(jc,jk,jb,advection_config(jg)%trHydroMass%list))
+               !
+               pt_diag% tempv(jc,jk,jb) =   pt_diag%temp(jc,jk,jb)                                            &
+                 &                       * ( 1._wp +  vtmpc1 * pt_prog_new_rcf% tracer(jc,jk,jb,iqv) - z_qsum)
+               !
+               ! Save provisional "new" exner from the slow-physics-forced dynamics
+               z_exner = pt_prog_new% exner(jc,jk,jb)
+               !
+               ! Compute final new exner
+               pt_prog_new% exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new% rho(jc,jk,jb) * pt_diag% tempv(jc,jk,jb)))
+               !
+               ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+               pt_diag% exner_pr(jc,jk,jb)  = pt_diag% exner_pr(jc,jk,jb) + pt_prog_new% exner(jc,jk,jb) - z_exner
+               !
+!!$               ! (b) Update Exner, then compute Temp_v
+!!$               !
+!!$               pt_prog_new%exner(jc,jk,jb) = pt_prog_new% exner(jc,jk,jb)                 &
+!!$                 &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
+!!$               pt_diag%exner_old(jc,jk,jb) = pt_diag% exner_old(jc,jk,jb)                 &
+!!$                 &                         + pt_diag% ddt_exner_phy(jc,jk,jb) * dt_loc
+!!$               !
+!!$               pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
+!!$                 &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
+!!$               !
+               !
+               ! (a) and (b) Compute Theta_v
+               !
+               pt_prog_new% theta_v(jc,jk,  jb) = pt_diag% tempv(jc,jk,jb) / pt_prog_new% exner(jc,jk,jb)
+               !
+            END IF
             !
             ! Set physics forcing to zero so that it is not re-applied in the dynamical core
             pt_diag% ddt_exner_phy(jc,jk,jb) = 0._wp
@@ -1088,12 +1247,12 @@ ENDIF
             !
         END DO
       END DO
+      !$ACC END PARALLEL
       !
     END DO !jb
 !$OMP END DO
 !$OMP END PARALLEL
     END IF
-
 
     IF (ltimer) CALL timer_stop(timer_p2d_couple)
     !
@@ -1136,6 +1295,8 @@ ENDIF
         &                         f4din=pt_prog_new_rcf%tracer )
     ENDIF
 
+    !$ACC END DATA
+
     IF (ltimer) CALL timer_stop(timer_p2d_sync)
     !
     !=====================================================================================
@@ -1150,6 +1311,10 @@ ENDIF
 
     IF (ltimer) CALL timer_stop(timer_phy2dyn)
 
+#if defined( _OPENACC )
+!!!  This has been deactivated in merge_candidate_8_no_updates; it is only a debugging placeholder
+!!!    CALL gpu_d2h_iconam_echam(patch)
+#endif
     !=====================================================================================
     !
     ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and
@@ -1158,8 +1323,29 @@ ENDIF
     !
     !=====================================================================================
 
-
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
+
+  SUBROUTINE gpu_d2h_iconam_echam(patch)
+    USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf
+    TYPE(t_patch)         , INTENT(inout), TARGET :: patch           !< grid/patch info
+    INTEGER :: jg
+
+    jg = patch%id
+
+    !$ACC UPDATE HOST( patch%edges%cell_idx, patch%edges%primal_normal_cell )
+
+#if defined( _OPENACC )
+      CALL warning('GPU:interface_iconam_echam','GPU host synchronization should be removed when port is done!')
+      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow(jg))
+      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnow_rcf(jg))
+      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew(jg))
+      CALL gpu_d2h_var_list('nh_state_prog_of_domain_', domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg))
+      CALL gpu_d2h_var_list('nh_state_diag_of_domain_', domain=jg )
+      CALL gpu_d2h_var_list('prm_field_D', domain=jg)
+      CALL gpu_d2h_var_list('prm_tend_D', domain=jg)
+#endif
+
+  END SUBROUTINE gpu_d2h_iconam_echam
 
 END MODULE mo_interface_iconam_echam

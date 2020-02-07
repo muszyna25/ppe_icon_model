@@ -48,10 +48,15 @@ MODULE mo_ser_echam_vdf
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT)  :: tend
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
+#if defined( SERIALIZE_CREATE_REFERENCE )
     LOGICAL, SAVE :: lenabled = .TRUE.
+#else
+    LOGICAL, SAVE :: lenabled = .FALSE.
+#endif
     LOGICAL, SAVE :: lactive = .FALSE.
 
     !$ser verbatim IF (selected_block < 0 .OR. jb == selected_block) THEN
@@ -140,6 +145,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%qconv ) IF( ASSOCIATED(field%qconv))
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy ) IF( ASSOCIATED(field%q_phy))
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy_vi ) IF( ASSOCIATED(field%q_phy_vi))
+    !$ser verbatim   !$ACC UPDATE HOST( field%emissivity ) IF( ASSOCIATED(field%emissivity))
     !$ser verbatim   !$ACC UPDATE HOST( tend%ua_vdf ) IF( ASSOCIATED(tend%ua_vdf))
     !$ser verbatim   !$ACC UPDATE HOST( tend%va_vdf ) IF( ASSOCIATED(tend%va_vdf))
     !$ser verbatim   !$ACC UPDATE HOST( tend%qtrc_vdf ) IF( ASSOCIATED(tend%qtrc_vdf))
@@ -239,6 +245,7 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_qconv=field%qconv(:,:,jb) IF (ASSOCIATED(field%qconv))
     !$ser data echam_vdf_q_phy=field%q_phy(:,:,jb) IF (ASSOCIATED(field%q_phy))
     !$ser data echam_vdf_q_phy=field%q_phy_vi(:,jb) IF (ASSOCIATED(field%q_phy_vi))
+    !$ser data echam_vdf_emissivity=field%emissivity(:,jb) IF (ASSOCIATED(field%emissivity))
     !$ser data echam_vdf_ua_vdf=tend%ua_vdf(:,:,jb) IF (ASSOCIATED(tend%ua_vdf))
     !$ser data echam_vdf_va_vdf=tend%va_vdf(:,:,jb) IF (ASSOCIATED(tend%va_vdf))
     !$ser data echam_vdf_qtrc_vdf=tend%qtrc_vdf(:,:,jb,:) IF (ASSOCIATED(tend%qtrc_vdf))
@@ -332,6 +339,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE DEVICE( field%qconv ) IF( ASSOCIATED(field%qconv))
     !$ser verbatim   !$ACC UPDATE DEVICE( field%q_phy ) IF( ASSOCIATED(field%q_phy))
     !$ser verbatim   !$ACC UPDATE DEVICE( field%q_phy_vi ) IF( ASSOCIATED(field%q_phy_vi))
+    !$ser verbatim   !$ACC UPDATE DEVICE( field%emissivity ) IF( ASSOCIATED(field%emissivity))
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%ua_vdf ) IF( ASSOCIATED(tend%ua_vdf))
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%va_vdf ) IF( ASSOCIATED(tend%va_vdf))
     !$ser verbatim   !$ACC UPDATE DEVICE( tend%qtrc_vdf ) IF( ASSOCIATED(tend%qtrc_vdf))
@@ -343,12 +351,14 @@ MODULE mo_ser_echam_vdf
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_input
 
   SUBROUTINE serialize_vdf_output(jg, jb, jcs, jce, nproma, nlev, field, tend)
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), POINTER, INTENT(INOUT)  :: tend
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -377,8 +387,6 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m_tile ) IF( ASSOCIATED(field%z0m_tile))
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m ) IF( ASSOCIATED(field%z0m))
     !$ser verbatim   !$ACC UPDATE HOST( field%totte ) IF( ASSOCIATED(field%totte))
-    !$ser verbatim   !$ACC UPDATE HOST( field%sh_vdiff ) IF( ASSOCIATED(field%sh_vdiff))
-    !$ser verbatim   !$ACC UPDATE HOST( field%qv_vdiff ) IF( ASSOCIATED(field%qv_vdiff))
     !$ser verbatim   !$ACC UPDATE HOST( field%ts_tile ) IF( ASSOCIATED(field%ts_tile))
     !$ser verbatim   !$ACC UPDATE HOST( field%u_stress ) IF( ASSOCIATED(field%u_stress))
     !$ser verbatim   !$ACC UPDATE HOST( field%v_stress ) IF( ASSOCIATED(field%v_stress))
@@ -446,6 +454,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( tend%qtrc_vdf ) IF( ASSOCIATED(tend%qtrc_vdf))
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy ) IF( ASSOCIATED(field%q_phy))
     !$ser verbatim   !$ACC UPDATE HOST( field%q_phy_vi ) IF( ASSOCIATED(field%q_phy_vi))
+    !$ser verbatim   !$ACC UPDATE HOST( field%emissivity ) IF( ASSOCIATED(field%emissivity))
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_vdf ) IF( ASSOCIATED(tend%ta_vdf))
     !$ser verbatim   !$ACC UPDATE HOST( tend%ua_phy ) IF( ASSOCIATED(tend%ua_phy))
     !$ser verbatim   !$ACC UPDATE HOST( tend%va_phy ) IF( ASSOCIATED(tend%va_phy))
@@ -473,8 +482,6 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_z0m_tile=field%z0m_tile(:,jb,:) IF (ASSOCIATED(field%z0m_tile))
     !$ser data echam_vdf_z0m=field%z0m(:,jb) IF (ASSOCIATED(field%z0m))
     !$ser data echam_vdf_totte=field%totte(:,:,jb) IF (ASSOCIATED(field%totte))
-    !$ser data echam_vdf_sh_vdiff=field%sh_vdiff(:,jb) IF (ASSOCIATED(field%sh_vdiff))
-    !$ser data echam_vdf_qv_vdiff=field%qv_vdiff(:,jb) IF (ASSOCIATED(field%qv_vdiff))
     !$ser data echam_vdf_ts_tile=field%ts_tile(:,jb,:) IF (ASSOCIATED(field%ts_tile))
     !$ser data echam_vdf_u_stress=field%u_stress(:,jb) IF (ASSOCIATED(field%u_stress))
     !$ser data echam_vdf_v_stress=field%v_stress(:,jb) IF (ASSOCIATED(field%v_stress))
@@ -542,6 +549,7 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_qtrc_vdf=tend%qtrc_vdf(:,:,jb,:) IF (ASSOCIATED(tend%qtrc_vdf))
     !$ser data echam_vdf_q_phy=field%q_phy(:,:,jb) IF (ASSOCIATED(field%q_phy))
     !$ser data echam_vdf_q_phy_vi=field%q_phy_vi(:,jb) IF (ASSOCIATED(field%q_phy_vi))
+    !$ser data echam_vdf_emissivity=field%emissivity(:,jb) IF (ASSOCIATED(field%emissivity))
     !$ser data echam_vdf_ta_vdf=tend%ta_vdf(:,:,jb) IF (ASSOCIATED(tend%ta_vdf))
     !$ser data echam_vdf_ua_phy=tend%ua_phy(:,:,jb) IF (ASSOCIATED(tend%ua_phy))
     !$ser data echam_vdf_va_phy=tend%va_phy(:,:,jb) IF (ASSOCIATED(tend%va_phy))
@@ -555,6 +563,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_output
 
   SUBROUTINE serialize_vdf_chk_A_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -568,6 +577,7 @@ MODULE mo_ser_echam_vdf
         dummy(:,:),           &
         dummyx(:,:),          &
         zqx(:,:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -604,6 +614,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_A_output
 
   SUBROUTINE serialize_vdf_chk_B_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -611,6 +622,7 @@ MODULE mo_ser_echam_vdf
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type
     REAL(wp),INTENT(IN)    :: pdtime
     TYPE(t_echam_phy_field), INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -667,6 +679,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_B_output
 
   SUBROUTINE serialize_vdf_chk_C_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -674,6 +687,7 @@ MODULE mo_ser_echam_vdf
     INTEGER, INTENT(IN)    :: jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type
     REAL(wp),INTENT(IN)    :: pdtime
     TYPE(t_echam_phy_field), INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -702,6 +716,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_C_output
 
   SUBROUTINE serialize_vdf_chk_D_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -710,6 +725,7 @@ MODULE mo_ser_echam_vdf
     REAL(wp),INTENT(IN)    :: pdtime
     TYPE(t_echam_phy_field), INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), INTENT(INOUT) :: tend
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -748,6 +764,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_D_output
 
   SUBROUTINE serialize_vdf_chk_E_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -763,6 +780,7 @@ MODULE mo_ser_echam_vdf
       tend_ua_vdf(:,:),       &
       tend_va_vdf(:,:),       &
       tend_qtrc_vdf(:,:,:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -799,6 +817,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_E_output
 
   SUBROUTINE serialize_vdf_chk_F_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -809,6 +828,7 @@ MODULE mo_ser_echam_vdf
     TYPE(t_echam_phy_tend), INTENT(INOUT) :: tend
     REAL(wp), INTENT(IN)  ::  &
       tend_ta_sfc(:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -847,6 +867,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_F_output
 
   SUBROUTINE serialize_vdf_chk_G_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -859,6 +880,7 @@ MODULE mo_ser_echam_vdf
       tend_ta_vdf(:,:),       &
       q_rlw_impl(:),       &
       tend_ta_rlw_impl(:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -919,6 +941,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_G_output
 
   SUBROUTINE serialize_vdf_chk_H_output(jg, jb, jcs, jce, nproma, nlev, ntrac, nsfc_type, pdtime, &
@@ -927,6 +950,7 @@ MODULE mo_ser_echam_vdf
     REAL(wp),INTENT(IN)    :: pdtime
     TYPE(t_echam_phy_field), INTENT(INOUT) :: field
     TYPE(t_echam_phy_tend), INTENT(INOUT) :: tend
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -1003,8 +1027,6 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m ) IF( ASSOCIATED(field%z0m) )
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m_tile ) IF( ASSOCIATED(field%z0m_tile) )
     !$ser verbatim   !$ACC UPDATE HOST( field%kedisp ) IF( ASSOCIATED(field%kedisp) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%sh_vdiff ) IF( ASSOCIATED(field%sh_vdiff) )
-    !$ser verbatim   !$ACC UPDATE HOST( field%qv_vdiff ) IF( ASSOCIATED(field%qv_vdiff) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_vdf ) IF( ASSOCIATED(field%q_vdf) )
     !$ser verbatim   !$ACC UPDATE HOST( field%q_vdf_vi ) IF( ASSOCIATED(field%q_vdf_vi) )
     !$ser verbatim   !$ACC UPDATE HOST( tend%ta_vdf ) IF( ASSOCIATED(tend%ta_vdf) )
@@ -1082,8 +1104,6 @@ MODULE mo_ser_echam_vdf
     !$ser data echam_vdf_chk_h_z0m=field%z0m IF (ASSOCIATED(field%z0m))
     !$ser data echam_vdf_chk_h_z0m_tile=field%z0m_tile IF (ASSOCIATED(field%z0m_tile))
     !$ser data echam_vdf_chk_h_kedisp=field%kedisp IF (ASSOCIATED(field%kedisp))
-    !$ser data echam_vdf_chk_h_sh_vdiff=field%sh_vdiff IF (ASSOCIATED(field%sh_vdiff))
-    !$ser data echam_vdf_chk_h_qv_vdiff=field%qv_vdiff IF (ASSOCIATED(field%qv_vdiff))
     !$ser data echam_vdf_chk_h_q_vdf=field%q_vdf IF (ASSOCIATED(field%q_vdf))
     !$ser data echam_vdf_chk_h_q_vdf_vi=field%q_vdf_vi IF (ASSOCIATED(field%q_vdf_vi))
     !$ser data echam_vdf_chk_h_ta_vdf=tend%ta_vdf IF (ASSOCIATED(tend%ta_vdf))
@@ -1096,6 +1116,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_chk_H_output
 
   SUBROUTINE serialize_vdf_vd_input(jg, jb, jcs, kproma, kbdim, klev, klevm1, klevp1, ktrac, &
@@ -1137,6 +1158,7 @@ MODULE mo_ser_echam_vdf
       & pcptgz(:,:),       &
       & pzthvvar(:,:),     &
       & pztottevn(:,:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -1343,6 +1365,7 @@ MODULE mo_ser_echam_vdf
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_vd_input
 
   SUBROUTINE serialize_vdf_vd_output(jg, jb, jcs, kproma, kbdim, klev, klevm1, klevp1, ktrac, &
@@ -1386,6 +1409,7 @@ MODULE mo_ser_echam_vdf
       pbhn_tile(:,:),       &
       pbm_tile(:,:),        &
       pbh_tile(:,:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
@@ -1475,6 +1499,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_vd_output
 
   SUBROUTINE serialize_vdf_us_input(jb, jg, jcs, kproma, kbdim, klev, klevp1, ksfc_type, &
@@ -1498,6 +1523,7 @@ MODULE mo_ser_echam_vdf
     INTEGER,INTENT(IN)                  :: nblock
     REAL(wp),INTENT(INOUT)              :: pco2(:)
     REAL(wp),INTENT(INOUT)              :: pch_tile(:,:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -1579,6 +1605,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%albnirdir_ice )
     !$ser verbatim   !$ACC UPDATE HOST( field%albvisdif_ice )
     !$ser verbatim   !$ACC UPDATE HOST( field%albnirdif_ice )
+    !$ser verbatim   !$ACC UPDATE HOST( field%emissivity )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('init')
@@ -1661,7 +1688,8 @@ MODULE mo_ser_echam_vdf
     !$ser&     echam_vdf_us_albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
     !$ser&     echam_vdf_us_albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
     !$ser&     echam_vdf_us_albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
-    !$ser&     echam_vdf_us_albnirdif_ice=field%albnirdif_ice(:,:,jb)
+    !$ser&     echam_vdf_us_albnirdif_ice=field%albnirdif_ice(:,:,jb)    &
+    !$ser&     echam_vdf_us_emissivity=field%emissivity(:,jb)
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
     !$ser verbatim   lenabled = .FALSE.
@@ -1737,10 +1765,12 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim !$ACC UPDATE DEVICE( field%albnirdir_ice )
     !$ser verbatim !$ACC UPDATE DEVICE( field%albvisdif_ice )
     !$ser verbatim !$ACC UPDATE DEVICE( field%albnirdif_ice )
+    !$ser verbatim !$ACC UPDATE DEVICE( field%emissivity )
 #endif
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_us_input
 
   SUBROUTINE serialize_vdf_us_output(jb, jg, jcs, kproma, kbdim, klev, ksfc_type, idx_wtr,     &
@@ -1757,6 +1787,7 @@ MODULE mo_ser_echam_vdf
     REAL(wp), INTENT(INOUT)  :: pcpt_tile(:,:)
     REAL(wp), INTENT(INOUT)  :: pqsat_tile(:,:)
     REAL(wp), INTENT(INOUT)  :: q_snocpymlt(:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -1821,6 +1852,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%albnirdir_ice )
     !$ser verbatim   !$ACC UPDATE HOST( field%albvisdif_ice )
     !$ser verbatim   !$ACC UPDATE HOST( field%albnirdif_ice )
+    !$ser verbatim   !$ACC UPDATE HOST( field%emissivity )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('init')
@@ -1878,13 +1910,15 @@ MODULE mo_ser_echam_vdf
     !$ser&     echam_vdf_us_albvisdir_ice=field%albvisdir_ice(:,:,jb)    &
     !$ser&     echam_vdf_us_albnirdir_ice=field%albnirdir_ice(:,:,jb)    &
     !$ser&     echam_vdf_us_albvisdif_ice=field%albvisdif_ice(:,:,jb)    &
-    !$ser&     echam_vdf_us_albnirdif_ice=field%albnirdif_ice(:,:,jb)
+    !$ser&     echam_vdf_us_albnirdif_ice=field%albnirdif_ice(:,:,jb)    &
+    !$ser&     echam_vdf_us_emissivity=field%emissivity(:,jb)
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
     !$ser verbatim   lenabled = .FALSE.
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_us_output
 
   SUBROUTINE serialize_vdf_vu_input(jb, jcs, kproma, kbdim, klev, klevm1, ktrac, ksfc_type, &
@@ -1902,6 +1936,7 @@ MODULE mo_ser_echam_vdf
       pzthvvar(:,:),        &
       pxvar(:,:),           &
       pkedisp(:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -1998,6 +2033,7 @@ MODULE mo_ser_echam_vdf
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_vu_input
 
   SUBROUTINE serialize_vdf_vu_output(jb, jcs, kproma, kbdim, klev, klevm1, ktrac, &
@@ -2016,6 +2052,7 @@ MODULE mo_ser_echam_vdf
       pq_vdf(:,:),          &
       tend_qtrc_vdf(:,:,:), &
       pthvvar(:,:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -2040,8 +2077,6 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim   !$ACC UPDATE HOST( field%z0m )
     !$ser verbatim   !$ACC UPDATE HOST( pthvvar )
     !$ser verbatim   !$ACC UPDATE HOST( field%totte )
-    !$ser verbatim   !$ACC UPDATE HOST( field%sh_vdiff )
-    !$ser verbatim   !$ACC UPDATE HOST( field%qv_vdiff )
 #endif
     !$ser verbatim   CALL datetimeToString(time_config%tc_current_date, date)
     !$ser verbatim   CALL init('icon')
@@ -2061,9 +2096,7 @@ MODULE mo_ser_echam_vdf
     !$ser&     echam_vdf_vu_pxite_vdf=tend_qtrc_vdf(:,:,iqi)       &
     !$ser&     echam_vdf_vu_pz0m=field%z0m(:,jb)                   &
     !$ser&     echam_vdf_vu_pthvvar=pthvvar                        &
-    !$ser&     echam_vdf_vu_ptotte=field%totte(:,:,jb)             &
-    !$ser&     echam_vdf_vu_psh_vdiff=field%sh_vdiff(:,jb)         &
-    !$ser&     echam_vdf_vu_pqv_vdiff=field%qv_vdiff(:,jb)
+    !$ser&     echam_vdf_vu_ptotte=field%totte(:,:,jb)             
     !$ser data echam_vdf_vu_pxtte_vdf=tend_qtrc_vdf(:,:,iqt:) IF (SIZE(tend_qtrc_vdf(:,:,iqt:))>0)
     !$ser verbatim lactive = .FALSE.
     !$ser verbatim IF (lonlyonce) THEN
@@ -2071,6 +2104,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_vu_output
 
   SUBROUTINE serialize_vdf_nd_input(jb, jcs, kproma, kbdim, klev, klevp1, ksfc_type, idx_lnd, field, &
@@ -2086,6 +2120,7 @@ MODULE mo_ser_echam_vdf
       pbh_tile(:,:),    &
       pbm_tile(:,:),    &
       pri_tile(:,:)
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -2187,11 +2222,13 @@ MODULE mo_ser_echam_vdf
 #endif
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_nd_input
 
   SUBROUTINE serialize_vdf_nd_output(jb, jcs, kproma, kbdim, ksfc_type, idx_lnd, field)
     INTEGER, INTENT(IN)    :: jb, jcs, kproma, kbdim, ksfc_type, idx_lnd
     TYPE(t_echam_phy_field), POINTER, INTENT(INOUT) :: field
+#if defined(SERIALIZE_ECHAM_VDF) || defined(SERIALIZE_ECHAM_ALL) || defined(SERIALIZE_ALL)
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: date
     LOGICAL, PARAMETER :: lonlyonce = .TRUE.
@@ -2241,6 +2278,7 @@ MODULE mo_ser_echam_vdf
     !$ser verbatim END IF
     !$ser verbatim ENDIF
 
+#endif
   END SUBROUTINE serialize_vdf_nd_output
 
 END MODULE mo_ser_echam_vdf

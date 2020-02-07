@@ -21,7 +21,7 @@
 MODULE mo_bc_sst_sic
   
   USE mo_kind,               ONLY: dp, i8
-  USE mo_exception,          ONLY: finish, message, message_text
+  USE mo_exception,          ONLY: finish, message, message_text, warning
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot
   USE mo_scatter,            ONLY: scatter_time_array
   USE mo_model_domain,       ONLY: t_patch
@@ -74,6 +74,7 @@ CONTAINS
     IF (.NOT. ALLOCATED (ext_sea        )) ALLOCATE (ext_sea(n_dom))
     IF (.NOT. ASSOCIATED(ext_sea(jg)%sst)) ALLOCATE (ext_sea(jg)%sst(nproma, p_patch%nblks_c, 0:13))
     IF (.NOT. ASSOCIATED(ext_sea(jg)%sic)) ALLOCATE (ext_sea(jg)%sic(nproma, p_patch%nblks_c, 0:13))
+    !$ACC ENTER DATA PCREATE( ext_sea, ext_sea(jg), ext_sea(jg)%sst, ext_sea(jg)%sic )
 
     ! allocate temporary field for reading SST and SIC on the whole grid jg
     IF (.NOT. ASSOCIATED(zin)) ALLOCATE(zin(p_patch%n_patch_cells_g, 0:13))
@@ -134,6 +135,11 @@ CONTAINS
     DEALLOCATE(zin)
     
     IF (jg==n_dom) current_year = year
+
+#ifdef _OPENACC
+    CALL warning("GPU:read_bc_sst_sic", "GPU device synchronization")
+#endif
+    !$ACC UPDATE DEVICE( ext_sea(jg)%sst, ext_sea(jg)%sic )
 
   END SUBROUTINE read_bc_sst_sic
   
@@ -200,7 +206,7 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(tiw, tsw, seaice, siced, p_patch, mask, l_init)
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, tsw, seaice, siced, p_patch, mask, l_init, lopenacc)
     
     TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
     REAL(dp)       , INTENT(inout) :: tsw(:,:) 
@@ -209,6 +215,7 @@ CONTAINS
     TYPE(t_patch)  , INTENT(in)  :: p_patch
     LOGICAL        , INTENT(in)  :: mask(:,:)  !< logical mask, indicating where to apply tsw and sea ice/depth
     LOGICAL        , INTENT(in)  :: l_init     !< switch for first call at initialization
+    LOGICAL, OPTIONAL, INTENT(in) :: lopenacc  ! Flag to run on GPU
     ! If l_init=.FALSE., tsw is only computed where mask==.TRUE (this is used
     ! at all time steps in the time loop). If l_init=.TRUE., tsw is computed 
     ! everywhere (this is used during initialization in order to initialize ts_tile(:,:,iwtr)
@@ -216,43 +223,112 @@ CONTAINS
     ! Note that lakes and ocean/sea ice are mutually exclusive, i.e. a cell cannot
     ! contain both lake and ocean/sea ice.
 
-
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: ztsw(SIZE(tsw,1),SIZE(tsw,2))
 
-    INTEGER  :: jg
+    INTEGER  :: jc, jb, jg
+    LOGICAL  :: lzopenacc
+
+    IF (PRESENT(lopenacc)) THEN
+      lzopenacc = lopenacc
+    ELSE
+      lzopenacc = .FALSE.
+    ENDIF
 
     jg = p_patch%id
 
-    zts(:,:) = tiw%weight1 * ext_sea(jg)%sst(:,:,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sst(:,:,tiw%month2_index)
-    zic(:,:) = tiw%weight1 * ext_sea(jg)%sic(:,:,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sic(:,:,tiw%month2_index)
+    !$ACC DATA PRESENT( tsw, seaice, siced, mask, ext_sea(jg)%sst, ext_sea(jg)%sic, p_patch%cells%center ) &
+    !$ACC       CREATE( zts, zic, ztsw )                                                            &
+    !$ACC           IF( lzopenacc )
+
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
+    !$ACC LOOP SEQ
+    DO jb = 1, SIZE(zts,2)
+      !$ACC LOOP GANG VECTOR
+      DO jc = 1, SIZE(zts,1)
+        zts(jc,jb) = tiw%weight1 * ext_sea(jg)%sst(jc,jb,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sst(jc,jb,tiw%month2_index)
+        zic(jc,jb) = tiw%weight1 * ext_sea(jg)%sic(jc,jb,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sic(jc,jb,tiw%month2_index)
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
     !TODO: missing siced needs to be added
 
-    seaice(:,:) = 0._dp
-    WHERE (mask(:,:))
-      seaice(:,:) = zic(:,:)*0.01_dp               ! assuming input data is in percent
-    END WHERE
-    seaice(:,:) = MERGE(0.99_dp, seaice(:,:), seaice(:,:) > 0.99_dp)
-    seaice(:,:) = MERGE(0.0_dp, seaice(:,:), seaice(:,:) <= 0.01_dp)
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
+    !$ACC LOOP SEQ
+    DO jb = 1, SIZE(tsw,2)
+      !$ACC LOOP GANG VECTOR
+      DO jc = 1, SIZE(tsw,1)
+        seaice(jc,jb) = 0._dp
+      END DO
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
+    !$ACC LOOP SEQ
+    DO jb = 1, SIZE(tsw,2)
+      !$ACC LOOP GANG VECTOR
+      DO jc = 1, SIZE(tsw,1)
+        IF (mask(jc,jb)) THEN
+          seaice(jc,jb) = zic(jc,jb)*0.01_dp               ! assuming input data is in percent
+        END IF
+      END DO
+    END DO
+    !$ACC END PARALLEL
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
+    !$ACC LOOP SEQ
+    DO jb = 1, SIZE(tsw,2)
+      !$ACC LOOP GANG VECTOR
+      DO jc = 1, SIZE(tsw,1)
+        seaice(jc,jb) = MERGE(0.99_dp, seaice(jc,jb), seaice(jc,jb) > 0.99_dp)
+        seaice(jc,jb) = MERGE(0.0_dp, seaice(jc,jb), seaice(jc,jb) <= 0.01_dp)
 
-    ztsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
+        ztsw(jc,jb) = MERGE(tf_salt, MAX(zts(jc,jb), tf_salt), seaice(jc,jb) > 0.0_dp) 
+      END DO
+    END DO
+    !$ACC END PARALLEL
+
     IF (l_init) THEN
-      tsw(:,:) = ztsw(:,:)
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
+      !$ACC LOOP SEQ
+      DO jb = 1, SIZE(tsw,2)
+        !$ACC LOOP GANG VECTOR
+        DO jc = 1, SIZE(tsw,1)
+          tsw(jc,jb) = ztsw(jc,jb)
+        END DO
+      END DO
+      !$ACC END PARALLEL
     ELSE
-      WHERE (mask(:,:))
-        tsw(:,:) = ztsw(:,:)
-      END WHERE
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
+      !$ACC LOOP SEQ
+      DO jb = 1, SIZE(tsw,2)
+        !$ACC LOOP GANG VECTOR
+        DO jc = 1, SIZE(tsw,1)
+          IF (mask(jc,jb)) THEN
+            tsw(jc,jb) = ztsw(jc,jb)
+          END IF
+        END DO
+      END DO
+      !$ACC END PARALLEL
     END IF
 
-    WHERE (seaice(:,:) > 0.0_dp)
-      siced(:,:) = MERGE(2._dp, 1._dp, p_patch%cells%center(:,:)%lat > 0.0_dp)
-    ELSEWHERE
-      siced(:,:) = 0._dp
-    ENDWHERE
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
+    !$ACC LOOP SEQ
+    DO jb = 1, SIZE(tsw,2)
+      !$ACC LOOP GANG VECTOR
+      DO jc = 1, SIZE(tsw,1)
+        IF (seaice(jc,jb) > 0.0_dp) THEN
+          siced(jc,jb) = MERGE(2._dp, 1._dp, p_patch%cells%center(jc,jb)%lat > 0.0_dp)
+        ELSE
+          siced(jc,jb) = 0._dp
+        END IF
+      END DO
+    END DO
+    !$ACC END PARALLEL
 
     !CALL message('','Interpolated sea surface temperature and sea ice cover.')
+
+    !$ACC END DATA
 
   END SUBROUTINE bc_sst_sic_time_interpolation
 

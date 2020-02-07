@@ -52,7 +52,8 @@
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: sync_patch_array,  SYNC_C, SYNC_E
-   USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars
+   USE mo_nh_init_utils,        ONLY: init_w, convert_thdvars
+   USE mo_hydro_adjust,        ONLY: hydro_adjust, hydro_adjust_iterative
    USE mo_grid_config,         ONLY: grid_sphere_radius
 
    IMPLICIT NONE
@@ -756,7 +757,7 @@ jnlayer(:,:,:)=0
                relhum(jc,jk,jb)=rh_nconst(jn)
               END IF
               relhum(jc,jk,jb)=MAX(0._wp,MIN(1._wp,relhum(jc,jk,jb)))
-              IF (jk < nlev .AND. jn == jnlayer(jc,jk+1,jb) ) THEN
+              IF (jk < nlev .AND. jn == jnlayer(jc,MIN(jk+1,nlev),jb) ) THEN
                ! in this case we integrate starting in the level bellow, instead of 
                !  starting in the base of the layer
 
@@ -869,16 +870,26 @@ jnlayer(:,:,:)=0
 !$OMP END DO
 !$OMP END PARALLEL
 
-  CALL diagnose_pres_temp (p_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
-                             ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
+    CALL diagnose_pres_temp (p_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
+                               ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
 
 
-  IF (l_hydro_adjust) THEN
+    IF (l_hydro_adjust) THEN
+      !
+      ! remark: calling hydro_adjust would be equally fine here
+      ! 
+      CALL hydro_adjust_iterative ( p_patch       = ptr_patch,                    & !in
+        &                           p_nh_metrics  = p_metrics,                    & !in
+        &                           temp_ini      = ptr_nh_diag%temp,             & !in
+        &                           rh_ini        = relhum,                       & !in
+        &                           exner         = ptr_nh_prog%exner,            & !inout
+        &                           theta_v       = ptr_nh_prog%theta_v,          & !inout
+        &                           rho           = ptr_nh_prog%rho,              & !inout
+        &                           qv            = ptr_nh_prog%tracer(:,:,:,iqv),& !inout
+        &                           luse_exner_fg = .TRUE.,                       & !in
+        &                           opt_exner_lbc = ptr_nh_prog%exner(:,nlev,:)   ) !in
+    END IF   
 
-   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,  &
-                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
-
-  END IF   
 
     DEALLOCATE(theta, theta_v, relhum)
     DEALLOCATE(exner, z_qv)
@@ -1117,7 +1128,7 @@ jnlayer(:,:,:)=0
   !! Calculate distances from a lon,lat point to the center point 
   !!  lonc,latc in the direction of the main axis of the 
   !!  mountain/buble
-  !! If rotangle is cero, then it calculates distances from a lon lat point 
+  !! If rotangle is zero, then it calculates distances from a lon lat point 
   !!  to the center point lonc, latc in the zonal and meridional directions
   !! This is a translation from SUBROUTINE hill_rot_coords in COSMO
   !! 

@@ -12,7 +12,8 @@
 MODULE mo_util_mtime
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
-  USE mo_kind,                     ONLY: wp
+  USE mo_kind,                     ONLY: wp, i8
+  USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimeDelta,   &
     &                                    OPERATOR(-), OPERATOR(+),                         &
@@ -39,6 +40,13 @@ MODULE mo_util_mtime
   PUBLIC :: assumeNextMidnight
   PUBLIC :: getElapsedSimTimeInSeconds
   PUBLIC :: dummyDateTime
+  PUBLIC :: t_datetime_ptr
+  PUBLIC :: mtime_convert_netcdf_units
+  PUBLIC :: mtime_divide_timedelta
+
+  TYPE t_datetime_ptr
+    TYPE(datetime), POINTER :: ptr => NULL()
+  END TYPE t_datetime_ptr
 
   PRIVATE
 
@@ -221,5 +229,92 @@ CONTAINS
 
   END FUNCTION dummyDateTime
 
+  ! via seconds... should be solved by mtime, could be done without
+  ! conversion to a prespecified time unit.
+  SUBROUTINE mtime_divide_timedelta (dividend, divisor, quotient)
+    TYPE(timedelta), POINTER, INTENT(in   ) :: dividend
+    TYPE(timedelta), POINTER, INTENT(in   ) :: divisor
+    REAL(wp),                 INTENT(  out) :: quotient
+    INTEGER(i8)                             :: dd, ds
+
+    CALL mtime_timedelta_to_seconds(dividend, dd)
+    CALL mtime_timedelta_to_seconds(divisor,  ds)
+
+    quotient = REAL(dd,wp) / REAL(ds,wp)
+
+  END SUBROUTINE mtime_divide_timedelta
+
+  SUBROUTINE mtime_timedelta_to_seconds (mtime_dt, seconds_dt)
+    TYPE(timedelta), POINTER, INTENT(in   ) :: mtime_dt
+    INTEGER(i8),              INTENT(  out) :: seconds_dt
+    CHARACTER(*),                 PARAMETER :: routine = &
+      & modname//"::mtime_timedelta_to_seconds"
+
+    IF (mtime_dt%year > 0 .OR. mtime_dt%month > 0) THEN
+      CALL finish(routine, "year or month nonzero, result is undefined")
+    ENDIF
+
+    seconds_dt =   86400 * INT(mtime_dt%day)    &
+      &          + 3600  * INT(mtime_dt%hour)   &
+      &          + 60    * INT(mtime_dt%minute) &
+      &          +         INT(mtime_dt%second)
+
+  END SUBROUTINE mtime_timedelta_to_seconds
+
+  ! the expected input looks similar to this "seconds since 2013-04-24T00:00:00"
+
+  SUBROUTINE mtime_convert_netcdf_units (unit_string, starttime, timeincrement)
+    CHARACTER(len=*),         INTENT(in   ) :: unit_string
+    TYPE(datetime),  POINTER, INTENT(  out) :: starttime
+    TYPE(timeDelta), POINTER, INTENT(  out) :: timeincrement
+
+    INTEGER           :: errno
+    INTEGER           :: idx0, idx1, idx2, idx3, idx4, idx5, idx6
+    INTEGER           :: month, day
+    INTEGER(i8)       :: year
+    CHARACTER(len=32) :: iso8601_string
+    CHARACTER(len=32) :: timedelta_string
+
+    idx1 = SCAN(unit_string,          " ")
+    idx2 = SCAN(unit_string(idx1+1:), " ")
+    idx2 = idx1+idx2
+    idx3 = SCAN(unit_string(idx2+1:), " ")
+    idx3 = idx2+idx3
+
+    idx0 = 1
+    idx4 = LEN_TRIM(unit_string)
+    idx5 = SCAN(unit_string(idx2+1:idx3-1), "-")
+    idx6 = SCAN(unit_string(idx2+idx5+1:idx3-1), "-")
+    idx6 = idx5+idx6
+
+    READ(unit_string(idx2+1:idx2+idx5-1),*) year
+    READ(unit_string(idx2+idx5+1:idx2+idx6-1),*) month
+    READ(unit_string(idx2+idx6+1:idx3-1),*) day
+
+    WRITE(iso8601_string,'(i0,a,i2.2,a,i2.2,a,a)') &
+         year, '-', month, '-', day, 'T', unit_string(idx3+1:idx4)
+
+    IF (unit_string(idx1+1:idx2) /= "since") THEN
+      CALL finish(modname, "Unit string is in unknown format"//unit_string(idx1+1:idx2))
+    ENDIF
+
+    SELECT CASE ( unit_string(:idx1-1) )
+    CASE ("seconds")
+      timedelta_string = "PT01S"
+    CASE ("hours")
+      timedelta_string = "PT01H"
+    CASE ("days")
+      timedelta_string = "PT01D"
+    CASE default
+      CALL finish(modname, "Unknown time increment: "//unit_string(:idx1+1))
+    END SELECT
+
+    starttime     => newdatetime(TRIM(iso8601_string), errno)
+    IF (errno /= 0)  CALL finish(modname, "Error in conversion of date: "//TRIM(iso8601_string))
+
+    timeincrement => newTimeDelta(timedelta_string, errno)
+    IF (errno /= 0)  CALL finish(modname, "Error in conversion of unit: "//timedelta_string)
+
+  END SUBROUTINE mtime_convert_netcdf_units
 
 END MODULE mo_util_mtime

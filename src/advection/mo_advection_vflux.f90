@@ -58,18 +58,12 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-#define LAXFR_UPFLUX_V_MACRO(PPp_w,PPp_psi_a,PPp_psi_b) (0.5_wp*((PPp_w)*((PPp_psi_a)+(PPp_psi_b))+ABS(PPp_w)*((PPp_psi_b)-(PPp_psi_a))))
-
-#ifdef __INTEL_COMPILER
-#define USE_LAXFR_MACROS
-#define laxfr_upflux_v LAXFR_UPFLUX_V_MACRO
-#endif
 MODULE mo_advection_vflux
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int,   &
-    &                               iup_v, ippm_v, ipsm_v, ippm4gpu_v,          &
+    &                               iup_v, ippm_v, ipsm_v,                      &
     &                               islopel_vsm, islopel_vm, ifluxl_vpd,        &
     &                               ino_flx, izero_grad, iparent_flx
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -79,9 +73,6 @@ MODULE mo_advection_vflux
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, lvert_nest, timers_level, iqtke
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList 
-#ifndef USE_LAXFR_MACROS
-  USE mo_advection_utils,     ONLY: laxfr_upflux_v
-#endif
   USE mo_advection_vlimit,    ONLY: v_limit_parabola_mo, v_limit_parabola_sm, &
    &                                vflx_limiter_pd,                          &
    &                                v_limit_slope_mo, v_limit_slope_sm,       &
@@ -232,10 +223,6 @@ CONTAINS
 
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
 
-#ifdef _OPENACC
-    LOGICAL  :: save_i_am_accel_node
-#endif
-
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_mflx_contra_v
 #endif
@@ -272,6 +259,7 @@ CONTAINS
 
       CASE( iup_v )
         ! CALL first order upwind
+        !$ACC WAIT
         CALL upwind_vflux_up( p_patch, p_cc(:,:,:,jt), p_iubc_adv,   &! in
           &                   p_mflx_contra_v, p_upflux(:,:,:,jt),   &! in,out
           &                   opt_topflx_tra=opt_topflx_tra(:,:,jt), &! in
@@ -285,44 +273,15 @@ CONTAINS
         iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
 
 #ifdef _OPENACC
-! In GPU mode, copy data to HOST and perform upwind_vflux_ppm there, then update device
-! NOTE: this is only for testing; use upwind_vflux_ppm4gpu for performance
-        WRITE(message_text,'(a)') 'GPU mode: performing upwind_vflux_ppm on host; for performance use upwind_vflux_ppm4gpu'
-        CALL message(TRIM(routine),message_text)
-!$ACC UPDATE HOST( p_cc(:,:,:,jt), p_cellhgt_mc_now, p_cellmass_now  ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE HOST( p_upflux(:,:,:,jt), p_mflx_contra_v ), IF( i_am_accel_node .AND. acc_on )
-!$ACC UPDATE HOST( opt_topflx_tra(:,:,jt) ), IF( i_am_accel_node .AND. acc_on .AND. PRESENT(opt_topflx_tra ) )
-        save_i_am_accel_node = i_am_accel_node
-        i_am_accel_node = .FALSE.                  ! deactivate GPUs throughout upwind_vflux_ppm
-#endif
-        ! CALL third order PPM/PSM (unrestricted timestep-version) (i.e. CFL>1)
-        CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,        &! in
-          &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
-          &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
-          &                  p_ivlimit_selective(jt),                      &! in
-          &                  p_cellhgt_mc_now, p_cellmass_now,             &! in
-          &                  lprint_cfl,                                   &! in
-          &                  p_ivadv_tracer(jt),                           &! in
-          &                  p_upflux(:,:,:,jt),                           &! out
-          &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
-          &                  opt_slev=p_iadv_slev(jt),                     &! in
-          &                  opt_ti_slev=iadv_min_slev,                    &! in
-          &                  opt_rlstart=opt_rlstart,                      &! in
-          &                  opt_rlend=i_rlend_c                           )! in
-#ifdef _OPENACC
-        i_am_accel_node =  save_i_am_accel_node    ! reactivate GPUs if appropriate
-!$ACC UPDATE DEVICE( p_upflux(:,:,:,jt), p_mflx_contra_v ), IF( i_am_accel_node .AND. acc_on )
-#endif
 
+! In GPU mode, PSM is unavailable
+        IF ( p_ivadv_tracer(jt) == ipsm_v ) THEN
+          CALL finish ( TRIM(routine), 'NO ppm4gpu IMPLEMENTATION for PSM ')
+        ENDIF
 
-      CASE( ippm4gpu_v )
-
-        iadv_min_slev = advection_config(jg)%ppm4gpu_v%iadv_min_slev
-
-        ! CALL third order PPM (unrestricted timestep-version, optimized for GPU)
-        CALL upwind_vflux_ppm4gpu( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
-            &                  p_mflx_contra_v, p_dtime, lcompute%ppm4gpu_v(jt), &! in
-            &                  lcleanup%ppm4gpu_v(jt), p_itype_vlimit(jt),   &! in
+        CALL upwind_vflux_ppm4gpu( p_patch, p_cc(:,:,:,jt), p_iubc_adv,      &! in
+            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
+            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
             &                  p_ivlimit_selective(jt),                      &! in
             &                  p_cellhgt_mc_now, p_cellmass_now, lprint_cfl, &! in
             &                  p_upflux(:,:,:,jt),                           &! out
@@ -331,8 +290,25 @@ CONTAINS
             &                  opt_ti_slev=iadv_min_slev,                    &! in
             &                  opt_rlstart=opt_rlstart,                      &! in
             &                  opt_rlend=i_rlend_c                           )! in
+#else
+          ! CALL third order PPM/PSM (unrestricted timestep-version) (i.e. CFL>1)
+          CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,        &! in
+            &                  p_mflx_contra_v, p_dtime, lcompute%ppm_v(jt), &! in
+            &                  lcleanup%ppm_v(jt), p_itype_vlimit(jt),       &! in
+            &                  p_ivlimit_selective(jt),                      &! in
+            &                  p_cellhgt_mc_now, p_cellmass_now,             &! in
+            &                  lprint_cfl,                                   &! in
+            &                  p_ivadv_tracer(jt),                           &! in
+            &                  p_upflux(:,:,:,jt),                           &! out
+            &                  opt_topflx_tra=opt_topflx_tra(:,:,jt),        &! in
+            &                  opt_slev=p_iadv_slev(jt),                     &! in
+            &                  opt_ti_slev=iadv_min_slev,                    &! in
+            &                  opt_rlstart=opt_rlstart,                      &! in
+            &                  opt_rlend=i_rlend_c                           )! in
+#endif
 
       END SELECT
+
     END DO  ! Tracer loop
 
 
@@ -349,32 +325,32 @@ CONTAINS
       i_startblk = p_patch%cells%start_block(i_rlstart_c)
       i_endblk   = p_patch%cells%end_block(i_rlend_c)
 
+!$ACC DATA PRESENT( p_mflx_contra_v, p_patch, opt_q_int, p_upflux, trAdvect ) &
+!$ACC      CREATE ( z_mflx_contra_v )
+
 !$OMP PARALLEL DO PRIVATE(jb,jt,jc,nt,i_startidx,i_endidx,z_mflx_contra_v) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
           &                 i_startidx, i_endidx, i_rlstart_c, i_rlend_c )
 
         ! Be sure to avoid division by zero
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG VECTOR
+!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         DO jc = i_startidx, i_endidx
           z_mflx_contra_v(jc) = SIGN( MAX(ABS(p_mflx_contra_v(jc,p_patch%nshift_child,jb)),dbl_eps), &
             &                                 p_mflx_contra_v(jc,p_patch%nshift_child,jb) )
         ENDDO
-!$ACC END PARALLEL
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-        !$ACC LOOP GANG
+!$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         DO nt = 1, trAdvect%len
-          jt = trAdvect%list(nt)
-          !$ACC LOOP VECTOR
           DO jc = i_startidx, i_endidx
+            jt = trAdvect%list(nt)
             opt_q_int(jc,jb,jt) = p_upflux(jc,p_patch%nshift_child,jb,jt) / z_mflx_contra_v(jc)
           ENDDO
         ENDDO
-!$ACC END PARALLEL
       ENDDO
 !$OMP END PARALLEL DO
+
+!$ACC END DATA
 
     ENDIF
 
@@ -501,14 +477,14 @@ CONTAINS
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev+1, nlev
         DO jc = i_startidx, i_endidx
-          ! calculate vertical tracer flux
-          p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v(p_mflx_contra_v(jc,jk,jb),p_cc(jc,jk-1,jb),p_cc(jc,jk,jb))
-
+          ! calculate vertical tracer flux   -- removed flaky laxfr macro
+          p_upflux(jc,jk,jb) = p_mflx_contra_v(jc,jk,jb) *                    &
+                               MERGE( p_cc(jc,jk,jb),p_cc(jc,jk-1,jb),        &
+                                      p_mflx_contra_v(jc,jk,jb) .GE. 0.0_wp ) 
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
 !$ACC END PARALLEL
@@ -526,6 +502,8 @@ CONTAINS
         &              zparent_topflx(:,jb),             &! in
         &              p_upflux(:,slev,jb),              &! out
         &              p_upflux(:,nlevp1,jb), .TRUE.)     ! out
+      
+      !$ACC WAIT
 
     ENDDO ! end loop over blocks
 
@@ -1178,10 +1156,10 @@ CONTAINS
             &  + 2._wp*z_cflfrac_p(jc,ik,jb)*z_cflfrac_p(jc,ik,jb))
 
           !
-          ! full flux
+          ! full flux  -- removed flaky laxfr macro
           !
-          p_upflux(jc,jk,jb) =                                  &
-            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),z_lext_1,z_lext_2)
+          p_upflux(jc,jk,jb) = p_mflx_contra_v(jc,jk,jb)*               &
+                               MERGE(z_lext_2,z_lext_1,p_mflx_contra_v(jc,jk,jb) >= 0.0_wp)
 
         END DO ! end loop over cells
 
@@ -1348,6 +1326,8 @@ CONTAINS
         &              p_upflux(:,slev,jb),              &! out
         &              p_upflux(:,nlevp1,jb), llbc_adv)   ! out
 
+      !$ACC WAIT
+
 
 
       ! If desired, get edge value of advected quantity 
@@ -1375,6 +1355,7 @@ CONTAINS
           &                   i_endidx        = i_endidx,               & !in
           &                   slev            = slev,                   & !in
           &                   elev            = elev_lim                ) !in
+        !$ACC WAIT
       ENDIF
 
     ENDDO  ! jb
@@ -1697,6 +1678,8 @@ CONTAINS
       !
       ! allocate field for storing the density weighted Courant number 
       !
+      ! DA: this is a performance issue
+      ! TODO: figure out z_cfl lifetime
       ALLOCATE( z_cfl(nproma,nlevp1,p_patch%nblks_c), STAT=ist  )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation for z_cfl failed')
@@ -1725,7 +1708,7 @@ CONTAINS
       ! The contravariant mass flux should never exactly vanish
       !
       IF (l_out_edgeval) THEN
-!$ACC PARALLEL  IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slevp1, elev
           DO jc = i_startidx, i_endidx
@@ -1745,7 +1728,7 @@ CONTAINS
       IF (ld_compute) THEN
 
         ! initialize Courant number
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) PRESENT(z_cfl)  ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         z_cfl(i_startidx:i_endidx,slev_ti:nlevp1,jb) = 0._wp
 !$ACC END KERNELS
 
@@ -1753,7 +1736,7 @@ CONTAINS
         ! Split density-weighted Courant number into integer and fractional 
         ! part and store the sum in z_cfl (for w>0 and w<0)
         !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(z_cfl) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( z_mass, jks ) COLLAPSE(2)
         DO jk = slevp1_ti, elev
           DO jc = i_startidx, i_endidx
@@ -1816,11 +1799,11 @@ CONTAINS
       !
 
       ! Initialize z_slope for jk=slev
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       z_slope(i_startidx:i_endidx,slev) = 0._wp
 !$ACC END KERNELS
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, zfac_m1, zfac, p_cc_min, p_cc_max ) COLLAPSE(2)
       DO jk = slevp1, nlev
         DO jc = i_startidx, i_endidx
@@ -1852,6 +1835,7 @@ CONTAINS
 
         END DO  ! jc
       END DO  ! jk
+!$ACC END PARALLEL
 
       !
       ! 3. reconstruct face values at vertical half-levels
@@ -1866,6 +1850,7 @@ CONTAINS
       ! for faces k=slev and k=nlevp1 a zero gradient condition is assumed and the
       ! face values are set to the tracer values of the corresponding cell centers
       !
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )   
 !$ACC LOOP GANG VECTOR
       DO jc = i_startidx, i_endidx
 
@@ -1888,7 +1873,7 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikm1, ikp1, ikp2, zgeo1, zgeo2, zgeo3, zgeo4 ) COLLAPSE(2)
       DO jk = slevp1, nlev-2
         DO jc = i_startidx, i_endidx
@@ -1946,7 +1931,7 @@ CONTAINS
       IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
         ! simply copy face values to 'face_up' and 'face_low' arrays
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikp1 ) COLLAPSE(2)
         DO jk = slev, nlev
           DO jc = i_startidx, i_endidx
@@ -1973,7 +1958,7 @@ CONTAINS
       !     z_delta_q = 0.5*\Delta q
       !     z_a1 = 1/6*a_6
       !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, nlev
         DO jc = i_startidx, i_endidx
@@ -1988,10 +1973,9 @@ CONTAINS
       ! 5b. First compute the fractional fluxes for all cell faces.
       !     For cell faces with CFL>1, integer fluxes will be added lateron.
       !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(z_cfl) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( ikm1, js, z_cflfrac, jks, wsign, z_q_int ) COLLAPSE(2)
       DO jk = slevp1, elev
-
         DO jc = i_startidx, i_endidx
           ikm1 = jk-1
           ! get integer shift (always non-negative)
@@ -2033,7 +2017,7 @@ CONTAINS
       !
       ! 5c. Now compute the integer fluxes and add them to the fractional flux
       !
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) PRESENT(z_cfl) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( js, z_iflx, jk_shift ) COLLAPSE(2)
       DO jk = slevp1, elev
 
@@ -2093,7 +2077,7 @@ CONTAINS
       ! If desired, get edge value of advected quantity 
       IF ( l_out_edgeval ) THEN
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slevp1, nlev
           DO jc = i_startidx, i_endidx
@@ -2251,8 +2235,8 @@ CONTAINS
     INTEGER    :: jk, jb, jc
     REAL (wp)  :: h, dz, c, lambda_im
 
-    REAL (wp) :: phi_old( nproma, p_patch%nlev, p_patch%nblks_c)
-    REAL (wp) :: phi_new( nproma, p_patch%nlev, p_patch%nblks_c)
+    REAL (wp) :: phi_old( nproma, p_patch%nlev )
+    REAL (wp) :: phi_new( nproma, p_patch%nlev )
 
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_startidx, i_endidx
@@ -2269,7 +2253,7 @@ CONTAINS
     IF ( .FALSE. ) THEN
 #else
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,dz,c,lambda_im,h) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,dz,c,lambda_im,h,phi_old,phi_new) ICON_OMP_GUIDED_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -2279,7 +2263,7 @@ CONTAINS
       ! calculate densities (for the following flux advection scheme)
       DO jk = 1, p_patch%nlev
         DO jc = i_startidx, i_endidx
-          phi_old(jc,jk,jb) = tracer(jc,jk,jb) * rho(jc,jk,jb)
+          phi_old(jc,jk) = tracer(jc,jk,jb) * rho(jc,jk,jb)
         ENDDO ! jc
       ENDDO ! jk
 
@@ -2293,9 +2277,9 @@ CONTAINS
           c = dt / ( 2.0_wp * dz );
           lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-          h = phi_old(jc,jk,jb) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk,jb) )
+          h = phi_old(jc,jk) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk) )
 
-          phi_new(jc,jk,jb) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
+          phi_new(jc,jk) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
         END DO ! jc
 
         DO jk=2, p_patch%nlev
@@ -2305,12 +2289,12 @@ CONTAINS
             c = dt / ( 2.0_wp * dz );
             lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-            h = phi_old(jc,jk,jb) + c *                      &
-              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1,jb)   &
-              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1,jb)   &
-              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  ,jb)  )
+            h = phi_old(jc,jk) + c *                      &
+              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1)   &
+              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1)   &
+              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  )  )
 
-            phi_new(jc,jk,jb) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
+            phi_new(jc,jk) = MAX( lambda_im * ( h + rhoS(jc,jk,jb)*dt ), 0.0_wp)
 
           END DO ! jc
         END DO ! jk
@@ -2327,9 +2311,9 @@ CONTAINS
           c = dt / ( 2.0_wp * dz );
           lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-          h = phi_old(jc,jk,jb) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk,jb) )
+          h = phi_old(jc,jk) - c * ( v_old(jc,jk+1,jb) * phi_old(jc,jk) )
 
-          phi_new(jc,jk,jb) = MAX( lambda_im * h, 0.0_wp)
+          phi_new(jc,jk) = MAX( lambda_im * h, 0.0_wp)
         END DO ! jc
 
         DO jk=2, p_patch%nlev
@@ -2339,12 +2323,12 @@ CONTAINS
             c = dt / ( 2.0_wp * dz );
             lambda_im = 1.0_wp / ( 1.0_wp + c * v_new(jc,jk,jb) )
 
-            h = phi_old(jc,jk,jb) + c *                      &
-              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1,jb)   &
-              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1,jb)   &
-              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  ,jb)  )
+            h = phi_old(jc,jk) + c *                      &
+              &  ( v_new(jc,jk  ,jb) * phi_new(jc,jk-1)   &
+              &  + v_old(jc,jk  ,jb) * phi_old(jc,jk-1)   &
+              &  - v_old(jc,jk+1,jb) * phi_old(jc,jk  )  )
 
-            phi_new(jc,jk,jb) = MAX( lambda_im * h, 0.0_wp)
+            phi_new(jc,jk) = MAX( lambda_im * h, 0.0_wp)
           END DO ! jc
         END DO ! jk
 
@@ -2353,7 +2337,7 @@ CONTAINS
       ! calculate back the specific mass:
       DO jk = 1, p_patch%nlev
         DO jc = i_startidx, i_endidx
-          tracer(jc,jk,jb) = phi_new(jc,jk,jb) * rho_inv(jc,jk,jb)
+          tracer(jc,jk,jb) = phi_new(jc,jk) * rho_inv(jc,jk,jb)
         ENDDO ! jc
       ENDDO ! jk
 
@@ -2400,7 +2384,7 @@ CONTAINS
       &  parent_topflx(:)         !< interpolated from parent grid
     REAL(wp), INTENT(OUT)    :: & !< upper boundary condition
       &  upflx_top(:)
-    REAL(wp), INTENT(OUT)    :: & !< lower boundary condition
+    REAL(wp), INTENT(INOUT)  :: & !< lower boundary condition
       &  upflx_bottom(:)
     LOGICAL, INTENT(IN)      :: & !< apply lower boundary condition?
       &  llbc_adv
@@ -2415,12 +2399,12 @@ CONTAINS
     ! 
     SELECT CASE (iubc_adv)
       CASE ( ino_flx )     ! no flux
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         upflx_top(i_start:i_end) = 0._wp
 !$ACC END KERNELS
  
       CASE ( izero_grad )  ! zero gradient
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         upflx_top(i_start:i_end) = upflx_top_p1(i_start:i_end)      &
             &           * mflx_top(i_start:i_end)                   &
             &           / ( mflx_top_p1(i_start:i_end)              &
@@ -2428,7 +2412,7 @@ CONTAINS
 !$ACC END KERNELS
 
       CASE ( iparent_flx ) ! interpolated flux from parent grid
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         upflx_top(i_start:i_end) = parent_topflx(i_start:i_end)
 !$ACC END KERNELS
     END SELECT
@@ -2437,7 +2421,7 @@ CONTAINS
     ! flux at bottom boundary
     !
     IF ( llbc_adv ) THEN
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
       upflx_bottom(i_start:i_end) = 0._wp
 !$ACC END KERNELS
     END IF
