@@ -161,9 +161,9 @@ SUBROUTINE dump_storage(this_storage,opt_label_in)
         TYPE IS(t_intVal)
           WRITE(message_text,"(A,I0)") TRIM(message_text),p_val%intVal
         TYPE IS(t_realVal)
-          WRITE(message_text,"(A,F)") TRIM(message_text),p_val%realVal
+          WRITE(message_text,"(A,ES13.4)") TRIM(message_text),p_val%realVal
         TYPE IS(t_logVal)
-          WRITE(message_text,"(A,L)") TRIM(message_text),p_val%logVal
+          WRITE(message_text,"(A,L5)") TRIM(message_text),p_val%logVal
         CLASS DEFAULT
           WRITE(message_text,"(A,A)") TRIM(message_text),"<invalid>"
       END SELECT
