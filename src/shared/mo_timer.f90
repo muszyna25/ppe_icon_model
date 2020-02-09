@@ -64,7 +64,7 @@ MODULE mo_timer
   PUBLIC :: timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
        &    timer_preradiaton, timer_synsat
 
-  PUBLIC :: timer_div, timer_grad, timer_gmres, timer_lhs, timer_lhs_sp
+  PUBLIC :: timer_div, timer_grad, timer_gmres
   PUBLIC :: timer_corio, timer_intp
   PUBLIC :: timer_transport
   PUBLIC :: timer_back_traj
@@ -92,7 +92,7 @@ MODULE mo_timer
   PUBLIC :: timer_gwd !!$, timer_sso
   PUBLIC :: timer_cnv , timer_cld
   PUBLIC :: timer_car , timer_mox
-  PUBLIC :: timer_wmo
+  PUBLIC :: timer_wmo , timer_mig
   !
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
@@ -163,8 +163,12 @@ MODULE mo_timer
   PUBLIC :: timer_bdy_interp
   PUBLIC :: timer_feedback
 
+  PUBLIC :: timer_global_nudging
+
+  ! upper atmosphere / deep atmosphere
+  PUBLIC :: timer_deepatmo_ztrafo, timer_expol
+
   ! ocean
-  PUBLIC :: timer_gmres_p_sum
   PUBLIC :: timer_scalar_prod_veloc
 
   ! Timer IDs for sea ice
@@ -227,7 +231,6 @@ MODULE mo_timer
        &     timer_icon_comm_ircv, timer_icon_comm_fillsend,timer_icon_comm_fillandsend,   &
        &     timer_icon_comm_barrier_2, timer_icon_comm_send
   INTEGER :: timer_barrier
-  INTEGER :: timer_gmres_p_sum
 
   INTEGER :: timer_nh_hdiffusion
 
@@ -269,10 +272,7 @@ MODULE mo_timer
   INTEGER :: timer_radheat
 
   ! Timer ID's for horizontal operators
-  INTEGER :: timer_div
-  INTEGER :: timer_grad
-  INTEGER :: timer_gmres
-  INTEGER :: timer_lhs, timer_lhs_sp
+  INTEGER :: timer_div, timer_grad, timer_gmres
   INTEGER :: timer_corio
   INTEGER :: timer_intp
 
@@ -301,7 +301,7 @@ MODULE mo_timer
   INTEGER :: timer_gwd !!$, timer_sso
   INTEGER :: timer_cnv , timer_cld
   INTEGER :: timer_car , timer_mox
-  INTEGER :: timer_wmo
+  INTEGER :: timer_wmo , timer_mig
   !
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
@@ -345,7 +345,12 @@ MODULE mo_timer
   INTEGER :: timer_bdy_interp
   INTEGER :: timer_feedback
 
+  INTEGER :: timer_global_nudging
+
   INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
+
+  ! upper atmosphere / deep atmosphere
+  INTEGER :: timer_deepatmo_ztrafo, timer_expol
 
   ! ocean
   INTEGER :: timer_scalar_prod_veloc
@@ -526,7 +531,6 @@ CONTAINS
     timer_icon_comm_send         = new_timer("comm_send")
     timer_icon_comm_wait         = new_timer("comm_wait")
     timer_icon_comm_barrier_2    = new_timer("comm_barrier_2")
-    timer_gmres_p_sum            = new_timer("gmres_p_sum")
 
     timer_write_output  = new_timer("wrt_output")
 
@@ -600,6 +604,7 @@ CONTAINS
        timer_sso    = new_timer("interface_echam_sso")
        timer_cnv    = new_timer("interface_echam_cnv")
        timer_cld    = new_timer("interface_echam_cld")
+       timer_mig    = new_timer("interface_echam_mig")
        timer_car    = new_timer("interface_echam_car")
        timer_mox    = new_timer("interface_echam_mox")
        timer_wmo    = new_timer("interface_echam_wmo")
@@ -700,10 +705,15 @@ CONTAINS
     timer_bdy_interp = new_timer("nesting.bdy_interp")
     timer_feedback   = new_timer("nesting.feedback")
 
+    timer_global_nudging = new_timer("global_nudging")
+
+    ! upper atmosphere / deep atmosphere
+    timer_deepatmo_ztrafo = new_timer("deepatmo_ztrafo")
+    timer_expol           = new_timer("upatmo_expol") 
+
     !ocean timers
     timer_gmres     = new_timer("gmres")
-    timer_lhs       = new_timer("lhs")
-    timer_lhs_sp    = new_timer("lhs_sp")
+
     timer_scalar_prod_veloc =new_timer("veloc_prod")
     
     ! Timer IDs for sea ice

@@ -1643,8 +1643,8 @@ CONTAINS
     DO i = 1, n_var
 
       IF ((patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
-          (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g) .OR. &
-          (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g)) &
+          (patches(1)%p%n_patch_edges_g /= patches(i)%p%n_patch_edges_g) .OR. &
+          (patches(1)%p%n_patch_verts_g /= patches(i)%p%n_patch_verts_g))     &
         CALL finish(method_name, "patches do not match")
 
       openInputFile_dist_multivar%read_info(on_cells, i)%n_g = &

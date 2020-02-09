@@ -23,7 +23,7 @@ MODULE mo_advection_config
   USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,   &
     &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,    &
     &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,   &
-    &                                 FFSL_HYB_MCYCL, ippm_v, ippm4gpu_v,      &
+    &                                 FFSL_HYB_MCYCL, ippm_v, ipsm_v,          &
     &                                 ino_flx, izero_grad, iparent_flx, inwp,  &
     &                                 iecham, TRACER_ONLY, SUCCESS, VNAME_LEN, &
     &                                 NO_HADV, NO_VADV
@@ -66,7 +66,6 @@ MODULE mo_advection_config
   !
   TYPE t_compute                                                               
     LOGICAL :: ppm_v     (MAX_NTRACER)
-    LOGICAL :: ppm4gpu_v (MAX_NTRACER)                                           
     LOGICAL :: miura3_h  (MAX_NTRACER)
     LOGICAL :: ffsl_h    (MAX_NTRACER)
     LOGICAL :: ffsl_hyb_h(MAX_NTRACER)
@@ -151,7 +150,16 @@ MODULE mo_advection_config
                                     !< 2: monotonous slope limiter               
                                     !< 3: monotonous flux limiter                
 
-    REAL(wp):: beta_fct             !< factor of allowed over-/undershooting in monotonous limiter
+    INTEGER :: &                    !< additional method for identifying and avoiding 
+      & ivlimit_selective(MAX_NTRACER)!< spurious limiting of smooth extrema
+                                    !< 1: switch on
+                                    !< 0: switch off
+
+    REAL(wp):: beta_fct             !< global boost factor for range of permissible values in 
+                                    !< (semi-) monotonous flux limiter. A value larger than 
+                                    !< 1 allows for (small) over and undershoots, while a value 
+                                    !< of 1 gives strict monotonicity (at the price of increased 
+                                    !< diffusivity).
 
     INTEGER :: iord_backtraj        !< parameter to select the spacial order     
                                     !< of accuracy for the backward trajectory   
@@ -216,7 +224,6 @@ MODULE mo_advection_config
     ! scheme specific derived variables
     !
     TYPE(t_scheme) :: ppm_v      !< vertical PPM scheme
-    TYPE(t_scheme) :: ppm4gpu_v  !< vertical PPM scheme (optimized for GPU)
     TYPE(t_scheme) :: miura_h    !< horizontal miura scheme (linear reconstr.)
     TYPE(t_scheme) :: miura3_h   !< horizontal miura scheme (higher order reconstr.)
     TYPE(t_scheme) :: ffsl_h     !< horizontal FFSL scheme
@@ -277,8 +284,10 @@ CONTAINS
   !!
   SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,        &
     &                            iqc, iqt,                                             &
-    &                            kstart_moist, kend_qvsubstep, lvert_nest, l_open_ubc, &
-    &                            ntracer, idiv_method, itime_scheme, tracer_list)
+    &                            kstart_moist, kend_qvsubstep,                         &
+    &                            lvert_nest, l_open_ubc,                               &
+    &                            ntracer, idiv_method, itime_scheme, tracer_list,      &
+    &                            kstart_tracer)
   !
     INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: num_lev      !< number of vertical levels
@@ -294,6 +303,8 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
     TYPE(t_var_list), OPTIONAL, INTENT(IN) :: tracer_list(:) ! tracer var_list
+    INTEGER,          OPTIONAL, INTENT(IN) :: kstart_tracer(MAX_NTRACER) !< start index for (art-)tracer related processes
+
     !
     CHARACTER(*), PARAMETER :: routine = "configure_advection"
     INTEGER :: jt          !< tracer loop index
@@ -346,8 +357,10 @@ CONTAINS
       ! note: iqt denotes the first tracer index not related to moisture
       advection_config(jg)%iadv_slev(iqc:iqt-1) = kstart_moist
       advection_config(jg)%iadv_qvsubstep_elev = kend_qvsubstep
+      IF ( PRESENT(kstart_tracer) ) THEN
+         advection_config(jg)%iadv_slev(iqt:ntracer) = kstart_tracer(iqt:ntracer)
+      ENDIF
     ENDIF
-
 
 
     ! set boundary condition for vertical transport
@@ -395,11 +408,12 @@ CONTAINS
 
     advection_config(jg)%ppm_v%iadv_min_slev = HUGE(1)
 
-    IF ( ANY(ivadv_tracer == ippm_v)  ) THEN
+
+    IF ( ANY(ivadv_tracer == ippm_v) .OR. ANY(ivadv_tracer == ipsm_v) ) THEN
 
       ! compute minimum required slev for this group of tracers
       DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm_v ) THEN
+        IF ( ANY( (/ippm_v, ipsm_v/) == ivadv_tracer(jt) ) ) THEN
           advection_config(jg)%ppm_v%iadv_min_slev =                           &
             &                  MIN( advection_config(jg)%ppm_v%iadv_min_slev,  &
             &                        advection_config(jg)%iadv_slev(jt) )
@@ -409,7 +423,7 @@ CONTAINS
       ! Search for the first tracer jt for which vertical advection of
       ! type PPM has been selected.
       DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm_v ) THEN
+        IF ( ANY( (/ippm_v, ipsm_v/) == ivadv_tracer(jt) ) ) THEN
           lcompute%ppm_v(jt) = .TRUE.
           exit
         ENDIF
@@ -418,50 +432,13 @@ CONTAINS
       ! Search for the last tracer jt for which vertical advection of
       ! type PPM has been selected.
       DO jt=ntracer,1,-1
-        IF ( ivadv_tracer(jt) == ippm_v ) THEN
+        IF ( ANY( (/ippm_v, ipsm_v/) == ivadv_tracer(jt) ) ) THEN
           lcleanup%ppm_v(jt) = .TRUE.
           exit
         ENDIF
       ENDDO
     END IF
 
-
-    ! PPM4GPU_V specific settings (vertical transport)
-    !
-    lcompute%ppm4gpu_v(:)   = .FALSE.
-    lcleanup%ppm4gpu_v(:)   = .FALSE.
-
-    advection_config(jg)%ppm4gpu_v%iadv_min_slev = HUGE(1)
-
-    IF ( ANY(ivadv_tracer == ippm4gpu_v) ) THEN
-      ! compute minimum required slev for this group of tracers
-      DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm4gpu_v ) THEN
-          advection_config(jg)%ppm4gpu_v%iadv_min_slev =                           &
-            &                  MIN( advection_config(jg)%ppm4gpu_v%iadv_min_slev,  &
-            &                        advection_config(jg)%iadv_slev(jt) )
-        ENDIF
-      ENDDO
-
-      ! Search for the first tracer jt for which vertical advection of
-      ! type PPM4GPU has been selected.
-      DO jt=1,ntracer
-        IF ( ivadv_tracer(jt) == ippm4gpu_v ) THEN
-          lcompute%ppm4gpu_v(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
-
-      ! Search for the last tracer jt for which vertical advection of
-      ! type PPM4GPU has been selected.
-      DO jt=ntracer,1,-1
-        IF ( ivadv_tracer(jt) == ippm4gpu_v ) THEN
-          lcleanup%ppm4gpu_v(jt) = .TRUE.
-          exit
-        ENDIF
-      ENDDO
-
-    ENDIF
 
     !
     ! MIURA specific settings (horizontal transport)

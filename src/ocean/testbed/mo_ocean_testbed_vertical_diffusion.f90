@@ -46,7 +46,6 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_ocean_forcing,          ONLY: destruct_ocean_forcing
   USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_var_list,               ONLY: print_var_list
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
@@ -79,7 +78,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE (t_ho_params)                               :: physics_parameters
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
 
     INTEGER :: inner_iter, outer_iter
     TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -131,7 +130,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE (t_ho_params)                               :: physics_parameters
-    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    TYPE(t_operator_coeff),   INTENT(in)          :: operators_coefficients
 
     INTEGER :: inner_iter, outer_iter
     TYPE(t_subset_range), POINTER :: edges_owned, cells_owned
@@ -244,7 +243,7 @@ CONTAINS
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET     :: operators_coefficients
     REAL(wp), INTENT(inout) :: residual_3D(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     ! REAL(wp), INTENT(inout)           :: diff_column(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !
@@ -431,7 +430,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET        :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET        :: operators_coefficients
     !
     !
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -536,7 +535,7 @@ CONTAINS
     TYPE(t_ocean_tracer), TARGET         :: ocean_tracer
     REAL(wp), INTENT(inout)              :: h_c(:,:)  !surface height, relevant for thickness of first cell, in
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET     :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET     :: operators_coefficients
     !
     !
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -634,7 +633,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     REAL(wp), INTENT(inout)              :: velocity(:,:,:)   ! on edges
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET        :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET        :: operators_coefficients
     !
     REAL(wp) :: dt_inv
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -731,7 +730,7 @@ CONTAINS
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     REAL(wp), INTENT(inout)              :: velocity(:,:,:)   ! on edges
     REAL(wp), INTENT(inout)              :: A_v(:,:,:)
-    TYPE(t_operator_coeff),TARGET        :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(in),TARGET        :: operators_coefficients
     !
     REAL(wp) :: dt_inv
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
@@ -835,7 +834,7 @@ CONTAINS
 !    REAL(wp), INTENT(inout)           :: field_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
 !    !surface height at edges, relevant for thickness of first cell
 !    REAL(wp), INTENT(inout)           :: A_v(:,:,:)
-!    TYPE(t_operator_coeff), TARGET    :: p_op_coeff
+!    TYPE(t_operator_coeff), INTENT(inout), TARGET    :: p_op_coeff
 !    ! REAL(wp), INTENT(inout)             :: diff_column(1:nproma,1:n_zlev,1:p_patch_3D%p_patch_2D(1)%nblks_e)
 !    !
 !    !Local variables

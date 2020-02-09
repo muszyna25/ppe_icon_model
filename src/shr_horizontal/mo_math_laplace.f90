@@ -105,7 +105,7 @@ USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
 USE mo_math_gradients,      ONLY: grad_fd_norm
-USE mo_math_divrot,         ONLY: div, rot_vertex, recon_lsq_cell_q
+USE mo_math_divrot,         ONLY: div, rot_vertex
 USE mo_fortran_tools,       ONLY: copy
 #ifdef _OPENACC
 USE mo_mpi,                 ONLY: i_am_accel_node

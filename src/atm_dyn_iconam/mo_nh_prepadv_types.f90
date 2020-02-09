@@ -28,11 +28,7 @@ MODULE mo_nh_prepadv_types
 
   ! for preparation of transport with optional reduced calling frequency
   TYPE :: t_prepare_adv
-#ifdef _OPENACC
-    REAL(wp), POINTER ::     &
-#else
     REAL(wp), ALLOCATABLE :: &
-#endif
     ! mass flux at full level edges (currently at N+1\2)
     mass_flx_me(:,:,:) ,     &
     !

@@ -80,13 +80,13 @@ MODULE mo_name_list_output
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
     &                                     ihs_ocean, BOUNDARY_MISSVAL
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT,              &
-    &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_ZONAL
   USE mo_impl_constants_grf,        ONLY: grf_bdywidth_c
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
-      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, GRID_ZONAL, &
+      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_util_cdi,                  ONLY: cdiGetStringError
   ! utility functions
@@ -134,6 +134,10 @@ MODULE mo_name_list_output
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
+#ifdef _OPENACC
+  USE mo_mpi,                       ONLY: i_am_accel_node
+  USE openacc
+#endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta,             &
@@ -422,31 +426,8 @@ CONTAINS
     TYPE (t_output_file), INTENT(INOUT) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::close_output_file"
-    LOGICAL :: is_output_process
 
-    ! GRB2 format: define geographical longitude, latitude as special
-    ! variables "RLON", "RLAT"
-    is_output_process = ((use_async_name_list_io .and. my_process_is_io()) &
-#ifdef HAVE_CDI_PIO
-      &            .OR. (pio_type == pio_type_cdipio) &
-#endif
-      &            .OR. ((.NOT. use_async_name_list_io) &
-      &                   .AND. my_process_is_mpi_workroot())) &
-      &      .AND. .NOT. my_process_is_mpi_test()
-
-    IF(of%cdiFileID /= CDI_UNDEFID) THEN
-#ifndef __NO_ICON_ATMO__
-      IF ((of%name_list%output_grid)                                      .AND. &
-        & (patch_info(of%phys_patch_id)%grid_info_mode /= GRID_INFO_NONE) .AND. &
-        & is_output_process                                               .AND. &
-        & (of%name_list%filetype == FILETYPE_GRB2)) THEN
-        CALL write_grid_info_grb2(of, patch_info)
-      END IF
-#endif
-
-      CALL streamClose(of%cdiFileID)
-    END IF
-
+    IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
     of%cdiFileID = CDI_UNDEFID
 
   END SUBROUTINE close_output_file
@@ -500,7 +481,7 @@ CONTAINS
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
     INTEGER :: prev_cdi_namespace
     LOGICAL :: is_io, is_test
-    LOGICAL :: lhas_output, all_print
+    LOGICAL :: lhas_output, all_print, do_sync
     LOGICAL :: ofile_is_active(SIZE(output_file)), &
          ofile_has_first_write(SIZE(output_file)), &
          ofile_is_assigned_here(SIZE(output_file))
@@ -635,11 +616,15 @@ CONTAINS
 
       IF(is_io) THEN
 #ifndef NOMPI
-        IF (ofile_is_assigned_here(i)) &
+        IF (ofile_is_assigned_here(i)) THEN
           CALL io_proc_write_name_list(output_file(i), ofile_has_first_write(i))
+          do_sync = lkeep_in_sync .OR. check_write_readyfile(output_file(i)%out_event%output_event) .OR. &
+                    output_file(i)%name_list%steps_per_file == 1
+        END IF
 #endif
       ELSE
         CALL write_name_list(output_file(i), ofile_has_first_write(i))
+        do_sync = lkeep_in_sync .AND. ofile_is_assigned_here(i)
       ENDIF
 
       ! -------------------------------------------------
@@ -650,9 +635,26 @@ CONTAINS
         output_pe_list(noutput_pe_list) = io_proc_id
       END IF
 
+      ! GRB2 format: define geographical longitude, latitude as special
+      ! variables "RLON", "RLAT"
+#ifndef __NO_ICON_ATMO__
+      IF (ofile_is_assigned_here(i) &
+        .AND. patch_info(output_file(i)%phys_patch_id)%grid_info_mode         &
+        &     /= GRID_INFO_NONE                                               &
+        .AND. output_file(i)%name_list%output_grid                            &
+        .AND. output_file(i)%name_list%filetype == FILETYPE_GRB2              &
+        .AND. check_close_file(output_file(i)%out_event,                      &
+        &           output_file(i)%out_event%output_event%i_event_step+1)) THEN
+        CALL write_grid_info_grb2(output_file(i), patch_info)
+      END IF
+#endif
+
       ! -------------------------------------------------
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
+#ifndef NOMPI
+      IF (do_sync) CALL streamsync(output_file(i)%cdiFileID)
+#endif
       CALL pass_output_step(output_file(i)%out_event)
     ENDDO OUTFILE_WRITE_LOOP
 
@@ -709,6 +711,7 @@ CONTAINS
 
   SUBROUTINE write_ready_files_cdipio
     TYPE(t_par_output_event), POINTER :: ev
+    !fixme: this needs a mechanism to enforce disk flushes via streamsync
     IF (p_pe_work == 0) THEN
       ev => all_events
       DO WHILE (ASSOCIATED(ev))
@@ -967,6 +970,9 @@ CONTAINS
       post_op_apply &
            = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
       IF ( post_op_apply ) THEN
+#ifdef _OPENACC
+        CALL finish(routine,'perform_post_op not supported on GPUs')
+#endif
         IF (idata_type == iREAL) THEN
           alloc_shape = SHAPE(r_ptr)
           IF (ALLOCATED(r_ptr_m)) THEN
@@ -1310,6 +1316,15 @@ CONTAINS
            ": internal error! unhandled info%ndims=", info%ndims
       GO TO 999
     END SELECT
+
+    IF      (ASSOCIATED(r_ptr_5d)) THEN
+!$ACC UPDATE HOST(r_ptr) IF ( i_am_accel_node .AND. acc_is_present(r_ptr) )
+    ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
+!$ACC UPDATE HOST(s_ptr) IF ( i_am_accel_node .AND. acc_is_present(s_ptr) )
+    ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
+!$ACC UPDATE HOST(i_ptr) IF ( i_am_accel_node .AND. acc_is_present(i_ptr) )
+    ENDIF
+
     RETURN
 999 CALL finish(routine,message_text)
 
@@ -1552,9 +1567,6 @@ CONTAINS
 
       END IF ! is_mpi_workroot
     END DO ! lev = 1, nlevs
-
-    IF (is_mpi_workroot .AND. lkeep_in_sync .AND. &
-       & .NOT. is_mpi_test) CALL streamSync(of%cdiFileID)
 
   END SUBROUTINE gather_on_workroot_and_write
 

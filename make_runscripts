@@ -5,11 +5,11 @@
 #==============================================================================
 #==============================================================================
 # The basic command for creating an ICON experiment run script is
-#   
+#
 #  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
 #
 # By default the folder in use is ./run, and the run script is named exp.<name>.run.
-# 
+#
 # Basic optional parameters for the $make_runscript command are:
 #
 #    out_script=<output run script name>. By default is <in_script>.run
@@ -20,37 +20,53 @@
 #
 #    mpi_procs_pernode=<number of mpi processes>. In the case of MPI configuration,
 #       defines how many processes per node will be used.
-# 
+#
 #    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
 #       defines how many nodes will be used.
-# 
+#
 #    openmp_threads=<Number of openmp threads>. In the case of OPENMP
 #       configuration, defines how many OPENMP threads will be used.
 #
 #    cpu_time=<wall time>. Defines the expected run wall time.
-#  
+#
 #    <free_variable>=<value> Free variables can be passed to the run script
 #       using this syntax. For example: EXPNAME=test, will result the
-#       definition of the variable EXPNAME=test in the run script. 
+#       definition of the variable EXPNAME=test in the run script.
 #
-# For more details see the parameters in the ./config/make_target_runscript
+# For more details see the parameters in the ./run/make_target_runscript
 #==============================================================================
+rundir=run
+param=all
+while getopts "hr:s:" opt
+do
+    case $opt in
+        h) echo "usage: ./make_runscripts [-r <run directory to process>]"
+           echo "                         [-s <all|single exxperiment>]"    
+	    exit 0
+	    ;;
+        r) rundir="${OPTARG}"
+	    ;;
+        s) param="${OPTARG}"
+	    ;;
+    esac
+done
 echo "-----------------------------------------------------------"
-#set -x
+
+#set -ux
 
 base_folder=$(pwd)
-input_folder=run
-if [ x$1 = x ] ; then
-  param=all
-else  
-  param=$1
-fi
-  
+input_folder=${rundir}
+
 #==============================================================================
-. $base_folder/config/set-up.info
+if test -f run/set-up.info ; then
+  . run/set-up.info ;
+else
+  echo "Cound not find setup.info file !!";
+  exit 1;
+fi
 use_shell=${use_shell:="/bin/bash"}
-# The $make_runscript command directs to the ./config/make_target_runscript
-make_runscript="$use_shell ./config/make_target_runscript"
+# The $make_runscript command directs to the ./run/make_target_runscript
+make_runscript="$use_shell ./run/make_target_runscript"
 
 #==============================================================================
 # define the runscripts to be created
@@ -62,22 +78,23 @@ post_list=""
 define_grids_folder=""
 
 cd $input_folder
+
 case $param in
   all)  # create all but not the restarts
-    exp_list=`ls exp.*`
-    post_list=`ls post.*`
+    exp_list=$(find . -maxdepth 1 -name "exp.*")
+    post_list=$(find . -maxdepth 1 -name "post.*")
     ;;
   test)  # create _all_ scripts for use in buildbot
     make_restart_exp="true"
     make_restart_post="true"
-    exp_list=`ls exp.*`
-    post_list=`ls post.*`
+    exp_list=$(find . -maxdepth 1 -name "exp.*")
+    post_list=$(find . -maxdepth 1 -name "post.*")
     # define_grids_folder='grids_folder="/pool/data/ICON/grids/buildbot"'
     ;;
   post_test)  # create _all_ post-processing scripts for buildbot
     make_restart_post="true"
     exp_list=""
-    post_list=`ls post.*`
+    post_list=$(find . -maxdepth 1 -name "post.*")
     ;;
   *)  # create only one experiment
     if [ -r "exp.$param" ] ; then
@@ -87,16 +104,11 @@ case $param in
       post_list="post.$param"
     fi
 esac
+
 cd $base_folder
 
 #==============================================================================
-# use express queue for builtbot experiments on blizzard
-# if [[ $use_target = "blizzard" && $use_mpi = "yes" ]] ; then
-#  use_queue="express"
-#else
-  use_queue="default"
-# fi
-
+use_queue="default"
 
 #==============================================================================
 # Create the ICON experiment run scripts
@@ -110,16 +122,17 @@ cd $base_folder
 # returns "true" in accepted_script, if the script name is accepted
 check_accept_script()
 {
-  #set -x
+#  set -ux
+
   check_accepted_filename=$1
-  
+
   if [[ -r $input_folder/$check_accepted_filename ]] ; then
     accepted_script="true"
   else
     accepted_script="false"
     return 1
   fi
-  
+
   case $check_accepted_filename in
     *.run)
        accepted_script="false"
@@ -130,12 +143,14 @@ check_accept_script()
     *.status)
        accepted_script="false"
        ;;
-   esac
-   #--------------------------
-   if [[ $accepted_script = "false" ]] ; then
-    return 1
-   fi
-
+    *)
+       accepted_script="true"	  
+  esac
+  #--------------------------
+  if [[ "$accepted_script" = "false" ]] ; then
+      return 1
+  fi
+  
    #--------------------------
    # check which scripts run with openmp
    # if [[ $use_openmp = "yes" ]] ; then
@@ -151,7 +166,7 @@ check_accept_script()
    if [[ $use_mpi != "yes" ]] ; then
      case $check_accepted_filename in
        *test_oce_parallel*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        *nat_jww_nwp_mpiomp*)
           accepted_script="false"
@@ -168,20 +183,6 @@ check_accept_script()
    #--------------------------
    # machine based checks
    case $use_target in
-   
-     blizzard)
-       # echo this is blizzard for $check_accepted_filename
-       # check which scripts run on blizzard
-       # (p_test does not work, xlf gives inconsistent results )
-       case $check_accepted_filename in
-       # *test_oce_parallel*)
-       #   accepted_script="false"  
-       #   ;;
-       *nat_jww_nwp_mpiomp*)
-          [[ $param == "test" ]] && accepted_script="false"
-          ;;
-       esac
-     ;; 
 
      sx9)
        case $check_accepted_filename in
@@ -204,45 +205,34 @@ check_accept_script()
        if [[ _${define_grids_folder} != "_" ]] ; then
          define_grids_folder='grids_folder="/e/uscratch/extwsauf/buildbot.grids"'
        fi
-     ;; 
-
-     thunder)
-       if [[ $use_openmp == "yes" ]] ; then
-         case $check_accepted_filename in
-         # nat_jww_nwp_mpiomp gives out of sync with openmp
-         *nat_jww_nwp_mpiomp*)
-            [[ $param == "test" ]] && accepted_script="false"
-         ;;
-         esac
-       fi
      ;;
      
    esac
-   
+
    #--------------------------
    # compiler based checks
    case $use_compiler in
-   
+
      pgi)
        case $check_accepted_filename in
        *test_nat_jww_nwp_mpiomp*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        *test_atm_icoles_nested*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        esac
-     ;; 
- 
+     ;;
+
      nag)
        case $check_accepted_filename in
        *test_nh_moist_cbl*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        esac
-     ;; 
-   
-   esac       
+     ;;
+
+   esac
 
    #---------------------------------------------------------------
    # Search the script's contents for "EXCLUDE" keyword.
@@ -267,13 +257,13 @@ check_accept_script()
    then
           accepted_script="false"  ;
    fi
+   BB_SYSTEM=${BB_SYSTEM:-""}
+   BB_SLAVE=${BB_SLAVE:-""}
    exclude_bbsystem_bbslave=$(grep "__exclude_bbsystem_bbslave=${BB_SYSTEM},${BB_SLAVE};" $input_folder/${check_accepted_filename}|wc -l)
    if [ "$exclude_bbsystem_bbslave" -ne "0" ]
    then
           accepted_script="false"  ;
    fi
-
-
 
    if [[ $accepted_script != "true" ]] ; then
      return 1
@@ -286,8 +276,10 @@ omp_stacksize=200M
 
 for filename in $exp_list
 do
+  filename=${filename/\.\//}  
 
   check_accept_script $filename
+
   if [[ $accepted_script = "true" ]] ; then
 
     name=${filename#*.}
@@ -311,44 +303,10 @@ do
       ;;
     esac
 
-    # special cases for queuing on blizzard
-#     if [ $use_target = "blizzard" ] ; then
-#       if [ $name = test_nh3_tri_tracer_solid_body ] ; then
-#         $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#         EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-#       fi
-#       if [ $use_openmp = "yes" ] ; then
-#         if [ $name = test_nh35_tri_jws ] ; then
-#           $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#           EXPNAME="$name"  memory_model="small" queue="express"
-#         fi
-#       fi
-#    fi
-
   fi
-  
+
 done
 #==============================================================================
-
-
-#==============================================================================
-# use express queue for some of the builtbot seq,openmp experiments on blizzard
-# if [ $make_restart_exp = "true" ] ; then
-#   if [[ $use_target = "blizzard" ]] ; then
-# 
-#     name=test_nh3_tri_tracer_solid_body
-#     $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#     EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-# 
-#     if [[ $use_openmp = "yes" ]] ; then
-# 
-#       name=test_nh35_tri_jws
-#       $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#       EXPNAME="$name"  memory_model="small" queue="express"
-# 
-#     fi
-#   fi
-# fi
 
 #==============================================================================
 # special treatment for exp.couple_atmo-radiation

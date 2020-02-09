@@ -206,7 +206,7 @@ EOF
 #
 #----------------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-DATADIR=${basedir}/data
+DATADIR=${ICON_SRC_PATH}/data
 add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc 
 add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
 add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat   #for inwp_gscp==4

@@ -35,7 +35,8 @@ MODULE mo_ocean_tracer_GMRedi
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
     & namelist_tracer_name, tracer_update_mode, use_none,                 &
-    & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC
+    & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC, &
+    & vert_mix_type,vmix_kpp
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -93,6 +94,7 @@ CONTAINS
     !Local variables
     TYPE(t_patch_3d ), POINTER     :: patch_3d
     INTEGER :: tracer_index
+
     !-------------------------------------------------------------------------------
     patch_3d => old_tracers%patch_3d
     CALL prepare_tracer_transport_GMRedi(patch_3d, p_os, p_param, p_op_coeff)
@@ -396,6 +398,31 @@ CONTAINS
             &  (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))    &
             & * (div_adv_flux_horz(jc,level,jb)  +div_adv_flux_vert(jc,level,jb)&
             &  - div_diff_flux_horz(jc,level,jb)- div_diff_flx_vert(jc,level,jb))
+
+          ! only use with kpp
+          IF (vert_mix_type .EQ. vmix_kpp) THEN
+            !by_Oliver: account for nonlocal transport term for heat and scalar
+            !(salinity) if KPP scheme is used
+
+            IF (tracer_index == 1 ) THEN
+              ! heat
+              new_tracer%concentration(jc,level,jb) =                          &
+                   &  new_tracer%concentration(jc,level,jb)                          &
+                   ! FIXME: check sign
+                   &    + (delta_t /patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)) &
+                   &    * p_param%cvmix_params%nl_trans_tend_heat(jc,level,jb)
+
+            ELSE IF (tracer_index == 2 ) THEN
+              ! salinity
+              new_tracer%concentration(jc,level,jb) =                          &
+                   &  new_tracer%concentration(jc,level,jb)                          &
+                   ! FIXME: check sign
+                   &    + (delta_t /patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)) &
+                   &    * p_param%cvmix_params%nl_trans_tend_salt(jc,level,jb)
+
+            END IF
+          END IF
+
           !   test
           !   IF( delta_z/= delta_z1)THEN
           !     write(0,*)'no agreement',level,jc,jb,&

@@ -20,27 +20,32 @@
 !!
 MODULE mo_fortran_tools
 
-  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4, vp2
   USE mo_exception,               ONLY: finish
   USE mo_impl_constants,          ONLY: SUCCESS
   USE mo_impl_constants,          ONLY: VARNAME_LEN
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
+  USE openacc
 #endif
-  USE iso_c_binding, ONLY: c_ptr, c_f_pointer, c_loc
+  USE iso_c_binding,              ONLY: c_ptr, c_f_pointer, c_loc, c_null_ptr
+  USE mo_util_stride,             ONLY: util_c_loc, util_stride_1d, &
+                                      & util_stride_2d
 
   IMPLICIT NONE
 
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
-  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_2d3d_vp2
   PUBLIC :: assign_if_present_allocatable
   PUBLIC :: alloc
   PUBLIC :: ensureSize
   PUBLIC :: t_alloc_character
   PUBLIC :: t_ptr_1d
+  PUBLIC :: t_ptr_1d_int
   PUBLIC :: t_ptr_1d_ptr_1d
   PUBLIC :: t_ptr_2d, t_ptr_2d_sp, t_ptr_2d_int
+  PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
   PUBLIC :: copy, init, swap, negative2zero
@@ -51,8 +56,6 @@ MODULE mo_fortran_tools
   PUBLIC :: resize_arr_c1d
   PUBLIC :: DO_DEALLOCATE
   PUBLIC :: DO_PTR_DEALLOCATE
-  PUBLIC :: t_ptr_3d, t_ptr_3d_sp
-  PUBLIC :: t_ptr_1d_int
   PUBLIC :: insert_dimension
   LOGICAL, PARAMETER, PUBLIC :: no_copy = .false.
 
@@ -110,6 +113,11 @@ MODULE mo_fortran_tools
     REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
     REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d_vp
+
+  TYPE t_ptr_2d3d_vp2
+    REAL(vp2),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
+    REAL(vp2),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
+  END TYPE t_ptr_2d3d_vp2
 
 
   TYPE t_ptr_i2d3d
@@ -241,7 +249,6 @@ MODULE mo_fortran_tools
 #endif
   LOGICAL, PARAMETER ::  acc_validate = .FALSE.   ! Only activate for validation phase
 #endif
-
 
   INTERFACE insert_dimension
     MODULE PROCEDURE insert_dimension_r_wp_3_2, insert_dimension_r_wp_3_2_s
@@ -1492,8 +1499,10 @@ CONTAINS
   END SUBROUTINE var_addc_3d_dp
 
 
-  SUBROUTINE negative2zero_4d_dp(var)
+  SUBROUTINE negative2zero_4d_dp(var, opt_acc_async)
     REAL(dp), INTENT(inout) :: var(:, :, :, :)
+
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_acc_async
 
     INTEGER :: i1, i2, i3, i4, m1, m2, m3, m4
     REAL(dp) :: v
@@ -1504,9 +1513,10 @@ CONTAINS
     m4 = SIZE(var, 4)
 
 #ifdef _OPENACC
+
 !$ACC DATA PCOPY( var ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP COLLAPSE(4)
 #else
 #if (defined(__INTEL_COMPILER))
@@ -1527,22 +1537,32 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( var ), WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
 #endif
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      IF ( opt_acc_async ) THEN
+        RETURN
+      END IF
+    END IF
+    !$ACC WAIT
   END SUBROUTINE negative2zero_4d_dp
 
-  SUBROUTINE init_contiguous_dp(var, n, v)
+  SUBROUTINE init_contiguous_dp(var, n, v, opt_acc_async)
     INTEGER, INTENT(in) :: n
     REAL(dp), INTENT(out) :: var(n)
     REAL(dp), INTENT(in) :: v
 
+    LOGICAL, INTENT(in), OPTIONAL :: opt_acc_async
+
     INTEGER :: i
+
 #ifdef _OPENACC
 !$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
-!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on ) ASYNC(1)
 !$ACC LOOP
 #else
 !$omp do
@@ -1552,24 +1572,40 @@ CONTAINS
     END DO
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!$ACC UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC UPDATE HOST( var ), WAIT IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 #else
 !$omp end do nowait
 #endif
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      IF ( opt_acc_async ) THEN
+        RETURN
+      END IF
+    END IF
+    !$ACC WAIT
   END SUBROUTINE init_contiguous_dp
 
-  SUBROUTINE init_zero_contiguous_dp(var, n)
+  SUBROUTINE init_zero_contiguous_dp(var, n, opt_acc_async)
     INTEGER, INTENT(in) :: n
     REAL(dp), INTENT(out) :: var(n)
-    CALL init_contiguous_dp(var, n, 0.0_dp)
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_acc_async
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      CALL init_contiguous_dp(var, n, 0.0_dp, opt_acc_async)
+    ELSE
+      CALL init_contiguous_dp(var, n, 0.0_dp)
+    END IF
+    
   END SUBROUTINE init_zero_contiguous_dp
 
-  SUBROUTINE init_contiguous_sp(var, n, v)
+  SUBROUTINE init_contiguous_sp(var, n, v, opt_acc_async)
     INTEGER, INTENT(in) :: n
     REAL(sp), INTENT(out) :: var(n)
     REAL(sp), INTENT(in) :: v
 
+    LOGICAL, INTENT(in), OPTIONAL :: opt_acc_async
+
     INTEGER :: i
 #ifdef _OPENACC
 !$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
@@ -1588,12 +1624,25 @@ CONTAINS
 #else
 !$omp end do nowait
 #endif
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      IF ( opt_acc_async ) THEN
+        RETURN
+      END IF
+    END IF
+    !$ACC WAIT
   END SUBROUTINE init_contiguous_sp
 
-  SUBROUTINE init_zero_contiguous_sp(var, n)
+  SUBROUTINE init_zero_contiguous_sp(var, n, opt_acc_async)
     INTEGER, INTENT(in) :: n
     REAL(sp), INTENT(out) :: var(n)
-    CALL init_contiguous_sp(var, n, 0.0_sp)
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_acc_async
+
+    IF ( PRESENT(opt_acc_async) ) THEN
+      CALL init_contiguous_sp(var, n, 0.0_sp, opt_acc_async)
+    ELSE
+      CALL init_contiguous_sp(var, n, 0.0_sp)
+    END IF
   END SUBROUTINE init_zero_contiguous_sp
 
   SUBROUTINE init_contiguous_i4(var, n, v)
@@ -1673,41 +1722,51 @@ CONTAINS
          in_shape(out_rank-1), in_stride(out_rank-1), &
          out_shape(out_rank), out_stride(out_rank), i
     INTEGER, PARAMETER :: elem_byte_size=8
-    ! reconstruct underlying array shape and corresponding stride
-    in_shape = SHAPE(ptr_in)
-    in_stride(1) = 1
-    in_stride(2) = in_shape(1)
-    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
-      CALL util_stride_2d(in_stride, elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    ELSE IF (in_shape(1) > 1) THEN
-      CALL util_stride_1d(in_stride(1), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1))
-      base_shape(1) = in_stride(1) * in_shape(1)
-    ELSE IF (in_shape(2) > 1) THEN
-      CALL util_stride_1d(in_stride(2), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    END IF
-    base_shape(2) = in_shape(2)
-    CALL insert_dimension_r_wp_3_2_s(ptr_out, ptr_in(1,1), &
-         base_shape, new_dim_rank)
-    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
-         .OR. base_shape(1) /= in_shape(1)) THEN
-      out_stride(1) = in_stride(1)
-      out_stride(2) = 1
-      out_shape(1:out_rank-1) = in_shape
+    IF (SIZE(ptr_in) > 0) THEN
+      ! reconstruct underlying array shape and corresponding stride
+      in_shape = SHAPE(ptr_in)
+      in_stride(1) = 1
+      in_stride(2) = in_shape(1)
+      IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+        CALL util_stride_2d(in_stride, elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      ELSE IF (in_shape(1) > 1) THEN
+        CALL util_stride_1d(in_stride(1), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
+        base_shape(1) = in_stride(1) * in_shape(1)
+      ELSE IF (in_shape(2) > 1) THEN
+        CALL util_stride_1d(in_stride(2), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      END IF
+      base_shape(2) = in_shape(2)
+      CALL insert_dimension_r_wp_3_2_s(ptr_out, ptr_in(1,1), &
+           base_shape, new_dim_rank)
+      IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+           .OR. base_shape(1) /= in_shape(1)) THEN
+        out_stride(1) = in_stride(1)
+        out_stride(2) = 1
+        out_shape(1:out_rank-1) = in_shape
+        DO i = out_rank, new_dim_rank+1, -1
+          out_shape(i) = out_shape(i - 1)
+          out_stride(i) = out_stride(i - 1)
+        END DO
+        out_stride(new_dim_rank) = 1
+        out_shape(new_dim_rank) = 1
+        out_shape = (out_shape - 1) * out_stride + 1
+        ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+             &             :out_shape(2):out_stride(2), &
+             &             :out_shape(3):out_stride(3))
+      END IF
+    ELSE
+      out_shape(1:out_rank-1) = SHAPE(ptr_in)
       DO i = out_rank, new_dim_rank+1, -1
         out_shape(i) = out_shape(i - 1)
-        out_stride(i) = out_stride(i - 1)
       END DO
-      out_stride(new_dim_rank) = 1
       out_shape(new_dim_rank) = 1
-      out_shape = (out_shape - 1) * out_stride + 1
-      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
-           &             :out_shape(2):out_stride(2), &
-           &             :out_shape(3):out_stride(3))
+      CALL C_F_POINTER(c_null_ptr, ptr_out, out_shape)
     END IF
   END SUBROUTINE insert_dimension_r_wp_3_2
 
@@ -1721,41 +1780,51 @@ CONTAINS
          in_shape(out_rank-1), in_stride(out_rank-1), &
          out_shape(out_rank), out_stride(out_rank), i
     INTEGER, PARAMETER :: elem_byte_size=8
-    ! reconstruct underlying array shape and corresponding stride
-    in_shape = SHAPE(ptr_in)
-    in_stride(1) = 1
-    in_stride(2) = in_shape(1)
-    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
-      CALL util_stride_2d(in_stride, elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    ELSE IF (in_shape(1) > 1) THEN
-      CALL util_stride_1d(in_stride(1), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1))
-      base_shape(1) = in_stride(1) * in_shape(1)
-    ELSE IF (in_shape(2) > 1) THEN
-      CALL util_stride_1d(in_stride(2), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    END IF
-    base_shape(2) = in_shape(2)
-    CALL insert_dimension_r_sp_3_2_s(ptr_out, ptr_in(1,1), &
-         base_shape, new_dim_rank)
-    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
-         .OR. base_shape(1) /= in_shape(1)) THEN
-      out_stride(1) = in_stride(1)
-      out_stride(2) = 1
-      out_shape(1:out_rank-1) = in_shape
+    IF (SIZE(ptr_in) > 0) THEN
+      ! reconstruct underlying array shape and corresponding stride
+      in_shape = SHAPE(ptr_in)
+      in_stride(1) = 1
+      in_stride(2) = in_shape(1)
+      IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+        CALL util_stride_2d(in_stride, elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      ELSE IF (in_shape(1) > 1) THEN
+        CALL util_stride_1d(in_stride(1), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
+        base_shape(1) = in_stride(1) * in_shape(1)
+      ELSE IF (in_shape(2) > 1) THEN
+        CALL util_stride_1d(in_stride(2), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      END IF
+      base_shape(2) = in_shape(2)
+      CALL insert_dimension_r_sp_3_2_s(ptr_out, ptr_in(1,1), &
+           base_shape, new_dim_rank)
+      IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+           .OR. base_shape(1) /= in_shape(1)) THEN
+        out_stride(1) = in_stride(1)
+        out_stride(2) = 1
+        out_shape(1:out_rank-1) = in_shape
+        DO i = out_rank, new_dim_rank+1, -1
+          out_shape(i) = out_shape(i - 1)
+          out_stride(i) = out_stride(i - 1)
+        END DO
+        out_stride(new_dim_rank) = 1
+        out_shape(new_dim_rank) = 1
+        out_shape = (out_shape - 1) * out_stride + 1
+        ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+             &             :out_shape(2):out_stride(2), &
+             &             :out_shape(3):out_stride(3))
+      END IF
+    ELSE
+      out_shape(1:out_rank-1) = SHAPE(ptr_in)
       DO i = out_rank, new_dim_rank+1, -1
         out_shape(i) = out_shape(i - 1)
-        out_stride(i) = out_stride(i - 1)
       END DO
-      out_stride(new_dim_rank) = 1
       out_shape(new_dim_rank) = 1
-      out_shape = (out_shape - 1) * out_stride + 1
-      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
-           &             :out_shape(2):out_stride(2), &
-           &             :out_shape(3):out_stride(3))
+      CALL C_F_POINTER(c_null_ptr, ptr_out, out_shape)
     END IF
   END SUBROUTINE insert_dimension_r_sp_3_2
 
@@ -1803,41 +1872,51 @@ CONTAINS
          in_shape(out_rank-1), in_stride(out_rank-1), &
          out_shape(out_rank), out_stride(out_rank), i
     INTEGER, PARAMETER :: elem_byte_size=4
-    ! reconstruct underlying array shape and corresponding stride
-    in_shape = SHAPE(ptr_in)
-    in_stride(1) = 1
-    in_stride(2) = in_shape(1)
-    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
-      CALL util_stride_2d(in_stride, elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    ELSE IF (in_shape(1) > 1) THEN
-      CALL util_stride_1d(in_stride(1), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1))
-      base_shape(1) = in_stride(1) * in_shape(1)
-    ELSE IF (in_shape(2) > 1) THEN
-      CALL util_stride_1d(in_stride(2), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    END IF
-    base_shape(2) = in_shape(2)
-    CALL insert_dimension_i4_3_2_s(ptr_out, ptr_in(1,1), base_shape, &
-         new_dim_rank)
-    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
-         .OR. base_shape(1) /= in_shape(1)) THEN
-      out_stride(1) = in_stride(1)
-      out_stride(2) = 1
-      out_shape(1:out_rank-1) = in_shape
+    IF (SIZE(ptr_in) > 0) THEN
+      ! reconstruct underlying array shape and corresponding stride
+      in_shape = SHAPE(ptr_in)
+      in_stride(1) = 1
+      in_stride(2) = in_shape(1)
+      IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+        CALL util_stride_2d(in_stride, elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      ELSE IF (in_shape(1) > 1) THEN
+        CALL util_stride_1d(in_stride(1), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
+        base_shape(1) = in_stride(1) * in_shape(1)
+      ELSE IF (in_shape(2) > 1) THEN
+        CALL util_stride_1d(in_stride(2), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      END IF
+      base_shape(2) = in_shape(2)
+      CALL insert_dimension_i4_3_2_s(ptr_out, ptr_in(1,1), &
+           base_shape, new_dim_rank)
+      IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+           .OR. base_shape(1) /= in_shape(1)) THEN
+        out_stride(1) = in_stride(1)
+        out_stride(2) = 1
+        out_shape(1:out_rank-1) = in_shape
+        DO i = out_rank, new_dim_rank+1, -1
+          out_shape(i) = out_shape(i - 1)
+          out_stride(i) = out_stride(i - 1)
+        END DO
+        out_stride(new_dim_rank) = 1
+        out_shape(new_dim_rank) = 1
+        out_shape = (out_shape - 1) * out_stride + 1
+        ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+             &             :out_shape(2):out_stride(2), &
+             &             :out_shape(3):out_stride(3))
+      END IF
+    ELSE
+      out_shape(1:out_rank-1) = SHAPE(ptr_in)
       DO i = out_rank, new_dim_rank+1, -1
         out_shape(i) = out_shape(i - 1)
-        out_stride(i) = out_stride(i - 1)
       END DO
-      out_stride(new_dim_rank) = 1
       out_shape(new_dim_rank) = 1
-      out_shape = (out_shape - 1) * out_stride + 1
-      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
-           &             :out_shape(2):out_stride(2), &
-           &             :out_shape(3):out_stride(3))
+      CALL C_F_POINTER(c_null_ptr, ptr_out, out_shape)
     END IF
   END SUBROUTINE insert_dimension_i4_3_2
 
@@ -1849,7 +1928,7 @@ CONTAINS
     INTEGER :: out_shape(out_rank), i
     TYPE(c_ptr) :: cptr
     out_shape(1:out_rank-1) = in_shape
-    CALL util_c_loc(ptr_in, cptr)
+    CALL util_c_loc(C_LOC(ptr_in), cptr)
     DO i = out_rank, new_dim_rank+1, -1
       out_shape(i) = out_shape(i-1)
     END DO
@@ -1868,41 +1947,51 @@ CONTAINS
          in_shape(out_rank-1), in_stride(out_rank-1), &
          out_shape(out_rank), out_stride(out_rank), i
     INTEGER, PARAMETER :: elem_byte_size=4
-    ! reconstruct underlying array shape and corresponding stride
-    in_shape = SHAPE(ptr_in)
-    in_stride(1) = 1
-    in_stride(2) = in_shape(1)
-    IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
-      CALL util_stride_2d(in_stride, elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    ELSE IF (in_shape(1) > 1) THEN
-      CALL util_stride_1d(in_stride(1), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(2, 1))
-      base_shape(1) = in_stride(1) * in_shape(1)
-    ELSE IF (in_shape(2) > 1) THEN
-      CALL util_stride_1d(in_stride(2), elem_byte_size, &
-           ptr_in(1, 1), ptr_in(1, 2))
-      base_shape(1) = in_stride(2)
-    END IF
-    base_shape(2) = in_shape(2)
-    CALL insert_dimension_l_3_2_s(ptr_out, ptr_in(1,1), base_shape, &
-         new_dim_rank)
-    IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
-         .OR. base_shape(1) /= in_shape(1)) THEN
-      out_stride(1) = in_stride(1)
-      out_stride(2) = 1
-      out_shape(1:out_rank-1) = in_shape
+    IF (SIZE(ptr_in) > 0) THEN
+      ! reconstruct underlying array shape and corresponding stride
+      in_shape = SHAPE(ptr_in)
+      in_stride(1) = 1
+      in_stride(2) = in_shape(1)
+      IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
+        CALL util_stride_2d(in_stride, elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      ELSE IF (in_shape(1) > 1) THEN
+        CALL util_stride_1d(in_stride(1), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
+        base_shape(1) = in_stride(1) * in_shape(1)
+      ELSE IF (in_shape(2) > 1) THEN
+        CALL util_stride_1d(in_stride(2), elem_byte_size, &
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
+        base_shape(1) = in_stride(2)
+      END IF
+      base_shape(2) = in_shape(2)
+      CALL insert_dimension_l_3_2_s(ptr_out, ptr_in(1,1), &
+           base_shape, new_dim_rank)
+      IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
+           .OR. base_shape(1) /= in_shape(1)) THEN
+        out_stride(1) = in_stride(1)
+        out_stride(2) = 1
+        out_shape(1:out_rank-1) = in_shape
+        DO i = out_rank, new_dim_rank+1, -1
+          out_shape(i) = out_shape(i - 1)
+          out_stride(i) = out_stride(i - 1)
+        END DO
+        out_stride(new_dim_rank) = 1
+        out_shape(new_dim_rank) = 1
+        out_shape = (out_shape - 1) * out_stride + 1
+        ptr_out => ptr_out(:out_shape(1):out_stride(1), &
+             &             :out_shape(2):out_stride(2), &
+             &             :out_shape(3):out_stride(3))
+      END IF
+    ELSE
+      out_shape(1:out_rank-1) = SHAPE(ptr_in)
       DO i = out_rank, new_dim_rank+1, -1
         out_shape(i) = out_shape(i - 1)
-        out_stride(i) = out_stride(i - 1)
       END DO
-      out_stride(new_dim_rank) = 1
       out_shape(new_dim_rank) = 1
-      out_shape = (out_shape - 1) * out_stride + 1
-      ptr_out => ptr_out(:out_shape(1):out_stride(1), &
-           &             :out_shape(2):out_stride(2), &
-           &             :out_shape(3):out_stride(3))
+      CALL C_F_POINTER(c_null_ptr, ptr_out, out_shape)
     END IF
   END SUBROUTINE insert_dimension_l_3_2
 

@@ -2,6 +2,8 @@ PROGRAM test_insert_dimension
   USE mo_kind, ONLY: wp
   USE mo_fortran_tools, ONLY: insert_dimension
   USE iso_c_binding, ONLY: c_double
+  USE mo_util_system, ONLY: util_exit
+  USE mo_util_timer,  ONLY: util_gettimeofday
   IMPLICIT NONE
   INTEGER, PARAMETER :: num_test_iterations=1000
   INTEGER :: test_iteration
@@ -138,13 +140,6 @@ CONTAINS
     INTEGER :: rseed_size
     INTEGER, ALLOCATABLE :: rseed(:)
     REAL(c_double) :: unix_time
-    INTERFACE
-      FUNCTION util_gettimeofday() BIND(c, name="util_gettimeofday") &
-           RESULT(t)
-        IMPORT :: c_double
-        REAL(c_double) :: t
-      END FUNCTION util_gettimeofday
-    END INTERFACE
     CALL RANDOM_SEED(size=rseed_size)
     ALLOCATE(rseed(rseed_size))
     rseed = 4711

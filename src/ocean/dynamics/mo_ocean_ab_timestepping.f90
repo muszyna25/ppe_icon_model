@@ -54,22 +54,22 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE solve_free_surface_eq_ab(patch_3D, ocean_state, external_data, p_as, p_oce_sfc, &
-    & physics_parameters, timestep, operators_coefficients, solverCoeff_sp, return_status)
-    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: patch_3D
-    TYPE(t_hydro_ocean_state), TARGET         :: ocean_state
-    TYPE(t_external_data), TARGET             :: external_data
-    TYPE(t_ocean_surface), INTENT(INOUT)      :: p_oce_sfc
-    TYPE(t_atmos_for_ocean), INTENT(INOUT)    :: p_as
-    TYPE (t_ho_params)                        :: physics_parameters
-    INTEGER                                   :: timestep
-    TYPE(t_operator_coeff)                    :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    & physics_parameters, timestep, op_coeffs, solverCoeff_sp, return_status)
+    TYPE(t_patch_3D ), INTENT(IN), POINTER :: patch_3D
+    TYPE(t_hydro_ocean_state) :: ocean_state
+    TYPE(t_external_data) :: external_data
+    TYPE(t_ocean_surface), INTENT(INOUT) :: p_oce_sfc
+    TYPE(t_atmos_for_ocean), INTENT(INOUT) :: p_as
+    TYPE (t_ho_params) :: physics_parameters
+    INTEGER, INTENT(IN) :: timestep
+    TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
+    TYPE(t_solverCoeff_singlePrecision), INTENT(in), TARGET :: solverCoeff_sp
     INTEGER :: return_status
     
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
       CALL solve_free_sfc_ab_mimetic( patch_3D, ocean_state, external_data, p_as, p_oce_sfc, &
-        & physics_parameters, timestep, operators_coefficients, solverCoeff_sp, return_status)
+        & physics_parameters, timestep, op_coeffs, solverCoeff_sp, return_status)
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discretization type not supported !!')
@@ -90,8 +90,8 @@ CONTAINS
     & solverCoeff_sp, external_data, physics_parameters)
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
-    TYPE(t_operator_coeff)               :: operators_coefficients
-    TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    TYPE(t_operator_coeff), INTENT(IN) :: operators_coefficients
+    TYPE(t_solverCoeff_singlePrecision), INTENT(in) :: solverCoeff_sp
     TYPE(t_external_data), TARGET        :: external_data
     TYPE (t_ho_params)                   :: physics_parameters
     !-----------------------------------------------------------------------
@@ -122,7 +122,7 @@ CONTAINS
   SUBROUTINE calc_vert_velocity(patch_3D, ocean_state, operators_coefficients)
     TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
     TYPE(t_hydro_ocean_state)            :: ocean_state
-    TYPE(t_operator_coeff)               :: operators_coefficients
+    TYPE(t_operator_coeff), INTENT(IN) :: operators_coefficients
      !-----------------------------------------------------------------------
 
     !Store current vertical velocity before the new one is calculated

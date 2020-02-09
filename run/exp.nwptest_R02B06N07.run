@@ -89,8 +89,8 @@ ln -sf $INDATADIR/prepiconR2B07_DOM02_2012062000.nc ifs2icon_R2B07_DOM02.nc
 
 
 # files needed for radiation
-ln -sf ${basedir}/data/ECHAM6_CldOptProps.nc .
-ln -sf ${basedir}/data/rrtmg_lw.nc .
+ln -sf ${ICON_SRC_PATH}/data/ECHAM6_CldOptProps.nc .
+ln -sf ${ICON_SRC_PATH}/data/rrtmg_lw.nc .
 
 # copy binary
 cp -p $MODEL icon

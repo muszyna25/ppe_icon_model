@@ -178,6 +178,10 @@ CONTAINS
     all_cells       => p_patch%cells%all
     !---------------------------------------------------------------------
 
+#ifdef _OPENACC
+    CALL finish(TRIM('mo_ice_interface:ice_fast_interface'),'This part has not been ported to GPU.')
+#endif
+
 !ICON_OMP_PARALLEL_DO PRIVATE(jb, i_startidx_c, i_endidx_c) SCHEDULE(dynamic)
         DO jb = all_cells%start_block, all_cells%end_block
           CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -275,6 +279,8 @@ CONTAINS
 
     INTEGER, OPTIONAL,INTENT(IN)  :: doy
 
+    INTEGER :: jk, ji
+
     !-------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_ice_fast)
@@ -297,12 +303,22 @@ CONTAINS
             &   Tsurf, hi, hs, Qtop, Qbot, Tfw, doy)
 
     CASE (4)
-      WHERE ( hi(:,:) > 0._wp )
-      Tsurf=min(0._wp, Tsurf + (SWnet+nonsolar + ki/hi*(Tf-Tsurf)) &
-        &               / (ci*rhoi*hci_layer/pdtime-dnonsolardT+ki/hi))
-      ELSEWHERE
-        Tsurf(:,:) = Tf
-      ENDWHERE
+      !$ACC DATA PRESENT( Tsurf, hi, SWnet, nonsolar, dnonsolardT )
+      !$ACC PARALLEL
+      !$ACC LOOP SEQ
+      DO ji = 1, kice
+        !$ACC LOOP GANG VECTOR
+        DO jk = 1, nbdim
+          IF ( hi(jk,ji) > 0._wp ) THEN
+            Tsurf(jk,ji) = min(0._wp, Tsurf(jk,ji) + (SWnet(jk,ji)+nonsolar(jk,ji) + ki/hi(jk,ji)*(Tf-Tsurf(jk,ji))) &
+        &               / (ci*rhoi*hci_layer/pdtime-dnonsolardT(jk,ji)+ki/hi(jk,ji)))
+          ELSE
+            Tsurf(jk,ji) = Tf
+          END IF
+        END DO
+      END DO
+      !$ACC END PARALLEL
+      !$ACC END DATA
 
     END SELECT
 

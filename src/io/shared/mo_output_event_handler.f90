@@ -153,6 +153,9 @@ MODULE mo_output_event_handler
     &                                  set_table_entry, print_table, t_table
   USE mo_name_list_output_config,ONLY: use_async_name_list_io
   USE mo_parallel_config,        ONLY: pio_type
+  USE iso_c_binding,             ONLY: c_size_t, c_loc
+  USE mo_util_libc,              ONLY: memcmp, memset
+
   IMPLICIT NONE
 
   ! public subroutines + functions:
@@ -204,6 +207,11 @@ MODULE mo_output_event_handler
     MODULE PROCEDURE is_output_step
     MODULE PROCEDURE is_par_output_step
   END INTERFACE
+
+  INTERFACE check_close_file
+    MODULE PROCEDURE check_close_file
+    MODULE PROCEDURE check_close_file_step
+  END INTERFACE check_close_file
 
   INTERFACE get_current_date
     MODULE PROCEDURE get_current_date
@@ -1781,19 +1789,37 @@ CONTAINS
     TYPE(t_par_output_event), INTENT(IN) :: event
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::check_close_file"
-    INTEGER :: istep
 
-    istep = event%output_event%i_event_step
+    check_close_file = check_close_file_step(event, event%output_event%i_event_step)
+  END FUNCTION check_close_file
+
+  !> @return .TRUE. if current event step has the "close file" flag
+  !          enabled.
+  !
+  !  @author F. Prill, DWD
+  !
+  FUNCTION check_close_file_step(event, istep) RESULT(check_close_file)
+    LOGICAL :: check_close_file
+    TYPE(t_par_output_event), INTENT(IN) :: event
+    INTEGER, INTENT(in) :: istep
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::check_close_file"
+
     ! We cannot check events that are the union of multiple other
     ! events:
-    IF (event%output_event%event_step(istep)%n_pes > 1) THEN
-      WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
+    IF (istep <= SIZE(event%output_event%event_step)) THEN
+      IF (event%output_event%event_step(istep)%n_pes > 1) THEN
+        WRITE (0,*) "Event step ", istep,  "(", TRIM(event%output_event%event_step(istep)%exact_date_string), ")", &
         &         ", shared by ", event%output_event%event_step(istep)%n_pes, " PEs."
-      CALL finish(routine, "Error! Multi-part event step!")
+        CALL finish(routine, "Error! Multi-part event step!")
+      END IF
+      check_close_file &
+        = event%output_event%event_step(istep)%event_step_data(1)%l_open_file
+    ELSE
+      check_close_file = .TRUE.
     END IF
-    check_close_file = istep > 1 &
-      .AND. event%output_event%event_step(istep)%event_step_data(1)%l_open_file
-  END FUNCTION check_close_file
+    check_close_file = check_close_file .AND. istep > 1
+  END FUNCTION check_close_file_step
 
 
   !> @return .TRUE. if this PE is the event's root PE.  If no event
@@ -1981,7 +2007,6 @@ CONTAINS
 
   !> create mpi datatype for variables of type t_event_data_local
   SUBROUTINE create_event_data_dt
-    USE iso_c_binding, ONLY: c_size_t
     INTEGER, PARAMETER :: num_dt_elem = 8
     INTEGER(mpi_address_kind) :: base, displs(num_dt_elem), ext, stride
     INTEGER :: elem_dt(num_dt_elem), i, ierror, resized_dt
@@ -1990,8 +2015,6 @@ CONTAINS
       = (/ 1, max_time_intervals, max_time_intervals, max_time_intervals, &
       &    1, 1, 1, 1 /)
     TYPE(t_event_data_local), TARGET :: dummy(2)
-    EXTERNAL :: util_memcmp
-    LOGICAL :: util_memcmp
     CALL mpi_type_contiguous(max_event_name_str_len, mpi_character, &
       &                      elem_dt(1), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_contiguous error')
@@ -2053,7 +2076,7 @@ CONTAINS
         IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_free error')
       END IF
     END DO
-    CALL util_memset(dummy, 0, INT(2*stride, c_size_t))
+    CALL memset(C_LOC(dummy(1)), 0, INT(2*stride, c_size_t))
     dummy(1)%name = 'test_name'
     dummy(1)%begin_str(1) = '1970-01-01'
     dummy(1)%begin_str(2:) = ''
@@ -2086,7 +2109,7 @@ CONTAINS
       &               dummy(2), 1, event_data_dt, 0, 178, &
       &               mpi_comm_self, mpi_status_ignore, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'transfer test error')
-    IF (util_memcmp(dummy(1), dummy(2), INT(stride, c_size_t))) &
+    IF (memcmp(C_LOC(dummy(1)), C_LOC(dummy(2)), INT(stride, c_size_t))) &
       CALL finish(routine, 'transfer test error')
   END SUBROUTINE create_event_data_dt
 

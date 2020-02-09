@@ -29,7 +29,7 @@
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
-DATADIR=${basedir}/data
+DATADIR=${ICON_SRC_PATH}/data
 add_link_file ${DATADIR}/sound_in_20130424 sound_in
 add_link_file ${DATADIR}/nudging_20130424.dat nudging.dat
 add_link_file ${DATADIR}/ls_forcing_20130424.dat ls_forcing.dat

@@ -44,6 +44,7 @@ MODULE mo_nh_supervise
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
+  USE mo_upatmo_config,       ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -75,6 +76,7 @@ MODULE mo_nh_supervise
 #else
   LOGICAL, PARAMETER ::  acc_on = .TRUE.
 #endif
+  LOGICAL, PARAMETER ::  acc_validate = .FALSE.     !  THIS SHOULD BE .FALSE. AFTER VALIDATION PHASE!
 #endif
 
 CONTAINS
@@ -191,6 +193,9 @@ CONTAINS
 
     REAL(wp) :: max_vn, max_w
     INTEGER  :: max_vn_level, max_vn_process, max_w_level, max_w_process
+
+    ! (upper-atmosphere-/deep-atmosphere-related variables)
+    REAL(wp), DIMENSION(:), POINTER :: deepatmo_vol
     !-----------------------------------------------------------------------------
 
     ! Hack [ha]:
@@ -228,6 +233,9 @@ CONTAINS
 
     nblks_c   = patch(jg)%nblks_c
     npromz_c  = patch(jg)%npromz_c
+
+    ! (deep atmosphere: metrical modification factor for height-dependence of cell volume)
+    deepatmo_vol => nh_state(jg)%metrics%deepatmo_t1mc(:,idamtr%t1mc%vol)    
 
     ! number of vertical levels
     nlev = patch(jg)%nlev
@@ -284,8 +292,9 @@ CONTAINS
       ENDIF
       DO jk = 1, nlev
         DO jc = 1, nlen
+          ! (deep-atmosphere modification applied)
           z_help = patch(jg)%cells%area(jc,jb)*nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-            &       /patch(jg)%n_patch_cells_g
+            &       /patch(jg)%n_patch_cells_g*deepatmo_vol(jk)
           z_total_mass = z_total_mass + &
             &              prog%rho(jc,jk,jb)*z_help
           z_kin_energy = z_kin_energy + &
@@ -320,9 +329,10 @@ CONTAINS
       z5(1:nlen,jb) = 0.0_wp
       z6(1:nlen,jb) = 0.0_wp
       DO jk = 1,nlev
+        ! (deep-atmosphere modification applied)
         z0(1:nlen) = patch(jg)%cells%area(1:nlen,jb)      &
           & *nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) &
-          & /REAL(patch(jg)%n_patch_cells_g,wp)
+          & /REAL(patch(jg)%n_patch_cells_g,wp)*deepatmo_vol(jk)
         z1(1:nlen,jb) = z1(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*z0(1:nlen)
         z2(1:nlen,jb) = z2(1:nlen,jb)&
@@ -397,9 +407,10 @@ CONTAINS
           ! compute tracer mass in each vertical column
           DO jk = 1, nlev
             DO jc = 1, nlen
+              ! (deep-atmosphere modification applied)
               z_help = patch(jg)%cells%area(jc,jb)             &
                 &    * nh_state(jg)%metrics%ddqz_z_full(jc,jk,jb) &
-                &    * prog%rho(jc,jk,jb)
+                &    * prog%rho(jc,jk,jb) * deepatmo_vol(jk)
 
               z_aux_tracer(jc,jb,jt) = z_aux_tracer(jc,jb,jt)    &
                 &    + prog_rcf%tracer(jc,jk,jb,jt) * z_help
@@ -492,6 +503,8 @@ CONTAINS
         ENDIF
       ENDIF
     ENDIF
+
+    deepatmo_vol => NULL()
 
   END SUBROUTINE supervise_total_integrals_nh
   !-------------------------------------------------------------------------
@@ -641,7 +654,7 @@ CONTAINS
     ! local variables
     REAL(wp) :: vn_aux(patch%edges%end_blk(min_rledge_int,MAX(1,patch%n_childdom)),patch%nlev)
     REAL(wp) :: w_aux (patch%cells%end_blk(min_rlcell_int,MAX(1,patch%n_childdom)),patch%nlevp1)
-    REAL(wp) :: vn_aux_lev(patch%nlev), w_aux_lev(patch%nlevp1), vmax(2)
+    REAL(wp) :: vn_aux_lev(patch%nlev), w_aux_lev(patch%nlevp1), vmax(2), vn_aux_tmp, w_aux_tmp
 
     INTEGER  :: i_nchdom, istartblk_c, istartblk_e, iendblk_c, iendblk_e, i_startidx, i_endidx
     INTEGER  :: jb, jk, jg
@@ -658,9 +671,10 @@ CONTAINS
     iendblk_e   = patch%edges%end_blk(min_rledge_int,i_nchdom)
     jg          = patch%id
 
-!$ACC DATA CREATE( vn_aux, w_aux ),                                   &
-!$ACC      COPYOUT( vn_aux_lev, w_aux_lev ),                          &
+!$ACC DATA PRESENT( vn, w ) COPYOUT( vn_aux, w_aux ) &
 !$ACC      IF ( i_am_accel_node .AND. acc_on )
+
+!$ACC UPDATE DEVICE ( vn, w ) IF ( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
     IF (jg > 1 .OR. l_limited_area) THEN
 !$ACC KERNELS PRESENT( vn_aux, w_aux ), IF ( i_am_accel_node .AND. acc_on )
@@ -671,9 +685,9 @@ CONTAINS
 
 !$OMP PARALLEL
 #ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
-!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = istartblk_e, iendblk_e
 
@@ -681,14 +695,15 @@ CONTAINS
                          grf_bdywidth_e+1, min_rledge_int)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG PRIVATE( vn_aux_tmp )
       DO jk = 1, patch%nlev
 #if defined( __INTEL_COMPILER ) || defined( _OPENACC )
-        vn_aux(jb,jk) = 0._wp
-        !$ACC LOOP VECTOR
+        vn_aux_tmp = 0._wp
+        !$ACC LOOP VECTOR REDUCTION(max:vn_aux_tmp)
         DO jec = i_startidx,i_endidx
-          vn_aux(jb,jk) = MAX(vn_aux(jb,jk), -vn(jec,jk,jb), vn(jec,jk,jb))
+          vn_aux_tmp = MAX(vn_aux_tmp, -vn(jec,jk,jb), vn(jec,jk,jb))
         ENDDO
+        vn_aux(jb,jk) = vn_aux_tmp
 #else
         vn_aux(jb,jk) = MAXVAL(ABS(vn(i_startidx:i_endidx,jk,jb)))
 #endif
@@ -698,9 +713,9 @@ CONTAINS
 !$OMP END DO
 
 #ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
-!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = istartblk_c, iendblk_c
 
@@ -708,14 +723,15 @@ CONTAINS
                          grf_bdywidth_c+1, min_rlcell_int)
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-      !$ACC LOOP GANG
+      !$ACC LOOP GANG PRIVATE( w_aux_tmp )
       DO jk = 1, patch%nlevp1
 #if defined( __INTEL_COMPILER ) || defined( _OPENACC )
-        w_aux(jb,jk) = 0._wp
-        !$ACC LOOP VECTOR
+        w_aux_tmp = 0._wp
+        !$ACC LOOP VECTOR REDUCTION(max:w_aux_tmp)
         DO jec = i_startidx,i_endidx
-          w_aux(jb,jk) = MAX(w_aux(jb,jk), -w(jec,jk,jb), w(jec,jk,jb))
+          w_aux_tmp = MAX(w_aux_tmp, -w(jec,jk,jb), w(jec,jk,jb))
         ENDDO
+        w_aux(jb,jk) = w_aux_tmp
 #else
         w_aux(jb,jk) = MAXVAL(ABS(w(i_startidx:i_endidx,jk,jb)))
 #endif
@@ -724,25 +740,24 @@ CONTAINS
     END DO
 !$OMP END DO
 
+!$ACC END DATA
+
+! At this point vn_aux and w_aux reside on the host.  
+! Avoid doing MAXVAL with OpenACC -- this is not well supported!
+
 !$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG
     DO jk = 1, patch%nlev
       vn_aux_lev(jk) = MAXVAL(vn_aux(:,jk))
       w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
     END DO
-!$ACC END PARALLEL
 
 !$OMP END DO
 !$OMP END PARALLEL
 
     ! Add surface level for w
     jk = patch%nlevp1
-!$ACC KERNELS PRESENT( w_aux, w_aux_lev ), IF ( i_am_accel_node .AND. acc_on )
     w_aux_lev (jk) = MAXVAL(w_aux(:,jk))
-!$ACC END KERNELS
-!$ACC END DATA
 
     !--- Get max over all PEs
     vmax(1)   = MAXVAL(vn_aux_lev(:))
@@ -775,11 +790,12 @@ CONTAINS
   !! @par Revision History
   !! Moved here from the physics interfaces by Daniel Reinert, DWD (2017-09-19)
   !!
-  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag)
+  SUBROUTINE compute_dpsdt (pt_patch, dt, pt_diag, opt_dpsdt_avg)
 
-    TYPE(t_patch),       INTENT(IN)    :: pt_patch     !< grid/patch info
-    REAL(wp),            INTENT(IN)    :: dt           !< time step [s]
-    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag      !< the diagnostic variables
+    TYPE(t_patch),       INTENT(IN)    :: pt_patch      !< grid/patch info
+    REAL(wp),            INTENT(IN)    :: dt            !< time step [s]
+    TYPE(t_nh_diag),     INTENT(INOUT) :: pt_diag       !< the diagnostic variables
+    REAL(wp), OPTIONAL,  INTENT(OUT)   :: opt_dpsdt_avg !< mean |dPS/dt|
 
     ! local
     INTEGER :: jc, jb                         !< loop indices
@@ -791,6 +807,7 @@ CONTAINS
     INTEGER  :: npoints_blk(pt_patch%nblks_c)
     REAL(wp) :: dpsdt_avg                     !< spatial average of ABS(dpsdt)
     INTEGER  :: npoints
+    LOGICAL  :: l_opt_dpsdt_avg
   !-------------------------------------------------------------------------
 
     rl_start = grf_bdywidth_c+1
@@ -805,6 +822,12 @@ CONTAINS
       dps_blk(:)     = 0._wp
       npoints_blk(:) = 0
     ENDIF
+
+    l_opt_dpsdt_avg = PRESENT(opt_dpsdt_avg)
+    ! Please note: only the stdio-process will return with a reasonable value 
+    ! for opt_dpsdt_avg from this subroutine!
+    ! So, if required, you have to broadcast opt_dpsdt_avg yourself afterwards!
+    IF (l_opt_dpsdt_avg) opt_dpsdt_avg = -999._wp ! (means missing value; reasonable values should be >0)
 
 
 
@@ -851,6 +874,7 @@ CONTAINS
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',pt_patch%id
           CALL message('nwp_nh_interface: ', TRIM(message_text))
        ENDIF
+        IF(l_opt_dpsdt_avg) opt_dpsdt_avg = dpsdt_avg
       ENDIF
 !$OMP END MASTER
     ENDIF  ! msg_level

@@ -30,7 +30,7 @@ MODULE mo_turbdiff_nml
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_turbdiff_config,     ONLY: turbdiff_config 
 
-  USE mo_data_turbdiff,       ONLY: &
+  USE turb_data,              ONLY: &
     & itype_sher, imode_shshear, itype_wcld, &
     & imode_tran, imode_turb, icldm_tran, icldm_turb, imode_tkesso, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
@@ -102,7 +102,7 @@ CONTAINS
       &  routine = 'mo_turbdiff_nml: read_turbdiff_nml'
 
     ! 0. default settings of internal turbdiff namelist variables
-    !    is done by initialization in MODULE 'mo_data_turbdiff'
+    !    is done by initialization in MODULE 'turb_data'
 
     !-----------------------
     ! 1. default settings of additional namelist variables:

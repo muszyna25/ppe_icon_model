@@ -199,7 +199,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -210,6 +209,8 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
+/
+&echam_cov_nml
 /
 &sea_ice_nml
 /
@@ -300,19 +301,19 @@ fi
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                                 ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+add_link_file ${ICON_SRC_PATH}/data/lsdata.nc                                 ./
+add_link_file ${ICON_SRC_PATH}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
 #
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${ICON_BUILD_PATH}/run/${atmo_namelist}                       ./
+add_required_file ${ICON_BUILD_PATH}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                           ./
+add_required_file ${ICON_BUILD_PATH}/run/${dict_file}                           ./
 
 # initial conditions
 #
@@ -356,7 +357,7 @@ datadir=${icon_data_poolFolder}/greenhouse_gases
 add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
-  add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
+  add_link_file ${ICON_SRC_PATH}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #
 # - Kinne background aerosols are needed for the year 1865 (old Kinne aerosole data; irad_aero=18)
 # 
@@ -403,7 +404,7 @@ if [[ ${jsbach_with_hd} = yes ]]; then
 fi
 #
 # - lctlib file for JSBACH
-add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
+add_link_file ${ICON_SRC_PATH}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 
 #--------------------------------------------------------------------------------------------------
 

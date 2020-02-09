@@ -291,6 +291,10 @@ MODULE mo_model_domain
     ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), ALLOCATABLE :: f_c(:,:)
 
+    ! vertical component of centrifugal acceleration
+    ! index1=1,nporma, index2=1,nblks_c
+    REAL(wp), ALLOCATABLE :: cz_c(:,:)
+
     !----------------------------------
     ! cell geometry auxiliary variables
     ! the cartesian coordinates of the cell centers on the unit sphere
@@ -569,6 +573,20 @@ MODULE mo_model_domain
     ! index1=1,nproma, index2=1,nblks_e
     REAL(wp), ALLOCATABLE :: f_e(:,:)
 
+    ! components of horizontal Coriolis parameter (vector)
+    ! index1=1,nproma, index2=1,nblks_e
+    ! NOTE: The horizontal Coriolis parameter components 
+    ! are only available on edges!
+    ! normal component 
+    REAL(wp), ALLOCATABLE :: fn_e(:,:)
+    ! tangential component
+    REAL(wp), ALLOCATABLE :: ft_e(:,:)
+
+    ! horizontal component of centrifugal acceleration
+    ! index1=1,nproma, index2=1,nblks_e
+    ! (normal component only)
+    REAL(wp), ALLOCATABLE :: cn_e(:,:)
+
     ! refinement control flag
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
@@ -788,6 +806,9 @@ MODULE mo_model_domain
     ! grid level
     INTEGER :: level
     !
+    ! nest level = grid level - start level
+    INTEGER :: nest_level
+    !
     ! domain ID of current domain
     INTEGER :: id
     !
@@ -993,6 +1014,9 @@ MODULE mo_model_domain
     !
     ! grid level
     INTEGER :: level
+    !
+    ! nest level = grid level - start level
+    INTEGER :: nest_level
     !
     ! domain ID of current domain
     INTEGER :: id

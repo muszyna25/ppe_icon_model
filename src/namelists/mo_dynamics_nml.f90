@@ -19,7 +19,8 @@ MODULE mo_dynamics_nml
                                   & config_idiv_method    => idiv_method,    &
                                   & config_divavg_cntrwgt => divavg_cntrwgt, &
                                   & config_sw_ref_height  => sw_ref_height,  &
-                                  & config_lcoriolis      => lcoriolis
+                                  & config_lcoriolis      => lcoriolis,      &
+                                  & config_ldeepatmo      => ldeepatmo
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
@@ -64,9 +65,13 @@ MODULE mo_dynamics_nml
 
   LOGICAL  :: lcoriolis      ! if .TRUE.,  the Coriolis force is switched on
 
+  LOGICAL  :: ldeepatmo      ! if .TRUE., deep-atmosphere modification is applied 
+                             ! to the non-hydrostatic model equations 
+
   NAMELIST/dynamics_nml/ iequations,                  &
                          idiv_method, divavg_cntrwgt, &
-                         sw_ref_height,  lcoriolis
+                         sw_ref_height,  lcoriolis,   &
+                         ldeepatmo
 
 CONTAINS
   !>
@@ -86,6 +91,7 @@ CONTAINS
     divavg_cntrwgt = 0.5_wp
     sw_ref_height  = 0.9_wp*2.94e4_wp/grav
     lcoriolis      = .TRUE.
+    ldeepatmo      = .FALSE.
  
     !------------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above by 
@@ -145,6 +151,7 @@ CONTAINS
     config_divavg_cntrwgt = divavg_cntrwgt
     config_sw_ref_height  = sw_ref_height
     config_lcoriolis      = lcoriolis
+    config_ldeepatmo      = ldeepatmo
 
   END SUBROUTINE read_dynamics_namelist
   !-------------

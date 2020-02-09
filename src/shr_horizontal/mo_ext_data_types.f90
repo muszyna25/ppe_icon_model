@@ -99,6 +99,9 @@ MODULE mo_ext_data_types
     REAL(wp), POINTER ::   &   !< surface roughness                       [m]
       &  z0(:,:)               ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< effective length scale of circulation patterns
+      &  l_pat(:,:)            ! index1=1,nproma, index2=1,nblks_c
+
 
     !
     ! *** FLake ***

@@ -37,7 +37,8 @@ MODULE mo_cuinitialize
   USE mo_kind,                 ONLY: wp
   USE mo_physical_constants,   ONLY: cpd, cpv, vtmpc1, alv, als, tmelt
   USE mo_echam_cnv_config,     ONLY: echam_cnv_config
-  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline
+  USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline,            &
+   &                                 prepare_ua_index_spline_batch,lookup_ua_spline_batch
   USE mo_cuadjust,             ONLY: cuadjtq
 
   IMPLICIT NONE
@@ -91,7 +92,8 @@ CONTAINS
       &        pxtu(kbdim,klev,ktrac),    pxtd(kbdim,klev,ktrac),                    &
       &        pmfuxt(kbdim,klev,ktrac),  pmfdxt(kbdim,klev,ktrac)
     REAL(wp):: za(kbdim),                 ua(kbdim)
-    INTEGER :: idx(kbdim)
+    REAL(wp):: za_batch(kbdim,klev),      ua_batch(kbdim,klev)
+    INTEGER :: idx(kbdim),                idx_batch(kbdim,klev)
     INTEGER :: jk, jl, jt, ik, icall
     REAL(wp):: zcpm, zzs
     LOGICAL :: llo1
@@ -99,19 +101,30 @@ CONTAINS
     !  INTRINSIC FUNCTIONS
     INTRINSIC MAX, MIN
     !
+    !$ACC DATA PRESENT( pxten, pxtenh, pxtu, pxtd, pmfuxt, pmfdxt ) IF( ktrac > 0 )
+    !$ACC DATA PRESENT( pten, pqen, pqsen, pxen, puen, pven, pverv, papp1, pgeo, paphp1,&
+    !$ACC               pgeoh, ptenh, pqenh, pqsenh, pxenh, klwmin, ptu, pqu, ptd, pqd, &
+    !$ACC               puu, pvu, pud, pvd, pmfu, pmfd, pmfus, pmfds, pmfuq, pmfdq,     &
+    !$ACC               pdmfup, pdmfdp, pcpen, pcpcu, palvsh, pdpmel, plu, plude, pqude,&
+    !$ACC               klab )                                                          &
+    !$ACC       CREATE( zwmax, zph, loidx, ua, za, idx, ua_batch, za_batch, idx_batch )
     !---------------------------------------------------------------------------------
     !
     !*    1.  Specify large scale parameters at half levels, adjust temperature
     !*        fields if staticly unstable, find level of maximum vert. velocity
     !         -----------------------------------------------------------------
     !
+
+#ifndef _OPENACC
     DO jk=1,klev
 
-      CALL prepare_ua_index_spline(jg,'cuini',jcs,kproma,pten(1,jk),idx(1),za(1))
-      CALL lookup_ua_spline(jcs,kproma,idx(1),za(1),ua(1))
+      CALL prepare_ua_index_spline(jg,'cuini',jcs,kproma,pten(:,jk),idx(:),za(:), &
+                                   klev=jk,kblock=jb,kblock_size=kbdim)
 
+      CALL lookup_ua_spline(jcs,kproma,idx(:),za(:),ua(:))
 
 !IBM* NOVECTOR
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
       DO jl=jcs,kproma
 
         pqsen(jl,jk)=ua(jl)/papp1(jl,jk)
@@ -121,9 +134,31 @@ CONTAINS
         pcpen(jl,jk)=cpd+(cpv-cpd)*pqen(jl,jk) ! cp of moist air for comp. of fluxes
       END DO
     END DO
+#else
+    CALL prepare_ua_index_spline_batch(jg,'cuini',jcs,kproma,klev,  &
+                                       pten,idx_batch,za_batch,     &
+                                       kblock=jb, kblock_size=kbdim)
+    CALL lookup_ua_spline_batch(jcs,kproma,klev,idx_batch,za_batch,ua_batch)
+
+    !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1)
+    DO jk=1,klev
+      DO jl=jcs,kproma
+
+        pqsen(jl,jk)=ua_batch(jl,jk)/papp1(jl,jk)
+        pqsen(jl,jk)=MIN(0.5_wp,pqsen(jl,jk))
+        pqsen(jl,jk)=pqsen(jl,jk)/(1._wp-vtmpc1*pqsen(jl,jk))
+
+        pcpen(jl,jk)=cpd+(cpv-cpd)*pqen(jl,jk) ! cp of moist air for comp. of fluxes
+      END DO
+    END DO
+#endif
+
+    !$acc wait
     !
     DO jk=2,klev
 !IBM* NOVECTOR
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( zcpm )
       DO jl=jcs,kproma
         zcpm=(pcpen(jl,jk)+pcpen(jl,jk-1))*0.5_wp
         pcpcu(jl,jk)=zcpm
@@ -134,25 +169,35 @@ CONTAINS
         zph(jl)=paphp1(jl,jk)
         loidx(jl)=jl
       END DO
+      !$ACC END PARALLEL
       !
+      !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+      !$ACC LOOP SEQ
       DO jt=1,ktrac
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           pxtenh(jl,jk,jt)=(pxten(jl,jk,jt)+pxten(jl,jk-1,jt))*0.5_wp
         END DO
       END DO
+      !$ACC END PARALLEL
       !
       ik=jk
       icall=0
       CALL cuadjtq(jb, jcs, kproma, kbdim, klev, ik, zph, ptenh, pqsenh, loidx, kproma, icall)
       !
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         pxenh(jl,jk)=(pxen(jl,jk)+pxen(jl,jk-1))*0.5_wp
         pqenh(jl,jk)=MIN(pqen(jl,jk-1),pqsen(jl,jk-1))+(pqsenh(jl,jk)-pqsen(jl,jk-1))
         pqenh(jl,jk)=MAX(pqenh(jl,jk),0._wp)
       END DO
+      !$ACC END PARALLEL
     END DO
     !
 !IBM* NOVECTOR
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       ptenh(jl,klev)=pcpen(jl,klev)*pten(jl,klev)+pgeo(jl,klev)-pgeoh(jl,klev)
       ptenh(jl,klev)=ptenh(jl,klev)/pcpen(jl,klev)
@@ -166,34 +211,50 @@ CONTAINS
       klwmin(jl)=klev
       zwmax(jl)=0._wp
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT) IF( ktrac > 0 )
+    !$ACC LOOP SEQ
     DO jt=1,ktrac
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         pxtenh(jl,klev,jt)=pxten(jl,klev,jt)
         pxtenh(jl,1,jt)=pxten(jl,1,jt)
       END DO
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=klevm1,2,-1
 !IBM* NOVECTOR
+      !$ACC LOOP GANG VECTOR PRIVATE( zzs )
       DO jl=jcs,kproma
         zzs=MAX(pcpcu(jl,jk)*ptenh(jl,jk)+pgeoh(jl,jk),                              &
           &           pcpcu(jl,jk+1)*ptenh(jl,jk+1)+pgeoh(jl,jk+1))
         ptenh(jl,jk)=(zzs-pgeoh(jl,jk))/pcpcu(jl,jk)
       END DO
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=1,klev
 ! NOVECTOR ?
+      !$ACC LOOP GANG VECTOR PRIVATE( llo1 )
       DO jl=jcs,kproma
         llo1 = (ptenh(jl,jk)-tmelt) .GT. 0.0_wp
         palvsh(jl,jk) = MERGE(alv,als,llo1)
       END DO
     END DO
+    !$ACC END PARALLEL
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP SEQ
     DO jk=klev,3,-1
 !DIR$ IVDEP
 !OCL NOVREC
+      !$ACC LOOP GANG VECTOR
       DO jl=jcs,kproma
         IF(pverv(jl,jk).LT.zwmax(jl)) THEN
           zwmax(jl)=pverv(jl,jk)
@@ -201,6 +262,7 @@ CONTAINS
         END IF
       END DO
     END DO
+    !$ACC END PARALLEL
     !
     !-----------------------------------------------------------------------
     !*    2.0   Initialize values for updrafts and downdrafts
@@ -209,6 +271,7 @@ CONTAINS
     DO jk=1,klev
       ik=jk-1
       IF(jk.EQ.1) ik=1
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR ASYNC(1)
       DO jl=jcs,kproma
         ptu(jl,jk)=ptenh(jl,jk)
         ptd(jl,jk)=ptenh(jl,jk)
@@ -232,6 +295,7 @@ CONTAINS
         pqude(jl,jk)=0._wp
         klab(jl,jk)=0
       END DO
+      !$ACC PARALLEL LOOP DEFAULT(NONE) GANG VECTOR COLLAPSE(2) ASYNC(1) IF( ktrac > 0 )
       DO jt=1,ktrac
         DO jl=jcs,kproma
           pxtu(jl,jk,jt)=pxtenh(jl,jk,jt)
@@ -242,6 +306,11 @@ CONTAINS
       END DO
       !
     END DO
+    !
+    !$ACC WAIT
+    !
+    !$ACC END DATA
+    !$ACC END DATA
     !
   END SUBROUTINE cuini
   !>
@@ -274,13 +343,17 @@ CONTAINS
 
     ! Shortcuts to components of echam_cnv_config
     !
-    LOGICAL , POINTER :: lmfdudv
-    REAL(wp), POINTER :: cbfac, cminbuoy, cmaxbuoy
+    LOGICAL   :: lmfdudv
+    REAL(wp)  :: cbfac, cminbuoy, cmaxbuoy
     !
-    lmfdudv  => echam_cnv_config(jg)% lmfdudv
-    cbfac    => echam_cnv_config(jg)% cbfac
-    cminbuoy => echam_cnv_config(jg)% cminbuoy
-    cmaxbuoy => echam_cnv_config(jg)% cmaxbuoy
+    lmfdudv  = echam_cnv_config(jg)% lmfdudv
+    cbfac    = echam_cnv_config(jg)% cbfac
+    cminbuoy = echam_cnv_config(jg)% cminbuoy
+    cmaxbuoy = echam_cnv_config(jg)% cmaxbuoy
+
+    !$ACC DATA PRESENT( ptenh, pqenh, pgeoh, paph, pthvsig, ptu, pqu, plu, puen, pven, &
+    !$ACC               puu, pvu, pcpcu, ldcum, kcbot, klab )                          &
+    !$ACC       CREATE( zqold, zph, loidx )
 
     !
     !---------------------------------------------------------------------------------
@@ -288,6 +361,8 @@ CONTAINS
     !     1.       Initialize values at lifting level
     !              ----------------------------------
     !
+    !$ACC PARALLEL DEFAULT(PRESENT)
+    !$ACC LOOP GANG VECTOR
     DO jl=jcs,kproma
       klab(jl,klev)=1
       kcbot(jl)=klevm1
@@ -295,6 +370,7 @@ CONTAINS
       puu(jl,klev)=puen(jl,klev)*(paph(jl,klevp1)-paph(jl,klev))
       pvu(jl,klev)=pven(jl,klev)*(paph(jl,klevp1)-paph(jl,klev))
     END DO
+    !$ACC END PARALLEL
     !
     !---------------------------------------------------------------------------------
     !
@@ -304,15 +380,24 @@ CONTAINS
     !          ----------------------------------------------------------------
     DO jk=klevm1,2,-1
       is=jcs-1
+      !$ACC UPDATE HOST( klab(:,jk+1) )
       DO jl=jcs,kproma
         IF (klab(jl,jk+1).EQ.1) THEN
           is = is + 1
           loidx(is) = jl
         END IF
+      END DO
+      !$ACC UPDATE DEVICE( loidx )
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR
+      DO jl=jcs,kproma
         zph(jl)=paph(jl,jk)
       END DO
+      !$ACC END PARALLEL
       IF(is.EQ.jcs-1) CYCLE !GOTO 290
 !IBM* ASSERT(NODEPS)
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zlift, zbuo )
       DO nl=jcs,is
         jl = loidx(nl)
         zlift=MAX(cminbuoy,MIN(cmaxbuoy,pthvsig(jl)*cbfac))
@@ -325,6 +410,7 @@ CONTAINS
         IF(zbuo.GT.0._wp) klab(jl,jk)=1
         zqold(jl)=pqu(jl,jk)
       END DO
+      !$ACC END PARALLEL
       !
       ik=jk
       icall=1
@@ -334,6 +420,8 @@ CONTAINS
       !
 !DIR$ IVDEP
 !OCL NOVREC
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( jl, zlift, zbuo )
       DO nl=jcs,is
         jl = loidx(nl)
         IF(pqu(jl,jk).LT.zqold(jl)) THEN
@@ -349,23 +437,29 @@ CONTAINS
           END IF
         END IF
       END DO
+      !$ACC END PARALLEL
       !
       !    Calculate averages of u and v for subcloud area, the values will
       !    be used to define cloud base values.
       !
       IF(lmfdudv) THEN
+        !$ACC PARALLEL DEFAULT(PRESENT)
+        !$ACC LOOP GANG VECTOR
         DO jl=jcs,kproma
           IF(jk.GE.kcbot(jl)) THEN
             puu(jl,klev)=puu(jl,klev)+puen(jl,jk)*(paph(jl,jk+1)-paph(jl,jk))
             pvu(jl,klev)=pvu(jl,klev)+pven(jl,jk)*(paph(jl,jk+1)-paph(jl,jk))
           END IF
         END DO
+        !$ACC END PARALLEL
       END IF
       !
     END DO  !290
     !
     !
     IF(lmfdudv) THEN
+      !$ACC PARALLEL DEFAULT(PRESENT)
+      !$ACC LOOP GANG VECTOR PRIVATE( ikb, zz )
       DO jl=jcs,kproma
         IF(ldcum(jl)) THEN
           ikb=kcbot(jl)
@@ -377,7 +471,10 @@ CONTAINS
           pvu(jl,klev)=pven(jl,klevm1)
         END IF
       END DO
+      !$ACC END PARALLEL
     END IF
+    !
+    !$ACC END DATA
     !
   END SUBROUTINE cubase
 END MODULE mo_cuinitialize

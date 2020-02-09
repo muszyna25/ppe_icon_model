@@ -33,6 +33,8 @@ MODULE mo_nh_diagnose_pmsl
   REAL(wp), PARAMETER :: t_low  = 255.0_wp
   REAL(wp), PARAMETER :: t_high = 290.5_wp
 
+  ! (note: for the 'diagnose_pmsl...' routines no deep-atmosphere copy exists, 
+  ! because the error from grav=const is assumed to be negligibly small for them)
   PUBLIC :: diagnose_pmsl
   PUBLIC :: diagnose_pmsl_gme
   PUBLIC :: diagnose_pmsl_ifs

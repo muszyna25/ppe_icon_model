@@ -42,7 +42,7 @@
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
-    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
+    USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus, l_limited_area
     USE mo_timer,               ONLY: timer_start, timer_stop, timer_lonlat_setup
     USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
     USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v
@@ -195,7 +195,7 @@
             ! only barycentric interpolation.
             !
             !            IF ((jg > 1) .AND. lreduced_nestbdry_stencil) THEN 
-            IF (jg > 1) THEN 
+            IF ((jg > 1) .OR. l_limited_area) THEN 
               CALL mask_out_boundary( p_patch(jg), lonlat_grids%list(i)%intp(jg) )
             END IF
 
@@ -868,7 +868,7 @@
       INTEGER  :: last_bdry_index, rl_start, rl_end, i_nchdom, i_startblk, i_endblk, &
         &         i_startidx, i_endidx, local_idx, glb_idx, jc, jb, je1,             &
         &         istencil, istencil2, itype, hintp_type, nblks_lonlat,  &
-        &         npromz_lonlat
+        &         npromz_lonlat, jc_src, jb_src, jc_nb, jb_nb
       REAL(wp) :: area
       TYPE(t_intp_scalar_coeff), POINTER :: ptr_intp
 
@@ -928,56 +928,103 @@
           CALL finish(routine, "Internal error!")
         END SELECT
 
+        ! Treat the masking differently for nearest-neighbor
+        ! interpolation (where masking would result in a missing
+        ! value). The general case is handled below.
+        !
+        IF (hintp_type == HINTP_TYPE_LONLAT_NNB) THEN
+
+!$OMP PARALLEL DO PRIVATE(jb, i_startidx, i_endidx, jc, je1, local_idx, glb_idx, &
+!$OMP                     jc_src, jb_src, jc_nb, jb_nb)
+          DO jb = 1, nblks_lonlat
+
+            i_startidx = 1
+            i_endidx   = nproma
+            IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+
+            ! loop over all lonlat points and their input stencils
+            CELL_LOOP : DO jc = i_startidx, i_endidx
+
+              ! if stencil point is from the nest boundary region,
+              ! then replace it by one of its neighbors.
+              jc_src = ptr_intp%idx(1,jc,jb)
+              jb_src = ptr_intp%blk(1,jc,jb)
+              local_idx = idx_1d(jc_src, jb_src)
+              glb_idx   = ptr_patch%cells%decomp_info%glb_index(local_idx)
+              IF (glb_idx <= last_bdry_index) THEN
+                DO je1 = 1,3
+                  ! get line and block indices of direct neighbors
+                  jc_nb   = ptr_patch%cells%neighbor_idx(jc_src,jb_src,je1)
+                  jb_nb   = ptr_patch%cells%neighbor_blk(jc_src,jb_src,je1)
+                  local_idx = idx_1d(jc_nb, jb_nb)
+                  glb_idx   = ptr_patch%cells%decomp_info%glb_index(local_idx)
+                  IF (glb_idx > last_bdry_index) THEN
+                    ptr_intp%idx(1,jc,jb) = jc_nb
+                    ptr_intp%blk(1,jc,jb) = jb_nb
+                    CYCLE CELL_LOOP
+                  END IF
+                END DO
+              END IF
+            END DO CELL_LOOP ! jc
+
+          END DO
+!$OMP END PARALLEL DO
+
+        ELSE
+
 !$OMP PARALLEL DO PRIVATE(jb, i_startidx, i_endidx, jc, istencil, &
 !$OMP                     istencil2, area, je1, local_idx, glb_idx)
-        BLOCKS: DO jb = 1, nblks_lonlat
+          BLOCKS: DO jb = 1, nblks_lonlat
 
-          i_startidx = 1
-          i_endidx   = nproma
-          IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+            i_startidx = 1
+            i_endidx   = nproma
+            IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
 
-          ! loop over all lonlat points and their input stencils
-          DO jc = i_startidx, i_endidx
+            ! loop over all lonlat points and their input stencils
+            DO jc = i_startidx, i_endidx
 
-            ! Get actual number of stencil points
-            istencil  = ptr_intp%stencil(jc,jb)
-            istencil2 = istencil
-            ! first, multiply interpolation weights by total "area" (the
-            ! sum of weights in the stencil). we perform this step
-            ! though we may assume normalized coefficients (area=1).
-            area = 0._wp
-            DO je1 = 1, istencil
-              area = area + ptr_intp%coeff(je1,jc,jb)
-            ENDDO
-            DO je1 = 1, istencil
-              ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) * area
-            END DO
-            ! remove stencil points from the nest boundary region
-            ! together with their coefficients
-            DO je1 = 1, istencil
-              local_idx = idx_1d(ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb))
-              IF (local_idx < 1) THEN
-                WRITE (0,*) "interpolation type: hintp_type=", hintp_type
-                WRITE (0,*) "PE ", get_my_mpi_work_id(), ": je1, jc,jb = ", je1, jc,jb, &
-                  & ", indices: ", ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb)
-                CALL finish(routine, "Internal error!")
-              END IF
-              glb_idx = ptr_patch%cells%decomp_info%glb_index(local_idx)
-              IF (glb_idx <= last_bdry_index) THEN
-                area = area - ptr_intp%coeff(je1,jc,jb)
-                ptr_intp%coeff(je1,jc,jb) = 0._wp
-                istencil2 = istencil2 - 1
-                IF (istencil2 == 0)  area = 1._wp ! avoid zero divide
-              END IF
-            END DO
-            ! re-normalize weights
-            DO je1 = 1, istencil
-              ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) / area
-            END DO
-          END DO ! jc
+              ! Get actual number of stencil points
+              istencil  = ptr_intp%stencil(jc,jb)
+              istencil2 = istencil
+              ! first, multiply interpolation weights by total "area" (the
+              ! sum of weights in the stencil). we perform this step
+              ! though we may assume normalized coefficients (area=1).
+              area = 0._wp
+              DO je1 = 1, istencil
+                area = area + ptr_intp%coeff(je1,jc,jb)
+              ENDDO
+              DO je1 = 1, istencil
+                ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) * area
+              END DO
+              ! remove stencil points from the nest boundary region
+              ! together with their coefficients
+              DO je1 = 1, istencil
+                local_idx = idx_1d(ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb))
+                IF (local_idx < 1) THEN
+                  WRITE (0,*) "interpolation type: hintp_type=", hintp_type
+                  WRITE (0,*) "PE ", get_my_mpi_work_id(), ": je1, jc,jb = ", je1, jc,jb, &
+                    & ", indices: ", ptr_intp%idx(je1,jc,jb), ptr_intp%blk(je1,jc,jb)
+                  CALL finish(routine, "Internal error!")
+                END IF
+                glb_idx = ptr_patch%cells%decomp_info%glb_index(local_idx)
+                IF (glb_idx <= last_bdry_index) THEN
+                  area = area - ptr_intp%coeff(je1,jc,jb)
+                  ptr_intp%coeff(je1,jc,jb) = 0._wp
+                  istencil2 = istencil2 - 1
+                  IF (istencil2 == 0)  area = 1._wp ! avoid zero divide
+                END IF
+              END DO
+              ! re-normalize weights
+              DO je1 = 1, istencil
+                ptr_intp%coeff(je1,jc,jb) = ptr_intp%coeff(je1,jc,jb) / area
+              END DO
+            END DO ! jc
 
-        END DO BLOCKS
+          END DO BLOCKS
 !$OMP END PARALLEL DO
+
+        END IF
+
       END DO
       IF (dbg_level > 1)  CALL message(routine, "done.")
 

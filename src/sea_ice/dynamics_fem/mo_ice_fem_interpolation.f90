@@ -482,7 +482,7 @@ IF (ptr_patch%geometry_info%cell_type == 6) THEN
 !$OMP END PARALLEL
 ELSE IF (ptr_patch%geometry_info%cell_type == 3) THEN
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk,ji,cell_block,cell_index) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &

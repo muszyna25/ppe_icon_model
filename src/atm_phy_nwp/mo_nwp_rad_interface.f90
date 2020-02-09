@@ -1,6 +1,6 @@
 !>
 !! This module is the interface between nwp_nh_interface to the radiation schemes
-!! (RRTM or Ritter-Geleyn).
+!! (ecRad, RRTM or Ritter-Geleyn).
 !!
 !! @author Thorsten Reinhardt, AGeoBw, Offenbach
 !!
@@ -18,6 +18,7 @@
 
 MODULE mo_nwp_rad_interface
 
+  USE mo_exception,            ONLY: finish
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma
@@ -34,6 +35,11 @@ MODULE mo_nwp_rad_interface
     &                                nwp_ozon_aerosol
   USE mo_nwp_rg_interface,     ONLY: nwp_rg_radiation,               &
     &                                nwp_rg_radiation_reduced
+#ifdef __ECRAD
+  USE mo_nwp_ecRad_interface,  ONLY: nwp_ecRad_radiation,            &
+    &                                nwp_ecRad_radiation_reduced
+  USE mo_ecrad,                ONLY: ecrad_conf
+#endif
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
   USE mtime,                   ONLY: datetime
   
@@ -114,6 +120,10 @@ MODULE mo_nwp_rad_interface
       ! the entire block. Therefore cosmu0_dark = -1.e-9_wp does not work here (crashes).
       ! For all points cosmu0 must be <0.
       cosmu0_dark =  1.e-9_wp   ! minimum cosmu0, for smaller values no shortwave calculations
+    CASE (4)
+      ! ecRad
+      ! ecRad skips cosmu0<=0 as well.
+      cosmu0_dark = -1.e-9_wp
     END SELECT
 
 
@@ -180,6 +190,24 @@ MODULE mo_nwp_rad_interface
           & ext_data, pt_prog, pt_diag, prm_diag, lnd_prog, zsct )
       ENDIF
 
+    CASE (4) ! ecRad
+#ifdef __ECRAD
+      CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
+        & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 )
+
+      IF (.NOT. lredgrid) THEN
+        CALL nwp_ecRad_radiation ( mtime_datetime, pt_patch, ext_data,      &
+          & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                              &
+          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+      ELSE
+        CALL nwp_ecRad_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, &
+          & ext_data, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                          &
+          & pt_diag, prm_diag, lnd_prog, ecrad_conf )
+      ENDIF
+#else
+      CALL finish(TRIM(routine),  &
+        &      'atm_phy_nwp_config(jg)%inwp_radiation = 4 needs -D__ECRAD.')
+#endif
     END SELECT ! inwp_radiation
 
   END SUBROUTINE nwp_radiation

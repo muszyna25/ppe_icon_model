@@ -45,15 +45,15 @@ MODULE mo_albedo
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,             &
     &                                lseaice, lprog_albsi, llake, isub_water, isub_lake, &
     &                                isub_seaice
-  USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
+  USE sfc_terra_data,          ONLY: csalb, csalb_snow_fe, csalb_snow_fd,     &
     &                                csalb_snow_min, csalb_snow_max, csalb_p, csalb_snow, &
     &                                ist_seawtr, ist_seaice
   USE mo_physical_constants,   ONLY: tmelt, tf_salt
-  USE mo_data_flake,           ONLY: albedo_whiteice_ref, albedo_blueice_ref, &
+  USE sfc_flake_data,          ONLY: albedo_whiteice_ref, albedo_blueice_ref, &
     &                                c_albice_MR, tpl_T_f, h_Ice_min_flk
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_impl_constants,       ONLY: min_rlcell_int
-  USE mo_seaice_nwp,           ONLY: alb_seaice_equil
+  USE sfc_seaice,              ONLY: alb_seaice_equil
 
   IMPLICIT NONE
 
@@ -520,11 +520,11 @@ CONTAINS
   !! snow/ice conditions are taken into account. The snow-free MODIS albedo is updated 
   !! on a daily basis.
   !! We distinguish between
-  !! - shortwave broadband albedo  (diffuse, 0.3-5.0µm): albdif
-  !! - UV visible broadband albedo (diffuse, 0.3-0.7µm): albvisdif
-  !! - near IR broadband albedo    (diffuse, 0.7-5.0µm): albnirdif
-  !! - UV visible broadband albedo (direct , 0.3-0.7µm): albvisdir
-  !! - near IR broadband albedo    (direct , 0.7-5.0µm): albnirdir 
+  !! - shortwave broadband albedo  (diffuse, 0.3-5.0um): albdif
+  !! - UV visible broadband albedo (diffuse, 0.3-0.7um): albvisdif
+  !! - near IR broadband albedo    (diffuse, 0.7-5.0um): albnirdif
+  !! - UV visible broadband albedo (direct , 0.3-0.7um): albvisdir
+  !! - near IR broadband albedo    (direct , 0.7-5.0um): albnirdir
   !!
   !! albvisdif/albvisdir and albnirdif/albnirdir are exclusively used by the RRTM scheme
   !!

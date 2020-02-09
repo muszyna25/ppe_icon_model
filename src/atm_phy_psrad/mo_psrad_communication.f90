@@ -272,6 +272,7 @@ CONTAINS
                                  atmo_2_psrad_redist_wp_2d, & ! albnirdir
                                  atmo_2_psrad_redist_wp_2d, & ! albvisdif
                                  atmo_2_psrad_redist_wp_2d, & ! albnirdif
+                                 atmo_2_psrad_redist_wp_2d, & ! emissivity
                                  atmo_2_psrad_redist_wp_3d, & ! zf
                                  atmo_2_psrad_redist_wp_3d_layer, & ! zh
                                  atmo_2_psrad_redist_wp_3d, & ! dz
@@ -429,6 +430,7 @@ CONTAINS
                                         alb_nir_dir,  &
                                         alb_vis_dif,  &
                                         alb_nir_dif,  &
+                                        emissivity,   &
                                         zf,         &
                                         zh,         &
                                         dz,         &
@@ -476,6 +478,7 @@ CONTAINS
          alb_nir_dir,  & !< surface albedo for NIR range and dir light
          alb_vis_dif,  & !< surface albedo for vis range and dif light
          alb_nir_dif,  & !< surface albedo for NIR range and dif light
+         emissivity,   & !< surface longwave emissivity
          zf,         & !< geometric height at full level in m
          zh,         & !< geometric height at half level in m
          dz,         & !< geometric height thickness in m
@@ -497,7 +500,7 @@ CONTAINS
          xm_o3,      & !< o3  mass in kg/m2
          xm_o2       !< o2  mass in kg/m2
 
-    TYPE(c_ptr) :: src_data_cptr(33), dst_data_cptr(33)
+    TYPE(c_ptr) :: src_data_cptr(34), dst_data_cptr(34)
 
     src_data_cptr( 1) = irad_aero
     src_data_cptr( 2) = klev
@@ -512,26 +515,27 @@ CONTAINS
     src_data_cptr(11) = alb_nir_dir
     src_data_cptr(12) = alb_vis_dif
     src_data_cptr(13) = alb_nir_dif
-    src_data_cptr(14) = zf
-    src_data_cptr(15) = zh
-    src_data_cptr(16) = dz
-    src_data_cptr(17) = pp_sfc
-    src_data_cptr(18) = pp_fl
-    src_data_cptr(19) = tk_sfc
-    src_data_cptr(20) = tk_fl
-    src_data_cptr(21) = tk_hl
-    src_data_cptr(22) = xm_dry
-    src_data_cptr(23) = xm_vap
-    src_data_cptr(24) = xm_liq
-    src_data_cptr(25) = xm_ice
-    src_data_cptr(26) = cdnc
-    src_data_cptr(27) = xc_frc
-    src_data_cptr(28) = xm_co2
-    src_data_cptr(29) = xm_ch4
-    src_data_cptr(30) = xm_n2o
-    src_data_cptr(31) = xm_cfc
-    src_data_cptr(32) = xm_o3
-    src_data_cptr(33) = xm_o2
+    src_data_cptr(14) = emissivity
+    src_data_cptr(15) = zf
+    src_data_cptr(16) = zh
+    src_data_cptr(17) = dz
+    src_data_cptr(18) = pp_sfc
+    src_data_cptr(19) = pp_fl
+    src_data_cptr(20) = tk_sfc
+    src_data_cptr(21) = tk_fl
+    src_data_cptr(22) = tk_hl
+    src_data_cptr(23) = xm_dry
+    src_data_cptr(24) = xm_vap
+    src_data_cptr(25) = xm_liq
+    src_data_cptr(26) = xm_ice
+    src_data_cptr(27) = cdnc
+    src_data_cptr(28) = xc_frc
+    src_data_cptr(29) = xm_co2
+    src_data_cptr(30) = xm_ch4
+    src_data_cptr(31) = xm_n2o
+    src_data_cptr(32) = xm_cfc
+    src_data_cptr(33) = xm_o3
+    src_data_cptr(34) = xm_o2
 
     dst_data_cptr = src_data_cptr
 

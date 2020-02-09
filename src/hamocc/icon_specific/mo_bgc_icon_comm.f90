@@ -20,7 +20,7 @@
 
       USE mo_model_domain,   ONLY: t_patch_3D, t_patch
 
-      USE mo_ocean_nml,  ONLY: no_tracer, n_zlev
+      USE mo_ocean_nml,  ONLY: n_zlev
 
       USE mo_kind,     ONLY: wp
 
@@ -32,7 +32,7 @@
 
       USE mo_hamocc_types,       ONLY: t_hamocc_diag, t_hamocc_state, &
     &                                  t_hamocc_sed, t_hamocc_tend,   &
-    &                                  t_hamocc_monitor                    
+    &                                  t_hamocc_monitor, t_hamocc_prog                    
    
 
       USE mo_bgc_constants,      ONLY: molw_co2
@@ -89,7 +89,7 @@
       USE mo_param1_bgc, ONLY: n_bgctra,kcflux
 
 
-      REAL(wp)     :: ptracer(nproma,n_zlev,no_tracer+n_bgctra)    
+      REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
       INTEGER, INTENT(in)::klevs(nproma)
       REAL(wp),INTENT(in) :: pddpo(nproma,n_zlev) !< size of scalar grid cell (3rd REAL) [m]
       REAL(wp),INTENT(inout) :: pco2flx(nproma)
@@ -108,8 +108,8 @@
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
           pco2flx(jc)=bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
-          DO itrac=no_tracer+1,no_tracer+n_bgctra
-             ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
+          DO itrac=1,n_bgctra
+             ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac)
           ENDDO 
         ENDDO
         ENDIF
@@ -138,7 +138,7 @@
 
       USE mo_sedmnt,  ONLY: pown2bud, powh2obud
 
-      REAL(wp)     :: ptracer(nproma,n_zlev,no_tracer+n_bgctra)    
+      REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
       REAL(wp)     :: pco2mr(nproma)
       INTEGER, INTENT(in)::klevs(nproma), jb
       TYPE(t_hamocc_diag) :: p_diag
@@ -163,8 +163,8 @@
           satn2o(jc) = p_tend%satn2o(jc,jb)    
           solco2(jc) = p_tend%solco2(jc,jb)    
         DO jk =1,kpke
-          DO itrac=no_tracer+1,no_tracer+n_bgctra
-             bgctra(jc,jk,itrac-no_tracer)=ptracer(jc,jk,itrac) 
+          DO itrac = 1,n_bgctra
+             bgctra(jc,jk,itrac)=ptracer(jc,jk,itrac) 
           ENDDO 
           hi(jc, jk) = p_diag%hi(jc,jk,jb)    
           co3(jc, jk) = p_diag%co3(jc,jk,jb)    
@@ -394,7 +394,7 @@
   
 
 
-      REAL(wp)     :: ptracer(nproma,n_zlev,no_tracer+n_bgctra)    
+      REAL(wp)     :: ptracer(nproma,n_zlev,n_bgctra)    
       INTEGER, INTENT(in)::klevs(nproma)
       TYPE(t_hamocc_sed) :: p_sed
       TYPE(t_hamocc_diag) :: p_diag
@@ -415,8 +415,8 @@
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
          if(l_cpl_co2)pco2flux(jc)=bgcflux(jc,kcflux) * molw_co2
         DO jk =1,kpke
-          DO itrac=no_tracer+1,no_tracer+n_bgctra
-             ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
+          DO itrac=1,n_bgctra
+             ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac)
           ENDDO
              p_diag%hi(jc,jk,jb)  = hi(jc, jk)
              p_diag%co3(jc,jk,jb) = co3(jc,jk) 

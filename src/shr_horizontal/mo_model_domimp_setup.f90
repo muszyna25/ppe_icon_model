@@ -90,7 +90,8 @@ MODULE mo_model_domimp_setup
   USE mo_exception,          ONLY: finish, warning
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_grid_config,        ONLY: corio_lat, grid_angular_velocity, use_dummy_cell_closure
+  USE mo_grid_config,        ONLY: corio_lat, grid_angular_velocity, use_dummy_cell_closure, &
+    &                              grid_sphere_radius
   USE mo_sync,               ONLY: sync_c, sync_e, sync_patch_array, sync_idx
   USE mo_grid_subset,        ONLY: fill_subset,read_subset, write_subset
   USE mo_run_config,         ONLY: msg_level
@@ -100,7 +101,7 @@ MODULE mo_model_domimp_setup
   USE mo_math_types
   USE mo_math_utilities
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, planar_channel_geometry
-  USE mo_master_control,     ONLY: my_process_is_ocean
+  USE mo_master_control,     ONLY: my_process_is_oceanic
   USE mo_fortran_tools,      ONLY: init
 
   IMPLICIT NONE
@@ -113,6 +114,7 @@ MODULE mo_model_domimp_setup
   PUBLIC :: reshape_real
   PUBLIC :: init_quad_twoadjcells
   PUBLIC :: init_coriolis
+  PUBLIC :: init_centrifugal
   PUBLIC :: set_verts_phys_id
   PUBLIC :: init_butterfly_idx
 
@@ -543,10 +545,11 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-07-13),
   !! - Allocation of f_c, f_e, f_v has been moved to read_patch
   !!
-  SUBROUTINE init_coriolis( lcorio, lplane, patch )
+  SUBROUTINE init_coriolis( lcorio, lplane, patch, opt_lnontrad )
 
     LOGICAL,INTENT(in) :: lcorio, lplane
     TYPE(t_patch), TARGET, INTENT(inout) :: patch ! patch on specific level
+    LOGICAL, OPTIONAL, INTENT(in) :: opt_lnontrad
 
     INTEGER :: nlen,                         &
       & nblks_c,  nblks_e,  nblks_v,  &
@@ -555,6 +558,11 @@ CONTAINS
 
     LOGICAL :: is_plane
     REAL(wp) :: zlat
+
+    REAL(wp) :: z_n_u, z_n_v, z_n_norm
+    REAL(wp) :: z_t_u, z_t_v, z_t_norm
+    REAL(wp) :: z_l
+    REAL(wp), PARAMETER :: z_eps = 1.0E-25_wp
 
     !-----------------------------------------------------------------------
 
@@ -596,11 +604,90 @@ CONTAINS
         END DO
       END DO
 
+      IF (PRESENT(opt_lnontrad)) THEN
+        ! compute components of horizontal Coriolis parameter (vector) 'fn' and 'ft'
+        ! (default values: 'fn = 0' and 'ft = 0', see 'src/shr_horizontal/mo_alloc_patches'
+        ! -> that is why only the case 'opt_lnontrad=.TRUE.' is computed explicitly below)
+        ! NOTE: 'fn' and 'ft' are only available on edges!
+        
+        IF (opt_lnontrad) THEN
+          ! non-traditional deep-atmosphere terms in components 
+          ! of momentum equation (such as ft*w or vn/r) are active
+          
+          ! Given a triangular cell edge and the corresponding 
+          ! normal unit vector N, pointing from the cell center on edge side 
+          ! labeled 1 to the cell center on the other side labeled 2, 
+          ! and the tangential unit vector T, pointing from the edge end 
+          ! labeled vertex 1 to the edge end labeled vertex 2, 
+          ! according to Hui Wan's PhD-thesis, p. 14 and/or Zaengl et al. 2015, 
+          ! the following assumptions are made for the computation of 
+          ! the horizontal Coriolis parameters:  
+          ! - the horizontal wind vector u is measured with N and T in ICON: 
+          !                  u = vn*N + vt*T 
+          ! - from our attempts to track down in which model variables N and T 
+          !   are actually stored, we guess the following:
+          !   N -> patch%edges%primal_normal
+          !   T -> patch%edges%dual_normal
+          ! - the vertical unit vector Z (=e_z) points allways in the outward
+          !   direction of the Earth sphere
+          ! - IMPORTANT: T, N, Z form a right-handed coordinate system 
+          !   in that order (not N, T, Z !)
+          ! Next, having  2*Omega = fn*N + ft*T + fz*Z 
+          ! and  v = vn*N + vt*T + w*Z, the Coriolis acceleration reads: 
+          ! 2*Omegaxv = (fz*vt - ft*w)*N 
+          !           + (fn*w  - fz*vn)*T 
+          !           + (ft*vn - fn*vt)*Z 
+          
+          DO jb = 1, nblks_e
+            nlen = MERGE(nproma, npromz_e, jb /= nblks_e)
+            DO je = 1, nlen             
+              ! zonal (u -> v1) and meridional (v -> v2) components of primal normal 
+              ! (normal vector at edge, it seems that 
+              ! 'primal_normal' is defined in 'src/shr_horizontal/mo_model_domain' 
+              ! and read from file in 'src/shr_horizontal/mo_model_domimp_patches/
+              ! read_remaining_patch')
+              z_n_u = patch%edges%primal_normal(je,jb)%v1
+              z_n_v = patch%edges%primal_normal(je,jb)%v2
+              
+              ! normalize vector N (just to make sure)
+              z_n_norm = SQRT( z_n_u**2 + z_n_v**2 )
+              z_n_u = z_n_u / MAX(z_eps, z_n_norm)
+              z_n_v = z_n_v / MAX(z_eps, z_n_norm)
+
+              ! the same procedure for the 'dual_normal' T
+              z_t_u = patch%edges%dual_normal(je,jb)%v1
+              z_t_v = patch%edges%dual_normal(je,jb)%v2
+              z_t_norm = SQRT( z_t_u**2 + z_t_v**2 ) 
+              z_t_u = z_t_u / MAX(z_eps, z_t_norm)
+              z_t_v = z_t_v / MAX(z_eps, z_t_norm)              
+                            
+              ! latitude of edge point
+              zlat = patch%edges%center(je,jb)%lat
+              
+              ! compute horizontal Coriolis parameter
+              ! ('grid_angular_velocity' is defined and assigned in 
+              ! 'src/configure_model/mo_grid_config')
+              z_l = 2._wp * grid_angular_velocity * COS(zlat)
+              
+              ! compute normal and tangential components of horizontal 
+              ! Coriolis parameter vector
+              patch%edges%fn_e(je,jb) = z_l * z_n_v
+              patch%edges%ft_e(je,jb) = z_l * z_t_v         
+            END DO  !je = 1, nlen
+          END DO  !jb = 1, nblks_e
+          
+        ENDIF  !IF (opt_lnontrad)
+      
+      ENDIF  !IF (PRESENT(opt_lnontrad))
+
     ELSEIF (lcorio .AND. is_plane) THEN
 
       patch%cells%f_c(:,:) = 2._wp*grid_angular_velocity*SIN(corio_lat)
       patch%edges%f_e(:,:) = 2._wp*grid_angular_velocity*SIN(corio_lat)
       patch%verts%f_v(:,:) = 2._wp*grid_angular_velocity*SIN(corio_lat)
+
+      ! (deep atmosphere: no non-traditional Coriolis acceleration in this case, 
+      ! should be coverd by the default settings: fn_e = ft_e = 0)      
 
     ELSE
       grid_angular_velocity = 0.0_wp
@@ -608,9 +695,115 @@ CONTAINS
       patch%edges%f_e(:,:) = 0.0_wp
       patch%verts%f_v(:,:) = 0.0_wp
 
+      ! (deep atmosphere: no non-traditional Coriolis acceleration in this case, 
+      ! should be coverd by the default settings: fn_e = ft_e = 0)     
+
     ENDIF
 
   END SUBROUTINE init_coriolis
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Initializes the components of the centrifugal acceleration
+  !! with analytical values (in large parts a copy of 'init_coriolis').
+  !!
+  !! @par Revision History
+  !! Initial revision by Sebastian Borchert, DWD (2017-06-29).
+  !!
+  SUBROUTINE init_centrifugal( lcentrifugal,  & 
+    &                          lplane,        & 
+    &                          patch          )
+
+    ! in/out-variables
+    LOGICAL,               INTENT(IN)    :: lcentrifugal
+    LOGICAL,               INTENT(IN)    :: lplane
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: patch
+
+    ! local variables
+    REAL(wp) :: zlat
+    REAL(wp) :: z_n_u, z_n_v, z_n_norm
+
+    INTEGER :: nlen
+    INTEGER :: nblks_c, nblks_e
+    INTEGER :: npromz_c, npromz_e
+    INTEGER :: jc, je, jb
+
+    LOGICAL :: is_plane
+
+    REAL(wp), PARAMETER :: z_eps = 1.0E-25_wp
+    
+    !-----------------------------------------------------------------------
+
+    ! values for the blocking
+    nblks_c  = patch%nblks_c
+    npromz_c = patch%npromz_c
+    nblks_e  = patch%nblks_e
+    npromz_e = patch%npromz_e
+
+    is_plane = lplane                                                            &
+      &    .OR.    (patch%geometry_info%geometry_type == planar_torus_geometry)  &
+      &    .OR.    (patch%geometry_info%geometry_type == planar_channel_geometry )
+
+    IF (lcentrifugal .AND. (.NOT. is_plane)) THEN
+
+      ! vertical component of centrifugal acceleration (only on cell centers): 
+      !
+      ! dw/dt = ... + ( Omega * cos(phi) )^2 * a, 
+      ! with Omega = angular velocity of Earth, phi = latitude, 
+      ! a = radius of Earth (possible deep-atmosphere modification a -> a+z 
+      ! takes place in dynamical core)
+      ! 
+      DO jb = 1, nblks_c
+        nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
+        DO jc = 1, nlen
+          zlat = patch%cells%center(jc,jb)%lat
+          patch%cells%cz_c(jc,jb) = ( grid_angular_velocity * COS(zlat) )**2 & 
+            &                       * grid_sphere_radius
+        END DO  !jc
+      END DO  !jb
+
+      ! horizontal (normal) component of centrifugal acceleration (only on edges): 
+      ! 
+      ! dvn/dt = ... - Omega^2 * sin(phi) * cos(phi) * a * e_phi.e_n, 
+      ! with e_phi.e_n denoting the scalar product of the meridional and 
+      ! edge-normal unit vectors
+      !
+      DO jb = 1, nblks_e
+        nlen = MERGE(nproma, npromz_e, jb /= nblks_e)
+        DO je = 1, nlen
+          ! zonal (u -> v1) and meridional (v -> v2) components of primal normal 
+          ! (normal vector at edge, it seems that 
+          ! 'primal_normal' is defined in 'src/shr_horizontal/mo_model_domain' 
+          ! and read from file in 'src/shr_horizontal/mo_model_domimp_patches/
+          ! read_remaining_patch')
+          z_n_u = patch%edges%primal_normal(je,jb)%v1
+          z_n_v = patch%edges%primal_normal(je,jb)%v2
+          
+          ! normalize vector e_n (just to make sure)
+          z_n_norm = SQRT( z_n_u**2 + z_n_v**2 )
+          z_n_v = z_n_v / MAX(z_eps, z_n_norm)
+
+          zlat = patch%edges%center(je,jb)%lat
+          patch%edges%cn_e(je,jb) = -grid_angular_velocity**2 * SIN(zlat) * COS(zlat) & 
+            &                       * grid_sphere_radius * z_n_v
+        END DO  !je
+      END DO  !jb    
+
+    ELSEIF (lcentrifugal .AND. is_plane) THEN
+
+      ! currently centrifugal acceleration is unprovided for this cases 
+      ! (default values for 'cz_c' and 'cn_e' should be zero, see 'src/shr_horizontal/mo_alloc_patches')
+
+    ELSE
+
+      ! currently centrifugal acceleration is unprovided for this cases 
+      ! (default values for 'cz_c' and 'cn_e' should be zero, see 'src/shr_horizontal/mo_alloc_patches')
+      
+    ENDIF
+
+  END SUBROUTINE init_centrifugal
   !-------------------------------------------------------------------------
 
 
@@ -879,7 +1072,7 @@ CONTAINS
       & mask=patch%verts%decomp_info%halo_level, start_mask=2, end_mask=halo_levels_ceiling, located=on_vertices)
     patch%verts%not_in_domain%is_in_domain   = .false.
 
-    IF (my_process_is_ocean()) THEN
+    IF (my_process_is_oceanic()) THEN
       IF (patch%cells%in_domain%no_of_holes > 0) THEN
 !      IF (get_my_mpi_work_id() == 0) THEN
 !        write(0,*) "patch%cells%decomp_info%halo_level:",patch%cells%decomp_info%halo_level
@@ -923,7 +1116,7 @@ CONTAINS
         ENDIF
 
       ENDIF ! msg_level >= 5
-    ENDIF ! my_process_is_ocean
+    ENDIF ! my_process_is_oceanic
     ! write some info:
     !     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()
     !     write(0,*) get_my_mpi_work_id(), "egdes global_index:", patch%edges%decomp_info%glb_index

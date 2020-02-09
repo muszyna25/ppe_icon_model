@@ -13,6 +13,8 @@
 !! headers of the routines.
 !!
 !!
+#include "iconfor_dsl_definitions.inc"
+
 MODULE mo_hamocc_types
 
   USE mo_kind,                ONLY: wp, sp
@@ -32,10 +34,13 @@ MODULE mo_hamocc_types
   PUBLIC :: t_hamocc_tend
   PUBLIC :: t_hamocc_sed
   PUBLIC :: t_hamocc_bcond
-
+  PUBLIC :: t_hamocc_prog
 
   !
-  
+  TYPE t_onCells_Pointer_3d_wp
+    onCells :: p  ! pointer to 3D array
+  END TYPE t_onCells_Pointer_3d_wp
+
   TYPE t_hamocc_monitor
     REAL(wp), POINTER :: phosy(:)
     REAL(wp), POINTER :: phosy_cya(:)
@@ -193,11 +198,11 @@ MODULE mo_hamocc_types
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
 
-  TYPE t_hammoc_tracer
-
+  TYPE t_hamocc_prog
+    REAL(wp), POINTER :: tracer(:,:,:,:)
     TYPE(t_tracer_collection) :: tracer_collection
-
-  END TYPE t_hammoc_tracer
+    TYPE(t_onCells_Pointer_3d_wp), ALLOCATABLE :: tracer_ptr(:) 
+  END TYPE t_hamocc_prog
 
 ! array of states
    TYPE t_hamocc_state
@@ -205,8 +210,8 @@ MODULE mo_hamocc_types
     TYPE(t_hamocc_diag) :: p_diag
     TYPE(t_hamocc_tend) :: p_tend
     TYPE(t_hamocc_sed)  :: p_sed
-   
-
+    TYPE(t_hamocc_prog), ALLOCATABLE :: p_prog(:)
+    
   END TYPE t_hamocc_state
 
   TYPE t_hamocc_bcond

@@ -99,6 +99,7 @@ CONTAINS
       CALL reorder_array_pos(pp%cells%ddqz_z_full,     idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 3)
     END IF
     CALL reorder_array_pos(pp%cells%f_c,             idx_old2new,      pp%nblks_c, pp%npromz_c)
+    CALL reorder_array_pos(pp%cells%cz_c,            idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%area,            idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%center,          idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%cartesian_center,idx_old2new,      pp%nblks_c, pp%npromz_c)
@@ -202,6 +203,9 @@ CONTAINS
     CALL reorder_array_pos(pp%edges%cartesian_center,       idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%cartesian_dual_middle,  idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%f_e,                    idx_old2new,      pp%nblks_e, pp%npromz_e)
+    CALL reorder_array_pos(pp%edges%fn_e,                   idx_old2new,      pp%nblks_e, pp%npromz_e)
+    CALL reorder_array_pos(pp%edges%ft_e,                   idx_old2new,      pp%nblks_e, pp%npromz_e)
+    CALL reorder_array_pos(pp%edges%cn_e,                   idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%refin_ctrl,             idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_decomp_info(pp%edges%decomp_info, idx_old2new, &
       &                      pp%n_patch_edges, pp%nblks_e, pp%npromz_e)

@@ -374,7 +374,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: NO_VADV     = 0
   INTEGER, PARAMETER :: iup_v       = 1
   INTEGER, PARAMETER :: ippm_v      = 3
-  INTEGER, PARAMETER :: ippm4gpu_v  = 4
+  INTEGER, PARAMETER :: ipsm_v      = 4
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0
@@ -385,7 +385,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: inol_v      = 0
   INTEGER, PARAMETER :: islopel_vsm = 1
   INTEGER, PARAMETER :: islopel_vm  = 2
-  INTEGER, PARAMETER :: ifluxl_vpd  = 4
+  INTEGER, PARAMETER :: ifluxl_vpd  = 3
 
   ! identifier for upper boundary condition (ubc)
   INTEGER, PARAMETER :: ino_flx     = 0
@@ -584,7 +584,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_OMEGA     = 14 !< task: compute vertical velocity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_PV        = 15 !< task: compute potential vorticity
-  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SMI       = 16 !< task: compute soil moisture index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SDI2      = 16 !< task: compute supercell detection index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_LPI       = 17 !< task: compute lightning potential index
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_SMI       = 18 !< task: compute soil moisture index
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !
@@ -647,6 +649,17 @@ MODULE mo_impl_constants
   ! where max_lat := pi/180 = 10 degrees 
   ! (hard-coded in the torus grid generator)
   REAL(wp), PARAMETER :: TORUS_MAX_LAT = 4._wp / 18._wp * ATAN(1._wp)
+
+  !------------------------------------------------!
+  !  VERTICAL EXTRAPOLATION OF INITIAL DATA        !
+  !------------------------------------------------!
+
+  TYPE t_ivexpol
+    INTEGER :: lin    !< linear extrapolation
+    INTEGER :: upatmo !< blending with climatology (intended for upper-atmosphere configuration) 
+  END TYPE t_ivexpol
+  TYPE(t_ivexpol), PARAMETER :: ivexpol = t_ivexpol( 1, &  !lin 
+    &                                                2  )  !upatmo
 
 
 !--------------------------------------------------------------------

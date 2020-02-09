@@ -175,6 +175,10 @@ MODULE mo_mpi
 #endif
 !  USE mo_impl_constants, ONLY: SUCCESS
 
+#ifndef __STANDALONE
+    USE mo_util_system, ONLY: util_exit
+#endif
+
   IMPLICIT NONE
 
   PRIVATE                          ! all declarations are private
@@ -721,6 +725,10 @@ MODULE mo_mpi
      MODULE PROCEDURE p_max_int_1d
      MODULE PROCEDURE p_max_2d
      MODULE PROCEDURE p_max_3d
+     MODULE PROCEDURE p_max_0d_sp
+     MODULE PROCEDURE p_max_1d_sp
+     MODULE PROCEDURE p_max_2d_sp
+     MODULE PROCEDURE p_max_3d_sp
   END INTERFACE
 
   INTERFACE p_min
@@ -737,7 +745,8 @@ MODULE mo_mpi
   END INTERFACE p_lor
 
   INTERFACE p_sum
-     MODULE PROCEDURE p_sum_dp_0s
+     MODULE PROCEDURE p_sum_sp_0d
+     MODULE PROCEDURE p_sum_sp_1d
      MODULE PROCEDURE p_sum_dp_0d
      MODULE PROCEDURE p_sum_dp_1d
      MODULE PROCEDURE p_sum_dp_2d
@@ -793,6 +802,11 @@ MODULE mo_mpi
     MODULE PROCEDURE p_isEqual_int
     MODULE PROCEDURE p_isEqual_charArray
   END INTERFACE
+
+  INTERFACE p_minmax_common
+    MODULE PROCEDURE p_minmax_common
+    MODULE PROCEDURE p_minmax_common_sp
+  END INTERFACE p_minmax_common
 
   CHARACTER(*), PARAMETER :: modname = "mo_mpi"
 
@@ -2167,10 +2181,6 @@ CONTAINS
     ! this routine should be used instead of abort, util_abort() or STOP
     ! in all routines for proper clean up of all PEs
 
-#ifndef __STANDALONE
-    EXTERNAL :: util_exit
-#endif
-
 #ifndef NOMPI
     CALL MPI_ABORT (MPI_COMM_WORLD, 0, p_error)
 
@@ -2414,8 +2424,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
@@ -2423,7 +2432,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2461,8 +2469,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_real_sp, p_destination, p_tag, &
@@ -2470,7 +2477,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2501,8 +2507,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     IF (PRESENT(p_count)) THEN
@@ -2516,7 +2521,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2551,8 +2555,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_real_sp, p_destination, p_tag, &
@@ -2560,7 +2563,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2595,8 +2597,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
@@ -2604,7 +2605,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2639,8 +2639,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
@@ -2648,7 +2647,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2683,8 +2681,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
@@ -2692,7 +2689,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2727,8 +2723,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_real_dp, p_destination, p_tag, &
@@ -2736,7 +2731,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2771,8 +2765,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
@@ -2780,7 +2773,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2815,8 +2807,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
@@ -2824,7 +2815,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2859,8 +2849,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
@@ -2868,7 +2857,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2903,8 +2891,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
@@ -2912,7 +2899,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2947,8 +2933,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_int, p_destination, p_tag, &
@@ -2956,7 +2941,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -2992,8 +2976,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
@@ -3001,7 +2984,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3036,8 +3018,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
@@ -3045,7 +3026,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3082,8 +3062,7 @@ CONTAINS
     icount = icount * LEN(t_buffer(1))
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
 
@@ -3092,7 +3071,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3128,8 +3106,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
@@ -3137,7 +3114,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3172,8 +3148,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
@@ -3181,7 +3156,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3216,8 +3190,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_bool, p_destination, p_tag, &
@@ -3225,7 +3198,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3261,8 +3233,7 @@ CONTAINS
 
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_send(t_buffer, icount, p_char, p_destination, p_tag, &
@@ -3270,7 +3241,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3326,8 +3296,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
@@ -3335,7 +3304,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     IF (PRESENT(request)) THEN
@@ -3379,8 +3347,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL mpi_isend(t_buffer, icount, p_real_sp, p_destination, p_tag, &
@@ -3388,7 +3355,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     IF (PRESENT(request)) THEN
@@ -3432,8 +3398,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_isend(t_buffer, icount, p_real_dp, p_destination, p_tag, &
@@ -3441,7 +3406,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     IF (PRESENT(request)) THEN
@@ -3485,8 +3449,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_isend(t_buffer, icount, p_real_sp, p_destination, p_tag, &
@@ -3494,7 +3457,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     IF (PRESENT(request)) THEN
@@ -3538,8 +3500,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -3548,7 +3509,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3585,8 +3545,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL p_inc_request
@@ -3595,7 +3554,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3632,8 +3590,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -3642,7 +3599,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3678,8 +3634,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -3688,7 +3643,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3724,8 +3678,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -3734,7 +3687,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3771,8 +3723,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_isend(t_buffer, icount, p_int, p_destination, p_tag, &
@@ -3780,7 +3731,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     IF (PRESENT(request)) THEN
@@ -3824,8 +3774,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_isend(t_buffer, icount, p_int, p_destination, p_tag, &
@@ -3833,7 +3782,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     IF (PRESENT(request)) THEN
@@ -3876,8 +3824,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -3886,7 +3833,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3921,8 +3867,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -3931,7 +3876,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -3967,8 +3911,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -3977,7 +3920,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4014,8 +3956,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -4024,7 +3965,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4060,8 +4000,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -4070,7 +4009,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4106,8 +4044,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -4116,7 +4053,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4152,8 +4088,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -4162,7 +4097,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4198,8 +4132,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -4208,7 +4141,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4244,8 +4176,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -4254,7 +4185,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4291,8 +4221,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
@@ -4300,7 +4229,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4337,8 +4265,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_real_sp, p_source, p_tag, &
@@ -4346,7 +4273,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4382,8 +4308,7 @@ CONTAINS
     IF (PRESENT(displs)) idispls = displs
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer(idispls), icount, p_real_dp, p_source, p_tag, &
@@ -4391,7 +4316,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4431,8 +4355,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL mpi_recv(t_buffer(idispls), icount, p_real_sp, p_source, p_tag, &
@@ -4440,7 +4363,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4475,8 +4397,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
@@ -4484,7 +4405,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4519,8 +4439,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
@@ -4528,7 +4447,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4563,8 +4481,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
@@ -4572,7 +4489,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4607,8 +4523,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_real_dp, p_source, p_tag, &
@@ -4616,7 +4531,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4651,8 +4565,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
@@ -4660,7 +4573,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4695,8 +4607,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
@@ -4704,7 +4615,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4739,8 +4649,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
@@ -4748,7 +4657,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4783,8 +4691,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
@@ -4792,7 +4699,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4827,8 +4733,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_int, p_source, p_tag, &
@@ -4836,7 +4741,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4872,8 +4776,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
@@ -4881,7 +4784,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4916,8 +4818,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
@@ -4925,7 +4826,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -4962,8 +4862,7 @@ CONTAINS
     icount = icount * LEN(t_buffer(1))
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_char, p_source, p_tag, &
@@ -4971,7 +4870,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5007,8 +4905,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
@@ -5016,7 +4913,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5051,8 +4947,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
@@ -5060,7 +4955,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5095,8 +4989,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_bool, p_source, p_tag, &
@@ -5104,7 +4997,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5143,8 +5035,7 @@ CONTAINS
 
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_recv(t_buffer, icount, p_char, p_source, p_tag, &
@@ -5152,7 +5043,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5190,8 +5080,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5200,7 +5089,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5237,8 +5125,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5247,7 +5134,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5283,8 +5169,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL p_inc_request
@@ -5293,7 +5178,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5329,8 +5213,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5339,7 +5222,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5375,8 +5257,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5385,7 +5266,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5422,8 +5302,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5432,7 +5311,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5469,8 +5347,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node )
 #endif
 
     CALL p_inc_request
@@ -5479,7 +5356,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5516,8 +5392,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5526,7 +5401,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5562,8 +5436,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5572,7 +5445,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5610,8 +5482,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL mpi_irecv(t_buffer, icount, p_int, p_source, p_tag, &
@@ -5626,7 +5497,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5661,8 +5531,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5671,7 +5540,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5707,8 +5575,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5717,7 +5584,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5753,8 +5619,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5763,7 +5628,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5799,8 +5663,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5809,7 +5672,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5847,8 +5709,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5857,7 +5718,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5892,8 +5752,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5902,7 +5761,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5938,8 +5796,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5948,7 +5805,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -5984,8 +5840,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -5994,7 +5849,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -6030,8 +5884,7 @@ CONTAINS
     END IF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL p_inc_request
@@ -6040,7 +5893,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -6530,8 +6382,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -6540,7 +6391,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -6575,8 +6425,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -6585,7 +6434,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -6620,8 +6468,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -6630,7 +6477,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -6665,8 +6511,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -6675,7 +6520,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -6706,8 +6550,7 @@ CONTAINS
     ENDIF
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( sendbuf, recvbuf ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
     CALL MPI_Sendrecv(sendbuf(1), SIZE(sendbuf, 1), MPI_CHARACTER, p_dest,   p_tag, &
@@ -6716,7 +6559,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -6756,8 +6598,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, 1, p_real_dp, p_source, &
@@ -6765,7 +6606,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -6811,8 +6651,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, 1, p_real_sp, p_source, &
@@ -6820,7 +6659,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -6863,8 +6701,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -6872,7 +6709,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -6918,8 +6754,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_sp, p_source, &
@@ -6927,7 +6762,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -6971,8 +6805,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -6980,7 +6813,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7025,8 +6857,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_sp, p_source, &
@@ -7034,7 +6865,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7079,8 +6909,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -7088,7 +6917,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7132,8 +6960,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -7141,7 +6968,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7185,8 +7011,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -7194,7 +7019,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7238,8 +7062,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -7247,7 +7070,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7291,8 +7113,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, 1, p_int_i4, p_source, &
@@ -7300,7 +7121,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7344,8 +7164,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, 1, p_int_i8, p_source, &
@@ -7353,7 +7172,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7397,8 +7215,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -7406,7 +7223,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7450,8 +7266,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int_i8, p_source, &
@@ -7459,7 +7274,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7503,8 +7317,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -7512,7 +7325,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7556,8 +7368,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -7565,7 +7376,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7609,8 +7419,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -7618,7 +7427,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7662,8 +7470,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -7671,7 +7478,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7715,8 +7521,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, 1, p_bool, p_source, &
@@ -7724,7 +7529,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7768,8 +7572,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -7777,7 +7580,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7821,8 +7623,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -7830,7 +7631,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7874,8 +7674,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -7883,7 +7682,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7927,8 +7725,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -7936,7 +7733,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -7980,8 +7776,7 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, LEN(t_buffer), p_char, p_source, &
@@ -7989,7 +7784,6 @@ CONTAINS
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
     ENDIF
@@ -8037,15 +7831,13 @@ CONTAINS
        lexlength=lexlength*flength
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, lexlength, p_char, p_source, p_comm, p_error)
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -8128,15 +7920,13 @@ CONTAINS
     ELSE
 
 #ifdef __USE_G2G
-!$ACC DATA PRESENT( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC HOST_DATA USE_DEVICE( t_buffer ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC HOST_DATA USE_DEVICE( t_buffer ),  IF_PRESENT, IF ( i_am_accel_node .AND. acc_on )
 #endif
 
        CALL MPI_BCAST (t_buffer, buflen, p_char, p_source, p_comm, p_error)
 
 #ifdef __USE_G2G
 !$ACC END HOST_DATA
-!$ACC END DATA
 #endif
 
 #ifdef DEBUG
@@ -8297,7 +8087,6 @@ CONTAINS
                 CALL abort_mpi
              END IF
 #endif
-             EXIT
           ELSE
              p_tag = -1
           END IF
@@ -8422,7 +8211,7 @@ CONTAINS
   !> computes a global sum of real single precision numbers
   !
   !  perform an ALLREDUCE operation
-  FUNCTION p_sum_dp_0s (zfield, comm) RESULT (p_sum)
+  FUNCTION p_sum_sp_0d (zfield, comm) RESULT (p_sum)
 
     REAL(sp)                        :: p_sum
     REAL(sp),  INTENT(in)           :: zfield
@@ -8441,7 +8230,7 @@ CONTAINS
 #else
     p_sum = zfield
 #endif
-  END FUNCTION p_sum_dp_0s
+  END FUNCTION p_sum_sp_0d
   !------------------------------------------------------
 
   !------------------------------------------------------
@@ -8480,6 +8269,43 @@ CONTAINS
 #endif
   END FUNCTION p_sum_dp_0d
   !------------------------------------------------------
+
+  !------------------------------------------------------
+  FUNCTION p_sum_sp_1d (zfield, comm, root) RESULT (p_sum)
+
+    REAL(sp),          INTENT(in) :: zfield(:)
+    INTEGER, OPTIONAL, INTENT(in) :: comm, root
+    REAL(sp)                      :: p_sum (SIZE(zfield))
+
+#ifndef NOMPI
+    INTEGER :: p_comm, my_rank
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+      IF (PRESENT(root)) THEN
+        CALL mpi_reduce(zfield, p_sum, SIZE(zfield), p_real_sp, &
+             mpi_sum, root, p_comm, p_error)
+        ! get local PE identification
+        CALL mpi_comm_rank(p_comm, my_rank, p_error)
+        ! do not use the result on all the other ranks:
+        IF (root /= my_rank) p_sum = zfield
+      ELSE
+        CALL mpi_allreduce (zfield, p_sum, SIZE(zfield), p_real_sp, &
+             mpi_sum, p_comm, p_error)
+      END IF
+    ELSE
+       p_sum = zfield
+    END IF
+#else
+    p_sum = zfield
+#endif
+
+  END FUNCTION p_sum_sp_1d
 
   !------------------------------------------------------
   FUNCTION p_sum_dp_1d (zfield, comm, root) RESULT (p_sum)
@@ -8865,6 +8691,112 @@ CONTAINS
 #endif
   END SUBROUTINE p_minmax_common
 
+  SUBROUTINE p_minmax_common_sp(in_field, out_field, n, op, loc_op, &
+       proc_id, keyval, comm, root)
+    INTEGER, INTENT(in) :: n, op, loc_op
+    REAL(sp), INTENT(in) :: in_field(n)
+    REAL(sp), INTENT(out) :: out_field(n)
+
+    INTEGER, OPTIONAL, INTENT(inout) :: proc_id(n)
+    INTEGER, OPTIONAL, INTENT(inout) :: keyval(n)
+    INTEGER, OPTIONAL, INTENT(in)    :: root
+    INTEGER, OPTIONAL, INTENT(in)    :: comm
+
+#ifndef NOMPI
+    INTEGER  :: p_comm, rank, comm_size
+    LOGICAL :: compute_ikey
+    INTEGER, ALLOCATABLE  :: meta_info(:), ikey(:)
+#ifndef SLOW_MPI_MAXMINLOC
+    DOUBLE PRECISION, ALLOCATABLE :: val_loc(:,:,:)
+#endif
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+       comm_size = p_comm_size(comm)
+    ELSE
+       p_comm = process_mpi_all_comm
+       comm_size = process_mpi_all_size
+    ENDIF
+
+    IF (comm_size > 1) THEN
+
+      IF (PRESENT(proc_id) .OR. PRESENT(keyval)) THEN
+        ! encode meta information
+        ALLOCATE(meta_info(n), ikey(n))
+        meta_info = 0
+        IF (PRESENT(keyval))  meta_info = meta_info + keyval*comm_size
+        IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
+        ! use mpi_minloc to transfer additional data
+#ifndef SLOW_MPI_MAXMINLOC
+        ALLOCATE(val_loc(2, n, 2))
+#endif
+        IF (PRESENT(root)) THEN
+          CALL MPI_COMM_RANK(p_comm, rank, p_error)
+#ifdef SLOW_MPI_MAXMINLOC
+          ! on BG/Q, {max|min}loc is slow
+          CALL mpi_allreduce(in_field, out_field, n, mpi_double_precision, &
+               op, p_comm, p_error)
+          ikey = MERGE(meta_info, HUGE(1), in_field == out_field)
+          CALL mpi_reduce(ikey, meta_info, n, mpi_integer, &
+               p_min_op(), root, p_comm, p_error)
+#else
+          val_loc(1, :, 1) = DBLE(in_field)
+          val_loc(2, :, 1) = DBLE(meta_info)
+          CALL mpi_reduce(val_loc(:, :, 1), val_loc(:, :, 2), &
+               n, mpi_2double_precision, loc_op, root, p_comm, p_error)
+          IF (rank == root) THEN
+             out_field = val_loc(1, :, 2)
+          ELSE
+             out_field = 0.
+          END IF
+#endif
+          compute_ikey = rank == root
+        ELSE
+#ifdef SLOW_MPI_MAXMINLOC
+          CALL mpi_allreduce(in_field, out_field, n, mpi_double_precision, &
+               op, p_comm, p_error)
+          ikey = MERGE(meta_info, HUGE(1), in_field == out_field)
+          CALL mpi_allreduce(ikey, meta_info, n, mpi_integer, &
+               p_min_op(), p_comm, p_error)
+#else
+          val_loc(1, :, 1) = DBLE(in_field)
+          val_loc(2, :, 1) = DBLE(meta_info)
+          CALL mpi_allreduce(val_loc(:, :, 1), val_loc(:, :, 2), &
+               n, mpi_2double_precision, loc_op, p_comm, p_error)
+          out_field = val_loc(1, :, 2)
+#endif
+          compute_ikey = .TRUE.
+        END IF
+        ! decode meta info:
+        IF (compute_ikey) THEN
+#ifdef SLOW_MPI_MAXMINLOC
+          ikey = meta_info / comm_size
+          IF (PRESENT(proc_id)) proc_id = mod(meta_info,comm_size)
+#else
+          ikey = NINT(val_loc(2, :, 2)) / comm_size
+          IF (PRESENT(proc_id)) proc_id = mod(nint(val_loc(2, :, 2)),comm_size)
+#endif
+          IF (PRESENT(keyval)) keyval = ikey
+        END IF
+      ELSE
+        ! compute simple (standard) minimum
+        IF (PRESENT(root)) THEN
+          CALL mpi_reduce(in_field, out_field, n, p_real_dp, &
+               op, root, p_comm, p_error)
+        ELSE
+          CALL mpi_allreduce(in_field, out_field, n, p_real_dp, &
+               op, p_comm, p_error)
+        END IF
+     END IF
+    ELSE
+      out_field = in_field
+    END IF
+#else
+    out_field = in_field
+#endif
+  END SUBROUTINE p_minmax_common_sp
+
+
   !> computes a global maximum of real numbers
   !
   ! @param[out]   proc_id  (Optional:) PE number of maximum value
@@ -8911,6 +8843,42 @@ CONTAINS
     p_max = temp_out(1)
 
   END FUNCTION p_max_0d
+
+  FUNCTION p_max_0d_sp (zfield, proc_id, keyval, comm, root) RESULT (p_max)
+
+    REAL(sp)                         :: p_max
+    REAL(sp),          INTENT(in)    :: zfield
+    INTEGER, OPTIONAL, INTENT(inout) :: proc_id
+    INTEGER, OPTIONAL, INTENT(inout) :: keyval
+    INTEGER, OPTIONAL, INTENT(in)    :: root
+    INTEGER, OPTIONAL, INTENT(in)    :: comm
+
+    REAL(dp) :: temp_in(1), temp_out(1)
+    INTEGER :: temp_keyval(1), temp_proc_id(1)
+    temp_in(1) = zfield
+    IF (PRESENT(proc_id) .AND. PRESENT(keyval)) THEN
+      temp_keyval(1) = keyval; temp_proc_id(1) = proc_id
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+           proc_id=temp_proc_id, keyval=temp_keyval, comm=comm, root=root)
+      keyval = temp_keyval(1); proc_id = temp_proc_id(1)
+    ELSE IF (PRESENT(proc_id)) THEN
+      temp_proc_id(1) = proc_id
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+           proc_id=temp_proc_id, comm=comm, root=root)
+      proc_id = temp_proc_id(1)
+    ELSE IF (PRESENT(keyval)) THEN
+      temp_keyval(1) = keyval
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+         keyval=temp_keyval, comm=comm, root=root)
+      keyval = temp_keyval(1)
+    ELSE ! .not. present(keyval) .and. .not. present(proc_id)
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+           comm=comm, root=root)
+    END IF
+
+    p_max = temp_out(1)
+
+  END FUNCTION p_max_0d_sp
 
   FUNCTION p_max_int_0d (zfield, comm) RESULT (p_max)
 
@@ -8962,6 +8930,20 @@ CONTAINS
            proc_id=proc_id, keyval=keyval, comm=comm, root=root)
 
   END FUNCTION p_max_1d
+
+  FUNCTION p_max_1d_sp (zfield, proc_id, keyval, comm, root) RESULT (p_max)
+
+    REAL(sp),          INTENT(in)    :: zfield(:)
+    INTEGER, OPTIONAL, INTENT(inout) :: proc_id(SIZE(zfield))
+    INTEGER, OPTIONAL, INTENT(inout) :: keyval(SIZE(zfield))
+    INTEGER, OPTIONAL, INTENT(in)    :: root
+    INTEGER, OPTIONAL, INTENT(in)    :: comm
+    REAL(sp)                         :: p_max (SIZE(zfield))
+
+    CALL p_minmax_common(zfield, p_max, SIZE(zfield), mpi_max, mpi_maxloc, &
+           proc_id=proc_id, keyval=keyval, comm=comm, root=root)
+
+  END FUNCTION p_max_1d_sp
 
   ! Computes maximum of a 1D field of integers.
   !
@@ -9027,6 +9009,33 @@ CONTAINS
 
   END FUNCTION p_max_2d
 
+  FUNCTION p_max_2d_sp (zfield, comm) RESULT (p_max)
+
+    REAL(sp),          INTENT(in) :: zfield(:,:)
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+    REAL(sp)                      :: p_max (SIZE(zfield,1),SIZE(zfield,2))
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+       CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
+            mpi_max, p_comm, p_error)
+    ELSE
+       p_max = zfield
+    END IF
+#else
+    p_max = zfield
+#endif
+
+  END FUNCTION p_max_2d_sp
+
   FUNCTION p_max_3d (zfield, comm) RESULT (p_max)
 
     REAL(dp),          INTENT(in) :: zfield(:,:,:)
@@ -9054,6 +9063,34 @@ CONTAINS
 #endif
 
   END FUNCTION p_max_3d
+
+  FUNCTION p_max_3d_sp (zfield, comm) RESULT (p_max)
+
+    REAL(sp),          INTENT(in) :: zfield(:,:,:)
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+    REAL(sp)                      :: p_max (SIZE(zfield,1),SIZE(zfield,2)&
+                                           ,SIZE(zfield,3))
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+       CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
+            mpi_max, p_comm, p_error)
+    ELSE
+       p_max = zfield
+    END IF
+#else
+    p_max = zfield
+#endif
+
+  END FUNCTION p_max_3d_sp
 
 
   !> computes a global minimum of real numbers

@@ -216,7 +216,6 @@ cat > ${atmo_namelist} << EOF
  echam_rad_config(1)%irad_cfc11 =  4
  echam_rad_config(1)%irad_cfc12 =  4
  echam_rad_config(1)%irad_aero  = 18
- echam_rad_config(1)%ighg       =  1
 /
 &echam_gwd_nml
 /
@@ -228,13 +227,13 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
- echam_cld_config(1)%jks        = 1
- echam_cld_config(1)%crs        = 1.0
- echam_cld_config(1)%crt        = 1.0
  echam_cld_config(1)%cinhomi    = 1.0
  echam_cld_config(1)%cinhoml1   = 1.0
  echam_cld_config(1)%cinhoml2   = 1.0
  echam_cld_config(1)%cinhoml3   = 1.0
+/
+&echam_cov_nml
+ echam_cov_config(1)%icov       = 2      ! 0/1 cloud cover based on rel. hum.
 /
 &sea_ice_nml
 /
@@ -326,19 +325,19 @@ fi
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                                 ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+add_link_file ${ICON_SRC_PATH}/data/lsdata.nc                                 ./
+add_link_file ${ICON_SRC_PATH}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
 #
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
+add_required_file ${ICON_BUILD_PATH}/run/${atmo_namelist}                       ./
+add_required_file ${ICON_BUILD_PATH}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                           ./
+add_required_file ${ICON_BUILD_PATH}/run/${dict_file}                           ./
 
 # initial conditions
 #
@@ -361,7 +360,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file ${datadir}/greenhouse_historical.nc                       ./bc_greenhouse_gases.nc
+add_link_file ${datadir}/greenhouse_historical_plus.nc                  ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
@@ -389,7 +388,7 @@ datadir=${icon_data_poolFolder}/independent/greenhouse_gases
 add_link_file ${datadir}/bc_ozone_cariolle.nc                           ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
-add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
+add_link_file ${ICON_SRC_PATH}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
 #   accessing all the same data of 1850:
@@ -438,7 +437,7 @@ if [[ ${jsbach_with_hd} = yes ]]; then
 fi
 #
 # - lctlib file for JSBACH
-add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
+add_link_file ${ICON_SRC_PATH}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 #
 # - the atmosphere grid itself (the gid copy section below from $HGRIDDIR is ignored)
 #
@@ -471,13 +470,13 @@ EOF
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
 
-output_atm_cgrid=yes
+output_atm_vgrid=yes
 #
-if [[ "$output_atm_cgrid" == "yes" ]]; then
+if [[ "$output_atm_vgrid" == "yes" ]]; then
   #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
+ output_filename  = "${EXPNAME}_atm_vgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  filetype         = 5
  remap            = 0
@@ -486,7 +485,7 @@ if [[ "$output_atm_cgrid" == "yes" ]]; then
  output_end       = "${start_date}"       ! --> write once only irrespective of
  output_interval  = "${output_interval}"  !     the output interval and
  file_interval    = "${file_interval}"    !     the file interval
- ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
+ ml_varlist       = 'zghalf'  , 'zg'      , 'dzghalf'
 /
 EOF
 fi
@@ -717,7 +716,8 @@ if [[ "$output_lnd" == "full" ]]; then
                     'hydro_w_snow_veg'             , 'hydro_q_snocpymlt_veg'  ,
                     'hydro_fract_snow_soil_veg'    , 'hydro_w_snow_soil_veg'  , 'hydro_snow_accum_veg'         ,
                     'hydro_fract_snow_can_veg'     , 'hydro_w_snow_can_veg'   ,
-                    'hydro_water_stress_veg'       , 'hydro_canopy_cond_veg'  , 'hydro_canopy_cond_limited_veg'
+                    'hydro_water_stress_veg'       , 
+                    'hydro_canopy_cond_unlimited_veg' , 'hydro_canopy_cond_limited_veg' ,
                     'hydro_evapotranspiration_glac', 'hydro_evapopot_glac'    ,
                     'hydro_snowmelt_glac'          , 'hydro_q_snocpymlt_glac'
 /
