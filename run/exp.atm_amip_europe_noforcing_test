@@ -139,13 +139,13 @@ EOF
 
 # namelist files
 #
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
+add_required_file ${ICON_BUILD_PATH}/run/${atmo_namelist}                       ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                           ./
+add_required_file ${ICON_BUILD_PATH}/run/${dict_file}                           ./
 
 # initial conditions
 #

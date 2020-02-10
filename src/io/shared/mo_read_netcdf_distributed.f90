@@ -296,7 +296,7 @@ CONTAINS
 
     INTEGER :: n_io_processes, io_process_stride
 
-#ifdef HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     INTEGER              :: myColor, ierr, nvars, i
     INTEGER, ALLOCATABLE :: varids(:)
     INTEGER, SAVE        :: comm_dist_nfpar = MPI_COMM_NULL
@@ -308,7 +308,7 @@ CONTAINS
     CALL message ("distrib_nf_open:",path)
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
-#ifdef HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
       myColor = 1
     ELSE
@@ -325,7 +325,7 @@ CONTAINS
 
 
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
-#ifdef HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
       ierr = nf_open_par(path, IOR(nf_nowrite, nf_mpiio), comm_dist_nfpar, &
         & MPI_INFO_NULL, distrib_nf_open)
 

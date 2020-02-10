@@ -286,7 +286,7 @@ cat >> ${oce_namelist} << EOF
 /
 EOF
 
-add_required_file ${basedir}/run/${oce_namelist} ./
+add_required_file ${ICON_BUILD_PATH}/run/${oce_namelist} ./
 
 #-----------------------------------------------------------------------------
 # Grid

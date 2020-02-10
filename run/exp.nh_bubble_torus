@@ -164,5 +164,5 @@ EOF
 #
 #----------------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-add_link_file ${basedir}/data/sound_WarmBubble_the_320_rt_0.02          sound_in
+add_link_file ${ICON_SRC_PATH}/data/sound_WarmBubble_the_320_rt_0.02          sound_in
 #----------------------------------------------------------------------------------

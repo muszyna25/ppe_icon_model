@@ -137,20 +137,20 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
 /
-&output_nml
-  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_kpp"
-  output_start     = "${start_date}"                  ! start in ISO-format
-  output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${daily}"
-  file_interval    = "${file_interval}"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  operation        = "mean"
-  include_last     = .false.
-  output_grid      = .TRUE.
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_cvmix_kpp'
-/
+!&output_nml
+!  filetype         =  5 ! output format: 2=GRIB2, 4=NETCDFv2
+!  output_filename  = "${EXPNAME}_kpp"
+!  output_start     = "${start_date}"                  ! start in ISO-format
+!  output_end       = "${end_date}"                    ! end in ISO-format
+!  output_interval  = "${daily}"
+!  file_interval    = "${file_interval}"
+!  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+!  operation        = "mean"
+!  include_last     = .false.
+!  output_grid      = .TRUE.
+!  filename_format  = "<output_filename>_<datetime2>"
+!  ml_varlist       = 'group:oce_cvmix_kpp'
+!/
 
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
