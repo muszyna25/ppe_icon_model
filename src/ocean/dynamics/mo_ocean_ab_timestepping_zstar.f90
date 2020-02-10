@@ -657,6 +657,7 @@ CONTAINS
     ! STEP 3: compute harmonic or biharmoic laplacian diffusion of velocity.
     !         This term is discretized explicitly. Order and form of the laplacian
     !         are determined in mo_oce_diffusion according to namelist settings
+    !! FIXME: Has not been ported so is only an approximation
     CALL velocity_diffusion(patch_3d,              &
       & ocean_state%p_prog(nold(1))%vn, &
       & p_phys_param,            &
@@ -1008,6 +1009,8 @@ CONTAINS
     
       INTEGER :: n_it, n_it_sp, ret_status
     
+      CHARACTER(LEN=max_char_length) :: string
+
       CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_timestepping_zstar:solve_free_sfc'
     
@@ -1064,6 +1067,20 @@ CONTAINS
       CALL solve%solve(n_it, n_it_sp)
       rn = MERGE(solve%res_loc_wp(1), 0._wp, n_it .NE. 0)
       
+      ! output of sum of iterations every timestep
+      IF (idbg_mxmn >= 0) THEN
+        IF (n_it_sp .NE. -2) THEN
+          WRITE(string,'(2(a,i4),2(a,e28.20),a)') &
+            & 'SUM of ocean_solve iteration(sp,wp) = (', &
+            & n_it_sp - 1, ', ', n_it - 1, ') , residual = (', &
+            & solve%res_loc_wp(1), ', ', rn, ')'
+        ELSE
+          WRITE(string,'(a,i4,a,e28.20)') &
+            &'SUM of ocean_solve iteration =', n_it - 1, ', residual =', rn
+        END IF
+        CALL message('ocean_solve('//TRIM(solve%sol_type_name)//'): surface height',TRIM(string))
+      ENDIF
+ 
       IF (rn > solver_tolerance) THEN
         ret_status = 2
         CALL warning(routine, "NOT YET CONVERGED !!")
