@@ -1185,7 +1185,7 @@ CONTAINS
           !
           ! integer fluxes for w>0
           !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ji_p=1,i_listdim_p(nlist,jb)
 
             ! get jc and jk index from precomputed list
@@ -1211,7 +1211,7 @@ CONTAINS
         ! Now use the first list (containing all points with CFL>1 and upward flux)
         ! to compute the corrected fluxes
         IF (i_listdim_p(1,jb) > 0) THEN
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ji_p=1,i_listdim_p(1,jb)
 
             ! get jc and jk index from precomputed list
@@ -1252,7 +1252,7 @@ CONTAINS
           !
           ! integer fluxes for w<0
           !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ji_m=1,i_listdim_m(nlist,jb)
 
             ! get jc and jk index from precomputed list
@@ -1278,7 +1278,7 @@ CONTAINS
         ! Now use the first list (containing all points with CFL>1 and downward flux)
         ! to compute the corrected fluxes
         IF (i_listdim_m(1,jb) > 0) THEN
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ji_m=1,i_listdim_m(1,jb)
 
             ! get jc and jk index from precomputed list

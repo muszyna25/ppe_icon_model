@@ -5916,6 +5916,22 @@ data. Maximum no of processors used for it is limited to 1). &
 itype\_latbc $\ge$ 1 
 \tabularnewline  
 
+%\hline 
+\textbf{proc0\_shift} &
+I & 0 & &
+Number of processors at the beginning of the rank list that are excluded from the domain decomposition.
+Setting this parameter to 1 serves for offloading I/O to the vector hosts of the NEC Aurora, but it
+works technically on other platforms as well. &
+\tabularnewline
+
+%\hline 
+\textbf{use\_omp\_input} &
+L & .FALSE. & &
+Setting this parameter to .TRUE. activates OpenMP sections in initicon that allow task parallelism
+for reading atmospheric input data, overlapping reading, sending, and statistics calculations. &
+\tabularnewline
+
+
 %\hline
 pio\_type &
 I & 1& &

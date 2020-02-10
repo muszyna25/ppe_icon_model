@@ -236,6 +236,9 @@ only C calling FORTRAN subroutines will work using K&R style.*/
 #if        defined(_SX)
 #define               SXFortran
 #endif
+#if        defined(__NEC__)
+#define               SXFortran
+#endif
 #if         defined(mips) || defined(__mips)
 #define             mipsFortran
 #endif

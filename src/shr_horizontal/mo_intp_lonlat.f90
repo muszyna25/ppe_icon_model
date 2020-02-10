@@ -41,14 +41,14 @@
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_CELL
     USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_run_config,          ONLY: ltimer
+    USE mo_run_config,          ONLY: timers_level
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus, l_limited_area
     USE mo_timer,               ONLY: timer_start, timer_stop, timer_lonlat_setup
     USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
     USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
-    USE mo_parallel_config,     ONLY: nproma, p_test_run
+    USE mo_parallel_config,     ONLY: nproma, p_test_run, proc0_shift
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_intp_lonlat_types,   ONLY: t_lon_lat_intp, lonlat_grids, t_intp_scalar_coeff,      &
@@ -123,7 +123,7 @@
 
         DO i=1, lonlat_grids%ngrids
           IF (lonlat_grids%list(i)%l_dom(jg)) THEN
-            IF (ltimer) CALL timer_start(timer_lonlat_setup)
+            IF (timers_level > 3) CALL timer_start(timer_lonlat_setup)
 
             ! allocate global arrays for distributed computation:
             ALLOCATE(tri_idx(2, nproma, lonlat_grids%list(i)%grid%nblks),                           &
@@ -199,7 +199,7 @@
               CALL mask_out_boundary( p_patch(jg), lonlat_grids%list(i)%intp(jg) )
             END IF
 
-            IF (ltimer) CALL timer_stop(timer_lonlat_setup)
+            IF (timers_level > 3) CALL timer_stop(timer_lonlat_setup)
             lonlat_grids%list(i)%intp(jg)%l_initialized = .TRUE.
 
             ! clean-ip:
@@ -507,6 +507,7 @@
         ! for each cell, build the vector RBF interpolation matrix
         DO je1 = 1, rbf_vec_dim_c
           DO je2 = 1, je1
+!$NEC ivdep
             DO jc = i_startidx, i_endidx
 
               ! Get actual number of stencil points
@@ -547,13 +548,12 @@
 
         ! apply Cholesky decomposition to matrix
         !
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL choldec_v(i_startidx,i_endidx,istencil,rbf_vec_dim_c,z_rbfmat,z_diag)
 #else
         CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           !
@@ -588,6 +588,7 @@
         ! set up right hand side for interpolation system
         !
         DO je2 = 1, rbf_vec_dim_c
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF (je2 > istencil(jc)) CYCLE
@@ -620,7 +621,6 @@
         END DO
 
         ! compute vector coefficients
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_vec_dim_c, z_rbfmat,  &
           &               z_diag, z_rhs1, ptr_int_lonlat%rbf_vec%coeff(:,1,:,jb))
@@ -628,7 +628,6 @@
         CALL solve_chol_v(i_startidx, i_endidx, istencil,                z_rbfmat,  &
           &               z_diag, z_rhs1, ptr_int_lonlat%rbf_vec%coeff(:,1,:,jb))
 #endif
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_vec_dim_c, z_rbfmat,  &
           &               z_diag, z_rhs2, ptr_int_lonlat%rbf_vec%coeff(:,2,:,jb))
@@ -741,6 +740,7 @@
         z_rbfmat(:,:,:) = 0._wp
         DO je1 = 1, rbf_dim_c2l
           DO je2 = 1, je1
+!$NEC ivdep
             DO jc = i_startidx, i_endidx
 
               ! Get actual number of stencil points
@@ -775,7 +775,6 @@
 
         ! apply Cholesky decomposition to matrix
         !
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL choldec_v(i_startidx,i_endidx,istencil,rbf_dim_c2l,z_rbfmat,z_diag)
 #else
@@ -783,6 +782,7 @@
 #endif
 
         ! compute RHS for coefficient computation
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           grid_point = ptr_int_lonlat%ll_coord(jc,jb)
@@ -796,6 +796,7 @@
         ! set up right hand side for interpolation system
         !
         DO je2 = 1, rbf_dim_c2l
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF (je2 > istencil(jc)) CYCLE
@@ -818,7 +819,6 @@
         END DO
 
         ! compute vector coefficients
-!CDIR NOIEXPAND
 #ifdef __SX__
         CALL solve_chol_v(i_startidx, i_endidx, istencil, rbf_dim_c2l, z_rbfmat,  &
           &               z_diag, z_rbfval, ptr_int_lonlat%rbf_c2l%coeff(:,:,jb))
@@ -875,7 +875,15 @@
       !--------------------------------------------------------------------
 
       IF (dbg_level > 1)  CALL message(routine,'')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+
+      IF (ptr_patch%n_patch_cells == 0) THEN
+        IF (proc0_shift > 0) THEN
+          ! ensure that PE0 is involved in global communication
+          glb_idx = 0
+          last_bdry_index = p_max(glb_idx, p_comm_work)
+        ENDIF
+        RETURN
+      ENDIF
 
       ! set local values for "nblks" and "npromz"
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)

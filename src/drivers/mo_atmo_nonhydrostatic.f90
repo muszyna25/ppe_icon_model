@@ -201,7 +201,7 @@ CONTAINS
     REAL(wp) :: sim_time
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
-    IF (timers_level > 3) CALL timer_start(timer_model_init)
+    IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     IF (iforcing == iecham) THEN
       CALL init_echam_phy_params       ( p_patch(1:) )
@@ -400,7 +400,7 @@ CONTAINS
       !
       ! This is a resumed integration. Read model state from restart file(s).
       !
-      IF (timers_level > 5) CALL timer_start(timer_read_restart)
+      IF (timers_level > 4) CALL timer_start(timer_read_restart)
       !
       DO jg = 1,n_dom
         IF (p_patch(jg)%ldom_active) THEN
@@ -410,7 +410,7 @@ CONTAINS
       !
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       !
-      IF (timers_level > 5) CALL timer_stop(timer_read_restart)
+      IF (timers_level > 4) CALL timer_stop(timer_read_restart)
       !
 #ifndef __NO_JSBACH__
       DO jg = 1,n_dom
@@ -443,7 +443,7 @@ CONTAINS
         !
         ! Initialize with real atmospheric data
         !
-        IF (timers_level > 5) CALL timer_start(timer_init_icon)
+        IF (timers_level > 4) CALL timer_start(timer_init_icon)
         !
         IF (iforcing == inwp) THEN
           !
@@ -469,7 +469,7 @@ CONTAINS
           !
         END IF ! iforcing
         !
-        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
+        IF (timers_level > 4) CALL timer_stop(timer_init_icon)
         !
       END IF ! ltestcase
       !
@@ -579,9 +579,9 @@ CONTAINS
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
     IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-      IF (timers_level > 5) CALL timer_start(timer_init_latbc)
+      IF (timers_level > 4) CALL timer_start(timer_init_latbc)
       CALL init_prefetch(latbc)
-      IF (timers_level > 5) CALL timer_stop(timer_init_latbc)
+      IF (timers_level > 4) CALL timer_stop(timer_init_latbc)
     ENDIF
 
     !------------------------------------------------------------------
@@ -737,7 +737,7 @@ CONTAINS
         &                      opt_skip_trivial        = .TRUE.)
     END IF
 
-    IF (timers_level > 3) CALL timer_stop(timer_model_init)
+    IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_nonhydrostatic
 

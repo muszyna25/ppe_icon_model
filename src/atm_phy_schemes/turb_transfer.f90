@@ -1330,6 +1330,10 @@ my_thrd_id = omp_get_thread_num()
 !Achtung: Die 'epsi'-Beschraenkung ist recht willkuerlich und fehlt in COSMO-Version!
                val2=MAX( epsi, tkvm(i,ke)*SQRT(fm2) ) !estimate of Ustar**2
                val1=SQRT(val2) !Ustar
+            ELSE ! needed for vectorization
+               l_turb = 0._wp
+               val1   = 0._wp
+               val2   = 0._wp
             END IF   
 
             IF (lgz0ini) THEN 

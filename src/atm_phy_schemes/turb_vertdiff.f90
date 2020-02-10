@@ -991,6 +991,7 @@ enddo
               !$acc parallel present(cur_prof,epr)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
+!$NEC ivdep
                  !$acc loop gang vector
                   DO i=ivstart, ivend
                      cur_prof(i,k)=cur_prof(i,k)/epr(i,k) !potential temperature
@@ -998,6 +999,7 @@ enddo
                END DO   
                !$acc end parallel
 !DIR$ IVDEP
+!$NEC ivdep
                !$acc parallel loop gang vector present(cur_prof,eprs)
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke1)/eprs(i,ke1)
@@ -1071,6 +1073,7 @@ enddo
               !$acc parallel present(dvar_at,epr,dicke,tinc)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
+!$NEC ivdep
                  !$acc loop gang vector
                   DO i=ivstart, ivend
                      dvar_at(i,k)=dvar_at(i,k)+epr(i,k)*dicke(i,k)*tinc(n)
@@ -1082,6 +1085,7 @@ enddo
               !$acc parallel present(dvar_at,dicke,tinc)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
+!$NEC ivdep
                  !$acc loop gang vector
                   DO i=ivstart, ivend
                      dvar_at(i,k)=dvar_at(i,k)+dicke(i,k)*tinc(n)

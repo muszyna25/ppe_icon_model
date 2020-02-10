@@ -453,7 +453,7 @@ LOGICAL, INTENT(IN), OPTIONAL :: lacc ! flag for using GPU code
 ! ----------------
 
   INTEGER ::    &
-    i,          & !  loop index
+    i,k,        & !  loop index
     kcp           !  buffer for the vertical index of the upper boudary of the canopy
 
   REAL (KIND=wp) ::  fakt
@@ -490,9 +490,14 @@ LOGICAL, INTENT(IN), OPTIONAL :: lacc ! flag for using GPU code
     !$acc update host (hhl, h_can)
 
     kcm=ke
-    DO WHILE (MAXVAL( h_can(:) - hhl(:,kcm) + hhl(:,ke+1) ) > 0.0_wp)
-      kcm=kcm-1
+    DO k = ke, 1, -1
+      IF (MAXVAL( h_can(ivstart:ivend) - hhl(ivstart:ivend,k) + hhl(ivstart:ivend,ke+1) ) > 0.0_wp) THEN
+        kcm=k-1
+      ELSE
+        EXIT
+      ENDIF
     END DO
+
 
     ! Up to now kcm points to the lowest layer being not a canopy layer.
     ! From now on kcm points the highest layer being     a canopy layer:
@@ -991,6 +996,7 @@ INTEGER :: &
       !$acc data present(fip)
       !$acc parallel
       !$acc loop gang vector
+!$NEC ivdep
       DO i=i_st,i_en
          q_h2o(i,k)=           q_h2o(i,k-1)*(1.0_wp-fip(i))+q_h2o(i,k)*fip(i)
          tet_l(i,k)=exner(i,k)*tet_l(i,k-1)*(1.0_wp-fip(i))+tet_l(i,k)*fip(i)
@@ -1112,6 +1118,7 @@ INTEGER :: &
       !$acc parallel present(virt,qvap)
       DO k=k_st, k_en
 !DIR$ IVDEP
+!$NEC ivdep
          !$acc loop gang vector
          DO i=i_st,i_en
             virt(i,k)=1.0_wp/(1.0_wp+rvd_m_o*qvap(i,k)-q_liq(i,k)) !rezipr. virtual factor
@@ -1624,6 +1631,7 @@ LOGICAL :: add_adv_inc, lvar_fcd, rogh_lay, alt_gama, corr
         w1=tkesmot; w2=1.0_wp-tkesmot
 
 !DIR$ IVDEP
+!$NEC ivdep
        !$acc parallel
        !$acc loop gang vector private(q2)
        DO i=i_st, i_en
@@ -1654,7 +1662,8 @@ LOGICAL :: add_adv_inc, lvar_fcd, rogh_lay, alt_gama, corr
         !$acc private(gam0,gama,corr,sm,sh,det,tim2,gh,gm)     &
         !$acc private(be1,be2,a11,a12,a21,a22,wert)            &
         !$acc private(a3,a5,a6,val1,val2,fakt)
-        !DIR$ IVDEP
+!DIR$ IVDEP
+!$NEC ivdep
         DO i=i_st, i_en
           d0=dd(i,0)
           d1=dd(i,1); d2=dd(i,2); d3=dd(i,3)
@@ -1668,6 +1677,10 @@ LOGICAL :: add_adv_inc, lvar_fcd, rogh_lay, alt_gama, corr
           END IF
 
            tim2=(tls(i,k)/tke(i,k,ntur))**2 !Quadrat der turbulenten Zeitskala
+
+           ! set default values needed for vectorization
+           sh  = 1.0_wp
+           sm  = 1.0_wp
 
            IF (imode_stbcorr.EQ.2 .OR. (imode_stbcorr.EQ.1 .AND. fh2(i,k).GE.0.0_wp)) THEN
 
@@ -2543,6 +2556,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
 
   IF (lsfgrduse .AND. igrdcon.NE.2) THEN !effective surface value from effective surface gradient
 !DIR$ IVDEP
+!$NEC ivdep
      !$acc parallel
      !$acc loop gang vector
      DO i=i_st,i_en
@@ -2556,6 +2570,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=k_sf,kgc,-1
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
            cur_prof(i,k)=cur_prof(i,k-1)-cur_prof(i,k)
@@ -2563,6 +2578,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      END DO
      !$acc end parallel
 !DIR$ IVDEP
+!$NEC ivdep
      !$acc parallel
      !$acc loop gang vector
      DO i=i_st,i_en
@@ -2573,6 +2589,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=kgc,k_sf
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
             cur_prof(i,k)=cur_prof(i,k-1)+(cur_prof(i,k)-diff_dep(i,k)*eff_flux(i,k))
@@ -2583,6 +2600,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=kgc,k_sf
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
            cur_prof(i,k)=cur_prof(i,k-1)-diff_dep(i,k)*eff_flux(i,k)
@@ -2594,6 +2612,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
   IF (itndcon.EQ.3) THEN !add diffusion correction from tendency to current profile
      !Related downward flux densities:
 !DIR$ IVDEP
+!$NEC ivdep
      !$acc parallel
      !$acc loop gang vector
      DO i=i_st,i_en
@@ -2604,6 +2623,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=k_hi+1,k_lw
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
            eff_flux(i,k+1)=eff_flux(i,k)-dif_tend(i,k)*disc_mom(i,k)*dt_var
@@ -2614,6 +2634,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=k_hi+1,k_sf
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
            eff_flux(i,k)=eff_flux(i,k)/diff_mom(i,k)+(cur_prof(i,k-1)-cur_prof(i,k))
@@ -2624,6 +2645,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=k_hi+1,k_sf
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
            cur_prof(i,k)=cur_prof(i,k-1)-eff_flux(i,k)
@@ -2636,6 +2658,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=k_hi,k_lw
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
             dif_tend(i,k)=cur_prof(i,k)+dif_tend(i,k)*dt_var
@@ -2643,6 +2666,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      END DO
      !$acc end parallel
 !DIR$ IVDEP
+!$NEC ivdep
      !$acc parallel
      !$acc loop gang vector
      DO i=i_st,i_en
@@ -2675,6 +2699,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
   !$acc parallel
   DO k=k_hi,k_lw
 !DIR$ IVDEP
+!$NEC ivdep
      !$acc loop gang vector
      DO i=i_st,i_en
         dif_tend(i,k)=(dif_tend(i,k)-cur_prof(i,k))*fr_var
@@ -2688,6 +2713,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=kcm,k_lw  !r_air-gradient within the roughness layer
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
            cur_prof(i,k)=(r_air(i,k)-r_air(i,k+1))/(dt_var*disc_mom(i,k))
@@ -2697,6 +2723,7 @@ REAL (KIND=wp), DIMENSION(:,:), POINTER :: &
      !$acc parallel
      DO k=kcm,k_lw  !within the roughness layer
 !DIR$ IVDEP
+!$NEC ivdep
         !$acc loop gang vector
         DO i=i_st,i_en
            dif_tend(i,k)=dif_tend(i,k)                        &
@@ -3027,6 +3054,7 @@ REAL (KIND=wp), POINTER :: &
 
    k=k_tp+1
 !DIR$ IVDEP
+!$NEC ivdep
    !$acc parallel
    !$acc loop gang vector
    DO i=i_st, i_en
@@ -3037,6 +3065,7 @@ REAL (KIND=wp), POINTER :: &
    !$acc parallel
    DO k=k_tp+2, k_sf-1
 !DIR$ IVDEP
+!$NEC ivdep
       !$acc loop gang vector
       DO i=i_st, i_en
          eff_flux(i,k  ) = disc_mom(i,k  ) * old_prof(i,k  ) + eff_flux(i,k+1) - eff_flux(i,k  )
@@ -3083,6 +3112,7 @@ REAL (KIND=wp), POINTER :: &
    !$acc parallel
    DO k=k_tp+2, k_sf-1
 !DIR$ IVDEP
+!$NEC ivdep
       !$acc loop gang vector
       DO i=i_st, i_en
          upd_prof(i,k  ) = ( eff_flux(i,k  ) + impl_mom(i,k  ) * upd_prof(i,k-1) ) * invs_mom(i,k  )
@@ -3094,6 +3124,7 @@ REAL (KIND=wp), POINTER :: &
    !$acc parallel
    DO k=k_sf-2, k_tp+1, -1
 !DIR$ IVDEP
+!$NEC ivdep
       !$acc loop gang vector
       DO i=i_st, i_en
          upd_prof(i,k) = upd_prof(i,k  ) + invs_fac(i,k+1) * upd_prof(i,k+1)
@@ -3131,6 +3162,7 @@ REAL (KIND=wp), POINTER :: &
       !$acc parallel
       DO k=k_tp+2, k_sf
 !DIR$ IVDEP
+!$NEC ivdep
          !$acc loop gang vector
          DO i=i_st, i_en
             eff_flux(i,k  ) = eff_flux(i,k-1) + (cur_prof(i,k-1) - upd_prof(i,k-1)) * disc_mom(i,k-1)

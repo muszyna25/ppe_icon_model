@@ -422,7 +422,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=3
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -432,7 +431,6 @@ CONTAINS
           qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
           p_ex = p_prog%exner(jc,jk,jb)
           !-- compute relative humidity as r = e/e_s:
-!CDIR NEXPAND
           out_var(jc,jk,jb) = rel_hum(temp, qv, p_ex)
 
         END DO
@@ -508,7 +506,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=3
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -518,7 +515,6 @@ CONTAINS
           qv   = p_prog%tracer_ptr(iqv)%p_3d(jc,jk,jb)
           p_ex = p_prog%exner(jc,jk,jb)
           !-- compute relative humidity as r = e/e_s:
-!CDIR NEXPAND
           out_var(jc,jk,jb) = rel_hum_ifs(temp, qv, p_ex)
 
           ! optional clipping, if lclip=.TRUE.
@@ -2617,40 +2613,60 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! GZ: This loop needs to be split for correct vectorization because rhoc_incr is allocated for qcana_mode >= 1 only;
+    !     otherwise, the NEC runs into a segfault. Likewise, the remaining case selections need to be done outside the
+    !     vectorized loops in order to avoid invalid memory accesses.
     DO jk = 1, kend
-      DO jc = i_startidx, i_endidx
-        IF (qcana_mode == 2 .AND. pt_prog_rcf%tracer(jc,jk,jb,iqc) > 0._wp) THEN
-          pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + &
-            iau_wgt_adv*pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
-          pt_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqc) + &
-            iau_wgt_adv*pt_diag%rhoc_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
-        ELSE 
-          IF (qcana_mode >= 1) THEN
+      IF (qcana_mode >= 1) THEN
+        DO jc = i_startidx, i_endidx
+          IF (qcana_mode == 2 .AND. pt_prog_rcf%tracer(jc,jk,jb,iqc) > 0._wp) THEN
+            pt_prog_rcf%tracer(jc,jk,jb,iqv) = pt_prog_rcf%tracer(jc,jk,jb,iqv) + &
+              iau_wgt_adv*pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
+            pt_prog_rcf%tracer(jc,jk,jb,iqc) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqc) + &
+              iau_wgt_adv*pt_diag%rhoc_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
+          ELSE 
             zqin = (pt_diag%rhov_incr(jc,jk,jb)+pt_diag%rhoc_incr(jc,jk,jb))/pt_prog%rho(jc,jk,jb)
-          ELSE
-            zqin = pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
+            ! DA increments of humidity are limited to positive values if p > 150 hPa and RH < 2% or QV < 5.e-7
+            IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
+              pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) zqin = MAX(0._wp, zqin)
+            pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqv) + iau_wgt_adv*zqin)
           ENDIF
+        ENDDO
+      ELSE
+        DO jc = i_startidx, i_endidx
+          zqin = pt_diag%rhov_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb)
           ! DA increments of humidity are limited to positive values if p > 150 hPa and RH < 2% or QV < 5.e-7
           IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
             pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) zqin = MAX(0._wp, zqin)
           pt_prog_rcf%tracer(jc,jk,jb,iqv) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqv) + iau_wgt_adv*zqin)
-        ENDIF
+        ENDDO
+      ENDIF
 
-        IF (qiana_mode > 0) THEN
+      IF (qiana_mode > 0) THEN
+        DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,iqi) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqi) + &
             iau_wgt_adv*pt_diag%rhoi_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
-        ENDIF
-        IF (qrsgana_mode > 0) THEN
+        ENDDO
+      ENDIF
+
+      IF (qrsgana_mode > 0) THEN
+        DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,iqr) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqr) + &
             iau_wgt_adv * pt_diag%rhor_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
           pt_prog_rcf%tracer(jc,jk,jb,iqs) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqs) + &
             iau_wgt_adv * pt_diag%rhos_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
-        ENDIF
-        IF (qrsgana_mode > 0 .AND. iqg <= iqm_max) THEN
+        ENDDO
+      ENDIF
+
+      IF (qrsgana_mode > 0 .AND. iqg <= iqm_max) THEN
+        DO jc = i_startidx, i_endidx
           pt_prog_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqg) + &
             iau_wgt_adv * pt_diag%rhog_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
-        ENDIF
-        IF (atm_phy_nwp_config(jg)%l2moment) THEN
+        ENDDO
+      ENDIF
+
+      IF (atm_phy_nwp_config(jg)%l2moment) THEN
+        DO jc = i_startidx, i_endidx
           IF (qcana_mode > 0) THEN
             pt_prog_rcf%tracer(jc,jk,jb,iqnc) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnc) + &
                  iau_wgt_adv * pt_diag%rhonc_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
@@ -2671,8 +2687,9 @@ CONTAINS
             pt_prog_rcf%tracer(jc,jk,jb,iqnh) = MAX(0._wp,pt_prog_rcf%tracer(jc,jk,jb,iqnh) + &
                  iau_wgt_adv * pt_diag%rhonh_incr(jc,jk,jb)/pt_prog%rho(jc,jk,jb))
           END IF
-        ENDIF
-      ENDDO
+        ENDDO
+      ENDIF
+
     ENDDO
 
 
@@ -2958,6 +2975,10 @@ CONTAINS
 ! The following parameters are help values for the iterative calculation 
 ! of the parcel temperature during the moist adiabatic ascent
   REAL    (wp)             :: esat,tguess1,tguess2,thetae1,thetae2
+#ifdef __SX__
+  REAL    (wp)             :: tguess1v(SIZE(te,1))
+  LOGICAL                  :: lcalc(SIZE(te,1))
+#endif
 ! REAL    (wp)             :: rp, r1,r2
   REAL    (wp)             :: q1, q2
   REAL    (wp), PARAMETER  :: eps=0.03
@@ -2995,7 +3016,7 @@ CONTAINS
 ! humidity and potential temperature as start values. 
 !
 !------------------------------------------------------------------------------
-        
+
     nlev = SIZE( te,2)
     k_ml  (:)  = nlev  ! index used to step through the well mixed layer
     kstart(:)  = nlev  ! index of model level corresponding to average 
@@ -3086,7 +3107,70 @@ CONTAINS
 
         ENDIF
       ENDIF
-         
+
+#ifdef __SX__
+    ENDDO ! i = i_startidx, i_endidx
+
+    ! Vectorized version
+    DO i = i_startidx, i_endidx
+      lcalc(i) = .FALSE.
+      IF ( k > kstart(i) ) CYCLE
+      IF ( k <= lcllev(i) ) THEN
+        ! The scheme uses a first guess temperature, which is the parcel
+        ! temperature at the level below. If it happens that the initial
+        ! parcel is already saturated, the environmental temperature
+        ! is taken as first guess instead
+        IF (  k == kstart(i) ) THEN
+          tguess1v(i) = te(i,kstart(i))
+        ELSE
+          tguess1v(i) = tp(i)
+        END IF
+        lcalc(i) = .TRUE.
+      ENDIF
+    ENDDO ! i = i_startidx, i_endidx
+
+
+    ! Calculate iteratively parcel temperature from thp, prs and 1st guess tguess1
+    DO icount = 1, 21
+      IF (COUNT(lcalc(i_startidx:i_endidx)) > 0) THEN
+        DO i = i_startidx, i_endidx
+          IF ( lcalc(i) ) THEN
+            esat     = sat_pres_water( tguess1v(i))
+            q1       = fqvs( esat, prs(i,k), qvp(i) )
+            thetae1  = fthetae( tguess1v(i),prs(i,k),q1)
+
+            tguess2  = tguess1v(i) - 1.0_wp
+            esat     = sat_pres_water( tguess2)
+            q2       = fqvs( esat, prs(i,k), qvp(i) )
+            thetae2  = fthetae( tguess2,prs(i,k),q2)
+
+            tguess1v(i)  = tguess1v(i)+(thetae1-thp(i))/(thetae2-thetae1)
+
+            IF ( ABS( thetae1-thp(i)) < eps .OR. icount > 20) THEN
+              tp(i) = tguess1v(i)
+              lcalc(i) = .false.
+            END IF
+          END IF
+        ENDDO ! i = i_startidx, i_endidx
+      ELSE
+        EXIT
+      ENDIF
+    END DO
+
+    ! update specific humidity of the saturated parcel for new temperature
+    DO i = i_startidx, i_endidx
+      IF ( k > kstart(i) ) CYCLE
+      IF ( k <= lcllev(i) ) THEN
+        esatp  = sat_pres_water( tp(i))
+        qvp(i) = fqvs( esatp,prs(i,k),qvp(i))
+      END IF
+    ENDDO ! i = i_startidx, i_endidx
+
+    DO i = i_startidx, i_endidx
+      IF ( k > kstart(i) ) CYCLE
+
+#else
+
       ! Moist adiabatic process: the parcel temperature during this part of 
       ! the ascent is calculated iteratively using the iterative newton
       ! scheme, assuming the equivalent potential temperature of the parcel 
@@ -3135,7 +3219,8 @@ CONTAINS
         esatp  = sat_pres_water( tp(i))
         qvp(i) = fqvs( esatp,prs(i,k),qvp(i))
       END IF
-         
+#endif       
+  
       ! Calculate virtual temperatures of parcel and environment
       tvp    = tp(i  ) * (1.0_wp + vtmpc1*qvp(i  )/(1.0_wp - qvp(i  )) )  
       tve    = te(i,k) * (1.0_wp + vtmpc1*qve(i,k)/(1.0_wp - qve(i,k)) ) 
@@ -3215,6 +3300,7 @@ CONTAINS
     ! set the CIN to missing value if no LFC was found or no CAPE exists
     IF ( (lfclev(i) == 0) .OR. (cape_ml(i) == 0.0_wp)  ) cin_ml(i) = missing_value 
   ENDDO
+
 
 CONTAINS
 

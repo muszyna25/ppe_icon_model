@@ -71,7 +71,7 @@ MODULE mo_nh_interface_nwp
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv, tmelt, grav
 
-  USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
+  USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp, calc_qsum
 
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_util_phys,               ONLY: tracer_add_phytend, iau_update_tracer
@@ -501,15 +501,7 @@ CONTAINS
 
         ENDIF
 
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            ! calculate virtual temperature from condens' output temperature
-            ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -799,7 +791,6 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
-
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end )
@@ -811,16 +802,7 @@ CONTAINS
         !!
         !-------------------------------------------------------------------------
 
-        IF (kstart_moist(jg) > 1) z_qsum(:,1:kstart_moist(jg)-1) = 0._wp
-
-        DO jk = kstart_moist(jg), nlev
-          DO jc = i_startidx, i_endidx
-
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-
-          ENDDO
-        ENDDO
-
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         DO jk = 1, nlev
 !DIR$ IVDEP
@@ -1469,17 +1451,15 @@ CONTAINS
           ENDDO
         ENDDO
 
+        CALL calc_qsum (pt_prog_rcf%tracer, z_qsum, condensate_list, jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
+
 
         IF (kstart_moist(jg) > 1) THEN
-          z_qsum(:,1:kstart_moist(jg)-1)      = 0._wp
           z_ddt_alpha(:,1:kstart_moist(jg)-1) = 0._wp
         ENDIF
 
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
-
-            ! summand of virtual increment
-            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
             ! tendency of virtual increment
             ! tendencies of iqr,iqs are neglected (nonzero only for ldetrain_conv_prec=.TRUE.)

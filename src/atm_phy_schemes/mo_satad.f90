@@ -406,7 +406,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
         IF(doIter(i,k)) THEN
         te (i,k) = twork(i,k)
 #else
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
       DO indx = 1, nsat
         i = iwrk(indx)

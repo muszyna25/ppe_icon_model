@@ -146,7 +146,7 @@ MODULE mo_velocity_advection
     REAL(vp) :: cfl_w_limit, vcfl, maxvcfl, vcflmax(p_patch%nblks_c)
     REAL(wp) :: w_con_e, scalfac_exdiff, difcoef, max_vcfl_dyn
                 
-    INTEGER  :: ie, nrdmax_jg, nflatlev_jg
+    INTEGER  :: ie, nrdmax_jg, nflatlev_jg, clip_count
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
     LOGICAL  :: cfl_clipping(nproma,p_patch%nlevp1)   ! CFL > 0.85
 
@@ -250,6 +250,7 @@ MODULE mo_velocity_advection
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
+!$NEC outerloop_unroll(4)
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -385,6 +386,7 @@ MODULE mo_velocity_advection
              p_patch%edges%tangent_orientation(je,jb) *                                                 &
              (z_w_v(jk,ividx(je,jb,1),ivblk(je,jb,1)) - z_w_v(jk,ividx(je,jb,2),ivblk(je,jb,2))) 
 #else
+!$NEC outerloop_unroll(2)
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             z_v_grad_w(je,jk,jb) = p_diag%vn_ie(je,jk,jb) * p_patch%edges%inv_dual_edge_length(je,jb)* &
@@ -414,7 +416,7 @@ MODULE mo_velocity_advection
     i_endblk_2   = p_patch%cells%end_block(rl_end_2)
 
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx, i_startidx_2, i_endidx_2, z_w_con_c, &
-!$OMP            z_w_concorr_mc, difcoef, vcfl, maxvcfl, cfl_clipping) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            z_w_concorr_mc, difcoef, vcfl, maxvcfl, cfl_clipping, clip_count) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -430,6 +432,7 @@ MODULE mo_velocity_advection
         DO jk = 1, nlev
         z_ekinh(jk,jc,jb) =  &
 #else
+!$NEC outerloop_unroll(4)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
         z_ekinh(jc,jk,jb) =  &
@@ -452,6 +455,7 @@ MODULE mo_velocity_advection
 !DIR$ IVDEP
           DO jk = nflatlev_jg, nlev
 #else
+!$NEC outerloop_unroll(4)
         DO jk = nflatlev_jg, nlev
           DO jc = i_startidx, i_endidx
 #endif
@@ -533,8 +537,18 @@ MODULE mo_velocity_advection
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on ) PRIVATE(vcfl)  DEFAULT(NONE) ASYNC(1)
       !$ACC LOOP GANG VECTOR COLLAPSE(2) REDUCTION( max:maxvcfl )
       DO jk = MAX(3,nrdmax_jg-2), nlev-3
+#ifndef _OPENACC
+        clip_count = 0
         DO jc = i_startidx, i_endidx
           cfl_clipping(jc,jk) = (ABS(z_w_con_c(jc,jk)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb))
+          IF (cfl_clipping(jc,jk)) clip_count = clip_count+1
+        ENDDO
+        IF (clip_count == 0) CYCLE
+        DO jc = i_startidx, i_endidx
+#else
+        DO jc = i_startidx, i_endidx
+          cfl_clipping(jc,jk) = (ABS(z_w_con_c(jc,jk)) > cfl_w_limit*p_metrics%ddqz_z_half(jc,jk,jb))
+#endif
           IF ( cfl_clipping(jc,jk) ) THEN
       ! WS:  setting levmask cannot create race conditions; following should be fine
             levmask(jb,jk) = .TRUE.
@@ -554,6 +568,7 @@ MODULE mo_velocity_advection
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$NEC outerloop_unroll(8)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           z_w_con_c_full(jc,jk,jb) = 0.5_vp*(z_w_con_c(jc,jk)+z_w_con_c(jc,jk+1))
@@ -574,9 +589,9 @@ MODULE mo_velocity_advection
                          i_startidx_2, i_endidx_2, rl_start_2, rl_end_2)
 
       ! Compute vertical derivative terms of vertical wind advection
-! TODO:  check with Guenther why this kernel cannot be incorporated into the subsequent gang loop
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )  DEFAULT(NONE) ASYNC(1)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$NEC outerloop_unroll(8)
       DO jk = 2, nlev
 !DIR$ IVDEP
         DO jc = i_startidx_2, i_endidx_2
@@ -600,6 +615,7 @@ MODULE mo_velocity_advection
             p_int%e_bln_c_s(jc,2,jb)*z_v_grad_w(jk,ieidx(jc,jb,2),ieblk(jc,jb,2)) + &
             p_int%e_bln_c_s(jc,3,jb)*z_v_grad_w(jk,ieidx(jc,jb,3),ieblk(jc,jb,3))
 #else
+!$NEC outerloop_unroll(4)
       DO jk = 2, nlev
         DO jc = i_startidx_2, i_endidx_2
           p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)       + &
@@ -687,6 +703,7 @@ MODULE mo_velocity_advection
         ENDDO
       ENDDO
 #else
+!$NEC outerloop_unroll(3)
       DO jk = 1, nlev
         DO je = i_startidx, i_endidx
           p_diag%ddt_vn_adv(je,jk,jb,ntnd) = - ( z_kin_hor_e(je,jk,jb) *                        &

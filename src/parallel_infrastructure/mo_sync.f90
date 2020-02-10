@@ -951,6 +951,10 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varnam
   REAL(wp), ALLOCATABLE :: z_idx(:,:)
   TYPE(t_grid_domain_decomp_info), POINTER :: decomp_info
 
+#ifdef __SX__
+  INTEGER :: ind_v(nproma)
+#endif
+
   ! opt_remap: Flag if index values pointing outside local domain
   ! should be remapped to values within local domain
 
@@ -1026,8 +1030,13 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varnam
       i_g = INT(z_idx(jl,jb))
 
       IF(i_g <= 0 .or. i_g > n_idx_g) THEN
+#ifndef __SX__
         idx(jl,jb) = idx_no(0)
         blk(jl,jb) = blk_no(0)
+#else
+        !NEC_RP: skip initialization of idx and blk here and instead store index in order
+        ind_v(jl) = 0
+#endif
       ELSE
         IF (remap) THEN
           i_l = MAX(get_valid_local_index(decomp_info%glb2loc_index, i_g), 1)
@@ -1039,11 +1048,25 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varnam
           ! MoHa: ...does this make sense?
           IF (i_l <= 0) i_l = - i_g
         END IF
+#ifndef __SX__
         idx(jl,jb) = idx_no(i_l)
         blk(jl,jb) = blk_no(i_l)
+#else
+       !NEC: skip initialization of idx and blk here and instead store index
+        ind_v(jl) = i_l
+#endif
       ENDIF
 
     END DO
+
+#ifdef __SX__
+    !NEC: initialize idx and blk in vectroized loop 
+    DO jl = 1, nproma
+      idx(jl,jb) = idx_no(ind_v(jl))
+      blk(jl,jb) = blk_no(ind_v(jl))
+    END DO
+#endif
+
   END DO
 !$ACC END PARALLEL
 
@@ -1388,7 +1411,7 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
    REAL(dp), PARAMETER :: two_40 = 1099511627776._dp ! 2.**40
    REAL(dp), PARAMETER :: r_two_40 = 1._dp/two_40
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask40
    DATA mask40 / z'000000ffffffffff' / ! last 40 bits set
 #else
@@ -1545,7 +1568,7 @@ FUNCTION global_sum_array3 (nfields,ldiff,f3din,f3dd,f3din2,f3dd2,f4din,f4dd,dif
    REAL(dp), PARAMETER :: two_40 = 1099511627776._dp ! 2.**40
    REAL(dp), PARAMETER :: r_two_40 = 1._dp/two_40
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask40
    DATA mask40 / z'000000ffffffffff' / ! last 40 bits set
 #else
@@ -1945,7 +1968,7 @@ FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_s
    REAL(dp), PARAMETER :: two_30 = 1073741824._dp ! 2.**30
    REAL(dp), PARAMETER :: r_two_30 = 1._dp/two_30
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask30
    DATA mask30 / z'000000003fffffff' / ! last 30 bits set
 #else
@@ -2097,7 +2120,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
    REAL(dp), PARAMETER :: two_30 = 1073741824._dp ! 2.**30
    REAL(dp), PARAMETER :: r_two_30 = 1._dp/two_30
 
-#if defined (__SX__) || defined (__PGI)
+#if defined (__PGI)
    INTEGER(i8) :: mask30
    DATA mask30 / z'000000003fffffff' / ! last 30 bits set
 #else

@@ -174,7 +174,7 @@ CONTAINS
 
           IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count_lnd
 
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -193,7 +193,7 @@ CONTAINS
           IF (ntiles_lnd > 1) THEN     ! tile approach
 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, i_count_lnd
 
               jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -240,7 +240,7 @@ CONTAINS
 
           ELSE  ! without tiles
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, i_count_lnd
 
               jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -409,7 +409,7 @@ CONTAINS
           !
           i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count_flk
             jc = ext_data%atm%list_lake%idx(ic,jb)
 
@@ -701,7 +701,7 @@ CONTAINS
 
           IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count_lnd
 
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
@@ -849,7 +849,7 @@ CONTAINS
           ! - loop over sea points  (points which are at least partly ice-free) 
           !
           i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
-
+!$NEC ivdep
           DO ic = 1, i_count_sea
             jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
@@ -912,6 +912,7 @@ CONTAINS
 
           PrognosticSeaIceAlbedo_modis: IF ( lprog_albsi ) THEN 
             ! Use prognostic diffuse sea-ice albedo (computed within the routines of the sea-ice scheme)
+!$NEC ivdep
             DO ic = 1, i_count_seaice
               jc = ext_data%atm%list_seaice%idx(ic,jb)
 
@@ -924,12 +925,13 @@ CONTAINS
             ENDDO                         
           ELSE 
             ! Use diagnostic diffuse sea-ice albedo (computed here)
+!$NEC ivdep
             DO ic = 1, i_count_seaice
               jc = ext_data%atm%list_seaice%idx(ic,jb)
               prm_diag%albdif_t(jc,jb,isub_seaice) = alb_seaice_equil( wtr_prog%t_ice(jc,jb) )
             ENDDO
           ENDIF PrognosticSeaIceAlbedo_modis
-
+!$NEC ivdep
           DO ic = 1, i_count_seaice
             jc = ext_data%atm%list_seaice%idx(ic,jb)
 
@@ -952,7 +954,7 @@ CONTAINS
           ! - loop over sea points
           !
           i_count_sea = ext_data%atm%list_seawtr%ncount(jb)
-
+!$NEC ivdep
           DO ic = 1, i_count_sea
             jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
@@ -1026,7 +1028,7 @@ CONTAINS
           !
           i_count_flk = ext_data%atm%list_lake%ncount(jb)
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count_flk
             jc = ext_data%atm%list_lake%idx(ic,jb)
 
@@ -1079,7 +1081,7 @@ CONTAINS
           ! - loop over lake points
           !
           i_count_flk = ext_data%atm%list_lake%ncount(jb)
-
+!$NEC ivdep
           DO ic = 1, i_count_flk
             jc = ext_data%atm%list_lake%idx(ic,jb)
 

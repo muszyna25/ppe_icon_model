@@ -64,9 +64,8 @@ MODULE mo_nwp_sfc_interface
 
 
 #ifdef __SX__
-! parameters for loop unrolling
+! parameter for loop unrolling
 INTEGER, PARAMETER :: nlsoil= 8
-INTEGER, PARAMETER :: nlsnow= 2
 #endif
 
 
@@ -321,6 +320,7 @@ CONTAINS
          ! 
          !> adjust humidity at water surface because of changing surface pressure
          !
+!$NEC ivdep
          DO ic=1,ext_data%atm%list_seawtr%ncount(jb)
            jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
@@ -341,7 +341,7 @@ CONTAINS
        DO isubs = 1,ntiles_total
          i_count = ext_data%atm%gp_count_t(jb,isubs) 
          IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
            rain_gsp_rate(jc,isubs)    = prm_diag%rain_gsp_rate(jc,jb)
@@ -372,6 +372,7 @@ CONTAINS
          ENDDO
          DO isubs = ntiles_lnd+1, ntiles_total
            i_count = ext_data%atm%gp_count_t(jb,isubs) 
+!$NEC ivdep
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              ! Another tuning factor in order to treat partial snow cover different for fresh snow and 'old' snow
@@ -404,7 +405,7 @@ CONTAINS
            isubs_snow = isubs + ntiles_lnd
            i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow) 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
   
@@ -451,6 +452,7 @@ CONTAINS
 
         IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
+!$NEC ivdep
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
@@ -593,7 +595,6 @@ CONTAINS
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
           DO jk=1,nlev_snow
 #else
-!CDIR UNROLL=nlsnow
         DO jk=1,nlev_snow
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
@@ -613,7 +614,7 @@ CONTAINS
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
           DO jk=1,nlev_soil
 #else
-!CDIR UNROLL=nlsoil
+!$NEC outerloop_unroll(nlsoil)
         DO jk=1,nlev_soil
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
@@ -779,7 +780,7 @@ CONTAINS
           &  t_g        = t_g_t                     ) ! OUT: averaged ground temperature
 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 
@@ -846,7 +847,7 @@ CONTAINS
         ENDDO
 
         IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
-!CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
+!$NEC ivdep                                          ! (needed for index list computation)
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
             lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd)  = lnd_diag%snowfrac_lc_t(jc,jb,isubs)
@@ -861,9 +862,8 @@ CONTAINS
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
           DO jk=1,nlev_snow
 #else
-!CDIR UNROLL=nlsnow
         DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 #endif
@@ -883,9 +883,9 @@ CONTAINS
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
           DO jk=1,nlev_soil
 #else
-!CDIR UNROLL=nlsoil
+!$NEC outerloop_unroll(nlsoil)
         DO jk=1,nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 #endif
@@ -928,6 +928,7 @@ CONTAINS
 
            ! Check for newly activated grid points that need to be initialized
            icount_init = 0
+!$NEC ivdep
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
              IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs) == 2) THEN
@@ -937,6 +938,7 @@ CONTAINS
                it2(icount_init) = isubs_snow ! source of copy operation
              ENDIF
            ENDDO
+!$NEC ivdep
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
              IF (ext_data%atm%snowtile_flag_t(jc,jb,isubs_snow) == 2) THEN
@@ -947,6 +949,7 @@ CONTAINS
              ENDIF
            ENDDO
 
+!$NEC ivdep
            DO ic = 1, icount_init
              jc = init_list(ic)
              is1 = it1(ic)
@@ -1000,7 +1003,7 @@ CONTAINS
 
            ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
@@ -1017,7 +1020,7 @@ CONTAINS
            ! redistribution of heat and moisture between snow-covered and snow-free tiles 
            ! according to their new fractions, in order to keep heat and moisture balances
            DO jk = 1, nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
              DO ic = 1, i_count_snow
                jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
@@ -1058,7 +1061,7 @@ CONTAINS
 
              END DO
            END DO        ! soil layers
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
            DO ic = 1, i_count_snow
              jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
@@ -1109,15 +1112,15 @@ CONTAINS
              ENDIF
 
              IF (l2lay_rho_snow) THEN
-               lnd_prog_new%rho_snow_mult_t(jc,1:2,jb,isubs) = lnd_prog_new%rho_snow_mult_t(jc,1:2,jb,isubs_snow)
+               lnd_prog_new%rho_snow_mult_t(jc,1,jb,isubs) = lnd_prog_new%rho_snow_mult_t(jc,1,jb,isubs_snow)
+               lnd_prog_new%rho_snow_mult_t(jc,2,jb,isubs) = lnd_prog_new%rho_snow_mult_t(jc,2,jb,isubs_snow)
              ENDIF
 
            END DO
 
            IF (lmulti_snow) THEN
-!CDIR UNROLL=nlsnow
              DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
                DO ic = 1, i_count_snow
                  jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
                  lnd_prog_new%t_snow_mult_t(jc,jk,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)
@@ -1409,6 +1412,7 @@ CONTAINS
 
       !  Recover fields from index list
       !
+!$NEC ivdep
       DO ic = 1, i_count
         jc = ext_data%atm%list_seaice%idx(ic,jb)
 
@@ -1640,7 +1644,7 @@ CONTAINS
 
       !  Recover fields from index list
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1,icount_flk
         jc = ext_data%atm%list_lake%idx(ic,jb)
 

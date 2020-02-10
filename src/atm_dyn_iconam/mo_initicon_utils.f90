@@ -142,7 +142,7 @@ MODULE mo_initicon_utils
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     TYPE(t_list_element), POINTER   :: element
     CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
-
+    CHARACTER(len=100)              :: lc_varname
     !-------------------------------------------------------------------------
 
 
@@ -154,7 +154,7 @@ MODULE mo_initicon_utils
       CALL finish(routine, 'One of 2 optional arguments must be present')
     ENDIF
 
-
+    lc_varname = tolower(varname)
     ! get metadata information for field to be read
     info => NULL()
     DO i = 1,nvar_lists
@@ -172,7 +172,7 @@ MODULE mo_initicon_utils
 
         ! Check for matching name (take care of suffix of
         ! time-dependent variables):
-        IF (TRIM(tolower(varname)) == TRIM(tolower(get_var_name(element%field)))) THEN
+        IF (TRIM(lc_varname) == TRIM(tolower(get_var_name(element%field)))) THEN
           info => element%field%info
           EXIT
         ENDIF

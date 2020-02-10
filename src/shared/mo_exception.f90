@@ -122,7 +122,7 @@ CONTAINS
 
 #ifndef __STANDALONE
     EXTERNAL :: util_exit
-#if ! (defined (__SX__) || defined (__INTEL_COMPILER) || defined (__xlC__))
+#if ! (defined (__INTEL_COMPILER) || defined (__xlC__))
     EXTERNAL :: util_backtrace
 #endif
 #endif
@@ -164,8 +164,6 @@ CONTAINS
     CALL tracebackqq
 #elif defined __xlC__
     CALL xl__trbk
-#elif defined __SX__
-    CALL mesput('Traceback: ', 11, 1)
 #elif !defined __STANDALONE
     CALL util_backtrace
 #endif

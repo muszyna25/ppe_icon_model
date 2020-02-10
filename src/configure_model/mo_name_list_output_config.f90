@@ -33,6 +33,8 @@ MODULE mo_name_list_output_config
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
   USE mo_name_list_output_types,ONLY: t_output_name_list
+  USE mo_mpi,                   ONLY: my_process_is_stdio, p_bcast, p_comm_work, p_io
+  USE mo_parallel_config,       ONLY: proc0_shift
 
   IMPLICIT NONE
 
@@ -128,13 +130,17 @@ CONTAINS
     TYPE (t_output_name_list), POINTER :: p_onl
     INTEGER :: tlen
 
-    tlen = LEN_TRIM(var_name)
-    p_onl => first_output_name_list
-    retval = .FALSE.
-    DO WHILE (ASSOCIATED(p_onl) .AND. .NOT. retval)
-      retval = is_variable_in_output_nml(p_onl, var_name=var_name(1:tlen))
-      p_onl => p_onl%next
-    END DO
+    ! Execute this search on the vector host only on the NEC, which is indicated by proc0_shift=1
+    IF (proc0_shift == 0 .OR. my_process_is_stdio()) THEN
+      tlen = LEN_TRIM(var_name)
+      p_onl => first_output_name_list
+      retval = .FALSE.
+      DO WHILE (ASSOCIATED(p_onl) .AND. .NOT. retval)
+        retval = is_variable_in_output_nml(p_onl, var_name=var_name(1:tlen))
+        p_onl => p_onl%next
+      END DO
+    ENDIF
+    IF (proc0_shift > 0) CALL p_bcast(retval, p_io, p_comm_work)
   END FUNCTION is_variable_in_output
 
 END MODULE mo_name_list_output_config

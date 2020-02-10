@@ -107,7 +107,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   ! Local scalars:
 
-  INTEGER :: jc,jb,jt,jg,ic,i_count      !loop indices
+  INTEGER :: jc,jb,jk,jt,jg,ic,i_count      !loop indices
   INTEGER :: jk_gust(nproma)
 
   ! local variables for turbdiff
@@ -181,8 +181,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,nzprv,&
-!$OMP lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,tvm_t,tvh_t,tkr_t,l_hori,       &
+!$OMP DO PRIVATE(jb,jt,jc,jk,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,   &
+!$OMP nzprv,lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,tvm_t,tvh_t,tkr_t,l_hori, &
 !$OMP t_g_t,qv_s_t,t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,     &
 !$OMP temp_t,pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,  &
 !$OMP area_frac,shfl_s_t,lhfl_s_t,qhfl_s_t,umfl_s_t,vmfl_s_t,nlevcm,jk_gust,epr_t,              &
@@ -240,7 +240,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! specify land-cover-related roughness length over land points
       ! NOTE:  open water, lake and sea-ice points are set in turbtran
       DO jt = 1, ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
           ! works for the following two cases
           ! 1. snow-covered and snow_free tiles treated separately
@@ -266,6 +266,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           ENDIF
         ENDDO
         IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN ! Add SSO contribution to tile-specific roughness length
+!$NEC ivdep
           DO ic = 1, ext_data%atm%gp_count_t(jb,jt)
             jc = ext_data%atm%idx_lst_t(ic,jb,jt)
             prm_diag%gz0_t(jc,jb,jt) = prm_diag%gz0_t(jc,jb,jt) + grav * &
@@ -306,9 +307,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
       ! INPUT to turbtran is timestep new
-      z_tvs(i_startidx:i_endidx,1:3,1) =  &
-        &           SQRT(2._wp * p_prog_rcf%tke(i_startidx:i_endidx,nlev-1:nlevp1,jb))
-
+      DO jk = 1, 3
+        DO jc = i_startidx, i_endidx
+          z_tvs(jc,jk,1) = SQRT(2._wp * p_prog_rcf%tke(jc,nlev-2+jk,jb))
+        ENDDO
+      ENDDO
       ! First call of turbtran for all grid points (water points with > 50% water
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
@@ -451,6 +454,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           ! It remains to be determined which of the model levels are actually needed for non-init calls
           !
           !MR: Hauptflaechengroessen nur fuer level nlev
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ilist(ic)
 
@@ -603,7 +607,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
           IF (i_count == 0) CYCLE ! skip loop if the index list for the given tile is empty
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ilist(ic)
             area_frac = ext_data%atm%frac_t(jc,jb,jt)
@@ -662,6 +666,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
           ! averages over land fraction of mixed land-water points
           IF (jt <= ntiles_total) THEN
+!$NEC ivdep
             DO ic = 1, i_count
               jc = ilist(ic)
               area_frac = ext_data%atm%frac_t(jc,jb,jt)/ext_data%atm%fr_land(jc,jb)
@@ -670,6 +675,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
               prm_diag%rh_2m_land (jc,jb) = prm_diag%rh_2m_land(jc,jb) + rh_2m_t(ic,jt) * area_frac
             ENDDO
           ELSE
+!$NEC ivdep
             DO ic = 1, i_count
               jc = ilist(ic)
               IF (ext_data%atm%fr_land(jc,jb) == 0._wp) THEN

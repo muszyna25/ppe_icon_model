@@ -38,7 +38,8 @@ MODULE mo_phy_events
   USE mo_util_table,               ONLY: t_table, initialize_table, add_table_column, &
     &                                    set_table_entry, print_table, finalize_table
   USE mo_run_config,               ONLY: msg_level
-  USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast
+  USE mo_parallel_config,          ONLY: proc0_shift
+  USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, p_comm_work, p_io
   USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
 
   IMPLICIT NONE
@@ -352,19 +353,28 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2017-05-26)
   !!
-  LOGICAL FUNCTION phyProcBase_isActive (phyProc, mtime_current)
+  LOGICAL FUNCTION phyProcBase_isActive (phyProc, mtime_current, lasync)
 
     CLASS(t_phyProcBase)   , INTENT(INOUT) :: phyProc        !< passed-object dummy argument
     TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current  !< current_datetime
+    LOGICAL, INTENT(IN), OPTIONAL          :: lasync         !< if present, broadcast is done in calling routine
 
     ! local
     TYPE(timedelta), TARGET  :: plusSlack
     TYPE(timedelta), POINTER :: plusSlack_ptr    => NULL()
+    LOGICAL                  :: is_active
   !-----------------------------------------------------------------
 
     plusSlack     =  phyProc%plusSlack
     plusSlack_ptr => plusSlack
-    phyProcBase_isActive = isCurrentEventActive(phyProc%ev_ptr, mtime_current, plus_slack=plusSlack_ptr)
+    ! If PE0 is detached, execute isCurrentEventActive only on PE0 and broadcast result afterwards
+    ! This serves as a workaround for slow mtime on the NEC VEs
+    IF (proc0_shift == 0 .OR. my_process_is_stdio()) THEN
+      is_active = isCurrentEventActive(phyProc%ev_ptr, mtime_current, plus_slack=plusSlack_ptr)
+    ENDIF
+    IF (.NOT. PRESENT(lasync) .AND. proc0_shift > 0) CALL p_bcast(is_active, p_io, p_comm_work)
+
+    phyProcBase_isActive = is_active
 
     ! Mtime currently does not support choosing between open or closed intervals.
     ! Therefore, the result of isCurrentEventActive is overwritten 
@@ -1102,6 +1112,7 @@ CONTAINS
     ! local
     INTEGER :: iproc      ! loop counter
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":mtime_ctrl_physics"
+    LOGICAL :: lasync = .TRUE.
   !-----------------------------------------------------------------
 
     ! intialization
@@ -1115,8 +1126,9 @@ CONTAINS
     ELSE
       DO iproc = 1, UBOUND(phyProcs%proc,1)
         IF (.NOT. ASSOCIATED(phyProcs%proc(iproc)%p)) CYCLE
-        lcall_phy(iproc) = phyProcs%proc(iproc)%p%isActive(mtime_current)
+        lcall_phy(iproc) = phyProcs%proc(iproc)%p%isActive(mtime_current,lasync)
       ENDDO
+      IF (proc0_shift > 0) CALL p_bcast(lcall_phy, p_io, p_comm_work)
     ENDIF
 
     ! debug output

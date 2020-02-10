@@ -7,7 +7,7 @@
 !! headers of the routines.
 
 MODULE mo_input_container
-    USE ISO_C_BINDING, ONLY: C_INT32_T, C_INT64_T, C_DOUBLE, C_FLOAT, C_ASSOCIATED
+    USE ISO_C_BINDING, ONLY: C_INT32_T, C_INT64_T, C_DOUBLE, C_FLOAT, C_ASSOCIATED, C_CHAR
     USE mo_cdi, ONLY: t_CdiIterator, gridInqSize, cdiIterator_inqGridId, cdiIterator_readField, cdiIterator_readFieldF, &
                     & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
@@ -17,11 +17,14 @@ MODULE mo_input_container
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
     USE mo_math_types, ONLY: t_Statistics
-    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime
+    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime, process_mpi_root_id
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_nwp_sfc_tiles, ONLY: trivial_tile_att, t_tileinfo_icon
-    USE mo_util_string, ONLY: int2string, real2string
+    USE mo_util_string, ONLY: int2string, real2string, toCharacter
+#ifdef _OPENMP
+    USE omp_lib
+#endif
 
     IMPLICIT NONE
 
@@ -66,6 +69,8 @@ PUBLIC :: t_InputContainer, InputContainer_make
         PROCEDURE :: fetchTiled3D => InputContainer_fetchTiled3D  !returns .TRUE. on success
 
         PROCEDURE :: readField => InputContainer_readField
+        !NEC: new routine only for this one communication loop
+        PROCEDURE :: readField_omp => InputContainer_readField_omp
         PROCEDURE, PRIVATE :: dataAvailable => InputContainer_dataAvailable
     END TYPE
 
@@ -440,6 +445,361 @@ CONTAINS
         CALL me%tiles%destruct()
         CALL me%levels%destruct()
     END SUBROUTINE InputContainer_destruct
+
+    !NEC_RP: new routine that OMP parallelizes read, statistics and distribution
+    SUBROUTINE InputContainer_readField_omp(me, variableName, level, tile, timer, jg, iterator, statistics, iread)
+        CLASS(t_InputContainer), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: variableName
+        REAL(dp), VALUE :: level
+        INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(INOUT) :: timer(:)
+        TYPE(t_CdiIterator), VALUE :: iterator
+        TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
+        INTEGER, INTENT(IN) :: iread
+
+        CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField_omp"
+        CLASS(t_Destructible), POINTER :: val
+        CLASS(t_Destructible), POINTER :: key
+        REAL(C_DOUBLE), SAVE, POINTER :: bufferD(:)
+        REAL(C_FLOAT), SAVE, POINTER :: bufferS(:)
+        INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
+        CLASS(t_ScatterPattern), POINTER :: distribution
+        REAL(dp) :: savetime
+        REAL(dp) :: message(3)
+        ! Variables for deferred sending
+        CHARACTER(LEN=:), ALLOCATABLE, SAVE :: variableName_prev
+        CLASS(t_Destructible), POINTER :: key_prev
+        REAL(C_DOUBLE), SAVE, POINTER :: bufferD_prev(:)
+        REAL(C_FLOAT), SAVE, POINTER :: bufferS_prev(:)
+        REAL(C_DOUBLE), POINTER :: tmpDP(:)
+        REAL(C_FLOAT), POINTER :: tmpSP(:)
+        INTEGER, SAVE :: packedMessage_prev(2)
+        REAL(dp), SAVE :: level_prev
+        INTEGER, SAVE :: jg_prev
+        INTEGER, SAVE :: tile_prev, datatype_prev
+#ifdef _OPENMP   
+        !NEC_RP: use three cases: only read, only distribute, both
+        SELECT CASE(iread)
+        CASE(1)
+   
+           ALLOCATE(t_LevelKey :: key, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(key)
+           TYPE IS(t_LevelKey)
+                key%levelValue = level
+                key%tileId = tile
+             CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+           END SELECT
+
+           !Inquire buffer SIZE information AND broadcast it.
+           IF(C_ASSOCIATED(iterator%ptr)) THEN
+               gridSize = gridInqSize(cdiIterator_inqGridId(iterator))
+               datatype = cdiIterator_inqDatatype(iterator)
+               packedMessage(1) = gridSize
+               packedMessage(2) = datatype
+           END IF
+   
+           SELECT CASE(datatype)
+           CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               !ALLOCATE the global buffer
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   ALLOCATE(bufferD_prev(gridSize), STAT = error)
+                   ALLOCATE(bufferD(gridSize), STAT = error)
+               ELSE
+                   ALLOCATE(bufferD_prev(1), STAT = error)
+                   ALLOCATE(bufferD(1), STAT = error)
+               END IF
+               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+   
+               !READ the DATA
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   savetime = p_mpi_wtime()
+                   CALL cdiIterator_readField(iterator, bufferD_prev)
+                   timer(3) = timer(3) + p_mpi_wtime() - savetime
+               END IF
+           CASE DEFAULT
+               !ALLOCATE the global buffer
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   ALLOCATE(bufferS_prev(gridSize), STAT = error)
+                   ALLOCATE(bufferS(gridSize), STAT = error)
+               ELSE
+                   ALLOCATE(bufferS_prev(1), STAT = error)
+                   ALLOCATE(bufferS(1), STAT = error)
+               END IF
+               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+   
+               !READ the DATA
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   savetime = p_mpi_wtime()
+                   CALL cdiIterator_readFieldF(iterator, bufferS_prev)
+                   timer(3) = timer(3) + p_mpi_wtime() - savetime
+               END IF
+           END SELECT
+   
+           ! now the rest of the data
+           jg_prev = jg
+           level_prev = level
+           tile_prev = tile
+           datatype_prev = datatype
+           packedMessage_prev = packedMessage
+           IF (ALLOCATED(variableName_prev)) DEALLOCATE(variableName_prev)
+           ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
+           variableName_prev = variableName
+        CASE (-1)
+          !NEC_RP: Only distribute
+           message(1) = REAL(LEN(variableName_prev, 1), dp)
+           message(2) = level_prev
+           message(3) = REAL(tile_prev, dp)
+           CALL p_bcast(message, process_mpi_root_id, p_comm_work)
+           CALL p_bcast(variableName_prev, process_mpi_root_id, p_comm_work)
+
+           CALL p_bcast(packedMessage_prev, 0, p_comm_work)
+
+           !Get the corresponding ScatterPattern AND initialize our hash table entry.
+           distribution => lookupScatterPattern(jg, packedMessage_prev(1))
+           IF(.NOT. ASSOCIATED(distribution)) CALL finish(routine, "could not find scatter pattern to distribute input field")
+           ALLOCATE(t_LevelPointer :: val, STAT = error)
+
+           SELECT TYPE(val)
+             TYPE IS(t_LevelPointer)
+
+             ALLOCATE(val%ptr(nproma, blk_no(distribution%localSize())), STAT = error)
+             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+             val%ptr = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
+
+             SELECT CASE(datatype_prev)
+             CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+              !NEC_RP: use OMP sections:
+!$OMP PARALLEL SECTIONS PRIVATE(savetime) NUM_THREADS(2)
+!$OMP SECTION
+              !NEC_RP: first section for statistics on previous buffer
+               savetime = p_mpi_wtime()
+               CALL distribution%distribute(bufferD_prev, val%ptr, .FALSE.)
+               timer(5) = timer(5) + p_mpi_wtime() - savetime
+!$OMP SECTION
+              !NEC_RP: second section for distribution of previous buffer
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferD_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
+!$OMP END PARALLEL SECTIONS
+
+               DEALLOCATE(bufferD_prev)
+               NULLIFY(bufferD_prev)
+               DEALLOCATE(bufferD)
+               NULLIFY(bufferD)
+             CASE DEFAULT
+!$OMP PARALLEL SECTIONS PRIVATE(savetime) NUM_THREADS(2)
+!$OMP SECTION
+              !NEC_RP: first section for statistics on previous buffer
+               savetime = p_mpi_wtime()
+               CALL distribution%distribute(bufferS_prev, val%ptr, .FALSE.)
+               timer(5) = timer(5) + p_mpi_wtime() - savetime
+!$OMP SECTION
+               !NEC_RP: second section for distribution of previous buffer
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferS_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
+!$OMP END PARALLEL SECTIONS
+
+               DEALLOCATE(bufferS_prev)
+               NULLIFY(bufferS_prev)
+               DEALLOCATE(bufferS)
+               NULLIFY(bufferS)
+             END SELECT
+           END SELECT
+           
+           ALLOCATE(t_LevelKey :: key, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(key)
+            TYPE IS(t_LevelKey)
+                key%levelValue = level_prev
+                key%tileId = tile_prev
+            CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+           END SELECT
+
+           !store the DATA IN our hash table
+           CALL me%fields%setEntry(key, val) !this will DEALLOCATE both the val AND the key eventually
+           me%fieldCount = me%fieldCount + 1
+           CALL me%tiles%addValue(REAL(tile_prev, dp))
+           CALL me%levels%addValue(level_prev)
+        CASE DEFAULT
+           !NEC_RP: Both
+
+!$OMP PARALLEL SECTIONS PRIVATE(savetime) NUM_THREADS(3)
+!$OMP SECTION
+           !NEC_RP: first section for statistics on previous buffer
+           SELECT CASE(packedMessage_prev(2))
+           CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferD_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
+           CASE DEFAULT
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferS_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
+           END SELECT
+!$OMP SECTION
+           !NEC_RP: second section for distribution of previous buffer
+           message(1) = REAL(LEN(variableName_prev, 1), dp)
+           message(2) = level_prev
+           message(3) = REAL(tile_prev, dp)
+           CALL p_bcast(message, process_mpi_root_id, p_comm_work)
+           CALL p_bcast(variableName_prev, process_mpi_root_id, p_comm_work)
+
+           CALL p_bcast(packedMessage_prev, 0, p_comm_work)
+
+           !Get the corresponding ScatterPattern AND initialize our hash table entry.
+           distribution => lookupScatterPattern(jg, packedMessage_prev(1))
+           IF(.NOT. ASSOCIATED(distribution)) CALL finish(routine, "could not find scatter pattern to distribute input field")
+           ALLOCATE(t_LevelPointer :: val, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(val)
+             TYPE IS(t_LevelPointer)
+
+             !ALLOCATE the local buffer
+             ALLOCATE(val%ptr(nproma, blk_no(distribution%localSize())), STAT = error)
+             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+             val%ptr = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
+
+             distribution => lookupScatterPattern(jg_prev, packedMessage_prev(1))
+             SELECT CASE(packedMessage_prev(2))
+             CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               savetime = p_mpi_wtime()
+               CALL distribution%distribute(bufferD_prev, val%ptr, .FALSE.)
+               timer(5) = timer(5) + p_mpi_wtime() - savetime
+             CASE DEFAULT
+               savetime = p_mpi_wtime()
+               CALL distribution%distribute(bufferS_prev, val%ptr, .FALSE.)
+               timer(5) = timer(5) + p_mpi_wtime() - savetime
+             END SELECT
+           END SELECT
+
+           ALLOCATE(t_LevelKey :: key_prev, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(key_prev)
+             TYPE IS(t_LevelKey)
+                key_prev%levelValue = level_prev
+                key_prev%tileId = tile_prev
+             CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+           END SELECT
+           
+           !store the DATA IN our hash table
+           CALL me%fields%setEntry(key_prev, val) !this will DEALLOCATE both the val AND the key eventually
+           me%fieldCount = me%fieldCount + 1
+           CALL me%tiles%addValue(REAL(tile_prev, dp))
+           CALL me%levels%addValue(level_prev)
+
+!$OMP SECTION
+           !NEC_RP: third section for read of current buffer
+
+           ALLOCATE(t_LevelKey :: key, STAT = error)
+           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+           SELECT TYPE(key)
+             TYPE IS(t_LevelKey)
+                key%levelValue = level
+                key%tileId = tile
+             CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+           END SELECT
+   
+           !Inquire buffer SIZE information AND broadcast it.
+           IF(C_ASSOCIATED(iterator%ptr)) THEN
+               gridSize = gridInqSize(cdiIterator_inqGridId(iterator))
+               datatype = cdiIterator_inqDatatype(iterator)
+               packedMessage(1) = gridSize
+               packedMessage(2) = datatype
+           END IF
+   
+           SELECT CASE(datatype)
+           CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               !ALLOCATE the global buffer
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
+                   IF (.NOT. ASSOCIATED(bufferD)) ALLOCATE(bufferD(gridSize), STAT = error)
+                   IF (SIZE(bufferD) /= gridSize) THEN
+                      DEALLOCATE(bufferD)
+                      ALLOCATE(bufferD(gridSize), STAT = error)
+                   END IF
+               ELSE
+                   IF (SIZE(bufferD) /= 1) THEN
+                      DEALLOCATE(bufferD)
+                      ALLOCATE(bufferD(1), STAT = error)
+                   END IF
+               END IF
+               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+   
+               !READ the DATA
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   savetime = p_mpi_wtime()
+                   CALL cdiIterator_readField(iterator, bufferD)
+                   timer(3) = timer(3) + p_mpi_wtime() - savetime
+               END IF
+           CASE DEFAULT
+               !ALLOCATE the global buffer
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
+                   IF (.NOT. ASSOCIATED(bufferS)) ALLOCATE(bufferS(gridSize), STAT = error)
+                   IF (SIZE(bufferS) /= gridSize) THEN
+                      DEALLOCATE(bufferS)
+                      ALLOCATE(bufferS(gridSize), STAT = error)
+                   END IF
+               ELSE
+                   IF (SIZE(bufferS) /= 1) THEN
+                      DEALLOCATE(bufferS)
+                      ALLOCATE(bufferS(1), STAT = error)
+                   END IF
+               END IF
+               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+   
+               !READ the DATA
+               IF(C_ASSOCIATED(iterator%ptr)) THEN
+                   savetime = p_mpi_wtime()
+                   CALL cdiIterator_readFieldF(iterator, bufferS)
+                   timer(3) = timer(3) + p_mpi_wtime() - savetime
+               END IF
+           END SELECT
+!$OMP END PARALLEL SECTIONS
+
+            ! Prepare data for next iteration
+            ! first flip pointer assignments (faster than copy)
+            IF (ASSOCIATED(bufferD)) THEN
+               IF (SIZE(bufferD) /= SIZE(bufferD_prev)) THEN
+                  DEALLOCATE(bufferD_prev)
+                  ALLOCATE(bufferD_prev(SIZE(bufferD)))
+               END IF
+               tmpDP => bufferD_prev
+               bufferD_prev => bufferD
+               bufferD => tmpDP
+            END IF
+            IF (ASSOCIATED(bufferS)) THEN
+               IF (SIZE(bufferS) /= SIZE(bufferS_prev)) THEN
+                  DEALLOCATE(bufferS_prev)
+                  ALLOCATE(bufferS_prev(SIZE(bufferS)))
+               END IF
+               tmpSP => bufferS_prev
+               bufferS_prev => bufferS
+               bufferS => tmpSP
+            END IF
+            ! now the rest of the data
+            jg_prev = jg
+            level_prev = level
+            tile_prev = tile
+            datatype_prev = datatype
+            packedMessage_prev = packedMessage
+            IF (LEN(variableName_prev) /= LEN(variableName)) THEN
+               DEALLOCATE(variableName_prev)
+               ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
+            END IF
+            variableName_prev = variableName
+        END SELECT
+#else
+          CALL finish(routine, "Setting 'use_omp_input = .TRUE.' requires OpenMP")
+#endif
+    END SUBROUTINE InputContainer_readField_omp
+
 
     SUBROUTINE InputContainer_readField(me, variableName, level, tile, timer, jg, iterator, statistics)
         CLASS(t_InputContainer), INTENT(INOUT) :: me

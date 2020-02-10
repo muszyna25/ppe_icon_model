@@ -482,6 +482,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           !
 
           ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
+!$NEC ivdep
           DO ic=1, ext_data%atm%list_seawtr%ncount(jb)
             jc = ext_data%atm%list_seawtr%idx(ic,jb)
             IF (lseaice) THEN
@@ -805,7 +806,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       ! Initialize cloud droplet number concentration (acdnc)
       ! like in mo_echam_phy_init.f90
       DO jk = 1,nlev
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
         DO jc = i_startidx, i_endidx
           zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
           zprat=(MIN(8._wp,80000._wp/zpres))**2
@@ -825,15 +825,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             zcdnc=zn2*1.e6_wp
           ENDIF
           prm_diag%acdnc(jc,jk,jb) = zcdnc
-          IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+        END DO !jc
+      END DO   !jk
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+        DO jk = 1,nlev
+          DO jc = i_startidx, i_endidx
             !--- computation of reference pressure field from the reference exner field
             zrefpres(jc,jk,jb) = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
             ! here we choose to use temp to compute sfc pres instead of tempv
             zreftemp(jc,jk,jb) = p_metrics%theta_ref_mc(jc,jk,jb)*p_metrics%exner_ref_mc(jc,jk,jb)
-
-          END IF
-        END DO !jc
-      END DO   !jk
+          END DO !jc
+        END DO   !jk
+      END IF
       IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
         ! a ref press field needs to be computed for testcases with a
         ! constant ozone.  the reference field allows the ozone to be
@@ -1144,11 +1147,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         ! height above ground
         hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
 
-        IF (hag < h850_standard) THEN
-          prm_diag%k850(jc,jb) = jk
-        ENDIF
         IF (hag < h950_standard) THEN
           prm_diag%k950(jc,jb) = jk
+        ENDIF
+        IF (hag < h850_standard) THEN
+          prm_diag%k850(jc,jb) = jk
+        ELSE
+          EXIT
         ENDIF
       ENDDO
       ! security measure
@@ -1243,7 +1248,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           gz0(:) = 0._wp
 
           DO jt = 1, ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, ext_data%atm%list_land%ncount(jb)
               jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
@@ -1253,20 +1258,21 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             ENDDO
           ENDDO
           IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN
+!$NEC ivdep
             DO ic = 1, ext_data%atm%list_land%ncount(jb)
               jc = ext_data%atm%list_land%idx(ic,jb)
               gz0(jc) = gz0(jc) + grav*MIN(fact_z0rough*ext_data%atm%sso_stdh_raw(jc,jb)**2,7.5_wp)
             ENDDO
           ENDIF
           DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, ext_data%atm%list_land%ncount(jb)
               jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
               gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
             ENDDO
           ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, ext_data%atm%list_land%ncount(jb)
             jc = ext_data%atm%list_land%idx(ic,jb)
             prm_diag%gz0(jc,jb) = gz0(jc)

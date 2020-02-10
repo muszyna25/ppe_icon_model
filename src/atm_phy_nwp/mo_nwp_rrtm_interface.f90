@@ -156,7 +156,7 @@ CONTAINS
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1
 
-    IF (timers_level > 3) CALL timer_start(timer_preradiaton)
+    IF (timers_level > 6) CALL timer_start(timer_preradiaton)
 
     !-------------------------------------------------------------------------
     !> Radiation setup
@@ -442,7 +442,7 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    IF (timers_level > 3) CALL timer_stop(timer_preradiaton)
+    IF (timers_level > 6) CALL timer_stop(timer_preradiaton)
 
   END SUBROUTINE nwp_ozon_aerosol
   !---------------------------------------------------------------------------------------
@@ -546,11 +546,6 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                         i_startidx, i_endidx, rl_start, rl_end)
 
-
-
-      ! It may happen that an MPI patch contains only nest boundary points
-      ! In this case, no action is needed
-      IF (i_startidx > i_endidx) CYCLE
 
 
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
@@ -1070,14 +1065,10 @@ CONTAINS
           &                         i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ! It may happen that an MPI patch contains only nest boundary points
-        ! In this case, no action is needed
-        IF (i_startidx > i_endidx) CYCLE
-
         ! Unfortunately, the coding of SR radiation is not compatible with the presence
         ! of nested domains. Therefore, the normally unused elements of the first block
         ! need to be filled with dummy values
-        IF ( (jg > 1 .OR. l_limited_area) .AND. jb == i_startblk) THEN
+        IF ( (jg > 1 .OR. l_limited_area) .AND. jb == i_startblk .AND. i_endidx >= i_startidx) THEN
           zrg_fr_land   (1:i_startidx-1,jb) = zrg_fr_land   (i_startidx,jb)
           zrg_fr_glac   (1:i_startidx-1,jb) = zrg_fr_glac   (i_startidx,jb)
           zrg_emis_rad  (1:i_startidx-1,jb) = zrg_emis_rad  (i_startidx,jb)

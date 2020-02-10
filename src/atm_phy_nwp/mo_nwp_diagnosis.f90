@@ -847,11 +847,10 @@ CONTAINS
             prm_diag%clcl(jc,jb) = 0.0_wp 
           ENDDO
 
-          ! total cloud cover
 !PREVENT_INCONSISTENT_IFORT_FMA
           DO jk = kstart_moist+1, nlev
 !DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
+            DO jc = i_startidx, i_endidx   ! total cloud cover
               ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clct(jc,jb) )
               ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clct(jc,jb) - &
                        & ( prm_diag%clc(jc,jk,jb) * prm_diag%clct(jc,jb) )
@@ -859,36 +858,28 @@ CONTAINS
                              prm_diag%clc(jc,jk-1,jb)/MAX(eps_clc,prm_diag%clc(jc,jk,jb)) )
               prm_diag%clct(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
-          ENDDO
 
-          ! high cloud cover
-          DO jc = i_startidx, i_endidx
-            DO jk = kstart_moist+1, prm_diag%k400(jc,jb)-1
-              ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clch(jc,jb) )
-              ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clch(jc,jb) - &
-                       & ( prm_diag%clc(jc,jk,jb) * prm_diag%clch(jc,jb) )
-              prm_diag%clch(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
+            DO jc = i_startidx, i_endidx
+              IF (jk <= prm_diag%k400(jc,jb)-1) THEN    ! high cloud cover
+                ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clch(jc,jb) )
+                ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clch(jc,jb) - &
+                         & ( prm_diag%clc(jc,jk,jb) * prm_diag%clch(jc,jb) )
+                prm_diag%clch(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
+              
+              ELSE IF (jk <= prm_diag%k800(jc,jb)-1) THEN  ! midlevel cloud cover
+                ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clcm(jc,jb) )
+                ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clcm(jc,jb) - &
+                         & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcm(jc,jb) )
+                prm_diag%clcm(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
+              
+              ELSE  ! low cloud cover
+                ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clcl(jc,jb) )
+                ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clcl(jc,jb) - &
+                         & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcl(jc,jb) )
+                prm_diag%clcl(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
+              ENDIF
             ENDDO
-          ENDDO
 
-          ! middle cloud cover
-          DO jc = i_startidx, i_endidx
-            DO jk = prm_diag%k400(jc,jb), prm_diag%k800(jc,jb)-1
-              ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clcm(jc,jb) )
-              ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clcm(jc,jb) - &
-                       & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcm(jc,jb) )
-              prm_diag%clcm(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
-            ENDDO
-          ENDDO
-
-          ! low cloud cover
-          DO jc = i_startidx, i_endidx
-            DO jk = prm_diag%k800(jc,jb), nlev
-              ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clcl(jc,jb) )
-              ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clcl(jc,jb) - &
-                       & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcl(jc,jb) )
-              prm_diag%clcl(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
-            ENDDO
           ENDDO
 
           ! calibration of layer-wise cloud cover fields

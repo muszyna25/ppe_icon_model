@@ -137,6 +137,9 @@ MODULE mo_math_utilities
 !   PUBLIC :: sphere_cell_mean_char_length
   PUBLIC :: ccw
   PUBLIC :: line_intersect
+#ifdef __SX__
+  PUBLIC :: line_intersect_s
+#endif
   PUBLIC :: lintersect
   PUBLIC :: tdma_solver
   PUBLIC :: tdma_solver_vec
@@ -2367,6 +2370,33 @@ CONTAINS
     intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
 
   END FUNCTION line_intersect
+
+#ifdef __SX__
+!NEC_RP: Use subroutine as workaround because of compiler problem
+
+  SUBROUTINE line_intersect_s( line1, line2, intersect)
+
+    TYPE(t_line), INTENT(in)  :: line1
+    TYPE(t_line), INTENT(in)  :: line2
+    REAL(wp),     INTENT(out) :: intersect(2)    ! coordinates of intersection point
+
+    REAL(wp) :: m1, m2          !< slopes
+
+    !-----------------------------------------------------------------------
+
+    ! determine slopes of the two lines
+    m1 = (line1%p2%lat - line1%p1%lat)/(line1%p2%lon - line1%p1%lon)
+    m2 = (line2%p2%lat - line2%p1%lat)/(line2%p2%lon - line2%p1%lon)
+
+    intersect(1) = (line2%p1%lat - line1%p1%lat + m1*line1%p1%lon - m2*line2%p1%lon) &
+      & / (m1 - m2)
+
+    intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
+
+  END SUBROUTINE line_intersect_s
+
+#endif
+
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

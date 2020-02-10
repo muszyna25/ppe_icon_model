@@ -128,6 +128,7 @@ CONTAINS
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)
@@ -181,6 +182,7 @@ CONTAINS
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)
@@ -235,6 +237,7 @@ CONTAINS
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)
@@ -288,6 +291,7 @@ CONTAINS
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
+!$NEC ivdep
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
                 idx = idx_no(i)

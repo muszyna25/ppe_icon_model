@@ -70,7 +70,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method, &
     &                                    ldeepatmo
   USE mo_io_config,                ONLY: is_totint_time, n_diag
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc, proc0_shift
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart, ldass_lhn
@@ -125,8 +125,8 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm,      &
-    &                                    p_comm_work, my_process_is_mpi_workroot
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, &
+    &                                    p_comm_work, my_process_is_mpi_workroot, p_pe, p_io
   USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP, &
     &                                    getElapsedSimTimeInSeconds
 
@@ -294,7 +294,7 @@ MODULE mo_nh_stepping
 !!$  INTEGER omp_get_max_active_levels
 !-----------------------------------------------------------------------
 
-  IF (timers_level > 3) CALL timer_start(timer_model_init)
+  IF (timers_level > 1) CALL timer_start(timer_model_init)
 
 #if defined(MESSY) && defined(_OPENACC)
    CALL finish (routine, 'MESSY:  OpenACC version currently not implemented')
@@ -555,7 +555,7 @@ MODULE mo_nh_stepping
 
   END IF ! not isRestart()
 
-  IF (timers_level > 3) CALL timer_stop(timer_model_init)
+  IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
   CALL perform_nh_timeloop (mtime_current, latbc)
 
@@ -623,7 +623,8 @@ MODULE mo_nh_stepping
   
   REAL(wp)                             :: sim_time     !< elapsed simulation time
 
-  LOGICAL :: l_isStartdate, l_isExpStopdate, l_isRestart, l_isCheckpoint, l_doWriteRestart
+  LOGICAL :: l_isStartdate, l_isExpStopdate, l_isRestart, l_isCheckpoint, l_doWriteRestart, &
+             lcalc_lpimax, lcalc_tcondmax, lcalc_tcond10max, lcalc_uhmax, lcalc_vctmax, lcalc_wctmax
 
   REAL(wp), ALLOCATABLE :: elapsedTime(:)  ! time elapsed since last call of 
                                            ! NWP physics routines. For restart purposes.
@@ -684,6 +685,13 @@ MODULE mo_nh_stepping
       CALL print_var_list(var_lists(i), lshort=(msg_level < 20))
     ENDDO
   ENDIF
+
+  lcalc_lpimax     = is_variable_in_output( first_output_name_list, var_name="lpi_max")
+  lcalc_tcondmax   = is_variable_in_output( first_output_name_list, var_name="tcond_max")
+  lcalc_tcond10max = is_variable_in_output( first_output_name_list, var_name="tcond10_max")
+  lcalc_uhmax      = is_variable_in_output( first_output_name_list, var_name="uh_max")
+  lcalc_vctmax     = is_variable_in_output( first_output_name_list, var_name="vorw_ctmax")
+  lcalc_wctmax     = is_variable_in_output( first_output_name_list, var_name="w_ctmax")
 
   ! Check if current number of dynamics substeps is larger than the default value
   ! (this can happen for restarted runs only at this point)
@@ -1163,9 +1171,9 @@ MODULE mo_nh_stepping
 
     ENDIF
 
-    IF ( is_variable_in_output( first_output_name_list, var_name="lpi_max") ) THEN
+    IF ( lcalc_lpimax ) THEN
       ! output of LPI_MAX is required
-      IF ( isCurrentEventActive( lpiMaxEvent, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+      IF ( is_event_active( lpiMaxEvent, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
         DO jg = 1, n_dom
           IF ( jg >= n_dom_start+1 ) THEN
             ! p_patch_local_parent(jg) seems to exist
@@ -1181,23 +1189,21 @@ MODULE mo_nh_stepping
     END IF
 
 
-    IF ( ( is_variable_in_output( first_output_name_list, var_name="tcond_max") ) .OR.      &
-         ( is_variable_in_output( first_output_name_list, var_name="tcond10_max") ) ) THEN
+    IF ( lcalc_tcondmax  .OR. lcalc_tcond10max ) THEN
       ! output of TCOND_MAX (total column-integrated condensate, max. during the last hour) is required
-      IF ( isCurrentEventActive( tcond_max_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+      IF ( is_event_active( tcond_max_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
         DO jg = 1, n_dom
           CALL compute_field_tcond_max( p_patch(jg), jg,     &
             &                      p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,  &
-            &                      is_variable_in_output( first_output_name_list, var_name="tcond_max" ),       &
-            &                      is_variable_in_output( first_output_name_list, var_name="tcond10_max"),      &
+            &                      lcalc_tcondmax, lcalc_tcond10max,                                            &
             &                      prm_diag(jg)%tcond_max(:,:), prm_diag(jg)%tcond10_max(:,:)  )
         END DO
       END IF
     END IF
 
-    IF ( is_variable_in_output( first_output_name_list, var_name="uh_max") ) THEN
+    IF ( lcalc_uhmax ) THEN
       ! output of UH_MAX (updraft helicity, max.  during the last hour) is required
-      IF ( isCurrentEventActive( uh_max_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+      IF ( is_event_active( uh_max_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
         DO jg = 1, n_dom
           CALL compute_field_uh_max( p_patch(jg),          &
             &                      p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,  &
@@ -1206,9 +1212,9 @@ MODULE mo_nh_stepping
       END IF
     END IF
 
-    IF ( is_variable_in_output( first_output_name_list, var_name="vorw_ctmax") ) THEN
+    IF ( lcalc_vctmax ) THEN
       ! output of VORW_CTMAX (Maximum rotation amplitude during the last hour) is required
-      IF ( isCurrentEventActive( vorw_ctmax_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+      IF ( is_event_active( vorw_ctmax_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
         DO jg = 1, n_dom
           CALL compute_field_vorw_ctmax( p_patch(jg),                            &
             &                      p_nh_state(jg)%metrics, p_nh_state(jg)%diag,  &
@@ -1217,9 +1223,9 @@ MODULE mo_nh_stepping
       END IF
     END IF
 
-    IF ( is_variable_in_output( first_output_name_list, var_name="w_ctmax") ) THEN
+    IF ( lcalc_wctmax ) THEN
       ! output of W_CTMAX (Maximum updraft track during the last hour) is required
-      IF ( isCurrentEventActive( w_ctmax_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
+      IF ( is_event_active( w_ctmax_Event, mtime_current, plus_slack=time_config%tc_dt_model) ) THEN
         DO jg = 1, n_dom
           CALL compute_field_w_ctmax( p_patch(jg),     &
             &                      p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)),  &
@@ -1345,8 +1351,8 @@ MODULE mo_nh_stepping
 
       l_isStartdate    = (time_config%tc_startdate == mtime_current)
       l_isExpStopdate  = (time_config%tc_exp_stopdate == mtime_current)
-      l_isRestart      = isCurrentEventActive(restartEvent, mtime_current)
-      l_isCheckpoint   = isCurrentEventActive(checkpointEvent, mtime_current)
+      l_isRestart      = is_event_active(restartEvent, mtime_current)
+      l_isCheckpoint   = is_event_active(checkpointEvent, mtime_current)
       l_doWriteRestart = time_config%tc_write_restart
 
       IF ( &
@@ -2256,7 +2262,7 @@ MODULE mo_nh_stepping
           jgc = p_patch(jg)%child_id(jn)
           IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-          IF(p_patch(jgc)%n_patch_cells > 0) THEN
+          IF(p_patch(jgc)%n_patch_cells > 0 .OR. p_pe < proc0_shift) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
             CALL integrate_nh( datetime_local, jgc, nstep_global, iau_iter, &
@@ -2774,7 +2780,7 @@ MODULE mo_nh_stepping
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        IF(p_patch(jgc)%n_patch_cells > 0) THEN
+        IF(p_patch(jgc)%n_patch_cells > 0 .OR. p_pe < proc0_shift) THEN
           IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
           CALL init_slowphysics( mtime_current, jgc, dt_sub )
           IF(proc_split) CALL pop_glob_comm()
@@ -2816,7 +2822,8 @@ MODULE mo_nh_stepping
 
     DO jg = 1, n_dom
 
-      IF(p_patch(jg)%n_patch_cells == 0) CYCLE
+      ! GZ: executing the diag call for PEs without grid points is needed to avoid timer inconsistencies
+      IF(p_patch(jg)%n_patch_cells == 0 .AND. p_pe >= proc0_shift) CYCLE
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       nlev = p_patch(jg)%nlev
@@ -3334,6 +3341,32 @@ MODULE mo_nh_stepping
 
   END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------
+
+  ! Wrapper for mtime function isCurrentEventActive in order to encapsulate the vector-host offloading
+  ! needed on the NEC Aurora
+  !
+  LOGICAL FUNCTION is_event_active (in_event, mtime_current, plus_slack)
+
+    TYPE(event), POINTER,    INTENT(INOUT)         :: in_event       !< mtime event to be checked
+    TYPE(datetime), POINTER, INTENT(IN)            :: mtime_current  !< current_datetime
+    TYPE(timedelta), POINTER, INTENT(IN), OPTIONAL :: plus_slack
+
+    LOGICAL :: is_active
+  !-----------------------------------------------------------------
+
+    ! If PE0 is detached, execute isCurrentEventActive only on PE0 and broadcast result afterwards
+    IF (proc0_shift == 0 .OR. p_pe == p_io) THEN
+      IF (PRESENT(plus_slack)) THEN
+        is_active = isCurrentEventActive(in_event, mtime_current, plus_slack=plus_slack)
+      ELSE
+        is_active = isCurrentEventActive(in_event, mtime_current)
+      ENDIF
+    ENDIF
+    IF (proc0_shift > 0) CALL p_bcast(is_active, p_io, p_comm_work)
+
+    is_event_active = is_active
+
+  END FUNCTION is_event_active
 
 END MODULE mo_nh_stepping
 

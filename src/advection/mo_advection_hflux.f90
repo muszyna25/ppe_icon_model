@@ -907,7 +907,6 @@ CONTAINS
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=6
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
@@ -1232,7 +1231,7 @@ CONTAINS
 
       IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(8)
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE(ilc0,ibc0) COLLAPSE(2)
         DO jk = slev, elev
@@ -1254,7 +1253,7 @@ CONTAINS
 
       ELSE IF (use_zlsq) THEN
 
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(8)
 !$ACC PARALLEL DEFAULT(NONE) PRIVATE(ilc0,ibc0) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
@@ -1277,7 +1276,7 @@ CONTAINS
 
       ELSE
 
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(8)
 !$ACC PARALLEL DEFAULT(NONE) PRIVATE(ilc0,ibc0) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
         DO jk = slev, elev
@@ -1641,7 +1640,7 @@ CONTAINS
         IF (use_zlsq) THEN
 !$ACC PARALLEL DEFAULT(PRESENT) IF ( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(8)
           DO jk = slev, elev
 
             DO je = i_startidx, i_endidx
@@ -1661,7 +1660,7 @@ CONTAINS
         ELSE
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR PRIVATE( ilc0, ibc0 ) COLLAPSE(2)
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(8)
           DO jk = slev, elev
 
             DO je = i_startidx, i_endidx
@@ -1736,7 +1735,7 @@ CONTAINS
             DO jc = i_startidx, i_endidx
               DO jk = slev, elev
 #else
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(8)
             DO jk = slev, elev
               DO jc = i_startidx, i_endidx
 #endif
@@ -1758,7 +1757,7 @@ CONTAINS
           DO jc = i_startidx, i_endidx
             DO jk = slev, elev
 #else
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(8)
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
 #endif
@@ -1837,7 +1836,6 @@ CONTAINS
         IF (p_ncycl == 2) THEN
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=5
           DO jk = slev, elev
             DO je = i_startidx, i_endidx
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:2))/REAL(p_ncycl,wp)
@@ -1847,7 +1845,6 @@ CONTAINS
         ELSE IF (p_ncycl == 3) THEN
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=5
           DO jk = slev, elev
             DO je = i_startidx, i_endidx
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:3))/REAL(p_ncycl,wp)
@@ -2254,11 +2251,10 @@ CONTAINS
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=4
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)
@@ -2271,11 +2267,10 @@ CONTAINS
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=5
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=8
+!$NEC unroll(8)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)
@@ -2288,11 +2283,10 @@ CONTAINS
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=4
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
             p_out_e(je,jk,jb) =                                                        &
               &  DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)
@@ -2317,11 +2311,10 @@ CONTAINS
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=4
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:6,jk,jb) ) / z_dreg_area(je,jk,jb)            &
@@ -2335,11 +2328,10 @@ CONTAINS
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=5
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=8
+!$NEC unroll(8)
             p_out_e(je,jk,jb) =                                                       &
               &  DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:8,jk,jb) ) / z_dreg_area(je,jk,jb)            &
@@ -2353,11 +2345,10 @@ CONTAINS
 
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=4
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
             p_out_e(je,jk,jb) =                                                        &
               &  DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:10,jk,jb) ) / z_dreg_area(je,jk,jb)            &
@@ -2874,11 +2865,10 @@ CONTAINS
       SELECT  CASE( lsq_high_ord )
       CASE( 1 )  ! linear reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:3,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:3,jk,jb) )                                     &
@@ -2894,11 +2884,10 @@ CONTAINS
 
       CASE( 2 )  ! quadratic reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:6,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:6,jk,jb) )                                     &
@@ -2917,7 +2906,7 @@ CONTAINS
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=8
+!$NEC unroll(8)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:8,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:8,jk,jb) )                                     &
@@ -2936,7 +2925,7 @@ CONTAINS
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
           p_out_e(je,jk,jb) =                                                            &
             &   ( DOT_PRODUCT(z_lsq_coeff(1:10,ptr_ilc0(je,jk,jb),jk,ptr_ibc0(je,jk,jb)),&
             &     z_quad_vector_sum0(je,1:10,jk,jb) )                                    &
@@ -3417,11 +3406,10 @@ CONTAINS
       SELECT  CASE( lsq_high_ord )
       CASE( 1 )  ! linear reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
           p_out_e(je,jk,jb) =                                                            &
             &     DOT_PRODUCT(z_lsq_coeff(1:3,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:3,jk,jb))
@@ -3429,13 +3417,13 @@ CONTAINS
       ENDDO
 
       ! Correction for points in index list
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
           &    + DOT_PRODUCT(z_lsq_coeff(1:3,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum1(ie,1:3,jb) )                                      &
@@ -3446,11 +3434,10 @@ CONTAINS
 
       CASE( 2 )  ! quadratic reconstruction
 
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
           p_out_e(je,jk,jb) =                                                            &
             &     DOT_PRODUCT(z_lsq_coeff(1:6,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)), &
             &     z_quad_vector_sum0(je,1:6,jk,jb))
@@ -3458,13 +3445,13 @@ CONTAINS
       ENDDO
 
       ! Correction for points in index list
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-!CDIR EXPAND=6
+!$NEC unroll(6)
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)                                            &
           &    + DOT_PRODUCT(z_lsq_coeff(1:6,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),  &
           &      z_quad_vector_sum1(ie,1:6,jb) )                                      &
@@ -3478,7 +3465,7 @@ CONTAINS
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
           p_out_e(je,jk,jb) =                                                            &
             &     DOT_PRODUCT(z_lsq_coeff(1:10,patch0_cell_idx(je,jk,jb),jk,patch0_cell_blk(je,jk,jb)),&
             &     z_quad_vector_sum0(je,1:10,jk,jb))
@@ -3486,13 +3473,13 @@ CONTAINS
       ENDDO
 
       ! Correction for points in index list
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
         jk = falist%elev(ie,jb)
 
-!CDIR EXPAND=10
+!$NEC unroll(10)
         p_out_e(je,jk,jb) = p_out_e(je,jk,jb)  &
           &    + DOT_PRODUCT(z_lsq_coeff(1:10,patch1_cell_idx(ie,jb),jk,patch1_cell_blk(ie,jb)),&
           &      z_quad_vector_sum1(ie,1:10,jb) )                                    &
@@ -3503,7 +3490,6 @@ CONTAINS
       END SELECT
 
       ! Finally compute total flux
-!CDIR UNROLL=5
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
           p_out_e(je,jk,jb) = p_mass_flx_e(je,jk,jb) * p_out_e(je,jk,jb) / z_dreg_area(je,jk,jb)

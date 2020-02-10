@@ -358,7 +358,11 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
     IF (use_async_name_list_io .AND. my_process_is_work()) THEN
       !-- compute PEs (senders):
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
+#else
       CALL compute_final_wait_for_async_io
+#endif
       CALL compute_shutdown_async_io()
 
     ELSE IF (.NOT. my_process_is_mpi_test()) THEN
@@ -2718,8 +2722,15 @@ CONTAINS
       &                               dst_start, dst_end, src_start, src_end
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER                        :: voff(0:num_work_procs-1), nv_off_np(0:num_work_procs)
+#ifndef __COMM_OPT__
     REAL(sp), ALLOCATABLE          :: var1_sp(:), var3_sp(:)
     REAL(dp), ALLOCATABLE          :: var1_dp(:), var3_dp(:)
+#else
+    REAL(sp), ALLOCATABLE          :: var1_sp(:,:), var3_sp(:)
+    REAL(dp), ALLOCATABLE          :: var1_dp(:,:), var3_dp(:)
+    INTEGER                        :: nval_alloc
+    INTEGER, ALLOCATABLE           :: nv_off_ch(:)
+#endif
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_var_metadata)          :: updated_info
     TYPE(t_reorder_info) , POINTER :: p_ri
@@ -2794,12 +2805,17 @@ CONTAINS
       io_proc_chunk_size = MIN(nlev_max, io_proc_chunk_size)
     END IF
 
+#ifndef __COMM_OPT__
     IF (use_dp_mpi2io) THEN
       ALLOCATE(var1_dp(nval*io_proc_chunk_size), STAT=ierrstat)
     ELSE
       ALLOCATE(var1_sp(nval*io_proc_chunk_size), STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+#else
+    !NEC_RP: allocate var1 later as 2D-array
+    nval_alloc = nval
+#endif
 
     ! retrieve info object from PE#0 (via a separate MPI memory
     ! window)
@@ -2807,10 +2823,10 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
-    CALL MPI_Get(bufr_metainfo, SIZE(bufr_metainfo), p_int, 0, &
-      &          0_MPI_ADDRESS_KIND, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
-    CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
 
+    CALL MPI_Get(bufr_metainfo, SIZE(bufr_metainfo), p_int, 0, &
+      &      0_MPI_ADDRESS_KIND, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
+    CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
     ! Go over all name list variables for this output file
 
     ioff(:) = 0_MPI_ADDRESS_KIND
@@ -2904,6 +2920,17 @@ CONTAINS
 
       t_0 = p_mpi_wtime() ! performance measurement
       have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+#ifdef __COMM_OPT__
+      !NEC_RP: promote var1 to 2D-array
+      nchunks = (nlevs-1)/io_proc_chunk_size + 1
+      ALLOCATE(nv_off_ch(nchunks))
+      IF (use_dp_mpi2io) THEN
+        ALLOCATE(var1_dp(nval_alloc*io_proc_chunk_size,nchunks), STAT=ierrstat)
+      ELSE
+        ALLOCATE(var1_sp(nval_alloc*io_proc_chunk_size,nchunks), STAT=ierrstat)
+      ENDIF
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+#endif
       IF (use_dp_mpi2io .OR. have_GRIB) THEN
         ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
       ELSE
@@ -2912,8 +2939,20 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
 
+#ifndef __COMM_OPT__
       ! no. of chunks of levels (each of size "io_proc_chunk_size"):
       nchunks = (nlevs-1)/io_proc_chunk_size + 1
+#else
+      !NEC_RP: exchange loop
+      nv_off_ch = 0
+      DO np = 0, num_work_procs-1
+
+        !NEC_RP: lock window for each process only once for all chunks
+        t_0 = p_mpi_wtime()
+        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
+          &               of%mem_win%mpi_win, mpierr)
+        t_get  = t_get  + p_mpi_wtime() - t_0
+#endif
       ! loop over all chunks (of levels)
       DO ichunk=1,nchunks
 
@@ -2921,6 +2960,7 @@ CONTAINS
         chunk_end         = MIN(chunk_start+io_proc_chunk_size-1, nlevs)
         this_chunk_nlevs  = (chunk_end - chunk_start + 1)
 
+#ifndef __COMM_OPT__
         ! Retrieve part of variable from every worker PE using MPI_Get
         nv_off  = 0
 #ifdef __MPI3_OSC
@@ -2931,7 +2971,7 @@ CONTAINS
         ENDIF
 #endif
         DO np = 0, num_work_procs-1
-
+#endif
           IF(p_ri%pe_own(np) == 0) CYCLE
 
           ! Number of words to transfer
@@ -2941,18 +2981,32 @@ CONTAINS
           IF (.NOT.have_LOCKALL) THEN
 #endif
             t_0 = p_mpi_wtime()
+#ifndef __COMM_OPT__
             CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
               &               of%mem_win%mpi_win, mpierr)
+#endif
 
-            IF (use_dp_mpi2io) THEN
-              CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-                &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
-            ELSE
-              CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-                &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
-            ENDIF
+          IF (use_dp_mpi2io) THEN
+#ifndef __COMM_OPT__
+            CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+              &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
+#else
+            CALL MPI_Get(var1_dp(nv_off_ch(ichunk)+1,ichunk), nval, p_real_dp, np, ioff(np), &
+              &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
+#endif
+          ELSE
+#ifndef __COMM_OPT__
+            CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+              &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
+#else
+            CALL MPI_Get(var1_sp(nv_off_ch(ichunk)+1,ichunk), nval, p_real_sp, np, ioff(np), &
+              &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
+#endif
+          ENDIF
 
+#ifndef __COMM_OPT__
             CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
+#endif
             t_get  = t_get  + p_mpi_wtime() - t_0
 #ifdef __MPI3_OSC
           ELSE
@@ -2982,7 +3036,11 @@ CONTAINS
           mb_get = mb_get + nval
 
           ! Update the offset in var1
+#ifndef __COMM_OPT__
           nv_off = nv_off + nval
+#else
+          nv_off_ch(ichunk) = nv_off_ch(ichunk) + nval
+#endif
 
           ! Update the offset in the memory window on compute PEs
           ioff(np) = ioff(np) + INT(nval,i8)
@@ -2993,6 +3051,21 @@ CONTAINS
           CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
           t_get  = t_get  + p_mpi_wtime() - t_0
         ENDIF
+#endif
+
+#ifdef __COMM_OPT__
+        !NEC_RP: unlock window for each process only once for all chunks
+        t_0 = p_mpi_wtime()
+        CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
+        t_get  = t_get  + p_mpi_wtime() - t_0
+
+      ENDDO ! loop over processes 
+
+      ! loop over all chunks (of levels)
+      DO ichunk=1,nchunks
+        chunk_start       = (ichunk-1)*io_proc_chunk_size + 1
+        chunk_end         = MIN(chunk_start+io_proc_chunk_size-1, nlevs)
+        this_chunk_nlevs  = (chunk_end - chunk_start + 1)
 #endif
 
         ! compute the total offset for each PE
@@ -3019,8 +3092,13 @@ CONTAINS
               src_start = voff(np)+1
               src_end   = voff(np)+p_ri%pe_own(np)
               voff(np)  = src_end
+#ifndef __COMM_OPT__
               var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
                 var1_dp(src_start:src_end)
+#else
+              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
+                var1_dp(src_start:src_end,ichunk)
+#endif
             ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -3039,8 +3117,13 @@ CONTAINS
                 src_start = voff(np)+1
                 src_end   = voff(np)+p_ri%pe_own(np)
                 voff(np)  = src_end
+#ifndef __COMM_OPT__
                 var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
                   REAL(var1_sp(src_start:src_end), dp)
+#else
+                var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
+                  REAL(var1_sp(src_start:src_end,ichunk), dp)
+#endif
               ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -3054,8 +3137,13 @@ CONTAINS
                 src_start = voff(np)+1
                 src_end   = voff(np)+p_ri%pe_own(np)
                 voff(np)  = src_end
+#ifndef __COMM_OPT__
                 var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
                   var1_sp(src_start:src_end)
+#else
+                var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
+                  var1_sp(src_start:src_end,ichunk)
+#endif
               ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -3078,6 +3166,16 @@ CONTAINS
 
       ENDDO ! chunk loop
 
+#ifdef __COMM_OPT__
+      DEALLOCATE(nv_off_ch)
+      IF (use_dp_mpi2io) THEN
+        DEALLOCATE(var1_dp, STAT=ierrstat)
+      ELSE
+        DEALLOCATE(var1_sp, STAT=ierrstat)
+      ENDIF
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+#endif
+
       IF (use_dp_mpi2io .OR. have_GRIB) THEN
         DEALLOCATE(var3_dp, STAT=ierrstat)
       ELSE
@@ -3092,13 +3190,14 @@ CONTAINS
       CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
     ENDIF
 #endif
+#ifndef __COMM_OPT__
     IF (use_dp_mpi2io) THEN
       DEALLOCATE(var1_dp, STAT=ierrstat)
     ELSE
       DEALLOCATE(var1_sp, STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
+#endif
     !
     !-- timing report
     !
@@ -3280,7 +3379,11 @@ CONTAINS
       OUTFILE_LOOP : DO i=1,SIZE(output_file)
         io_proc_id = output_file(i)%io_proc_id
         ! Skip this output file if it is not due for output!
+#if defined (__SX__) || defined (__NEC_VH__)
+        IF ((is_output_step(output_file(i)%out_event, jstep) .OR. jstep == WAIT_UNTIL_FINISHED) &
+#else
         IF (is_output_step(output_file(i)%out_event, jstep) &
+#endif
           & .AND. ALL(wait_list(1:nwait_list) /= io_proc_id)) THEN
           nwait_list = nwait_list + 1
           wait_list(nwait_list) = io_proc_id

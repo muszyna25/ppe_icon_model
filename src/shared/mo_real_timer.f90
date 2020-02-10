@@ -42,7 +42,7 @@ MODULE mo_real_timer
                                 p_pe, get_my_mpi_all_comm_size, &
                                 p_comm_size, p_n_work
 #endif
-  USE mo_parallel_config, ONLY: p_test_run
+  USE mo_parallel_config, ONLY: p_test_run, proc0_shift
 
   USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe, p_pe_work, &
@@ -968,7 +968,12 @@ CONTAINS
          tmr%rank_min(timer_top), tmr%rank_max(timer_top))
 !$omp parallel
 !$omp master
+  !NEC hybrid mode: set default values for minimum for process 0 to exclude it from statistics
+  IF (p_pe_work < proc0_shift) THEN
+    tmr%val_min    = huge(tmr%val_min) 
+  ELSE
     tmr%val_min    = rt(1:timer_top)%min
+  END IF
     tmr%val_max    = rt(1:timer_top)%max
     tmr%val_tot    = rt(1:timer_top)%tot
     tmr%val_call_n = REAL(MAX(1,rt(1:timer_top)%call_n), dp)
@@ -976,7 +981,12 @@ CONTAINS
 !$omp barrier
 !$omp sections
 !$omp section
+  !NEC hybrid mode: set default values for minimum for process 0 to exclude it from statistics
+  IF (p_pe_work < proc0_shift) THEN
+    tmr%val_tot_min = huge(tmr%val_tot_min)
+  ELSE
     tmr%val_tot_min = tmr%val_tot
+  ENDIF
 !$omp section
     tmr%val_tot_max = tmr%val_tot
 !$omp section

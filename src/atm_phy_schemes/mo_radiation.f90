@@ -80,11 +80,9 @@ MODULE mo_radiation
   USE mo_psrad_general,        ONLY: nbndsw, nmixture, ngas
   USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm, psrad_srtm_diags => srtm_diags
   USE mo_psrad_solar_parameters, ONLY: psctm
-  USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
-    &                                timer_radiation,                  &
-    &                                timer_rrtm_prep, timer_rrtm_post, &
-    &                                timer_lrtm, timer_srtm
-
+  USE mo_timer,                ONLY: timers_level, timer_start, timer_stop,  &
+    &                                timer_radiation, timer_rrtm_prep,       &
+    &                                timer_lrtm, timer_srtm, timer_rrtm_post
   USE mo_nh_testcases_nml,     ONLY: zenithang
   USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
@@ -680,7 +678,7 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: flx_sw_net,flx_lw_net_clr,flx_sw_net_clr
 #endif
 
-    IF (ltimer) CALL timer_start(timer_radiation)
+    IF (timers_level > 5) CALL timer_start(timer_radiation)
 
     !
     ! 1.1 p, T, q(vap,liq,ice) and clouds
@@ -822,7 +820,7 @@ CONTAINS
 
     lwflx_clr_sfc(1:jce)       = flx_lw_net_clr(1:jce,klevp1)
 
-    IF (ltimer) CALL timer_stop(timer_radiation)
+    IF (timers_level > 5) CALL timer_stop(timer_radiation)
 
   END SUBROUTINE radiation_nwp
 
@@ -1182,7 +1180,7 @@ CONTAINS
     ! 1.0 Constituent properties
     !--------------------------------
 
-    IF (ltimer) CALL timer_start(timer_rrtm_prep)
+    IF (timers_level > 7) CALL timer_start(timer_rrtm_prep)
 
     !
     ! --- control for infintesimal cloud fractions
@@ -1378,7 +1376,7 @@ CONTAINS
                    TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
 
-    IF (lrad_aero_diag) THEN
+    IF (lrad_aero_diag .AND. jce >= jcs) THEN
       CALL rad_aero_diag (                jg              , &
       & jb              ,1               ,jce             , &
       & kbdim           ,klev            ,jpband          , &
@@ -1386,13 +1384,13 @@ CONTAINS
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
     END IF
 
-    IF (irad == 1) THEN
+    IF (irad == 1 .AND. jce >= jcs) THEN
       CALL newcld_optics(                                                       &
         & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
         & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
         & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
         & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
-    ELSE
+    ELSE IF (jce >= jcs) THEN
       DO jl = 1,jce
         IF (zland(jl) >= 0.5_wp) THEN
           laland(jl) = .TRUE.
@@ -1413,13 +1411,13 @@ CONTAINS
          & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
     ENDIF
 
-    IF (ltimer) CALL timer_stop(timer_rrtm_prep)
+    IF (timers_level > 7) CALL timer_stop(timer_rrtm_prep)
 
     !
     ! 4.0 Radiative Transfer Routines
     ! --------------------------------
-    IF (ltimer) CALL timer_start(timer_lrtm)
-    IF (irad == 1) THEN
+    IF (timers_level > 7) CALL timer_start(timer_lrtm)
+    IF (irad == 1 .AND. jce >= jcs) THEN
       CALL lrtm(                                                                &
         !    input
         &    jce             ,klev                                             ,&
@@ -1428,7 +1426,7 @@ CONTAINS
         &    zsemiss         ,cld_frc_vr      ,cld_tau_lw_vr   ,aer_tau_lw_vr  ,&
         !    output
         &    flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr,flx_dnlw_clr_vr )
-    ELSE
+    ELSE IF (jce >= jcs) THEN
       ! Seeds for random numbers come from least significant digits of pressure field 
       !
       CALL psrad_precomputation(jce &
@@ -1451,11 +1449,10 @@ CONTAINS
            flx_uplw_vr     ,&     
            & flx_dnlw_vr     ,flx_uplw_clr_vr ,flx_dnlw_clr_vr )
     ENDIF
-    IF (ltimer) CALL timer_stop(timer_lrtm)
+    IF (timers_level > 7) CALL timer_stop(timer_lrtm)
 
-
-    IF (ltimer) CALL timer_start(timer_srtm)
-    IF (irad == 1) THEN
+    IF (timers_level > 7) CALL timer_start(timer_srtm)
+    IF (irad == 1 .AND. jce >= jcs) THEN
       CALL srtm_srtm_224gp(                                                     &
         !    input
         &    jce             ,kbdim           ,klev            ,jpsw           ,&
@@ -1474,7 +1471,7 @@ CONTAINS
         &    nir_dff_frc_sfc = nir_dff_frc_sfc,                                 &
         &    vis_dff_frc_sfc = vis_dff_frc_sfc,                                 &
         &    par_dff_frc_sfc = par_dff_frc_sfc                                  )
-    ELSE
+    ELSE IF (jce >= jcs) THEN
       ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
       !
       rnseeds(1:jce,1:rng_seed_size) = int((pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
@@ -1515,12 +1512,12 @@ CONTAINS
         ENDIF
       ENDDO
     ENDIF
-    IF (ltimer) CALL timer_stop(timer_srtm)
+    IF (timers_level > 7) CALL timer_stop(timer_srtm)
 
 
     ! 5.0 Post Processing
     ! --------------------------------
-    IF (ltimer) CALL timer_start(timer_rrtm_post)
+    IF (timers_level > 7) CALL timer_start(timer_rrtm_post)
 
     DO jk = 1, klev+1
       jkb = klev+2-jk
@@ -1568,7 +1565,7 @@ CONTAINS
     END IF
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
-    IF (ltimer) CALL timer_stop(timer_rrtm_post)
+    IF (timers_level > 7) CALL timer_stop(timer_rrtm_post)
 
   END SUBROUTINE rrtm_interface
 
