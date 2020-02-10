@@ -55,9 +55,7 @@ else
     poolFolder_prefix=""
 fi
 
-#GZ ./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.cfdc2654_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
-#RS./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.b37a11b5_icon-les/${BB_SYSTEM}_${BB_SLAVE}/
-./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.5195df08_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
+./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.491c4f44_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
 STATUS=$?
 
 check_final_status $STATUS "$EXPERIMENT"
