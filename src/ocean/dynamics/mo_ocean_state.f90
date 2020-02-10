@@ -329,6 +329,7 @@ CONTAINS
         ALLOCATE(checkpoint(i)%albnirdir(nproma,1,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%albnirdif(nproma,1,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%Wind_Speed_10m(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%CO2_Mixing_Ratio(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_Total(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_Shortwave(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_LongWave(nproma,alloc_cell_blocks),stat=status)

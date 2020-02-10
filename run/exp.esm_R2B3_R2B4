@@ -1212,9 +1212,9 @@ else
 lhamocc=".FALSE."
 lbgcadv=".FALSE."
 fi
-l_init_bgc=".true." # initialize HAMOCC (if HAMOCC state variables are not in restart)
-if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
-  l_init_bgc=".false."
+l_init_bgc=".false." # Hamocc state variables are in restart
+if [[ "$initialiseOcean" == "fromRestart" ]] || [[ "$initialiseOcean" == "fromClimatology" ]]; then
+  l_init_bgc=".true." # initialize HAMOCC (HAMOCC state variables are not in restart)
 fi
 # ----------------------------------------------------------------------------
 #
