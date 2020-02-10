@@ -138,7 +138,7 @@ PUBLIC           ! All constants and variables in this module are public
  
   REAL  (KIND=wp) , POINTER ::  csalb(:)
 
-  !$acc declare copyin(clgk0)
+  !$noacc declare copyin(clgk0)
 
   ! Initialization of soil type parameters except cdz1 
   ! (being calculated during execution)
@@ -939,42 +939,42 @@ SUBROUTINE terra_wkarr_alloc (ke_soil, ke_snow, nproma, istat)
             l_redist  (nproma)             , &  !
        STAT=istat)
 
-  !$acc enter data create(m_styp,ke_soil_hy_b)                      &
-  !$acc create(zicount1, zicount2)                                  &
-  !$acc create(h_snow_now, h_snow_new)                              &
-  !$acc create(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
-  !$acc create(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
-  !$acc create(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
-  !$acc create(zrr, zrs,zesoil, zsfc_frac_bs)                       &
-  !$acc create(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
-  !$acc create(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
-  !$acc create(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
-  !$acc create(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
-  !$acc create(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
-  !$acc create(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
-  !$acc create(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
-  !$acc create(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
-  !$acc create(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
-  !$acc create(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
-  !$acc create(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
-  !$acc create(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
-  !$acc create(zkw0, zkwm)                                          &
-  !$acc create(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
-  !$acc create(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
-  !$acc create(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
-  !$acc create(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
-  !$acc create(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
-  !$acc create(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
-  !$acc create(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
-  !$acc create(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
-  !$acc create(t_new, rho_new, wl_new, dz_old, z_old)               &
-  !$acc create(t_so_free_new, t_so_snow_new, sn_frac)               &
-  !$acc create(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
-  !$acc create(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
-  !$acc create(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
-  !$acc create(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
-  !$acc create(zaga, zagb, zagc, zagd, zage)                        &
-  !$acc create(limit_tch, lzurban, l_redist)
+  !$noacc enter data create(m_styp,ke_soil_hy_b)                      &
+  !$noacc create(zicount1, zicount2)                                  &
+  !$noacc create(h_snow_now, h_snow_new)                              &
+  !$noacc create(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
+  !$noacc create(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
+  !$noacc create(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
+  !$noacc create(zrr, zrs,zesoil, zsfc_frac_bs)                       &
+  !$noacc create(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
+  !$noacc create(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
+  !$noacc create(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
+  !$noacc create(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
+  !$noacc create(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
+  !$noacc create(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
+  !$noacc create(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
+  !$noacc create(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
+  !$noacc create(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
+  !$noacc create(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
+  !$noacc create(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
+  !$noacc create(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
+  !$noacc create(zkw0, zkwm)                                          &
+  !$noacc create(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
+  !$noacc create(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
+  !$noacc create(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
+  !$noacc create(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
+  !$noacc create(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
+  !$noacc create(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
+  !$noacc create(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
+  !$noacc create(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
+  !$noacc create(t_new, rho_new, wl_new, dz_old, z_old)               &
+  !$noacc create(t_so_free_new, t_so_snow_new, sn_frac)               &
+  !$noacc create(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
+  !$noacc create(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
+  !$noacc create(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
+  !$noacc create(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
+  !$noacc create(zaga, zagb, zagc, zagd, zage)                        &
+  !$noacc create(limit_tch, lzurban, l_redist)
 
 END SUBROUTINE terra_wkarr_alloc
 
@@ -987,42 +987,42 @@ SUBROUTINE terra_wkarr_dealloc (istat)
 
   istat = 0
 
-  !$acc exit data delete(m_styp,ke_soil_hy_b)                       &
-  !$acc delete(zicount1, zicount2)                                  &
-  !$acc delete(h_snow_now, h_snow_new)                              &
-  !$acc delete(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
-  !$acc delete(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
-  !$acc delete(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
-  !$acc delete(zrr, zrs,zesoil, zsfc_frac_bs)                       &
-  !$acc delete(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
-  !$acc delete(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
-  !$acc delete(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
-  !$acc delete(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
-  !$acc delete(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
-  !$acc delete(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
-  !$acc delete(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
-  !$acc delete(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
-  !$acc delete(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
-  !$acc delete(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
-  !$acc delete(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
-  !$acc delete(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
-  !$acc delete(zkw0, zkwm)                                          &
-  !$acc delete(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
-  !$acc delete(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
-  !$acc delete(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
-  !$acc delete(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
-  !$acc delete(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
-  !$acc delete(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
-  !$acc delete(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
-  !$acc delete(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
-  !$acc delete(t_new, rho_new, wl_new, dz_old, z_old)               &
-  !$acc delete(t_so_free_new, t_so_snow_new, sn_frac)               &
-  !$acc delete(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
-  !$acc delete(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
-  !$acc delete(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
-  !$acc delete(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
-  !$acc delete(zaga, zagb, zagc, zagd, zage)                        &
-  !$acc delete(limit_tch, lzurban, l_redist)
+  !$noacc exit data delete(m_styp,ke_soil_hy_b)                       &
+  !$noacc delete(zicount1, zicount2)                                  &
+  !$noacc delete(h_snow_now, h_snow_new)                              &
+  !$noacc delete(zdz_snow_fl, zhh_snow, zhm_snow, zdzh_snow)          &
+  !$noacc delete(zdzm_snow, zdtsnowdt_mult, zbwt, zrock, zsandf)      &
+  !$noacc delete(zclayf, zsiltf, zb_por, zpsis, zw_m)                 &
+  !$noacc delete(zrr, zrs,zesoil, zsfc_frac_bs)                       &
+  !$noacc delete(zw_m_org, zw_m_soil, zw_m_up, zw_m_low)              &
+  !$noacc delete(zrhoch, zth_low, zf_wi, ztmch, zep_s, zep_snow)      &
+  !$noacc delete(zverbo, zversn, zthsoi, zthsnw, zfor_s, zgsb)        &
+  !$noacc delete(zrnet_s, zsprs, zdwidt, zdwsndt, zdtsdt)             &
+  !$noacc delete(zdtsnowdt, zdwgdt, zwinstr, zinfmx, zwimax, zvers)   &
+  !$noacc delete(zwisnstr, zwpnstr, zfd_wi, zf_pd, zwisn, zwpn)       &
+  !$noacc delete(zewi, zepd, zept, zesn, zdrr, zrrs, zg1, zlhfl)      &
+  !$noacc delete(zshfl, zthfl, zradfl, ze_melt, zch_snow, zeb1)       &
+  !$noacc delete(ztchv, ztchv_max, zrho_atm, zdt_atm, zdq_atm)        &
+  !$noacc delete(zroota, zwrootdz, zwrootdz_int, zrootdz_int)         &
+  !$noacc delete(zqhfl_s, zqhfl_snow, zroc, zfcap, zadp, zporv)       &
+  !$noacc delete(zdlam, zdw, zdw1, zkw, zkw1, zik2, zpwp, ztlpmwp)    &
+  !$noacc delete(zkw0, zkwm)                                          &
+  !$noacc delete(zedb, ztrang, ztrangs, zwin, zwsnow, zwsnew, zdwsnm) &
+  !$noacc delete(zaa, zw_fr, zinfil, zlw_fr, ziw_fr, zwsnn, zflmg)    &
+  !$noacc delete(zrunoff_grav, zk0di, zbedi, zsnull, zs1, zf_rad)     &
+  !$noacc delete(ztraleav, zwroot, zropartw, zts, ztsk, ztsnow)       &
+  !$noacc delete(ztsnow_mult, zalamtmp, zalam, zrocg, zrocg_soil)     &
+  !$noacc delete(zrocs, ztsn, ztskn, ztsnown, ztsnown_mult, znlgw1f)  &
+  !$noacc delete(zqbase, zrefr, zmelt, ze_out, zrho_dry_old)          &
+  !$noacc delete(zp, zcounter, ze_rad, zswitch, tmp_num, sum_weight)  &
+  !$noacc delete(t_new, rho_new, wl_new, dz_old, z_old)               &
+  !$noacc delete(t_so_free_new, t_so_snow_new, sn_frac)               &
+  !$noacc delete(zf_snow_lim, zdz_snow, zalas_mult, ztsnownew_mult)   &
+  !$noacc delete(zextinct, zfor_snow_mult, hzalam, zdqvtsnow)         &
+  !$noacc delete(zrho_snow, zts_pm, ztsk_pm, ztfunc, ztsnow_pm, zeisa)&
+  !$noacc delete(zw_snow_old, zrho_snow_old, h_snow_fg, h_snow_incr)  &
+  !$noacc delete(zaga, zagb, zagc, zagd, zage)                        &
+  !$noacc delete(limit_tch, lzurban, l_redist)
 
   DEALLOCATE (                                                                  &
             m_styp         , zicount1       , zicount2       ,                  &

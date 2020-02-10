@@ -1348,36 +1348,36 @@ CONTAINS
     albedo_ice   = 0._wp
     albedo_snow  = albedo_ice     ! snow is not considered explicitly
 
-    !$acc data                                                                                          &
-    !$acc present(coriolispar,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,qmom,qsen,qlat)               &
-    !$acc present(qlwrnet,qsolnet,t_snow_p,h_snow_p,t_ice_p,h_ice_p,t_mnw_lk_p,t_wml_lk_p)              &
-    !$acc present(t_bot_lk_p,c_t_lk_p,h_ml_lk_p,t_b1_lk_p,h_b1_lk_p,t_scf_lk_p,t_snow_n,h_snow_n)       &
-    !$acc present(t_ice_n,h_ice_n,t_mnw_lk_n,t_wml_lk_n,t_bot_lk_n,c_t_lk_n,h_ml_lk_n,t_b1_lk_n)        &
-    !$acc present(h_b1_lk_n,t_scf_lk_n,opt_dtsnowdt,opt_dhsnowdt,opt_dticedt,opt_dhicedt,opt_dtmnwlkdt) &
-    !$acc present(opt_dtwmllkdt,opt_dtbotlkdt,opt_dctlkdt,opt_dhmllkdt,opt_dtb1lkdt,opt_dhb1lkdt)       &
-    !$acc present(opt_dtsfclkdt)                                                                        &
+    !$noacc data                                                                                          &
+    !$noacc present(coriolispar,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,qmom,qsen,qlat)               &
+    !$noacc present(qlwrnet,qsolnet,t_snow_p,h_snow_p,t_ice_p,h_ice_p,t_mnw_lk_p,t_wml_lk_p)              &
+    !$noacc present(t_bot_lk_p,c_t_lk_p,h_ml_lk_p,t_b1_lk_p,h_b1_lk_p,t_scf_lk_p,t_snow_n,h_snow_n)       &
+    !$noacc present(t_ice_n,h_ice_n,t_mnw_lk_n,t_wml_lk_n,t_bot_lk_n,c_t_lk_n,h_ml_lk_n,t_b1_lk_n)        &
+    !$noacc present(h_b1_lk_n,t_scf_lk_n,opt_dtsnowdt,opt_dhsnowdt,opt_dticedt,opt_dhicedt,opt_dtmnwlkdt) &
+    !$noacc present(opt_dtwmllkdt,opt_dtbotlkdt,opt_dctlkdt,opt_dhmllkdt,opt_dtb1lkdt,opt_dhb1lkdt)       &
+    !$noacc present(opt_dtsfclkdt)                                                                        &
     !Local arrays                                                                                       !
-    !$acc create(dtsnowdt,dhsnowdt,dticedt,dhicedt,dtmnwlkdt,dtwmllkdt,dtbotlkdt)                       &
-    !$acc create(dctlkdt,dhmllkdt,dtb1lkdt,dhb1lkdt,dtsfclkdt)                                          &
-    !$acc copyin(opticpar_water, opticpar_ice, opticpar_snow, del_time,izdebug)
+    !$noacc create(dtsnowdt,dhsnowdt,dticedt,dhicedt,dtmnwlkdt,dtwmllkdt,dtbotlkdt)                       &
+    !$noacc create(dctlkdt,dhmllkdt,dtb1lkdt,dhb1lkdt,dtsfclkdt)                                          &
+    !$noacc copyin(opticpar_water, opticpar_ice, opticpar_snow, del_time,izdebug)
 
 
     !-----------------------------------------------------------------------------------------------
     !  DO loop over grid boxes with lakes
     !-----------------------------------------------------------------------------------------------
  
-    !$acc parallel
-    !$acc loop gang vector              &
-    !$acc private (I_snow_flk, I_bot_flk, I_ice_flk, I_w_flk, I_h_flk)  &
-    !$acc private (I_intm_0_h_flk, I_intm_h_D_flk, T_snow_n_flk, T_ice_n_flk)     &
-    !$acc private (T_mnw_n_flk, T_wML_n_flk, T_B1_n_flk, T_bot_n_flk, C_T_n_flk)  &
-    !$acc private (h_snow_n_flk, h_ice_n_flk, h_ML_n_flk, h_B1_n_flk, T_sfc_n)    &
-    !$acc private (Q_star_flk, w_star_sfc_flk, Q_bot_flk, H_B1_p_flk, q_ice_flk)  &
-    !$acc private (q_snow_flk, u_star_w_flk)                                      &
-    !$acc private (dmsnowdt_flk,t_sfc_p,h_ml_p_flk, h_ice_p_flk, h_snow_p_flk)    &
-    !$acc private (c_t_p_flk,t_b1_p_flk,t_bot_p_flk,t_wml_p_flk,t_mnw_p_flk)      &
-    !$acc private (t_ice_p_flk, t_snow_p_flk,par_coriolis,t_bs,depth_bs,depth_w)  &
-    !$acc private (q_w_flk)
+    !$noacc parallel
+    !$noacc loop gang vector              &
+    !$noacc private (I_snow_flk, I_bot_flk, I_ice_flk, I_w_flk, I_h_flk)  &
+    !$noacc private (I_intm_0_h_flk, I_intm_h_D_flk, T_snow_n_flk, T_ice_n_flk)     &
+    !$noacc private (T_mnw_n_flk, T_wML_n_flk, T_B1_n_flk, T_bot_n_flk, C_T_n_flk)  &
+    !$noacc private (h_snow_n_flk, h_ice_n_flk, h_ML_n_flk, h_B1_n_flk, T_sfc_n)    &
+    !$noacc private (Q_star_flk, w_star_sfc_flk, Q_bot_flk, H_B1_p_flk, q_ice_flk)  &
+    !$noacc private (q_snow_flk, u_star_w_flk)                                      &
+    !$noacc private (dmsnowdt_flk,t_sfc_p,h_ml_p_flk, h_ice_p_flk, h_snow_p_flk)    &
+    !$noacc private (c_t_p_flk,t_b1_p_flk,t_bot_p_flk,t_wml_p_flk,t_mnw_p_flk)      &
+    !$noacc private (t_ice_p_flk, t_snow_p_flk,par_coriolis,t_bs,depth_bs,depth_w)  &
+    !$noacc private (q_w_flk)
 
     GridBoxesWithLakes: DO iflk=1, nflkgb
 
@@ -1556,7 +1556,7 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     END DO GridBoxesWithLakes
-    !$acc end parallel
+    !$noacc end parallel
 
 
     !-----------------------------------------------------------------------------------------------
@@ -1564,127 +1564,127 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     IF (PRESENT(opt_dtsnowdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dtsnowdt(1:nflkgb) = dtsnowdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dtsnowdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dtsnowdt(nflkgb+1:)= 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhsnowdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dhsnowdt(1:nflkgb) = dhsnowdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dhsnowdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dhsnowdt(nflkgb+1:)= 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dticedt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dticedt(1:nflkgb) = dticedt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dticedt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dticedt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhicedt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dhicedt(1:nflkgb) = dhicedt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dhicedt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dhicedt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtmnwlkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dtmnwlkdt(1:nflkgb) = dtmnwlkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dtmnwlkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dtmnwlkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtwmllkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dtwmllkdt(1:nflkgb) = dtwmllkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dtwmllkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dtwmllkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtbotlkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dtbotlkdt(1:nflkgb) = dtbotlkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dtbotlkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dtbotlkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dctlkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dctlkdt(1:nflkgb) = dctlkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dctlkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dctlkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhmllkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dhmllkdt(1:nflkgb) = dhmllkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dhmllkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dhmllkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtb1lkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dtb1lkdt(1:nflkgb) = dtb1lkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dtb1lkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dtb1lkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhb1lkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dhb1lkdt(1:nflkgb) = dhb1lkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dhb1lkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dhb1lkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtsfclkdt)) THEN
-      !$acc kernels
+      !$noacc kernels
       opt_dtsfclkdt(1:nflkgb) = dtsfclkdt(1:nflkgb)
-      !$acc end kernels
+      !$noacc end kernels
       IF (nflkgb < SIZE(opt_dtsfclkdt)) THEN
-        !$acc kernels
+        !$noacc kernels
         opt_dtsfclkdt(nflkgb+1:) = 0._wp
-        !$acc end kernels
+        !$noacc end kernels
       ENDIF
     ENDIF
 
-  !$acc end data
+  !$noacc end data
 
     !-----------------------------------------------------------------------------------------------
     !  End calculations
@@ -1884,7 +1884,7 @@ REAL (KIND = wp),     INTENT(OUT)  :: &
 ! We rely on Cray inlining the subroutine, otherwise compilation fails with
 ! derived types (that contain only scalars)
 #ifndef CRAY_FIX_SEQ
-!$acc routine seq
+!$noacc routine seq
 #endif
 
 !==============================================================================
@@ -2159,7 +2159,7 @@ REAL (KIND = wp)     :: &
 ! We rely on Cray inlining the subroutine, otherwise compilation fails with
 ! derived types (that contain only scalars)
 #ifndef CRAY_FIX_SEQ
-!$acc routine seq
+!$noacc routine seq
 #endif
 
 !==============================================================================
@@ -3032,7 +3032,7 @@ REAL (KIND = wp)    , INTENT(IN) :: &
 !------------------------------------------------------------------------------
 
 #ifndef CRAY_FIX_SEQ
-!$acc routine seq
+!$noacc routine seq
 #endif
 
 ! Buoyancy parameter [m s^{-2} K^{-1}]
@@ -3069,7 +3069,7 @@ REAL (KIND = wp)    , INTENT(IN) :: &
 !------------------------------------------------------------------------------
 
 #ifndef CRAY_FIX_SEQ
-!$acc routine seq
+!$noacc routine seq
 #endif
 
 ! Snow density [kg m^{-3}]
@@ -3110,7 +3110,7 @@ REAL (KIND = wp)    , INTENT(IN) :: &
 !------------------------------------------------------------------------------
 
 #ifndef CRAY_FIX_SEQ
-!$acc routine seq
+!$noacc routine seq
 #endif
 
 ! Snow heat conductivity [J m^{-1} s^{-1} K^{-1} = kg m s^{-3} K^{-1}]

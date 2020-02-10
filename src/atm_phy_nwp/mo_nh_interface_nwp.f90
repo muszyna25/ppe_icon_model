@@ -111,7 +111,13 @@ MODULE mo_nh_interface_nwp
   USE mo_assimilation_config,     ONLY: assimilation_config
   USE mo_upatmo_config,           ONLY: upatmo_config
   USE mo_nudging_config,          ONLY: nudging_config
+  USE mo_dynamics_config,         ONLY: nnow, nnew, nnow_rcf, nnew_rcf
   USE mo_nwp_reff_interface,      ONLY: set_reff 
+  USE mo_nwp_gpu_util,            ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
+
+  !$ser verbatim USE mo_ser_nh_interface_nwp, ONLY: serialize_nh_interface_nwp_input,&
+  !$ser verbatim                                    serialize_nh_interface_nwp_output
+  !$ser verbatim USE mo_ser_nml,              ONLY: ser_debug
 
   IMPLICIT NONE
 
@@ -238,7 +244,6 @@ CONTAINS
 
     REAL(wp) :: dpsdt_avg  !< mean absolute surface pressure tendency
 
-
     IF (ltimer) CALL timer_start(timer_physics)
 
     ! calculate elapsed simulation time in seconds (local time for
@@ -299,7 +304,12 @@ CONTAINS
 
     lconstgrav = upatmo_config(jg)%phy%l_constgrav  ! const. gravitational acceleration?
 
-
+    !$ser verbatim IF(.NOT. linit) THEN
+    !$ser verbatim   call serialize_nh_interface_nwp_input(jg, nproma, nlev, pt_prog,&
+    !$ser verbatim                                         pt_prog_rcf, pt_prog_now_rcf, pt_diag, p_metrics,&
+    !$ser verbatim                                         prm_diag, prm_nwp_tend, wtr_prog_now, wtr_prog_new,&
+    !$ser verbatim                                         lnd_prog_now, lnd_prog_now, lnd_diag, ext_data, lcpu_only=.TRUE.)
+    !$ser verbatim ENDIF
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
          lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
@@ -553,6 +563,12 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_turbtrans. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
       ! compute turbulent transfer coefficients (atmosphere-surface interface)
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
@@ -563,7 +579,14 @@ CONTAINS
                           & prm_diag,                         & !>inout
                           & wtr_prog_now,                     & !>in
                           & lnd_prog_now,                     & !>inout
-                          & lnd_diag                          ) !>inout
+                          & lnd_diag,                         & !>inout
+                          & lacc=(.not. linit)                ) !>in
+#ifdef _OPENACC
+    IF(.not. linit) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_turbtrans. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+    ENDIF
+#endif
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
@@ -605,18 +628,29 @@ CONTAINS
       !Turbulence schemes NOT including the call to the surface scheme
       CASE(icosmo,igme,iedmf)
 
-        ! compute turbulent diffusion (atmospheric column)
-        CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
-                              & pt_patch, p_metrics,              & !>in
-                              & ext_data,                         & !>in
-                              & pt_prog,                          & !>in
-                              & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
-                              & pt_diag,                          & !>inout
-                              & prm_diag, prm_nwp_tend,           & !>inout
-                              & wtr_prog_now,                     & !>in
-                              & lnd_prog_now,                     & !>in
-                              & lnd_diag                          ) !>in
-
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_turbdiff. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
+      ! compute turbulent diffusion (atmospheric column)
+      CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
+                            & pt_patch, p_metrics,              & !>in
+                            & ext_data,                         & !>in
+                            & pt_prog,                          & !>in
+                            & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
+                            & pt_diag,                          & !>inout
+                            & prm_diag, prm_nwp_tend,           & !>inout
+                            & wtr_prog_now,                     & !>in
+                            & lnd_prog_now,                     & !>in
+                            & lnd_diag                          ) !>in
+#ifdef _OPENACC
+    IF(.not. linit) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_turbdiff. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+    ENDIF
+#endif
 
       CASE DEFAULT
 
@@ -645,6 +679,13 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
+
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_microphysics. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
                             & lcall_phy_jg(itsatad),            & !>input
                             & pt_patch, p_metrics,              & !>input
@@ -653,6 +694,13 @@ CONTAINS
                             & pt_diag ,                         & !>inout
                             & prm_diag, prm_nwp_tend,           & !>inout
                             & lcompute_tt_lheat                 ) !>in
+
+#ifdef _OPENACC
+    IF(.not. linit) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_microphysics. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+    ENDIF
+#endif
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
@@ -872,6 +920,12 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_turbtrans. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag)
+      ENDIF
+#endif
       ! compute turbulent transfer coefficients (atmosphere-surface interface)
       CALL nwp_turbtrans  ( dt_phy_jg(itfastphy),             & !>in
                           & pt_patch, p_metrics,              & !>in
@@ -882,7 +936,14 @@ CONTAINS
                           & prm_diag,                         & !>inout
                           & wtr_prog_new,                     & !>in
                           & lnd_prog_new,                     & !>inout
-                          & lnd_diag                          ) !>inout
+                          & lnd_diag,                         & !>inout
+                          & lacc=(.not. linit)                ) !>in
+#ifdef _OPENACC
+    IF(.not. linit) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_turbtrans. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+    ENDIF
+#endif
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
@@ -1848,6 +1909,12 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_physics)
 
+    !$ser verbatim IF(.NOT. linit) THEN
+    !$ser verbatim   call serialize_nh_interface_nwp_output(jg, nproma, nlev, pt_prog,&
+    !$ser verbatim                                          pt_prog_rcf, pt_prog_now_rcf, pt_diag, p_metrics,&
+    !$ser verbatim                                          prm_diag, prm_nwp_tend, wtr_prog_now, wtr_prog_new,&
+    !$ser verbatim                                          lnd_prog_now, lnd_prog_now, lnd_diag, ext_data, lcpu_only=.TRUE.)
+    !$ser verbatim ENDIF
 
   END SUBROUTINE nwp_nh_interface
 

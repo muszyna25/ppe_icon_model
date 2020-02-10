@@ -612,6 +612,18 @@ INTEGER :: my_cart_id, my_thrd_id
   ! Zum Schluss enthaelt zvari() fuer die turbulente Horizontaldiff.
   ! benoetigte Komponenten des turbulenten Spannungstensors.
 
+  !Begin of GPU data region
+  !$ACC data                                                            &
+  !$ACC present(hhl, dp0, zvari, r_air, ps, qv_s, t_g, u, v, t, qv, qc, &
+  !$ACC         prs, rhoh, epr, rhon, impl_weight)                      &
+  !!$ACC present(ptr) if(ASSOCIATED(ptr))                                &
+  !$ACC present(tvm, tvh, tkvm, tkvh, u_tens, v_tens, t_tens, qv_tens,  &
+  !$ACC         qc_tens, qv_conv, shfl_s, qvfl_s, umfl_s, vmfl_s)       &
+#ifdef ALLOC_WKARR
+  !$ACC present(len_scale, frh, frm, eprs, dicke, hlp, zaux, tinc)            &
+#else
+  !$ACC create(len_scale, frh, frm, eprs, dicke, hlp, zaux, tinc)
+#endif
 
   ltend(u_m)=PRESENT(u_tens)
   IF (ltend(u_m)) THEN !calculation of tendencies required
@@ -681,7 +693,9 @@ INTEGER :: my_cart_id, my_thrd_id
       (lsfli(vap) .AND. .NOT.PRESENT(qvfl_s))) THEN
     ierrstat = 1004; lerror=.TRUE.
     yerrormsg='ERROR *** forcing with not present surface heat flux densities  ***'
+#ifndef _OPENACC
     RETURN
+#endif
   ENDIF
 
   IF (lsfli(tem)) dvar(tem)%sv => shfl_s
@@ -722,8 +736,7 @@ INTEGER :: my_cart_id, my_thrd_id
       tinc(n)=dt_var    !time increment multiplication for tendencies
     END IF
   END DO
-
-  !$acc enter data copyin(tinc)
+  !$acc update device(tinc)
 
 !--------------------------------------------------
   IF ((ldovardif .OR. ldogrdcor) .AND. iini.NE.1) THEN !Vertikaldiffusion wird hier berechnet
@@ -797,7 +810,7 @@ enddo
       
 !        Berechnung der Luftdichte und des Exner-Faktors am Unterrand:
 !DIR$ IVDEP
-         !$acc parallel present(qv_s,rhon,eprs,ps,t_g)
+         !$acc parallel
          !$acc loop gang vector private(virt)
          DO i=ivstart, ivend
             virt=z1+rvd_m_o*qv_s(i) !virtueller Faktor
@@ -821,7 +834,8 @@ enddo
 !___________________________________________________________________________
 !test: mass weighted interpolation
 !                              nvars=1, pvar=(/varprf(prhon,prhoh)/), depth=hhl, auxil=hlp)
-                               nvars=1, pvar=(/varprf(prhon,prhoh)/), depth=dp0)
+                               nvars=1, pvar=(/varprf(prhon,prhoh)/), depth=dp0, &
+                               lacc=.TRUE.)
 !___________________________________________________________________________
 
          END IF
@@ -915,16 +929,17 @@ enddo
                vtyp_tkv => vtyp(ivtype)%tkv
                dvar_sv  => dvar(n)%sv
 !DIR$ IVDEP
-               !$acc parallel loop gang vector present(zvari,dvar_sv,rhon,vtyp_tkv)
+               !$acc parallel loop gang vector
                DO i=ivstart, ivend
                   zvari(i,ke1,m)=dvar_sv(i)/(rhon(i,ke1)*vtyp_tkv(i,ke1))
                END DO
                IF (n.EQ.tem) THEN !flux density is that of sensible heat
 !DIR$ IVDEP
-                  !$acc parallel loop gang vector present(zvari,eprs)
+                  !$acc parallel 
                   DO i=ivstart, ivend
                      zvari(i,ke1,m)=zvari(i,ke1,m)/(cp_d*eprs(i,ke1))
                   END DO
+                  !$acc end parallel
                END IF
                !Note:
                !In this case not the current surface concentration but the current flux-density
@@ -976,7 +991,7 @@ enddo
 
             IF (itndcon.GT.0) THEN !explicit tendencies have to be considered
               dvar_at => dvar(n)%at
-              !$acc parallel present(dicke,dvar_at)
+              !$acc parallel present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                  !$acc loop gang vector
@@ -988,7 +1003,7 @@ enddo
             END IF
 
             IF (n.EQ.tem) THEN !temperature needs to be transformed
-              !$acc parallel present(cur_prof,epr)
+              !$acc parallel present(cur_prof)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1000,12 +1015,12 @@ enddo
                !$acc end parallel
 !DIR$ IVDEP
 !$NEC ivdep
-               !$acc parallel loop gang vector present(cur_prof,eprs)
+               !$acc parallel loop gang vector present(cur_prof)
                DO i=ivstart, ivend
                   cur_prof(i,ke1)=cur_prof(i,ke1)/eprs(i,ke1)
                END DO
                IF (itndcon.GT.0) THEN !explicit tendencies to be considered
-                 !$acc parallel present(dicke,epr)
+                 !$acc parallel
                   DO k=kstart_vdiff,ke
 !DIR$ IVDEP
                     !$acc loop gang vector
@@ -1059,7 +1074,8 @@ enddo
                  diff_dep=zaux(:,:,5), diff_mom=len_scale,            &
                  invs_fac=frh, scal_fac=frm,                          &
 !
-                 dif_tend=dicke, cur_prof=cur_prof, eff_flux=zvari(:,:,m) )
+                 dif_tend=dicke, cur_prof=cur_prof, eff_flux=zvari(:,:,m), &
+                 lacc=.TRUE. )
 
             !Beachte:
             !'frh', 'frm' und 'len_scale' sind genauso wie 'zaux(:,:,1:5)' Hilfsspeicher in 'vert_grad_diff'.
@@ -1070,7 +1086,7 @@ enddo
 
             IF (n.EQ.tem) THEN
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at,epr,dicke,tinc)
+              !$acc parallel present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1082,7 +1098,7 @@ enddo
                !$acc end parallel
             ELSE
               dvar_at => dvar(n)%at
-              !$acc parallel present(dvar_at,dicke,tinc)
+              !$acc parallel present(dvar_at)
                DO k=kstart_vdiff,ke
 !DIR$ IVDEP
 !$NEC ivdep
@@ -1096,7 +1112,7 @@ enddo
 
             IF (n.EQ.vap .AND. PRESENT(qv_conv)) THEN
                !qv-flux-convergence (always a tendency) needs to be adapted:
-              !$acc parallel present(qv_conv,dicke)
+              !$acc parallel
                DO k=kstart_vdiff,ke
                   IF (lqvcrst) THEN 
                      !by initializing 'qv_conv' with vertical qv-diffusion:
@@ -1133,14 +1149,14 @@ enddo
 
             IF (PRESENT(shfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(shfl_s,eprs,zvari)
+              !$acc parallel loop gang vector
                DO i=ivstart, ivend
                   shfl_s(i)=eprs(i,ke1)*cp_d*zvari(i,ke1,tet)
                END DO
             END IF
             IF (PRESENT(qvfl_s) .OR. lrunscm) THEN
 !DIR$ IVDEP
-              !$acc parallel loop gang vector present(qvfl_s,zvari)
+              !$acc parallel loop gang vector
                DO i=ivstart, ivend
                   qvfl_s(i)=zvari(i,ke1,vap)
                END DO
@@ -1172,14 +1188,14 @@ enddo
 
          IF (lum_dif .AND. PRESENT(umfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel loop gang vector present(umfl_s,zvari)
+           !$acc parallel loop gang vector
             DO i=ivstart, ivend
                umfl_s(i)=zvari(i,ke1,u_m)
             END DO
          END IF
          IF (lvm_dif .AND. PRESENT(vmfl_s)) THEN
 !DIR$ IVDEP
-           !$acc parallel loop gang vector present(vmfl_s,zvari)
+           !$acc parallel loop gang vector
             DO i=ivstart, ivend
                vmfl_s(i)=zvari(i,ke1,v_m)
             END DO
@@ -1227,6 +1243,7 @@ enddo
 !--------------------------------------------------
 
   !$acc exit data delete(tinc)
+  !$acc end data
 
 END SUBROUTINE vertdiff
 

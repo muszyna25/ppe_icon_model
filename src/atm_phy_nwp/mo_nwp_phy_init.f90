@@ -1291,6 +1291,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     ! allocate and init implicit weights for tridiagonal solver
     ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
               STAT=istatus )
+    ! note that impl_weight => turbdiff_config(jg)%impl_weight
+    !$ACC ENTER DATA CREATE(turbdiff_config(jg))
+    !$ACC ENTER DATA CREATE(turbdiff_config(jg)%impl_weight)
     IF(istatus/=SUCCESS)THEN
       CALL finish (TRIM(routine), &
                  'allocation of impl_weight failed')
@@ -1309,6 +1312,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
                       + (impl_s-impl_t) * (jk-k1500m) / REAL(nlev-k1500m, wp)
     END DO
     impl_weight(nlevp1) = impl_s
+    ! impl_weight is never changed
+    !$ACC UPDATE DEVICE(turbdiff_config(jg)%impl_weight)
 
 ! computing l_pat: cannot be done in mo_ext_data_init, because it seems we do not have
 !                  phy_params(jg)%mean_charlen available then?

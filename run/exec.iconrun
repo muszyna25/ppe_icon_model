@@ -331,7 +331,7 @@ fi
 
 if [[ ! -z $use_ld_library_path ]]
 then
-    export LD_LIBRARY_PATH=$use_ld_library_path
+    export LD_LIBRARY_PATH=$use_ld_library_path:$LD_LIBRARY_PATH
 fi
 #
 #-----------------------------------------------------------------------------

@@ -428,7 +428,7 @@
 
       ! Compute tendencies for nest boundary update
       IF (.NOT. isRestart() .AND. timeshift%dt_shift < 0) THEN
-        CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, timelev,  &
+        CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch, p_nh_state, timelev,  &
           &                              latbc%buffer%idx_tracer)
       ENDIF
 
@@ -502,7 +502,7 @@
       CALL deleteInputParameters(read_params(iedge)%cdi_params)
 
       ! Compute tendencies for nest boundary update
-      IF (comp_tendencies) CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, timelev,  &
+      IF (comp_tendencies) CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch, p_nh_state, timelev,  &
           &                                                 latbc%buffer%idx_tracer)
 
     END SUBROUTINE read_next_timelevel
@@ -1179,7 +1179,7 @@
       CALL read_latbc_data(latbc, p_patch, p_nh_state, p_int, tlev, read_params)
 
       ! Compute tendencies for nest boundary update
-      CALL compute_boundary_tendencies(latbc%latbc_data, p_patch, p_nh_state, tlev,  &
+      CALL compute_boundary_tendencies(latbc%latbc_data(:), p_patch, p_nh_state, tlev,  &
         &                              latbc%buffer%idx_tracer)
 
 

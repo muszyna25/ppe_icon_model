@@ -134,6 +134,7 @@ CONTAINS
     REAL(wp) :: vgust_dyn               ! dynamic gust at 10 m above ground [m/s]
 
     REAL(wp) :: ff10m, ustar, uadd_sso, gust_add
+    !$acc routine seq
 
     ff10m = SQRT( u_10m**2 + v_10m**2)
     uadd_sso = MAX(0._wp, SQRT(u_env**2 + v_env**2) - SQRT(u1**2 + v1**2))

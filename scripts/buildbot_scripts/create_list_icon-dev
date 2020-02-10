@@ -63,6 +63,9 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 # add tolerance check to daint builders
 $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_cce --list $listname
 $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance --runflags "no_of_nodes=2" --builders DAINT_CPU_cce --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance --runflags "no_of_nodes=2" --builders DAINT_CPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance --runflags "no_of_nodes=2" --builders DAINT_GPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_cce --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_GPU_pgi --list $listname

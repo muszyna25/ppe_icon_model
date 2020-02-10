@@ -393,7 +393,8 @@ MODULE mo_solve_nonhydro
 #endif
 !$ACC      present ( prep_adv, p_int, p_patch, p_nh ), &
 !$ACC      present ( icidx, icblk, ividx, ivblk, ieidx, ieblk, ikidx, iqidx, iqblk ), &
-!$ACC      present ( ipeidx, ipeblk, iplev )
+!$ACC      present ( ipeidx, ipeblk, iplev ), &
+!$ACC      IF( i_am_accel_node .AND. acc_on )
 
 
     ! scaling factor for second-order divergence damping: divdamp_fac_o2*delta_x**2

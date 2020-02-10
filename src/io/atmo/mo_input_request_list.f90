@@ -165,7 +165,7 @@ CONTAINS
     FUNCTION findDomainData(listEntry, domain, opt_lcreate) RESULT(resultVar)
         TYPE(t_ListEntry), POINTER, INTENT(INOUT) :: listEntry
         INTEGER, VALUE :: domain
-        LOGICAL, OPTIONAL, VALUE :: opt_lcreate
+        LOGICAL, OPTIONAL :: opt_lcreate
         TYPE(t_DomainData), POINTER :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":findDomainData"

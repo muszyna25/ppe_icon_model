@@ -90,6 +90,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE sfc_seaice,                  ONLY: frsi_min
   USE mo_ext_data_state,           ONLY: ext_data
+  USE mo_turbdiff_config,          ONLY: turbdiff_config
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch, p_patch_local_parent
   USE mo_time_config,              ONLY: time_config
@@ -229,6 +230,9 @@ MODULE mo_nh_stepping
   USE mo_util_phys,                ONLY: maximize_field_lpi, compute_field_tcond_max,     &
                                          compute_field_uh_max, &
                                          compute_field_vorw_ctmax, compute_field_w_ctmax
+  USE mo_nwp_gpu_util,             ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp, devcpy_nwp, hostcpy_nwp
+
+  !$ser verbatim USE mo_ser_all, ONLY: serialize_all
 
   IMPLICIT NONE
 
@@ -890,6 +894,12 @@ MODULE mo_nh_stepping
      CALL devcpy_grf_state (p_grf_state, .TRUE.)
      CALL devcpy_grf_state (p_grf_state_local_parent, .TRUE.)
   ENDIF
+  IF ( iforcing == inwp ) THEN
+     DO jg=1, n_dom
+        CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+     ENDDO
+     CALL devcpy_nwp()
+  ENDIF
 #endif
 
   TIME_LOOP: DO
@@ -978,7 +988,11 @@ MODULE mo_nh_stepping
     IF (iforcing == inwp) THEN
 
 #ifdef _OPENACC
-      CALL finish (routine, 'update_nwp_phy_bcs: OpenACC version currently not implemented')
+      CALL message('mo_nh_stepping', 'Device to host copy before update_nwp_phy_bcs. This needs to be removed once port is finished!')
+      DO jg=1, n_dom
+         CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+      ENDDO
+      i_am_accel_node = .FALSE.
 #endif
 
       ! Update the following surface fields, if a new day is coming
@@ -998,6 +1012,7 @@ MODULE mo_nh_stepping
         ref_datetime    = assumePrevMidnight(time_config%tc_exp_startdate)
 
         DO jg=1, n_dom
+
           CALL update_nwp_phy_bcs (p_patch         = p_patch(jg),      &
             &                      ext_data        = ext_data(jg),     &
             &                      p_lnd_state     = p_lnd_state(jg),  &
@@ -1005,6 +1020,7 @@ MODULE mo_nh_stepping
             &                      ref_datetime    = ref_datetime,     &
             &                      target_datetime = target_datetime,  &
             &                      mtime_old       = mtime_old         )
+
         ENDDO  ! jg
 
         mtime_old = mtime_current
@@ -1033,6 +1049,13 @@ MODULE mo_nh_stepping
         ENDDO
       END IF
 
+#ifdef _OPENACC
+      CALL message('mo_nh_stepping', 'Host to device copy after update_nwp_phy_bcs. This needs to be removed once port is finished!')
+      DO jg=1, n_dom
+         CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+      ENDDO
+      i_am_accel_node = my_process_is_work()
+#endif
     ENDIF  ! iforcing == inwp
 
 
@@ -1087,8 +1110,13 @@ MODULE mo_nh_stepping
       
       IF (iforcing == inwp) THEN
 #ifdef _OPENACC
-        CALL finish (routine, 'NWP: OpenACC version currently not implemented')
+        CALL message('mo_nh_stepping', 'Device to host copy before nwp_diag_for_output. This needs to be removed once port is finished!')
+        DO jg = 1, n_dom
+           CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
+        ENDDO
+        i_am_accel_node = .FALSE.
 #endif
+        !$ser verbatim CALL serialize_all(nproma, 1, "output_diag", .TRUE., opt_lupdate_cpu=.TRUE.)
         CALL aggr_landvars
 
         DO jg = 1, n_dom
@@ -1143,6 +1171,14 @@ MODULE mo_nh_stepping
           IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
         ENDDO!jg
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Host to device copy after nwp_diag_for_output. This needs to be removed once port is finished!')
+        DO jg = 1, n_dom
+           CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
+        ENDDO
+        i_am_accel_node = my_process_is_work()
+#endif
+        !$ser verbatim CALL serialize_all(nproma, 1, "output_diag", .FALSE., opt_lupdate_cpu=.TRUE.)
 
       END IF !iforcing=inwp
 
@@ -1425,8 +1461,11 @@ MODULE mo_nh_stepping
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0 .AND. .NOT.(jstep == 0 .AND. iau_iter == 1)) THEN
 #ifdef _OPENACC
-      CALL finish (routine, 'recv_latbc_data: OpenACC version currently not implemented')
+      CALL message('mo_nh_stepping', 'Device to host copy before recv_latbc_data. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(p_patch(1), prm_diag(1))
+      i_am_accel_node = .FALSE.
 #endif
+      !$ser verbatim CALL serialize_all(nproma, 1, "latbc_data", .TRUE., opt_lupdate_cpu=.TRUE.)
       latbc_read_datetime = latbc%mtime_last_read + latbc%delta_dtime
       CALL recv_latbc_data(latbc               = latbc,              &
         &                  p_patch             = p_patch(1),         &
@@ -1436,6 +1475,12 @@ MODULE mo_nh_stepping
         &                  latbc_read_datetime = latbc_read_datetime,&
         &                  lcheck_read         = .TRUE.,             &
         &                  tlev                = latbc%new_latbc_tlev)
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Host to device copy after recv_latbc_data. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(p_patch(1), prm_diag(1))
+        i_am_accel_node = my_process_is_work()
+#endif
+      !$ser verbatim CALL serialize_all(nproma, 1, "latbc_data", .FALSE., opt_lupdate_cpu=.TRUE.)
     ENDIF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN
@@ -1471,6 +1516,12 @@ MODULE mo_nh_stepping
 
 #if defined( _OPENACC )
   CALL d2h_icon( p_int_state, p_patch, p_nh_state, prep_adv, advection_config, iforcing )
+  IF ( iforcing == inwp ) THEN
+    DO jg=1, n_dom
+       CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg), ext_data=ext_data(jg))
+    ENDDO
+    CALL hostcpy_nwp()
+  ENDIF
   i_am_accel_node = .FALSE.                 ! Deactivate GPUs
 #endif
 
@@ -1797,17 +1848,21 @@ MODULE mo_nh_stepping
 
           IF (ldynamics) THEN
 
+            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .TRUE., opt_lupdate_cpu=.TRUE.)
             ! dynamics integration with substepping
             !
             CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
               &                           prep_adv(jg), jstep, iau_iter, dt_loc, datetime_local(jg)%ptr)
+            !$ser verbatim CALL serialize_all(nproma, jg, "dynamics", .FALSE., opt_lupdate_cpu=.TRUE.)
 
             ! diffusion at physics time steps
             !
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
+              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .TRUE., opt_lupdate_cpu=.TRUE.)
               CALL diffusion(p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%diag,     &
                 &            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg),   &
                 &            dt_loc/ndyn_substeps, .FALSE.)
+              !$ser verbatim CALL serialize_all(nproma, jg, "diffusion", .FALSE., opt_lupdate_cpu=.TRUE.)
             ENDIF
 
           ELSE IF (iforcing == inwp .OR. (iforcing == iecham .AND. echam_phy_config(jg)%ldcphycpl)) THEN
@@ -1849,6 +1904,7 @@ MODULE mo_nh_stepping
             CALL message('integrate_nh', TRIM(message_text))
           ENDIF
 
+          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE.)
           CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,         & !in
             &          jstep_adv(jg)%marchuk_order,                          & !in
             &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1866,6 +1922,7 @@ MODULE mo_nh_stepping
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
             &          opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
             &          opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+          !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .FALSE., opt_lupdate_cpu=.TRUE.)
 
           IF (iprog_aero >= 1) THEN
             
@@ -1933,9 +1990,6 @@ MODULE mo_nh_stepping
           ! Determine which physics packages must be called/not called at the current
           ! time step
           IF ( iforcing==inwp ) THEN
-#ifdef _OPENACC
-            CALL finish (routine, 'NWP: OpenACC version currently not implemented')
-#endif
             CALL mtime_ctrl_physics(phyProcs      = atm_phy_nwp_config(jg)%phyProcs,    & !in
               &                     mtime_current = datetime_local(jg)%ptr,             & !in
               &                     isInit        = .FALSE.,                            & !in
@@ -1979,9 +2033,12 @@ MODULE mo_nh_stepping
             CASE (inwp) ! iforcing
 
 #ifdef _OPENACC
-              CALL finish (routine, 'nwp_nh_interface: OpenACC version currently not implemented')
+              CALL message('mo_nh_stepping', 'Device to host copy before nwp_nh_interface. This needs to be removed once port is finished!')
+              CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
+              i_am_accel_node = .FALSE.
 #endif
               ! nwp physics
+              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .TRUE., opt_lupdate_cpu=.TRUE.)
               CALL nwp_nh_interface(atm_phy_nwp_config(jg)%lcall_phy(:), & !in
                 &                  .FALSE.,                            & !in
                 &                  lredgrid_phys(jg),                  & !in
@@ -2005,6 +2062,13 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
                 &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
+
+#ifdef _OPENACC
+              CALL message('mo_nh_stepping', 'Host to device copy after nwp_nh_interface. This needs to be removed once port is finished!')
+              CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
+              i_am_accel_node = my_process_is_work()
+#endif
+              !$ser verbatim CALL serialize_all(nproma, jg, "physics", .FALSE., opt_lupdate_cpu=.TRUE.)
 
             CASE (iecham) ! iforcing
 
@@ -2118,8 +2182,11 @@ MODULE mo_nh_stepping
       ! Update nudging tendency fields for limited-area mode
       IF (jg == 1 .AND. l_limited_area .AND. (.NOT. l_global_nudging)) THEN
 #ifdef _OPENACC
-        CALL finish (routine, 'NUDGING: OpenACC version currently not implemented')
+        CALL message('mo_nh_stepping', 'Device to host copy before nudging. This needs to be removed once port is finished!')
+        CALL gpu_d2h_nh_nwp(p_patch(jg), prm_diag(jg))
+        i_am_accel_node = .FALSE.
 #endif
+        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .TRUE., opt_lupdate_cpu=.TRUE.)
         
         tsrat = REAL(ndyn_substeps,wp) ! dynamics-physics time step ratio
 
@@ -2156,6 +2223,12 @@ MODULE mo_nh_stepping
             & p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_int_state(jg),tsrat,p_latbc_const=p_nh_state(jg)%prog(nsav2(jg)))
           
         ENDIF
+#ifdef _OPENACC
+        CALL message('mo_nh_stepping', 'Host to device copy after nudging. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(p_patch(jg), prm_diag(jg))
+        i_am_accel_node = my_process_is_work()
+#endif
+        !$ser verbatim CALL serialize_all(nproma, jg, "nudging", .FALSE., opt_lupdate_cpu=.TRUE.)
         
       ELSEIF (jg == 1 .AND. l_global_nudging) THEN
         

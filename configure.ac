@@ -672,7 +672,7 @@ if test -n "$NETCDFROOT" ; then
   elif test -r "$NETCDFLIBPATH/libnetcdf.so" ; then
      NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
   else
-     echo "cannot read $NETCDFROOT/lib/libnetcdf.a"
+     echo "cannot read $NETCDFLIBPATH/libnetcdf.a"
      exit 1
   fi
   if test x$gcc_lib != x ; then
@@ -695,8 +695,8 @@ if test -n "$NETCDFROOT" ; then
   else
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
-       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
+       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFLIBPATH/libnetcdf.a" ; then
+         NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          AS_CASE([$ac_hostname],
            [mlogin*|btlogin*|btc*],
@@ -1982,12 +1982,12 @@ AS_IF([test ! -z $PATH],
 AC_SUBST(use_path,$use_path)                
 
 AS_IF([test ! -z $CRAY_LD_LIBRARY_PATH],
-      [use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH]) 
+      [use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$use_ld_library_path])
 
 AS_IF([test "x$enable_serialization" != "xno"],
     [use_ld_library_path=$SERIALBOX2ROOT/lib:$use_ld_library_path])
 
-AC_SUBST(use_ld_library_path,$use_ld_library_path)                
+AC_SUBST(use_ld_library_path,$use_ld_library_path)
 
 AC_CONFIG_FILES([config/set-up.info])
 
