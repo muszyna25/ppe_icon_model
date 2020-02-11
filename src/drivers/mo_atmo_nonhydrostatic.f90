@@ -45,12 +45,11 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
 USE mo_nh_testcases,         ONLY: init_nh_testcase
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method, &
-  &                                ldeepatmo
+USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area, n_dom_start
+     &                             is_plane_torus, l_limited_area
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -60,7 +59,7 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
 USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
-  &                                itime_scheme, ndyn_substeps, kstart_tracer
+  &                                itime_scheme, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
@@ -122,10 +121,7 @@ USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statisti
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
-USE mo_initicon_config,     ONLY: init_mode
-USE mo_sleve_config,        ONLY: flat_height
-USE mo_vertical_coord_table, ONLY: vct_a
-USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
+USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
 
@@ -229,12 +225,6 @@ CONTAINS
 
     ENDIF
 
-    ! upper atmosphere
-    CALL configure_upatmo( n_dom_start=n_dom_start, n_dom=n_dom,                 & 
-      & p_patch=p_patch(n_dom_start:), ldeepatmo=ldeepatmo, init_mode=init_mode, &
-      & iforcing=iforcing, dtime=dtime, ndyn_substeps=ndyn_substeps,             &
-      & flat_height=flat_height, msg_level=msg_level, vct_a=vct_a                ) 
-
     ! initialize ldom_active flag if this is not a restart run
 
     ! calculate elapsed simulation time in seconds
@@ -330,6 +320,8 @@ CONTAINS
       CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
       CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
+
+    CALL upatmo_initialize(p_patch)
 
 #ifdef MESSY
     CALL messy_init_memory(n_dom)
@@ -803,7 +795,7 @@ CONTAINS
       CALL cleanup_echam_phy
     ENDIF
 
-    CALL destruct_upatmo()
+    CALL upatmo_finalize(p_patch)
 
     ! call close name list prefetch
     IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN

@@ -83,8 +83,7 @@ MODULE mo_nml_crosscheck
   USE mo_sleve_config
   USE mo_nudging_config,           ONLY: nudging_config, indg_type
   USE mo_nudging_nml,              ONLY: check_nudging
-  USE mo_upatmo_config,            ONLY: upatmo_config
-  USE mo_upatmo_nml,               ONLY: check_upatmo
+  USE mo_upatmo_config,            ONLY: check_upatmo
   USE mo_name_list_output_config,  ONLY: first_output_name_list
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
 
@@ -910,9 +909,11 @@ CONTAINS
       &                 LATBC_TYPE_EXT, is_plane_torus, lart, ndyn_substeps, ltransport, &
       &                 nsteps, msg_level                                                )
 
-    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo, is_plane_torus, & 
-      &                l_limited_area, lart, ivctype, flat_height, itype_vert_expol,        &
-      &                ltestcase, nh_test_name, first_output_name_list, upatmo_config       ) 
+    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo,               &
+      &                atm_phy_nwp_config(:)%lupatmo_phy, is_plane_torus, l_limited_area, &
+      &                lart, ivctype, flat_height, itype_vert_expol, ltestcase,           &
+      &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
+      &                atm_phy_nwp_config(:)%inwp_radiation, first_output_name_list       )
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

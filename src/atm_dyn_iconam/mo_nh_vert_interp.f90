@@ -370,10 +370,9 @@ CONTAINS
                             p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                             coef1, coef2, coef3, idx0_cub, bot_idx_cub)
 
-    ! (Initialize upper-atmosphere extrapolation type.
-    ! Note: not intended for the limited-area mode.)
-    lexpol = upatmo_config(jg)%exp%l_expol .AND. (.NOT. latbcmode)
-    IF (lexpol) CALL expol%initialize(p_patch)
+    ! (Initialize upper-atmosphere extrapolation type.)
+    lexpol = upatmo_config(jg)%exp%l_expol
+    IF (lexpol) CALL expol%initialize(p_patch, latbcmode)
 
 
     ! Perform vertical interpolation

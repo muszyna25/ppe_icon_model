@@ -451,9 +451,9 @@ CONTAINS
         ! Nudging only in case of the NWP physics package
         WRITE(message_text,'(a)') "Nudging requires: iforcing = "//TRIM(int2string(inwp))
         CALL finish(routine, message_text)
-      ELSEIF (ivctype /= 2) THEN
+      ELSEIF (.NOT. ANY((/2, 12/)==ivctype)) THEN
         ! Nudging only in case of a vertical grid of the SLEVE-type
-        CALL finish(routine, "Nudging requires: ivctype = 2")
+        CALL finish(routine, "Nudging requires: ivctype = 2 or 12")
       ELSEIF (is_plane_torus) THEN
         ! Nudging is not foreseen for the torus mode
         CALL finish(routine, "Nudging requires: is_plane_torus = .false.")

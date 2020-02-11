@@ -76,7 +76,7 @@ MODULE mo_advection_stepping
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
 #endif
   USE mo_dynamics_config,     ONLY: ldeepatmo
-  USE mo_upatmo_config,       ONLY: idamtr
+  USE mo_upatmo_impl_const,   ONLY: idamtr
 
   IMPLICIT NONE
 

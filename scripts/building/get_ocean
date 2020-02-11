@@ -95,7 +95,6 @@ link_source_list "src/advection/" "mo_advection_utils.f90"
 # needed by src/io/shared/mo_util_cdi
 link_source_list "src/lnd_phy_nwp/" "mo_nwp_sfc_tiles.f90"
 
-# (mo_upatmo_config.f90 just added to ensure compilability)
 link_source_list "src/configure_model/" "mo_dynamics_config.f90 mo_gribout_config.f90 mo_grid_config.f90 mo_io_config.f90 mo_name_list_output_config.f90 
 mo_parallel_config.f90 mo_run_config.f90 mo_time_config.f90 mo_coupling_config.f90 mo_master_config.f90 mo_interpol_config.f90 mo_upatmo_config.f90 
 mo_advection_config.f90" 
@@ -112,6 +111,13 @@ mo_intp_data_strc.f90 mo_lonlat_grid.f90 mo_model_domain.f90 mo_model_domimp_pat
 mo_model_domimp_setup.f90 mo_reorder_patches.f90 mo_icon_interpolation_scalar.f90 mo_intp_lonlat_types.f90"
          
 link_source_list "src/testcases/" "mo_ape_params.f90"
+
+# needed by src/configure_model/mo_upatmo_config 
+# (which in turn is required by src/shr_horizontal/mo_model_domimp_patches), 
+# and by src/io/restart/
+link_source_list "src/upper_atmosphere/" "mo_upatmo_impl_const.f90 mo_upatmo_phy_config.f90 mo_upatmo_types.f90 mo_upatmo_utils.f90 
+mo_upatmo_flowevent_utils.f90"
+link_source_list "src/atm_phy_nwp/" "mo_phy_events.f90"
 
 #-----------------------------------------------------------------------------------
  

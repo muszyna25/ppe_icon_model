@@ -2605,7 +2605,7 @@ CONTAINS
     CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%trHydroMass%list, pt_diag, &
                     jb, i_startidx, i_endidx, 1, kstart_moist(jg), kend)
     CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, kend, &
-      &             opt_lconstgrav=upatmo_config(jg)%phy%l_constgrav)
+      &             opt_lconstgrav=upatmo_config(jg)%nwp_phy%l_constgrav)
 
     ! Compute relative humidity w.r.t. water
     DO jk = 1, kend

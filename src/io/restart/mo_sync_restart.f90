@@ -73,6 +73,7 @@ MODULE mo_sync_restart
                                         & timer_write_restart_communication, timers_level
   USE mo_util_string,               ONLY: int2string
   USE mo_var_metadata_types,        ONLY: t_var_metadata
+    USE mo_upatmo_flowevent_utils,  ONLY: upatmoRestartAttributesSet
 
   IMPLICIT NONE
 
@@ -172,6 +173,8 @@ CONTAINS
         END IF
 
         CALL setPhysicsRestartAttributes(restartAttributes, jg, curDescription%opt_t_elapsed_phy(:))
+
+        CALL upatmoRestartAttributesSet(jg, curDescription%opt_upatmo_restart_atts, restartAttributes)
     END DO
   END SUBROUTINE syncRestartDescriptor_defineRestartAttributes
 

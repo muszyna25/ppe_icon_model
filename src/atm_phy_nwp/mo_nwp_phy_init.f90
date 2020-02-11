@@ -120,10 +120,14 @@ MODULE mo_nwp_phy_init
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop,   &
-    &                               timer_init_nwp_phy, timer_phys_reff
+    &                               timer_init_nwp_phy, timer_phys_reff, timer_upatmo
   USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                               bc_greenhouse_gases_file_read, ghg_co2mmr
   USE mo_nwp_reff_interface,  ONLY: init_reff
+  USE mo_upatmo_config,       ONLY: upatmo_config
+  USE mo_upatmo_types,        ONLY: t_upatmo
+  USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat, iUpatmoStat
+  USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
 
   
   IMPLICIT NONE
@@ -136,14 +140,15 @@ MODULE mo_nwp_phy_init
 CONTAINS
 
 
-SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
-                       &  p_prog_now,  p_diag,                 &
-                       &  prm_diag,prm_nwp_tend,               &
-                       &  p_prog_lnd_now, p_prog_lnd_new,      &
-                       &  p_prog_wtr_now, p_prog_wtr_new,      &
-                       &  p_diag_lnd,                          &
+SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
+                       &  p_prog_now,  p_diag,            &
+                       &  prm_diag,prm_nwp_tend,          &
+                       &  p_prog_lnd_now, p_prog_lnd_new, &
+                       &  p_prog_wtr_now, p_prog_wtr_new, &
+                       &  p_diag_lnd,                     &
                        &  ext_data, phy_params, ini_date, &
-                       &  lnest_start, lreset)
+                       &  prm_upatmo,                     &
+                       &  lnest_start, lreset             )
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -157,6 +162,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
   TYPE(datetime),              POINTER       :: ini_date     ! current datetime (mtime)
+  TYPE(t_upatmo),       TARGET,INTENT(inout) :: prm_upatmo
   LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start, lreset
 
   INTEGER             :: jk, jk1
@@ -193,6 +199,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   LOGICAL :: lland, lglac, lshallow, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init, lreset_mode
+  LOGICAL :: lupatmo_phy
 
   INTEGER :: jb,ic,jc,jt,jg,ist,nzprv
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -262,6 +269,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   dz1 = 0.0_wp
   dz2 = 0.0_wp
   dz3 = 0.0_wp
+
+  ! Initialization of upper-atmosphere physics 
+  ! only in case of no reset and if the upatmo physics are switched on
+  ! (upper-atmosphere physics are not integrated into the IAU iterations)
+  lupatmo_phy = (.NOT. lreset_mode) .AND. &
+    & upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled ) 
 
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
     ! allocate storage var for press to be used in o3_pl2ml
@@ -1633,6 +1646,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       CALL bc_greenhouse_gases_time_interpolation(ini_date) 
       
     ENDIF
+
+  ! Upper-atmosphere physics
+  !
+  IF (lupatmo_phy) THEN
+    IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_start(timer_upatmo)
+    CALL init_upatmo_phy_nwp( mtime_datetime    = ini_date,          & !in
+      &                       p_patch           = p_patch,           & !in
+      &                       p_metrics         = p_metrics,         & !in
+      &                       p_prog            = p_prog_now,        & !in
+      &                       p_diag            = p_diag,            & !in
+      &                       prm_nwp_diag      = prm_diag,          & !in
+      &                       prm_nwp_tend      = prm_nwp_tend,      & !in
+      &                       prm_upatmo        = prm_upatmo,        & !inout
+      &                       nproma            = nproma             ) !in
+    IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_stop(timer_upatmo)
+  ENDIF
 
   IF (timers_level > 3) CALL timer_stop(timer_init_nwp_phy)
 

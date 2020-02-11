@@ -39,7 +39,8 @@ MODULE mo_name_list_output_config
   IMPLICIT NONE
 
   PUBLIC :: is_grib_output,                                  &
-    &       is_variable_in_output
+    &       is_variable_in_output,                           &
+    &       is_variable_in_output_nml
   PUBLIC :: use_async_name_list_io
   PUBLIC :: first_output_name_list
 

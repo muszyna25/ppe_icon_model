@@ -80,6 +80,9 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: amc11 =137.3686_wp       !! [g/mol] CFC11
   REAL(wp), PARAMETER :: amc12 =120.9140_wp       !! [g/mol] CFC12
   REAL(wp), PARAMETER :: amw   = 18.0154_wp       !! [g/mol] H2O
+  REAL(wp), PARAMETER :: amo   = 15.9994_wp       !! [g/mol] O
+  REAL(wp), PARAMETER :: amno  = 30.0061398_wp    !! [g/mol] NO
+  REAL(wp), PARAMETER :: amn2  = 28.0134_wp       !! [g/mol] N2
   !
   !> Mixed species
   REAL(wp), PARAMETER :: amd   = 28.970_wp        !> [g/mol] dry air

@@ -39,9 +39,7 @@ MODULE mo_nh_vert_extrap_utils
   USE mo_exception,              ONLY: finish, message, message_text
   USE mo_run_config,             ONLY: msg_level
   USE mo_grid_config,            ONLY: grid_sphere_radius, n_dom_start
-  USE mo_upatmo_config,          ONLY: upatmo_exp_config, upatmo_config, & 
-    &                                  idamtr, imsg_thr, itmr_thr,       &
-    &                                  istatus
+  USE mo_upatmo_config,          ONLY: upatmo_exp_config, upatmo_config
   USE mo_parallel_config,        ONLY: nproma
   USE mo_vertical_coord_table,   ONLY: vct_a
   USE mo_model_domain,           ONLY: t_patch
@@ -64,12 +62,14 @@ MODULE mo_nh_vert_extrap_utils
     &                                  get_my_mpi_work_communicator, &
     &                                  p_bcast
   USE mo_sync,                   ONLY: global_max
+  USE mo_upatmo_impl_const,      ONLY: iUpatmoStat, imsg_thr, itmr_thr, idamtr
 
   IMPLICIT NONE
 
   PRIVATE
 
   PUBLIC :: t_expol_state
+  PUBLIC :: sanity_check
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nh_vert_extrap_utils'
 
@@ -220,6 +220,9 @@ MODULE mo_nh_vert_extrap_utils
 
     ! Flag should be .true., if timer control should be switched on
     LOGICAL :: ltimer = .FALSE.
+    ! Flag should be .true., if the current simulation makes use 
+    ! of the limited-area I/O infrastructure
+    LOGICAL :: latbcmode = .FALSE.
     ! Flag should be .true., if this data structure has been allocated
     LOGICAL :: linitialized = .FALSE.
 
@@ -252,13 +255,15 @@ CONTAINS  !.....................................................................
   !! necessary for the extrapolation of IFS-data  
   !! to the upper atmosphere. 
   !!
-  SUBROUTINE t_expol_state_initialize ( expolstate, &  !class
-    &                                   p_patch     )  !in
+  SUBROUTINE t_expol_state_initialize ( expolstate,   &  !class
+    &                                   p_patch,      &  !in
+    &                                   opt_latbcmode ) !optin
 
     CLASS(t_expol_state), INTENT(INOUT) :: expolstate
 
     ! In/out variables
-    TYPE(t_patch), INTENT(IN) :: p_patch  ! Domain properties    
+    TYPE(t_patch),     INTENT(IN) :: p_patch        ! Domain properties
+    LOGICAL, OPTIONAL, INTENT(IN) :: opt_latbcmode  ! Switch to indicate limited-area mode
 
     ! Local variables
     TYPE(t_constructor_kit) :: cnstr
@@ -286,7 +291,7 @@ CONTAINS  !.....................................................................
     jg = p_patch%id 
 
     ! Some checks
-    IF (.NOT. upatmo_config(jg)%l_status(istatus%configured)) THEN
+    IF (.NOT. upatmo_config(jg)%l_status(iUpatmoStat%configured)) THEN
       ! Upper-atmosphere info should be available
       CALL finish(TRIM(routine), "Check calling sequence: upatmo_config is not configured.")
     ELSEIF (jg == n_dom_start) THEN  
@@ -320,6 +325,13 @@ CONTAINS  !.....................................................................
       expolstate%linitialized = .TRUE.
     ELSE
       CALL finish(TRIM(routine), 'Attempt to initialize while already/still initialized')
+    ENDIF
+
+    ! Is the limited-area mode active?
+    IF (PRESENT(opt_latbcmode)) THEN
+      expolstate%latbcmode = opt_latbcmode
+    ELSE
+      expolstate%latbcmode = .FALSE.
     ENDIF
 
     ! Compute variables related to the geopotential height
@@ -444,7 +456,10 @@ CONTAINS  !.....................................................................
       &                expolstate%metrics%wfac_blnd_mc, & !in 
       &                loopkit                          ) !in
 
-    IF (upatmo_exp_config(jg)%lexpol_sanitycheck) THEN
+    ! ('sanity_check' makes use of MPI communication ('global_max'), 
+    ! so it might be better to skip this for the limited-area mode 
+    ! (see arguments in 'src/atm_dyn_iconam/mo_nh_vert_interp: vert_interp'))
+    IF (upatmo_exp_config(jg)%lexpol_sanitycheck .AND. .NOT. expolstate%latbcmode) THEN
 
       ! Apply some sanity checks to the extrapolated temperature
       ! 1st Is temperature positive-definite?
@@ -811,8 +826,8 @@ CONTAINS  !.....................................................................
       &                expolstate%metrics%wfac_blnd_ifc, & !in 
       &                loopkit                           ) !in
 
-    IF (upatmo_exp_config(jg)%lexpol_sanitycheck .AND. nexpollev > 1) THEN
-
+    IF ( upatmo_exp_config(jg)%lexpol_sanitycheck .AND. nexpollev > 1 &
+      &  .AND. .NOT. expolstate%latbcmode                             ) THEN
       ! Sanity check of the extrapolated vertical wind:
       ! upper bound for the magnitude of the vertical wind 
       ! from the CFL-criterion: 
@@ -1158,7 +1173,7 @@ CONTAINS  !.....................................................................
 
     deepatmo_gradh => NULL()
     
-    IF (upatmo_exp_config(jg)%lexpol_sanitycheck) THEN
+    IF (upatmo_exp_config(jg)%lexpol_sanitycheck .AND. .NOT. expolstate%latbcmode) THEN
       
       ! Sanity check of the extrapolated horizontal wind:      
       ! upper bound for the magnitude of the horizontal wind 

@@ -219,8 +219,14 @@ MODULE mo_nh_stepping
 #endif
   USE mo_loopindices,              ONLY: get_indices_c, get_indices_v
   USE mo_nh_testcase_interface,    ONLY: nh_testcase_interface
-  USE mo_upatmo_config,            ONLY: upatmo_config, idamtr
+  USE mo_upatmo_config,            ONLY: upatmo_config
   USE mo_nh_deepatmo_solve,        ONLY: solve_nh_deepatmo
+  USE mo_upatmo_impl_const,        ONLY: idamtr, iUpatmoPrcStat
+  USE mo_upatmo_state,             ONLY: prm_upatmo
+  USE mo_upatmo_flowevent_utils,   ONLY: t_upatmoRestartAttributes,      &
+    &                                    upatmoRestartAttributesPrepare, &
+    &                                    upatmoRestartAttributesGet,     &
+    &                                    upatmoRestartAttributesDeallocate
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
   USE mo_extpar_config,            ONLY: generate_td_filename
@@ -411,7 +417,8 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
-           & phy_params(jg), mtime_current )
+           & phy_params(jg), mtime_current         ,&
+           & prm_upatmo(jg)                         )
 
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
@@ -632,6 +639,7 @@ MODULE mo_nh_stepping
 
   REAL(wp), ALLOCATABLE :: elapsedTime(:)  ! time elapsed since last call of 
                                            ! NWP physics routines. For restart purposes.
+  TYPE(t_upatmoRestartAttributes) :: upatmoRestartAttributes
 
   TYPE(datetime)                      :: target_datetime  ! target date for for update of clim. 
                                                           ! lower boundary conditions in NWP mode
@@ -1425,6 +1433,10 @@ MODULE mo_nh_stepping
             IF (iforcing == inwp) THEN
               CALL atm_phy_nwp_config(jg)%phyProcs%serialize (mtime_current, elapsedTime)
             ENDIF
+            ! upper-atmosphere physics
+            IF (upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
+              CALL upatmoRestartAttributesPrepare(jg, upatmoRestartAttributes, prm_upatmo(jg), mtime_current)
+            ENDIF
 
             CALL restartDescriptor%updatePatch(p_patch(jg), &
               & opt_t_elapsed_phy          = elapsedTime,                &
@@ -1432,7 +1444,8 @@ MODULE mo_nh_stepping
               & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
               & opt_depth_lnd              = nlev_soil,                  &
               & opt_nlev_snow              = nlev_snow,                  &
-              & opt_ndom                   = n_dom)
+              & opt_ndom                   = n_dom,                      &
+              & opt_upatmo_restart_atts    = upatmoRestartAttributes)
 
         ENDDO
 
@@ -1450,6 +1463,9 @@ MODULE mo_nh_stepping
         IF (ALLOCATED(elapsedTime)) THEN
           DEALLOCATE(elapsedTime, STAT=ierr)
           IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
+        ENDIF
+        IF (ANY(upatmo_config(:)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled ))) THEN
+          CALL upatmoRestartAttributesDeallocate(upatmoRestartAttributes)
         ENDIF
     END IF  ! lwrite_checkpoint
 
@@ -2061,7 +2077,8 @@ MODULE mo_nh_stepping
                 &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
                 &                  p_lnd_state(jg)%prog_wtr(n_new_rcf),& !inout
-                &                  p_nh_state_lists(jg)%prog_list(n_new_rcf) ) !in
+                &                  p_nh_state_lists(jg)%prog_list(n_new_rcf),& !in
+                &                  prm_upatmo(jg)                      ) !inout
 
 #ifdef _OPENACC
               CALL message('mo_nh_stepping', 'Host to device copy after nwp_nh_interface. This needs to be removed once port is finished!')
@@ -2464,7 +2481,8 @@ MODULE mo_nh_stepping
                 & p_lnd_state(jgc)%diag_lnd               ,&
                 & ext_data(jgc)                           ,&
                 & phy_params(jgc), datetime_local(jgc)%ptr,&
-                & lnest_start=.TRUE. )
+                & prm_upatmo(jgc)                         ,&
+                & lnest_start=.TRUE.                       )
 
               CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
@@ -2788,7 +2806,8 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
-          &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
+          &                  p_nh_state_lists(jg)%prog_list(n_now_rcf),& !in
+          &                  prm_upatmo(jg)                      ) !inout
 
 
       CASE (iecham) ! iforcing
@@ -3202,7 +3221,9 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
            & phy_params(jg)                        ,&
-           & datetime_current, lreset=.TRUE.)
+           & datetime_current                      ,&
+           & prm_upatmo(jg)                        ,&
+           & lreset=.TRUE.                          )
 
     ENDDO
 
@@ -3404,6 +3425,10 @@ MODULE mo_nh_stepping
         ! reads elapsed_time from the restart file, to re-initialize 
         ! NWP physics events.
         CALL atm_phy_nwp_config(jg)%phyProcs%deserialize (mtime_current)
+      ENDIF
+      ! upper-atmosphere physics
+      IF (isRestart() .AND. upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
+        CALL upatmoRestartAttributesGet(jg, prm_upatmo(jg), mtime_current)
       ENDIF
 
     ENDDO
