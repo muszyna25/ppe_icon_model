@@ -818,9 +818,10 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2017-05-31)
   !!
-  SUBROUTINE phyProcGroup_deserialize (phyProcGrp, mtime_current)
+  SUBROUTINE phyProcGroup_deserialize (phyProcGrp, mtime_current, optAttnamePrefix)
     CLASS(t_phyProcGroup)         , INTENT(INOUT):: phyProcGrp     !< passed-object dummy argument
     TYPE(datetime), POINTER       , INTENT(IN)   :: mtime_current  !< current_datetime
+    CHARACTER(LEN=*), OPTIONAL    , INTENT(IN)   :: optAttnamePrefix !< optional prefix in attribute name
 
     ! local
     INTEGER                               :: iproc               ! loop conter
@@ -839,7 +840,11 @@ CONTAINS
         IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE
         IF (.NOT. phyProcGrp%proc(iproc)%p%is_enabled) CYCLE
 
-        WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',phyProcGrp%pid,'_PHY',iproc
+        IF (.NOT. PRESENT(optAttnamePrefix)) THEN
+          WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',phyProcGrp%pid,'_PHY',iproc
+        ELSE
+          WRITE(attname,'(a,i2.2,a,i2.2)') TRIM(optAttnamePrefix),phyProcGrp%pid,'_PHY',iproc
+        ENDIF
         elapsedTime = restartAttributes%getReal(TRIM(attname))
 
         ! Note that elapsedTime is multiplied by -1, since we only have a 

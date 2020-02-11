@@ -109,10 +109,12 @@ MODULE mo_nh_interface_nwp
   USE mo_radar_data_state,        ONLY: radar_data, lhn_fields
   USE mo_latent_heat_nudging,     ONLY: organize_lhn
   USE mo_assimilation_config,     ONLY: assimilation_config
-  USE mo_upatmo_config,           ONLY: upatmo_config
   USE mo_nudging_config,          ONLY: nudging_config
-  USE mo_dynamics_config,         ONLY: nnow, nnew, nnow_rcf, nnew_rcf
-  USE mo_nwp_reff_interface,      ONLY: set_reff 
+  USE mo_nwp_reff_interface,      ONLY: set_reff
+  USE mo_upatmo_impl_const,       ONLY: iUpatmoPrcStat, iUpatmoStat
+  USE mo_upatmo_types,            ONLY: t_upatmo
+  USE mo_upatmo_config,           ONLY: upatmo_config
+  USE mo_nwp_upatmo_interface,    ONLY: nwp_upatmo_interface, nwp_upatmo_update
   USE mo_nwp_gpu_util,            ONLY: gpu_d2h_nh_nwp, gpu_h2d_nh_nwp
 
   !$ser verbatim USE mo_ser_nh_interface_nwp, ONLY: serialize_nh_interface_nwp_input,&
@@ -146,7 +148,8 @@ CONTAINS
                             & prm_diag, prm_nwp_tend, lnd_diag,    & !inout
                             & lnd_prog_now, lnd_prog_new,          & !inout
                             & wtr_prog_now, wtr_prog_new,          & !inout
-                            & p_prog_list                          ) !in
+                            & p_prog_list,                         & !in
+                            & prm_upatmo                           ) !inout
 
     !>
     ! !INPUT PARAMETERS:
@@ -180,6 +183,8 @@ CONTAINS
 
     TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
 
+    TYPE(t_upatmo), TARGET, INTENT(inout) :: prm_upatmo !<upper-atmosphere variables
+
 
     ! !OUTPUT PARAMETERS:            !<variables induced by the whole physics
     ! Local array bounds:
@@ -199,6 +204,8 @@ CONTAINS
     LOGICAL :: lcompute_tt_lheat                                !< TRUE: store temperature tendency
                                                                 ! due to grid scale microphysics 
                                                                 ! and satad for latent heat nudging
+
+    LOGICAL :: l_any_upatmophys
 
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
 
@@ -284,6 +291,14 @@ CONTAINS
       l_any_slowphys = .FALSE.
     ENDIF
 
+    ! upper-atmosphere physics
+    IF (upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
+      l_any_upatmophys = (.NOT. upatmo_config(jg)%nwp_phy%isBeforeOpPhase(mtime_datetime)) .AND. &
+        &                (.NOT. upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%afterActivePhase ))
+    ELSE
+      l_any_upatmophys = .FALSE.
+    ENDIF
+
     ! condensate tracer IDs
     condensate_list => advection_config(jg)%trHydroMass%list
 
@@ -302,7 +317,7 @@ CONTAINS
       lcompute_tt_lheat = .FALSE.
     ENDIF
 
-    lconstgrav = upatmo_config(jg)%phy%l_constgrav  ! const. gravitational acceleration?
+    lconstgrav = upatmo_config(jg)%nwp_phy%l_constgrav  ! const. gravitational acceleration?
 
     !$ser verbatim IF(.NOT. linit) THEN
     !$ser verbatim   call serialize_nh_interface_nwp_input(jg, nproma, nlev, pt_prog,&
@@ -1421,6 +1436,27 @@ CONTAINS
 
     ENDIF
 
+    !-------------------------------------------------------------------------
+    !  Upper-atmosphere physics: compute tendencies
+    !-------------------------------------------------------------------------
+    IF (l_any_upatmophys) THEN
+      IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_start(timer_upatmo)
+      ! This interface has to be called after all other slow physics.
+      CALL nwp_upatmo_interface( dt_loc            = dt_loc,            & !in
+        &                        mtime_datetime    = mtime_datetime,    & !in
+        &                        p_patch           = pt_patch,          & !in
+        &                        p_int_state       = pt_int_state,      & !in
+        &                        p_metrics         = p_metrics,         & !in
+        &                        p_prog            = pt_prog,           & !in
+        &                        p_prog_rcf        = pt_prog_rcf,       & !in
+        &                        p_diag            = pt_diag,           & !in
+        &                        prm_nwp_diag      = prm_diag,          & !in
+        &                        prm_nwp_tend      = prm_nwp_tend,      & !in
+        &                        kstart_moist      = kstart_moist(jg),  & !in
+        &                        prm_upatmo        = prm_upatmo         ) !inout
+      IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_stop(timer_upatmo)
+    ENDIF
+
 
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
@@ -1859,6 +1895,23 @@ CONTAINS
 !$OMP END PARALLEL
 
     IF (timers_level > 10) CALL timer_stop(timer_phys_acc_2)
+
+    !-------------------------------------------------------------------------
+    !  Upper-atmosphere physics: add tendencies
+    !-------------------------------------------------------------------------
+    IF (l_any_upatmophys) THEN
+      IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_start(timer_upatmo)
+      ! This interface has to be called after all other tendencies have been accumulated.
+      CALL nwp_upatmo_update( lslowphys         = l_any_slowphys,                  & !in
+        &                     lradheat          = lcall_phy_jg(itradheat),         & !in
+        &                     lturb             = lcall_phy_jg(itturb) .OR. linit, & !in
+        &                     dt_loc            = dt_loc,                          & !in
+        &                     p_patch           = pt_patch,                        & !inout
+        &                     p_prog_rcf        = pt_prog_rcf,                     & !inout
+        &                     prm_upatmo_tend   = prm_upatmo%tend,                 & !inout
+        &                     p_diag            = pt_diag                          ) !inout
+      IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_stop(timer_upatmo)
+    ENDIF
 
 
     IF (timers_level > 10) CALL timer_start(timer_phys_dpsdt)

@@ -44,7 +44,7 @@ MODULE mo_nh_supervise
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
-  USE mo_upatmo_config,       ONLY: idamtr
+  USE mo_upatmo_impl_const,   ONLY: idamtr
 
   IMPLICIT NONE
 

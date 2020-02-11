@@ -93,7 +93,7 @@ CONTAINS
 
   SUBROUTINE o3_pl2ml ( jcs,jce,kbdim,nlev_pres,klev,&
     &                   pfoz,phoz,ppf,pph,   &
-    &                   o3_time_int, o3_clim)
+    &                   o3_time_int, o3_clim, opt_o3_initval )
 
     !- Description: o3 pressure levels to o3 sigma hybrid levels
     !
@@ -122,6 +122,7 @@ CONTAINS
     REAL(wp),INTENT(in) ,DIMENSION(kbdim,klev+1)    :: pph  ! half level pressure
     REAL(wp),INTENT(in) ,DIMENSION(kbdim,nlev_pres) :: o3_time_int !zozonec_x
     REAL(wp),INTENT(OUT),DIMENSION(kbdim,klev)      :: o3_clim ! ozone in g/g
+    REAL(wp),INTENT(in) ,OPTIONAL                   :: opt_o3_initval ! initial value for o3_clim
 
 
     ! LOCAL
@@ -144,6 +145,14 @@ CONTAINS
     INTEGER,DIMENSION(jce)            :: kwork
     LOGICAL,DIMENSION(jce)            :: kk_flag
 
+    ! ----------
+
+    ! since o3_clim has attribute intent(out) and its assignment below 
+    ! extends over o3_clim(jcs:jce,1:klev), not o3_clim(1:kbdim,1:klev),
+    ! one might prefer to initialize the entire field with some value
+    IF (PRESENT(opt_o3_initval)) THEN
+      o3_clim(:,:) = opt_o3_initval
+    ENDIF
 
     ! interpolate ozone profile to model grid
     ! ---------------------------------------

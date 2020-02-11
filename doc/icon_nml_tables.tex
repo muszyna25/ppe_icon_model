@@ -4865,6 +4865,27 @@ Parameterization set for diagnostic calculations of effective radius: \\
 &run\_nml:iforcing = inwp
 \tabularnewline
 
+%\hline
+lupatmo\_phy&
+L (max\_ dom)& .FALSE.&  & 
+Switch for upper-atmosphere physics. \\
+Examples of usage for multi-domain applications: \\
+\begin{itemize}
+\item set lupatmo\_phy = .TRUE. to switch on upatmo physics for all domains
+\item set lupatmo\_phy = .TRUE., .TRUE., .FALSE. to switch on
+upatmo physics for dom 1 and 2, but switch them off for dom 3
+\item please note that ``skipping'' domains is currently not possible, 
+i.e. lupatmo\_phy = .TRUE., .FALSE., .TRUE. is transformed into 
+lupatmo\_phy = .TRUE., .FALSE., .FALSE.
+\end{itemize}
+See upatmo\_nml for configuration of the upper-atmosphere physics
+parameterizations. 
+&
+run\_nml:iforcing = inwp \\
+init\_mode $<$ 4 \\
+inwp\_turb $>$ 0 \\
+inwp\_radiation $>$ 0
+\tabularnewline
 
 \end{longtab}
 
@@ -7309,6 +7330,14 @@ Defined and used in: \verb+src/namelists/mo_turbdiff_nml.f90+
 % deep-atmosphere dynamics
 %
 
+\hline
+\hline
+\multicolumn{5}{|l|}{\emph{Deep-atmosphere dynamics}}
+& ldeepatmo = .TRUE.
+\tabularnewline
+\hline
+\hline
+
 %\hline
 lnontrad &
 L & .TRUE. &  
@@ -7323,8 +7352,10 @@ $f_{{\mathrm{n}},{\mathrm{t}}}=2\Omega\cos(\varphi)\boldsymbol{e_\varphi\cdot e_
 are non-traditional Coriolis parameters, with edge-normal and edge-tangential 
 components denoted by $\mathrm{n}$ and $\mathrm{t}$, the angular velocity of 
 the model Earth $\Omega$, the latitude $\varphi$, and unit vectors 
-$\boldsymbol{e_{\ldots}}$.
-& ldeepatmo = .TRUE.
+$\boldsymbol{e_{\ldots}}$. 
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7334,8 +7365,10 @@ L & .FALSE. &
 .FALSE.: gravitational acceleration varies with height (standard for deep atmosphere) \\
 .TRUE.: gravitational acceleration is constant (as in case of shallow atmosphere). 
 I.e. underlined factor in gravitational acceleration is set to 1:\\
-$\text{grav}=\text{const.}*\underline{[a/(a+z)]^2}$.
-& ldeepatmo = .TRUE.
+$\text{grav}=\text{const.}*\underline{[a/(a+z)]^2}$. 
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7351,8 +7384,9 @@ $\partial w/\partial t \underline{-\Omega^2 (a+z) \cos^2(\varphi)} +\cdots = \cd
 $\text{grav}=\text{const.}*[a/(a+z)]^2$,
 is assumed to be implicitly composed of a purely gravitational part and 
 a centrifugal part, the latter is not subtracted out for lcentrifugal = .TRUE.!)
-&
-ldeepatmo = .TRUE.
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7364,19 +7398,32 @@ in accordance with the shallow-atmosphere approximation in any case \\
 .TRUE.: input fields to the physics parameterizations are modified 
 for the deep atmosphere. (Please note: the physics parameterizations themselves 
 are not explicitly modified for the deep atmosphere!)
-& ldeepatmo = .TRUE. .AND. iforcing = 2 (ECHAM)
+%
+%\\
+& iforcing = 2 (ECHAM)
 \tabularnewline
 
 %
 % upper-atmosphere extrapolation
 %
 
+\hline
+\hline
+\multicolumn{5}{|l|}
+{\emph{Extrapolation to determine the inital state of the upper atmosphere}}
+& itype\_vert\_expol = 2
+\tabularnewline
+\hline
+\hline
+
 %\hline
 expol\_start\_height &
 R & 70000 & m
 &
 Height above which extrapolation of initial data starts.
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7385,7 +7432,9 @@ R & 10000 & m
 &
 Vertical distance above expol\_start\_height within which blending of linearly
 extrapolated state and climatological state takes place.
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7394,7 +7443,9 @@ R & 10000 & m
 &
 Scale height of vertically exponentially decaying factor multiplied to the
 extrapolated horizontal wind (to alleviate stability-endangering wind magnitudes).
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7402,7 +7453,9 @@ expol\_temp\_infty&
 R & 400 & K
 &
 Exospheric mean reference temperature of the climatology for the extrapolation blending.
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7413,12 +7466,368 @@ L & .FALSE. &
 in the region above expol\_start\_height 
 (e.g., temperature values everywhere > 0). 
 (Please, apply with care, since it is computationally relatively expensive.) 
-& itype\_vert\_expol = 2
+%
+%\\
+& 
+\tabularnewline
+
+%
+% upper-atmosphere physics: general
+%
+
+\hline
+\hline
+\multicolumn{5}{|l|}
+{\emph{Upper-atmosphere physics}}
+& 
+(iforcing = 2 (ECHAM) \& \\ 
+``coming soon'') or \\
+(iforcing = 3 (NWP) \& \\ 
+lupatmo\_phy = .TRUE.)
+\tabularnewline
+\hline
+\hline
+
+%\hline
+orbit\_type&
+I & 1 & 
+&
+Orbit model for upper-atmosphere radiation 
+(compare echam\_rad\_nml: l\_orbvsop87): \\
+1: vsop87 $\rightarrow$ standard and accurate model \\
+2: kepler $\rightarrow$ simple model appropriate for idealized work 
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+solvar\_type&
+I & 1 & 
+&
+Solar activity: \\
+1: normal \\
+2: low \\
+3: high
+%
+\\
+&
+\tabularnewline
+
+%\hline
+solvar\_data&
+I & 2 & 
+&
+Data set for solar activity: \\
+1: G. Rottman data \\
+2: J. Lean data
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+solcyc\_type&
+I & 2 & 
+&
+Solar cycle: \\
+1: standard cycle \\
+2: 27-day cycle
+%
+%\\
+& 
+\tabularnewline
+
+%
+% upper-atmosphere physics: NWP-specific
+%
+
+\hline
+\multicolumn{4}{|l|}{nwp\_grp\_<groupname>\%\ldots}
+& Configuration of the upper-atmosphere process groups 
+under NWP-forcing (compare time control of processes in echam\_phy\_nml): \\
+<groupname> = imf: ion drag, molecular diffusion and frictional heating \\
+<groupname> = rad: radiation and chemical heating 
+& iforcing = 3 \\ 
+lupatmo\_phy = .TRUE.
+\tabularnewline
+\hline
+
+%\hline
+\ldots imode &
+I(max\_\\dom) & 1 &  &
+Group mode: \\
+0: all processes clustered in the group <groupname> are switched off \\
+1: all processes are switched on \\
+2: all processes run in offline-mode, i.e. tendencies are computed, 
+but not coupled to the dynamics \\
+Example of usage for multi-domain applications: \\
+\begin{itemize}
+\item set nwp\_grp\_imf\%imode = 1 to switch on the IMF-group for all domains (default) 
+\item set nwp\_grp\_rad\%imode = 1,1,0 to switch on the RAD-group for domain 1 and 2, 
+but to switch it off for domain 3
+\end{itemize}
+Please note: if imode = 1 or 2 for a domain, but lupatmo\_phy = .FALSE. 
+for this domain, imode is set to 0 and the group is switched off.
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots dt &
+R(max\_\\dom) & 300.0$|_{\text{imf}}$, \\ 600.0$|_{\text{rad}}$ & s & 
+Tendency update period. 
+New tendencies from all processes of a group are computed every dt 
+(temperature, wind and water vapor tendencies in case of IMF, 
+and temperature tendencies in case of RAD).
+Please note: internal processing will round dt to the next multiple 
+of the domain-adjusted value of run\_nml: dtime, 
+which in turn might have been rescaled,  
+if grid\_nml: grid\_rescale\_factor $\neq$ 1. 
+In case of a domain-wise assignment in a multi-domain application, 
+dt(1) $\geq$ dt(2) $\geq$ \ldots is required. 
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots t\_start \\
+\ldots t\_end  &
+C & "{ }" &  &
+Tendencies from all processes of a group are computed 
+within the time interval
+[t\_start, t\_end]. Outside this interval the tendencies are set to zero. 
+Format as for time\_nml: ini\_datetime\_string, e.g. 
+nwp\_grp\_imf\%t\_start = "2008-09-01T00:00:00Z". 
+Empty strings will be replaced by the simulation start and/or end date and
+time of the domain. t\_start and t\_end apply to all domains, 
+no domain-wise specification possible! 
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots start\_height &
+R & -999.0 & m &
+All processes of a group compute tendencies above start\_height. 
+Below start\_height the processes are inactive and all tendencies 
+are set to zero.
+A negative value means that the default start heights of each process, 
+listed in src/upper\_atmosphere/mo\_upatmo\_impl\_const: startHeightDef, 
+are applied. Please note: start\_height applies to all domains. 
+If it is above the top of one domain, 
+the group is switched off for that domain (imode(idom) is set to 0).
+%
+%\\
+& 
+\tabularnewline
+
+\hline
+\multicolumn{4}{|l|}{nwp\_gas\_<gasname>\%\ldots}
+& Configuration of the radiatively active gases in the upper atmosphere under
+NWP-forcing (compare radiation\_nml and echam\_rad\_nml): \\
+<gasname> = o3: ozone ($\text{O}_3$) \\
+<gasname> = o2: dioxygen ($\text{O}_2$) \\
+<gasname> = o: atomic oxygen ($\text{O}$) \\
+<gasname> = co2: carbon dioxide ($\text{CO}_2$) \\
+<gasname> = no: nitric oxide ($\text{NO}$) \\
+(Dinitrogen ($\text{N}_2$) is determined diagnostically.)
+& iforcing = 3 \\ 
+lupatmo\_phy = .TRUE. \\
+nwp\_grp\_rad\%imode  $>$ 0
+\tabularnewline
+\hline
+
+%\hline
+\ldots imode & I & 2 & &
+Gas mode (comparable, but generally not identical to the irad\_<gasname> 
+in radiation\_nml and echam\_rad\_nml). \\
+0: zero gas concentration \\
+1: constant gas concentration (independent of space and time), 
+specified via nwp\_gas\_<gasname>\%vmr \\
+2: external data; meridionally, vertically and monthly varying 
+gas concentrations are read from a file 
+with name nwp\_extdat\_gases\%filename
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots vmr & R & 0.0 & $\text{m}^3/\text{m}^3$ &
+Constant volume mixing ratio for a radiatively active gas. 
+%
+\\
+& nwp\_gas\_<gasname>\%imode = 1
+\tabularnewline
+
+%\hline
+\ldots fscale & R & 1.0 & &
+Scaling factor the gas concentration in each grid cell is multiplied with.
+%
+%\\
+& 
+nwp\_gas\_<gasname>\%imode $>$ 0
+\tabularnewline
+
+\hline
+\multicolumn{4}{|l|}{nwp\_extdat\_<extdatname>\%\ldots}
+& Configuration of the external upper-atmosphere data: \\
+<extdatname> = gases: concentrations of the radiatively
+active gases \\
+<extdatname> = chemheat: temperature tendencies from chemical heating \\
+Please note: the standard NWP physics use other external gas data
+(e.g., for ozone)! 
+& 
+nwp\_grp\_rad\%imode  $>$ 0
+\tabularnewline
+\hline
+
+%\hline
+\ldots dt &
+R & 86400.0 & s & 
+Update period for the time interpolation 
+of the external data. 
+Currently, the external data provide monthly mean values. 
+In order to avoid too strong jumps in the transition from 
+one month to the next, the parameters are ``smoothed'' in time 
+by a linear interpolation that is computed every dt. 
+A value of the order of a day should be entirely sufficient 
+for this purpose.
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots filename &
+C & "{}upatmo\_gases\_\\chemheat.nc" &  & 
+Name of the file containing the external data.
+The file of the default name can be found in the folder data/,
+to which a link has to be set in the run script,  
+following the typical examples of nwp\_phy\_nml: lrtm\_filename 
+and cldopt\_filename. 
+May contain the keyword <path> which will be substituted by
+model\_base\_dir (e.g., "{}<path>upatmo\_\\gases\_chemheat.nc").
+Please note: if you would like to use other external data files, 
+their data structure has to follow \emph{exactly} the data structure 
+of data/upatmo\_gases\_chemheat.nc (variable and dimension names and units, 
+zonally averaged monthly mean gas concentrations on pressure levels, 
+zonally averaged monthly mean temperature tendencies from chemical heating
+on geometric height levels etc.). 
+Any other structure cannot be processed for the time being!
+%
+%\\
+& 
 \tabularnewline
 
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_upatmo_nml.f90+
+
+\paragraph{Some notes on the output of upper-atmosphere-specific variables (under NWP-forcing):}
+\mbox{}\\
+An output of upper-atmosphere fields is only possible, 
+if upper-atmosphere physics are switched on. \\
+Upper-atmosphere fields cannot be output in the GRIB format 
+(output\_nml: filetype = 2). \\
+Upper-atmosphere fields entered on output\_nml: m/h/pl\_varlist 
+need the prefix ``upatmo\_''. \\
+
+The following fields can be output, if \ldots \\
+
+\ldots lupatmo\_phy = .TRUE.:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+%----------------------------------------
+\texttt{upatmo\_mdry}      \>  Mass of dry air \\
+%----------------------------------------
+\texttt{upatmo\_amd}       \>  Molar mass of dry air \\
+%----------------------------------------
+\texttt{upatmo\_cpair}     \>  Heat capacity of (moist) air at constant pressure \\
+%----------------------------------------
+\texttt{upatmo\_grav}      \>  Gravitational acceleration of Earth 
+%----------------------------------------
+\end{tabbing}
+
+\ldots lupatmo\_phy = .TRUE. \& nwp\_grp\_rad\%imode > 0:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+%----------------------------------------
+\texttt{upatmo\_sclrlw}  \> Scaling factor for standard long-wave radiation heating rate  
+from radiative processes \\
+                         \> out of local thermodynamic equilibrium \\
+%----------------------------------------
+\texttt{upatmo\_effrsw}  \> Efficiency factor for standard short-wave radiation heating rate  
+from chemical heating \\
+%----------------------------------------
+\texttt{upatmo\_o3}      \> Mass mixing ratio of ozone (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_o2}      \> Mass mixing ratio of dioxygen (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_o}       \> Mass mixing ratio of atomic oxygen (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_co2}     \> Mass mixing ratio of carbon dioxide (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_no}      \> Mass mixing ratio of nitric oxide (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_n2}      \> Mass mixing ratio of dinitrogen (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_srbc}  \> Temperature tendency due to
+absorbtion by O2 in Schumann-Runge band and continuum \\ 
+                                  \> (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_nlte}  \> Temperature tendency due to 
+radiative processes out of local thermodynamic equilibrium \\
+                                  \> (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_euv}   \> Temperature tendency due to 
+heating from extreme ultraviolet radiation \\
+                                  \> (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_no}    \> Temperature tendency due to 
+NO heating at near infrared (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_chemheat}   \> Temperature tendency due to 
+chemical heating (member of \texttt{group:upatmo\_tendencies}) 
+%----------------------------------------
+\end{tabbing}
+
+
+\ldots lupatmo\_phy = .TRUE. \& nwp\_grp\_imf\%imode > 0:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_vdfmol}   \> Temperature tendency due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_fric}   \> Temperature tendency due to 
+frictional heating (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_joule}   \> Temperature tendency due to 
+Joule heating from ion drag (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_u\_vdfmol}   \> Zonal component of wind tendency due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_v\_vdfmol}   \> Meridionl component of wind tendency due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_u\_iondrag}   \> Zonal component of wind tendency due to 
+ion drag (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_v\_iondrag}   \> Meridionl component of wind tendency due to 
+ion drag (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_qv\_vdfmol}   \> Tendency of specific humidity due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\end{tabbing}
+
+\newpage
 
 % =============================================================================
 %

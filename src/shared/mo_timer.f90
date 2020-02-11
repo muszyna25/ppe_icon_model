@@ -168,6 +168,9 @@ MODULE mo_timer
 
   ! upper atmosphere / deep atmosphere
   PUBLIC :: timer_deepatmo_ztrafo, timer_expol
+  PUBLIC :: timer_upatmo, timer_upatmo_constr, timer_upatmo_destr, timer_upatmo_phy, &
+    &       timer_upatmo_phy_init, timer_upatmo_phy_tend, timer_upatmo_phy_diag,     &
+    &       timer_upatmo_phy_imf, timer_upatmo_phy_rad, timer_upatmo_phy_acc
 
   ! ocean
   PUBLIC :: timer_scalar_prod_veloc
@@ -353,6 +356,9 @@ MODULE mo_timer
 
   ! upper atmosphere / deep atmosphere
   INTEGER :: timer_deepatmo_ztrafo, timer_expol
+  INTEGER :: timer_upatmo, timer_upatmo_constr, timer_upatmo_destr, timer_upatmo_phy, &
+    &        timer_upatmo_phy_init, timer_upatmo_phy_tend, timer_upatmo_phy_diag,     &
+    &        timer_upatmo_phy_imf, timer_upatmo_phy_rad, timer_upatmo_phy_acc
 
   ! ocean
   INTEGER :: timer_scalar_prod_veloc
@@ -712,7 +718,17 @@ CONTAINS
 
     ! upper atmosphere / deep atmosphere
     timer_deepatmo_ztrafo = new_timer("deepatmo_ztrafo")
-    timer_expol           = new_timer("upatmo_expol") 
+    timer_expol           = new_timer("upatmo_expol")
+    timer_upatmo          = new_timer("upper_atmosphere")
+    timer_upatmo_constr   = new_timer("upatmo_construction") 
+    timer_upatmo_destr    = new_timer("upatmo_destruction")
+    timer_upatmo_phy      = new_timer("upatmo_physics")
+    timer_upatmo_phy_init = new_timer("upatmo_phy_initialization")
+    timer_upatmo_phy_tend = new_timer("upatmo_phy_update_tendencies")
+    timer_upatmo_phy_diag = new_timer("upatmo_phy_update_diag_vars")
+    timer_upatmo_phy_imf  = new_timer("upatmo_phy_group_imf") 
+    timer_upatmo_phy_rad  = new_timer("upatmo_phy_group_rad")
+    timer_upatmo_phy_acc  = new_timer("upatmo_phy_accmlt_tendencies")
 
     !ocean timers
     timer_gmres     = new_timer("gmres")

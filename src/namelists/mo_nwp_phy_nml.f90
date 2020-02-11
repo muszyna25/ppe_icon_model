@@ -77,6 +77,7 @@ MODULE mo_nwp_phy_nml
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
   LOGICAL  :: latm_above_top(max_dom) !! use extra layer above model top for radiation (reduced grid only)
+  LOGICAL  :: lupatmo_phy(max_dom)    !! switch on/off upper-atmosphere physics in domains
   ! parameter for cloud microphysics
   real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
   real(wp) :: rain_n0_factor     !! tuning factor for intercept parameter of raindrop size distribution
@@ -103,7 +104,7 @@ MODULE mo_nwp_phy_nml
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
     &                    iprog_aero, lshallowconv_only,              &
     &                    ldetrain_conv_prec, rain_n0_factor,         &
-    &                    icalc_reff
+    &                    icalc_reff, lupatmo_phy
 
  
 CONTAINS
@@ -188,6 +189,9 @@ CONTAINS
     efdt_min_raylfric  = 10800._wp
 
     latm_above_top(:)  = .FALSE.  ! no extra layer above model top for radiation computation
+
+    lupatmo_phy(:)     = .TRUE.   ! switch on upper-atmosphere physics
+    lupatmo_phy(1)     = .FALSE.  ! switch off upper-atmosphere physics on dom 1 (please, do not touch this)
 
     ! CAPE correction to improve diurnal cycle of convection (moved from mo_cuparameters)
     icapdcycl = 0  ! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
@@ -309,6 +313,9 @@ CONTAINS
         ! Extra calculations
         IF (icalc_reff(jg)      < 0) icalc_reff(jg)       = icalc_reff(jg-1)
 
+        ! Upper-atmosphere physics
+        IF (lupatmo_phy(jg)) lupatmo_phy(jg) = lupatmo_phy(jg-1)
+
       ENDDO
 
 
@@ -393,6 +400,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%ustart_raylfric = ustart_raylfric 
       atm_phy_nwp_config(jg)%efdt_min_raylfric = efdt_min_raylfric
       atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
+      atm_phy_nwp_config(jg)%lupatmo_phy     = lupatmo_phy(jg)
       atm_phy_nwp_config(jg)%mu_rain         = mu_rain
       atm_phy_nwp_config(jg)%rain_n0_factor  = rain_n0_factor
       atm_phy_nwp_config(jg)%mu_snow         = mu_snow

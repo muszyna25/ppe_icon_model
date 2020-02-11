@@ -118,6 +118,8 @@ MODULE mo_atm_phy_nwp_config
                                    !! (reduced grid only)
     INTEGER  :: icalc_reff         !! type of effective radius calculation
 
+    ! upper atmosphere
+    LOGICAL ::  lupatmo_phy        !! use upper atmosphere physics
 
     ! Derived variables
 

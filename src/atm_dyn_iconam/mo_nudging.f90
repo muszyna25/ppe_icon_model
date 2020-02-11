@@ -55,7 +55,7 @@ MODULE mo_nudging
   USE mo_nudging_config,        ONLY: t_nudging_config,    &
     &                                 indg_type, indg_var, &
     &                                 ithermdyn_type
-  USE mo_upatmo_config,         ONLY: t_upatmo_config, idamtr
+  USE mo_upatmo_config,         ONLY: t_upatmo_config
   USE mo_time_config,           ONLY: t_time_config
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, &
@@ -80,6 +80,7 @@ MODULE mo_nudging
     &                                 timer_global_nudging
   USE mo_io_units,              ONLY: find_next_free_unit
   USE mo_io_config,             ONLY: inextra_2d
+  USE mo_upatmo_impl_const,     ONLY: idamtr
 
   IMPLICIT NONE
 

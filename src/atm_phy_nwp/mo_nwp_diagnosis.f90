@@ -67,7 +67,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_parameters,     ONLY: t_phy_params
   USE mo_time_config,        ONLY: time_config
   USE mo_nwp_tuning_config,  ONLY: lcalib_clcov
-  USE mo_upatmo_config,      ONLY: idamtr
+  USE mo_upatmo_impl_const,  ONLY: idamtr
 
   IMPLICIT NONE
 
