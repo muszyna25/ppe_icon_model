@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# needed packages:
+# openmpi
+# openblas
+# netcdf
+# hdf5
+# libxml2
+# libutil-linux
+# gcc
+# gfortran
+# eccodes
+# libaec
+# autotools (optional)
+set -eu
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
+PREFIX=$HOME/local/icon-2.6rc
+PERL=perl
+
+# ==============================================================================
+# OUT-OF-SOURCE WORKFLOW
+#
+# this commands are designed to have a proper out-of-source build includeing a
+# working runscripting environmen inside the build dir
+
+
+CFLAGS='-I/usr/include/libxml2'
+# this is based on the default openmpi installation 
+${ICON_DIR}/configure \
+  CC=mpicc \
+  FC=mpif90 \
+  LIBS='-leccodes -lsz -laec -lnetcdff -lnetcdf -lopenblas -llapack -lxml2 -lz -llzma -licui18n -licuuc -licudata -lm -ldl' \
+  CFLAGS="$CFLAGS" --enable-grib2 --prefix=$PREFIX
+
+
+# copy the run scripting stuff from the source directory
+rsync -avz --exclude='*in' --exclude='.*' ${ICON_DIR}/run .
+test -d data || ln -sf ${ICON_DIR}/data
+test -f make_runscripts || cp ${ICON_DIR}/make_runscripts .
+./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
+make -j8
+
+# ==============================================================================
+# INSTALLATION WORKFLOW
+#
+# below are the steps needed for a clean installation directory with no link to
+# the source or build directory
+make install
+
+# install everything needed for runscripting
+rsync -avz --exclude='*.in' --exclude='.*' ./run ${PREFIX}
+rsync -avz ${ICON_DIR}/data ${PREFIX}
+rsync -avz ${ICON_DIR}/externals ${PREFIX} --del  --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+cp ${ICON_DIR}/make_runscripts ${PREFIX}
+for file in run/create_target_header run/add_run_routines run/exec.iconrun run/set-up.info; do
+  ${PERL} -p -e 's/\@abs_top_(src|build)dir\@/\@prefix\@/g' "${ICON_DIR}/${file}.in" | ./config.status --file="${PREFIX}/${file}:-"
+done
+
+
