@@ -1,0 +1,74 @@
+#!/bin/bash
+set -x
+# create all builders for a given list
+list=bbnew
+if [ x$list == x ]; then
+  echo "Builbot list name missing"
+  exit 1
+fi
+
+./rmlist $list
+./mklist $list
+
+# mistral builders
+machine=mistral
+./addmachine $machine --list $list
+./addbuilder MISTRAL_gcc            --machine $machine --build_script="./config/buildbot/mistral_gcc"               --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_intel17          --machine $machine --build_script="./config/buildbot/mistral_intel17"         --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_hybrid   --machine $machine --build_script="./config/buildbot/mistral_intel17_hybrid"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_openmp   --machine $machine --build_script="./config/buildbot/mistral_intel17_openmp" --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_hybrid_mixed --machine $machine --build_script="./config/buildbot/mistral_intel17_hybrid_mixed"  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_intel18        --machine $machine --build_script="./config/buildbot/mistral_intel18"        --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid --machine $machine --build_script="./config/buildbot/mistral_intel18_hybrid" --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_openmp --machine $machine --build_script="./config/buildbot/mistral_intel18_openmp" --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid_mixed --machine $machine --build_script="./config/buildbot/mistral_intel18_hybrid_mixed"  --builderflags="Active"  --list $list
+
+./addbuilder MISTRAL_nag            --machine $machine --build_script="./config/buildbot/mistral_nag" --builderflags="Active"  --list $list
+./addbuilder MISTRAL_nag_serial     --machine $machine --build_script="./config/buildbot/mistral_nag_serial"  --builderflags="build_only"  --list $list
+
+./addbuilder MISTRAL_ocean_intel17  --machine $machine --build_script="./config/buildbot/mistral_intel17_ocean"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_ocean_intel18  --machine $machine --build_script="./config/buildbot/mistral_intel18_ocean"  --builderflags="Active"  --list $list
+
+
+# breeze builders
+machine=breeze
+./addmachine $machine --list $list
+./addbuilder BREEZE_gcc           --machine $machine --build_script="./config/buildbot/breeze_gcc"          --configureflags="--with-fortran=gcc"   --builderflags="build_only"  --list $list
+./addbuilder BREEZE_gcc_openmp    --machine $machine --configureflags="--with-fortran=gcc --with-openmp"    --builderflags="Inactive"  --list $list
+./addbuilder BREEZE_intel         --machine $machine --configureflags="--with-fortran=intel"                --builderflags="Inactive"  --list $list
+./addbuilder BREEZE_intel_openmp  --machine $machine --configureflags="--with-fortran=intel --with-openmp"  --builderflags="Inactive"  --list $list
+./addbuilder BREEZE_nag           --machine $machine --configureflags="--with-fortran=nag"                  --builderflags="Inactive"  --list $list
+
+
+#CSCS builders
+machine=daint
+./addmachine $machine --list $list
+./addbuilder DAINT_CPU_cce        --machine $machine --configureflags="--with-fortran=cray" --builderflags="Inactive"      --list $list
+./addbuilder DAINT_GPU_cce        --machine $machine --configureflags="--with-fortran=cray_gpu" --builderflags="Inactive"  --list $list
+./addbuilder DAINT_CPU_pgi        --machine $machine --configureflags="--with-fortran=pgi" --builderflags="Inactive"      --list $list
+./addbuilder DAINT_GPU_pgi        --machine $machine --configureflags="--with-fortran=pgi_gpu" --builderflags="Inactive"  --list $list
+
+#DWD machines
+machine=dwd_cray
+./addmachine $machine --list $list
+./addbuilder DWD_cray            --machine $machine --configureflags="--with-fortran=cray"   --builderflags="Inactive"  --list $list
+
+
+
+./addexp "checksuite.icon-dev/check.atm_amip*"      --list $list
+#./addexp "checksuite.icon-dev/check.atm_heldsuarez" --list $list
+#./addexp "checksuite.icon-dev/check.atm_ape"        --list $list
+# add concurrent ps_rad test
+#./addexp "aes/exp.test_concurrent_psrad_model" --without-configureflags without-mpi --machines mistral  --list $list
+#-----------------------------------------------------------
+# in case reference data are not available uncomment this line
+#./rmexp checksuite.icon-dev/check.atm_amip_update  --list $listname
+
+#-----------------------------------------------------------
+# OES
+# add omip technical tests only with mpi parallelization
+#./addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical --runflags "cpu_time=00:30:00"  --list $list --machine mistral
+# add omip binary-identical test on mistral
+#./addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex --machines mistral --machines mistral --without-configureflags enable-mixed --runflags "cpu_time=00:30:00 queue=compute" --list $list

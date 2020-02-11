@@ -28,7 +28,9 @@ MODULE mo_fortran_tools
   USE mo_mpi,                     ONLY: i_am_accel_node
   USE openacc
 #endif
-  USE iso_c_binding, ONLY: c_ptr, c_f_pointer, c_loc, c_null_ptr
+  USE iso_c_binding,              ONLY: c_ptr, c_f_pointer, c_loc, c_null_ptr
+  USE mo_util_stride,             ONLY: util_c_loc, util_stride_1d, &
+                                      & util_stride_2d
 
   IMPLICIT NONE
 
@@ -1727,15 +1729,16 @@ CONTAINS
       in_stride(2) = in_shape(1)
       IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
         CALL util_stride_2d(in_stride, elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       ELSE IF (in_shape(1) > 1) THEN
         CALL util_stride_1d(in_stride(1), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
         base_shape(1) = in_stride(1) * in_shape(1)
       ELSE IF (in_shape(2) > 1) THEN
         CALL util_stride_1d(in_stride(2), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       END IF
       base_shape(2) = in_shape(2)
@@ -1784,15 +1787,16 @@ CONTAINS
       in_stride(2) = in_shape(1)
       IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
         CALL util_stride_2d(in_stride, elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       ELSE IF (in_shape(1) > 1) THEN
         CALL util_stride_1d(in_stride(1), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
         base_shape(1) = in_stride(1) * in_shape(1)
       ELSE IF (in_shape(2) > 1) THEN
         CALL util_stride_1d(in_stride(2), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       END IF
       base_shape(2) = in_shape(2)
@@ -1875,15 +1879,16 @@ CONTAINS
       in_stride(2) = in_shape(1)
       IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
         CALL util_stride_2d(in_stride, elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       ELSE IF (in_shape(1) > 1) THEN
         CALL util_stride_1d(in_stride(1), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
         base_shape(1) = in_stride(1) * in_shape(1)
       ELSE IF (in_shape(2) > 1) THEN
         CALL util_stride_1d(in_stride(2), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       END IF
       base_shape(2) = in_shape(2)
@@ -1923,7 +1928,7 @@ CONTAINS
     INTEGER :: out_shape(out_rank), i
     TYPE(c_ptr) :: cptr
     out_shape(1:out_rank-1) = in_shape
-    CALL util_c_loc(ptr_in, cptr)
+    CALL util_c_loc(C_LOC(ptr_in), cptr)
     DO i = out_rank, new_dim_rank+1, -1
       out_shape(i) = out_shape(i-1)
     END DO
@@ -1949,15 +1954,16 @@ CONTAINS
       in_stride(2) = in_shape(1)
       IF (in_shape(1) > 1 .AND. in_shape(2) > 1) THEN
         CALL util_stride_2d(in_stride, elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)), &
+             C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       ELSE IF (in_shape(1) > 1) THEN
         CALL util_stride_1d(in_stride(1), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(2, 1))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(2, 1)))
         base_shape(1) = in_stride(1) * in_shape(1)
       ELSE IF (in_shape(2) > 1) THEN
         CALL util_stride_1d(in_stride(2), elem_byte_size, &
-             ptr_in(1, 1), ptr_in(1, 2))
+             C_LOC(ptr_in(1, 1)), C_LOC(ptr_in(1, 2)))
         base_shape(1) = in_stride(2)
       END IF
       base_shape(2) = in_shape(2)

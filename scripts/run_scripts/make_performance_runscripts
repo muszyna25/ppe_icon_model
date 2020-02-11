@@ -11,7 +11,7 @@
 # echo "-----------------------------------------------------------"
 base_folder=$(pwd)
 input_folder=run
-. $base_folder/config/set-up.info
+. $base_folder/run/set-up.info
 if [[ x$use_shell == x ]] ; then
   use_shell="/bin/ksh"
 fi

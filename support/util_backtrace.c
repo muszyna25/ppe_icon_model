@@ -10,16 +10,10 @@
  *
  */
 
+// Fortan interface to the following functions is
+// implemented in ../src/shared/mo_util_backtrace.f90
+
 #include "config.h"
-
-#include "cfortran.h"
-
-/*
- * cfortran prototypes:
- */
-
-void cf_util_backtrace(void);
-FCALLSCSUB0(cf_util_backtrace, UTIL_BACKTRACE, util_backtrace) 
 
 #if defined (HAVE_EXECINFO_H)
 
@@ -30,7 +24,7 @@ FCALLSCSUB0(cf_util_backtrace, UTIL_BACKTRACE, util_backtrace)
 
 #if defined (__GNUC__)
 
-void cf_util_backtrace(void)
+void util_backtrace(void)
 {
   void *array[32];
   size_t size;
@@ -57,7 +51,7 @@ void cf_util_backtrace(void)
 
 #else
 
-void cf_util_backtrace(void)
+void util_backtrace(void)
 {
   fprintf (stderr, "Stack traceback not available.\n");
 
@@ -72,7 +66,7 @@ void cf_util_backtrace(void)
 
 #if (defined(sun) || defined(__sun)) && (defined(__SVR4) || defined(__svr4__))
 
-void cf_util_backtrace(void)
+void util_backtrace(void)
 {
   (void) printstack(2); /* fd 2 is always stderr */
 
@@ -81,7 +75,7 @@ void cf_util_backtrace(void)
 
 #else
 
-void cf_util_backtrace(void)
+void util_backtrace(void)
 {
   fprintf (stderr, "Stack traceback not available.\n");
 
@@ -92,7 +86,7 @@ void cf_util_backtrace(void)
  
 #else
 
-void cf_util_backtrace(void)
+void util_backtrace(void)
 {
   fprintf (stderr, "Stack traceback not available.\n");
 

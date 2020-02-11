@@ -780,11 +780,9 @@ if string_in_list $MD $CMODES; then
         sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
 
         N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
-        N_NPROMA_NEW="nproma=17"
-        if [ "${N_NPROMA#nproma=}" == "${N_NPROMA_NEW#nproma=}" ]; then
-            N_NPROMA_NEW='nproma=19'
-        fi
-        sed s/$N_NPROMA/$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+        N_NPROMA=${N_NPROMA#nproma=}
+        ((N_NPROMA_NEW=N_NPROMA + 1))
+        sed s/nproma=$N_NPROMA/nproma=$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
         mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
 
         echo "Perform $TEST run"

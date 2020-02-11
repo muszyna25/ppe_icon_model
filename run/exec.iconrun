@@ -322,7 +322,7 @@ fi
 #_____________________________________________________________________________
 # get possibly needed PATH and LD_LIBRARY_PATH updates
 #
-. ${basedir}/config/set-up.info
+. ${basedir}/run/set-up.info
 #
 # removing this is breaking PGI GPU version on daint@CSCS and maybe other
 # machines at CSCS

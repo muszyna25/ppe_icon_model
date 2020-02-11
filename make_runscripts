@@ -40,7 +40,7 @@
 #       script.
 #
 # For more details see the parameters in the
-#./config/make_target_runscript
+#./run/make_target_runscript
 #______________________________________________________________________________
 
 set -eu
@@ -62,7 +62,14 @@ done
 #______________________________________________________________________________
 #==============================================================================
 
-source ./config/set-up.info
+if [[ -f ./run/set-up.info ]]
+then
+    source ./run/set-up.info
+else
+    echo "ERROR: Could not find './run/set-up.info' file !"
+    exit 1
+fi
+
 use_shell=${use_shell:="/bin/bash"}
 
 # default for options
@@ -90,7 +97,7 @@ then
     #       EXPNAME=<name> variable
     #__________________________________________________________________________
     
-    ./config/make_target_runscript \
+    ./run/make_target_runscript \
 	in_folder=${in_folder} \
 	in_script=exp.${name} \
 	in_script=exec.iconrun EXPNAME=${name} \
@@ -114,7 +121,7 @@ then
     #    with_mpi="no" with_openmp="no"
     #__________________________________________________________________________
     
-    ./config/make_target_runscript \
+    ./run/make_target_runscript \
 	in_folder=${in_folder} \
 	in_script=post.${name} \
 	out_script=post.${name}.run \
@@ -132,7 +139,7 @@ then
     for experiment in $all_experiments
     do
 	expname=${experiment##*.}
-	./config/make_target_runscript \
+	./run/make_target_runscript \
 	    in_folder=${in_folder} \
 	    in_script=${experiment} \
 	    in_script=exec.iconrun \
