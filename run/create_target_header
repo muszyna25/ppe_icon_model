@@ -130,16 +130,6 @@ module list
 EOF
     fi
 
-    if [[ "x${use_netcdflibpath-}" != "x" ]]
-    then
-	cat >> $output_script << EOF
-
-# NetCDF library
-# --------------
-export LD_LIBRARY_PATH=$use_netcdflibpath:\$LD_LIBRARY_PATH
-EOF
-    fi
-
     cat >> $output_script << EOF
 
 #=============================================================================
