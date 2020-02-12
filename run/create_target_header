@@ -490,22 +490,6 @@ set_run_target_mpipc()
     
     start_header
 
-    if [[ "$use_mpi" == "yes" ]]
-    then
-	cat >> $output_script << EOF
-#=============================================================================
-
-# MPI linux PC
-#-------------
-# start mpd (MPI deamon for MPICH2)
-export MPD_CON_EXT=job_\$\$
-${use_mpi_root}/bin/mpd &
-sleep 2
-mpdid=\$(${use_mpi_root}/bin/mpdtrace -l | awk '{print \$1}')
-echo "mpd started as \$mpdid"
-#-----------------------------------
-EOF
-    fi
 }
 
 #=============================================================================
