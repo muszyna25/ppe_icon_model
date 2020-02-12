@@ -1119,7 +1119,7 @@ case "$ac_sitename" in
                 mpi_startrun=runjob --ranks-per-node \\\$mpi_procs_pernode --envs OMP_NUM_THREADS=\\\$OMP_NUM_THREADS --exe
                 ;;
             juwels*)
-				XML2ROOT    = /gpfs/homea/hka21/hka211/xml2
+                               XML2ROOT    = /gpfs/homea/hka21/hka211/xml2
                 NETCDFROOT    = $EBROOTNETCDF
                 NETCDFLIBPATH = $NETCDFROOT/lib64
                 NETCDFFROOT   = $EBROOTNETCDFMINFORTRAN

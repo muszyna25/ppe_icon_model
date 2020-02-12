@@ -192,7 +192,7 @@ CONTAINS
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
     IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params       ( p_patch(1:) )
+      CALL init_echam_phy_params( p_patch(1:) )
       CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
       CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF

@@ -688,20 +688,21 @@ CONTAINS
        DO jtrc = 1,ntracer
           WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
        END DO
-       !
-       ! then set specific names for active indexed tracers
-       IF (iqv  > 0) ctracer(iqv ) = 'hus'
-       IF (iqc  > 0) ctracer(iqc ) = 'clw'
-       IF (iqi  > 0) ctracer(iqi ) = 'cli'
-       IF (iqr  > 0) ctracer(iqr ) = 'qr'
-       IF (iqs  > 0) ctracer(iqs ) = 'qs'
-       IF (iqg  > 0) ctracer(iqg ) = 'qg'
-       IF (io3  > 0) ctracer(io3 ) = 'o3'
-       IF (ico2 > 0) ctracer(ico2) = 'co2'
-       IF (ich4 > 0) ctracer(ich4) = 'ch4'
-       IF (in2o > 0) ctracer(in2o) = 'n2o'
 
     ENDIF
+
+    !
+    ! then set specific names for active indexed tracers
+    IF (iqv  > 0) ctracer(iqv ) = 'hus'
+    IF (iqc  > 0) ctracer(iqc ) = 'clw'
+    IF (iqi  > 0) ctracer(iqi ) = 'cli'
+    IF (iqr  > 0) ctracer(iqr ) = 'qr'
+    IF (iqs  > 0) ctracer(iqs ) = 'qs'
+    IF (iqg  > 0) ctracer(iqg ) = 'qg'
+    IF (io3  > 0) ctracer(io3 ) = 'o3'
+    IF (ico2 > 0) ctracer(ico2) = 'co2'
+    IF (ich4 > 0) ctracer(ich4) = 'ch4'
+    IF (in2o > 0) ctracer(in2o) = 'n2o'
 
     cdimissval = cdiInqMissval()
 

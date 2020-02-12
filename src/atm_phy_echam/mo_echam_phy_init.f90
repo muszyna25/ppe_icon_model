@@ -458,38 +458,42 @@ CONTAINS
     ich4      = MERGE(iqt+2,0,ntracer>=iqt+2) ! CH4
     in2o      = MERGE(iqt+3,0,ntracer>=iqt+3) ! N2O
 
-    ! extra treatment if ART is active, probably wrong
+    ! extra treatment if ART is active
        
     IF (lart) THEN
         
-       ntracer = ntracer + art_config(1)%iart_echam_ghg + art_config(1)%iart_ntracer
        io3    = 0     !! O3
        ico2   = 0     !! CO2
        ich4   = 0     !! CH4
        in2o   = 0     !! N2O
 
+       art_config(1)%iart_echam_ghg = ntracer - art_config(1)%iart_ntracer - iqt + 1
+
        SELECT CASE (art_config(1)%iart_echam_ghg)  
 
        CASE(1)
-          io3    = 4
+          io3    = iqt + 0
        CASE(2)
-          ico2   = 5
+          io3    = iqt + 0
+          ico2   = iqt + 1
        CASE(3)
-          ich4   = 6
+          io3    = iqt + 0
+          ico2   = iqt + 1
+          ich4   = iqt + 2
        CASE(4)
-          in2o   = 7
+          io3    = iqt + 0
+          ico2   = iqt + 1
+          ich4   = iqt + 2
+          in2o   = iqt + 3
 
        CASE(0)
 
        CASE DEFAULT
-          CALL finish('mo_atm_nml_crosscheck', 'iart_echam_ghg > 4 is not supported')
+          CALL finish('mo_echam_phy_init:init_echam_phy_itracer',     &
+                 &    'iart_echam_ghg > 4 or < 0 is not supported.'// &
+                 &    ' ntracer large enough?')
 
        END SELECT
-
-       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                         'ntracer is increased by ',art_config(1)%iart_ntracer, &
-                                         ' to ',ntracer
-       CALL message('mo_echam_phy_init:init_echam_phy_itracer',message_text)
 
     ENDIF
 
