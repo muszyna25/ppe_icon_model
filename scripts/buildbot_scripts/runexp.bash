@@ -1,6 +1,6 @@
 #! /bin/bash
 #------------------------------------------------------------------------------
-# This script is called on all buildbot slaves and should be used to run the runscripts
+# This script is called on all buildbot slaves and should be used to run the runscript
 #------------------------------------------------------------------------------
 
 # Define of the text which is written in case of a script fail or OK run
@@ -95,10 +95,10 @@ run_scripts_submit()
   stop_check="warning_on_error"
 
   # check if the tolerance infrastructure needs to be initialized
-  cnt=$(grep -c -i "tolerance" run/runscripts_list)
+  cnt=$(grep -c -i "tolerance" run/runscript_list)
   if [ $? -gt 1 ]
   then
-      echo "Could not find run/runscripts_list ..."
+      echo "Could not find run/runscript_list ..."
       exit 1
   else
       echo "found tolerance check. Initializing infrastructure..."
@@ -137,7 +137,7 @@ run_scripts_submit()
 
   echo "Run all *.run in run directory"
   cd run
-  EXP_FILES=`cat runscripts_list`
+  EXP_FILES=`cat runscript_list`
 
   case $submit in
       sbatch*)
