@@ -45,6 +45,7 @@ MODULE mo_read_netcdf_distributed
 
   PUBLIC :: distrib_read
   PUBLIC :: distrib_nf_open
+  PUBLIC :: distrib_nf_inq_varexists
   PUBLIC :: distrib_nf_close
   PUBLIC :: setup_distrib_read
   PUBLIC :: delete_distrib_read
@@ -359,6 +360,31 @@ CONTAINS
     END IF
 
   END FUNCTION distrib_nf_open
+
+  !-------------------------------------------------------------------------
+
+  FUNCTION distrib_nf_inq_varexists(ncid, var_name) result(ret)
+
+    INTEGER, INTENT(in) :: ncid
+    CHARACTER(LEN=*), INTENT(in) :: var_name
+
+    INTEGER :: n_io_processes, io_process_stride
+    INTEGER :: err, varid
+    LOGICAL :: ret
+
+    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
+
+    ! FIXME: This is wrong in two ways:
+    !  - We cannot assume rank 0 to be part of the reading processes.
+    !  - It is sufficient (and sensible) if only one ranks calls nf_inq_varid.
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+      err = nf_inq_varid(ncid, var_name, varid)
+    END IF
+    CALL p_bcast(err, 0, p_comm_work)
+
+    ret = (err == nf_noerr)
+
+  END FUNCTION distrib_nf_inq_varexists
 
   !-------------------------------------------------------------------------
 
