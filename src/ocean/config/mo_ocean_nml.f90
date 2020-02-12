@@ -830,8 +830,10 @@ MODULE mo_ocean_nml
 !   - Namelist (default Type IB) 
 
   LOGICAL      :: use_tides  = .FALSE.
+  INTEGER      :: tides_mod = 1 !1: tidal potential by Logemann, HZG 2020. 2: tidal potential from MPI-OM.
   CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
   REAL(wp)     :: tides_esl_damping_coeff = 0.69_wp
+
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
@@ -896,6 +898,7 @@ MODULE mo_ocean_nml
     &                 jerlov_atten                        , &
     &                 jerlov_bluefrac                     , &
     &                 use_tides                           , &
+    &                 tides_mod                           , &
     &                 tide_startdate                      , &
     &                 tides_esl_damping_coeff
   ! } END FORCING

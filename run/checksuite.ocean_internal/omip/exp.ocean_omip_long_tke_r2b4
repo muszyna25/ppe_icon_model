@@ -29,7 +29,7 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 init_relax=1
 ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
-grids_folder=/pool/data/ICON/oes/input/r0002//OceanOnly_Icos_0158km_etopo40
+grids_folder=/pool/data/ICON/oes/input/r0003/OceanOnly_Icos_0158km_etopo40
 ocean_data_InputFolder=/pool/data/ICON/oes/input/r0003/OceanOnly_Icos_0158km_etopo40
 #-----------------------------------------------------------------------------
 #icon_data_rootFolder=/pool/data/ICON
@@ -283,6 +283,9 @@ cat > ${ocean_namelist} << EOF
   atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
   atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 
+  use_tides                       = .FALSE.
+  tides_mod                       =  1        ! 1 Default 2 MPIOM 
+  tide_startdate                  = '2001-01-01 00:00'
   lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
   jerlov_atten                    = 0.08      ! jerlov water type IB
   jerlov_bluefrac                 = 0.36      ! jerlov water type IB

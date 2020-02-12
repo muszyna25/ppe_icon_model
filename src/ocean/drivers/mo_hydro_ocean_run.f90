@@ -34,7 +34,7 @@ MODULE mo_hydro_ocean_run
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
     &  lswr_jerlov, &
-    &  Cartesian_Mixing, GMRedi_configuration, use_tides, OceanReferenceDensity_inv, &
+    &  Cartesian_Mixing, GMRedi_configuration, use_tides, tides_mod, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
@@ -90,7 +90,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
-  USE mo_ocean_tides,         ONLY: tide    
+  USE mo_ocean_tides,            ONLY: tide, tide_mpi    
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
@@ -369,7 +369,8 @@ CONTAINS
         !------------------------------------------------------------------------
         ! compute tidal potential
         IF (use_tides) THEN
-          CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
+          IF(tides_mod.eq.1) CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
+          IF(tides_mod.eq.2) CALL tide_mpi(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
         ENDIF
         ! total top potential
         IF (atm_pressure_included_in_ocedyn) THEN
