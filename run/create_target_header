@@ -122,14 +122,6 @@ EOF
 fi
 fi
 
-if [[ "x$use_netcdflibpath" != "x" ]]; then
-cat >> $output_script << EOF
-#=============================================================================
-export LD_LIBRARY_PATH=$use_netcdflibpath:\$LD_LIBRARY_PATH
-#=============================================================================
-EOF
-fi
-
 cat >> $output_script << EOF
 nproma=$use_nproma
 cdo="${cdo}"
