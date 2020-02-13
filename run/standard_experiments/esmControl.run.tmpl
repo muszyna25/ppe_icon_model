@@ -61,7 +61,7 @@ export OMP_STACKSIZE=200M
 # MPI variables
 # ----------------------------
 mpi_root=/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14
-no_of_nodes=${SLURM_JOB_NUM_NODES:=20}
+no_of_nodes=${SLURM_JOB_NUM_NODES:=%{JOB.nodes}}
 mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
 START="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS)) --propagate=STACK,CORE"
@@ -150,8 +150,10 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 #
 # A test version for HD is included. Model is water mass conserving now.
 #
-# Here, the ocean is already spun up from Levitus climatology for 50 years.
-# initialiseOcean="fromClimatology" is possible, see below.
+# Here, ocean is initialized from long (3600y) tuning run with good AMOC and sea-ice.
+# Hamocc is initialized with cmip6 data interpolated to icon-ocean grid.
+#
+#
 #
 # The coupling:
 #
@@ -162,6 +164,7 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 # . total_heat_flux
 # . atmosphere_sea_ice_bundle
 # . river_runoff
+# . co2_mixing_ratio
 #
 # ocean -> atmosphere:
 # . sea_surface_temperature
@@ -169,19 +172,12 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 # . northward_sea_water_velocity
 # . ocean_sea_ice_bundle
 # . 10m_wind_speed
-#
-# currently not activated for coupling:
-# . co2_mixing_ratio
 # . co2_flux
 #
 #--------------------------------------------------------------------------------------------------
 
 # (0) Basic model configuration
 # -----------------------------
-
-use_account_no=bk0988
-use_cpu_time=02:00:00
-use_nodes=20
 
 atmos_gridID="0030"
 atmos_refinement="R02B03"
@@ -203,7 +199,7 @@ initialiseOcean=%{JOB.init_ocean}
 # 1 ocean node is sufficient for low resolution, 9 nodes for coupled is suitable.
 # faster: 2 nodes for ocean, 16 nodes in total
 #         running with Hamocc: 8 nodes for ocean, 22 in total for similar performance
-mpi_oce_nodes=6
+mpi_oce_nodes=%{JOB.ocean_nodes}
 #mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 #
@@ -214,11 +210,11 @@ mpi_oce_nodes=6
 
 # standard atmosphere timestep: 15 min, 8 substeps (r2b4 values)
 # atmospheric timesteps > 15 min are possible with a higher value in hdiff_smag_fac, see diffusion nml
-# tested: atmTimeStep="PT20M" / atm_substeps=10 with hdiff_smag_fac=0.15
+# tested: atmTimeStep="PT20M" / atm_substeps=15 with hdiff_smag_fac=0.15
 
 radTimeStep="PT2H"               # radiation time step:    12 time steps per day
 atmTimeStep="%{ATMO_TIME_STEP}" # atmosphere time step
-atm_substeps=10                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
+atm_substeps=%{ATMO_DYNAMICS_SUBSTEPS} # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
 oceTimeStep="%{OCEAN_TIME_STEP}" # ocean time step
 couplingTimeStep="PT60M"         # coupling time step:      2 time steps per radTimeStep 
 
@@ -277,10 +273,10 @@ restart_interval="%{INTERVAL}"
 checkpoint_interval="%{INTERVAL}"
 
 # file interval is restart-interval
-atm_file_interval="%{INTERVAL}"
-oce_file_interval="%{INTERVAL}"
-lnd_file_interval="%{INTERVAL}"
-hamocc_file_interval="%{INTERVAL}"
+atm_file_interval="%{INTERVAL}T1S"
+oce_file_interval="%{INTERVAL}T1S"
+lnd_file_interval="%{INTERVAL}T1S"
+hamocc_file_interval="%{INTERVAL}T1S"
 
 atm_output_interval="%{OUTPUT_INTERVAL}"
 oce_output_interval="%{OUTPUT_INTERVAL}"
@@ -291,8 +287,18 @@ hamocc_output_interval="%{OUTPUT_INTERVAL}"
 
 start_date_file=$SCRIPT_DIR/$EXPNAME.date
 
+#%  if JOB.entry_point is set:
+if [[ -f $start_date_file ]]
+then
+    exec >&2
+    echo "Oops: you have tried to begin an experiment that had already been started."
+    echo "      Remove '$start_date_file' and re-run if you want to continue"
+    exit 1
+fi
 start_date=$initial_date
-[[ -f $start_date_file ]] && read start_date < $start_date_file
+#%  else:
+read start_date < $start_date_file
+#%  endif
 
 export PYTHONPATH=$MODEL_DIR/lib/python${PYTHONPATH:+:}$PYTHONPATH
 eval $(python -c "
@@ -343,7 +349,7 @@ output_oce_def=yes      #  annual mean is sufficient
 # output interval for large atm/oce files, normally set to general atmos interval:
 atm_output_interval_3d="$atm_output_interval"
 atm_output_interval_2d="$atm_output_interval"
-oce_output_interval_def="P1Y"  # annual mean output for deep ocean
+oce_output_interval_def="$restart_interval"  # annual mean output for deep ocean
 
 # output switches for HAMOCC files
 output_hamocc_mon=yes
@@ -363,7 +369,7 @@ output_hamocc_3d=yes
 run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
-jsbach_with_carbon=no         # yes needs jsbach_pfts usecase
+jsbach_with_carbon=yes         # yes needs jsbach_pfts usecase
 
 # Some further processing for land configuration
 # ----------------------------------------------
@@ -390,9 +396,9 @@ cd $EXPDIR
 
 # namelist files
 # --------------
-atm_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
-oce_namelist=NAMELIST_${EXPNAME}_oce
+atm_namelist=NAMELIST_atm
+lnd_namelist=NAMELIST_lnd
+oce_namelist=NAMELIST_oce
 
 #--------------------------------------------------------------------------------------------------
 # I. coupling section
@@ -517,7 +523,6 @@ cat > coupling.xml << EOF
    <dates>
       <start_date>+1800-01-01T00:00:00.000</start_date>
       <end_date>+2100-01-01T00:00:00.000</end_date>
-      <!-- TODO: calendar not used (a/t Rene Redler, 2020-01-20 ) -->
       <calendar>proleptic-gregorian</calendar>
    </dates>
    <timestep_unit>ISO_format</timestep_unit>
@@ -734,8 +739,50 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
-            <enforce_write_weight_file filename="runoff_a2o_r2b3_r2b4.nc">true</enforce_write_weight_file>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
+#%- if namelists['coupling.xml'].include_co2 is set:
+         <transient_couple transient_id="12">
+            <source component_ref="1" transient_grid_ref="12"/>
+            <target transient_grid_ref="12"/>
+            <timestep>
+               <source>${atmTimeStep}</source>
+               <target>${oceTimeStep}</target>
+               <coupling_period operation="average">${couplingTimeStep}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>${oce_lag}</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation method="bernstein_bezier"/>
+               <interpolation method="n-nearest_neighbor" n="4" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation method="fixed_value" user_value="-999.9"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+         <transient_couple transient_id="13">
+            <source component_ref="2" transient_grid_ref="13"/>
+            <target transient_grid_ref="13"/>
+            <timestep>
+               <source>${oceTimeStep}</source>
+               <target>${atmTimeStep}</target>
+               <coupling_period operation="average">${couplingTimeStep}</coupling_period>
+               <source_timelag>${oce_lag}</source_timelag>
+               <target_timelag>${atm_lag}</target_timelag>
+            </timestep>
+            <mapping_on_source>true</mapping_on_source>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" order="1" partial_coverage="true"/>
+               <interpolation method="fixed_value" user_value="-999.9"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
+#%- endif
+#%# ... include_co2 is set
       </couple>
    </couples>
    <created date="16-04-2019 15:49" tool="YAC-CouplingGUI v.1.5"/>
@@ -773,7 +820,7 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
+ ntracer          = %{namelists.NAMELIST_atm.run_nml.ntracer}
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -812,10 +859,9 @@ cat > ${atm_namelist} << EOF
  hdiff_smag_fac   = 0.15       ! default: 0.015  too high values are very diffusive! Upper limit should be 0.15
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+ ivadv_tracer     = %{namelists.NAMELIST_atm.transport_nml.ivadv_tracer|join(', ')}
+ itype_hlimit     = %{namelists.NAMELIST_atm.transport_nml.itype_hlimit|join(', ')}
+ ihadv_tracer     = %{namelists.NAMELIST_atm.transport_nml.ihadv_tracer|join(', ')}
 /
 &echam_phy_nml
 !
@@ -853,7 +899,7 @@ cat > ${atm_namelist} << EOF
 !
  echam_rad_config(1)%isolrad    =  6
  echam_rad_config(1)%irad_h2o   =  1
- echam_rad_config(1)%irad_co2   =  2
+ echam_rad_config(1)%irad_co2   =  %{namelists.NAMELIST_atm.echam_rad_nml['echam_rad_config(1)%irad_co2']}
  echam_rad_config(1)%irad_ch4   =  2
  echam_rad_config(1)%irad_n2o   =  2
  echam_rad_config(1)%irad_o3    =  2          ! constant annual cycle climatology
@@ -890,6 +936,9 @@ cat > ${atm_namelist} << EOF
 &echam_cov_nml
  echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
  echam_cov_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
+/
+&ccycle_nml
+ ccycle_config(1)%iccycle = %{namelists.NAMELIST_atm.ccycle_nml['ccycle_config(1)%iccycle']}
 /
 &sea_ice_nml
 /
@@ -1184,13 +1233,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'zg'      ,
-                    'ps'      , 'pfull'   ,
-                    'rho'     , 'ta'      ,
-                    'ua'      , 'va'      , 'wap'     ,
-                    'hus'     , 'clw'     , 'cli'     ,
-                    'hur'     , 'cl'      ,
-!                    'qo3_phy' ,
+ ml_varlist       = '%{namelists.NAMELIST_atm["output_nml atm_3d"].ml_varlist|join("', '")}'
 /
 EOF
 fi
@@ -1211,25 +1254,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    ,
-                    'ps'      , 'psl'     ,
-                    'cosmu0'  ,
-                    'rsdt'    ,
-                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
-                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'  ,
-                    'rsus'    , 'rsuscs'  , 'rlus'    ,
-                    'ts'      ,
-                    'sic'     , 'sit'     ,
-                    'albedo'  ,
-                    'clt'     ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'tauu'    , 'tauv'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso',
-                    'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'    ,
-                    'ptp'
+ ml_varlist       = '%{namelists.NAMELIST_atm["output_nml atm_2d"].ml_varlist|join("', '")}'
 /
 EOF
 fi
@@ -1339,11 +1364,10 @@ ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 
 #-----------------------------------------------------------------------------
 # HAMOCC
-
-# CAUTION: - at the moment GMRedi has to be turned off for using hamocc!
-#          - running with hamocc will give nan's in the hamocc output after ~5 years
-#          -> use this only for testing
 #
+
+# CAUTION: HAMOCC tracer transport does not include GMRedi transport, even if ocean does
+
 use_hamocc=yes
 
 
@@ -1364,6 +1388,10 @@ fi
 else
 lhamocc=".FALSE."
 lbgcadv=".FALSE."
+fi
+l_init_bgc=".false." # Hamocc state variables are in restart
+if [[ "$initialiseOcean" == "fromRestart" ]] || [[ "$initialiseOcean" == "fromClimatology" ]]; then
+  l_init_bgc=".true." # initialize HAMOCC (HAMOCC state variables are not in restart)
 fi
 # ----------------------------------------------------------------------------
 #
@@ -1632,8 +1660,8 @@ cat >> ${oce_namelist} << EOF
  !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
-  operation       = 'mean'
-  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
+  operation        = 'mean'
+  ml_varlist       = '%{namelists.NAMELIST_oce["output_nml hamocc_2d_tendencies"].ml_varlist|join("', '")}'
 /
 EOF
 fi
@@ -1763,11 +1791,11 @@ if [  "x${use_hamocc}"  = "xyes" ]; then
 cat >> ${oce_namelist} << EOF
 &hamocc_nml
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
-l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
+l_cpl_co2                         = .TRUE.   ! CO2 coupled to land carbon cycle
 l_bgc_check                       = .FALSE.   ! mass check at every time step
-deltacalc                         = 0.        ! CaCO3 weathering rate [kmol/yr] 
-deltaorg                          = 0.        ! OC weathering rate [kmol/yr]
-deltasil                          = 0.        ! Si(OH)4 weathering rate [kmol/yr]
+deltacalc                         = 2460.2        ! CaCO3 weathering rate [kmol/s] 
+deltaorg                          = 93.5        ! OC weathering rate [kmol/s]
+deltasil                          = 12627.6        ! Si(OH)4 weathering rate [kmol/s]
 atm_co2                           = 284.3      ! atmospheric CO2 (default 278)
 atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
 atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
@@ -1782,7 +1810,7 @@ l_implsed                         =.TRUE.    ! implicit sediment formulation
 cycdec                            = 0.07
 cya_growth_max                    = 0.3
 grazra                            = 0.7
-l_init_bgc                        = %{'.true.' if JOB.init_obgc is set else '.false.'}
+l_init_bgc                        = ${l_init_bgc}
 /
 EOF
 fi
@@ -1806,7 +1834,7 @@ cat >> ${oce_namelist} << EOF
 /
 EOF
 #
-if [[ "$initialiseOcean" == "fromRestart" ]]; then
+if [[ "$initialiseOcean" == "fromRestart" ]] || [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
   #
   cat >> ${oce_namelist} << EOF
 &ocean_initialConditions_nml
@@ -1858,14 +1886,20 @@ EOF
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
  # for restart from rar0026 plus 200 additional years of spinup:
  add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_oce_DOM01.nc 
- 
- # old restart:
- #add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_oce_DOM01.nc 
-fi
-#
+ fi
+
+if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
+ # for a restart file containing Hamocc, interpolated from a cmip6 control run to the icon grid.
+ # Ocean restart is from a long tuning run, which arrived at a good state.
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_oce_DOM01.nc 
+ fi
+
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
+  # for initializing from Levitus:
   add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/ts_phc3.0_annual_icon_grid_0014_R02B04_O_L40.nc initial_state.nc
 fi
+
+#
 # Ocean grid
 #
 add_required_file ${ocean_grid_folder}/${ocean_grid} ./
@@ -1979,9 +2013,9 @@ if [ -f ${restartSemaphoreFilename} ]; then
 fi
 #END AUTOMATIC_RESTART_SETUP
 #
-# wait 5min to let GPFS finish the write operations
+# wait to let GPFS finish the write operations
 if [ "x$restart" != 'x.false.' -a "x$submit" != 'x' ]; then
-  if [ x$(df -T ${EXPDIR} | cut -d ' ' -f 2) = gpfs ]; then
+  if [ x$(stat -fc %T $EXPDIR) = xgpfs ]; then
     sleep 10;
   fi
 fi

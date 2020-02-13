@@ -2,6 +2,8 @@
 # set-up.info created by configure
 # do not modify this file
 ##################################
+# Version info required by mkexp
+VERSION_=
 use_site='@ac_sitename@'
 use_target='@config_target@'
 use_compiler='@config_compiler@'
