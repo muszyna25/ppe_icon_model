@@ -126,11 +126,8 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, &
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
     &                                    p_comm_work, my_process_is_mpi_workroot, p_pe, p_io
-  USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP, &
-    &                                    getElapsedSimTimeInSeconds
-
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
@@ -195,8 +192,10 @@ MODULE mo_nh_stepping
        &                                 OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*),              &
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),         &
        &                                 event, eventGroup, newEvent,                                     &
-       &                                 addEventToEventGroup, isCurrentEventActive,                      &
+       &                                 addEventToEventGroup,                                            &
        &                                 getTotalSecondsTimedelta, getTimedeltaFromDatetime
+  USE mo_util_mtime,               ONLY: mtime_utils, assumePrevMidnight, FMT_DDHHMMSS_DAYSEP, &
+    &                                    getElapsedSimTimeInSeconds, is_event_active
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_phy_events,               ONLY: mtime_ctrl_physics
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
@@ -3439,32 +3438,6 @@ MODULE mo_nh_stepping
 
   END SUBROUTINE allocate_nh_stepping
   !-----------------------------------------------------------------------------
-
-  ! Wrapper for mtime function isCurrentEventActive in order to encapsulate the vector-host offloading
-  ! needed on the NEC Aurora
-  !
-  LOGICAL FUNCTION is_event_active (in_event, mtime_current, plus_slack)
-
-    TYPE(event), POINTER,    INTENT(INOUT)         :: in_event       !< mtime event to be checked
-    TYPE(datetime), POINTER, INTENT(IN)            :: mtime_current  !< current_datetime
-    TYPE(timedelta), POINTER, INTENT(IN), OPTIONAL :: plus_slack
-
-    LOGICAL :: is_active
-  !-----------------------------------------------------------------
-
-    ! If PE0 is detached, execute isCurrentEventActive only on PE0 and broadcast result afterwards
-    IF (proc0_shift == 0 .OR. p_pe == p_io) THEN
-      IF (PRESENT(plus_slack)) THEN
-        is_active = isCurrentEventActive(in_event, mtime_current, plus_slack=plus_slack)
-      ELSE
-        is_active = isCurrentEventActive(in_event, mtime_current)
-      ENDIF
-    ENDIF
-    IF (proc0_shift > 0) CALL p_bcast(is_active, p_io, p_comm_work)
-
-    is_event_active = is_active
-
-  END FUNCTION is_event_active
 
 END MODULE mo_nh_stepping
 
