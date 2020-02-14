@@ -5,7 +5,7 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='PrgEnv-cray cce/8.4.1 craype-haswell cray-mpich cray-netcdf cray-hdf5 eccodes aec'
+MODULES='PrgEnv-cray cray-mpich cce/8.4.1 craype-haswell cray-netcdf cray-hdf5 eccodes aec'
 
 # Uncomment the following line if you want to prevent as many tests from
 # failing as possible when running 'make check' on the login nodes with Sandy
