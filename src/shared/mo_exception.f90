@@ -122,12 +122,6 @@ CONTAINS
 
     INTEGER           :: iexit
 
-#ifndef __STANDALONE
-    EXTERNAL :: util_exit
-#if ! (defined (__INTEL_COMPILER) || defined (__xlC__))
-    EXTERNAL :: util_backtrace
-#endif
-#endif
 
     WRITE (nerr,'(/,80("="),/)')
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
