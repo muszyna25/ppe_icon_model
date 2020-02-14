@@ -1153,14 +1153,14 @@ CONTAINS
     CALL message ('', TRIM(message_text))
 
     tlen = LEN_TRIM(patch_pre%grid_filename)
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     ierr = nf_open_par(patch_pre%grid_filename(1:tlen), &
        &               IOR(nf_nowrite, nf_mpiio), &
        &               p_comm_work, MPI_INFO_NULL, ncid)
     IF (ierr /= nf_noerr) THEN
 #endif
       CALL nf(nf_open(patch_pre%grid_filename(1:tlen), nf_nowrite, ncid))
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
       WRITE(message_text,'(2a)')  'warning: falling back to serial semantics for&
            & opening netcdf file ', patch_pre%grid_filename(1:tlen)
       CALL message(routine,message_text)
@@ -1174,7 +1174,7 @@ CONTAINS
       WRITE(message_text,'(a,a)') 'Read gridref info from file ', TRIM(patch_pre%grid_filename_grfinfo)
       CALL message ('', TRIM(message_text))
       tlen = LEN_TRIM(patch_pre%grid_filename_grfinfo)
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
       ierr = nf_open_par(patch_pre%grid_filename_grfinfo(1:tlen), &
          &               IOR(nf_nowrite, nf_mpiio), p_comm_work, &
          &               MPI_INFO_NULL, ncid_grf)
@@ -1182,7 +1182,7 @@ CONTAINS
 #endif
         CALL nf(nf_open(patch_pre%grid_filename_grfinfo(1:tlen), nf_nowrite, &
              ncid_grf))
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
         WRITE(message_text,'(2a)')  'warning: falling back to serial semantics for&
              & opening netcdf file ', patch_pre%grid_filename_grfinfo(1:tlen)
         CALL message(routine,message_text)

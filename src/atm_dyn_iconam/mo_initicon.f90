@@ -171,7 +171,7 @@ MODULE mo_initicon
     ! read and initialize ICON prognostic fields
     !
     CALL process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, prm_diag, p_lnd_state)
-    CALL printChecksums(initicon, p_nh_state, p_lnd_state)
+    !CALL printChecksums(initicon, p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
     !

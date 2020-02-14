@@ -32,6 +32,12 @@ MODULE mo_exception
   USE mo_kind,     ONLY: wp, i8
   USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
   
+#ifndef __STANDALONE
+    USE mo_util_backtrace, ONLY: util_backtrace
+    USE mo_util_system, ONLY: util_exit
+#elif defined __INTEL_COMPILER
+    USE ifcore, ONLY: tracebackqq
+#endif
 
   IMPLICIT NONE
 
@@ -110,10 +116,6 @@ CONTAINS
   !!
   SUBROUTINE finish (name, text, exit_no)
 
-#ifdef __INTEL_COMPILER
-    USE ifcore
-#endif
-
     CHARACTER(len=*), INTENT(in)           :: name
     CHARACTER(len=*), INTENT(in), OPTIONAL :: text
     INTEGER,          INTENT(in), OPTIONAL :: exit_no
@@ -159,6 +161,8 @@ CONTAINS
 
     WRITE (nerr,'(/,80("-"),/,/)')
     IF (l_log) WRITE (nlog,'(/,80("-"),/,/)')
+
+#ifdef __STANDALONE
 
 #ifdef __INTEL_COMPILER
     CALL tracebackqq

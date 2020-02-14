@@ -85,7 +85,7 @@ cat > ${atmo_namelist} << EOF
  ntracer          = 4           ! number of tracers
  iforcing         = 0           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
- msg_level        = 15          ! level of details report during integration 
+ msg_level        = 12          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  activate_sync_timers = .TRUE.
 /
@@ -129,13 +129,13 @@ EOF
 
 # namelist files
 #
-add_required_file ${basedir}/run/${atmo_namelist}                       ./
+add_required_file ${ICON_BUILD_PATH}/run/${atmo_namelist}                       ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${basedir}/run/${dict_file}                           ./
+add_required_file ${ICON_BUILD_PATH}/run/${dict_file}                           ./
 
 # initial conditions
 #

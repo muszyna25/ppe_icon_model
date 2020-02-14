@@ -11,31 +11,42 @@ list=aes-ref
 ./mklist $list
 machine=mistral
 ./addmachine $machine --list $list
-./addbuilder MISTRAL_gcc            --machine $machine --configureflags="--with-fortran=gcc --with-yaxt"                  --builderflags="Active"  --list $list
+#---------------------------------------------------------------
+./addbuilder MISTRAL_gcc            --machine $machine       --build_script="./config/buildbot/mistral_gcc"                         --configureflags="--with-mpi --with-openmp"                --builderflags="Active"  --list $list
 
-./addbuilder MISTRAL_intel          --machine $machine --configureflags="--with-fortran=intel --with-yaxt"                --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel_hybrid   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel_openmp   --machine $machine --configureflags="--with-fortran=intel --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17          --machine $machine     --build_script="./config/buildbot/mistral_intel17"              --configureflags="--with-mpi --without-openmp"             --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_hybrid   --machine $machine     --build_script="./config/buildbot/mistral_intel17_hybrid"       --configureflags="--with-mpi --with-openmp"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_openmp   --machine $machine     --build_script="./config/buildbot/mistral_intel17_openmp"       --configureflags="--without-mpi --with-openmp"             --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel17_hybrid_mixed --machine $machine --build_script="./config/buildbot/mistral_intel17_hybrid_mixed" --configureflags="--with-mpi --with-openmp --enable-mixed" --builderflags="Active"  --list $list
 
-./addbuilder MISTRAL_intel17        --machine $machine --configureflags="--with-fortran=intel17 --with-yaxt"                --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel17_hybrid --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel17_openmp --machine $machine --configureflags="--with-fortran=intel17 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel18        --machine $machine --configureflags="--with-fortran=intel18 --with-yaxt"                --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel18_hybrid --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt"  --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel18_openmp --machine $machine --configureflags="--with-fortran=intel18 --without-mpi --with-openmp"  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18        --machine $machine       --build_script="./config/buildbot/mistral_intel18"              --configureflags="--with-mpi --withoutout-openmp"          --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid --machine $machine       --build_script="./config/buildbot/mistral_intel18_hybrid"       --configureflags="--with-mpi --with-openmp"                --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_openmp --machine $machine       --build_script="./config/buildbot/mistral_intel18_openmp"       --configureflags="--without-mpi --with-openmp"             --builderflags="Active"  --list $list
+./addbuilder MISTRAL_intel18_hybrid_mixed --machine $machine --build_script="./config/buildbot/mistral_intel18_hybrid_mixed" --configureflags="--with-mpi --with-openmp --enable-mixed" --builderflags="Active"  --list $list
 
-./addbuilder MISTRAL_intel17_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel17 --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel18_hybrid_mixed --machine $machine --configureflags="--with-fortran=intel18 --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
-./addbuilder MISTRAL_intel_hybrid_mixed   --machine $machine --configureflags="--with-fortran=intel --with-openmp --with-yaxt --enable-mixed" --builderflags="Active"  --list $list
+./addbuilder MISTRAL_nag            --machine $machine       --build_script="./config/buildbot/mistral_nag"        --configureflags="--with-mpi    --without-openmp"          --builderflags="Active"  --list $list
+./addbuilder MISTRAL_nag_serial     --machine $machine       --build_script="./config/buildbot/mistral_nag_serial" --configureflags="--without-mpi --without-openmp"          --builderflags="Inactive"  --list $list
 
-./addbuilder MISTRAL_nag            --machine $machine --configureflags="--with-fortran=nag --with-yaxt"                  --builderflags="Active"  --list $list
+./addbuilder MISTRAL_ocean_intel17  --machine $machine       --build_script="./config/buildbot/mistral_intel17_ocean"        --configureflags="--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no" --builderflags="Inactive"  --list $list
+./addbuilder MISTRAL_ocean_intel18  --machine $machine       --build_script="./config/buildbot/mistral_intel18_ocean"        --configureflags="--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no" --builderflags="Inactive"  --list $list
+#---------------------------------------------------------------
+
+# breeze builders
+machine=breeze
+./addmachine $machine --list $list
+./addbuilder BREEZE_gcc           --machine $machine --configureflags=""  --builderflags="Inactive"  --list $list
+./addbuilder BREEZE_gcc_openmp    --machine $machine --configureflags=""  --builderflags="Inactive"  --list $list
+./addbuilder BREEZE_intel         --machine $machine --configureflags=""  --builderflags="Inactive"  --list $list
+./addbuilder BREEZE_intel_openmp  --machine $machine --configureflags=""  --builderflags="Inactive"  --list $list
+./addbuilder BREEZE_nag           --machine $machine --configureflags=""  --builderflags="Inactive"  --list $list
+
 
 #CSCS builders
 machine=daint
 ./addmachine $machine --list $list
-./addbuilder DAINT_CPU_cce        --machine $machine --configureflags="--with-fortran=cray" --builderflags="Active"      --list $list
-./addbuilder DAINT_CPU_pgi        --machine $machine --configureflags="--with-fortran=pgi" --builderflags="Active"      --list $list
-./addbuilder DAINT_GPU_pgi        --machine $machine --configureflags="--with-fortran=pgi_gpu --enable-gpu --enable-claw=std" --builderflags="Active"  --list $list
+./addbuilder DAINT_CPU_cce        --machine $machine --build_script="./config/buildbot/daint_cpu_cray"  --configureflags="--with-fortran=cray" --builderflags="Active"      --list $list
+./addbuilder DAINT_CPU_pgi        --machine $machine --build_script="./config/buildbot/daint_cpu_pgi" --configureflags="--with-fortran=pgi" --builderflags="Active"      --list $list
+./addbuilder DAINT_GPU_pgi        --machine $machine --build_script="./config/buildbot/daint_gpu_pgi"  --configureflags="--with-fortran=pgi_gpu --enable-gpu --enable-claw=std" --builderflags="Active"  --list $list
 # add amip binary-identical test on DAINT
 $addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_CPU_cce --list $list
 $addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_CPU_pgi --list $list
@@ -46,6 +57,11 @@ $addexp checksuite.icon-dev/check.atm_amip_update --builders DAINT_GPU_pgi --lis
 # add amip binary-identical test on mistral
 $addexp checksuite.icon-dev/check.atm_amip_update \
  --machines mistral --machines mistral --runflags "queue=compute" --list $list
+
+#DWD machines
+machine=dwd_cray
+./addmachine $machine --list $list
+./addbuilder DWD_cray            --machine $machine  --build_script="./config/buildbot/dwd_cray"   --configureflags="--with-fortran=cray"   --builderflags="Inactive"  --list $list
 
 #-----------------------------------------------------------
 #lets see the list

@@ -5,11 +5,11 @@
 #==============================================================================
 #==============================================================================
 # The basic command for creating an ICON experiment run script is
-#   
+#
 #  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
 #
 # By default the folder in use is ./run, and the run script is named exp.<name>.run.
-# 
+#
 # Basic optional parameters for the $make_runscript command are:
 #
 #    out_script=<output run script name>. By default is <in_script>.run
@@ -20,20 +20,20 @@
 #
 #    mpi_procs_pernode=<number of mpi processes>. In the case of MPI configuration,
 #       defines how many processes per node will be used.
-# 
+#
 #    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
 #       defines how many nodes will be used.
-# 
+#
 #    openmp_threads=<Number of openmp threads>. In the case of OPENMP
 #       configuration, defines how many OPENMP threads will be used.
 #
 #    cpu_time=<wall time>. Defines the expected run wall time.
-#  
+#
 #    <free_variable>=<value> Free variables can be passed to the run script
 #       using this syntax. For example: EXPNAME=test, will result the
-#       definition of the variable EXPNAME=test in the run script. 
+#       definition of the variable EXPNAME=test in the run script.
 #
-# For more details see the parameters in the ./config/make_target_runscript
+# For more details see the parameters in the ./run/make_target_runscript
 #==============================================================================
 rundir=run
 param=all
@@ -56,12 +56,17 @@ echo "-----------------------------------------------------------"
 
 base_folder=$(pwd)
 input_folder=${rundir}
-  
+
 #==============================================================================
-. $base_folder/config/set-up.info
+if test -f run/set-up.info ; then
+  . run/set-up.info ;
+else
+  echo "Cound not find setup.info file !!";
+  exit 1;
+fi
 use_shell=${use_shell:="/bin/bash"}
-# The $make_runscript command directs to the ./config/make_target_runscript
-make_runscript="$use_shell ./config/make_target_runscript"
+# The $make_runscript command directs to the ./run/make_target_runscript
+make_runscript="$use_shell ./run/make_target_runscript"
 
 #==============================================================================
 # define the runscripts to be created
@@ -120,14 +125,14 @@ check_accept_script()
 #  set -ux
 
   check_accepted_filename=$1
-  
+
   if [[ -r $input_folder/$check_accepted_filename ]] ; then
     accepted_script="true"
   else
     accepted_script="false"
     return 1
   fi
-  
+
   case $check_accepted_filename in
     *.run)
        accepted_script="false"
@@ -161,7 +166,7 @@ check_accept_script()
    if [[ $use_mpi != "yes" ]] ; then
      case $check_accepted_filename in
        *test_oce_parallel*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        *nat_jww_nwp_mpiomp*)
           accepted_script="false"
@@ -178,7 +183,7 @@ check_accept_script()
    #--------------------------
    # machine based checks
    case $use_target in
-   
+
      sx9)
        case $check_accepted_filename in
        *test_oce_*)
@@ -200,34 +205,34 @@ check_accept_script()
        if [[ _${define_grids_folder} != "_" ]] ; then
          define_grids_folder='grids_folder="/e/uscratch/extwsauf/buildbot.grids"'
        fi
-     ;; 
+     ;;
      
    esac
-   
+
    #--------------------------
    # compiler based checks
    case $use_compiler in
-   
+
      pgi)
        case $check_accepted_filename in
        *test_nat_jww_nwp_mpiomp*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        *test_atm_icoles_nested*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        esac
-     ;; 
- 
+     ;;
+
      nag)
        case $check_accepted_filename in
        *test_nh_moist_cbl*)
-          accepted_script="false"  
+          accepted_script="false"
           ;;
        esac
-     ;; 
-   
-   esac       
+     ;;
+
+   esac
 
    #---------------------------------------------------------------
    # Search the script's contents for "EXCLUDE" keyword.
@@ -307,7 +312,7 @@ do
     esac
 
   fi
-  
+
 done
 #==============================================================================
 

@@ -309,7 +309,7 @@ run_scripts_submit()
 
 #------------------------------------------------------------------------------\
 # read set-up info
-. ./config/set-up.info
+. ./run/set-up.info
 submit=$use_sync_submit
 #-----------------------------------------------------------------------------
 # load ../setting if exists
