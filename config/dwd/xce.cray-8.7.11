@@ -108,7 +108,8 @@ FCFLAGS="-I${RTTOV_ROOT}/include/radiance -em -hflex_mp=conservative -hfp1 -hadd
 LDFLAGS="-static -L${RTTOV_ROOT}/lib -L${RTTOV_ROOT}/lib/unsupported -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
 LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
 
-EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp --enable-rttov'
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp'
+# --enable-rttov'
 
 ################################################################################
 
