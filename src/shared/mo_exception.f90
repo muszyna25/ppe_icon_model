@@ -168,7 +168,9 @@ CONTAINS
     CALL tracebackqq
 #elif defined __xlC__
     CALL xl__trbk
-#elif !defined __STANDALONE
+#endif
+
+#else
     CALL util_backtrace
 #endif
 
