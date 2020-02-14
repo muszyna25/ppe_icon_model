@@ -1,7 +1,7 @@
 #!/bin/bash
 #--------------------------------------------------------------------------------------------------
 #
-# ICON-ESM R2B4 atmosphere including jsbach coupled to R2B6 ocean on equatorial-symmetric grids
+# ICON-ESM R2B5 atmosphere including jsbach coupled to R2B7 ocean on equatorial-symmetric grids
 # Atmosphere-Land-Ocean YAC Coupled Experiment:
 #  - atmosphere-soil-ocean (aso) spinup script without HAMOCC biogeochemistry
 #
@@ -48,11 +48,11 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz"
 # (0) Basic model configuration
 # -----------------------------
 
-atmos_gridID="0013"
-atmos_refinement="R02B04"
+atmos_gridID="0019"
+atmos_refinement="R02B05"
 
-ocean_gridID="0031"
-ocean_refinement="R02B06"
+ocean_gridID="0032"
+ocean_refinement="R02B07"
 
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
@@ -61,7 +61,7 @@ initialiseOcean="fromRestart"
 # initialiseOcean="FALSE"
 # restart=.true.
 
-#mpi_oce_nodes=32   #  this is a suitable value for 60 nodes = 26 atm + 34 oce nodes
+#mpi_oce_nodes=56   #  this is a suitable value for 100 nodes = 44 atm + 56 oce nodes
 mpi_oce_nodes=${mpi_oce_nodes:=((no_of_nodes/2))}   # default: half of requested nodes
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 
@@ -73,11 +73,11 @@ read_restart_namelists=".false."
 # (1) Define the model time stepping
 # ----------------------------------
 
-radTimeStep="PT90M"              # radiation time step:    18 time steps per day
-atmTimeStep="PT15M"              # atmosphere time step:   96 time steps per day
-atm_substeps=8                   # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
-oceTimeStep="PT30M"              # ocean time step:        48 time steps per day
-couplingTimeStep="PT30M"         # coupling time step:      3 time steps per radTimeStep 
+radTimeStep="PT2H"               # radiation time step
+atmTimeStep="PT5M"               # atmosphere time step
+atm_substeps=5                   # atmosphere dynamics substeps
+oceTimeStep="PT20M"              # ocean time step
+couplingTimeStep="PT20M"         # coupling time step
 
 #--------------------------------------------------------------------------------------------------
 
@@ -129,11 +129,14 @@ atmo_dyn_grid=${atm_grid_name}.nc
 # -------------------------------------
 start_date=${start_date:="1000-01-01T00:00:00Z"}
     end_date=${end_date:="1000-01-03T00:00:00Z"}   #  test run 30 min, 2x 1day, no production
+#   end_date=${end_date:="1200-01-01T00:00:00Z"}   #  production run, annual
+
+fx_date="1000-01-02T00:00:00Z"                     #  output of fixed geometry
 
 # restart/checkpoint/output intervals
 # -----------------
+#restart_interval="P5Y"                             #  production run - 5y
 restart_interval="P1D"                             #  test run 30 min
-#restart_interval="P10Y"                            #  production run
 
 # restart and output files are written once per job
 checkpoint_interval="P20Y"                        
@@ -656,6 +659,7 @@ cat > ${atm_namelist} << EOF
 !                   hus,clw,cli, o3
  ivadv_tracer     =   3,  3,  3,  3
  itype_hlimit     =   3,  4,  4,  3
+ itype_vlimit     =   1,  3,  3,  1     !  positive definite vertical flux limiter for cli, clw
  ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
@@ -711,7 +715,7 @@ cat > ${atm_namelist} << EOF
 &echam_gwd_nml
 /
 &echam_sso_nml
- !echam_sso_config(1)%gkdrag     = 0.05      ! default: 0.05
+ !echam_sso_config(1)%gkdrag     = 0.02      ! default: 0.05
  !echam_sso_config(1)%gkwake     = 0.05      ! default: 0.05
 /
 &echam_vdf_nml
@@ -723,7 +727,7 @@ cat > ${atm_namelist} << EOF
  !echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
 /
 &echam_cld_nml
- !echam_cld_config(1)%csecfrl    = 5.0e-6    ! threshold for ice and water in clouds, default 5.e-6
+ !echam_cld_config(1)%csecfrl    = 1.0e-5    ! threshold for ice and water in clouds, default 5.e-6
  !echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (default was 15.0)
  !echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (default was 95.0)
  !echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
@@ -845,7 +849,7 @@ datadir=${atmo_data_InputFolder}/initial_condition/r0002
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time? - not yet set to 1850!
-datadir=${atmo_data_InputFolder}/land/r0006
+datadir=${atmo_data_InputFolder}/land/r0003
 add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
 
 # boundary conditions
@@ -872,7 +876,7 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_sol
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0006
+datadir=${atmo_data_InputFolder}/land/r0003
 #
 #  - not yet set to 1850!
 add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
@@ -883,8 +887,8 @@ add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_lan
 # - HD model input by Tom Riddick 
 #
 #  prelinminary test version
-datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
-add_link_file $datadir/hdpara_icon_${atmos_gridID}_20190927.nc          ./bc_land_hd.nc
+datadir=/work/mh0287/users/stephan/Icon/Coupled/Ruby-coupling/New-r2b5-b7
+add_link_file $datadir/hdpara_icon_r2b5_${atmos_gridID}_32.nc           ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 #
@@ -1143,9 +1147,6 @@ if [[ "$output_lnd_dbg" == "yes" ]]; then
                     'hydro_discharge_ocean_box'   , 'hydro_discharge_box'    ,
 /
 EOF
-# or using - like in exp.esm_R2B3_R2B4
-# ml_varlist       = 'group:jsb_all_basic','hd_water_error_box','hydro_discharge_ocean_box','hydro_discharge_box' 
-
 fi
 
 if [[ "$output_lnd_msk" == "yes" ]]; then
@@ -1196,8 +1197,8 @@ fi
 #-----------------------------------------------------------------------------
 
 ocean_vertical_levels=64
-ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"    #  no land points
-#ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_G.nc"    #  global ocean mask
+#ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"    #  no land points
+ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_G.nc"    #  global ocean mask - wrong name, is without land!
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}"
 ocean_grid_folder="$ocean_data_InputFolder"
 #ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
@@ -1243,8 +1244,8 @@ cat >> ${oce_namelist} << EOF
   filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_filename  = "${EXPNAME}_oce_fx"
   filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${start_date}"                  ! start date in ISO-format
-  output_end       = "${start_date}"                  ! end date in ISO-format
+  output_start     = "${fx_date}"                     ! start date in ISO-format
+  output_end       = "${fx_date}"                     ! end date in ISO-format
   output_interval  = "${oce_output_interval}"         ! interval in ISO-format
   file_interval    = "${oce_file_interval}"           ! interval in ISO-format
   output_grid      = .TRUE.
@@ -1393,13 +1394,10 @@ cat >> ${oce_namelist} << EOF
   select_solver                              = 4           ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
                                                            ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
   use_absolute_solver_tolerance              = .TRUE.
-  solver_tolerance                           = 1.0E-10     ! 1e-10 in omip-YVF - 1e-13 necessary?
+  solver_tolerance                           = 1.0E-10     ! 1e-10 in omip-YVF - this maybe further reduced
+  select_lhs                                 = 2           ! 1=operator based (default) 2=matrix based
   l_lhs_direct                               = .TRUE.      ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
   solver_FirstGuess                          = 2           ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
-
-! solver_tolerance                           = 7.5E-14     ! old value
-! solver_max_iter_per_restart                = 19          ! old value
-! solver_max_restart_iterations              = 100         ! outer (restart solver)
 
   fast_performance_level                     = 200         ! performance level 12: for cell-based; 5: default
   use_continuity_correction                  = .TRUE.      ! height adjustment according to vertical velocity in dynamics
@@ -1425,7 +1423,7 @@ cat >> ${oce_namelist} << EOF
   VelocityDiffusion_order                    = 2           ! 1=laplacian (def); 2=biharmonic; 21=biharmonic+laplacian (for the laplacian leith)
                                                            !
   BiharmonicViscosity_scaling                = 1
-  BiharmonicViscosity_reference              = 3.5E12      ! enhanced value (old: 1e12, def: 0)
+  BiharmonicViscosity_reference              = 5.0E11      ! enhanced value (old: 1e12, def: 0, r2b6: 3.5e12)
   BiharmonicViscosity_background             = 0.0         ! [m2/s] constant horizontal viscosity coefficient for velocity
 
   HarmonicViscosity_scaling                  = 1
@@ -1452,8 +1450,6 @@ cat >> ${oce_namelist} << EOF
   bottom_drag_coeff                          = 3.0E-3      ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                            = .TRUE.      ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                                = 0.03
-  !  tracer_TopWindMixing                       = 1.0E-5
-  !  velocity_TopWindMixing                     = 1.0E-5
   tracer_TopWindMixing                       = 2.31480E-6  ! eqals 0.5e-3 m2s-1 (MPIOM)
   velocity_TopWindMixing                     = 2.31480E-6
   ! cvmix/tke parameters
@@ -1465,11 +1461,11 @@ cat >> ${oce_namelist} << EOF
   kappaM_max = 100.0
   cd         = 3.75
   tke_min    = 1.d-6
-  tke_mxl_choice = 2
+  tke_mxl_choice = 2                                                              
   tke_surf_min = 1.d-4
-  only_tke = .true.
-  use_ubound_dirichlet = .false.
-  use_lbound_dirichlet = .false.
+  only_tke = .true.                                                               
+  use_ubound_dirichlet = .false.                                                  
+  use_lbound_dirichlet = .false. 
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                       = 0           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -1578,13 +1574,15 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
   # initialise atmosphere and use link to ocean restart:
-  # link to OMIP-spinup 19346-PCA by Helmuth used for ocean restart-file - second OMIP
-  add_link_file /pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}/ocean/restart/ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc init-restart-oce.nc
+  # R02B07: link to OMIP-spinup 20022-FAA by Helmuth
+  add_link_file /work/mh0287/users/stephan/Icon/Coupled/Ruby-coupling/New-r2b5-b7/ocean_omip_long_r2b7_20022-FAA_restart_oce_20200101T000000Z.nc init-restart-oce.nc
   add_link_file init-restart-oce.nc restart_oce_DOM01.nc
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
-  add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/ts_phc3.0_annual_icon_grid_0014_R02B04_O_L40.nc initial_state.nc
+  echo " no climatology yet"
+  check_error 0
+  exit
 fi
 # Ocean grid
 #
@@ -1600,4 +1598,3 @@ if [ $mpi_total_procs -lt `expr $mpi_oce_procs + 1` ] ; then
 fi
 
 #-----------------------------------------------------------------------------
-
