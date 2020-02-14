@@ -138,18 +138,12 @@ ulimit -s unlimited
 # absolute paths of directories
 calldir=$(pwd)
 thisdir=$(pwd)
-
-basedir=@abs_top_srcdir@
-
-ICON_BASE_PATH=@abs_top_builddir@
+basedir=${thisdir%/*}                   # determine base directory
+MODEL_BASE_PATH=$basedir
+ICON_BASE_PATH=$basedir
 export ICON_BASE_PATH
 RUNSCRIPT_NAME=`basename $0`
-
-ICON_SRC_PATH=@abs_top_srcdir@
-ICON_DATA_PATH=@abs_top_srcdir@/data
-
-ICON_BUILD_PATH=@abs_top_builddir@
-ICON_RUN_PATH=@abs_top_builddir@/run
+ICON_RUN_PATH=$ICON_BASE_PATH/run
 #-----------------------------------------------------------------------------
 . ${thisdir}/../run/set-up.info
 

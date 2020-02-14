@@ -77,7 +77,8 @@ for arg in "$@"; do
 done
 
 # Generate input file for runscript generation:
-./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+./config.status --file=run/set-up.info
+echo 'use_mpi_root="openmpi"' >> run/set-up.info
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
@@ -86,5 +87,6 @@ if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
   rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
   rsync -uavz ${ICON_DIR}/make_runscripts .
   ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
 fi
 
