@@ -13,8 +13,8 @@ MODULES='PrgEnv-cray cray-mpich cce/8.4.1 craype-haswell cray-netcdf cray-hdf5 e
 # building the application for compute nodes with Haswell processors.
 # MODULES+=' craype-sandybridge'
 
-RTTOV_ROOT='/usr/local/pkg/for0adm'
-RTTOV_LIBS='-lradiance -lrttov10.2 -lhrit_tools'
+RTTOV_ROOT=''
+RTTOV_LIBS=''
 
 # Libtool (used by the bundled CDI and some other bundled libraries) is not
 # fully compatible with Cray compiler. For each library specified with -l
@@ -108,7 +108,7 @@ FCFLAGS="-I${RTTOV_ROOT}/include/radiance -em -hflex_mp=conservative -hfp1 -hadd
 LDFLAGS="-static -L${RTTOV_ROOT}/lib -L${RTTOV_ROOT}/lib/unsupported -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
 LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
 
-EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp --enable-rttov'
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp
 
 ################################################################################
 

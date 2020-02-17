@@ -13,8 +13,9 @@ MODULES='PrgEnv-cray cray-mpich/7.7.10.1 cce/8.7.11 craype-haswell cray-netcdf/4
 # building the application for compute nodes with Haswell processors.
 # MODULES+=' craype-sandybridge'
 
+RTTOV_ROOT_LIB='/e/uhome/rfaulwet/icon/rttov12/xc_cray'
 RTTOV_ROOT='/usr/local/pkg/for0adm'
-RTTOV_LIBS='-lradiance -lrttov10.2 -lhrit_tools'
+RTTOV_LIBS='-lrttov12'
 
 # Libtool (used by the bundled CDI and some other bundled libraries) is not
 # fully compatible with Cray compiler. For each library specified with -l
@@ -103,13 +104,12 @@ CFLAGS='-O3'
 CPPFLAGS="${ECCODES_INCLUDE} -I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
-FCFLAGS="-I${RTTOV_ROOT}/include/radiance -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
+FCFLAGS="-I${RTTOV_ROOT_LIB} -I${RTTOV_ROOT_LIB}/include/ -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
 
-LDFLAGS="-static -L${RTTOV_ROOT}/lib -L${RTTOV_ROOT}/lib/unsupported -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
+LDFLAGS="-static -L${RTTOV_ROOT_LIB} -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
 LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
 
-EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp'
-# --enable-rttov'
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp --enable-rttov'
 
 ################################################################################
 
