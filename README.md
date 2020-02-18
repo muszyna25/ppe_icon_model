@@ -523,7 +523,7 @@ $ ./configure \
   AR=xiar \
   BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; \
              . ./config/dkrz/module_switcher; \
-             switch_for_module intel/17.0.6 openmpi/2.0.2p2_hpcx-intel14;" \
+             switch_for_module gcc/6.4.0 intel/17.0.6 openmpi/2.0.2p1_hpcx-intel14;" \
   CC=mpicc \
   CFLAGS='-gdwarf-4 -O3 -qno-opt-dynamic-align -ftz -march=native -g' \
   CPPFLAGS="-I/sw/rhel6-x64/hdf5/hdf5-1.8.18-parallel-openmpi2-intel14/include \
@@ -1068,16 +1068,16 @@ $ rsync -uavz /path/to/icon-srcdir/externals . --exclude='.git' \
   --exclude='*.o'
 $ rsync -uavz /path/to/icon-srcdir/make_runscripts .
 $ ln -sf /path/to/icon-srcdir/data
+$ ln -sf /path/to/icon-srcdir/vertical_coord_tables
 ```
 
 Additionaly, the runscript generation requires certain information on how the
-source code of the model was configured. This is done by generating a set of
-files using the `./config.status`, which is generated during the
-[configuration](#configuration) stage:
+source code of the model was configured. This is done by calling
+`./config.status`, which is generated during the [configuration](#configuration)
+stage:
 ```console
 $ cd /path/to/icon-builddir
-$ ./config.status --file=run/create_target_header --file=run/exec.iconrun \
-  --file=run/add_run_routines --file=run/set-up.info
+$ ./config.status --file=run/set-up.info
 ```
 
 Once the runscript generation mechanism is initialized following the

@@ -87,17 +87,17 @@ EOF
 
 # namelist files
 #
-add_required_file ${ICON_BUILD_PATH}/run/${atmo_namelist}                       ./
+add_required_file ${basedir}/run/${atmo_namelist}                       ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 rm -f ${dict_file}
-add_required_file ${ICON_BUILD_PATH}/run/${dict_file}                           ./
+add_required_file ${basedir}/run/${dict_file}                           ./
 
 # vertical grid
 #
-add_required_file ${ICON_SRC_PATH}/vertical_coord_tables/atm_hyb_sp_${nlev}   ./
+add_required_file ${basedir}/vertical_coord_tables/atm_hyb_sp_${nlev}   ./
 
 #--------------------------------------------------------------------------------------------------
 

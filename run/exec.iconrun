@@ -9,13 +9,13 @@
 # Marco Giorgetta, MPI-M, 2010-04-21
 #
 #-----------------------------------------------------------------------------
-final_status_file=@abs_top_builddir@/run/${job_name}.final_status
+final_status_file=${ICON_BASE_PATH}/run/${job_name}.final_status
 rm -f ${final_status_file}
 #-----------------------------------------------------------------------------
 #
 # directories definition
 #
-ICONDIR=@abs_top_builddir@
+ICONDIR=${ICON_BASE_PATH}
 RUNSCRIPTDIR=${ICONDIR}/run
 if [ x$grids_folder = x ] ; then
    HGRIDDIR=${ICONDIR}/grids
@@ -72,6 +72,11 @@ if [ x$namelist_list = x ]; then
     namelist_list[0]="$psrad_namelist"
     modelname_list[0]="psrad"
     modeltype_list[0]=3
+  elif [ x$hamocc_namelist != x ]; then
+    # this is the hamocc model
+    namelist_list[0]="$hamocc_namelist"
+    modelname_list[0]="hamocc"
+    modeltype_list[0]=4
   elif [ x$testbed_namelist != x ]; then
     # this is the testbed model
     namelist_list[0]="$testbed_namelist"
@@ -117,6 +122,10 @@ fi
 run_psrad=${run_psrad="false"}
 if [ x$psrad_namelist != x ]; then
   run_psrad="true"
+fi
+run_hamocc=${run_hamocc="false"}
+if [ x$hamocc_namelist != x ]; then
+  run_hamocc="true"
 fi
 
 #-----------------------------------------------------------------------------
@@ -313,23 +322,9 @@ done
 fi
 #-----------------------------------------------------------------------------
 #
-# get possibly needed PATH and LD_LIBRARY_PATH
-
-if [[ ! -z $use_path ]]
-then
-    export PATH=$use_path
-fi
-
-if [[ ! -z $use_ld_library_path ]]
-then
-    export LD_LIBRARY_PATH=$use_ld_library_path:$LD_LIBRARY_PATH
-fi
-#
-#-----------------------------------------------------------------------------
-#
 #  get model
 #
-export MODEL=@abs_top_builddir@/bin/icon
+export MODEL=${bindir}/icon
 #
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"

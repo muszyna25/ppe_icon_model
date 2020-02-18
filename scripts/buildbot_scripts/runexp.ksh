@@ -95,8 +95,14 @@ run_scripts_submit()
   stop_check="warning_on_error"
 
   # check if the tolerance infrastructure needs to be initialized
-  cnt=$(grep -i "tolerance" run/runscripts_list | wc -l)
-  echo "found tolerance check. Initializing infrastructure..."
+  cnt=$(grep -c -i "tolerance" run/runscripts_list)
+  if [ $? -gt 1 ]
+  then
+      echo "Could not find run/runscripts_list ..."
+      exit 1
+  else
+      echo "found tolerance check. Initializing infrastructure..."
+  fi
   if [ $cnt -gt 0 ]; then
     # make sure that repos do not exist
     if [ -d probtest ]; then
