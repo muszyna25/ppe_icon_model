@@ -39,9 +39,10 @@ MODULE mo_atm_phy_nwp_config
   USE mo_limarea_config,      ONLY: configure_latbc
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: timeshift
-  USE mtime,                  ONLY: datetime, timedelta, newTimedelta, &
-    &                               getPTStringFromMS, MAX_TIMEDELTA_STR_LEN, &
-    &                               deallocateTimedelta, OPERATOR(+), OPERATOR(>)
+  USE mtime,                  ONLY: datetime, timedelta, newTimedelta, event, newEvent, no_Error,     &
+    &                               getPTStringFromMS, MAX_TIMEDELTA_STR_LEN, datetimeToString,       &
+    &                               deallocateTimedelta, OPERATOR(+), OPERATOR(>), timedeltaToString, &
+    &                               MAX_DATETIME_STR_LEN, MAX_MTIME_ERROR_STR_LEN, mtime_strerror
   USE mo_util_table,          ONLY: t_table, initialize_table, add_table_column, &
     &                               set_table_entry, print_table, finalize_table
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -49,6 +50,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_nudging_config,      ONLY: configure_nudging, nudging_config
   USE mo_name_list_output_config,   ONLY: first_output_name_list, &
     &                               is_variable_in_output
+  USE mo_io_config,           ONLY: dt_lpi, dt_celltracks, dt_radar_dbz
 
   IMPLICIT NONE
 
@@ -71,7 +73,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: icpl_aero_conv
   PUBLIC :: icpl_o3_tp
   PUBLIC :: iprog_aero
-
+  PUBLIC :: setup_nwp_diag_events
 
 
 
@@ -983,6 +985,94 @@ CONTAINS
 
   END SUBROUTINE setupEventsNwp
 
+
+
+  !>
+  !! Setup mtime events for optional NWP diagnostics
+  !!
+  !! Shifted from nh_stepping in order to improve code structure
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2020-02-14)
+  !!
+  SUBROUTINE setup_nwp_diag_events(lpi_max_Event, celltracks_Event, dbz_Event)
+
+    TYPE(event), POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
+
+    ! local
+    TYPE(timedelta), POINTER               :: eventInterval    => NULL()
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)   :: td_string
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dt_string
+    CHARACTER(LEN=MAX_MTIME_ERROR_STR_LEN) :: errstring
+
+    INTEGER   :: ierr
+
+
+  ! --- create Event for LPI_MAX maximization:
+  CALL getPTStringFromMS(INT(dt_lpi*1000._wp,i8), td_string) ! default 3 mins
+  eventInterval => newTimedelta(td_string)
+  lpi_max_Event => newEvent( 'lpi_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                     time_config%tc_exp_startdate,             &   ! start
+       &                     time_config%tc_exp_stopdate,              &
+       &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'lpi_max': "//errstring)
+  ENDIF
+
+
+  ! --- create Event for celltrack variables (i.e. tcond/tcond10, uh, vorw_ct, w_ct) maximization:
+  CALL getPTStringFromMS(INT(dt_celltracks*1000._wp,i8), td_string) ! default 2 mins
+  eventInterval => newTimedelta(td_string)
+  celltracks_Event => newEvent( 'celltracks', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                       time_config%tc_exp_startdate,             &   ! start
+       &                       time_config%tc_exp_stopdate,              &
+       &                       eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'celltracks': "//errstring)
+  ENDIF
+
+  ! --- create Event for DBZ maximisations:
+  CALL getPTStringFromMS(INT(dt_radar_dbz*1000._wp,i8), td_string) ! default 2 mins
+  eventInterval => newTimedelta(td_string)
+  dbz_Event     => newEvent( 'dbz_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                       time_config%tc_exp_startdate,             &   ! start
+       &                       time_config%tc_exp_stopdate,              &
+       &                       eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'dbz_max': "//errstring)
+  ENDIF
+
+  END SUBROUTINE setup_nwp_diag_events
 
   !>
   !! Checks, whether the modulo operation remainder is above a certain threshold.

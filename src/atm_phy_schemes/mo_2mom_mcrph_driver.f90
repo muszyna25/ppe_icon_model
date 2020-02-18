@@ -1255,8 +1255,12 @@ CONTAINS
     REAL(wp), INTENT(in)  :: qr  ! has to be [kg/m^3]
     REAL(wp), PARAMETER   :: N0r = 8000.0e3_wp ! intercept of MP distribution
 
-!    set_qnr = N0r * ( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp)))**(0.25_wp)
-    set_qnr = N0r * EXP( LOG( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp))) * (0.25_wp) )
+    !    set_qnr = N0r * ( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp)))**(0.25_wp)
+    IF (qr >= 1e-20_wp) THEN
+      set_qnr = N0r * EXP( LOG( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp))) * (0.25_wp) )
+    ELSE
+      set_qnr = 0.0_wp
+    END IF
 
   END FUNCTION set_qnr
 
@@ -1269,8 +1273,12 @@ CONTAINS
     REAL(wp), PARAMETER :: bms = 2.0_wp
 
 !    set_qns = N0s * ( qs / ( ams * N0s * gfct(bms+1.0_wp)))**( 1.0_wp/(1.0_wp+bms) )
-    set_qns = N0s * EXP( LOG( qs / ( ams * N0s * gfct(bms+1.0_wp))) * ( 1.0_wp/(1.0_wp+bms) ) )
-
+    IF (qs >= 1e-20_wp) THEN
+      set_qns = N0s * EXP( LOG( qs / ( ams * N0s * gfct(bms+1.0_wp))) * ( 1.0_wp/(1.0_wp+bms) ) )
+    ELSE
+      set_qns = 0.0_wp
+    END IF
+    
   END FUNCTION set_qns
 
   FUNCTION set_qng(qg)
@@ -1282,7 +1290,11 @@ CONTAINS
     REAL(wp), PARAMETER   :: bmg = 3.1_wp
 
 !    set_qng = N0g * ( qg / ( amg * N0g * gfct(bmg+1.0_wp)))**( 1.0_wp/(1.0_wp+bmg) )
-    set_qng = N0g * EXP( LOG ( qg / ( amg * N0g * gfct(bmg+1.0_wp))) * ( 1.0_wp/(1.0_wp+bmg) ) )
+    IF (qg >= 1e-20_wp) THEN
+      set_qng = N0g * EXP( LOG ( qg / ( amg * N0g * gfct(bmg+1.0_wp))) * ( 1.0_wp/(1.0_wp+bmg) ) )
+    ELSE
+      set_qng = 0.0_wp
+    END IF
 
   END FUNCTION set_qng
 

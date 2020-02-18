@@ -169,32 +169,36 @@ CONTAINS
   ! Special functions and utility functions like look-up tables
   !*******************************************************************************
 
-  DOUBLE PRECISION FUNCTION gfct(x)
+  PURE FUNCTION gfct(x)
     !*******************************************************************************
     !                                                                              *
-    !       gamma function from Numerical Recipes (F77)                            *
-    !       (slightly modified, accounting for inlinig and verctorization          *
+    !       Gamma function from Numerical Recipes (F77)                            *
+    !       (reformulated due to inlining and vectorisation)                       *
+    !                                                                              *
     !*******************************************************************************
+
     IMPLICIT NONE
 
-    DOUBLE PRECISION, INTENT(in) :: x
+    REAL(wp) :: gfct
 
-    DOUBLE PRECISION :: tmp, p
+    REAL(wp), INTENT(IN) :: x
 
-    DOUBLE PRECISION, PARAMETER :: c1 =  76.18009173d0
-    DOUBLE PRECISION, PARAMETER :: c2 = -86.50532033d0
-    DOUBLE PRECISION, PARAMETER :: c3 =  24.01409822d0
-    DOUBLE PRECISION, PARAMETER :: c4 = -1.231739516d0
-    DOUBLE PRECISION, PARAMETER :: c5 =  0.120858003d-2
-    DOUBLE PRECISION, PARAMETER :: c6 = -0.536382d-5
-    DOUBLE PRECISION, PARAMETER :: stp = 2.50662827465d0
+    REAL(wp) :: tmp, p
 
-    tmp = x + 4.5d0;
-    p = stp * (1d0 + c1/x + c2/(x+1d0) + c3/(x+2d0) + c4/(x+3d0) + c5/(x+4d0) + c6/(x+5d0))
-    gfct = p * EXP( (x-0.5d0) * LOG(tmp) - tmp )
+    REAL(wp), PARAMETER :: c1 =  76.18009173_wp
+    REAL(wp), PARAMETER :: c2 = -86.50532033_wp
+    REAL(wp), PARAMETER :: c3 =  24.01409822_wp
+    REAL(wp), PARAMETER :: c4 = -1.231739516_wp
+    REAL(wp), PARAMETER :: c5 =  0.120858003e-2_wp
+    REAL(wp), PARAMETER :: c6 = -0.536382e-5_wp
+    REAL(wp), PARAMETER :: stp = 2.50662827465_wp
 
-    RETURN
+    tmp = x + 4.5_wp;
+    p = stp * (1.0_wp + c1/x + c2/(x+1.0_wp) + c3/(x+2.0_wp) + c4/(x+3.0_wp) + c5/(x+4.0_wp) + c6/(x+5.0_wp))
+    gfct = p * EXP( (x-0.5_wp) * LOG(tmp) - tmp )
+
   END FUNCTION gfct
+
 
   DOUBLE PRECISION FUNCTION gfct_orig(x)
     !*******************************************************************************

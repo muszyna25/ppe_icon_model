@@ -2959,6 +2959,34 @@ iforcing=3
 \tabularnewline
 
 %\hline
+celltracks\_interval&
+R(n\_dom)& 3600. & s&
+Interval over which celltrack variables are maximized (lpi\_max, uh\_max, vorw\_ctmax, w\_ctmax, tcond\_max, tcond10\_mx, dbz\_ctmax) &
+iforcing=3
+\tabularnewline
+
+%\hline
+dt\_celltracks&
+R(n\_dom)& 120. & s&
+Frequency at which celltrack variables except lpi (lpi, uh, vorw, w\_ct, tcond, tcond10) are calculated &
+iforcing=3
+\tabularnewline
+
+%\hline
+dt\_lpi&
+R(n\_dom)& 180. & s&
+Frequency at which lpi is calculated for celltracks &
+iforcing=3
+\tabularnewline
+
+%\hline
+dt\_radar\_dbz&
+R(n\_dom)& 120. & s&
+Frequency at radar reflectivity is calculated for celltracks&
+iforcing=3
+\tabularnewline
+
+%\hline
 precip\_interval&
 C(n\_dom)& "P01Y" & &
 Interval over which precipitation variables are accumulated (rain\_gsp, snow\_gsp, graupel\_gsp, ice\_gsp, hail\_gsp, prec\_gsp, rain\_con, snow\_con, prec\_con, tot\_prec, prec\_con\_rate\_avg, prec\_gsp\_rate\_avg, tot\_prec\_rate\_avg)&
@@ -2969,6 +2997,37 @@ iforcing=3
 maxt\_interval&
 C(n\_dom)& "PT06H" & &
 Interval over which max/min 2-m temperatures are calculated &
+iforcing=3
+\tabularnewline
+
+%\hline
+echotop\_meta \\[2\baselineskip]
+contains:\\[\baselineskip]
+echotop\_meta(1:n\_dom)\%time\_interval\\[\baselineskip]
+echotop\_meta(1:n\_dom)\%dbzthresh &
+TYPE(n\_dom) \\[4\baselineskip]
+R(1)\\[\baselineskip]
+R(max\_echotop)\\[2\baselineskip]
+max\_echotop=10 &
+\,\\[4\baselineskip]
+3600.0\\[2\baselineskip]
+(/18.0,25.0,35.0/)&
+\,\\[4\baselineskip]
+s\\[\baselineskip]
+dBZ
+&
+Derived type to define properties of radar reflectivity echotops for each domain. Two types of echotops are available: minimum pressure ('echotop') and maximum height ('echotopinm') during
+a certain time interval where a given reflectivity threshold is exeeded. Takes effect
+if 'echotop' and/or 'echotopinm' is/are present in the \texttt{ml\_varlist} of any domain-specific namelist \texttt{output\_nml}. \\
+The derived type contains the echotop properties which are given to the left in the first column:\\
+\textbf{time\_interval:} time interval [s] over which echotops are calculated;\\
+\textbf{dbzthresh:} list of reflectivity thresholds [dBZ] for which echotops shall be computed.\\
+You have to specify properties for each domain separately, e.g.\\
+echotop\_meta(1)\%time\_interval=3600.0,\\
+echotop\_meta(1)\%dbzthresh=19.0,25.0,35.0,46.0\\ 
+echotop\_meta(2)\%time\_interval=1800.0\\
+echotop\_meta(2)\%dbzthresh=27.0,36.0\\ 
+&
 iforcing=3
 \tabularnewline
 
