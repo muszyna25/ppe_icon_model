@@ -77,7 +77,7 @@ EDIR="exp15"
 EXPDIR=${TMPDIR}/${EDIR}/
 
 # path to model binary, including the executable:
-MODEL=${ICONDIR}/build/x86_64-unknown-linux-gnu/bin/icon
+MODEL=${ICONDIR}/bin/icon
 
 # ----------------------------------------------------------------------------
 # copy input data: grids, external parameters, model
