@@ -14,24 +14,31 @@
 
 MODULE mo_ocean_tracer_zstar
   !-------------------------------------------------------------------------
-  USE mo_kind,                      ONLY: wp
-  USE mo_math_constants,            ONLY: dbl_eps
-  USE mo_ocean_nml,                 ONLY: n_zlev, &
-    & l_with_vert_tracer_advection, l_with_vert_tracer_diffusion
-  USE mo_parallel_config,           ONLY: nproma
-  USE mo_run_config,                ONLY: dtime
-  USE mo_model_domain,              ONLY: t_patch, t_patch_3d
-  USE mo_exception,                 ONLY: finish 
-  USE mo_ocean_math_operators,      ONLY: div_oce_3d
-  USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
-  USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-  USE mo_sync,                      ONLY: sync_c, sync_c1, sync_patch_array, sync_patch_array_mult
-  USE mo_ocean_tracer_transport_types,  ONLY: t_ocean_transport_state, t_ocean_tracer, t_tracer_collection
-  USE mo_scalar_product,            ONLY: map_edges2edges_sc_zstar
-  USE mo_ocean_tracer_transport_vert, ONLY: advect_flux_vertical
+  USE mo_kind,                         ONLY: wp
+  USE mo_math_constants,               ONLY: dbl_eps
+  USE mo_ocean_nml,                    ONLY: n_zlev, &
+    & l_with_vert_tracer_advection, l_with_vert_tracer_diffusion, &
+    & GMRedi_configuration, Cartesian_Mixing
+  USE mo_parallel_config,              ONLY: nproma
+  USE mo_run_config,                   ONLY: dtime
+  USE mo_model_domain,                 ONLY: t_patch, t_patch_3d
+  USE mo_exception,                    ONLY: finish 
+  USE mo_ocean_math_operators,         ONLY: div_oce_3d
+  USE mo_operator_ocean_coeff_3d,      ONLY: t_operator_coeff
+  USE mo_grid_subset,                  ONLY: t_subset_range, get_index_range
+  USE mo_sync,                         ONLY: sync_c, sync_c1, sync_patch_array, sync_patch_array_mult
+  USE mo_ocean_tracer_transport_types, ONLY: t_ocean_transport_state, t_ocean_tracer, t_tracer_collection
+  USE mo_scalar_product,               ONLY: map_edges2edges_sc_zstar
+  USE mo_ocean_tracer_transport_vert,  ONLY: advect_flux_vertical
+  USE mo_util_dbg_prnt,                ONLY: dbg_print
+  USE mo_ocean_tracer_transport_horz,  ONLY: advect_horz, diffuse_horz
+  USE mo_ocean_tracer_diffusion,       ONLY: tracer_diffusion_vertical_implicit
   
   IMPLICIT NONE
   PRIVATE
+
+  CHARACTER(LEN=15) :: str_module = 'oceTracer_zstar'  ! Output of module for 1 line debug
+  INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 
   PUBLIC :: advect_ocean_tracers_zstar
   PUBLIC :: advect_individual_tracers_zstar
@@ -568,27 +575,39 @@ CONTAINS
     REAL(wp) :: delta_t, delta_z,delta_z_new
     REAL(wp) :: div_adv_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_adv_flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: div_diff_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: top_bc(nproma)
     INTEGER  :: start_cell_index, end_cell_index
     REAL(wp) :: z_adv_flux_h (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp) :: z_adv_low (nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp) :: z_adv_high(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp) :: temp(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
 
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     
+    CHARACTER(len=*), PARAMETER :: method_name = 'mo_ocean_tracer:advect_diffuse_tracer_zstar'
+
+
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     edges_in_domain => patch_2D%edges%in_domain
     delta_t = dtime
     !---------------------------------------------------------------------
-  
-    ! these are probably not necessary
-    div_adv_flux_vert = 0.0_wp
-    div_adv_flux_horz = 0.0_wp
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=2  ! output print level (1-5, fix)
+    CALL dbg_print('on entry: IndTrac: trac_old',old_tracer%concentration(:,:,:), &
+      & str_module,idt_src, in_subset=patch_2D%cells%owned)
+    !---------------------------------------------------------------------
+
+
     
     !---------------------------------------------------------------------
-    !-Vertical advection
+
+    ! these are probably not necessary
+    div_adv_flux_vert  = 0.0_wp
+    div_adv_flux_horz  = 0.0_wp
+    div_diff_flux_horz = 0.0_wp
     !---------------------------------------------------------------------
     IF ( l_with_vert_tracer_advection ) THEN
   
@@ -597,7 +616,12 @@ CONTAINS
         & transport_state,                           &
         & operators_coefficients,                     &
         & div_adv_flux_vert)
-  
+
+      !---------DEBUG DIAGNOSTICS-------------------------------------------
+      idt_src=3  ! output print level (1-5, fix)
+      CALL dbg_print('aft. AdvFluxVert:divfluxvert',div_adv_flux_vert          ,str_module,idt_src, in_subset=cells_in_domain)
+      !---------------------------------------------------------------------
+
     ENDIF  ! l_with_vert_tracer_advection
  
     !---------------------------------------------------------------------
@@ -627,61 +651,100 @@ CONTAINS
     !Calculate divergence of advective fluxes
     CALL div_oce_3d( z_adv_flux_h, patch_3D, operators_coefficients%div_coeff, &
       & div_adv_flux_horz, subset_range=cells_in_domain )
+    !---------------------------------------------------------------------
 
-    !! FIXME: No horizontal diffusion 
+    !! horizontal diffusion, vertical is handled implicitely below
+    !! Note that horizontal here implies constant z* lines
+    !! Note that diffuse horz takes h_old and h_new but does not use them
+    !! So we are passing a temp variable
+    IF(GMRedi_configuration==Cartesian_Mixing)THEN
+      !horizontal diffusion, vertical is handled implicitely below
+      CALL diffuse_horz( patch_3d,         &
+      & old_tracer%concentration,          &
+      & transport_state,                   &
+      & operators_coefficients,            &
+      & old_tracer%hor_diffusion_coeff,    &
+      & temp,                              &
+      & temp,                              &
+      & div_diff_flux_horz)
+    ELSE
+      CALL finish(method_name, "wrong GMredi call")
+    ENDIF  
+      
 
+    !Calculate preliminary tracer value out of horizontal advective and
+    !diffusive fluxes and vertical advective fluxes, plus surface forcing.
+    !Surface forcing applied as volume forcing at rhs, i.e.part of explicit term
+    !in tracer (and also momentum) eqs. In this case, top boundary condition of
+    !vertical Laplacians are homogeneous
     !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
     !ICON_OMP delta_z, delta_z_new, top_bc) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-          IF (ASSOCIATED(old_tracer%top_bc)) THEN
-            top_bc(:) = old_tracer%top_bc(:,jb)
-          ELSE
-            top_bc(:) = 0.0_wp
-          ENDIF
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+      IF (ASSOCIATED(old_tracer%top_bc)) THEN
+        top_bc(:) = old_tracer%top_bc(:,jb)
+      ELSE
+        top_bc(:) = 0.0_wp
+      ENDIF
  
-          DO jc = start_cell_index, end_cell_index
-            !! d_z*(coeff*w*C) = coeff*d_z(w*C) since coeff is constant for each column
-            div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
-            
-            !! Apply boundary conditions
-            DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
-              delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)*stretch_c(jc, jb)
-              delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)*stretch_c_new(jc, jb)
+      DO jc = start_cell_index, end_cell_index
+        !! d_z*(coeff*w*C) = coeff*d_z(w*C) since coeff is constant for each column
+        div_adv_flux_vert(jc, :, jb) = stretch_c(jc, jb)*div_adv_flux_vert(jc, :, jb)
+        
+        !! Apply boundary conditions
+        DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
+          delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)*stretch_c(jc, jb)
+          delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)*stretch_c_new(jc, jb)
     
-              new_tracer%concentration(jc,level,jb)= &
-                & (old_tracer%concentration(jc,level,jb) * delta_z &
-                & - delta_t * (&
-                &  div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
-                & ) ) / delta_z_new
+          new_tracer%concentration(jc,level,jb)= &
+            & (old_tracer%concentration(jc,level,jb) * delta_z &
+            & - delta_t * (&
+            &  div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            & -div_diff_flux_horz(jc,level,jb)                               &
+            & ) ) / delta_z_new
     
-              new_tracer%concentration(jc,level,jb) =         &
-                & ( new_tracer%concentration(jc,level,jb) +   &
-                & (delta_t  / delta_z_new) * top_bc(jc))
-            END DO
-  
-            DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-    
-              new_tracer%concentration(jc,level,jb) =                          &
-                &  old_tracer%concentration(jc,level,jb)*(stretch_c(jc, jb)/stretch_c_new(jc, jb)) -         &
-                &  (delta_t /  ( stretch_c_new(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
-                & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb))
-
-            ENDDO
-    
-          END DO
+          new_tracer%concentration(jc,level,jb) =         &
+            & ( new_tracer%concentration(jc,level,jb) +   &
+            & (delta_t  / delta_z_new) * top_bc(jc))
         END DO
+  
+        DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+    
+          new_tracer%concentration(jc,level,jb) =                          &
+            &  old_tracer%concentration(jc,level,jb)*(stretch_c(jc, jb)/stretch_c_new(jc, jb)) -         &
+            &  (delta_t /  ( stretch_c_new(jc, jb)*patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb) ) ) &
+            & * (div_adv_flux_horz(jc,level,jb)  + div_adv_flux_vert(jc,level,jb)                        &
+            & - div_diff_flux_horz(jc,level,jb) )
+
+        ENDDO
+    
+      END DO
+    END DO
     !ICON_OMP_END_PARALLEL_DO
  
     !Vertical mixing: implicit and with coefficient a_v
     !that is the sum of PP-coeff and implicit part of Redi-scheme      
 
-    CALL tracer_diffusion_vertical_implicit_zstar( &
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('BefImplDiff: div_adv_flux_vert',div_adv_flux_vert, str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('BefImplDiff: trac_inter', new_tracer%concentration,  str_module,idt_src, in_subset=cells_in_domain)
+    !---------------------------------------------------------------------
+
+    !calculate vert diffusion impicit: result is stored in trac_out
+    ! no sync because of columnwise computation
+    IF ( l_with_vert_tracer_diffusion ) THEN
+          
+      !Vertical mixing: implicit and with coefficient a_v
+      CALL tracer_diffusion_vertical_implicit_zstar( &
            & patch_3d,                  &
            & new_tracer,                &
            & old_tracer%ver_diffusion_coeff, &
            & stretch_c) 
- 
+     
+    ENDIF!IF ( l_with_vert_tracer_diffusion )
+
     CALL sync_patch_array(sync_c, patch_2D, new_tracer%concentration)
 
   END SUBROUTINE advect_individual_tracers_zstar
