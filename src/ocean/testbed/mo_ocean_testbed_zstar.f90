@@ -936,14 +936,6 @@ CONTAINS
     patch_2d => patch_3d%p_patch_2d(jg)
 
     !------------------------------------------------------------------
-    !! Dummy variable to use init_free_sfc from surface_height_zstar
-    stretch_e     = 1.0_wp
-
-!ICON_OMP_MASTER
-    CALL sync_patch_array(sync_e, patch_2D, stretch_e)
-!ICON_OMP_END_MASTER
-!ICON_OMP_BARRIER
-    !------------------------------------------------------------------
 
     jstep0 = 0
     jstep  = jstep0 

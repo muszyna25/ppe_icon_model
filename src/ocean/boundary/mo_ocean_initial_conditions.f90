@@ -359,6 +359,10 @@ CONTAINS
     CASE (230)  ! 2d salinity blubb
       CALL salinity_GM_idealized3(patch_3d,ocean_salinity)  
 
+    CASE(232) ! horizontal constant 
+      CALL salinity_Willebrand_test(patch_3d,ocean_salinity)
+      ocean_salinity=34.0_wp+0.50_wp*ocean_salinity
+ 
     CASE (235)  ! const 35
       ocean_salinity(:,:,:) = 35.0_wp 
 
@@ -635,6 +639,10 @@ CONTAINS
     CASE(231) ! horizontal constant 
       CALL temperature_GM_idealized4(patch_3d,ocean_temperature)
 
+    CASE(232) ! horizontal constant 
+      CALL temperature_Willebrand_test(patch_3d,ocean_temperature)
+      ocean_temperature=20.0_wp-10.0_wp*ocean_temperature
+    
     CASE (235)
       ocean_temperature(:,:,:) = 10.0_wp
 
@@ -3496,6 +3504,86 @@ stop
   !-------------------------------------------------------------------------------
 
 
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_Willebrand_test(patch_3d, ocean_tracer)
+  !
+  !This test is for testsuite use: it reuqires the density field to be stationary!
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: block, idx, level
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp),POINTER :: density(:,:,:)
+    REAL(wp):: slope_parameter =0_wp
+    real(wp):: centerline
+    REAL(wp) :: x_coord, z_coord,z_coord_prime,x_coord_prime,width
+    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
+    !REAL(wp) :: upper_level, middle_level, lower_level
+    REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
+    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: inv_cell_characteristic_length,cell_characteristic_length, cell_aspect_ratio
+    REAL(wp), POINTER :: tracer(:,:,:) 
+    REAL(wp) :: center_point
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' temperature_Willebrand_test')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+    lat(:,:) = patch_2d%cells%center(:,:)%lat    
+    
+    tracer =>ocean_tracer(:,:,:)
+    ocean_tracer(:,:,:)=0.0_wp
+    
+    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
+    lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+ 
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+      
+        inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(idx,block))
+        cell_characteristic_length     = SQRT(patch_2D%cells%area(idx,block))
+      
+        lat = patch_2d%cells%center(idx,block)%lat 
+        
+        x_coord=(lat(idx,block)-basin_southBoundary)/lat_diff
+        
+        x_coord_prime=1.0_wp-x_coord!1.0_wp-x_coord
+        
+        DO level = 1,n_zlev!-1
+
+           z_coord =1.0_wp+&
+           &((patch_3d%p_patch_1d(1)%zlev_m(1)- patch_3d%p_patch_1d(1)%zlev_m(level))&
+           &/patch_3d%p_patch_1d(1)%zlev_m(n_zlev))
+           
+           z_coord_prime=1.0_wp-z_coord
+           !width=0.099_wp !0.15_wp
+           width=0.15_wp
+           centerline=0.5_wp+  0.25_wp*tanh((x_coord-0.5_wp)/1.5_wp) !For Redi test =0.6, for GMR shallower=1.5  0.4_wp 0.13 0.2: steep slope; 0.5 small slope !!x_o=0.5
+           center_point=centerline!0.5
+           ocean_tracer(idx,level,block)=exp(-( (z_coord-center_point)**2 )*40_wp) !For Redi test=70, for GMR=40
+
+        END DO
+      END DO
+    END DO
+
+DO level = 1, n_zlev
+    CALL dbg_print('temperature_init', ocean_tracer(:,level,:), method_name, 3, in_subset=all_cells)
+END DO
+!stop
+
+
+  END SUBROUTINE temperature_Willebrand_test
+  !-------------------------------------------------------------------------------
+
 
 
   !-------------------------------------------------------------------------------
@@ -4757,6 +4845,88 @@ stop
 !stop
    END SUBROUTINE salinity_GM_idealized3
   !-------------------------------------------------------------------------------
+
+  
+  !-------------------------------------------------------------------------------
+  SUBROUTINE salinity_Willebrand_test(patch_3d, ocean_tracer)
+  !
+  !This test is for testsuite use: it reuqires the density field to be stationary!
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: block, idx, level
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp),POINTER :: density(:,:,:)
+    REAL(wp):: slope_parameter =0_wp
+    real(wp):: centerline
+    REAL(wp) :: x_coord, z_coord,z_coord_prime,x_coord_prime,width
+    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
+    !REAL(wp) :: upper_level, middle_level, lower_level
+    REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
+    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: inv_cell_characteristic_length,cell_characteristic_length, cell_aspect_ratio
+    REAL(wp), POINTER :: tracer(:,:,:) 
+    REAL(wp) :: center_point
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' temperature_Willebrand_test')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+    lat(:,:) = patch_2d%cells%center(:,:)%lat    
+    
+    tracer =>ocean_tracer(:,:,:)
+    ocean_tracer(:,:,:)=0.0_wp
+    
+    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
+    lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+ 
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+      
+        inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(idx,block))
+        cell_characteristic_length     = SQRT(patch_2D%cells%area(idx,block))
+      
+        lat = patch_2d%cells%center(idx,block)%lat 
+        
+        x_coord=(lat(idx,block)-basin_southBoundary)/lat_diff
+        
+        x_coord_prime=1.0_wp-x_coord!1.0_wp-x_coord
+        
+        DO level = 1,n_zlev!-1
+
+           z_coord =1.0_wp+&
+           &((patch_3d%p_patch_1d(1)%zlev_m(1)- patch_3d%p_patch_1d(1)%zlev_m(level))&
+           &/patch_3d%p_patch_1d(1)%zlev_m(n_zlev))
+           
+           z_coord_prime=1.0_wp-z_coord
+           !width=0.099_wp !0.15_wp
+           width=0.15_wp
+           centerline=0.5_wp+  0.25_wp*tanh((x_coord-0.5_wp)/1.5_wp) !For Redi test =0.6, for GMR shallower=1.5  0.4_wp 0.13 0.2: steep slope; 0.5 small slope !!x_o=0.5
+           center_point=centerline!0.5
+           ocean_tracer(idx,level,block)=exp(-( (z_coord-center_point)**2 )*40_wp) !For Redi test=70, for GMR=40
+
+        END DO
+      END DO
+    END DO
+
+DO level = 1, n_zlev
+    CALL dbg_print('temperature_init', ocean_tracer(:,level,:), method_name, 3, in_subset=all_cells)
+END DO
+!stop
+
+
+  END SUBROUTINE salinity_Willebrand_test
+  !-------------------------------------------------------------------------------
+
 
   SUBROUTINE temperature_GM_idealized3(patch_3d, ocean_temperature)
 

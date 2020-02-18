@@ -187,6 +187,7 @@ CONTAINS
     div_adv_flux_horz = 0.0_wp
     div_diff_flux_horz = 0.0_wp
     !---------------------------------------------------------------------
+!    
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:), &
@@ -235,7 +236,16 @@ CONTAINS
       CALL verticalDiv_scalar_onFullLevels( patch_3d, &
         & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
         & div_diff_flx_vert)
-                   
+     
+    !---------------------------------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
+      CALL dbg_print('diff_horz',div_diff_flux_horz , &
+      & str_module,idt_src, in_subset=cells_in_domain)
+    CALL dbg_print('diff_vert',div_diff_flx_vert , &
+      & str_module,idt_src, in_subset=cells_in_domain)
+
+    !---------------------------------------------------------------------
+              
                    
       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
         IF(tracer_index == 1) THEN
