@@ -46,7 +46,8 @@ MODULE mo_ocean_initial_conditions
     & smooth_initial_salinity_iterations, &
     & smooth_initial_height_iterations, smooth_initial_temperature_iterations,  &
     & OceanReferenceDensity, LinearThermoExpansionCoefficient,                  &
-    & smooth_initial_velocity_iterations, smooth_initial_velocity_weights
+    & smooth_initial_velocity_iterations, smooth_initial_velocity_weights,      &
+    & vert_cor_type
     
   USE mo_sea_ice_nml,        ONLY: use_IceInitialization_fromTemperature
 
@@ -131,7 +132,11 @@ CONTAINS
     CALL init_ocean_velocity(patch_3d=patch_3d, normal_velocity=ocean_state%p_prog(nold(1))%vn)
 
 
-    CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
+    IF (vert_cor_type .EQ. 0) THEN
+      CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
+    ELSE
+      CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%eta_c(:,:))
+    END IF
 
     IF (no_tracer > 0) &
       & CALL init_ocean_temperature(patch_3d=patch_3d, ocean_temperature=ocean_state%p_prog(nold(1))%tracer(:,:,:,1),&

@@ -455,14 +455,16 @@ CONTAINS
 
        !! Initialize stretch variable for zstar
        IF ( ( .NOT. isRestart()  ) .AND. ( vert_cor_type == 1 ) ) THEN
-           ocean_state(jg)%p_prog(nold(1))%eta_c     = 0.0_wp
-           ocean_state(jg)%p_prog(nold(1))%stretch_c = 1.0_wp
-           ocean_state(jg)%p_prog(nnew(1))%stretch_c = 1.0_wp
-                                           stretch_e = 1.0_wp
+          ocean_state(jg)%p_prog(nold(1))%stretch_c = 1.0_wp
+                                          stretch_e = 1.0_wp
+          
+          CALL update_zstar_variables( patch_3d, ocean_state(jg), operators_coefficients, &
+           & ocean_state(jg)%p_prog(nold(1))%eta_c, &
+           & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e)
            
-           CALL update_zstar_variables( patch_3d, ocean_state(jg), operators_coefficients, &
-            & ocean_state(jg)%p_prog(nold(1))%eta_c, &
-            & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e)
+          
+         !! We are not changing surface height
+          ocean_state(jg)%p_prog(nnew(1))%stretch_c = ocean_state(jg)%p_prog(nold(1))%stretch_c
  
        ENDIF
 
@@ -490,6 +492,10 @@ CONTAINS
          CALL update_zstar_variables( patch_3d, ocean_state(jg), operators_coefficients, &
            & ocean_state(jg)%p_prog(nold(1))%eta_c, &
            & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e)
+          
+         !! Update stretch_c_new to be same as stretch_c
+         !! We don't need to update zstar variables, but we are doing it anyway
+         ocean_state(jg)%p_prog(nnew(1))%stretch_c = ocean_state(jg)%p_prog(nold(1))%stretch_c
      
          !---------------------------------------------------------------------
    
