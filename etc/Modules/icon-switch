@@ -12,4 +12,5 @@ prepend-path-if-exists PYTHONPATH $ADD_BASE/lib/python2.7/site-packages
 
 set_dependencies {
     python/2.7.12
+    imagemagick/6.9.1-7-gcc48
 }
