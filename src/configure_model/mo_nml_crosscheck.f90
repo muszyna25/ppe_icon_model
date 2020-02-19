@@ -901,6 +901,15 @@ CONTAINS
         ENDIF
 
         CALL deallocateDatetime(reference_dt)
+
+        IF (l_limited_area) THEN
+          ! For a negative IAU shift, no extra boundary file can be read. So it has to be taken
+          ! from the first guess file.
+          IF (timeshift%dt_shift < 0._wp .AND. .NOT. latbc_config%init_latbc_from_fg) THEN
+            WRITE (message_text,'(a)') "For dt_shift<0, latbc has to be taken from first guess (init_latbc_from_fg)"
+            CALL finish('atm_crosscheck:', message_text)
+          ENDIF
+        ENDIF
       ENDIF
 
       DO jg = 2, n_dom
