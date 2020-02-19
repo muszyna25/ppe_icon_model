@@ -45,7 +45,6 @@ MODULE mo_opt_nwp_diagnostics
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
        &                              iqm_max, nqtendphy, lart, &
        &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, msg_level
@@ -3472,12 +3471,12 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Ulrich Blahak, DWD (2020-01-23) 
   !!
-  SUBROUTINE compute_field_dbz850( ptr_patch, jg, dbz3d_lin, dbz_850 )
+  SUBROUTINE compute_field_dbz850( ptr_patch, k850, dbz3d_lin, dbz_850 )
 
     IMPLICIT NONE
 
     TYPE(t_patch),        INTENT(IN)  :: ptr_patch        !< patch on which computation is performed
-    INTEGER,              INTENT(IN)  :: jg               !< domain ID of grid
+    INTEGER,              INTENT(IN)  :: k850(:,:)        !< level index field indicating 850 hPa
     REAL(wp),             INTENT(IN)  :: dbz3d_lin(:,:,:) !< reflectivity in mm^6/m^3
 
     REAL(wp),             INTENT(OUT) :: dbz_850(:,:)  !< output variable, dim: (nproma,nblks_c)
@@ -3506,7 +3505,7 @@ CONTAINS
 
       DO jc = i_startidx, i_endidx
 
-        jk = prm_diag(jg)%k850(jc,jb)
+        jk = k850(jc,jb)
 
         ! Just overtake the values from dbz3d_lin(:,:,:) in linear space. The conversion to dBZ
         ! will be done by a post_op ("post operation") right before output to file. See the

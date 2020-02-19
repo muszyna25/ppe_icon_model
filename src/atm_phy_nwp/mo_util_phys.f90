@@ -28,22 +28,21 @@ MODULE mo_util_phys
   USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
-  USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int
+  USE mo_impl_constants,        ONLY: min_rlcell_int
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_nwp_phy_state,         ONLY: prm_diag
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
        &                              iqm_max, nqtendphy, lart, &
        &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, msg_level
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
-  USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
+  USE mo_loopindices,           ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
   USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
-  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode
+  USE mo_initicon_config,       ONLY: iau_wgt_adv, qcana_mode, qiana_mode, qrsgana_mode
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_satad,                 ONLY: qsat_rho
   USE mo_upatmo_config,         ONLY: upatmo_config

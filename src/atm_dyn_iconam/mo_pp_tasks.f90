@@ -1221,7 +1221,7 @@ CONTAINS
           &   out_var%r_ptr(:,:,:,out_var_idx,1))   ! unused dimensions are filled up with 1
 
     CASE (TASK_COMPUTE_DBZ850)
-      CALL compute_field_dbz850( p_patch, jg, prm_diag%dbz3d_lin(:,:,:),             &
+      CALL compute_field_dbz850( p_patch, prm_diag%k850(:,:), prm_diag%dbz3d_lin(:,:,:), &
           &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
 
     CASE (TASK_COMPUTE_DBZCMAX)
