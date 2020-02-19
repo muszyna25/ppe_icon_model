@@ -77,7 +77,7 @@ tags = ['atm_2d_ml', 'atm_3d_ml', 'atm_dbg_ml', 'atm_mon', 'hamocc', 'hamocc_2d_
 
 template_dict = {}
 template_dict['start_date'] = args.start_date.translate(None, '-')
-template_dict['start_step'] = 1 if start_date == initial_date else 2
+template_dict['start_step'] = 2 if start_date == initial_date else 1
 template_dict['next_date'] = str(next_date.date).translate(None, '-')
 template_dict['end_date'] = str(end_date.date).translate(None, '-')
 template_dict['atmo_shift_spec'] = ' '.join(reversed(atmo_shift_list))
@@ -125,20 +125,17 @@ all: $(TARGETS)
 clean:
 	$(RM) $(TARGETS)
 
-$(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_atm_%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_atm_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $<` $< {atmo_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_atm_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_atm_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_atm_%_{start_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) {atmo_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< $@
 
-$(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_lnd_%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_lnd_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {atmo_shift_spec} -seltimestep,2/`cdo -s ntime $<` $< {atmo_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_lnd_$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_lnd_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_lnd_%_{start_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) {atmo_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< $@
 
-$(DATA_DIR)/$(EXP_ID)_oce_def_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_oce_def_{next_date}T000000Z.nc
+$(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_oce_%_{start_date}T000000Z.nc
 	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@
 
-$(DATA_DIR)/$(EXP_ID)_oce_%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_oce_%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_oce_%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< {ocean_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_oce_$*_{next_date}T000000Z.nc $@
-
-$(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_hamoc%_{start_date}T000000Z.nc $(WORK_DIR)/$(EXP_ID)_hamoc%_{next_date}T000000Z.nc
-	$(CDO) $(CDOFLAGS) mergetime {ocean_shift_spec} -seltimestep,{start_step}/`cdo -s ntime $<` $< {ocean_shift_spec} -seltimestep,1 $(WORK_DIR)/$(EXP_ID)_hamoc$*_{next_date}T000000Z.nc $@
+$(DATA_DIR)/$(EXP_ID)_hamoc%_{start_date}.nc: $(WORK_DIR)/$(EXP_ID)_hamoc%_{start_date}T000000Z.nc
+	$(CDO) $(CDOFLAGS) {ocean_shift_spec} $< $@
 '''
 
 makefile_name = 'Makefile'
