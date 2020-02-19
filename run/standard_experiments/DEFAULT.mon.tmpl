@@ -62,7 +62,7 @@ end_date = next_date + mtime.TimeDelta('-P1D')
 
 # Define required output
 
-tags = ['atm_mon', 'hamocc_monitor', 'oce_mon']
+tags = %{JOB.mon_tags}
 
 # Set-up template variables
 
@@ -107,12 +107,13 @@ PLOT_TIMESER = plot_timeser
 EXP_ID = %{EXP_ID}
 DATA_DIR = %{DATA_DIR}
 MON_DIR = %{MON_DIR}
+SCRIPT_DIR = %{SCRIPT_DIR}
 
 START_DATE = {start_date}
 TAGS = {tags}
 TARGETS_DIR = {targets_dir}
 
-TARGETS = $(TAGS:%=$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).html)
+TARGETS = $(TAGS:%=$(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).html) $(MON_DIR)/index.html
 
 all: $(TARGETS)
 
@@ -120,6 +121,9 @@ clean:
 	$(RM) $(TARGETS) $(TARGETS:.html=.pdf) $(TARGETS:.html=.nc)
 
 .PRECIOUS: $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).pdf $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc
+
+$(MON_DIR)/index.html:
+	$(SCRIPT_DIR)/$(EXP_ID).mon_index $@
 
 $(TARGETS_DIR)/$(EXP_ID)_%_$(START_DATE).nc: $(DATA_DIR)/$(EXP_ID)_%_$(START_DATE).nc
 	[ -f $(MON_DIR)/$(EXP_ID)_$*.nc ] || cp $< $(MON_DIR)/$(EXP_ID)_$*.nc
@@ -141,11 +145,31 @@ makefile = open(makefile_name, mode='w')
 makefile.write(makefile_template.format(**template_dict))
 makefile.close()
 
-# Run the actual make process
+# Create common NCL setup
+
+resfile_text = '''\
+*wkForegroundColor  : (/0.,0.,0./)
+*wkBackgroundColor  : (/1.,1.,1./)
+*Font               : helvetica 
+*TextFuncCode       : ~     
+*wkWidth            : 800
+*wkHeight           : 800
+*wsMaximumSize      : 32556688
+'''
+
+resfile_name = 'hluresfile'
+resfile = open(resfile_name, mode='w')
+resfile.write(resfile_text)
+resfile.close()
+
+os.putenv('NCARG_USRRESFILE', resfile_name)
 
 # Make sure that mergetime does not create duplicate data when run again
+
 os.putenv('SKIP_SAME_TIME', '1')
 os.putenv('SKIPSAMETIME', '1') # workaround for bug in cdo-1.9.6
+
+# Run the actual make process
 
 make_args = ['make', '-k', '-j', '%{JOB.tasks|d(1)}']
 if args.clean: make_args.append('clean')
@@ -160,6 +184,7 @@ if make_result:
     sys.exit(1)
 
 os.remove(makefile_name)
+os.remove(resfile_name)
 os.chdir('%{SCRIPT_DIR}')
 os.removedirs(work_dir)
 
