@@ -1821,6 +1821,7 @@ CONTAINS
     IF (ASSOCIATED(restartAttributes)) THEN
       ! Restart case: Get starting index of ouput from restart file
       !               (if there is such an attribute available).
+write(0,*) 'output_jfile: ', i
       WRITE(attname,'(a,i2.2)') 'output_jfile_',i
       fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
     ELSE
