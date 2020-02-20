@@ -195,18 +195,18 @@ EOF
 
 # model files
 #
-add_link_file ${ICON_SRC_PATH}/data/lsdata.nc                                 ./
-add_link_file ${ICON_SRC_PATH}/data/ECHAM6_CldOptProps.nc                     ./
+add_link_file ${basedir}/data/lsdata.nc                                 ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
 #
-add_required_file ${ICON_BUILD_PATH}/run/${atmo_namelist}                       ./
+add_required_file ${basedir}/run/${atmo_namelist}                       ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
-add_required_file ${ICON_BUILD_PATH}/run/${dict_file}                           ./
+add_required_file ${basedir}/run/${dict_file}                           ./
 
 # boundary conditions
 #

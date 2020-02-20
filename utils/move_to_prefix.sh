@@ -10,7 +10,7 @@ fn_warn()
   echo "WARNING: $1" >&2
 }
 
-fn_rsync_dir()
+fn_rsync()
 {
   cmd="rsync -uavz $1 $2 $3"
   echo "$cmd"
@@ -92,18 +92,20 @@ rerun this script with an option '--force' to disable this check"
 
 fn_copy_file "$builddir/bin/icon" "$prefix/bin/"
 
-for filename in 'run/create_target_header' 'run/exec.iconrun' \
-                'run/add_run_routines' 'run/set-up.info'; do
-  sed -E 's/@abs_top_(src|build)dir@/@prefix@/g' "$top_srcdir/$filename.in" | \
-    "$builddir/config.status" --file="$prefix/$filename:-" || \
-  fn_error 4 "failed to generate '$prefix/$filename'"
-done
+if test -f "$builddir/run/set-up.info"; then
+  fn_copy_file "$builddir/run/set-up.info" "$prefix/run/"
+else
+  fn_warn "cannot find 'run/set-up.info' in '$builddir': trying to generate it..."
+  "$builddir/config.status" --file="$prefix/run/set-up.info:$top_srcdir/run/set-up.info.in" || \
+  fn_error 4 "failed to generate '$prefix/run/set-up.info'"
+fi
 
-fn_rsync_dir "$top_srcdir/run" "$prefix/" "--exclude='*in' --exclude='.*'"
-fn_rsync_dir "$top_srcdir/externals" "$prefix/" "--exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'"
-fn_rsync_dir "$top_srcdir/data" "$prefix/"
+fn_rsync "$top_srcdir/run" "$prefix/" "--exclude='*in' --exclude='.*'"
+fn_rsync "$top_srcdir/vertical_coord_tables" "$prefix/"
+fn_rsync "$top_srcdir/externals" "$prefix/" "--exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'"
+fn_rsync "$top_srcdir/data" "$prefix/"
 
-fn_rsync_dir "$top_srcdir/make_runscripts" "$prefix/"
+fn_rsync "$top_srcdir/make_runscripts" "$prefix/"
 
 cat <<_EOF
 

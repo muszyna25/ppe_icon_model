@@ -38,9 +38,6 @@ use_openmp='no'
 use_gpu='no'
 @GPU_ENABLED@use_gpu='yes'
 
-# Set use_builddir:
-use_builddir='@abs_top_builddir@'
-
 # Init other variables:
 use_mpi_startrun=
 use_flags_group=
@@ -60,7 +57,7 @@ case "$use_site" in
   cscs.ch)
     case "$HOST" in
       *daint*|*dom*)
-        use_load_profile='/opt/modules/default/etc/modules.sh'
+        use_load_profile='. /opt/modules/default/etc/modules.sh'
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
@@ -68,7 +65,7 @@ case "$use_site" in
       ;;
 
       *tave*)
-        use_load_profile='/opt/modules/default/etc/modules.sh'
+        use_load_profile='. /opt/modules/default/etc/modules.sh'
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
@@ -76,7 +73,7 @@ case "$use_site" in
       ;;
 
       *kesch*)
-        use_load_profile='/etc/profile.d/modules.sh'
+        use_load_profile='. /etc/profile.d/modules.sh'
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
@@ -105,7 +102,7 @@ case "$use_site" in
   dkrz.de)
     case "$use_host" in
       btlogin*|btc*|mlogin*|m*)
-        use_load_profile='/etc/profile'
+        use_load_profile='. /etc/profile'
         use_load_modules='ncl/6.2.1-gccsys cdo/1.9.5-gcc64 git python'
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
@@ -138,7 +135,7 @@ case "$use_site" in
         use_target='ic2'
       ;;
       fh2*)
-        use_load_profile='/opt/lmod/lmod/init/sh'
+        use_load_profile='. /opt/lmod/lmod/init/sh'
         use_target='fh2'
         case "$use_compiler" in
           intel)
@@ -164,7 +161,7 @@ case "$use_site" in
         use_target='mpipc'
         case "`lsb_release -c | awk '{print $2}'`" in
           stretch)
-            use_load_profile='/etc/profile.d/mpim.sh'
+            use_load_profile='. /etc/profile.d/mpim.sh'
             use_load_modules='cdo/1.9.6-gccsys python/2.7.14-stable'
           ;;
         esac

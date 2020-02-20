@@ -118,6 +118,13 @@ CONTAINS
   !! @return .TRUE. if output for a given variable is due in any
   !!         output namelist.
   !!
+  !! @note This function will only return .TRUE. if the variable is given explicitely in an output
+  !!       namelist, not if the variable is part of a group that's given in an output namelist!
+  !!       In particular, if it is called in the memory initialization routines it will not catch
+  !!       these cases. However, if you know that a variable is in a specific group "gname" this
+  !!       function can be called with "group:gname" as var_name and it will return .TRUE. if
+  !!       "group:gname" is in an output namelist. Same with "tiles:".
+  !!
   FUNCTION is_variable_in_output(first_output_name_list, var_name) RESULT(retval)
     LOGICAL                           :: retval
 
