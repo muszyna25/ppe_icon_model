@@ -98,7 +98,7 @@ $addexp checksuite.infrastructure/memLog/exp.oce_memLog         --builders MISTR
 #-----------------------------------------------------------
 #remove red setups
 ./rmexp exp.test_nwp_R02B04N06_multifile_restart exp.test_nwp_R02B04N06multi2 checksuite.icon-dev/check.atm_icoles_nested exp.aloy_pre04_bb --builders MISTRAL_nag --list $listname
-./rmexp checksuite.icon-dev/check.atm_icoles_nested --builders mistral_intel17_openmp --list $listname
+./rmexp checksuite.icon-dev/check.atm_icoles_nested --builders MISTRAL_intel17_openmp --list $listname
 #-----------------------------------------------------------
 
 # add ocean tests to the restricted builder MISTRAL_ocean_*
