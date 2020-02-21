@@ -134,6 +134,8 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: dv0   = 2.22e-5_wp       !! [m^2/s]  diff coeff of H2O vapor in dry air at tmelt
   !> - liquid / water
   REAL(wp), PARAMETER :: rhoh2o= 1000._wp         !> [kg/m3]  density of liquid water
+  !> - solid / ice
+  REAL(wp), PARAMETER :: rhoice=  916.7_wp        !> [kg/m3]  density of pure ice
 
  !REAL(wp), PARAMETER :: clw   = 4186.84_wp       !! [J/K/kg] specific heat of water
                                                   !!  see below 
@@ -181,6 +183,9 @@ MODULE mo_physical_constants
   !> salinity factor for reduced saturation vapor pressure over oceans
   REAL(wp), PARAMETER :: salinity_fac = 0.981_wp
 
+  !> dielectric constants at reference temperature 0°C for radar reflectivity calculation:
+  REAL(wp), PARAMETER :: K_w_0 = 0.93_wp
+  REAL(wp), PARAMETER :: K_i_0 = 0.176_wp
 
 !------------below are parameters for ocean model---------------
   ! coefficients in linear EOS

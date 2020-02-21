@@ -28,18 +28,19 @@ MODULE mo_name_list_output_config
   USE mo_exception,             ONLY: finish
   USE mo_impl_constants,        ONLY: max_var_ml, max_var_pl, &
     &                                 max_var_hl, max_var_il, &
-    &                                 MAX_TIME_LEVELS
+    &                                 MAX_TIME_LEVELS, SUCCESS
+  USE mo_grid_config,           ONLY: n_dom
   USE mo_cdi,                   ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
   USE mo_name_list_output_types,ONLY: t_output_name_list
-  USE mo_mpi,                   ONLY: my_process_is_stdio, p_bcast, p_comm_work, p_io
-  USE mo_parallel_config,       ONLY: proc0_shift
+  USE mo_storage,               ONLY: t_storage
 
   IMPLICIT NONE
 
   PUBLIC :: is_grib_output,                                  &
     &       is_variable_in_output,                           &
+    &       is_variable_in_output_dom,                       &
     &       is_variable_in_output_nml
   PUBLIC :: use_async_name_list_io
   PUBLIC :: first_output_name_list
@@ -49,6 +50,15 @@ MODULE mo_name_list_output_config
 
   ! Flag whether async name_list I/O is used, it is set in the main program:
   LOGICAL :: use_async_name_list_io = .FALSE.
+
+  TYPE :: t_storage_array
+    TYPE(t_storage), POINTER :: ptr
+  END TYPE t_storage_array
+
+  !> auxiliary data structures: (case insensitive) hash table containing
+  !  all output variable names, either for all model domains or domain-specific
+  TYPE(t_storage), POINTER, PRIVATE       :: output_variables => NULL()
+  TYPE(t_storage_array), POINTER, PRIVATE :: outputvar_dom(:) => NULL()
 
 CONTAINS
   
@@ -118,6 +128,49 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !>
+  !! Initialize hash table for efficient variable search
+  !!
+  SUBROUTINE init_hashtable(first_output_name_list,ptr_outvar,jg)
+
+    !> head output namelist list
+    TYPE(t_output_name_list), POINTER :: first_output_name_list
+    TYPE(t_storage), POINTER, INTENT(INOUT)  :: ptr_outvar
+    INTEGER, INTENT(IN), OPTIONAL :: jg
+
+    ! local variables
+    INTEGER :: ivar, ig
+    TYPE (t_output_name_list), POINTER :: p_onl
+
+    IF (PRESENT(jg)) THEN
+      ig = jg
+    ELSE
+      ig = -1
+    ENDIF
+
+    CALL ptr_outvar%init(lcase_sensitivity = .FALSE.)
+    p_onl => first_output_name_list
+    DO WHILE (ASSOCIATED(p_onl))
+      IF (p_onl%dom == ig .OR. ig == -1 .OR. p_onl%dom == -1) THEN
+        DO ivar=1,max_var_ml
+          IF (p_onl%ml_varlist(ivar) /= ' ')  CALL ptr_outvar%put(p_onl%ml_varlist(ivar), .TRUE.)
+        END DO
+        DO ivar=1,max_var_pl
+          IF (p_onl%pl_varlist(ivar) /= ' ')  CALL ptr_outvar%put(p_onl%pl_varlist(ivar), .TRUE.)
+        END DO
+        DO ivar=1,max_var_hl
+          IF (p_onl%hl_varlist(ivar) /= ' ')  CALL ptr_outvar%put(p_onl%hl_varlist(ivar), .TRUE.)
+        END DO
+        DO ivar=1,max_var_il
+          IF (p_onl%il_varlist(ivar) /= ' ')  CALL ptr_outvar%put(p_onl%il_varlist(ivar), .TRUE.)
+        END DO
+      ENDIF
+      p_onl => p_onl%next
+    END DO
+
+  END SUBROUTINE init_hashtable
+
+  !-------------------------------------------------------------------------------------------------
+  !>
   !! @return .TRUE. if output for a given variable is due in any
   !!         output namelist.
   !!
@@ -129,26 +182,60 @@ CONTAINS
   !!       "group:gname" is in an output namelist. Same with "tiles:".
   !!
   FUNCTION is_variable_in_output(first_output_name_list, var_name) RESULT(retval)
-    LOGICAL                           :: retval
+    LOGICAL :: retval
 
     !> head output namelist list
     TYPE(t_output_name_list), POINTER :: first_output_name_list
     CHARACTER(LEN=*), INTENT(IN)  :: var_name   !< variable name
-    ! local variables
-    TYPE (t_output_name_list), POINTER :: p_onl
-    INTEGER :: tlen
 
-    ! Execute this search on the vector host only on the NEC, which is indicated by proc0_shift=1
-    IF (proc0_shift == 0 .OR. my_process_is_stdio()) THEN
-      tlen = LEN_TRIM(var_name)
-      p_onl => first_output_name_list
-      retval = .FALSE.
-      DO WHILE (ASSOCIATED(p_onl) .AND. .NOT. retval)
-        retval = is_variable_in_output_nml(p_onl, var_name=var_name(1:tlen))
-        p_onl => p_onl%next
-      END DO
+    ! local variables
+    INTEGER :: ierror
+    LOGICAL :: lval
+
+    ! if called for the first time: set up (case insensitive) hash
+    ! table containing all output variable names
+    IF (.NOT. ASSOCIATED(output_variables)) THEN
+      ALLOCATE(output_variables)
+      CALL init_hashtable(first_output_name_list,output_variables)
     ENDIF
-    IF (proc0_shift > 0) CALL p_bcast(retval, p_io, p_comm_work)
+
+    ! hashtable look-up if "var_name" exists:
+    CALL output_variables%get(var_name, lval, ierror)
+    retval = (ierror == SUCCESS)
+
   END FUNCTION is_variable_in_output
+
+  !-------------------------------------------------------------------------------------------------
+  !>
+  !! @return .TRUE. if output for a given variable is due for a specific domain in any
+  !!         output namelist.
+  !!
+  FUNCTION is_variable_in_output_dom(first_output_name_list, var_name, jg) RESULT(retval)
+    LOGICAL :: retval
+
+    !> head output namelist list
+    TYPE(t_output_name_list), POINTER :: first_output_name_list
+    CHARACTER(LEN=*), INTENT(IN)  :: var_name   !< variable name
+    INTEGER, INTENT(in)           :: jg         !< domain index
+
+    ! local variables
+    INTEGER :: ierror, ig
+    LOGICAL :: lval
+
+    ! if called for the first time: set up (case insensitive) hash
+    ! table containing all output variable names
+    IF (.NOT. ASSOCIATED(outputvar_dom)) THEN
+      ALLOCATE(outputvar_dom(n_dom))
+      DO ig = 1, n_dom
+        ALLOCATE(outputvar_dom(ig)%ptr)
+        CALL init_hashtable(first_output_name_list,outputvar_dom(ig)%ptr,ig)
+      ENDDO
+    ENDIF
+
+    ! hashtable look-up if "var_name" exists:
+    CALL outputvar_dom(jg)%ptr%get(var_name, lval, ierror)
+    retval = (ierror == SUCCESS)
+
+  END FUNCTION is_variable_in_output_dom
 
 END MODULE mo_name_list_output_config

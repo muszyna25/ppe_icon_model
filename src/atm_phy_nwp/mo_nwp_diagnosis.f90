@@ -42,24 +42,31 @@ MODULE mo_nwp_diagnosis
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: iqv, iqc, iqi, iqr, iqs,  &
                                    iqni, iqg, iqh, iqnc, iqm_max
+  USE mo_grid_config,        ONLY: n_dom, n_dom_start
   USE mo_timer,              ONLY: ltimer, timer_start, timer_stop, timer_nh_diagnostics
-  USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_state
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_parallel_config,    ONLY: nproma
+  USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_parallel_config,    ONLY: nproma, proc0_shift
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, ntiles_total
   USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog, t_lnd_prog
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_config,   ONLY: advection_config
-  USE mo_io_config,          ONLY: lflux_avg
+  USE mo_io_config,          ONLY: lflux_avg, t_var_in_output
   USE mo_sync,               ONLY: global_max, global_min
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
-  USE mo_util_phys,          ONLY: calsnowlmt, cal_cape_cin
+  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
+  USE mo_opt_nwp_diagnostics,ONLY: calsnowlmt, cal_cape_cin, maximize_field_lpi, compute_field_tcond_max, &
+                                   compute_field_uh_max, compute_field_vorw_ctmax, compute_field_w_ctmax, &
+                                   compute_field_dbz3d_lin, maximize_field_dbzctmax, &
+                                   compute_field_echotop, compute_field_echotopinm
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
   USE mtime,                 ONLY: datetime, timeDelta, getTimeDeltaFromDateTime,  &
     &                              deallocateTimedelta, newTimeDelta, newDatetime, &
-    &                              deallocateDatetime
+    &                              deallocateDatetime, event
+  USE mo_util_mtime,         ONLY: is_event_active
   USE mo_exception,          ONLY: finish
   USE mo_math_constants,     ONLY: pi
   USE mo_statistics,         ONLY: time_avg
@@ -68,6 +75,7 @@ MODULE mo_nwp_diagnosis
   USE mo_time_config,        ONLY: time_config
   USE mo_nwp_tuning_config,  ONLY: lcalib_clcov
   USE mo_upatmo_impl_const,  ONLY: idamtr
+  USE mo_mpi,                ONLY: p_io, p_comm_work, p_bcast
 
   IMPLICIT NONE
 
@@ -75,6 +83,7 @@ MODULE mo_nwp_diagnosis
 
   PUBLIC  :: nwp_statistics
   PUBLIC  :: nwp_diag_for_output
+  PUBLIC  :: nwp_opt_diagnostics
   PUBLIC  :: nwp_diag_output_1
   PUBLIC  :: nwp_diag_output_2
   PUBLIC  :: nwp_diag_output_minmax_micro
@@ -1451,6 +1460,155 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE calcmod
+
+
+
+  !>
+  !! Subroutine collecting the calls for computing optional diagnostic output variables
+  !! needed primarily for convection-permitting model configurations
+  !!
+  !! Moved from nh_stepping for better code structure
+  !!
+  !! @par Revision History
+  !! Developed by Guenther Zaengl, DWD (2020-02-14)
+  !!
+  !!
+  SUBROUTINE nwp_opt_diagnostics(p_patch, p_patch_lp, p_int_lp, p_nh, prm_diag, l_output, nnow, nnow_rcf, var_in_output, &
+     lpi_max_Event, celltracks_Event, dbz_Event, mtime_current,  plus_slack)
+
+    TYPE(t_patch)       ,INTENT(IN)   :: p_patch(:), p_patch_lp(:)  ! patches and their local parents
+    TYPE(t_int_state)   ,INTENT(IN)   :: p_int_lp(:)                ! interpolation state for local parents
+    TYPE(t_nh_state)    ,INTENT(INOUT):: p_nh(:)                    ! nonhydro state
+    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag(:)                ! physics diagnostics
+
+    TYPE(event),     POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
+    TYPE(datetime),  POINTER, INTENT(IN   ) :: mtime_current  !< current_datetime
+    TYPE(timedelta), POINTER, INTENT(IN   ) :: plus_slack
+
+    TYPE(t_var_in_output),    INTENT(IN   ) :: var_in_output(:)
+
+    LOGICAL, INTENT(IN) :: l_output(:)
+    INTEGER, INTENT(IN) :: nnow(:), nnow_rcf(:)
+
+    LOGICAL :: l_active(3), l_lpimax_event_active, l_celltracks_event_active, l_dbz_event_active, &
+               l_need_dbz3d, l_need_temp, l_need_pres
+    INTEGER :: jg
+
+    l_active(1) = is_event_active(lpi_max_Event,    mtime_current, plus_slack, opt_lasync=.TRUE.)
+    l_active(2) = is_event_active(celltracks_Event, mtime_current, plus_slack, opt_lasync=.TRUE.)
+    l_active(3) = is_event_active(dbz_Event,        mtime_current, plus_slack, opt_lasync=.TRUE.)
+
+    IF (proc0_shift>0)  CALL p_bcast(l_active, p_io, p_comm_work)
+
+    l_lpimax_event_active     = l_active(1)
+    l_celltracks_event_active = l_active(2)
+    l_dbz_event_active        = l_active(3)
+
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+
+    DO jg = 1, n_dom
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE 
+
+      ! First check if pressure and/or temperature need to be diagnosed before calling the routines below
+
+      l_need_dbz3d = l_output(jg) .AND. (             &
+           &         var_in_output(jg)%dbz       .OR. &
+           &         var_in_output(jg)%dbz850    .OR. &
+           &         var_in_output(jg)%dbzcmax   .OR. &
+           &         var_in_output(jg)%dbzctmax  .OR. &
+           &         var_in_output(jg)%echotop   .OR. &
+           &         var_in_output(jg)%echotopinm     )
+      
+      l_need_dbz3d = l_need_dbz3d .OR. (             &
+           &         l_dbz_event_active .AND. (      &
+           &         var_in_output(jg)%dbzctmax .OR. &
+           &         var_in_output(jg)%echotop  .OR. &
+           &         var_in_output(jg)%echotopinm  ) )
+
+      ! Remark: at output dates, temperature and pressure have already been diagnosed
+      l_need_temp = var_in_output(jg)%lpi_max     .AND. l_lpimax_event_active     .OR. &
+                    var_in_output(jg)%tcond10_max .AND. l_celltracks_event_active .OR. &
+                    l_need_dbz3d .AND. .NOT. l_output(jg)
+      l_need_pres = l_need_dbz3d .AND. .NOT. l_output(jg)
+
+      IF (l_need_temp .OR. l_need_pres) THEN
+        CALL diagnose_pres_temp(p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%prog(nnow_rcf(jg)),         &
+                                p_nh(jg)%diag, p_patch(jg), opt_calc_temp=l_need_temp, opt_calc_pres=l_need_pres)
+      ENDIF
+
+
+      ! maximization of LPI_MAX (LPI max. during the time interval "celltracks_interval") if required
+      IF ( var_in_output(jg)%lpi_max .AND. (l_output(jg) .OR. l_lpimax_event_active ) ) THEN
+        IF ( jg >= n_dom_start+1 ) THEN
+          ! p_patch_local_parent(jg) seems to exist
+          CALL maximize_field_lpi( p_patch(jg), jg, p_patch_lp(jg), p_int_lp(jg), p_nh(jg)%metrics,      &
+               &                   p_nh(jg)%prog(nnow(jg)), p_nh(jg)%prog(nnow_rcf(jg)), p_nh(jg)%diag,  &
+               &                   prm_diag(jg)%lpi_max  )
+        ELSE
+          CALL message( "perform_nh_timeloop", "WARNING: LPI_MAX cannot be computed since no reduced grid is available" )
+        END IF
+      END IF
+
+      ! update of TCOND_MAX (total column-integrated condensate, max. during the time interval "celltracks_interval") if required
+      IF ( ( var_in_output(jg)%tcond_max .OR. var_in_output(jg)%tcond10_max ) .AND.  &
+           ( l_output(jg) .OR. l_celltracks_event_active) ) THEN
+        CALL compute_field_tcond_max( p_patch(jg), jg, p_nh(jg)%metrics,   &
+             &                        p_nh(jg)%prog(nnow(jg)),  p_nh(jg)%prog(nnow_rcf(jg)), p_nh(jg)%diag, &
+             &                        var_in_output(jg)%tcond_max, var_in_output(jg)%tcond10_max,     &
+             &                        prm_diag(jg)%tcond_max, prm_diag(jg)%tcond10_max  )
+      END IF
+
+      ! update of UH_MAX (updraft helicity, max.  during the time interval "celltracks_interval") if required
+      IF ( var_in_output(jg)%uh_max .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+        CALL compute_field_uh_max( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), p_nh(jg)%diag,  &
+             &                     prm_diag(jg)%uh_max  )
+      END IF
+
+      ! update of VORW_CTMAX (Maximum rotation amplitude during the time interval "celltracks_interval") if required
+      IF ( var_in_output(jg)%vorw_ctmax .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+        CALL compute_field_vorw_ctmax( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%diag,  &
+             &                         prm_diag(jg)%vorw_ctmax  )
+      END IF
+
+      ! update of W_CTMAX (Maximum updraft track during the ime interval "celltracks_interval") if required
+      IF ( var_in_output(jg)%w_ctmax .AND. (l_output(jg) .OR. l_celltracks_event_active ) ) THEN
+        CALL compute_field_w_ctmax( p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)),  &
+             &                      prm_diag(jg)%w_ctmax  )
+      END IF
+
+
+      ! Compute diagnostic 3D radar reflectivity (in linear units) for a specific domain
+      ! if some derived output variables are present in any namelist
+      ! for this domain, or if it is needed for statistical variables between output time steps on this domain.
+      ! Has to be computed before pp_scheduler_process(simulation_status) and before statistical processing between timesteps below!
+
+      IF (l_need_dbz3d) THEN
+        CALL compute_field_dbz3D_lin( jg, p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), &
+             &                        p_nh(jg)%prog(nnow_rcf(jg)), p_nh(jg)%diag, prm_diag(jg)%dbz3d_lin )
+      END IF
+
+      ! output of dbz_ctmax (column maximum reflectivity during a time interval (namelist param. celltracks_interval) is required
+      IF ( var_in_output(jg)%dbzctmax .AND. (l_output(jg) .OR. l_dbz_event_active ) ) THEN
+        CALL maximize_field_dbzctmax( p_patch(jg), jg, prm_diag(jg)%dbz3d_lin, prm_diag(jg)%dbz_ctmax )
+      END IF
+
+      ! output of echotop (minimum pressure where reflectivity exceeds threshold(s) 
+      ! during a time interval (namelist param. echotop_meta(jg)%time_interval) is required:
+      IF ( var_in_output(jg)%echotop .AND. (l_output(jg) .OR. l_dbz_event_active ) ) THEN
+        CALL compute_field_echotop ( p_patch(jg), jg, p_nh(jg)%diag, prm_diag(jg)%dbz3d_lin, prm_diag(jg)%echotop )
+      END IF
+
+      ! output of echotopinm (maximum height where reflectivity exceeds threshold(s) 
+      ! during a time interval (namelist param. echotop_meta(jg)%time_interval) is required:
+      IF ( var_in_output(jg)%echotopinm .AND. (l_output(jg) .OR. l_dbz_event_active ) ) THEN
+        CALL compute_field_echotopinm ( p_patch(jg), jg, p_nh(jg)%metrics, p_nh(jg)%diag, &
+                                        prm_diag(jg)%dbz3d_lin, prm_diag(jg)%echotopinm )
+      END IF
+    END DO
+
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
+
+  END SUBROUTINE nwp_opt_diagnostics
 
 
   !-------------------------------------------------------------------------

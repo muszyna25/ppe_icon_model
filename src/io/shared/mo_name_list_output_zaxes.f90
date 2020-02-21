@@ -65,13 +65,14 @@ MODULE mo_name_list_output_zaxes
     &                                             ZA_PRES_FL_390_530, ZA_reference, ZA_reference_half,           &
     &                                             ZA_reference_half_hhl,                                         &
     &                                             ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa,     &
-    &                                             ZA_OCEAN_SEDIMENT, ZA_height_2m_layer
+    &                                             ZA_OCEAN_SEDIMENT, ZA_height_2m_layer, ZA_ECHOTOP
   USE mo_level_selection_types,             ONLY: t_level_selection
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_math_utilities,                    ONLY: set_zlev, t_value_set
   USE mo_run_config,                        ONLY: num_lev, iforcing
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis, t_verticalAxisList
 #ifndef __NO_ICON_ATMO__
+  USE mo_io_config,                         ONLY: echotop_meta
   USE mo_nonhydrostatic_config,             ONLY: ivctype
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow, zml_soil
 #endif
@@ -108,6 +109,7 @@ CONTAINS
     ! local variables
     REAL(dp), ALLOCATABLE             :: levels(:), lbounds(:), ubounds(:)
     INTEGER                           :: k, nlev, nlevp1, znlev_soil
+    INTEGER                           :: n_echotop
     TYPE(t_verticalAxisList), POINTER :: it
 #ifndef __NO_ICON_ATMO__
 
@@ -210,6 +212,17 @@ CONTAINS
     CALL verticalAxisList%append(single_layer_axis(ZA_PRES_FL_390_530, 100.00_dp,  200.00_dp, "hPa"))
     ! Volcanic ash products - Colummn integrated total mass concentration (entire atmosphere)
     CALL verticalAxisList%append(single_level_axis(ZA_ATMOSPHERE))
+
+    ! --------------------------------------------------------------------------------------
+    ! Definitions for echotops of simulated radar reflectivity
+    ! --------------------------------------------------------------------------------------
+    n_echotop = echotop_meta(log_patch_id)%nechotop
+    IF ( n_echotop > 0) THEN
+      CALL verticalAxisList%append(t_verticalAxis(zaxisTypeList%getEntry(ZA_ECHOTOP), &
+                                   n_echotop, &
+                                   zaxisLevels=echotop_meta(log_patch_id)%dbzthresh(1:n_echotop), &
+                                   zaxisUnits="dBZ") )
+    END IF
 
     ! --------------------------------------------------------------------------------------
     ! Definitions for reference grids (ZAXIS_REFERENCE) ------------------------------------

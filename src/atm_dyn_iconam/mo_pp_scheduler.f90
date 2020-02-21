@@ -161,6 +161,7 @@ MODULE mo_pp_scheduler
     &                                   TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI,                &
     &                                   TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,         &
     &                                   TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM,          &
+    &                                   TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX,          &
     &                                   TASK_COMPUTE_CEILING,                               &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
@@ -324,6 +325,16 @@ CONTAINS
             ! Specific content of precipitation particles
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
               &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_Q_SEDIM )
+            !
+          CASE (TASK_COMPUTE_DBZ850)
+            ! Radar reflectivity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_DBZ850 )
+            !
+          CASE (TASK_COMPUTE_DBZCMAX)
+            ! Radar reflectivity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_DBZCMAX )
             !
           CASE (TASK_COMPUTE_SMI) 
             ! soil moisture index
@@ -1627,9 +1638,10 @@ CONTAINS
         CALL pp_task_intp_msl(ptr_task)
 
         ! compute relative humidty, vertical velocity, potential vorticity, ...
-      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SDI2,             &
-        &    TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING, TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,  &
-        &    TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM, TASK_COMPUTE_SMI )
+      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV, TASK_COMPUTE_SDI2,              &
+        &    TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING, TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,   &
+        &    TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM, TASK_COMPUTE_DBZ850, TASK_COMPUTE_DBZCMAX, &
+        &    TASK_COMPUTE_SMI )
         CALL pp_task_compute_field(ptr_task)
 
         ! vector reconstruction on cell centers:

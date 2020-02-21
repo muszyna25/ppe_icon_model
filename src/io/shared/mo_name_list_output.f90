@@ -114,13 +114,13 @@ MODULE mo_name_list_output
        num_io_procs, io_proc_chunk_size, nproma, pio_type
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
-  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
+  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, POST_OP_LIN2DBZ
   USE mo_reorder_info,              ONLY: t_reorder_info
   USE mo_name_list_output_types,    ONLY: t_output_file, icell, iedge, ivert, &
     &                                     msg_io_start, msg_io_done, &
     &                                     msg_io_meteogram_flush, &
     &                                     msg_io_shutdown, all_events, &
-    &                                     t_var_desc
+    &                                     t_var_desc, t_output_name_list
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
   USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
@@ -194,6 +194,7 @@ MODULE mo_name_list_output
   PUBLIC :: write_name_list_output
   PUBLIC :: close_name_list_output
   PUBLIC :: istime4name_list_output
+  PUBLIC :: istime4name_list_output_dom
   PUBLIC :: name_list_io_main_proc
   PUBLIC :: write_ready_files_cdipio
 
@@ -972,7 +973,7 @@ CONTAINS
 
       ipost_op_type = info%post_op%ipost_op_type
       post_op_apply &
-           = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
+        = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc .OR. ipost_op_type == post_op_lin2dbz
       IF ( post_op_apply ) THEN
 #ifdef _OPENACC
         CALL finish(routine,'perform_post_op not supported on GPUs')
@@ -2499,6 +2500,39 @@ CONTAINS
     END IF
     istime4name_list_output = ret
   END FUNCTION istime4name_list_output
+
+
+ !------------------------------------------------------------------------------------------------
+  !> Returns if it is time for output of a particular variable at a particular output step on a particular domain
+  !  Please note:
+  !  This function returns .TRUE. whenever the variable is due for output in any name list
+  !  at the simulation step @p jstep for the domain @p jg.
+  !
+  FUNCTION istime4name_list_output_dom(jg, jstep)
+    LOGICAL                      :: istime4name_list_output_dom
+    INTEGER, INTENT(IN)          :: jg         !< domain index
+    INTEGER, INTENT(IN)          :: jstep      !< simulation time step
+    ! local variables
+    INTEGER :: i
+    LOGICAL :: ret
+    TYPE(t_output_name_list), POINTER :: p_onl      !< output name list
+
+    ret = .FALSE.
+    IF (ALLOCATED(output_file)) THEN
+       ! note: there may be cases where no output namelist has been
+       ! defined. thus we must check if "output_file" has been
+       ! allocated.
+       DO i = 1, SIZE(output_file)
+         p_onl => output_file(i)%name_list
+         ret = ret .OR. &
+           ( is_output_step(output_file(i)%out_event, jstep) .AND. &
+             ( p_onl%dom == jg .OR. p_onl%dom == -1 )              &
+           )
+         IF (ret) EXIT
+       END DO
+    END IF
+    istime4name_list_output_dom = ret
+  END FUNCTION istime4name_list_output_dom
 
 
   !------------------------------------------------------------------------------------------------

@@ -24,7 +24,7 @@ USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
 USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
-USE mo_io_config,            ONLY: configure_io
+USE mo_io_config,            ONLY: configure_io, init_var_in_output, var_in_output
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
@@ -83,8 +83,7 @@ USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
-USE mo_name_list_output_config,   ONLY: first_output_name_list, &
-  &                               is_variable_in_output
+USE mo_name_list_output_config,   ONLY: first_output_name_list, is_variable_in_output
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
@@ -173,24 +172,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
     INTEGER :: jg, jt, ist, jgroup
-    LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
-    LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
-    LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
-    LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
-    LOGICAL :: l_sdi2(n_dom)     !< Flag. TRUE if computation of supercell detection index desired
-    LOGICAL :: l_lpi(n_dom)      !< Flag. TRUE if computation of lightning potential index desired
-    LOGICAL :: l_lpi_max(n_dom)  !< Flag. TRUE if computation of max. of lightning potential index desired
-    LOGICAL :: l_ceiling(n_dom)  !< Flag. TRUE if computation of ceiling height desired
-    LOGICAL :: l_hbas_sc(n_dom)  !< Flag. TRUE if computation of height of base from shallow convection desired
-    LOGICAL :: l_htop_sc(n_dom)  !< Flag. TRUE if computation of height of top  from shallow convection desired
-    LOGICAL :: l_twater(n_dom)   !< Flag. TRUE if computation of total column integrated water desired
-    LOGICAL :: l_q_sedim(n_dom)  !< Flag. TRUE if computation of specific content of precipitation particles desired
-    LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
-    LOGICAL :: l_tcond_max(n_dom)   !< Flag. TRUE if computation of total column-integrated condensate desired
-    LOGICAL :: l_tcond10_max(n_dom) !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-    LOGICAL :: l_uh_max(n_dom)      !< Flag. TRUE if computation of updraft helicity desired
-    LOGICAL :: l_vorw_ctmax(n_dom)  !< Flag. TRUE if computation of maximum rotation amplitude desired
-    LOGICAL :: l_w_ctmax(n_dom)     !< Flag. TRUE if computation of maximum updraft track desired
+
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
@@ -224,6 +206,9 @@ CONTAINS
      ENDDO
 
     ENDIF
+
+    ! Check if optional diagnostics are requested for output
+    CALL init_var_in_output(n_dom, iforcing == inwp)
 
     ! initialize ldom_active flag if this is not a restart run
 
@@ -265,59 +250,16 @@ CONTAINS
 
 
     ! Now allocate memory for the states
-    DO jg=1,n_dom
-      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl") .OR. &
-        &              is_variable_in_output(first_output_name_list, var_name="psl_m")
-      l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")    .OR. &
-        &              is_variable_in_output(first_output_name_list, var_name="wap_m")
-    END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
-      &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
+      &                     l_pres_msl=var_in_output(:)%pres_msl, l_omega=var_in_output(:)%omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
-    IF(iforcing == inwp) THEN
-      DO jg=1,n_dom
-        l_rh(jg)      = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg)      = is_variable_in_output(first_output_name_list, var_name="pv")
-        l_sdi2(jg)    = is_variable_in_output(first_output_name_list, var_name="sdi2")
-        l_lpi(jg)     = is_variable_in_output(first_output_name_list, var_name="lpi")
-        l_lpi_max(jg) = is_variable_in_output(first_output_name_list, var_name="lpi_max")
-        l_ceiling(jg) = is_variable_in_output(first_output_name_list, var_name="ceiling")
-        l_hbas_sc(jg) = is_variable_in_output(first_output_name_list, var_name="hbas_sc")
-        l_htop_sc(jg) = is_variable_in_output(first_output_name_list, var_name="htop_sc")
-        l_twater(jg)  = is_variable_in_output(first_output_name_list, var_name="twater")
-        l_q_sedim(jg) = is_variable_in_output(first_output_name_list, var_name="q_sedim")
-        l_tcond_max(jg)   = is_variable_in_output(first_output_name_list, var_name="tcond_max")
-        l_tcond10_max(jg) = is_variable_in_output(first_output_name_list, var_name="tcond10_max")
-        l_uh_max(jg)      = is_variable_in_output(first_output_name_list, var_name="uh_max")
-        l_vorw_ctmax(jg)  = is_variable_in_output(first_output_name_list, var_name="vorw_ctmax")
-        l_w_ctmax(jg)     = is_variable_in_output(first_output_name_list, var_name="w_ctmax")
-        l_smi(jg)         = is_variable_in_output(first_output_name_list, var_name="smi")
-        ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
-        ! In this case, the group can not be checked, as the connection between SMI and the group will be
-        ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
-        ! As a crutch, a character array containing the output groups of SMI from mo_lnd_nwp_config is used
-        ! here and also at the add_var call.
-        ! The check loops through the output groups. It has to be checked if l_smi is already .true., to not
-        ! overwrite an existing .true. with a false. 
-        IF(.not.l_smi(jg) ) THEN 
-          ! Check for output groups containing SMI
-          DO jgroup = 1,SIZE(groups_smi)
-            IF(.not.l_smi(jg) ) THEN
-              l_smi(jg) = is_variable_in_output(first_output_name_list, var_name='group:'//TRIM(groups_smi(jgroup)))
-            END IF
-          END DO
-        END IF
-      END DO
-    END IF
 
     IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv, l_sdi2, l_lpi, l_lpi_max, l_ceiling,   &
-                                    l_hbas_sc, l_htop_sc, l_twater, l_q_sedim, l_tcond_max,         &
-                                    l_tcond10_max, l_uh_max, l_vorw_ctmax, l_w_ctmax )
-      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
+      CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
+      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
       CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
 
@@ -712,7 +654,7 @@ CONTAINS
 
       IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
            CALL init_les_turbulent_output(p_patch(jg), p_nh_state(jg)%metrics, &
-           &                              time_config%tc_startdate, l_rh(jg), ldelete=(.NOT. isRestart()))
+           &    time_config%tc_startdate, var_in_output(jg)%rh, ldelete=(.NOT. isRestart()))
 
     END DO
 

@@ -274,6 +274,9 @@ MODULE mo_impl_constants
   ! maximum allowed number of tracers (20 should be enough for the time being) ! DRIEG: For ART, more than 20 tracers are needed
   INTEGER, PARAMETER :: max_ntracer = 200
 
+  ! maximum allowed number of echotop levels:
+  INTEGER, PARAMETER :: max_echotop = 10
+  
   ! identifiers for model initialization
   INTEGER, PARAMETER :: ianalytic      =  0 ! - from analytical functions
   INTEGER, PARAMETER :: irestart       =  1 ! - from restart file
@@ -585,6 +588,8 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_HTOP_SC   = 21 !< task: compute height of top  from shallow conv. param.
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_TWATER    = 22 !< task: compute total column integrated water
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_Q_SEDIM   = 23 !< task: compute specific content of precipitation particles
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_DBZCMAX   = 24 !< task: compute radar reflectivity column maximum
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_DBZ850    = 25 !< task: compute radar reflectivity in approx. 850 hPa
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !
