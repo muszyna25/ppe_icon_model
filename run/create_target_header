@@ -21,7 +21,7 @@ add_free_var()
 {
     varName=$1
     varValue=$2
-    
+
     (( no_of_free_variables++ ))
     free_variable[$no_of_free_variables]=$varName
     free_variable_value[$no_of_free_variables]=$varValue
@@ -32,7 +32,7 @@ set_default()
     if [[ "x$(eval echo \$$1)" == "x" ]]
     then
 	eval "$1=$2"
-    fi 
+    fi
 }
 
 start_header()
@@ -55,7 +55,7 @@ set -x
 ulimit -s unlimited
 #=============================================================================
 #
-# ICON run script: 
+# ICON run script:
 # - created by $0
 # - target machine is $use_target
 # - target use_compiler is $use_compiler
@@ -113,10 +113,10 @@ EOF
 	cat >> $output_script << EOF
 # load profile
 # ------------
-if [[ -a  $profile_filename ]] 
-then  
-      	$use_load_profile
-fi	
+if [[ -a  $profile_filename ]]
+then
+	$use_load_profile
+fi
 EOF
     fi
 
@@ -126,7 +126,7 @@ EOF
 
 module purge
 module load $use_load_modules
-module list    
+module list
 EOF
     fi
 
@@ -179,9 +179,9 @@ EOF
 #=============================================================================
 set_run_target_bullx_cpu()
 {
-    # mistral.dkrz.de  
+    # mistral.dkrz.de
     icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-    
+
     set_default use_nproma 16
     set_default use_nodes 1
     set_default use_account_no "$(id -gn)"
@@ -193,7 +193,7 @@ set_run_target_bullx_cpu()
     #   use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
     use_OMP_SCHEDULE="dynamic,1"
     use_omp_stacksize=200M
-    
+
     # set to 1 to use smt feature
     smt_adjust=2
     is_serial_run="no"
@@ -219,9 +219,9 @@ set_run_target_bullx_cpu()
 	    is_serial_run="yes"
 	fi
     fi
-    
+
     [[ "x$use_queue" != 'x' ]] && queue=$use_queue
-    
+
     use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
     # TODO: disabled because other core files are generated
     # case $use_flags_group in
@@ -229,7 +229,7 @@ set_run_target_bullx_cpu()
     #     use_mpi_startrun="${use_mpi_startrun},CORE"
     #     ;;
     # esac
-    
+
     case _$use_compiler in
 	"_intel" )
             add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
@@ -279,7 +279,7 @@ set_run_target_bullx_cpu()
 	    add_free_var DAPL_WR_MAX 500
 	    ;;
     esac
-    
+
     add_free_var MALLOC_TRIM_THRESHOLD_ -1
     if [[ "$is_serial_run" == "yes"  ]]
     then
@@ -292,7 +292,7 @@ set_run_target_bullx_cpu()
 	job_type=parallel
 	tasks_per_node=$use_mpi_procs_pernode
     fi
-    
+
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
 	# this buildbot, do not use job id
@@ -300,7 +300,7 @@ set_run_target_bullx_cpu()
     else
 	job_log_name="LOG.$job_name.%j"
     fi
-    
+
     # ------------------------------------
     s_cpu_time="00:30:00"
     if [[ "x$use_cpu_time" != "x" ]]
@@ -308,7 +308,7 @@ set_run_target_bullx_cpu()
 	s_cpu_time=$use_cpu_time
     fi
     # ------------------------------------
-    
+
     cat >> $output_script << EOF
 #=============================================================================
 
@@ -340,7 +340,7 @@ export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 #========================================' ; fi)
 EOF
 
-    # for the rest use the SLURM_JOB_NUM_NODES by default 
+    # for the rest use the SLURM_JOB_NUM_NODES by default
     use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
 
     start_header
@@ -361,7 +361,7 @@ set_run_target_bullx_gpu()
 {
     # mistral.dkrz.de
     icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-    
+
     set_default use_nproma 16
     set_default use_nodes 1
     set_default use_account_no "$(id -gn)"
@@ -373,7 +373,7 @@ set_run_target_bullx_gpu()
     use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
     use_OMP_SCHEDULE="dynamic,1"
     use_omp_stacksize=200M
-    
+
     # set to 1 to use smt feature
     smt_adjust=2
     is_serial_run="no"
@@ -386,11 +386,11 @@ set_run_target_bullx_gpu()
 	start="srun --cpu-freq=HighM1 -n 1"
 	is_serial_run="yes"
     fi
-    
+
     [[ "x$use_queue" != 'x' ]] && queue=$use_queue
-    
+
     use_mpi_startrun="srun --cpu-freq=HighM1"
-    
+
     add_free_var MALLOC_TRIM_THRESHOLD_ -1
     if [[ "$is_serial_run" == "yes"  ]]
     then
@@ -403,7 +403,7 @@ set_run_target_bullx_gpu()
 	job_type=parallel
 	tasks_per_node=$use_mpi_procs_pernode
     fi
-    
+
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
 	# this buildbot, do not use job id
@@ -411,7 +411,7 @@ set_run_target_bullx_gpu()
     else
 	job_log_name="LOG.$job_name.%j"
     fi
-    
+
     # ------------------------------------
     s_cpu_time="00:30:00"
     if [[ "x$use_cpu_time" != "x" ]]
@@ -419,7 +419,7 @@ set_run_target_bullx_gpu()
 	s_cpu_time=$use_cpu_time
     fi
     # ------------------------------------
-    
+
     cat >> $output_script << EOF
 #=============================================================================
 
@@ -452,7 +452,7 @@ export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 #========================================' ; fi)
 EOF
 
-    # for the rest use the SLURM_JOB_NUM_NODES by default 
+    # for the rest use the SLURM_JOB_NUM_NODES by default
     use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
 
     start_header
@@ -471,12 +471,12 @@ EOF
 #=============================================================================
 set_run_target_mpipc()
 {
-    # *.mpimet.mpg.de with Linux (workstations and breeze)  
+    # *.mpimet.mpg.de with Linux (workstations and breeze)
     icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-    
+
     set_default use_nproma 64
     use_nodes=1
-    
+
     if [[ $use_mpi == "yes" ]]
     then
 	set_default use_mpi_procs_pernode 2
@@ -487,15 +487,22 @@ set_run_target_mpipc()
     else
 	set_default use_openmp_threads 1
     fi
-    
-    start_header
 
+    start_header
+}
+
+#=============================================================================
+set_run_target_()
+{
+  echo "!! THIS IS A FALLBACK SETUP !!"
+  echo "!! YOUR HOST/SITE IS unknown TO THE SCRIPTING ENGINE !!"
+  set_run_target_mpipc
 }
 
 #=============================================================================
 set_run_target_mpimac()
 {
-    # some Macs at MPIM 
+    # some Macs at MPIM
     icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
 
     set_default use_nproma 48
@@ -511,7 +518,41 @@ set_run_target_mpimac()
     else
 	set_default use_openmp_threads 1
     fi
-    
+
+    start_header
+}
+
+#=============================================================================
+set_run_target_docker_cpu()
+{
+    # Docker container
+    icon_data_rootFolder=${icon_data_rootFolder:=/icon-data-pool}
+
+    set_default use_nproma 16
+    use_nodes=1
+
+    set_default use_mpi_procs_pernode 1
+    set_default use_openmp_threads 1
+
+    use_OMP_SCHEDULE="static,12"
+
+    start_header
+}
+
+#=============================================================================
+set_run_target_docker_gpu()
+{
+    # Docker container with GPU
+    icon_data_rootFolder=${icon_data_rootFolder:=/icon-data-pool}
+
+    set_default use_nproma 20480
+    use_nodes=1
+
+    set_default use_mpi_procs_pernode 1
+    set_default use_openmp_threads 1
+
+    use_OMP_SCHEDULE="static,12"
+
     start_header
 }
 
@@ -523,7 +564,7 @@ set_run_target_oflws()
     
     set_default use_nproma 64
     use_nodes=1
-    
+
     if [[ "$use_mpi" == "yes" ]]
     then
 	set_default use_mpi_procs_pernode 4
@@ -532,7 +573,7 @@ set_run_target_oflws()
     then
 	set_default use_openmp_threads 2
     fi
-    
+
     start_header
 }
 
@@ -546,10 +587,10 @@ set_run_target_hpc()
     set_default use_nodes 1
     set_default use_mpi_procs_pernode 1
     set_default use_openmp_threads 1
-    
+
     cdo="/e/uhome/hanlauf/X86_64/bin/cdo"
     cdo_diff="diff"
-    
+
     
     cat >> $output_script << EOF
 #### BATCH_SYSTEM=PBS ####
@@ -563,7 +604,7 @@ set_run_target_hpc()
 #-----------------------------------------------------------------------------
 # for PBS change to directory where job was submitted
 # (without this job is started in HOME)
-if [[ -n \${PBS_O_WORKDIR} ]] 
+if [[ -n \${PBS_O_WORKDIR} ]]
  then
   cd \${PBS_O_WORKDIR}
 fi
@@ -584,7 +625,7 @@ set_run_target_daint_cpu()
     set_default use_nodes 1
     # use_OMP_SCHEDULE="static,1"
     use_OMP_SCHEDULE="static,12"
-    
+
     is_serial_run="no"
     if [[ $use_mpi == "yes" ]]
     then
@@ -604,7 +645,7 @@ set_run_target_daint_cpu()
 	    is_serial_run="yes"
 	fi
     fi
-    
+
     case _$use_compiler in
 	"_intel" )
             use_mpi_startrun="$use_mpi_startrun --verbose"
@@ -614,7 +655,7 @@ set_run_target_daint_cpu()
             add_free_var OMP_WAIT_POLICY "active"
 	    ;;
     esac
-    
+
     if [[ "$is_serial_run" == "yes"  ]]
     then
 	use_nodes=1
@@ -627,7 +668,7 @@ set_run_target_daint_cpu()
 	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
 	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
     fi
-    
+
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
 	# this buildbot, do not use job id
@@ -647,10 +688,10 @@ set_run_target_daint_cpu()
 	s_cpu_time="SBATCH --time=00:15:00"
     fi
     # ------------------------------------
-    
+
     use_nodes=${use_nodes}
     use_mpi_procs_pernode=${use_mpi_procs_pernode}
-    
+
     cat >> $output_script << EOF
 #=============================================================================
 
@@ -697,7 +738,7 @@ set_run_target_daint_gpu()
 	    is_serial_run="yes"
 	fi
     fi
-    
+
     if [[ "$is_serial_run" == "yes"  ]]
     then
 	use_nodes=1
@@ -710,7 +751,7 @@ set_run_target_daint_gpu()
 	SBATCH_nodes="SBATCH --nodes=$use_nodes"
 	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
     fi
-    
+
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
 	# this buildbot, do not use job id
@@ -718,7 +759,7 @@ set_run_target_daint_gpu()
     else
 	job_log_name="LOG.$job_name.%j"
     fi
-    
+
     # ------------------------------------
     s_cpu_time=""
     if [[ "x$use_cpu_time" != "x" ]]
@@ -730,12 +771,12 @@ set_run_target_daint_gpu()
 	# this is buldbot, do not run more than 45 minutes
 	s_cpu_time="SBATCH --time=00:45:00"
     fi
-    
+
     # ------------------------------------
 
     use_nodes=${use_nodes}
     use_mpi_procs_pernode=${use_mpi_procs_pernode}
-    
+
     cat >> $output_script << EOF
 #=============================================================================
 
@@ -785,7 +826,7 @@ set_run_target_dom_gpu()
 	    is_serial_run="yes"
 	fi
     fi
-    
+
     if [[ "$is_serial_run" == "yes"  ]]
     then
 	use_nodes=1
@@ -804,7 +845,7 @@ set_run_target_dom_gpu()
     else
 	job_log_name="LOG.$job_name.%j"
     fi
-    
+
     # ------------------------------------
     s_cpu_time=""
     if [[ "x$use_cpu_time" != "x" ]]
@@ -816,9 +857,9 @@ set_run_target_dom_gpu()
 	# this is buldbot, do not run more than 45 minutes
 	s_cpu_time="SBATCH --time=00:45:00"
     fi
-    
+
     # ------------------------------------
-    
+
     cat >> $output_script << EOF
 #=============================================================================
 
@@ -864,7 +905,7 @@ set_run_target_tave_knl()
 	    is_serial_run="yes"
 	fi
     fi
-    
+
     case _$use_compiler in
 	"_intel" )
             use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
@@ -874,7 +915,7 @@ set_run_target_tave_knl()
             add_free_var OMP_WAIT_POLICY "active"
 	    ;;
     esac
-    
+
     if [[ "$is_serial_run" == "yes"  ]]
     then
 	use_nodes=1
@@ -885,7 +926,7 @@ set_run_target_tave_knl()
 	tasks_per_node=$use_mpi_procs_pernode
 	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=32"
     fi
-    
+
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
 	# this buildbot, do not use job id
@@ -905,12 +946,12 @@ set_run_target_tave_knl()
 	s_cpu_time="SBATCH --time=00:45:00"
     fi
     # ------------------------------------
-    
+
     use_nodes=${use_nodes}
     use_mpi_procs_pernode=${use_mpi_procs_pernode}
-    
+
     cat >> $output_script << EOF
-#=============================================================================	
+#=============================================================================
 # tave batch job parameters
 #--------------------------
 #SBATCH --job-name=$job_name
@@ -953,7 +994,7 @@ set_run_target_kesch_cpu()
 	    is_serial_run="yes"
 	fi
     fi
-    
+
     case _$use_compiler in
 	"_intel" )
             use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
@@ -963,7 +1004,7 @@ set_run_target_kesch_cpu()
             add_free_var OMP_WAIT_POLICY "active"
 	    ;;
     esac
-    
+
     if [[ "$is_serial_run" == "yes"  ]]
     then
 	use_nodes=1
@@ -978,7 +1019,7 @@ set_run_target_kesch_cpu()
 	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
 	SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
     fi
-    
+
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
 	# this buildbot, do not use job id
@@ -998,10 +1039,10 @@ set_run_target_kesch_cpu()
 	s_cpu_time="SBATCH --time=00:45:00"
     fi
     # ------------------------------------
-    
+
     use_nodes=${use_nodes}
     use_mpi_procs_pernode=${use_mpi_procs_pernode}
-    
+
     cat >> $output_script << EOF
 #=============================================================================
 
@@ -1050,7 +1091,7 @@ set_run_target_kesch_gpu()
 	    is_serial_run="yes"
 	fi
     fi
-    
+
     case _$use_compiler in
 	"_intel" )
             use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
@@ -1060,7 +1101,7 @@ set_run_target_kesch_gpu()
             add_free_var OMP_WAIT_POLICY "active"
 	    ;;
     esac
-    
+
     if [[ "$is_serial_run" == "yes"  ]]
     then
 	use_nodes=1
@@ -1073,7 +1114,7 @@ set_run_target_kesch_gpu()
 	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
 	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
     fi
-    
+
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
 	# this buildbot, do not use job id
@@ -1081,7 +1122,7 @@ set_run_target_kesch_gpu()
     else
 	job_log_name="LOG.$job_name.%j"
     fi
-    
+
     s_cpu_time=""
     if [[ "x$use_cpu_time" != "x" ]]
     then
@@ -1095,7 +1136,7 @@ set_run_target_kesch_gpu()
 
     use_nodes=${use_nodes}
     use_mpi_procs_pernode=${use_mpi_procs_pernode}
-    
+
     cat >> $output_script << EOF
 #=============================================================================
 
@@ -1141,7 +1182,7 @@ set_run_target_pacluster()
 	fi
     else
 	queue="-q s8"
-	resources=""      
+	resources=""
     fi
 
     cat >> $output_script << EOF
@@ -1169,7 +1210,7 @@ set_run_target_pacluster()
 #-----------------------------------------------------------------------------
 # for PBS change to directory where job was submitted
 # (without this job is started in HOME)
-if [[ -n \${PBS_O_WORKDIR} ]] 
+if [[ -n \${PBS_O_WORKDIR} ]]
  then
   cd \${PBS_O_WORKDIR}
 fi
@@ -1220,48 +1261,8 @@ set_run_target_fh2()
 #MSUB -l walltime=00:00:05:00
 #MSUB -l nodes=4:ppn=20
 EOF
-    
-    start_header
-}
 
-#=============================================================================
-set_run_target_docker_cpu()
-{
-    # Docker container (see ./scripts/config_tests/docker/README)
-    rootFolder_prefix=/icon-data-pool
-    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
-    
-    set_default use_nproma 16
-    set_default use_nodes 1
-    set_default use_mpi_procs_pernode 1
-    set_default use_openmp_threads 1
-    tasks_per_node=1
-    use_OMP_SCHEDULE="static,12"
     start_header
-}
-
-#=============================================================================
-set_run_target_docker_gpu()
-{
-    # Docker container with GPU (see ./scripts/config_tests/docker/README)
-    rootFolder_prefix=/icon-data-pool
-    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
-    
-    set_default use_nproma 20480
-    set_default use_nodes 1
-    set_default use_mpi_procs_pernode 1
-    set_default use_openmp_threads 1
-    tasks_per_node=1
-    use_OMP_SCHEDULE="static,12"
-    start_header
-}
-
-#=============================================================================
-set_run_target_()
-{
-    echo "!! THIS IS A FALLBACK SETUP !!"
-    echo "!! YOUR HOST/SITE IS unknown TO THE SCRIPTING ENGINE !!"
-    set_run_target_mpipc
 }
 
 #=============================================================================
@@ -1287,7 +1288,7 @@ create_target_header()
     set_default use_memory_model "default"
     set_default use_omp_stacksize 32M
       
-    cat > $output_script << EOF 
+    cat > $output_script << EOF
 #! $use_shell
 EOF
     set_run_target_${use_target}

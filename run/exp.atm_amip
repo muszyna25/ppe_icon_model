@@ -105,7 +105,7 @@ cat > ${atmo_namelist} << EOF
  ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
- msg_level        = 12          ! level of details report during integration
+ msg_level        = 12          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  activate_sync_timers = .TRUE.
 /
@@ -316,7 +316,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/initial_condition
-add_link_file ${datadir}/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
+add_link_file $datadir/ifs2icon_1979010100_${grid_refinement}_${grid_label}.nc ./ifs2icon.nc
 #
 # - land: source?, date+time?
 datadir=${icon_data_poolFolder}/preliminary_land/r0002/${grid_refinement}_${grid_label}/land
@@ -333,7 +333,7 @@ end_year=$(( ${end_date%%-*} + 1 ))
 #
 # - well mixed greenhouse gases
 datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file ${datadir}/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
+add_link_file $datadir/greenhouse_historical_plus.nc                    ./bc_greenhouse_gases.nc
 #
 # - ozone
 # -- for irad_o3=8
@@ -343,16 +343,16 @@ do
   if [[ $year -le 2014 ]]
   then
     datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}_${grid_label}
-    add_link_file ${datadir}/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
+    add_link_file $datadir/bc_ozone_historical_${year}.nc               ./bc_ozone_${year}.nc
   else
     datadir=${icon_data_poolFolder}/ozone/cmip6/${grid_refinement}_${grid_label}
-    add_link_file ${datadir}/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
+    add_link_file $datadir/bc_ozone_historical_2014.nc                  ./bc_ozone_${year}.nc
   fi
   (( year = year+1 ))
 done
 # -- for irad_o3=1 with Cariolle ozone chemistry
 datadir=${icon_data_poolFolder}/greenhouse_gases
-add_link_file ${datadir}/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
+add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                        ./MACv2.0-SP_v1.nc
@@ -361,9 +361,9 @@ add_link_file ${datadir}/bc_ozone_cariolle.nc                             ./cari
 #
 datadir=${icon_data_poolFolder}/aerosol_29-06-2018/kinne/${grid_refinement}_${grid_label}
 #
-add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
-add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
-add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
+add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                    ./
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                    ./
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc               ./bc_aeropt_kinne_sw_b14_fin.nc
 #
 # - stratospheric aerosol
 year=$start_year

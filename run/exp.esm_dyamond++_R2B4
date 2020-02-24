@@ -522,8 +522,8 @@ EOF
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/run/coupling_${EXPNAME}.xml          ./coupling.xml
-add_required_file ${basedir}/externals/yac/input/coupling.xsd     ./coupling.xsd
+add_required_file ${basedir}/run/coupling_${EXPNAME}.xml       ./coupling.xml
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND

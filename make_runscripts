@@ -7,7 +7,7 @@
 #______________________________________________________________________________
 #
 # The basic command for creating an ICON experiment run script is
-#   
+#
 #  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
 #
 # By default the folder in use is ./run, and the run script is named
@@ -25,15 +25,15 @@
 #    mpi_procs_pernode=<number of mpi processes>. In the case of MPI
 #       configuration, defines how many processes per node will be
 #       used.
-# 
+#
 #    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
 #       defines how many nodes will be used.
-# 
+#
 #    openmp_threads=<Number of openmp threads>. In the case of OPENMP
 #       configuration, defines how many OPENMP threads will be used.
 #
 #    cpu_time=<wall time>. Defines the expected run wall time.
-#  
+#
 #    <free_variable>=<value> Free variables can be passed to the run
 #       script using this syntax. For example: EXPNAME=test, will
 #       result the definition of the variable EXPNAME=test in the run
@@ -49,7 +49,7 @@ while getopts "hr:s:" opt
 do
     case $opt in
         h) echo "usage: ./make_runscripts [-r <run directory to process>]"
-           echo "                         [-s <experiment name>]"    
+           echo "                         [-s <experiment name>]"
 	   exit 0
 	   ;;
         r) my_run_folder="${OPTARG}"
@@ -62,14 +62,7 @@ done
 #______________________________________________________________________________
 #==============================================================================
 
-if [[ -f ./run/set-up.info ]]
-then
-    source ./run/set-up.info
-else
-    echo "ERROR: Could not find './run/set-up.info' file !"
-    exit 1
-fi
-
+source ./run/set-up.info
 use_shell=${use_shell:="/bin/bash"}
 
 # default for options
@@ -86,7 +79,7 @@ name_found="no"
 if [[ -r "${in_folder}/exp.${name}" ]]
 then
     name_found="yes"
-    
+
     #__________________________________________________________________________
     # Create the experiment run script
     #
@@ -96,7 +89,7 @@ then
     # Note: The ICON experiments require the definition of the
     #       EXPNAME=<name> variable
     #__________________________________________________________________________
-    
+
     ./run/make_target_runscript \
 	in_folder=${in_folder} \
 	in_script=exp.${name} \
@@ -120,7 +113,7 @@ then
     # NOTE: The postprocessing script is sequential, so we define:
     #    with_mpi="no" with_openmp="no"
     #__________________________________________________________________________
-    
+
     ./run/make_target_runscript \
 	in_folder=${in_folder} \
 	in_script=post.${name} \

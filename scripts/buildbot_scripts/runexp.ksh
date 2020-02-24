@@ -1,6 +1,6 @@
 #! /bin/ksh
 #------------------------------------------------------------------------------
-# This script is called on all buildbot slaves and should be used to run the runscript
+# This script is called on all buildbot slaves and should be used to run the runscripts
 #------------------------------------------------------------------------------
 
 # Define of the text which is written in case of a script fail or OK run

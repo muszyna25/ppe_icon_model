@@ -60,7 +60,7 @@ $addexp checksuite.icon-dev/check.atm_ape_tolerance                             
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_GPU_pgi --list $listname
 # This test is currently not yet working on DAINT_GPU_pgi.   Debugging ongoing.
-### $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_GPU_pgi --list $listname
 
 #-----------------------------------------------------------
 # DWD
