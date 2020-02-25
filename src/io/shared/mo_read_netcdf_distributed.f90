@@ -19,7 +19,8 @@ MODULE mo_read_netcdf_distributed
 
   USE mo_kind, ONLY: wp
   USE mo_exception, ONLY: finish, message, em_warn
-  USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work
+  USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work, &
+    & p_allreduce, mpi_max, process_mpi_root_id
   USE ppm_extents, ONLY: extent
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     & t_glb2loc_index_lookup, &
@@ -120,6 +121,10 @@ MODULE mo_read_netcdf_distributed
   END TYPE
 
   TYPE(t_basic_distrib_read_data), TARGET, ALLOCATABLE :: basic_data(:)
+
+  ! This one only depends on n_io_processes and io_process_stride, so it is
+  ! save to store it in a module variable.
+  INTEGER :: parRootRank
 
 CONTAINS
 
@@ -297,6 +302,8 @@ CONTAINS
 
     INTEGER :: n_io_processes, io_process_stride
 
+    LOGICAL, SAVE :: isParRootRankInitialized = .FALSE.
+
 #if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     INTEGER              :: myColor, ierr, nvars, i
     INTEGER, ALLOCATABLE :: varids(:)
@@ -309,6 +316,12 @@ CONTAINS
     CALL message ("distrib_nf_open:",path)
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+      parRootRank = p_pe_work
+    ELSE
+      parRootRank = 0
+    ENDIF
+    parRootRank = p_allreduce(parRootRank, mpi_max, p_comm_work)
 #if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
       myColor = 1
@@ -374,13 +387,10 @@ CONTAINS
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
 
-    ! FIXME: This is wrong in two ways:
-    !  - We cannot assume rank 0 to be part of the reading processes.
-    !  - It is sufficient (and sensible) if only one ranks calls nf_inq_varid.
-    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+    IF (p_pe_work == parRootRank) THEN
       err = nf_inq_varid(ncid, var_name, varid)
     END IF
-    CALL p_bcast(err, 0, p_comm_work)
+    CALL p_bcast(err, parRootRank, p_comm_work)
 
     ret = (err == nf_noerr)
 
@@ -1069,7 +1079,7 @@ CONTAINS
     INTEGER :: varid, temp(1), i
     INTEGER :: temp_var_dimlen(NF_MAX_VAR_DIMS), var_dimids(NF_MAX_VAR_DIMS)
 
-    IF ( p_pe_work == 0 ) THEN
+    IF ( p_pe_work == parRootRank ) THEN
       CALL nf(nf_inq_varid(file_id, var_name, varid))
       CALL nf(nf_inq_varndims(file_id, varid, var_ndims))
       CALL nf(nf_inq_vardimid(file_id, varid, var_dimids))
@@ -1080,9 +1090,9 @@ CONTAINS
     END IF
 
 #ifndef NOMPI
-    CALL p_bcast(temp, 0, p_comm_work)
-    CALL p_bcast(var_ndims, 0, p_comm_work)
-    CALL p_bcast(temp_var_dimlen(1:var_ndims), 0, p_comm_work)
+    CALL p_bcast(temp, parRootRank, p_comm_work)
+    CALL p_bcast(var_ndims, parRootRank, p_comm_work)
+    CALL p_bcast(temp_var_dimlen(1:var_ndims), parRootRank, p_comm_work)
     temp(1) = var_ndims
 #endif
 
