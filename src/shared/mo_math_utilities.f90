@@ -2469,7 +2469,7 @@ CONTAINS
 !$ACC PCOPYOUT( varout ), IF( i_am_accel_node .AND. acc_on )
 
     ! initialize c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR
     DO jc=startidx, endidx
       cp(jc,slev) = c(jc,slev)/b(jc,slev)
@@ -2477,7 +2477,7 @@ CONTAINS
     ENDDO
 !$ACC END PARALLEL
     ! solve for vectors c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
     DO i = slev+1,elev
 !$ACC LOOP GANG VECTOR PRIVATE( m )
@@ -2489,11 +2489,11 @@ CONTAINS
     ENDDO
 !$ACC END PARALLEL
     ! initialize varout
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
     varout(startidx:endidx,elev) = dp(startidx:endidx,elev)
 !$ACC END KERNELS
     ! solve for varout from the vectors c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
     DO i = elev-1, slev, -1
 !$ACC LOOP GANG VECTOR

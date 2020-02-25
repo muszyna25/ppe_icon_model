@@ -39,10 +39,12 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                ldass_lhn, msg_level, &
-  &                                iqc, iqt,             &
+  &                                iqc, iqt, iqv,        &
   &                                ico2, io3,            &
   &                                number_of_grid_used
+USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
 USE mo_nh_testcases,         ONLY: init_nh_testcase
+USE mo_nh_testcases_nml,      ONLY: nh_test_name
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
@@ -66,7 +68,8 @@ USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_per
 USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
-  &                                construct_nh_state, destruct_nh_state
+  &                                construct_nh_state, destruct_nh_state,      &
+  &                                duplicate_prog_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
@@ -123,6 +126,7 @@ USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
+USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -131,6 +135,8 @@ USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
   USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
 #endif
+
+!$ser verbatim USE mo_ser_debug, ONLY: serialize_debug_output, ser_debug_on
 
 IMPLICIT NONE
 PRIVATE
@@ -406,6 +412,49 @@ CONTAINS
         IF (timers_level > 4) CALL timer_stop(timer_init_icon)
         !
       END IF ! ltestcase
+
+      !$ser verbatim ser_debug_on = .TRUE.
+      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 0, .TRUE.,&
+      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
+      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
+      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
+      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
+      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
+      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
+      IF(pinit_seed > 0) THEN
+        DO jg=1,n_dom
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%w)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%vn)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%theta_v)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%exner)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%rho)
+          IF(nh_test_name == 'dcmip_pa_12') THEN
+             CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                   p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,1))
+          ENDIF
+          CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnew(jg)))
+        ENDDO
+      ENDIF
+      !$ser verbatim ser_debug_on = .TRUE.
+      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 1, .TRUE.,&
+      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
+      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
+      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
+      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
+      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
+      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
+
       !
       ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
       ! but may be used with ECHAM physics, for real cases or test cases.
