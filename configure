@@ -6160,36 +6160,25 @@ $as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use mo_rttov_ifc, only: rttov_init
-      implicit none
-      integer :: istatus, channels(8, 2), n_chans(2), p_pe, &
-               & num_work_procs, p_io, p_comm_work
-      integer, allocatable :: instruments(:,:)
-      logical, allocatable :: addclouds(:)
-      istatus = rttov_init(  &
-        instruments     , &
-        channels        , &
-        n_chans         , &
-        p_pe            , &
-        num_work_procs  , &
-        p_io            , &
-        p_comm_work     , &
-        appRegLim=.TRUE., &
-        readCloud=addclouds)
+use rttov_types, only: rttov_coefs
+implicit none
+#include "rttov_nullify_coef.interface"
+type(rttov_coefs),target:: coefs(1)
+call rttov_nullify_coef(coefs(1)%coef)
       end
 _ACEOF
-#if ac_fn_fc_try_link "$LINENO"; then :
-#  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-#$as_echo "yes" >&6; }
-#else
-#  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-#$as_echo "no" >&6; }
-#      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-#$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-#as_fn_error $? "unable to link a test program using RTTOV: either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
-#See \`config.log' for more details
-#${icon_usr_note}" "$LINENO" 5; }
-#fi
+if ac_fn_fc_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "unable to link a test program using RTTOV: either disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS accordingly
+See \`config.log' for more details
+${icon_usr_note}" "$LINENO" 5; }
+fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
