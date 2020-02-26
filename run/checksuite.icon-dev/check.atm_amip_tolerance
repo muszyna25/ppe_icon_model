@@ -14,10 +14,17 @@
 # - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
 # - the restart file names: 
 #
-# For this test a separate experiment name is needed. Therefore a soft-link
-# is created for the new name exp.atm_amip_tolerance_test.
-rm -f exp.atm_amip_tolerance_test
-ln -s exp.atm_amip_test exp.atm_amip_tolerance_test
+## For this test a separate experiment name is needed. Therefore a soft-link
+## is created for the new name exp.atm_amip_tolerance_test.
+#rm -f exp.atm_amip_tolerance_test
+#ln -s exp.atm_amip_test exp.atm_amip_tolerance_test
+#
+# NOTE:
+# For the time being the tolerance test on daint needs different namelist settings
+# than the atm_amip_test.
+# As soon as this problem is solved the commented soft-link from above should be
+# used again.
+#
 export EXPERIMENT='atm_amip_tolerance_test'
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
