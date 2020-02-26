@@ -649,7 +649,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( slope ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikm1, ikp1, p_cc_min, p_cc_max) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
@@ -716,7 +716,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( slope ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikm1, ikp1, p_cc_min) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
@@ -780,7 +780,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikp1, p_cc_min, p_cc_max) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
@@ -843,7 +843,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikp1, p_cc_min) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx

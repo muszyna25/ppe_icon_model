@@ -123,9 +123,9 @@ MODULE mo_advection_config
 
     INTEGER :: &                    !< selects vertical transport scheme         
       &  ivadv_tracer(MAX_NTRACER)  !< 0 : no vertical advection                 
-                                    !< 1 : 1st order upwind                      
-                                    !< 3 : 3rd order PPM for CFL>                         
-                                    !< 30: 3rd order PPM               
+                                    !< 1 : 1st order upwind
+                                    !< 2 : 3rd order PSM for CFL>                            
+                                    !< 3 : 3rd order PPM for CFL>               
 
     INTEGER :: &                    !< advection of TKE
       &  iadv_tke                   !< 0 : none
@@ -401,7 +401,7 @@ CONTAINS
     ihadv_tracer(:) = advection_config(1)%ihadv_tracer(:)
 
 
-    ! PPM_V[CFL] specific settings (vertical transport)
+    ! PPM_V specific settings (vertical transport)
     !
     lcompute%ppm_v(:)   = .FALSE.
     lcleanup%ppm_v(:)   = .FALSE.
@@ -421,7 +421,7 @@ CONTAINS
       ENDDO
 
       ! Search for the first tracer jt for which vertical advection of
-      ! type PPM has been selected.
+      ! type PPM/PSM has been selected.
       DO jt=1,ntracer
         IF ( ANY( (/ippm_v, ipsm_v/) == ivadv_tracer(jt) ) ) THEN
           lcompute%ppm_v(jt) = .TRUE.
@@ -430,7 +430,7 @@ CONTAINS
       ENDDO
 
       ! Search for the last tracer jt for which vertical advection of
-      ! type PPM has been selected.
+      ! type PPM/PSM has been selected.
       DO jt=ntracer,1,-1
         IF ( ANY( (/ippm_v, ipsm_v/) == ivadv_tracer(jt) ) ) THEN
           lcleanup%ppm_v(jt) = .TRUE.

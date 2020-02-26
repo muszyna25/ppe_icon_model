@@ -1,8 +1,8 @@
 #!/bin/ksh
 #--------------------------------------------------------------------------------
 #
-# _bb_table_Description_  AMIP update experiment
-# _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
+# _bb_table_Description_  Tracer transport only experiment
+# _bb_table_Model_        prescribed, time dependent wind field with 3D transport
 
 #--------------------------------------------------------------------------------
 #
@@ -14,21 +14,21 @@
 # - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
 # - the restart file names: 
 #
-export EXPERIMENT='atm_amip_update_test'
+export EXPERIMENT='atm_tracer_Hadley'
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export TYPES='atm_2d_ml atm_3d_ml phy_3d_ml lnd_ml'
+export TYPES='atm_3d_ml'
 
 # DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'
+export DATES='20080902T000000Z'
 
 # RESTART_DATE defines the date and time from which restarts should be performed.
 # 
-export RESTART_DATE='19790101T000800Z'
+export RESTART_DATE='20080901T000000Z'
 
 #--------------------------------------------------------------------------------
 # 
@@ -39,6 +39,9 @@ export RESTART_DATE='19790101T000800Z'
 # n = nproma test
 # m = mpi test
 # o = omp test
+# t = tolerance test
+#
+# default: MD='rnmo'
 #
 
 #--------------------------------------------------------------------------------
@@ -48,21 +51,18 @@ export RESTART_DATE='19790101T000800Z'
 rundir=`pwd`
 cd checksuite.icon-dev
 
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix="/users/icontest"
-else
-    poolFolder_prefix=""
-fi
+# load python packages
+case $HOST in
+    *daint*)
+        module load daint-gpu
+        module load cray-python/3.6.5.1
+        module load PyExtensions/3.6.5.1-CrayGNU-18.08
+        module load netcdf-python
+esac
 
-#reference icon-nwp-dev
-#./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.491c4f44_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
-#reference/icon-2.6.1-rc
-#./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.0d4bd26c_icon-les/${BB_SYSTEM}_${BB_SLAVE}/
-#reference icon-nwp-ppm4gpu
-./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.6ec3fc64_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
-
+./icon-dev.checksuite -m base
 STATUS=$?
+
 
 check_final_status $STATUS "$EXPERIMENT"
 

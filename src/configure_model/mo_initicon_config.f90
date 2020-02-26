@@ -82,6 +82,8 @@ MODULE mo_initicon_config
   PUBLIC :: aerosol_fg_present
   PUBLIC :: lanaread_tseasfc
   PUBLIC :: itype_vert_expol
+  PUBLIC :: pinit_seed
+  PUBLIC :: pinit_amplitude
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -229,6 +231,10 @@ MODULE mo_initicon_config
   LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE.
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
+
+  ! perturb initial conditions. perturbation is only applied for pinit_seed > 0
+  INTEGER :: pinit_seed = 0
+  REAL(wp) :: pinit_amplitude = 0._wp
 
 CONTAINS
 

@@ -184,7 +184,7 @@ echo "###     Run without iterative IAU, write restart file     ###"
 echo "#############################################################"
 
 
-# run without iterative IAU, which writes restart file after 6H
+# run without iterative IAU, which writes restart file after 7H
 lrestart=".FALSE."
 num_restart_procs="2"
 iterate_iau=".FALSE."
@@ -512,7 +512,7 @@ cat > ${atmo_namelist} << EOF
  steps_per_file               =  10
  include_last                 = .TRUE.
  output_filename              = "${EXP}${iter}_winds"           ! file name base
- ml_varlist                   = 'vn','w','t_g','w_so','t_so'
+ ml_varlist                   = 'vn','w','t_g','w_so','t_so','tot_prec'
  output_grid                  = .TRUE.
 /
 &meteogram_output_nml

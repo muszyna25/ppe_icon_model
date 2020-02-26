@@ -207,9 +207,6 @@ CONTAINS
         ENDIF
         IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
 
-        ! skip fields on lon-lat grids 
-        IF (element%field%info%hgrid == GRID_REGULAR_LONLAT) CYCLE
-
         ! point to variable specific action list
         action_list => element%field%info%action_list
 

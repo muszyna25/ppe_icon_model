@@ -6962,11 +6962,11 @@ For NWP runs, substepping is generally applied above $z=22\,\mathrm{km}$ (see no
 \textbf{ivadv\_tracer}&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
+& & & & 0: no vert. transport \\
+           (note that tracer mass $\rho q$ instead of the mass fraction $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
-& & & & 3: Piecewise parabolic method (PPM): handles $\mathrm{CFL}>1$ & \tabularnewline
-& & & & 4: Parabolic Spline Method (PSM): (handles $\mathrm{CFL}>1$)& \tabularnewline
-& & & & 5: Piecewise parabolic method (PPM): GPU-enabled version, handles $\mathrm{CFL}>1$& \tabularnewline
+& & & & 2: Parabolic Spline Method (PSM): allows for $\mathrm{CFL}>1$& \tabularnewline
+& & & & 3: Piecewise parabolic method (PPM): allows for $\mathrm{CFL}>1$ & \tabularnewline
 
 
 %\hline

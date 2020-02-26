@@ -61,7 +61,9 @@ MODULE mo_initicon_nml
     & config_niter_divdamp       => niter_divdamp,       &
     & config_niter_diffu         => niter_diffu,         &
     & config_itype_vert_expol    => itype_vert_expol,    &
-    & config_ana_varnames_map_file => ana_varnames_map_file
+    & config_ana_varnames_map_file => ana_varnames_map_file, &
+    & config_pinit_seed          => pinit_seed,          &
+    & config_pinit_amplitude     => pinit_amplitude
 
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -197,6 +199,10 @@ CONTAINS
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file
 
+  ! perturb initial conditions. perturbation is only applied for pinit_seed > 0
+  INTEGER :: pinit_seed = 0
+  REAL(wp) :: pinit_amplitude = 0._wp
+
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
                           lconsistency_checks,                              &
@@ -209,7 +215,8 @@ CONTAINS
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
                           niter_diffu, qcana_mode, qiana_mode, qrsgana_mode,&
-                          qnxana_2mom_mode, itype_vert_expol
+                          qnxana_2mom_mode, itype_vert_expol, pinit_seed,   &
+                          pinit_amplitude
                           
 
   !------------------------------------------------------------
@@ -272,6 +279,9 @@ CONTAINS
   start_time_avg_fg = 0._wp
   end_time_avg_fg   = 0._wp
   interval_avg_fg   = 0._wp
+
+  pinit_seed        = 0           ! <0: do not perturb initial data. >0: perturb initial data with this as seed
+  pinit_amplitude   = 0._wp       ! amplitude of the initial perturbation for numerical tolerance test
 
   !------------------------------------------------------------
   ! 3.0 Read the initicon namelist.
@@ -408,6 +418,8 @@ CONTAINS
   config_niter_divdamp         = niter_divdamp
   config_niter_diffu           = niter_diffu
   config_itype_vert_expol      = itype_vert_expol
+  config_pinit_seed            = pinit_seed
+  config_pinit_amplitude       = pinit_amplitude
 
   DO jg=1,max_dom
     initicon_config(jg)%ana_checklist = check_ana(jg)%list

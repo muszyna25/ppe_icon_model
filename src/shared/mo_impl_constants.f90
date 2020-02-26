@@ -376,8 +376,9 @@ MODULE mo_impl_constants
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: NO_VADV     = 0
   INTEGER, PARAMETER :: iup_v       = 1
+  INTEGER, PARAMETER :: ipsm_v      = 2
   INTEGER, PARAMETER :: ippm_v      = 3
-  INTEGER, PARAMETER :: ipsm_v      = 4
+
 
   ! identifier for horizontal limiter
   INTEGER, PARAMETER :: inol       = 0

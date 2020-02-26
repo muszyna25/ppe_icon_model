@@ -724,8 +724,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             prm_diag%t_tilemax_inst_2m(jc,jb) = MAX(t_2m_t(ic,jt),prm_diag%t_tilemax_inst_2m(jc,jb))
             prm_diag%t_tilemin_inst_2m(jc,jb) = MIN(t_2m_t(ic,jt),prm_diag%t_tilemin_inst_2m(jc,jb))
 
-!!$            prm_diag%tmax_2m(jc,jb) = MAX(t_2m_t(ic,jt), prm_diag%tmax_2m(jc,jb))
-!!$            prm_diag%tmin_2m(jc,jb) = MIN(t_2m_t(ic,jt), prm_diag%tmin_2m(jc,jb))
 
             ! Store
             prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(ic,jt)
