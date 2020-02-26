@@ -60,7 +60,9 @@ fi
 #reference/icon-2.6.1-rc
 #./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.0d4bd26c_icon-les/${BB_SYSTEM}_${BB_SLAVE}/
 #reference icon-nwp-ppm4gpu
-./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.6ec3fc64_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
+#./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.6ec3fc64_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
+
+./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.eb7e536d_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
 
 STATUS=$?
 
