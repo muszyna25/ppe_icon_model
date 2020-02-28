@@ -514,7 +514,6 @@
           WRITE (0,*) "spherical cap around ", p_local%a(0)%x, p_local%a(0)%y, p_local%a(0)%z, "; radius ", subset%radius
         END IF
       END IF
-      CALL p_local%destructor()
 
       CALL tri%initialize()
 !$    time_s = omp_get_wtime()
@@ -535,6 +534,8 @@
           CALL triangulate(p_global, tri, subset, ignore_completeness = (ptr_patch%id > 1))
         END IF
       END IF
+
+      CALL p_local%destructor()
 
 !$    toc = omp_get_wtime() - time_s
       IF (dbg_level > 1) THEN
