@@ -32,6 +32,8 @@
 
 MODULE mo_ocean_ext_data
 
+  USE mo_master_control,       ONLY: get_my_process_name
+  
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
@@ -252,7 +254,7 @@ CONTAINS
     CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_oce_list,            &
                                   & lrestart=.FALSE.,          &
-                                 & model_type='oce'  )
+                                 & model_type=TRIM(get_my_process_name()) )
 
     ! bathymetric height at cell center
     !
@@ -299,6 +301,7 @@ CONTAINS
       grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
+      p_ext_oce%flux_forc_mon_c = 0.0_wp
     END IF
 
   END SUBROUTINE new_ext_data_oce_list

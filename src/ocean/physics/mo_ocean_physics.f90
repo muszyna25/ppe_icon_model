@@ -42,7 +42,7 @@ MODULE mo_ocean_physics
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & lambda_wind, wma_visc,                                  &
+    & lambda_wind,                                            &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
@@ -125,7 +125,7 @@ MODULE mo_ocean_physics
   !PUBLIC :: init_ho_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
-  PUBLIC :: calc_characteristic_physical_numbers
+!   PUBLIC :: calc_characteristic_physical_numbers
   PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
   
   ! variables

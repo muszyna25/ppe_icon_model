@@ -28,7 +28,7 @@ MODULE mo_ocean_tracer
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
     & GMRedi_configuration,                                               &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & tracer_update_mode, vert_mix_type, vmix_kpp
+    & tracer_update_mode
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
@@ -43,7 +43,6 @@ MODULE mo_ocean_tracer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_dif_vert, timer_extra30
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   USE mo_ocean_types,               ONLY: t_hydro_ocean_state
-  USE mo_ocean_physics_types,       ONLY: t_ho_params  ! by_Oliver
   USE mo_ocean_tracer_transport_types,  ONLY: t_ocean_tracer, t_tracer_collection, t_ocean_transport_state
 
   IMPLICIT NONE
@@ -66,12 +65,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE advect_ocean_tracers(old_tracers, new_tracers, transport_state,operators_coeff,params_oce)
+  SUBROUTINE advect_ocean_tracers(old_tracers, new_tracers, transport_state,operators_coeff)
     TYPE(t_tracer_collection), INTENT(inout)      :: old_tracers
     TYPE(t_tracer_collection), INTENT(inout)      :: new_tracers
     TYPE(t_ocean_transport_state), TARGET         :: transport_state
     TYPE(t_operator_coeff), INTENT(in) :: operators_coeff
-    TYPE(t_ho_params), INTENT(inout)     :: params_oce
 
     !Local variables
     TYPE(t_patch_3d ), POINTER     :: patch_3d
@@ -84,10 +82,30 @@ CONTAINS
         CALL advect_diffuse_individual_tracer( patch_3d,    &
           & old_tracers%tracer(tracer_index),               &
           & transport_state, operators_coeff,               &
-          & params_oce,                                     & !by_Oliver
-          & new_tracers%tracer(tracer_index),tracer_index)    !by_Oliver
+          & new_tracers%tracer(tracer_index))
       ENDIF
     END DO
+    
+!     IF ( old_tracers%no_of_tracers > 2) THEN
+!     
+!       CALL dbg_print('h_old all'       , transport_state%h_old, "transport", 1,  patch_3d%p_patch_2d(1)%cells%all)
+!       CALL dbg_print('h_new all'       , transport_state%h_new, "transport", 1,  patch_3d%p_patch_2d(1)%cells%all)
+!       CALL dbg_print('w all'           , transport_state%w, "transport", 1,  patch_3d%p_patch_2d(1)%cells%all)
+!       CALL dbg_print('vn all'          , transport_state%vn, "transport", 1,  patch_3d%p_patch_2d(1)%edges%all)
+!       CALL dbg_print('flux all'        , transport_state%mass_flux_e, "transport", 1,  patch_3d%p_patch_2d(1)%edges%all)
+! 
+!       CALL dbg_print('hor diff all'    , old_tracers%tracer(1)%hor_diffusion_coeff, "transport", 1,  &
+!         & patch_3d%p_patch_2d(1)%edges%all)
+!       CALL dbg_print('ver diff all'    , old_tracers%tracer(1)%ver_diffusion_coeff, "transport", 1,  &
+!         & patch_3d%p_patch_2d(1)%cells%all)
+!       
+!       CALL dbg_print('trac 1 old all'    , old_tracers%tracer(1)%concentration, "transport", 1, &
+!         patch_3d%p_patch_2d(1)%cells%all)
+!       CALL dbg_print('trac 1 new all'    , new_tracers%tracer(1)%concentration, "transport", 1, &
+!         patch_3d%p_patch_2d(1)%cells%all)
+! 
+!     ENDIF
+    
 
   END SUBROUTINE advect_ocean_tracers
   !-------------------------------------------------------------------------
@@ -135,21 +153,18 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE advect_diffuse_individual_tracer(patch_3d, old_tracer,       &
-    & transport_state, operators_coeff, params_oce, new_tracer,tracer_index) !by_Oliver
+    & transport_state, operators_coeff, new_tracer)
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
     TYPE(t_ocean_tracer), TARGET :: old_tracer
     TYPE(t_ocean_tracer), TARGET :: new_tracer
-    TYPE(t_ho_params), INTENT(inout)     :: params_oce !by_Oliver
     TYPE(t_ocean_transport_state), TARGET :: transport_state
     TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
 !     REAL(wp), INTENT(inout), OPTIONAL :: horizontally_diffused_tracer(:,:,:)
 
     !Local variables
-
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
-    INTEGER :: tracer_index !by_Oliver
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_tracer_advection:advect_diffuse_tracer')
     !-------------------------------------------------------------------------------_
@@ -184,8 +199,6 @@ CONTAINS
            & operators_coeff,      &
            & old_tracer%hor_diffusion_coeff,  &
            & old_tracer%ver_diffusion_coeff,  &
-           & params_oce, & ! by_Oliver
-           & tracer_index, & !by_Oliver
            & new_tracer)
 
     ENDIF
@@ -307,8 +320,6 @@ CONTAINS
     & patch_3d, old_tracer,                &
     & transport_state, operators_coeff,    &
     & k_h, a_v,                            &
-    & params_oce,                          & !by_Oliver
-    & tracer_index,                        & !by_Oliver
     & new_tracer)!,        &
     ! & horizontally_diffused_tracer        )
 
@@ -318,8 +329,6 @@ CONTAINS
     TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)       !horizontal mixing coeff
     REAL(wp), INTENT(inout)              :: a_v(:,:,:)       !vertical mixing coeff, in
-    TYPE(t_ho_params), INTENT(inout)     :: params_oce       ! by_Oliver
-    INTEGER, INTENT(in)                  :: tracer_index     ! by_Oliver
     TYPE(t_ocean_tracer), TARGET :: new_tracer
 !     REAL(wp), INTENT(inout), OPTIONAL :: horizontally_diffused_tracer(:,:,:)
 
@@ -335,7 +344,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: top_bc(nproma)
-    ! KPP T and S tendencies, by_Oliver
 
 
     CHARACTER(len=*), PARAMETER :: method_name = 'mo_ocean_tracer:advect_diffuse_tracer'
@@ -345,9 +353,6 @@ CONTAINS
     edges_in_domain => patch_2D%edges%in_domain
     delta_t = dtime
 
-    !by_Oliver: account for nonlocal transport term for heat and scalar
-    !(salinity) if KPP scheme is used
-   
     !---------------------------------------------------------------------
  
     ! these are probably not necessary
@@ -411,6 +416,8 @@ CONTAINS
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
       IF (ASSOCIATED(old_tracer%top_bc)) THEN
+!         CALL dbg_print('top_bc all'       , old_tracer%top_bc, "transport", 1,  patch_3d%p_patch_2d(1)%cells%all)
+!         CALL finish("ASSOCIATED(old_tracer%top_bc)","")
         top_bc(:) = old_tracer%top_bc(:,jb)
       ELSE
         top_bc(:) = 0.0_wp
@@ -436,35 +443,12 @@ CONTAINS
         ENDDO
 
         DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          !FIXME: add KPP nonlocal transport terms here on r.h.s.! by Oliver
           new_tracer%concentration(jc,level,jb) =                          &
             &  old_tracer%concentration(jc,level,jb)                       &
             &  - (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))    &
             &  * (  div_adv_flux_horz(jc,level,jb)  &
             &     + div_adv_flux_vert(jc,level,jb)  &
             &     - div_diff_flux_horz(jc,level,jb) ) 
-
-
-          ! only use with kpp
-          IF (vert_mix_type .EQ. vmix_kpp) THEN
-            IF (tracer_index == 1 ) THEN
-              ! heat
-              new_tracer%concentration(jc,level,jb) =                          &
-                   & new_tracer%concentration(jc,level,jb)                          &
-                   ! FIXME: check sign
-                   &    + (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)) &
-                   &    * params_oce%cvmix_params%nl_trans_tend_heat(jc,level,jb)
-
-            ELSE IF (tracer_index == 2 ) THEN
-              ! salinity
-              new_tracer%concentration(jc,level,jb) =                          &
-                   & new_tracer%concentration(jc,level,jb)                          &
-                   ! FIXME: check sign
-                   &    + (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)) &
-                   &    * params_oce%cvmix_params%nl_trans_tend_salt(jc,level,jb)
-            END IF
-          END IF
-
         ENDDO
 
       END DO
@@ -497,7 +481,6 @@ CONTAINS
     stop_timer(timer_dif_vert,4)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('aft. AdvIndivTrac: trac_old', old_tracer%concentration, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', new_tracer%concentration, str_module, 3, in_subset=cells_in_domain)
     !---------------------------------------------------------------------

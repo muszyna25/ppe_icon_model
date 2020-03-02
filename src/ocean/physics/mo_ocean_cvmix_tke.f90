@@ -28,12 +28,11 @@ MODULE mo_ocean_cvmix_tke
     !& PPscheme_ICON_type,                        &
     & PPscheme_ICON_Edge_type,                   &
     & PPscheme_ICON_Edge_vnPredict_type,         &
-    & PPscheme_MPIOM_type,                       &
     & use_wind_mixing,                                        &
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & lambda_wind, wma_diff, wma_visc,                        &
+    & lambda_wind,                                            &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &

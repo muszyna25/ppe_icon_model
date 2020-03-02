@@ -17,7 +17,7 @@ MODULE mo_atmo_model
 
   ! basic modules
   USE mo_exception,               ONLY: message, finish
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_work,       &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size
 #ifdef HAVE_CDI_PIO
@@ -28,7 +28,7 @@ MODULE mo_atmo_model
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
   USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,               &
-    &                                   num_io_procs,                                         &
+    &                                   update_nproma_on_device, num_io_procs,                &
     &                                   num_prefetch_proc, pio_type
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
@@ -300,8 +300,11 @@ CONTAINS
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
-         &                          num_prefetch_proc, num_test_pe,      &
-         &                          pio_type, opt_comp_id=atmo_process)
+         &                          atmo_process, num_prefetch_proc, num_test_pe,      &
+         &                          pio_type) 
+#ifdef _OPENACC
+    CALL update_nproma_on_device( my_process_is_work() )
+#endif
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers

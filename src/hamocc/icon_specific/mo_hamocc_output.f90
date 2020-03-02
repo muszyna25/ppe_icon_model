@@ -3,6 +3,7 @@
       MODULE mo_hamocc_output
 
 ! icon specific routines for output and restart
+      USE mo_master_control,       ONLY: get_my_process_name
 
       USE mo_control_bgc,          ONLY: dtb
      
@@ -73,8 +74,8 @@
       USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
 
       USE mo_param1_bgc,       ONLY: ntraad, n_bgctra 
-
-      IMPLICIT NONE
+  
+     IMPLICIT NONE
 
       PUBLIC
 
@@ -84,9 +85,9 @@
       TYPE(t_var_list)                              :: hamocc_sediment_list ! for sediment outout
 
       CONTAINS
-
+      
 !================================================================================== 
-    SUBROUTINE construct_hamocc_state( patch_3d, hamocc_state )
+  SUBROUTINE construct_hamocc_state( patch_3d, hamocc_state )
     
     TYPE(t_hamocc_state), TARGET :: hamocc_state
     TYPE(t_patch_3D), TARGET, INTENT(in) :: patch_3d
@@ -376,7 +377,7 @@
           ENDIF
             
      ENDDO
-
+     
   END SUBROUTINE construct_hamocc_state_prog
 
 !================================================================================== 
@@ -1606,27 +1607,30 @@
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
     CHARACTER(LEN=max_char_length) :: listname
+    CHARACTER(len=64) :: model_name
+
+    model_name=get_my_process_name()
     
     WRITE(listname,'(a)')  'hamocc_restart_list'
     CALL new_var_list(hamocc_restart_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( hamocc_restart_list,             &
       & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type='oce' )
+      & model_type=TRIM(model_name) )
 
     WRITE(listname,'(a)')  'hamocc_default_list'
     CALL new_var_list(hamocc_default_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( hamocc_default_list,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+      & lrestart=.FALSE.,model_type=TRIM(model_name),loutput=.TRUE. )
 
     WRITE(listname,'(a)')  'hamocc_tendency_list'
     CALL new_var_list(hamocc_tendency_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( hamocc_tendency_list,            &
-      & lrestart=.TRUE.,model_type='oce',loutput=.TRUE. )
+      & lrestart=.TRUE.,model_type=TRIM(model_name),loutput=.TRUE. )
 
     WRITE(listname,'(a)')  'hamocc_sediment_list'
     CALL new_var_list(hamocc_sediment_list, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( hamocc_sediment_list,            &
-      & lrestart=.TRUE.,model_type='oce',loutput=.TRUE. )
+      & lrestart=.TRUE.,model_type=TRIM(model_name),loutput=.TRUE. )
 
     END SUBROUTINE construct_hamocc_var_lists
 !================================================================================== 

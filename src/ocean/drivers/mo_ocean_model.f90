@@ -14,12 +14,29 @@
 MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish
+  USE mo_master_control,      ONLY:  ocean_process, get_my_process_name
   USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs, &
-       &                            pio_type, num_test_pe
+       &                            pio_type, num_test_pe, num_prefetch_proc
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
        &                            stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-       &                            process_mpi_io_size
+       &                            set_mpi_work_communicators, process_mpi_io_size
+  USE mo_impl_constants,          ONLY: pio_type_async
+#ifdef HAVE_CDI_PIO
+  USE mo_mpi,                     ONLY: mpi_comm_null, p_comm_work_io
+  USE mo_impl_constants,          ONLY: pio_type_cdipio
+  USE yaxt,                       ONLY: xt_initialize, xt_initialized
+  USE mo_cdi,                     ONLY: namespacegetactive
+  USE mo_cdi_pio_interface,       ONLY: nml_io_cdi_pio_namespace, &
+    &                                   cdi_base_namespace, &
+    &                                   nml_io_cdi_pio_client_comm, &
+    &                                   nml_io_cdi_pio_conf_handle
+  USE mo_name_list_output_init,   ONLY: init_cdipio_cb
+  USE mo_name_list_output,        ONLY: write_ready_files_cdipio
+  USE mo_impl_constants,      ONLY: pio_type_cdipio
+  USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
+  USE mo_cdi_pio_interface,   ONLY: nml_io_cdi_pio_namespace
+#endif
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
   USE mo_memory_log,              ONLY: memory_log_terminate
@@ -116,11 +133,14 @@ MODULE mo_ocean_model
   USE mo_coupling_config,     ONLY: is_coupled_run
   !-------------------------------------------------------------
  
-  USE mo_ocean_to_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end
+  USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_construct, ocean_to_hamocc_init, ocean_to_hamocc_end
 
   IMPLICIT NONE
 
   PRIVATE
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
 
   PUBLIC :: ocean_model
     PUBLIC :: construct_ocean_model, destruct_ocean_model
@@ -147,7 +167,7 @@ MODULE mo_ocean_model
 
     !-------------------------------------------------------------------
     IF (isRestart()) THEN
-      CALL read_restart_header("oce")
+      CALL read_restart_header(TRIM(get_my_process_name()) )
     END IF
 
     !-------------------------------------------------------------------
@@ -160,6 +180,10 @@ MODULE mo_ocean_model
     CALL construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
     CALL ocean_to_hamocc_construct(ocean_patch_3D, ext_data(1))
     
+    !-------------------------------------------------------------------
+    CALL ocean_to_hamocc_init(ocean_patch_3d, ocean_state(1), &
+      & p_as, v_sea_ice, v_oce_sfc, v_params)
+
     !-------------------------------------------------------------------
     IF (isRestart() .OR. initialize_fromRestart) THEN
       ocean_initFromRestart_OVERRIDE = initialize_fromRestart
@@ -186,13 +210,12 @@ MODULE mo_ocean_model
     CALL prepare_ho_stepping(ocean_patch_3d, operators_coefficients, &
       & ocean_state(1), v_oce_sfc, p_as, v_sea_ice, ext_data(1), isRestart(), solverCoefficients_sp)
    
-   CALL ocean_to_hamocc_init(ocean_patch_3d, ocean_state(1), &
-      & p_as, v_sea_ice, v_oce_sfc, v_params)
 
     !------------------------------------------------------------------
     ! write initial state
-    !------------------------------------------------------------------
-    IF (output_mode%l_nml .and. write_initial_state) THEN
+    !------------------------------------------------------------------    
+!     IF (output_mode%l_nml .and. .true.) THEN
+    IF (output_mode%l_nml .AND. write_initial_state) THEN
       CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_oce_sfc,v_sea_ice, operators_coefficients)
     ENDIF
     !------------------------------------------------------------------
@@ -248,6 +271,11 @@ MODULE mo_ocean_model
 
     INTEGER :: error_status
 
+
+#ifdef HAVE_CDI_PIO
+    INTEGER :: prev_cdi_namespace
+#endif
+
     !------------------------------------------------------------------
     !  cleaning up process
     !------------------------------------------------------------------
@@ -299,6 +327,15 @@ MODULE mo_ocean_model
       CALL close_name_list_output
       CALL finish_statistics_streams
     ENDIF
+#ifdef HAVE_CDI_PIO
+    IF (pio_type == pio_type_cdipio) THEN
+      prev_cdi_namespace = namespaceGetActive()
+      CALL namespaceSetActive(nml_io_cdi_pio_namespace)
+      CALL pioFinalize
+      CALL namespaceSetActive(prev_cdi_namespace)
+    END IF
+#endif
+
 
     CALL destruct_icon_communication()
     CALL destruct_ocean_coupling ()
@@ -324,6 +361,7 @@ MODULE mo_ocean_model
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:construct_ocean_model"
     INTEGER :: ist, error_status, dedicatedRestartProcs
+    INTEGER :: comp_id
     !-------------------------------------------------------------------
 
     !---------------------------------------------------------------------
@@ -353,9 +391,21 @@ MODULE mo_ocean_model
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-      &                             dedicatedRestartProcs, num_test_pe, pio_type)
-
+!orig
+!    write(0,*)'construct_ocean_model:pio_type=',pio_type
+!    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
+!      &                             dedicatedRestartProcs, num_test_pe, pio_type)
+!orig
+!pa
+!pa    
+!pa    write(0,*)'construct_ocean_model:pio_type=',pio_type
+!pa    write(0,*)'construct_ocean_model:restartProcs=',dedicatedRestartProcs
+    comp_id = ocean_process
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
+         &                          num_io_procs, dedicatedRestartProcs, &
+         &                          comp_id,num_prefetch_proc, num_test_pe,      &
+         &                          pio_type)
+!pa
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
@@ -561,18 +611,58 @@ MODULE mo_ocean_model
       ! nothing to do
       RETURN
     ENDIF
+!..pa ++ .AND. pio_type == pio_type_async
+!    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_async) THEN
+!..pa
+!
+!    ! Decide whether async vlist or name_list IO is to be used,
+!    ! only one of both may be enabled!
+!
+!     IF (output_mode%l_nml) THEN
+!      ! -----------------------------------------
+!      ! asynchronous I/O
+!      ! -----------------------------------------
+!      !
+!      use_async_name_list_io = .TRUE.
+!      CALL message(method_name,'asynchronous namelist I/O scheme is enabled.')
+!      ! consistency check
+!      IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+!
+!        ! compute sim_start, sim_end
+!        CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+!        CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+!        CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+!        CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+!
+!        sim_step_info%dtime      = dtime
+!        jstep0 = 0
+!
+!        restartAttributes => getAttributesForRestarting()
+!        IF (ASSOCIATED(restartAttributes)) THEN
+!
+!          ! get start counter for time loop from restart file:
+!          jstep0 = restartAttributes%getInteger("jstep")
+!        END IF
+!        sim_step_info%jstep0    = jstep0
+!!         CALL name_list_io_main_proc(sim_step_info, isample=1)
+!!pa
+!        write(0,*)"Before name_list_io_main_proc"
+!        CALL name_list_io_main_proc(sim_step_info)
+!        write(0,*)"After name_list_io_main_proc"
+!!pa
+!      END IF
+!     ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+!      ! Shut down MPI
+!        CALL stop_mpi
+!        STOP
+!     ENDIF
+!    ENDIF
 
-    ! Decide whether async vlist or name_list IO is to be used,
-    ! only one of both may be enabled!
+#ifdef HAVE_CDI_PIO
+    
+    IF (process_mpi_io_size > 0 .AND. pio_type == pio_type_cdipio) THEN
 
-    IF (output_mode%l_nml) THEN
-      ! -----------------------------------------
-      ! asynchronous I/O
-      ! -----------------------------------------
-      !
-      use_async_name_list_io = .TRUE.
-      CALL message(method_name,'asynchronous namelist I/O scheme is enabled.')
-      ! consistency check
+      CALL message(method_name,'Collective asynchronous namelist I/O scheme is enabled.')
       IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
 
         ! compute sim_start, sim_end
@@ -591,15 +681,47 @@ MODULE mo_ocean_model
           jstep0 = restartAttributes%getInteger("jstep")
         END IF
         sim_step_info%jstep0    = jstep0
-!         CALL name_list_io_main_proc(sim_step_info, isample=1)
-        CALL name_list_io_main_proc(sim_step_info)
+        CALL init_statistics_streams
+      ENDIF
+
+     IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work_io)
+
+
+      cdi_base_namespace = namespaceGetActive()
+!pa      write(0,*)"Before 1st cdiPioConfSetCallBackActions"
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postcommsetup, init_cdipio_cb)
+!pa      write(0,*)"After 1st cdiPioConfSetCallBackActions"
+!pa      write(0,*)"Before 2nd cdiPioConfSetCallBackActions"
+      CALL cdiPioConfSetCallBackActions(nml_io_cdi_pio_conf_handle, &
+        cdipio_callback_postwritebatch, write_ready_files_cdipio)
+!pa      write(0,*)"After 2nd cdiPioConfSetCallBackActions"
+!pa      write(0,*)"Before cdiPioInit"
+      nml_io_cdi_pio_client_comm = &
+        &   cdiPioInit(p_comm_work_io, nml_io_cdi_pio_conf_handle, &
+        &              nml_io_cdi_pio_namespace)
+!pa      write(0,*)"After cdiPioInit"
+      IF (nml_io_cdi_pio_client_comm == mpi_comm_null) THEN
+        ! todo: terminate program cleanly here
+!pa      write(0,*)"init_io_processes: nml_io_cdi_pio_client_comm=", &
+!pa      &          nml_io_cdi_pio_client_comm
+!pa      write(0,*)"init_io_processes: p_comm_work_io=", &
+!pa      &          p_comm_work_io
+!pa      write(0,*)"init_io_processes: nml_io_cdi_pio_namespace", &
+!pa      &          nml_io_cdi_pio_namespace
+        CALL stop_mpi
+        STOP
       END IF
     ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
       ! Shut down MPI
       CALL stop_mpi
       STOP
     ENDIF
-    
+#else
+      CALL finish(method_name, 'CDI-PIO requested but unavailable')
+#endif
+
+
   END SUBROUTINE init_io_processes
   !-------------------------------------------------------------------
 
