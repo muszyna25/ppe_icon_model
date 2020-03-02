@@ -46,7 +46,7 @@ CONTAINS
   !! - Gill, A. E. (1982) Atmosphere-ocean dynmaics. Academic Press, London, 4 edn.
   !!
   SUBROUTINE fric_heat(jcs, jce, kbdim, klev, ptm1, ptvm1, pum1, pvm1, papm1, paphm1, grav, amu, cp, ptte_fc, &
-    &                  opt_istartlev, opt_iendlev)
+    &                  opt_istartlev, opt_iendlev, opt_ldiss_from_heatdiff)
 
     ! in/out variables
     INTEGER,  INTENT(IN)  :: jcs, jce, kbdim, klev
@@ -62,15 +62,18 @@ CONTAINS
 
     REAL(wp), INTENT(OUT) :: ptte_fc(kbdim,klev)    ! temperature tendency due to frictional heating [dq/dt]
 
-    INTEGER,  OPTIONAL, INTENT(IN)  :: opt_istartlev, opt_iendlev ! optional vertical start and end indices
+    INTEGER,  OPTIONAL, INTENT(IN) :: opt_istartlev, opt_iendlev ! optional vertical start and end indices
+    LOGICAL,  OPTIONAL, INTENT(IN) :: opt_ldiss_from_heatdiff    ! heat source from heat diffusion
 
     ! local variables
     INTEGER  :: jl, jk, istartlev, iendlev, iendlevm1, istartlevp1
-    REAL(wp) :: zrstar, zrdz, zdudz, zdvdz, zcoef
+    REAL(wp) :: zrstar, zrdz, zdudz, zdvdz, zcoef, ztempdz
     REAL(wp) :: zth, zgvh, zmah, ztvh, zrhoh
     REAL(wp), ALLOCATABLE :: zgmurhoh(:,:)
+    LOGICAL  :: ldiss_from_heatdiff
 
-    REAL(wp), PARAMETER :: inv_tmelt = 1._wp / tmelt ! (tmelt=273.15_wp)
+    REAL(wp), PARAMETER :: inv_tmelt = 1._wp / tmelt   ! (tmelt=273.15_wp)
+    REAL(wp), PARAMETER :: inv_Pr    = 1._wp / 0.72_wp ! inverse Prandtl number
 
     !---------------------------------------------------------
 
@@ -94,6 +97,12 @@ CONTAINS
     ENDIF
 
     IF (istartlev >= iendlev) RETURN 
+
+    IF (PRESENT(opt_ldiss_from_heatdiff)) THEN
+      ldiss_from_heatdiff = opt_ldiss_from_heatdiff
+    ELSE
+      ldiss_from_heatdiff = .FALSE.
+    ENDIF
     
     istartlevp1 = istartlev + 1
     iendlevm1   = iendlev - 1
@@ -137,6 +146,33 @@ CONTAINS
       zcoef = zgmurhoh(jl,iendlev) * grav(jl,iendlev) / cp(jl,iendlev)
       ptte_fc(jl,iendlev) = zcoef * ( zdudz * zdudz + zdvdz * zdvdz )
     ENDDO  !jl
+
+    IF (ldiss_from_heatdiff) THEN
+
+      ! compute heat source from heat diffusion
+
+      DO jk = istartlevp1, iendlevm1
+        DO jl = jcs, jce
+          ztempdz = ( ptm1(jl,jk-1) - ptm1(jl,jk+1) ) / &
+            &       ( papm1(jl,jk-1) - papm1(jl,jk+1) )
+          zcoef   = 0.5_wp * inv_Pr * ( zgmurhoh(jl,jk) + zgmurhoh(jl,jk+1) ) * grav(jl,jk) / cp(jl,jk)
+          ptte_fc(jl,jk) = ptte_fc(jl,jk) + zcoef * ztempdz**2
+        ENDDO  !jl
+      ENDDO  !jk
+      
+      DO jl = jcs, jce
+        ztempdz = ( ptm1(jl,istartlev) - ptm1(jl,istartlevp1) ) / &
+          &       ( papm1(jl,istartlev) - papm1(jl,istartlevp1) )
+        zcoef   = inv_Pr * zgmurhoh(jl,istartlevp1) * grav(jl,istartlev) / cp(jl,istartlev)
+        ptte_fc(jl,istartlev) = ptte_fc(jl,istartlev) + zcoef * ztempdz**2
+        
+        ztempdz = ( pum1(jl,iendlev) - pum1(jl,iendlevm1) ) / &
+          &       ( papm1(jl,iendlev) - papm1(jl,iendlevm1) )
+        zcoef   = inv_Pr * zgmurhoh(jl,iendlev) * grav(jl,iendlev) / cp(jl,iendlev)
+        ptte_fc(jl,iendlev) = ptte_fc(jl,iendlev) + zcoef * ztempdz**2
+      ENDDO  !jl
+
+    ENDIF
 
     IF (ALLOCATED(zgmurhoh)) DEALLOCATE(zgmurhoh)
 

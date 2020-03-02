@@ -185,10 +185,10 @@ CONTAINS
     gust_interval(:)        = 3600._wp     ! 1 hour
     celltracks_interval(:)  = 3600._wp     ! 1 hour
     DO jg=1, max_dom 
-      ! echotop_meta(jg)%nechotop will be computed later in mo_nml_crosscheck.f90
+      ! echotop_meta(jg)%nechotop will be re-computed later in mo_nml_crosscheck.f90
+      echotop_meta(jg)%nechotop                  = 0
       echotop_meta(jg)%time_interval             = 3600._wp     ! 1 hour
-      echotop_meta(jg)%dbzthresh(1:3)            = (/ 18.0, 25.0, 35.0/)
-      echotop_meta(jg)%dbzthresh(4:max_echotop)  = -999.99_wp ! missing value
+      echotop_meta(jg)%dbzthresh(1:max_echotop)  = -999.99_wp   ! missing value
     END DO
     precip_interval(:)      = "P01Y"       ! 1 year
     maxt_interval(:)        = "PT06H"      ! 6 hours
@@ -245,7 +245,20 @@ CONTAINS
     CALL close_nml
 
     !----------------------------------------------------
-    ! 4. Fill the configuration state
+    ! 4. Fill echotop_meta with defaults, if nothing
+    !    has been specified in the namelist
+    !----------------------------------------------------
+
+    DO jg=1, max_dom
+      ! echotop_meta(jg)%nechotop will be computed later in mo_nml_crosscheck.f90
+      IF ( ALL(echotop_meta(jg)%dbzthresh(1:max_echotop) < -900.0_wp) ) THEN
+        echotop_meta(jg)%dbzthresh(1)              = 18.0_wp
+        echotop_meta(jg)%dbzthresh(2:max_echotop)  = -999.99_wp ! missing value
+      END IF
+    END DO
+
+    !----------------------------------------------------
+    ! 5. Fill the configuration state
     !----------------------------------------------------
 
     config_lkeep_in_sync           = lkeep_in_sync
@@ -285,7 +298,7 @@ CONTAINS
     END IF
 
     !-----------------------------------------------------
-    ! 5. Store the namelist for restart
+    ! 6. Store the namelist for restart
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()

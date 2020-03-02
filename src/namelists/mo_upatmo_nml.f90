@@ -34,7 +34,8 @@ MODULE mo_upatmo_nml
   USE mo_util_string,             ONLY: int2string
   USE mo_upatmo_impl_const,       ONLY: iUpatmoStat, isolvar, isolvardat, iorbit, icycle, &
     &                                   iUpatmoPrcMode, iUpatmoPrcId, iUpatmoGasMode,     & 
-    &                                   iUpatmoGrpId, iUpatmoGasId, iUpatmoExtdatId
+    &                                   iUpatmoGrpId, iUpatmoGasId, iUpatmoExtdatId,      &
+    &                                   iThermdynCoupling
   USE mo_physical_constants,      ONLY: amd, amco2, amo2, amo3, amo, amno
   USE mtime,                      ONLY: MAX_DATETIME_STR_LEN
   USE mo_upatmo_utils,            ONLY: isInInterval
@@ -193,6 +194,17 @@ MODULE mo_upatmo_nml
   TYPE(t_nwp_extdat_nml) :: nwp_extdat_gases
   TYPE(t_nwp_extdat_nml) :: nwp_extdat_chemheat
 
+  !--------------------------------
+
+  ! Miscellaneous switches. 
+  ! (These are "unofficial" namelist switches, 
+  ! i.e. they do not and shall not appear in Namelist_overview.pdf.)
+  INTEGER :: nwp_thermdyn_cpl         ! Type of thermodynamic coupling of physics & dynamics:
+                                      ! * 1: isobaric coupling
+                                      ! * 2: isochoric coupling
+                                      ! * 3: entropic coupling
+  LOGICAL :: nwp_ldiss_from_heatdiff  ! Switch for considering heat source from heat diffusion
+
   !------------------------------------------------------------
 
   NAMELIST /upatmo_nml/ lnontrad,               &   
@@ -217,7 +229,10 @@ MODULE mo_upatmo_nml
     &                   nwp_gas_co2,            &
     &                   nwp_gas_no,             &
     &                   nwp_extdat_gases,       &
-    &                   nwp_extdat_chemheat
+    &                   nwp_extdat_chemheat,    &
+    ! "unofficial" switches
+    &                   nwp_thermdyn_cpl,       &
+    &                   nwp_ldiss_from_heatdiff
 
   !------------------------------------------------------------
 
@@ -430,6 +445,11 @@ CONTAINS !......................................................................
     nwp_extdat_chemheat%dt       = 86400._wp
     nwp_extdat_chemheat%filename = "upatmo_gases_chemheat.nc"
 
+    ! "Unofficial" switches (to stay away from doc)
+    ! ---------------------------------------------
+    nwp_thermdyn_cpl        = iThermdynCoupling%isochoric
+    nwp_ldiss_from_heatdiff = .FALSE.
+
     !------------------------------------------------------------
     !  If this is a resumed integration, overwrite the defaults 
     !     above by values used in the previous integration
@@ -636,6 +656,11 @@ CONTAINS !......................................................................
     IF (.NOT. (nwp_extdat_chemheat%dt > 0._wp)) THEN
       CALL finish( TRIM(routine), 'Invalid value for nwp_extdat_chemheat%dt (dt > 0 required).' )
     ENDIF
+
+    ! Check "unofficial" switches
+    lvalid = isInInterval(number=nwp_thermdyn_cpl, opt_clbnd=1, opt_cubnd=iThermdynCoupling%nitem)
+    IF (.NOT. lvalid) CALL finish(TRIM(routine), 'Invalid nwp_thermdyn_cpl: ' &
+      & //TRIM(int2string(nwp_thermdyn_cpl)))    
 
     !------------------------------------------------------------
     !              Fill the configuration state
@@ -897,6 +922,12 @@ CONTAINS !......................................................................
       iext = iUpatmoExtdatId%chemheat
       upatmo_phy_config(jg)%nwp_extdat(iext)%dt       = nwp_extdat_chemheat%dt
       upatmo_phy_config(jg)%nwp_extdat(iext)%filename = nwp_extdat_chemheat%filename
+
+      ! ----------------------
+      ! Miscellaneous switches
+      ! ----------------------
+      upatmo_phy_config(jg)%nwp_thermdyn_cpl        = nwp_thermdyn_cpl
+      upatmo_phy_config(jg)%nwp_ldiss_from_heatdiff = nwp_ldiss_from_heatdiff
 
       ! Change status
       upatmo_phy_config(jg)%lset = .TRUE.
