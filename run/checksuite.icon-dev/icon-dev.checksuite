@@ -257,6 +257,7 @@ function diff_results
                     DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
                 fi
                 if [ -s ${DIFF_FILE} ]; then
+		    # The diff file is not empty, because "cdo diffn" has found differences.
                     echo " File 1 and file 2 differ"
                     echo " - file 1: ${FILE1}"
                     echo " - file 2: ${FILE2}"
@@ -272,6 +273,10 @@ function diff_results
                         WDIR=`dirname $FILE2`
                         cdo sub ${FILE2} ${FILE1} ${WDIR}/diff_${BFILE2%.nc}-${BFILE1}
                     fi
+                else
+                    # The diff file is empty because "cdo diffn" has not found any differences.
+                    # Thus the diff file can be deleted.
+                    rm ${DIFF_FILE}
                 fi
     
             done

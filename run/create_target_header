@@ -56,13 +56,15 @@ ulimit -s unlimited
 #=============================================================================
 #
 # ICON run script:
-# - created by $0
-# - target machine is $use_target
-# - target use_compiler is $use_compiler
-# - with_mpi=$use_mpi
-# - with_openmp=$use_openmp
-# - memory_model=$use_memory_model
-# - submit with $use_submit
+# !ATTENTION! Do not change the format of the following lines.
+#             They are evaluated by checksuite scripts.
+# created by $0
+# target machine is $use_target
+# target use_compiler is $use_compiler
+# with_mpi=$use_mpi
+# with_openmp=$use_openmp
+# memory_model=$use_memory_model
+# submit with $use_submit
 #
 #=============================================================================
 #
@@ -503,7 +505,7 @@ set_run_target_()
 set_run_target_mpimac()
 {
     # some Macs at MPIM
-    icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+    icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
 
     set_default use_nproma 48
     use_nodes=1

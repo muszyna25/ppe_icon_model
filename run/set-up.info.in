@@ -168,7 +168,10 @@ case "$use_site" in
       ;;
       *)
         case '@host_os@' in
-          darwin*) use_target='mpimac' ;;
+          darwin*)
+            use_target='mpimac'
+            use_mpi_startrun='/opt/local/bin/mpiexec -n $mpi_total_procs'
+          ;;
         esac
       ;;
     esac
