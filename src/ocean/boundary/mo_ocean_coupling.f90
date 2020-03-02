@@ -515,9 +515,6 @@ CONTAINS
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
 
-    !  add another comment here - 
-
-
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  Send fields from ocean to atmosphere
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
