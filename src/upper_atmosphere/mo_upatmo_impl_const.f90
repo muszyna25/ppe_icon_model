@@ -47,6 +47,7 @@ MODULE mo_upatmo_impl_const
   PUBLIC :: iUpatmoExtdatTimeId
   PUBLIC :: iUpatmoTracerId
   PUBLIC :: startHeightDef
+  PUBLIC :: iThermdynCoupling
   ! Dynamics:
   PUBLIC :: idamtr
 
@@ -508,6 +509,24 @@ MODULE mo_upatmo_impl_const
   TYPE(t_iUpatmoTracerId), PARAMETER :: iUpatmoTracerId = t_iUpatmoTracerId( 1, &  !iUpatmoTracerId%qv
     !
     &                                                                        1  )  !iUpatmoTracerId%nitem  
+
+  !----------------------------------------------------------
+  !      Identifiers for thermodynamic coupling between
+  !               physics and dynamics (nitem)
+  !----------------------------------------------------------
+
+  TYPE t_iThermdynCoupling
+    INTEGER :: isobaric   ! coupling assumes constant pressure
+    INTEGER :: isochoric  ! coupling assumes constant volume/mass
+    INTEGER :: entropic   ! coupling via heat (entropy) source
+    ! 
+    INTEGER :: nitem      ! Number of entries
+  END TYPE t_iThermdynCoupling
+  TYPE(t_iThermdynCoupling), PARAMETER :: iThermdynCoupling = t_iThermdynCoupling( 1, &  !iThermdynCoupling%isobaric
+    &                                                                              2, &  !iThermdynCoupling%isochoric
+    &                                                                              3, &  !iThermdynCoupling%entropic
+    !
+    &                                                                              3  )  !iThermdynCoupling%nitem
 
   !-------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------

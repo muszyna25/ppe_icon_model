@@ -24,13 +24,14 @@ MODULE mo_upatmo_phy_config
   USE mo_exception,                ONLY: finish, message, message_text
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH, SUCCESS, &
     &                                    inwp, iecham
-  USE mo_physical_constants,       ONLY: amd, amco2, amo2, amo3, amo, amno, amn2, avo
+  USE mo_physical_constants,       ONLY: amd, amco2, amo2, amo3, amo, amno, amn2, avo, &
+    &                                    cpd, cvd
   USE mo_math_constants,           ONLY: dbl_eps
   USE mo_upatmo_impl_const,        ONLY: iUpatmoStat, imsg_thr, iUpatmoPrcId, iUpatmoGrpId,  &
     &                                    iUpatmoGasId, iUpatmoExtdatId, iUpatmoTendId,       &
     &                                    iUpatmoPrcStat, iUpatmoGasStat, iUpatmoPrcMode,     &
     &                                    iUpatmoGasMode, iUpatmoExtdatStat, iorbit,          &
-    &                                    startHeightDef, itmr_thr
+    &                                    startHeightDef, itmr_thr, iThermdynCoupling
   USE mo_upatmo_utils,             ONLY: init_logical_1d, is_variable_in_output_cond
   USE mo_util_string,              ONLY: int2string, logical2string, real2string, &
     &                                    t_keyword_list, associate_keyword,       &
@@ -118,6 +119,9 @@ MODULE mo_upatmo_phy_config
     TYPE(t_nwp_prc)    :: nwp_grp(iUpatmoGrpId%nitem)        ! Control for physics groups 
     TYPE(t_nwp_gas)    :: nwp_gas(iUpatmoGasId%nitem)        ! Radiatively active gases
     TYPE(t_nwp_extdat) :: nwp_extdat(iUpatmoExtdatId%nitem)  ! External data
+    !
+    INTEGER :: nwp_thermdyn_cpl         ! Type of thermodynamic coupling of physics & dynamics
+    LOGICAL :: nwp_ldiss_from_heatdiff  ! Switch for considering heat source from heat diffusion
     ! Status
     LOGICAL :: lset = .FALSE.  ! .TRUE. after assignment of namelist entries
   END TYPE t_upatmo_phy_config
@@ -242,6 +246,8 @@ MODULE mo_upatmo_phy_config
                                                     ! (i.e., "vname_prefixVariable name", 
                                                     ! has to be entered to a varlist of 'output_nml', 
                                                     ! compare: 'src/atm_dyn_iconam/mo_nonhydro_state')
+    !
+    REAL(wp) :: thermdyn_cpl_fac                    ! Factor for thermodynamic coupling of physics 
     !
     LOGICAL :: l_status(iUpatmoStat%nitem)  ! Status variables
     !
@@ -1026,6 +1032,105 @@ CONTAINS !......................................................................
 
         ENDIF  !External data required?
 
+        ! Thermodynamic coupling of physics:
+        ! Notation:
+        ! * T, p, rho -> Temperature, pressure, density
+        ! * "D"       -> Parcel-fixed, Lagrangian system ("convenience" system of theoretical considerations)
+        ! * "d"       -> Cell-fixed, Eulerian system (the actual system at hand in ICON)
+        ! * Q         -> Heat sources and heat flux divergences from parameterizations multiplied by temperature
+        ! * e         -> Mass-specific energy
+        ! * s         -> Mass-specific heat (entropy)
+        ! * mu        -> Chemical potential
+        ! * theta     -> Potential temperature
+        ! * Exner     -> Exner pressure
+        ! * p00       -> Const. reference pressure
+
+        ! Please note: a single coupling factor works only 
+        ! as long as cp, cv and R are const.
+        
+        SELECT CASE(upatmo_phy_config%nwp_thermdyn_cpl)
+        CASE (iThermdynCoupling%isobaric)
+          ! 1st Isobaric coupling:
+          !
+          ! Gibbs' eq. expanded according to:
+          ! rho * cp * DT/Dt - Dp/Dt = Q 
+          !
+          ! The state change due to the parameterized process 
+          ! is assumed to be isobaric:
+          ! 
+          ! Dp/Dt = 0  =>  DT/Dt = Q / rho / cp
+          !
+          ! Practically all parameterizations compute the temperature tendency accordingly, 
+          ! since they were developed in the framework of hydrostatic models.
+          ! Consequently:
+          upatmo_nwp_phy_config%thermdyn_cpl_fac = 1._wp
+        CASE (iThermdynCoupling%isochoric)
+          ! 2nd Isochoric (isodensic) coupling:
+          !
+          ! Gibbs' eq. expanded according to:
+          ! rho * cv * DT/Dt - p / rho * Drho/Dt = Q 
+          !
+          ! In ICON the temperature tendencies are computed 
+          ! according to the isochoric approximation 
+          ! (or isodensic from the cell-fixed, Eulerian point of view):
+          !
+          ! Drho/Dt = 0  =>  DT/Dt = Q / rho / cv
+          !
+          ! Since cv < cp, |DT/Dt|_isobaric < |DT/Dt|_isochoric. 
+          ! This excess is required to go into the volume work, 
+          ! when the tendencies DT/dt are dribbled into the dynamics (for the slow physics).
+          ! As a consequence the complete state change (physics + dynamics) 
+          ! is neither isochoric nor isobaric. 
+          ! Since the parameterizations compute DT/Dt in the isobaric way, 
+          ! the coupling factor has to compensate that:
+          upatmo_nwp_phy_config%thermdyn_cpl_fac = cpd / cvd
+        CASE (iThermdynCoupling%entropic)
+          ! 3rd Entropic coupling:
+          !
+          ! For the cell-fixed systems of ICON 
+          ! Gibbs' eq. (without momentum and gravity) reads:
+          ! d(rho*e)/dt = T * d(rho*s)/dt + mu * drho/dt,
+          !
+          ! where drho/dt is assumed to be exclusively treated by the dynamics:
+          !
+          ! drho/dt = (drho/dt)_dyn + (drho/dt)_phy, with (drho/dt)_phy = 0.   (1)
+          !
+          ! d(rho*s)/dt is partly covered by the dynamics and partly covered by the physics:
+          !
+          ! d(rho*s)/dt = (d(rho*s)/dt)_dyn + (d(rho*s)/dt)_phy,   (2)
+          !
+          ! with (d(rho*s)/dt)_phy = ... + Q / T,
+          !
+          ! where Q represents sources of heat from irreversible subgrid-scale processes
+          ! plus a divergence of irreversible heat fluxes.
+          ! Whether the state change takes place constrained (e.g., isobarically or isochorically), 
+          ! makes no difference at this place.
+          ! In ICON eq. (2) is used implicitly via the potential temperature 
+          ! or Exner pressure equations: 
+          ! 
+          ! (2) * theta / cp  =>  d(rho*theta)/dt = ... + Q / Exner / cp  | * R * Exner / rho / theta / cv  (3)
+          !                   =>  dExner/dt = ... + R * Q / rho / theta / cp / cv                           (4)
+          !
+          ! Eq. (4), however, is not used directly within the physics. 
+          ! Given that Exner = (p / p00)**(R/cp) and the equation of state p = rho * R * T, 
+          ! the following expansion is used instead:
+          !
+          ! dExner/dt = (R/cp) * (p / p00)**(R/cp-1) * dp/dt / p00 
+          !           = R * Exner / cp * (dT/dt / T + drho/dt / rho).   (5)
+          !
+          ! Eq. (5) is used to transform the temperature tendencies into Exner pressure tendencies. 
+          ! In case of the isochoric coupling, the physics part of Eq. (5) reads:
+          !
+          ! (dExner/dt)_phy = R * Exner / cp * (dT/dt)_phy / T = R * Q / rho / theta / cp / cv, 
+          !
+          ! where eq. (1) is applied and (dT/dt)_phy = (DT/dt)_phy = Q / rho / cv is assumed.
+          ! Under these circumstances eq. (4) becomes equal to eq. (3), 
+          ! so that the entropic coupling factor is the same as with the isochoric coupling:
+          upatmo_nwp_phy_config%thermdyn_cpl_fac = cpd / cvd
+        CASE DEFAULT
+          CALL finish(TRIM(routine), "Invalid thermdyn_cpl")
+        END SELECT
+        
       ENDIF  !Physics enabled?
       
       ! Status changes:
@@ -1364,6 +1469,9 @@ CONTAINS !......................................................................
     jext = iUpatmoExtdatId%chemheat
     upatmo_nwp_phy_config%extdat( jext )%name     = 'chemheat'
     upatmo_nwp_phy_config%extdat( jext )%longname = 'chemical heating tendencies'
+
+    ! Thermodynamic coupling factor
+    upatmo_nwp_phy_config%thermdyn_cpl_fac = 1._wp
     
   END SUBROUTINE init_upatmo_phy_config
 
@@ -1794,6 +1902,9 @@ CONTAINS !......................................................................
           message_text = '* every variable name requires the following prefix: ' &
             & //TRIM(upatmo_nwp_phy_config%vname_prefix)
           CALL message(' ', message_text, adjust_right=.TRUE.)
+          message_text = '* heating rates are isobaric, not isochoric ' &
+            & //'(no matter how they are processed internally)!'
+          CALL message(' ', message_text, adjust_right=.TRUE.)
           IF (upatmo_nwp_phy_config%grp( iUpatmoGrpId%rad )%l_stat( iUpatmoPrcStat%enabled )) THEN
             message_text = '* efficiency and scaling factors sclrlw and effrsw are multiplied ' &
               & //'to the temperature tendencies from the standard radiation,'
@@ -1965,6 +2076,14 @@ CONTAINS !......................................................................
             IF (upatmo_nwp_phy_config%l_extdat_stat( iUpatmoExtdatStat%required )) THEN
               CALL upatmo_nwp_phy_config%event_mgmt_extdat%printSetup()
             ENDIF
+            !
+            ! Thermodynamic coupling factor
+            message_text = 'Thermodynamic coupling factor = ' &
+              & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%thermdyn_cpl_fac, opt_fmt='(F6.2)')))
+            CALL message(TRIM(routine), TRIM(message_text))
+            message_text = 'Consider heat source from heat diffusion: ' &
+              & //TRIM(logical2string(upatmo_phy_config%nwp_ldiss_from_heatdiff))
+            CALL message(TRIM(routine), TRIM(message_text))
 
           END SELECT  !SELECT CASE(iforcing)
 

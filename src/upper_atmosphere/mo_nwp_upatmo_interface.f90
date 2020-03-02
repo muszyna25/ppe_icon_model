@@ -28,7 +28,7 @@ MODULE mo_nwp_upatmo_interface
   USE mo_exception,              ONLY: finish, message, message_text
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_CHAR_LENGTH, &
     &                                  min_rlcell_int, min_rledge_int
-  USE mo_physical_constants,     ONLY: rd_o_cpd, vtmpc1
+  USE mo_physical_constants,     ONLY: rd_o_cpd, vtmpc1, cpd, cvd
   USE mo_math_constants,         ONLY: dbl_eps
   USE mo_upatmo_impl_const,      ONLY: iUpatmoStat, iUpatmoPrcStat, iUpatmoGrpId,   &
     &                                  iUpatmoTendId, iUpatmoGasStat, iUpatmoGasId, & 
@@ -147,6 +147,7 @@ CONTAINS
       &                      gas_col(:,:,:,:),   &  ! (nproma,nlev,nblks_c,ngas) Gas column number density
       &                      gas_cumcol(:,:,:,:)    ! (nproma,nlev,nblks_c,ngas) Gas accumulated column density
     REAL(wp) :: cecc, cobld, clonp
+    REAL(wp) :: thermdyn_cpl_fac
 
     INTEGER, POINTER :: iidx(:,:,:), iblk(:,:,:)
     INTEGER, ALLOCATABLE, TARGET :: sunlit_idx( :, : )
@@ -172,6 +173,7 @@ CONTAINS
     LOGICAL  :: lupdate( ntnd_2 )
     LOGICAL  :: lddt_tot( ntnd_2 )
     LOGICAL  :: lmessage, ltimer, lupdate_gas, lyr_perp
+    LOGICAL  :: ldiss_from_heatdiff
 
     TYPE(t_upatmo_nwp_phy), POINTER :: upatmo_nwp
 
@@ -179,6 +181,7 @@ CONTAINS
     CHARACTER(LEN=2) :: dom_str
 
     REAL(wp), PARAMETER :: inv_vtmpc1 = 1._wp / vtmpc1
+    REAL(wp), PARAMETER :: cvd_o_cpd  = cvd / cpd
     CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = modname//':nwp_upatmo_interface'
     
@@ -414,6 +417,11 @@ CONTAINS
 
               ! Solar activity for ion drag
               solvar_type = upatmo_phy_config(jg)%solvar_type
+
+              ! The original formulation of 'fric_heat' considers "only" the heat source 
+              ! from frictional heating. If the following switch is set to .true.
+              ! we compute the heat source from the heat diffusion, too.
+              ldiss_from_heatdiff = upatmo_phy_config(jg)%nwp_ldiss_from_heatdiff
               
               ! (Index boundaries ('rl_start' etc.) from above should still apply)
               
@@ -494,23 +502,24 @@ CONTAINS
                 !--------------------
                 
                 jprc = iUpatmoPrcId%fric
-                
-                CALL fric_heat( jcs           = i_startidx,                            & !in
-                  &             jce           = i_endidx,                              & !in
-                  &             kbdim         = nproma,                                & !in
-                  &             klev          = nlev,                                  & !in
-                  &             ptm1          = p_diag%temp(:,:,jb),                   & !in
-                  &             ptvm1         = p_diag%tempv(:,:,jb),                  & !in
-                  &             pum1          = p_diag%u(:,:,jb),                      & !in
-                  &             pvm1          = p_diag%v(:,:,jb),                      & !in
-                  &             papm1         = p_diag%pres(:,:,jb),                   & !in
-                  &             paphm1        = p_diag%pres_ifc(:,:,jb),               & !in
-                  &             grav          = prm_upatmo%diag%grav(:,:,jb),          & !in 
-                  &             amu           = prm_upatmo%diag%amd(:,:,jb),           & !in
-                  &             cp            = prm_upatmo%diag%cpair(:,:,jb),         & !in
-                  &             ptte_fc       = prm_upatmo%tend%ddt_temp_fric(:,:,jb), & !out
-                  &             opt_istartlev = istartlev_prc( jprc ),                 & !optin
-                  &             opt_iendlev   = iendlev_prc( jprc )                    ) !optin
+
+                CALL fric_heat( jcs                     = i_startidx,                            & !in
+                  &             jce                     = i_endidx,                              & !in
+                  &             kbdim                   = nproma,                                & !in
+                  &             klev                    = nlev,                                  & !in
+                  &             ptm1                    = p_diag%temp(:,:,jb),                   & !in
+                  &             ptvm1                   = p_diag%tempv(:,:,jb),                  & !in
+                  &             pum1                    = p_diag%u(:,:,jb),                      & !in
+                  &             pvm1                    = p_diag%v(:,:,jb),                      & !in
+                  &             papm1                   = p_diag%pres(:,:,jb),                   & !in
+                  &             paphm1                  = p_diag%pres_ifc(:,:,jb),               & !in
+                  &             grav                    = prm_upatmo%diag%grav(:,:,jb),          & !in 
+                  &             amu                     = prm_upatmo%diag%amd(:,:,jb),           & !in
+                  &             cp                      = prm_upatmo%diag%cpair(:,:,jb),         & !in
+                  &             ptte_fc                 = prm_upatmo%tend%ddt_temp_fric(:,:,jb), & !out
+                  &             opt_istartlev           = istartlev_prc( jprc ),                 & !optin
+                  &             opt_iendlev             = iendlev_prc( jprc ),                   & !optin
+                  &             opt_ldiss_from_heatdiff = ldiss_from_heatdiff                    ) !optin
 
               ENDDO  !jb
 !$OMP END DO
@@ -815,6 +824,14 @@ CONTAINS
         ! * The conversion of the accumulative temperature and water vapor tendencies 
         !   into an Exner pressure tendency has to take place at the end, 
         !   because we need the most recent state of these tendencies.
+        !
+        ! * The temperature tendencies from the parameterizations are isobaric, not isochoric, 
+        !   and we leave them unchanged! Please remember that, if they go into data output.
+        !   Changing the single tendencies would be too computationally expensive 
+        !   (or, alternatively, a too invasive intervention within the schemes). 
+        !   A transform from isobaric to isochoric (if desired) takes place 
+        !   via the factor 'thermdyn_cpl_fac' in the computation of the Exner pressure tendency 
+        !   from the accumulative temperature tendency.
 
         !------------------------------------
         ! New wind tendencies to care about?
@@ -1003,8 +1020,8 @@ CONTAINS
               ! * prm_nwp_tend%ddt_temp_radsw  -> effrsw * prm_nwp_tend%ddt_temp_radsw
               ! * prm_nwp_tend%ddt_temp_radlw  -> sclrlw * prm_nwp_tend%ddt_temp_radlw
               ! For this purpose, we add here:
-              ! * + (effrsw - 1) * prm_nwp_tend%ddt_temp_radsw
-              ! * + (sclrlw - 1) * prm_nwp_tend%ddt_temp_radlw
+              ! * + (effrsw - 1) * (cv/cp) * prm_nwp_tend%ddt_temp_radsw
+              ! * + (sclrlw - 1) * (cv/cp) * prm_nwp_tend%ddt_temp_radlw
               ! This makes life a bit easier for 'nwp_upatmo_update' below, 
               ! but it is an approximation(!), since the update of 'ddt_temp_radsw/radlw' 
               ! in 'src/atm_phy_nwp/mo_nh_interface_nwp: nwp_nh_interface'
@@ -1023,19 +1040,24 @@ CONTAINS
               ! we enforce that the tendency update period of RAD divides
               ! the calling period of the radiative transfer scheme of NWP evenly
               ! (see 'src/upper_atmosphere/mo_upatmo_phy_config: configure_upatmo_physics').
+              ! Since 'ddt_temp_radsw/radlw' are isochoric tendencies 
+              ! and not isobaric ones like all other, we convert them with the factor '(cv/cp)'. 
+              ! The conversion from isobaric to isochoric tendencies (if desired)
+              ! will take place during the transformation of 'ddt_temp_tot' 
+              ! into an Exner pressure tendency below.
 
               DO jk = istartlev_grp( igrpRAD ), iendlev_grp( igrpRAD )
                 DO jc = i_startidx, i_endidx
-                  ddt_temp_tot(jc,jk,jb) = ddt_temp_tot(jc,jk,jb)                         &
-                    &                    + prm_upatmo%tend%ddt_temp_srbc(jc,jk,jb)        &
-                    &                    + prm_upatmo%tend%ddt_temp_nlte(jc,jk,jb)        &
-                    &                    + prm_upatmo%tend%ddt_temp_euv(jc,jk,jb)         &
-                    &                    + prm_upatmo%tend%ddt_temp_no(jc,jk,jb)          &
-                    &                    + prm_upatmo%tend%ddt_temp_chemheat(jc,jk,jb)    &
-                    &                    + ( prm_upatmo%diag%effrsw(jc,jk,jb) - 1._wp ) * &
-                    &                      prm_nwp_tend%ddt_temp_radsw(jc,jk,jb)          &
-                    &                    + ( prm_upatmo%diag%sclrlw(jc,jk,jb) - 1._wp ) * &
-                    &                      prm_nwp_tend%ddt_temp_radlw(jc,jk,jb)
+                  ddt_temp_tot(jc,jk,jb) = ddt_temp_tot(jc,jk,jb)                            &
+                    &                    + prm_upatmo%tend%ddt_temp_srbc(jc,jk,jb)           &
+                    &                    + prm_upatmo%tend%ddt_temp_nlte(jc,jk,jb)           &
+                    &                    + prm_upatmo%tend%ddt_temp_euv(jc,jk,jb)            &
+                    &                    + prm_upatmo%tend%ddt_temp_no(jc,jk,jb)             &
+                    &                    + prm_upatmo%tend%ddt_temp_chemheat(jc,jk,jb)       &
+                    &                    + ( prm_upatmo%diag%effrsw(jc,jk,jb) - 1._wp ) *    &
+                    &                      cvd_o_cpd * prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
+                    &                    + ( prm_upatmo%diag%sclrlw(jc,jk,jb) - 1._wp ) *    &
+                    &                      cvd_o_cpd * prm_nwp_tend%ddt_temp_radlw(jc,jk,jb)
                 ENDDO  !jc
               ENDDO  !jk
               
@@ -1104,7 +1126,7 @@ CONTAINS
         !--------------------------------
         
         IF (lupdate( itendExner )) THEN
-          
+
           CALL prm_upatmo%tend%ddt%state( itendExner )%swap()
           inewExner = prm_upatmo%tend%ddt%state( itendExner )%inew()
           ddt_exner_tot => prm_upatmo%tend%ddt%exner( inewExner )%tot
@@ -1148,6 +1170,17 @@ CONTAINS
           !
           ! However, if we can expect alpha << 1 to always hold in the upper atmosphere is not yet clear.
 
+          ! Factor for thermodynamic coupling (either isobaric, isochoric or entropic).
+          ! Please note that this factor is only applied to the total temperature tendency. 
+          ! The temperature tendencies from the single parameterizations remain the isobaric ones! 
+          ! They are not modified, in order to avoid additional computational costs.
+          ! In addition, this way of coupling will work only as long as 'prm_upatmo%diag%cpair' 
+          ! is a const. field with values equal to "cpd". 
+          ! Once this should be changed, the coupling factor has to become a field, too, 
+          ! in order to account for the variation of 'cpair', or 'cpair' has to be replaced 
+          ! by 'cvair' in the interfaces, where possible!
+          thermdyn_cpl_fac = upatmo_nwp%thermdyn_cpl_fac
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx) ICON_OMP_GUIDED_SCHEDULE
           DO jb = i_startblk, i_endblk
@@ -1159,7 +1192,8 @@ CONTAINS
               DO jk = istartlev_exner, iendlev_exner
                 DO jc = i_startidx, i_endidx
                   ddt_exner_tot(jc,jk,jb) = rd_o_cpd * p_prog%exner(jc,jk,jb) *              &
-                    &                     ( ddt_temp_tot(jc,jk,jb) / p_diag%temp(jc,jk,jb)   &
+                    &                     ( thermdyn_cpl_fac * ddt_temp_tot(jc,jk,jb) /      &
+                    &                       p_diag%temp(jc,jk,jb)                            &
                     &                     + ddt_qx_tot(jc,jk,jb) /                           &
                     &                       ( inv_vtmpc1 + p_prog_rcf%tracer(jc,jk,jb,iqv) ) )
                 ENDDO  !jc
@@ -1172,7 +1206,7 @@ CONTAINS
 
               DO jk = istartlev_exner, iendlev_exner
                 DO jc = i_startidx, i_endidx
-                  ddt_exner_tot(jc,jk,jb) = rd_o_cpd * p_prog%exner(jc,jk,jb) * &
+                  ddt_exner_tot(jc,jk,jb) = rd_o_cpd * p_prog%exner(jc,jk,jb) * thermdyn_cpl_fac * &
                     &                       ddt_temp_tot(jc,jk,jb) / p_diag%temp(jc,jk,jb)
                 ENDDO  !jc
               ENDDO  !jk
