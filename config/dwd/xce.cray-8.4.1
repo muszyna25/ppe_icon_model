@@ -5,7 +5,12 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
+# module command and path setup from  /etc/profile.local:
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+
+
 MODULES='PrgEnv-cray cray-mpich cce/8.4.1 craype-haswell cray-netcdf cray-hdf5 eccodes aec'
+
 
 # Uncomment the following line if you want to prevent as many tests from
 # failing as possible when running 'make check' on the login nodes with Sandy
@@ -93,7 +98,7 @@ XML2_LIBS='-l:libxml2.a -lz'
 
 ################################################################################
 
-BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
 
 # We need some of the environment variables set by the modules now:
 eval "$BUILD_ENV"
@@ -108,7 +113,7 @@ FCFLAGS="-I${RTTOV_ROOT}/include/radiance -em -hflex_mp=conservative -hfp1 -hadd
 LDFLAGS="-static -L${RTTOV_ROOT}/lib -L${RTTOV_ROOT}/lib/unsupported -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
 LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
 
-EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp'
 
 ################################################################################
 

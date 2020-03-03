@@ -5,7 +5,12 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
+# module command and path setup from  /etc/profile.local:
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+
+
 MODULES='PrgEnv-cray cray-mpich/7.7.10.1 cce/8.7.11 craype-haswell cray-netcdf/4.6.3.0 cray-hdf5/1.10.5.0 eccodes aec'
+
 
 # Uncomment the following line if you want to prevent as many tests from
 # failing as possible when running 'make check' on the login nodes with Sandy
@@ -94,7 +99,7 @@ XML2_LIBS='-l:libxml2.a -lz'
 
 ################################################################################
 
-BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
 
 # We need some of the environment variables set by the modules now:
 eval "$BUILD_ENV"

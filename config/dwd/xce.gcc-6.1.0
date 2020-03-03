@@ -5,7 +5,11 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='cray-mpich/7.6.0 gcc/6.1.0 PrgEnv-gnu cray-libsci/13.2.0 craype-haswell cray-netcdf/4.3.3.1 cray-hdf5/1.8.14 eccodes/2.9.0 aec/1.0.0-3'
+# module command and path setup from  /etc/profile.local:
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+
+
+MODULES='PrgEnv-gnu gcc/6.1.0 cray-mpich/7.6.0 cray-libsci/13.2.0 craype-haswell cray-netcdf/4.3.3.1 cray-hdf5/1.8.14 eccodes/2.9.0 aec/1.0.0-3'
 
 # Libtool (used by the bundled CDI and some other bundled libraries) is not
 # fully compatible with Cray compiler. For each library specified with -l
@@ -52,10 +56,11 @@ XML2_LIBS='-l:libxml2.a -lz'
 
 ################################################################################
 
-BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
+BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES};"
 
 # We need some of the environment variables set by the modules now:
 eval "$BUILD_ENV"
+
 
 # C compiler wrapper on cray machine
 CC='cc'

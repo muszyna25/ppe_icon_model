@@ -1952,7 +1952,7 @@ MODULE mo_initicon
     TYPE(t_patch),                  INTENT(INOUT) :: p_patch(:)
     TYPE(t_lnd_state),              INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),          INTENT(INOUT) :: ext_data(:)
-    TYPE(t_readInstructionListPtr), INTENT(IN   ) :: inputInstructions(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER :: jg, ic, jc, jk, jb, jt, ist     ! loop indices
     INTEGER :: ntlr
