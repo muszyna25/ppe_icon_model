@@ -117,7 +117,7 @@ cat > ${atmo_namelist} << EOF
  igradp_method = 2  !new default
 /
 &transport_nml
-  tracer_names = '4'            ! list of tracer names
+  tracer_names = 'q4'           ! list of tracer names
   ihadv_tracer = 3              ! default: miura
   ivadv_tracer = 3              ! default: ppm
   lvadv_tracer = .FALSE.        ! default: .TRUE.

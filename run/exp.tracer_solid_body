@@ -80,7 +80,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  idiv_method      = 2           ! bilinear averaging
 /
 &transport_ctl
-  tracer_names = '4'            ! list of tracer names
+  tracer_names = 'q4'           ! list of tracer names
   ihadv_tracer = 2              ! default: miura
   ivadv_tracer = 3              ! default: ppm
   lvadv_tracer = .TRUE.         ! default: .FALSE.

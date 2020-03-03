@@ -653,6 +653,7 @@ CONTAINS
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                & t_cf_var('plcov_t_'//csfc, '', '', datatype_flt),     &
                & grib2_desc,                                             &
+               & ref_idx=jsfc,                                           &
                & ldims=shape2d_c, loutput=.TRUE.)
       ENDDO
 
@@ -929,9 +930,10 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
         &           t_cf_var('lc_class_t_'//csfc, '-', '', datatype_flt),            &
         &           grib2_desc,                                                        &
+        &           ref_idx=jsfc,                                                      &
+        &           ldims=shape2d_c, loutput=.TRUE.,                                   &
         &           hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB),&
         &           var_class=CLASS_TILE,                                              &
-        &           ldims=shape2d_c, loutput=.TRUE.,                                   &
         &           post_op=post_op(POST_OP_LUC, new_cf=cf_desc, arg1=i_lctype(jg)) )
       ENDDO
 
@@ -963,8 +965,9 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
         &           t_cf_var('frac_t_'//csfc, '-', '', datatype_flt),        &
         &           grib2_desc,                                                &
-        &           var_class=CLASS_TILE,                                      &
-        &           ldims=shape2d_c, loutput=.TRUE. )
+        &           ref_idx=jsfc,                                              &
+        &           ldims=shape2d_c, loutput=.TRUE.,                           &
+        &           var_class=CLASS_TILE )
       ENDDO
 
 

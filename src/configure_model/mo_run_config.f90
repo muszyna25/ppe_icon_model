@@ -105,40 +105,40 @@ MODULE mo_run_config
     ! Derived variables
     !
     ! Tracer indices of water species
-    INTEGER :: iqv        !< water vapor
-    INTEGER :: iqc        !< cloud water
-    INTEGER :: iqi        !< cloud ice
+    INTEGER :: iqv       = 0  !< water vapor
+    INTEGER :: iqc       = 0  !< cloud water
+    INTEGER :: iqi       = 0  !< cloud ice
     !CK>
-    INTEGER :: iqni       !< cloud ice number
-    INTEGER :: iqni_nuc   !< activated ice nuclei
-    INTEGER :: iqg        !< graupel
+    INTEGER :: iqni      = 0  !< cloud ice number
+    INTEGER :: iqni_nuc  = 0  !< activated ice nuclei
+    INTEGER :: iqg       = 0  !< graupel
     !CK<    
-    INTEGER :: iqr        !< rain water
-    INTEGER :: iqs        !< snow
-    INTEGER :: iqtvar     !< total water variance
-    INTEGER :: nqtendphy  !< number of water species for which physical tendencies are stored
-    INTEGER :: iqm_max    !< highest tracer index carrying a mass-related moisture variable
+    INTEGER :: iqr       = 0  !< rain water
+    INTEGER :: iqs       = 0  !< snow
+    INTEGER :: iqtvar    = 0  !< total water variance
+    INTEGER :: nqtendphy = 0  !< number of water species for which physical tendencies are stored
+    INTEGER :: iqm_max   = 0  !< highest tracer index carrying a mass-related moisture variable
   
     !For 2 moment microphysics
-    INTEGER :: iqh        !<hail
-    INTEGER :: iqnh       !<hail number
-    INTEGER :: iqnr       !<rain number
-    INTEGER :: iqns       !<snow number
-    INTEGER :: iqng       !<graupel number
-    INTEGER :: iqnc       !<cloud number
-    INTEGER :: inccn      !<ccn number
-    INTEGER :: ininpot    !<number of aerosol particles which are potential IN
-    INTEGER :: ininact    !<number of activated IN
+    INTEGER :: iqh       = 0  !<hail
+    INTEGER :: iqnh      = 0  !<hail number
+    INTEGER :: iqnr      = 0  !<rain number
+    INTEGER :: iqns      = 0  !<snow number
+    INTEGER :: iqng      = 0  !<graupel number
+    INTEGER :: iqnc      = 0  !<cloud number
+    INTEGER :: inccn     = 0  !<ccn number
+    INTEGER :: ininpot   = 0  !<number of aerosol particles which are potential IN
+    INTEGER :: ininact   = 0  !<number of activated IN
 
     ! For TKE advection
-    INTEGER :: iqtke      !< turbulent kinetic energy
+    INTEGER :: iqtke     = 0  !< turbulent kinetic energy
 
     ! Tracer indices of other species
-    INTEGER :: iqt        !< start index of other tracers than hydrometeors
-    INTEGER :: ico2       !< CO2
-    INTEGER :: ich4       !< CH4
-    INTEGER :: in2o       !< N2O
-    INTEGER :: io3        !< O3
+    INTEGER :: iqt       = 0  !< start index of other tracers than hydrometeors
+    INTEGER :: ico2      = 0  !< CO2
+    INTEGER :: ich4      = 0  !< CH4
+    INTEGER :: in2o      = 0  !< N2O
+    INTEGER :: io3       = 0  !< O3
 
 
     INTEGER :: nlev               !< number of full levels for each domain

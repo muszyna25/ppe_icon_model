@@ -2683,7 +2683,7 @@ CONTAINS
     INTEGER,                 INTENT(in)              :: vgrid                      ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)              :: cf                         ! CF related metadata
     TYPE(t_grib2_var),       INTENT(in)              :: grib2                      ! GRIB2 related metadata
-    INTEGER,                 INTENT(in),    OPTIONAL :: ref_idx                    ! idx of slice to be referenced
+    INTEGER,                 INTENT(in)              :: ref_idx                    ! idx of slice to be referenced
     INTEGER,                 INTENT(in)              :: ldims(3)                   ! local dimensions, for checking
     LOGICAL,                 INTENT(in),    OPTIONAL :: loutput                    ! output flag
     LOGICAL,                 INTENT(in),    OPTIONAL :: lrestart                   ! restart flag
@@ -2754,7 +2754,8 @@ CONTAINS
     IF (target_info%lcontainer) THEN
       ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
+        target_info%ncontained = target_info%ncontained+1
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%r_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
@@ -2762,15 +2763,15 @@ CONTAINS
             &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
-      ELSE
-        target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_element%field%r_ptr, var_ref_pos) < target_info%ncontained) THEN
-          WRITE (message_text, *) &
-            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_element%field%r_ptr, var_ref_pos)
-          CALL finish(routine, message_text)
-        ENDIF
-      ENDIF
+!!$      ELSE
+!!$        target_info%ncontained = target_info%ncontained+1
+!!$        IF (SIZE(target_element%field%r_ptr, var_ref_pos) < target_info%ncontained) THEN
+!!$          WRITE (message_text, *) &
+!!$            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+!!$            &  SIZE(target_element%field%r_ptr, var_ref_pos)
+!!$          CALL finish(routine, message_text)
+!!$        ENDIF
+!!$      ENDIF
       IF ( ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims))) ) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
@@ -2832,11 +2833,11 @@ CONTAINS
       !
       ref_info%maxcontained = SIZE(target_element%field%r_ptr,var_ref_pos)
       !
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
-      ELSE
-        ref_info%ncontained = target_info%ncontained
-      ENDIF
+!!$      ELSE
+!!$        ref_info%ncontained = target_info%ncontained
+!!$      ENDIF
       index = ref_info%ncontained
     ENDIF
     SELECT CASE(var_ref_pos)
@@ -2891,7 +2892,7 @@ CONTAINS
     INTEGER,                 INTENT(in)           :: vgrid                       ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                          ! CF related metadata
     TYPE(t_grib2_var),       INTENT(in)           :: grib2                       ! GRIB2 related metadata
-    INTEGER,                 INTENT(in), OPTIONAL :: ref_idx                     ! idx of slice to be referenced
+    INTEGER,                 INTENT(in)           :: ref_idx                     ! idx of slice to be referenced
     INTEGER,                 INTENT(in)           :: ldims(2)                    ! local dimensions, for checking
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput                     ! output flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                    ! restart flag
@@ -2963,7 +2964,8 @@ CONTAINS
     IF (target_info%lcontainer) THEN
       ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
+        target_info%ncontained = target_info%ncontained+1
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%r_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
@@ -2971,15 +2973,15 @@ CONTAINS
             &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
-      ELSE
-        target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_element%field%r_ptr, var_ref_pos) < target_info%ncontained) THEN
-          WRITE (message_text, *) &
-            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_element%field%r_ptr, var_ref_pos)
-          CALL finish(routine, message_text)
-        ENDIF
-      ENDIF
+!!$      ELSE
+!!$        target_info%ncontained = target_info%ncontained+1
+!!$        IF (SIZE(target_element%field%r_ptr, var_ref_pos) < target_info%ncontained) THEN
+!!$          WRITE (message_text, *) &
+!!$            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+!!$            &  SIZE(target_element%field%r_ptr, var_ref_pos)
+!!$          CALL finish(routine, message_text)
+!!$        ENDIF
+!!$      ENDIF
       IF (ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims)))) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
@@ -3040,11 +3042,11 @@ CONTAINS
       !
       ref_info%maxcontained = SIZE(target_element%field%r_ptr,var_ref_pos)
       !
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
-      ELSE
-        ref_info%ncontained = target_info%ncontained
-      ENDIF
+!!$      ELSE
+!!$        ref_info%ncontained = target_info%ncontained
+!!$      ENDIF
       index = ref_info%ncontained
     ENDIF
     SELECT CASE(var_ref_pos)
@@ -3089,7 +3091,7 @@ CONTAINS
     INTEGER,                 INTENT(in)              :: vgrid                      ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)              :: cf                         ! CF related metadata
     TYPE(t_grib2_var),       INTENT(in)              :: grib2                      ! GRIB2 related metadata
-    INTEGER,                 INTENT(in),    OPTIONAL :: ref_idx                    ! idx of slice to be referenced
+    INTEGER,                 INTENT(in)              :: ref_idx                    ! idx of slice to be referenced
     INTEGER,                 INTENT(in)              :: ldims(3)                   ! local dimensions, for checking
     LOGICAL,                 INTENT(in),    OPTIONAL :: loutput                    ! output flag
     LOGICAL,                 INTENT(in),    OPTIONAL :: lrestart                   ! restart flag
@@ -3160,7 +3162,8 @@ CONTAINS
     IF (target_info%lcontainer) THEN
       ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
+        target_info%ncontained = target_info%ncontained+1
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%s_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
@@ -3168,15 +3171,15 @@ CONTAINS
             &  ' out of allowable range [1,',SIZE(target_element%field%s_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
-      ELSE
-        target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_element%field%s_ptr, var_ref_pos) < target_info%ncontained) THEN
-          WRITE (message_text, *) &
-            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_element%field%s_ptr, var_ref_pos)
-          CALL finish(routine, message_text)
-        ENDIF
-      ENDIF
+!!$      ELSE
+!!$        target_info%ncontained = target_info%ncontained+1
+!!$        IF (SIZE(target_element%field%s_ptr, var_ref_pos) < target_info%ncontained) THEN
+!!$          WRITE (message_text, *) &
+!!$            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+!!$            &  SIZE(target_element%field%s_ptr, var_ref_pos)
+!!$          CALL finish(routine, message_text)
+!!$        ENDIF
+!!$      ENDIF
       IF ( ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims))) ) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
@@ -3238,11 +3241,11 @@ CONTAINS
       !
       ref_info%maxcontained = SIZE(target_element%field%s_ptr,var_ref_pos)
       !
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
-      ELSE
-        ref_info%ncontained = target_info%ncontained
-      ENDIF
+!!$      ELSE
+!!$        ref_info%ncontained = target_info%ncontained
+!!$      ENDIF
       index = ref_info%ncontained
     ENDIF
     SELECT CASE(var_ref_pos)
@@ -3296,7 +3299,7 @@ CONTAINS
     INTEGER,                 INTENT(in)           :: vgrid                       ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                          ! CF related metadata
     TYPE(t_grib2_var),       INTENT(in)           :: grib2                       ! GRIB2 related metadata
-    INTEGER,                 INTENT(in), OPTIONAL :: ref_idx                     ! idx of slice to be referenced
+    INTEGER,                 INTENT(in)           :: ref_idx                     ! idx of slice to be referenced
     INTEGER,                 INTENT(in)           :: ldims(2)                    ! local dimensions, for checking
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput                     ! output flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                    ! restart flag
@@ -3365,7 +3368,8 @@ CONTAINS
     IF (target_info%lcontainer) THEN
       ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
+        target_info%ncontained = target_info%ncontained+1
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%s_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
@@ -3373,15 +3377,15 @@ CONTAINS
             &  ' out of allowable range [1,',SIZE(target_element%field%s_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
-      ELSE
-        target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_element%field%s_ptr, var_ref_pos) < target_info%ncontained) THEN
-          WRITE (message_text, *) &
-            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_element%field%s_ptr, var_ref_pos)
-          CALL finish(routine, message_text)
-        ENDIF
-      ENDIF
+!!$      ELSE
+!!$        target_info%ncontained = target_info%ncontained+1
+!!$        IF (SIZE(target_element%field%s_ptr, var_ref_pos) < target_info%ncontained) THEN
+!!$          WRITE (message_text, *) &
+!!$            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+!!$            &  SIZE(target_element%field%s_ptr, var_ref_pos)
+!!$          CALL finish(routine, message_text)
+!!$        ENDIF
+!!$      ENDIF
       IF (ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims)))) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
@@ -3442,11 +3446,11 @@ CONTAINS
       !
       ref_info%maxcontained = SIZE(target_element%field%s_ptr,var_ref_pos)
       !
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
-      ELSE
-        ref_info%ncontained = target_info%ncontained
-      ENDIF
+!!$      ELSE
+!!$        ref_info%ncontained = target_info%ncontained
+!!$      ENDIF
       index = ref_info%ncontained
     ENDIF
     SELECT CASE(var_ref_pos)
@@ -3499,7 +3503,7 @@ CONTAINS
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
     TYPE(t_grib2_var),       INTENT(in)           :: grib2                        ! GRIB2 related metadata
-    INTEGER,                 INTENT(in), OPTIONAL :: ref_idx                      ! idx of slice to be referenced
+    INTEGER,                 INTENT(in)           :: ref_idx                      ! idx of slice to be referenced
     INTEGER,                 INTENT(in)           :: ldims(2)                     ! local dimensions, for checking
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput                      ! output flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
@@ -3568,7 +3572,8 @@ CONTAINS
     IF (target_info%lcontainer) THEN
       ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
+        target_info%ncontained = target_info%ncontained+1
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%i_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
@@ -3576,15 +3581,15 @@ CONTAINS
             &  ' out of allowable range [1,',SIZE(target_element%field%i_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
-      ELSE
-        target_info%ncontained = target_info%ncontained+1
-        IF (SIZE(target_element%field%i_ptr, var_ref_pos) < target_info%ncontained) THEN
-          WRITE (message_text, *) &
-            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_element%field%i_ptr, var_ref_pos)
-          CALL finish(routine, message_text)
-        ENDIF
-      ENDIF
+!!$      ELSE
+!!$        target_info%ncontained = target_info%ncontained+1
+!!$        IF (SIZE(target_element%field%i_ptr, var_ref_pos) < target_info%ncontained) THEN
+!!$          WRITE (message_text, *) &
+!!$            &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+!!$            &  SIZE(target_element%field%i_ptr, var_ref_pos)
+!!$          CALL finish(routine, message_text)
+!!$        ENDIF
+!!$      ENDIF
       IF (any(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims)))) THEN
         CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
@@ -3644,11 +3649,11 @@ CONTAINS
       !
       ref_info%maxcontained = SIZE(target_element%field%i_ptr,var_ref_pos)
       !
-      IF ( PRESENT(ref_idx) ) THEN
+!!$      IF ( PRESENT(ref_idx) ) THEN
         ref_info%ncontained = ref_idx
-      ELSE
-        ref_info%ncontained = target_info%ncontained
-      ENDIF
+!!$      ELSE
+!!$        ref_info%ncontained = target_info%ncontained
+!!$      ENDIF
       index = ref_info%ncontained
     ENDIF
     SELECT CASE(var_ref_pos)

@@ -368,7 +368,6 @@ cat > $atmo_namelist << EOF
  ltestcase            = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics            = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport           = .TRUE.       ! switch on tracer transport   --> transport_ctl
- ntracer              = 3            ! number of tracers
  iforcing             = 2            ! ECHAM phyiscs
  msg_level            = 1            ! detailed report during integration
  ltimer               = .TRUE.
@@ -389,10 +388,10 @@ cat > $atmo_namelist << EOF
 &diffusion_nml
 /
 &transport_nml
- tracer_names     = 'v','w','i'   ! water vapour, cloud water, cloud ice
- ivadv_tracer     = 3,3,3
- itype_hlimit     = 3,4,4
- ihadv_tracer     = 52,2,2
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
 !

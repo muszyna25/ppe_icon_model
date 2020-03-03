@@ -107,6 +107,9 @@ MODULE mo_advection_config
       &  tracer_names(MAX_NTRACER)       !< these are only required for 
                                          !< idealized runs without NWP or ECHAM forcing.
 
+    INTEGER :: nname                !< number of names read from transport_nml/tracer_names
+                                    !< which are stored in advection_config/tracer_names
+
     INTEGER :: &                    !< selects horizontal transport scheme       
       &  ihadv_tracer(MAX_NTRACER)  !< 0:  no horizontal advection                
                                     !< 1:  1st order upwind                       

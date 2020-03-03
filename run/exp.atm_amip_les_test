@@ -116,7 +116,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -153,10 +152,10 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
 !
@@ -369,7 +368,7 @@ datadir=${icon_data_poolFolder}/greenhouse_gases
 add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
 #
 # - tropospheric anthropogenic aerosols, simple plumes
-  add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                        ./MACv2.0-SP_v1.nc
+add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
 #
 # - Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
@@ -491,7 +490,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
-                    !'qo3_phy' ,
 /
 EOF
 fi
@@ -556,10 +554,10 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
-                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
+                    'tend_ta_cnv'  , 'tend_ta_cld'  ,
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
                     'tend_ua_vdf'  , 'tend_ua_gwd'  , 'tend_ua_sso'  ,
-                    'tend_ua_cnv'  , 
+                    'tend_ua_cnv'  ,
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
@@ -594,36 +592,9 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
-                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 EOF
 fi
-
-
-output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
-#
-if [[ "$output_aer_3d" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_aer_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'ps'          , 'pfull'       , 'zg'          ,
-                    'aer_aod_533' , 'aer_ssa_533',  'aer_asy_533' , 
-                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
-                    'aer_aod_9731',
-/
-EOF
-fi
-
 
 # Currently, the JSBACH output_nml's need to be added to atmo_namelist, but this should 
 # eventually be handled by the lnd_namelist file. 

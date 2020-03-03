@@ -475,19 +475,22 @@ CONTAINS
       !            the index range of tracers for which advection is turned off in the stratosphere
       !            (i.e. all cloud and precipitation variables including number concentrations)
       !
+      !            The indices for specific tracers (iqv, iqc, iqi, ...) have initial values 0, as valid
+      !            for unused tracers. Below the indices are properly defined for the tracers to be used
+      !            for the selected physics configuration. Accordingly also the names for theses tracers
+      !            are defined.
+      !
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
       !            around with different physics schemes.
       !
-      ico2      = 0     !> co2, 0: not to be used with NWP physics
-      !
       ! Default settings valid for all microphysics options
       !
-      iqv       = 1     !> water vapour
-      iqc       = 2     !! cloud water
-      iqi       = 3     !! ice 
-      iqr       = 4     !! rain water
-      iqs       = 5     !! snow
+      iqv       = 1 ; advection_config(:)%tracer_names(iqv) = 'qv' !> water vapour
+      iqc       = 2 ; advection_config(:)%tracer_names(iqc) = 'qc' !! cloud water
+      iqi       = 3 ; advection_config(:)%tracer_names(iqi) = 'qi' !! ice 
+      iqr       = 4 ; advection_config(:)%tracer_names(iqr) = 'qr' !! rain water
+      iqs       = 5 ; advection_config(:)%tracer_names(iqs) = 'qs' !! snow
       nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
       !
       ! The following parameters may be reset depending on the selected physics scheme
@@ -496,21 +499,6 @@ CONTAINS
       iqt       = 6     !! start index of other tracers not related at all to moisture
       !
       ntracer   = 5     !! total number of tracers
-      !
-      ! dummy settings
-      iqni     = ntracer+100    !! cloud ice number
-      iqni_nuc = ntracer+100    !! activated ice nuclei  
-      iqg      = ntracer+100    !! graupel
-      iqtvar   = ntracer+100    !! qt variance (for EDMF turbulence)
-      iqh      = ntracer+100
-      iqnr     = ntracer+100  
-      iqns     = ntracer+100
-      iqng     = ntracer+100
-      iqnh     = ntracer+100
-      iqnc     = ntracer+100
-      inccn    = ntracer+100
-      ininpot  = ntracer+100
-      ininact  = ntracer+100
 
       !
       ! Taking the 'highest' microphysics option in some cases allows using more
@@ -523,8 +511,8 @@ CONTAINS
 
        ! CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
         
-        iqg     = 6       !! graupel
-        iqm_max = 6
+        iqg     = 6 ; advection_config(:)%tracer_names(iqg) = 'qg' !! graupel
+        iqm_max = iqg
         iqt     = iqt + 1
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
@@ -532,23 +520,23 @@ CONTAINS
  
       CASE(3)  ! improved ice nucleation scheme C. Koehler (note: iqm_max does not change!)
 
-        iqni     = 6     !! cloud ice number
-        iqni_nuc = 7     !! activated ice nuclei
+        iqni     = 6 ; advection_config(:)%tracer_names(iqni)     = 'qni'     !! cloud ice number
+        iqni_nuc = 7 ; advection_config(:)%tracer_names(iqni_nuc) = 'qni_nuc' !! activated ice nuclei  
         iqt      = iqt + 2
 
         ntracer = ntracer + 2  !! increase total number of tracers by 2
 
       CASE(4)  ! two-moment scheme 
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mass mixing ratios
@@ -558,17 +546,17 @@ CONTAINS
 
       CASE(5)  ! two-moment scheme with CCN and IN budgets
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
-        inccn   = 15
-        ininpot = 16
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
+        inccn   = 15 ; advection_config(:)%tracer_names(inccn)   = 'nccn'
+        ininpot = 16 ; advection_config(:)%tracer_names(ininpot) = 'ninpot'
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mass mixing ratios
@@ -578,15 +566,15 @@ CONTAINS
         
       CASE(6)
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mass mixing ratios
@@ -599,7 +587,7 @@ CONTAINS
 
       IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
 
-        iqtvar = iqt       !! qt variance
+        iqtvar = iqt ; advection_config(:)%tracer_names(iqtvar) = 'qtvar' !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
@@ -615,7 +603,7 @@ CONTAINS
 
       IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
         IF ( ANY( (/icosmo,iprog/) == atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
-          iqtke = iqt        !! TKE
+          iqtke = iqt ; advection_config(:)%tracer_names(iqtke) = 'tke_mc' !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
 
@@ -658,14 +646,15 @@ CONTAINS
 
     CASE default ! iforcing
 
-        iqv    = 1         !  water vapour
-        iqc    = 2         ! cloud water
-        iqi    = 3         ! cloud ice
-        iqr    = 0         ! no rain water
-        iqs    = 0         ! no snow
-        iqg    = 0         ! no graupel
-        iqm_max= iqi       ! end index of water species mixing ratios
-        iqt    = iqm_max+1 ! starting index of non-water species
+      ! set indices for iqv, iqc and iqi dependent on the number of specified tracers
+      !
+      iqm_max = 0  ! end index of water species mixing ratios
+      !
+      iqv = MERGE(1,0,ntracer>=1) ; IF (iqv/=0) iqm_max=1
+      iqc = MERGE(2,0,ntracer>=2) ; IF (iqc/=0) iqm_max=2
+      iqi = MERGE(3,0,ntracer>=3) ; IF (iqi/=0) iqm_max=3
+      !
+      iqt = iqm_max+1 ! starting index of non-water species
 
     END SELECT ! iforcing
 

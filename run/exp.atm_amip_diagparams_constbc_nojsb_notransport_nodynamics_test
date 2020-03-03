@@ -107,7 +107,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .FALSE.     ! dynamics
  ltransport       = .FALSE.     ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -132,7 +131,7 @@ cat > ${atmo_namelist} << EOF
  flat_height      = 16000.      ! [m]
 /
 &transport_nml
-!                   hus,clw,cli, o3
+ tracer_names     = 'hus','clw','cli'
 /
 &echam_phy_nml
 !
@@ -458,7 +457,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
-                    !'qo3_phy' ,
 /
 EOF
 fi
@@ -562,7 +560,6 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
-                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 EOF
 fi

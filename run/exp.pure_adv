@@ -73,7 +73,7 @@ cat > "${atmo_namelist}" << EOF
 &dynamics_nml
 /
 &transport_nml
-  tracer_names = '5','6'
+  tracer_names = 'q5','q6'
   ihadv_tracer = 3
   lvadv_tracer = .FALSE.
 /
