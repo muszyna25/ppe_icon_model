@@ -608,6 +608,8 @@ cat > ${atm_namelist} << EOF
 &parallel_nml
  nproma            = ${nproma_atm}
  num_io_procs      = ${mpi_atm_io_procs}
+ num_prefetch_proc = 0
+ pio_type          = 0
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grid}"
@@ -1216,6 +1218,8 @@ cat > ${oce_namelist} << EOF
 &parallel_nml
  nproma                      = ${nproma_oce}
  num_io_procs                = ${mpi_oce_io_procs}
+ num_prefetch_proc           = 0
+ pio_type                    = 0
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
 /
