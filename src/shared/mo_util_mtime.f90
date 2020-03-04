@@ -24,7 +24,6 @@ MODULE mo_util_mtime
     &                                    getTotalMillisecondsTimedelta,                    &
     &                                    isCurrentEventActive
   USE mo_time_config,              ONLY: time_config
-  USE mo_parallel_config,          ONLY: proc0_shift
   USE mo_util_string,              ONLY: t_keyword_list,                   &
                                          associate_keyword, with_keywords, &
                                          int2string
@@ -239,10 +238,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Guenther Zaengl, DWD (2020-01)
   !!
-  LOGICAL FUNCTION is_event_active (in_event, mtime_current, plus_slack, opt_lasync)
+  LOGICAL FUNCTION is_event_active (in_event, mtime_current, offload_mode, plus_slack, opt_lasync)
 
     TYPE(event),     POINTER, INTENT(INOUT)           :: in_event       !< mtime event to be checked
     TYPE(datetime),  POINTER, INTENT(IN   )           :: mtime_current  !< current_datetime
+    LOGICAL,                  INTENT(IN   )           :: offload_mode   !< if TRUE, PE0 is in offloading mode
     TYPE(timedelta), POINTER, INTENT(IN   ), OPTIONAL :: plus_slack
     LOGICAL,                  INTENT(IN   ), OPTIONAL :: opt_lasync     !< if TRUE, broadcast is done by caller
 
@@ -259,14 +259,14 @@ CONTAINS
     ENDIF
 
     ! If PE0 is detached, execute isCurrentEventActive only on PE0 and broadcast result afterwards
-    IF (proc0_shift == 0 .OR. p_pe == p_io) THEN
+    IF (.NOT. offload_mode .OR. p_pe == p_io) THEN
       IF (PRESENT(plus_slack)) THEN
         is_active = isCurrentEventActive(in_event, mtime_current, plus_slack=plus_slack)
       ELSE
         is_active = isCurrentEventActive(in_event, mtime_current)
       ENDIF
     ENDIF
-    IF ( (.NOT.lasync) .AND. (proc0_shift>0) ) CALL p_bcast(is_active, p_io, p_comm_work)
+    IF ( .NOT.lasync .AND. offload_mode ) CALL p_bcast(is_active, p_io, p_comm_work)
 
     is_event_active = is_active
 

@@ -407,7 +407,7 @@ SUBROUTINE graupel     (             &
     ddt_diag_rfrz   , & !! optional output rainwater freezing                          ( 1/s )
     ddt_diag_shed       !! optional output shedding                                    ( 1/s )
 
-#ifndef __SX__
+#ifndef __SX__TEST__
 
   !! Local parameters: None, parameters are in module header, gscp_data or data_constants
   !! ----------------
@@ -556,7 +556,12 @@ SUBROUTINE graupel     (             &
     zeln7o4qrk        ,     & ! FR new  
     zeln27o16qrk      ,     & !
     zeln13o8qrk       ,     & !
+! workaround for vectorization bug
+#ifdef __SX__
+    zeln3o4qsk(nvec)  ,     & !
+#else
     zeln3o4qsk        ,     & ! 
+#endif
     zeln6qgk          ,     & !
     zeln8qsk          ,     & !
     zelnrimexp_g      
@@ -791,7 +796,11 @@ SUBROUTINE graupel     (             &
 
   !$ACC PARALLEL
   !$ACC LOOP SEQ
-  loop_over_levels: DO  k = k_start, ke
+#ifdef __LOOP_EXCHANGE
+  DO iv = iv_start, iv_end  !loop over horizontal domain
+    DO  k = k_start, ke  ! loop over levels
+#else
+  DO  k = k_start, ke  ! loop over levels
 
     !$ACC LOOP GANG VECTOR PRIVATE( alf, bet, fnuc, hlp, llqc, llqg, llqi, llqr, &
     !$ACC                           llqs, m2s, m3s, maxevap, nnr, ppg, qcg,      &
@@ -815,7 +824,7 @@ SUBROUTINE graupel     (             &
     !$ACC                           ztau, ztc, ztfrzdiff, ztt, zvz0s, zx1,       &
     !$ACC                           zxfac, zzag, zzai, zzar, zzas, zztau )
     DO iv = iv_start, iv_end  !loop over horizontal domain
-
+#endif
 
       ! add part of latent heating calculated in subroutine graupel to model latent
       ! heating field: subtract temperature from model latent heating field
@@ -995,7 +1004,11 @@ SUBROUTINE graupel     (             &
       zeln7o4qrk    = 0.0_wp
       zeln27o16qrk  = 0.0_wp
       zeln13o8qrk   = 0.0_wp
+#ifdef __SX__
+      zeln3o4qsk(iv)= 0.0_wp
+#else
       zeln3o4qsk    = 0.0_wp
+#endif
       zeln8qsk      = 0.0_wp
       zeln6qgk      = 0.0_wp
       zelnrimexp_g  = 0.0_wp
@@ -1095,7 +1108,11 @@ SUBROUTINE graupel     (             &
         zlnqsk   = LOG (zqsk)
         zssmax   = zzas / rhog*zdtr  ! GZ: shifting this computation ahead of the IF condition changes results!
         IF (qig+qcg > zqmin) THEN
+#ifdef __SX__
+          zeln3o4qsk(iv) = EXP (x3o4 *zlnqsk)
+#else
           zeln3o4qsk = EXP (x3o4 *zlnqsk)
+#endif
         ENDIF
         zeln8qsk = EXP (0.8_wp *zlnqsk)
       ENDIF
@@ -1198,7 +1215,11 @@ SUBROUTINE graupel     (             &
             srim2 = 0.0_wp
           ELSE
             IF (qcg >= qc0) THEN
+#ifdef __SX__
+              sconsg = zcsg * qcg * zeln3o4qsk(iv)
+#else
               sconsg = zcsg * qcg * zeln3o4qsk
+#endif
             ENDIF
           ENDIF
           ! Check for maximum depletion of cloud water and adjust the
@@ -2946,7 +2967,7 @@ SUBROUTINE graupel     (             &
 
 #endif
 
-  END DO loop_over_levels
+  END DO ! loop over levels
   !$ACC END PARALLEL
 
 #if defined (__COSMO__)

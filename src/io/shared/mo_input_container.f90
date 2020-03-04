@@ -464,7 +464,6 @@ CONTAINS
         REAL(C_FLOAT), SAVE, POINTER :: bufferS(:)
         INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
         CLASS(t_ScatterPattern), POINTER :: distribution
-        REAL(dp) :: savetime
         REAL(dp) :: message(3)
         ! Variables for deferred sending
         CHARACTER(LEN=:), ALLOCATABLE, SAVE :: variableName_prev
@@ -477,11 +476,103 @@ CONTAINS
         REAL(dp), SAVE :: level_prev
         INTEGER, SAVE :: jg_prev
         INTEGER, SAVE :: tile_prev, datatype_prev
-#ifdef _OPENMP   
+
         !NEC_RP: use three cases: only read, only distribute, both
         SELECT CASE(iread)
-        CASE(1)
+        CASE(1)  ! First record: only read
+
+           CALL read_data(firstcall = .TRUE.)
    
+           ! prepare reading the rest of the data
+           jg_prev = jg
+           level_prev = level
+           tile_prev = tile
+           datatype_prev = datatype
+           packedMessage_prev = packedMessage
+           IF (ALLOCATED(variableName_prev)) DEALLOCATE(variableName_prev)
+           ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
+           variableName_prev = variableName
+
+        CASE (-1)
+           !NEC_RP: Last record: Only data distribution and statistics
+
+!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP SECTION
+            ! first section for distribution of previous buffer
+            CALL distribute_data()
+!$OMP SECTION
+            ! second section for statistics on previous buffer
+            CALL compute_statistics()
+!$OMP END PARALLEL SECTIONS
+
+            ! Deallocation must be done after the parallel section in order to avoid race conditions
+            SELECT CASE(packedMessage_prev(2))
+            CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
+               DEALLOCATE(bufferD_prev)
+               NULLIFY(bufferD_prev)
+               DEALLOCATE(bufferD)
+               NULLIFY(bufferD)
+             CASE DEFAULT
+               DEALLOCATE(bufferS_prev)
+               NULLIFY(bufferS_prev)
+               DEALLOCATE(bufferS)
+               NULLIFY(bufferS)
+             END SELECT
+
+        CASE DEFAULT
+           !NEC_RP: Read data, distribute them, and compute statistics
+           !GZ: in principle, one could use 3 sections here, but this does not give any benefit
+           !    because statistics+distribution is always faster than reading
+!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP SECTION
+           ! first section for read of current buffer
+           CALL read_data(firstcall = .FALSE.)
+!$OMP SECTION
+           ! second section for statistics on and distribution of previous buffer
+            CALL compute_statistics()
+            CALL distribute_data()
+!$OMP END PARALLEL SECTIONS
+
+            ! Prepare data for next iteration
+            ! first flip pointer assignments (faster than copy)
+            IF (ASSOCIATED(bufferD)) THEN
+               IF (SIZE(bufferD) /= SIZE(bufferD_prev)) THEN
+                  DEALLOCATE(bufferD_prev)
+                  ALLOCATE(bufferD_prev(SIZE(bufferD)))
+               END IF
+               tmpDP => bufferD_prev
+               bufferD_prev => bufferD
+               bufferD => tmpDP
+            END IF
+            IF (ASSOCIATED(bufferS)) THEN
+               IF (SIZE(bufferS) /= SIZE(bufferS_prev)) THEN
+                  DEALLOCATE(bufferS_prev)
+                  ALLOCATE(bufferS_prev(SIZE(bufferS)))
+               END IF
+               tmpSP => bufferS_prev
+               bufferS_prev => bufferS
+               bufferS => tmpSP
+            END IF
+
+            jg_prev = jg
+            level_prev = level
+            tile_prev = tile
+            datatype_prev = datatype
+            packedMessage_prev = packedMessage
+            IF (LEN(variableName_prev) /= LEN(variableName)) THEN
+               DEALLOCATE(variableName_prev)
+               ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
+            END IF
+            variableName_prev = variableName
+        END SELECT
+
+        CONTAINS
+
+        SUBROUTINE read_data(firstcall)
+
+           LOGICAL, INTENT(in) :: firstcall
+           REAL(dp) :: savetime
+
            ALLOCATE(t_LevelKey :: key, STAT = error)
            IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
            SELECT TYPE(key)
@@ -504,50 +595,75 @@ CONTAINS
            CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
                !ALLOCATE the global buffer
                IF(C_ASSOCIATED(iterator%ptr)) THEN
-                   ALLOCATE(bufferD_prev(gridSize), STAT = error)
-                   ALLOCATE(bufferD(gridSize), STAT = error)
+                   IF (firstcall) ALLOCATE(bufferD_prev(gridSize), STAT = error)
+                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
+                   IF (.NOT. ASSOCIATED(bufferD)) ALLOCATE(bufferD(gridSize), STAT = error)
+                   IF (SIZE(bufferD) /= gridSize) THEN
+                      DEALLOCATE(bufferD)
+                      ALLOCATE(bufferD(gridSize), STAT = error)
+                   END IF
                ELSE
-                   ALLOCATE(bufferD_prev(1), STAT = error)
-                   ALLOCATE(bufferD(1), STAT = error)
+                   IF (firstcall) THEN
+                     ALLOCATE(bufferD_prev(1), STAT = error)
+                     ALLOCATE(bufferD(1), STAT = error)
+                   ENDIF
+                   IF (SIZE(bufferD) /= 1) THEN
+                      DEALLOCATE(bufferD)
+                      ALLOCATE(bufferD(1), STAT = error)
+                   END IF
                END IF
                IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
    
                !READ the DATA
                IF(C_ASSOCIATED(iterator%ptr)) THEN
                    savetime = p_mpi_wtime()
-                   CALL cdiIterator_readField(iterator, bufferD_prev)
+                   IF (firstcall) THEN
+                     CALL cdiIterator_readField(iterator, bufferD_prev)
+                   ELSE
+                     CALL cdiIterator_readField(iterator, bufferD)
+                   ENDIF
                    timer(3) = timer(3) + p_mpi_wtime() - savetime
                END IF
            CASE DEFAULT
                !ALLOCATE the global buffer
                IF(C_ASSOCIATED(iterator%ptr)) THEN
-                   ALLOCATE(bufferS_prev(gridSize), STAT = error)
-                   ALLOCATE(bufferS(gridSize), STAT = error)
+                   IF (firstcall) ALLOCATE(bufferS_prev(gridSize), STAT = error)
+                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
+                   IF (.NOT. ASSOCIATED(bufferS)) ALLOCATE(bufferS(gridSize), STAT = error)
+                   IF (SIZE(bufferS) /= gridSize) THEN
+                      DEALLOCATE(bufferS)
+                      ALLOCATE(bufferS(gridSize), STAT = error)
+                   END IF
                ELSE
-                   ALLOCATE(bufferS_prev(1), STAT = error)
-                   ALLOCATE(bufferS(1), STAT = error)
+                   IF (firstcall) THEN
+                     ALLOCATE(bufferS_prev(1), STAT = error)
+                     ALLOCATE(bufferS(1), STAT = error)
+                   ENDIF
+                   IF (SIZE(bufferS) /= 1) THEN
+                      DEALLOCATE(bufferS)
+                      ALLOCATE(bufferS(1), STAT = error)
+                   END IF
                END IF
                IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
    
                !READ the DATA
                IF(C_ASSOCIATED(iterator%ptr)) THEN
                    savetime = p_mpi_wtime()
-                   CALL cdiIterator_readFieldF(iterator, bufferS_prev)
+                   IF (firstcall) THEN
+                     CALL cdiIterator_readFieldF(iterator, bufferS_prev)
+                   ELSE
+                     CALL cdiIterator_readFieldF(iterator, bufferS)
+                   ENDIF
                    timer(3) = timer(3) + p_mpi_wtime() - savetime
                END IF
            END SELECT
-   
-           ! now the rest of the data
-           jg_prev = jg
-           level_prev = level
-           tile_prev = tile
-           datatype_prev = datatype
-           packedMessage_prev = packedMessage
-           IF (ALLOCATED(variableName_prev)) DEALLOCATE(variableName_prev)
-           ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
-           variableName_prev = variableName
-        CASE (-1)
-          !NEC_RP: Only distribute
+
+        END SUBROUTINE read_data
+
+        SUBROUTINE distribute_data
+
+           REAL(dp) :: savetime
+
            message(1) = REAL(LEN(variableName_prev, 1), dp)
            message(2) = level_prev
            message(3) = REAL(tile_prev, dp)
@@ -557,101 +673,7 @@ CONTAINS
            CALL p_bcast(packedMessage_prev, 0, p_comm_work)
 
            !Get the corresponding ScatterPattern AND initialize our hash table entry.
-           distribution => lookupScatterPattern(jg, packedMessage_prev(1))
-           IF(.NOT. ASSOCIATED(distribution)) CALL finish(routine, "could not find scatter pattern to distribute input field")
-           ALLOCATE(t_LevelPointer :: val, STAT = error)
-
-           SELECT TYPE(val)
-             TYPE IS(t_LevelPointer)
-
-             ALLOCATE(val%ptr(nproma, blk_no(distribution%localSize())), STAT = error)
-             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-             val%ptr = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
-
-             SELECT CASE(datatype_prev)
-             CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
-              !NEC_RP: use OMP sections:
-!$OMP PARALLEL SECTIONS PRIVATE(savetime) NUM_THREADS(2)
-!$OMP SECTION
-              !NEC_RP: first section for statistics on previous buffer
-               savetime = p_mpi_wtime()
-               CALL distribution%distribute(bufferD_prev, val%ptr, .FALSE.)
-               timer(5) = timer(5) + p_mpi_wtime() - savetime
-!$OMP SECTION
-              !NEC_RP: second section for distribution of previous buffer
-               savetime = p_mpi_wtime()
-               CALL statistics%add(bufferD_prev)
-               timer(4) = timer(4) + p_mpi_wtime() - savetime
-!$OMP END PARALLEL SECTIONS
-
-               DEALLOCATE(bufferD_prev)
-               NULLIFY(bufferD_prev)
-               DEALLOCATE(bufferD)
-               NULLIFY(bufferD)
-             CASE DEFAULT
-!$OMP PARALLEL SECTIONS PRIVATE(savetime) NUM_THREADS(2)
-!$OMP SECTION
-              !NEC_RP: first section for statistics on previous buffer
-               savetime = p_mpi_wtime()
-               CALL distribution%distribute(bufferS_prev, val%ptr, .FALSE.)
-               timer(5) = timer(5) + p_mpi_wtime() - savetime
-!$OMP SECTION
-               !NEC_RP: second section for distribution of previous buffer
-               savetime = p_mpi_wtime()
-               CALL statistics%add(bufferS_prev)
-               timer(4) = timer(4) + p_mpi_wtime() - savetime
-!$OMP END PARALLEL SECTIONS
-
-               DEALLOCATE(bufferS_prev)
-               NULLIFY(bufferS_prev)
-               DEALLOCATE(bufferS)
-               NULLIFY(bufferS)
-             END SELECT
-           END SELECT
-           
-           ALLOCATE(t_LevelKey :: key, STAT = error)
-           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-           SELECT TYPE(key)
-            TYPE IS(t_LevelKey)
-                key%levelValue = level_prev
-                key%tileId = tile_prev
-            CLASS DEFAULT
-                CALL finish(routine, "assertion failed")
-           END SELECT
-
-           !store the DATA IN our hash table
-           CALL me%fields%setEntry(key, val) !this will DEALLOCATE both the val AND the key eventually
-           me%fieldCount = me%fieldCount + 1
-           CALL me%tiles%addValue(REAL(tile_prev, dp))
-           CALL me%levels%addValue(level_prev)
-        CASE DEFAULT
-           !NEC_RP: Both
-
-!$OMP PARALLEL SECTIONS PRIVATE(savetime) NUM_THREADS(3)
-!$OMP SECTION
-           !NEC_RP: first section for statistics on previous buffer
-           SELECT CASE(packedMessage_prev(2))
-           CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
-               savetime = p_mpi_wtime()
-               CALL statistics%add(bufferD_prev)
-               timer(4) = timer(4) + p_mpi_wtime() - savetime
-           CASE DEFAULT
-               savetime = p_mpi_wtime()
-               CALL statistics%add(bufferS_prev)
-               timer(4) = timer(4) + p_mpi_wtime() - savetime
-           END SELECT
-!$OMP SECTION
-           !NEC_RP: second section for distribution of previous buffer
-           message(1) = REAL(LEN(variableName_prev, 1), dp)
-           message(2) = level_prev
-           message(3) = REAL(tile_prev, dp)
-           CALL p_bcast(message, process_mpi_root_id, p_comm_work)
-           CALL p_bcast(variableName_prev, process_mpi_root_id, p_comm_work)
-
-           CALL p_bcast(packedMessage_prev, 0, p_comm_work)
-
-           !Get the corresponding ScatterPattern AND initialize our hash table entry.
-           distribution => lookupScatterPattern(jg, packedMessage_prev(1))
+           distribution => lookupScatterPattern(jg_prev, packedMessage_prev(1))
            IF(.NOT. ASSOCIATED(distribution)) CALL finish(routine, "could not find scatter pattern to distribute input field")
            ALLOCATE(t_LevelPointer :: val, STAT = error)
            IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
@@ -663,7 +685,6 @@ CONTAINS
              IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
              val%ptr = 0.0_wp     !Avoid nondeterministic values IN the unused points for checksumming.
 
-             distribution => lookupScatterPattern(jg_prev, packedMessage_prev(1))
              SELECT CASE(packedMessage_prev(2))
              CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
                savetime = p_mpi_wtime()
@@ -692,112 +713,26 @@ CONTAINS
            CALL me%tiles%addValue(REAL(tile_prev, dp))
            CALL me%levels%addValue(level_prev)
 
-!$OMP SECTION
-           !NEC_RP: third section for read of current buffer
+        END SUBROUTINE distribute_data
 
-           ALLOCATE(t_LevelKey :: key, STAT = error)
-           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-           SELECT TYPE(key)
-             TYPE IS(t_LevelKey)
-                key%levelValue = level
-                key%tileId = tile
-             CLASS DEFAULT
-                CALL finish(routine, "assertion failed")
-           END SELECT
-   
-           !Inquire buffer SIZE information AND broadcast it.
-           IF(C_ASSOCIATED(iterator%ptr)) THEN
-               gridSize = gridInqSize(cdiIterator_inqGridId(iterator))
-               datatype = cdiIterator_inqDatatype(iterator)
-               packedMessage(1) = gridSize
-               packedMessage(2) = datatype
-           END IF
-   
-           SELECT CASE(datatype)
+
+        SUBROUTINE compute_statistics
+
+           REAL(dp) :: savetime
+
+           SELECT CASE(packedMessage_prev(2))
            CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
-               !ALLOCATE the global buffer
-               IF(C_ASSOCIATED(iterator%ptr)) THEN
-                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
-                   IF (.NOT. ASSOCIATED(bufferD)) ALLOCATE(bufferD(gridSize), STAT = error)
-                   IF (SIZE(bufferD) /= gridSize) THEN
-                      DEALLOCATE(bufferD)
-                      ALLOCATE(bufferD(gridSize), STAT = error)
-                   END IF
-               ELSE
-                   IF (SIZE(bufferD) /= 1) THEN
-                      DEALLOCATE(bufferD)
-                      ALLOCATE(bufferD(1), STAT = error)
-                   END IF
-               END IF
-               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-   
-               !READ the DATA
-               IF(C_ASSOCIATED(iterator%ptr)) THEN
-                   savetime = p_mpi_wtime()
-                   CALL cdiIterator_readField(iterator, bufferD)
-                   timer(3) = timer(3) + p_mpi_wtime() - savetime
-               END IF
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferD_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
            CASE DEFAULT
-               !ALLOCATE the global buffer
-               IF(C_ASSOCIATED(iterator%ptr)) THEN
-                   ! Note: SIZE(buffer) may deliver the right value even if "buffer" has been deallocated before
-                   IF (.NOT. ASSOCIATED(bufferS)) ALLOCATE(bufferS(gridSize), STAT = error)
-                   IF (SIZE(bufferS) /= gridSize) THEN
-                      DEALLOCATE(bufferS)
-                      ALLOCATE(bufferS(gridSize), STAT = error)
-                   END IF
-               ELSE
-                   IF (SIZE(bufferS) /= 1) THEN
-                      DEALLOCATE(bufferS)
-                      ALLOCATE(bufferS(1), STAT = error)
-                   END IF
-               END IF
-               IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-   
-               !READ the DATA
-               IF(C_ASSOCIATED(iterator%ptr)) THEN
-                   savetime = p_mpi_wtime()
-                   CALL cdiIterator_readFieldF(iterator, bufferS)
-                   timer(3) = timer(3) + p_mpi_wtime() - savetime
-               END IF
+               savetime = p_mpi_wtime()
+               CALL statistics%add(bufferS_prev)
+               timer(4) = timer(4) + p_mpi_wtime() - savetime
            END SELECT
-!$OMP END PARALLEL SECTIONS
 
-            ! Prepare data for next iteration
-            ! first flip pointer assignments (faster than copy)
-            IF (ASSOCIATED(bufferD)) THEN
-               IF (SIZE(bufferD) /= SIZE(bufferD_prev)) THEN
-                  DEALLOCATE(bufferD_prev)
-                  ALLOCATE(bufferD_prev(SIZE(bufferD)))
-               END IF
-               tmpDP => bufferD_prev
-               bufferD_prev => bufferD
-               bufferD => tmpDP
-            END IF
-            IF (ASSOCIATED(bufferS)) THEN
-               IF (SIZE(bufferS) /= SIZE(bufferS_prev)) THEN
-                  DEALLOCATE(bufferS_prev)
-                  ALLOCATE(bufferS_prev(SIZE(bufferS)))
-               END IF
-               tmpSP => bufferS_prev
-               bufferS_prev => bufferS
-               bufferS => tmpSP
-            END IF
-            ! now the rest of the data
-            jg_prev = jg
-            level_prev = level
-            tile_prev = tile
-            datatype_prev = datatype
-            packedMessage_prev = packedMessage
-            IF (LEN(variableName_prev) /= LEN(variableName)) THEN
-               DEALLOCATE(variableName_prev)
-               ALLOCATE(CHARACTER(LEN=LEN(variableName)) :: variableName_prev)
-            END IF
-            variableName_prev = variableName
-        END SELECT
-#else
-          CALL finish(routine, "Setting 'use_omp_input = .TRUE.' requires OpenMP")
-#endif
+        END SUBROUTINE compute_statistics
+
     END SUBROUTINE InputContainer_readField_omp
 
 

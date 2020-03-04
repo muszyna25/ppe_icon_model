@@ -47,7 +47,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_state
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_intp_data_strc,     ONLY: t_int_state
-  USE mo_parallel_config,    ONLY: nproma, proc0_shift
+  USE mo_parallel_config,    ONLY: nproma, proc0_offloading
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, ntiles_total
   USE mo_nwp_lnd_types,      ONLY: t_lnd_diag, t_wtr_prog, t_lnd_prog
   USE mo_physical_constants, ONLY: tmelt, grav, cpd, vtmpc1
@@ -1494,11 +1494,12 @@ CONTAINS
                l_need_dbz3d, l_need_temp, l_need_pres
     INTEGER :: jg
 
-    l_active(1) = is_event_active(lpi_max_Event,    mtime_current, plus_slack, opt_lasync=.TRUE.)
-    l_active(2) = is_event_active(celltracks_Event, mtime_current, plus_slack, opt_lasync=.TRUE.)
-    l_active(3) = is_event_active(dbz_Event,        mtime_current, plus_slack, opt_lasync=.TRUE.)
+    l_active(1) = is_event_active(lpi_max_Event,    mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
+    l_active(2) = is_event_active(celltracks_Event, mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
+    l_active(3) = is_event_active(dbz_Event,        mtime_current, proc0_offloading, plus_slack, opt_lasync=.TRUE.)
 
-    IF (proc0_shift>0)  CALL p_bcast(l_active, p_io, p_comm_work)
+    ! In NEC hybrid mode, mtime is called on p_io only, so result needs to be broadcasted
+    IF (proc0_offloading)  CALL p_bcast(l_active, p_io, p_comm_work)
 
     l_lpimax_event_active     = l_active(1)
     l_celltracks_event_active = l_active(2)

@@ -184,7 +184,7 @@ CONTAINS
     !   not split but simply copied (and the p_patch_local_parent is
     !   initialized properly).
     !
-    n_procs_decomp = p_n_work
+    n_procs_decomp = p_n_work - proc0_shift
 
 
     ! -----------------------------------------------------------------------------
@@ -210,6 +210,9 @@ CONTAINS
       IF(jgp /= 1 .AND. patch_weight(jg) > 0._wp) &
         CALL finish(routine,'Weight for higher level patch must be 0')
     ENDDO
+
+    ! Initialization of indicator if a patch is owned by a PE (always true except in case of processor splitting)
+    p_patch(:)%domain_is_owned = .FALSE.
     ! -----------------------------------------------------------------------------
 
     IF(proc_split) THEN
@@ -254,16 +257,24 @@ CONTAINS
       ! ... for the root patch and patch 0 if it exists
       ! proc0_shift is 0 unless specified otherwise in the namelist
 
-      p_patch(n_dom_start:1)%n_proc = n_procs_decomp - proc0_shift
+      p_patch(n_dom_start:1)%n_proc = n_procs_decomp
       p_patch(n_dom_start:1)%proc0  = proc0_shift
+
+      p_patch(n_dom_start:1)%domain_is_owned = .TRUE.
 
       ! ... for 1st generation childs
 
-      n = 0
+      n = proc0_shift
       DO jc = 1, p_patch_pre(1)%n_childdom
         jgc = p_patch_pre(1)%child_id(jc)
         p_patch(jgc)%proc0  = n
         p_patch(jgc)%n_proc = nprocs(jc)
+        ! Determine which PEs will have owned grid points in a given nested domain;
+        ! a gridpoint-less PE0 gets a special treatment in order to avoid complications in writing output to stderr
+        IF (p_pe_work >= p_patch(jgc)%proc0 .AND. p_pe_work < p_patch(jgc)%proc0+nprocs(jc) .OR. &
+            jc == 1 .AND. p_pe_work < proc0_shift) THEN
+          p_patch(jgc)%domain_is_owned = .TRUE.
+        ENDIF
         n = n + nprocs(jc)
       ENDDO
 
@@ -276,6 +287,8 @@ CONTAINS
         IF(jgp /= 1) THEN
           p_patch(jg)%n_proc = p_patch(jgp)%n_proc
           p_patch(jg)%proc0  = p_patch(jgp)%proc0
+
+          p_patch(jg)%domain_is_owned = p_patch(jgp)%domain_is_owned
         ENDIF
 
       ENDDO
@@ -288,9 +301,10 @@ CONTAINS
       ! No splitting, proc0, n_proc are identical for all patches
 
       IF(p_pe_work==0) WRITE(0,*) 'No splitting of processor grid'
-      p_patch(:)%n_proc = n_procs_decomp - proc0_shift
+      p_patch(:)%n_proc = n_procs_decomp
       p_patch(:)%proc0  = proc0_shift
 
+      p_patch(n_dom_start:n_dom)%domain_is_owned = .TRUE.
     ENDIF
 
 #ifdef NOMPI

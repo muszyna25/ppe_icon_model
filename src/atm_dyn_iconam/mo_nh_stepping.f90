@@ -70,7 +70,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,          ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2, idiv_method, &
     &                                    ldeepatmo
   USE mo_io_config,                ONLY: is_totint_time, n_diag, var_in_output
-  USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc, proc0_shift
+  USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc, proc0_offloading
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart, ldass_lhn
@@ -1246,8 +1246,8 @@ MODULE mo_nh_stepping
 
       l_isStartdate    = (time_config%tc_startdate == mtime_current)
       l_isExpStopdate  = (time_config%tc_exp_stopdate == mtime_current)
-      l_isRestart      = is_event_active(restartEvent, mtime_current)
-      l_isCheckpoint   = is_event_active(checkpointEvent, mtime_current)
+      l_isRestart      = is_event_active(restartEvent, mtime_current, proc0_offloading)
+      l_isCheckpoint   = is_event_active(checkpointEvent, mtime_current, proc0_offloading)
       l_doWriteRestart = time_config%tc_write_restart
 
       IF ( &
@@ -2203,7 +2203,7 @@ MODULE mo_nh_stepping
           jgc = p_patch(jg)%child_id(jn)
           IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-          IF(p_patch(jgc)%n_patch_cells > 0 .OR. p_pe < proc0_shift) THEN
+          IF(p_patch(jgc)%domain_is_owned) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
             CALL integrate_nh( datetime_local, jgc, nstep_global, iau_iter, &
@@ -2723,7 +2723,7 @@ MODULE mo_nh_stepping
         jgc = p_patch(jg)%child_id(jn)
         IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
-        IF(p_patch(jgc)%n_patch_cells > 0 .OR. p_pe < proc0_shift) THEN
+        IF(p_patch(jgc)%domain_is_owned) THEN
           IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
           CALL init_slowphysics( mtime_current, jgc, dt_sub )
           IF(proc_split) CALL pop_glob_comm()
@@ -2765,9 +2765,7 @@ MODULE mo_nh_stepping
 
     DO jg = 1, n_dom
 
-      ! GZ: executing the diag call for PEs without grid points is needed to avoid timer inconsistencies
-      IF(p_patch(jg)%n_patch_cells == 0 .AND. p_pe >= proc0_shift) CYCLE
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+      IF (.NOT. p_patch(jg)%domain_is_owned .OR. .NOT. p_patch(jg)%ldom_active) CYCLE
 
       nlev = p_patch(jg)%nlev
 
@@ -2868,7 +2866,7 @@ MODULE mo_nh_stepping
     ! Fill boundaries of nested domains
     DO jg = n_dom, 1, -1
 
-      IF(p_patch(jg)%n_patch_cells == 0 .OR. p_patch(jg)%n_childdom == 0) CYCLE
+      IF (.NOT. p_patch(jg)%domain_is_owned .OR. p_patch(jg)%n_childdom == 0) CYCLE
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &
@@ -2910,7 +2908,7 @@ MODULE mo_nh_stepping
 
     DO jg = 1, n_dom
 
-      IF(p_patch(jg)%n_patch_cells == 0) CYCLE
+      IF (.NOT. p_patch(jg)%domain_is_owned) CYCLE
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
@@ -2942,7 +2940,7 @@ MODULE mo_nh_stepping
     ! Fill boundaries of nested domains
     DO jg = n_dom, 1, -1
 
-      IF(p_patch(jg)%n_patch_cells == 0 .OR. p_patch(jg)%n_childdom == 0) CYCLE
+      IF (.NOT. p_patch(jg)%domain_is_owned .OR. p_patch(jg)%n_childdom == 0) CYCLE
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
       CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnow_rcf(jg))%tke)

@@ -1087,6 +1087,10 @@ MODULE mo_nh_init_nest_utils
         DO jc = i_startidx, i_endidx
           lndvars_par(jc,jk1+5,jb) = initicon(jg)%sfc_inc%t_2m(jc,jb)
         ENDDO
+      ELSE
+        DO jc = i_startidx, i_endidx
+          lndvars_par(jc,jk1+5,jb) = 0._wp
+        ENDDO
       ENDIF
 
     ENDDO

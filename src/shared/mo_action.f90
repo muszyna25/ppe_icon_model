@@ -63,7 +63,7 @@ MODULE mo_action
   USE mo_action_types,       ONLY: t_var_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
-  USE mo_parallel_config,    ONLY: proc0_shift
+  USE mo_parallel_config,    ONLY: proc0_offloading
   USE mo_var_list,           ONLY: nvar_lists, var_lists
   USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
@@ -490,7 +490,7 @@ CONTAINS
     ! Use factor 999 instead of 1000, since no open interval is available
     ! needed [trigger_date, trigger_date + slack[
     ! used   [trigger_date, trigger_date + slack]
-    IF (proc0_shift == 0 .OR. p_pe == p_io) THEN
+    IF (.NOT. proc0_offloading .OR. p_pe == p_io) THEN
       CALL getPTStringFromMS(INT(999.0_wp*slack,i8),str_slack)
       ! get slack in 'timedelta'-format appropriate for isCurrentEventActive
       p_slack => newTimedelta(str_slack)
@@ -513,7 +513,7 @@ CONTAINS
         ! Note that a second call to isCurrentEventActive will lead to
         ! a different result! Is this a bug or a feature?
         ! triggers in interval [trigger_date + slack]
-        isactive(ivar) = is_event_active(this_event, mtime_date, plus_slack=p_slack, opt_lasync=.TRUE.)
+        isactive(ivar) = is_event_active(this_event, mtime_date, proc0_offloading, plus_slack=p_slack, opt_lasync=.TRUE.)
       ENDDO
 
       ! cleanup
@@ -522,7 +522,7 @@ CONTAINS
     ENDIF
 
     ! broadcast
-    IF (proc0_shift > 0) CALL p_bcast(isactive, p_io, p_comm_work)
+    IF (proc0_offloading) CALL p_bcast(isactive, p_io, p_comm_work)
 
 
     ! Loop over all fields attached to this action

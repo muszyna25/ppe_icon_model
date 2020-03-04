@@ -48,7 +48,7 @@
     USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length_v
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, rotate_latlon_grid
-    USE mo_parallel_config,     ONLY: nproma, p_test_run, proc0_shift
+    USE mo_parallel_config,     ONLY: nproma, p_test_run
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mo_intp_data_strc,      ONLY: t_int_state
     USE mo_intp_lonlat_types,   ONLY: t_lon_lat_intp, lonlat_grids, t_intp_scalar_coeff,      &
@@ -474,7 +474,7 @@
       !--------------------------------------------------------------------
 
       CALL message(routine, '')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN;
 
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
@@ -713,7 +713,7 @@
       !--------------------------------------------------------------------
 
       CALL message(routine, '')
-      IF (ptr_patch%n_patch_cells == 0) RETURN;
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN;
 
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)
       npromz_lonlat = ptr_int_lonlat%npromz_lonlat(nproma)
@@ -876,14 +876,7 @@
 
       IF (dbg_level > 1)  CALL message(routine,'')
 
-      IF (ptr_patch%n_patch_cells == 0) THEN
-        IF (proc0_shift > 0) THEN
-          ! ensure that PE0 is involved in global communication
-          glb_idx = 0
-          last_bdry_index = p_max(glb_idx, p_comm_work)
-        ENDIF
-        RETURN
-      ENDIF
+      IF (.NOT. ptr_patch%domain_is_owned) RETURN
 
       ! set local values for "nblks" and "npromz"
       nblks_lonlat  = ptr_int_lonlat%nblks_lonlat(nproma)

@@ -5370,7 +5370,7 @@ enddo
 
 ! GZ: this additional computation is obsolete with snow tiles because grid points with completely melted snow
 !     are deleted afterwards
-
+#ifndef __ICON__
 !>JH New solution of heat conduction for snow points which melted completly
 !    during time step
 !------------------------------------------------------------------------------
@@ -5643,6 +5643,8 @@ enddo
   ENDDO
   !$noacc end parallel
   ! End of heat transfer
+
+#endif
 
   !$noacc parallel
   !$noacc loop gang vector

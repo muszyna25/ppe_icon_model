@@ -38,7 +38,7 @@ MODULE mo_phy_events
   USE mo_util_table,               ONLY: t_table, initialize_table, add_table_column, &
     &                                    set_table_entry, print_table, finalize_table
   USE mo_run_config,               ONLY: msg_level
-  USE mo_parallel_config,          ONLY: proc0_shift
+  USE mo_parallel_config,          ONLY: proc0_offloading
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, p_comm_work, p_io
   USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
 
@@ -367,12 +367,12 @@ CONTAINS
 
     plusSlack     =  phyProc%plusSlack
     plusSlack_ptr => plusSlack
-    ! If PE0 is detached, execute isCurrentEventActive only on PE0 and broadcast result afterwards
+    ! In NEC hybrid mode, execute isCurrentEventActive only on PE0 and broadcast result afterwards
     ! This serves as a workaround for slow mtime on the NEC VEs
-    IF (proc0_shift == 0 .OR. my_process_is_stdio()) THEN
+    IF (.NOT. proc0_offloading .OR. my_process_is_stdio()) THEN
       is_active = isCurrentEventActive(phyProc%ev_ptr, mtime_current, plus_slack=plusSlack_ptr)
     ENDIF
-    IF (.NOT. PRESENT(lasync) .AND. proc0_shift > 0) CALL p_bcast(is_active, p_io, p_comm_work)
+    IF (.NOT. PRESENT(lasync) .AND. proc0_offloading) CALL p_bcast(is_active, p_io, p_comm_work)
 
     phyProcBase_isActive = is_active
 
@@ -1133,7 +1133,7 @@ CONTAINS
         IF (.NOT. ASSOCIATED(phyProcs%proc(iproc)%p)) CYCLE
         lcall_phy(iproc) = phyProcs%proc(iproc)%p%isActive(mtime_current,lasync)
       ENDDO
-      IF (proc0_shift > 0) CALL p_bcast(lcall_phy, p_io, p_comm_work)
+      IF (proc0_offloading) CALL p_bcast(lcall_phy, p_io, p_comm_work)
     ENDIF
 
     ! debug output

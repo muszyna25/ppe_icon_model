@@ -26,7 +26,7 @@
 #ifndef NOMPI
     USE mpi
     USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
-         &                            p_comm_work,                              &
+         &                            p_comm_work, my_process_is_stdio,         &
          &                            my_process_is_mpi_test, get_my_global_mpi_id
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
@@ -40,7 +40,7 @@
     USE mo_reorder_info,        ONLY: t_reorder_info
     USE mo_kind,                ONLY: wp, i8
     USE mo_util_string,         ONLY: int2string
-    USE mo_parallel_config,     ONLY: nproma
+    USE mo_parallel_config,     ONLY: nproma, proc0_offloading
     USE mo_model_domain,        ONLY: t_patch
     USE mo_grid_config,         ONLY: nroot
     USE mo_exception,           ONLY: message, finish, message_text
@@ -784,7 +784,7 @@
       ! - note that "vert_interp" is MPI-collective, we cannot skip
       !   this for single PEs
       !
-      IF (latbc_config%lsparse_latbc) THEN
+      IF (latbc_config%lsparse_latbc .OR. proc0_offloading .AND. my_process_is_stdio() ) THEN
         IF (latbc%patch_data%cells%n_own > 0 .OR. latbc%patch_data%edges%n_own > 0) THEN
           CALL vert_interp(p_patch, p_int, p_nh_state%metrics, latbc%latbc_data(tlev),   &
             &    opt_use_vn=latbc%buffer%lread_vn,                                       &

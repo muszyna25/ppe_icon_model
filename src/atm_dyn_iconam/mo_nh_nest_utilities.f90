@@ -121,7 +121,7 @@ CONTAINS
         ! Copy layer thicknesses to local parent of current child
 
         p_lp => p_patch_local_parent(jgc)
-        ALLOCATE(p_lp%cells%ddqz_z_full(nproma, p_lp%nlev, p_lp%n_patch_cells))
+        ALLOCATE(p_lp%cells%ddqz_z_full(nproma, p_lp%nlev, p_lp%nblks_c))
         p_lp%cells%ddqz_z_full(:,:,:) = 0._wp ! Safety only
         CALL exchange_data(p_lp%comm_pat_glb_to_loc_c, p_lp%cells%ddqz_z_full, &
           &                p_nh_state(jg)%metrics%ddqz_z_full)

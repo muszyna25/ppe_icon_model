@@ -658,7 +658,7 @@ CONTAINS
 
     INTEGER  :: i_nchdom, istartblk_c, istartblk_e, iendblk_c, iendblk_e, i_startidx, i_endidx
     INTEGER  :: jb, jk, jg
-#if defined( __INTEL_COMPILER ) || defined( _OPENACC )
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC ) || defined (__SX__)
     INTEGER  :: jec
 #endif
     INTEGER  :: proc_id(2), keyval(2)
@@ -684,10 +684,10 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-#ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
+#if defined( __INTEL_COMPILER ) || defined (__SX__)
+!$OMP DO PRIVATE(jb, jk, jec, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
-!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx, vn_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = istartblk_e, iendblk_e
 
@@ -696,8 +696,9 @@ CONTAINS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG PRIVATE( vn_aux_tmp )
+!$NEC novector
       DO jk = 1, patch%nlev
-#if defined( __INTEL_COMPILER ) || defined( _OPENACC )
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC ) || defined (__SX__)
         vn_aux_tmp = 0._wp
         !$ACC LOOP VECTOR REDUCTION(max:vn_aux_tmp)
         DO jec = i_startidx,i_endidx
@@ -712,10 +713,10 @@ CONTAINS
     END DO
 !$OMP END DO
 
-#ifdef __INTEL_COMPILER
-!$OMP DO PRIVATE(jk, jec, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
+#if defined( __INTEL_COMPILER ) || defined (__SX__)
+!$OMP DO PRIVATE(jb, jk, jec, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
 #else
-!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx, w_aux_tmp) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = istartblk_c, iendblk_c
 
@@ -724,8 +725,9 @@ CONTAINS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG PRIVATE( w_aux_tmp )
+!$NEC novector
       DO jk = 1, patch%nlevp1
-#if defined( __INTEL_COMPILER ) || defined( _OPENACC )
+#if defined( __INTEL_COMPILER ) || defined( _OPENACC ) || defined (__SX__)
         w_aux_tmp = 0._wp
         !$ACC LOOP VECTOR REDUCTION(max:w_aux_tmp)
         DO jec = i_startidx,i_endidx
@@ -744,7 +746,7 @@ CONTAINS
 
 ! At this point vn_aux and w_aux reside on the host.  
 ! Avoid doing MAXVAL with OpenACC -- this is not well supported!
-
+#ifndef __SX__
 !$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jk = 1, patch%nlev
@@ -753,6 +755,25 @@ CONTAINS
     END DO
 
 !$OMP END DO
+#else
+    vn_aux_lev = 0._wp
+    w_aux_lev  = 0._wp
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = istartblk_e, iendblk_e
+      DO jk = 1, patch%nlev
+        vn_aux_lev(jk) = MAX(vn_aux_lev(jk),vn_aux(jb,jk))
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = istartblk_c, iendblk_c
+      DO jk = 1, patch%nlev
+        w_aux_lev(jk) = MAX(w_aux_lev(jk),w_aux(jb,jk))
+      ENDDO
+    ENDDO
+!$OMP END DO
+#endif
+
 !$OMP END PARALLEL
 
     ! Add surface level for w
@@ -766,6 +787,7 @@ CONTAINS
     keyval(2) = MAXLOC(w_aux_lev(:),1)
 
     proc_id(:) = get_my_mpi_all_id()
+
     vmax       = global_max(vmax, proc_id=proc_id, keyval=keyval, iroot=process_mpi_stdio_id)
 
     max_vn         = vmax(1)

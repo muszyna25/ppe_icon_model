@@ -120,11 +120,13 @@ CONTAINS
              recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF (me%rank == me%root_rank) THEN
+!$OMP PARALLEL DO PRIVATE(i,j)
           DO j = 1, me%comm_size
             DO i = 1, me%point_counts(j)
               sendArray(i, j) = globalArray(me%pointIndices(i, j))
             END DO
           END DO
+!$OMP END PARALLEL DO
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
@@ -174,11 +176,13 @@ CONTAINS
              recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF (me%rank == me%root_rank) THEN
+!$OMP PARALLEL DO PRIVATE(i,j)
           DO j = 1, me%comm_size
             DO i = 1, me%point_counts(j)
               sendArray(i, j) = globalArray(me%pointIndices(i, j))
             END DO
           END DO
+!$OMP END PARALLEL DO
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
@@ -229,11 +233,13 @@ CONTAINS
              recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         IF(me%rank == me%root_rank) THEN
+!$OMP PARALLEL DO PRIVATE(i,j)
             DO j = 1, me%comm_size
               DO i = 1, me%point_counts(j)
                 sendArray(i, j) = globalArray(me%pointIndices(i, j))
               END DO
             END DO
+!$OMP END PARALLEL DO
         END IF
         CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
