@@ -98,6 +98,7 @@ MODULE mo_hierarchy_management
     &                               deallocateTimedelta, datetimeToString
   USE mo_util_mtime,          ONLY: getElapsedSimTimeInSeconds
   USE mo_time_config,         ONLY: time_config
+  USE mo_util_timer,          ONLY: util_cputime
 
   IMPLICIT NONE
   PRIVATE
@@ -189,7 +190,6 @@ CONTAINS
     INTEGER :: iret
     INTEGER :: nblks_e, nblks_c
     INTEGER :: ist
-    INTEGER, EXTERNAL :: util_cputime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
     REAL(wp)                            :: sim_time     !< elapsed simulation time on this grid level
 

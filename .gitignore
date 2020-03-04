@@ -1,32 +1,58 @@
+# Autoreconf stage files:
+/autom4te.cache
+/config.h.in~
+
+# Configure stage files:
+*.c.d
+*.cu.d
+*.f90.d
+.dirstamp
+/Makefile
+/c_binding.d
+/claw.mk
+/confdefs.h
+/config.cache
+/config.cache.externals.*
+/config.h
+/config.log
+/config.status
+/depgen.c.config
+/depgen.f90.config
+/deplist.config
+/extra_f90.d
+/icon.mk
+
+# Build stage files:
+*.i
+*.o
+*.lst
+/bin/icon
+/mod
+/pp
+/srclist
+/version.c
+
+# Dist stage files:
+/icon-*.tar.bz2
+
+# Extra sources that are not treated as submodules:
+/externals/art
+
+# Mac OS files:
+*.dSYM
+.DS_Store
+
+# Other files:
+*#
 *.settings
+*~
 .cproject
-.project
 .history
+.project
+.status.file
 /Rakefile
 /tempList
-.DS_Store
-/Makefile
-/build
-/build_command
-/config/config.h
-config.log
-config.status
-config/mh-config-use
-config/set-up.info
-src/lnd_phy_jsbach
-src/art
-*.o
-*~
-.status.file
 cdo_diffn*.out
 experiments*
-*#
-autom4te.cache
-externals/bin/
-externals/lib/
-externals/include/
-externals/sct/
-externals/cdi/
-externals/ecrad/*/*.i
-externals/ecrad/*/*.lst
-externals/ecrad/Makefile_include.ecradICON
+src/lnd_phy_jsbach
+

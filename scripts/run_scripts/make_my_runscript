@@ -5,7 +5,7 @@
 #==============================================================================
 set +x
 base_folder=$(pwd)
-. $base_folder/config/set-up.info
+. $base_folder/run/set-up.info
 input_folder=run
 use_shell=${use_shell:="/bin/ksh"}
 make_runscript="$use_shell ./config/make_target_runscript"

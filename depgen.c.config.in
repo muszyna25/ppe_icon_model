@@ -1,0 +1,3 @@
+--src-root=@srcdir@
+--pp-enable
+--pp-eval-expr

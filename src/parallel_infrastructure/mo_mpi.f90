@@ -175,6 +175,10 @@ MODULE mo_mpi
 #endif
 !  USE mo_impl_constants, ONLY: SUCCESS
 
+#ifndef __STANDALONE
+    USE mo_util_system, ONLY: util_exit
+#endif
+
   IMPLICIT NONE
 
   PRIVATE                          ! all declarations are private
@@ -2174,10 +2178,6 @@ CONTAINS
 
     ! this routine should be used instead of abort, util_abort() or STOP
     ! in all routines for proper clean up of all PEs
-
-#ifndef __STANDALONE
-    EXTERNAL :: util_exit
-#endif
 
 #ifndef NOMPI
     CALL MPI_ABORT (MPI_COMM_WORLD, 0, p_error)

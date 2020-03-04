@@ -1,0 +1,6 @@
+/build
+/time_build
+/time_depgen_make
+/time_depgen_shell
+/time_depgen_shell_onecall
+/time_depgen_shell_onefile
