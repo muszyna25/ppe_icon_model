@@ -886,7 +886,9 @@ add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_lan
 #
 #  prelinminary test version
 datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
-add_link_file $datadir/hdpara_icon_${atmos_gridID}_20190927.nc          ./bc_land_hd.nc
+#add_link_file $datadir/hdpara_icon_${atmos_gridID}_20190927.nc          ./bc_land_hd.nc
+#add_link_file $datadir/hdpara_icon_${atmos_gridID}_${atmos_refinement}_20200303_v2.nc ./bc_land_hd.nc
+add_link_file $datadir/hdpara_icon_0013_R02B04_20200303_v2.nc            ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 #
