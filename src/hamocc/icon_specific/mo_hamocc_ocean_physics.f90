@@ -24,6 +24,7 @@
       & vert_mix_type,vmix_kpp
     USE mo_ocean_physics,                ONLY: update_ho_params
     USE mo_hamocc_types,                 ONLY: t_hamocc_prog, t_hamocc_state
+    USE mo_ocean_physics_types,          ONLY: t_ho_params, v_params 
     USE mo_bgc_icon_comm,                ONLY: hamocc_state
     USE mo_dynamics_config,              ONLY: nold, nnew 
     USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
@@ -88,7 +89,7 @@
     hamocc_state_prog => hamocc_state%p_prog(nnew(1))
 
     IF (GMRedi_configuration == Cartesian_Mixing .AND. vert_mix_type .NE. vmix_kpp) THEN
-      CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+      CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients,v_params)
     ELSE
       CALL finish("tracer_biochemistry_transport", "GMRedi_configuration is not activated")
     ENDIF

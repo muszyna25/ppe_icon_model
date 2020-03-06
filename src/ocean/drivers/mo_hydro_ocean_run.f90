@@ -685,7 +685,8 @@ CONTAINS
       start_timer(timer_tracer_ab,1)
 
       IF (GMRedi_configuration == Cartesian_Mixing .AND. vert_mix_type .NE. vmix_kpp ) THEN
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
+          & p_phys_param)
       ELSE
         CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
           &  ocean_state, transport_state, p_phys_param, operators_coefficients)
