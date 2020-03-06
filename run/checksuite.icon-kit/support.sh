@@ -311,6 +311,21 @@ export MXM_LOG_LEVEL=ERROR
 # Disable GHC algorithm for collective communication
 export OMPI_MCA_coll=^ghc
 
+export MXM_HANDLE_ERRORS=bt
+export UCX_HANDLE_ERRORS=bt
+
+export OMPI_MCA_coll=^fca
+export OMPI_MCA_coll_hcoll_enable=1
+export OMPI_MCA_coll_hcoll_priority=95
+export OMPI_MCA_coll_hcoll_np=8
+export HCOLL_MAIN_IB=mlx5_0:1
+export HCOLL_ENABLE_MCAST=1
+export HCOLL_ENABLE_MCAST_ALL=1
+
+export HCOLL_ML_DISABLE_BARRIER=1
+export HCOLL_ML_DISABLE_IBARRIER=1
+export HCOLL_ML_DISABLE_BCAST=1
+export HCOLL_ML_DISABLE_REDUCE=1
 
 srun -l --propagate=STACK --cpu_bind=cores \
   --distribution=block:cyclic ./icon.exe
