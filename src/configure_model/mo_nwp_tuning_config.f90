@@ -170,6 +170,7 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Tuning factor for gust parameterization
     &  tune_gust_factor            !
+  !$acc declare create(tune_gust_factor)
 
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed Sahara

@@ -48,6 +48,7 @@ MODULE mo_mcrph_sb
 USE mo_kind,                 ONLY: wp
 USE mo_math_constants,       ONLY: pi
 USE mo_vertical_coord_table, ONLY: vct_a
+USE mo_math_utilities,       ONLY: gamma_fct  
 USE mo_physical_constants,   ONLY: &
     rhoh2o,        & ! density of liquid water
     alv,           & ! latent heat of vaporization
@@ -55,21 +56,23 @@ USE mo_physical_constants,   ONLY: &
     cpdr  => rcpd, & ! (spec. heat of dry air at constant press)^-1
     cvdr  => rcvd    ! (spec. heat of dry air at const vol)^-1
 
-USE mo_exception,      ONLY: finish, message, message_text
+USE mo_exception,            ONLY: finish, message, message_text
 
-USE mo_2mom_mcrph_main,     ONLY:                                &
-     &                       clouds_twomoment,                   &
-     &                       atmosphere, particle, particle_frozen, particle_lwf, &
-     &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
-     &                       ccn_coeffs, in_coeffs,                     &
-     &                       init_2mom_scheme, init_2mom_scheme_once,   &
-     &                       qnc_const
+USE mo_reff_types,           ONLY: t_reff_calc
 
-USE mo_2mom_mcrph_processes, ONLY:                                &
-     &                       sedi_vel_rain, sedi_vel_sphere,     &
-     &                       sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf, &
-     &                       particle_meanmass, &
-     &                       q_crit
+USE mo_2mom_mcrph_main,      ONLY:                                &
+     &                        clouds_twomoment,                   &
+     &                        atmosphere, particle, particle_frozen, particle_lwf, &
+     &                        rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
+     &                        ccn_coeffs, in_coeffs,                     &
+     &                        init_2mom_scheme, init_2mom_scheme_once,   &
+     &                        qnc_const
+
+USE mo_2mom_mcrph_processes,  ONLY:                                &
+     &                         sedi_vel_rain, sedi_vel_sphere,     &
+     &                         sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf, &
+     &                         particle_meanmass, &
+     &                         q_crit, rho_ice
 
 USE mo_2mom_mcrph_util, ONLY:                            &
      &                       gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
@@ -1094,6 +1097,136 @@ CONTAINS
 
   END SUBROUTINE two_moment_mcrph_init
 
+
+
+  ! Subroutine that provides coefficients for the effective radius calculations
+  ! consistent with two-moment microphysics
+  SUBROUTINE two_mom_reff_coefficients( reff_calc ,return_fct)
+    TYPE(t_reff_calc), INTENT(INOUT) ::  reff_calc                   ! Structure with options and coefficiencts
+    LOGICAL          , INTENT(INOUT) ::  return_fct                  ! Return code of the subroutine
+
+    ! These are the fundamental hydrometeor particle variables for the two-moment scheme
+    TYPE(particle)        , TARGET   :: cloud_hyd, rain_hyd
+    TYPE(particle_frozen) , TARGET   :: ice_frz, snow_frz, graupel_frz, hail_frz
+    TYPE(particle_lwf)    , TARGET   :: graupel_lwf, hail_lwf
+
+    ! Pointers to the derived types that are actually needed
+    CLASS(particle)       , POINTER  :: cloud, rain
+    CLASS(particle_frozen), POINTER  :: ice, snow, graupel, hail
+
+    ! Parameters used in the paramaterization of reff (the same for all)
+    CLASS(particle)       , POINTER  :: current_hyd
+    REAL(wp)                         :: a_geo, b_geo, mu, nu
+    REAL(wp)                         :: bf, bf2 
+    LOGICAL                          :: monodisperse
+    
+    
+    ! Check input return_fct
+    IF (.NOT. return_fct) THEN
+      WRITE (message_text,*) 'Reff: Function two_mom_provide_reff_coefficients entered with previous error'
+      CALL message('',message_text)
+      RETURN
+    END IF
+
+
+
+    ! We need to reinitiate the particles because they are deleted after every micro call
+    cloud => cloud_hyd
+    rain  => rain_hyd
+    ice   => ice_frz
+    snow  => snow_frz
+    IF (reff_calc%microph_param == 7 ) THEN  ! Vivek Param. Frozen+Liquid
+       graupel => graupel_lwf                ! gscp=7
+       hail    => hail_lwf
+    ELSE
+       graupel => graupel_frz                ! gscp=4,5,6
+       hail    => hail_frz
+    END IF
+    ! .. set the particle types, but no calculations
+    CALL init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
+
+    
+    SELECT CASE ( reff_calc%hydrometeor )    ! Select Hydrometeor
+    CASE (0)                                 ! Cloud water
+      current_hyd => cloud
+    CASE (1)  
+      current_hyd => ice
+    CASE (2)  
+      current_hyd => rain
+    CASE (3)  
+      current_hyd => snow
+    CASE (4)  
+      current_hyd => graupel
+    CASE (5)  
+      current_hyd => hail
+    END SELECT
+
+    ! Extract properties of hydrometeor
+    a_geo           = current_hyd%a_geo
+    b_geo           = current_hyd%b_geo
+    mu              = current_hyd%mu
+    nu              = current_hyd%nu
+    reff_calc%x_min = current_hyd%x_min
+    reff_calc%x_max = current_hyd%x_max
+
+    ! All DSD are polydisperse
+    monodisperse    = .false.
+
+    ! Overwrite monodisperse/polydisperse according to options
+    SELECT CASE (reff_calc%dsd_type)
+    CASE (1)
+      monodisperse  = .true.
+    CASE (2)
+      monodisperse  = .false.
+    END SELECT
+
+
+    IF ( reff_calc%dsd_type == 2) THEN       ! Overwrite mu and nu coefficients
+      mu            = reff_calc%mu
+      nu            = reff_calc%nu
+    END IF
+
+    SELECT CASE ( reff_calc%reff_param )     ! Select Parameterization
+    CASE(0)                                  ! Spheroids  Dge = c1 * x**[c2], which x = mean mass
+      ! First calculate monodisperse
+      reff_calc%reff_coeff(1)   = a_geo
+      reff_calc%reff_coeff(2)   = b_geo
+
+      ! Broadening for not monodisperse
+      IF ( .NOT. monodisperse ) THEN 
+        bf =  gamma_fct( (3.0_wp * b_geo + nu + 1.0_wp)/ mu) / gamma_fct( (2.0_wp * b_geo + nu + 1.0_wp)/ mu) * &
+          & ( gamma_fct( (nu + 1.0_wp)/ mu) / gamma_fct( (nu + 2.0_wp)/ mu) )**b_geo
+
+        reff_calc%reff_coeff(1) = reff_calc%reff_coeff(1)*bf
+        
+      END IF
+       
+
+    CASE (1)                                 ! Fu Random Hexagonal needles:  Dge = 1/(c1 * x**[c2] + c3 * x**[c4])
+                                             ! Parameterization based on Fu, 1996; Fu et al., 1998; Fu ,2007
+
+      ! First calculate monodisperse
+      reff_calc%reff_coeff(1)   = SQRT( 3.0_wp *SQRT(3.0_wp) * rho_ice * a_geo / 8.0_wp )
+      reff_calc%reff_coeff(2)   = (b_geo - 1.0_wp)/2.0_wp 
+      reff_calc%reff_coeff(3)   = SQRT(3.0_wp)/4.0_wp/a_geo
+      reff_calc%reff_coeff(4)   = -b_geo
+
+      ! Broadening for not monodisperse. Generalized gamma distribution
+      IF ( .NOT. monodisperse ) THEN 
+        bf  =  gamma_fct( ( b_geo + 2.0_wp * nu + 3.0_wp)/ mu/2.0_wp ) / gamma_fct( (nu + 2.0_wp)/ mu) * &
+           & ( gamma_fct( (nu + 1.0_wp)/ mu) / gamma_fct( (nu + 2.0_wp)/ mu) )**( (b_geo-1.0_wp)/2.0_wp)
+
+        bf2 =  gamma_fct( (-b_geo + nu + 2.0_wp)/ mu ) / gamma_fct( (nu + 2.0_wp)/ mu) * &
+           & ( gamma_fct( (nu + 1.0_wp)/ mu) / gamma_fct( (nu + 2.0_wp)/ mu) )**( -b_geo)
+
+        reff_calc%reff_coeff(1) = reff_calc%reff_coeff(1)*bf
+        reff_calc%reff_coeff(3) = reff_calc%reff_coeff(3)*bf2
+      END IF
+
+    END SELECT
+
+  END SUBROUTINE two_mom_reff_coefficients
+                 
 !==============================================================================
 
   FUNCTION set_qnc(qc)
@@ -1122,8 +1255,12 @@ CONTAINS
     REAL(wp), INTENT(in)  :: qr  ! has to be [kg/m^3]
     REAL(wp), PARAMETER   :: N0r = 8000.0e3_wp ! intercept of MP distribution
 
-!    set_qnr = N0r * ( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp)))**(0.25_wp)
-    set_qnr = N0r * EXP( LOG( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp))) * (0.25_wp) )
+    !    set_qnr = N0r * ( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp)))**(0.25_wp)
+    IF (qr >= 1e-20_wp) THEN
+      set_qnr = N0r * EXP( LOG( qr * 6.0_wp / (pi * rhoh2o * N0r * gfct(4.0_wp))) * (0.25_wp) )
+    ELSE
+      set_qnr = 0.0_wp
+    END IF
 
   END FUNCTION set_qnr
 
@@ -1136,8 +1273,12 @@ CONTAINS
     REAL(wp), PARAMETER :: bms = 2.0_wp
 
 !    set_qns = N0s * ( qs / ( ams * N0s * gfct(bms+1.0_wp)))**( 1.0_wp/(1.0_wp+bms) )
-    set_qns = N0s * EXP( LOG( qs / ( ams * N0s * gfct(bms+1.0_wp))) * ( 1.0_wp/(1.0_wp+bms) ) )
-
+    IF (qs >= 1e-20_wp) THEN
+      set_qns = N0s * EXP( LOG( qs / ( ams * N0s * gfct(bms+1.0_wp))) * ( 1.0_wp/(1.0_wp+bms) ) )
+    ELSE
+      set_qns = 0.0_wp
+    END IF
+    
   END FUNCTION set_qns
 
   FUNCTION set_qng(qg)
@@ -1149,7 +1290,11 @@ CONTAINS
     REAL(wp), PARAMETER   :: bmg = 3.1_wp
 
 !    set_qng = N0g * ( qg / ( amg * N0g * gfct(bmg+1.0_wp)))**( 1.0_wp/(1.0_wp+bmg) )
-    set_qng = N0g * EXP( LOG ( qg / ( amg * N0g * gfct(bmg+1.0_wp))) * ( 1.0_wp/(1.0_wp+bmg) ) )
+    IF (qg >= 1e-20_wp) THEN
+      set_qng = N0g * EXP( LOG ( qg / ( amg * N0g * gfct(bmg+1.0_wp))) * ( 1.0_wp/(1.0_wp+bmg) ) )
+    ELSE
+      set_qng = 0.0_wp
+    END IF
 
   END FUNCTION set_qng
 

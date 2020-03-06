@@ -1055,9 +1055,14 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
 
 ENDDO ! end of big loop for search of departure level     
 
-      ! chose maximum CAPE value
+      ! compute maximum CAPE value
 DO jl=kidia,kfdia
-  pcape(jl) = MAXVAL(zcape(jl,ktdia:klev))
+  pcape(jl) = 0._jprb
+ENDDO
+DO jk=ktdia,klev
+  DO jl=kidia,kfdia
+    pcape(jl) = MAX(pcape(jl),zcape(jl,jk))
+  ENDDO
 ENDDO
 
 IF (lhook) CALL dr_hook('CUBASEN',1,zhook_handle)

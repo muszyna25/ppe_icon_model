@@ -73,7 +73,10 @@ MODULE mo_nwp_gscp_interface
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst, &
                                      specccn_segalkhain_simple
   USE mo_grid_config,          ONLY: l_limited_area
-  USE mo_satad,                ONLY: satad_v_3D
+  USE mo_satad,                ONLY: satad_v_3D, satad_v_3D_gpu
+
+  !$ser verbatim USE mo_ser_nwp_graupel, ONLY: serialize_graupel_input,&
+  !$ser verbatim                               serialize_graupel_output
 
   IMPLICIT NONE
 
@@ -168,9 +171,18 @@ CONTAINS
       l_nest_other_micro = .false. 
     END IF
 
+    !$acc data create(ddt_tend_t, ddt_tend_qv, ddt_tend_qc, ddt_tend_qi, ddt_tend_qr, ddt_tend_qs, &
+    !$acc             zncn, qnc, qnc_s)
+
+    !$ser verbatim call serialize_graupel_input(jg, nproma, nlev, p_metrics, p_prog,&
+    !$ser verbatim                              p_prog_rcf, p_diag, prm_diag, prm_nwp_tend)
+
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
     CASE(4,5,6)
 
+#ifdef _OPENACC
+        CALL finish('mo_nwp_gscp_interface:','only graupel microphysics (inwp_gscp=2) is supported on GPU!')
+#endif
        ! Update lateral boundaries of nested domains
        IF ( (l_limited_area.AND.jg==1) .OR. l_nest_other_micro) THEN
 
@@ -248,7 +260,12 @@ CONTAINS
         ELSE IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1) THEN
 
           IF (iprog_aero == 0) THEN
-            qnc_s(i_startidx:i_endidx) = prm_diag%cloud_num(i_startidx:i_endidx,jb)
+            !$acc parallel default(present)
+            !$acc loop gang vector
+            DO jc=i_startidx,i_endidx
+              qnc_s(jc) = prm_diag%cloud_num(jc,jb)
+            END DO
+            !$acc end parallel
           ELSE
 
             CALL ncn_from_tau_aerosol_speccnconst (nproma, nlev, i_startidx, i_endidx, nlev, nlev, &
@@ -262,14 +279,26 @@ CONTAINS
 
         ELSE
 
-          qnc_s(i_startidx:i_endidx) = cloud_num
+          !$acc parallel default(present)
+          !$acc loop gang vector
+          DO jc=i_startidx,i_endidx
+            qnc_s(jc) = cloud_num
+          END DO
+          !$acc end parallel
 
         ENDIF
 
         ! tt_lheat to be in used LHN
         ! lateron the updated p_diag%temp is added again
         IF (lcompute_tt_lheat) THEN
-          prm_diag%tt_lheat (:,:,jb) = prm_diag%tt_lheat (:,:,jb) - p_diag%temp   (:,:,jb)
+          !$acc parallel default(present)
+          !$acc loop gang vector collapse(2)
+          DO jk=1,nlev
+            DO jc=i_startidx,i_endidx
+              prm_diag%tt_lheat (jk,jc,jb) = prm_diag%tt_lheat (jk,jc,jb) - p_diag%temp   (jk,jc,jb)
+            ENDDO
+          ENDDO
+          !$acc end parallel
         ENDIF
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
@@ -353,7 +382,7 @@ CONTAINS
             & ddt_tend_qs = ddt_tend_qs                 ,    & !< out: tendency QS
             & idbg=msg_level/2                          ,    &
             & l_cv=.TRUE. )
-          
+
         CASE(3)  ! improved ice nucleation scheme by C. Koehler based on hydci_pp
 
           CALL hydci_pp_ice (                                &
@@ -545,13 +574,18 @@ CONTAINS
         END SELECT
 
         IF (ldiag_ttend) THEN
+          !$acc parallel default(present)
+          !$acc loop gang vector collapse(2)
           DO jk = kstart_moist(jg), nlev
             DO jc = i_startidx, i_endidx
               prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) = ddt_tend_t(jc,jk)   ! tendency temperature
             ENDDO
           ENDDO
+          !$acc end parallel
         ENDIF
         IF (ldiag_qtend) THEN
+          !$acc parallel default(present)
+          !$acc loop gang vector
           DO jk = kstart_moist(jg), nlev
             DO jc = i_startidx, i_endidx
               prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqv) = ddt_tend_qv(jc,jk)  ! tendency QV
@@ -561,6 +595,7 @@ CONTAINS
               prm_nwp_tend%ddt_tracer_gscp(jc,jk,jb,iqs) = ddt_tend_qs(jc,jk)  ! tendency QS
             ENDDO
           ENDDO
+          !$acc end parallel
         ENDIF
 
 
@@ -573,6 +608,10 @@ CONTAINS
         IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
           SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
           CASE(4,5,6)
+
+#ifdef _OPENACC
+           CALL finish('mo_nwp_gscp_interface:','only graupel microphysics (inwp_gscp=2) is supported on GPU!')
+#endif
 
 !DIR$ IVDEP
            DO jc =  i_startidx, i_endidx
@@ -598,6 +637,8 @@ CONTAINS
           CASE(2)
 
 !DIR$ IVDEP
+           !$acc parallel default(present)
+           !$acc loop gang vector
            DO jc =  i_startidx, i_endidx
 
              prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)           &
@@ -615,10 +656,13 @@ CONTAINS
                &                      + prm_diag%graupel_gsp(jc,jb)
 
            ENDDO
+           !$acc end parallel
 
           CASE DEFAULT
 
 !DIR$ IVDEP
+           !$acc parallel default(present)
+           !$acc loop gang vector
            DO jc =  i_startidx, i_endidx
 
              prm_diag%rain_gsp(jc,jb) = prm_diag%rain_gsp(jc,jb)         & 
@@ -632,6 +676,7 @@ CONTAINS
                &                      + prm_diag%snow_gsp(jc,jb)
 
            ENDDO
+           !$acc end parallel
 
           END SELECT
         ENDIF
@@ -662,7 +707,11 @@ CONTAINS
 
           ELSE
 
-            CALL satad_v_3d(                                 &           
+#ifdef _OPENACC
+            CALL satad_v_3d_gpu(                             &
+#else
+            CALL satad_v_3d(                                 &
+#endif
                & maxiter  = 10                            ,& !> IN
                & tol      = 1.e-3_wp                      ,& !> IN
                & te       = p_diag%temp       (:,:,jb)    ,& !> INOUT
@@ -683,7 +732,14 @@ CONTAINS
 
         ! Update tt_lheat to be used in LHN
         IF (lcompute_tt_lheat) THEN
-          prm_diag%tt_lheat (:,:,jb) = prm_diag%tt_lheat (:,:,jb) + p_diag%temp   (:,:,jb)
+            !$acc parallel default(present)
+            !$acc loop gang vector collapse(2)
+            DO jk=1,nlev
+              DO jc=i_startidx,i_endidx
+                prm_diag%tt_lheat(jk,jc,jb) = prm_diag%tt_lheat(jk,jc,jb) + p_diag%temp(jk,jc,jb)
+              ENDDO
+            ENDDO
+            !$acc end parallel
         ENDIF
 
       ENDDO
@@ -696,6 +752,10 @@ CONTAINS
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
+    !$ser verbatim call serialize_graupel_output(jg, nproma, nlev, p_metrics, p_prog,&
+    !$ser verbatim                               p_prog_rcf, p_diag, prm_diag, prm_nwp_tend)
+
+    !$acc end data
      
   END SUBROUTINE nwp_microphysics
 

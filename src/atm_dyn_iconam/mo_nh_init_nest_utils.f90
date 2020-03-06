@@ -66,7 +66,7 @@ MODULE mo_nh_init_nest_utils
   USE sfc_flake,                ONLY: flake_coldinit
   USE mo_upatmo_config,         ONLY: upatmo_config
   USE mo_input_instructions,    ONLY: t_readInstructionListPtr, kStateFailedFetch, &
-    &                                 kInputSourceAnaI, kInputSourceFgAnaI
+    &                                 kInputSourceAnaI, kInputSourceFgAnaI, kInputSourceAna, kInputSourceBoth
 
   IMPLICIT NONE
 
@@ -1087,6 +1087,10 @@ MODULE mo_nh_init_nest_utils
         DO jc = i_startidx, i_endidx
           lndvars_par(jc,jk1+5,jb) = initicon(jg)%sfc_inc%t_2m(jc,jb)
         ENDDO
+      ELSE
+        DO jc = i_startidx, i_endidx
+          lndvars_par(jc,jk1+5,jb) = 0._wp
+        ENDDO
       ENDIF
 
     ENDDO
@@ -1169,7 +1173,11 @@ MODULE mo_nh_init_nest_utils
     ! set information about input source for interpolated fields
     !
     ! w_so (full field: fg, increment: ana(intp))
-    CALL inputInstructions(jgc)%ptr%setSource('w_so', kInputSourceFgAnaI)
+    IF (inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceBoth) THEN
+      CALL inputInstructions(jgc)%ptr%setSource('w_so', kInputSourceFgAnaI)
+    ELSE
+      CALL inputInstructions(jgc)%ptr%setSource('w_so', inputInstructions(jg)%ptr%sourceOfVar('w_so'))
+    ENDIF
     !
     ! sst
     ! Branching is necessary here, as sst can either be read via the field t_seasfc of t_so(0)
@@ -1177,24 +1185,44 @@ MODULE mo_nh_init_nest_utils
       ! since we cannot distinguish between t_so which is read from fg and 
       ! t_so(0)==sst which is read/interpolated from ana, we set
       ! full field: fg, ana(intp), increment: none
-      CALL inputInstructions(jgc)%ptr%setSource('t_so', kInputSourceFgAnaI)
+      IF (inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceBoth) THEN
+        CALL inputInstructions(jgc)%ptr%setSource('t_so', kInputSourceFgAnaI)
+      ELSE
+        CALL inputInstructions(jgc)%ptr%setSource('t_so', inputInstructions(jg)%ptr%sourceOfVar('t_so'))
+      ENDIF
     ELSE
       ! full field: ana(intp), increment: none
       CALL inputInstructions(jgc)%ptr%setSource('t_seasfc', kInputSourceAnaI)
     ENDIF
     !
     ! fr_seaice (full field: ana(intp), increment: none)
-    CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', kInputSourceAnaI)
+    IF (inputInstructions(jg)%ptr%sourceOfVar('fr_seaice') == kInputSourceAna) THEN
+      CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', kInputSourceAnaI)
+    ELSE
+      CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', inputInstructions(jg)%ptr%sourceOfVar('fr_seaice'))
+    ENDIF
     !
     ! h_snow (full field: fg, increment: ana(intp))
-    CALL inputInstructions(jgc)%ptr%setSource('h_snow', kInputSourceFgAnaI)
+    IF (inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceBoth) THEN
+      CALL inputInstructions(jgc)%ptr%setSource('h_snow', kInputSourceFgAnaI)
+    ELSE
+      CALL inputInstructions(jgc)%ptr%setSource('h_snow', inputInstructions(jg)%ptr%sourceOfVar('h_snow'))
+    ENDIF
     !
     ! freshsnow (full field: fg, increment: ana(intp))
-    CALL inputInstructions(jgc)%ptr%setSource('freshsnow', kInputSourceFgAnaI)
+    IF (inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceBoth) THEN
+      CALL inputInstructions(jgc)%ptr%setSource('freshsnow', kInputSourceFgAnaI)
+    ELSE
+      CALL inputInstructions(jgc)%ptr%setSource('freshsnow', inputInstructions(jg)%ptr%sourceOfVar('freshsnow'))
+    ENDIF
     !
     ! t_2m (full field: none, increment: ana(intp))
     IF (itype_vegetation_cycle == 3) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('t_2m', kInputSourceAnaI)
+      IF (inputInstructions(jg)%ptr%sourceOfVar('t_2m') == kInputSourceAna) THEN
+        CALL inputInstructions(jgc)%ptr%setSource('t_2m', kInputSourceAnaI)
+      ELSE
+        CALL inputInstructions(jgc)%ptr%setSource('t_2m', inputInstructions(jg)%ptr%sourceOfVar('t_2m'))
+      ENDIF
     ENDIF
 
 

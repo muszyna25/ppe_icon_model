@@ -351,7 +351,13 @@ MODULE mo_nwp_phy_types
                              !! a means average values if lflux_avg=.TRUE.
                              !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
       qcfl_s(:,:)      ,   & !! cloud water turbulent deposition flux         (kg/m2/s)
-      qifl_s(:,:)            !! cloud ice turbulent deposition flux           (kg/m2/s)
+      qifl_s(:,:)      ,   & !! cloud ice turbulent deposition flux           (kg/m2/s)
+      reff_qc(:,:,:)   ,   & !! effective radius of cloud water               (m)
+      reff_qi(:,:,:)   ,   & !! effective radius of cloud ice                 (m)
+      reff_qr(:,:,:)   ,   & !! effective radius of cloud rain                (m)
+      reff_qs(:,:,:)   ,   & !! effective radius of cloud snow                (m)
+      reff_qg(:,:,:)   ,   & !! effective radius of cloud graupel             (m)
+      reff_qh(:,:,:)         !! effective radius of cloud hail                (m)
 
     ! need only for EDMF
     REAL(wp), POINTER       &
@@ -445,11 +451,17 @@ MODULE mo_nwp_phy_types
       htop_sc(:,:),        & !> height of top  above MSL from shallow convection parameterization
       twater(:,:),         & !> Total column integrated water
       q_sedim(:,:,:),      & !> Specific content of precipitation particles
-      tcond_max(:,:),      & !< Flag. TRUE if computation of total column-integrated condensate desired
-      tcond10_max(:,:),    & !< Flag. TRUE if computation of total column-integrated condensate above z(T=-10 degC) desired
-      uh_max(:,:),         & !< Flag. TRUE if computation of updraft helicity desired
-      vorw_ctmax(:,:),     & !< Flag. TRUE if computation of maximum rotation amplitude desired
-      w_ctmax(:,:)           !< Flag. TRUE if computation of maximum updraft track desired
+      tcond_max(:,:),      & !< Total column-integrated condensate
+      tcond10_max(:,:),    & !< Total column-integrated condensate above z(T=-10 degC) 
+      uh_max(:,:),         & !< Updraft helicity
+      vorw_ctmax(:,:),     & !< Maximum rotation amplitude
+      w_ctmax(:,:),        & !< Maximum updraft track
+      dbz3d_lin(:,:,:),    & !< Radar reflectivity 3D in linear units mm^6/m^3
+      dbz_850(:,:),        & !< Radar reflectivity in approx. 850 hPa
+      dbz_cmax(:,:),       & !< Column maximum radar reflectivity
+      dbz_ctmax(:,:),      & !< Column and time maximum radar reflectivity
+      echotop(:,:,:),      & !< Echotop pressure in p
+      echotopinm(:,:,:)      !< Echotop altitude in m MSL
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
     ! grid and latm_above_top = .TRUE.

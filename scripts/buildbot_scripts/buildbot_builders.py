@@ -191,9 +191,9 @@ class buildbot_experiments_list(object):
   def add_machine(self, name, queue):
     machine=self.buildbot_machines_list.add_machine(name, queue)
 
-  def add_builder(self, builder_name, machine_name, configure_flags, builder_flags):
+  def add_builder(self, builder_name, machine_name, build_script, configure_flags, builder_flags):
     machine = self.get_MachineByName(machine_name)
-    return machine.add_builder(builder_name,  configure_flags, builder_flags)
+    return machine.add_builder(builder_name, build_script, configure_flags, builder_flags)
     
   #---------------------------------------
   # i/o routines
@@ -226,7 +226,7 @@ class buildbot_experiments_list(object):
         if   (keyword == "machine"):
           machine=self.buildbot_machines_list.add_machine(name, inputs[2])
         elif (keyword == "builder"):
-          builder=machine.add_builder(name, inputs[2], inputs[3])
+          builder=machine.add_builder(name, inputs[2], inputs[3], inputs[4])
         elif (keyword == "experiment"):
           experiment = self.add_experiment(name)
           # force the addition in case the builder is not active
@@ -358,8 +358,8 @@ class buildbot_machine(object):
     self.machine_list = machine_list
     self.builders= {}
 
-  def add_builder(self, name, configure_flags, builder_flags):
-    self.builders[name] = buildbot_builder(name, self, configure_flags, builder_flags)
+  def add_builder(self, name, build_script, configure_flags, builder_flags):
+    self.builders[name] = buildbot_builder(name, self, build_script, configure_flags, builder_flags)
     self.machine_list.add_builder(self.builders[name])
     return self.builders[name]
 
@@ -438,10 +438,11 @@ class buildbot_experiment(object):
 # this list is driven through the experiment class, not directly from this class
 class buildbot_builder(object):
 
-  def __init__(self, name, machine, configure_flags, builder_flags):
+  def __init__(self, name, machine, build_script='', configure_flags='', builder_flags=''):
     self.name  = name
     self.machine = machine
     self.configure_flags = configure_flags
+    self.build_script = build_script
     self.builder_flags = builder_flags
     self.experiments = weakref.WeakValueDictionary() # {}
     self.experiments_runflags = {} # {}
@@ -460,6 +461,12 @@ class buildbot_builder(object):
 
   def get_configure_flags(self):
     return self.configure_flags
+
+  def set_build_script(self, flags):
+    self.build_script = flags
+
+  def get_build_script(self):
+    return self.build_script
     
   # updates the configure flags based on the builder flags
   #def update_builder_configuration(self):
@@ -501,7 +508,7 @@ class buildbot_builder(object):
     del self.experiments[experiment.name]
 
   def make_binaries(self):
-    return make_binaries_interface(self.configure_flags, self.builder_flags)
+    return make_binaries_interface(self.build_script, self.configure_flags, self.builder_flags)
 
   # if succesful returns a list of the runscripts
   #  otherwise returns the status
@@ -528,7 +535,7 @@ class buildbot_builder(object):
       #experiment.print_experiment()
 
   def writeToFile_builder_experiments(self, listfile):
-    listfile.write("builder|"+self.name+'|'+self.configure_flags+"|"+self.builder_flags+"\n")
+    listfile.write("builder|"+self.name+'|'+self.build_script+'|'+self.configure_flags+"|"+self.builder_flags+"\n")
     for experiment in self.experiments.values():
       experiment.writeToFile_experiment(listfile, self.name)
 #-----------------------------------------------------------------------

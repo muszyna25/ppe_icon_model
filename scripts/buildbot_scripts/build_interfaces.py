@@ -12,28 +12,39 @@ def runCommand(cmd):
   return status
 #-----------------------------------------------------------------------
 
-def make_binaries_interface(configure_flags, builder_flags):
-  if "Ocean" in builder_flags:
-    return make_ocean_binaries(configure_flags)
-  #elif "AES" in builder_flags:
-    #return make_aes_binaries(configure_flags)
-  elif "NWP" in builder_flags:
-    return make_nwp_binaries(configure_flags)
-  elif not "Inactive" in builder_flags:
-    return make_all_binaries(configure_flags)
+def make_binaries_interface(build_script, configure_flags, builder_flags):
+  if not "Inactive" in builder_flags:
+    return make_all_binaries(build_script, configure_flags)
   return 0
   
 
-def make_all_binaries(configure_flags):
+def make_all_binaries(build_script, configure_flags):
   os.chdir(paths.basePath)
-  status = runCommand("./configure "+configure_flags)
+  build_command = ''
+  buildScriptUsed = False
+  # the build script is supposed to do configure, make and prepare the
+  # runscript templated to be at the right place
+  if (None != build_script):
+      buildScriptUsed = True
+      build_command = build_script
+  else:
+      build_command = './configure '+configure_flags
+  status = runCommand(build_command)
   if not status == 0:
     print("Configure failed")
     return status
-  status = runCommand("./build_command")
-  if not status == 0:
-    print("Build failed")
-    return status
+
+  # perform usual installation steps in case of a regular configure call used
+  if (not buildScriptUsed):
+    status = runCommand("make -j8 V=1")
+    if not status == 0:
+      print("Build failed")
+      return status
+#   status = runCommand("make install V=1")
+#   if not status == 0:
+#     print("installation failed")
+#     return status
+
   set_account()
   os.chdir(paths.thisPath)
   return 0
@@ -58,7 +69,7 @@ def make_ocean_binaries(configure_flags):
   # get the ocean binaries and setup-info  
   os.chdir(paths.basePath)
   status = runCommand("cp -r "+ocean_folder+"/build .")
-  status = runCommand("cp "+ocean_folder+"/config/set-up.info config")
+  status = runCommand("cp "+ocean_folder+"/run/set-up.info config")
   set_account()
   
   os.chdir(paths.thisPath)  
@@ -84,7 +95,7 @@ def make_aes_binaries(configure_flags):
   # get the aes binaries and setup-info
   os.chdir(paths.basePath)
   status = runCommand("cp -r "+aes_folder+"/build .")
-  status = runCommand("cp "+aes_folder+"/config/set-up.info config")
+  status = runCommand("cp "+aes_folder+"/run/set-up.info config")
   set_account()
 
   os.chdir(paths.thisPath)
@@ -111,14 +122,14 @@ def make_nwp_binaries(configure_flags):
   # get the aes binaries and setup-info
   os.chdir(paths.basePath)
   status = runCommand("cp -r "+aes_folder+"/build .")
-  status = runCommand("cp "+aes_folder+"/config/set-up.info config")
+  status = runCommand("cp "+aes_folder+"/run/set-up.info config")
   set_account()
 
   os.chdir(paths.thisPath)
   return 0
 
 def set_account():
-  setup_file = open("./config/set-up.info", 'a')
+  setup_file = open("./run/set-up.info", 'a')
   setup_file.write("use_account_no=mh0287\n")
   setup_file.write("use_notification=never\n")
   setup_file.close()
@@ -148,7 +159,7 @@ def make_runscript(experimentPathName, runflags):
   os.chdir(paths.basePath)
   outscript=experimentName+".run"
   expname = get_EXPNAME(outscript)
-  make_runscript_command=paths.basePath+"/config/make_target_runscript "
+  make_runscript_command=paths.basePath+"/run/make_target_runscript "
   inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun out_script="+outscript+" EXPNAME="+expname+" "
   print(make_runscript_command+inoutFiles+runflags)
   status = runCommand(make_runscript_command+inoutFiles+runflags)

@@ -16,20 +16,18 @@ MODULE mo_util_mtime
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimeDelta,   &
-    &                                    OPERATOR(-), OPERATOR(+),                         &
+    &                                    OPERATOR(-), OPERATOR(+), event,                  &
     &                                    juliandelta, newJulianDelta,                      &
     &                                    timeDeltaToJulianDelta, deallocateJulianDelta,    &
     &                                    deallocateTimeDelta, deallocateDatetime,          &
     &                                    getTimeDeltaFromDateTime,                         &
-    &                                    getTotalMillisecondsTimedelta
+    &                                    getTotalMillisecondsTimedelta,                    &
+    &                                    isCurrentEventActive
   USE mo_time_config,              ONLY: time_config
   USE mo_util_string,              ONLY: t_keyword_list,                   &
                                          associate_keyword, with_keywords, &
                                          int2string
-
-!DR Test
-  USE mo_exception,                ONLY: message, message_text, finish
-!DR End Test
+  USE mo_mpi,                      ONLY: p_pe, p_io, p_comm_work, p_bcast
 
   IMPLICIT NONE
 
@@ -41,6 +39,7 @@ MODULE mo_util_mtime
   PUBLIC :: getElapsedSimTimeInSeconds
   PUBLIC :: dummyDateTime
   PUBLIC :: t_datetime_ptr
+  PUBLIC :: is_event_active
   PUBLIC :: mtime_convert_netcdf_units
   PUBLIC :: mtime_divide_timedelta
 
@@ -228,6 +227,52 @@ CONTAINS
     CALL deallocateDatetime(dummy_date)
 
   END FUNCTION dummyDateTime
+
+
+
+  !>
+  !! Wrapper for mtime function isCurrentEventActive in order to 
+  !! encapsulate the vector-host offloading
+  !! needed on the NEC Aurora
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2020-01)
+  !!
+  LOGICAL FUNCTION is_event_active (in_event, mtime_current, offload_mode, plus_slack, opt_lasync)
+
+    TYPE(event),     POINTER, INTENT(INOUT)           :: in_event       !< mtime event to be checked
+    TYPE(datetime),  POINTER, INTENT(IN   )           :: mtime_current  !< current_datetime
+    LOGICAL,                  INTENT(IN   )           :: offload_mode   !< if TRUE, PE0 is in offloading mode
+    TYPE(timedelta), POINTER, INTENT(IN   ), OPTIONAL :: plus_slack
+    LOGICAL,                  INTENT(IN   ), OPTIONAL :: opt_lasync     !< if TRUE, broadcast is done by caller
+
+    LOGICAL :: lasync
+    LOGICAL :: is_active
+  !-----------------------------------------------------------------
+
+    IF (PRESENT(opt_lasync)) THEN
+     ! If TRUE, broadcast is done by caller
+     lasync = opt_lasync
+    ELSE
+     ! broadcast is done directly
+     lasync = .FALSE.
+    ENDIF
+
+    ! If PE0 is detached, execute isCurrentEventActive only on PE0 and broadcast result afterwards
+    IF (.NOT. offload_mode .OR. p_pe == p_io) THEN
+      IF (PRESENT(plus_slack)) THEN
+        is_active = isCurrentEventActive(in_event, mtime_current, plus_slack=plus_slack)
+      ELSE
+        is_active = isCurrentEventActive(in_event, mtime_current)
+      ENDIF
+    ENDIF
+    IF ( .NOT.lasync .AND. offload_mode ) CALL p_bcast(is_active, p_io, p_comm_work)
+
+    is_event_active = is_active
+
+  END FUNCTION is_event_active
+
+
 
   ! via seconds... should be solved by mtime, could be done without
   ! conversion to a prespecified time unit.

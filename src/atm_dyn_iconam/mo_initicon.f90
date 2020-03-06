@@ -171,7 +171,7 @@ MODULE mo_initicon
     ! read and initialize ICON prognostic fields
     !
     CALL process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, prm_diag, p_lnd_state)
-    CALL printChecksums(initicon, p_nh_state, p_lnd_state)
+    !CALL printChecksums(initicon, p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
     !
@@ -1952,7 +1952,7 @@ MODULE mo_initicon
     TYPE(t_patch),                  INTENT(INOUT) :: p_patch(:)
     TYPE(t_lnd_state),              INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),          INTENT(INOUT) :: ext_data(:)
-    TYPE(t_readInstructionListPtr), INTENT(IN   ) :: inputInstructions(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER :: jg, ic, jc, jk, jb, jt, ist     ! loop indices
     INTEGER :: ntlr

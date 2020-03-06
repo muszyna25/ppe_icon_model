@@ -24,6 +24,10 @@
 !! headers of the routines.
 MODULE mo_real_timer
 
+  USE iso_c_binding,      ONLY: c_loc
+  USE mo_util_timer,      ONLY: c_util_read_real_time => util_read_real_time, &
+    &                           c_util_diff_real_time => util_diff_real_time, &
+    &                           util_init_real_time, util_get_real_time_size
   USE mo_kind,            ONLY: dp
   USE mo_exception,       ONLY: finish, message, message_text
   USE mo_util_string,     ONLY: separator, sort_and_compress_list, int2string, real2string
@@ -42,7 +46,7 @@ MODULE mo_real_timer
                                 p_pe, get_my_mpi_all_comm_size, &
                                 p_comm_size, p_n_work
 #endif
-  USE mo_parallel_config, ONLY: p_test_run
+  USE mo_parallel_config, ONLY: p_test_run, proc0_shift
 
   USE mo_mpi,             ONLY: num_test_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe, p_pe_work, &
@@ -166,46 +170,6 @@ MODULE mo_real_timer
 
   LOGICAL                :: need_init = .TRUE.
 
-
-  INTERFACE
-    SUBROUTINE util_init_real_time()
-      IMPLICIT NONE
-    END SUBROUTINE util_init_real_time
-
-    SUBROUTINE util_get_real_time_size(sz)
-      IMPLICIT NONE
-      INTEGER, INTENT(out) :: sz
-    END SUBROUTINE util_get_real_time_size
-
-#if defined (__xlC__)
-    SUBROUTINE util_read_real_time(t)
-      IMPLICIT NONE
-      INTEGER, INTENT(out) :: t(*)
-    END SUBROUTINE util_read_real_time
-
-    SUBROUTINE util_diff_real_time(t1,t2,dt)
-      USE mo_kind, ONLY: dp
-      IMPLICIT NONE
-      INTEGER, INTENT(in)  :: t1(*), t2(*)
-      REAL(dp), INTENT(out) :: dt
-    END SUBROUTINE util_diff_real_time
-#else
-    SUBROUTINE util_read_real_time(t)
-      USE mo_kind, ONLY: dp
-      IMPLICIT NONE
-      REAL(dp), INTENT(out) :: t
-    END SUBROUTINE util_read_real_time
-
-    SUBROUTINE util_diff_real_time(t1,t2,dt)
-      USE mo_kind, ONLY: dp
-      IMPLICIT NONE
-      REAL(dp), INTENT(in)  :: t1, t2
-      REAL(dp), INTENT(out) :: dt
-    END SUBROUTINE util_diff_real_time
-#endif
-
-  END INTERFACE
-
 CONTAINS
 
   SUBROUTINE mo_real_timer_init
@@ -218,7 +182,7 @@ CONTAINS
     CALL util_init_real_time()
     CALL util_get_real_time_size(sz)
 
-#if defined (__xlC__)
+#ifdef __xlC__
     IF (BIT_SIZE(rt(1)%mark1)*SIZE(rt(1)%mark1) < sz*8) &
          CALL real_timer_abort(0,'buffer size for time stamps too small')
 #else
@@ -433,7 +397,7 @@ CONTAINS
 
   REAL(dp) FUNCTION timer_val(it)
     INTEGER, INTENT(in) :: it
-#if defined (__xlC__)
+#ifdef __xlC__
     INTEGER :: mark2(4)
 #else
     REAL(dp) :: mark2
@@ -496,7 +460,7 @@ CONTAINS
   SUBROUTINE timer_stop(it)
     INTEGER, INTENT(in) :: it
 
-#if defined (__xlC__)
+#ifdef __xlC__
     INTEGER  :: mark2(4)
 #else
     REAL(dp) :: mark2
@@ -968,7 +932,12 @@ CONTAINS
          tmr%rank_min(timer_top), tmr%rank_max(timer_top))
 !$omp parallel
 !$omp master
+  !NEC hybrid mode: set default values for minimum for process 0 to exclude it from statistics
+  IF (p_pe_work < proc0_shift) THEN
+    tmr%val_min    = huge(tmr%val_min) 
+  ELSE
     tmr%val_min    = rt(1:timer_top)%min
+  END IF
     tmr%val_max    = rt(1:timer_top)%max
     tmr%val_tot    = rt(1:timer_top)%tot
     tmr%val_call_n = REAL(MAX(1,rt(1:timer_top)%call_n), dp)
@@ -976,7 +945,12 @@ CONTAINS
 !$omp barrier
 !$omp sections
 !$omp section
+  !NEC hybrid mode: set default values for minimum for process 0 to exclude it from statistics
+  IF (p_pe_work < proc0_shift) THEN
+    tmr%val_tot_min = huge(tmr%val_tot_min)
+  ELSE
     tmr%val_tot_min = tmr%val_tot
+  ENDIF
 !$omp section
     tmr%val_tot_max = tmr%val_tot
 !$omp section
@@ -1474,5 +1448,24 @@ CONTAINS
     END DO
     !
   END SUBROUTINE mrgrnk
+
+  SUBROUTINE util_read_real_time(it)
+#ifdef __xlC__
+    INTEGER, INTENT(out), TARGET :: it(4)
+#else
+    REAL(dp), INTENT(out), TARGET :: it
+#endif
+    CALL c_util_read_real_time(c_loc(it))
+  END SUBROUTINE util_read_real_time
+
+  SUBROUTINE util_diff_real_time(it1, it2, t)
+#ifdef __xlC__
+    INTEGER, INTENT(in), TARGET :: it1(4), it2(4)
+#else
+    REAL(dp), INTENT(IN), TARGET :: it1, it2
+#endif
+    REAL(dp), INTENT(out) :: t
+    CALL c_util_diff_real_time(c_loc(it1), c_loc(it2), t)
+  END SUBROUTINE util_diff_real_time
 
 END MODULE mo_real_timer

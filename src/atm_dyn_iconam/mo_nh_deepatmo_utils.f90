@@ -25,8 +25,7 @@ MODULE mo_nh_deepatmo_utils
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell, min_rlvert, &
     &                                 min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_physical_constants,    ONLY: grav, rd, p0ref, rd_o_cpd, cpd, p0sl_bg
-  USE mo_upatmo_config,         ONLY: upatmo_dyn_config, &
-    &                                 imsg_thr, itmr_thr, idamtr
+  USE mo_upatmo_config,         ONLY: upatmo_dyn_config
   USE mo_grid_config,           ONLY: grid_sphere_radius
   USE mo_run_config,            ONLY: lvert_nest, msg_level
   USE mo_nonhydrostatic_config, ONLY: lextra_diffu
@@ -49,6 +48,7 @@ MODULE mo_nh_deepatmo_utils
   USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &
     &                                 set_table_entry, print_table, finalize_table
   USE mo_mpi,                   ONLY: my_process_is_stdio
+  USE mo_upatmo_impl_const,     ONLY: imsg_thr, itmr_thr, idamtr
 
   IMPLICIT NONE
 

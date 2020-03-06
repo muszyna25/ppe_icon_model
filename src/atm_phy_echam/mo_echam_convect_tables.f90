@@ -130,19 +130,6 @@ MODULE mo_echam_convect_tables
   !
   ! Derived bounds and deltas:
   !
-#ifdef __SX__
-  !-- full table:
-  !
-  INTEGER,  PARAMETER :: jptlucu0 = 273150   ! lookup table physical center
-  INTEGER,  PARAMETER :: jptlucu1 =  50000   ! lookup table lower bound
-  INTEGER,  PARAMETER :: jptlucu2 = 400000   ! lookup table upper bound
-  !
-  !-- spline interpolation:
-  !
-  INTEGER,  PARAMETER :: lucupctr =  10926   ! lookup table physical center
-  INTEGER,  PARAMETER :: lucupmin =   2000   ! lookup table lower bound
-  INTEGER,  PARAMETER :: lucupmax =  16000   ! lookup table upper bound
-#else
   !-- full table:
   !
   INTEGER,  PARAMETER :: jptlucu0 = NINT(rfdeltat*tmelt)   ! lookup table physical center
@@ -154,7 +141,6 @@ MODULE mo_echam_convect_tables
   INTEGER,  PARAMETER :: lucupctr = NINT(rsdeltat*tmelt)   ! lookup table physical center
   INTEGER,  PARAMETER :: lucupmin = NINT(rsdeltat*tlbound) ! lookup table lower bound
   INTEGER,  PARAMETER :: lucupmax = NINT(rsdeltat*tubound) ! lookup table upper bound
-#endif
   !
   !   For the spline interpolation the melting point tmelt = 273.15
   !   is resembled twice at index = lucubctr and index = lucubctr-1
@@ -168,19 +154,11 @@ MODULE mo_echam_convect_tables
 
   ! add float point constants for accelerated boundary guard code
   ! original big table
-#ifdef __SX__
-  REAL(wp), PARAMETER :: fjptlucu1 =  50000.0_wp
-  REAL(wp), PARAMETER :: fjptlucu2 = 400000.0_wp
-  ! new basic table bounds
-  REAL(wp), PARAMETER :: flucupmin =   2000.0_wp
-  REAL(wp), PARAMETER :: flucupmax =  16000.0_wp
-#else
   REAL(wp), PARAMETER :: fjptlucu1 = REAL(jptlucu1,wp)
   REAL(wp), PARAMETER :: fjptlucu2 = REAL(jptlucu2,wp)
   ! new basic table bounds
   REAL(wp), PARAMETER :: flucupmin = REAL(lucupmin,wp)
   REAL(wp), PARAMETER :: flucupmax = REAL(lucupmax,wp)
-#endif
 
   ! logical is fine and logical, but fp faster
   LOGICAL  :: lookupoverflow = .FALSE.          ! preset with false

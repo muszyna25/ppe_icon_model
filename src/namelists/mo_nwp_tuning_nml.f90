@@ -413,6 +413,7 @@ CONTAINS
     config_lcalib_clcov          = lcalib_clcov
     config_max_freshsnow_inc     = max_freshsnow_inc
 
+    !$acc update device(config_tune_gust_factor)
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart
