@@ -13,6 +13,10 @@
 @PROCESS NOOPTIMIZE
 #endif
 !pgi$r opt=0
+MODULE mo_srtm_kgb28
+PUBLIC :: srtm_kgb28
+CONTAINS
+
 SUBROUTINE srtm_kgb28
 
 !     Originally by J.Delamere, Atmospheric & Environmental Research.
@@ -11082,3 +11086,4 @@ END SUBROUTINE part37
 
 
 END SUBROUTINE srtm_kgb28
+END MODULE mo_srtm_kgb28

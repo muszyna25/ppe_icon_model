@@ -91,7 +91,9 @@ MODULE mo_rttov_ifc
 #if defined(__ICON__) && !defined(NO_RTTOV)
 #define _RTTOV_DO_DISTRIBCOEF
 #define RTTOV12 
+#ifdef _OPENMP
 #define RTTOV_USE_OPENMP
+#endif
 #define RADSHARE
 #ifdef __DACE__
 #define RTTOV_IFC_USE_MPI_DACE

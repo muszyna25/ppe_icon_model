@@ -13,6 +13,10 @@
 #ifdef __xlC__
 @PROCESS NOOPTIMIZE
 #endif
+MODULE mo_srtm_kgb25
+PUBLIC :: srtm_kgb25
+CONTAINS
+
 SUBROUTINE srtm_kgb25
 
 !     Originally by J.Delamere, Atmospheric & Environmental Research.
@@ -497,3 +501,4 @@ ka(:,13,16) = (/ &
 
 !     -----------------------------------------------------------------
 END SUBROUTINE srtm_kgb25
+END MODULE mo_srtm_kgb25

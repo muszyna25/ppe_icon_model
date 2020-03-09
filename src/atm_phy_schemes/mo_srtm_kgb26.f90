@@ -13,6 +13,10 @@
 #ifdef __xlC__
 @PROCESS NOOPTIMIZE
 #endif
+MODULE mo_srtm_kgb26
+PUBLIC :: srtm_kgb26
+CONTAINS
+
 SUBROUTINE srtm_kgb26
 
 !     Originally by J.Delamere, Atmospheric & Environmental Research.
@@ -47,3 +51,4 @@ rayl = (/ &
 
 !     ------------------------------------------------------------------
 END SUBROUTINE srtm_kgb26
+END MODULE mo_srtm_kgb26

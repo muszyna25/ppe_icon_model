@@ -2,8 +2,8 @@
 
 set -eu
 
-SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 
 # module command and path setup from  /etc/profile.local:
 MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"

@@ -31,13 +31,6 @@ CONTAINS
     CALL xl__trbk
   END SUBROUTINE util_backtrace
 
-#elif defined __SX__
-
-CONTAINS
-  SUBROUTINE util_backtrace()
-    CALL mesput('Traceback: ', 11, 1)
-  END SUBROUTINE util_backtrace
-
 #else
 
   INTERFACE

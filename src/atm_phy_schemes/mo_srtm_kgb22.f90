@@ -14,6 +14,10 @@
 @PROCESS NOOPTIMIZE
 #endif
 !pgi$r opt=0
+MODULE mo_srtm_kgb22
+PUBLIC :: srtm_kgb22
+CONTAINS
+
 SUBROUTINE srtm_kgb22
 
 !     Originally by J.Delamere, Atmospheric & Environmental Research.
@@ -4983,3 +4987,4 @@ END SUBROUTINE part17
 
 
 END SUBROUTINE srtm_kgb22
+END MODULE mo_srtm_kgb22

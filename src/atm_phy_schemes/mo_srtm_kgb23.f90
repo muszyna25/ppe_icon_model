@@ -13,6 +13,10 @@
 #ifdef __xlC__
 @PROCESS NOOPTIMIZE
 #endif
+MODULE mo_srtm_kgb23
+PUBLIC :: srtm_kgb23
+CONTAINS
+
 SUBROUTINE srtm_kgb23
 
 !     Originally by J.Delamere, Atmospheric & Environmental Research.
@@ -563,3 +567,4 @@ selfref(:,16) = (/ &
 
 !     -----------------------------------------------------------------
 END SUBROUTINE srtm_kgb23
+END MODULE mo_srtm_kgb23

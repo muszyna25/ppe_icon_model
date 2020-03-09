@@ -13,6 +13,10 @@
 #ifdef __xlC__
 @PROCESS NOOPTIMIZE
 #endif
+MODULE mo_srtm_kgb27
+PUBLIC :: srtm_kgb27
+CONTAINS
+
 SUBROUTINE srtm_kgb27
 
 !     Originally by J.Delamere, Atmospheric & Environmental Research.
@@ -2011,3 +2015,4 @@ kb(:,59,16) = (/ &
 
 !     -----------------------------------------------------------------
 END SUBROUTINE srtm_kgb27
+END MODULE mo_srtm_kgb27
