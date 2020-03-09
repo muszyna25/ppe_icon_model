@@ -187,6 +187,7 @@ cat > ${ocean_namelist} << EOF
 
   i_bc_veloc_top                  =   1
   i_bc_veloc_bot                  =   1       ! 0: (def) bottom friction off, 1: on
+  use_ssh_in_momentum_eq          = .FALSE.   ! PRELIMINARY !!! reference data for .true. not yet available
 /
 &ocean_tracer_transport_nml
   FLUX_CALCULATION_HORZ =  5 ! 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
