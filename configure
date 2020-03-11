@@ -3366,7 +3366,7 @@ else
   acx_cv_fc_compiler_vendor=intel
 elif $FC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=nag
-elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
+elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=portland
 elif $FC -V 2>&1 | grep '^Cray Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=cray
@@ -4969,7 +4969,7 @@ else
   acx_cv_c_compiler_vendor=intel
 elif $CC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=nag
-elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
+elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=portland
 elif $CC -V 2>&1 | grep '^Cray C' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
