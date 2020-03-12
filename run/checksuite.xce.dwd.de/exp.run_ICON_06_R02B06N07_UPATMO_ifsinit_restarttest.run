@@ -1,12 +1,12 @@
 #! /bin/ksh
 # ----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=22:ompthreads=4
+#PBS -l select=10:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
 #PBS -j oe
 #PBS -W umask=022
-#PBS -o LOG.exp.run_ICON_15_R02B06N07_UPATMO_ifsinit_restarttest.run.run.o
+#PBS -o LOG.exp.run_ICON_06_R02B06N07_UPATMO_ifsinit_restarttest.run.run.o
 # ----------------------------------------------------------------------------
 # ============================================================================
 #
@@ -624,7 +624,7 @@ fi
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 6g   : 6G memory/task
 
-aprun  -n 264 -N 12 -j 2 -d 4 -m 3g icon
+aprun  -n 120 -N 12 -j 2 -d 4 -m 3g icon
 
 SCRIPT_STATUS=$?
 
