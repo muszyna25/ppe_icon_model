@@ -84,7 +84,7 @@ MODULE mo_ser_all
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: ser_name, listhashchar
     INTEGER :: listhash
 
-    #ifdef SERIALIZE
+#ifdef SERIALIZE
     listname = TRIM(name)
     ! Append domain index
     IF( PRESENT(domain) ) THEN
@@ -234,7 +234,7 @@ MODULE mo_ser_all
       END IF ! info%name /= 'tracer'
       element => element%next_list_element
     END DO for_all_list_elements
-    #endif
+#endif
 
   END SUBROUTINE ser_var_list
 
@@ -329,14 +329,14 @@ MODULE mo_ser_all
            id = 0
        ENDIF
 
-       #ifdef SERIALIZE
+#ifdef SERIALIZE
        CALL warning('SER:'//TRIM(savepoint_name),'Serialization is active!')
        
-       #if defined(_OPENACC)
+#if defined(_OPENACC)
        IF(lupdate_cpu) THEN
          CALL warning('GPU:'//TRIM(savepoint_name),'GPU HOST synchronization forced by serialization!')
        ENDIF
-       #endif
+#endif
        
        CALL datetimeToString(time_config%tc_current_date, date)
        CALL init('icon')
@@ -369,7 +369,7 @@ MODULE mo_ser_all
          CALL ser_var_list('nh_state_prog_of_domain_', lupdate_cpu, domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
        ENDIF
        
-       #endif
+#endif
 
     ENDIF !do_serialization
     
