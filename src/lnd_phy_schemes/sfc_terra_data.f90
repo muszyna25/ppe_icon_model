@@ -406,7 +406,11 @@ PUBLIC           ! All constants and variables in this module are public
     ! precision (6-7 decimal digits), however, the value has to be larger
     ! in order not to vanish. The current formulation is save for
     ! temperatures up to 500K.
-    eps_temp = MAX(1.0E-6_wp,500.0_wp*EPSILON(1.0_wp))
+    eps_temp = MAX(1.0E-6_wp,500.0_wp*EPSILON(1.0_wp)), &
+
+    ! Extremely small value in order to prevent a floating point underflow 
+    ! in double precision.  
+    eps_nounderflow = 1.0E-5_wp * EPSILON(1.0_wp)
 
 
 #ifdef __COSMO__

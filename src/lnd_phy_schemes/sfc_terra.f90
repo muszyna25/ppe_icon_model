@@ -4253,7 +4253,11 @@ enddo
       zsprs  (i) = 0.0_wp
 
       ! thawing of snow falling on soil with Ts > T0
-      IF (ztsnow_pm(i)*zrs(i) > 0.0_wp) THEN
+      !
+      ! it turned out that ensuring (ztsnow_pm(i)*zrs(i) > 0.0_wp) is not sufficient, as in rare cases
+      ! a floating point underflow might occur for zrs. By itself this is not a huge problem, however computing 
+      ! 1/zrs(i) (as it is done below) results in a floating point overflow in these cases.
+      IF (ztsnow_pm(i)*zrs(i) > eps_nounderflow) THEN
         ! snow fall on soil with T>T0, snow water content increases interception store water content
         ! melting rate is limited such that the two upper soil levels are not cooled significantly below the freezing point
         zzz = t0_melt-0.25_wp
