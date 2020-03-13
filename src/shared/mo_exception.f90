@@ -122,6 +122,7 @@ CONTAINS
 
     INTEGER           :: iexit
 
+
     WRITE (nerr,'(/,80("="),/)')
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
 
@@ -161,8 +162,6 @@ CONTAINS
     CALL tracebackqq
 #elif defined __xlC__
     CALL xl__trbk
-#elif defined __SX__
-    CALL mesput('Traceback: ', 11, 1)
 #endif
 
 #else

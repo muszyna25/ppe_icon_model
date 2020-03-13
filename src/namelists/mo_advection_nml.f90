@@ -29,7 +29,7 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               MIURA, FFSL_HYB_MCYCL, ippm_v, ipsm_v,      &
+    &                               MIURA, FFSL_HYB_MCYCL, ippm_v,              &
     &                               inol, ifluxl_sm, inol_v,                    &
     &                               islopel_vsm, ifluxl_vpd, VNAME_LEN
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -75,8 +75,8 @@ MODULE mo_advection_nml
   INTEGER :: &                     !< selects vertical transport scheme
     &  ivadv_tracer(max_ntracer)   !< 0 : no vertical advection
                                    !< 1 : 1st order upwind
-                                   !< 3 : 3rd order PPM for CFL>
-                                   !< 30: 3rd order PPM
+                                   !< 2 : 3rd order PSM for CFL>                            
+                                   !< 3 : 3rd order PPM for CFL>               
 
   INTEGER :: &                     !< advection of TKE
     &  iadv_tke                    !< 0 : none
@@ -247,10 +247,10 @@ CONTAINS
         &  '20,22,32,42 or 52 ')
     ENDIF
 
-    IF ( ANY(ivadv_tracer(1:ntracer) > ipsm_v) .OR.                   &
+    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for ivadv_tracer. Must be 0,1,3, or 4 ')
+        &  'incorrect settings for ivadv_tracer. Must be 0,1,2, or 3 ')
     ENDIF
 
 

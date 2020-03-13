@@ -9,7 +9,7 @@
  * @note This function has been developed out of an ECLIB function of ECMWF.
  */
 
-#ifdef _SX
+#if defined __NEC__ || defined _SX
 
 int signal_trap(int *create_dump, int *signals)
 {

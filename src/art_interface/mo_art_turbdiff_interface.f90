@@ -38,6 +38,7 @@ MODULE mo_art_turbdiff_interface
   USE mo_art_diag_types,                ONLY: t_art_diag
   USE mo_art_surface_value,             ONLY: art_surface_value
   USE mo_art_config,                    ONLY: art_config
+  USE mo_exception,                     ONLY: warning
 #endif
 
   IMPLICIT NONE
@@ -112,6 +113,10 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &  nblks, istat, nlev,     & !<
     &  i_startidx, i_endidx,   & !<
     &  idx_tot                   !< counter for total number of fields (add. cloud vars + tracer vars) to be diffused
+
+#ifdef _OPENACC
+  CALL warning('GPU:mo_art_turbdiff_interface:art_turbdiff_interface', 'ART is not supported on GPUs yet!')
+#endif
   
   jg  = p_patch%id
   IF ( lart ) THEN

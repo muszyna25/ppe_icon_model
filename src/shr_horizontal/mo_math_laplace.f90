@@ -566,133 +566,42 @@ END SUBROUTINE nabla4_vec
 !! -abandon grid for the sake of patch
 !!
 SUBROUTINE nabla2_scalar( psi_c, ptr_patch, ptr_int, nabla2_psi_c, &
-  &                       opt_slev, opt_elev, opt_rlstart, opt_rlend )
+  &                       slev, elev, rl_start, rl_end )
 
-!
-!  patch on which computation is performed
-!
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch         !< patch on which computation is performed
+TYPE(t_int_state),     INTENT(in) :: ptr_int           !< interpolation state
 
-! Interpolation state
-TYPE(t_int_state), INTENT(in)     :: ptr_int
-!
-!  cells based variable of which biharmonic laplacian is computed
-!
 REAL(wp), INTENT(in) ::  &
-  &  psi_c(:,:,:) ! dim: (nproma,nlev,nblks_c)
+  &  psi_c(:,:,:) !< cells based variable of which biharmonic laplacian is computed, dim: (nproma,nlev,nblks_c)
 
-INTEGER, INTENT(in), OPTIONAL ::  &
-  &  opt_slev    ! optional vertical start level
+INTEGER,               INTENT(in) :: slev              !< vertical start level
+INTEGER,               INTENT(in) :: elev              !< vertical end level
+INTEGER,               INTENT(in) :: rl_start,rl_end   !< start and end values of refin_ctrl flag
 
-INTEGER, INTENT(in), OPTIONAL ::  &
-  &  opt_elev    ! optional vertical end level
-
-INTEGER, INTENT(in), OPTIONAL ::  &
-  &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
-
-!
-!  cell based variable in which biharmonic laplacian is stored
-!
-!REAL(wp), INTENT(out) ::  &
+! cell based variable in which biharmonic laplacian is stored
 REAL(wp), INTENT(inout) ::  &
   &  nabla2_psi_c(:,:,:) ! dim: (nproma,nlev,nblks_c)
-
-INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: rl_start, rl_end
-INTEGER :: jb, jc, jk, i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-
+INTEGER :: jb, jc, jk, i_startblk, i_endblk, i_startidx, i_endidx
 REAL(wp) ::  &
   &  z_grad_fd_norm_e(nproma,ptr_patch%nlev,ptr_patch%nblks_e)
-
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
 !-----------------------------------------------------------------------
-
-! check optional arguments
-IF ( PRESENT(opt_slev) ) THEN
-  slev = opt_slev
-ELSE
-  slev = 1
-END IF
-IF ( PRESENT(opt_elev) ) THEN
-  elev = opt_elev
-ELSE
-  elev = UBOUND(psi_c,2)
-END IF
-
-IF ( PRESENT(opt_rlstart) ) THEN
-  IF ((opt_rlstart >= 0) .AND. (opt_rlstart <= 1)) THEN
-    CALL finish ('mo_math_operators:nabla2_scalar',  &
-          &      'opt_rlstart must not be between 0 and 1')
-  ENDIF
-  rl_start = opt_rlstart
-ELSE
-  rl_start = 2
-END IF
-IF ( PRESENT(opt_rlend) ) THEN
-  rl_end = opt_rlend
-ELSE
-  rl_end = min_rlcell
-END IF
 
 iidx => ptr_patch%cells%neighbor_idx
 iblk => ptr_patch%cells%neighbor_blk
 
 ! values for the blocking
-i_nchdom   = MAX(1,ptr_patch%n_childdom)
-i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+i_startblk = ptr_patch%cells%start_block(rl_start)
+i_endblk   = ptr_patch%cells%end_block(rl_end)
 
 !$ACC DATA CREATE( z_grad_fd_norm_e ), PCOPYIN( psi_c ), PCOPY( nabla2_psi_c ),  &
 !$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( psi_c, nabla2_psi_c ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
-! The special treatment of 2D fields is essential for efficiency on the NEC
-
 SELECT CASE (ptr_patch%geometry_info%cell_type)
 
 CASE (3) ! (cell_type == 3)
-
-IF (slev == elev) THEN
-  jk = slev
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
-  DO jb = i_startblk, i_endblk
-
-    IF (jb == i_startblk) THEN
-      i_startidx = ptr_patch%cells%start_idx(rl_start,1)
-      i_endidx   = nproma
-      IF (jb == i_endblk) i_endidx = ptr_patch%cells%end_idx(rl_end,i_nchdom)
-    ELSE IF (jb == i_endblk) THEN
-      i_startidx = 1
-      i_endidx   = ptr_patch%cells%end_idx(rl_end,i_nchdom)
-    ELSE
-      i_startidx = 1
-      i_endidx   = nproma
-    ENDIF
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG VECTOR
-    DO jc = i_startidx, i_endidx
-
-      !
-      !  calculate div(grad) in one step
-      !
-      nabla2_psi_c(jc,jk,jb) =  &
-        &    psi_c(jc,jk,jb)                       * ptr_int%geofac_n2s(jc,1,jb) &
-        &  + psi_c(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_int%geofac_n2s(jc,2,jb) &
-        &  + psi_c(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_int%geofac_n2s(jc,3,jb) &
-        &  + psi_c(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_n2s(jc,4,jb)
-
-    END DO
-!$ACC END PARALLEL
-  END DO
-
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-ELSE
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -733,8 +642,6 @@ ELSE
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-ENDIF
 
 CASE (6) ! (cell_type == 6) THEN ! Use unoptimized version for the time being
 
@@ -1060,78 +967,27 @@ END SUBROUTINE nabla2_scalar_avg
 !! - corrected type for temp1 (now edges and no longer cells)
 !!
 SUBROUTINE nabla4_scalar( psi_c, ptr_patch, ptr_int, nabla4_psi_c, &
-  &                       opt_nabla2, opt_slev, opt_elev, opt_rlstart, opt_rlend )
+  &                       slev, elev, rl_start, rl_end, p_nabla2  )
 
-!
-!  patch on which computation is performed
-!
-TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch           !< patch on which computation is performed
+TYPE(t_int_state),     INTENT(in)    :: ptr_int             !< interpolation state
 
-! Interpolation state
-TYPE(t_int_state), INTENT(in)     :: ptr_int
-!
-!  cells based variable of which biharmonic laplacian is computed
-!
-REAL(wp), INTENT(in) ::  &
-  &  psi_c(:,:,:) ! dim: (nproma,nlev,nblks_c)
+REAL(wp),              INTENT(in)    ::  &
+  &  psi_c(:,:,:) !< cells based variable of which biharmonic laplacian is computed, dim: (nproma,nlev,nblks_c)
 
-INTEGER, INTENT(in), OPTIONAL ::  &
-  &  opt_slev    ! optional vertical start level
+INTEGER,               INTENT(in)    ::  slev               !< vertical start level
+INTEGER,               INTENT(in)    ::  elev               !< vertical end level
+INTEGER,               INTENT(in)    ::  rl_start, rl_end   !< start and end values of refin_ctrl flag
 
-INTEGER, INTENT(in), OPTIONAL ::  &
-  &  opt_elev    ! optional vertical end level
-
-INTEGER, INTENT(in), OPTIONAL ::  &
-  &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
-
-!
-!  cell based variable in which biharmonic laplacian is stored
-!
-!REAL(wp), INTENT(out) ::  &
-REAL(wp), INTENT(inout) ::  &
-  &  nabla4_psi_c(:,:,:) ! dim: (nproma,nlev,nblks_c)
-
-! Optional argument for passing nabla2 to the calling program
+! cell based variable in which biharmonic laplacian is stored
+REAL(wp), INTENT(inout) ::  nabla4_psi_c(:,:,:) ! dim: (nproma,nlev,nblks_c)
+! argument for passing nabla2 to the calling program
 ! (to avoid double computation for Smagorinsky diffusion and nest boundary diffusion)
-REAL(wp), INTENT(inout), TARGET, OPTIONAL  ::  &
-  &  opt_nabla2(:,:,:) ! dim: (nproma,nlev,nblks_e)
-
-INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: rl_start, rl_end
+REAL(wp), INTENT(inout)  ::  &
+  &  p_nabla2(:,:,:) ! dim: (nproma,nlev,nblks_e)
 INTEGER :: rl_start_s1, rl_end_s1
 
-
-REAL(wp), ALLOCATABLE, TARGET :: z_nab2_c(:,:,:) ! dim: (nproma,nlev,ptr_patch%nblks_c)
-REAL(wp), POINTER :: p_nabla2(:,:,:)
-
 !-----------------------------------------------------------------------
-
-! check optional arguments
-IF ( PRESENT(opt_slev) ) THEN
-  slev = opt_slev
-ELSE
-  slev = 1
-END IF
-IF ( PRESENT(opt_elev) ) THEN
-  elev = opt_elev
-ELSE
-  elev = UBOUND(psi_c,2)
-END IF
-
-IF ( PRESENT(opt_rlstart) ) THEN
-  IF ((opt_rlstart >= 0) .AND. (opt_rlstart <= 2)) THEN
-    CALL finish ('mo_math_operators:nabla4_scalar',  &
-          &      'opt_rlstart must not be between 0 and 2')
-  ENDIF
-  rl_start = opt_rlstart
-ELSE
-  rl_start = 3
-END IF
-IF ( PRESENT(opt_rlend) ) THEN
-  rl_end = opt_rlend
-ELSE
-  rl_end = min_rlcell
-END IF
 
 IF (rl_start > 0) THEN
   rl_start_s1 = rl_start - 1
@@ -1144,34 +1000,21 @@ ELSE
   rl_end_s1 = rl_end - 1
 ENDIF
 
-! rl_start_s1 = rl_start
 rl_end_s1 = MAX(min_rlcell,rl_end_s1)
 
-IF (PRESENT(opt_nabla2) ) THEN
-  p_nabla2 => opt_nabla2
-ELSE
-  ALLOCATE (z_nab2_c(nproma,ptr_patch%nlev,ptr_patch%nblks_c))
-  p_nabla2 => z_nab2_c
-ENDIF
-
-!$ACC DATA CREATE( z_nab2_c ), PCOPYIN( psi_c ), PCOPY( nabla4_psi_c ),  &
+!$ACC DATA PCOPYIN( psi_c ), PCOPY( nabla4_psi_c ),  &
 !$ACC      PRESENT( ptr_patch, ptr_int ), IF( i_am_accel_node .AND. acc_on )
 
 ! apply second order Laplacian twice
 IF (p_test_run) p_nabla2(:,:,:) = 0.0_wp
 
 CALL nabla2_scalar( psi_c, ptr_patch, ptr_int, p_nabla2, &
-                    slev, elev, opt_rlstart=rl_start_s1, opt_rlend=rl_end_s1 )
+                    slev, elev, rl_start=rl_start_s1, rl_end=rl_end_s1 )
 
 CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
 
 CALL nabla2_scalar( p_nabla2, ptr_patch, ptr_int, nabla4_psi_c, &
-                    slev, elev, opt_rlstart=rl_start, opt_rlend=rl_end )
-
-
-IF ( .NOT. PRESENT(opt_nabla2) ) THEN
-  DEALLOCATE (z_nab2_c)
-ENDIF
+                    slev, elev, rl_start=rl_start, rl_end=rl_end )
 
 !$ACC END DATA
 

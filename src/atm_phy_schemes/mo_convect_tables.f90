@@ -100,6 +100,8 @@ MODULE mo_convect_tables
   REAL (wp), PARAMETER :: c5alscp = c5ies*als/cpd        !
   REAL (wp), PARAMETER :: alvdcp  = alv/cpd              !
   REAL (wp), PARAMETER :: alsdcp  = als/cpd              !
+  !$acc declare copyin(c1es, c2es, c3les, c3ies, c4les, c4ies, c5les, c5ies, &
+  !$acc                c5alvcp, c5alscp, alvdcp, alsdcp)
 
   INTEGER, PARAMETER :: jptlucu1 =  50000  ! lookup table lower bound
   INTEGER, PARAMETER :: jptlucu2 = 400000  ! lookup table upper bound

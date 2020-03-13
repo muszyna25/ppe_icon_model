@@ -217,7 +217,7 @@ contains
         tlevfrac = tz(jl,lay) - 159._wp - REAL(indlev,wp)
 
         ! Begin spectral band loop
-!cdir expand=15
+!$NEC unroll(15)
         do iband = 1, 15
           if (lay.eq.1) then
             dbdtlev = totplnk(indbound+1,iband) - totplnk(indbound,iband)

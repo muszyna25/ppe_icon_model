@@ -34,7 +34,7 @@ MODULE mo_complete_subdivision
 #ifndef NOMPI
   USE mpi
   USE mo_mpi,                ONLY: mpi_comm_null
-  USE mo_parallel_config,    ONLY: p_test_run, nproma
+  USE mo_parallel_config,    ONLY: p_test_run, nproma, proc0_offloading, proc0_shift
   USE ppm_extents,           ONLY: extent
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
@@ -152,6 +152,10 @@ CONTAINS
       jgc = p_patch(1)%child_id(jc)
       n_proc_total = n_proc_total + p_patch(jgc)%n_proc
       patch_no(p_patch(jgc)%proc0 : p_patch(jgc)%proc0+p_patch(jgc)%n_proc-1) = jc
+      IF (proc0_offloading .AND. patch_no(proc0_shift) == jc) THEN
+        patch_no(0:proc0_shift-1) = patch_no(proc0_shift)
+        n_proc_total = n_proc_total+proc0_shift
+      ENDIF
     ENDDO
 
     ! if any processor has no patch assigned, this is an error

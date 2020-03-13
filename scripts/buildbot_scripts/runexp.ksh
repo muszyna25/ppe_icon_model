@@ -113,7 +113,7 @@ run_scripts_submit()
     fi
     
     # Clone the testsuite
-    git clone https://github.com/remodietlicher/probtest.git
+    git clone git@gitlab.dkrz.de:cscs-sw/probtest.git
 
     # This variable stores the version of the probtest repository
     PROBTEST_HASH=$(cat scripts/buildbot_scripts/probtest_hash)
@@ -124,7 +124,7 @@ run_scripts_submit()
     cd ..
 
     # Clone the reference data
-    git clone https://github.com/remodietlicher/icon-test-references.git
+    git clone git@gitlab.dkrz.de:cscs-sw/icon-test-references.git
 
     # This variable stores the version of the reference data
     REFERENCE_HASH=$(cat scripts/buildbot_scripts/tolerance_hash)

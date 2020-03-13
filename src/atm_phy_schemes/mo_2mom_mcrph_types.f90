@@ -103,11 +103,11 @@ MODULE mo_2mom_mcrph_types
   !    and a mu-D-relation which is used in sedimentation and evaporation
   !    (see Seifert 2008, J. Atmos. Sci.)
   TYPE, EXTENDS(particle_nonsphere) :: particle_rain_coeffs
-    REAL(wp)      :: cmu0   !..Parameters for mu-D-relation of rain
-    REAL(wp)      :: cmu1   !     max of left branch
-    REAL(wp)      :: cmu2   !     max of right branch
-    REAL(wp)      :: cmu3   !     min value of relation
-    REAL(wp)      :: cmu4   !     location of min value = breakup equilibrium diameter
+    REAL(wp)      :: cmu0   !..Parameters for mu-D-relation of rain: max of left branch
+    REAL(wp)      :: cmu1   !     max of right branch
+    REAL(wp)      :: cmu2   !     scaling factor
+    REAL(wp)      :: cmu3   !     location of min value = breakup equilibrium diameter
+    REAL(wp)      :: cmu4   !     min value of relation
     INTEGER       :: cmu5   !     exponent
   END TYPE particle_rain_coeffs
 

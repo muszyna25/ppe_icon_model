@@ -222,6 +222,9 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   INTEGER :: nblks_c, nblks_e, nblks_v, nincr
   INTEGER :: ist,ie
   INTEGER :: idummy
+  LOGICAL :: lsdi  = .FALSE. ,&
+             llpi  = .FALSE. ,&
+             llpim = .FALSE.
 
 !-----------------------------------------------------------------------
 
@@ -611,10 +614,13 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       &            'allocation for rbf_vec_coeff_e failed')
     ENDIF
 
-    IF (     is_variable_in_output(first_output_name_list, var_name="sdi2")   &
-      & .OR. is_variable_in_output(first_output_name_list, var_name="lpi" ) ) THEN
-      ptr_int%cell_environ%is_used = .TRUE.
-    END IF
+    ! GZ: offloading 'is_variable_in_output' to vector hosts requires separate calls in order to
+    !     avoid an MPI deadlock in p_bcast
+                    lsdi  = is_variable_in_output( first_output_name_list, var_name="sdi2")
+    IF (.NOT. lsdi) llpi  = is_variable_in_output( first_output_name_list, var_name="lpi" )
+    IF (.NOT. llpi) llpim = is_variable_in_output( first_output_name_list, var_name="lpi_max" )
+
+    ptr_int%cell_environ%is_used = lsdi .OR. llpi .OR. llpim
 
     IF ( ptr_int%cell_environ%is_used ) THEN
       !

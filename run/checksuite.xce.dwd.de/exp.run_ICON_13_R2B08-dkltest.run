@@ -222,7 +222,7 @@ cat > ${atmo_namelist} << EOF
  output_filename              = 'dei4_NARVALII_2016081700_ll'             ! file name base
  ml_varlist                   = 'pres_msl','clct','tqv_dia','tqc_dia','tqi_dia','tqg','u_10m','v_10m','t_g',
 't_2m','qv_2m','td_2m','rh_2m','accthb_t','accsob_t','accshfl_s','acclhfl_s','accthb_s',
-'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs'
+'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs', 'tqg',
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
  reg_lon_def                  = -67.5,0.025,14.5
@@ -239,7 +239,7 @@ cat > ${atmo_namelist} << EOF
  output_filename              = 'dei4_NARVALII_2016081700_ll'             ! file name base
  ml_varlist                   = 'pres_msl','clct','tqv_dia','tqc_dia','tqi_dia','tqg','u_10m','v_10m','t_g',
 't_2m','qv_2m','td_2m','rh_2m','accthb_t','accsob_t','accshfl_s','acclhfl_s','accthb_s',
-'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs'
+'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs', 'tqg',
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
  reg_lon_def                  = -63.5,0.0125,-42.5
@@ -284,7 +284,7 @@ cat > ${atmo_namelist} << EOF
  output_filename              = 'dei4_NARVALII_2016081700'          ! file name base
  ml_varlist                   = 'pres_msl','clct','tqv_dia','tqc_dia','tqi_dia','tqg','u_10m','v_10m','t_g',
 't_2m','qv_2m','td_2m','rh_2m','accthb_t','accsob_t','accshfl_s','acclhfl_s','accthb_s',
-'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs'
+'accsob_s','accqhfl_s','tot_prec','cape_ml','cin_ml','tqv','tqc','tqi','tqr','tqs','tqg',
  output_grid                  = .FALSE.
  remap                        = 0                         ! 1: latlon,  0: native grid
 /

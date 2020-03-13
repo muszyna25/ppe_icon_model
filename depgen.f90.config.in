@@ -21,7 +21,7 @@
 #   ECRAD: radiation_cloud, radiation_interface, radiation_flux,
 #          radiation_aerosol, radiation_gas, radiation_thermodynamics,
 #          radiation_config, radiation_single_level
-#   RTTOV: mo_rttov_ifc
+#   RTTOV: rttov_types,parkind1,rttov_const,rttov_hdf_mod,hdf5
 #   SCT: sct
 #   YAXT: yaxt
 #   CDI: mo_cdi
@@ -30,4 +30,4 @@
 #   YAC: mo_yac_finterface
 #   TIXI: tixi
 #   SELF: self_assert, self_map, self_object, self_vector, self_vector_ref
---fc-external-mods=mpi,mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props,mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw,radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol,radiation_gas,radiation_thermodynamics,radiation_config,radiation_single_level,mo_rttov_ifc,sct,yaxt,mo_cdi,m_serialize,utils_ppser,mtime,mtime_datetime,mo_yac_finterface,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref
+--fc-external-mods=mpi,mo_gas_optics_rrtmgp,mo_gas_concentrations,mo_optical_props,mo_source_functions,mo_rte_kind,mo_fluxes,mo_rte_lw,mo_rte_sw,radiation_cloud,radiation_interface,radiation_flux,radiation_aerosol,radiation_gas,radiation_thermodynamics,radiation_config,radiation_single_level,sct,yaxt,mo_cdi,m_serialize,utils_ppser,mtime,mtime_datetime,mo_yac_finterface,tixi,self_assert,self_map,self_object,self_vector,self_vector_ref,rttov_types,parkind1,rttov_const,rttov_hdf_mod,hdf5

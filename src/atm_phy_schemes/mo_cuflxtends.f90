@@ -478,6 +478,7 @@ CONTAINS
       ENDIF
     ENDDO
     DO jk=ktdia-1+ktopm2,klev
+!$NEC sparse
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
           zrfl=pmflxr(jl,jk)+pmflxs(jl,jk)
