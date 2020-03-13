@@ -19,7 +19,6 @@ MODULES='PrgEnv-cray cray-mpich/7.7.10.1 cce/8.7.11 craype-haswell cray-netcdf/4
 # MODULES+=' craype-sandybridge'
 
 RTTOV_ROOT_LIB='/e/uhome/rfaulwet/icon/rttov12/xc_cray'
-RTTOV_ROOT='/usr/local/pkg/for0adm'
 RTTOV_LIBS='-lrttov12'
 
 # Libtool (used by the bundled CDI and some other bundled libraries) is not

@@ -15,7 +15,7 @@ ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 MODULE_SETTINGS=". ${MODULESHOME}/init/sh"
 
 
-MODULES='nfort/3.0.3 mpi/2.3.1 netcdf4/4.3.2-sx hdf5/1.8.13-sx eccodes/2.14.1-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
+MODULES='nfort/3.0.3 nc++/3.0.3 mpi/2.3.1 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.14.1-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
 
 
 ### Libraries ###
@@ -25,7 +25,7 @@ NETCDFF_LIBS='-lnetcdff'
 NETCDF_LIBS='-lnetcdf'
 
 # HDF5
-HDF5_LIBS='-lhdf5_hl -lhdf5'
+HDF5_LIBS='-lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5'
 
 # BLAS, LAPACK
 LAPACK_LIBS='-llapack -lblas_sequential'
@@ -44,6 +44,10 @@ SZIP_LIB='-lsz'
 
 # ZLIB
 ZLIB_LIB='-lz' 
+
+# RTTOV
+RTTOV_ROOT_LIB='/hpc/uhome/rfaulwet/icon/rttov/sx-VE'
+RTTOV_LIBS='-lrttov12'
 
 ################################################################################
 
@@ -67,23 +71,25 @@ CC='mpincc'
 CFLAGS='-std=gnu11 -O3 -finline-functions -mno-vector-fma -fno-associative-math -msched-block -fcse-after-vectorization -DUSE_XML2 -USX -D__SX__=__NEC__'
 ICON_CFLAGS='-O3'
 ICON_BUNDLED_CFLAGS='-O2'
-CPPFLAGS="${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2 -I${NETCDF_DIR}/include -I${HDF5_DIR}/include"
+CPPFLAGS="-I${HDF5_DIR}/include -I${NETCDF_DIR}/include ${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2"
 
 # Fortran compiler wrapper on cray machine
 FC='mpinfort'
-FCFLAGS="-I${NETCDF_DIR}/include -fdiag-vector=0 -report-all -traceback -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -mno-vector-fma -fno-associative-math -DUSE_XML2 -USX -D__SX__=__NEC__ -D__COMM_OPT__ -D__BLOCK_GET__"
+FCFLAGS="-I${HDF5_DIR}/include -I${NETCDF_DIR}/include -I${RTTOV_ROOT_LIB}/obj -fdiag-vector=0 -report-all -traceback -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -mno-vector-fma -fno-associative-math -DUSE_XML2 -USX -D__SX__=__NEC__ -D__COMM_OPT__ -D__BLOCK_GET__"
 
 ICON_FCFLAGS='-fpp -finline-functions -finline-file=${ICON_DIR}/src/advection/mo_advection_utils.f90:${ICON_DIR}/src/atm_phy_schemes/mo_cufunctions.f90:${ICON_DIR}/src/parallel_infrastructure/mo_extents.f90:${ICON_DIR}/src/shared/mo_math_utilities.f90:${ICON_DIR}/src/configure_model/mo_parallel_config.f90:${ICON_DIR}/src/atm_phy_schemes/mo_satad.f90:${ICON_DIR}/src/shared/mo_statistics.f90:${ICON_DIR}/src/atm_phy_nwp/mo_util_phys.f90:${ICON_DIR}/src/atm_phy_schemes/turb_utilities.f90:${ICON_DIR}/src/lnd_phy_nwp/mo_nwp_sfc_interp.f90'
 # for flake only: -finline-max-function-size=1000 -finline-max-depth=3 
 ICON_OCEAN_FCFLAGS='-O2'
 
-LDFLAGS="-L${XML2ROOT}/lib -L${ECCODES_LIB_DIR} -L${NETCDF_DIR}/lib -L${HDF5_DIR}/lib -L${LAPACKROOT}/lib -L${SZIPROOT}/lib -L${AEC_DIR}/lib -L${ZLIBROOT}/lib -traceback -static -static-nec"
+LDFLAGS="-L${ZLIBROOT}/lib -L${AEC_DIR}/lib -L${SZIPROOT}/lib -L${HDF5_DIR}/lib -L${NETCDF_DIR}/lib -L${RTTOV_ROOT_LIB} -L${ECCODES_LIB_DIR} -L${LAPACKROOT}/lib -L${XML2ROOT}/lib -traceback -static -static-nec"
 
-LIBS="-Wl,--as-needed ${XML2_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${LAPACK_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
 
 MPI_LAUNCH=''  # needed e.g. for yac configuration ?? 
 
 EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --disable-rte-rrtmgp --disable-jsbach --disable-ocean --disable-coupling'
+
+#--enable-rttov  ! will be activated once some remaining issues have been solved
 
 ################################################################################
 

@@ -287,6 +287,13 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
 
   IF (ltimer) CALL timer_start(timer_synsat)
 
+  ! Skip empty patches which may occur with processor splitting or vector-host offloading
+  ! This needs to be done after the timer call in order to avoid timer inconsistencies
+  IF (p_patch(jg)%n_patch_cells == 0) THEN
+    IF (ltimer) CALL timer_stop(timer_synsat)
+    RETURN
+  ENDIF
+
   nlev_rg = p_patch(jgp)%nlev
 
   p_gcp        => p_patch_local_parent(jg)%cells

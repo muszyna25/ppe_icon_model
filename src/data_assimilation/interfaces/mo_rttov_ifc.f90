@@ -89,7 +89,10 @@ MODULE mo_rttov_ifc
 #define NO_RTTOV
 #endif
 #if defined(__ICON__) && !defined(NO_RTTOV)
+! derived-type broadcast does not work between different processor types
+#if !defined(__SX__) && !defined(__NEC_VH__)
 #define _RTTOV_DO_DISTRIBCOEF
+#endif
 #define RTTOV12 
 #ifdef _OPENMP
 #define RTTOV_USE_OPENMP
@@ -255,8 +258,11 @@ MODULE mo_rttov_ifc
 #ifdef RTTOV_USE_OPENMP
 #ifndef RADSHARE
   use mo_omp,             only: omp_get_max_threads     !
+#else
+  use omp_lib,            only: omp_get_max_threads     ! needed at least for gfortran compiler
 #endif
 #endif
+
 
 #endif  /* !NO_RTTOV */
 

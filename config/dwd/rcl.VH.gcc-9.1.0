@@ -24,7 +24,7 @@ NETCDFF_LIBS='-lnetcdff'
 NETCDF_LIBS='-lnetcdf'
 
 # HDF5
-HDF5_LIBS='-lhdf5_hl -lhdf5'
+HDF5_LIBS='-lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5'
 
 # BLAS, LAPACK
 MKL_LIBS='-lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
@@ -46,6 +46,10 @@ SZIP_LIB='-lsz'
 ZLIBROOT='/hpc/sw/zlib/1.2.11/x86/gnu'
 ZLIB_LIB='-lz' 
 
+# RTTOV
+RTTOV_ROOT_LIB='/hpc/uhome/rfaulwet/icon/rttov/sx-VH'
+RTTOV_LIBS='-lrttov12'
+
 ################################################################################
 
 
@@ -61,21 +65,22 @@ CC='mpicc -vh'
 CFLAGS='-std=gnu99 -mavx2 -mno-fma -O3 -DUSE_XML2'
 ICON_CFLAGS=''
 ICON_BUNDLED_CFLAGS='-O2'
-CPPFLAGS="${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2 -I${NETCDFROOT}/include -I${HDF5ROOT}/include"
+CPPFLAGS="-I${HDF5ROOT}/include -I${NETCDFROOT}/include ${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2"
 
 # Fortran compiler wrapper on cray machine
 FC='mpifort -vh'
-FCFLAGS="-I${NETCDFFROOT}/include -I${NETCDFROOT}/include -cpp -std=gnu -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
-
+FCFLAGS="-I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT_LIB}/obj -cpp -std=gnu -fbacktrace -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
 ICON_FCFLAGS=''
 ICON_OCEAN_FCFLAGS='-O2'
 
-LDFLAGS="-L${XML2ROOT}/lib -L${ECCODES_LIB_DIR} -L${NETCDFFROOT}/lib -L${NETCDFROOT}/lib -L${HDF5ROOT}/lib -L${MKLROOT}/lib/intel64 -L${SZIPROOT}/lib -L${AEC_DIR}/lib -L${ZLIBROOT}/lib"
-LIBS="-Wl,--as-needed ${XML2_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MKL_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
+LDFLAGS="-L${ZLIBROOT}/lib -L${AEC_DIR}/lib -L${SZIPROOT}/lib -L${HDF5ROOT}/lib -L${NETCDFROOT}/lib -L${NETCDFFROOT}/lib -L${RTTOV_ROOT_LIB} -L${ECCODES_LIB_DIR} -L${MKLROOT}/lib/intel64 -L${XML2ROOT}/lib"
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${MKL_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
 
 MPI_LAUNCH=''  # needed e.g. for yac configuration. What is the correct setting for gnu ?? 
 
 EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --enable-loop-exchange --enable-grib2 --enable-mpi --enable-openmp --disable-rte-rrtmgp --disable-jsbach --disable-ocean --disable-coupling'
+
+#--enable-rttov  ! will be activated once some remaining issues have been solved
 
 ################################################################################
 
