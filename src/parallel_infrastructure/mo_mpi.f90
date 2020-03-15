@@ -8445,14 +8445,14 @@ CONTAINS
 
   END FUNCTION p_sum_i8_1d
 
-  FUNCTION p_sum_i_1d (kfield, comm) RESULT (p_sum)
+  FUNCTION p_sum_i_1d (kfield, comm, root) RESULT (p_sum)
 
     INTEGER,       INTENT(in) :: kfield(:)
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER, OPTIONAL, INTENT(in) :: comm, root
     INTEGER                   :: p_sum (SIZE(kfield))
 
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, my_rank
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -8461,8 +8461,17 @@ CONTAINS
     ENDIF
 
     IF (my_process_is_mpi_all_parallel()) THEN
-       CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int, &
+      IF (PRESENT(root)) THEN
+        CALL MPI_REDUCE(kfield, p_sum, SIZE(kfield), p_int, &
+             mpi_sum, root, p_comm, p_error)
+        ! get local PE identification
+        CALL mpi_comm_rank(p_comm, my_rank, p_error)
+        ! do not use the result on all the other ranks:
+        IF (root /= my_rank) p_sum = kfield
+      ELSE
+        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int, &
             mpi_sum, p_comm, p_error)
+      END IF
     ELSE
        p_sum = kfield
     END IF

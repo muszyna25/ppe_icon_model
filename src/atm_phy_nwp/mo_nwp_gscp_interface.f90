@@ -295,7 +295,7 @@ CONTAINS
           !$acc loop gang vector collapse(2)
           DO jk=1,nlev
             DO jc=i_startidx,i_endidx
-              prm_diag%tt_lheat (jk,jc,jb) = prm_diag%tt_lheat (jk,jc,jb) - p_diag%temp   (jk,jc,jb)
+              prm_diag%tt_lheat(jc,jk,jb) = prm_diag%tt_lheat(jc,jk,jb) - p_diag%temp(jc,jk,jb)
             ENDDO
           ENDDO
           !$acc end parallel
@@ -736,7 +736,7 @@ CONTAINS
             !$acc loop gang vector collapse(2)
             DO jk=1,nlev
               DO jc=i_startidx,i_endidx
-                prm_diag%tt_lheat(jk,jc,jb) = prm_diag%tt_lheat(jk,jc,jb) + p_diag%temp(jk,jc,jb)
+                prm_diag%tt_lheat(jc,jk,jb) = prm_diag%tt_lheat(jc,jk,jb) + p_diag%temp(jc,jk,jb)
               ENDDO
             ENDDO
             !$acc end parallel

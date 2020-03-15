@@ -103,12 +103,11 @@ USE mo_nonhydrostatic_config,   ONLY: kstart_moist
 USE mo_model_domain,            ONLY: t_patch
 USE mo_radar_data_types,        ONLY: t_radar_fields, t_lhn_diag
 USE mo_time_config,             ONLY: time_config
-USE mo_mpi,                     ONLY: my_process_is_stdio
+USE mo_mpi,                     ONLY: my_process_is_stdio, p_io
 USE mo_io_units,                ONLY: find_next_free_unit
 USE mo_run_config,              ONLY: msg_level, iqv, iqc, iqi
 USE mo_math_laplace,            ONLY: nabla2_scalar
-USE mo_sync,                    ONLY: SYNC_C, sync_patch_array_mult, &
-                                      global_sum_array,global_max,global_min,global_sum_array2
+USE mo_sync,                    ONLY: SYNC_C, sync_patch_array_mult,global_max,global_min,global_sum
 USE mo_intp_data_strc,          ONLY: t_int_state
 
 
@@ -226,24 +225,20 @@ SUBROUTINE organize_lhn ( &
   LOGICAL                   ::           &
     lopen_log  
  
-  INTEGER (KIND=i4)         ::           &
-    iv,                & ! loop indices
-    kqrs,              & ! upper layer with qrs_flux > 0.0
-    k_dx
+  INTEGER ::  kqrs       ! upper layer with qrs_flux > 0.0
 
   INTEGER :: jg          ! domain ID
   INTEGER :: jb,jc,jk,i_rlstart, i_rlend, ndiag, iter, nlev
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !< slices
 
-  REAL (KIND=wp) :: zdcoeff
+  REAL (KIND=wp) :: zdcoeff, vcoordsum, qrsflux_int
 
   REAL (KIND=wp)               ::           &
     zdt_1                ! inverse of the timestep for physics ( = 1/dt )
 
 
-  REAL (KIND=wp)         ::       &
-    vcoordsum,qrsgmax,qrsgthres, qrsflux_int
+  REAL (KIND=wp), DIMENSION(nproma)  ::  qrsgmax,qrsgthres,ttmin,ttmax
 
 ! Local arrays:
 
@@ -268,7 +263,7 @@ SUBROUTINE organize_lhn ( &
     z_nabla2_ttlh(nproma,pt_patch%nlev,pt_patch%nblks_c),& !
     wobs_space(nproma,pt_patch%nblks_c) ,& ! weights (spatial) for the precip obs          ( 1 )
     wobs_time(nproma,pt_patch%nblks_c)  ,& ! weights (temporal) for the precip obs         ( 1 )
-    lhn_diag(nproma,pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
+    lhn_diag(nproma,pt_patch%nlev-15:pt_patch%nlev,pt_patch%nblks_c)   ,& ! array for test output of diverse 2D fields
     tt_lheat(nproma,pt_patch%nlev,pt_patch%nblks_c)   ,& ! tt_lheat
     qrsflux(nproma,pt_patch%nlev,pt_patch%nblks_c)    ,& ! qrsflux
     scale_diag(nproma,pt_patch%nblks_c)   ,& ! global distribution of scale_fac
@@ -413,6 +408,13 @@ SUBROUTINE organize_lhn ( &
                 pr_mod(jc,jb) = prm_diag%rain_gsp_rate(jc,jb) + prm_diag%snow_gsp_rate(jc,jb) + prm_diag%graupel_gsp_rate(jc,jb)
               ENDDO
 
+            CASE(4,5) ! 2-mom schemes
+
+              DO jc = i_startidx, i_endidx
+                pr_mod(jc,jb) = prm_diag%rain_gsp_rate(jc,jb) + prm_diag%snow_gsp_rate(jc,jb) + &
+                                prm_diag%graupel_gsp_rate(jc,jb) + prm_diag%hail_gsp_rate(jc,jb)
+              ENDDO
+
             CASE(9)
 
               DO jc = i_startidx, i_endidx
@@ -484,15 +486,23 @@ SUBROUTINE organize_lhn ( &
 
        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, i_rlstart, i_rlend)
 
+       qrsgmax(i_startidx:i_endidx) = 0._wp
+       DO jk = kstart_moist(jg), nlev
+         DO jc=i_startidx,i_endidx
+           qrsgmax(jc) = MAX(qrsgmax(jc),qrsflux(jc,jk,jb))
+         ENDDO
+       ENDDO
+       DO jc=i_startidx,i_endidx
+         qrsgthres(jc) = MAX(assimilation_config(jg)%thres_lhn,assimilation_config(jg)%rqrsgmax*qrsgmax(jc))
+       ENDDO
+
        DO jc=i_startidx,i_endidx
          qrsflux_int = 0.0_wp
-         qrsgmax=MAXVAL(qrsflux(jc,kstart_moist(jg):pt_patch%nlev,jb))
-         qrsgthres=MAX(assimilation_config(jg)%thres_lhn,assimilation_config(jg)%rqrsgmax*qrsgmax)
          vcoordsum=0.0_wp
          kqrs=nlev+1
-         IF (qrsgmax >= qrsgthres) THEN
+         IF (qrsgmax(jc) >= qrsgthres(jc)) THEN
            DO jk=kstart_moist(jg),nlev
-            IF (qrsflux(jc,jk,jb) >= qrsgthres) then
+            IF (qrsflux(jc,jk,jb) >= qrsgthres(jc)) then
               kqrs=jk
               EXIT
             ENDIF
@@ -669,9 +679,9 @@ SUBROUTINE organize_lhn ( &
        diag_sum = 0
        g_diag_sum = 0
        DO ndiag=1,15
-          diag_sum(ndiag) = SUM(diag_out(:,ndiag))
-          g_diag_sum(ndiag) = global_sum_array ( diag_sum(ndiag) ) 
+         diag_sum(ndiag) = SUM(diag_out(:,ndiag))
        ENDDO
+       g_diag_sum(1:15) = global_sum(diag_sum(1:15),opt_iroot=p_io) 
 
       IF (my_process_is_stdio()) THEN
         WRITE(nulhn, *)
@@ -754,15 +764,17 @@ SUBROUTINE organize_lhn ( &
 ! for verification integrate observed precipitation rates over one hour:
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ttmin,ttmax)
   DO jb=i_startblk,i_endblk
-
-   WHERE (pr_obs(:,jb) > 0.0_wp)     lhn_fields%pr_obs_sum(:,jb) = lhn_fields%pr_obs_sum(:,jb)       &
-                                                   + pr_obs(:,jb) * zdt
-   WHERE (pr_mod(:,jb) > 0.0_wp)     lhn_fields%pr_mod_sum(:,jb) = lhn_fields%pr_mod_sum(:,jb)       &
-                                                   + pr_mod(:,jb) * zdt
-   WHERE (pr_ref(:,jb) > 0.0_wp)     lhn_fields%pr_ref_sum(:,jb) = lhn_fields%pr_ref_sum(:,jb)       &
-                                                   + pr_ref(:,jb) * zdt
+       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+         &                i_startidx, i_endidx, i_rlstart, i_rlend)
+   DO jc = i_startidx, i_endidx
+     IF (pr_obs(jc,jb) > 0.0_wp)     lhn_fields%pr_obs_sum(jc,jb) = lhn_fields%pr_obs_sum(jc,jb)       &
+                                                   + pr_obs(jc,jb) * zdt
+     IF (pr_mod(jc,jb) > 0.0_wp)     lhn_fields%pr_mod_sum(jc,jb) = lhn_fields%pr_mod_sum(jc,jb)       &
+                                                   + pr_mod(jc,jb) * zdt
+     IF (pr_ref(jc,jb) > 0.0_wp)     lhn_fields%pr_ref_sum(jc,jb) = lhn_fields%pr_ref_sum(jc,jb)       &
+                                                   + pr_ref(jc,jb) * zdt
 
 !-------------------------------------------------------------------------------
 ! Section 10b : control output for some variables via lhn_diag
@@ -770,46 +782,49 @@ SUBROUTINE organize_lhn ( &
 ! control output of pr_mod, pr_obs, pr_ana in lhn_diag (upper 3 levels)
 ! ouput is in kg/(s*m**2)
 
-   lhn_diag(:,pt_patch%nlev,jb) = pr_obs(:,jb)
+     lhn_diag(jc,nlev,jb) = pr_obs(jc,jb)
 
-   lhn_diag(:,pt_patch%nlev-1,jb) = pr_mod(:,jb)                 ! ive: 2
-   lhn_diag(:,pt_patch%nlev-2,jb) = pr_ref(:,jb)                 ! ive: 3
-   lhn_diag(:,pt_patch%nlev-3,jb) = pr_ana(:,jb)                 ! ive: 4
-   lhn_diag(:,pt_patch%nlev-4,jb) = wobs_space(:,jb)             ! ive: 5
-   lhn_diag(:,pt_patch%nlev-5,jb) = wobs_time(:,jb)              ! ive: 6
-   WHERE (pr_obs(:,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(:,jb) > assimilation_config(jg)%thres_lhn)
-      lhn_diag(:,pt_patch%nlev-6,jb) = 1.0_wp          ! ive: 7
-   ENDWHERE
-   WHERE (pr_obs(:,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(:,jb) <= assimilation_config(jg)%thres_lhn)
-      lhn_diag(:,pt_patch%nlev-6,jb) = 2.0_wp          ! ive: 7
-   ENDWHERE
-   WHERE (pr_obs(:,jb) <= assimilation_config(jg)%thres_lhn .AND. pr_mod(:,jb) > assimilation_config(jg)%thres_lhn)
-      lhn_diag(:,pt_patch%nlev-6,jb) = 3.0_wp          ! ive: 7
-   ENDWHERE
-   WHERE (pr_obs(:,jb) > pr_mod(:,jb))
-      lhn_diag(:,pt_patch%nlev-7,jb) = 1.0_wp          ! ive: 8
-   ELSEWHERE
-      lhn_diag(:,pt_patch%nlev-7,jb) = 0.0_wp          ! ive: 8
-   ENDWHERE
-   WHERE (pr_obs(:,jb) < pr_mod(:,jb))
-      lhn_diag(:,pt_patch%nlev-8,jb) = -1.0_wp         ! ive: 9
-   ELSEWHERE
-      lhn_diag(:,pt_patch%nlev-8,jb) = 0.0_wp          ! ive: 9
-   ENDWHERE
-   WHERE (MINVAL(lhn_fields%ttend_lhn(:,:,jb),2) == 0._wp .AND. MAXVAL(lhn_fields%ttend_lhn(:,:,jb),2) == 0._wp )
-      lhn_diag(:,pt_patch%nlev-9,jb) = 0.0_wp          ! ive: 10
-   ELSEWHERE
-      lhn_diag(:,pt_patch%nlev-9,jb) = 1.0_wp          ! ive: 10
-   ENDWHERE
-   lhn_diag(:,pt_patch%nlev-10,jb) = lhn_fields%pr_obs_sum(:,jb)            ! ive: 11
-   lhn_diag(:,pt_patch%nlev-11,jb) = lhn_fields%pr_mod_sum(:,jb)            ! ive: 12
-   lhn_diag(:,pt_patch%nlev-12,jb) = lhn_fields%pr_ref_sum(:,jb)            ! ive: 13
-   lhn_diag(:,pt_patch%nlev-13,jb) = scale_diag(:,jb)       ! ive: 14
-   lhn_diag(:,pt_patch%nlev-14,jb) = treat_diag(:,jb)            ! ive: 15
-   lhn_diag(:,pt_patch%nlev-15,jb) = lhn_fields%brightband(:,jb) ! ive: 16
+     lhn_diag(jc,nlev-1,jb) = pr_mod(jc,jb)                 ! ive: 2
+     lhn_diag(jc,nlev-2,jb) = pr_ref(jc,jb)                 ! ive: 3
+     lhn_diag(jc,nlev-3,jb) = pr_ana(jc,jb)                 ! ive: 4
+     lhn_diag(jc,nlev-4,jb) = wobs_space(jc,jb)             ! ive: 5
+     lhn_diag(jc,nlev-5,jb) = wobs_time(jc,jb)              ! ive: 6
+     IF (pr_obs(jc,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(jc,jb) > assimilation_config(jg)%thres_lhn) &
+       lhn_diag(jc,nlev-6,jb) = 1.0_wp          ! ive: 7
+     IF (pr_obs(jc,jb) > assimilation_config(jg)%thres_lhn .AND. pr_mod(jc,jb) <= assimilation_config(jg)%thres_lhn) &
+       lhn_diag(jc,nlev-6,jb) = 2.0_wp          ! ive: 7
+     IF (pr_obs(jc,jb) <= assimilation_config(jg)%thres_lhn .AND. pr_mod(jc,jb) > assimilation_config(jg)%thres_lhn) &
+       lhn_diag(jc,nlev-6,jb) = 3.0_wp          ! ive: 7
+     IF (pr_obs(jc,jb) > pr_mod(jc,jb)) THEN
+       lhn_diag(jc,nlev-7,jb) = 1.0_wp          ! ive: 8
+     ELSE
+       lhn_diag(jc,nlev-7,jb) = 0.0_wp          ! ive: 8
+     ENDIF
+     IF (pr_obs(jc,jb) < pr_mod(jc,jb)) THEN
+       lhn_diag(jc,nlev-8,jb) = -1.0_wp         ! ive: 9
+     ELSE
+       lhn_diag(jc,nlev-8,jb) = 0.0_wp          ! ive: 9
+     ENDIF
+     lhn_diag(jc,nlev-10,jb) = lhn_fields%pr_obs_sum(jc,jb)            ! ive: 11
+     lhn_diag(jc,nlev-11,jb) = lhn_fields%pr_mod_sum(jc,jb)            ! ive: 12
+     lhn_diag(jc,nlev-12,jb) = lhn_fields%pr_ref_sum(jc,jb)            ! ive: 13
+     lhn_diag(jc,nlev-13,jb) = scale_diag(jc,jb)       ! ive: 14
+     lhn_diag(jc,nlev-14,jb) = treat_diag(jc,jb)            ! ive: 15
+     lhn_diag(jc,nlev-15,jb) = lhn_fields%brightband(jc,jb) ! ive: 16
+   ENDDO
 
-   prm_diag%lhn_diag(:,:,jb)  = lhn_diag(:,:,jb)
-   prm_diag%ttend_lhn(:,:,jb) = lhn_fields%ttend_lhn(:,:,jb)
+   ttmin(i_startidx:i_endidx) = 0._wp
+   ttmax(i_startidx:i_endidx) = 0._wp
+   DO jk = kstart_moist(jg), nlev
+     DO jc = i_startidx, i_endidx
+       ttmin(jc) = MIN(ttmin(jc),lhn_fields%ttend_lhn(jc,jk,jb))
+       ttmax(jc) = MAX(ttmax(jc),lhn_fields%ttend_lhn(jc,jk,jb))
+     ENDDO
+   ENDDO
+   DO jc = i_startidx, i_endidx
+     lhn_diag(jc,nlev-9,jb) = MERGE(0._wp,1._wp,ttmin(jc)==0._wp .AND. ttmax(jc)==0._wp)
+   ENDDO
+   prm_diag%lhn_diag(:,nlev-15:nlev,jb) = lhn_diag(:,nlev-15:nlev,jb)
 
   ENDDO
 
@@ -897,8 +912,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
      weight_index_p1,& !
      weight_index_p2,& !
      weight_index_p3,& !
-     weight_index_m1,& !
-     weight_index_m2   !
+     weight_index_m1, weight_index_m1lim, & !
+     weight_index_m2, weight_index_m2lim   !
 
   INTEGER :: jb,jc,i_rlstart, i_rlend
   INTEGER :: i_startblk, i_endblk    !> blocks
@@ -1085,10 +1100,12 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
             lp3=.true.
         ELSE IF (.NOT.lm1 .AND. radar_data%radar_td%obs_date(i) == prev_time_1) THEN 
             weight_index_m1=i
+            weight_index_m1lim = MAX(1,weight_index_m1) ! to avoid errors with array bound checking
             IF (msg_level > 12) CALL print_value ('o_m1',radar_data%radar_td%obs_date(i)%time%minute)
             lm1=.true.
         ELSE IF (.NOT.lm2 .AND. radar_data%radar_td%obs_date(i) == prev_time_2) THEN
             weight_index_m2=i
+            weight_index_m2lim = MAX(1,weight_index_m2) ! to avoid errors with array bound checking
             IF (msg_level > 12) CALL print_value ('o_m2',radar_data%radar_td%obs_date(i)%time%minute)
             lm2=.true.
         ENDIF
@@ -1123,14 +1140,14 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
      DO jb=i_startblk,i_endblk
        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-        DO jc=i_startidx,i_endidx
-           IF (NINT(radar_data%radar_ct%blacklist(jc,jb)) /= 0_i4 ) CYCLE
-             DO ns=nsums,nsume
-               IF (radar_data%radar_td%obs(jc,jb,ns) >= 0.0_wp) THEN
-                  obs_sum (jc,jb) = obs_sum (jc,jb) + radar_data%radar_td%obs(jc,jb,ns)
-                  obs_cnt (jc,jb) = obs_cnt (jc,jb) + 1_i4
-               ENDIF
-             ENDDO
+        DO ns=nsums,nsume
+          DO jc=i_startidx,i_endidx
+            IF (NINT(radar_data%radar_ct%blacklist(jc,jb)) /= 0_i4 ) CYCLE
+            IF (radar_data%radar_td%obs(jc,jb,ns) >= 0.0_wp) THEN
+              obs_sum (jc,jb) = obs_sum (jc,jb) + radar_data%radar_td%obs(jc,jb,ns)
+              obs_cnt (jc,jb) = obs_cnt (jc,jb) + 1_i4
+            ENDIF
+          ENDDO
         ENDDO
       ENDDO
 !$OMP END DO 
@@ -1149,8 +1166,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
         ENDDO
       ENDDO
 
-      obs_sum_g = global_sum_array (obs_sum_g)
-      nsum_g = global_sum_array (nsum_g)
+      obs_sum_g = global_sum(obs_sum_g)
+      nsum_g = global_sum(nsum_g)
       IF (nsum_g < 1 ) THEN
          obs_ratio(:,:) = 0.0
       ELSE
@@ -1211,19 +1228,19 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m1 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m1) >= pr_time_limit) .AND. &
+           ELSEIF((weight_index_m1 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
                   (radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
               ! observation is valid between t>=-lhn_dt_obs and t<=+lhn_dt_obs
-              pr_obs(jc,jb)     = radar_data%radar_td%obs(jc,jb,weight_index_m1)                               &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m1))  &
-                   * (abs(td_in_min(weight_index_m1)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+              pr_obs(jc,jb)     = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                               &
+                   + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))  &
+                   * (abs(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
               pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
               wobs_time(jc,jb) = 0.75_wp   
               num_t_obs (jc,jb,2) = 1
               IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1)                               &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m1))&
-                   * (abs(td_in_min(weight_index_m1)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
+                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                               &
+                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim))&
+                   * (abs(td_in_min(weight_index_m1lim)))/ (2.0_wp*assimilation_config(jg)%lhn_dt_obs)
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
@@ -1243,35 +1260,35 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF(((weight_index_m1 > 0).AND.radar_data%radar_td%obs(jc,jb,weight_index_m1) >= pr_time_limit) .AND. &
+           ELSEIF(((weight_index_m1 > 0).AND.radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
                   (radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
               ! observation is valid between t>=-lhn_dt_obs and t<=+2lhn_dt_obs
-              pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_m1)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m1))     &
-                   * (abs(td_in_min(weight_index_m1)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+              pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
+                   + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
+                   * (abs(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
               pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
               wobs_time(jc,jb) = 0.5_wp
               num_t_obs (jc,jb,3) = 1
               IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb)= radar_data%radar_td%spqual(jc,jb,weight_index_m1)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m1)) &
-                   * (abs(td_in_min(weight_index_m1)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+                  wobs_space(jc,jb)= radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
+                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+                   * (abs(td_in_min(weight_index_m1lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m2 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m2) >= pr_time_limit) .AND. &
+           ELSEIF((weight_index_m2 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
                   (radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
               ! observation is valid between t>=-2lhn_dt_obs and t<=+lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m2))     &
-                   * (abs(td_in_min(weight_index_m2)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
+                   + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
+                   * (abs(td_in_min(weight_index_m2lim)))/ (3.0_wp*assimilation_config(jg)%lhn_dt_obs)
               pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
               wobs_time(jc,jb) = 0.5_wp
               num_t_obs (jc,jb,3) = 1
               IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m2))&
-                   * (abs(td_in_min(weight_index_m2)))/(3.0_wp*assimilation_config(jg)%lhn_dt_obs)
+                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
+                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p1)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim))&
+                   * (abs(td_in_min(weight_index_m2lim)))/(3.0_wp*assimilation_config(jg)%lhn_dt_obs)
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
@@ -1291,35 +1308,35 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m2 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m2) >= pr_time_limit) .AND. &
+           ELSEIF((weight_index_m2 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
                   (radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
               ! observation is valid between t>=-2lhn_dt_obs and t<=+2lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m2))     &
-                   * (abs(td_in_min(weight_index_m2)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
+                   + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
+                   * (abs(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
               pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
               wobs_time(jc,jb) = 0.25_wp
               num_t_obs (jc,jb,4) = 1
               IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m2)) &
-                   * (abs(td_in_min(weight_index_m2)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)                                  &
+                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p2)-radar_data%radar_td%spqual(jc,jb,weight_index_m2lim)) &
+                   * (abs(td_in_min(weight_index_m2lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m1 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m1) >= pr_time_limit) .AND. &
+           ELSEIF((weight_index_m1 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
                   (radar_data%radar_td%obs(jc,jb,weight_index_p3) >= pr_time_limit)) THEN
               ! observation is valid between t>=-lhn_dt_obs and t<=+3lhn_dt_obs
-              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m1)                                  &
-                   + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_m1))     &
-                   * (abs(td_in_min(weight_index_m1)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+              pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
+                   + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
+                   * (abs(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
               pr_obs(jc,jb) = pr_obs(jc,jb)*sec_per_hr_inv
               wobs_time(jc,jb) = 0.25_wp
               num_t_obs (jc,jb,4) = 1
               IF (assimilation_config(jg)%lhn_spqual) THEN
-                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1)                                  &
-                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_m1)) &
-                   * (abs(td_in_min(weight_index_m1)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
+                  wobs_space(jc,jb) = radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)                                  &
+                   + (radar_data%radar_td%spqual(jc,jb,weight_index_p3)-radar_data%radar_td%spqual(jc,jb,weight_index_m1lim)) &
+                   * (abs(td_in_min(weight_index_m1lim)))/ (4.0_wp*assimilation_config(jg)%lhn_dt_obs)
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
@@ -1359,9 +1376,7 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
     diag_out(9) = count( wobs_space(:,:) == 0.0_wp)    !numzero
 
     g_diag_sum = 0
-    DO n=1,ndiag
-       g_diag_sum(n) = global_sum_array ( diag_out(n) )
-    ENDDO
+    g_diag_sum(1:ndiag) = global_sum( diag_out(1:ndiag),opt_iroot=p_io )
 
     IF (my_process_is_stdio()) THEN
      WRITE(nulhn, *)
@@ -1478,7 +1493,7 @@ SUBROUTINE detect_bright_band(pt_patch,radar_data,prm_diag,lhn_fields,sumrad)
 !$OMP END PARALLEL
   IF ( assimilation_config(jg)%lhn_diag ) THEN
     nbright=COUNT(lhn_fields%brightband > 0.0)
-    nbrightg=global_sum_array(nbright)
+    nbrightg=global_sum(nbright,opt_iroot=p_io)
     IF (my_process_is_stdio()) &
      WRITE(nulhn, *)' n of points which are possibly brightband    : numbright = ',nbrightg
   ENDIF
@@ -1727,8 +1742,10 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
         CYCLE
      ELSE
         IF ( w < 0.0_wp .OR. w > 1.0_wp ) then
+#ifndef __SX__
            WRITE(message_text,'(a,f8.4,i6)') 'lhn_pr_ana w unvalid : ',w,ip
            CALL message ('',message_text,level=2)
+#endif
            CYCLE
         ELSE
            pr_ana(ip) = w * pr_obs(ip) + (1.0_wp-w) * pr_mod(ip)
@@ -2087,8 +2104,8 @@ SUBROUTINE lhn_q_inc(i_startidx,i_endidx,jg,zdt,ke,t,ttend_lhn,p,qv,qc,qi, &
 
   zt = tau_nudge * zdt
 
-  DO jc=i_startidx,i_endidx
-    DO   k=1,ke
+  DO   k=1,ke
+    DO jc=i_startidx,i_endidx
 
      IF ( ttend_lhn(jc,k) < delt_minn .OR. ttend_lhn(jc,k) > delt_minp) THEN
        zp = p(jc,k)
@@ -2371,12 +2388,13 @@ SUBROUTINE lhn_verification (ytime,pt_patch,radar_data,lhn_fields,nsteps,wobs_sp
  INTEGER (KIND=i4)         ::           &
    zpranz, zprcount
 
+ INTEGER, PARAMETER :: nthre=6
+
  INTEGER (KIND=i4) ::  &
    ass,bss,css,dss,zss,ierror       ! table of contengency
 
  INTEGER (KIND=i4) ::  &
    i,j,ii,jj,  &
-   nthre ,&
    itab(7,7),i1,i2,ith, &
    histmod(7),histobs(7),anzobs,anzmod
 
@@ -2442,7 +2460,7 @@ SUBROUTINE lhn_verification (ytime,pt_patch,radar_data,lhn_fields,nsteps,wobs_sp
               zprmod_ref_s    = zprmod_ref_s    + zprmod_ref(jc,jb)
               zprrad_s        = zprrad_s        + zprrad(jc,jb)
               IF (PRESENT (zprmod_ref_f)) zprmod_ref_f_s  = zprmod_ref_f_s  + zprmod_ref_f(jc,jb)
-              IF (PRESENT (zprrad_f) .AND. zprrad_f(jc,jb) >= 0.0_wp) zprrad_f_s      = zprrad_f_s      + zprrad_f(jc,jb)
+              IF (PRESENT (zprrad_f))     zprrad_f_s      = zprrad_f_s      + MAX(0._wp,zprrad_f(jc,jb))
               zprcount        = zprcount        + 1_i4
           ENDIF
        ENDDO
@@ -2450,25 +2468,25 @@ SUBROUTINE lhn_verification (ytime,pt_patch,radar_data,lhn_fields,nsteps,wobs_sp
 !!$OMP END DO 
 !!$OMP END PARALLEL
 
-   zpranz = global_sum_array (zprcount)
-   zprmod_s = global_sum_array (zprmod_s)
-   zprmod_ref_s = global_sum_array (zprmod_ref_s)
-   zprrad_s = global_sum_array (zprrad_s)
-   IF (PRESENT (zprmod_ref_f)) zprmod_ref_f_s = global_sum_array (zprmod_ref_f_s)
-   IF (PRESENT (zprrad_f)) zprrad_f_s = global_sum_array (zprrad_f_s)
-
-
-  IF (zpranz > 0) THEN
-      zflar          = 1.0_wp / REAL (zpranz)
-      zprmod_s       = zprmod_s       * zflar * timefac
-      zprmod_ref_s   = zprmod_ref_s   * zflar * timefac
-      zprrad_s       = zprrad_s       * zflar * timefac
-      IF (PRESENT (zprmod_ref_f)) zprmod_ref_f_s = zprmod_ref_f_s * zflar * timefac
-      IF (PRESENT (zprrad_f))     zprrad_f_s     = zprrad_f_s     * zflar * timefac
-
-  ENDIF
+   zpranz = global_sum(zprcount,opt_iroot=p_io)
+   zprmod_s = global_sum(zprmod_s,opt_iroot=p_io)
+   zprmod_ref_s = global_sum(zprmod_ref_s,opt_iroot=p_io)
+   zprrad_s = global_sum(zprrad_s,opt_iroot=p_io)
+   IF (PRESENT (zprmod_ref_f)) zprmod_ref_f_s = global_sum(zprmod_ref_f_s,opt_iroot=p_io)
+   IF (PRESENT (zprrad_f)) zprrad_f_s = global_sum(zprrad_f_s,opt_iroot=p_io)
 
    IF (my_process_is_stdio()) THEN
+
+     IF (zpranz > 0) THEN
+       zflar          = 1.0_wp / REAL (zpranz)
+       zprmod_s       = zprmod_s       * zflar * timefac
+       zprmod_ref_s   = zprmod_ref_s   * zflar * timefac
+       zprrad_s       = zprrad_s       * zflar * timefac
+       IF (PRESENT (zprmod_ref_f)) zprmod_ref_f_s = zprmod_ref_f_s * zflar * timefac
+       IF (PRESENT (zprrad_f))     zprrad_f_s     = zprrad_f_s     * zflar * timefac
+
+     ENDIF
+
       WRITE(nulhn, *)'Verification:'
       IF (ytime == "HR") THEN
         WRITE(nulhn, '(a,a3,f6.1,3f8.4)')'Modell (mod,ref,filt)',ytime,nsteps,zprmod_s,zprmod_ref_s,zprmod_ref_f_s
@@ -2485,7 +2503,6 @@ SUBROUTINE lhn_verification (ytime,pt_patch,radar_data,lhn_fields,nsteps,wobs_sp
 
 
 
-   nthre=6
    hr=0._wp
    fr=0._wp
    far=0._wp
@@ -2609,9 +2626,9 @@ SUBROUTINE lhn_verification (ytime,pt_patch,radar_data,lhn_fields,nsteps,wobs_sp
    realbuf( 6)= REAL(histmod(ith))
    realbuf( 7)= REAL(histobs(ith))
 
-   do n=1,7
-     realbuf_g(n) = global_sum_array(realbuf(n))
-   enddo
+   realbuf_g(1:7) = global_sum(realbuf(1:7),opt_iroot=p_io)
+
+  IF(my_process_is_stdio()) THEN
 
    ass    = INT(realbuf_g( 1))
    bss    = INT(realbuf_g( 2))
@@ -2665,7 +2682,6 @@ SUBROUTINE lhn_verification (ytime,pt_patch,radar_data,lhn_fields,nsteps,wobs_sp
    IF ((rass+rbss+rcss+rdss-rhss) > 0._wp) &
     hss = 100.0_wp * (rass+rdss-rhss)/(rass+rbss+rcss+rdss-rhss)
 
-  IF(my_process_is_stdio()) THEN
     IF (ytime == "HR") THEN
       WRITE(nulhn,'(a25,a3,f6.1,5i7,f5.2)')'skill scores (a,b,c,d):',ytime,nsteps,ass,bss,css,dss,zss,thr_o(ith)
       WRITE(nulhn,'(a14,a3,f6.1,9f8.2)')'skill scores:',ytime,nsteps,hr,pod,far,fr,fbi,ts,ets,hss,tss
@@ -2684,16 +2700,15 @@ SUBROUTINE lhn_verification (ytime,pt_patch,radar_data,lhn_fields,nsteps,wobs_sp
  realbuf( 3)= REAL(anzobs)
  realbuf( 4)= REAL(anzmod)
 
- do n=1,4
-   realbuf_g(n) = global_sum_array (realbuf(n))
- enddo
-
- histmod(7) = INT(realbuf_g( 1))
- histobs(7) = INT(realbuf_g( 2))
- anzobs = INT(realbuf_g( 3))
- anzmod = INT(realbuf_g( 4))
+ realbuf_g(1:4) = global_sum(realbuf(1:4),opt_iroot=p_io)
 
  IF(my_process_is_stdio()) THEN
+
+   histmod(7) = INT(realbuf_g( 1))
+   histobs(7) = INT(realbuf_g( 2))
+   anzobs = INT(realbuf_g( 3))
+   anzmod = INT(realbuf_g( 4))
+
    DO ith=1,6
       histobs(ith)=histobs(ith)-histobs(ith+1)
       histmod(ith)=histmod(ith)-histmod(ith+1)
