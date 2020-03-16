@@ -713,6 +713,7 @@ enable_yaxt
 enable_claw
 enable_explicit_fpp
 enable_serialization
+enable_testbed
 enable_loop_exchange
 enable_intel_consistency
 enable_vectorized_lrtm
@@ -1418,6 +1419,7 @@ Infrastructural Features:
                             perturb   enable READ & PERTURB mode
                             create    enable CREATE mode
                             no        disable serialization
+  --enable-testbed        enable ICON Testbed infrastructure [default=no]
 
 Optimization Features:
   --enable-loop-exchange  enable loop exchange [default=yes]
@@ -2441,6 +2443,16 @@ if test "${enable_serialization+set}" = set; then :
 esac
 else
   enable_serialization=no
+fi
+
+
+# Check whether --enable-testbed was given.
+if test "${enable_testbed+set}" = set; then :
+  enableval=$enable_testbed; if test x"$enableval" != xno; then :
+  enable_testbed=yes
+fi
+else
+  enable_testbed=no
 fi
 
 
@@ -4118,7 +4130,7 @@ else
   :
 fi
 
-as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
+as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__"
 
 if test "x$enable_atmo" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
@@ -4196,6 +4208,10 @@ if test "x$enable_serialization" != xno; then :
   *) :
      ;;
 esac
+fi
+
+if test "x$enable_testbed" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_TESTBED__"
 fi
 
 if test "x$enable_loop_exchange" = xyes; then :
