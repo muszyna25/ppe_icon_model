@@ -123,8 +123,8 @@ checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_inter
 
 ./set_builder_flags Active --builders MISTRAL_intel18_pio --list $listname
 for builder in MISTRAL_intel18_pio; do
-  $addexp exp.atm_amip_R2B4_1day_pio --builders ${builder} --list $listname
-  $addexp exp.atm_amip_R2B4_1day     --builders ${builder} --list $listname
+  $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day_pio --builders ${builder} --list $listname
+  $addexp checksuite.infrastructure/output/exp.atm_amip_R2B4_1day     --builders ${builder} --list $listname
 done
 #lets see the list
 ./lslist $listname
