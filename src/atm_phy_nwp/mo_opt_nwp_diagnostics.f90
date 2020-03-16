@@ -2260,7 +2260,7 @@ CONTAINS
 
   INTEGER :: lfcfound(SIZE(te,1))   ! flag indicating if a LFC has already been found
                                     ! below, in cases where several EL and LFC's occur
-  
+  LOGICAL :: lexit(SIZE(te,1))
 !------------------------------------------------------------------------------
 ! 
 ! A well mixed near surface layer is assumed (its depth is specified with 
@@ -2278,10 +2278,12 @@ CONTAINS
                        ! mixed layer pressure
     qvp_start(:) = 0.0_wp ! specific humidities in well mixed layer
     tp_start (:) = 0.0_wp ! potential temperatures in well mixed layer
-            
+    lexit(:)     = .FALSE.
+
     ! now calculate the mixed layer average potential temperature and 
     ! specific humidity
     DO k = nlev, kmoist, -1
+      IF (ALL(lexit(i_startidx:i_endidx))) EXIT
       DO i = i_startidx, i_endidx
 
         IF ( prs(i,k) > (prs(i,nlev) - ml_depth)) THEN
@@ -2298,7 +2300,7 @@ CONTAINS
 
           k_ml(i) = k - 1
         ELSE
-          EXIT
+          lexit(i) = .TRUE.
         ENDIF
 
       ENDDO     
