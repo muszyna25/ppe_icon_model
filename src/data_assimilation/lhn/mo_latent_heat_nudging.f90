@@ -107,7 +107,7 @@ USE mo_mpi,                     ONLY: my_process_is_stdio, p_io
 USE mo_io_units,                ONLY: find_next_free_unit
 USE mo_run_config,              ONLY: msg_level, iqv, iqc, iqi
 USE mo_math_laplace,            ONLY: nabla2_scalar
-USE mo_sync,                    ONLY: SYNC_C, sync_patch_array_mult,global_max,global_min,global_sum
+USE mo_sync,                    ONLY: SYNC_C, sync_patch_array_mult,global_sum
 USE mo_intp_data_strc,          ONLY: t_int_state
 
 
@@ -1574,7 +1574,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
 !---------------
 
   INTEGER   (KIND=i4)                 ::       &
-    ip,k              ,& ! indeces for position in local subdomain
+    i,ip,k            ,& ! indeces for position in local subdomain
     n,ii              ,& ! loop indeces
     n_local           ,& ! diagnostic : number of points with local profiles
     n_artif            ,& ! diagnostic : number of points with artificial profile
@@ -1608,19 +1608,18 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
   INTEGER   (KIND=i4)                              ::       &
     nelimosc, nelimiso, nsmooth ,& ! diagnostic variables for filter_prof
     nelimosc_proc, nelimiso_proc, nsmooth_proc, &
-    n_windcor, n_windcor0, n_incloud, ntreat
+    n_windcor, n_windcor0, n_incloud, ntreat, treat_list(nproma)
 
   REAL (KIND=wp)                         ::       &
-    prof_filt(ke)             ,& ! array for filtered vertical heating profile
     scale_fac                 ,& ! scaling factor determined for each profile
-    tt_artif(ke)              ,& ! artificial heating profile
-    abs_lim_prof(ke)          ,& ! vertical profile for limitation the temperature increment
+    tt_artif(nproma,ke)       ,& ! artificial heating profile
+    abs_lim_prof(nproma,ke)   ,& ! vertical profile for limitation the temperature increment
     pr_quot_max               ,&
     w, ntcoeff, fac
 
 
   REAL (KIND=wp)    ::       &
-    umean, vmean, zvb, zvb_llim, zvb_ulim, w950, w850, w700, wind_corr, &
+    umean, vmean, zvb, zvb_llim, zvb_ulim, w950, w850, w700, wind_corr(nproma), &
     dpsum, rfade
 
   REAL (KIND=wp)    ::       &
@@ -1750,10 +1749,15 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
         ELSE
            pr_ana(ip) = w * pr_obs(ip) + (1.0_wp-w) * pr_mod(ip)
            ntreat = ntreat +1
+           treat_list(ntreat) = ip
            treat_diag(ip)=0_wp
         ENDIF
      ENDIF
+  ENDDO
 
+!NEC$ ivdep
+  DO i = 1, ntreat
+     ip = treat_list(i)
      pr_quot       = (pr_ana(ip)+epsilon)/(pr_mod(ip)+epsilon)
 
      IF(assimilation_config(jg)%lhn_logscale) THEN
@@ -1790,16 +1794,10 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
         prmax    = pr_mod(ip) * fac
         prmax_th = assimilation_config(jg)%thres_lhn * fac
 
- !       prmax    = MAX(prmax,prmax_th)
- !       prmax    = MIN(prmax,pr_ana(ip))
-
         prmax_th = MIN(prmax_th,pr_ana(ip))
         prmax    = MAX(prmax,prmax_th)
 
-!        scale_fac = (prmax-pr_mod(ip))/pr_artif  ! 
         scale_fac = assimilation_config(jg)%fac_lhn_artif_tune * (pr_ana(ip))/pr_artif 
-!        scale_fac = assimilation_config(jg)%fac_lhn_artif_tune * (prmax)/pr_artif 
-
 
         n_artif = n_artif + 1
         treat_diag(ip)=4_wp
@@ -1817,7 +1815,11 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
      ELSE
         scale_fac_index(ip)=.FALSE.
      ENDIF
+     scale_diag(ip)=scale_fac
 
+     IF (assimilation_config(jg)%lhn_artif_only) treat_diag(ip) = 4_wp
+
+  ENDDO
 
 !-------------------------------------------------------------------------------
 ! Section 4 : Scale the heating profiles with the predetermined factors
@@ -1832,96 +1834,97 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
 ! filter and scale the local profiles and nearby profiles from this node
 ! or artificial profiles
 
-     tt_artif(:) = 0.0
-     abs_lim_prof(:) = 0.0
-     DO k = 1 , ke-5 ! do not touch the lowest model level
-        dz = zlev(ip,k) - zlev_artif_max
-        tt_artif(k) = tt_artif_max * exp(-0.5*((dz/std_zlev)**2))
-        IF (tt_artif(k) < 1.e-7) tt_artif(k) = 0.0
-        abs_lim_prof(k) = abs_lim_pos * exp(-0.5*((dz/(std_zlev))**2))
-        IF (abs_lim_prof(k) < 1.e-7) abs_lim_prof(k) = 0.0
-     ENDDO
-
-     scale_diag(ip)=scale_fac
-
-     IF (assimilation_config(jg)%lhn_artif_only) treat_diag(ip) = 4_wp
+  tt_artif(:,ke-4:ke) = 0.0
+  abs_lim_prof(:,ke-4:ke) = 0.0
+  DO k = 1, ke-5 ! do not touch the lowest model levels
+!NEC$ ivdep
+    DO i = 1, ntreat
+      ip = treat_list(i)
+      dz = zlev(ip,k) - zlev_artif_max
+      tt_artif(ip,k) = tt_artif_max * exp(-0.5*((dz/std_zlev)**2))
+      IF (tt_artif(ip,k) < 1.e-7) tt_artif(ip,k) = 0.0
+      abs_lim_prof(ip,k) = abs_lim_pos * exp(-0.5*((dz/(std_zlev))**2))
+      IF (abs_lim_prof(ip,k) < 1.e-7) abs_lim_prof(ip,k) = 0.0
+    ENDDO
+  ENDDO
 
 !      determine the temperature correction due to lhn
 
-     IF (treat_diag(ip) > 0 .AND. treat_diag(ip) < 4) THEN
+  DO k = 1, ke
+!NEC$ ivdep
+    DO i = 1, ntreat
+      ip = treat_list(i)
+      IF (treat_diag(ip) > 0 .AND. treat_diag(ip) < 4) THEN
 
-        ttend_lhn(ip,1:ke) = (scale_fac-1.) * tt_lheat(ip,1:ke)
-        ttend_lhn(ip,1:ke) = assimilation_config(jg)%lhn_coef * ttend_lhn(ip,1:ke) * ntcoeff
+        ttend_lhn(ip,k) = (scale_diag(ip)-1.) * tt_lheat(ip,k)
+        ttend_lhn(ip,k) = assimilation_config(jg)%lhn_coef * ttend_lhn(ip,k) * ntcoeff
 
-     ELSE IF (treat_diag(ip) == 4) THEN
+      ELSE IF (treat_diag(ip) == 4) THEN
 
-!20190524
-        ttend_lhn(ip,1:ke) = ABS((scale_fac) * tt_artif(1:ke)) * assimilation_config(jg)%lhn_coef * ntcoeff
-!        ttend_lhn(ip,1:ke) = ABS((scale_fac) * tt_artif(1:ke)-tt_lheat(ip,1:ke)) * assimilation_config(jg)%lhn_coef * ntcoeff ! it might be wise to take current local latent heat release into account (will matter in case of large values)
+        ttend_lhn(ip,k) = ABS(scale_diag(ip) * tt_artif(ip,k)) * assimilation_config(jg)%lhn_coef * ntcoeff
 
-        WHERE (ttend_lhn(ip,1:ke) < 0._wp)
-          ttend_lhn(ip,1:ke) = 0.0_wp
-        ENDWHERE
+        IF (ttend_lhn(ip,k) < 0._wp) ttend_lhn(ip,k) = 0.0_wp
 
-     ELSE
-         print *,"no treatment of a critical point!", ip
-     ENDIF
+      ENDIF
+    ENDDO
+  ENDDO
 !-------------------------------------------------------------------------------
 ! Section 5 : Vertical filtering of increments (if assimilation_config(jg)%lhn_filt)
 !-------------------------------------------------------------------------------
 
-     IF (assimilation_config(jg)%lhn_filt) THEN
-          CALL filter_prof (ttend_lhn(ip,1:ke),prof_filt,1,ke,      &
-                            eps,lelim,lsmooth,nelimosc,nelimiso,nsmooth)
-          ttend_lhn(ip,1:ke) = prof_filt(1:ke)
-          nelimosc_proc = nelimosc_proc + nelimosc
-          nelimiso_proc = nelimiso_proc + nelimiso
-          nsmooth_proc  = nsmooth_proc  + nsmooth
-   
-     ENDIF
+  IF (assimilation_config(jg)%lhn_filt) THEN
+
+     CALL filter_prof (ttend_lhn,ntreat,treat_list,1,ke,      &
+                       eps,lelim,lsmooth,nelimosc,nelimiso,nsmooth)
+     nelimosc_proc = nelimosc_proc + nelimosc
+     nelimiso_proc = nelimiso_proc + nelimiso
+     nsmooth_proc  = nsmooth_proc  + nsmooth
+
+  ENDIF
+
+
+  DO k = 1, ke
+!NEC$ ivdep
+    DO i = 1, ntreat
+      ip = treat_list(i)
 
 !-------------------------------------------------------------------------------
 ! Section 6 : Set all increments to zero where tt_lheat in negative (i.e. layers without cloud)
 !-------------------------------------------------------------------------------
 
-     IF (assimilation_config(jg)%lhn_incloud .AND. .NOT. assimilation_config(jg)%lhn_artif_only) THEN
-          DO k=1,ke
-            IF (tt_lheat(ip,k) < 0.0_wp) THEN
-               ttend_lhn(ip,k) = 0.0_wp
-               n_incloud = n_incloud + 1
-            ENDIF
-          ENDDO
-     ENDIF
+      IF (assimilation_config(jg)%lhn_incloud .AND. .NOT. assimilation_config(jg)%lhn_artif_only) THEN
+        IF (tt_lheat(ip,k) < 0.0_wp) THEN
+          ttend_lhn(ip,k) = 0.0_wp
+          n_incloud = n_incloud + 1
+        ENDIF
+      ENDIF
 
 !-------------------------------------------------------------------------------
 ! Section 7 : Impose absolute limit on increments if requested (if assimilation_config(jg)%lhn_limit)
 !-------------------------------------------------------------------------------
 
-        IF (assimilation_config(jg)%lhn_limitp) THEN
-           DO k=1,ke
-             IF (ttend_lhn(ip,k) > abs_lim_prof(k)) THEN
-                 ttend_lhn(ip,k) = abs_lim_prof(k)
-                 n_ex_lim_p = n_ex_lim_p + 1
-             ELSEIF (ttend_lhn(ip,k) < -1.*abs_lim_prof(k)) THEN
-                 ttend_lhn(ip,k) = -1.*abs_lim_prof(k)
-                 n_ex_lim_n = n_ex_lim_n + 1
-             ENDIF
-           ENDDO
-
-        ELSE IF (assimilation_config(jg)%lhn_limit) THEN
-
-           DO k=1,ke
-             IF (ttend_lhn(ip,k) > abs_lim_pos) THEN
-                 ttend_lhn(ip,k) = abs_lim_pos
-                 n_ex_lim_p = n_ex_lim_p + 1
-             ELSEIF (ttend_lhn(ip,k) < abs_lim_neg) THEN
-                 ttend_lhn(ip,k) = abs_lim_neg
-                 n_ex_lim_n = n_ex_lim_n + 1
-             ENDIF
-           ENDDO
-
+      IF (assimilation_config(jg)%lhn_limitp) THEN
+        IF (ttend_lhn(ip,k) > abs_lim_prof(ip,k)) THEN
+           ttend_lhn(ip,k) = abs_lim_prof(ip,k)
+           n_ex_lim_p = n_ex_lim_p + 1
+        ELSEIF (ttend_lhn(ip,k) < -1.*abs_lim_prof(ip,k)) THEN
+           ttend_lhn(ip,k) = -1.*abs_lim_prof(ip,k)
+           n_ex_lim_n = n_ex_lim_n + 1
         ENDIF
 
+      ELSE IF (assimilation_config(jg)%lhn_limit) THEN
+
+        IF (ttend_lhn(ip,k) > abs_lim_pos) THEN
+           ttend_lhn(ip,k) = abs_lim_pos
+           n_ex_lim_p = n_ex_lim_p + 1
+        ELSEIF (ttend_lhn(ip,k) < abs_lim_neg) THEN
+           ttend_lhn(ip,k) = abs_lim_neg
+           n_ex_lim_n = n_ex_lim_n + 1
+        ENDIF
+
+      ENDIF
+    ENDDO
+  ENDDO
 !-------------------------------------------------------------------------------
 ! Section 8 : Weighting of the temperature increment with respect to
 !             the mean horizontal wind within the column
@@ -1931,29 +1934,40 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
 !-------------------------------------------------------------------------------
 
   IF (assimilation_config(jg)%lhn_wweight) THEN
-        umean = w950 * u(ip,k950(ip))       &
-              + w850 * u(ip,k850(ip))       &
-              + w700 * u(ip,k700(ip))
-        vmean = w950 * v(ip,k950(ip))       &
-              + w850 * v(ip,k850(ip))       &
-              + w700 * v(ip,k700(ip))
-        zvb   = SQRT(umean * umean + vmean * vmean)
+!NEC$ ivdep
+    DO i = 1, ntreat
+      ip = treat_list(i)
+      umean = w950 * u(ip,k950(ip))       &
+            + w850 * u(ip,k850(ip))       &
+            + w700 * u(ip,k700(ip))
+      vmean = w950 * v(ip,k950(ip))       &
+            + w850 * v(ip,k850(ip))       &
+            + w700 * v(ip,k700(ip))
+      zvb   = SQRT(umean * umean + vmean * vmean)
 
-        IF (zvb <= zvb_llim) THEN
-           wind_corr=1.0_wp
-        ELSE IF (zvb <= zvb_ulim) THEN
-           wind_corr=1.0_wp - (1.0_wp/(zvb_ulim-zvb_llim))   &
-                                  * (zvb - zvb_llim)
-           n_windcor=n_windcor+1
-        ELSE
-           wind_corr=0.0_wp
-           n_windcor0=n_windcor0+1
-        ENDIF
-        ttend_lhn(ip,:) = ttend_lhn(ip,:) * wind_corr
-!        windcor_diag(ip)=wind_corr
+      IF (zvb <= zvb_llim) THEN
+         wind_corr(ip)=1.0_wp
+      ELSE IF (zvb <= zvb_ulim) THEN
+         wind_corr(ip)=1.0_wp - (1.0_wp/(zvb_ulim-zvb_llim))   &
+                                * (zvb - zvb_llim)
+         n_windcor=n_windcor+1
+      ELSE
+         wind_corr(ip)=0.0_wp
+         n_windcor0=n_windcor0+1
+      ENDIF
+
+    ENDDO
+
+    DO k = 1, ke
+!NEC$ ivdep
+      DO i = 1, ntreat
+        ip = treat_list(i)
+        ttend_lhn(ip,k) = ttend_lhn(ip,k) * wind_corr(ip)
+      ENDDO
+    ENDDO
+
   ENDIF
 
-  ENDDO
 
 
 !-------------------------------------------------------------------------------
@@ -2187,7 +2201,7 @@ END SUBROUTINE lhn_q_inc
 !+ Filtering of vertical (heating) profiles, elimination of isolated peaks
 !-------------------------------------------------------------------------------
 
-SUBROUTINE filter_prof (prof,prof_filt,kup,klow,eps,lelim,lsmooth, &
+SUBROUTINE filter_prof (prof_filt,ntreat,treat_list,kup,klow,eps,lelim,lsmooth, &
                         nelimosc,nelimiso,nsmooth)
 
 !-------------------------------------------------------------------------------
@@ -2212,32 +2226,26 @@ SUBROUTINE filter_prof (prof,prof_filt,kup,klow,eps,lelim,lsmooth, &
     lsmooth              ! flag 0/1 for smoothing
 
   INTEGER (KIND=i4), INTENT(IN)       ::    &
+    ntreat, treat_list(:), & ! number of horizontal grid points and index list
     kup               ,& ! array dimensions of profile prof
     klow                 ! array dimensions of profile prof
 
-  REAL (KIND=wp),    INTENT(IN)       ::      &
-    prof(kup:klow)    ,& ! profile array
+  REAL (KIND=wp),    INTENT(INOUT)       ::      &
+    prof_filt(nproma,kup:klow)    ,& ! on output: filtered profile array
     eps                  ! limits above which values are modified
-
-  REAL (KIND=wp),    INTENT(OUT)       ::      &
-    prof_filt(kup:klow)      ! array for filtered profile
 
 ! Local subroutine variables and arrays
   LOGICAL                                   ::    &
-    lflag(kup:klow)          ! array to flag levels to be set to zero
+    lflag(nproma,kup:klow)          ! array to flag levels to be set to zero
   INTEGER   (KIND=i4)                ::    &
-    k,nheat, &               ! loop index, acceptable level counter
+    i,ip,k,nheat(nproma), &           ! loop index, acceptable level counter
     nelimosc,nelimiso,nsmooth ! diag. output
-  REAL (KIND=wp)           ::      &
-    proffilt(kup:klow)       ! profile array
+  REAL (KIND=wp), DIMENSION(nproma, kup:klow) :: proffilt      ! profile array
 
 !- End of header
 !-------------------------------------------------------------------------------
 ! Begin Subroutine filter_prof
 !-------------------------------------------------------------------------------
-
-   proffilt(:)=prof(:)
-   prof_filt(:)=prof(:)
 
    nelimosc = 0
    nelimiso = 0
@@ -2246,19 +2254,35 @@ SUBROUTINE filter_prof (prof,prof_filt,kup,klow,eps,lelim,lsmooth, &
 ! eliminate isolated peaks
    IF (lelim) THEN
 
-     lflag(:) = .FALSE.
-
+!NEC$ ivdep
+     DO i = 1, ntreat
+       ip = treat_list(i)
 !    eliminate oscillations around zero between adjacent levels
-     IF ( ABS(prof(klow)) < eps ) lflag(klow) = .TRUE.
-     IF ( ABS(prof(kup)) < eps ) lflag(kup) = .TRUE.
-     DO k=klow-1,kup+1,-1
-        IF ( (prof(k-1)*prof(k)) <= 0. .AND.   &
-             (prof(k)*prof(k+1)) <= 0.         ) THEN
-           lflag(k) = .TRUE.
-           nelimosc = nelimosc + 1
-        ENDIF
+       IF ( ABS(prof_filt(ip,klow)) < eps ) THEN
+         proffilt(ip,klow) = 0.
+       ELSE
+         proffilt(ip,klow) = prof_filt(ip,klow)
+       ENDIF
+       IF ( ABS(prof_filt(ip,kup)) < eps ) THEN
+         proffilt(ip,kup) = 0.
+       ELSE
+         proffilt(ip,kup) = prof_filt(ip,kup)
+       ENDIF
      ENDDO
-     WHERE ( lflag ) proffilt = 0.
+     DO k=klow-1,kup+1,-1
+!NEC$ ivdep
+       DO i = 1, ntreat
+         ip = treat_list(i)
+         IF ( (prof_filt(ip,k-1)*prof_filt(ip,k)) <= 0. .AND.   &
+           (prof_filt(ip,k)*prof_filt(ip,k+1)) <= 0.         ) THEN
+            proffilt(ip,k) = 0._wp
+            nelimosc = nelimosc + 1
+         ELSE
+            proffilt(ip,k) = prof_filt(ip,k)
+         ENDIF
+       ENDDO
+     ENDDO
+
 
 !    eliminate isolated peaks of small vertical extent
 !    a) value on one level below and above is below specified eps
@@ -2267,45 +2291,68 @@ SUBROUTINE filter_prof (prof,prof_filt,kup,klow,eps,lelim,lsmooth, &
 !    nheat : counter of lower levels with accepted heating rate (profile value)
 !          - is reset to zero when an isolated peak is diagnosed or the heating
 !            at the level considered is below specified eps
-     nheat = 0
-     lflag(:) = .FALSE.
+     nheat(:) = 0
+     lflag(:,:) = .FALSE.
+
      DO k=klow-1,kup+2,-1
-        nheat=nheat+1
-        IF ( ABS(proffilt(k-1))  <= eps .AND. ABS(proffilt(k+1)) <= eps ) THEN
-              lflag(k) = .TRUE.
-              nheat = 0
+!NEC$ ivdep
+       DO i = 1, ntreat
+         ip = treat_list(i)
+         nheat(ip)=nheat(ip)+1
+         IF ( ABS(proffilt(ip,k-1))  <= eps .AND. ABS(proffilt(ip,k+1)) <= eps ) THEN
+           lflag(ip,k) = .TRUE.
+           nheat(ip) = 0
            nelimiso = nelimiso + 1
-        ENDIF
-        IF ( nheat < 2 .AND. ABS(proffilt(k-2)) <= eps ) THEN
-              lflag(k-1) = .TRUE.
-              lflag(k) = .TRUE.
-              nheat = 0
+         ENDIF
+         IF ( nheat(ip) < 2 .AND. ABS(proffilt(ip,k-2)) <= eps ) THEN
+           lflag(ip,k-1) = .TRUE.
+           lflag(ip,k) = .TRUE.
+           nheat(ip) = 0
            nelimiso = nelimiso + 1
-        ENDIF
+         ENDIF
+       ENDDO
      ENDDO
-     WHERE ( lflag ) proffilt = 0.
-
-     prof_filt(:)=proffilt(:)
-
+     DO k=klow,kup,-1
+!NEC$ ivdep
+       DO i = 1, ntreat
+         ip = treat_list(i)
+         IF (lflag(ip,k)) proffilt(ip,k) = 0.
+         prof_filt(ip,k) = proffilt(ip,k)
+       ENDDO
+     ENDDO
+   ELSE
+     proffilt(:,:)=prof_filt(:,:)
    ENDIF
 
 ! smooth profile
    IF (lsmooth) THEN
 
-      DO k=klow-1,kup+1,-1
-         IF ( ABS(proffilt(k)) >= eps ) THEN
-            prof_filt(k) = 0.5  * proffilt(k) + 0.25 * (proffilt(k+1)+proffilt(k-1))
+     DO k=klow-1,kup+1,-1
+!NEC$ ivdep
+       DO i = 1, ntreat
+         ip = treat_list(i)
+         IF ( ABS(proffilt(ip,k)) >= eps ) THEN
+            prof_filt(ip,k) = 0.5  * proffilt(ip,k) + 0.25 * (proffilt(ip,k+1)+proffilt(ip,k-1))
             nsmooth = nsmooth + 1
          ENDIF
-      ENDDO
-      IF ( ABS(proffilt(klow)) >= eps) THEN
-         prof_filt(klow)=0.66 * proffilt(klow) + 0.33 * proffilt(klow-1)
+       ENDDO
+     ENDDO
+!NEC$ ivdep
+     DO i = 1, ntreat
+       ip = treat_list(i)
+       IF ( ABS(proffilt(ip,klow)) >= eps) THEN
+         prof_filt(ip,klow)=0.66 * proffilt(ip,klow) + 0.33 * proffilt(ip,klow-1)
          nsmooth = nsmooth + 1
-      ENDIF
-      IF ( ABS(proffilt(kup)) >= eps) THEN
-         prof_filt(kup)=0.66 * proffilt(kup) + 0.33 * proffilt(kup+1)
+       ENDIF
+     ENDDO
+!NEC$ ivdep
+     DO i = 1, ntreat
+       ip = treat_list(i)
+       IF ( ABS(proffilt(ip,kup)) >= eps) THEN
+         prof_filt(ip,kup)=0.66 * proffilt(ip,kup) + 0.33 * proffilt(ip,kup+1)
          nsmooth = nsmooth + 1
-      ENDIF
+       ENDIF
+     ENDDO
    ENDIF
 
 !-------------------------------------------------------------------------------
