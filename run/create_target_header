@@ -294,7 +294,6 @@ set_run_target_bullx_cpu()
 	job_type=parallel
 	tasks_per_node=$use_mpi_procs_pernode
     fi
-  fi
 
   [[ "x$use_queue" != 'x' ]] && queue=$use_queue
 
