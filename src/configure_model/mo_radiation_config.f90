@@ -25,6 +25,7 @@
 MODULE mo_radiation_config
 
   USE mo_kind,           ONLY: wp
+  USE mo_io_units,       ONLY: filename_max
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
 
   IMPLICIT NONE
@@ -63,15 +64,22 @@ MODULE mo_radiation_config
                            !    (see )
                            ! 2: Modis albedo
 
-    INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter-Geleyn implementation
+    INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter and Geleyn (1992)
                                ! 2: limitation to diffuse albedo according to Zaengl 
                                !    applied to all land points
-                               !    Ritter-Geleyn implementation for remaining points (water,ice) 
-                               ! 3: Parameterization after Yang (2008) for snow-free land points.
+                               !    Ritter-Geleyn for ice 
+                               ! 3: Parameterization after Yang et al (2008) for snow-free land points
                                !    limitation after Zaengl for snow-coverer points
-                               !    Ritter-Geleyn implementation for remaining points (water,ice)
-                               ! 4: Parameterization after Briegleb (1992) for snow-free land points
+                               !    Ritter-Geleyn implementation for ice
+                               ! 4: Parameterization after Briegleb and Ramanathan (1992) for snow-free land points
                                !    limitation after Zaengl for snow-coverer points
+  
+    INTEGER :: direct_albedo_water ! 1: Ritter and Geleyn (1992)
+                                   ! 2: Yang et al (2008)
+                                   ! 3: Taylor et al (1996) as in IFS
+
+    INTEGER :: albedo_whitecap ! 0: no whitecap albedo
+                               ! 1: Seferian et al (2018) whitecaps albedo from breaking ocean waves
 
     INTEGER :: icld_overlap    ! method for cloud overlap calculation in shortwave part of RRTM
                                ! 1: maximum-random overlap
@@ -101,6 +109,16 @@ MODULE mo_radiation_config
     INTEGER  :: irad_cfc12  !< CFC 12
     INTEGER  :: irad_aero   !< aerosols
     LOGICAL  :: lrad_aero_diag  !< diagnose aerosols
+    !
+    ! --- Select dynamic greenhouse gases scenario (read from file)
+    !     ighg = 0 : select default gas volume mixing ratios - 1990 values (CMIP5)
+    !     ighg = 1 : transient CMIP5 scenario from file
+    !
+    INTEGER :: ighg
+    !
+    ! --- Name of the file that contains  dynamic greenhouse values
+    !
+    CHARACTER(LEN=filename_max)  :: ghg_filename
     !
     ! --- Default gas mixing ratios - 1990 values (CMIP5)
     !

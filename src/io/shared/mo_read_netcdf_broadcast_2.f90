@@ -40,7 +40,8 @@ MODULE mo_read_netcdf_broadcast_2
   USE mo_parallel_config,    ONLY: nproma
   USE mo_io_units,           ONLY: filename_max
 
-  USE mo_mpi,                ONLY: my_process_is_mpi_workroot
+  USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_comm_work, &
+    &                              process_mpi_root_id, p_bcast
   USE mo_read_netcdf_distributed, ONLY: var_data_2d_wp, var_data_2d_int, &
     &                                   var_data_3d_wp, var_data_3d_int
   USE mo_communication,      ONLY: t_scatterPattern
@@ -55,6 +56,7 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_open_input, netcdf_close
 
   PUBLIC :: netcdf_read_att_int
+  PUBLIC :: netcdf_read_inq_varexists
   PUBLIC :: netcdf_read_0D_real
   PUBLIC :: netcdf_read_0D_int
   PUBLIC :: netcdf_read_1D
@@ -174,6 +176,27 @@ CONTAINS
     res=zlocal(1)
 
   END FUNCTION netcdf_read_ATT_INT
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_inq_varexists(file_id, variable_name) result(ret)
+    LOGICAL                      :: ret
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+
+    INTEGER                      :: err, varid
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_inq_varexists'
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      err = nf_inq_varid(file_id, variable_name, varid)
+    ENDIF
+
+    CALL p_bcast(err, process_mpi_root_id, p_comm_work)
+
+    ret = (err == nf_noerr)
+  END FUNCTION netcdf_read_inq_varexists
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

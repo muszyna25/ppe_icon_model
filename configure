@@ -713,6 +713,7 @@ enable_yaxt
 enable_claw
 enable_explicit_fpp
 enable_serialization
+enable_testbed
 enable_loop_exchange
 enable_intel_consistency
 enable_vectorized_lrtm
@@ -1418,6 +1419,7 @@ Infrastructural Features:
                             perturb   enable READ & PERTURB mode
                             create    enable CREATE mode
                             no        disable serialization
+  --enable-testbed        enable ICON Testbed infrastructure [default=no]
 
 Optimization Features:
   --enable-loop-exchange  enable loop exchange [default=yes]
@@ -2444,6 +2446,16 @@ else
 fi
 
 
+# Check whether --enable-testbed was given.
+if test "${enable_testbed+set}" = set; then :
+  enableval=$enable_testbed; if test x"$enableval" != xno; then :
+  enable_testbed=yes
+fi
+else
+  enable_testbed=no
+fi
+
+
 
 
 # Check whether --enable-loop-exchange was given.
@@ -3366,7 +3378,7 @@ else
   acx_cv_fc_compiler_vendor=intel
 elif $FC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=nag
-elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
+elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=portland
 elif $FC -V 2>&1 | grep '^Cray Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=cray
@@ -4118,7 +4130,7 @@ else
   :
 fi
 
-as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
+as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__"
 
 if test "x$enable_atmo" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
@@ -4196,6 +4208,10 @@ if test "x$enable_serialization" != xno; then :
   *) :
      ;;
 esac
+fi
+
+if test "x$enable_testbed" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_TESTBED__"
 fi
 
 if test "x$enable_loop_exchange" = xyes; then :
@@ -4969,7 +4985,7 @@ else
   acx_cv_c_compiler_vendor=intel
 elif $CC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=nag
-elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
+elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=portland
 elif $CC -V 2>&1 | grep '^Cray C' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
@@ -6160,22 +6176,11 @@ $as_echo_n "checking whether Fortran RTTOV library is available... " >&6; }
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
-      use mo_rttov_ifc, only: rttov_init
-      implicit none
-      integer :: istatus, channels(8, 2), n_chans(2), p_pe, &
-               & num_work_procs, p_io, p_comm_work
-      integer, allocatable :: instruments(:,:)
-      logical, allocatable :: addclouds(:)
-      istatus = rttov_init(  &
-        instruments     , &
-        channels        , &
-        n_chans         , &
-        p_pe            , &
-        num_work_procs  , &
-        p_io            , &
-        p_comm_work     , &
-        appRegLim=.TRUE., &
-        readCloud=addclouds)
+use rttov_types, only: rttov_coefs
+implicit none
+#include "rttov_nullify_coef.interface"
+type(rttov_coefs),target:: coefs(1)
+call rttov_nullify_coef(coefs(1)%coef)
       end
 _ACEOF
 if ac_fn_fc_try_link "$LINENO"; then :

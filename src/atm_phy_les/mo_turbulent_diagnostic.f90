@@ -53,7 +53,7 @@ MODULE mo_turbulent_diagnostic
   USE mtime,                 ONLY: datetime
   USE mo_util_mtime,         ONLY: getElapsedSimTimeInSeconds
   USE mo_time_config,        ONLY: time_config
-  USE mo_util_phys,          ONLY: cal_cape_cin
+  USE mo_opt_nwp_diagnostics,ONLY: cal_cape_cin
   USE mo_nwp_parameters,     ONLY: t_phy_params
   USE mo_ls_forcing_nml,     ONLY: is_ls_forcing  
  

@@ -674,6 +674,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !    Since the control volume center has the local coordinates (x,y)=(0,0),
     !    the coordinates of the other cell centers equal the distance
     !    vectors.
+!$NEC novector
       DO js = 1, ptr_ncells(jc,jb)
         CALL gnomonic_proj( xloc, yloc, xytemp_c(js,1), xytemp_c(js,2),  &! in
          &                  z_dist_g(jc,jb,js,1), z_dist_g(jc,jb,js,2) )  ! out
@@ -717,6 +718,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       ! a: Project control volume vertices and calculate distance vectors
       !    between cell center and vertices
       !
+!$NEC novector
         DO jec=1,nverts
           CALL gnomonic_proj( xloc, yloc, xytemp_v(jec,1), xytemp_v(jec,2),  &
            &                 distxy_v(jec,1), distxy_v(jec,2) )

@@ -294,6 +294,69 @@ set_run_target_bullx_cpu()
 	job_type=parallel
 	tasks_per_node=$use_mpi_procs_pernode
     fi
+  fi
+
+  [[ "x$use_queue" != 'x' ]] && queue=$use_queue
+
+  use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
+# TODO: disabled because other core files are generated
+# case $use_flags_group in
+#   debug)
+#     use_mpi_startrun="${use_mpi_startrun},CORE"
+#     ;;
+# esac
+
+  case _$use_compiler in
+    "_intel" )
+        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+        add_free_var KMP_LIBRARY "turnaround"
+        add_free_var KMP_KMP_SETTINGS "1"
+        add_free_var OMP_WAIT_POLICY "active"
+      ;;
+  esac
+  case $use_mpi_root in
+    *bullxmpi*)
+      # this does currently not work on mistral but is most probably needed
+      # for other SLURM installations
+      #use_mpi_startrun+=" --mpi=openmpi"
+      add_free_var OMPI_MCA_pml cm
+      add_free_var OMPI_MCA_mtl mxm
+      add_free_var OMPI_MCA_coll '^ghc'
+      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      add_free_var OMPI_MCA_coll_fca_enable 1
+      add_free_var OMPI_MCA_coll_fca_priority 95
+      ;;
+    *openmpi*)
+      add_free_var OMPI_MCA_pml cm
+      add_free_var OMPI_MCA_mtl mxm
+      add_free_var OMPI_MCA_coll ^fca
+      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
+      add_free_var HCOLL_ML_DISABLE_BARRIER 1
+      add_free_var HCOLL_ML_DISABLE_IBARRIER 1
+      add_free_var HCOLL_ML_DISABLE_BCAST 0
+      add_free_var HCOLL_ENABLE_MCAST_ALL 1
+      add_free_var HCOLL_ENABLE_MCAST 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
+      add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallw 1
+      add_free_var MXM_HANDLE_ERRORS bt
+      add_free_var UCX_HANDLE_ERRORS bt
+      ;;
+    *intel*mpi*)
+      add_free_var I_MPI_FABRICS shm:dapl
+      add_free_var I_MPI_DAPL_UD enable
+      add_free_var I_MPI_DAPL_UD_PROVIDER ofa-v2-mlx5_0-1u
+      add_free_var DAPL_UCM_REP_TIME 8000
+      add_free_var DAPL_UCM_RTU_TIME 4000
+      add_free_var DAPL_UCM_CQ_SIZE 1000
+      add_free_var DAPL_UCM_QP_SIZE 1000
+      add_free_var DAPL_UCM_RETRY 10
+      add_free_var DAPL_ACK_RETRY 10
+      add_free_var DAPL_ACK_TIMER 20
+      add_free_var DAPL_UCM_TX_BURST 100
+      add_free_var DAPL_WR_MAX 500
+      ;;
+  esac
 
     if [[ "x$BB_SYSTEM" != "x" ]]
     then
@@ -618,6 +681,87 @@ EOF
 }
 
 #=============================================================================
+set_run_target_tsa_gpu()
+{
+  # daint.cscs.ch with GPU
+  icon_data_rootFolder=/scratch/dremo/remo_icon_pool
+  icon_data_poolFolder=/scratch/dremo/remo_icon_pool
+
+  set_default use_nproma 8000
+  set_default use_nodes 1
+  use_OMP_SCHEDULE="static,1"
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 1
+      set_default use_openmp_threads 1
+    else
+      set_default use_mpi_procs_pernode 1
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 1
+      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_nodes="SBATCH --nodes=1"
+    SBATCH_ntasks_per_node=""
+  else
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_nodes="SBATCH --nodes=$use_nodes"
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this is buldbot, do not run more than 45 minutes
+    s_cpu_time="SBATCH --time=00:45:00"
+  fi
+
+  # ------------------------------------
+
+  use_nodes=${use_nodes}
+  use_mpi_procs_pernode=${use_mpi_procs_pernode}
+
+  cat >> $output_script << EOF
+# =====================================
+# daint batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#$SBATCH_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+#========================================
+EOF
+  # create header
+  start_header
+  cat >>$output_script <<EOF
+export CRAY_CUDA_MPS=1
+EOF
+}
+
+#=============================================================================
 set_run_target_daint_cpu()
 {
     rootFolder_prefix=/users/icontest
@@ -711,6 +855,7 @@ EOF
   start_header
 }
 
+#=============================================================================
 #=============================================================================
 set_run_target_daint_gpu()
 {

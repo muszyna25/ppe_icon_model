@@ -23,7 +23,7 @@
 !!
 MODULE mo_aerosol_util
 
-  USE mo_impl_constants,       ONLY: min_rlcell, iss, iorg, ibc, iso4, idu, dzsoil, nclass_aero
+  USE mo_impl_constants,       ONLY: min_rlcell, iss, iorg, ibc, iso4, idu, nclass_aero
   USE mo_math_constants,       ONLY: rad2deg
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -31,8 +31,8 @@ MODULE mo_aerosol_util
   USE mo_model_domain,         ONLY: t_patch
   USE mo_radiation_rg_par,     ONLY: jpspec
   USE mo_srtm_config,          ONLY: jpsw
+  USE mo_lnd_nwp_config,       ONLY: ntiles_lnd, dzsoil
   USE sfc_terra_data,          ONLY: cadp, cfcap
-  USE mo_lnd_nwp_config,       ONLY: ntiles_lnd
   USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
 
   IMPLICIT NONE

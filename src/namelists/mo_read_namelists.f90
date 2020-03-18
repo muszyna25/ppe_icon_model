@@ -85,6 +85,7 @@ MODULE mo_read_namelists
   USE mo_assimilation_nml    ,ONLY: read_assimilation_namelist
   USE mo_nudging_nml         ,ONLY: read_nudging_namelist
   USE mo_upatmo_nml          ,ONLY: read_upatmo_namelist
+  USE mo_ser_nml             ,ONLY: read_ser_namelist
 
   IMPLICIT NONE
 
@@ -226,6 +227,9 @@ CONTAINS
 
     ! Assimilation
     CALL read_assimilation_namelist   (atm_namelist_filename(1:tlen))
+
+    ! Serialization
+    !$ser verbatim CALL read_ser_namelist(atm_namelist_filename(1:tlen))
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their
     ! actual values were stored.

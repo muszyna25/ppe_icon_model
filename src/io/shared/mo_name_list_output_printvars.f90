@@ -81,11 +81,24 @@ CONTAINS
 
     suffix_str = " "
 
-    ! condense two-digit suffices "01, 02, 03, ..." into "*"
-    IF (endidx > 2) THEN
-      IF (.NOT. is_number(var%info%name(endidx-2:endidx-2)) .AND. &
+    ! condense three-digit suffices "001, 002, 003, ..." into "*"
+    ! for container variables
+    IF (endidx > 3) THEN
+      IF (var%info%lcontained .AND. &
+          .NOT. is_number(var%info%name(endidx-3:endidx-3)) .AND. &
+        &       is_number(var%info%name(endidx-2:endidx-2)) .AND. &
         &       is_number(var%info%name(endidx-1:endidx-1)) .AND. &
         &       is_number(var%info%name(endidx  :endidx  ))) THEN
+        endidx = endidx - 3
+        suffix_str = "*"
+      END IF
+    END IF
+
+    ! condense two-digit suffices "_01, _02, _03, ..." into "*"
+    IF (endidx > 2) THEN
+      IF ((var%info%name(endidx-2:endidx-2) == "_")    .AND. &
+        &  is_number(var%info%name(endidx-1:endidx-1)) .AND. &
+        &  is_number(var%info%name(endidx  :endidx  ))) THEN
         endidx = endidx - 2
         suffix_str = "*"
       END IF

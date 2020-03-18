@@ -28,11 +28,12 @@ MODULE mo_nml_crosscheck
     &                                    MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                                    FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                                    RAYLEIGH_CLASSIC,                                 &
-    &                                    iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD
+    &                                    iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD,     &
+    &                                    max_echotop
   USE mo_time_config,              ONLY: time_config, dt_restart
   USE mo_extpar_config,            ONLY: itopo                                             
   USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                                    lnetcdf_flt64_output
+    &                                    lnetcdf_flt64_output, echotop_meta
   USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
     &                                    num_io_procs, itype_comm,                         &
     &                                    num_prefetch_proc, use_dp_mpi2io
@@ -83,9 +84,8 @@ MODULE mo_nml_crosscheck
   USE mo_sleve_config
   USE mo_nudging_config,           ONLY: nudging_config, indg_type
   USE mo_nudging_nml,              ONLY: check_nudging
-  USE mo_upatmo_config,            ONLY: upatmo_config
-  USE mo_upatmo_nml,               ONLY: check_upatmo
-  USE mo_name_list_output_config,  ONLY: first_output_name_list
+  USE mo_upatmo_config,            ONLY: check_upatmo
+  USE mo_name_list_output_config,  ONLY: first_output_name_list, is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
 
 #ifdef __ICON_ART
@@ -105,7 +105,7 @@ CONTAINS
 
   SUBROUTINE atm_crosscheck
 
-    INTEGER  :: jg
+    INTEGER  :: jg, i
     INTEGER  :: jt   ! tracer loop index
     INTEGER  :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
@@ -829,7 +829,35 @@ CONTAINS
       CALL message(routine, message_text)
     END IF
 
-
+    DO jg =1,n_dom
+      echotop_meta(jg)%nechotop = 0
+      DO i=1, max_echotop
+        IF (echotop_meta(jg)%dbzthresh(i) >= -900.0_wp) THEN
+          echotop_meta(jg)%nechotop = echotop_meta(jg)%nechotop + 1
+        END IF
+      END DO
+      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotop" , jg=jg) .AND. &
+           echotop_meta(jg)%nechotop == 0 ) THEN
+        message_text(:) = ' '
+        WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotop" in ml_varlist on domain ', jg, &
+             ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
+        CALL finish(routine, TRIM(message_text))        
+      END IF
+      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotopinm" , jg=jg) .AND. &
+           echotop_meta(jg)%nechotop == 0 ) THEN
+        message_text(:) = ' '
+        WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotopinm" in ml_varlist on domain ', jg, &
+             ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
+        CALL finish(routine, TRIM(message_text))        
+      END IF
+      IF (echotop_meta(jg)%time_interval < 0.0_wp) THEN
+        message_text(:) = ' '
+        WRITE (message_text, '(a,i2.2,a,f0.1,a)') 'invalid echotop_meta(', jg, &
+             ')%time_interval = ', echotop_meta(jg)%time_interval, ' [seconds] given in namelist /io_nml/. Must be >= 0.0!'
+        CALL finish(routine, TRIM(message_text))                
+      END IF
+    END DO
+    
     !--------------------------------------------------------------------
     ! Realcase runs
     !--------------------------------------------------------------------
@@ -862,6 +890,15 @@ CONTAINS
         ENDIF
 
         CALL deallocateDatetime(reference_dt)
+
+        IF (l_limited_area) THEN
+          ! For a negative IAU shift, no extra boundary file can be read. So it has to be taken
+          ! from the first guess file.
+          IF (timeshift%dt_shift < 0._wp .AND. .NOT. latbc_config%init_latbc_from_fg) THEN
+            WRITE (message_text,'(a)') "For dt_shift<0, latbc has to be taken from first guess (init_latbc_from_fg)"
+            CALL finish('atm_crosscheck:', message_text)
+          ENDIF
+        ENDIF
       ENDIF
 
       DO jg = 2, n_dom
@@ -899,9 +936,11 @@ CONTAINS
       &                 LATBC_TYPE_EXT, is_plane_torus, lart, ndyn_substeps, ltransport, &
       &                 nsteps, msg_level                                                )
 
-    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo, is_plane_torus, & 
-      &                l_limited_area, lart, ivctype, flat_height, itype_vert_expol,        &
-      &                ltestcase, nh_test_name, first_output_name_list, upatmo_config       ) 
+    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo,               &
+      &                atm_phy_nwp_config(:)%lupatmo_phy, is_plane_torus, l_limited_area, &
+      &                lart, ivctype, flat_height, itype_vert_expol, ltestcase,           &
+      &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
+      &                atm_phy_nwp_config(:)%inwp_radiation, first_output_name_list       )
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

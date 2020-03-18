@@ -56,7 +56,7 @@ MODULE mo_initicon_config
   PUBLIC :: lconsistency_checks
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
-  PUBLIC :: qcana_mode, qiana_mode
+  PUBLIC :: qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
   PUBLIC :: lvert_remap_fg
@@ -82,6 +82,8 @@ MODULE mo_initicon_config
   PUBLIC :: aerosol_fg_present
   PUBLIC :: lanaread_tseasfc
   PUBLIC :: itype_vert_expol
+  PUBLIC :: pinit_seed
+  PUBLIC :: pinit_amplitude
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -139,7 +141,7 @@ MODULE mo_initicon_config
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
-  INTEGER  :: qcana_mode, qiana_mode ! mode of processing QC/QI increments
+  INTEGER  :: qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode  ! mode of processing QC/QI/QR/QS/QG/QH/QNX increments
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -229,6 +231,10 @@ MODULE mo_initicon_config
   LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE.
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
+
+  ! perturb initial conditions. perturbation is only applied for pinit_seed > 0
+  INTEGER :: pinit_seed = 0
+  REAL(wp) :: pinit_amplitude = 0._wp
 
 CONTAINS
 

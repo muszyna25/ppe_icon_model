@@ -341,19 +341,9 @@ function tolerance_check
     TOL_STATUS=0
     cd $MODEL_DIR
 
-    case ${BB_SLAVE} in 
-        *pgi*)
-            COMPILER=pgi ;;
-        *gcc*)
-            COMPILER=gcc ;;
-        *cce*)
-            COMPILER=cce ;;
-        *)
-            COMPILER=gcc ;;
-    esac
-    echo "Using ${COMPILER} as the reference compiler"
+    REF_BUILDER=${BB_SYSTEM/gpu/cpu}_${BB_SLAVE}
 
-    echo "Running tolerance check with compiler-specific reference (${COMPILER})"
+    echo "Running tolerance check with compiler-specific reference from builder (${REF_BUILDER})"
     # call the tolerance test with 
     # -o model output directory
     # -t tolerance file
@@ -363,9 +353,9 @@ function tolerance_check
     python probtest/probtest.py icon-test-references/config.cfg stats check \
         -o ${MODEL_DIR}/experiments/${EXP_BASE} \
         -e ${EXP_BASE} \
-        -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
+        -t ${MODEL_DIR}/icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv \
         --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
-        --ref ${MODEL_DIR}/icon-test-references/${COMPILER}/reference/${EXPERIMENT}.csv \
+        --ref ${MODEL_DIR}/icon-test-references/${REF_BUILDER}/reference/${EXPERIMENT}.csv \
         > tolerance.log
 
     echo "TOLERANCE test output:"
@@ -378,24 +368,6 @@ function tolerance_check
     if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
        echo "testsuite did not complete successfully"
        TOL_STATUS=1
-    fi
-
-    echo "Running tolerance check with GCC reference"
-    COMPILER=gcc
-    python probtest/probtest.py icon-test-references/config.cfg stats check \
-        -o ${MODEL_DIR}/experiments/${EXP_BASE} \
-        -e ${EXP_BASE} \
-        -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
-        --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
-        --ref ${MODEL_DIR}/icon-test-references/${COMPILER}/reference/${EXPERIMENT}.csv \
-        > tolerance_gcc.log
-
-    # check for validation against GCC
-    fail=$(grep RESULT tolerance_gcc.log | grep 'FAIL' | wc -l)
-    crash=$(grep RESULT tolerance_gcc.log | grep 'CRASH' | wc -l)
-    finished=$(grep RESULT tolerance_gcc.log | wc -l)
-    if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
-       echo "Careful, no validation against GCC"
     fi
 
     return $TOL_STATUS

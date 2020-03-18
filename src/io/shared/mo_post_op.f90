@@ -26,7 +26,7 @@ MODULE mo_post_op
 
   USE mo_kind,                ONLY: dp, sp
   USE mo_var_metadata_types,  ONLY: t_post_op_meta, POST_OP_NONE,    &
-    &                               POST_OP_SCALE, POST_OP_LUC
+    &                               POST_OP_SCALE, POST_OP_LUC, POST_OP_LIN2DBZ
 #ifndef __NO_ICON_ATMO__
   USE mo_lnd_nwp_config,      ONLY: convert_luc_ICON2GRIB
 #endif
@@ -59,7 +59,7 @@ CONTAINS
     !
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_r2D"
-    REAL(dp) :: scalfac           ! scale factor
+    REAL(dp) :: scalfac, lowlim   ! scale factor, lower limit
     INTEGER  :: idim(2), l1,l2
 
 
@@ -89,6 +89,20 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       !
+    CASE (POST_OP_LIN2DBZ)
+
+      lowlim  = post_op%arg1%rval
+      scalfac = 10.0_dp/LOG(10._dp)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(l1,l2), SCHEDULE(runtime)
+      DO l2=1,idim(2)
+        DO l1=1,idim(1)
+          field2D(l1,l2) = scalfac * LOG( MAX( field2D(l1,l2), lowlim) )
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL      
+
     CASE DEFAULT
       CALL finish(routine, "Internal error!")
     END SELECT
@@ -105,7 +119,7 @@ CONTAINS
     !
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_s2D"
-    REAL(sp) :: scalfac           ! scale factor
+    REAL(sp) :: scalfac, lowlim   ! scale factor, lower limit
     INTEGER  :: idim(2), l1,l2
 
 
@@ -117,12 +131,12 @@ CONTAINS
     CASE(POST_OP_SCALE)
       IF (PRESENT(opt_inverse)) THEN
         IF (opt_inverse) THEN
-          scalfac = 1._sp/post_op%arg1%rval
+          scalfac = 1._sp/post_op%arg1%sval
         ELSE
-          scalfac = post_op%arg1%rval
+          scalfac = post_op%arg1%sval
         ENDIF
       ELSE
-        scalfac = post_op%arg1%rval
+        scalfac = post_op%arg1%sval
       ENDIF
 
 !$OMP PARALLEL
@@ -135,6 +149,20 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       !
+    CASE (POST_OP_LIN2DBZ)
+
+      lowlim  = post_op%arg1%sval
+      scalfac = 10.0_sp/LOG(10._sp)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(l1,l2), SCHEDULE(runtime)
+      DO l2=1,idim(2)
+        DO l1=1,idim(1)
+          field2D(l1,l2) = scalfac * LOG( MAX( field2D(l1,l2), lowlim) )
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL      
+
     CASE DEFAULT
       CALL finish(routine, "Internal error!")
     END SELECT
@@ -211,7 +239,7 @@ CONTAINS
     !
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_r3D"
-    REAL(dp) :: scalfac           ! scale factor
+    REAL(dp) :: scalfac, lowlim   ! scale factor, lower limit
     INTEGER  :: idim(3), l1,l2,l3
 
 
@@ -243,6 +271,22 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       !
+    CASE (POST_OP_LIN2DBZ)
+
+      lowlim  = post_op%arg1%rval
+      scalfac = 10.0_dp/LOG(10._dp)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(l1,l2,l3), SCHEDULE(runtime)
+      DO l3=1,idim(3)
+        DO l2=1,idim(2)
+          DO l1=1,idim(1)
+            field3D(l1,l2,l3) = scalfac * LOG( MAX( field3D(l1,l2,l3), lowlim) )
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL      
+
     CASE DEFAULT
       CALL finish(routine, "Internal error!")
     END SELECT
@@ -259,7 +303,7 @@ CONTAINS
     !
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_s3D"
-    REAL(sp) :: scalfac           ! scale factor
+    REAL(sp) :: scalfac, lowlim   ! scale factor, lower limit
     INTEGER  :: idim(3), l1,l2,l3
 
 
@@ -271,12 +315,12 @@ CONTAINS
     CASE(POST_OP_SCALE)
       IF (PRESENT(opt_inverse)) THEN
         IF (opt_inverse) THEN
-          scalfac = 1._sp/post_op%arg1%rval
+          scalfac = 1._sp/post_op%arg1%sval
         ELSE
-          scalfac = post_op%arg1%rval
+          scalfac = post_op%arg1%sval
         ENDIF
       ELSE
-        scalfac = post_op%arg1%rval
+        scalfac = post_op%arg1%sval
       ENDIF
 
 !$OMP PARALLEL
@@ -291,6 +335,22 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       !
+    CASE (POST_OP_LIN2DBZ)
+
+      lowlim  = post_op%arg1%sval
+      scalfac = 10.0_sp/LOG(10._sp)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(l1,l2,l3), SCHEDULE(runtime)
+      DO l3=1,idim(3)
+        DO l2=1,idim(2)
+          DO l1=1,idim(1)
+            field3D(l1,l2,l3) = scalfac * LOG( MAX( field3D(l1,l2,l3), lowlim) )
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL      
+
     CASE DEFAULT
       CALL finish(routine, "Internal error!")
     END SELECT
@@ -307,7 +367,7 @@ CONTAINS
     !
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":perform_post_op_i3D"
-    REAL(dp) :: scalfac           ! scale factor
+    INTEGER  :: scalfac           ! scale factor
     INTEGER  :: idim(3), l1,l2,l3
 
 

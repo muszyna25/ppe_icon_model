@@ -37,6 +37,7 @@ MODULE mo_smooth_topo
   USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,           &
     &                              heightdiff_threshold, hgtdiff_max_smooth_topo, &
     &                              lrevert_sea_height
+  USE mo_impl_constants,     ONLY: min_rlcell
   USE mo_math_laplace,       ONLY: nabla2_scalar, nabla4_scalar
 
   IMPLICIT NONE
@@ -109,7 +110,8 @@ CONTAINS
       z_hdiffmax(:,:)   = 0._wp
       lnabla2_mask(:,:) = .FALSE.
 
-      CALL nabla2_scalar( z_topo, p_patch, p_int, z_nabla2_topo )
+      CALL nabla2_scalar( z_topo, p_patch, p_int, z_nabla2_topo, &
+        &                 slev=1, elev=1, rl_start=2, rl_end=min_rlcell )
 
       npts = 0
 
@@ -175,7 +177,8 @@ CONTAINS
       z_topo_old(:,1,:) = z_topo(:,1,:)
 
       CALL nabla4_scalar(z_topo, p_patch, p_int, z_nabla4_topo, &
-        & opt_nabla2=z_nabla2_topo )
+        & slev=1, elev=UBOUND(z_topo,2), rl_start=3, rl_end=min_rlcell, &
+        & p_nabla2=z_nabla2_topo )
 
       DO jb = i_startblk,nblks_c
 

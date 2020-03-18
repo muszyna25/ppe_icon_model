@@ -216,6 +216,12 @@ AC_ARG_ENABLE([serialization],
 'create', 'yes' (same as 'read'), 'no'])])],
 [enable_serialization=no])
 
+AC_ARG_ENABLE([testbed],
+  [AC_HELP_STRING([--enable-testbed],
+     [enable ICON Testbed infrastructure @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_testbed=yes])],
+  [enable_testbed=no])
+
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
@@ -462,7 +468,7 @@ ACX_FC_ATTRIBUTE_CONTIGUOUS(
   [" ${FC_PP_DEF}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])], [:])
 
 AS_VAR_APPEND([FCFLAGS],
-  [" ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
+  [" ${FC_PP_DEF}__ICON__"])
 
 AS_VAR_IF([enable_atmo], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
@@ -523,6 +529,9 @@ AS_IF([test "x$enable_serialization" != xno],
                    [" ${FC_PP_DEF}SERIALIZE_PERTURB_REFERENCE"])],
      [create], [AS_VAR_APPEND([FCFLAGS],
                   [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])])
+
+AS_VAR_IF([enable_testbed], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_TESTBED__"])])
 
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
@@ -861,22 +870,11 @@ ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mo_rttov_ifc, only: rttov_init
-      implicit none
-      integer :: istatus, channels(8, 2), n_chans(2), p_pe, &
-               & num_work_procs, p_io, p_comm_work
-      integer, allocatable :: instruments(:,:)
-      logical, allocatable :: addclouds(:)
-      istatus = rttov_init(  &
-        instruments     , &
-        channels        , &
-        n_chans         , &
-        p_pe            , &
-        num_work_procs  , &
-        p_io            , &
-        p_comm_work     , &
-        appRegLim=.TRUE., &
-        readCloud=addclouds)]])],
+use rttov_types, only: rttov_coefs
+implicit none
+#include "rttov_nullify_coef.interface"
+type(rttov_coefs),target:: coefs(1)
+call rttov_nullify_coef(coefs(1)%coef)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([unable to link a test program using RTTOV: either dnl
