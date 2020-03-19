@@ -29,8 +29,10 @@ MODULE mo_radiation_nml
                                  & config_yr_perp    => yr_perp,     &
                                  & config_isolrad    => isolrad,     &
                                  & config_albedo_type=> albedo_type, &
-                                 & config_direct_albedo => direct_albedo, &
-                                 & config_icld_overlap => icld_overlap, &
+                                 & config_direct_albedo       => direct_albedo,       &
+                                 & config_direct_albedo_water => direct_albedo_water, &
+                                 & config_albedo_whitecap     => albedo_whitecap,     &
+                                 & config_icld_overlap        => icld_overlap,        &
                                  & config_islope_rad => islope_rad,  &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
@@ -68,6 +70,7 @@ MODULE mo_radiation_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
+  USE sfc_terra_data,        ONLY: csalb, csalb1, csalb2
   USE mo_master_control,     ONLY: use_restart_namelists
   USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
@@ -105,15 +108,23 @@ MODULE mo_radiation_nml
                          !    (see )
                          ! 2: Modis albedo
 
-  INTEGER :: direct_albedo  ! 1: SZA dependence according to Ritter-Geleyn implementation
+  INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter and Geleyn (1992)
                              ! 2: limitation to diffuse albedo according to Zaengl 
                              !    applied to all land points
-                             !    Ritter-Geleyn implementation for remaining points (water,ice) 
-                             ! 3: Parameterization after Yang (2008) for snow-free land points
+                             !    Ritter-Geleyn for ice 
+                             ! 3: Parameterization after Yang et al (2008) for snow-free land points
                              !    limitation after Zaengl for snow-coverer points
-                             !    Ritter-Geleyn implementation for remaining points (water,ice)
-                             ! 4: Parameterization after Briegleb (1992) for snow-free land points
+                             !    Ritter-Geleyn implementation for ice
+                             ! 4: Parameterization after Briegleb and Ramanathan (1992) for snow-free land points
                              !    limitation after Zaengl for snow-coverer points
+
+  INTEGER :: direct_albedo_water ! 1: Ritter and Geleyn (1992)
+                                 ! 2: Yang et al (2008)
+                                 ! 3: Taylor et al (1996) as in IFS
+                                 ! 4: Yang et al (2008) for sea water, Ritter and Geleyn (1992) for lakes
+
+  INTEGER :: albedo_whitecap ! 0: no whitecap albedo
+                             ! 1: Seferian et al (2018) whitecaps albedo from breaking ocean waves
 
   INTEGER :: icld_overlap    ! method for cloud overlap calculation in shortwave part of RRTM
                              ! 1: maximum-random overlap
@@ -191,6 +202,8 @@ MODULE mo_radiation_nml
     &                      isolrad,               &
     &                      albedo_type,           &
     &                      direct_albedo,         &
+    &                      direct_albedo_water,   &
+    &                      albedo_whitecap,       &
     &                      irad_h2o,              &
     &                      irad_co2,   vmr_co2,   &
     &                      irad_ch4,   vmr_ch4,   &
@@ -246,9 +259,11 @@ CONTAINS
 
     isolrad        = 0
     albedo_type    = 1
-    direct_albedo  = 4   ! Parameterization after Briegleb (1992)
-    icld_overlap   = 2   ! generalized random overlap
-    islope_rad     = 0   ! no slope correction
+    direct_albedo  = 4      ! Parameterization after Briegleb and Ramanathan (1992)
+    direct_albedo_water = 4 ! Parameterization after Yang et al (2008) for sea water, and Ritter and Geleyn (1992) for lakes
+    albedo_whitecap= 0      ! no whitecap albedo from breaking ocean waves
+    icld_overlap   = 2      ! generalized random overlap
+    islope_rad     = 0      ! no slope correction
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -319,8 +334,10 @@ CONTAINS
     config_yr_perp    = yr_perp
     config_isolrad    = isolrad
     config_albedo_type= albedo_type
-    config_direct_albedo = direct_albedo
-    config_icld_overlap = icld_overlap
+    config_direct_albedo       = direct_albedo
+    config_direct_albedo_water = direct_albedo_water
+    config_albedo_whitecap     = albedo_whitecap
+    config_icld_overlap        = icld_overlap
     config_islope_rad = islope_rad
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
@@ -353,6 +370,12 @@ CONTAINS
     config_iliquid_scat    = iliquid_scat
     config_iice_scat       = iice_scat
     config_ecrad_data_path = TRIM(ecrad_data_path)
+
+    IF ( direct_albedo_water == 3 ) THEN
+      csalb => csalb2
+    ELSE
+      csalb => csalb1
+    ENDIF
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

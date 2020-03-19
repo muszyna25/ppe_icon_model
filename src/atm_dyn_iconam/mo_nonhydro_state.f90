@@ -55,7 +55,7 @@ MODULE mo_nonhydro_state
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max, &
     &                                lcalc_dpsdt
-  USE mo_dynamics_config,      ONLY: nsav1, nsav2
+  USE mo_dynamics_config,      ONLY: nsav1, nsav2, ldeepatmo
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max, iqt,           &
     &                                iqv, iqc, iqi, iqr, iqs, iqtvar,           &
@@ -77,7 +77,7 @@ MODULE mo_nonhydro_state
     &                                find_list_element
   USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
-  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic, MAX_GROUPS
+  USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic, MAX_GROUPS
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
     &                                vintp_types, new_action, actions
@@ -98,7 +98,8 @@ MODULE mo_nonhydro_state
     &                                GRID_UNSTRUCTURED
   USE mo_action,               ONLY: ACTION_RESET
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
-  USE mo_upatmo_config,        ONLY: upatmo_config, idamtr, istatus
+  USE mo_upatmo_config,        ONLY: upatmo_dyn_config
+  USE mo_upatmo_impl_const,    ONLY: idamtr
 
 #include "add_var_acc_macro.inc"
 
@@ -2177,8 +2178,7 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c, loutput=.FALSE., lrestart=.FALSE.,              &
                 & lopenacc = .TRUE. )
       __acc_attach(p_diag%airmass_new)
-
-
+      
 
       ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
       !
@@ -4179,12 +4179,12 @@ MODULE mo_nonhydro_state
 
     ! Upper atmosphere/deep atmosphere
 
-    IF (.NOT. upatmo_config(jg)%l_status(istatus%configured)) THEN 
+    IF (.NOT. upatmo_dyn_config(jg)%lset) THEN 
       ! this happens early in the program sequence, 
       ! so to be on a somewhat safer side, we check, if the upper atmosphere 
       ! has been configured
       CALL finish(TRIM(routine), 'upper/deep atmosphere: information required is not yet available')
-    ELSEIF (.NOT. upatmo_config(jg)%dyn%l_constgrav) THEN
+    ELSEIF (ldeepatmo .AND. (.NOT. upatmo_dyn_config(jg)%lconstgrav)) THEN
       ! gravitational acceleration varies vertically, 
       ! so the following fields are required
       

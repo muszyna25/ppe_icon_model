@@ -225,9 +225,9 @@ def makeRunTarget(sourceTemplate,setup={})
 
   creationCommand  = case tag
                      when "post"
-                       "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} EXPNAME=#{expname} with_mpi='no' with_openmp='no'"
+                       "cd ..; ./run/make_target_runscript in_script=#{sourceTemplate} EXPNAME=#{expname} with_mpi='no' with_openmp='no'"
                      when "exp"
-                       "cd ..; ./config/make_target_runscript in_script=#{sourceTemplate} in_script=exec.iconrun EXPNAME=#{expname} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
+                       "cd ..; ./run/make_target_runscript in_script=#{sourceTemplate} in_script=exec.iconrun EXPNAME=#{expname} #{setup.sort.map {|item| item.join('=')}.join(' ')}"
                      else
                        "echo 'Could not create targetRunscript: #{targetRunscript}"
                      end

@@ -619,7 +619,6 @@ SUBROUTINE cloudice (             &
   zbvi_ln1o2   = EXP (zbvi * LOG (0.5_wp))
 
 ! Delete precipitation fluxes from previous timestep
-!CDIR BEGIN COLLAPSE
     prr_gsp (:) = 0.0_wp
     prs_gsp (:) = 0.0_wp
     zpkr    (:) = 0.0_wp
@@ -633,7 +632,6 @@ SUBROUTINE cloudice (             &
     zvzi    (:) = 0.0_wp
     zqvsw   (:) = 0.0_wp
     dist_cldtop(:) = 0.0_wp    
-!CDIR END
 
 
 ! Optional arguments
@@ -687,7 +685,6 @@ SUBROUTINE cloudice (             &
   ! add part of latent heating calculated in subroutine cloudice to model latent
   ! heating field: subtract temperature from model latent heating field
   IF (ldass_lhn) THEN
-!CDIR COLLAPSE
       qrsflux(:,:) = 0.0_wp
   ENDIF
 
@@ -721,7 +718,6 @@ SUBROUTINE cloudice (             &
     CALL message('',message_text)
   ENDIF
 
-!CDIR COLLAPSE
 
 
 ! *********************************************************************
@@ -744,14 +740,12 @@ SUBROUTINE cloudice (             &
   !            Initialize microphysics and sedimentation scheme
   !----------------------------------------------------------------------------
 
-!CDIR BEGIN COLLAPSE
     zcrim (:) = 0.0_wp
     zcagg (:) = 0.0_wp
     zbsdep(:) = 0.0_wp
     zvz0s (:) = 0.0_wp
     zn0s  (:) = zn0s0
     reduce_dep(:) = 1.0_wp  !FR: Reduction coeff. for dep. growth of rain and ice  
-!CDIR END
 
     ic1 = 0
     ic2 = 0
@@ -810,7 +804,7 @@ SUBROUTINE cloudice (             &
      ENDDO
 
 !DIR$ IVDEP
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qs_prepare: DO i1d = 1, ic1
       iv = ivdx1(i1d)
 
@@ -869,7 +863,7 @@ SUBROUTINE cloudice (             &
       ENDIF
     ENDDO loop_over_qs_prepare
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
     loop_over_qr_sedi: DO i1d = 1, ic2
       iv = ivdx2(i1d)
@@ -884,7 +878,7 @@ SUBROUTINE cloudice (             &
       ENDIF
     ENDDO loop_over_qr_sedi
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
     loop_over_qi_sedi: DO i1d = 1, ic3
       iv = ivdx3(i1d)
@@ -909,7 +903,6 @@ SUBROUTINE cloudice (             &
   ! Section 3:
   !----------------------------------------------------------------------------
 
-!CDIR BEGIN COLLAPSE
     zeln7o8qrk   (:) = 0.0_wp
     zeln7o4qrk   (:) = 0.0_wp !FR
     zeln27o16qrk (:) = 0.0_wp
@@ -940,7 +933,6 @@ SUBROUTINE cloudice (             &
     ssmelt       (:) = 0.0_wp
     sev          (:) = 0.0_wp
     srfrz        (:) = 0.0_wp
-!CDIR END
 
     ic1 = 0
     ic2 = 0
@@ -1031,7 +1023,7 @@ SUBROUTINE cloudice (             &
 
 
 ! ic1
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qr: DO i1d =1, ic1
       iv = ivdx1(i1d)
 
@@ -1058,7 +1050,7 @@ SUBROUTINE cloudice (             &
 
 
 ! ic2
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
     loop_over_qs_coeffs: DO i1d =1, ic2
       iv = ivdx2(i1d)
@@ -1072,7 +1064,7 @@ SUBROUTINE cloudice (             &
     ENDDO loop_over_qs_coeffs
 
 ! ic3
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qi_qs: DO i1d =1, ic3
       iv = ivdx3(i1d)
 
@@ -1101,7 +1093,7 @@ SUBROUTINE cloudice (             &
     ! Deposition nucleation for low temperatures below a threshold
 
 ! ic4
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_icenucleation: DO i1d = 1, ic4
       iv = ivdx4(i1d)
 
@@ -1126,7 +1118,7 @@ SUBROUTINE cloudice (             &
     !--------------------------------------------------------------------------
 
 ! ic5
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qc: DO i1d =1, ic5
       iv = ivdx5(i1d)
 
@@ -1240,7 +1232,7 @@ SUBROUTINE cloudice (             &
       !------------------------------------------------------------------------
 
 ! also ic3
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qs: DO i1d =1, ic3
       iv = ivdx3(i1d)
 
@@ -1356,7 +1348,7 @@ SUBROUTINE cloudice (             &
     !--------------------------------------------------------------------------
 
 ! ic6
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     loop_over_qr_nocloud: DO i1d =1, ic6
       iv = ivdx6(i1d)
 
@@ -1553,7 +1545,6 @@ SUBROUTINE cloudice (             &
 
   IF ( ldiabf_lh ) THEN
     ! compute temperature increment due to latent heat
-!CDIR COLLAPSE
     tinc_lh(:,k) = tinc_lh(:,k) + t(:,k)
   ENDIF
 #endif

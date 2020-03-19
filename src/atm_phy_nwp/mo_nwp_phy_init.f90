@@ -100,8 +100,8 @@ MODULE mo_nwp_phy_init
     &                               lseaice, zml_soil
   USE sfc_terra_data,         ONLY: csalbw!, z0_lu
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-    &                                sat_pres_ice, &  !! saturation vapor pressure w.r.t. ice
-    &                                spec_humi !,qsat_rho !! Specific humidity
+    &                               sat_pres_ice, &    !! saturation vapor pressure w.r.t. ice
+    &                               spec_humi          !! Specific humidity
 
   USE data_gwd,               ONLY: sugwwms
 
@@ -120,10 +120,16 @@ MODULE mo_nwp_phy_init
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop,   &
-    &                               timer_init_nwp_phy
+    &                               timer_init_nwp_phy, timer_phys_reff, timer_upatmo
   USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                               bc_greenhouse_gases_file_read, ghg_co2mmr
+  USE mo_nwp_reff_interface,  ONLY: init_reff
+  USE mo_upatmo_config,       ONLY: upatmo_config
+  USE mo_upatmo_types,        ONLY: t_upatmo
+  USE mo_upatmo_impl_const,   ONLY: iUpatmoPrcStat, iUpatmoStat
+  USE mo_upatmo_phy_setup,    ONLY: init_upatmo_phy_nwp
 
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -134,14 +140,15 @@ MODULE mo_nwp_phy_init
 CONTAINS
 
 
-SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
-                       &  p_prog_now,  p_diag,                 &
-                       &  prm_diag,prm_nwp_tend,               &
-                       &  p_prog_lnd_now, p_prog_lnd_new,      &
-                       &  p_prog_wtr_now, p_prog_wtr_new,      &
-                       &  p_diag_lnd,                          &
+SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
+                       &  p_prog_now,  p_diag,            &
+                       &  prm_diag,prm_nwp_tend,          &
+                       &  p_prog_lnd_now, p_prog_lnd_new, &
+                       &  p_prog_wtr_now, p_prog_wtr_new, &
+                       &  p_diag_lnd,                     &
                        &  ext_data, phy_params, ini_date, &
-                       &  lnest_start, lreset)
+                       &  prm_upatmo,                     &
+                       &  lnest_start, lreset             )
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -155,6 +162,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
   TYPE(datetime),              POINTER       :: ini_date     ! current datetime (mtime)
+  TYPE(t_upatmo),       TARGET,INTENT(inout) :: prm_upatmo
   LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start, lreset
 
   INTEGER             :: jk, jk1
@@ -191,6 +199,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   LOGICAL :: lland, lglac, lshallow, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init, lreset_mode
+  LOGICAL :: lupatmo_phy
 
   INTEGER :: jb,ic,jc,jt,jg,ist,nzprv
   INTEGER :: nlev, nlevp1, nlevcm    !< number of full, half and canopy levels
@@ -260,6 +269,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   dz1 = 0.0_wp
   dz2 = 0.0_wp
   dz3 = 0.0_wp
+
+  ! Initialization of upper-atmosphere physics 
+  ! only in case of no reset and if the upatmo physics are switched on
+  ! (upper-atmosphere physics are not integrated into the IAU iterations)
+  lupatmo_phy = (.NOT. lreset_mode) .AND. &
+    & upatmo_config(jg)%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled ) 
 
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
     ! allocate storage var for press to be used in o3_pl2ml
@@ -480,6 +495,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           !
 
           ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
+!$NEC ivdep
           DO ic=1, ext_data%atm%list_seawtr%ncount(jb)
             jc = ext_data%atm%list_seawtr%idx(ic,jb)
             IF (lseaice) THEN
@@ -666,7 +682,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
     ! Init of number concentrations moved to mo_initicon_io.f90 !!!
 
-  CASE (5) !two moment micrphysics
+  CASE (5) !two moment microphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
     IF (jg == 1) CALL two_moment_mcrph_init(atm_phy_nwp_config(jg)%inwp_gscp,&
@@ -710,6 +726,16 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     ! Init of number concentrations moved to mo_initicon_io.f90 !!!
 
   END SELECT
+
+
+  ! Initiate parameters for reff calculations
+  IF (atm_phy_nwp_config(jg)%icalc_reff .GT. 0) THEN
+    IF (timers_level > 10) CALL timer_start(timer_phys_reff)
+    CALL init_reff ( prm_diag, p_patch, p_prog_now) 
+    IF (timers_level > 10) CALL timer_stop(timer_phys_reff)
+  END IF
+
+    
 
   ! Compute lookup tables for aerosol-microphysics coupling
   IF (jg == 1 .AND. (atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0)) &
@@ -793,7 +819,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       ! Initialize cloud droplet number concentration (acdnc)
       ! like in mo_echam_phy_init.f90
       DO jk = 1,nlev
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
         DO jc = i_startidx, i_endidx
           zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
           zprat=(MIN(8._wp,80000._wp/zpres))**2
@@ -813,15 +838,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             zcdnc=zn2*1.e6_wp
           ENDIF
           prm_diag%acdnc(jc,jk,jb) = zcdnc
-          IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+        END DO !jc
+      END DO   !jk
+      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
+        DO jk = 1,nlev
+          DO jc = i_startidx, i_endidx
             !--- computation of reference pressure field from the reference exner field
             zrefpres(jc,jk,jb) = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
             ! here we choose to use temp to compute sfc pres instead of tempv
             zreftemp(jc,jk,jb) = p_metrics%theta_ref_mc(jc,jk,jb)*p_metrics%exner_ref_mc(jc,jk,jb)
-
-          END IF
-        END DO !jc
-      END DO   !jk
+          END DO !jc
+        END DO   !jk
+      END IF
       IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_Tconst' ) THEN
         ! a ref press field needs to be computed for testcases with a
         ! constant ozone.  the reference field allows the ozone to be
@@ -1132,11 +1160,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
         ! height above ground
         hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
 
-        IF (hag < h850_standard) THEN
-          prm_diag%k850(jc,jb) = jk
-        ENDIF
         IF (hag < h950_standard) THEN
           prm_diag%k950(jc,jb) = jk
+        ENDIF
+        IF (hag < h850_standard) THEN
+          prm_diag%k850(jc,jb) = jk
+        ELSE
+          EXIT
         ENDIF
       ENDDO
       ! security measure
@@ -1231,7 +1261,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
           gz0(:) = 0._wp
 
           DO jt = 1, ntiles_total
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, ext_data%atm%list_land%ncount(jb)
               jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
@@ -1241,20 +1271,21 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
             ENDDO
           ENDDO
           IF (atm_phy_nwp_config(jg)%itype_z0 == 3) THEN
+!$NEC ivdep
             DO ic = 1, ext_data%atm%list_land%ncount(jb)
               jc = ext_data%atm%list_land%idx(ic,jb)
               gz0(jc) = gz0(jc) + grav*MIN(fact_z0rough*ext_data%atm%sso_stdh_raw(jc,jb)**2,7.5_wp)
             ENDDO
           ENDIF
           DO jt = ntiles_total+1, ntiles_total+ntiles_water ! required if there are mixed land-water points
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
             DO ic = 1, ext_data%atm%list_land%ncount(jb)
               jc = ext_data%atm%list_land%idx(ic,jb)
               lc_class = MAX(1,ext_data%atm%lc_class_t(jc,jb,jt)) ! to avoid segfaults
               gz0(jc) = gz0(jc) + ext_data%atm%frac_t(jc,jb,jt) * grav*ext_data%atm%z0_lcc(lc_class)
             ENDDO
           ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, ext_data%atm%list_land%ncount(jb)
             jc = ext_data%atm%list_land%idx(ic,jb)
             prm_diag%gz0(jc,jb) = gz0(jc)
@@ -1273,6 +1304,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     ! allocate and init implicit weights for tridiagonal solver
     ALLOCATE( turbdiff_config(jg)%impl_weight(nlevp1), &
               STAT=istatus )
+    ! note that impl_weight => turbdiff_config(jg)%impl_weight
+    !$ACC ENTER DATA CREATE(turbdiff_config(jg))
+    !$ACC ENTER DATA CREATE(turbdiff_config(jg)%impl_weight)
     IF(istatus/=SUCCESS)THEN
       CALL finish (TRIM(routine), &
                  'allocation of impl_weight failed')
@@ -1291,6 +1325,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
                       + (impl_s-impl_t) * (jk-k1500m) / REAL(nlev-k1500m, wp)
     END DO
     impl_weight(nlevp1) = impl_s
+    ! impl_weight is never changed
+    !$ACC UPDATE DEVICE(turbdiff_config(jg)%impl_weight)
 
 ! computing l_pat: cannot be done in mo_ext_data_init, because it seems we do not have
 !                  phy_params(jg)%mean_charlen available then?
@@ -1602,9 +1638,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
     IF (ighg > 0) THEN
       ! read annual means
 
-!$OMP SINGLE
       CALL read_bc_greenhouse_gases(ghg_filename)
-!$OMP END SINGLE
 
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the
@@ -1612,6 +1646,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
       CALL bc_greenhouse_gases_time_interpolation(ini_date) 
       
     ENDIF
+
+  ! Upper-atmosphere physics
+  !
+  IF (lupatmo_phy) THEN
+    IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_start(timer_upatmo)
+    CALL init_upatmo_phy_nwp( mtime_datetime    = ini_date,          & !in
+      &                       p_patch           = p_patch,           & !in
+      &                       p_metrics         = p_metrics,         & !in
+      &                       p_prog            = p_prog_now,        & !in
+      &                       p_diag            = p_diag,            & !in
+      &                       prm_nwp_diag      = prm_diag,          & !in
+      &                       prm_nwp_tend      = prm_nwp_tend,      & !in
+      &                       prm_upatmo        = prm_upatmo,        & !inout
+      &                       nproma            = nproma             ) !in
+    IF (upatmo_config(jg)%l_status( iUpatmoStat%timer )) CALL timer_stop(timer_upatmo)
+  ENDIF
 
   IF (timers_level > 3) CALL timer_stop(timer_init_nwp_phy)
 

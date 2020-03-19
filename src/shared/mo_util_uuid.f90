@@ -23,7 +23,9 @@ MODULE mo_util_uuid
     &                                    C_DOUBLE, C_INT, C_PTR, C_F_POINTER, C_LOC
   USE mo_util_uuid_types, ONLY: t_uuid
   USE mo_util_sort, ONLY: quicksort
-
+#ifdef __SX__
+  USE mo_util_sort,      ONLY: radixsort_int
+#endif
 #ifndef NOMPI
   USE MPI
 #endif
@@ -241,7 +243,11 @@ CONTAINS
       &      glbidx(nval))
     glbidx        = in_glbidx
     permutation   = (/ ( i, i=1,nval ) /)
+#ifdef __SX__
+    CALL radixsort_int(glbidx, permutation)
+#else
     CALL quicksort(glbidx, permutation)
+#endif
     val_sorted    = in_val(:,permutation(:))
     glbidx_sorted = glbidx
     DEALLOCATE(permutation)
@@ -328,7 +334,11 @@ CONTAINS
     END IF
     ALLOCATE(permutation(nval_local))
     permutation  = (/ ( i, i=1,nval_local ) /)
+#ifdef __SX__
+    CALL radixsort_int(glbidx_local, permutation)
+#else
     CALL quicksort(glbidx_local, permutation)
+#endif
     val_local    = val_local(:,permutation(:))
     DEALLOCATE(permutation)
 

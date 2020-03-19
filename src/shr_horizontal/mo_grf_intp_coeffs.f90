@@ -1166,7 +1166,7 @@ TYPE(t_gridref_single_state),POINTER :: ptr_grf ! pointer to gridref_state for a
 TYPE(t_patch), POINTER      :: ptr_patch(:)
                                                              ! coordinates of ...
 TYPE(t_cartesian_coordinates) :: cc_e1, cc_e2, cc_childedge    ! edge midpoints
-REAL(wp)           :: cc_cer(nproma,3), cc_e2r(3)
+REAL(wp)           :: cc_cer(nproma,3), cc_e2r(3), cc_aux(3)
 
 REAL(wp) :: z_nx1(nproma,3),z_nx2(nproma,3) ! 3d  normal velocity
                                             ! vectors at edge midpoints
@@ -1269,7 +1269,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je1,je2,je,istencil,iie1,ibe1,iie2,ibe2,       &
 !$OMP            cc_e1,cc_e2,z_nx1,z_nx2,z_dist,z_nxprod, &
-!$OMP            iiec,ibec,cc_childedge,cc_cer,cc_e2r,checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            iiec,ibec,cc_childedge,cc_cer,cc_e2r,cc_aux,checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
     DO jb =  i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx,&
@@ -1281,7 +1281,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       DO je1 = 1, max_points
 
         DO je2 = 1, je1
-
+!$NEC ivdep
           DO je = i_startidx, i_endidx
 
             istencil(je) = ptr_stc(je,jb)
@@ -1328,13 +1328,12 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
       ! apply Cholesky decomposition to matrix
       !
-!CDIR NOIEXPAND
 #ifdef __SX__
       CALL choldec_v(i_startidx,i_endidx,istencil,max_points,z_rbfmat,z_diag)
 #else
       CALL choldec_v(i_startidx,i_endidx,istencil,           z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
       DO je = i_startidx, i_endidx
 
         !
@@ -1356,7 +1355,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       ! set up right hand side for interpolation system
       !
       DO je2 = 1, max_points
-
+!$NEC ivdep
         DO je = i_startidx, i_endidx
 
           IF (je2 > istencil(je)) CYCLE
@@ -1369,7 +1368,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
           cc_e2 = gc2cc(ptr_ep%center(iie2,ibe2))
           cc_e2r(1:3) = cc_e2%x(1:3)
-          z_dist = arc_length_v(cc_cer(je,:), cc_e2r)
+          cc_aux(1:3) = cc_cer(je,1:3)
+          z_dist = arc_length_v(cc_aux, cc_e2r)
           !
           ! get Cartesian orientation vector
           z_nx2(je,:) = ptr_ep%primal_cart_normal(iie2,ibe2)%x(:)
@@ -1390,7 +1390,6 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       !
       ! compute vector coefficients
       !
-!CDIR NOIEXPAND
 #ifdef __SX__
       CALL solve_chol_v(i_startidx, i_endidx, istencil, max_points, z_rbfmat, &
                         z_diag, z_rbfval, ptr_coeff(:,:,jb))

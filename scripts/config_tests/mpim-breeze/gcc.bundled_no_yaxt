@@ -1,0 +1,74 @@
+#!/bin/bash
+
+set -eu
+
+OMPI_ROOT='/sw/stretch-x64/mpi/openmpi-2.1.5-gcc63'
+OMPI_FC="${OMPI_ROOT}/bin/mpif90"
+OMPI_CC="${OMPI_ROOT}/bin/mpicc"
+OMPI_LAUNCH="${OMPI_ROOT}/bin/mpiexec"
+
+HDF5_ROOT='/sw/stretch-x64/hdf5/hdf5-1.8.18'
+HDF5_CPPFLAGS="-I${HDF5_ROOT}/include"
+HDF5_LDFLAGS="-L${HDF5_ROOT}/lib"
+HDF5_LIBS='-lhdf5'
+
+NETCDF_ROOT='/sw/stretch-x64/netcdf/netcdf_c-4.6.1'
+NETCDF_CPPFLAGS="-I${NETCDF_ROOT}/include"
+NETCDF_LDFLAGS="-L${NETCDF_ROOT}/lib"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_ROOT='/sw/stretch-x64/netcdf/netcdf_fortran-4.4.4-gcc63'
+NETCDFF_FCFLAGS="-I${NETCDFF_ROOT}/include"
+NETCDFF_LDFLAGS="-L${NETCDFF_ROOT}/lib"
+NETCDFF_LIBS='-lnetcdff'
+
+GRIBAPI_ROOT='/sw/stretch-x64/grib_api/grib_api-1.21.0-gccsys'
+GRIBAPI_CPPFLAGS="-I${GRIBAPI_ROOT}/include"
+GRIBAPI_LDFLAGS="-L${GRIBAPI_ROOT}/lib"
+GRIBAPI_LIBS='-lgrib_api'
+
+MKL_ROOT='/sw/stretch-x64/intel/intel-18.0.4/mkl'
+MKL_LDFLAGS="-L${MKL_ROOT}/lib/intel64"
+MKL_LIBS='-lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
+
+XML2_ROOT='/usr'
+XML2_CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
+XML2_LDFLAGS="-L${XML2_ROOT}/lib64"
+XML2_LIBS='-lxml2'
+
+################################################################################
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
+
+BUILD_ENV=". /etc/profile.d/mpim.sh;. ${MY_DIR}/build_env_init.sh; switch_for_modules gcc/6.3.0;"
+
+FC=$OMPI_FC
+CC=$OMPI_CC
+
+FCFLAGS="-std=f2008 -fimplicit-none -fmax-identifier-length=63 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -march=native -fbacktrace -fbounds-check -fstack-protector-all  -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -march=native -O2 -mpc64 ${NETCDFF_FCFLAGS}"
+CFLAGS='-O2 -g'
+CPPFLAGS="${HDF5_CPPFLAGS} ${NETCDF_CPPFLAGS} ${GRIBAPI_CPPFLAGS} ${XML2_CPPFLAGS}"
+LDFLAGS="${HDF5_LDFLAGS} ${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${GRIBAPI_LDFLAGS} ${MKL_LDFLAGS} ${XML2_LDFLAGS}"
+LIBS="${XML2_LIBS} ${MKL_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS}"
+MPI_LAUNCH=$OMPI_LAUNCH
+
+# Set LD_LIBRARY_PATH inside BUILD_ENV to enable the location of dynamic
+# libraries at the configure time and when running 'make check':
+BUILD_ENV="$BUILD_ENV LD_LIBRARY_PATH=\"`echo " ${LDFLAGS}" | sed -e 's/[ ][ ]*/ /g;s/-L[ ]/-L/g;s/[ ]\(-[^L]\|[^-]\)[^ ]*//g;s/[ ]*-L/:/g;s/^://'`:\$LD_LIBRARY_PATH\"; export LD_LIBRARY_PATH;"
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+MPI_LAUNCH="$MPI_LAUNCH" \
+--enable-grib2 \
+--enable-openmp \
+--enable-sct \
+"$@"
+

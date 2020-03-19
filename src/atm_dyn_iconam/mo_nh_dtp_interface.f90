@@ -47,7 +47,7 @@ MODULE mo_nh_dtp_interface
 #ifdef _OPENACC
   USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
-  USE mo_upatmo_config,      ONLY: idamtr
+  USE mo_upatmo_impl_const,   ONLY: idamtr
 
   IMPLICIT NONE
   PRIVATE
@@ -132,7 +132,7 @@ CONTAINS
     TYPE(t_trList), POINTER :: trAdvect      !< Pointer to tracer sublist
   !--------------------------------------------------------------------------
 
-    IF (timers_level > 2) CALL timer_start(timer_prep_tracer)
+    IF (timers_level > 5) CALL timer_start(timer_prep_tracer)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -496,7 +496,7 @@ CONTAINS
 
 !$ACC END DATA
 
-    IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
+    IF (timers_level > 5) CALL timer_stop(timer_prep_tracer)
 
   END SUBROUTINE prepare_tracer
 

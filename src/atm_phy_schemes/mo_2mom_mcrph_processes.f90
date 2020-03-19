@@ -112,6 +112,7 @@ MODULE mo_2mom_mcrph_processes
        & L_ew  => alf,    & ! specific heat of fusion (ew: eis->wasser)
        & T_3   => tmelt,  & ! melting temperature of ice
        & rho_w => rhoh2o, & ! density of liquid water
+       & rho_ice => rhoice,&! density of pure ice
        & nu_l  => con_m,  & ! kinematic viscosity of air
        & D_v   => dv0,    & ! diffusivity of water vapor in air at 0 C
        & K_t   => con0_h, & ! heat conductivity of air
@@ -154,7 +155,6 @@ MODULE mo_2mom_mcrph_processes
 
   ! ... some physical parameters not found in ICON
   REAL(wp), PARAMETER :: T_f     = 233.0_wp     !..Bei T < T_f kein Fl.wasser
-  REAL(wp), PARAMETER :: rho_ice = 916.7_wp     !..Materialdichte von Eis
 
   ! .. some cloud physics parameters
   REAL(wp), PARAMETER :: N_sc = 0.710_wp        !..Schmidt-Zahl (PK, S.541)
@@ -292,6 +292,8 @@ MODULE mo_2mom_mcrph_processes
   PUBLIC :: ice_riming, snow_riming
   PUBLIC :: ccn_activation_sk, ccn_activation_hdcp2
   PUBLIC :: sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf
+  PUBLIC :: moment_gamma
+  PUBLIC :: rho_ice
 
 CONTAINS
   

@@ -149,7 +149,9 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   ! Indices
   INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, i_startrow, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
-
+#ifdef __SX__
+  INTEGER :: jt
+#endif
   INTEGER :: nlev, nlevp1      !< number of full and half levels
   INTEGER :: nshift, nlevp1_rg, nst
   REAL(wp) :: exdist_h, exdist_f
@@ -496,13 +498,22 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           clc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
           clc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-!CDIR EXPAND=3
+#ifdef __SX__
+        ! Workaround for vectorization bug
+        DO jt = 1,3
+          p_tot_cld(jc,jk1,jb,jt) =                                        &
+            tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_fbkwgt(jc,jb,1) + &
+            tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_fbkwgt(jc,jb,2) + &
+            tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_fbkwgt(jc,jb,3) + &
+            tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),jt)*p_fbkwgt(jc,jb,4)
+        ENDDO
+#else
         p_tot_cld(jc,jk1,jb,1:3) =                                        &
           tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1:3)*p_fbkwgt(jc,jb,1) + &
           tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),1:3)*p_fbkwgt(jc,jb,2) + &
           tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),1:3)*p_fbkwgt(jc,jb,3) + &
           tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),1:3)*p_fbkwgt(jc,jb,4)
-
+#endif
       ENDDO
     ENDDO
 
@@ -518,12 +529,22 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
         ! enhance averaged QC and QI in order to be more consistent with cloud cover scheme
         IF (p_clc(jc,jk1,jb) > 0._wp .AND. p_clc(jc,jk1,jb) < 0.95_wp) THEN
-!CDIR EXPAND=2
+#ifdef __SX__
+        ! Workaround for vectorization bug
+        DO jt = 2,3
+          p_tot_cld(jc,jk1,jb,jt) =  0.5_wp*(p_tot_cld(jc,jk1,jb,jt) + SQRT(  &
+            tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)**2*p_fbkwgt(jc,jb,1) + &
+            tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)**2*p_fbkwgt(jc,jb,2) + &
+            tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)**2*p_fbkwgt(jc,jb,3) + &
+            tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),jt)**2*p_fbkwgt(jc,jb,4)  ))
+        ENDDO
+#else
           p_tot_cld(jc,jk1,jb,2:3) =  0.5_wp*(p_tot_cld(jc,jk1,jb,2:3) + SQRT( &
             tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),2:3)**2*p_fbkwgt(jc,jb,1) + &
             tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),2:3)**2*p_fbkwgt(jc,jb,2) + &
             tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),2:3)**2*p_fbkwgt(jc,jb,3) + &
             tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),2:3)**2*p_fbkwgt(jc,jb,4)  ))
+#endif
         ENDIF
 
       ENDDO
@@ -534,6 +555,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
       ! assume zero-gradient condition for aerosols, ozone and clouds (the latter are zero anyway in practice)
       jk1 = nshift + 1
       DO jk = 1, nshift
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
           p_aeq1(jc,jk,jb) = p_aeq1(jc,jk1,jb)
           p_aeq2(jc,jk,jb) = p_aeq2(jc,jk1,jb)
@@ -1039,6 +1061,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
 
 
       DO jk = nshift+1, n2dvars_rg
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
           z_aux3d(iidx(jc,jb,1),jk-nshift,iblk(jc,jb,1)) = zrg_aux3d(jc,jk,jb)
           z_aux3d(iidx(jc,jb,2),jk-nshift,iblk(jc,jb,2)) = zrg_aux3d(jc,jk,jb)
@@ -1048,6 +1071,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
       ENDDO
 
       DO jk = nshift+1, nlevp1_rg
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
           z_trdiffsolall(iidx(jc,jb,1),jk-nshift,iblk(jc,jb,1)) = zrg_trdiffsolall(jc,jk,jb)
           z_trdiffsolall(iidx(jc,jb,2),jk-nshift,iblk(jc,jb,2)) = zrg_trdiffsolall(jc,jk,jb)
@@ -1063,6 +1087,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
 
       IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
         DO jk = nshift+1, nlevp1_rg
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
             lwflx_up(iidx(jc,jb,1),jk-nshift,iblk(jc,jb,1)) = p_lwflx_up(jc,jk,jb)
             lwflx_up(iidx(jc,jb,2),jk-nshift,iblk(jc,jb,2)) = p_lwflx_up(jc,jk,jb)
@@ -1217,9 +1242,9 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
       jb4 = iblk(jc,jb,4)
       DO jk = 1,nlevp1
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
     DO jk = 1,nlevp1
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jc = i_startidx, i_endidx
         jc1 = iidx(jc,jb,1)
         jc2 = iidx(jc,jb,2)
@@ -1253,6 +1278,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
     ENDDO
 
 !DIR$ IVDEP
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
       jc1 = iidx(jc,jb,1)
       jc2 = iidx(jc,jb,2)
@@ -1663,7 +1689,7 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
           aeq5(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
           aeq5(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
         p_tot_cld(jc,jk1,jb,1:3) =                                        &
           tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1:3)*p_fbkwgt(jc,jb,1) + &
           tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),1:3)*p_fbkwgt(jc,jb,2) + &
@@ -1709,7 +1735,7 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
         p_aeq4(jc,1,jb)  =  p_aeq4(jc,2,jb)
         p_aeq5(jc,1,jb)  =  p_aeq5(jc,2,jb)
 
-!CDIR EXPAND=3
+!$NEC unroll(3)
         p_tot_cld(jc,1,jb,1:3) = p_tot_cld(jc,2,jb,1:3)
 
         p_clc(jc,1,jb)   = p_clc(jc,2,jb)
@@ -2074,9 +2100,9 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
       jb4 = iblk(jc,jb,4)
       DO jk = 1,nlevp1
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
     DO jk = 1,nlevp1
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jc = i_startidx, i_endidx
         jc1 = iidx(jc,jb,1)
         jc2 = iidx(jc,jb,2)
@@ -2210,7 +2236,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell_int)
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
       z_aux3dp1_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
       z_aux3dp1_p(jc,2,jb) = prm_diag(jg)%prec_gsp(jc,jb)
@@ -2414,7 +2440,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
                        i_startidx, i_endidx, 1, grf_bdywidth_c)
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx          ! to avoid undershoots when taking time differences:
       prm_diag(jgc)%tot_prec(jc,jb)       = MAX(z_aux3dp1_c(jc,1,jb),prm_diag(jgc)%tot_prec(jc,jb))
       prm_diag(jgc)%prec_gsp(jc,jb)       = MAX(z_aux3dp1_c(jc,2,jb),prm_diag(jgc)%prec_gsp(jc,jb))

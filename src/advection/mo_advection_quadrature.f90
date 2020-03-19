@@ -199,6 +199,7 @@ CONTAINS
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( z_x, z_y, z_gauss_pts_1, z_gauss_pts_2 ) COLLAPSE(2)
       DO jk = slev, elev
+!$NEC ivdep
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -341,7 +342,7 @@ CONTAINS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE( je, jk, z_gauss_pts_1, z_gauss_pts_2 ) 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
@@ -519,6 +520,7 @@ CONTAINS
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ) COLLAPSE(2)
       DO jk = slev, elev
+!$NEC ivdep
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -701,6 +703,7 @@ CONTAINS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
@@ -754,7 +757,7 @@ CONTAINS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
@@ -911,6 +914,7 @@ CONTAINS
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector ) COLLAPSE(2)
       DO jk = slev, elev
+!$NEC ivdep
         DO je = i_startidx, i_endidx
 
           z_x(je,1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
@@ -1033,7 +1037,7 @@ CONTAINS
       &  opt_elev
 
    ! local variables
-#if defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER) || defined(__SX__)
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
       &  z_gauss_pts(4,2)    !< in physical space
     REAL(wp) ::                &    !< weights times determinant of Jacobian for
@@ -1105,7 +1109,7 @@ CONTAINS
     z_wgt(3) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(1)
     z_wgt(4) = 0.0625_wp * wgt_zeta(2) *  wgt_eta(2)
 
-#if defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER) || defined(__SX__)
     z_eta(1:4,1) = 1._wp - eta(1:4)
     z_eta(1:4,2) = 1._wp + eta(1:4)
     z_eta(1:4,3) = 1._wp - zeta(1:4)
@@ -1134,8 +1138,9 @@ CONTAINS
       !$ACC LOOP GANG PRIVATE( z_x, z_y, wgt_t_detjac, z_gauss_pts, z_quad_vector )
       DO jk = slev, elev
         !$ACC LOOP VECTOR
+!$NEC ivdep
         DO je = i_startidx, i_endidx
-#if defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER) || defined(__SX__)
           z_x(1:4) = p_coords_dreg_v(je,1:4,1,jk,jb)
           z_y(1:4) = p_coords_dreg_v(je,1:4,2,jk,jb)
 
@@ -1188,7 +1193,7 @@ CONTAINS
           ! Get quadrature vector for each integration point and multiply by
           ! corresponding wgt_t_detjac
           DO jg=1, 4
-#if defined(__INTEL_COMPILER )
+#if defined(__INTEL_COMPILER) || defined(__SX__)
             z_quad_vector(jg,1) = wgt_t_detjac(jg)
             z_quad_vector(jg,2) = wgt_t_detjac(jg) * z_gauss_pts(jg,1)
             z_quad_vector(jg,3) = wgt_t_detjac(jg) * z_gauss_pts(jg,2)
@@ -1215,7 +1220,7 @@ CONTAINS
 
 
           ! Sum quadrature vectors over all integration points
-#if defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER) || defined(__SX__)
           p_quad_vector_sum(je, 1,jk,jb) = SUM(z_quad_vector(:,1))
           p_quad_vector_sum(je, 2,jk,jb) = SUM(z_quad_vector(:,2))
           p_quad_vector_sum(je, 3,jk,jb) = SUM(z_quad_vector(:,3))
@@ -1241,7 +1246,7 @@ CONTAINS
 #endif
 
           ! area of departure region
-#if defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER) || defined(__SX__)
           z_area = SUM(wgt_t_detjac(1:4))
 #else
           z_area = SUM(wgt_t_detjac(je,1:4))
@@ -1387,6 +1392,7 @@ CONTAINS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         z_x(ie,1:4) = p_coords_dreg_v(ie,1:4,1,jb)
@@ -1448,7 +1454,7 @@ CONTAINS
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)

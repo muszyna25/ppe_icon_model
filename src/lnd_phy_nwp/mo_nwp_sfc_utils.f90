@@ -80,9 +80,8 @@ MODULE mo_nwp_sfc_utils
 
 
 #ifdef __SX__
-! parameters for loop unrolling
+! parameter for loop unrolling
 INTEGER, PARAMETER :: nlsoil= 8
-INTEGER, PARAMETER :: nlsnow= 2
 #endif
 
 
@@ -431,7 +430,6 @@ CONTAINS
 
         IMSNOWI: IF(lmulti_snow) THEN
 
-!CDIR UNROLL=nlsnow+1
           DO jk=1,nlev_snow+1
             DO ic = 1, i_count
               jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -439,7 +437,6 @@ CONTAINS
             ENDDO
           ENDDO
 
-!CDIR UNROLL=nlsnow
           DO jk=1,nlev_snow
             DO ic = 1, i_count
               jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -451,7 +448,7 @@ CONTAINS
 
         END IF  IMSNOWI
 
-!CDIR UNROLL=nlsoil+1
+!$NEC outerloop_unroll(nlsoil+1)
         DO jk=1,nlev_soil+1
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -460,7 +457,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-!CDIR UNROLL=nlsoil
+!$NEC outerloop_unroll(nlsoil)
         DO jk=1,nlev_soil
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -489,7 +486,6 @@ CONTAINS
             &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
             &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
 
-!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
@@ -574,7 +570,6 @@ CONTAINS
 
 !  Recover fields from index list
 !
-!CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
           p_prog_lnd_now%t_snow_t(jc,jb,isubs)   = t_snow_now_t(ic,jb,isubs)
@@ -599,12 +594,12 @@ CONTAINS
 
         IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
           ! copy snowfrac_t to snow-free tile (needed for index list computation)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)
           ENDDO
-
+!$NEC ivdep
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_prog_lnd_now%w_snow_t(jc,jb,isubs) = p_prog_lnd_now%w_snow_t(jc,jb,isubs)/            &
@@ -616,7 +611,8 @@ CONTAINS
         ENDIF
 
         IF (itype_snowevap == 3) THEN ! set snow age to upper limit of 365 days on grid points with glaciers,
-          DO ic = 1, i_count          ! and reset hsnow_max to 40 m in agreement with what is done in initicon
+!$NEC ivdep                           ! and reset hsnow_max to 40 m in agreement with what is done in initicon
+         DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             IF (ext_data%atm%lc_class_t(jc,jb,isubs) == ext_data%atm%i_lc_snow_ice) &
               p_lnd_diag%snow_age(jc,jb)  = 365._wp
@@ -635,16 +631,13 @@ CONTAINS
 
         IMSNOWO: IF(lmulti_snow) THEN
 
-!CDIR UNROLL=nlsnow+1
           DO jk=1,nlev_snow+1
-!CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, i_count
               jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
               p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) =  t_snow_mult_now_t(ic,jk,jb,isubs)
             ENDDO
           ENDDO
 
-!CDIR UNROLL=nlsnow
           DO jk=1,nlev_snow
             IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
               DO ic = 1, i_count
@@ -668,9 +661,8 @@ CONTAINS
 
         END IF  IMSNOWO
 
-!CDIR UNROLL=nlsoil+1
+!$NEC outerloop_unroll(nlsoil+1)
         DO jk=1,nlev_soil+1
-!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_prog_lnd_now%t_so_t(jc,jk,jb,isubs) = t_so_now_t(ic,jk,jb,isubs)
@@ -678,9 +670,8 @@ CONTAINS
           ENDDO
         ENDDO
 
-!CDIR UNROLL=nlsoil
+!$NEC outerloop_unroll(nlsoil)
         DO jk=1,nlev_soil
-!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_prog_lnd_now%w_so_t(jc,jk,jb,isubs) = w_so_now_t(ic,jk,jb,isubs)
@@ -770,6 +761,7 @@ CONTAINS
 
         !  Recover fields from index list
         !
+!$NEC ivdep
         DO ic = 1, icount_flk
 
           jc = ext_data%atm%list_lake%idx(ic,jb)
@@ -1060,7 +1052,7 @@ CONTAINS
 
           i_count = ext_data%atm%gp_count_t(jb,isubs)
           i_count_snow = ext_data%atm%gp_count_t(jb,isubs_snow)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, i_count_snow
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
 
@@ -1096,9 +1088,7 @@ CONTAINS
           END DO
 
           IF (lmulti_snow) THEN
-!CDIR UNROLL=nlsnow
             DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
               DO ic = 1, i_count_snow
                 jc = ext_data%atm%idx_lst_t(ic,jb,isubs_snow)
                 p_prog_lnd_now%t_snow_mult_t(jc,jk,jb,isubs) = p_prog_lnd_now%t_s_t(jc,jb,isubs)
@@ -1723,6 +1713,7 @@ CONTAINS
       ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. 
       ! This will ensure that sea-ice and water fractions sum up exactly 
       ! to the total sea fraction.
+!$NEC ivdep
       DO ic = 1, i_count_sea
         jc = ext_data%atm%list_sea%idx(ic,jb)
         IF (p_lnd_diag%fr_seaice(jc,jb) < frsi_min ) THEN
@@ -1742,7 +1733,7 @@ CONTAINS
         ! ice-free or completely ice-covered
         !
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO ic = 1, i_count_sea
 
           jc = ext_data%atm%list_sea%idx(ic,jb)
@@ -1779,7 +1770,7 @@ CONTAINS
       ELSE   ! tile approach
 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO ic = 1, i_count_sea
 
           jc = ext_data%atm%list_sea%idx(ic,jb)
@@ -1828,7 +1819,7 @@ CONTAINS
 
         ENDDO  ! ic
 
-
+#ifndef __SX__
         ! Sanity check
         ! Check whether fractions of seaice and non-seaice covered tiles sum up to total sea fraction. 
         DO ic = 1, i_count_sea
@@ -1842,7 +1833,7 @@ CONTAINS
             CALL finish(routine, 'sea-ice + water fractions do not sum up to total sea fraction')
           END IF
         ENDDO  ! jc
-
+#endif
       ENDIF   ! IF (ntiles_total == 1)
 
     ENDDO  ! jb
@@ -2052,7 +2043,7 @@ CONTAINS
     icount = 0
     icount_snow = 0
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
 
@@ -2067,7 +2058,7 @@ CONTAINS
       ENDIF
     ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO ic = 1, lp_count
       jc = idx_lst_lp(ic)
 
@@ -2221,7 +2212,7 @@ CONTAINS
 
     IF ( ntiles_total == 1 ) THEN  ! no tile approach
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, list_seaice_count_old
         jc = list_seaice_idx_old(ic)
 
@@ -2268,7 +2259,7 @@ CONTAINS
       ENDDO  ! ic
 
     ELSE
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, list_seaice_count_old
         jc = list_seaice_idx_old(ic)
 
@@ -2847,7 +2838,7 @@ CONTAINS
         DO jb = i_startblk, i_endblk
 
 
-          !CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, ext_data%atm%list_sea%ncount(jb)
 
             jc = ext_data%atm%list_sea%idx(ic,jb)
@@ -3068,7 +3059,7 @@ CONTAINS
        IF (ext_data%atm%list_land%ncount(jb) == 0) CYCLE ! skip loop if there is no land point
        IF (ntiles_lnd == 1) THEN
          i_count = ext_data%atm%lp_count_t(jb,1)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
          DO ic = 1, i_count
            jc = ext_data%atm%idx_lst_lp_t(ic,jb,1)
            ! plant cover
@@ -3084,7 +3075,7 @@ CONTAINS
        ELSE ! ntiles_lnd > 1
          DO jt=1,ntiles_lnd
            i_count = ext_data%atm%lp_count_t(jb,jt)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
            DO ic = 1, i_count
              jc = ext_data%atm%idx_lst_lp_t(ic,jb,jt)
 
@@ -3119,7 +3110,7 @@ CONTAINS
          DO jt = ntiles_lnd+1, ntiles_total
 
            jt_in = jt - ntiles_lnd
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
            DO ic = 1, ext_data%atm%lp_count_t(jb,jt)
              jc = ext_data%atm%idx_lst_lp_t(ic,jb,jt)
              ext_data%atm%plcov_t(jc,jb,jt)    = ext_data%atm%plcov_t(jc,jb,jt_in)

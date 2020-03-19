@@ -44,6 +44,7 @@ MODULE mo_idx_list
   TYPE t_idx_list1D
     INTEGER, ALLOCATABLE :: idx(:)     ! 1D indices
     INTEGER              :: ncount     ! length
+    LOGICAL              :: lopenacc   ! list is copied to GPU if true
 
   CONTAINS
     !
@@ -62,6 +63,7 @@ MODULE mo_idx_list
   TYPE t_idx_list_blocked
     INTEGER, ALLOCATABLE :: idx(:,:)  ! cell indices for given block
     INTEGER, ALLOCATABLE :: ncount(:) ! length for given block
+    LOGICAL              :: lopenacc  ! list is copied to GPU if true
 
   CONTAINS
     !
@@ -94,9 +96,10 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2019-11-22)
   !!
-  SUBROUTINE idx_list1D__construct(obj, size)
+  SUBROUTINE idx_list1D__construct(obj, size, lopenacc)
     CLASS(t_idx_list1D) :: obj
     INTEGER, INTENT(IN) :: size
+    LOGICAL, INTENT(IN), OPTIONAL :: lopenacc
     !
     ! local
     INTEGER :: ist
@@ -104,6 +107,12 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_idx_list: idx_list1D__construct'
   !----------------------------------------------------------
+
+    IF (PRESENT(lopenacc)) THEN
+      obj%lopenacc = .TRUE.
+    ELSE
+      obj%lopenacc = .FALSE.
+    ENDIF
 
     ALLOCATE(obj%idx(size), STAT=ist)
     IF (ist /= SUCCESS) THEN
@@ -113,6 +122,8 @@ CONTAINS
     ! initialize
     obj%idx(:) = -1
     obj%ncount = 0
+
+    !$ACC ENTER DATA COPYIN(obj%idx, obj%ncount) IF (obj%lopenacc)
 
   END SUBROUTINE idx_list1D__construct
 
@@ -137,6 +148,8 @@ CONTAINS
 
     CALL DO_DEALLOCATE(obj%idx)
     obj%ncount = 0
+
+    !$ACC EXIT DATA DELETE(obj%idx, obj%ncount) IF (obj%lopenacc)
 
   END SUBROUTINE idx_list1D__finalize
 
@@ -180,10 +193,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2019-11-22)
   !!
-  SUBROUTINE idx_list_blocked__construct(obj, nproma, nblks)
+  SUBROUTINE idx_list_blocked__construct(obj, nproma, nblks, lopenacc)
     CLASS(t_idx_list_blocked) :: obj
     INTEGER, INTENT(IN) :: nproma
     INTEGER, INTENT(IN) :: nblks
+    LOGICAL, INTENT(IN), OPTIONAL :: lopenacc
     !
     ! local
     INTEGER :: ist
@@ -191,6 +205,12 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_idx_list: construct'
   !----------------------------------------------------------
+
+    IF (PRESENT(lopenacc)) THEN
+      obj%lopenacc = .TRUE.
+    ELSE
+      obj%lopenacc = .FALSE.
+    ENDIF
 
     ALLOCATE(obj%idx(nproma,nblks), &
       &      obj%ncount(nblks), STAT=ist)
@@ -201,6 +221,8 @@ CONTAINS
     ! initialize
     obj%idx(:,:)  = -1
     obj%ncount(:) = 0
+
+    !$ACC ENTER DATA COPYIN(obj%idx, obj%ncount) IF (obj%lopenacc)
 
   END SUBROUTINE idx_list_blocked__construct
 
@@ -226,6 +248,8 @@ CONTAINS
 
     CALL DO_DEALLOCATE(obj%idx)
     CALL DO_DEALLOCATE(obj%ncount)
+
+    !$ACC EXIT DATA DELETE(obj%idx, obj%ncount) IF (obj%lopenacc)
 
   END SUBROUTINE idx_list_blocked__finalize
 

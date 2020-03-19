@@ -34,7 +34,10 @@ MODULE mo_advection_geometry
   USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_math_types,          ONLY: t_line, t_geographical_coordinates
-  USE mo_math_utilities,      ONLY: lintersect, line_intersect 
+  USE mo_math_utilities,      ONLY: lintersect, line_intersect
+#ifdef __SX__
+  USE mo_math_utilities,      ONLY: line_intersect_s ! Workaround for compiler optimization bug
+#endif
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_fortran_tools,       ONLY: copy
 
@@ -288,12 +291,10 @@ CONTAINS
 
           ! does departure-line segment intersect with A1V3?
           !
-!CDIR NEXPAND(lintersect)
           lintersect_line1 = lintersect(fl_line(je,jk), tri_line1(je,jk))
 
           ! does departure-line segment intersect with A2V3?
           !
-!CDIR NEXPAND(lintersect)
           lintersect_line2 = lintersect(fl_line(je,jk), tri_line2(je,jk))
 
 
@@ -335,7 +336,7 @@ CONTAINS
 
       ! Second step of index list computation
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_rem
         je = idxlist_rem(jl,jb)
         jk = levlist_rem(jl,jb)
@@ -357,13 +358,11 @@ CONTAINS
 
         ! Check whether flux area edge 2 intersects with triangle edge 1
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e2_line1 = lintersect(fl_e2(je,jk), tri_line1(je,jk))
 
 
         ! Check whether flux area edge 1 intersects with triangle edge 2
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e1_line2 = lintersect(fl_e1(je,jk), tri_line2(je,jk))
 
 
@@ -430,7 +429,7 @@ CONTAINS
       !
       ! CASE 1
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c1
         je = idxlist_c1(jl,jb)
         jk = levlist_c1(jl,jb)
@@ -441,9 +440,13 @@ CONTAINS
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_line(je,jk), tri_line1(je,jk), ps1)
+        CALL line_intersect_s(fl_line(je,jk), tri_line2(je,jk), ps2)
+#else
         ps1(1:2) = line_intersect(fl_line(je,jk), tri_line1(je,jk))
         ps2(1:2) = line_intersect(fl_line(je,jk), tri_line2(je,jk))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 S1
@@ -497,7 +500,7 @@ CONTAINS
       !
       ! CASE 2a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2p
         je = idxlist_c2p(jl,jb)
         jk = levlist_c2p(jl,jb)
@@ -507,8 +510,11 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line1
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_line(je,jk), tri_line1(je,jk), ps1)
+#else
         ps1(1:2) = line_intersect(fl_line(je,jk), tri_line1(je,jk))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 D2 S1
@@ -555,7 +561,7 @@ CONTAINS
       !
       ! CASE 2b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2m
         je = idxlist_c2m(jl,jb)
         jk = levlist_c2m(jl,jb)
@@ -564,8 +570,11 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line2
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_line(je,jk), tri_line2(je,jk), ps2)
+#else
         ps2(1:2) = line_intersect(fl_line(je,jk), tri_line2(je,jk))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 D1
@@ -612,7 +621,7 @@ CONTAINS
       !
       ! CASE 3a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3p
         je = idxlist_c3p(jl,jb)
         jk = levlist_c3p(jl,jb)
@@ -621,8 +630,11 @@ CONTAINS
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_e2(je,jk), tri_line1(je,jk), pi1)
+#else
         pi1(1:2) = line_intersect(fl_e2(je,jk), tri_line1(je,jk))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I1 A1 (degenerated)
@@ -669,7 +681,7 @@ CONTAINS
       !
       ! CASE 3b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3m
         je = idxlist_c3m(jl,jb)
         jk = levlist_c3m(jl,jb)
@@ -677,8 +689,11 @@ CONTAINS
         lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
+#ifdef __SX__
+        CALL line_intersect_s(fl_e1(je,jk), tri_line2(je,jk), pi2)
+#else
         pi2(1:2) = line_intersect(fl_e1(je,jk), tri_line2(je,jk))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I2 A1 (degenerated)
@@ -726,7 +741,7 @@ CONTAINS
       !
       ! CASE 4  (very small normal velocity)
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_vn0
         je = idxlist_vn0(jl,jb)
         jk = levlist_vn0(jl,jb)
@@ -1084,12 +1099,10 @@ CONTAINS
 
         ! does departure-line segment intersect with A1V3?
         !
-!CDIR NEXPAND(lintersect)
         lintersect_line1 = lintersect(fl_line(ie), tri_line1(ie))
 
         ! does departure-line segment intersect with A2V3?
         !
-!CDIR NEXPAND(lintersect)
         lintersect_line2 = lintersect(fl_line(ie), tri_line2(ie))
 
 
@@ -1132,7 +1145,7 @@ CONTAINS
 
       ! Second step of index list computation
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_rem
         ie = ielist_rem(jl)
         je = idxlist_rem(jl)
@@ -1155,13 +1168,11 @@ CONTAINS
 
         ! Check whether flux area edge 2 intersects with triangle edge 1
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e2_line1 = lintersect(fl_e2(ie), tri_line1(ie))
 
 
         ! Check whether flux area edge 1 intersects with triangle edge 2
         !
-!CDIR NEXPAND(lintersect)
         lintersect_e1_line2 = lintersect(fl_e1(ie), tri_line2(ie))
 
 
@@ -1180,7 +1191,7 @@ CONTAINS
           ielist_c3m(icnt_c3m)  = ie
           idxlist_c3m(icnt_c3m) = je
           levlist_c3m(icnt_c3m) = jk
-
+#ifndef __SX__
         ELSE IF ( ABS(p_vn(je,jk,jb)) < 0.1_wp ) THEN
 
           ! CASE IV
@@ -1189,15 +1200,20 @@ CONTAINS
           ielist_vn0(icnt_vn0)  = ie
           idxlist_vn0(icnt_vn0) = je
           levlist_vn0(icnt_vn0) = jk
-
+#endif
         ELSE     ! error index list
-
+        ! Workaround for compiler optimization bug: vectorization fails with one additional branch
+#ifdef __SX__
+        IF ( .NOT. (ABS(p_vn(je,jk,jb)) < 0.1_wp) ) THEN
+#endif
           ! ERROR
           icnt_err = icnt_err + 1
           ielist_err(icnt_err)  = ie
           idxlist_err(icnt_err) = je
           levlist_err(icnt_err) = jk
-
+#ifdef __SX__
+        ENDIF
+#endif
           ! adding the error points to the weak-vn list is done in order to ensure
           ! reproducible (though bad) results in cases of too high wind speed
           icnt_vn0 = icnt_vn0 + 1
@@ -1234,7 +1250,7 @@ CONTAINS
       !
       ! CASE 1
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c1
         ie = ielist_c1(jl)
         je = idxlist_c1(jl)
@@ -1246,9 +1262,13 @@ CONTAINS
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_line(ie), tri_line1(ie), ps1)
+        CALL line_intersect_s(fl_line(ie), tri_line2(ie), ps2)
+#else
         ps1(1:2) = line_intersect(fl_line(ie), tri_line1(ie))
         ps2(1:2) = line_intersect(fl_line(ie), tri_line2(ie))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 S1
@@ -1294,7 +1314,7 @@ CONTAINS
       !
       ! CASE 2a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2p
         ie = ielist_c2p(jl)
         je = idxlist_c2p(jl)
@@ -1305,8 +1325,11 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line1
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_line(ie), tri_line1(ie), ps1)
+#else
         ps1(1:2) = line_intersect(fl_line(ie), tri_line1(ie))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 D2 S1
@@ -1349,7 +1372,7 @@ CONTAINS
       !
       ! CASE 2b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c2m
         ie = ielist_c2m(jl)
         je = idxlist_c2m(jl)
@@ -1359,8 +1382,11 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line2
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_line(ie), tri_line2(ie), ps2)
+#else
         ps2(1:2) = line_intersect(fl_line(ie), tri_line2(ie))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 D1
@@ -1403,7 +1429,7 @@ CONTAINS
       !
       ! CASE 3a
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3p
         ie = ielist_c3p(jl)
         je = idxlist_c3p(jl)
@@ -1413,8 +1439,11 @@ CONTAINS
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
+#ifdef __SX__
+        CALL line_intersect_s(fl_e2(ie), tri_line1(ie), pi1)
+#else
         pi1(1:2) = line_intersect(fl_e2(ie), tri_line1(ie))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I1 A1 (degenerated)
@@ -1453,7 +1482,7 @@ CONTAINS
       !
       ! CASE 3b
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_c3m
         ie = ielist_c3m(jl)
         je = idxlist_c3m(jl)
@@ -1462,8 +1491,11 @@ CONTAINS
         lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
+#ifdef __SX__
+        CALL line_intersect_s(fl_e1(ie), tri_line2(ie), pi2)
+#else
         pi2(1:2) = line_intersect(fl_e1(ie), tri_line2(ie))
-
+#endif
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I2 A1 (degenerated)
@@ -1503,7 +1535,7 @@ CONTAINS
       !
       ! CASE 4  (very small normal velocity)
       !
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO jl = 1, icnt_vn0
         ie = ielist_vn0(jl)
 
@@ -1526,7 +1558,7 @@ CONTAINS
      ! end of index list stuff
 
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC IVDEP
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)

@@ -24165,6 +24165,7 @@ char* gribMakeTimeString(grib_handle* gh, CdiTimeType timeType)
   date.tm_hour = (int)gribGetLong(gh, "hour");
   date.tm_min = (int)gribGetLong(gh, "minute");
 
+
   if(gribEditionNumber(gh) == 1)
     {
       date.tm_year = (int)gribGetLong(gh, "yearOfCentury");  //years are -1900 based both in struct tm and GRIB1
@@ -70150,6 +70151,9 @@ only C calling FORTRAN subroutines will work using K&R style.*/
 #define             CRAYFortran /*       _CRAYT3E also defines some behavior. */
 #endif
 #if        defined(_SX)
+#define               SXFortran
+#endif
+#if        defined(__NEC__)
 #define               SXFortran
 #endif
 #if         defined(mips) || defined(__mips)

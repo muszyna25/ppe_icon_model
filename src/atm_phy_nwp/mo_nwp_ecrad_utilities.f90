@@ -39,6 +39,7 @@ MODULE mo_nwp_ecrad_utilities
                                    &   vpp_ch4, vpp_n2o, tsi_radt
   USE mo_nwp_tuning_config,      ONLY: tune_difrad_3dcont
   USE mtime,                     ONLY: datetime
+  USE mo_bc_greenhouse_gases,    ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
 #ifdef __ECRAD
   USE mo_ecrad,                  ONLY: ecrad_set_gas_units,                      &
                                    &   t_ecrad_conf,                             &
@@ -311,8 +312,10 @@ CONTAINS
         CALL ecrad_gas%put_well_mixed(ecRad_ICO2,IVolumeMixingRatio, 0._wp,    istartcol=i_startidx,iendcol=i_endidx)
       CASE(2) ! Constant value derived from namelist parameter vmr_co2
         CALL ecrad_gas%put_well_mixed(ecRad_ICO2,IVolumeMixingRatio, vmr_co2,  istartcol=i_startidx,iendcol=i_endidx)
+      CASE(4) ! time dependent concentration from external file
+        CALL ecrad_gas%put_well_mixed(ecRad_ICO2,IMassMixingRatio, ghg_co2mmr,  istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_co2 = 0, 2')
+        CALL finish(TRIM(routine),'Current implementation only supports irad_co2 = 0, 2, 4')
     END SELECT
 
     !O2
@@ -333,8 +336,10 @@ CONTAINS
         CALL ecrad_gas%put_well_mixed(ecRad_ICFC11,IVolumeMixingRatio, 0._wp,    istartcol=i_startidx,iendcol=i_endidx)
       CASE(2) ! Constant value derived from namelist parameter vmr_cfc11
         CALL ecrad_gas%put_well_mixed(ecRad_ICFC11,IVolumeMixingRatio, vmr_cfc11,istartcol=i_startidx,iendcol=i_endidx)
+      CASE(4) ! time dependent concentration from external file
+        CALL ecrad_gas%put_well_mixed(ecRad_ICFC11,IMassMixingRatio, ghg_cfcmmr(1),istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_cfc11 = 0, 2')
+        CALL finish(TRIM(routine),'Current implementation only supports irad_cfc11 = 0, 2, 4')
     END SELECT
 
     !CFC12
@@ -343,8 +348,10 @@ CONTAINS
         CALL ecrad_gas%put_well_mixed(ecRad_ICFC12,IVolumeMixingRatio, 0._wp,    istartcol=i_startidx,iendcol=i_endidx)
       CASE(2) ! Constant value derived from namelist parameter vmr_cfc12
         CALL ecrad_gas%put_well_mixed(ecRad_ICFC12,IVolumeMixingRatio, vmr_cfc12,istartcol=i_startidx,iendcol=i_endidx)
+      CASE(4) ! time dependent concentration from external file
+        CALL ecrad_gas%put_well_mixed(ecRad_ICFC12,IMassMixingRatio, ghg_cfcmmr(2),istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_cfc12 = 0, 2')
+        CALL finish(TRIM(routine),'Current implementation only supports irad_cfc12 = 0, 2, 4')
     END SELECT
 
     !N2O
@@ -358,8 +365,10 @@ CONTAINS
         n2o(:,:)=gas_profile(vmr_n2o, pres, vpp_n2o, i_startidx, i_endidx, nlev)
         CALL ecrad_gas%put(ecRad_IN2O,  IVolumeMixingRatio, n2o(:,:))
         DEALLOCATE(n2o)
+      CASE(4) ! time dependent concentration from external file
+        CALL ecrad_gas%put_well_mixed(ecRad_IN2O,IMassMixingRatio, ghg_n2ommr,istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_n2o = 0, 2, 3')
+        CALL finish(TRIM(routine),'Current implementation only supports irad_n2o = 0, 2, 3, 4')
     END SELECT
 
     !CH4
@@ -373,8 +382,10 @@ CONTAINS
         ch4(:,:)=gas_profile(vmr_ch4, pres, vpp_ch4, i_startidx, i_endidx, nlev)
         CALL ecrad_gas%put(ecRad_ICH4,  IVolumeMixingRatio, ch4(:,:))
         DEALLOCATE(ch4)
+      CASE(4) ! time dependent concentration from external file
+        CALL ecrad_gas%put_well_mixed(ecRad_ICH4,IMassMixingRatio, ghg_ch4mmr,istartcol=i_startidx,iendcol=i_endidx)
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Current implementation only supports irad_ch4 = 0, 2, 3')
+        CALL finish(TRIM(routine),'Current implementation only supports irad_ch4 = 0, 2, 3, 4')
     END SELECT
 
     CALL ecrad_set_gas_units(ecrad_conf, ecrad_gas)

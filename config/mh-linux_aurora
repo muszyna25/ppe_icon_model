@@ -1,0 +1,216 @@
+#-----------------------------------------------------------------------------
+# Configuration file for Linux-type systems
+#-----------------------------------------------------------------------------
+
+LIBS        = -L../lib -lsupport $LIBS
+
+
+#--------------------------------------------------------------
+# Path to system libraries:
+#--------------------------------------------------------------
+
+# moved in to compiler sections, this other libries are used for Aurora and x86
+
+#--------------------------------------------------------------
+# Define compiler settings
+#--------------------------------------------------------------
+#
+case "$fortran_compiler" in
+    default|gcc)
+    LIBROOT     = /hpc/sw
+    NETCDFROOT  = ${LIBROOT}/netcdf4/4.7.3/VH/gnu
+    NETCDFFROOT = ${LIBROOT}/netcdf4/4.7.3/VH/gnu
+    HDF5ROOT    = ${LIBROOT}/hdf5/1.10.5/VH/gnu
+# try to use MKL
+#    LAPACKROOT  = ${LIBROOT}/OpenBLAS-0.3.7/VH
+#    LAPACKROOT  = /opt/intel/compilers_and_libraries_2019.5.281/linux/mkl
+    LAPACKROOT     = /hpc/sw/intel/compilers_and_libraries_2020.0.166/linux/mkl
+# still old library:
+    XML2ROOT    = ${LIBROOT}/NEC-old/libxml2-2.9.10/VH
+    ZLIBROOT    = ${LIBROOT}/zlib/1.2.11/x86/gnu
+    SZIPROOT    = ${LIBROOT}/szip/2.1.1/x86/gnu
+
+        config_compiler  = gcc
+	CC          = mpicc -vh
+        FC          = mpifort -vh
+        F77         = mpifort -vh
+	#
+        FCPP        = -cpp
+	MPI_LIB     = -Wl,--disable-new-dtags -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+        FLANG       = -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
+        FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising
+#        DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all $FCHECK
+        DEBUG_FLAGS =
+        STD_FLAGS   = -mavx2 -O2 -mno-fma -mpc64 $DEBUG_FLAGS
+        FFLAGS      = $FCPP $FLANG $FWARN $INCLUDES -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -D__LOOP_EXCHANGE -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__
+	#
+        F77FLAGS    = -mavx2 -O2 -mno-fma -mpc64
+        CFLAGS      = -std=gnu99 -mavx2 -O3 -mno-fma -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DpgiFortran
+        LDFLAGS     = -L${LIBROOT}/lib64/VH/lib -lsz -laec -fopenmp -pg
+        LAPACK_LIB =  -Wl,--start-group ${LAPACKROOT}/lib/intel64/libmkl_gf_lp64.a ${LAPACKROOT}/lib/intel64/libmkl_sequential.a ${LAPACKROOT}/lib/intel64/libmkl_core.a -Wl,--end-group
+	#
+        OMPFLAG     = -fno-openmp
+        CC_OMPFLAG  = -fno-openmp
+	#
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -J
+        ;;
+   nec)
+    LIBROOT     = /hpc/sw
+    NETCDFROOT  = ${LIBROOT}/netcdf4/4.3.2/VE
+    NETCDFFROOT = ${LIBROOT}/netcdf4/4.3.2/VE
+    HDF5ROOT    = ${LIBROOT}/hdf5/1.8.13/VE
+    LAPACKROOT  = /opt/nec/ve/nlc/1.0.0
+    XML2ROOT    = ${LIBROOT}/libxml2/2.9.10/VE
+    ZLIBROOT    = ${LIBROOT}/zlib/1.2.11/VE
+    SZIPROOT    = ${LIBROOT}/szip/2.1.1/VE
+
+        config_compiler  = nec
+        CC          = mpincc
+        FC          = mpinfort
+        F77         = $FC
+        with_mpi=yes
+        with_openmp=yes
+
+        AR       = nar
+        AS       = nas
+        RANLIB   = nranlib
+
+        PREPFLAGS = -USX -D__SX__=__NEC__  -D__COMM_OPT__ -D__BLOCK_GET__ -U__GNUC__ -U__GFORTRAN__
+        STD_FLAGS   = -fpp
+        URDEPTHS = -D_URD=10 -D_URD2=10
+        INLINE = -finline-functions -finline-file=../../../src/advection/mo_advection_utils.f90:../../../src/atm_phy_schemes/mo_cufunctions.f90:../../../src/parallel_infrastructure/mo_extents.f90:../../../src/shared/mo_math_utilities.f90:../../../src/configure_model/mo_parallel_config.f90:../../../src/atm_phy_schemes/mo_satad.f90:../../../src/shared/mo_statistics.f90:../../../src/atm_phy_nwp/mo_util_phys.f90:../../../src/atm_phy_schemes/turb_utilities.f90:../../../src/lnd_phy_nwp/mo_nwp_sfc_interp.f90                
+        BASEFLAGS = -DHAVE_LIBNETCDF $URDEPTHS
+        BITID = -mno-vector-fma -fno-associative-math
+#        BITID =
+        CFLAGS   =  -std=gnu11 -O3 -finline-functions $BITID -msched-block -fcse-after-vectorization -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I${GRIBAPIROOT}/include -D__SVN_VERSION="${SVNVERSION}" -U__GNUC__
+        VECTFLAGS =
+        MSGFLAGS = -fdiag-vector=0 -report-all -traceback
+        OPTFLAGS = -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -D__MIXED_PRECISION -D__MIXED_PRECISION_2 $BITID
+#        FTRFLAGS = -ftrace
+        FTRFLAGS =
+        OMPFLAGS = -fno-openmp
+        INCFLAGS = -I../externals/mtime/src -I../externals/self/src
+
+        CFLAGS     = $CFLAGS $FTRFLAGS -finline-functions -D_REENTRANT -DHAVE_NETCDF4
+        FFLAGS     = $PREPFLAGS $BASEFLAGS $STD_FLAGS $INLINE $INCFLAGS $VECTFLAGS $MSGFLAGS $OPTFLAGS $FTRFLAGS $OMPFLAGS
+        F77FLAGS   = $FFLAGS
+        LDFLAGS    = $OMPFLAGS $FTRFLAGS -static -static-nec -traceback
+        LAPACK_LIB = -llapack -lblas_sequential
+        OTHER_LIBS = $OTHER_LIBS
+        #
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -I
+        ;;
+    cray)
+        config_compiler  = cray
+        CC          = cc
+        FC          = ftn
+        F77         = $FC
+	#
+	STD_FLAGS   = -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+	#
+        F77FLAGS    = $FFLAGS
+        CFLAGS      = -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -O3
+        LDFLAGS     = 
+	#
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -J
+        ;;
+    intel|intel16|intel15|intel14)
+        config_compiler  = intel
+	CC          = icc
+        FC          = ifort
+        F77         = $FC
+        AR          = xiar
+	#
+	MPI_LIB      = -Wl,--disable-new-dtags -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+        DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
+        STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback -assume realloc_lhs
+        FFLAGS      = -U__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2
+	#
+        F77FLAGS    = $FFLAGS $STD_FLAGS
+        CFLAGS      = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DpgiFortran
+        LDFLAGS     = 
+	#
+        OMPFLAG     = -openmp
+        CC_OMPFLAG  = -openmp
+	#
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -module 
+        ;;
+esac
+
+
+
+
+#--------------------------------------------------------------
+# DESCRIPTION OF RELEVANT SETTINGS
+#--------------------------------------------------------------
+
+#  $NETCDFFROOT
+#  $NETCDFROOT
+#
+#     These variables have to specify a valid NetCDF installation.
+#     Different paths may be used for the APIs for Fortran and C.
+#
+#
+#  GRIB-API support   (C and Fortran flags)
+#  -DHAVE_LIBGRIB
+#  -DHAVE_LIBGRIB_API
+#
+#     The ICON model uses a release of the ECMWF GRIB-API to read 
+#     and write files in the GRIB2 format.
+#
+#
+#  NetCDF support     (C flags)
+#  -DHAVE_LIBNETCDF
+#  -DHAVE_NETCDF4
+#
+#     This preprocessor flags enable NetCDF support in the I/O 
+#     library CDI ("Climate Data Interface") which is written in C. 
+#     The CDI are used to read/write data files in several modules 
+#     of the ICON model code.
+#
+#
+#  Optimization flags (Fortran)
+#  -D__LOOP_EXCHANGE
+#  -D__MIXED_PRECISION
+#  -D__MIXED_PRECISION_2
+#
+#     These flags can be used to improve the runtime performance,  
+#     by using single precision for some variables and performing
+#     a loop interchange in performance critical places of the ICON 
+#     model code. 
+#     See the ICON RAPS quickstart guide for some details.
+# 
+#
+#  Preprocessor flag -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED (Fortran)
+#
+#     If your system has slow passive target synchronization
+#     (mpi_win_lock/mpi_win_unlock), set the
+#     HAVE_SLOW_PASSIVE_TARGET_ONESIDED preprocessor macro.  Defining
+#     this macro results in global arrays to be constructed with
+#     active target synchronization with extra synchronization calls.
+#
+#
+#  Preprocessor flags (Fortran)
+#  -D__NO_JSBACH__
+#  -D__NO_ICON_TESTBED__
+#
+#     These preprocessor flags are used to disable unnecessary model 
+#     components.
+#
+#
+#  Preprocessor flag -DUSE_XML2 (unused)
+#
+#     This flag is not relevant for our setup (for YAC coupler only).

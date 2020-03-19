@@ -18,6 +18,9 @@ MODULE mo_octree
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_util_sort,           ONLY: quicksort
+#ifdef __SX__
+USE mo_util_sort,             ONLY: radixsort
+#endif
   IMPLICIT NONE
 
   ! subroutines and functions
@@ -111,7 +114,11 @@ CONTAINS
     END IF
     octree%obj_min(1:nobjects,:) = pmin(1:nobjects,:)
     octree%obj_max(1:nobjects,:) = pmax(1:nobjects,:)
+#ifdef __SX__
+    CALL radixsort(box, perm=octree%object_idx)
+#else
     CALL quicksort(box, permutation=octree%object_idx)
+#endif
     ! count no. of occupied boxes
     nboxes = 1
     DO i=2,nobjects
@@ -119,7 +126,9 @@ CONTAINS
     END DO
     ALLOCATE(octree%box(nboxes+1,2), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
-    octree%box(1,         1:2) = (/ box(1),                   1 /)
+    !NEC_RP: prevent processes not owning any grid points from accessing not allocated data
+    IF (nobjects > 0) &
+      octree%box(1,       1:2) = (/ box(1),                   1 /)
     octree%box(nboxes + 1,1:2) = (/ OCTREE_SIZE + 1, nobjects+1 /)
     nboxes = 1
     DO i=2,nobjects
@@ -221,7 +230,8 @@ CONTAINS
     brange(:,:) = octree%brange0(:,:)
     LOOP : DO l1=1,OCTREE_DEPTH
       ioffset = octree_get_box_offset(octree, ibox)
-      IF (ioffset /= -1)  THEN
+      !NEC_RP: prevent processes from accessing not allocated data
+      IF ((ioffset /= -1).AND.(SIZE(octree%object_idx) > 0)) THEN
         DO i=octree%box(ioffset,2),(octree%box(ioffset+1,2)-1)
           pmin = octree%obj_min(octree%object_idx(i),:)
           pmax = octree%obj_max(octree%object_idx(i),:)
@@ -266,7 +276,8 @@ CONTAINS
     brange(:,:) = octree%brange0(:,:)
     LOOP : DO l1=1,OCTREE_DEPTH
       ioffset = octree_get_box_offset(octree, ibox)
-      IF (ioffset /= -1) THEN
+      !NEC_RP: prevent processes from accessing not allocated data
+      IF ((ioffset /= -1).AND.(SIZE(octree%object_idx) > 0)) THEN
         DO i=octree%box(ioffset,2),(octree%box(ioffset+1,2)-1)
           pmin = octree%obj_min(octree%object_idx(i),:)
           pmax = octree%obj_max(octree%object_idx(i),:)

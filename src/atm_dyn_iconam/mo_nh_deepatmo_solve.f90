@@ -61,7 +61,8 @@ MODULE mo_nh_deepatmo_solve
   USE mo_initicon_config,        ONLY: is_iau_active, iau_wgt_dyn
   USE mo_fortran_tools,          ONLY: init_zero_contiguous_dp, init_zero_contiguous_sp ! Import both for mixed prec.
   USE mo_nh_deepatmo_utils,      only: velocity_tendencies_deepatmo
-  USE mo_upatmo_config,          ONLY: upatmo_config, idamtr
+  USE mo_upatmo_config,          ONLY: upatmo_config
+  USE mo_upatmo_impl_const,      ONLY: idamtr
  
   IMPLICIT NONE
 

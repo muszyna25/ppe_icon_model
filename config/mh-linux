@@ -219,8 +219,85 @@ esac
 # Define site dependent library paths
 #
 case "$ac_sitename" in
-    cscs.ch)
+    cscs.ch|cm.cluster)
         case "$HOST" in
+            *tsa*)
+              make_command = make -j 6
+              FC =  mpif90
+              CC =  mpicc
+              F77 = mpif90
+              ZLIBROOT       = /apps/arolla/UES/jenkins/RH7.6/pgi/19.5/easybuild/software/zlib/1.2.11-PGI-19.5-GCC-7.3.0-2.30
+              XML2ROOT       = /apps/arolla/UES/jenkins/RH7.6/gnu/19.2/easybuild/software/libxml2/2.9.9
+              NETCDFFROOT    = /apps/arolla/UES/jenkins/RH7.6/pgi/19.9/easybuild/software/netCDF-Fortran/4.4.5-PGI-19.9-GCC-8.3.0
+              NETCDFROOT     = /apps/arolla/UES/jenkins/RH7.6/pgi/19.9/easybuild/software/netCDF/4.7.0-PGI-19.9-GCC-8.3.0
+              NETCDFLIBPATH  = /apps/arolla/UES/jenkins/RH7.6/pgi/19.9/easybuild/software/netCDF/4.7.0-PGI-19.9-GCC-8.3.0/lib64
+              #GRIBAPIROOT    = ${SPACK_LIBS}/libs/grib_api
+              HDF5ROOT       = /apps/arolla/UES/jenkins/RH7.6/pgi/19.9/easybuild/software/HDF5/1.10.5-PGI-19.9-GCC-8.3.0
+              #SERIALBOX2ROOT = ${SPACK_LIBS}/libs/serialbox2
+              OMPFLAG        = -fopenmp
+              case "$fortran_compiler" in
+                  gcc*)
+                      CFLAGS         = -g -DgFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
+                      FFLAGS         = ${FFLAGS} -g -traceback
+                      F77LAGS        = ${FFLAGS}
+                      config_tuning = $(tmp=${fortran_compiler#'gcc'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                      # Cleanup setup for serialization
+                      case "$enable_serialization" in
+                          read|perturb|create)
+                              FLANG = ${FLANG/ffree-line-length-132/ffree-line-length-none}
+                              FFLAGS = ${FFLAGS/ffree-line-length-132/ffree-line-length-none}
+                              ;;
+                      esac
+                      # Generic CPU/GPU setup
+                      case "${config_tuning}" in
+                          gpu*)
+                              config_target = tsa_gpu
+                              (>&6 echo "")
+                              (>&6 echo "")
+                              (>&6 echo "OpenACC is not supported with GCC.")
+                              (>&6 echo "")
+                              ;;
+                          *)
+                              config_target = tsa_cpu
+                              FFLAGS        = ${FFLAGS}
+                              OTHER_LIBS    = -ldl
+                              ;;
+                      esac
+                      ;;
+                  pgi*)
+                      FFLAGS         = -g -traceback -O -Mpreprocess -Mrecursive -Mallocatable=03 $INCLUDES
+                      #load_modules   = PrgEnv-pgi/19.9 netcdf-fortran/4.4.5-pgi-19.9-gcc-8.3.0 # loading PrgEnv broken on Tsa, load manually
+                      F77FLAGS       = $FFLAGS
+                      CFLAGS         = -g -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_NETCDF2 -DHAVE_NETCDF4 -O2
+                      LAPACKROOT  = ${PGI}/linux86-64/${PGI_VERSION}
+                      LAPACK_LIB  = -llapack -lblas
+                      OTHER_LIBS     = -lstdc++ 
+                      config_tuning = $(tmp=${fortran_compiler#'pgi'};tmp=${tmp#_};tmp=${tmp:-default};echo $tmp)
+                      # Cleanup setup for serialization
+                      case "$enable_serialization" in
+                          read|perturb|create)
+                            SERIALBOX2_LIB = ${REMO_ICON_INSTALL}/libs/serialbox2/lib/libSerialboxFortran.a /usr/lib/gcc/x86_64-linux-gnu/8/libstdc++fs.a -lstdc++ -ldl
+                            ;;
+                      esac
+                      # Generic CPU/GPU setup
+                      case "${config_tuning}" in
+                          gpu*)
+                              config_target = tsa_gpu
+                              FFLAGS        = ${FFLAGS} -acc=verystrict -ta=nvidia:cc70,cuda10.1 -Minfo=accel,inline -Mcuda -DENIAC_USE_AUTOMATIC_ARRAYS -D__NWP_DEVELOP
+                              LDFLAGS       = -ta=nvidia:cc70,cuda10.1 -Mcuda -Mnorpath
+                              NVCC          = nvcc
+                              NVCFLAGS      = -I../include/cub -std=c++11 -arch=sm_70 -g -O3
+                              ;;
+                          *)
+                              config_target = tsa_cpu
+                              FFLAGS        = ${FFLAGS} -D__LOOP_EXCHANGE -tp=haswell
+                              LDFLAGS       = -tp=haswell -Mnorpath
+                              OTHER_LIBS    = -ldl
+                              ;;
+                      esac
+                      ;;
+              esac
+            ;;
             *daint*|*dom*)
                 make_command = make -j 8
                 submit       = sbatch

@@ -20,7 +20,8 @@ MODULE mo_derived_variable_handling
   USE mo_var_metadata_types, ONLY: VARNAME_LEN
   USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW,    &
     &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
-  USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
+  USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
+                              & GRID_ZONAL
   USE mo_name_list_output_types, ONLY: t_output_name_list
   USE mo_zaxis_type, ONLY:  ZA_OCEAN_SEDIMENT
   USE mo_mpi, ONLY: my_process_is_stdio
@@ -39,7 +40,7 @@ MODULE mo_derived_variable_handling
   USE mtime_datetime, ONLY: datetimeToString
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
-  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, GRID_ZONAL, TSTEP_CONSTANT
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, TSTEP_CONSTANT
 
   IMPLICIT NONE
 
