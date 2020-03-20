@@ -983,6 +983,8 @@ CONTAINS
               CALL read_cdi_2d(parameters, 'RAD_BL', radar_data(jg)%radar_ct%blacklist)
               CALL deleteInputParameters(parameters)
             ENDIF
+            ! Mask blacklist entries on halo points
+            WHERE (p_patch(jg)%cells%decomp_info%decomp_domain(:,:) /= 0) radar_data(jg)%radar_ct%blacklist(:,:) = 0
 
             IF (assimilation_config(jg)%lhn_bright) THEN
               parameters = makeInputParameters(cdi_height_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c) ! &

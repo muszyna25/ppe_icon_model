@@ -741,15 +741,6 @@ SUBROUTINE organize_lhn ( &
 
   ENDIF
 
-! rescale of tt_lheat to unit of K, this should be done, because tt_lheat has a time dimension
-! and could be used one time step later in the same way as now
-
-!$OMP DO PRIVATE(jb)
-  DO jb=i_startblk,i_endblk
-    prm_diag%tt_lheat(:,:,jb) = tt_lheat(:,:,jb) ! * zdt
-  ENDDO
-!$OMP END DO 
-
 !$OMP END PARALLEL
 
 !-------------------------------------------------------------------------------
@@ -766,8 +757,10 @@ SUBROUTINE organize_lhn ( &
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ttmin,ttmax)
   DO jb=i_startblk,i_endblk
-       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-         &                i_startidx, i_endidx, i_rlstart, i_rlend)
+
+    CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+      &                i_startidx, i_endidx, i_rlstart, i_rlend)
+
    DO jc = i_startidx, i_endidx
      IF (pr_obs(jc,jb) > 0.0_wp)     lhn_fields%pr_obs_sum(jc,jb) = lhn_fields%pr_obs_sum(jc,jb)       &
                                                    + pr_obs(jc,jb) * zdt
@@ -819,12 +812,14 @@ SUBROUTINE organize_lhn ( &
      DO jc = i_startidx, i_endidx
        ttmin(jc) = MIN(ttmin(jc),lhn_fields%ttend_lhn(jc,jk,jb))
        ttmax(jc) = MAX(ttmax(jc),lhn_fields%ttend_lhn(jc,jk,jb))
+
+       prm_diag%tt_lheat(jc,jk,jb) = tt_lheat(jc,jk,jb)
      ENDDO
    ENDDO
    DO jc = i_startidx, i_endidx
      lhn_diag(jc,nlev-9,jb) = MERGE(0._wp,1._wp,ttmin(jc)==0._wp .AND. ttmax(jc)==0._wp)
    ENDDO
-   prm_diag%lhn_diag(:,nlev-15:nlev,jb) = lhn_diag(:,nlev-15:nlev,jb)
+   prm_diag%lhn_diag(i_startidx:i_endidx,nlev-15:nlev,jb) = lhn_diag(i_startidx:i_endidx,nlev-15:nlev,jb)
 
   ENDDO
 
@@ -1086,31 +1081,32 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 
 
   DO i=1,iread
-        IF (.NOT.lp1 .AND. radar_data%radar_td%obs_date(i) == next_time_1) THEN 
-            weight_index_p1=i
-            IF (msg_level > 12) CALL print_value ('o_p1',radar_data%radar_td%obs_date(i)%time%minute)
-            lp1=.true.
-        ELSE IF (.NOT.lp2 .AND. radar_data%radar_td%obs_date(i) == next_time_2) THEN 
-            weight_index_p2=i
-            IF (msg_level > 12) CALL print_value ('o_p2',radar_data%radar_td%obs_date(i)%time%minute)
-            lp2=.true.
-        ELSE IF (.NOT.lp3 .AND. radar_data%radar_td%obs_date(i) == next_time_3) THEN 
-            weight_index_p3=i
-            IF (msg_level > 12) CALL print_value ('o_p3',radar_data%radar_td%obs_date(i)%time%minute)
-            lp3=.true.
-        ELSE IF (.NOT.lm1 .AND. radar_data%radar_td%obs_date(i) == prev_time_1) THEN 
-            weight_index_m1=i
-            weight_index_m1lim = MAX(1,weight_index_m1) ! to avoid errors with array bound checking
-            IF (msg_level > 12) CALL print_value ('o_m1',radar_data%radar_td%obs_date(i)%time%minute)
-            lm1=.true.
-        ELSE IF (.NOT.lm2 .AND. radar_data%radar_td%obs_date(i) == prev_time_2) THEN
-            weight_index_m2=i
-            weight_index_m2lim = MAX(1,weight_index_m2) ! to avoid errors with array bound checking
-            IF (msg_level > 12) CALL print_value ('o_m2',radar_data%radar_td%obs_date(i)%time%minute)
-            lm2=.true.
-        ENDIF
-        IF (lp1 .AND. lp2 .AND. lp3 .AND. lm1 .AND. lm2) EXIT
+    IF (.NOT.lp1 .AND. radar_data%radar_td%obs_date(i) == next_time_1) THEN 
+      weight_index_p1=i
+      IF (msg_level > 12) CALL print_value ('o_p1',radar_data%radar_td%obs_date(i)%time%minute)
+      lp1=.true.
+    ELSE IF (.NOT.lp2 .AND. radar_data%radar_td%obs_date(i) == next_time_2) THEN 
+      weight_index_p2=i
+      IF (msg_level > 12) CALL print_value ('o_p2',radar_data%radar_td%obs_date(i)%time%minute)
+      lp2=.true.
+    ELSE IF (.NOT.lp3 .AND. radar_data%radar_td%obs_date(i) == next_time_3) THEN 
+      weight_index_p3=i
+      IF (msg_level > 12) CALL print_value ('o_p3',radar_data%radar_td%obs_date(i)%time%minute)
+      lp3=.true.
+    ELSE IF (.NOT.lm1 .AND. radar_data%radar_td%obs_date(i) == prev_time_1) THEN 
+      weight_index_m1=i
+      IF (msg_level > 12) CALL print_value ('o_m1',radar_data%radar_td%obs_date(i)%time%minute)
+      lm1=.true.
+    ELSE IF (.NOT.lm2 .AND. radar_data%radar_td%obs_date(i) == prev_time_2) THEN
+      weight_index_m2=i
+      IF (msg_level > 12) CALL print_value ('o_m2',radar_data%radar_td%obs_date(i)%time%minute)
+      lm2=.true.
+    ENDIF
+    IF (lp1 .AND. lp2 .AND. lp3 .AND. lm1 .AND. lm2) EXIT
   ENDDO
+
+  weight_index_m1lim = MAX(1,weight_index_m1) ! to avoid errors with array bound checking
+  weight_index_m2lim = MAX(1,weight_index_m2) ! to avoid errors with array bound checking
 
   IF (assimilation_config(jg)%lhn_bright .AND. &
    & ( (MOD(datetime_current%time%minute,5)  == 0 .AND. datetime_current%time%second < 10 ) &
@@ -1368,7 +1364,6 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
     diag_out(3) = count( num_t_obs(:,:,3) == 1) !num1delta_t_obs
     diag_out(4) = count( num_t_obs(:,:,4) == 1) !num1delta_t_obs
     diag_out(5) = count( num_t_obs(:,:,0) == 1)         !numnone
-!    diag_out(6) = sum  ( radar_data%radar_ct%blacklist(:,:) ) !blacklist
     diag_out(6) = count( radar_data%radar_ct%blacklist(:,:) > 0.0_wp ) !blacklist
     diag_out(7) = count( wobs_space(:,:) == 1.0_wp)    !numfull
     diag_out(8) = count( (wobs_space(:,:) <  1.0_wp) &  !numred

@@ -17,12 +17,31 @@ COMPARE TEST DATA TO REFERENCE FILE
 async def run_checks(test_data, reference):
     await asyncio.gather(
         # relative difference of average:
-        check_rel_avg(test_data, reference, 0.1, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
-        check_rel_avg(test_data, reference, 0.01,grb_metadata(test_data.grb, "shortName") == "T"),       \
+        check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "prmsl"),    \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "t"),       \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "2t"),       \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "2r"),       \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "tp"),       \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "tciwv"),    \
+        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),   \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),   \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_S"),   \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_T"),   \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ATHB_T"),   \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
         # GRIB2 meta-data checks:
         check_grb_metadata(test_data, reference, True),                                                  \
     )
-
+# TODO: rename after using DWD shortname.def: t -> T, prmsl -> PRES_MSL, 2t -> T_2M,  2r -> RH_2M, tp -> TOT_PREC, tciwv -> TQV.
 
 # --------------------------------------------------------------------------------
 # > TEST: check relative average (AVG(TEST) - AVG(REF)) / AVG(REF)
@@ -39,6 +58,20 @@ async def check_rel_avg(test_data, reference, tol, condition):
             print(">>> check_rel_avg '{}' : passed. {} <= {} tol".
                   format(grb_metadata(reference.grb,"shortName"), val, tol))
 
+# --------------------------------------------------------------------------------
+# > TEST: check relative mean squared difference (AVG(TEST - REF)**2) / AVG(REF)
+async def check_rel_msd(test_data, reference, tol, condition):
+    if (condition):
+        await read_reference_record(test_data.grb, reference)
+        avg_test = numpy.array((grb_values(test_data.grb)-grb_values(reference.grb))**2).mean()
+        avg_ref  = numpy.array(grb_values(reference.grb)).mean()
+        val      = numpy.abs(avg_test/avg_ref)
+        if (val > tol):
+            raise Exception(">>> '{}' : {} > {} tol".
+                            format(grb_metadata(reference.grb,"shortName"), val, tol))
+        else:
+            print(">>> check_rel_avg '{}' : passed. {} <= {} tol".
+                  format(grb_metadata(reference.grb,"shortName"), val, tol))
 
 # --------------------------------------------------------------------------------
 # > TEST: check GRIB2 key/values (with a given "black list"
@@ -48,7 +81,8 @@ async def check_grb_metadata(test_data, reference, condition):
 
         GRBKEY_IGNORE_LIST = ["localCreationDate*", "codedValues", "md5Section*", "md5Headers", \
                               "localDecodeDate*", "maximum", "average", "standardDeviation",    \
-                              "skewness", "kurtosis", "sectionNumber", "section2Padding"]
+                              "skewness", "kurtosis", "sectionNumber", "section2Padding", "referenceValue", \
+                              "binaryScaleFactor", "totalLength", "bitsPerValue", "section7Length"]
 
         ignore_combined = "(" + ")|(".join(GRBKEY_IGNORE_LIST) + ")" # combined regular expression
         iterid = eccodes.codes_keys_iterator_new(test_data.grb)
