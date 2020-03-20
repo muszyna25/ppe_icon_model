@@ -17,15 +17,15 @@ COMPARE TEST DATA TO REFERENCE FILE
 async def run_checks(test_data, reference):
     await asyncio.gather(
         # relative difference of average:
-        check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "prmsl"),    \
+        check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "PMSL"),    \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "t"),       \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "2t"),       \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "2r"),       \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "tp"),       \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "tciwv"),    \
-        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),   \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),   \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
+        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
+        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
@@ -41,7 +41,7 @@ async def run_checks(test_data, reference):
         # GRIB2 meta-data checks:
         check_grb_metadata(test_data, reference, True),                                                  \
     )
-# TODO: rename after using DWD shortname.def: t -> T, prmsl -> PRES_MSL, 2t -> T_2M,  2r -> RH_2M, tp -> TOT_PREC, tciwv -> TQV.
+
 
 # --------------------------------------------------------------------------------
 # > TEST: check relative average (AVG(TEST) - AVG(REF)) / AVG(REF)
@@ -70,11 +70,11 @@ async def check_rel_msd(test_data, reference, tol, condition):
             raise Exception(">>> '{}' : {} > {} tol".
                             format(grb_metadata(reference.grb,"shortName"), val, tol))
         else:
-            print(">>> check_rel_avg '{}' : passed. {} <= {} tol".
+            print(">>> check_rel_msd '{}' : passed. {} <= {} tol".
                   format(grb_metadata(reference.grb,"shortName"), val, tol))
 
 # --------------------------------------------------------------------------------
-# > TEST: check GRIB2 key/values (with a given "black list"
+# > TEST: check GRIB2 key/values (with a given "black list"):
 async def check_grb_metadata(test_data, reference, condition):
     if (condition):
         await read_reference_record(test_data.grb, reference)
