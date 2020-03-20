@@ -537,7 +537,7 @@ CONTAINS
             ! first flip pointer assignments (faster than copy)
             IF (ASSOCIATED(bufferD)) THEN
                IF (SIZE(bufferD) /= SIZE(bufferD_prev)) THEN
-                  DEALLOCATE(bufferD_prev)
+                  IF (ASSOCIATED(bufferD_prev)) DEALLOCATE(bufferD_prev)
                   ALLOCATE(bufferD_prev(SIZE(bufferD)))
                END IF
                tmpDP => bufferD_prev
@@ -546,7 +546,7 @@ CONTAINS
             END IF
             IF (ASSOCIATED(bufferS)) THEN
                IF (SIZE(bufferS) /= SIZE(bufferS_prev)) THEN
-                  DEALLOCATE(bufferS_prev)
+                  IF (ASSOCIATED(bufferS_prev)) DEALLOCATE(bufferS_prev)
                   ALLOCATE(bufferS_prev(SIZE(bufferS)))
                END IF
                tmpSP => bufferS_prev
