@@ -336,7 +336,7 @@ cat > ${atmo_namelist} << EOF
  ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
                     'rho'     , 'ta'      ,
                     'ua'      , 'va'      , 'wap'     ,
-                    'hus'     , 'clw'     , 'cli'
+                    'qv'      , 'qc'      , 'qi'
 /
 
 ! radiation_nml: radiation scheme ---------------------------------------------

@@ -863,6 +863,7 @@ set_run_target_daint_gpu()
 
     set_default use_nproma 8000
     set_default use_nodes 1
+    set_default use_prefetch_procs 0
     use_OMP_SCHEDULE="static,1"
 
     is_serial_run="no"
@@ -870,16 +871,16 @@ set_run_target_daint_gpu()
     then
 	if [[ $use_openmp == "yes" ]]
 	then
-	    set_default use_mpi_procs_pernode 1
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
 	    set_default use_openmp_threads 1
 	else
-	    set_default use_mpi_procs_pernode 1
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
 	fi
     else
 	if [[ $use_openmp == "yes" ]]
 	then
 	    set_default use_openmp_threads 1
-	    set_default use_mpi_procs_pernode 1
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
 	else
 	    is_serial_run="yes"
 	fi
@@ -1428,6 +1429,13 @@ create_target_header()
     then
 	use_openmp_threads=1
     fi
+
+    use_prefetch_procs=0
+    case $job_name in
+        *mch_ch_lowres*)
+            use_prefetch_procs=1
+            ;;
+    esac
 
     # set more default values
     set_default use_shell "/bin/ksh"

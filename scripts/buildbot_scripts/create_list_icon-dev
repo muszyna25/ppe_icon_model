@@ -64,9 +64,9 @@ $addexp run/checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MI
 # add tolerance check to daint builders
 $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_cce --list $listname
 $addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance --runflags "no_of_nodes=2" --builders DAINT_CPU_cce --list $listname
-$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance --runflags "no_of_nodes=2" --builders DAINT_CPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance --runflags "no_of_nodes=2" --builders DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance                            --builders DAINT_CPU_cce --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance                            --builders DAINT_CPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance                            --builders DAINT_GPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_cce --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_pgi --list $listname
 $addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_GPU_pgi --list $listname

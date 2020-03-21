@@ -349,22 +349,20 @@ function tolerance_check
     # -t tolerance file
     # --cur this model run that is to be tested
     # --ref the reference from the repository
-    # and write the output to a file (tolerance.log)
-    python probtest/probtest.py icon-test-references/config.cfg stats check \
+    python probtest/probtest.py icon-test-references/${EXPERIMENT}.cfg stats check \
         -o ${MODEL_DIR}/experiments/${EXP_BASE} \
         -e ${EXP_BASE} \
         -t ${MODEL_DIR}/icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv \
         --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
-        --ref ${MODEL_DIR}/icon-test-references/${REF_BUILDER}/reference/${EXPERIMENT}.csv \
-        > tolerance.log
+        --ref ${MODEL_DIR}/icon-test-references/${REF_BUILDER}/reference/${EXPERIMENT}.csv
 
     echo "TOLERANCE test output:"
-    cat tolerance.log
+    cat probtest.log
 
     # get the relevant success check
-    fail=$(grep RESULT tolerance.log | grep 'FAIL' | wc -l)
-    crash=$(grep RESULT tolerance.log | grep 'CRASH' | wc -l)
-    finished=$(grep RESULT tolerance.log | wc -l)
+    fail=$(grep RESULT probtest.log | grep 'FAIL' | wc -l)
+    crash=$(grep RESULT probtest.log | grep 'CRASH' | wc -l)
+    finished=$(grep RESULT probtest.log | wc -l)
     if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
        echo "testsuite did not complete successfully"
        TOL_STATUS=1
