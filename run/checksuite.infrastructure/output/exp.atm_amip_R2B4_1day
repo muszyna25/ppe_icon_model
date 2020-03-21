@@ -197,10 +197,10 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =     3,    3,    3
+ itype_hlimit     =     3,    4,    4
+ ihadv_tracer     =    52,    2,    2
 /
 &echam_phy_nml
 !
