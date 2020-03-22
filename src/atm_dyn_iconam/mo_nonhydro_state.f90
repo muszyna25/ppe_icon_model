@@ -2488,6 +2488,7 @@ MODULE mo_nonhydro_state
       ALLOCATE(p_diag%tracer_vi_ptr(iqm_max))
 
       ! Q1 vertical integral: tqv(nproma,nblks_c)
+     IF ( iqv /= 0 ) THEN
       cf_desc    = t_cf_var('tqv', 'kg m-2', 'total column integrated water vapour', &
         &          datatype_flt)
       grib2_desc = grib2_var( 0, 1, 64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2497,8 +2498,10 @@ MODULE mo_nonhydro_state
                   & cf_desc, grib2_desc,                                         &
                   & ref_idx=iqv,                                                 &
                   & ldims=shape2d_c, lrestart=.FALSE.)
+     END IF
 
       ! Q2 vertical integral: tqc(nproma,nblks_c)
+     IF ( iqc /= 0 ) THEN
       cf_desc    = t_cf_var('tqc', 'kg m-2', 'total column integrated cloud water', &
         &          datatype_flt)
       grib2_desc = grib2_var( 0, 1, 69, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2508,8 +2511,10 @@ MODULE mo_nonhydro_state
                   & cf_desc, grib2_desc,                                         &
                   & ref_idx=iqc,                                                 &
                   & ldims=shape2d_c, lrestart=.FALSE.)
+     END IF
 
       ! Q3 vertical integral: tqi(nproma,nblks_c)
+     IF ( iqi /= 0 ) THEN
       cf_desc    = t_cf_var('tqi', 'kg m-2', 'total column integrated cloud ice', &
         &          datatype_flt)
       grib2_desc = grib2_var( 0, 1, 70, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2519,8 +2524,10 @@ MODULE mo_nonhydro_state
                   & cf_desc, grib2_desc,                                         &
                   & ref_idx=iqi,                                                 &
                   & ldims=shape2d_c, lrestart=.FALSE.)
+     END IF
 
-      IF ( iqm_max >= 4 ) THEN
+     IF ( iqr /= 0 ) THEN
+     ! IF ( iqm_max >= 4 ) THEN
         ! Q4 vertical integral: tqr(nproma,nblks_c)
         cf_desc    = t_cf_var('tqr', 'kg m-2', 'total column integrated rain',     &
           &          datatype_flt)
@@ -2533,7 +2540,8 @@ MODULE mo_nonhydro_state
                     & ldims=shape2d_c, lrestart=.FALSE.)
       ENDIF ! iqm_max >= 4
 
-      IF ( iqm_max >= 5 ) THEN
+     IF ( iqs /= 0 ) THEN
+     ! IF ( iqm_max >= 5 ) THEN
         ! Q5 vertical integral: tqs(nproma,nblks_c)
         cf_desc    = t_cf_var('tqs', 'kg m-2', 'total column integrated snow',     &
           &          datatype_flt)
@@ -2547,7 +2555,8 @@ MODULE mo_nonhydro_state
        ENDIF  ! iqm_max >= 5
 
 
-      IF ( ANY((/2,4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+     IF ( iqg /= 0 ) THEN
+     ! IF ( ANY((/2,4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
         !
         ! Q6 vertical integral: tqg(nproma,nblks_c)
         cf_desc    = t_cf_var('tqg', 'kg m-2', 'total column integrated graupel',  &
@@ -2563,7 +2572,8 @@ MODULE mo_nonhydro_state
 
         ! Note that hail is only taken into account by schemes 4, 5 and 6
         !
-        IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+     IF ( iqh /= 0 ) THEN
+     !   IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
           ! Q7 vertical integral: tqh(nproma,nblks_c)
           cf_desc    = t_cf_var('tqh', 'kg m-2', 'total column integrated hail',     &
             &          datatype_flt)
