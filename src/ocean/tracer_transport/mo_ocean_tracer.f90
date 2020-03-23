@@ -504,7 +504,8 @@ CONTAINS
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                   &
           & new_tracer,                 &
-          & a_v)           
+          & a_v,                        &
+          & transport_state%h_new)
           
     ENDIF!IF ( l_with_vert_tracer_diffusion )
 

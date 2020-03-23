@@ -1209,7 +1209,7 @@ CONTAINS
     ELSE
       cells_in_domain => patch_3D%p_patch_2D(1)%cells%in_domain
     ENDIF    
-    start_level=2
+    start_level=1
     !-----------------------------------------------------------------------
     
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
@@ -1258,8 +1258,7 @@ CONTAINS
 !      IF ( end_level >=min_dolic ) THEN
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
           vertDiv_scalar(jc,jk) &
-            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
-              & * inv_prism_thickness(jc,jk)
+            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed

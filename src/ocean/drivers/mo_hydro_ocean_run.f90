@@ -36,7 +36,8 @@ MODULE mo_hydro_ocean_run
     &  lswr_jerlov, &
     &  Cartesian_Mixing, GMRedi_configuration, use_tides, tides_mod, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
-    &  vert_mix_type,vmix_kpp
+    &  vert_mix_type,vmix_kpp, &
+    &  use_draftave_for_transport_h
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -93,6 +94,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_tides,            ONLY: tide, tide_mpi    
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_ocean_tracer_diffusion, ONLY: tracer_vertdiff_eliminate_upper_diag => eliminate_upper_diag
 
   IMPLICIT NONE
 
@@ -635,13 +637,14 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     TYPE(datetime), POINTER, INTENT(in)              :: current_time
 
-    TYPE(t_ocean_transport_state)                    :: transport_state
     TYPE(t_tracer_collection) , POINTER              :: old_tracer_collection, new_tracer_collection
+    TYPE(t_ocean_transport_state), POINTER           :: transport_state
 
     INTEGER :: i, jg
 
     old_tracer_collection => ocean_state%p_prog(nold(1))%tracer_collection
     new_tracer_collection => ocean_state%p_prog(nnew(1))%tracer_collection
+    transport_state => ocean_state%transport_state
 
 
 !     IF (no_tracer>=1) THEN
@@ -660,11 +663,16 @@ CONTAINS
 
       ! fill transport_state
       transport_state%patch_3d    => patch_3d
-      transport_state%h_old       => ocean_state%p_prog(nold(1))%h
-      transport_state%h_new       => ocean_state%p_prog(nnew(1))%h
       transport_state%w           => ocean_state%p_diag%w  ! w_time_weighted
       transport_state%mass_flux_e => ocean_state%p_diag%mass_flx_e
       transport_state%vn          => ocean_state%p_diag%vn_time_weighted
+      IF (use_draftave_for_transport_h) THEN
+        transport_state%h_old     = ocean_state%p_prog(nold(1))%h - sea_ice%draftave 
+        transport_state%h_new     = ocean_state%p_prog(nnew(1))%h - sea_ice%draftave
+      ELSE
+        transport_state%h_old     = ocean_state%p_prog(nold(1))%h
+        transport_state%h_new     = ocean_state%p_prog(nnew(1))%h
+      ENDIF
       ! fill boundary conditions
       old_tracer_collection%tracer(1)%top_bc => p_oce_sfc%TopBC_Temp_vdiff
       IF (no_tracer > 1) &
@@ -799,6 +807,7 @@ CONTAINS
     tmp => ocean_state%p_aux%g_n
     ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
     ocean_state%p_aux%g_nm1 => tmp
+    tracer_vertdiff_eliminate_upper_diag = .not. tracer_vertdiff_eliminate_upper_diag ! switch solving methods
     
   END SUBROUTINE update_time_g_n
 

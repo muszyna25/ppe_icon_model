@@ -472,7 +472,8 @@ CONTAINS
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                      &
           & new_tracer,                &
-          & a_v)
+          & a_v,                               &
+          & transport_state%h_new)
           
       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
       
@@ -480,7 +481,8 @@ CONTAINS
         CALL tracer_diffusion_vertical_implicit(       &
           & patch_3d,                               &
           & temp_tracer_before,                      &
-          & p_os%p_diag%vertical_mixing_coeff_GMRedi_implicit)
+          & p_os%p_diag%vertical_mixing_coeff_GMRedi_implicit, &
+          & transport_state%h_new)
                
       
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &

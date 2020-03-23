@@ -581,6 +581,7 @@ MODULE mo_ocean_types
     TYPE(t_operator_coeff), POINTER :: operator_coeff
     TYPE(t_ocean_checkpoint), POINTER :: p_check(:)
     TYPE(t_ocean_adjoint) :: p_adjoint
+    TYPE(t_ocean_transport_state)  :: transport_state
 
   END TYPE t_hydro_ocean_state
   
