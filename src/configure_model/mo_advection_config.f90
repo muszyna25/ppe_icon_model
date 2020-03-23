@@ -355,7 +355,7 @@ CONTAINS
     !
     advection_config(jg)%iadv_slev(:) = 1
     advection_config(jg)%iadv_qvsubstep_elev = 1
-    IF (iforcing == inwp) THEN
+    IF (iforcing == inwp .OR. iforcing == iecham) THEN
       ! Set iadv_slev to kstart_moist for all moisture fields but QV
       ! note: iqt denotes the first tracer index not related to moisture
       advection_config(jg)%iadv_slev(iqc:iqt-1) = kstart_moist
