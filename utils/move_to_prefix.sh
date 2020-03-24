@@ -96,8 +96,9 @@ if test -f "$builddir/run/set-up.info"; then
   fn_copy_file "$builddir/run/set-up.info" "$prefix/run/"
 else
   fn_warn "cannot find 'run/set-up.info' in '$builddir': trying to generate it..."
-  "$builddir/config.status" --file="$prefix/run/set-up.info:$top_srcdir/run/set-up.info.in" || \
-  fn_error 4 "failed to generate '$prefix/run/set-up.info'"
+  cmd="\"$builddir/run/collect.set-up.info\" \"$prefix/run/set-up.info\""
+  echo "$cmd"
+  eval "$cmd" || fn_error 4 "failed to generate '$prefix/run/set-up.info'"
 fi
 
 fn_rsync "$top_srcdir/run" "$prefix/" "--exclude='*in' --exclude='.*'"

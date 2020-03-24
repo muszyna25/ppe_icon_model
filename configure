@@ -7707,6 +7707,12 @@ ac_config_headers="$ac_config_headers config.h"
 ac_config_files="$ac_config_files Makefile depgen.c.config depgen.f90.config deplist.config icon.mk"
 
 
+ac_config_files="$ac_config_files run/collect.set-up.info"
+
+
+ac_config_commands="$ac_config_commands run/set-up.info"
+
+
 ac_config_commands="$ac_config_commands depfiles"
 
 
@@ -8543,6 +8549,8 @@ do
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
     "deplist.config") CONFIG_FILES="$CONFIG_FILES deplist.config" ;;
     "icon.mk") CONFIG_FILES="$CONFIG_FILES icon.mk" ;;
+    "run/collect.set-up.info") CONFIG_FILES="$CONFIG_FILES run/collect.set-up.info" ;;
+    "run/set-up.info") CONFIG_COMMANDS="$CONFIG_COMMANDS run/set-up.info" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -9105,6 +9113,9 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
+    "run/collect.set-up.info":F) chmod +x "$ac_file" ;;
+    "run/set-up.info":C) run/collect.set-up.info "$ac_file" 2>/dev/null ||    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: failed to create \"$ac_file\"" >&5
+$as_echo "$as_me: WARNING: failed to create \"$ac_file\"" >&2;} ;;
     "depfiles":C) ${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&5
    sleep 1
    touch icon.mk ;;

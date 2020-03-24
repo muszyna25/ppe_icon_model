@@ -67,9 +67,6 @@ for arg in "$@"; do
   esac
 done
 
-# Generate input file for runscript generation:
-./config.status --file=run/set-up.info
-
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
   echo "Copying runscript input files from the source directory..."

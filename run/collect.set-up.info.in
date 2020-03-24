@@ -1,3 +1,39 @@
+#!@SHELL@
+
+# Define a variable with a name that is hardly owerriten by $BUILD_ENV:
+_collected_set_up_info=
+
+# The first argument is our output file:
+test "$#" -gt 0 && test -n "$1" && rm -f "$1" && _collected_set_up_info=$1
+
+# Silently initialize the environment:
+{ @BUILD_ENV@:; } >/dev/null 2>&1
+
+# List of output variables
+output_vars='
+use_builddir
+use_compiler
+use_compiler_version
+use_gpu
+use_host
+use_load_modules
+use_load_profile
+use_mpi
+use_mpi_procs_pernode
+use_mpi_root
+use_mpi_startrun
+use_openmp
+use_shell
+use_srcdir
+use_submit
+use_sync_submit
+use_target
+'
+
+# Set directories:
+use_srcdir='@abs_top_srcdir@'
+use_builddir='@abs_top_builddir@'
+
 # Set use_site:
 use_host='@host_fqdn@'
 case "$use_host" in
@@ -38,18 +74,7 @@ use_openmp='no'
 use_gpu='no'
 @GPU_ENABLED@use_gpu='yes'
 
-# Init other variables:
-use_mpi_startrun=
-use_flags_group=
-use_target=
-use_mpi_procs_pernode=
-use_load_modules=
-use_load_profile=
-use_submit=
-use_sync_submit=
-use_shell=
-
-# Set default values:
+# Set use_mpi_startrun:
 test -n '@MPI_LAUNCH@' && use_mpi_startrun='@MPI_LAUNCH@ -n $mpi_total_procs'
 
 # Set site-specific values:
@@ -108,6 +133,49 @@ case "$use_site" in
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun'
         if test xyes = x"${use_gpu}"; then use_target='bullx_gpu'; else use_target='bullx_cpu'; fi
+
+        # We need to set $use_mpi_root, which actually serves as a vendor ID of
+        # MPI library. Later, we might implement a proper check for MPI vendor
+        # in the configure script by calling MPI_Get_library_version()
+        # (supported only starting MPI 3 though). For now, we set use_mpi_root
+        # depending on whether $FC is an MPI wrapper or not:
+        #     a) if $FC is an MPI wrapper, we assume that it resides in
+        #        $use_mpi_root/bin (or in any other first-level subdirectory of
+        #        the root directory);
+        #     b) otherwise, we parse $FCFLAGS for -I flags, detect the first
+        #        directory containing mpi.mod file and assume that its path
+        #        is $use_mpi_root/include (or any other first-level
+        #        subdirectory of the root directory).
+        # In both cases, we set use_mpi_root accordingly. We also know that we
+        # are on Mistral, therefore we don't have to care too much about
+        # portability of the following checks.
+
+        if @FC@ -show >/dev/null 2>&1; then
+          # If $FC accepts '-show' then consider it to be an MPI wrapper (we
+          # use head -1 to account for the case when $FC is a program with
+          # arguments, i.e. 'ifort -someflag'):
+          use_mpi_root=$(cd "$(dirname "$(which @FC@ | head -1)")/.."; pwd)
+        else
+          # Otherwise, we extract all -I flags from $FC $FCFLAGS and return
+          # path to the first directory containing mpi.mod.
+
+          # Find out the real name of the MPI Fortran module:
+          mpi_mod=mpi.@FC_MOD_FILE_EXT@
+          test xyes = x"@FC_MOD_FILE_UPPER@" && mpi_mod=MPI.@FC_MOD_FILE_EXT@
+
+          # Replace '-I[ ]*' with _INCLUDE_MARKER_ in $FC $FCFLAGS:
+          fcflags=`echo '@FC@ @FCFLAGS@' | sed 's%-I[ ]*%_INCLUDE_MARKER_%g'`
+
+          # Find the directory containing $mpi_mod.
+          for flag in $fcflags; do
+            case $flag in
+              _INCLUDE_MARKER_*)
+                dir=`echo "$flag" | sed 's%_INCLUDE_MARKER_%%'`
+                test -f "$dir/$mpi_mod" && use_mpi_root=$(dirname "$dir") && break
+              ;;
+            esac
+          done
+        fi
       ;;
     esac
   ;;
@@ -202,4 +270,17 @@ case "$use_site" in
 
 esac
 
-# vim:ft=sh
+test -n "$_collected_set_up_info" && exec >>"$_collected_set_up_info"
+
+for var in $output_vars; do
+  eval value=\$$var
+
+  # Replace any occurrence of the single-quote (') in the $value with the
+  # escape sequence ('\''), so that the output of this script could be sourced.
+  case $value in
+    *\'*)
+      value=`echo "$value" | sed "s/'/'\\\\\\\\''/g"` ;;
+  esac
+
+  echo "$var='$value'"
+done

@@ -244,6 +244,7 @@ clean: mostlyclean
 # directories if they are empty):
 distclean: clean
 	rm -f config.h config.log config.status depgen.c.config depgen.f90.config deplist.config
+	rm -f run/collect.set-up.info run/set-up.info
 	rm -f $(dep_files)
 	rm -f $(dir_files)
 	@for dir in $(bindir) $(moddir) $(ppdir); do \
@@ -253,7 +254,7 @@ distclean: clean
           fi; \
 	done
 	@if test '.' != '$(srcdir)'; then \
-	  for dir in $(subdirs) externals; do \
+	  for dir in $(subdirs) externals run; do \
 	    if test -d "$$dir"; then \
 	      echo "find '$$dir' -type d -empty -delete"; \
 	      find "$$dir" -type d -empty -delete; \

@@ -1536,6 +1536,16 @@ AC_CONFIG_FILES([
   icon.mk
 ])
 
+AC_CONFIG_FILES([run/collect.set-up.info], [chmod +x "$ac_file"])
+
+dnl The runscript generator should call run/collect.set-up.info and generate
+dnl run/set-up.info. This is currently not the case, therefore we delegate this
+dnl task to the configure script (do not forget to update '*clean' rules in
+dnl 'icon.mk.in' when the following becomes redundant):
+AC_CONFIG_COMMANDS([run/set-up.info],
+  [run/collect.set-up.info "$ac_file" 2>/dev/null || dnl
+   AC_MSG_WARN([failed to create "$ac_file"])])
+
 dnl An additional step to generate dummy dependencies:
 AC_CONFIG_COMMANDS([depfiles],
   [${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&AS_MESSAGE_LOG_FD
