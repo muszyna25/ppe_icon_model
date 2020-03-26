@@ -30,7 +30,6 @@ USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
 USE mo_assimilation_config,  ONLY: configure_lhn
-USE mo_lnd_nwp_config,       ONLY: groups_smi
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
   &                                ldynamics,            &
@@ -39,7 +38,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                ldass_lhn, msg_level, &
-  &                                iqc, iqt, iqv,        &
+  &                                iqc, iqt,             &
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
@@ -126,7 +125,7 @@ USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
-USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
+USE mo_random_util,         ONLY: add_random_noise
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -177,7 +176,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist, jgroup
+    INTEGER :: jg, jt, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0

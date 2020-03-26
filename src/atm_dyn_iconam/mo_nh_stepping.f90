@@ -90,7 +90,6 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE sfc_seaice,                  ONLY: frsi_min
   USE mo_ext_data_state,           ONLY: ext_data
-  USE mo_turbdiff_config,          ONLY: turbdiff_config
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch, p_patch_local_parent
   USE mo_time_config,              ONLY: time_config
@@ -127,7 +126,7 @@ MODULE mo_nh_stepping
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
-    &                                    p_comm_work, my_process_is_mpi_workroot, p_pe, p_io
+    &                                    p_comm_work, my_process_is_mpi_workroot, p_pe
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
@@ -608,7 +607,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_nml_output, l_nml_output_dom(max_dom), lprint_timestep, &
-    &                                     lwrite_checkpoint, lcfl_watch_mode, l_need_dbz3d
+    &                                     lwrite_checkpoint, lcfl_watch_mode
   TYPE(t_simulation_status)            :: simulation_status
   TYPE(datetime),   POINTER            :: mtime_old         ! copy of current datetime (mtime)
 

@@ -235,8 +235,7 @@ MODULE mo_async_latbc
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group, get_var_name
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
-    USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
-         &                                  dict_finalize
+    USE mo_dictionary,                ONLY: t_dictionary
     USE mo_util_string,               ONLY: add_to_list, tolower
     USE mo_run_config,                ONLY: iqs
     USE mo_util_sort,                 ONLY: quicksort
@@ -616,10 +615,10 @@ MODULE mo_async_latbc
       ENDIF
 
       ! read the map file into dictionary data structure
-      CALL dict_init(latbc_varnames_dict, lcase_sensitive=.FALSE.)
+      CALL latbc_varnames_dict%init(lcase_sensitive=.FALSE.)
       tlen = LEN_TRIM(latbc_config%latbc_varnames_map_file)
       IF(tlen > 0) &
-         CALL dict_loadfile(latbc_varnames_dict, latbc_config%latbc_varnames_map_file(1:tlen))
+         CALL latbc_varnames_dict%loadfile(latbc_config%latbc_varnames_map_file(1:tlen))
 
       CALL set_patch_data_params(latbc%patch_data, bcast_root)
 
@@ -754,7 +753,7 @@ MODULE mo_async_latbc
       CALL message(routine,'Done')
 
       ! destroy variable name dictionaries:
-      CALL dict_finalize(latbc_varnames_dict)
+      CALL latbc_varnames_dict%finalize()
 #endif
 
     END SUBROUTINE init_prefetch
@@ -863,7 +862,7 @@ MODULE mo_async_latbc
 
          ! Search name mapping for name in file
          DO jp= 1, ngrp_prefetch_vars
-           grp_vars_lc(jp) = tolower(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
+           grp_vars_lc(jp) = tolower(latbc_varnames_dict%get(grp_vars(jp), default=grp_vars(jp)))
          ENDDO
 
          ! check whether the file is empty (does not work unfortunately; internal CDI error)
@@ -905,7 +904,7 @@ MODULE mo_async_latbc
                   latbc%buffer%mapped_name(counter) = name
                   tlen = LEN_TRIM(name)
                   latbc%buffer%internal_name(counter) = &
-                    dict_get(latbc_varnames_dict, name(1:tlen), linverse=.TRUE., default=name(1:tlen))
+                    latbc_varnames_dict%get(name(1:tlen), linverse=.TRUE., default=name(1:tlen))
                   ! getting the variable name in lower case letter
                   StrLowCasegrp(counter) = grp_vars(jp)
 
