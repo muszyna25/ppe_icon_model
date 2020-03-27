@@ -1,0 +1,8 @@
+install libxml2
+install gcc6
+install mpich-gcc6
+install hdf5 +gcc6
+install netcdf +gcc6
+install netcdf-fortran +gcc6
+install lapack +gcc6
+install eccodes +gcc6

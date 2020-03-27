@@ -77,15 +77,14 @@ MODULE mo_ocean_state
     &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
     &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
     &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, &
-    &                               GRID_ZONAL
+    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
-      &                             grid_unstructured_vert, grid_vertex 
+    &                               grid_unstructured_vert, grid_vertex, GRID_ZONAL
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
-  USE mo_ocean_tracer_transport_types, ONLY: t_ocean_tracer
+  USE mo_ocean_tracer_transport_types
 
   IMPLICIT NONE
   PRIVATE
@@ -215,7 +214,7 @@ CONTAINS
     END DO
 
     CALL construct_hydro_ocean_diag(patch_2d, ocean_state(1)%p_diag)
-    CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(1)%p_aux)
+    CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(1)%p_aux, ocean_state(1)%transport_state)
 
 #ifdef __COMPAD_ADJLOOP__
     CALL construct_checkpoints(patch_2d, ocean_state(1)%p_check,ncheckpoints)
@@ -2278,10 +2277,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
 !<Optimize:inUse>
-  SUBROUTINE construct_hydro_ocean_aux(patch_2d, ocean_state_aux)
+  SUBROUTINE construct_hydro_ocean_aux(patch_2d, ocean_state_aux, ocean_transport_state)
 
     TYPE(t_patch),TARGET, INTENT(in)                :: patch_2d
     TYPE(t_hydro_ocean_aux), TARGET,INTENT(inout)   :: ocean_state_aux
+    TYPE(t_ocean_transport_state), TARGET,INTENT(inout)  :: ocean_transport_state
 
     ! local variables
 
@@ -2549,6 +2549,15 @@ CONTAINS
     ENDIF !(GMRedi)
 
      ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
+   CALL add_var(ocean_default_list,'transport_h_old',ocean_transport_state%h_old, grid_unstructured_cell,&
+      & za_surface, t_cf_var('transport_h_old','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
+     
+   CALL add_var(ocean_default_list,'transport_h_new',ocean_transport_state%h_new, grid_unstructured_cell,&
+      & za_surface, t_cf_var('transport_h_new','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.TRUE.)
 
 !      ocean_state_aux%slopes_squared=0.0_wp
   END SUBROUTINE construct_hydro_ocean_aux

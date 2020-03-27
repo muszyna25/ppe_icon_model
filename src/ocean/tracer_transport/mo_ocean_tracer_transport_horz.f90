@@ -199,13 +199,12 @@ CONTAINS
       
       SELECT CASE(flux_calculation_horz)
       
-!       CASE(upwind)
-! 
-!         CALL upwind_hflux_oce( patch_3d,  &
-!         & trac_old,                       &
-!         & transport_state%mass_flux_e,         & 
-!         & z_adv_flux_h)
-! 
+      CASE(upwind)
+
+        CALL upwind_hflux_oce( patch_3d,  &
+        & trac_old,                       &
+        & transport_state%mass_flux_e,         & 
+        & z_adv_flux_h)
 !         
 !       CASE(central)  
 !       
@@ -310,7 +309,7 @@ CONTAINS
     CALL div_oce_3d( z_diff_flux_h, patch_3D, operators_coefficients%div_coeff, div_diff_flux_horz )
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
+    idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('TracDiffHorz: diff_flux_h',       z_diff_flux_h ,str_module,idt_src,cells_in_domain)
     CALL dbg_print('TracDiffHorz: div_diff_flux_horz' ,div_diff_flux_horz    ,str_module,idt_src,cells_in_domain)
     !---------------------------------------------------------------------

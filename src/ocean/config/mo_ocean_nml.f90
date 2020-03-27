@@ -376,6 +376,7 @@ MODULE mo_ocean_nml
     &                 createSolverMatrix           , &
     &                 minVerticalLevels
 
+  LOGICAL :: use_draftave_for_transport_h = .true.   ! 
   NAMELIST/ocean_tracer_transport_nml/&
     &                 no_tracer                    , &  
     &                 flux_calculation_horz        , &
@@ -396,7 +397,8 @@ MODULE mo_ocean_nml
     &                 tracer_update_mode           , &
     &                 tracer_HorizontalAdvection_type, &
     &                 l_LAX_FRIEDRICHS             , &
-    &                 l_GRADIENT_RECONSTRUCTION
+    &                 l_GRADIENT_RECONSTRUCTION    , &
+    &                 use_draftave_for_transport_h
 
 
   ! tracer horizontal diffusion

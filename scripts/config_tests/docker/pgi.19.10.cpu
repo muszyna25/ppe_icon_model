@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -eu
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
+BUILD_ENV=". /usr/share/modules/init/bash;. ${MY_DIR}/build_env_init.sh; switch_for_modules MPICH netCDF-Fortran ecCodes;"
+
+. ${MY_DIR}/build_env_init.sh
+switch_for_modules netCDF-Fortran ecCodes
+
+NETCDF_CPPFLAGS="-I${EBROOTNETCDF}/include"
+NETCDF_LDFLAGS="-L${EBROOTNETCDF}/lib"
+NETCDF_LIBS='-lnetcdf'
+
+NETCDFF_FCFLAGS="-I${EBROOTNETCDFMINFORTRAN}/include"
+NETCDFF_LDFLAGS="-L${EBROOTNETCDFMINFORTRAN}/lib"
+NETCDFF_LIBS='-lnetcdff'
+
+ECCODES_CPPFLAGS="-I${EBROOTECCODES}/include"
+ECCODES_LDFLAGS="-L${EBROOTECCODES}/lib"
+ECCODES_LIBS='-leccodes'
+
+BLAS_LAPACK_LIBS='-llapack -lblas'
+
+XML2_ROOT='/usr'
+XML2_CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
+XML2_LIBS='-lxml2'
+
+FC='mpif90'
+CC='mpicc'
+
+CFLAGS='-g -O2'
+FCFLAGS="-g -O -Mrecursive -Mallocatable=03 ${NETCDFF_FCFLAGS}"
+CPPFLAGS="${NETCDF_CPPFLAGS} ${ECCODES_CPPFLAGS} ${XML2_CPPFLAGS}"
+LDFLAGS="${NETCDF_LDFLAGS} ${NETCDFF_LDFLAGS} ${ECCODES_LDFLAGS}"
+LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+--disable-mpi-pack-external \
+--disable-openmp \
+--disable-option-checking \
+--enable-grib2 \
+"$@"
+
+# Copy runscript-related files when building out-of-source:
+if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
+  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+  rsync -uavz ${ICON_DIR}/make_runscripts .
+  ln -sf ${ICON_DIR}/data
+fi
+
+# Generate input file for runscript generation:
+./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+
