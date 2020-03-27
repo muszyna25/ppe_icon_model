@@ -1580,7 +1580,7 @@ if [[ "$initialiseOcean" == "fromRestart" ]]; then
   # initialise atmosphere and use link to ocean restart:
   # R02B07: link to OMIP-spinup 20022-FAA by Helmuth
   add_link_file /work/mh0287/users/stephan/Icon/Coupled/Ruby-coupling/New-r2b5-b7/ocean_omip_long_r2b7_20022-FAA_restart_oce_20200101T000000Z.nc init-restart-oce.nc
-  add_link_file init-restart-oce.nc restart_oce_DOM01.nc
+  add_link_file init-restart-oce.nc restart_ocean_DOM01.nc
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

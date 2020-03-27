@@ -1586,7 +1586,7 @@ if [[ "$initialiseOcean" == "fromRestart" ]]; then
   # initialise atmosphere and use link to ocean restart:
   # link to OMIP-spinup 19346-PCA by Helmuth used for ocean restart-file - second OMIP
   add_link_file /pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}/ocean/restart/ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc init-restart-oce.nc
-  add_link_file init-restart-oce.nc restart_oce_DOM01.nc
+  add_link_file init-restart-oce.nc restart_ocean_DOM01.nc
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

@@ -1763,13 +1763,13 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
  # for restart from rar0026 plus 200 additional years of spinup:
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_oce_DOM01.nc 
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_ocean_DOM01.nc 
  fi
 
 if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
  # for a restart file containing Hamocc, interpolated from a cmip6 control run to the icon grid.
  # Ocean restart is from a long tuning run, which arrived at a good state.
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_oce_DOM01.nc 
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_ocean_DOM01.nc 
  fi
 
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
