@@ -6,10 +6,10 @@ SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 
 # module command and path setup from  /etc/profile.local:
-MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles && module purge"
 
 
-MODULES='cray-mpich/7.4.3 gcc/7.3.0 PrgEnv-gnu cray-libsci/13.2.0 craype-haswell cray-netcdf/4.3.3.1 cray-parallel-netcdf/1.8.1.3 cray-hdf5/1.8.14 eccodes/2.9.0 aec/1.0.0-3'
+MODULES='craype cray-mpich/7.4.3 gcc/7.3.0 PrgEnv-gnu cray-libsci/13.2.0 craype-haswell cray-netcdf/4.3.3.1 cray-parallel-netcdf/1.8.1.3 cray-hdf5/1.8.14 eccodes/2.9.0 aec/1.0.0-3'
 
 # Libtool (used by the bundled CDI and some other bundled libraries) is not
 # fully compatible with Cray compiler. For each library specified with -l

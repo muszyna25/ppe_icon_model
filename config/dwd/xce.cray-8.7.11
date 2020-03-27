@@ -6,7 +6,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 
 # module command and path setup from  /etc/profile.local:
-MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles && module purge"
 
 
 MODULES='PrgEnv-cray cray-mpich/7.7.10.1 cce/8.7.11 craype-haswell cray-netcdf/4.6.3.0 cray-hdf5/1.10.5.0 eccodes aec'

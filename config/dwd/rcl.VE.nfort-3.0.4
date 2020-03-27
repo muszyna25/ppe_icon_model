@@ -12,10 +12,10 @@ ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 
 
 # make module command available
-MODULE_SETTINGS=". ${MODULESHOME}/init/sh"
+MODULE_SETTINGS=". ${MODULESHOME}/init/sh; module purge"
 
 
-MODULES='nfort/3.0.3 nc++/3.0.3 mpi/2.3.1 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.14.1-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
+MODULES='sx/default nfort/3.0.4 nc++/3.0.4 mpi/2.3.1 netcdf4/4.7.3-sx hdf5/1.10.5-sx eccodes/2.14.1-sx aec/1.0.3-sx nlc/2.0.0 libxml2/2.9.10-sx szip/2.1.1-sx zlib/1.2.11-sx'
 
 
 ### Libraries ###
@@ -60,6 +60,7 @@ eval "$BUILD_ENV"
 
 echo ${MODULEPATH}
 
+
 # cross compiling!
 HOST='none'
 AR='nar'
@@ -75,7 +76,7 @@ CPPFLAGS="-I${HDF5_DIR}/include -I${NETCDF_DIR}/include ${ECCODES_INCLUDE} -I${X
 
 # Fortran compiler wrapper on cray machine
 FC='mpinfort'
-FCFLAGS="-I${HDF5_DIR}/include -I${NETCDF_DIR}/include -I${RTTOV_ROOT_LIB}/obj -fdiag-vector=0 -report-all -traceback -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -mno-vector-fma -fno-associative-math -DUSE_XML2 -USX -D__SX__=__NEC__ -D__COMM_OPT__ -D__BLOCK_GET__"
+FCFLAGS="-I${HDF5_DIR}/include -I${NETCDF_DIR}/include -I${RTTOV_ROOT_LIB}/obj -fdiag-vector=0 -report-all -traceback=verbose -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -mno-vector-fma -fno-associative-math -DUSE_XML2 -USX -D__SX__=__NEC__ -D__COMM_OPT__ -D__BLOCK_GET__"
 
 ICON_FCFLAGS='-fpp -finline-functions -finline-file=${ICON_DIR}/src/advection/mo_advection_utils.f90:${ICON_DIR}/src/atm_phy_schemes/mo_cufunctions.f90:${ICON_DIR}/src/parallel_infrastructure/mo_extents.f90:${ICON_DIR}/src/shared/mo_math_utilities.f90:${ICON_DIR}/src/configure_model/mo_parallel_config.f90:${ICON_DIR}/src/atm_phy_schemes/mo_satad.f90:${ICON_DIR}/src/shared/mo_statistics.f90:${ICON_DIR}/src/atm_phy_nwp/mo_util_phys.f90:${ICON_DIR}/src/atm_phy_schemes/turb_utilities.f90:${ICON_DIR}/src/lnd_phy_nwp/mo_nwp_sfc_interp.f90'
 # for flake only: -finline-max-function-size=1000 -finline-max-depth=3 
