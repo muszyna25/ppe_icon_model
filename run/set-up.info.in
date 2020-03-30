@@ -135,14 +135,18 @@ case "$use_site" in
         use_target='ic2'
       ;;
       fh2*)
-        use_load_profile='. /opt/lmod/lmod/init/sh'
         use_target='fh2'
         case "$use_compiler" in
           intel)
             use_submit='sbatch'
+            use_load_profile='/etc/profile'
             case "$use_compiler_version" in
-              17.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_17.0/bin/mpirun' ;;
-              19.*) use_mpi_startrun='software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun' ;;
+              19.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun'
+                    use_load_modules="compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19"
+                    ;;
+              17.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun' 
+                    use_load_modules='compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19'
+                     ;;
             esac
           ;;
           gcc)
@@ -150,7 +154,7 @@ case "$use_site" in
             use_mpi_startrun='mpirun'
           ;;
         esac
-        use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_17.0/bin/mpirun'
+        #use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun'
       ;;
     esac
   ;;

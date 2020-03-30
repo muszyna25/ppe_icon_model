@@ -1385,7 +1385,7 @@ set_run_target_default()
 #=============================================================================
 set_run_target_fh2()
 {
-    icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
+    icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/pool/data/ICON}
 
     set_default use_nproma 8
     use_nodes=1
