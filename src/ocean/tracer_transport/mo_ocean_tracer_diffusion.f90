@@ -161,20 +161,20 @@ CONTAINS
     !-----------------------------------------------------------------------
     cells_in_domain       =>  patch_3d%p_patch_2d(1)%cells%in_domain
     !-----------------------------------------------------------------------
-
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO cell_block = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, cell_block, start_index, end_index)
 
       CALL tracer_diffusion_vertical_implicit_onBlock( &
-        & patch_3d,                  &
-        & ocean_tracer,              &
+        & patch_3d,                       &
+        & ocean_tracer,                   &
         & a_v(:,:,cell_block),            &
         & h(:,cell_block),                &
         & cell_block, start_index, end_index)
 
     END DO
 !ICON_OMP_END_PARALLEL_DO
+
 !     eliminate_upper_diag = .not. eliminate_upper_diag ! done in ocean_run
 
   END SUBROUTINE tracer_diffusion_vertical_implicit
@@ -245,10 +245,11 @@ CONTAINS
       DO level=3,bottom_level
         inv_prisms_center_distance(level) = patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo)
       ENDDO
-
+      
       DO level=1,bottom_level
        column_tracer(level) = field_column(cell_index,level,blockNo)
       ENDDO
+
       !------------------------------------
       ! Fill triangular matrix
       ! b is diagonal, a is the upper diagonal, c is the lower
@@ -269,19 +270,19 @@ CONTAINS
 
       IF (eliminate_upper_diag) THEN
         ! solve the tridiagonal matrix by eliminating c (the upper diagonal) 
-      DO level=bottom_level-1, 1, -1
+        DO level=bottom_level-1,1,-1
           fact(level)=c(level)/b(level+1)
           b(level)=b(level)-a(level+1)*fact(level)
           c(level) = 0.0_wp
           column_tracer(level) = column_tracer(level) - fact(level)*column_tracer(level+1)
-      ENDDO
-
+        ENDDO
+        
         ocean_tracer%concentration(cell_index,1,blockNo) = column_tracer(1)/b(1)
-      DO level =  2, bottom_level
+        DO level=2,bottom_level
          field_column(cell_index,level,blockNo) = (column_tracer(level) - &
             a(level)* field_column(cell_index,level-1,blockNo)) / b(level)    
-      ENDDO
-
+        ENDDO
+        
       ELSE
         ! solve the tridiagonal matrix by eliminating a (the lower diagonal) 
         DO level=2, bottom_level
@@ -289,7 +290,7 @@ CONTAINS
           b(level)=b(level)-c(level-1)*fact(level)
           a(level) = 0.0_wp
           column_tracer(level) = column_tracer(level) - fact(level)*column_tracer(level-1)
-      ENDDO
+        ENDDO
         ocean_tracer%concentration(cell_index,bottom_level,blockNo) = column_tracer(bottom_level)/b(bottom_level)
         DO level=bottom_level-1,1,-1
          field_column(cell_index,level,blockNo) = (column_tracer(level) - &
@@ -302,5 +303,6 @@ CONTAINS
     
   END SUBROUTINE tracer_diffusion_vertical_implicit_onBlock
   !------------------------------------------------------------------------
-    
+  
+   
 END MODULE mo_ocean_tracer_diffusion

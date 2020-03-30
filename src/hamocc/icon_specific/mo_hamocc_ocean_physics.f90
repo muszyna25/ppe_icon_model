@@ -13,7 +13,7 @@
     &                                          timer_tracer_ab, timer_bgc_tot,&
     &                                          timers_level
     USE mo_ocean_tracer,                 ONLY: advect_ocean_tracers
-    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
+!    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
     USE mo_ocean_types,                  ONLY: t_hydro_ocean_state, &
     &                                          t_operator_coeff
     USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection, t_ocean_transport_state
@@ -24,7 +24,6 @@
       & vert_mix_type,vmix_kpp
     USE mo_ocean_physics,                ONLY: update_ho_params
     USE mo_hamocc_types,                 ONLY: t_hamocc_prog, t_hamocc_state
-    USE mo_ocean_physics_types,          ONLY: t_ho_params, v_params 
     USE mo_bgc_icon_comm,                ONLY: hamocc_state
     USE mo_dynamics_config,              ONLY: nold, nnew 
     USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
@@ -89,7 +88,7 @@
     hamocc_state_prog => hamocc_state%p_prog(nnew(1))
 
     IF (GMRedi_configuration == Cartesian_Mixing .AND. vert_mix_type .NE. vmix_kpp) THEN
-      CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients,v_params)
+      CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
     ELSE
       CALL finish("tracer_biochemistry_transport", "GMRedi_configuration is not activated")
     ENDIF

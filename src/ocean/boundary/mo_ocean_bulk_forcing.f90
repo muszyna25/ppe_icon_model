@@ -404,7 +404,7 @@ CONTAINS
 
       idt_src = 5 ! 10
       IF ((my_process_is_stdio()) .AND. (idbg_mxmn >= idt_src)) &
-      & write(0,"(a,i6,a,3i8)")' use forcing record ',jmon1,' at ', yday, this_datetime%time%hour,this_datetime%time%minute &
+      & write(0,"(a,i6,a,4i8)")' use forcing record ',jmon1,' at ', yday, this_datetime%time%hour,this_datetime%time%minute &
                   ,this_datetime%time%second
 
       jmon2 = jmon1

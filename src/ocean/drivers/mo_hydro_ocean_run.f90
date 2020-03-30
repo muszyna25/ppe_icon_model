@@ -61,7 +61,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d, map_edges2edges_viacell_3d_const_z
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
-  USE mo_ocean_tracer_GMRedi,    ONLY: advect_ocean_tracers_GMRedi
+  USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
   USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
@@ -666,6 +666,7 @@ CONTAINS
       transport_state%w           => ocean_state%p_diag%w  ! w_time_weighted
       transport_state%mass_flux_e => ocean_state%p_diag%mass_flx_e
       transport_state%vn          => ocean_state%p_diag%vn_time_weighted
+
       IF (use_draftave_for_transport_h) THEN
         transport_state%h_old     = ocean_state%p_prog(nold(1))%h - sea_ice%draftave 
         transport_state%h_new     = ocean_state%p_prog(nnew(1))%h - sea_ice%draftave
@@ -673,6 +674,7 @@ CONTAINS
         transport_state%h_old     = ocean_state%p_prog(nold(1))%h
         transport_state%h_new     = ocean_state%p_prog(nnew(1))%h
       ENDIF
+
       ! fill boundary conditions
       old_tracer_collection%tracer(1)%top_bc => p_oce_sfc%TopBC_Temp_vdiff
       IF (no_tracer > 1) &
@@ -693,10 +695,9 @@ CONTAINS
       start_timer(timer_tracer_ab,1)
 
       IF (GMRedi_configuration == Cartesian_Mixing .AND. vert_mix_type .NE. vmix_kpp ) THEN
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
-          & p_phys_param)
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
       ELSE
-        CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
+        CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
           &  ocean_state, transport_state, p_phys_param, operators_coefficients)
       ENDIF
 
@@ -807,6 +808,7 @@ CONTAINS
     tmp => ocean_state%p_aux%g_n
     ocean_state%p_aux%g_n => ocean_state%p_aux%g_nm1
     ocean_state%p_aux%g_nm1 => tmp
+    
     tracer_vertdiff_eliminate_upper_diag = .not. tracer_vertdiff_eliminate_upper_diag ! switch solving methods
     
   END SUBROUTINE update_time_g_n

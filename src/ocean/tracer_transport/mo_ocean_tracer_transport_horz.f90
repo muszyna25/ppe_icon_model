@@ -26,7 +26,7 @@ MODULE mo_ocean_tracer_transport_horz
   USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based, ab_gam,                   &
     & upwind, central,lax_friedrichs, horz_flux_twisted_vec_recon, miura_order1, flux_calculation_horz,      &
     & fct_high_order_flux,  fct_low_order_flux,FCT_Limiter_horz, fct_limiter_horz_zalesak,&
-    & fct_limiter_horz_minmod, fct_limiter_horz_posdef, l_with_horz_tracer_diffusion, l_with_horz_tracer_advection,&
+    & fct_limiter_horz_minmod, fct_limiter_horz_posdef, l_with_horz_tracer_advection,&
     &l_LAX_FRIEDRICHS, l_GRADIENT_RECONSTRUCTION, Tracer_HorizontalDiffusion_PTP_coeff, tracer_HorizontalAdvection_type, &
     & edge_based, cell_based
   USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -205,7 +205,7 @@ CONTAINS
         & trac_old,                       &
         & transport_state%mass_flux_e,         & 
         & z_adv_flux_h)
-!         
+         
 !       CASE(central)  
 !       
 !         CALL central_hflux_oce( patch_3d, &
@@ -290,7 +290,7 @@ CONTAINS
     
     !The diffusion part: calculate horizontal diffusive flux
 
-    IF ( l_with_horz_tracer_diffusion) THEN
+  !  IF ( l_with_horz_tracer_diffusion) THEN
       
       IF(diff_option==diff_option_standard)THEN
         CALL tracer_diffusion_horz( patch_3d,     &
@@ -301,9 +301,9 @@ CONTAINS
               
       ENDIF
       
-    ELSE
-      div_diff_flux_horz(:,:,:) = 0.0_wp
-    ENDIF
+  !  ELSE
+  !    div_diff_flux_horz(:,:,:) = 0.0_wp
+  !  ENDIF
     
     !Calculate divergence of diffusive fluxes
     CALL div_oce_3d( z_diff_flux_h, patch_3D, operators_coefficients%div_coeff, div_diff_flux_horz )

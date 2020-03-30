@@ -462,7 +462,6 @@ CONTAINS
 !       ENDIF
 
 
-
      CALL calc_internal_press_grad( patch_3d,&
          &                          ocean_state%p_diag%rho,&
          &                          ocean_state%p_diag%press_hyd,& 
