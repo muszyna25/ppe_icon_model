@@ -149,13 +149,13 @@ MODULE mo_psrad_radiation
     !
     ! "time_of_day"  defines the local noon longitude for the time of this time step.
     ! "orbit_date" is not used. Instead always "orbit_date_rt" is used.
-    CALL get_orbit_times(current_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
+    CALL get_orbit_times(l_orbvsop87, current_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
     !
     ! "time_of_day_rt" defines the local noon longitude for the time of the
     ! radiative transfer calculation.
     ! "orbit_date_rt" defines the orbit position at the radiation time.
     ! This orbit position is kept constant through the radiation interval.
-    CALL get_orbit_times(datetime_radiation, lyr_perp, yr_perp, time_of_day_rt, orbit_date_rt)
+    CALL get_orbit_times(l_orbvsop87, datetime_radiation, lyr_perp, yr_perp, time_of_day_rt, orbit_date_rt)
 
 
     ! Compute the orbital parameters of Earth for "orbit_date_rt".

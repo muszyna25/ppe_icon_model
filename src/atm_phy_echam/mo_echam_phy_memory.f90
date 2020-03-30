@@ -72,12 +72,9 @@ MODULE mo_echam_phy_memory
   USE mo_zaxis_type,          ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
-    !ART
-  USE mo_art_config,          ONLY: ctracer_art
-  USE mo_run_config,          ONLY: lart,               &
-    &                               iqv ,iqc ,iqi ,     &
-    &                               iqr ,iqs ,iqg ,     &
-    &                               io3 ,ico2,ich4,in2o
+  USE mo_run_config,          ONLY: iqv ,iqc ,iqi ,     &
+    &                               iqr ,iqs ,iqg
+  USE mo_advection_config,    ONLY: advection_config
     !
   USE mo_echam_phy_config,    ONLY: echam_phy_config
 
@@ -670,39 +667,11 @@ CONTAINS
     INTEGER,INTENT(IN) :: ntracer
     CHARACTER(len=13) :: listname_f
     CHARACTER(len=12) :: listname_t
-    CHARACTER(len=MAX_CHAR_LENGTH) :: ctracer(ntracer) !< tracer acronyms
     INTEGER :: ndomain, jg, ist, nblks, nlev, jtrc
 
     !---
 
     CALL message(thismodule,'Construction of ECHAM physics state started.')
-
-
-    IF (lart) THEN
-        ctracer = ctracer_art
-    ELSE
-
-       ! Define tracer names to be used in the construction of tracer related variables
-       !
-       ! first set generic names for all tracers
-       DO jtrc = 1,ntracer
-          WRITE(ctracer(jtrc),'(a1,i0)') 't',jtrc
-       END DO
-
-    ENDIF
-
-    !
-    ! then set specific names for active indexed tracers
-    IF (iqv  > 0) ctracer(iqv ) = 'hus'
-    IF (iqc  > 0) ctracer(iqc ) = 'clw'
-    IF (iqi  > 0) ctracer(iqi ) = 'cli'
-    IF (iqr  > 0) ctracer(iqr ) = 'qr'
-    IF (iqs  > 0) ctracer(iqs ) = 'qs'
-    IF (iqg  > 0) ctracer(iqg ) = 'qg'
-    IF (io3  > 0) ctracer(io3 ) = 'o3'
-    IF (ico2 > 0) ctracer(ico2) = 'co2'
-    IF (ich4 > 0) ctracer(ich4) = 'ch4'
-    IF (in2o > 0) ctracer(in2o) = 'n2o'
 
     cdimissval = cdiInqMissval()
 
@@ -728,14 +697,14 @@ CONTAINS
       nlev  = patch_array(jg)%nlev
 
       WRITE(listname_f,'(a,i2.2)') 'prm_field_D',jg
-      CALL new_echam_phy_field_list( jg, nproma, nlev, nblks, ntracer, ctracer, &
-                                   & nsfc_type, listname_f, '',             &
-                                   & prm_field_list(jg), prm_field(jg)          )
+      CALL new_echam_phy_field_list( jg, nproma, nlev, nblks, ntracer, &
+                                   & nsfc_type, listname_f, '',        &
+                                   & prm_field_list(jg), prm_field(jg) )
 
       WRITE(listname_t,'(a,i2.2)') 'prm_tend_D',jg
-      CALL new_echam_phy_tend_list( jg, nproma, nlev, nblks, ntracer, ctracer, &
-                                  & listname_t, 'tend_',                   &
-                                  & prm_tend_list(jg), prm_tend(jg)            )
+      CALL new_echam_phy_tend_list( jg, nproma, nlev, nblks, ntracer, &
+                                  & listname_t, 'tend_',              &
+                                  & prm_tend_list(jg), prm_tend(jg)   )
     ENDDO
 
     CALL message(thismodule,'Construction of ECHAM physics state finished.')
@@ -780,23 +749,21 @@ CONTAINS
 
   !--------------------------------------------------------------------
   !>
-  SUBROUTINE new_echam_phy_field_list( jg, kproma, klev, kblks, ktracer, &
-                                     & ctracer, ksfc_type, listname,     &
-                                     & prefix, field_list, field         )
+  SUBROUTINE new_echam_phy_field_list( jg, kproma, klev, kblks, ktracer, ksfc_type, &
+                                     & listname, prefix,                            &
+                                     & field_list, field                            )
 
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer, ksfc_type  !< dimension sizes
 
     CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
-    CHARACTER(len=MAX_CHAR_LENGTH),INTENT(IN) :: ctracer(ktracer) !< tracer acronyms
-
 
     TYPE(t_var_list),       INTENT(INOUT) :: field_list
     TYPE(t_echam_phy_field),INTENT(INOUT) :: field
 
     ! Local variables
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: varname
+    CHARACTER(len=MAX_CHAR_LENGTH) :: trcname, varname
     LOGICAL :: contvar_is_in_output
 
     TYPE(t_cf_var)    ::    cf_desc
@@ -806,7 +773,7 @@ CONTAINS
 !0!    INTEGER :: shape4d(4)
     INTEGER :: ibits, iextbits
     INTEGER :: datatype_flt
-    INTEGER :: jsfc, jtrc, tlen
+    INTEGER :: jsfc, jtrc
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24
@@ -1125,16 +1092,16 @@ CONTAINS
     ALLOCATE(field%qtrc_ptr(ktracer))
     ALLOCATE(field%mtrc_ptr(ktracer))
     ALLOCATE(field%mtrcvi_ptr(ktracer))
-    
+
     ! Generic references to single tracers
     DO jtrc = 1,ktracer
-      tlen = LEN_TRIM(ctracer(jtrc))
+      trcname=TRIM(advection_config(jg)%tracer_names(jtrc))
       CALL add_ref( field_list, prefix//'qtrc_phy',                            &
-                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_phy', field%qtrc_ptr(jtrc)%p, &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                         &
-                  & t_cf_var('mass_fraction_of_'//ctracer(jtrc)(1:tlen)//'_in_air', &
+                  & prefix//'q'//TRIM(trcname)//'_phy', field%qtrc_ptr(jtrc)%p,&
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                      &
+                  & t_cf_var('mass_fraction_of_'//TRIM(trcname)//'_in_air',    &
                   &          'kg kg-1',                                        &
-                  &          'mass fraction of '//ctracer(jtrc)(1:tlen)//' in air (physics)', &
+                  &          'mass fraction of '//TRIM(trcname)//' in air (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                 &
@@ -1146,11 +1113,11 @@ CONTAINS
                   &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,         &
                   &             lower_limit=0._wp )                            )
       CALL add_ref( field_list, prefix//'mtrc_phy',                            &
-                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'_phy', field%mtrc_ptr(jtrc)%p, &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                         &
-                  & t_cf_var('mass_of_'//ctracer(jtrc)(1:tlen)//'_in_air',       &
+                  & prefix//'m'//TRIM(trcname)//'_phy', field%mtrc_ptr(jtrc)%p,&
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                      &
+                  & t_cf_var('mass_of_'//TRIM(trcname)//'_in_air',             &
                   &          'kg m-2',                                         &
-                  &          'mass of '//ctracer(jtrc)(1:tlen)//' in air (physics)', &
+                  &          'mass of '//TRIM(trcname)//' in air (physics)',   &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                 &
@@ -1162,20 +1129,19 @@ CONTAINS
                   &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,         &
                   &             lower_limit=0._wp )                            )
       CALL add_ref( field_list, prefix//'mtrcvi_phy',                          &
-                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'vi_phy', field%mtrcvi_ptr(jtrc)%p, &
+                  & prefix//'m'//TRIM(trcname)//'vi_phy', field%mtrcvi_ptr(jtrc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
-                  & t_cf_var('atmosphere_'//ctracer(jtrc)(1:tlen)//'_content',   &
-                  &          'kg m-2', ctracer(jtrc)(1:tlen)//' path (physics)', &
+                  & t_cf_var('atmosphere_'//TRIM(trcname)//'_content',         &
+                  &          'kg m-2', TRIM(trcname)//' path (physics)',       &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
-    END DO                                                                                
+    END DO
 
     ! Specific references for tracers with specific names
     DO jtrc = 1,ktracer
-      tlen = LEN_TRIM(ctracer(jtrc))
-       IF ( ctracer(jtrc)(1:tlen) == 'hus' ) THEN
+       IF ( jtrc == iqv ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
                   & prefix//'prw', field%prw,                                  &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
@@ -1185,7 +1151,7 @@ CONTAINS
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
-       IF ( ctracer(jtrc)(1:tlen) == 'clw' ) THEN
+       IF ( jtrc == iqc ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
                   & prefix//'cllvi', field%cllvi,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
@@ -1195,7 +1161,7 @@ CONTAINS
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
-       IF ( ctracer(jtrc)(1:tlen) == 'cli' ) THEN
+       IF ( jtrc == iqi ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
                   & prefix//'clivi', field%clivi,                              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
@@ -1205,9 +1171,9 @@ CONTAINS
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
-       IF ( ctracer(jtrc)(1:tlen) == 'qr' ) THEN
+       IF ( jtrc == iqr ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
-                  & prefix//'qrvi', field%qrvi,                              &
+                  & prefix//'qrvi', field%qrvi,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
                   & t_cf_var('total_rain', 'kg m-2', 'vertically integrated rain', &
                   &          datatype_flt),                                    &
@@ -1215,9 +1181,9 @@ CONTAINS
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
-       IF ( ctracer(jtrc)(1:tlen) == 'qs' ) THEN
+       IF ( jtrc == iqs ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
-                  & prefix//'qsvi', field%qsvi,                              &
+                  & prefix//'qsvi', field%qsvi,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
                   & t_cf_var('total_snow', 'kg m-2', 'vertically integrated snow', &
                   &          datatype_flt),                                    &
@@ -1225,9 +1191,9 @@ CONTAINS
                   & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
                   & lrestart = .FALSE.                                         )
        END IF
-       IF ( ctracer(jtrc)(1:tlen) == 'qg' ) THEN
+       IF ( jtrc == iqg ) THEN
           CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
-                  & prefix//'qgvi', field%qgvi,                              &
+                  & prefix//'qgvi', field%qgvi,                                &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
                   & t_cf_var('total_graupel', 'kg m-2', 'vertically integrated graupel', &
                   &          datatype_flt),                                    &
@@ -2229,7 +2195,7 @@ CONTAINS
                   & t_cf_var('co2_flux_'//csfc(jsfc), 'kg m-2 s-1',              &
                   & 'surface_upward_mass_flux_of_carbon_dioxide', datatype_flt), &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                  & lrestart=.TRUE., ldims=shape2d,  initval=0.0_wp,             &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., initval=0.0_wp,&
                   & lmiss=.TRUE., missval=cdimissval )
 
     END DO
@@ -3191,7 +3157,7 @@ CONTAINS
                         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                         & t_cf_var('turb_exchng_coeff_momentum_'//csfc(jsfc), '', '', datatype_flt),&
                         & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                        & lrestart=.FALSE., ldims=shape2d,                             &
+                        & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,               &
                         & lmiss=.TRUE., missval=cdimissval )
          END IF
       END DO
@@ -3237,7 +3203,7 @@ CONTAINS
                         & t_cf_var('turb_exchng_coeff_heat_'//csfc(jsfc), '', '',      &
                         &          datatype_flt),                                      &
                         & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                        & lrestart = .FALSE., ldims=shape2d,                           &
+                        & ref_idx=jsfc, ldims=shape2d, lrestart = .FALSE.,             &
                         & lmiss=.TRUE., missval=cdimissval )
          END IF
       END DO
@@ -3319,7 +3285,7 @@ CONTAINS
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                     & t_cf_var('z0m_'//csfc(jsfc), '','', datatype_flt),           &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                    & lrestart = .TRUE., ldims=shape2d,                            &
+                    & ref_idx=jsfc, ldims=shape2d, lrestart = .TRUE.,              &
                     & lmiss=.TRUE., missval=cdimissval )
       END DO
 
@@ -3375,7 +3341,7 @@ CONTAINS
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                     & t_cf_var('wstar_'//csfc(jsfc), '','', datatype_flt),         &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                    & lrestart=.TRUE., ldims=shape2d                               )
+                    & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE.                 )
       END DO
 
 
@@ -3533,7 +3499,7 @@ CONTAINS
                   & t_cf_var('ts_'//csfc(jsfc), 'K',                                 &
                   &          'surface temperature on '//csfc(jsfc), datatype_flt),   &
                   & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),           &
-                  & lrestart=.TRUE., ldims=shape2d,                                  &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE.,                    &
                   & lmiss=.TRUE., missval=cdimissval )
     END DO
     !-----------------------------------
@@ -3566,7 +3532,7 @@ CONTAINS
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                       & t_cf_var('qs_sfc_'//csfc(jsfc), '', '', datatype_flt),       &
                       & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                      & lrestart=.FALSE., ldims=shape2d,                             &
+                      & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,               &
                       & lmiss=.TRUE., missval=cdimissval )
        END IF
     END DO
@@ -3677,35 +3643,35 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albvisdir_'//csfc(jsfc), '', '', datatype_flt),          &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albvisdif_tile',                              &
                   & prefix//'albvisdif_'//csfc(jsfc), field%albvisdif_tile_ptr(jsfc)%p,&
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albvisdif_'//csfc(jsfc), '', '', datatype_flt),          &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albnirdir_tile',                              &
                   & prefix//'albnirdir_'//csfc(jsfc), field%albnirdir_tile_ptr(jsfc)%p,&
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albnirdir_'//csfc(jsfc), '', '', datatype_flt),          &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albnirdif_tile',                              &
                   & prefix//'albnirdif_'//csfc(jsfc), field%albnirdif_tile_ptr(jsfc)%p,&
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albnirdif_'//csfc(jsfc), '', '', datatype_flt),          &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.FALSE., missval=cdimissval )
       CALL add_ref( field_list, prefix//'albedo_tile',                                 &
                   & prefix//'albedo_'//csfc(jsfc), field%albedo_tile_ptr(jsfc)%p,      &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
                   & t_cf_var('albedo_'//csfc(jsfc), '', '', datatype_flt),             &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
     END DO
 
@@ -3847,7 +3813,7 @@ CONTAINS
                   &          'shortwave net flux at surface on tile '//csfc(jsfc),     &
                   &          datatype_flt),                                            &
                   & grib2_var(0,4,9, ibits, GRID_UNSTRUCTURED, GRID_CELL),             &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'rlns_tile',                                   &
@@ -3857,7 +3823,7 @@ CONTAINS
                   &          'longwave net flux at surface on tile '//csfc(jsfc),      &
                   &          datatype_flt),                                            &
                   & grib2_var(0,5,5, ibits, GRID_UNSTRUCTURED, GRID_CELL),             &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'evspsbl_tile',                                &
@@ -3866,7 +3832,7 @@ CONTAINS
                   & t_cf_var('evspsbl_'//csfc(jsfc), 'kg m-2 s-1',                     &
                   &          'evaporation on tile '//csfc(jsfc), datatype_flt),        &
                   & grib2_var(0,1,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),             &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'hfls_tile',                                   &
@@ -3875,7 +3841,7 @@ CONTAINS
                   & t_cf_var('hfls_'//csfc(jsfc), 'W m-2',                             &
                   &          'latent heat flux on tile '//csfc(jsfc), datatype_flt),   &
                   & grib2_var(0,0,10, ibits, GRID_UNSTRUCTURED, GRID_CELL),            &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'hfss_tile',                                   &
@@ -3884,7 +3850,7 @@ CONTAINS
                   & t_cf_var('hfss_'//csfc(jsfc), 'W m-2',                             &
                   &          'sensible heat flux on tile '//csfc(jsfc),datatype_flt),  &
                   & grib2_var(0,0,11, ibits, GRID_UNSTRUCTURED, GRID_CELL),            &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                     &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'frac_tile',                                   &
@@ -3894,7 +3860,7 @@ CONTAINS
                   &          'surface fraction of tile '//csfc(jsfc),                  &
                   &          datatype_flt),                                            &
                   & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-                  &  ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+                  & ref_idx=jsfc, ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
     END DO
 
@@ -3964,7 +3930,7 @@ CONTAINS
                   &          'u-momentum flux at the surface on tile '//csfc(jsfc), &
                   &          datatype_flt),                                         &
                   & grib2_var(0,2,17, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
-                  & lrestart=.FALSE., ldims=shape2d,                                &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                  &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'tauv_tile',                                &
@@ -3974,7 +3940,7 @@ CONTAINS
                   &          'v-momentum flux at the surface on tile '//csfc(jsfc), &
                   &          datatype_flt),                                         &
                   & grib2_var(0,2,18, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
-                  & lrestart=.FALSE., ldims=shape2d,                                &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                  &
                   & lmiss=.TRUE., missval=cdimissval )
     END DO
 
@@ -4150,7 +4116,7 @@ CONTAINS
                   &          '10m windspeed on tile '//csfc(jsfc),                  &
                   &          datatype_flt),                                         &
                   & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
-                  & lrestart=.FALSE., ldims=shape2d,                                &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                  &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'uas_tile',                                 &
@@ -4160,7 +4126,7 @@ CONTAINS
                   &          'zonal wind in 10m on tile '//csfc(jsfc),              &
                   &          datatype_flt),                                         &
                   & grib2_var(0,2,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
-                  & lrestart=.FALSE., ldims=shape2d,                                &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                  &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'vas_tile',                                 &
@@ -4170,7 +4136,7 @@ CONTAINS
                   &          'meridional wind in 10m on tile '//csfc(jsfc),         &
                   &          datatype_flt),                                         &
                   & grib2_var(0,2,3, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
-                  & lrestart=.FALSE., ldims=shape2d,                                &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                  &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'tas_tile',                                 &
@@ -4180,7 +4146,7 @@ CONTAINS
                   &          'temperature in 2m on tile '//csfc(jsfc),              &
                   &          datatype_flt),                                         &
                   & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
-                  & lrestart=.FALSE., ldims=shape2d,                                &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                  &
                   & lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'dew2_tile',                                &
@@ -4190,7 +4156,7 @@ CONTAINS
                   &          'dew point temperature in 2m on tile '//csfc(jsfc),    &
                   &          datatype_flt),                                         &
                   & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
-                  & lrestart=.FALSE., ldims=shape2d,                                &
+                  & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE.,                  &
                   & lmiss=.TRUE., missval=cdimissval )
 
     END DO
@@ -4276,28 +4242,27 @@ CONTAINS
   !!
   !!
   SUBROUTINE new_echam_phy_tend_list( jg, kproma, klev, kblks, ktracer, &
-                                    & ctracer, listname, prefix,        &
+                                    & listname, prefix,                 &
                                     & tend_list, tend )
 
     INTEGER,INTENT(IN) :: jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer  !< dimension sizes
 
     CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
-    CHARACTER(len=MAX_CHAR_LENGTH),INTENT(IN) :: ctracer(ktracer) !< tracer acronyms
 
     TYPE(t_var_list)      ,INTENT(INOUT) :: tend_list
     TYPE(t_echam_phy_tend),INTENT(INOUT) :: tend
 
     ! Local variables
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: varname
+    CHARACTER(len=MAX_CHAR_LENGTH) :: trcname, varname
     LOGICAL :: contvar_is_in_output
 
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d(3), shape_trc(4)
-    INTEGER :: ibits, jtrc, tlen
+    INTEGER :: ibits, jtrc
     INTEGER :: datatype_flt
     !------------------------------
 
@@ -4851,8 +4816,8 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_cld'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_cld'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
@@ -4876,16 +4841,16 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_cld'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_cld'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_cld',                                        &
                          & TRIM(varname), tend%qtrc_cld_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                         & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_cld', 'kg kg-1 s-1',      &
+                         & t_cf_var(TRIM(varname), 'kg kg-1 s-1',                                &
                          &          'tendency of mass mixing ratio of tracer '//                 &
-                         &          ctracer(jtrc)(1:tlen)//                                      &
+                         &          TRIM(trcname)//                                              &
                          &          ' due to large scale cloud processes',                       &
                          &          datatype_flt),                                               &
                          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -4903,8 +4868,8 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_mig'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_mig'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
@@ -4928,16 +4893,16 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_mig'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_mig'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_mig',                                        &
                          & TRIM(varname), tend%qtrc_mig_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                         & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_mig', 'kg kg-1 s-1',      &
+                         & t_cf_var(TRIM(varname), 'kg kg-1 s-1',                                &
                          &          'tendency of mass mixing ratio of tracer '//                 &
-                         &          ctracer(jtrc)(1:tlen)//                                      &
+                         &          TRIM(trcname)//                                              &
                          &          ' due to graupel processes',                                 &
                          &          datatype_flt),                                               &
                          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -4955,8 +4920,8 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_cnv'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_cnv'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
@@ -4980,16 +4945,16 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_cnv'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_cnv'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_cnv',                                        &
                          & TRIM(varname), tend%qtrc_cnv_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                         & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_cnv', 'kg kg-1 s-1',      &
+                         & t_cf_var(TRIM(varname), 'kg kg-1 s-1',                                &
                          &          'tendency of mass mixing ratio of tracer '//                 &
-                         &          ctracer(jtrc)(1:tlen)//                                      &
+                         &          TRIM(trcname)//                                              &
                          &          ' due to convective cloud processes',                        &
                          &          datatype_flt),                                               &
                          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -5008,8 +4973,8 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_vdf'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_vdf'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
@@ -5033,16 +4998,16 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_vdf'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_vdf'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_vdf',                                        &
                          & TRIM(varname), tend%qtrc_vdf_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                         & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_vdf', 'kg kg-1 s-1',      &
+                         & t_cf_var(TRIM(varname), 'kg kg-1 s-1',                                &
                          &          'tendency of mass mixing ratio of tracer '//                 &
-                         &          ctracer(jtrc)(1:tlen)//                                      &
+                         &          TRIM(trcname)//                                              &
                          &          ' due to vertical diffusion',                                &
                          &          datatype_flt),                                               &
                          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -5060,8 +5025,8 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_mox'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_mox'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
@@ -5085,16 +5050,16 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_mox'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_mox'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_mox',                                        &
                          & TRIM(varname), tend%qtrc_mox_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                         & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_mox', 'kg kg-1 s-1',        &
+                         & t_cf_var(TRIM(varname), 'kg kg-1 s-1',                                &
                          &          'tendency of mass mixing ratio of tracer '//                 &
-                         &          TRIM(ctracer(jtrc))//                                        &
+                         &          TRIM(trcname)//                                              &
                          &          ' due to methane oxidation and H2O photolysis',              &
                          &          datatype_flt),                                               &
                          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -5112,8 +5077,8 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_car'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_car'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
@@ -5137,16 +5102,16 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          tlen = LEN_TRIM(ctracer(jtrc))
-          varname=prefix//'q'//ctracer(jtrc)(1:tlen)//'_car'
+          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          varname = prefix//'q'//TRIM(trcname)//'_car'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_car',                                        &
                          & TRIM(varname), tend%qtrc_car_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                         & t_cf_var('tend_q'//TRIM(ctracer(jtrc))//'_car', 'kg kg-1 s-1',        &
+                         & t_cf_var(TRIM(varname), 'kg kg-1 s-1',                                &
                          &          'tendency of mass mixing ratio of tracer '//                 &
-                         &          TRIM(ctracer(jtrc))//                                        &
+                         &          TRIM(trcname)//                                              &
                          &          ' due to linearized ozone chemistry (Cariolle)',             &
                          &          datatype_flt),                                               &
                          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -5191,13 +5156,14 @@ CONTAINS
     ! Referrence to individual tracer, for I/O
 
     DO jtrc = 1,ktracer
-      tlen = LEN_TRIM(ctracer(jtrc))
+      trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+      varname = prefix//'q'//TRIM(trcname)
       CALL add_ref( tend_list, prefix//'qtrc',                                            &
-                  & prefix//'q'//ctracer(jtrc)(1:tlen), tend%qtrc_ptr(jtrc)%p,            &
+                  & TRIM(varname), tend%qtrc_ptr(jtrc)%p,                                 &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen), 'kg kg-1 s-1',              &
+                  & t_cf_var(TRIM(varname), 'kg kg-1 s-1',                                &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          ctracer(jtrc)(1:tlen),                                       &
+                  &          TRIM(trcname),                                               &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                   & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
@@ -5206,11 +5172,11 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'qtrc_dyn',                                        &
-                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_dyn', tend%qtrc_dyn_ptr(jtrc)%p,&
+                  & TRIM(varname)//'_dyn', tend%qtrc_dyn_ptr(jtrc)%p,                     &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_dyn', 'kg kg-1 s-1',      &
+                  & t_cf_var(TRIM(varname)//'_dyn', 'kg kg-1 s-1',                        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          ctracer(jtrc)(1:tlen)//                                      &
+                  &          TRIM(trcname)//                                              &
                   &          ' due to resolved dynamics',                                 &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -5220,11 +5186,11 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'qtrc_phy',                                        &
-                  & prefix//'q'//ctracer(jtrc)(1:tlen)//'_phy', tend%qtrc_phy_ptr(jtrc)%p,&
+                  & TRIM(varname)//'_phy', tend%qtrc_phy_ptr(jtrc)%p,                     &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                  & t_cf_var('tend_q'//ctracer(jtrc)(1:tlen)//'_phy', 'kg kg-1 s-1',      &
+                  & t_cf_var(TRIM(varname)//'_phy', 'kg kg-1 s-1',                        &
                   &          'tendency of mass mixing ratio of tracer '//                 &
-                  &          ctracer(jtrc)(1:tlen)//                                      &
+                  &          TRIM(trcname)//                                              &
                   &          ' due to parameterized processes',                           &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -5233,11 +5199,12 @@ CONTAINS
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
+      varname = prefix//'m'//TRIM(trcname)
       CALL add_ref( tend_list, prefix//'mtrc_phy',                                        &
-                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'_phy', tend%mtrc_phy_ptr(jtrc)%p,&
+                  & TRIM(varname)//'_phy', tend%mtrc_phy_ptr(jtrc)%p,                     &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
-                  & t_cf_var('tend_m'//ctracer(jtrc)(1:tlen)//'_phy', 'kg m-2 s-1',       &
-                  &          'tendency of '//ctracer(jtrc)(1:tlen)//                      &
+                  & t_cf_var(TRIM(varname)//'_phy', 'kg m-2 s-1',                         &
+                  &          'tendency of '//TRIM(trcname)//                              &
                   &          ' mass due to parameterized processes',                      &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -5247,10 +5214,10 @@ CONTAINS
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
       CALL add_ref( tend_list, prefix//'mtrcvi_phy',                                      &
-                  & prefix//'m'//ctracer(jtrc)(1:tlen)//'vi_phy', tend%mtrcvi_phy_ptr(jtrc)%p, &
+                  & TRIM(varname)//'vi_phy', tend%mtrcvi_phy_ptr(jtrc)%p,                 &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                   &
-                  & t_cf_var('tend_m'//ctracer(jtrc)(1:tlen)//'vi_phy', 'kg m-2 s-1',     &
-                  &          'tendency of '//ctracer(jtrc)(1:tlen)//                      &
+                  & t_cf_var(TRIM(varname)//'vi_phy', 'kg m-2 s-1',                       &
+                  &          'tendency of '//TRIM(trcname)//                              &
                   &          ' path due to parameterized processes',                      &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &

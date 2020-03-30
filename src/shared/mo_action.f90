@@ -44,9 +44,10 @@
 MODULE mo_action
 
   USE mo_kind,               ONLY: wp, i8
-  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_comm_work, p_bcast
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
+  USE mo_cdi_constants,      ONLY: GRID_REGULAR_LONLAT
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
     &                              isCurrentEventActive, deallocateDatetime,         &
     &                              MAX_DATETIME_STR_LEN,                             &
@@ -55,12 +56,14 @@ MODULE mo_action
     &                              getTriggeredPreviousEventAtDateTime,              &
     &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=),    &
     &                              datetimetostring
+  USE mo_util_mtime,         ONLY: is_event_active
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
     &                              set_table_entry, print_table, t_table
   USE mo_action_types,       ONLY: t_var_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
+  USE mo_parallel_config,    ONLY: proc0_offloading
   USE mo_var_list,           ONLY: nvar_lists, var_lists
   USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
@@ -81,7 +84,7 @@ MODULE mo_action
   ! PARAMETER
   PUBLIC :: ACTION_NAMES
 
-  INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be
+  INTEGER, PARAMETER :: NMAX_VARS = 100 ! maximum number of fields that can be
                                         ! assigned to a single action
 
 
@@ -115,7 +118,11 @@ MODULE mo_action
   CONTAINS
 
     PROCEDURE :: initialize => action_collect_vars  ! initialize action object
+#if defined (__SX__) || defined (__NEC_VH__)
+    PROCEDURE :: execute    => action_execute_SX    ! execute action object
+#else
     PROCEDURE :: execute    => action_execute       ! execute action object
+#endif
     PROCEDURE :: print_setup=> action_print_setup   ! Screen print out of action object setup
     !
     ! deferred routine for action specific kernel (to be defined in extended type)
@@ -333,7 +340,7 @@ CONTAINS
   !>
   !! Execute action
   !!
-  !! For each field attached to this action it is checked, whether the action should
+  !! For each variable attached to this action it is checked, whether the action should
   !! be executed at the datetime given. This routine does not make any assumption
   !! about the details of the action to be executed. The action itself is encapsulated
   !! in the kernel-routine.
@@ -377,12 +384,7 @@ CONTAINS
     p_slack => newTimedelta(str_slack)
 
 
-! openMP parallelization currently does not work as expected. Maybe this is only
-! because of a non-threadsave message routine. Thus, we stick to a poor mens kernel
-! parallelization for the time being.
-!!$OMP PARALLEL
     ! Loop over all fields attached to this action
-!!$OMP DO PRIVATE(ivar,var_action_idx,field,this_event,isactive,message_text)
     DO ivar = 1, act_obj%nvars
 
       var_action_idx = act_obj%var_action_index(ivar)
@@ -403,9 +405,9 @@ CONTAINS
       ! Note that a second call to isCurrentEventActive will lead to
       ! a different result! Is this a bug or a feature?
       ! triggers in interval [trigger_date + slack]
-      isactive = LOGICAL(isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack))
+      isactive = isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack)
 
-      ! Check wheter the action should be triggered for variable
+      ! Check whether the action should be triggered for variable
       ! under consideration
       IF (isactive) THEN
 
@@ -430,14 +432,145 @@ CONTAINS
       ENDIF
 
     ENDDO
-!!$OMP END DO
-!!$OMP END PARALLEL
+
 
     ! cleanup
     !
     CALL deallocateTimedelta(p_slack)
 
   END SUBROUTINE action_execute
+
+
+  !>
+  !! Execute action
+  !!
+  !! !!! 'optimized' variant for SX-architecture                                   !!!
+  !! !!! isCurrentEventActive is only executed by PE0 and broadcasted to the other !!!
+  !! !!! workers on the vector engine.                                             !!!
+  !!
+  !! For each variable attached to this action it is checked, whether the action should
+  !! be executed at the datetime given. This routine does not make any assumption
+  !! about the details of the action to be executed. The action itself is encapsulated
+  !! in the kernel-routine.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-09-11)
+  !!
+  SUBROUTINE action_execute_SX(act_obj, slack, mtime_date)
+    !
+    CLASS(t_action_obj)       :: act_obj
+    REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
+    ! local variables
+    INTEGER :: ivar                        !< loop index for fields
+    INTEGER :: var_action_idx              !< Index of this particular action in
+                                           !< field-specific action list
+
+    TYPE(t_var_list_element), POINTER :: & !< Pointer to particular field
+      &  field
+    TYPE(event)             , POINTER :: & !< Pointer to variable specific event info
+      &  this_event
+    TYPE(datetime),           POINTER :: & !< Current date in mtime format
+      &  mtime_date
+
+    LOGICAL :: isactive(NMAX_VARS)
+
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: str_slack       ! slack as string
+
+    TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format
+
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:")
+
+  !-------------------------------------------------------------------------
+
+    ! init
+    isactive(:) =.FALSE.
+
+    ! compute allowed slack in PT-Format
+    ! Use factor 999 instead of 1000, since no open interval is available
+    ! needed [trigger_date, trigger_date + slack[
+    ! used   [trigger_date, trigger_date + slack]
+    IF (.NOT. proc0_offloading .OR. p_pe == p_io) THEN
+      CALL getPTStringFromMS(INT(999.0_wp*slack,i8),str_slack)
+      ! get slack in 'timedelta'-format appropriate for isCurrentEventActive
+      p_slack => newTimedelta(str_slack)
+
+      ! Check for all action events whether they are due at the datetime given.
+      DO ivar = 1, act_obj%nvars
+
+        var_action_idx = act_obj%var_action_index(ivar)
+
+        this_event => act_obj%var_element_ptr(ivar)%event
+
+        ! Check whether event-pointer is associated.
+        IF (.NOT. ASSOCIATED(this_event)) THEN
+          WRITE (message_text,'(a,i2,a,a,a)')                           &
+               'WARNING: action event ', var_action_idx, ' of field ',  &
+               TRIM(field%info%name),': Event-Ptr is disassociated!'
+          CALL message(routine,message_text)
+        ENDIF
+
+        ! Note that a second call to isCurrentEventActive will lead to
+        ! a different result! Is this a bug or a feature?
+        ! triggers in interval [trigger_date + slack]
+        isactive(ivar) = is_event_active(this_event, mtime_date, proc0_offloading, plus_slack=p_slack, opt_lasync=.TRUE.)
+      ENDDO
+
+      ! cleanup
+      !
+      CALL deallocateTimedelta(p_slack)
+    ENDIF
+
+    ! broadcast
+    IF (proc0_offloading) CALL p_bcast(isactive, p_io, p_comm_work)
+
+
+    ! Loop over all fields attached to this action
+    DO ivar = 1, act_obj%nvars
+
+      ! Check whether the action should be triggered for variable
+      ! under consideration
+      IF (isactive(ivar)) THEN
+
+        var_action_idx = act_obj%var_action_index(ivar)
+
+        field      => act_obj%var_element_ptr(ivar)%p
+        this_event => act_obj%var_element_ptr(ivar)%event
+
+
+        ! Check whether event-pointer is associated.
+        IF (.NOT. ASSOCIATED(this_event)) THEN
+          WRITE (message_text,'(a,i2,a,a,a)')                           &
+               'WARNING: action event ', var_action_idx, ' of field ',  &
+                TRIM(field%info%name),': Event-Ptr is disassociated!'
+          CALL message(routine,message_text)
+        ENDIF
+
+
+        ! store latest true triggering date
+        CALL datetimeToString(mtime_date, mtime_cur_datetime)
+        field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
+        ! store latest intended triggering date
+        CALL getTriggeredPreviousEventAtDateTime(this_event, &
+          field%info%action_list%action(var_action_idx)%EventLastTriggerDate)
+
+        IF (msg_level >= 12) THEN
+          WRITE(message_text,'(5a,i2,a,a)') 'action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),&
+            &  ' triggered for ', TRIM(field%info%name),' (PID ',               &
+            &  act_obj%var_element_ptr(ivar)%patch_id,') at ',                  &
+            &  TRIM(mtime_cur_datetime)
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+
+        ! perform action on element number 'ivar'
+        CALL act_obj%kernel(ivar)
+
+      ENDIF
+
+    ENDDO
+
+
+  END SUBROUTINE action_execute_SX
 
 
   !>

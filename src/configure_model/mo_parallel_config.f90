@@ -40,9 +40,10 @@ MODULE mo_parallel_config
        &  use_div_from_file, io_proc_chunk_size,                    &
        &  num_dist_array_replicas, comm_pattern_type_orig,          &
        &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
-       &  io_process_stride, io_process_rotate
+       &  io_process_stride, io_process_rotate, proc0_shift,        &
+       &  use_omp_input
 
-  PUBLIC :: set_nproma, get_nproma, cpu_min_nproma, update_nproma_on_device, &
+  PUBLIC :: set_nproma, get_nproma, cpu_min_nproma, update_nproma_on_device, proc0_offloading, &
        &    check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
   ! computing setup
@@ -122,6 +123,16 @@ MODULE mo_parallel_config
   ! The number of PEs used for async prefetching of input (0 means, the PE0 prefetches input)
   INTEGER :: num_prefetch_proc = 0
 
+  ! Shift of processor 0 in domain decomposition, e.g. to use proc 0 for input only
+  INTEGER :: proc0_shift = 0
+
+  ! Derived variable to indicate hybrid mode with proc 0 doing stdio only
+  LOGICAL :: proc0_offloading
+
+  ! Use OpenMP-parallelized input for atmospheric input data (in initicon), 
+  ! i.e. overlapping of reading data, communicating data and computing statistics
+  LOGICAL :: use_omp_input = .FALSE.
+
   ! Type of (halo) communication:
   ! 1 = synchronous communication with local memory for exchange buffers
   ! 2 = synchronous communication with global memory for exchange buffers
@@ -178,11 +189,14 @@ CONTAINS
     !  check the consistency of the parameters
     !------------------------------------------------------------
     IF (nproma<=0) CALL finish(TRIM(method_name),'"nproma" must be positive')
-#ifndef __SX__
+#if !defined (__SX__) && !defined (__NEC_VH__)
     ! migration helper: catch nproma's that were obviously intended
     !                   for a vector machine.
     IF (nproma>256) CALL warning(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
 #endif
+
+    IF (proc0_shift < 0 .OR. proc0_shift > 1) CALL finish(TRIM(method_name),'"proc0_shift" currently must be 0 or 1')
+    proc0_offloading = proc0_shift > 0
 
     icon_comm_openmp = .false.
 ! check l_test_openmp

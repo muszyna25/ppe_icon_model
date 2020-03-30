@@ -63,7 +63,7 @@ MODULE mo_zaxis_type
     &   ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF,        &
     &   ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350,      &
     &   ZA_PRES_FL_350_550, ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, &
-    &   ZA_PRES_FL_390_530, ZA_ATMOSPHERE, ZA_HEIGHT_2M_LAYER
+    &   ZA_PRES_FL_390_530, ZA_ATMOSPHERE, ZA_HEIGHT_2M_LAYER, ZA_ECHOTOP
 
   !> Derived type holding a the ICON-internal key for a single
   !  vertical axis type. See "t_zaxisTypeList" for details.
@@ -165,6 +165,7 @@ CONTAINS
     ZA_REFERENCE               = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
     ZA_REFERENCE_HALF          = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
     ZA_REFERENCE_HALF_HHL      = za_list%register(cdi_zaxis_type=ZAXIS_REFERENCE          , is_2D=.FALSE.)
+    ZA_ECHOTOP                 = za_list%register(cdi_zaxis_type=ZAXIS_GENERIC            , is_2D=.FALSE.)
 
     !DR *********** FIXME *************
     ! Re-set

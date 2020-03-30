@@ -509,14 +509,14 @@ CONTAINS
                                             !< instead
 
     REAL(wp) ::            &       !< coordinates of departure points 
-         &  depart_pts(nproma,2,2) !< in edge-based coordinate system
+         &  depart_pts(2,2)        !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
-         &  pos_dreg_vert_c(nproma,4,2)      !< as seen from translated coordinate system.
-                                      !< origin at circumcenter of upwind cell
+         &  pos_dreg_vert_c(4,2)   !< as seen from translated coordinate system.
+                                   !< origin at circumcenter of upwind cell
 
     REAL(wp) ::            &       !< position on tangential plane depending
-         &  pos_on_tplane_e(nproma,2)        !< on the sign of vn
+         &  pos_on_tplane_e(2)     !< on the sign of vn
 
     REAL(wp) ::            &       !< primal and dual normals of cell lying
          &  pn_cell_1, pn_cell_2, dn_cell_1, dn_cell_2    !< in the direction of vn
@@ -667,7 +667,8 @@ CONTAINS
       !$ACC LOOP GANG PRIVATE( depart_pts, pos_dreg_vert_c, pos_on_tplane_e )
 
       DO jk = slev, elev
-!DIR$ IVDEP
+!DIR$ IVDEP, PREFERVECTOR
+!$NEC ivdep
         !$ACC LOOP VECTOR
         DO je = i_startidx, i_endidx
 
@@ -722,25 +723,25 @@ CONTAINS
           ! point 2 belongs to edge_vertex 2.
           !
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in normal direction
-          depart_pts(je,1,1)      = edge_verts(je,1,1) - p_vn(je,jk,jb) * p_dt
+          depart_pts(1,1)      = edge_verts(je,1,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in tangential direction
-          depart_pts(je,1,2)      = edge_verts(je,1,2) - p_vt(je,jk,jb) * p_dt
+          depart_pts(1,2)      = edge_verts(je,1,2) - p_vt(je,jk,jb) * p_dt
 
           ! position of vertex 3 in normal direction
-          depart_pts(je,2,1)      = edge_verts(je,2,1) - p_vn(je,jk,jb) * p_dt
+          depart_pts(2,1)      = edge_verts(je,2,1) - p_vn(je,jk,jb) * p_dt
 
           ! position of vertex 3 in tangential direction
-          depart_pts(je,2,2)      = edge_verts(je,2,2) - p_vt(je,jk,jb) * p_dt
+          depart_pts(2,2)      = edge_verts(je,2,2) - p_vt(je,jk,jb) * p_dt
 
 
 
           ! determine correct position on tangential plane
-          pos_on_tplane_e(je,1) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1), &
-               &                        ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos)
+          pos_on_tplane_e(1) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1), &
+               &                     ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos)
 
-          pos_on_tplane_e(je,2) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2), &
-               &                        ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos)
+          pos_on_tplane_e(2) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2), &
+               &                     ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos)
 
           ! Calculate position of departure region vertices in a translated
           ! coordinate system. The origin is located at the circumcenter
@@ -749,21 +750,19 @@ CONTAINS
           !
           ! Take care of correct counterclockwise numbering below
           !
-          pos_dreg_vert_c(je,1,1:2) = edge_verts(je,1,1:2) - pos_on_tplane_e(je,1:2)
+          pos_dreg_vert_c(1,1:2) = edge_verts(je,1,1:2) - pos_on_tplane_e(1:2)
 
-          pos_dreg_vert_c(je,2,1)   = MERGE(depart_pts(je,1,1),edge_verts(je,2,1),lvn_sys_pos(je,jk)) &
-               &                    - pos_on_tplane_e(je,1)
-          pos_dreg_vert_c(je,2,2)   = MERGE(depart_pts(je,1,2),edge_verts(je,2,2),lvn_sys_pos(je,jk)) &
-               &                    - pos_on_tplane_e(je,2)
+          pos_dreg_vert_c(2,1)   = MERGE(depart_pts(1,1),edge_verts(je,2,1),lvn_sys_pos(je,jk)) &
+               &                 - pos_on_tplane_e(1)
+          pos_dreg_vert_c(2,2)   = MERGE(depart_pts(1,2),edge_verts(je,2,2),lvn_sys_pos(je,jk)) &
+               &                 - pos_on_tplane_e(2)
 
-          pos_dreg_vert_c(je,3,1:2) = depart_pts(je,2,1:2) - pos_on_tplane_e(je,1:2)
+          pos_dreg_vert_c(3,1:2) = depart_pts(2,1:2) - pos_on_tplane_e(1:2)
 
-          pos_dreg_vert_c(je,4,1)   = MERGE(edge_verts(je,2,1),depart_pts(je,1,1),lvn_sys_pos(je,jk)) &
-               &                    - pos_on_tplane_e(je,1)
-          pos_dreg_vert_c(je,4,2)   = MERGE(edge_verts(je,2,2),depart_pts(je,1,2),lvn_sys_pos(je,jk)) &
-               &                    - pos_on_tplane_e(je,2)
-
-
+          pos_dreg_vert_c(4,1)   = MERGE(edge_verts(je,2,1),depart_pts(1,1),lvn_sys_pos(je,jk)) &
+               &                 - pos_on_tplane_e(1)
+          pos_dreg_vert_c(4,2)   = MERGE(edge_verts(je,2,2),depart_pts(1,2),lvn_sys_pos(je,jk)) &
+               &                 - pos_on_tplane_e(2)
 
           ! In a last step, these distance vectors are transformed into a rotated
           ! geographical coordinate system, which still has its origin at the circumcenter
@@ -785,11 +784,11 @@ CONTAINS
 
           ! components in longitudinal direction
           p_coords_dreg_v(je,1:4,1,jk,jb) =                                         &
-               & pos_dreg_vert_c(je,1:4,1) * pn_cell_1 + pos_dreg_vert_c(je,1:4,2) * dn_cell_1
+               & pos_dreg_vert_c(1:4,1) * pn_cell_1 + pos_dreg_vert_c(1:4,2) * dn_cell_1
 
           ! components in latitudinal direction
           p_coords_dreg_v(je,1:4,2,jk,jb) =                                         &
-               & pos_dreg_vert_c(je,1:4,1) * pn_cell_2 + pos_dreg_vert_c(je,1:4,2) * dn_cell_2
+               & pos_dreg_vert_c(1:4,1) * pn_cell_2 + pos_dreg_vert_c(1:4,2) * dn_cell_2
 
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
@@ -805,6 +804,7 @@ CONTAINS
     IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
   END SUBROUTINE btraj_dreg
+
 
 
 

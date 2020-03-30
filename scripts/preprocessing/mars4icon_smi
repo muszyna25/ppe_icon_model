@@ -2,7 +2,7 @@
 # -------------------------------------------------------
 # MARS request to read data used in the ifs2icon utility.
 #
-# mars4icon_smi [-a area] [-C class_mars] [-d cymdg] [-D [-D]] [-E expv_soil] [-g grid]
+# mars4icon_smi [-a area] [-A] [-C class_mars] [-d cymdg] [-D [-D]] [-E expv_soil] [-g grid] [-h]
 #               [-l levelist] [-L lv_split] [-o grib_file] [-O|+O] [-p parallel] [-r resolution]
 #               [-s step] [-S stream]
 #
@@ -44,6 +44,7 @@
 #   Helmut Frank    20181128  New option -a for area. swvl* is always retrieved on archived grid.
 #                             Use MARS_CALL_OPTION to call mars with an option (e.g. -m)
 #   Helmut Frank    20190129  Always set rainsnow='/crwc/cswc' for era5 data (thanks to G. Pante, IMK)
+#   Helmut Frank    20190812  param=z, lv=ml is always avaiable only for analysis data.                  
 # ------------------------------------------------------------------------------
 
 typeset    area
@@ -61,13 +62,15 @@ typeset -l class_mars='od'
 typeset -l stream_mars='oper'
 typeset    expv=${MARS_EXPVER:-1}
 typeset    expv_soil=1
+integer    fi_ana=0
 typeset    Dflag
 
 typeset name=${0##*/}
 
-while getopts +a:C:Dd:E:g:hl:L:o:Op:r:s:S: option
+while getopts +a:AC:Dd:E:g:hl:L:o:Op:r:s:S: option
 do
     case ${option} in
+        A) fi_ana=1 ;;
         a) area="area=${OPTARG},"
            ;;
         C) class_mars=${OPTARG}
@@ -83,7 +86,7 @@ do
            ;;
         h) cat <<-HELP_EOF
 
-		${name} [-a area] [-C class_mars] [-d cymdg] [-D [-D]] [-E expv_soil] [-g grid]
+		${name} [-a area] [-A] [-C class_mars] [-d cymdg] [-D [-D]] [-E expv_soil] [-g grid] [-h]
                         [-l levelist] [-L lv_split] [-o grib_file] [-O|+O] [-p parallel] [-r resolution]
                         [-s step] [-S stream]
 
@@ -92,17 +95,18 @@ do
 		Extract IFS data from MARS for ICON
 
 		  -a North/West/South/East   area keyword of MARS. Only possible for regular lat/lon grids
+		  -A             Take orography FI from MARS "type=an, step=0".
 		  -C class       MARS class. Default: ${class_mars}
 		                    e4 for ERA-40, ei for ERA-Interim, ea for ERA5
+		  -d pdatin      Initial time. Format YYYYMMDDHH or something like g12, h00,
+		                    or the ICON time format. Default: ${pdatin}
+		                    (You need datconv for formats like g12, h00.)
 		  -D             Debug flag. Repeating -D will only write the MARS request to STDERR.
 		  -E expv_soil   MARS parameter expver for soil data.
 		                    Only usefull in combination with ERA-Interim data (-C ei):
 		                      expv_soil=fiv7: ERA-Interim forced land model
 		                      expv_soil=fiv8: ERA-Interim + GPCP corrected precip
 		                                    (fiv8 not available after 2010)
-		  -d pdatin      Initial time. Format YYYYMMDDHH or something like g12, h00,
-		                    or the ICON time format. Default: ${pdatin}
-		                    (You need datconv for formats like g12, h00.)
 		  -g grd         MARS parameter grid. The default depends on resolution. It is (resolution+1)/2.
 		                    Recommendation for cubic grids: F320 for res=639, F640 for res=1279.
 		  -h             This help
@@ -247,11 +251,16 @@ if [[ ${expv_soil} = fiv* ]]; then
     db_para_soil="class=rd, expver=${expv_soil}, stream=${stream_mars}"
 fi
 
-typeset type_mars
+typeset type_mars z_type_step
 if (( step == 0 )); then
-  type_mars='an'
+    type_mars='an'
 else
-  type_mars='fc'
+    type_mars='fc'
+fi
+if (( fi_ana == 1 )); then
+    z_type_step=' type=an, step=0'
+else
+    z_type_step=" type=${type_mars}, step=${step}"
 fi
 # 
 #  Number of levels
@@ -268,14 +277,24 @@ elif [[ "${levs}" = +([0-9]) ]]; then
     levs="1/to/${levs}"
 fi
 #
-#  resolution
+#  resolution. Automatic (or maximum) resolution for reanalysis data
 #
-case ${class_mars} in
-    e4) if [[ ${res} -gt 159 ]]; then res=159; fi
-        ;;
-    ei) if [[ ${res} -gt 255 ]]; then res=255; fi
-        ;;
-esac
+integer res_mx=1279
+if [[ ${stream_mars} = enda* ]]; then
+    case ${class_mars} in
+        ea) res_mx=319 ;;
+    esac
+else
+    case ${class_mars} in
+        ea) res_mx=639 ;;
+        e4) res_mx=159 ;;
+        ei) res_mx=255 ;;
+    esac
+fi
+if [[ ${res} == auto ]]; then
+    print -- "Set resolution ${res_mx} for class=${class_mars}, stream=${stream_mars}" >&2
+    res=${res_mx}
+fi
 #
 # The following list is copied from
 # http://www.ecmwf.int/en/forecasts/documentation-and-support/data-spatial-coordinate-systems
@@ -417,9 +436,13 @@ MARS_IFS2ICON_EOF
   #
     cat >> ${mars_req[$i_rq]} << MARS_IFS2ICON1_EOF
 retrieve,
-        param    = lnsp/z,
+        param    = lnsp,
         levelist = 1
 retrieve,
+        param    = z, ${z_type_step},
+        levelist = 1
+retrieve,
+        type     = ${type_mars}, step=${step},
         param    = sst/src/z,
         repres   = gg, 
         resol    = off, 

@@ -189,7 +189,7 @@
 
 MODULE mo_async_latbc
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer
+    USE, INTRINSIC :: ISO_C_BINDING,  ONLY: c_ptr, c_f_pointer
 
 #ifndef NOMPI
     USE mpi
@@ -770,7 +770,7 @@ MODULE mo_async_latbc
       TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch
       INTEGER,       OPTIONAL,    INTENT(OUT)   :: fileID
 
-      CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_files"
+      CHARACTER(*), PARAMETER                   :: routine = modname//"::read_init_file"
       LOGICAL,      PARAMETER                   :: ldebug  = .FALSE.
 #ifndef NOMPI
       ! local variables
@@ -829,14 +829,10 @@ MODULE mo_async_latbc
              &                                  time_config%tc_exp_startdate,  &
              &                                  time_config%tc_exp_startdate))
         latbc_file = TRIM(latbc_config%latbc_path)//latbc_filename
-      END IF
-      IF (is_work .AND.  p_pe_work == p_work_pe0) THEN
 
         INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
             CALL finish(routine,'LATBC file not found: '//latbc_file)
-         ELSE
-            CALL message("", "reading boundary data: "//latbc_file)
          ENDIF
 
          ! open file
@@ -940,7 +936,6 @@ MODULE mo_async_latbc
       CALL p_bcast(StrLowCasegrp(:),               p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(counter,                        p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
-      CALL p_bcast(latbc%buffer%psvar,             p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%geop_ml_var,       p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%hhl_var,           p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc%buffer%lread_qs,          p_comm_work_pref_compute_pe0, p_comm_work_pref)
@@ -1092,12 +1087,8 @@ MODULE mo_async_latbc
          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
          !
          lhave_ps = .FALSE.
-         IF (test_cdi_varID(fileID_latbc, 'PS', latbc_dict) /= -1) THEN
+         IF (test_cdi_varID(fileID_latbc, 'pres_sfc', latbc_dict) /= -1) THEN
             lhave_ps = .TRUE.
-            buffer%psvar    = 'PS'
-         ELSE IF (test_cdi_varID(fileID_latbc, 'LNPS', latbc_dict) /= -1) THEN
-            lhave_ps = .TRUE.
-            buffer%psvar    = 'LNPS'
          ENDIF
 
          !
@@ -1638,31 +1629,27 @@ MODULE mo_async_latbc
     !
     SUBROUTINE create_win(mem_win, mem_size)
 
-      TYPE(t_mem_win), INTENT(INOUT) :: mem_win
+      TYPE(t_mem_win),                 INTENT(INOUT) :: mem_win
       INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
 
       ! local variables
-      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_noncray"
-      TYPE(c_ptr)                     :: c_mem_ptr
+      CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::create_win"
       INTEGER                         :: ierror, nbytes_real
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-      REAL(sp), TARGET :: dummy(1)
-      ! Get the amount of bytes per REAL*4 variable (as used in MPI
-      ! communication)
+      INTEGER (KIND=MPI_ADDRESS_KIND) :: alloc_size, mem_bytes
+      TYPE(c_ptr)                     :: c_mem_ptr
+
+      ! Get the amount of bytes per REAL*4 variable (as used in MPI communication)
       CALL MPI_Type_extent(p_real_sp, nbytes_real, ierror)
 
       ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-      IF (mem_size > 0) THEN
-        mem_bytes = mem_size*INT(nbytes_real,mpi_address_kind)
+      alloc_size = MAX(mem_size, 1_MPI_ADDRESS_KIND)
 
-        CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, ierror)
+      mem_bytes = alloc_size*INT(nbytes_real,mpi_address_kind)
+      CALL mpi_alloc_mem(mem_bytes, MPI_INFO_NULL, mem_win%f_mem_ptr, ierror)
 
-        CALL C_F_POINTER(c_mem_ptr, mem_win%mem_ptr_sp, (/ mem_size /) )
-        mem_win%mem_ptr_sp(:) = 0._sp
-      ELSE
-        mem_bytes = 0_mpi_address_kind
-        mem_win%mem_ptr_sp => dummy
-      END IF
+      c_mem_ptr = TRANSFER(mem_win%f_mem_ptr, c_mem_ptr)
+      CALL C_F_POINTER(c_mem_ptr, mem_win%mem_ptr_sp, (/ alloc_size /) )
+      mem_win%mem_ptr_sp(:) = 0._sp
 
       ! Create memory window for communication
       CALL MPI_Win_create(mem_win%mem_ptr_sp, mem_bytes, nbytes_real, &

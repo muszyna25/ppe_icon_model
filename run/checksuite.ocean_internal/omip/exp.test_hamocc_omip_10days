@@ -365,7 +365,7 @@ EOF4
 #  compare with reference
 if [[ x$BB_SYSTEM != x ]]; then
 . ${thisdir}/postFunx.sh
-  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
+  dataPath="${basedir}/experiments/${EXPNAME}/"
   cd ${dataPath}
   slave=${BB_SYSTEM:-mistral}_${BB_SLAVE:-gcc}
   refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}

@@ -41,6 +41,7 @@ MODULE mo_parallel_nml
     & config_num_io_procs        => num_io_procs,        &
     & config_pio_type            => pio_type,            &
     & config_num_prefetch_proc   => num_prefetch_proc,   &
+    & config_proc0_shift         => proc0_shift,         &
     & config_itype_comm          => itype_comm,          &
     & config_iorder_sendrecv     => iorder_sendrecv,     &
     & set_nproma, &
@@ -48,6 +49,7 @@ MODULE mo_parallel_nml
     & config_icon_comm_debug     => icon_comm_debug,        &
     & div_geometric, check_parallel_configuration,          &
     & config_max_sr_buffer_size => max_send_recv_buffer_size, &
+    & config_use_omp_input          => use_omp_input,         &
     & config_use_dycore_barrier => use_dycore_barrier,        &
     & config_itype_exch_barrier => itype_exch_barrier,        &
     & config_use_dp_mpi2io      => use_dp_mpi2io,             &
@@ -143,6 +145,13 @@ MODULE mo_parallel_nml
     ! Number of PEs used for async prefetching of input (0 means, the worker PE0 prefetches lateral boundary input)
     INTEGER :: num_prefetch_proc
 
+    ! Shift of processor 0 in domain decomposition, e.g. to use proc 0 for input only
+    INTEGER :: proc0_shift
+
+    ! Use OpenMP-parallelized input for atmospheric input data (in initicon), 
+    ! i.e. overlapping of reading data, communicating data and computing statistics
+    LOGICAL :: use_omp_input
+
     ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
@@ -182,7 +191,7 @@ MODULE mo_parallel_nml
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run, num_test_pe, l_test_openmp,       &
-      & num_restart_procs,                      &
+      & num_restart_procs, proc0_shift,         &
       & num_io_procs,      pio_type,            &
       & itype_comm,        iorder_sendrecv,     &
       & nproma,                                 &
@@ -196,7 +205,7 @@ MODULE mo_parallel_nml
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
       & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc, &
       & num_dist_array_replicas, io_process_stride, io_process_rotate, &
-      & default_comm_pattern_type !parallel_radiation_omp
+      & default_comm_pattern_type, use_omp_input
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -259,6 +268,13 @@ MODULE mo_parallel_nml
 
     ! The number of PEs used for async prefetching of input (0 means, the worker PE0 prefetches input)
     num_prefetch_proc = 1
+
+    ! Shift of processor 0 in domain decomposition, set to 1 in order to use proc 0 for input only
+    proc0_shift = 0
+
+    ! Use OpenMP-parallelized input for atmospheric input data (in initicon), 
+    ! i.e. overlapping of reading data, communicating data and computing statistics
+    use_omp_input = .FALSE.
 
     ! Type of (halo) communication:
     ! 1 = synchronous communication with local memory for exchange buffers
@@ -347,6 +363,8 @@ MODULE mo_parallel_nml
     config_num_io_procs        = num_io_procs
     config_pio_type            = pio_type
     config_num_prefetch_proc   = num_prefetch_proc
+    config_proc0_shift         = proc0_shift
+    config_use_omp_input       = use_omp_input
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv
     CALL set_nproma(nproma)

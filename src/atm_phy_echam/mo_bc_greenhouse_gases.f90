@@ -16,7 +16,7 @@
 !! J. S. Rast, MPI, August 2010, modified interpolation to time step of radiation
 !! R. Schnur,  MPI, November 2010, for current time step and CO2 only
 !! L. Kornblueh, MPI, March 2013, adapted as temporary reader in ICON
-!! 
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -70,10 +70,11 @@ MODULE mo_bc_greenhouse_gases
 
 CONTAINS
 
-  SUBROUTINE read_bc_greenhouse_gases
+  SUBROUTINE read_bc_greenhouse_gases(ghg_filename)
 
     INTEGER :: ncid, ndimid, nvarid
     INTEGER :: i
+    CHARACTER(LEN=*) :: ghg_filename
 
     IF (bc_greenhouse_gases_file_read) THEN
       CALL message('','Greenhouse gases already read ...')
@@ -81,8 +82,8 @@ CONTAINS
     ENDIF
 
     CALL message('','Use transient, annually resolved greenhouse gases secenario based on CMIP5')
-    CALL nf_check(p_nf_open('bc_greenhouse_gases.nc', nf_read, ncid))
-    CALL nf_check(p_nf_inq_dimid (ncid, 'time', ndimid)) 
+    CALL nf_check(p_nf_open(ghg_filename, nf_read, ncid))
+    CALL nf_check(p_nf_inq_dimid (ncid, 'time', ndimid))
     CALL nf_check(p_nf_inq_dimlen (ncid, ndimid, ghg_no_years))
 
     ALLOCATE (ghg_years(ghg_no_years))

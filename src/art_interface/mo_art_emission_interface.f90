@@ -39,7 +39,8 @@ MODULE mo_art_emission_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_impl_constants,                ONLY: min_rlcell_int,dzsoil
+  USE mo_impl_constants,                ONLY: min_rlcell_int
+  USE mo_lnd_nwp_config,                ONLY: dzsoil
   USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
   USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_parallel_config,               ONLY: nproma
