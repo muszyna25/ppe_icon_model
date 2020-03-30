@@ -36,7 +36,7 @@
 /icon-*.tar.bz2
 
 # Extra sources that are not treated as submodules:
-/externals/art
+externals/art
 
 # Mac OS files:
 *.dSYM
