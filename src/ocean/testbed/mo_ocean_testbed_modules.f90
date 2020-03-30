@@ -559,8 +559,7 @@ CONTAINS
         ENDIF
         !------------------------------------------------------------------------
 
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
-             physics_parameters)
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
 
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.

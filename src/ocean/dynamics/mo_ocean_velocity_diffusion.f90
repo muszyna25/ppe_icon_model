@@ -56,8 +56,9 @@ MODULE mo_ocean_velocity_diffusion
   PUBLIC :: velocity_diffusion_vertical_implicit
   PUBLIC :: velocity_diffusion_vertical_implicit_onBlock
   PUBLIC :: veloc_diff_harmonic_div_grad
-  
+
   LOGICAL :: eliminate_upper_diag = .true.
+  
 CONTAINS
   
   !-------------------------------------------------------------------------
@@ -969,7 +970,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     edges_in_domain       =>  patch_3d%p_patch_2d(1)%edges%in_domain
     !-----------------------------------------------------------------------
-    
+   
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO edge_block = edges_in_domain%start_block, edges_in_domain%end_block    
       CALL get_index_range(edges_in_domain, edge_block, start_index, end_index)
@@ -983,6 +984,7 @@ CONTAINS
         
     END DO
 !ICON_OMP_END_PARALLEL_DO 
+
     eliminate_upper_diag = .not. eliminate_upper_diag ! switch the methods
     
   END SUBROUTINE velocity_diffusion_vertical_implicit
@@ -1035,6 +1037,7 @@ CONTAINS
       DO level=1, bottom_level
         inv_prism_thickness(level)        = patch_3d%p_patch_1d(1)%inv_prism_thick_e(edge_index,level,edge_block)
         inv_prisms_center_distance(level) = patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(edge_index,level,edge_block)
+        
         column_velocity(level) = velocity(edge_index,level)
       ENDDO
 

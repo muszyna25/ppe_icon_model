@@ -19,7 +19,7 @@
 #include "icon_definitions.inc"
 #include "iconfor_dsl_definitions.inc"
 !----------------------------
-MODULE mo_ocean_tracer_GMRedi
+MODULE mo_ocean_tracer_dev
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
   USE mo_math_types,                ONLY: t_cartesian_coordinates
@@ -70,7 +70,7 @@ MODULE mo_ocean_tracer_GMRedi
   CHARACTER(LEN=12)           :: str_module = 'oceTracer   '  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 
-  PUBLIC :: advect_ocean_tracers_GMRedi
+  PUBLIC :: advect_ocean_tracers_dev
 
 CONTAINS
 
@@ -83,7 +83,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE advect_ocean_tracers_GMRedi(old_tracers, new_tracers, p_os, transport_state, p_param, p_op_coeff)
+  SUBROUTINE advect_ocean_tracers_dev(old_tracers, new_tracers, p_os, transport_state, p_param, p_op_coeff)
     TYPE(t_tracer_collection), INTENT(inout)      :: old_tracers
     TYPE(t_tracer_collection), INTENT(inout)      :: new_tracers
     TYPE(t_hydro_ocean_state), TARGET :: p_os
@@ -112,7 +112,7 @@ CONTAINS
 
     END DO
 
-  END SUBROUTINE advect_ocean_tracers_GMRedi
+  END SUBROUTINE advect_ocean_tracers_dev
   !-------------------------------------------------------------------------
 
 
@@ -208,8 +208,8 @@ CONTAINS
       & transport_state,                &
       & p_op_coeff,                     &
       & k_h,                            &
-      & p_os%p_prog(nold(1))%h,         &
-      & p_os%p_prog(nnew(1))%h,         &
+      & transport_state%h_old,         &
+      & transport_state%h_new,         &
       & div_adv_flux_horz,              &
       & div_adv_flux_vert)
     !---------------------------------------------------------------------
@@ -375,9 +375,8 @@ CONTAINS
         !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
         DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
 
-          delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
-          delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
-
+          delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_old(jc,jb)
+          delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+transport_state%h_new(jc,jb)
 
           new_tracer%concentration(jc,level,jb)= &
             & (old_tracer%concentration(jc,level,jb) * delta_z &
@@ -470,8 +469,8 @@ CONTAINS
       !that is the sum of PP-coeff and implicit part of Redi-scheme
       
       CALL tracer_diffusion_vertical_implicit( &
-          & patch_3d,                      &
-          & new_tracer,                &
+          & patch_3d,                          &
+          & new_tracer,                        &
           & a_v,                               &
           & transport_state%h_new)
           
@@ -751,6 +750,6 @@ CONTAINS
   END FUNCTION tracer_content
   !-------------------------------------------------------------------------
 
-END MODULE mo_ocean_tracer_GMRedi
+END MODULE mo_ocean_tracer_dev
 
 
