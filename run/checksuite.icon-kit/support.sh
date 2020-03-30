@@ -14,7 +14,7 @@ function set_cluster {
      ;;
    xfh2*) :
      echo "...FH2  at KIT"; CENTER="IMK"
-     input_folder="/pfs/imk/ICON/TESTSUITE/"
+     input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE/"
      FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
 	   icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
@@ -69,7 +69,7 @@ function set_cluster {
  esac
  ##
  ICON_FOLDER=$(pwd)/../..
- ART_FOLDER=$ICON_FOLDER/src/art
+ ART_FOLDER=$ICON_FOLDER/externals/art
 
 
  }
@@ -191,7 +191,7 @@ output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
 
 cat >> $output_script << EOF
 	
-cp -p $ICON_FOLDER/build/x86_64-unknown-linux-gnu/bin/icon ./icon.exe
+cp $ICON_FOLDER/bin/icon ./icon.exe
 EOF
  case x"$HPC" in #(
       xjuwels*)
