@@ -538,8 +538,8 @@ EOF
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/run/coupling_${EXPNAME}.xml          ./coupling.xml
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/run/coupling_${EXPNAME}.xml       ./coupling.xml
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND
@@ -1280,8 +1280,8 @@ cat >> ${oce_namelist} << EOF
   bottom_drag_coeff                          = 3.0E-3           ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                            = .TRUE.           ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                                = 0.03
-  tracer_TopWindMixing                       = 1.0E-5
-  velocity_TopWindMixing                     = 1.0E-5
+  !  tracer_TopWindMixing                       = 1.0E-5
+  !  velocity_TopWindMixing                     = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                       = 0                ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -1381,7 +1381,7 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_oce_DOM01.nc 
+  add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_ocean_DOM01.nc 
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

@@ -311,8 +311,8 @@ lkeep_in_sync = .true.
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 1.0E-5
-  velocity_TopWindMixing          = 1.0E-5
+  !  tracer_TopWindMixing            = 1.0E-5
+  !  velocity_TopWindMixing          = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion

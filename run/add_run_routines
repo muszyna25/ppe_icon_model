@@ -129,6 +129,21 @@ link_required_files()
   done    
 }
 
+
+get_2digits()
+{
+  local in=$1
+  local outname=$2
+  
+  if [ $in -lt  10 ] ; then
+    local f2dig=0$in
+  else
+    local f2dig=$in
+  fi
+  
+ eval $outname=$f2dig
+}
+
 #-----------------------------------------------------------------------------
 export F_NORCW=65535
 ulimit -s unlimited
@@ -143,7 +158,7 @@ export ICON_BASE_PATH
 RUNSCRIPT_NAME=`basename $0`
 ICON_RUN_PATH=$ICON_BASE_PATH/run
 #-----------------------------------------------------------------------------
-. ${thisdir}/../config/set-up.info
+. ${thisdir}/../run/set-up.info
 
 #-----------------------------------------------------------------------------
 # set default data paths

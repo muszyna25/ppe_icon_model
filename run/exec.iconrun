@@ -65,7 +65,7 @@ if [ x$namelist_list = x ]; then
   elif [ x$ocean_namelist != x ]; then
     # this is the ocean model
     namelist_list[0]="$ocean_namelist"
-    modelname_list[0]="ocean"
+    modelname_list[0]="oce"
     modeltype_list[0]=2
   elif [ x$psrad_namelist != x ]; then
     # this is the psrad model
@@ -141,9 +141,9 @@ for gridfile in ${all_grids}; do
   #
   ls -l ${HGRIDDIR}/$gridfile
   check_error $? "${HGRIDDIR}/$gridfile does not exist."
-  add_required_file ${HGRIDDIR}/${gridfile} ./
+  add_link_file ${HGRIDDIR}/${gridfile} ./
   if [ -f ${HGRIDDIR}/${grfinfofile} ]; then    
-    add_required_file ${HGRIDDIR}/${grfinfofile} ./
+    add_link_file ${HGRIDDIR}/${grfinfofile} ./
   fi
 done
 #-----------------------------------------------------------------------------
@@ -321,9 +321,6 @@ EOF
 done
 fi
 #-----------------------------------------------------------------------------
-
-
-#-----------------------------------------------------------------------------
 #
 #  get model
 #
@@ -356,6 +353,9 @@ echo $finish_status
 echo "============================"
 echo "Script run successfully: $finish_status"
 echo "============================"
+
+#-----------------------------------------------------------------------------
+# rm output_schedule_steps*
 #-----------------------------------------------------------------------------
 if [[ "x$use_hamocc" = "xyes" ]]; then
 # store HAMOCC log file
@@ -377,7 +377,7 @@ if [ $finish_status = "RESTART" ] ; then
   echo 'this_script: ' "$this_script"
   touch ${restartSemaphoreFilename}
   cd ${RUNSCRIPTDIR}
-  ${submit} $this_script
+  ${submit} $this_script $run_param_0
 else
   [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
 fi

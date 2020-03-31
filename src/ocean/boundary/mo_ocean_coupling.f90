@@ -10,6 +10,8 @@
 !! headers of the routines.
 !!
 
+! (create branch dev2merge)
+
 #ifdef YAC_coupling
 
 !----------------------------
@@ -514,9 +516,6 @@ CONTAINS
     !   field_id(8) represents "northward_sea_water_velocity"             - meridional velocity, v component of ocean surface current
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
-
-    !  add another comment here - 
-
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  Send fields from ocean to atmosphere

@@ -28,8 +28,8 @@ iforc=12
 init_relax=1
 ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
-grids_folder=/pool/data/ICON/oes/input/r0002/OceanOnly_Icos_0158km_etopo40
-ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Icos_0158km_etopo40
+grids_folder=/pool/data/ICON/oes/input/r0003/OceanOnly_Icos_0158km_etopo40
+ocean_data_InputFolder=/pool/data/ICON/oes/input/r0003/OceanOnly_Icos_0158km_etopo40
 
 YEAR="1948"
 if [ -f ../experiments/${EXPNAME}/${restartSemaphoreFilename} ]; then
@@ -51,6 +51,9 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
+ num_prefetch_proc = 0 
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -83,7 +86,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default'
+  ml_varlist       = 'group:oce_default','group:oce_essentials', 'group:ice_default','group:oce_physics'
 /
 &output_nml
   output_start     = "${start_date}"
@@ -167,7 +170,7 @@ cat > ${ocean_namelist} << EOF
   fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
   fct_high_order_flux   = 5      ! horizontal high order method: 1=upwind, 2=central, 3=lax_friedrichs, 4=miura_order1
   fct_limiter_horz      = 100    ! zalesak
-  threshold_min_T       = -4.0   ! to avoid abort
+  threshold_min_T       = -2.0   ! to avoid abort
 /
 &ocean_horizontal_diffusion_nml
   laplacian_form = 1                   ! 1=curlcurl-graddiv
@@ -184,6 +187,7 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
+  vert_mix_type                            = 1 ! 1=PP, 2=TKE, 3=KPP
   PPscheme_type                            = 4
   velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
@@ -196,8 +200,8 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 2.31480E-6 ! eqals 0.5e-3 m2s-1 (MPIOM)
-  velocity_TopWindMixing          = 2.31480E-6
+  tracer_TopWindMixing            = 0.5E-3 ! [m2/s] windmixing diffusivity in MPIOM-type pp-scheme
+  velocity_TopWindMixing          = 0.5E-3 ! [m2/s] windmixing viscosity in MPIOM-type pp-scheme
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -238,7 +242,7 @@ cat > ${ocean_namelist} << EOF
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
   forcing_frequency               = 21600.0
-  sw_scaling_factor               = 0.89                ! reduce sw in ncep forcing by 11%
+!  sw_scaling_factor               = 0.89              ! reduce sw in ncep forcing by 11%
   init_oce_relax                  = $init_relax         ! read ocean surface relaxation file, see above
   type_surfRelax_Temp             =   0       ! 0: no relaxation used
                                               ! 1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
@@ -254,11 +258,14 @@ cat > ${ocean_namelist} << EOF
 ! zero_freshwater_flux            = .FALSE.   ! set external freshwater flux to zero; default: false 
                                               ! salt-change due to internal fluxes only
   limit_seaice                    = .TRUE.    ! default: true
-  seaice_limit                    =   0.6     ! hard limit set to 80% of upper layer for sea ice
+  seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
   atm_pressure_included_in_ocedyn = .FALSE.   ! use atm. pressure in the ocean dynamics
   atm_pressure_included_in_icedyn = .FALSE.   ! use atm. pressure in the ice dynamics
 
+  use_tides                       = .FALSE.
+  tides_mod                       =  1        ! 1 Default 2 MPIOM 
+  tide_startdate                  = '2001-01-01 00:00'
   lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
   jerlov_atten                    = 0.08      ! jerlov water type IB
   jerlov_bluefrac                 = 0.36      ! jerlov water type IB

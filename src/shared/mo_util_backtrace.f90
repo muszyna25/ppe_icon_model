@@ -15,25 +15,36 @@ MODULE mo_util_backtrace
 
   PRIVATE
 
-#if ! (defined (__INTEL_COMPILER) || defined (__xlC__))
-  INTERFACE
-    SUBROUTINE util_backtrace() BIND(C,NAME='util_backtrace')
-    END SUBROUTINE util_backtrace
-  END INTERFACE
-#endif
-
   PUBLIC :: util_backtrace
 
-#if (defined (__INTEL_COMPILER) || defined (__xlC__))
-CONTAINS
+#ifdef __INTEL_COMPILER
 
+CONTAINS
   SUBROUTINE util_backtrace()
-#if defined __INTEL_COMPILER
     CALL tracebackqq
-#elif defined __xlC__
-    CALL xl__trbk
-#endif
   END SUBROUTINE util_backtrace
+
+#elif defined __xlC__
+
+CONTAINS
+  SUBROUTINE util_backtrace()
+    CALL xl__trbk
+  END SUBROUTINE util_backtrace
+
+#elif defined __SX__
+
+CONTAINS
+  SUBROUTINE util_backtrace()
+    CALL mesput('Traceback: ', 11, 1)
+  END SUBROUTINE util_backtrace
+
+#else
+
+  INTERFACE
+    SUBROUTINE util_backtrace() BIND(C)
+    END SUBROUTINE util_backtrace
+  END INTERFACE
+
 #endif
 
 END MODULE mo_util_backtrace

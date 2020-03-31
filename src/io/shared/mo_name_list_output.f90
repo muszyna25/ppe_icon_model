@@ -80,13 +80,13 @@ MODULE mo_name_list_output
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
     &                                     ihs_ocean, BOUNDARY_MISSVAL
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT,              &
-    &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    &                                     GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_ZONAL
   USE mo_impl_constants_grf,        ONLY: grf_bdywidth_c
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
-      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, GRID_ZONAL, &
+      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_util_cdi,                  ONLY: cdiGetStringError
   ! utility functions
@@ -134,6 +134,10 @@ MODULE mo_name_list_output
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
+#ifdef _OPENACC
+  USE mo_mpi,                       ONLY: i_am_accel_node
+  USE openacc
+#endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta,             &
@@ -966,6 +970,9 @@ CONTAINS
       post_op_apply &
            = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
       IF ( post_op_apply ) THEN
+#ifdef _OPENACC
+        CALL finish(routine,'perform_post_op not supported on GPUs')
+#endif
         IF (idata_type == iREAL) THEN
           alloc_shape = SHAPE(r_ptr)
           IF (ALLOCATED(r_ptr_m)) THEN
@@ -1309,6 +1316,15 @@ CONTAINS
            ": internal error! unhandled info%ndims=", info%ndims
       GO TO 999
     END SELECT
+
+    IF      (ASSOCIATED(r_ptr_5d)) THEN
+!$ACC UPDATE HOST(r_ptr) IF ( i_am_accel_node .AND. acc_is_present(r_ptr) )
+    ELSE IF (ASSOCIATED(s_ptr_5d)) THEN
+!$ACC UPDATE HOST(s_ptr) IF ( i_am_accel_node .AND. acc_is_present(s_ptr) )
+    ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
+!$ACC UPDATE HOST(i_ptr) IF ( i_am_accel_node .AND. acc_is_present(i_ptr) )
+    ENDIF
+
     RETURN
 999 CALL finish(routine,message_text)
 

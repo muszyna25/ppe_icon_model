@@ -693,8 +693,8 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   2.5E-3  ! bottom drag coefficient default= 2.5E-3
 !  use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
 !  lambda_wind                     = 0.03
-!  tracer_TopWindMixing            = 4.0E-6
-!  velocity_TopWindMixing          = 4.0E-6
+!  !  tracer_TopWindMixing            = 4.0E-6
+!  !  velocity_TopWindMixing          = 4.0E-6
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -809,7 +809,7 @@ add_required_file ${basedir}/run/${dict_file}  ./
 # -------------------------
 #
 add_required_file ${basedir}/run/coupling.xml  ./
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
-add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/component.xsd ./component.xsd
 #
 #-----------------------------------------------------------------------------

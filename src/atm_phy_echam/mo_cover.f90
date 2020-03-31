@@ -57,8 +57,10 @@ MODULE mo_cover
 
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
-  USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,lookup_ua_eor_uaw_spline
-  USE mo_echam_cov_config,     ONLY : echam_cov_config
+  USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,       lookup_ua_eor_uaw_spline,     &
+                                      prepare_ua_index_spline_batch, lookup_ua_eor_uaw_spline_batch
+USE mo_echam_cov_config,     ONLY : echam_cov_config
+USE mo_index_list,           ONLY : generate_index_list
 
   IMPLICIT NONE
   PRIVATE
@@ -115,13 +117,23 @@ CONTAINS
     REAL(wp) :: zqsm1(kbdim,klev)
     REAL(wp) :: ua(kproma)
 
-    LOGICAL :: lao, lao1, lomask(kbdim)
+    LOGICAL :: lao, lao1
 
-    REAL(wp) :: zpapm1i(kbdim),     ztmp(kbdim)
+    REAL(wp) :: zpapm1i,     ztmp
 
     REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
-    INTEGER :: knvb(kbdim), loidx(kbdim)
+    INTEGER :: knvb(kbdim), loidx(kbdim), lomask(kbdim)
+
+#ifdef _OPENACC
+    ! DA: for GPU it's much better to collapse the jk and jl loops,
+    !     therefore we need to use 2D temporary arrays
+    INTEGER  :: idx_batch(kproma,klev), iphase_batch(kproma,klev), nphase_batch(klev)
+    REAL(wp) :: ua_batch (kproma,klev)
+
+    REAL(wp) :: za_batch(kbdim,klev), zphase_batch(kbdim,klev)
+    REAL(wp) :: zqsm1_s
+#endif
 
     ! Shortcuts to components of echam_cov_config
     !
@@ -141,32 +153,22 @@ CONTAINS
     cqx    = echam_cov_config(jg)% cqx
     clcon  = echam_cov_config(jg)% clcon
 
-    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxlm1, pxim1, paclc, printop ) &
-    !$ACC       CREATE( itv1, itv2, zdtmin, za, zqsm1, ua, zpapm1i, ztmp, zknvb, zphase, &
-    !$ACC               knvb, loidx, lomask )
+    !$ACC DATA PRESENT( ktype, pfrw, pfri, zf, paphm1, papm1, pqm1, ptm1, pxlm1, pxim1, paclc, printop )  &
+    !$ACC       CREATE( itv1, itv2, zdtmin, za, zqsm1, ua, zknvb, zphase,                                 &
+    !$ACC               knvb, loidx, lomask, idx_batch, iphase_batch, za_batch, zphase_batch,             &
+    !$ACC               ua_batch, nphase_batch )
 
     ! Initialize output arrays
     !
     !   Initialize variables
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG
-    DO jk = 1,klev
-      !$ACC LOOP VECTOR
-      DO jl = jcs,kproma
-         paclc(jl,jk) = 0.0_wp
-      END DO
-    END DO
-    !$ACC END PARALLEL
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
+    paclc(jcs:kproma,1:klev) = 0.0_wp
+    !$ACC END KERNELS
     !
-    !$ACC PARALLEL DEFAULT(PRESENT)
-    !$ACC LOOP GANG VECTOR
-    DO jl = jcs,kproma
-       !
-       printop(jl) = 0.0_wp
-       !
-    END DO
-    !$ACC END PARALLEL
+    !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
+    printop(jcs:kproma) = 0.0_wp
+    !$ACC END KERNELS
 
 
     ! Preparations if needed
@@ -176,6 +178,7 @@ CONTAINS
     CASE(1,2) ! Calculate the saturation mixing ratio
        !        for relative humidity based schemes
        !
+#ifndef _OPENACC
        DO jk = jkscov,klev
           !
           CALL prepare_ua_index_spline(jg,'cover (2)',jcs,kproma,ptm1(:,jk),itv1(:),   &
@@ -190,14 +193,37 @@ CONTAINS
           !$ACC PARALLEL DEFAULT(PRESENT)
           !$ACC LOOP GANG VECTOR PRIVATE( zcor )
           DO jl = jcs,kproma
-             zpapm1i(jl)  = SWDIV_NOCHK(1._wp,papm1(jl,jk))
-             zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i(jl),0.5_wp)
-             zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
+             zpapm1i      = SWDIV_NOCHK(1._wp,papm1(jl,jk))
+             zqsm1(jl,jk) = MIN(ua(jl)*zpapm1i,0.5_wp)
+             zcor         = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
              zqsm1(jl,jk) = zqsm1(jl,jk)*zcor       ! qsat
           END DO
           !$ACC END PARALLEL
           !
        END DO   !jk
+#else
+      CALL prepare_ua_index_spline_batch( jg,'cover (2)',jcs,kproma,klev-jkscov+1,                                    &
+                                          ptm1(:,jkscov:),idx_batch(:,jkscov:),za_batch(:,jkscov:),pxim1(:,jkscov:),  &
+                                          nphase_batch(jkscov:), zphase_batch(:,jkscov:), iphase_batch(:,jkscov:),    &
+                                          kblock=jb, kblock_size=kbdim, opt_need_host_nphase=.FALSE. )
+
+      CALL lookup_ua_eor_uaw_spline_batch( jcs, kproma, klev-jkscov+1,                    &
+                                           idx_batch(:,jkscov:), iphase_batch(:,jkscov:), & 
+                                           za_batch(:,jkscov:),  ua_batch(:,jkscov:) )
+
+
+      !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = jkscov,klev
+        DO jl = jcs,kproma
+          zpapm1i = SWDIV_NOCHK(1._wp,papm1(jl,jk))
+          zqsm1(jl,jk) = MIN(ua_batch(jl,jk)*zpapm1i,0.5_wp)
+          zcor      = 1._wp/(1._wp-vtmpc1*zqsm1(jl,jk))
+          zqsm1(jl,jk) = zqsm1(jl,jk)*zcor       ! qsat
+        END DO
+      END DO
+      !$ACC END PARALLEL
+#endif
        !
     END SELECT
 
@@ -209,16 +235,9 @@ CONTAINS
     CASE(0) ! constant cloud cover scheme
        !      Cloud cover is set to the constant value clcon.
        !
-       DO jk = jkscov,klev
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR
-          DO jl = jcs,kproma
-             !
-             paclc(jl,jk) = clcon
-             !
-          END DO  !jl
-          !$ACC END PARALLEL
-       END DO   !jk
+       !$ACC KERNELS DEFAULT(NONE) ASYNC(1)
+       paclc(jcs:kproma,jkscov:klev) = clcon
+       !$ACC END KERNELS
        !
     CASE(1) ! Fractional cloud cover scheme
        !      The relative humidity dependence follows Sundqvist et al. (1989), Eqs.3.11-3.13,
@@ -236,7 +255,7 @@ CONTAINS
        !
        !   Initialize variables
        !
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,kproma
           zdtmin(jl) = -cinv * grav/cpd   ! fraction of dry adiabatic lapse rate
@@ -251,47 +270,33 @@ CONTAINS
        ! which are not convective.
        ! Indixes of these columns are stored in the index list loidx, with list indices jcs:locnt.
        !
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,kproma
-          lomask(jl) = (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0)
+          lomask(jl) = MERGE( 1, 0, (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) )
        END DO
        !$ACC END PARALLEL
-       locnt = jcs-1
-       !$ACC UPDATE HOST( lomask )
-       DO jl = jcs,kproma
-          IF (lomask(jl)) THEN
-             locnt = locnt + 1
-             loidx(locnt) = jl
-          END IF
-       END DO
-       !$ACC UPDATE DEVICE( loidx )
+
+       CALL generate_index_list(lomask, loidx, jcs, kproma, locnt, 1)
+
        !
        ! For these columns, search from the lowermost layer jk=klev up to jk=jksinv at ~2000m height.
        ! Find the level index with the least negative lapse rate towards
        ! the adjacent upper layer, supposed to be the layer below the inversion.
        IF (locnt.GT.jcs-1) THEN
-          !$ACC PARALLEL DEFAULT(PRESENT)
+          !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
           !$ACC LOOP SEQ
           DO jk = klev,jksinv,-1
-
+             zjk = REAL(jk,wp)
+             !
 !IBM* ASSERT(NODEPS)
-!IBM* novector
-
-             !$ACC LOOP GANG VECTOR PRIVATE( jl )
+            !$ACC LOOP GANG VECTOR
              DO nl = jcs,locnt
                 jl = loidx(nl)
                 ! Lapse rate dT/dz (K/m) between layers k-1 and k.
-                ztmp(nl) = (ptm1(jl,jk-1)-ptm1(jl,jk))/(zf(jl,jk-1)-zf(jl,jk))
-             END DO
-             !
-             zjk = REAL(jk,wp)
-             !$ACC LOOP GANG VECTOR PRIVATE( jl, zdtdz )
-!IBM* ASSERT(NODEPS)
-             DO nl = jcs,locnt
-                jl = loidx(nl)
+                ztmp        = (ptm1(jl,jk-1)-ptm1(jl,jk))/(zf(jl,jk-1)-zf(jl,jk))
                 ! Truncate lapse rate dT/dz (K/m) to value <= 0.
-                zdtdz       = MIN(0.0_wp, ztmp(nl))
+                zdtdz       = MIN(0.0_wp, ztmp)
                 ! Update inversion level index if the lapse rate is weaker than zdtmin,
                 ! otherwise keep old value (initial value = 1)
                 zknvb(jl)   = FSEL(zdtmin(jl)-zdtdz,zknvb(jl),zjk)
@@ -303,16 +308,16 @@ CONTAINS
           !$ACC END PARALLEL
        END IF
        !
-       !$ACC PARALLEL DEFAULT(PRESENT)
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
        !$ACC LOOP GANG VECTOR
        DO jl = jcs,kproma
           knvb(jl) = INT(zknvb(jl))
        END DO
        !$ACC END PARALLEL
        !
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = jkscov,klev
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR PRIVATE( zrhc, zsat, jbm, lao, lao1, zdtdz, zgam, zqr )
           DO jl = jcs,kproma
              !
              ! Scaling factor zsat for the saturation mass mixing ratio, with range [csatsc,1].
@@ -355,15 +360,15 @@ CONTAINS
              !                                                   = b in Eq.3.13 of Sundqvist et al. (1989)
              !
           END DO  !jl
-          !$ACC END PARALLEL
        END DO   !jk
+       !$ACC END PARALLEL
        !
     CASE(2) ! 0/1 cloud cover scheme based on relative humidity.
        !      Cloud cover is 1 if the relative humidity is >= csat, and 0 otherwise
        !
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = jkscov,klev
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR PRIVATE( zqr )
           DO jl = jcs,kproma
              !
              zqr = pqm1(jl,jk)/zqsm1(jl,jk)
@@ -373,15 +378,15 @@ CONTAINS
              END IF
              !
           END DO  !jl
-          !$ACC END PARALLEL
        END DO   !jk
+       !$ACC END PARALLEL
        !
     CASE(3) ! 0/1 cloud cover scheme based on cloud condensate.
        !      Cloud cover is 1 if the cloud condensate mixing ration is >= cqx, and 0 otherwise
        !
+       !$ACC PARALLEL DEFAULT(NONE) ASYNC(1)
+       !$ACC LOOP GANG VECTOR COLLAPSE(2)
        DO jk = jkscov,klev
-          !$ACC PARALLEL DEFAULT(PRESENT)
-          !$ACC LOOP GANG VECTOR PRIVATE( zqx )
           DO jl = jcs,kproma
              !
              zqx = pxlm1(jl,jk)+pxim1(jl,jk)
@@ -391,11 +396,12 @@ CONTAINS
              END IF
              !
           END DO  !jl
-          !$ACC END PARALLEL
        END DO   !jk
+       !$ACC END PARALLEL
        !
     END SELECT
     !$ACC END DATA
+    !$ACC WAIT
     !
     !
   END SUBROUTINE cover

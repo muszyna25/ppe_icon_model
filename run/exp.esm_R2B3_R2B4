@@ -587,8 +587,8 @@ EOF
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/run/coupling_${EXPNAME}.xml          ./coupling.xml
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/run/coupling_${EXPNAME}.xml       ./coupling.xml
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND
@@ -605,6 +605,8 @@ cat > ${atm_namelist} << EOF
 &parallel_nml
  nproma            = ${nproma_atm}
  num_io_procs      = ${mpi_atm_io_procs}
+ num_prefetch_proc = 0
+ pio_type          = 0
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grid}"
@@ -1229,6 +1231,8 @@ cat > ${oce_namelist} << EOF
 &parallel_nml
  nproma                      = ${nproma_oce}
  num_io_procs                = ${mpi_oce_io_procs}
+ num_prefetch_proc           = 0
+ pio_type                    = 0
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
 /
@@ -1710,13 +1714,13 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
  # for restart from rar0026 plus 200 additional years of spinup:
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_oce_DOM01.nc 
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_ocean_DOM01.nc 
  fi
 
 if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
  # for a restart file containing Hamocc, interpolated from a cmip6 control run to the icon grid.
  # Ocean restart is from a long tuning run, which arrived at a good state.
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_oce_DOM01.nc 
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_ocean_DOM01.nc 
  fi
 
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

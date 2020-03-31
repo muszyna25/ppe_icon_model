@@ -1187,6 +1187,7 @@ MODULE mo_jsb_varlist_iface
                                    get_var_list,                      &
                                    add_var_icon => add_var,           &
                                    find_list_element
+  USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output, first_output_name_list
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,        ONLY: t_var_list, t_list_element
@@ -1198,7 +1199,7 @@ MODULE mo_jsb_varlist_iface
 
   PUBLIC :: VARNAME_LEN
   PUBLIC :: t_var_list, t_var_metadata, t_list_element, get_var_list
-  PUBLIC :: new_var_list
+  PUBLIC :: new_var_list, is_variable_in_output
   PUBLIC :: add_var_list_element_r2d, add_var_list_element_r3d
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_varlist_iface'
@@ -1232,6 +1233,25 @@ CONTAINS
                      )
 
   END SUBROUTINE new_var_list
+
+  LOGICAL FUNCTION is_variable_in_output(name, in_groups)
+
+    CHARACTER(LEN=*),                     INTENT(in) :: name
+    CHARACTER(len=VARNAME_LEN), OPTIONAL, INTENT(in) :: in_groups(:) ! groups to which this variable belongs to
+
+    INTEGER :: i
+
+    is_variable_in_output = var_in_out(first_output_name_list, name)
+    IF (is_variable_in_output) RETURN
+
+    IF (PRESENT(in_groups)) THEN
+      DO i=1,SIZE(in_groups)
+        is_variable_in_output = is_variable_in_output .OR. var_in_out(first_output_name_list, 'group:'//TRIM(in_groups(i)))
+        IF (is_variable_in_output) EXIT
+      END DO
+    END IF
+
+  END FUNCTION is_variable_in_output
 
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,                             &
     hgrid, vgrid, cf, grib2, code, table, ldims, gdims, levelindx, loutput, lcontainer, &
@@ -1293,12 +1313,14 @@ CONTAINS
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups), verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups),                                   &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5,                                                               &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     END IF
     element => find_list_element(this_list, TRIM(name))
     element%field%info%ndims = 2
@@ -1366,12 +1388,14 @@ CONTAINS
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups), new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups),                  &
+        lopenacc=.TRUE., new_element=new_element)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, new_element=new_element)
+        tlev_source=tlev_source, info=info, p5=p5,                                                               &
+        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
     END IF
     element => find_list_element(this_list, TRIM(name))
     element%field%info%ndims = 3

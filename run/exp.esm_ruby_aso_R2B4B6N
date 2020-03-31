@@ -274,6 +274,9 @@ incrank_list[1]=$oce_inc_rank
 atm_lag=1
 oce_lag=1
 
+# write weights for runoff-coupling (source_to_target mapping) into file
+runoffweightfile=runoff_$EXPNAME
+
 # co2_flux and co2_mixing_ratio are listed as transients
 # below but are not configured for coupling in the couples
 # section. There fields are therefore not considered for
@@ -572,7 +575,7 @@ cat > coupling_${EXPNAME}.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
-            <enforce_write_weight_file filename="runoff_a2o_r2b3_r2b4.nc">true</enforce_write_weight_file>
+            <enforce_write_weight_file filename="$runoffweightfile">true</enforce_write_weight_file>
          </transient_couple>
       </couple>
    </couples>
@@ -584,8 +587,8 @@ EOF
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/run/coupling_${EXPNAME}.xml          ./coupling.xml
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/run/coupling_${EXPNAME}.xml       ./coupling.xml
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND
@@ -602,6 +605,8 @@ cat > ${atm_namelist} << EOF
 &parallel_nml
  nproma            = ${nproma_atm}
  num_io_procs      = ${mpi_atm_io_procs}
+ num_prefetch_proc = 0
+ pio_type          = 0
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grid}"
@@ -708,26 +713,26 @@ cat > ${atm_namelist} << EOF
 &echam_gwd_nml
 /
 &echam_sso_nml
- echam_sso_config(1)%gkdrag     = 0.05      ! default: 0.05
- echam_sso_config(1)%gkwake     = 0.05      ! default: 0.05
+ !echam_sso_config(1)%gkdrag     = 0.05      ! default: 0.05
+ !echam_sso_config(1)%gkwake     = 0.05      ! default: 0.05
 /
 &echam_vdf_nml
  echam_vdf_config(1)%pr0        = 0.8       ! neutral limit Prandtl no - default:  1.0
 /
 &echam_cnv_nml
- echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
- echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1       (old default:  0.2)
- echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
+ !echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
+ !echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1       (old default:  0.2)
+ !echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
 /
 &echam_cld_nml
- echam_cld_config(1)%csecfrl    = 5.0e-6    ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (default was 15.0)
- echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (default was 95.0)
- echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
+ !echam_cld_config(1)%csecfrl    = 5.0e-6    ! threshold for ice and water in clouds, default 5.e-6
+ !echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (default was 15.0)
+ !echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (default was 95.0)
+ !echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
 /
 &echam_cov_nml
- echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
+ !echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
+ !echam_cov_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
  ! albs                           =   0.80    ! Albedo of snow (not melting)              !  def: 0.85
@@ -877,10 +882,13 @@ add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_lan
 add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
 add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
 #
-# - HD model input by Tom Riddick (test version)
+# - HD model input by Tom Riddick 
 #
+#  prelinminary test version
 datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
-add_link_file $datadir/hdpara_icon_${atmos_gridID}_20190927.nc          ./bc_land_hd.nc
+#add_link_file $datadir/hdpara_icon_${atmos_gridID}_20190927.nc          ./bc_land_hd.nc
+#add_link_file $datadir/hdpara_icon_${atmos_gridID}_${atmos_refinement}_20200303_v2.nc ./bc_land_hd.nc
+add_link_file $datadir/hdpara_icon_0013_R02B04_20200303_v2.nc            ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 #
@@ -913,7 +921,7 @@ cat >> ${atm_namelist} << EOF
 ! lkeep_in_sync = .FALSE.
 /
 &dbg_index_nml
-  idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 0                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 2                        ! initialize end level for debug output
@@ -1211,6 +1219,8 @@ cat > ${oce_namelist} << EOF
 &parallel_nml
  nproma                      = ${nproma_oce}
  num_io_procs                = ${mpi_oce_io_procs}
+ num_prefetch_proc           = 0
+ pio_type                    = 0
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
 /
@@ -1286,12 +1296,12 @@ if [[ "$output_oce_ice" == "yes" ]]; then
   output_filename  = "${EXPNAME}_oce_ice"
   filename_format  = "<output_filename>_<datetime2>"
   filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
-  m_levels         = "1...3,9,23,30,34"               ! surface and some subsurface levels only
-  ml_varlist       =  'draftave','hi','hs','conc','to','so'
+  m_levels         = "1...28"                         ! upper 500m
+  ml_varlist       =  'mld','condep','draftave','hi','hs','conc','to','so'
 /
 EOF
 fi
-#
+
 if [[ "$output_oce_mon" == "yes" ]]; then
    #
    cat >> ${oce_namelist} << EOF
@@ -1365,7 +1375,7 @@ fi
 
 cat >> ${oce_namelist} << EOF
 &dbg_index_nml
-  idbg_mxmn                  = 1                                ! initialize MIN/MAX  debug output
+  idbg_mxmn                  = 0                                ! initialize MIN/MAX  debug output
   idbg_val                   = 0                                ! initialize one cell debug output
   idbg_slev                  = 1                                ! initialize start level for debug output
   idbg_elev                  = 2                                ! initialize end level for debug output
@@ -1515,7 +1525,9 @@ cat >> ${oce_namelist} << EOF
   limit_seaice                               = .TRUE.      ! default: TRUE
   seaice_limit                               = 0.8         ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                            = .FALSE.     ! true: adjust daily to zero, default=false: free surface
-  lswr_jerlov                                = .FALSE.     ! SW-penetration (Jerlov-radiation, default=T) - not yet
+  lswr_jerlov                                = .TRUE.      ! use jerlov water types for sw absorption (default=T)
+  jerlov_atten                               = 0.08        ! jerlov water type IB
+  jerlov_bluefrac                            = 0.36        ! jerlov water type IB
 /
 EOF
 #
@@ -1571,11 +1583,10 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  # initialise atmosphere:
-  # link to OMIP-spinup 19224-YVF by Helmuth used for ocean restart-file - first OMIP with new setup
+  # initialise atmosphere and use link to ocean restart:
   # link to OMIP-spinup 19346-PCA by Helmuth used for ocean restart-file - second OMIP
   add_link_file /pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}/ocean/restart/ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc init-restart-oce.nc
-  add_link_file init-restart-oce.nc restart_oce_DOM01.nc
+  add_link_file init-restart-oce.nc restart_ocean_DOM01.nc
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

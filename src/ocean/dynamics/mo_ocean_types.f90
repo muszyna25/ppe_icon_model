@@ -220,13 +220,13 @@ MODULE mo_ocean_types
       & uu, &  !< square of u-velocity
       & vT, &  !< product of temperature and v-velocity
       & vS, &  !< product of salinity and v-velocity
-      & vR, &  !< product of density and v-velocity  
+      & vR, &  !< product of density and v-velocity
       & vv, &  !< square of  v-velocity
       & wT, &  !< product of temperature and w-velocity
       & wS, &  !< product of salinity and w-velocity
       & wR, &  !< product of density and w-velocity
-      & ww, &  !< square of w-velocity 
-      & uw, &  !< product of u-velocity and w-velocity 
+      & ww, &  !< square of w-velocity
+      & uw, &  !< product of u-velocity and w-velocity
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity
       & swrab, &  !< relative swr absorption factor
@@ -251,6 +251,10 @@ MODULE mo_ocean_types
 !      & dummy2d          ,&
       & heatabs_t        ,&
       & heatabb          ,&
+      & hflR, &  !< product of net heatflux and density
+      & fwR, &  !< product of fw flux and density
+      & tauxU, &  !< product of x-windstress and u-velocity
+      & tauyV, &  !< product of y-windstress and v-velocity
       & heat_content_snow ,&
       & heat_content_seaice ,&
       & delta_ice, & 
@@ -279,6 +283,12 @@ MODULE mo_ocean_types
       & northernHemisphere ,&
       & southernHemisphere
       
+    onCells_2D :: &
+      & u_50m,    &
+      & v_50m,    &
+      & T_50m,    &
+      & vort_f_cells_50m
+
     onCells_Type(t_cartesian_coordinates) :: &
       & p_vn              ! reconstructed velocity at cell center in cartesian coordinates
       
@@ -323,6 +333,10 @@ MODULE mo_ocean_types
     onVertices :: &
       & vort            ! vorticity at triangle vertices. Unit [1/s]
       
+    onVertices_2D :: &
+      & vort_50m,    &     ! vorticity at 20 and 70 meters
+      & vort_70m
+
     onVertices_Type(t_cartesian_coordinates) :: &
       & p_vn_dual
     
@@ -569,6 +583,7 @@ MODULE mo_ocean_types
     TYPE(t_operator_coeff), POINTER :: operator_coeff
     TYPE(t_ocean_checkpoint), POINTER :: p_check(:)
     TYPE(t_ocean_adjoint) :: p_adjoint
+    TYPE(t_ocean_transport_state)  :: transport_state
 
   END TYPE t_hydro_ocean_state
   
