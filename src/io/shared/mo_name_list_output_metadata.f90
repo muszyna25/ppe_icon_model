@@ -75,10 +75,6 @@ CONTAINS
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, nbytes_int, mem_bytes, typeLB
     TYPE(c_ptr)                     :: c_mem_ptr
 
-#ifdef __SX__
-    CALL finish(routine, "SX no longer supported!")
-#endif
-
     ! total number of required integer variables
     mem_size = nvars * metainfo_get_size()
     ! Get amount of bytes per INTEGER variable (in MPI communication)

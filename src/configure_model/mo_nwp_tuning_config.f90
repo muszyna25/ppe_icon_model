@@ -55,7 +55,9 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_box_liq_asy
   PUBLIC :: tune_thicklayfac
   PUBLIC :: tune_sgsclifac
+  PUBLIC :: icpl_turb_clc
   PUBLIC :: tune_dust_abs
+  PUBLIC :: tune_difrad_3dcont
   PUBLIC :: tune_gust_factor
   PUBLIC :: itune_albedo
   PUBLIC :: lcalib_clcov
@@ -156,11 +158,19 @@ MODULE mo_nwp_tuning_config
   REAL(wp) :: &                    !< Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     &  tune_sgsclifac              ! (in case of inwp_cldcover = 1)
 
+  INTEGER :: &                     !< Mode of coupling between turbulence and cloud cover
+    &  icpl_turb_clc               ! 1: strong dependency of box width on rcld with upper and lower limit
+                                   ! 2: weak dependency of box width on rcld with additive term and upper limit
+
   REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
     &  tune_dust_abs               !
 
+  REAL(wp) :: &                    !< Tuning factor for 3D contribution to diagnosed diffuse radiation
+    &  tune_difrad_3dcont          !
+
   REAL(wp) :: &                    !< Tuning factor for gust parameterization
     &  tune_gust_factor            !
+  !$acc declare create(tune_gust_factor)
 
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 1: dimmed Sahara

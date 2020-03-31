@@ -153,6 +153,9 @@ MODULE mo_output_event_handler
     &                                  set_table_entry, print_table, t_table
   USE mo_name_list_output_config,ONLY: use_async_name_list_io
   USE mo_parallel_config,        ONLY: pio_type
+  USE iso_c_binding,             ONLY: c_size_t, c_loc
+  USE mo_util_libc,              ONLY: memcmp, memset
+
   IMPLICIT NONE
 
   ! public subroutines + functions:
@@ -373,11 +376,6 @@ CONTAINS
     ELSE
       WRITE (dst,'(3a)') 'output "', TRIM(event%event_data%name), '", does not write ready files:'
     END IF
-#ifdef __SX__
-    IF (dst == 0) THEN
-      WRITE (dst,'(a)') "output on SX9 has been shortened, cf. 'output_schedule.txt'."
-    END IF
-#endif
 
     ! do not print, if the table is excessively long
     IF (event%n_event_steps > MAX_PRINTOUT) THEN
@@ -392,15 +390,9 @@ CONTAINS
     CALL add_table_column(table, "filename")
     CALL add_table_column(table, "I/O PE")
     CALL add_table_column(table, "output date")
-#ifdef __SX__
-    IF (dst /= 0) THEN
-#endif
-      ! do not add the file-part column on the NEC SX9, because we have a
-      ! line limit of 132 characters there
-      CALL add_table_column(table, "#")
-#ifdef __SX__
-    END IF
-#endif
+
+    CALL add_table_column(table, "#")
+
     CALL add_table_column(table, "open")
     CALL add_table_column(table, "close")
     irow = 0
@@ -431,29 +423,16 @@ CONTAINS
         CALL set_table_entry(table,irow,"model date", " ")
       END IF
       tlen = LEN_TRIM(event_step%event_step_data(j)%filename_string)
-#ifdef __SX__
-      ! save some characters on SX:
-      IF (tlen > 20 .AND. (dst == 0)) THEN
-        CALL set_table_entry(table,irow,"filename",    event_step%event_step_data(j)%filename_string(1:20)//"...")
-      ELSE
-        CALL set_table_entry(table,irow,"filename",    event_step%event_step_data(j)%filename_string(1:tlen))
-      END IF
-#else
+
       CALL set_table_entry(table,irow,"filename",    event_step%event_step_data(j)%filename_string(1:tlen))
-#endif
+
       CALL set_table_entry(table,irow,"I/O PE",      int2string(event_step%event_step_data(j)%i_pe))
 
       CALL set_table_entry(table,irow,"output date", TRIM(event_step%event_step_data(j)%datetime_string))
-#ifdef __SX__
-      IF (dst /= 0) THEN
-#endif
-        ! do not add the file-part column on the NEC SX9, because we have a
-        ! line limit of 132 characters there
-        CALL set_table_entry(table,irow,"#",           &
-          & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
-#ifdef __SX__
-      END IF
-#endif
+
+      CALL set_table_entry(table,irow,"#",           &
+        & TRIM(int2string(event_step%event_step_data(j)%jfile))//"."//TRIM(int2string(event_step%event_step_data(j)%jpart)))
+
       ! append "+ open" or "+ close" according to event step data:
       lopen = event_step%event_step_data(j)%l_open_file
       CALL set_table_entry(table,irow,"open", MERGE("x", " ", lopen))
@@ -2004,7 +1983,6 @@ CONTAINS
 
   !> create mpi datatype for variables of type t_event_data_local
   SUBROUTINE create_event_data_dt
-    USE iso_c_binding, ONLY: c_size_t
     INTEGER, PARAMETER :: num_dt_elem = 8
     INTEGER(mpi_address_kind) :: base, displs(num_dt_elem), ext, stride
     INTEGER :: elem_dt(num_dt_elem), i, ierror, resized_dt
@@ -2013,8 +1991,6 @@ CONTAINS
       = (/ 1, max_time_intervals, max_time_intervals, max_time_intervals, &
       &    1, 1, 1, 1 /)
     TYPE(t_event_data_local), TARGET :: dummy(2)
-    EXTERNAL :: util_memcmp
-    LOGICAL :: util_memcmp
     CALL mpi_type_contiguous(max_event_name_str_len, mpi_character, &
       &                      elem_dt(1), ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_contiguous error')
@@ -2076,7 +2052,7 @@ CONTAINS
         IF (ierror /= mpi_success) CALL finish(routine, 'mpi_type_free error')
       END IF
     END DO
-    CALL util_memset(dummy, 0, INT(2*stride, c_size_t))
+    CALL memset(C_LOC(dummy(1)), 0, INT(2*stride, c_size_t))
     dummy(1)%name = 'test_name'
     dummy(1)%begin_str(1) = '1970-01-01'
     dummy(1)%begin_str(2:) = ''
@@ -2109,7 +2085,7 @@ CONTAINS
       &               dummy(2), 1, event_data_dt, 0, 178, &
       &               mpi_comm_self, mpi_status_ignore, ierror)
     IF (ierror /= mpi_success) CALL finish(routine, 'transfer test error')
-    IF (util_memcmp(dummy(1), dummy(2), INT(stride, c_size_t))) &
+    IF (memcmp(C_LOC(dummy(1)), C_LOC(dummy(2)), INT(stride, c_size_t))) &
       CALL finish(routine, 'transfer test error')
   END SUBROUTINE create_event_data_dt
 

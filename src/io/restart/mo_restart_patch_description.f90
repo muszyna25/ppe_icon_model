@@ -31,6 +31,8 @@ MODULE mo_restart_patch_description
     USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_restart_util, ONLY: setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
     USE mo_util_string, ONLY: int2string
+    USE mo_upatmo_flowevent_utils, ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesAssign, &
+      &                                  upatmoRestartAttributesPack, upatmoRestartAttributesSet
 
 #ifndef __NO_ICON_OCEAN__
     USE mo_ocean_nml, ONLY: lhamocc
@@ -96,6 +98,8 @@ MODULE mo_restart_patch_description
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellMiddle(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellInterfaces(:)
+
+        TYPE(t_upatmoRestartAttributes) :: opt_upatmo_restart_atts
 
         ! these are used for synchronous restart writing
         TYPE(t_comm_gather_pattern), POINTER :: cellGatherPattern, vertGatherPattern, edgeGatherPattern
@@ -164,13 +168,15 @@ CONTAINS
     SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, &
                                              &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                              &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
+                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces, &
+                                             &opt_upatmo_restart_atts)
         CLASS(t_restart_patch_description), INTENT(INOUT) :: me
         TYPE(t_patch), INTENT(IN) :: patch
         INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                        & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
         REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
              & opt_ocean_zheight_cellInterfaces(:)
+        TYPE(t_upatmoRestartAttributes), INTENT(IN), OPTIONAL :: opt_upatmo_restart_atts
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_update"
 
@@ -197,6 +203,7 @@ CONTAINS
             CALL assign_if_present_allocatable(me%opt_nice_class, opt_nice_class)
             CALL assign_if_present_allocatable(me%opt_ndom, opt_ndom)
             CALL assign_if_present_allocatable(me%opt_ocean_zlevels, opt_ocean_zlevels)
+            CALL upatmoRestartAttributesAssign(me%id, me%opt_upatmo_restart_atts, opt_upatmo_restart_atts)
 
             ! consistency check for OPTIONAL ocean variables
             IF(ALLOCATED(me%opt_ocean_zheight_cellMiddle)) THEN
@@ -252,6 +259,8 @@ CONTAINS
         ! optional parameter arrays
         CALL packedMessage%packer(operation, me%opt_pvct)
         CALL packedMessage%packer(operation, me%opt_t_elapsed_phy)
+
+        CALL upatmoRestartAttributesPack(me%id, me%opt_upatmo_restart_atts, packedMessage, operation)
     END SUBROUTINE restartPatchDescription_packer
 
     ! This ensures that the work master has complete up-to-date
@@ -381,6 +390,8 @@ CONTAINS
         END IF
 
         CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy)
+
+        CALL upatmoRestartAttributesSet(me%id, me%opt_upatmo_restart_atts, restartAttributes)
 
     END SUBROUTINE restartPatchDescription_setRestartAttributes
 

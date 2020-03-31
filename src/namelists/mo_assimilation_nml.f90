@@ -57,7 +57,6 @@ MODULE mo_assimilation_nml
     lhn_qrs          ,& ! calculate the integrated precipitation flux
     lhn_logscale     ,& ! apply logarithmic scaling factors
     lhn_wweight      ,& ! apply a weighting with respect to the mean horizontal wind
-    lhn_height       ,& ! use height infos for radar data
     lhn_bright       ,& ! apply bright band detection
     lhn_diag         ,& ! produce more detailed diagnostic output during lhn
     lhn_artif_only      ! apply only artificial temperature profile instead of applying modelled tt_lheat profile
@@ -75,6 +74,7 @@ MODULE mo_assimilation_nml
     lhn_dt_obs        ,& ! time step of input data in minutes
     abs_lhn_lim       ,& ! absolute limit for lhn t-increments (used if lhn_limit or lhn_limitp)
     fac_lhn_artif     ,& ! factor when artificial profile will applied
+    fac_lhn_artif_tune ,& ! tuning factor of increments when artificial profile will applied
     fac_lhn_up        ,& ! limiting factor for upscaling of model heating profile
     fac_lhn_down      ,& ! limiting factor for downscaling model heating profile
     thres_lhn         ,& ! threshold of rain rates to be consinderd within lhn approach
@@ -101,13 +101,13 @@ MODULE mo_assimilation_nml
                               rqrsgmax                   ,           &
                               radar_in     ,                                       &
                               lhn_black    ,blacklist_file             ,           &
-                              lhn_artif    ,fac_lhn_artif              ,           &
+                              lhn_artif    ,fac_lhn_artif, fac_lhn_artif_tune ,    &
                               lhn_filt     ,lhn_hum_adj, lhn_no_ttend  ,           &
                               lhn_limit    ,lhn_limitp  ,abs_lhn_lim   ,           &
                               lhn_relax    ,nlhn_relax                 ,           &
                               lhn_incloud  ,lhn_diag, lhn_qrs          ,           &
                               lhn_logscale ,lhn_wweight                ,           &
-                              lhn_bright   ,lhn_height                 ,           &
+                              lhn_bright   ,                                       &
                               lhn_artif_only   ,                                   &
                               height_file  ,lhn_spqual                 ,           &
                               lhn_dt_obs   ,nradar, radardata_file     ,           &
@@ -144,7 +144,6 @@ CONTAINS
     lhn_wweight        = .FALSE.
     lhn_diag           = .FALSE.
     lhn_artif_only     = .FALSE.
-    lhn_height         = .FALSE.
     lhn_bright         = .FALSE.
     nlhn_start         = -9999
     nlhn_end           = -9999
@@ -156,13 +155,14 @@ CONTAINS
     lhn_coef           = 1.0_wp
     abs_lhn_lim        = 50._wp / 3600._wp    ! max. change in heating: 4K/h
     fac_lhn_artif      = 5._wp
+    fac_lhn_artif_tune = 1._wp
     fac_lhn_up         = 2.0_wp
     fac_lhn_down       = 1.0_wp / 2.0_wp
     thres_lhn          = 0.1_wp / 3600._wp
     radar_in           = './'
-    radardata_file(:)     = 'radardata.g2'
-    blacklist_file(:)     = 'blacklist_dx.g2'
-    height_file(:)        = 'height_dx.g2'
+    radardata_file(:)     = 'radardata.nc'
+    blacklist_file(:)     = 'radarblacklist.nc'
+    height_file(:)        = 'radarheight.nc'
 !    noobs_date  (:)    = '            '
     rqrsgmax           = 1.0_wp
     tt_artif_max       = 0.0015
@@ -237,7 +237,6 @@ CONTAINS
         assimilation_config(jg)%lhn_black       = lhn_black
         assimilation_config(jg)%lhn_incloud     = lhn_incloud
         assimilation_config(jg)%lhn_artif_only  = lhn_artif_only
-        assimilation_config(jg)%lhn_height      = lhn_height
         assimilation_config(jg)%lhn_bright      = lhn_bright
         assimilation_config(jg)%nlhn_start      = nlhn_start
         assimilation_config(jg)%nlhn_end        = nlhn_end
@@ -249,6 +248,7 @@ CONTAINS
         assimilation_config(jg)%lhn_coef        = lhn_coef
         assimilation_config(jg)%abs_lhn_lim     = abs_lhn_lim
         assimilation_config(jg)%fac_lhn_artif   = fac_lhn_artif
+        assimilation_config(jg)%fac_lhn_artif_tune = fac_lhn_artif_tune
         assimilation_config(jg)%fac_lhn_up      = fac_lhn_up
         assimilation_config(jg)%fac_lhn_down    = fac_lhn_down
         assimilation_config(jg)%thres_lhn       = thres_lhn

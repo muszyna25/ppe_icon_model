@@ -1,2052 +1,1545 @@
-dnl Process this file with autoconf to produce a configure script.
-dnl
-dnl Luis Kornblueh
-dnl Uwe Schulzweida
-dnl
-dnl  - add cross compiling for NEC (use --host=sx6)
-dnl  - use autoconf version 2.59 
-dnl  - added cross compiling for CRAY XT3
-dnl  - added support for IBM AIX
-
-dnl
-
-AC_INIT(icon,2.1.0,luis.kornblueh@mpimet.mpg.de,icon-2.1.0)
-AC_PREREQ(2.59)
-
-dnl ######################################################################
-dnl basic package definitions (by default ICON)
-package="ICON"
-
-dnl ######################################################################
-dnl Checks for package options.
-
-AC_PREFIX_DEFAULT([$(pwd)])
-
-AC_CONFIG_SRCDIR([src/drivers/icon.f90])
-AC_CONFIG_AUX_DIR([config])
+AC_PREREQ([2.69])
+AC_INIT([icon], [2.6.0], [], [icon-2.6.0])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([utils])
+AC_CONFIG_SRCDIR([src/drivers/icon.f90])
 
-AC_CANONICAL_SYSTEM
+dnl Temporary message for the users that is emitted on the first failure of the
+dnl script. Please, remove it once all the current users are used to using the
+dnl wrappers:
+icon_usr_note="
+********************************************************************************
+Note that ICON building system has been updated. Now users are recommended to
+run site-specific wrappers instead of this generic configure script.
 
-AC_PROG_AWK
-AC_PROG_GREP
-AC_PROG_SED
+You can find the wrappers in '${srcdir}/config/<organization>/'.
 
-dnl ######################################################################
-dnl find site and hostname
+If you are running a wrapper and still see this message than either you are
+using a wrong one or the wrapper is broken, or there is a problem with the new
+configure script.
+********************************************************************************
+"
+m4_define([AC_MSG_FAILURE],
+[{ AS_MESSAGE([error: in `$ac_pwd':], 2)
+AC_MSG_ERROR([$1
+See `config.log' for more details
+${icon_usr_note}], [$2]); }])
+dnl End of the temporary message injection. Delete up until this line once the
+dnl message is not needed anymore.
 
-AS_CASE([$ac_hostname],
-        [wizard*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],
-        [mlogin*|btlogin*|btc*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],
-        [daint*|tave*|santis*|kesch*],
-        [ac_sitename=cscs.ch
-         fqdn=$ac_hostname.$ac_sitename],
-        [ic2*],      
-        [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],
-        [uc1*],      
-        [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],
-        [fh2*],      
-        [ac_sitename=kit.edu;
-         fqdn=$ac_hostname.$ac_sitename],
-        [
-         AS_IF([test "x$(hostname)" = "x$ac_hostname"],
-               [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
-               [fqdn=$(hostname)])
-         AS_IF([test -n "$fqdn"],
-           [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
-           [ac_sitename=])])
+dnl Currently, ICON makefiles are implemented in a way that allows for
+dnl out-of-source building even if the source directory is "dirty" (i.e.
+dnl contains results of in-source configuration and building). Nonetheless, we
+dnl enforce the source directory to be clean, because, first, it a good
+dnl practice, second, configure scripts of the bundled libraries might complain
+dnl about their "dirty" source directories anyway.
+AS_IF([test "`cd $srcdir && pwd`" != "`pwd`" && dnl
+test -f "$srcdir/config.status"],
+  [AC_MSG_ERROR([source directory already configured; dnl
+run "make distclean" there first])])
 
-AS_IF([test -n "$fqdn" ],
-      [AS_IF([test -z "$[ac_sitename]"],
-             [ac_sitename=local.net],
-             [])],
-      [AS_IF([test -n "$PE_ENV" ],
-             [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
-              AC_MSG_CHECKING([for Cray environment])
-              AC_MSG_RESULT([$[fqdn]])],
-             [fqdn=${HOSTNAME}])
-       [ac_sitename=${fqdn}]])
+############################# OPTION DECLARATIONS ##############################
 
-AC_MSG_CHECKING([for hostname])
-AC_MSG_RESULT([$[ac_hostname]])
-AC_MSG_CHECKING([for site name])
-AC_MSG_RESULT([$[ac_sitename]])
+AC_ARG_ENABLE([rpaths],
+  [AC_HELP_STRING([--enable-rpaths],
+     [add directories specified with -L flags in LDFLAGS and LIBS to the
+runtime library search paths (RPATH) @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_rpaths=yes])],
+  [enable_rpaths=yes])
 
-dnl ######################################################################
-dnl Load pre-set configure options from config/config-options
+AC_ARG_ENABLE([silent-rules],
+  [AC_HELP_STRING([--enable-silent-rules],
+     [less verbose build output (undo: "make V=1") @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_silent_rules=yes])],
+  [enable_silent_rules=yes])
 
-dnl if test -f "config/config-options" ; then
-dnl   AC_GET_MH(config/config-options)
-dnl fi
-
-dnl ######################################################################
-dnl select component models
+m4_divert_once([HELP_ENABLE], [[
+Model Features:]])
 
 AC_ARG_ENABLE([atmo],
-              AS_HELP_STRING([--enable-atmo],[Use atmosphere model component.]),
-              [],[enable_atmo=yes])
-
-AC_ARG_ENABLE([jsbach],
-              AS_HELP_STRING([--enable-jsbach],[Use jsbach model component.]),
-              [],[enable_jsbach=yes])
-
-AC_ARG_ENABLE([rte-rrtmgp],
-              AS_HELP_STRING([--enable-rte-rrtmgp],[Use rte-rrtmgp model component.]),
-              [],[enable_rte_rrtmgp=no])
+  [AC_HELP_STRING([--enable-atmo],
+     [enable the atmosphere component of ICON @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_atmo=yes])],
+  [enable_atmo=yes])
 
 AC_ARG_ENABLE([ocean],
-              AS_HELP_STRING([--enable-ocean],[Use ocean model component.]),
-              [],[enable_ocean=yes])
+  [AC_HELP_STRING([--enable-ocean],
+     [enable the ocean component of ICON @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_ocean=yes])],
+  [enable_ocean=yes])
 
-AC_ARG_ENABLE([testbed],
-              AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
-              [],[enable_testbed=no])
+AC_ARG_ENABLE([jsbach],
+  [AC_HELP_STRING([--enable-jsbach],
+     [enable the land component JSBACH @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_jsbach=yes])],
+  [enable_jsbach=yes])
+
+AC_ARG_ENABLE([coupling],
+  [AC_HELP_STRING([--enable-coupling],
+     [enable the coupling @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
+  [enable_coupling=yes])
 
 AC_ARG_ENABLE([psrad],
-              AS_HELP_STRING([--enable-psrad],[Use psrad model component.]),
-              [],[enable_psrad=yes])
+  [AC_HELP_STRING([--enable-psrad],
+     [enable the radiation component PSRAD @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_psrad=yes])],
+  [enable_psrad=yes])
 
-AC_ARG_ENABLE([mixed],
-              AS_HELP_STRING([--enable-mixed],[Use mixed precision dycore.]),
-              [],[enable_mixed=no])
+AC_ARG_ENABLE([ecrad],
+  [AC_HELP_STRING([--enable-ecrad],
+     [enable usage of the ECMWF radiation scheme (ECRAD) @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_ecrad=yes])],
+  [enable_ecrad=no])
+
+AC_ARG_ENABLE([rte-rrtmgp],
+  [AC_HELP_STRING([--enable-rte-rrtmgp],
+     [enable usage of the RTE+RRTMGP toolbox for radiation calculations
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_rte_rrtmgp=yes])],
+  [enable_rte_rrtmgp=no])
+
+AC_ARG_ENABLE([rttov],
+  [AC_HELP_STRING([--enable-rttov],
+     [enable usage of the radiative transfer model for TOVS
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_rttov=yes])],
+  [enable_rttov=no])
+
+AC_ARG_ENABLE([art],
+  [AC_HELP_STRING([--enable-art],
+     [enable the aerosols and reactive trace component ART
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_art=yes])],
+  [enable_art=no])
+
+m4_divert_once([HELP_ENABLE], [[
+Infrastructural Features:]])
+
+AC_ARG_ENABLE([mpi],
+  [AC_HELP_STRING([--enable-mpi],
+     [enable MPI (parallelization) support @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_mpi=yes])],
+  [enable_mpi=yes])
+
+AC_ARG_ENABLE([mpi-checks],
+  [AC_HELP_STRING([--enable-mpi-checks],
+     [enable configure-time checks of MPI library for known defects ]dnl
+[@<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_mpi_checks=yes])],
+  [enable_mpi_checks=yes])
+
+AC_ARG_ENABLE([active-target-sync],
+  [AC_HELP_STRING([--enable-active-target-sync],
+     [enable MPI active target mode (otherwise, passive target mode is used)
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_active_target_sync=yes])],
+  [enable_active_target_sync=no])
+
+AC_ARG_ENABLE([openmp],
+  [AC_HELP_STRING([--enable-openmp],
+     [enable OpenMP support @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_openmp=yes])],
+  [enable_openmp=no])
 
 AC_ARG_ENABLE([gpu],
-              AS_HELP_STRING([--enable-gpu],[Use GPU accelerators.]),
-              [],[enable_gpu=no])
+  [AC_HELP_STRING([--enable-gpu],
+     [enable GPU support @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_gpu=yes])],
+  [enable_gpu=no])
 
-dnl ######################################################################
-dnl CLAW Compiler setup
+AC_ARG_ENABLE([grib2],
+  [AC_HELP_STRING([--enable-grib2],
+     [enable GRIB2 I/O @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_grib2=yes])],
+  [enable_grib2=no])
 
-AC_ARG_ENABLE([claw],
-              AS_HELP_STRING([--enable-claw],[Enable CLAW Compiler. Two modes are available: std (default) or validate]),
-              [],[enable_claw=no])
-
-AS_IF([test "x$enable_claw" = "xyes"],
-      [enable_claw="std"],
-      [])
-
-AS_IF([test "x$enable_claw" != "xno"],
-         [AS_CASE(["$enable_claw"],
-                 ["std"], [AC_MSG_WARN(["CLAW Compiler is enable in standard mode"])],
-                 ["validate"], [AC_MSG_WARN(["CLAW Compiler is enable in VALIDATE mode"])],
-                 [AC_MSG_ERROR(["CLAW Compiler is enabled but UNKNOWN mode was requested"])])
-         ],
-      [])
-
-dnl ######################################################################
-dnl Serialbox2 serialization setup
-
-AC_ARG_ENABLE([serialization],
-              AS_HELP_STRING([--enable-serialization],[Enable Serialbox2 serialization. Three modes are available: read (default), perturb, create]),
-              [],[enable_serialization=no])
-
-AS_IF([test "x$enable_serialization" = "xyes"],
-      [enable_serialization="read"],
-      [])
-
-AS_IF([test "x$enable_serialization" != "xno"],
-         [AS_CASE(["$enable_serialization"],
-                 ["read"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ mode"])],
-                 ["perturb"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in READ & PERTURB mode"])],
-                 ["create"], [AC_MSG_WARN(["Serialbox2 serialization is enabled in CREATE mode"])],
-                 [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
-         ],
-      [])
-
-dnl ######################################################################
-dnl usage of mh-file
-
-AC_ARG_ENABLE([mh-file],
-              [AS_HELP_STRING([--disable-mh-file],
-                              [disable machine file usage])],
-              [use_mh_file=no],
-              [use_mh_file=yes])
-
-dnl ######################################################################
-dnl features
-
-dnl Fortran
-
-AC_ARG_WITH([fortran],
-  [AS_HELP_STRING([--with-fortran=COMPILER],
-    [select_available compiler (see README.compiler)])],
-  [],
-  [])
-
-AS_IF([test -n "$with_fortran"],
-      [fortran_compiler=$with_fortran],
-      [fortran_compiler="default"])
-
-dnl OpenMP
-
-AC_ARG_WITH([openmp],
-  [AS_HELP_STRING([--with-openmp],
-    [enable OpenMP, if available for selected compiler])],
-  [],
-  [])
-
-dnl AC_ARG_WITH([setup],
-dnl   [AS_HELP_STRING([--with-setup=<name>],
-dnl     [use user specific setup (mh_setup)])],
-dnl     [],
-dnl     [])
-dnl
-dnl AS_IF([test x$with_setup != x],
-dnl       [mh_setup=$with_setup],
-dnl       [mh_setup=""])
-
-AC_ARG_WITH([yaxt],
-  [AS_HELP_STRING([--with-yaxt],
-    [enable experimental use of yaxt])],
-    [AS_IF([test -d "$with_yaxt"],
-           [YAXTROOT=$with_yaxt])],
-    [with_yaxt=no])
-
-AS_IF([test "x$with_yaxt" = "xno"],
-      [use_yaxt="no"],
-      [use_yaxt="yes"])
-
-dnl YAC (coupler)
-
-AC_ARG_WITH([yac],
-  [AS_HELP_STRING([--with-yac],
-    [enable use of yac])],
-    [],
-    [])
-
-AS_IF([test "x$with_yac" = "xno"],
-      [use_yac="no"],
-      [use_yac="yes"])
-
-dnl ecrad (radiation scheme ecRad)
-
-AC_ARG_WITH([ecrad],
-  [AS_HELP_STRING([--with-ecrad],
-    [enable use of ecrad])],
-    [],
-    [])
-
-AS_IF([test "x$with_ecrad" = "xyes"],
-      [use_ecrad="yes"],
-      [use_ecrad="no"])
-
-dnl selects DLR's MESSy
+AC_ARG_ENABLE([parallel-netcdf],
+  [AC_HELP_STRING([--enable-parallel-netcdf],
+     [enable usage of the parallel features of NetCDF
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_parallel_netcdf=yes])],
+  [enable_parallel_netcdf=no])
 
 AC_ARG_ENABLE([cdi-pio],
-  [AS_HELP_STRING([--enable-cdi-pio],
-    [enable experimental use of parallel output via CDI-PIO])],,
-    [enable_cdi_pio=no])
-AS_IF([test "x$enable_cdi_pio" != "xyes" -o $use_yaxt != yes],
-      [enable_cdi_pio=no],
-      [enable_cdi_pio=yes])
+  [AC_HELP_STRING([--enable-cdi-pio],
+     [enable usage of the parallel features of CDI @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_cdi_pio=yes])],
+  [enable_cdi_pio=no])
 
-AC_ARG_WITH([messy],
-  [AS_HELP_STRING([--with-messy],
-    [enable Modular Earth Submodel System (MESSy) interface])],
-  [],
-  [])
+AC_ARG_ENABLE([sct],
+  [AC_HELP_STRING([--enable-sct],
+     [enable the SCT timer @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_sct=yes])],
+  [enable_sct=no])
 
-AS_IF([test "x$with_messy" = "xyes"],
-      [use_messy="yes"],
-      [use_messy="no"])
+AC_ARG_ENABLE([yaxt],
+  [AC_HELP_STRING([--enable-yaxt],
+     [enable the YAXT data exchange @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_yaxt=yes])],
+  [enable_yaxt=no])
 
-dnl selecting compiler option sets
+AC_ARG_ENABLE([claw],
+[  --enable-claw           enable CLAW preprocessing. The value of the argument
+                          must be one of the following @<:@default=no@:>@:
+                            std|yes   enable STANDARD mode
+                            validate  enable VALIDATE mode
+                            no        disable CLAW preprocessing],
+[AS_CASE(["$enableval"],
+   [yes], [enable_claw=std],
+   [std|validate|no], [],
+   [AC_MSG_ERROR([unexpected value for the argument dnl
+--enable-claw='$enableval'; valid values are 'std', 'validate', 'yes' dnl
+(same as 'std'), 'no'])])],
+[enable_claw=no])
 
-AC_ARG_WITH([flags],
-  [AS_HELP_STRING([--with-flags=<name>],
-    [use specified group of flags (std, hiopt, noopt, etc])],
-    [],
-    [])
+AC_ARG_ENABLE([explicit-fpp],
+  [AC_HELP_STRING([--enable-explicit-fpp],
+     [enable explicit Fortran preprocessing @<:@default=auto@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_explicit_fpp=yes])],
+  [enable_explicit_fpp=auto])
 
-dnl selects KIT'S ART
+AC_ARG_ENABLE([serialization],
+[  --enable-serialization  enable the Serialbox2 serialization. The value of
+                          the argument must be one of the following
+                          @<:@default=no@:>@:
+                            read|yes  enable READ mode
+                            perturb   enable READ & PERTURB mode
+                            create    enable CREATE mode
+                            no        disable serialization],
+[AS_CASE(["$enableval"],
+   [yes], [enable_serialization=read],
+   [read|perturb|create|no], [],
+   [AC_MSG_ERROR([unexpected value for the argument dnl
+--enable-serialization='$enableval'; valid values are 'read', 'perturb', dnl
+'create', 'yes' (same as 'read'), 'no'])])],
+[enable_serialization=no])
 
-AC_ARG_WITH([art],
-  [AS_HELP_STRING([--with-art],
-    [enable ART modules via precprocessing directive, if available for selected compiler])],
-  [],
-  [])
+AC_ARG_ENABLE([testbed],
+  [AC_HELP_STRING([--enable-testbed],
+     [enable ICON Testbed infrastructure @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_testbed=yes])],
+  [enable_testbed=no])
 
-AS_IF([test "x$with_art" = "xyes"],
-      [use_art="yes"],
-      [use_art="no"],
+m4_divert_once([HELP_ENABLE], [[
+Optimization Features:]])
 
-)
+AC_ARG_ENABLE([loop-exchange],
+  [AC_HELP_STRING([--enable-loop-exchange],
+     [enable loop exchange @<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_loop_exchange=yes])],
+  [enable_loop_exchange=yes])
 
-dnl ######################################################################
-dnl work around for linking problems with GCC
+AC_ARG_ENABLE([intel-consistency],
+  [AC_HELP_STRING([--enable-intel-consistency],
+     [enable Intel compiler directives enforcing consistency
+@<:@default=auto@:>@])],
+  [AS_IF([test x"$enableval" != xno && test x"$enableval" != xauto],
+     [enable_intel_consistency=yes])],
+  [enable_intel_consistency=auto])
 
-AS_CASE([$host],
-        [i*86-*-linux-*],
-        [AS_IF([test x$fortran_compiler != xintel],
-               [gcc_lib="$(gcc -print-libgcc-file-name)"],
-               [gcc_lib=""])],
-        [gcc_lib=""])                               
+AC_ARG_ENABLE([vectorized-lrtm],
+  [AC_HELP_STRING([--enable-vectorized-lrtm],
+     [enable the parallelization-invariant version of LRTM
+@<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_vectorized_lrtm=yes])],
+  [enable_vectorized_lrtm=no])
 
-dnl ######################################################################
-dnl handling of machine description files (config/mh-<system>)
+AC_ARG_ENABLE([mixed-precision],
+  [AC_HELP_STRING([--enable-mixed-precision],
+     [enable mixed precision dycore @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_mixed_precision=yes])],
+  [enable_mixed_precision=no])
 
-AS_CASE([$host],
-        [sx*-*-*],
-        [host_frag=config/mh-nec],
-        [*-ibm-aix*],
-        [host_frag=config/mh-aix],
-        [*-*-linux-*],
-        [host_frag=config/mh-linux],
-        [*-*-darwin*],
-        [host_frag=config/mh-darwin],
-        [*-cray-*],
-        [host_frag=config/mh-cray],
-        [m4_define([line1], [This configuration is not supported.])
-         m4_define([line2], [Please set a valid config/mh-* file up.])
-         AC_MSG_ERROR([line1 line2], [1])])
+dnl Optional Packages:
 
-# check for environment variables "$GRIB_API",
-# "$ECCODES" (set by these modules).  If nothing is
-# available: load eccodes module:
-AS_IF([test -z "$GRIB_API" -a -z "$ECCODES"],
-  [dwd_gribapi_env="1"])
-AC_MSG_NOTICE([dwd_gribapi_env = $dwd_gribapi_env.])
-export dwd_gribapi_env
+AC_ARG_WITH([external-ecrad],
+  [AC_HELP_STRING([--with-external-ecrad],
+     [use external ECRAD library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_ecrad=yes])],
+  [with_external_ecrad=no])
 
-AS_IF([test $use_mh_file = yes],
-      [ACX_GET_PROFILE_TO_LOAD([$host_frag])
-       AS_IF([test ! -z "$load_profile" ],
-             [. "$load_profile"])
+AC_ARG_WITH([external-rte-rrtmgp],
+     [AC_HELP_STRING([--with-external-rte-rrtmgp],
+        [use external RTE+RRTMGP library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_rte_rrtmgp=yes])],
+  [with_external_rte_rrtmgp=no])
 
-       ACX_GET_MODULES_TO_LOAD([$host_frag])
-       AS_IF([test ! -z "$load_modules" ],
-             [ACX_SWAP_MODULES(["$load_modules"], ["$ignore_if_loaded"])])
+AC_ARG_WITH([external-sct],
+  [AC_HELP_STRING([--with-external-sct],
+     [use external SCT library (when the SCT timer is enabled)
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_sct=yes])],
+  [with_external_sct=no])
 
-       ACX_GET_MH($host_frag)])
+AC_ARG_WITH([external-yaxt],
+  [AC_HELP_STRING([--with-external-yaxt],
+     [use external YAXT library (when the YAXT data exchange is enabled)
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_yaxt=yes])],
+  [with_external_yaxt=no])
 
-dnl ######################################################################
-dnl if not set, select make for making (cannot use anything else anyway)
+AC_ARG_WITH([external-cdi],
+  [AC_HELP_STRING([--with-external-cdi],
+     [use external CDI library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_cdi=yes])],
+  [with_external_cdi=no])
 
-make_command=${make_command-make}
+AC_ARG_WITH([external-mtime],
+  [AC_HELP_STRING([--with-external-mtime],
+     [use external MTIME library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_mtime=yes])],
+  [with_external_mtime=no])
 
-dnl ######################################################################
-dnl are we cross compiling?
+AC_ARG_WITH([external-yac],
+  [AC_HELP_STRING([--with-external-yac],
+     [use external YAC library (when the coupling is enabled)
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_yac=yes])],
+  [with_external_yac=no])
 
-if test "$build" != "$host" ; then
-   CROSS=yes
-else
-   CROSS=""
-fi
+AC_ARG_WITH([external-tixi],
+  [AC_HELP_STRING([--with-external-tixi],
+     [use external TIXI library (when ART is enabled)
+@<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_tixi=yes])],
+  [with_external_tixi=no])
 
-AC_CONFIG_HEADER(config/config.h)
+AC_ARG_WITH([external-self],
+  [AC_HELP_STRING([--with-external-self],
+     [use external SELF library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_self=yes])],
+  [with_external_self=no])
 
-build_host=$host
+AC_ARG_WITH([external-cub],
+  [AC_HELP_STRING([--with-external-cub],
+     [use external CUB library @<:@default=no@:>@])],
+  [AS_IF([test x"$withval" != xno], [with_external_cub=yes])],
+  [with_external_cub=no])
 
-dnl # Makefile is common and does not allow multiple builds
-dnl # Disable the the build_host folder
-dnl if test x$mh_setup != x ; then
-dnl   build_host=${host}-${mh_setup}
-dnl else
-dnl   build_host=$host
-dnl fi
-dnl #build_host=""
+############################ MAKEFILE CONDITIONALS #############################
 
-dnl #------------------------------------
-dnl cat $host_frag > config/mh-config-use
-dnl mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-dnl # echo "mh_local_name=$mh_local_name"
-dnl if test -f $mh_local_name ; then
-dnl   cat $mh_local_name >> config/mh-config-use
-dnl # else
-dnl #   echo "not found!"
-dnl fi
-dnl if test -f config/mh-override ; then
-dnl   cat config/mh-override >> config/mh-config-use
-dnl fi
-dnl host_frag=config/mh-config-use
-dnl #------------------------------------
+AS_VAR_IF([enable_silent_rules], [yes],
+  [AC_SUBST([DEFAULT_VERBOSITY], [0])],
+  [AC_SUBST([DEFAULT_VERBOSITY], [1])])
 
-ac_libs=$LIBS
-LIBS=""
+AS_VAR_IF([enable_jsbach], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/jsbach"
+   icon_subdir_unique_file="src/base/mo_jsb_base.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the land component JSBACH dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-jsbach)])])
+   AC_SUBST([JSBACH_ENABLED], [''])],
+  [AC_SUBST([JSBACH_ENABLED], ['#'])])
 
-if test "$CC" = mpcc_r ;  then
-  CC=xlc_r
-  FC=xlf2003_r
-  F77=xlf_r
-  use_mpcc_r=yes
-fi
-  
-dnl ######################################################################
-dnl define the package
+AS_VAR_IF([enable_art], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/art"
+   icon_subdir_unique_file="chem_init/mo_art_chem_init_utils.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the ART component dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-art)])])
+   AC_SUBST([ART_ENABLED], [''])],
+  [AC_SUBST([ART_ENABLED], ['#'])])
 
-FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
-CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
+AS_VAR_IF([enable_mpi], [yes],
+  [AC_SUBST([MPI_ENABLED], [''])],
+  [AC_SUBST([MPI_ENABLED], ['#'])])
 
-dnl #####################################################################
-dnl add defines for component models
+AS_VAR_IF([enable_openmp], [yes],
+  [AC_SUBST([OPENMP_ENABLED], [''])],
+  [AC_SUBST([OPENMP_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_atmo" = "xno"],
-      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"])
+AS_VAR_IF([enable_gpu], [yes],
+  [AC_SUBST([GPU_ENABLED], [''])],
+  [AC_SUBST([GPU_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_jsbach" = "xno"],
-      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"])
+AS_IF([test "x$enable_claw" != xno],
+  [AC_SUBST([CLAW_ENABLED], [''])],
+  [AC_SUBST([CLAW_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_rte_rrtmgp" = "xno"],
-      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_RTE_RRTMGP__"])
+AS_IF([test "x$enable_explicit_fpp" = xauto && dnl
+test "x$enable_serialization" != xno],
+  [AC_MSG_NOTICE([explicit Fortran preprocessing is enabled because the dnl
+Serialbox2 serialization is requested: disable the explicit preprocessing dnl
+if required (--disable-explicit-fpp)])
+   enable_explicit_fpp=yes])
+AS_VAR_IF([enable_explicit_fpp], [yes],
+  [AC_SUBST([FPP_ENABLED], [''])],
+  [AC_SUBST([FPP_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_ocean" = "xno"],
-      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"])
+AS_IF([test "x$enable_serialization" != xno],
+  [AC_SUBST([SB2_ENABLED], [''])],
+  [AC_SUBST([SB2_ENABLED], ['#'])])
 
-AS_IF([test "x$enable_testbed" = "xno"],
-      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
+############################## ENVIRONMENT CHECKS ##############################
 
-AS_IF([test "x$enable_psrad" = "xno"],
-      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_PS_RAD__"])
+ACX_BUILD_ENVIRONMENT
 
-AS_IF([test "x$enable_mixed" = "xyes"],
-      [FFLAGS="${FFLAGS} ${DEFOPT}__MIXED_PRECISION ${DEFOPT}__MIXED_PRECISION_2"])
+AC_CANONICAL_HOST
+ACX_HOST_FQDN([], [:])
+AC_SUBST([host_fqdn], [$acx_cv_host_fqdn])
 
-dnl #####################################################################
-dnl add local flags
+###################### FORTRAN COMPILER COMMAND AND FLAGS ######################
+dnl Delay the cross-compilation check:
+ACX_COMPILER_CROSS_CHECK_DELAY
 
-dnl use_local_flags_file=config/local_flags
-dnl if test -f $use_local_flags_file ; then
-dnl   AC_GET_MH($use_local_flags_file)
-dnl fi
-
-for other_flags in $icon_flags ; do
-  FFLAGS="${FFLAGS} ${DEFOPT}__${other_flags}__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_flags}__"
-done
-
-
-dnl ######################################################################
-dnl Checks for programs.
-
-AC_PROG_RANLIB
+dnl Override the default flags set by AC_PROG_FC:
+FCFLAGS=${FCFLAGS-}
 AC_PROG_FC
-if test -z "$CROSS" ; then
-  AC_PROG_CC
+AC_LANG([Fortran])
+
+ACX_FC_PP_SRCEXT([f90])
+ACX_COMPILER_FC_VENDOR_SIMPLE
+AC_SUBST([FC_VENDOR], [$acx_cv_fc_compiler_vendor])
+ACX_COMPILER_FC_VERSION_SIMPLE
+AC_SUBST([FC_VERSION], [$acx_cv_fc_compiler_version])
+
+AC_ARG_VAR([ICON_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
+ICON, e.g. optimization flags])dnl
+ICON_FCFLAGS=${ICON_FCFLAGS-}
+
+AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS when compiling the ocean
+component of ICON @<:@default=$ICON_FCFLAGS@:>@])dnl
+ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
+
+AC_ARG_VAR([ICON_BUNDLED_FCFLAGS],
+  [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
+the bundled libraries @<:@default=$ICON_FCFLAGS@:>@])dnl
+subdir_FCFLAGS="$FCFLAGS ${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}"
+
+dnl Run the delayed cross-compilation check:
+AS_VAR_IF([acx_save_cross_compiling], [no],
+  [acx_compiler_cross_check_result=ok
+   AC_LINK_IFELSE([AC_LANG_PROGRAM],
+     [./conftest$ac_cv_exeext >/dev/null 2>&1 || dnl
+acx_compiler_cross_check_result=fail],
+     [acx_compiler_cross_check_result=fail])
+   AS_VAR_IF([acx_compiler_cross_check_result], [fail],
+     [AC_MSG_WARN([unable to link and run executables linked with the dnl
+provided linker flags, which might result into a failure of the following dnl
+standard cross compilation check with a misleading message: make sure that dnl
+the dynamic linker is able to find all the shared libraries specified in dnl
+LIBS, e.g. by extending the LD_LIBRARY_PATH environment variable (or its dnl
+analogue)])])])
+ACX_COMPILER_CROSS_CHECK_NOW
+
+ACX_FC_LINE_LENGTH([unlimited])
+
+ACX_FC_MODULE_IN_FLAG([AC_SUBST([FC_MOD_IN], [$acx_cv_fc_module_in_flag])])
+ACX_FC_MODULE_OUT_FLAG([AC_SUBST([FC_MOD_OUT], [$acx_cv_fc_module_out_flag])])
+
+ACX_FC_MODULE_NAMING(
+  [AC_SUBST([FC_MOD_FILE_UPPER], [$acx_cv_fc_module_naming_upper])
+   AC_SUBST([FC_MOD_FILE_EXT], [$acx_cv_fc_module_naming_ext])])
+
+ACX_FC_INCLUDE_FLAG(
+  [AC_SUBST([FC_INC_FLAG], [$acx_cv_fc_ftn_include_flag])])
+ACX_FC_INCLUDE_ORDER(
+  [FC_INC_ORDER=$acx_cv_fc_ftn_include_order],
+  [FC_INC_ORDER=src,flg])
+AC_SUBST([FC_INC_ORDER])
+
+ACX_FC_INCLUDE_FLAG_PP(
+  [AC_SUBST([FC_INC_FLAG_PP_f90], [$acx_cv_fc_pp_include_flag])])
+ACX_FC_INCLUDE_ORDER_PP(
+  [FC_INC_ORDER_PP_f90=$acx_cv_fc_pp_include_order],
+  [FC_INC_ORDER_PP_f90=inc,flg])
+AC_SUBST([FC_INC_ORDER_PP_f90])
+
+ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
+
+dnl Generate RPATH flags:
+AS_VAR_IF([enable_rpaths], [yes],
+  [ACX_SHLIB_FC_RPATH_FLAG
+   ASX_EXTRACT_ARGS([icon_L_args], ["$LDFLAGS $LIBS"], ['-L@<:@ @:>@*'])
+   for icon_L_arg in $icon_L_args; do
+     ASX_VAR_APPEND_UNIQ([LDFLAGS],
+       ["$acx_cv_fc_rpath_flag$icon_L_arg"], [' '])
+   done
+   ACX_SHLIB_RPATH_FLAGS_CHECK])
+
+ACX_FC_ATTRIBUTE_CONTIGUOUS(
+  [AS_VAR_APPEND([FCFLAGS],
+  [" ${FC_PP_DEF}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])], [:])
+
+AS_VAR_APPEND([FCFLAGS],
+  [" ${FC_PP_DEF}__ICON__"])
+
+AS_VAR_IF([enable_atmo], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
+
+AS_VAR_IF([enable_ocean], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_OCEAN__"])])
+
+AS_VAR_IF([enable_jsbach], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
+
+AS_VAR_IF([enable_coupling], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
+
+AS_VAR_IF([enable_psrad], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
+
+AS_VAR_IF([enable_ecrad], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__ECRAD"])])
+
+AS_VAR_IF([enable_rte_rrtmgp], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
+
+AS_VAR_IF([enable_rttov], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
+
+AS_VAR_IF([enable_art], [yes],
+  [AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}__ICON_ART ${FC_PP_DEF}__ART_TMP_IFDEF"])])
+
+AS_VAR_IF([enable_mpi], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}NOMPI"])])
+
+AS_VAR_IF([enable_active_target_sync], [yes],
+  [AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}HAVE_SLOW_PASSIVE_TARGET_ONESIDED"])])
+
+AS_VAR_IF([enable_parallel_netcdf], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_PARALLEL_NETCDF"])])
+
+AS_VAR_IF([enable_cdi_pio], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_CDI_PIO"])])
+
+AS_VAR_IF([enable_sct], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__SCT__"])])
+
+AS_VAR_IF([enable_yaxt], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_YAXT"])])
+
+AS_IF([test "x$enable_claw" != xno],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}_CLAW"])])
+
+AS_IF([test "x$enable_serialization" != xno],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}SERIALIZE"])
+   AS_CASE(["$enable_serialization"],
+     [read], [AS_VAR_APPEND([FCFLAGS],
+                [" ${FC_PP_DEF}SERIALIZE_READ_REFERENCE"])],
+     [perturb], [AS_VAR_APPEND([FCFLAGS],
+                   [" ${FC_PP_DEF}SERIALIZE_PERTURB_REFERENCE"])],
+     [create], [AS_VAR_APPEND([FCFLAGS],
+                  [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])])
+
+AS_VAR_IF([enable_testbed], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_TESTBED__"])])
+
+AS_VAR_IF([enable_loop_exchange], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
+
+AS_IF([test "x$enable_intel_consistency" = xauto && dnl
+test "x$acx_cv_fc_compiler_vendor" = xintel],
+  [AC_MSG_NOTICE([Intel compiler directives enforcing consistency are dnl
+enabled because $FC is recognized as the Intel Fortran compiler: disable dnl
+the directives if required (--disable-intel-consistency)])
+   enable_intel_consistency=yes])
+AS_VAR_IF([enable_intel_consistency], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}IFORT_CONSISTENCY_ENFORCE"])])
+
+AS_VAR_IF([enable_vectorized_lrtm], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}LRTM_FULL_VECTORIZATION"])])
+
+AS_VAR_IF([enable_mixed_precision], [yes],
+  [AS_VAR_APPEND([FCFLAGS],
+     [" ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"])])
+
+######################### C COMPILER COMMAND AND FLAGS #########################
+dnl Override the default flags set by AC_PROG_CC:
+CFLAGS=${CFLAGS-}
+AC_PROG_CC
+AC_LANG([C])
+
+dnl Supporting ISO C89 means that the following header files are available:
+dnl stdlib.h, stdio.h, math.h, time.h, ctype.h, string.h, signal.h, limits.h
+dnl errno.h, ctype.h assert.h.
+AS_VAR_IF([ac_cv_prog_cc_c89], [no],
+  [AC_MSG_FAILURE([C compiler does not support ISO C89])])
+
+dnl Some of the C source files require support for ISO C99. Supporting ISO C99
+dnl also means that the following header files are available:
+dnl stdbool.h.
+AC_PROG_CC_C99
+AS_VAR_IF([ac_cv_prog_cc_c99], [no],
+  [AC_MSG_FAILURE([C compiler does not support ISO C99])])
+
+ACX_COMPILER_CC_VENDOR_SIMPLE
+ACX_COMPILER_CC_VERSION_SIMPLE
+
+AC_ARG_VAR([ICON_CFLAGS],
+  [C compiler flags to be appended to CFLAGS when compiling ICON,
+e.g. optimization flags])dnl
+ICON_CFLAGS=${ICON_CFLAGS-}
+
+AC_ARG_VAR([ICON_BUNDLED_CFLAGS],
+  [C compiler flags to be appended to CFLAGS when compiling and linking
+the bundled libraries @<:@default=$ICON_CFLAGS@:>@])dnl
+subdir_CFLAGS="$CFLAGS ${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}"
+
+dnl Check for headers that are protected with HAVE_* macros in the code
+dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
+dnl annoying checks; already fixed in the autoconf master branch):
+AC_CHECK_HEADERS([execinfo.h ucontext.h link.h], [], [],
+  [[// override default includes]])
+
+dnl Check for headers that are not protected at all:
+AC_CHECK_HEADERS([unistd.h fcntl.h pwd.h stdint.h sys/types.h sys/stat.h]dnl
+  [sys/param.h sys/resource.h sys/utsname.h sys/time.h sys/times.h dirent.h],
+  [], [AC_MSG_FAILURE([unable to find header file $ac_header])],
+  [[// override default includes]])
+
+dnl Other header files that are protected in the code but not with the HAVE_*
+dnl macros:
+dnl support/util_hash.c: endian.h
+dnl support/util_sysinfo.c: mcheck.h sys/systemcfg.h
+dnl support/util_timer.c: sys/systemcfg.h asm/msr.h
+
+dnl Header files that are included from non-mandatory files
+dnl support/util_signal.c: features.h strings.h fenv.h fptrap.h
+
+########################### CUDA COMPILER AND FLAGS ############################
+
+dnl Don't use neither AS_IF nor AS_VAR_IF to prevent checking for NVCC when
+dnl GPU support is disabled:
+if test "x$enable_gpu" = xyes; then :
+  ACX_PROG_NVCC
+   AS_VAR_IF([acx_cv_prog_nvcc_cuda], [no],
+     [AC_MSG_FAILURE([unable to find a working NVIDIA CUDA Compiler: either dnl
+disable GPU support (--disable-gpu) or set NVCC accordingly])])
+   ACX_PROG_NVCC_CXX11
+   ACX_LANG_PUSH_CUDA
+   AC_CHECK_HEADER([cuda.h], [],
+     [AC_MSG_FAILURE([unable to find header file cuda.h: either disable GPU dnl
+support (--disable-gpu) or set NVCFLAGS accordingly])],
+     [[// override default includes]])
+   ACX_LANG_POP_CUDA
+   AC_LANG_PUSH([Fortran])
+   ACX_FC_CUDA_COMPATIBLE([],
+     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+CUDA compiler: a possible reason is that it cannot find CUDA runtime dnl
+libraries (e.g. '-lcudart'): set LDFLAGS and LIBS accordingly])])
+   ACX_FC_CUDA_STDCXX_COMPATIBLE([],
+     [AC_MSG_FAILURE([Fortran compiler cannot link objects compiled with dnl
+CUDA compiler that require C++ standard library: a possible reason is that dnl
+it cannot find C++ standard library (i.e. '-lstdc++'): set LDFLAGS and LIBS dnl
+accordingly])])
+   AC_LANG_POP([Fortran])
+else
+  NVCC=
+  NVCFLAGS=
 fi
 
-dnl ######################################################################
-dnl ######################################################################
+################################ LIBRARY CHECKS ################################
+
+dnl One of the topological orderings of the ICON dependency graph
+dnl (run ./utils/icon_sorted_deps.sh):
 dnl
-dnl Checks for program properties
-
-dnl ######################################################################
-dnl Checks for XML2.
-
-XML2_LIB=""
-XML2_INCLUDE=""
-
-AC_ARG_WITH([xml2],
-            [AC_HELP_STRING([--with-xml2=DIR],
-                            [Required libxml2])],,
-			    withval=yes)
-
-  if test x$withval = xyes; then
-    if test x$with_xml2 != x; then
-      XML2ROOT=$with_xml2
-    fi
-  fi
-
-  if test -n "$XML2ROOT" ; then
-
-    if test -r "$XML2ROOT/lib/libxml2.a" ; then
-       XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
-    else
-      if test -r "$XML2ROOT/lib64/libxml2.a" -o -r "$XML2ROOT/lib64/libxml2.so" ; then     
-          XML2_LIB='-L$(XML2ROOT)/lib64 -lxml2'
-      else   
-          if test -r "$XML2ROOT/lib/x86_64-linux-gnu/libxml2.a" ; then
-             XML2_LIB='-L$(XML2ROOT)/x86_64-linux-gnu/lib -lxml2'
-          else 
-             echo "cannot read $XML2ROOT/lib/libxml2.a"  
-             exit 1    
-          fi
-      fi
-    fi
-
-    if test -d "$XML2ROOT/include/libxml2" ; then
-       XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
-    else
-       echo "cannot find $XML2ROOT/include/libxml2"  
-       exit 1    
-    fi
-
-    FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
-    CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
-
-  else
-
-    echo "Warning: the variable XML2ROOT is not set in $host_frag"  
-    echo "         set XML2ROOT to the xml2 root directory"
-
-  fi
-
-dnl ######################################################################
-dnl Checks for LAPACK/BLAS
-
-AC_ARG_WITH([lapack],
-            [AC_HELP_STRING([--with-lapack=DIR],
-                            [Alternative vendor optimized LAPACK and BLAS library])],,
-                            withval=yes)
-
-if test x$withval = xyes; then
-  if test x$with_lapack != x; then
-    LAPACKROOT=$with_lapack
-  fi
-fi
-
-if test x$LAPACK_LIB_PATH != x; then
-    LAPACK_LIB='-L$(LAPACK_LIB_PATH) '$LAPACK_LIB
-elif test -n "$LAPACKROOT" ; then
-    LAPACK_LIB='-L$(LAPACKROOT)/lib '$LAPACK_LIB
-elif test -d lapack ; then
-    LAPACKROOT="local"
-    LAPACK_LIB="-L../lib -llapack -lblas"
-else
-    LAPACKROOT=""
-    LAPACK_LIB=""
-fi
-
-dnl ######################################################################
-dnl Checks for zlib.
-
-ZLIB_LIB=""
-ZLIB_INCLUDE=""
-
-AC_ARG_WITH([zlib],
-            [AC_HELP_STRING([--with-zlib=DIR],
-                            [Required I/O package])],,
-			    withval=yes)
-
-if test x$withval = xyes; then
-  if test x$with_zlib != x; then
-    ZLIBROOT=$with_zlib
-  fi
-fi
-
-if test -n "$ZLIBROOT" ; then
-  if test -r "$ZLIBROOT/lib/libz.a" ; then
-     ZLIB_LIB='-L$(ZLIBROOT)/lib -lz'
-  else
-     if test -r "$ZLIBROOT/lib64/libz.a" -o -r "$ZLIBROOT/lib64/libz.so" ; then     
-        ZLIB_LIB='-L$(ZLIBROOT)/lib64 -lz'
-     else   
-        if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
-           ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
-        else 
-           echo "cannot read $ZLIBROOT/lib/libz.a"  
-           exit 1    
-        fi
-     fi
-  fi
-  if test -d "$ZLIBROOT/include" ; then
-     ZLIB_INCLUDE='-I$(ZLIBROOT)/include'
-  else
-     echo "cannot find $ZLIBROOT/include"  
-     exit 1    
-  fi
-else
-  echo "Warning: the variable ZLIBROOT is not set in $host_frag"  
-  echo "         set ZLIBROOT to the zlib root directory"
-fi
-
-dnl ######################################################################
-dnl Checks for SZIP.
-
-SZIP_LIB=""
-SZIP_INCLUDE=""
-
-AC_ARG_WITH([szip],
-            [AC_HELP_STRING([--with-szip=DIR],
-                            [Required I/O package])],,
-			    withval=yes)
-
-if test x$withval = xyes; then
-  if test x$with_szip != x; then
-    SZIPROOT=$with_szip
-  fi
-fi
-
-if test -n "$SZIPROOT" ; then
-  if test -r "$SZIPROOT/lib/libsz.a" ; then
-     SZIP_LIB='-L$(SZIPROOT)/lib -lsz'
-  else
-     echo "cannot read $SZIPROOT/lib/libsz.a"  
-     exit 1    
-  fi
-  if test -d "$SZIPROOT/include" ; then
-     SZIP_INCLUDE='-I$(SZIPROOT)/include'
-  else
-     echo "cannot find $SZIPROOT/include"  
-     exit 1    
-  fi
-  AS_CASE([$ac_hostname],
-    [mlogin*|btlogin*|btc*],
-    [AS_CASE([x"$WLFLAG"],
-      [x-Wl,-Wl,],
-      [SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
-      [x-Wl],
-      [SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
-else
-  echo "Warning: the variable SZIPROOT is not set in $host_frag"  
-  echo "         set SZIPROOT to the szip root directory"
-fi
-
-dnl ######################################################################
-dnl Checks for HDF5.
-
-HDF5_LIB=""
-HDF5_INCLUDE=""
-
-AC_ARG_WITH([hdf5],
-            [AC_HELP_STRING([--with-hdf5=DIR],
-                            [Required I/O package])],,
-			    withval=yes)
-
-if test x$withval = xyes; then
-  if test x$with_hdf5 != x; then
-    HDF5ROOT=$with_hdf5
-  fi
-fi
-
-if test -n "$HDF5ROOT" ; then
-  if test -r "$HDF5ROOT/lib/libhdf5.a" ; then
-     HDF5_LIB='-L$(HDF5ROOT)/lib -lhdf5_hl -lhdf5'
-  else
-     echo "cannot read $HDF5ROOT/lib/libhdf5.a"  
-     exit 1    
-  fi
-  if test -d "$HDF5ROOT/include" ; then
-     HDF5_INCLUDE='-I$(HDF5ROOT)/include'
-  else
-     echo "cannot find $HDF5ROOT/include"  
-     exit 1    
-  fi
-  AS_CASE([$ac_hostname],
-    [mlogin*|btlogin*|btc*],
-    [AS_CASE([x"$WLFLAG"],
-      [x-Wl,-Wl,],
-      [HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
-      [x-Wl],
-      [HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
-else
-  echo "Warning: the variable HDF5ROOT is not set in $host_frag"  
-  echo "         set HDF5ROOT to the hdf5 root directory"
-fi
-
-dnl ######################################################################
-dnl Checks for NETCDF.
-
-NETCDF_LIB=""
-NETCDF_INCLUDE=""
-
-AC_ARG_WITH([netcdf],
-            [AC_HELP_STRING([--with-netcdf=DIR],
-                            [Required I/O package])],
-                            [],
-                            with_netcdf=yes)
-
-AS_CASE([$with_netcdf],
-        [no],[AC_MSG_CHECKING([for netcdf library])
-              AC_MSG_RESULT([suppressed])],
-        [yes],[AS_IF([test -f "$NETCDFROOT/include/netcdf.h"],[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))],
-        [*],[NETCDFROOT=$with_netcdf
-             AS_IF([test -f "$NETCDFROOT/include/netcdf.h"],[],AC_MSG_ERROR([NETCDFROOT (currently: $NETCDFROOT) not properly defined]))]
-        )
-
-if test -n "$NETCDFROOT" ; then
-  if test  x$NETCDFLIBPATH = x; then
-    NETCDFLIBPATH=$NETCDFROOT/lib
-  fi
-  if test -r "$NETCDFLIBPATH/libnetcdff.a" ; then
-     NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdff -lnetcdf'
-  elif test -r "$NETCDFLIBPATH/libnetcdf.a" ; then
-     NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
-  elif test -r "$NETCDFLIBPATH/libnetcdff.so" ; then
-     NETCDF_LIB='-L$(NETCDFLIBPATH)  -lnetcdff -lnetcdf'
-  elif test -r "$NETCDFLIBPATH/libnetcdf.so" ; then
-     NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
-  else
-     echo "cannot read $NETCDFROOT/lib/libnetcdf.a"
-     exit 1
-  fi
-  if test x$gcc_lib != x ; then
-     NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
-  fi
-  AS_CASE([$ac_hostname],
-    [mlogin*|btlogin*|btc*],
-    [AS_CASE([x"$WLFLAG"],
-      [x-Wl,-Wl,],
-      [NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
-      [x-Wl],
-      [NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
-  if test -z "$NETCDFFROOT" ; then
-     if test -r "$NETCDFROOT/include/netcdf.inc" ; then
-         NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
-     else
-         echo "cannot read $NETCDFROOT/include/netcdf.inc"
-         exit 1
-     fi
-  else
-     if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
-       NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
-       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
-         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
-         AS_CASE([$ac_hostname],
-           [mlogin*|btlogin*|btc*],
-           [AS_CASE([x"$WLFLAG"],
-           [x-Wl,-Wl,],
-           [NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-            NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
-           [x-Wl],
-           [NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-            NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
-         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
-       else
-         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
-         exit 1
-       fi
-     fi      
-  fi
-  if [[ "x$use_yac" = xyes ]] ; then
-    CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_C_NETCDF"
-  fi
-else
-  echo "error: the variable NETCDFROOT is not set in $host_frag"
-  echo "       set NETCDFROOT to the netCDF root directory"
-  exit 1
-fi
-
-dnl ######################################################################
-dnl Checks for CDI.
-
-CDI_LIB=""
-CDI_INCLUDE=""
-
-AC_ARG_WITH([cdi],
-            [AC_HELP_STRING([--with-cdi=DIR],
-                            [Required I/O package])],
-                            [],
-                            [with_cdi= ])
-AS_CASE([$with_cdi],
-        [no],[CDIROOT= ],
-        [yes],[AS_IF([test -f "$CDIROOT/include/cdi.inc"],[],AC_MSG_ERROR([CDIROOT (currently: $CDIROOT) not properly defined. Either set CDIROOT explicitly or use the --with-cdi=DIR option format.]))],
-        [*],[
-            CDIROOT=$with_cdi
-            AS_IF([test "x$CDIROOT" != x],
-                AS_IF([test -f "$CDIROOT/include/cdi.inc"],[],AC_MSG_ERROR([CDIROOT (currently set to $CDIROOT by the --with-cdi=DIR option) not properly defined]))
-            )
-        ])
-
-AS_IF(
-    [test "x$CDIROOT" != x], [
-        AS_IF(
-            [test -n "$CDIROOT"], [
-                AS_IF([test "x$CDILIBPATH" = x], [CDILIBPATH=$CDIROOT/lib])
-                AS_IF(
-                    [test -r "$CDILIBPATH/libcdi.a"], [CDI_LIB='-L$(CDILIBPATH) -lcdi'],
-                    [test -r "$CDILIBPATH/libcdi.so"], [CDI_LIB='-L$(CDILIBPATH) -lcdi'],
-                    [AC_MSG_ERROR([cannot read $CDILIBPATH/libcdi.a])]
-                )
-                AS_IF([test "x$gcc_lib" != x], [CDI_LIB="${CDI_LIB} ${gcc_lib}"])
-            ],
-            [AC_MSG_ERROR([The variable CDIROOT is not set in $host_frag. Set CDIROOT to the CDI root directory, or use the --with-cdi=DIR option format.])]
-        )
-    ]
-)
-export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
-
-dnl ######################################################################
-dnl Checks for grib_api/eccodes.
+dnl '-lself', '-licon_tixi', '-lyac', '-llapack -lblas (or other)',
+dnl '-lmtime', '-lSerialboxFortranShared', '-lcdi_f2003 -lcdi',
+dnl '-lyaxt -lyaxt_c', '-lsct', '-lradiance -lrttov10.2 (etc.)',
+dnl '-lradiation -lifsrrtm -lutilities -lifsaux', '-lrrtmgp -lrte',
+dnl '-lnetcdff', '-lgomp (or other)', '-lmpifort -lmpi (or other)'
 dnl
-dnl GRIB support is enabled if the configure option "---with-grib_api"
-dnl is either undefined or set to value (directory/"yes").
-dnl Then, the GRIB library is chosen according to the conditions in the
-dnl following list.
-dnl Here, the list ordering reflects the order of precedence.
+dnl We check these dependencies in the reverse order.
+
+dnl Currently, we assume that the Fortran compiler implicitly links to libm and
+dnl libc, which are required by ICON itself and some of the bundled libraries
+dnl (including the mandatory ones).
+
+dnl Most of the following checks are for Fortran compiler:
+AC_LANG([Fortran])
+
+dnl Additional macro definitions to aid the dependency generator,
+dnl e.g. compiler intrinsic macros:
+AC_SUBST([DEPGEN_FCFLAGS], [''])
+
+dnl A list of library files (i.e. *.a files) of the enabled bundled libraries:
+AC_SUBST([BUNDLED_LIBFILES], [''])
+
+dnl A list of include search flags targeting directories of the bundled
+dnl libraries:
+bundled_includes=
+
+AS_VAR_IF([enable_mpi], [yes],
+  [AC_MSG_CHECKING([whether Fortran 90 interface of MPI library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+       use mpi, only: mpi_init
+       implicit none
+       integer :: error
+       call mpi_init(error)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using Fortran 90 dnl
+interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
+the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])])
+
+AS_VAR_IF([enable_openmp], [yes],
+  [ACX_LANG_OPENMP_FLAG(
+     [AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_openmp_flag"])
+      ACX_LANG_MACRO_CHECK_VALUE([_OPENMP],
+         [201511 201307 201107 200805 200505 200011 199911 199710])
+      AS_VAR_IF([acx_macro_value], [unknown],
+        [AC_MSG_WARN([unable to detect supported OpenMP version])
+         AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENMP"])],
+        [AS_IF([test "$acx_macro_value" -lt 201307 >&AS_MESSAGE_LOG_FD 2>&1],
+           [AC_MSG_WARN([Fortran compiler does not support OpenMP 4.0 dnl
+(201307): it is strongly recommended to disable OpenMP support dnl
+(--disable-openmp)])])
+         AS_VAR_APPEND([DEPGEN_FCFLAGS],
+           [" ${FC_PP_DEF}_OPENMP=$acx_macro_value"])])])],
+  [ACX_LANG_MACRO_CHECK_DEFINED([_OPENMP])
+   AS_VAR_IF([acx_macro_defined], [yes],
+     [AC_MSG_ERROR([Fortran compiler enables OpenMP support by default: set dnl
+FCFLAGS accordingly to disable it])])])
+
+AS_VAR_IF([enable_gpu], [yes],
+  [ACX_LANG_OPENACC_FLAG(
+     [AS_VAR_APPEND([FCFLAGS], [" $acx_cv_fc_openacc_flag"])
+      ACX_LANG_MACRO_CHECK_VALUE([_OPENACC],
+         [201711 201510 201308 201306 201111])
+      AS_VAR_IF([acx_macro_value], [unknown],
+        [AC_MSG_WARN([unable to detect supported OpenACC version])
+         AS_VAR_APPEND([DEPGEN_FCFLAGS], [" ${FC_PP_DEF}_OPENACC"])],
+        [AS_IF([test "$acx_macro_value" -lt 201711 >&AS_MESSAGE_LOG_FD 2>&1],
+           [AC_MSG_WARN([Fortran compiler does not support OpenACC 2.6 dnl
+(201711): it is strongly recommended to disable GPU support (--disable-gpu)])])
+      AS_VAR_APPEND([DEPGEN_FCFLAGS],
+        [" ${FC_PP_DEF}_OPENACC=$acx_macro_value"])])])],
+  [ACX_LANG_MACRO_CHECK_DEFINED([_OPENACC])
+   AS_VAR_IF([acx_macro_defined], [yes],
+     [AC_MSG_ERROR([Fortran compiler enables OpenACC support by default: dnl
+either enable GPU support (--enable-gpu) or set FCFLAGS accordingly to dnl
+disable OpenACC])])])
+
+AC_MSG_CHECKING([whether the Fortran 77 interface of NetCDF library is dnl
+available])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      include 'netcdf.inc'
+      integer :: status, ncid
+      status = nf_open('conftest.nc', nf_nowrite, ncid)]])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using Fortran 77 interface dnl
+of NetCDF library: set FCFLAGS, LDFLAGS and LIBS accordingly])])
+AS_VAR_IF([enable_parallel_netcdf], [yes],
+  [AC_MSG_CHECKING(
+     [whether the provided version of NetCDF is built with parallel support])
+   icon_netcdf_supports_parallel=unknown
+   AS_VAR_IF([cross_compiling], [no],
+     [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mpi, only: mpi_init, MPI_COMM_WORLD, &
+                   & MPI_INFO_NULL
+      implicit none
+      include 'netcdf.inc'
+      integer :: result, tmp
+      call mpi_init(tmp)
+      result = nf_create_par('conftest.nc', &
+                           & NF_MPIIO, &
+                           & MPI_COMM_WORLD, &
+                           & MPI_INFO_NULL, &
+                           & tmp)
+      if (result == NF_ENOPAR) then
+        write(*,"(a)") "conftest_parallel_no"
+      else
+        write(*,"(a)") "conftest_parallel_yes"
+      endif]])],
+        [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+         rm -f conftest.nc
+         AS_IF([test $? -eq 0],
+           [AS_IF(
+              [echo "$icon_exec_result" | dnl
+grep 'conftest_parallel_no' >/dev/null 2>&1],
+              [icon_netcdf_supports_parallel=no],
+              [echo "$icon_exec_result" | dnl
+grep 'conftest_parallel_yes' >/dev/null 2>&1],
+              [icon_netcdf_supports_parallel=yes])])])])
+   AC_MSG_RESULT([$icon_netcdf_supports_parallel])
+   AS_IF([test x"$icon_netcdf_supports_parallel" = xno],
+        [AC_MSG_FAILURE([the provided version of NetCDF does not support dnl
+parallel features: either disable usage of the parallel features of NetCDF dnl
+(--disable-parallel-netcdf) or set FCFLAGS, LDFLAGS and LIBS accordingly])],
+        [test x"$icon_netcdf_supports_parallel" = xunknown],
+        [AC_MSG_WARN([unable to check whether the provided version of dnl
+NetCDF supports parallel features])])])
+
+AS_VAR_IF([enable_rte_rrtmgp], [yes],
+  [AS_VAR_IF([with_external_rte_rrtmgp], [yes],
+     [AC_MSG_CHECKING([whether Fortran RTE+RRTMGP library is available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_optical_props, only: ty_optical_props_1scl, &
+                                & ty_optical_props_2str
+      use mo_gas_optics_rrtmgp, only: ty_gas_optics_rrtmgp
+      use mo_source_functions, only: ty_source_func_lw
+      use mo_rte_kind, only: wp
+      use mo_fluxes, only: ty_fluxes_broadband
+      use mo_rte_lw, only: rte_lw
+      use mo_rte_sw, only: rte_sw
+      use mo_gas_concentrations, only: ty_gas_concs
+      implicit none
+      type(ty_optical_props_1scl) :: optical_props_lw
+      type(ty_optical_props_2str) :: optical_props_sw
+      logical :: top_at_1
+      type(ty_source_func_lw) :: source
+      real(wp), dimension(:,:), allocatable :: sfc_emis_spec, &
+                                             & toa_flux, &
+                                             & sfc_alb_spec
+      type(ty_fluxes_broadband) :: fluxes
+      real(wp), dimension(:), allocatable :: mu0
+      type(ty_gas_concs), dimension(:), allocatable :: gas_conc_array
+      real(wp), dimension(:,:,:), allocatable :: gas_conc_temp_3d
+      character(len=128) :: error_msg
+
+      error_msg = rte_lw(optical_props_lw, top_at_1, source, &
+                       & sfc_emis_spec, fluxes, n_gauss_angles = 1)
+      error_msg = rte_sw(optical_props_sw, top_at_1, mu0, &
+                       & toa_flux, sfc_alb_spec, sfc_alb_spec, fluxes)
+      error_msg = gas_conc_array(1)%set_vmr('h2o',gas_conc_temp_3d(:,:,1))]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using RTE+RRTMGP: dnl
+either disable RTE+RRTMGP (--disable-rte-rrtmgp) or use the bundled version dnl
+of RTE+RRTMGP (--without-external-rte-rrtmgp), or set FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])],
+     [icon_subdir_srcdir="$srcdir/externals/rte-rrtmgp"
+      icon_subdir_unique_file="rte/mo_rte_sw.F90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the the RTE+RRTMGP toolbox dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
+RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of dnl
+RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and dnl
+LIBS accordingly])])
+      ACX_CONFIG_SUBDIR([externals/rte-rrtmgp],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+         [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openacc])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
+         [--enable-openacc="$enable_gpu"],
+         [--enable-silent-rules="$enable_silent_rules"]])
+      AS_VAR_APPEND([bundled_includes],
+        ["${FC_MOD_IN}externals/rte-rrtmgp/mod "])
+      BUNDLED_LIBFILES="externals/rte-rrtmgp/librte.a $BUNDLED_LIBFILES"
+      BUNDLED_LIBFILES="externals/rte-rrtmgp/librrtmgp.a $BUNDLED_LIBFILES"])])
+
+AS_VAR_IF([enable_ecrad], [yes],
+  [AS_VAR_IF([with_external_ecrad], [yes],
+     [AC_MSG_CHECKING([whether Fortran ECRAD library is available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use radiation_config, only: config_type
+      use radiation_interface, only: setup_radiation
+      implicit none
+      type(config_type) :: conf
+      call setup_radiation(conf)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using ECRAD: either dnl
+disable ECRAD (--disable-ecrad) or use the bundled version of ECRAD dnl
+(--without-external-ecrad), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
 dnl
-dnl (1)  configure option "--with-eccodes=DIR"
-dnl      compile ICON with GRIB library located in DIR.
-dnl (2)  configure option "--with-grib_api=DIR"
-dnl      compile ICON with GRIB library located in DIR.
-dnl (3)  environment variable $ECCODES available
-dnl      compile ICON with GRIB library located in $ECCODES.
-dnl (4)  environment variable $GRIB_API available
-dnl      compile ICON with GRIB library located in $GRIB_API.
-dnl (5)  variable "$GRIBAPIROOT" is defined in config/mh-xxx.
-dnl      compile ICON with GRIB library located in "GRIBAPIROOT"
+     [icon_subdir_srcdir="$srcdir/externals/ecrad"
+      icon_subdir_unique_file="radiation/radiation_flux.F90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the the ECMWF radiation dnl
+scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
+ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
+(--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+      ACX_CONFIG_SUBDIR([externals/ecrad],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+         [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([single-precision])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
+         [--enable-silent-rules="$enable_silent_rules"]])
+      AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/ecrad/mod "])
+      BUNDLED_LIBFILES="externals/ecrad/libifsaux.a $BUNDLED_LIBFILES"
+      BUNDLED_LIBFILES="externals/ecrad/libutilities.a $BUNDLED_LIBFILES"
+      BUNDLED_LIBFILES="externals/ecrad/libifsrrtm.a $BUNDLED_LIBFILES"
+      BUNDLED_LIBFILES="externals/ecrad/libradiation.a $BUNDLED_LIBFILES"])])
 
+AS_VAR_IF([enable_rttov], [yes],
+  [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+use rttov_types, only: rttov_coefs
+implicit none
+#include "rttov_nullify_coef.interface"
+type(rttov_coefs),target:: coefs(1)
+call rttov_nullify_coef(coefs(1)%coef)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using RTTOV: either dnl
+disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])])
 
-AC_ARG_WITH([grib_api],
-            [AC_HELP_STRING([--with-grib_api=DIR],
-                            [Enable GRIB2 support via GRIB_API])],
-                            [],
-                            with_grib_api=yes_default)
-
-AC_ARG_WITH([eccodes],
-            [AC_HELP_STRING([--with-eccodes=DIR],
-                            [Enable GRIB2 support via ECCODES (successor of GRIB_API)])],
-                            [],
-                            with_eccodes=no_default)
-
-dnl GRIB_OPTION: "undefined" / "gribapi" / "eccodes" / "suppressed"
-GRIB_OPTION=undefined
-dnl GRIB_SETUP:  "option_setting" / "env_setting"
-GRIB_SETUP=env_setting
-
-
-dnl STEP 1: find out if the user actively suppressed ECCODES or GRIB_API, or if
-dnl         ECCODES or GRIBAPI were explicity chosen.
+AS_VAR_IF([enable_sct], [yes],
+  [AS_VAR_IF([with_external_sct], [yes],
+     [AC_MSG_CHECKING([whether the Fortran interface of SCT library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use sct, only: sct_init
+      implicit none
+      call sct_init(timer_max=512)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using SCT: either dnl
+disable SCT timer (--disable-sct) or use the bundled version of SCT dnl
+(--without-external-sct), or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
 dnl
-AS_CASE([$with_grib_api],
-        [yes],
-        [GRIB_OPTION=gribapi],
-        [no],
-        [GRIB_SETUP=option_setting
-         GRIB_OPTION=suppressed],
-        [])
-AS_CASE([$with_eccodes],
-        [yes],
-        [GRIB_OPTION=eccodes],
-        [no],
-        [GRIB_SETUP=option_setting
-         GRIB_OPTION=suppressed],
-        [])
+     [icon_subdir_srcdir="$srcdir/externals/sct"
+      icon_subdir_unique_file="src/sct_reporter.c"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the SCT timer (--disable-sct) or provide an external dnl
+version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
+      ACX_CONFIG_SUBDIR([externals/sct],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+         [MPICC=*|MPIFC=*|MPI_LAUNCH=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpirun-check])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openmp])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([rpath])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([papi])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([hdf5])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([libpapi-prefix])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([libhdf5-prefix])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [MPICC=], [MPIFC=], [--enable-static], [--disable-shared],
+         [--disable-maintainer-mode], [--enable-mpi="$enable_mpi"],
+         [--enable-openmp="$enable_openmp"], [--disable-rpath],
+         [--disable-papi], [--enable-hdf5],
+         [--enable-silent-rules="$enable_silent_rules"],
+         [--without-libpapi-prefix], [--without-libhdf5-prefix],
+         [MPI_LAUNCH="$MPI_LAUNCH"]])
+      AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/sct/src "])
+      BUNDLED_LIBFILES="externals/sct/src/.libs/libsct.a $BUNDLED_LIBFILES"])])
+dnl The bundled version of SCT, which we link statically, might require
+dnl additional linker flags:
+dnl   1) a flag enabling linking to librt;
+dnl   2) a flag enabling the Fortran compiler to link C code that uses OpenMP.
+AC_CONFIG_COMMANDS_PRE(
+  [AS_CASE([" $subdirs_extra "],
+     [*' externals/sct '*],
+dnl First, we check whether we already have '-lrt' in the LIBS:
+     [AS_CASE([" $LIBS "],
+        [*' -lrt '*], [],
+dnl If that is not the case, check whether the configure script of SCT "decided"
+dnl to include '-lrt' in the LIBS of SCT:
+        [ACX_CONFIG_SUBDIR_VAR([sct_LIBS], [externals/sct], [@LIBS@])
+         AS_CASE([" $sct_LIBS "],
+           [*' -lrt '*],
+dnl If yes, prepend LIBS of ICON with '-lrt':
+           [LIBS="-lrt $LIBS"])])
+dnl Second, get the flags enabling the Fortran compiler to link C code that uses
+dnl OpenMP.
+      AS_VAR_IF([enable_openmp], [yes],
+        [ACX_CONFIG_SUBDIR_VAR([sct_OPENMP_FC_C_FLAGS], [externals/sct],
+           [@OPENMP_FC_C_FLAGS@])
+dnl Check, whether we already have the flag in the linking command:
+         AS_IF([test -n "$sct_OPENMP_FC_C_FLAGS"],
+           [AS_CASE([" $FC $FCFLAGS $ICON_FCFLAGS $LDFLAGS $LIBS "],
+dnl (note that the following does not properly account for multiple flags, which
+dnl is, however, very unlikely):
+              [*" $sct_OPENMP_FC_C_FLAGS "*], [],
+dnl If that is not the case, prepend libs with the flag:
+              [LIBS="$sct_OPENMP_FC_C_FLAGS $LIBS"])])])])])
 
-
-dnl STEP 2: test if GRIB-API or ECCODES were set explicitly by configure option
+AS_IF([test x"$enable_yaxt" = xyes || test x"$enable_cdi_pio" = xyes],
+  [AS_VAR_IF([with_external_yaxt], [yes],
+     [AC_MSG_CHECKING([whether the Fortran interface of YAXT library dnl
+is available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use yaxt, only: xt_initialized, xt_initialize
+      implicit none
+      integer :: a
+      if (.not. xt_initialized()) call xt_initialize(a)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using YAXT: either dnl
+disable the YAXT data exchange (--disable-yaxt) or use the bundled version dnl
+of YAXT (--without-external-yaxt), or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])],
 dnl
-AS_CASE(["$GRIB_OPTION"],
-        [suppressed], [],
-         AS_CASE([$with_grib_api],
-                 [no],         [],
-                 [no_default], [],
-                 [yes],   
-                 [GRIB_OPTION=gribapi],
-                 [yes_default], [],
-                 [GRIB_SETUP=option_setting
-                  GRIB_OPTION=gribapi
-                  GRIBAPIROOT=$with_grib_api])
-         AS_CASE([$with_eccodes],
-                 [no],         [],
-                 [no_default], [],
-                 [yes],   
-                 [GRIB_OPTION=eccodes],
-                 [yes_default], [],
-                 [GRIB_SETUP=option_setting
-                  GRIB_OPTION=eccodes
-                  GRIBAPIROOT=$with_eccodes]))
+     [icon_subdir_srcdir="$srcdir/externals/yaxt"
+      icon_subdir_unique_file="src/xt_idxlist.c"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the YAXT data exchange (--disable-yaxt) or provide an external dnl
+version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
+      ACX_CONFIG_SUBDIR([externals/yaxt],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([regard-for-quality])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [--enable-static], [--disable-shared], [--enable-dependency-tracking],
+         [--enable-silent-rules="$enable_silent_rules"],
+         [--with-regard-for-quality="$enable_mpi_checks"],
+         [MPI_LAUNCH="$MPI_LAUNCH"]])
+      AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yaxt/src "])
+      BUNDLED_LIBFILES="externals/yaxt/src/.libs/libyaxt.a dnl
+externals/yaxt/src/.libs/libyaxt_c.a $BUNDLED_LIBFILES"])])
 
+AS_VAR_IF([with_external_cdi], [yes],
+dnl Check whether an external version of CDI is provided:
+  [AC_MSG_CHECKING([whether the Fortran 2003 interface of CDI 1.8.x library dnl
+is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_cdi, only: TSTEP_CONSTANT, cdiInqNatts, &
+                        vlistInqVarTypeOfGeneratingProcess
+      implicit none
+      integer :: a, b, c, d
+! Appeared in 1.8.x
+      a = cdiInqNatts(b, c, d)
+! Disappeared in 1.9.x
+      a = vlistInqVarTypeOfGeneratingProcess(b, c)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using CDI: either use dnl
+the bundled version of CDI (--without-external-cdi) or set FCFLAGS, LDFLAGS dnl
+and LIBS accordingly])])
+dnl Check whether the provided external version is compatible with ICON:
+   AC_MSG_CHECKING([whether the provided version of CDI 1.8.x is patched])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_cdi, only: t_CdiIterator, cdiIterator_inqFiletype
+      implicit none
+      integer :: a
+      type(t_CdiIterator) :: b
+      a = cdiIterator_inqFiletype(b)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([the provided version of CDI 1.8.x does not have dnl
+required patches])])
+dnl Check whether the provided external version supports the required file
+dnl formats:
+   icon_cdi_formats="NetCDF-2:CDI_FILETYPE_NC2 NetCDF-4:CDI_FILETYPE_NC4 dnl
+GRIB1:CDI_FILETYPE_GRB"
+   AS_VAR_IF([enable_grib2], [yes],
+     [AS_VAR_APPEND([icon_cdi_formats], [" GRIB2:CDI_FILETYPE_GRB2"])])
+   for icon_cdi_format in $icon_cdi_formats; do
+     icon_cdi_format_name=`echo "$icon_cdi_format" | cut -d: -f1`
+     icon_cdi_format_ID=`echo "$icon_cdi_format" | cut -d: -f2`
+     icon_cdi_format_result=unknown
+     AC_MSG_CHECKING([whether the provided version of CDI is built with dnl
+$icon_cdi_format_name support])
+     AS_VAR_IF([cross_compiling], [no],
+       [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_cdi, only: cdiHaveFiletype, $icon_cdi_format_ID
+      write(*, "(i0)") cdiHaveFiletype($icon_cdi_format_ID)]])],
+           [icon_exec_result=`./conftest$ac_exeext 2>/dev/null`
+            AS_IF([test $? -eq 0],
+              [AS_IF([test $icon_exec_result -eq 1],
+                 [icon_cdi_format_result=yes],
+                 [icon_cdi_format_result=no])])])])
+     AC_MSG_RESULT([$icon_cdi_format_result])
+     AS_IF([test x"$icon_cdi_format_result" = xno],
+        [AC_MSG_FAILURE([the provided version of CDI does not support dnl
+$icon_cdi_format_name])],
+        [test x"$icon_cdi_format_result" = xunknown],
+        [AC_MSG_WARN([unable to check whether the provided version of CDI dnl
+supports $icon_cdi_format_name])])
+   done
+dnl Check whether the provided external version supports the parallel features:
+   AS_VAR_IF([enable_cdi_pio], [yes],
+     [AS_VAR_IF([with_external_yaxt], [no],
+        [AC_MSG_ERROR([unsupported combination of the configure options: dnl
+you are trying to configure with the parallel features of an external CDI dnl
+and the bundled YAXT: either disable the parallel features of CDI dnl
+(--disable-cdi-pio) or use the bundled version of CDI dnl
+(--without-external-cdi), or provide the version of YAXT dnl
+(--with-external-yaxt) that CDI has been built with by setting FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
+      AC_MSG_CHECKING([whether the Fortran interface of CDI-PIO library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use yaxt, only: xt_idxlist
+      implicit none
+      include 'cdipio.inc'
+      integer :: cdiCellGridID, gridtype, n_glb, &
+               & max_cell_connectivity, grid_deco_part(2)
+      type(xt_idxlist), allocatable :: reorder_idxlst_xt(:)
+      type(xt_idxlist) :: null_idxlist
+      cdiCellGridID = &
+      &  cdiPioDistGridCreate(gridtype, n_glb, -1, -1, &
+                            & max_cell_connectivity, &
+                            & grid_deco_part, &
+                            & reorder_idxlst_xt(1), &
+                            & null_idxlist, null_idxlist)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using CDI-PIO: dnl
+either disable the usage of the parallel features of CDI dnl
+(--disable-cdi-pio) or set FCFLAGS, LDFLAGS and LIBS accordingly])])])],
+dnl Configure the bundled version of CDI:
+  [AS_VAR_IF([enable_cdi_pio], [yes],
+     [AC_MSG_ERROR([the bundled version of CDI does not currently support dnl
+the parallel features: either disable the usage of the parallel features of dnl
+CDI (--disable-cdi-pio) or provide an external version of CDI dnl
+(--with-external-cdi) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+   icon_subdir_srcdir="$srcdir/externals/cdi"
+   icon_subdir_unique_file="src/cdi.h"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
+external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS dnl
+and LIBS accordingly])])
+   ACX_CONFIG_SUBDIR([externals/cdi],
+     [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([iso-c-interface])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cf-interface])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cdi-app])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([grib])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cgribex])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([grib_api])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([eccodes])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([threads])],
+      [ACX_CONFIG_SUBDIR_PATTERN_WITH([netcdf])]],
+     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+      [--enable-static], [--disable-shared],
+      [--enable-silent-rules="$enable_silent_rules"],
+      [--enable-iso-c-interface], [--disable-cf-interface],
+      [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
+      [--disable-mpi],
+dnl Currently, we don't have full control on choosing the GRIB2 backend (e.g.
+dnl grib_api, eccodes) due to the limitations of the configure script of
+dnl libcdi. Therefore, we set --with-grib_api=$enable_grib2 --without-eccodes
+dnl unconditionally. This way, the configure script of libcdi enables support
+dnl for grib2 regardless of whether grib_api or eccodes library is provided
+dnl with the LDFLAGS and LIBS variables.
+      [--with-grib_api="$enable_grib2"], [--without-eccodes],
+      [--without-threads], [--with-netcdf],
+dnl The configure script of CDI runs nc-config to check for the features of the
+dnl provided NetCDF library. The script might not be available or might belong
+dnl to another NetCDF installation. Therefore, we enforce enabling of NetCDF2
+dnl and NetCDF4 features by setting the corresponding cache variables on the
+dnl command line.
+      [acx_cv_have_netcdf2=yes], [acx_cv_have_netcdf4=yes],
+dnl Disable unwanted extra dependencies.
+      [acx_cv_have_libnc_dap=no], [acx_cv_have_nc4hdf5=no],
+dnl Disable the compilers we do not need.
+      [F77=no],
+dnl Note that we need to set CXX to 'no' not only to disable the redundant
+dnl checks but also to avoid the inconsistency in the generation of the
+dnl 'postdeps' variable for Fortran (!!!) compiler inside the *.la files. We
+dnl care about those files because they are used when linking the test suite of
+dnl CDI (i.e. when running 'make check'). If you want to know more, take a look
+dnl at the macro _LT_LANG_FC_CONFIG in libtool.m4 and note that it does not
+dnl initialize the variable 'output_verbose_link_cmd' as it should but uses the
+dnl value that is set for the C++ compiler. Therefore, by disabling CXX we get
+dnl the same behaviour (still questionable but satisfactory for us) as if CDI
+dnl didn't use the C++ compiler at all (e.g. like in YAXT).
+      [CXX=no],
+      [MPI_LAUNCH="$MPI_LAUNCH"]])
+   AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/cdi/src "])
+   BUNDLED_LIBFILES="externals/cdi/src/.libs/libcdi_f2003.a dnl
+externals/cdi/src/.libs/libcdi.a $BUNDLED_LIBFILES"])
 
-dnl STEP 3: test environment variables (if GRIB2 support not suppressed)
+AS_IF([test "x$enable_serialization" != xno],
+  [AC_MSG_CHECKING(
+     [whether the Fortran interface of SERIALBOX2 library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use utils_ppser, only: ppser_set_mode
+      implicit none
+      call ppser_set_mode(1)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using SERIALBOX2: dnl
+either disable the serialization (--disable-serialization) or set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])])
+
+AS_VAR_IF([with_external_mtime], [yes],
+  [AC_MSG_CHECKING([whether the Fortran interface of MTIME library is dnl
+available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mtime, only: max_date_str_len, date, &
+                     & newdate, dateToString
+      implicit none
+      character(len=max_date_str_len) :: test_date_string
+      type(date), pointer :: test_date
+      test_date => newdate(0,0,0)
+      call dateToString(test_date, test_date_string)]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using MTIME: either use dnl
+the bundled version of MTIME (--without-external-mtime) or set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])],
 dnl
-GRIBAPI_LIB=""
-GRIBAPI_INCLUDE=""
-AS_CASE(["$GRIB_OPTION"],
-        [suppressed], [],
-        [AS_CASE(["$GRIB_SETUP"],
-                 [env_setting],
-                 [env_setting_found=no
+  [icon_subdir_srcdir="$srcdir/externals/mtime"
+   icon_subdir_unique_file="include/mtime_calendar.h"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the bundled version of MTIME dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
+external version of MTIME (--with-external-mtime) by setting CFLAGS, dnl
+FCFLAGS, LDFLAGS and LIBS accordingly])])
+   ACX_CONFIG_SUBDIR([externals/mtime],
+     [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openmp])]],
+     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+      [--enable-static], [--disable-shared],
+      [--enable-silent-rules="$enable_silent_rules"], [--disable-examples],
+      [--enable-openmp="$enable_openmp"]])
+   AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
+   BUNDLED_LIBFILES="externals/mtime/src/.libs/libmtime.a $BUNDLED_LIBFILES"])
 
-                  dnl consider $GRIBAPIROOT only if --with-grib_api is 
-                  dnl different from the default:
-                  AS_CASE([$with_grib_api],
-                          [yes_default], [],
-                          [AC_MSG_CHECKING([direct setting of \$GRIBAPIROOT])
-                           AS_IF([test -n "$GRIBAPIROOT"],
-                                 [AC_MSG_RESULT([$GRIBAPIROOT])
-                                  env_setting_found=yes
-                                  GRIB_OPTION=gribapi],
-                                 [AC_MSG_RESULT([undefined])])
-                          ])
-                  AC_MSG_CHECKING([environment variable \$GRIB_API])
-                  AS_IF([test -n "$GRIB_API"],
-                        [AC_MSG_RESULT([$GRIB_API])
-                         GRIBAPIROOT=$GRIB_API
-                         env_setting_found=yes
-                         GRIB_OPTION=gribapi
-                         AS_CASE(["$GRIB_OPTION"],
-                                 [eccodes],[AC_MSG_ERROR([ECCODES explicitly chosen by config option.])],
-                                 [])],
-                        [AC_MSG_RESULT([undefined])
-                         dnl fallback: search for ECCODES:
-                         AS_CASE([env_setting_found],
-                                 [no],
-                                 [GRIB_OPTION=eccodes],
-                                 [])
-                        ])
-                  AC_MSG_CHECKING([environment variable \$ECCODES])
-                  AS_IF([test -n "$ECCODES"],
-                        [AC_MSG_RESULT([$ECCODES])
-                         GRIBAPIROOT=$ECCODES
-                         env_setting_found=yes
-                         AS_CASE(["$GRIB_OPTION"],
-                                 [gribapi],[AC_MSG_ERROR([GRIBAPI explicitly chosen by config option.])],
-                                 [GRIB_OPTION=eccodes])],
-                        [AC_MSG_RESULT([undefined])])
+AC_MSG_CHECKING([whether Fortran BLAS library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgemm])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using BLAS: set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
 
-                  AC_MSG_CHECKING([environment variable \$ECCODES_DIR])
-                  AS_IF([test -n "$ECCODES_DIR"],
-                        [AC_MSG_RESULT([$ECCODES_DIR])
-                         GRIBAPIROOT=$ECCODES_DIR
-                         env_setting_found=yes
-                         AS_CASE(["$GRIB_OPTION"],
-                                 [gribapi],[AC_MSG_ERROR([GRIBAPI explicitly chosen by config option.])],
-                                 [GRIB_OPTION=eccodes])],
-                        [AC_MSG_RESULT([undefined])])
+AC_MSG_CHECKING([whether Fortran LAPACK library is available])
+AC_LINK_IFELSE([AC_LANG_FUNC_LINK_TRY([dgeev])],
+  [AC_MSG_RESULT([yes])],
+  [AC_MSG_RESULT([no])
+   AC_MSG_FAILURE([unable to link a test program using LAPACK: set FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
 
-                  AS_CASE([$env_setting_found],
-                          [no],
-                          [AC_MSG_NOTICE([no environment setting found.])
-                           GRIB_OPTION=suppressed],
-                          [])
-                  ])
-         ])
+AS_VAR_IF([enable_coupling], [yes],
+  [AS_VAR_IF([with_external_yac], [yes],
+     [AS_VAR_IF([with_external_mtime], [no],
+        [AC_MSG_ERROR([unsupported combination of the configure options: dnl
+you are trying to configure with external YAC and the bundled MTIME: either dnl
+disable the coupling (--disable-coupling) or use the bundled version of YAC dnl
+(--without-external-yac), or provide the version of MTIME dnl
+(--with-external-mtime) that YAC has been built with by setting FCFLAGS, dnl
+LDFLAGS and LIBS accordingly])])
+      AC_MSG_CHECKING([whether the Fortran interface of YAC library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use mo_yac_finterface, only: yac_finit
+      implicit none
+      character(len=1024) :: a, b
+      call yac_finit(a, b)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using YAC: dnl
+either disable the coupling (--disable-coupling) or use the bundled version dnl
+of YAC (--without-external-yac), or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])],
+     [icon_subdir_srcdir="$srcdir/externals/yac"
+      icon_subdir_unique_file="src/grid.c"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of YAC dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the coupling (--disable-coupling) or provide an external version of dnl
+YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+      yac_MTIME_CFLAGS= ; yac_MTIME_CLIBS=
+      AS_VAR_IF([with_external_mtime], [no],
+        [dnl Set $ac_abs_top_srcdir and $ac_abs_top_builddir:
+         _AC_SRCDIRS([.])
+         yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
+         yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"])
+      ACX_CONFIG_SUBDIR([externals/yac],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+         [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
+         [XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*],
+         [MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([lib-only])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([xml])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([netcdf])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi-checks])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-lapack])],
+         [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-mtime])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [MTIME_CFLAGS="$yac_MTIME_CFLAGS"], [MTIME_CLIBS=],
+         [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=], [XML2_CLIBS=],
+         [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
+         [FORTRAN_LAPACK_CLIBS=],
+         [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
+         [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
+         [--with-external-lapack=fortran], [--with-external-mtime],
+         [--enable-mpi-checks="$enable_mpi_checks"],
+         [acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS"]])
+      AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/yac/src "])
+      BUNDLED_LIBFILES="externals/yac/src/libyac.a $BUNDLED_LIBFILES"])])
 
-dnl STEP 4: test if GRIB library directory is now properly defined.
+AS_VAR_IF([enable_art], [yes],
+  [AS_VAR_IF([with_external_tixi], [yes],
+     [AC_MSG_CHECKING([whether the Fortran interface of TIXI library is dnl
+available])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use tixi, only: tixiOpenDocument
+      implicit none
+      character(len=200) :: a
+      integer :: b
+      b = tixiOpenDocument(a, b)]])],
+        [AC_MSG_RESULT([yes])],
+        [AC_MSG_RESULT([no])
+         AC_MSG_FAILURE([unable to link a test program using TIXI: either dnl
+disable the ART component (--disable-art) or use the bundled version of dnl
+TIXI (--without-external-tixi), or set FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])],
+     [icon_subdir_srcdir="$srcdir/externals/tixi"
+      icon_subdir_unique_file="src/tixi.f90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
+disable the ART component (--disable-art) or provide an external version of dnl
+TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS dnl
+accordingly])])
+      ACX_CONFIG_SUBDIR([externals/tixi],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+         [XML2_CFLAGS=*|XML2_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
+        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+         [XML2_CFLAGS=], [XML2_CLIBS=],
+         [--enable-silent-rules="$enable_silent_rules"]])
+      AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/tixi/src "])
+      BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a dnl
+$BUNDLED_LIBFILES"])])
+
+AS_VAR_IF([with_external_self], [yes],
+  [AC_MSG_CHECKING([whether Fortran SELF 0.2 library is available])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
+      use self_object
+      use self_vector_ref
+      use self_vector
+      use self_map, only: map
+      use self_assert
+      implicit none
+      type(map) :: a
+      call a%init()]])],
+     [AC_MSG_RESULT([yes])],
+     [AC_MSG_RESULT([no])
+      AC_MSG_FAILURE([unable to link a test program using SELF 0.2 dnl
+library: either use the bundled version of SELF (--without-external-self) dnl
+or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
+  [icon_subdir_srcdir="$srcdir/externals/self"
+   icon_subdir_unique_file="src/self_object.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the bundled version of SELF dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
+external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
+and LIBS accordingly])])
+   ACX_CONFIG_SUBDIR([externals/self],
+     [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
+     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+      [--enable-silent-rules="$enable_silent_rules"]])
+   AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/self/src "])
+   BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"])
+
+dnl Prepend the include search flags to FCFLAGS:
+AS_IF([test -n "$bundled_includes"], [FCFLAGS="${bundled_includes}${FCFLAGS}"])
+
+AS_VAR_IF([enable_gpu], [yes],
+  [AS_VAR_IF([with_external_cub], [yes],
+     [ACX_LANG_PUSH_CUDA
+      AC_CHECK_HEADER([cub/device/device_select.cuh], [],
+        [AC_MSG_FAILURE([unable to find header files of CUB library: either dnl
+disable GPU support (--disable-gpu) or use the bundled version of CUB dnl
+(--without-external-cub) or set NVCFLAGS accordingly])],
+        [[// override default includes]])
+      ACX_LANG_POP_CUDA],
+     [icon_subdir_srcdir="$srcdir/externals/cub"
+      icon_subdir_unique_file="cub/device/device_select.cuh"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of CUB dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
+GPU support (--disable-gpu) or provide an external version of CUB dnl
+(--with-external-cub) by setting NVCFLAGS accordingly])])
+      AS_VAR_APPEND([NVCFLAGS], [" -I${srcdir}/externals/cub"])])])
+
+##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
+
+AC_PROG_INSTALL
+AC_PROG_MKDIR_P
+dnl The message generated by AC_PROG_LN_S is misleading in our case, therefore
+dnl we do what the standard macro does but without the message:
+AC_SUBST([LN_S], [$as_ln_s])
+
+AC_ARG_VAR([PYTHON], [Python interpreter command])dnl
+ACX_PROG_SEARCH([PYTHON], [python python3],
+  [icon_prog_try=dnl
+'$acx_candidate $srcdir/utils/mkhelper/depgen.py -h >/dev/null'
+   AC_TRY_EVAL([icon_prog_try])],
+  [PYTHON=$acx_candidate])
+
+AC_ARG_VAR([PERL], [Perl interpreter command])dnl
+ACX_PROG_SEARCH([PERL], [perl],
+  [icon_prog_try='$acx_candidate $srcdir/utils/pvcs.pl --help >/dev/null'
+   AC_TRY_EVAL([icon_prog_try])
+   test $ac_status -eq 0 || test $ac_status -eq 1],
+  [PERL=$acx_candidate])
+
+AC_ARG_VAR([CLAW], [CLAW preprocessor command (optional)])dnl
+AC_ARG_VAR([CLAWFLAGS], [CLAW preprocessor flags (optional)])dnl
+AS_IF([test "x$enable_claw" != xno],
+  [icon_subdir_srcdir="$srcdir/externals/omni-xmod-pool"
+   icon_subdir_unique_file="self/0.2/self_object.xmod"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find precompiled module files for OMNI dnl
+compiler required for CLAW preprocessing ($icon_subdir_unique_file) in dnl
+'$icon_subdir_srcdir': disable CLAW preprocessing (--disable-claw)])])
+   AS_VAR_IF([with_external_mtime], [yes],
+     [icon_subdir_srcdir="$srcdir/externals/mtime"
+      icon_subdir_unique_file="src/libmtime.f90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of dnl
+MTIME library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which dnl
+are required for CLAW preprocessing even if an external version of the dnl
+library is used: disable CLAW preprocessing (--disable-claw)])],
+        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
+'$icon_subdir_unique_file' and other source files of the bundled version of dnl
+MTIME in '$icon_subdir_srcdir' even if an external version of the library is dnl
+used: it is strongly recommended to switch to the bundled version of MTIME dnl
+(--without-external-mtime) to avoid potential inconsistency])])])
+   AS_VAR_IF([with_external_cdi], [yes],
+     [icon_subdir_srcdir="$srcdir/externals/cdi"
+      icon_subdir_unique_file="src/mo_cdi.f90"
+      AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+        [AC_MSG_ERROR([unable to find sources of the bundled version of CDI dnl
+library ($icon_subdir_unique_file) in '$icon_subdir_srcdir', which are dnl
+required for CLAW preprocessing even if an external version of the library dnl
+is used: disable CLAW preprocessing (--disable-claw)])],
+        [AC_MSG_WARN([CLAW preprocessing implies parsing dnl
+'$icon_subdir_unique_file' and other source files of the bundled version of dnl
+CDI in '$icon_subdir_srcdir' even if an external version of the library is dnl
+used: it is strongly recommended to switch to the bundled version of CDI dnl
+(--without-external-cdi) to avoid potential inconsistency])])])
+   AS_VAR_IF([enable_openmp], [yes],
+     [AC_MSG_WARN([CLAW preprocessing is not compatible with OpenMP: it is dnl
+strongly recommended to disable OpenMP support (--disable-openmp)])])
 dnl
-AS_CASE(["$GRIB_OPTION"],
-        [suppressed], [],
-        [AC_MSG_CHECKING([for GRIB library])
-         AS_IF([test -f "$GRIBAPIROOT/include/grib_api.h"],
-               [],
-               [AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h])])
-         AC_MSG_RESULT([done.])
-        ])
-
-
-dnl STEP 5: create LIB and include paths.
+  AS_VAR_IF([enable_gpu], [yes],
+     [AS_VAR_APPEND([CLAWFLAGS], [' --target=gpu --directive=acc'])],
+     [AS_VAR_APPEND([CLAWFLAGS], [' --target=cpu --directive=none'])])
+   AS_VAR_IF([enable_claw], [validate],
+     [AS_VAR_IF([enable_serialization], [no],
+        [AC_MSG_ERROR([unsupported combination of the configure options: you dnl
+are trying to configure with CLAW preprocessing in VALIDATE mode but the dnl
+Serialbox2 serialization is disabled: either enable CLAW preprocessing in a dnl
+different mode (--enable-claw=std) or enable the Serialbox2 serialization dnl
+(--enable-serialization)])])
+dnl Enable serialization support and update after kernels:
+      AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_serialization_enabled:true'])
+      AS_VAR_APPEND([CLAWFLAGS],
+        [' -x=sca_serialization_enabled_direction:write'])
+      AS_VAR_APPEND([CLAWFLAGS],
+        [' -x=sca_forward_update_enabled_direction:out'])],
+     [dnl
+dnl Disable serialization support and updates by kernel:
+      AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_serialization_enabled:false'])
+      AS_VAR_APPEND([CLAWFLAGS], [' -x=sca_forward_update_enabled:false'])])
+dnl Check for CLAW:
+   AC_LANG_ASSERT([Fortran])
+   AC_MSG_CHECKING([for CLAW preprocessor command])
+   icon_claw_result=unknown
+   AS_MKDIR_P([conftest.dir])
+   cd conftest.dir
+   AC_LANG_CONFTEST([AC_LANG_SOURCE(
+[[      module conftest_module
+      end module]])])
+   icon_prog_try='$CLAW -f -o conftest.claw.$ac_ext conftest.$ac_ext'
+   AC_TRY_EVAL([icon_prog_try])
+   AS_IF([test $ac_status -eq 0 && test -f conftest.claw.$ac_ext && dnl
+test -f conftest_module.xmod],
+     [mv conftest.claw.$ac_ext conftest.$ac_ext
+      AC_COMPILE_IFELSE([], [icon_claw_result=$CLAW])])
+   cd ..
+   rm -rf conftest.dir
+   AC_MSG_RESULT([$icon_claw_result])
+   AS_VAR_IF([icon_claw_result], [unknown],
+     [AC_MSG_FAILURE([unable to find a valid CLAW preprocessor command: dnl
+either disable CLAW preprocessing (--disable-claw) or set CLAW accordingly])])
 dnl
-GRIBAPI_LIB=""
-GRIBAPI_INCLUDE=""
-AS_CASE(["$GRIB_OPTION"],
-        [eccodes],
-        [LIB_GRIB_API_ROOT="eccodes"],
-        [gribapi],
-        [LIB_GRIB_API_ROOT="grib_api"])
+   AC_CONFIG_FILES([claw.mk])],
+  [CLAW=])
+
+AC_ARG_VAR([FPP], [Fortran preprocessor command (optional)])dnl
+AS_VAR_IF([enable_explicit_fpp], [yes],
+  [ACX_PROG_FPP([FPP],
+     [FPP=$acx_cv_prog_fpp],
+     [AC_MSG_FAILURE([unable to find a valid Fortran preprocessor command: dnl
+either disable explicit Fortran preprocessing (--disable-explicit-fpp) or dnl
+set FPP accordingly])],
+     [$FC_INC_FLAG_PP_f90], [$FC_PP_DEF], [utils/fpp-wrappers])],
+  [FPP=])
+
+AC_ARG_VAR([SB2PP], [Serialbox2 preprocessor command (optional)])dnl
+AS_IF([test "x$enable_serialization" != xno],
+  [AC_LANG_ASSERT([Fortran])
+   AC_MSG_CHECKING([for Serialbox2 preprocessor command])
+   icon_sb2pp_result=unknown
+   SB2PP=${SB2PP-'${PYTHON} -m pp_ser'}
+dnl pp_ser.py can not process a piece of code like this:
+dnl   program main
+dnl   end
+dnl Therefore, we need to generate the source code manually:
+   AC_LANG_CONFTEST([AC_LANG_SOURCE(
+[[      program main
+      implicit none
+      !\$ser mode write
+      call ppser_set_mode(1)
+      end program]])])
+   icon_prog_try=dnl
+"$SB2PP -o conftest.$ac_ext conftest.$ac_ext >&AS_MESSAGE_LOG_FD"
+   AC_TRY_EVAL([icon_prog_try])
+   AS_IF([test $? -eq 0], [AC_LINK_IFELSE([], [icon_sb2pp_result=$SB2PP])])
+   rm -f conftest.$ac_ext
+   AC_MSG_RESULT([$icon_sb2pp_result])
+   AS_VAR_IF([icon_sb2pp_result], [unknown],
+     [AC_MSG_FAILURE([unable to find a valid Serialbox2 preprocessor dnl
+command: either disable the serialization (--disable-serialization) or make dnl
+sure that path to the 'pp_ser' module is in the PYTHONPATH environment dnl
+variable, or set SB2PP accordingly])])],
+   [SB2PP=])
+
+AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command (optional)])dnl
+dnl The configure scripts of the most of the bundled libraries expect
+dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
+dnl accommodate when required and if possible:
+AS_IF([test -n "$MPI_LAUNCH"],
+  [AS_CASE(["$MPI_LAUNCH"],
+     [[[\\/]]* | ?:[[\\/]]*], [],
+     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
+        [MPI_LAUNCH="$acx_prog_search_path"])])])
+
+#################################### OUTPUT ####################################
+
+AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_FILES([
+  Makefile
+  depgen.c.config
+  depgen.f90.config
+  deplist.config
+  icon.mk
+])
+
+dnl An additional step to generate dummy dependencies:
+AC_CONFIG_COMMANDS([depfiles],
+  [${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&AS_MESSAGE_LOG_FD
+   sleep 1
+   touch icon.mk])
 
-AS_CASE(["$GRIB_OPTION"],
-        [suppressed], [],
-        [AS_IF([test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a" || 
-                test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.dylib" || 
-                test -r "$GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.so"],
-               [GRIBAPI_LIB="-L\$(GRIBAPIROOT)/lib -l${LIB_GRIB_API_ROOT}"],
-               [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/lib${LIB_GRIB_API_ROOT}.a])])
-         AS_IF([test -d "$GRIBAPIROOT/include"],
-               [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
-               [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
-         FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
-         CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
-         AS_CASE([$GRIB_OPTION],
-                 [eccodes],
-                 [AS_IF([test -n "$AEC_DIR"],
-                        # note the backslash-notation for environment variables:
-                        # this means that they are not evaluated right now.
-                        [GRIBAPI_LIB="$GRIBAPI_LIB -L\${AEC_DIR}/lib -laec"
-                         AC_MSG_NOTICE([taking over environment variable $AEC_DIR])],
-                        [])],
-                 []) 
-       AS_CASE([$ac_hostname],
-               [daint*|kesch*],
-               [AS_CASE([$FC],
-			[cray],
-                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
-                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
-               [mlogin*|btlogin*|btc*],
-               [AS_CASE([x"$WLFLAG"],
-                        [x-Wl,-Wl,],
-                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
-                        [x-Wl],
-                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')]
-                )]
-       )]
-)
-
-dnl print-out of chosen GRIB support
-dnl
-AS_CASE([$GRIB_OPTION],
-        [gribapi],
-        [AS_CASE([$GRIB_SETUP],
-                 [env_setting],
-                 [AC_MSG_NOTICE([GRIB support uses environment variable \$GRIB_API / \$GRIBAPIROOT.])],
-                 [option_setting],
-                 [AC_MSG_NOTICE([GRIB support uses GRIB-API by configure option.])],
-                 [])],
-        [eccodes],
-        [AS_CASE([$GRIB_SETUP],
-                 [env_setting],
-                 [AC_MSG_NOTICE([GRIB support uses environment variable \$ECCODES.])],
-                 [option_setting],
-                 [AC_MSG_NOTICE([GRIB support uses ECCODES by configure option.])],
-                 [])],
-        [suppressed],
-        [AC_MSG_NOTICE([GRIB support disabled.])],
-        [])
-
-        
-dnl ######################################################################
-dnl Checks for SCT.
-
-SCT_LIB=""
-SCT_INCLUDE=""
-
-AC_ARG_WITH([sct],
-            [AC_HELP_STRING([--with-sct=DIR],
-                            [Optional SCT timer package])],
-                            [],
-                            with_sct=no)
-
-AS_CASE([$with_sct],
-      [no],[AC_MSG_CHECKING([for sct library])
-            AC_MSG_RESULT([suppressed])],
-      [yes],[AS_IF([test -f "$SCTROOT/include/sct.mod"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
-             AS_IF([test -f "$SCTROOT/lib/libsct.a"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))],
-      [*],[SCTROOT=$with_sct
-           AS_IF([test -f "$SCTROOT/include/sct.mod"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find sct.mod]))
-           AS_IF([test -f "$SCTROOT/lib/libsct.a"],[],AC_MSG_ERROR([SCTROOT (currently: $SCTROOT) not properly defined to find libsct.a]))]
-      )
-
-if test -n "$SCTROOT" ; then
-  if test -r "$SCTROOT/lib/libsct.a" ; then
-    SCT_LIB='-L$(SCTROOT)/lib -lsct'
-  else
-    echo "cannot read $SCTROOT/lib/libsct.a"  
-    exit 1
-  fi
-  if test -d "$SCTROOT/include" ; then
-    SCT_INCLUDE='-I$(SCTROOT)/include'
-  else
-    echo "cannot find $SCTROOT/include"  
-    exit 1
-  fi
-
-  FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
-  CFLAGS="${CFLAGS} -D__SCT__"
-
-  AS_CASE([$ac_hostname],
-          [mlogin*|btc*],
-          [AS_CASE([x"$WLFLAG"],
-             [x-Wl,-Wl,],
-             [SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g'`],
-             [x-Wl],
-             [SCT_LIB=`echo $SCT_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g'`])],
-          [])
-
-dnl checks for additional libs needed for sct, eg. papi
-
-  AC_ARG_WITH([sctlibs],
-              [AC_HELP_STRING([--with-sctlibs=PATHS],
-                              [Optional libs needed for SCT])],
-                              [],
-                              [])
-  AS_IF([test "x$with_sctlibs" != ""],
-        [SCT_LIB="${SCT_LIB} $with_sctlibs"],
-        [])
-
-else
-  echo "Info: the variable SCTROOT is not set in $host_frag"  
-  echo "      fallback to mo_real_timer is used"
-  echo "      otherwise, set SCTROOT to the sct root directory"
-
-  FFLAGS=$(echo ${FFLAGS} | sed "s/${DEFOPT}__SCT__//")
-  CFLAGS=$(echo ${CFLAGS} | sed "s/${DEFCOPT}__SCT__//")
-fi
-
-dnl ######################################################################
-dnl Checks for MPI.
-
-case $host in
-  powerpc-ibm-aix*)
-    q64_result="no"
-    mt_result="no"
-    q64_result=$(echo $FFLAGS | $AWK -v b="-q64" '$0 ~ b { print "yes" }')
-    mt_result=$(echo $FC | $AWK -v b="_r" '$0 ~ b { print "yes" } ')
-    if [[ x$mt_result != xyes ]]; then
-      echo "error: IBM MPI requires thread safe compiler versions."
-      echo "       add _r to compiler selected by FC."
-      exit 1
-    fi
-
-    if test x$q64_result = xyes; then
-      MPI_INCLUDE_THREAD="thread64/"
-    else
-      MPI_INCLUDE_THREAD="thread/"
-    fi
-    ;;
-  *-*-darwin*)
-    if test -n "$MPIROOT" ; then
-      mpifh=$(find $MPIROOT/include -name mpif.h)
-      mpifh=${mpifh%\/mpif.h}
-      mpifh=${mpifh##*/}
-      if test -n $mpifh; then
-        MPI_INCLUDE_THREAD="$mpifh/"
-      fi
-     fi
-     ;;
-  *)
-    MPI_INCLUDE_THREAD=""
-    ;;
-esac
-
-
-MPI_INCLUDE=""
-
-AC_ARG_WITH([mpi],
-  [AC_HELP_STRING([--with-mpi=DIR],
-     [use MPI installed in DIR (default from machine file)])],
-  [],
-  [with_mpi=yes])
-
-
-AS_IF([test x"$with_mpi" = xno],
-  [FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-   MPI_LIB=""
-   MPI_VERSION=none
-   MPIROOT=""
-   use_mpcc_r=no],
-  [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
-    [MPIROOT=${MPIROOT:-$with_mpi}])
-   AS_IF([test x"$MPIROOT" != x],
-    [AS_IF([test -f "$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h"],,[AC_MSG_ERROR([MPIROOT not properly defined])])
-    case $host in
-    *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf "%s ", $i}}}') "$MPI_LIB
-      ;;
-    *)
-      MPI_LIB="-L$MPIROOT/lib "$MPI_LIB
-      ;;
-    esac
-    MPI_I_INCLUDE="-I$MPIROOT/include/${MPI_INCLUDE_THREAD}"
-    case $host in
-    powerpc-ibm-aix*)
-      mod_file=$(find $MPIROOT -name mpi.mod -print 2>/dev/null | grep mpi.mod | grep ${MPI_INCLUDE_THREAD})
-      ;;
-    sx?-nec-superux)
-      real_path=$(cd $MPIROOT; pwd -P)
-      mod_file=$(find $real_path -name mpi.mod -print | grep -v modulew)
-      mod_file="${MPIROOT}/lib${mod_file##*lib0}"
-      ;;
-    *-*-darwin*)
-      real_path=$(cd $MPIROOT; pwd -P)
-      mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | $AWK 'NR==1')
-      ;;
-    *)
-      real_path=$(cd $MPIROOT; pwd -P)
-#      mod_file=$(find $real_path -name mpi.mod -print -quit)
-      case "$MPIROOT" in
-      *impi*)
-        AS_CASE([$FC],
-                [gfortran],
-                [vers=$(gfortran --version | $AWK 'NR==1{print $4}')
-                 mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | $AWK 'NR==1')],
-                [pgfortran],
-                [vers=$(pgfortran --version | $AWK 'NR==2{print $2}' | cut -d. -f1)
-                 mod_file=$(find $real_path/include/pgfortran -name mpi.mod -print | $AWK 'NR==1')],
-                [mod_file=$(find $real_path -not \( -path *gfortran/* -prune \) -not \( -path *ilp64* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
-        ;;      
-      *)
-        mod_file=$(find $real_path -name mpi.mod -print | $AWK 'NR==1')
-        ;;
-      esac
-      ;;
-    esac
-    if test -r $mod_file ; then
-       mod_file=${mod_file#$real_path}
-       mod_file=${mod_file#$MPIROOT}
-       mod_file="$MPIROOT"${mod_file}
-       MPI_M_INCLUDE=${MODOPT}${mod_file%/*}
-    else
-       echo "cannot read $mod_file/mpi.mod"
-       exit 1
-    fi
-    if test "x$MPI_M_INCLUDE" = "x$MPI_I_INCLUDE" ; then
-      MPI_INCLUDE="$MPI_M_INCLUDE"
-    else
-      MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
-    fi],
-   [MPI="${DEFOPT}NOMPI"
-    MPI_LIB=""])])
-
-dnl ######################################################################
-dnl Checks for IBM'S hpm
-
-PROFILE_LIB=""
-PROFILE_INCLUDE=""
-
-withval=no
-AC_ARG_WITH([hpm],
-            [],
-            [],
-             with_hpm=no)
-
-if test x$withval = xyes; then
-  FFLAGS="${FFLAGS} ${DEFOPT}__hpm__"
-  PROFILE_LIB="$HPM_LIB"
-  PROFILE_INCLUDE="$HPM_INCL"
-fi
-
-
-dnl ######################################################################
-dnl Checks for header files.
-
-if test -z "$CROSS" ; then
-
-   AC_HEADER_STDC
-   AC_CHECK_HEADERS_ONCE(fcntl.h fortran.h limits.h malloc.h netdb.h pwd.h unistd.h execinfo.h ucontext.h sys/param.h sys/time.h sys/unistd.h sys/utsname.h link.h)
-
-dnl Checks for typedefs, structures, and compiler characteristics.
-   AC_C_CONST
-   AC_HEADER_TIME
-
-dnl Checks for library functions.
-   AC_CHECK_FUNCS(getrusage gettimeofday sysconf uname valloc)
-
-dnl Check for byte ordering
-
-   AC_C_BIGENDIAN
-
-dnl Check for Fortran naming convention
-
-dnl  the m4_pushdef of lSystem inserts a hack by Cray also with stock autoconf
-   m4_pushdef([lSystem],[lSy[]stem | -ltcmalloc | -ltcmalloc_minimal])dnl
-   AC_FC_WRAPPERS
-   m4_popdef([lSystem])dnl
-
-fi # ! CROSS
-
-test "x$exec_prefix" = xNONE && exec_prefix=build/${build_host}
-
-my_iconsrcdir="src"
-my_iconppdir="build/${build_host}/${my_iconsrcdir}"
-
-AS_IF([test "x$enable_serialization" != "xno"],
-    [
-     my_iconsrcdir="build/${build_host}/pp"
-     my_iconppdir="${my_iconsrcdir}"
-     FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE ${SERIALIZE_EXTRA_FLAGS}"
-     AS_CASE(["$enable_serialization"],
-             ["read"],
-                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_READ_REFERENCE"],
-             ["perturb"],
-                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_PERTURB_REFERENCE"],
-             ["create"],
-                [FFLAGS="${FFLAGS} ${DEFOPT}SERIALIZE_CREATE_REFERENCE"],
-             [AC_MSG_ERROR(["Serialbox2 serialization is enabled but UNKNOWN mode was requested"])])
-     ])
-
-AS_IF([test "x$enable_claw" != "xno"],
-    [
-      AS_CASE([$config_target],
-              [*_gpu],
-              [clawfc_target_flags="--target=gpu --directive=acc"],
-              [clawfc_target_flags="--target=cpu --directive=none"]
-             )
-     FFLAGS="${FFLAGS} ${DEFOPT}_CLAW"
-     ROOT_DIR=$(pwd)
-     CLAWFC_FLAGS="--Wf-no-module-cache -J ${ROOT_DIR}/src/io/shared/ -J ${ROOT_DIR}/src/shared/ -J ${ROOT_DIR}/src/parallel_infrastructure/ -J ${ROOT_DIR}/externals/omni-xmod-pool/mpi/3.0/ -J ${ROOT_DIR}/externals/mtime/src/"
-     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/configure_model/ -J ${ROOT_DIR}/src/drivers/ -J ${ROOT_DIR}/src/namelists/ -J ${ROOT_DIR}/src/shr_horizontal/ -I ${ROOT_DIR}/src/include/ -I ${NETCDF_DIR}/include -J ${ROOT_DIR}/src/io/restart/"
-     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/support/ -J ${ROOT_DIR}/externals/omni-xmod-pool/self/0.2/"
-     CLAWFC_FLAGS="${CLAWFC_FLAGS} -J ${ROOT_DIR}/src/lnd_phy_nwp/ -J ${ROOT_DIR}/src/atm_phy_echam/ -J ${ROOT_DIR}/src/atm_phy_psrad/"
-     CLAWFC_FLAGS="${CLAWFC_FLAGS} --model-config=${ROOT_DIR}/externals/jsbach/config/icon_jsbach.toml ${clawfc_target_flags}"
-
-     # Add appropriate flags for validation mode
-     AS_IF([test "x$enable_claw" = "xvalidate" ],
-         [
-           AS_IF([test "x$enable_serialization" = "xno" ],
-           [
-              AC_MSG_ERROR(["CLAW validate mode require serialization to be enabled!"])
-           ],
-           [])
-           # Enable serialization support and update after kernels
-           CLAWFC_FLAGS=" ${CLAWFC_FLAGS} -x=sca_serialization_enabled:true -x=sca_serialization_enabled_direction:write -x=sca_forward_update_enabled_direction:out"
-         ],
-         [
-           # Disable serializaion support and updates by kernel
-           CLAWFC_FLAGS=" ${CLAWFC_FLAGS} -x=sca_serialization_enabled:false -x=sca_forward_update_enabled:false"
-         ])
-    ])
-
-my_srcdirs="support ${my_iconsrcdir}"
-
-if [[ "x$LAPACKROOT" = xlocal ]] ; then
-    my_srcdirs="blas lapack ${my_srcdirs}"
-    LAPACKROOT=""
-fi
-
-my_srcdirs="externals/self/src externals/mtime/src externals/tixi/src ${my_srcdirs}"
-
-if [[ "x$enable_rte_rrtmgp" = xyes ]]
-then
-    my_srcdirs="externals/rte-rrtmgp/src ${my_srcdirs}"
-    ac_libs="$ac_libs -lrte-rrtmgp"		 
-fi
-
-if [[ "x$use_yac" = xyes ]] ; then
-    my_srcdirs="externals/yac/src ${my_srcdirs}"
-    FFLAGS="${FFLAGS} ${DEFOPT}YAC_coupling"
-    CFLAGS="${CFLAGS} -I`pwd`/${exec_prefix}/include"
-    if test "x$with_mpi" != "xno" ; then
-        FFLAGS="${FFLAGS} ${DEFOPT}USE_MPI"
-        CFLAGS="${CFLAGS} ${DEFCOPT}USE_MPI"
-    fi
-fi
-
-if [[ "x$use_ecrad" = xyes ]] ; then
-    FFLAGS="${FFLAGS} -I`pwd`/externals/ecrad/module ${DEFOPT}__ECRAD"
-    CFLAGS="${CFLAGS} -I`pwd`/externals/ecrad/module"
-fi
-
-if [[ "x$use_messy" = xyes ]] ; then
-    rm -f src/messy_interface
-    ln -s -t src/ ../externals/messy_interface
-    FFLAGS="${FFLAGS} ${DEFOPT}MESSY ${DEFOPT}MESSYTIMER"
-    CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
-fi
-
-if [[ "x$use_art" = xyes ]] ; then
-    ART_FFLAGS="${DEFOPT}__ICON_ART ${DEFOPT}__ART_TMP_IFDEF"
-    FFLAGS="${FFLAGS} $ART_FFLAGS"
-    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
-    if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
-        FFLAGS="`echo ${FFLAGS} | $SED -e s/-std=f2003/-std=gnu/`"
-    fi
-fi
-
-if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
-    FFLAGS="${FFLAGS} -fall-intrinsics"
-fi
-ac_srcdirs=$my_srcdirs
-
-if test "$use_mpcc_r" = yes ; then
-  CC=mpcc_r
-  FC=mpxlf2003_r
-  F77=mpxlf_r
-  MPIROOT=""
-  MPI_INCLUDE=""
-  MPI_LIB=""
-fi
-
-ac_objdirs=""
-if [[ "x$use_ecrad" = xyes ]] ; then
-    ac_objdirs="${ac_objdirs} `pwd`/externals/ecrad"
-fi
-for dir in $my_srcdirs ; do
-    dir=${dir#${exec_prefix}\/}
-    ac_objdirs="${ac_objdirs} ${exec_prefix}/$dir"
-done
-
-#------------------------
-if test x$with_openmp != x; then
-    use_openmp=$with_openmp
-else
-    use_openmp="no"
-fi
-
-if [[ "x$use_openmp" = xyes ]] ; then
-   FFLAGS="${FFLAGS} ${OMPFLAG}"
-   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
-   LDFLAGS="${LDFLAGS} ${OMPFLAG}"
-   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
-fi
-
-#------------------------
-if [[ "x$target_os" = xsuperux ]] ; then  
-    MODDIR=""	    
-else
-    if [[ "x$FC" = xifort ]] ; then
-        MODDIR="${MODDIR} ../module"
-    else    
-        MODDIR="${MODDIR}../module"
-    fi
-    FFLAGS="${MODOPT}../module ${FFLAGS}"
-fi
-#FFLAGS="${MODOPT}../$(basename $my_iconppdir) ${MODOPT}../support ${FFLAGS}"
-FFLAGS="${MODOPT}../support ${FFLAGS}"
-
-#------------------------
-if test x$with_flags = x; then
-    use_flags_group="std"
-else
-    use_flags_group=$with_flags
-fi
-
-if [[ "x$use_yac" = xyes ]] ; then
-   ac_libs="$ac_libs -lyac"
-fi
-
-if [[ "x$use_ecrad" = xyes ]] ; then
-   ac_libs="$ac_libs -L`pwd`/externals/ecrad/lib -lradiation -lutilities -lifsrrtm -lifsaux"
-fi
-
-#------------------------
-dnl if the OCEAN_FLAGS are not defined use the HIOPT_FLAGS
-dnl 
-dnl AS_IF([test -z "$OCEAN_FLAGS"],
-dnl       [AS_IF([test -n "$HIOPT_FLAGS"],
-dnl              [OCEAN_FLAGS="$HIOPT_FLAGS"],
-dnl              [])],
-dnl              [])
-
-dnl the following prepends VARIANT_FLAGS to FFLAGS
-dnl when given --with-flags=variant argument to configure
-AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset],
-      [eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
-       eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
-      [AS_IF([test x"$use_flags_group" != xstd],
-             [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
-
-dnl if [[ "x$LDFLAGS" = "x" ]] ; then
-dnl   if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then
-dnl     LDFLAGS=${FFLAGS//-xf95-cpp-input/}
-dnl   else
-dnl     LDFLAGS=$FFLAGS
-dnl   fi
-dnl fi
-
-dnl this check should be far above, but has a dependency on the adding
-dnl of VARIANT_FFLAGS to FFLAGS above, which should also be moved.
-FCFLAGS=$FFLAGS
-ACX_FC_ATTRIBUTE_CONTIGUOUS([FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])
-
-#------------------------
-if test -z "$AR" ; then
-  AR="ar"
-fi  
-if test -z "$AS" ; then
-  AS="as"
-fi  
-if test -z "$ARFLAGS" ; then
-  ARFLAGS="crv"
-fi
-
-#------------------------
-if [[ "x$target_os" = xsuperux ]] ; then  
-    arch=$(echo ${target_cpu:0:2} | tr "[:lower:]" "[:upper:]")
-else
-    arch=$target_cpu
-fi
-
-dnl ######################################################################
-dnl Checks for Serialbox2
-
-AS_IF([test "x$enable_serialization" != "xno"],
-      [
-       AS_IF([test -n "${SERIALBOX2ROOT}"],
-             [
-              AS_IF([test -n "${SERIALBOX2_LIB}"],
-                    [
-                     AS_IF([test -z "${SERIALBOX2_INCLUDE}"],
-                     [
-                      SERIALBOX2_INCLUDE='-I$(SERIALBOX2ROOT)/include'
-                      ])
-                     ],
-                    [test -r "${SERIALBOX2ROOT}/lib/libSerialboxFortran.a" -o -r "${SERIALBOX2ROOT}/lib/libSerialboxFortran.so" ],
-                    [
-                     SERIALBOX2_LIB='-L$(SERIALBOX2ROOT)/lib -lSerialboxFortran -lstdc++fs -lstdc++'
-                     SERIALBOX2_INCLUDE='-I$(SERIALBOX2ROOT)/include'
-                     ],
-                    [
-                     AC_MSG_ERROR(["Cannot find Serialbox2 libSerialboxFortran.a library"])
-                     ])
-              AS_IF([test -f "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
-                    [
-                     AS_IF([test -x "${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py"],
-                           [
-                            ser_vars="SERIALBOX2_PPSER=\"${SERIALBOX2ROOT}/python/pp_ser/pp_ser.py\""
-                            ser_vars="${ser_vars};my_iconppdir=\"${my_iconppdir}\""
-                            ser_vars="${ser_vars};FC=\"${FC}\""
-                            ser_vars="${ser_vars};FFLAGS=\"${FFLAGS}\""
-                            ser_vars="${ser_vars};fortran_compiler=\"${fortran_compiler}\""
-                            my_preprocess_command="${ser_vars};source scripts/serialization/preprocess.sh;serialization_init;serialization_pp"
-                            make_command="${my_preprocess_command} ;$make_command;"
-                            ],
-                           [
-                            AC_MSG_ERROR(["pp_ser.py script from Serialbox2 is not executable"])
-                            ])
-                     ],
-                    [
-                     AC_MSG_ERROR(["Cannot find pp_ser.py script from Serialbox2"])
-                     ])
-              ],
-             [
-              AC_MSG_ERROR(["Serialization is enabled but SERIALBOX2ROOT is not defined"])
-              ])
-       ],
-       [
-        SERIALBOX2_LIB=''
-        SERIALBOX2_INCLUDE=''
-        ])
-
-dnl ######################################################################
-dnl substitutions
-
-AC_SUBST(ARCH,$arch)
-AC_SUBST(OS,$target_os)
-
-AC_SUBST(SITE,$ac_sitename)
-AC_SUBST(HOST,$ac_hostname)
-
-AC_SUBST(NETCDFFROOT,$NETCDFFROOT)
-AC_SUBST(NETCDFROOT,$NETCDFROOT)
-AC_SUBST(NETCDFLIBPATH,$NETCDFLIBPATH)
-AC_SUBST(NETCDF_LIB,$NETCDF_LIB)
-AC_SUBST(NETCDF_INCLUDE,$NETCDF_INCLUDE)
-
-AC_SUBST(CDIROOT,$CDIROOT)
-AC_SUBST(CDILIBPATH,$CDILIBPATH)
-AC_SUBST(CDI_LIB,$CDI_LIB)
-AC_SUBST(CDI_INCLUDE,$CDI_INCLUDE)
-
-AC_SUBST(HDF5ROOT,$HDF5ROOT)
-AC_SUBST(HDF5_LIB,$HDF5_LIB)
-AC_SUBST(HDF5_INCLUDE,$HDF5_INCLUDE)
-
-AC_SUBST(SZIPROOT,$SZIPROOT)
-AC_SUBST(SZIP_LIB,$SZIP_LIB)
-AC_SUBST(SZIP_INCLUDE,$SZIP_INCLUDE)
-
-AC_SUBST(ZLIBROOT,$ZLIBROOT)
-AC_SUBST(ZLIB_LIB,$ZLIB_LIB)
-AC_SUBST(ZLIB_INCLUDE,$ZLIB_INCLUDE)
-
-AC_SUBST(GRIBAPIROOT,$GRIBAPIROOT)
-AC_SUBST(GRIBAPI_LIB,$GRIBAPI_LIB)
-AC_SUBST(GRIBAPI_INCLUDE,$GRIBAPI_INCLUDE)
-
-AC_SUBST(XML2ROOT,$XML2ROOT)
-AC_SUBST(XML2_LIB,$XML2_LIB)
-AC_SUBST(XML2_INCLUDE,$XML2_INCLUDE)
-
-AC_SUBST(SCTROOT,$SCTROOT)
-AC_SUBST(SCT_LIB,$SCT_LIB)
-AC_SUBST(SCT_INCLUDE,$SCT_INCLUDE)
-
-AC_SUBST(MPIROOT,$MPIROOT)
-AC_SUBST(MPI_LIB,$MPI_LIB)
-AC_SUBST(MPI_INCLUDE,$MPI_INCLUDE)
-
-AC_SUBST(SERIALBOX2ROOT,$SERIALBOX2ROOT)
-AC_SUBST(SERIALBOX2_LIB,$SERIALBOX2_LIB)
-AC_SUBST(SERIALBOX2_INCLUDE,$SERIALBOX2_INCLUDE)
-
-AC_SUBST(CLAWFC,$CLAWFC)
-AC_SUBST(CLAWFC_FLAGS,$CLAWFC_FLAGS)
-
-AC_SUBST(LAPACKROOT,$LAPACKROOT)
-AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)
-AC_SUBST(LAPACK_LIB,$LAPACK_LIB)
-
-AC_SUBST(PROFILE_LIB,$PROFILE_LIB)
-AC_SUBST(PROFILE_INCLUDE,$PROFILE_INCLUDE)
-
-AC_SUBST(OTHER_LIBS,$OTHER_LIBS)
-
-AC_SUBST(AR,$AR)
-AC_SUBST(AS,$AS)
-
-AC_SUBST(CC,$CC)
-AC_SUBST(NVCC,$NVCC)
-AC_SUBST(FC,$FC)
-AC_SUBST(F77,$F77)
-
-AC_SUBST(ARFLAGS,$ARFLAGS)
-
-AC_SUBST(CFLAGS,$CFLAGS)
-AC_SUBST(NVCFLAGS,$NVCFLAGS)
-AC_SUBST(FFLAGS,$FFLAGS)
-AC_SUBST(FlibFLAGS,$FlibFLAGS)
-AC_SUBST(F77FLAGS,$F77FLAGS)
-
-ac_libs="${ac_libs} -ltixi -lmtime -lself"
-
-AC_SUBST(LIB,$ac_libs)
-
-AC_SUBST(MODDIR,$MODDIR)
-AC_SUBST(MODOPT,$MODOPT)
-
-AC_SUBST(LDFLAGS,$LDFLAGS)
-
-dnl ######################################################################
-dnl Checks/configure yaxt, if requested
-AC_ARG_VAR([YAXTROOT],[directory YAXT is installed in])
-AS_IF([test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"],
-  [AS_IF([test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x],
-     [PKG_CONFIG_PATH="$YAXTROOT/lib/pkgconfig${PKG_CONFIG_PATH+:$PKG_CONFIG_PATH}" ; export PKG_CONFIG_PATH])
-   AS_IF([test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x && pkg-config --exists yaxt],
-     [YAXT_VERSION=`pkg-config --modversion yaxt`
-      YAXT_MAJOR_VERSION=`expr "$YAXT_VERSION" : "@<:@0-9@:>@*"`
-      YAXT_MINOR_VERSION=`echo "$YAXT_VERSION" | sed -e 's/^@<:@0-9@:>@*\.\(@<:@0-9@:>@*\).*/\1/'`
-      YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
-      FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
-      YAXT_LIB=`pkg-config --libs yaxt`
-      AS_IF([test "$YAXT_MAJOR_VERSION" -gt 0 -o "$YAXT_MINOR_VERSION" -gt 4],
-        [YAXT_LIB="$YAXT_LIB -lyaxt_c"])
-      AS_CASE([$host],[*-*-linux-*],
-        [YAXT_LIB=`echo "$YAXT_LIB" | sed -e 's/-L\(@<:@^ @:>@*\)/-L\1 '"$WLFLAG"',-rpath,\1/'`])],
-     [AC_CONFIG_COMMANDS_POST([ac_configure_args=$ac_sub_configure_args])
-       ac_sub_configure_args=$(echo " $ac_configure_args " | $SED 's/ '\''FC=[^'\'']*//
-s/ '\''FCFLAGS=[^'\'']*//
-s/ '\''CC=[^'\'']*//
-s/ '\''CXX=[^'\'']*//
-s/ '\''CFLAGS=[^'\'']*//
-s/ '\''LDFLAGS=[^'\'']*//
-s/ '\''LIBS=[^'\'']*//
-s/ '\''F77=[^'\'']*//
-s/ '\''FFLAGS=[^'\'']*//
-s/^ //
-s/ $//
-')
-if test x${MPI_LAUNCH+set} != xset ; then
-  if test "x$mpi_startrun" = "x" ; then
-    if  test "x$MPIROOT" = "x" ; then
-      MPI_LAUNCH=mpiexec
-    else
-      MPI_LAUNCH="$MPIROOT/bin/mpiexec"
-    fi
-  else
-    MPI_LAUNCH=$mpi_startrun
-  fi
-fi
-       FCFLAGS_sub=${FCFLAGS/-fmodule-private/}
-       FCFLAGS_sub=${FCFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
-       FFLAGS_sub=${FFLAGS/-fmodule-private/}
-       FFLAGS_sub=${FFLAGS_sub/${MODOPT}..\/src ${MODOPT}..\/support/}
-       ac_sub_configure_args="$ac_sub_configure_args 'CC=$CC' 'CFLAGS=${CFLAGS/-DpgiFortran/}' 'LDFLAGS=$LDFLAGS' 'LIBS=$LIBS' 'FC=$FC' 'F77=$F77' 'FFLAGS=$FFLAGS_sub' 'CXX=$CXX' 'FCFLAGS=$FCFLAGS_sub'"
-       ac_sub_configure_args="$ac_sub_configure_args 'MPI_FC_LIB=${MPI_LIB}' 'MPI_C_LIB=${MPI_C_LIB-$MPI_LIB}' 'MPI_FC_INCLUDE=${MPI_I_INCLUDE}' 'MPI_FC_MOD=${MPI_M_INCLUDE}' 'MPI_C_INCLUDE=${MPI_I_INCLUDE}' '${MPI_LAUNCH+MPI_LAUNCH=$MPI_LAUNCH}'"
-       ac_sub_configure_args="$ac_sub_configure_args --disable-shared"
-       AC_CONFIG_SUBDIRS([externals/yaxt])
-       YAXTROOT=externals/yaxt
-       AS_IF([test -f $YAXTROOT/src/yaxt.f90],
-             [YAXT_LIB="-L../../../${YAXTROOT}/src/.libs -lyaxt"
-              AS_IF([grep MPI_FC_INCLUDE $YAXTROOT/src/Makefile.in],,
-                [YAXT_LIB="$YAXT_LIB -lyaxt_c"])
-              YAXT_INCLUDE="${MODOPT}../../../${YAXTROOT}/inst_headers/f90"
-              YAXT_CFLAGS="-I${YAXTROOT}/inst_headers"
-              YAXT_VERSION="internal"
-              FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"],
-             [AC_MSG_ERROR([internal YAXT sources not found])])
-       ac_srcdirs="externals/yaxt ${ac_srcdirs}"
-       ac_objdirs="externals/yaxt ${ac_objdirs}"])],
-  [YAXT_LIB= YAXT_INCLUDE= YAXT_VERSION=])
-AC_SUBST([YAXT_LIB])
-AC_SUBST([YAXT_INCLUDE])
-AC_SUBST([YAXT_VERSION])
-
-AS_IF([test $enable_cdi_pio = yes],
-  [AS_IF([test -n "$CDIROOT" -a x"$YAXTROOT" != xexternals/yaxt],
-     [PKG_CONFIG_PATH="$CDIROOT/lib/pkgconfig:${PKG_CONFIG_PATH}"
-      AS_IF([pkg-config --exists cdipio],
-        [CDI_LIB=`pkg-config --libs cdipio`
-         AS_CASE([$host],[*-*-linux-*],
-           [CDI_LIB=`echo "$CDI_LIB" | sed -e 's/-L\(@<:@^ @:>@*\)/-L\1 '"$WLFLAG"',-rpath,\1/g'`])
-         CDI_INCLUDE=`pkg-config --variable=fcflags cdipio`
-         FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_CDI_PIO"],
-        [AC_MSG_ERROR([Cannot find cdipio pkg-conf description.])])],
-     [AC_MSG_ERROR([Unsupported YAXT/CDI-PIO configuration.])])])
-dnl ######################################################################
-
-AC_SUBST(SRCDIRS,$ac_srcdirs)
-
-AC_SUBST(OBJDIRS,$ac_objdirs)
-
-AC_CONFIG_FILES(Makefile externals/ecrad/Makefile_include.ecradICON)
-
-dnl ######################################################################
-dnl compiler versions
-
-case $host in
-  xt?-cray-*)
-    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
-    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-    ;;
-  *-*-solaris*)
-    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
-    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-    ;;
-  sx*-*-*)
-    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
-    ccversion=$($(echo sxc++ -V) 2>&1 |  -e 's/.c.*$//' | $SED -e 's/C++\/SX Compiler //' | $SED -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
-    ;;
-  *-ibm-aix*)
-    f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
-    ccversion=$($(echo $CC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/') 
-    ;;
-  *-*-linux-*)
-    case $fortran_compiler in
-    default|gcc)
-      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    nag)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    intel)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    path)
-      f90version=$($(echo $FC -v) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    pgi)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==2')
-      ;;
-    sun)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    esac
-    ;;
-  *-*-darwin*)
-      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-  *)
-    f90version="unknown"
-    ccversion="unknown"
-    ;;
-esac
-#-----------------------------------------------------------------------------
-echo ""
-echo "Selected compiler:"
-echo ""
-echo "    Fortran: ${f90version}"
-echo "    C      : ${ccversion}"
-echo ""
-echo "    OpenMP : ${use_openmp}"
-echo ""
-#-----------------------------------------------------------------------------
-if test x$MPIROOT = x || test x$CROSS = xyes; then
-case $host in
-powerpc-ibm-aix*)
-  if test "$use_mpcc_r" = yes ; then
-    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | $AWK '{print $2}')
-    MPI_VERSION="IBM MPI ${mpi_version_number}"
-  fi
-  ;;
-sx?-nec-superux)
-  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | $AWK '{print $4}')
-  MPI_VERSION="SX MPI ${mpi_version_number}"
-  ;;
-*)
-  MPI_VERSION=none
-  ;;
-esac
-else
-case $host in
-*-*-darwin*)
-  mpi_version_number=$(mpiexec --version | $AWK 'NR==2{print $2}')
-  MPI_VERSION="mpich ${mpi_version_number} (MacPorts)"
-  ;;		       
-*)
-  MPI_VERSION=${MPIROOT##*/}
-esac
-fi  
-#-----------------------------------------------------------------------------
-echo "Selected libraries:"
-echo ""
-echo "    MPI    : ${MPI_VERSION}"
-echo "             installation  ${MPIROOT}"
-if test x$NETCDFROOT = x; then
-echo "    netCDF : none (error)"
-else
-netcdf_version=$(${NETCDFROOT}/bin/ncdump 2>&1 | grep "netcdf library version" | cut -f4 -d" ")
-echo "    NETCDF : netcdf-${netcdf_version}"
-echo "             installation  ${NETCDFROOT}"
-fi  
-if test x$with_netcdf4 != xno ; then
-if test x$CDIROOT = x; then
-echo "    CDI    : none (use internal version)"
-else
-echo "    CDI    : ${CDIROOT}"
-fi
-if test x$HDF5ROOT = x; then
-echo "    HDF5   : none (error)"
-else
-hdf5_version=$(grep "define H5_VERSION" ${HDF5ROOT}/include/H5pubconf.h | cut -f2 -d"\"")
-echo "    HDF5   : hdf5-${hdf5_version}"
-echo "             installation  ${HDF5ROOT}"
-fi  
-if test x$SZIPROOT = x; then
-echo "    SZIP   : none (error)"
-else
-szlib_version=$(grep "define SZLIB_VERSION" ${SZIPROOT}/include/szlib.h | cut -f2 -d"\"")
-echo "    SZIP   : szip-${szlib_version}"
-echo "             installation  ${SZIPROOT}"
-fi  
-if test x$ZLIBROOT = x; then
-echo "    ZLIB   : none (error)"
-else
-zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -d"\"")
-echo "    ZLIB   : zlib-${zlib_version}"
-echo "             installation  ${ZLIBROOT}"
-fi
-if test x$XML2ROOT = x; then
-echo "    XML2   : none (error)"
-else
-xml2_version=$(grep "define LIBXML_DOTTED_VERSION" ${XML2ROOT}/include/libxml2/libxml/xmlversion.h | cut -f2 -d "\"")
-echo "    XML2   : xml2-${xml2_version}"
-echo "             installation  ${XML2ROOT}"
-fi 
-if test x$SCTROOT = x; then
-echo "    SCT    : none"
-else
-sct_version=$(grep "define SCT_VERSION" ${SCTROOT}/include/sct.h)
-echo "    SCT    : installation  ${SCTROOT}"
-fi
-if test x$GRIB_OPTION = xsuppressed; then
-echo "    GRIB   : none"
-else
-echo "    GRIB   : ${GRIBAPIROOT}"
-fi
-fi
-echo ""
-dnl #############################
-
-if test "x$config_target" = "x"; then
-  config_target="default"
-fi
-
-if test "x$with_mpi" = "xno" ; then
-  use_mpi=no
-else
-  use_mpi=yes
-fi
-
-if test "x$load_module" != "x" ; then
-  if test "$use_mpi" = "yes" ; then
-    load_modules="$load_modules $load_mpi_modules"
-  else
-    load_modules="$load_modules $load_nompi_modules"
-  fi
-fi
-
-# general command for running a progmam
-if test "x$mpi_startrun" = "x" ; then
-  if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \$mpi_total_procs"
-  else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
-  fi
-fi
-
-sync_submit=${sync_submit:=$submit}
-
-AC_CONFIG_COMMANDS([Makefiles],
-      [
-       AS_IF([test "x$enable_serialization" != "xno"],
-             [
-              AS_IF([! test -d ${my_iconppdir}],
-                    [
-                     mkdir -p ${my_iconppdir}
-                     ])
-              eval "${my_preprocess_command}"
-              ])
-       AS_IF([test "x$enable_jsbach" = "xyes"],
-             [
-              AS_IF([! test -d ${my_iconppdir}/jsbpp],
-                    [
-                     mkdir -p ${my_iconppdir}/jsbpp  # All JSBACH pre-processed files will go here (dsl4jsb and claw)
-                     ])
-
-              # Pre-process all JSBACH source files with dsl4jsb.py
-              PYTHONIOENCODING=utf-8 externals/jsbach/scripts/dsl4jsb/dsl4jsb.py -p _dsl4jsb -d externals/jsbach/src -t ${my_iconppdir}/jsbpp
-
-              AS_IF([test "x$enable_claw" != "xno"],
-                    [
-                      PP_FFLAGS="$(echo "${FFLAGS}" | sed -E 's/-[[^ D]]+//g' | sed 's/\.\.\/module//g')"
-                      AS_IF([ test "x${enable_claw}" = "xstd"],
-                        [
-                          # Set time stamp of all _dsl4jsb.f90 JSBACH files in jsbpp to the time of the last commit of the original source file (git doesn't store
-                          # actual modification time) in order to avoid unnecessary re-creation of claw targets in make. This is done as a safeguard since some
-                          # git versions seem to set the timestamp to the time of cloning the repo, i.e. now, but the claw files extracted below from the archived
-                          # tar file will have the timestamp of their generation.
-                          # git ls-tree doesn't work on submodules so we have to cd there; one could also use 'git submodule foreach' and 'git ls-files'.
-                          jsbpp_dir=`pwd`/${my_iconppdir}/jsbpp
-                          cd externals/jsbach/src
-                          git ls-tree -r --name-only HEAD | while read filename; do 
-                            unixtime=$(git log -1 --format="%at" -- "${filename}")
-                            touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb.f90 is newer than original
-                            # Only set timestamp to time of last commit if file hasn't been modified
-                            git status -s ${filename} | grep -q ' M ' || \
-                              touch -t ${touchtime} ${jsbpp_dir}/$(basename ${filename} .f90)_dsl4jsb.f90
-                          done
-                          cd ../../..
-
-                          tar -C ${my_iconppdir} -zxf externals/jsbach/pp/pp_claw.tgz
-                          # Test whether files that contain !$claw directives need to be re-generated
-                          for jsbach_file in $(grep -l -i '!$claw' ${my_iconppdir}/jsbpp/*_dsl4jsb.f90); do
-                            clawfile="$(basename ${jsbach_file} .f90)_claw.f90"
-                            #if ! cmp ${jsbach_file} externals/jsbach/pp/$(basename ${jsbach_file}) >/dev/null 2>&1 ; then
-                            # Compare hash value from headers of dsl4jsb pre-processed and archived files. If hey haven't changed
-                            # there is no need to run through claw but, instead, we set the modification time of the _dsl4jsb_claw.f90 file to
-                            # slightly (1 second) later than the _dsl4jsb.f90 file to avoid that make thinks it has to generate a new claw file.
-                            if eval test "\$(grep 'with md5 hash' $jsbach_file|head -1|sed 's/.*: //')" != \
-                                         "\$(grep 'with md5 hash' externals/jsbach/pp/$(basename $jsbach_file)|head -1|sed 's/.*: //')"
-                            then
-                              #rm ${my_iconppdir}/jsbpp/${clawfile}
-                              echo "${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file}"
-                              ${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file} || exit
-                              cp -p ${jsbach_file} externals/jsbach/pp/
-                            else
-                              unixtime=$(date -r "${jsbach_file}" +%s)
-                              touchtime=$(date -d @$((unixtime + 1)) +'%Y%m%d%H%M.%S')  # Add one second to make sure _dsl4jsb_claw.f90 is newer than _dsl4jsb.f90
-                              touch -t ${touchtime} ${my_iconppdir}/jsbpp/${clawfile}
-                            fi
-                          done
-                        ],
-                        [
-                          for jsbach_file in $(grep -l -i '!$claw' ${my_iconppdir}/jsbpp/*_dsl4jsb.f90); do
-                            clawfile="$(basename ${jsbach_file} .f90)_claw.f90"
-                            echo "${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file}"
-                            ${CLAWFC} ${PP_FFLAGS} -J ${my_iconppdir}/jsbpp ${CLAWFC_FLAGS} -o ${my_iconppdir}/jsbpp/${clawfile} ${jsbach_file} || exit
-                          done
-                        ])
-                    ])
-              ])
-        AS_IF([test "x$enable_rte_rrtmgp" = "xyes"],
-                          [
-			     AS_CASE([$config_target],
-                                   [*_gpu],
-                                   [kernel_type=openacc],
-                                   [kernel_type=cpu]
-                                  )
-	                   ],
-                           [kernel_type=none])
-                    config/createMakefiles.pl \
-                                              --target="${build_host}" \
-                                              --srcdirs="${my_srcdirs}" \
-                                              --enable_ocean="${enable_ocean}" \
-                                              --enable_atmo="${enable_atmo}" \
-                                              --enable_jsbach="${enable_jsbach}" \
-                                              --enable_rte_rrtmgp="${kernel_type}" \
-                                              --enable_testbed="${enable_testbed}" \
-					      --enable_gpu="${enable_gpu}" \
-                                              --enable_serialization="${enable_serialization}" \
-                                              --enable_claw="${enable_claw}" \
-                                              --iconsrcdir="${my_iconsrcdir}" \
-                                              --iconppdir="${my_iconppdir}"],
-                   [
-                    CDIROOT="${CDIROOT}"
-                    export CDIROOT
-                    build_host="${build_host}"
-                    my_srcdirs="${my_srcdirs}"
-                    my_iconsrcdir="${my_iconsrcdir}"
-                    my_iconppdir="${my_iconppdir}"
-                    enable_ocean="${enable_ocean}"
-                    enable_atmo="${enable_atmo}"
-                    enable_jsbach="${enable_jsbach}"
-                    enable_rte_rrtmgp="${enable_rte_rrtmgp}"
-                    enable_testbed="${enable_testbed}"
-                    enable_gpu="${enable_gpu}"
-                    enable_serialization="${enable_serialization}"
-                    enable_claw="${enable_claw}"
-                    my_preprocess_command='${my_preprocess_command}'
-                    ])
-
-AC_SUBST(config_target,$config_target)
-AC_SUBST(config_compiler,$config_compiler)
-AC_SUBST(load_modules,$load_modules)
-AC_SUBST(make_command,$make_command)
-
-AC_CONFIG_FILES([build_command:config/build_command.in],[chmod +x build_command])
-
-AC_SUBST(ac_sitename,$ac_sitename)      
-AC_SUBST(use_mpi,$use_mpi)                  
-AC_SUBST(use_openmp,$use_openmp)               
-AC_SUBST(build_host,$build_host)               
-AC_SUBST(use_mpi_procs_pernode,$use_mpi_procs_pernode)    
-AC_SUBST(mpi_startrun,$mpi_startrun)             
-
-AS_IF([test ! -z "$load_profile" ],
-      [load_profile=". $load_profile"],
-      [load_Profile=""])
-
-AC_SUBST(load_profile,$load_profile)             
-AC_SUBST(submit,$submit)                   
-AC_SUBST(sync_submit,$sync_submit)              
-AC_SUBST(use_shell,$use_shell)                
-AC_SUBST(use_flags_group,$use_flags_group)          
-
-AS_IF([test ! -z $PATH],
-      [use_path=$PATH]) 
-AC_SUBST(use_path,$use_path)                
-
-AS_IF([test ! -z $CRAY_LD_LIBRARY_PATH],
-      [use_ld_library_path=$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH]) 
-
-AS_IF([test "x$enable_serialization" != "xno"],
-    [use_ld_library_path=$SERIALBOX2ROOT/lib:$use_ld_library_path])
-
-AC_SUBST(use_ld_library_path,$use_ld_library_path)                
-
-AC_CONFIG_FILES([config/set-up.info])
-
-#echo Creating the run scripts...
-#if test -f ./make_runscripts ; then
-#  ./make_runscripts
-#fi
 AC_OUTPUT
-
-if test -n "$CROSS" ; then
-   case "${host}" in	
-       sx*-*-*)             ARCH=SX ;;
-   esac
-   cross_config=config/config.h.${ARCH}
-   echo "config.status: creating config/config.h from $cross_config"
-   if test ! -f $cross_config ; then
-      echo "cross configuration file $cross_config does not exist!"
-   else
-     cp $cross_config config/config.h
-   fi
-fi
-
-dnl echo ""
-dnl cat config/set-up.info
-dnl echo ""
-
-AS_IF([test "x$enable_gpu" != "xno"],
-      [
-       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
-       AS_ECHO(['!!                                                            !!'])
-       AS_CASE(["$enable_gpu"],
-               ["yes"],
-	             [AS_ECHO(["!!      GPU compiling is enabled: nvcc is required!           !!"])])
-       AS_ECHO(['!!                                                            !!'])
-       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
-       ])
-
-AS_IF([test "x$enable_serialization" != "xno"],
-      [
-       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
-       AS_ECHO(['!!                                                            !!'])
-       AS_CASE(["$enable_serialization"],
-               ["read"],
-                    [AS_ECHO(["!!      Serialbox2 serialization is enabled in READ mode      !!"])],
-               ["perturb"], 
-                    [AS_ECHO(["!! Serialbox2 serialization is enabled in READ & PERTURB mode !!"])],
-               ["create"],
-                    [AS_ECHO(["!!     Serialbox2 serialization is enabled in CREATE mode     !!"])])
-       AS_ECHO(['!!                                                            !!'])
-       AS_ECHO(['!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'])
-       ])
-
-echo ""
-echo "Configuration done. Run GNU make to build ICON."
-echo ""
-echo "Build directory: build/${build_host}"
-echo ""
-AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
-      [AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])
-       echo ""])
-
-

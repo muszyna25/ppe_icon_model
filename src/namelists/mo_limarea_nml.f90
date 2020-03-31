@@ -75,6 +75,8 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path
     !> grid file defining the lateral boundary
     CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid
+    !> if set to TRUE, qi and qc are read from latbc data
+    LOGICAL                         :: latbc_contains_qcqi
     !> take initial lateral boundary conditions from first guess
     LOGICAL                         :: init_latbc_from_fg
     !> use hydrostatic pressure for lateral boundary nudging
@@ -94,7 +96,7 @@ CONTAINS
     NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc,                         &
       &                     latbc_filename, latbc_path, latbc_boundary_grid,             &
       &                     latbc_varnames_map_file, init_latbc_from_fg,                 &
-      &                     nudge_hydro_pres,                                            &
+      &                     nudge_hydro_pres, latbc_contains_qcqi,                       &
       &                     nretries, retry_wait_sec
 
     !------------------------------------------------------------
@@ -110,6 +112,7 @@ CONTAINS
     latbc_path          = "./"
     latbc_boundary_grid = ""  ! empty string means: whole domain is read for lateral boundary
     latbc_varnames_map_file = " "
+    latbc_contains_qcqi = .TRUE.
     init_latbc_from_fg  = .FALSE.
     nudge_hydro_pres    = .TRUE.
 
@@ -167,6 +170,7 @@ CONTAINS
     latbc_config%latbc_filename      = latbc_filename
     latbc_config%latbc_path          = TRIM(latbc_path)//'/'
     latbc_config%latbc_boundary_grid = latbc_boundary_grid
+    latbc_config%latbc_contains_qcqi = latbc_contains_qcqi
     latbc_config%lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) > 0)
     latbc_config%latbc_varnames_map_file = latbc_varnames_map_file
     latbc_config%init_latbc_from_fg  = init_latbc_from_fg

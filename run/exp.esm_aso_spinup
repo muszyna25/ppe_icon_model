@@ -70,7 +70,7 @@ fi
 # ------------------
 
 # Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
-grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre04.ff
+grids_folder=${icon_data_rootFolder}/coupled_input_temp/aloy_pre04.ff
 atmo_dyn_grids='ATMOOCEANINP_pre04_OceWithCoast_158km_editSLOHH2017_G.cdo172.nc'
 ocean_grids='OCEANINP_pre04_LndnoLak_039km_editSLOHH2017_G.nc'
 
@@ -211,7 +211,6 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.      ! run testcase
  ldynamics        = .TRUE.       ! dynamics
  ltransport       = .TRUE.       ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2            ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15           ! level of details report during integration 
@@ -222,7 +221,7 @@ cat > ${atm_namelist} << EOF
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
@@ -253,10 +252,10 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  4
- ihadv_tracer     =  52,  2,  2, 52
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
 !
@@ -1326,9 +1325,9 @@ EOF
 # IV.4 xsd and xml files for yac
 # ------------------------------
 
-add_required_file ${basedir}/run/${cpl_xmlctrfn}                  ./coupling.xml
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
-add_required_file ${basedir}/externals/yac/input/component.xsd.in ./component.xsd
+add_required_file ${basedir}/run/${cpl_xmlctrfn}               ./coupling.xml
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/component.xsd ./component.xsd
 
 # set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
 #atmo_dyn_grids=""

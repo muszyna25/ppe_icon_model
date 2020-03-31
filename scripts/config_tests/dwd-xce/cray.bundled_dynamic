@@ -1,0 +1,100 @@
+#!/bin/sh
+
+. /etc/profile
+
+set -eu
+
+MY_DIR=$(cd "$(dirname "$0")"; pwd)
+ICON_DIR=$(cd "${MY_DIR}/../../.."; pwd)
+
+BUILD_ENV=". ${MY_DIR}/build_env_init.sh; switch_for_modules PrgEnv-cray/5.2.82 cray-netcdf/4.3.2;"
+
+# We extend BUILD_ENV here only for testing, i.e. to prevent as many tests from
+# failing as possible when running 'make check' on the login nodes with Sandy
+# Bridge processors. Unfortunately, some CDI tests for checksums still fail
+# (the question needs to be addressed to the developers of CDI). Note that the
+# following line should be removed when building the application for compute
+# nodes with Haswell processors.
+BUILD_ENV+="switch_for_module craype-sandybridge;"
+
+RTTOV_ROOT='/usr/local/pkg/for0adm'
+RTTOV_FCFLAGS="-I${RTTOV_ROOT}/include/radiance"
+RTTOV_LDFLAGS="-L${RTTOV_ROOT}/lib -L${RTTOV_ROOT}/lib/unsupported"
+RTTOV_LIBS='-lradiance -lrttov10.2 -lhrit_tools'
+
+. ${MY_DIR}/build_env_init.sh
+switch_for_modules eccodes aec
+ECCODES_CPPFLAGS=$ECCODES_INCLUDE
+ECCODES_LDFLAGS="-L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
+# Libtool (used by the bundled CDI and some other bundled libraries) is not
+# fully compatible with Cray compiler. For each library specified with -l
+# (e.g. -laec) argument on the command line, libtool tries to find the
+# corresponding *.la file (e.g. libaec.la). If the file is found, the library
+# is treated in a special way. In particular, the arguments -l (e.g. -laec)
+# are replaced with the full paths to the library files
+# (e.g. /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a).
+# Unfortunately, Cray compiler ignores such arguments if they are specified
+# after any other argument -l. For example, we need to link to libeccodes.a,
+# which requires libaec.a. Normally, we would pass '-leccodes -laec', which the
+# compiler would understand, but libtool converts the arguments into
+# '-leccodes /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.a', which the
+# compiler does not interpret correctly. Here, the argument '-leccodes' is not
+# changed because libeccodes.a is not a libtool-generated library (i.e. there
+# is no libeccodes.la) but libaec is. Therefore, the compiler ignores the
+# argument related to libaec and fails the linking. There are two possible
+# solutions to the described problem:
+#   1) remove /hpc/rhome/software/aec/xc/1.0.0-3/CRAY/lib/libaec.la and pass
+#      '-laec', which in this case will not be modified by libtool;
+#   2) pass '-l:libaec.a', which is understood by the compiler and is left as
+#      it is by libtool.
+# We implement the second solution here:
+ECCODES_LIBS='-leccodes -l:libaec.a'
+
+XML2_ROOT='/opt/cray/xc-sysroot/default/usr'
+XML2_CPPFLAGS="-I${XML2_ROOT}/include/libxml2"
+XML2_LDFLAGS="-L${XML2_ROOT}/lib64"
+XML2_LIBS='-lxml2'
+
+FC=ftn
+CC=cc
+
+FCFLAGS="-O2 ${RTTOV_FCFLAGS}"
+CFLAGS='-O2'
+CPPFLAGS="${ECCODES_CPPFLAGS} ${XML2_CPPFLAGS}"
+LDFLAGS="-dynamic ${RTTOV_LDFLAGS} ${ECCODES_LDFLAGS} ${XML2_LDFLAGS}"
+LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
+
+# The Cray compiler wrapper links to librca and libpgas-dmapp. Probably this
+# can be avoided by unloading some default environment modules but we assume
+# that the dependencies are mandatory. In turn, libpgas-dmapp depends on
+# libxpmem and libdmapp, and the latter depends on libudreg. We mention only
+# the libraries that the dynamic linker cannot locate. It would not be an issue
+# at all if paths to the libraries were listed in /etc/ld.so.conf as they
+# should be. Since that is not the case, we have to use the following
+# workaround. First, we need to enable the linker to locate all the mentioned
+# libraries:
+LDFLAGS+=' -Wl,-rpath -Wl,/opt/cray/dmapp/default/lib64 -Wl,-rpath -Wl,/opt/cray/xpmem/default/lib64 -Wl,-rpath -Wl,/opt/cray/udreg/default/lib64 -Wl,-rpath -Wl,/opt/cray/rca/default/lib64'
+# Second, in order to make the rpaths work, we need to link to the secondary
+# (i.e. libxpmem and libdmapp) and the tertiary (i.e. libudreg) dependencies
+# explicitly (i.e. to perform so-called overlinking):
+LDFLAGS+=' -L/opt/cray/xpmem/default/lib64 -L/opt/cray/dmapp/default/lib64 -L/opt/cray/udreg/default/lib64'
+LIBS+=' -lxpmem -ldmapp -ludreg'
+
+"${ICON_DIR}/configure" \
+BUILD_ENV="$BUILD_ENV" \
+CC="$CC" \
+CFLAGS="$CFLAGS" \
+CPPFLAGS="$CPPFLAGS" \
+FC="$FC" \
+FCFLAGS="$FCFLAGS" \
+LDFLAGS="$LDFLAGS" \
+LIBS="$LIBS" \
+--disable-mpi-checks \
+--enable-active-target-sync \
+--enable-ecrad \
+--enable-grib2 \
+--enable-openmp \
+--enable-rttov \
+--enable-yaxt \
+"$@"
+

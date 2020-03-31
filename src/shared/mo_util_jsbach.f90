@@ -1234,11 +1234,22 @@ CONTAINS
 
   END SUBROUTINE new_var_list
 
-  LOGICAL FUNCTION is_variable_in_output(name)
+  LOGICAL FUNCTION is_variable_in_output(name, in_groups)
 
-    CHARACTER(LEN=*), INTENT(in) :: name
+    CHARACTER(LEN=*),                     INTENT(in) :: name
+    CHARACTER(len=VARNAME_LEN), OPTIONAL, INTENT(in) :: in_groups(:) ! groups to which this variable belongs to
+
+    INTEGER :: i
 
     is_variable_in_output = var_in_out(first_output_name_list, name)
+    IF (is_variable_in_output) RETURN
+
+    IF (PRESENT(in_groups)) THEN
+      DO i=1,SIZE(in_groups)
+        is_variable_in_output = is_variable_in_output .OR. var_in_out(first_output_name_list, 'group:'//TRIM(in_groups(i)))
+        IF (is_variable_in_output) EXIT
+      END DO
+    END IF
 
   END FUNCTION is_variable_in_output
 

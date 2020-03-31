@@ -47,6 +47,9 @@ USE mo_mpi,                  ONLY: p_send, p_recv, &
      &                             p_allgatherv, MPI_COMM_NULL
 USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d, nproma
 USE mo_util_sort,            ONLY: quicksort
+#ifdef __SX__
+USE mo_util_sort,            ONLY: radixsort
+#endif
 USE mo_util_string,          ONLY: int2string
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
 USE mo_communication_types,  ONLY: t_comm_pattern, t_comm_pattern_collection, &
@@ -238,8 +241,11 @@ CONTAINS
     DEALLOCATE(pack_mask)
 
     ! sort loc_index according to the respective global indices
+#ifdef __SX__
+    CALL radixsort(packed_glb_index(:), gather_pattern%loc_index(:))
+#else
     CALL quicksort(packed_glb_index(:), gather_pattern%loc_index(:))
-
+#endif
     ! determine number of points that need to be sent to each collector
     gather_pattern%collector_send_size(:) = 0
     DO i = 1, num_local_points
@@ -321,7 +327,11 @@ CONTAINS
       DEALLOCATE(gather_pattern%recv_buffer_reorder)
     ALLOCATE(gather_pattern%recv_buffer_reorder(num_recv_points))
     gather_pattern%recv_buffer_reorder(:) = (/(i, i = 1, num_recv_points)/)
+#ifdef __SX__
+    CALL radixsort(recv_buffer(:), gather_pattern%recv_buffer_reorder(:))
+#else
     CALL quicksort(recv_buffer(:), gather_pattern%recv_buffer_reorder(:))
+#endif
     IF (ALLOCATED(gather_pattern%recv_buffer_reorder_fill)) &
       DEALLOCATE(gather_pattern%recv_buffer_reorder_fill)
     ALLOCATE(gather_pattern%recv_buffer_reorder_fill(num_recv_points))

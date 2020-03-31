@@ -75,10 +75,9 @@ MODULE mo_ocean_state
     &                               DATATYPE_FLT64 => CDI_DATATYPE_FLT64, &
     &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
     &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, &
-    &                               GRID_ZONAL
+    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
-      &                             grid_unstructured_vert, grid_vertex 
+    &                               grid_unstructured_vert, grid_vertex, GRID_ZONAL
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
@@ -683,6 +682,7 @@ CONTAINS
             & DATATYPE_FLT64, &
             & TRIM(oce_config%tracer_shortnames(jtrc))), &
             & grib2_var(255, 255, oce_config%tracer_codes(jtrc), DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+            & ref_idx=jtrc, &
             & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
             & in_group=groups("oce_default", "oce_essentials","oce_prog"))
         END DO
@@ -1967,6 +1967,7 @@ CONTAINS
 !           & oce_tracer_units(jtrc), &
 !           & oce_tracer_longnames(jtrc), DATATYPE_FLT64), &
 !           & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!           & ref_idx=jtrc, &
 !           & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
 !       END DO
 !

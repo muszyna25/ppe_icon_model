@@ -307,7 +307,6 @@ DO jb = i_startblk, i_endblk
   DO jc = i_startidx, i_endidx
     DO jk = slev, elev
 #else
-!CDIR UNROLL=2
   DO jk = slev, elev
     DO jc = i_startidx, i_endidx
 #endif
@@ -482,7 +481,6 @@ DO jb = i_startblk, i_endblk
     !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
-!CDIR UNROLL=3
   DO jk = slev, elev
     !$ACC LOOP VECTOR
     DO jc = i_startidx, i_endidx
@@ -642,7 +640,7 @@ DO jb = i_startblk, i_endblk
   DO jv = i_startidx, i_endidx
     DO jk = slev, elev
 #else
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
   DO jk = slev, elev
     DO jv = i_startidx, i_endidx
 #endif
@@ -785,7 +783,7 @@ DO jb = i_startblk, i_endblk
     !$ACC LOOP VECTOR
     DO jk = slev, elev
 #else
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
   DO jk = slev, elev
     !$ACC LOOP VECTOR
     DO jv = i_startidx, i_endidx
@@ -937,7 +935,6 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
     DO je = i_startidx, i_endidx
       DO jk = slev, elev
 #else
-!CDIR UNROLL=3
     DO jk = slev, elev
       DO je = i_startidx, i_endidx
 #endif

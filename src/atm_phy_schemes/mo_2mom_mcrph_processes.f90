@@ -73,6 +73,19 @@
 ! - Introduce logicals llqi_crit=(qi>q_crit), and llqi_zero = (qi>0.0), etc.
 !   which are calculated once in the driver
 !===============================================================================!
+! Re-write of sedimenation schemes 03/2019 by UB:
+! - Technical re-write of sedi_icon_core() overtaken from COSMO src_twomom_sb.f90:
+!   - sedi_icon_core() vectorized version, in principle reproducible on the CRAY
+!     but only used #ifdef __NECSX__
+!   - scalar version sedi_icon_core() for scalar architectures
+!   - sedi_icon_core_lwf() including liquid water fraction
+! - New internal switches "lboxtracking=.true.", activating the new explicit
+!   boxtracking sedimentation method from COSMO src_twomom_f90
+!   (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+!   instead of sedi_icon_core() et al.:
+!   - sedi_icon_box_core() (vectorized version #ifdef __NECSX__)
+!   - sedi_icon_box_core_lwf()
+!===============================================================================!
 !!
 !! @par Copyright and License
 !!
@@ -99,6 +112,7 @@ MODULE mo_2mom_mcrph_processes
        & L_ew  => alf,    & ! specific heat of fusion (ew: eis->wasser)
        & T_3   => tmelt,  & ! melting temperature of ice
        & rho_w => rhoh2o, & ! density of liquid water
+       & rho_ice => rhoice,&! density of pure ice
        & nu_l  => con_m,  & ! kinematic viscosity of air
        & D_v   => dv0,    & ! diffusivity of water vapor in air at 0 C
        & K_t   => con0_h, & ! heat conductivity of air
@@ -141,7 +155,6 @@ MODULE mo_2mom_mcrph_processes
 
   ! ... some physical parameters not found in ICON
   REAL(wp), PARAMETER :: T_f     = 233.0_wp     !..Bei T < T_f kein Fl.wasser
-  REAL(wp), PARAMETER :: rho_ice = 916.7_wp     !..Materialdichte von Eis
 
   ! .. some cloud physics parameters
   REAL(wp), PARAMETER :: N_sc = 0.710_wp        !..Schmidt-Zahl (PK, S.541)
@@ -279,6 +292,8 @@ MODULE mo_2mom_mcrph_processes
   PUBLIC :: ice_riming, snow_riming
   PUBLIC :: ccn_activation_sk, ccn_activation_hdcp2
   PUBLIC :: sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf
+  PUBLIC :: moment_gamma
+  PUBLIC :: rho_ice
 
 CONTAINS
   
@@ -4546,6 +4561,10 @@ CONTAINS
 
     REAL(wp), DIMENSION(its:ite,kts-1:kte) :: v_n_sedi,v_q_sedi
 
+!!$ Activate the new explicit and more stable boxtracking sedimentation method:
+!!$  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+    LOGICAL, PARAMETER :: lboxtracking = .true.
+
     v_n_sedi(:,kts-1) = 0.0_wp
     v_q_sedi(:,kts-1) = 0.0_wp
 
@@ -4577,8 +4596,13 @@ CONTAINS
       END DO
     END DO
 
-    CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-         np, qp, precrate, cmax)
+    IF (lboxtracking) THEN
+      CALL sedi_icon_box_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                              np, qp, precrate, cmax)
+    ELSE
+      CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                          np, qp, precrate, cmax)
+    END IF
 
   END SUBROUTINE sedi_icon_rain
 
@@ -4597,7 +4621,11 @@ CONTAINS
     INTEGER  :: i, k
     REAL(wp) :: x_p,v_n,v_q,lam
 
-    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi
+    REAL(wp), DIMENSION(its:ite,kts-1:kte) :: v_n_sedi,v_q_sedi
+
+!!$ Activate the new explicit and more stable boxtracking sedimentation method:
+!!$  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+    LOGICAL, PARAMETER :: lboxtracking = .true.
 
     v_n_sedi(:, kts-1) = 0.0_wp
     v_q_sedi(:, kts-1) = 0.0_wp
@@ -4627,8 +4655,13 @@ CONTAINS
       END DO
     END DO
 
-    CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-         np, qp, precrate, cmax)
+    IF (lboxtracking) THEN
+      CALL sedi_icon_box_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                              np, qp, precrate, cmax)
+    ELSE
+      CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                          np, qp, precrate, cmax)
+    END IF
 
     DO k=kts,kte
       DO i = its,ite
@@ -4654,10 +4687,14 @@ CONTAINS
     INTEGER  :: i, k
     REAL(wp) :: x_p,D_p,D_n,v_n,v_q,v_l,lam,lwf
 
-    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,v_ql_sedi
+    REAL(wp), DIMENSION(its:ite,kts-1:kte) :: v_n_sedi,v_q_sedi,v_ql_sedi
 
     REAL(wp), DIMENSION(10) :: avq, avl, avn
     REAL(wp), DIMENSION(9)  :: bvq, bvl, bvn
+
+!!$ Activate the new explicit and more stable boxtracking sedimentation method:
+!!$  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+    LOGICAL, PARAMETER :: lboxtracking = .true.
 
     if (ptype%name .eq. 'hail_vivek') then
       avq = aviwch
@@ -4721,8 +4758,13 @@ CONTAINS
       END DO
     END DO
 
-    CALL sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
-         & its, ite, kts, kte, np, qp, ql, precrate, cmax)
+    IF (lboxtracking) THEN
+      CALL sedi_icon_box_core_lwf (v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
+           &                       its, ite, kts, kte, np, qp, ql, precrate, cmax)
+    ELSE
+      CALL sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
+           &                  its, ite, kts, kte, np, qp, ql, precrate, cmax)
+    END IF
 
     DO k=kts,kte
       DO i = its,ite
@@ -4733,12 +4775,15 @@ CONTAINS
 
   END SUBROUTINE sedi_icon_sphere_lwf
 
+#ifdef __BUGGY__
+!!$ UB: replaced below by code-rewrite from COSMO src_twomom_sb.f90
   SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
        np, qp, precrate, cmax)
+
     REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
     REAL(wp), INTENT(in) :: dt
     INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(wp), DIMENSION(its:,kts-1:), INTENT(in) :: v_n_sedi,v_q_sedi
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
     REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp
@@ -4760,8 +4805,14 @@ CONTAINS
     DO k = kts,kte
 
       DO i = its,ite
-        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
-        v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
+!!$ UB: this is the upward flanking speed. TO BE DISCUSSED!
+!!$        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
+!!$        v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
+!!$ UB: should be replaced by the mass point fallspeed, which is imho the best estimate
+!!$     in the sense of a low order explicit scheme. BUT TO BE DISCUSSED!
+        v_nv(i) = v_n_sedi(i,k)  
+        v_qv(i) = v_q_sedi(i,k)
+
         ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
         c_nv(i) = -v_nv(i) * adz(i,k) * dt
         c_qv(i) = -v_qv(i) * adz(i,k) * dt
@@ -4842,13 +4893,325 @@ CONTAINS
 
   END SUBROUTINE sedi_icon_core
 
+#else
+
+#ifdef __NECSX__
+!!$ Vectorized version for NEC SX
+!!$ UB: This is according to the actual version from the COSMO code, a more efficient and
+!!$     simplified re-write of the above non-reproducible sedi_icon_core:
+  SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                            np, qp, precrate, cmax)
+
+    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
+    REAL(wp), INTENT(in) :: dt
+    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp
+
+    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
+    INTEGER :: i, k, kk, k_c, k_p
+    REAL(wp) :: cmax_temp, odt
+
+!CDIR COLLAPSE
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+
+    odt = 1.0_wp / dt
+
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    DO k = kts, kte
+
+      DO i = its,ite
+!!$ UB: not so good, because this is the upward interfacial speed, not
+!!$     so representative of the flux going through the lower interface:
+!!$        v_nv(i) = 0.5_wp * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
+!!$        v_qv(i) = 0.5_wp * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
+!!$ UB: speed at the level center, probably better in the sense of a low-order explicit scheme:
+        v_nv(i) = v_n_sedi(i,k)
+        v_qv(i) = v_q_sedi(i,k)
+
+        ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
+        c_nv(i) = -v_nv(i) * adz(i,k) * dt
+        c_qv(i) = -v_qv(i) * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv(i))
+      END DO
+
+      kk = k
+!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
+      DO i = its, ite
+        s_nv(i) = np(i,k) * dz(i,k) * MIN(c_nv(i),1.0_wp)
+      END DO
+      DO
+        IF (kk <= kts) EXIT
+!CDIR COLLAPSE
+        IF (MAXVAL(c_nv) <= 1.0_wp) EXIT
+        kk  = kk - 1
+!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
+        DO i = its, ite
+          IF (c_nv(i) > 1.0_wp) THEN
+            c_nv(i) = (c_nv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+            s_nv(i) = s_nv(i) + np(i,kk) * dz(i,kk) * MIN(c_nv(i),1.0_wp)
+          END IF
+        END DO
+      END DO
+
+      kk = k
+!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
+      DO i = its, ite
+        s_qv(i) = qp(i,k) * dz(i,k) * MIN(c_qv(i),1.0_wp)
+      END DO
+      DO 
+        IF (kk <= kts) EXIT
+!CDIR COLLAPSE
+        IF (MAXVAL(c_qv) <= 1.0_wp) EXIT
+        kk  = kk - 1
+!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
+        DO i = its, ite
+          IF (c_qv(i) > 1.0_wp) THEN
+            c_qv(i) = (c_qv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+            s_qv(i) = s_qv(i) + qp(i,kk) * dz(i,kk) * MIN(c_qv(i),1.0_wp)
+          END IF
+        END DO
+      END DO
+
+      ! Flux-limiter to avoid negative values
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+      DO i = its,ite
+        s_nv(i) = -s_nv(i) * odt
+        s_qv(i) = -s_qv(i) * odt
+        n_fluss(i,k_c) = MAX(s_nv(i),n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c) = MAX(s_qv(i),q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+      END DO
+
+      DO i = its,ite
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+      ENDDO
+
+    END DO
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+
+  END SUBROUTINE sedi_icon_core
+
+#else
+
+!!$ UB: scalar version for non-vector-architectures
+  SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                            np, qp, precrate, cmax)
+
+    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
+    REAL(wp), INTENT(in) :: dt
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp
+
+    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss
+    REAL(wp)                          :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
+    INTEGER :: i, k, kk, k_c, k_p
+    REAL(wp) :: cmax_temp, odt
+
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+
+    odt = 1.0_wp / dt
+
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    DO k = kts, kte
+      DO i = its,ite
+
+!!$ UB: not so good (?), because this is the upward interfacial speed, not
+!!$     so representative of the flux going through the lower interface. TO BE DISCUSSED!
+!!$        v_nv(i) = 0.5_wp * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
+!!$        v_qv(i) = 0.5_wp * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
+!!$ UB: speed at the level center, probably better in the sense of a low-order explicit scheme:
+        v_nv = v_n_sedi(i,k)
+        v_qv = v_q_sedi(i,k)
+
+        ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
+        c_nv = -v_nv * adz(i,k) * dt
+        c_qv = -v_qv * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv)
+
+        kk = k
+        s_nv = np(i,kk) * dz(i,kk) * MIN(c_nv,1.0_wp);
+        DO WHILE (c_nv > 1.0_wp .AND. kk > kts)
+          kk = kk - 1
+          c_nv = (c_nv - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+          s_nv = s_nv + np(i,kk) * dz(i,kk) * MIN(c_nv,1.0_wp)
+        END DO
+        s_nv = -s_nv * odt;
+
+        kk = k
+        s_qv = qp(i,kk) * dz(i,kk) * MIN(c_qv,1.0_wp);
+        DO WHILE (c_qv > 1.0_wp .AND. kk > kts)
+          kk = kk - 1
+          c_qv = (c_qv - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+          s_qv = s_qv + qp(i,kk) * dz(i,kk) * MIN(c_qv,1.0_wp)
+        END DO
+        s_qv = -s_qv * odt;
+
+        ! Flux-limiter to avoid negative values
+        k_c = IAND(k, 1)
+        k_p = 1-IAND(k, 1)
+        n_fluss(i,k_c) = MAX(s_nv,n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c) = MAX(s_qv,q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+
+      ENDDO
+    END DO
+
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+
+  END SUBROUTINE sedi_icon_core
+#endif
+
+!!$ UB: This is the new explicit and more stable boxtracking sedimentation method
+!!$  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+!!$ Up to now there is no vectorized version for the NEC SX!
+  SUBROUTINE sedi_icon_box_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                                np, qp, precrate, cmax)
+
+    INTEGER, INTENT(IN)                          :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN)         :: adz
+    REAL(wp), INTENT(in)                         :: dt
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL            :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)        :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT)      :: np,qp
+
+    REAL(wp), DIMENSION(its:ite, 0:1)       :: q_fluss, n_fluss
+    REAL(wp)                                :: v_nv, v_qv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte)    :: s_nv, s_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte+1)  :: dz
+    INTEGER :: i, k, kk, k_c, k_p
+    REAL(wp) :: cmax_temp, odt, dz_loc
+
+!CDIR COLLAPSE
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+    ! .. dummy value for level kte+1, does not have an effect but is needed
+    !    to prevent an array bound violation below:
+    dz(its:ite,kte+1) = dz(its:ite,kte)
+
+    odt = 1.0_wp / dt
+
+    ! .. Upper boundary condition on fluxes:
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    s_nv(:,:) = 0.0_wp
+    s_qv(:,:) = 0.0_wp
+
+    DO k = kts, kte
+      DO i = its,ite
+
+!!$ UB: not so good (?), because this is the upward interfacial speed, not
+!!$     so representative of the flux going through the lower interface. TO BE DISCUSSED!
+!!$        v_nv(i) = 0.5_wp * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
+!!$        v_qv(i) = 0.5_wp * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
+!!$ UB: speed at the level center, probably better in the sense of a low-order explicit scheme:
+        v_nv = v_n_sedi(i,k)
+        v_qv = v_q_sedi(i,k)
+
+        ! Formulated under the assumption that v_nv, v_qv always negative:
+        c_qv = -v_qv * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv)
+
+        kk = 0           ! Loop index for the flux aggregation in the next boxes below the k'th box
+        dz_loc = 0.0_wp  ! Distance from the k'th lower cell face to the k+kk'th
+                         !   lower cell face for downward processing starting from k
+        DO WHILE ( dz_loc < -v_nv*dt .AND. k+kk <= kte)
+          s_nv(i,k+kk) = s_nv(i,k+kk) + np(i,k) * MIN(dz(i,k),-dz_loc-v_nv*dt)
+          kk = kk + 1
+          dz_loc = dz_loc + dz(i,k+kk)
+        END DO
+
+        ! .. The same for the time-averaged mass density flux:
+
+        kk = 0
+        dz_loc = 0.0_wp
+        DO WHILE ( dz_loc < -v_qv*dt .AND. k+kk <= kte)
+          s_qv(i,k+kk) = s_qv(i,k+kk) + qp(i,k) * MIN(dz(i,k),-dz_loc-v_qv*dt)
+          kk = kk + 1
+          dz_loc = dz_loc + dz(i,k+kk)
+        END DO
+
+      END DO
+    END DO
+
+    ! .. Divide the time-aggregated flux by dt to get the time-averaged
+    !    flux and give a negative sign because fluxes are directed downward:
+
+    s_nv(:,:) = -s_nv(:,:) * odt
+    s_qv(:,:) = -s_qv(:,:) * odt
+
+
+    DO k = kts, kte
+
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+
+      DO i = its,ite
+
+        ! .. Flux-limiter to avoid negative values:
+        n_fluss(i,k_c) = MAX(s_nv(i,k),n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c) = MAX(s_qv(i,k),q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+
+        ! .. Update of nx and qx due to sedimenation flux divergences:
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+
+      ENDDO
+    END DO
+
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+
+  END SUBROUTINE sedi_icon_box_core
+#endif
+
+#ifdef __BUGGY__
   SUBROUTINE sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
     &                           its, ite, kts, kte, np, qp, ql, precrate, cmax)
 
     REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
     REAL(wp), INTENT(in) :: dt
     INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(wp), DIMENSION(its:,kts-1:), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
     REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
@@ -4983,5 +5346,347 @@ CONTAINS
     precrate(its:ite) = - (q_fluss(its:ite,IAND(kte,1))+ql_fluss(its:ite,IAND(kte,1))) ! Regenrate
 
   END SUBROUTINE sedi_icon_core_lwf
+
+#else
+
+#ifdef __NECSX__
+!!$ Vectorized version for NEC SX
+  SUBROUTINE sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, its, ite, kts, kte, &
+                                np, qp, ql, precrate, cmax)
+
+    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
+    REAL(wp), INTENT(in) :: dt
+    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
+
+    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
+    REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
+    INTEGER :: i, k, kk, k_c, k_p
+    REAL(wp) :: cmax_temp, odt
+
+!CDIR COLLAPSE
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+
+    odt = 1.0_wp / dt
+
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    ql_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    DO k = kts, kte
+
+      DO i = its,ite
+        v_nv(i) = v_n_sedi(i,k)
+        v_qv(i) = v_q_sedi(i,k)
+        v_ql(i) = v_ql_sedi(i,k)
+
+        c_nv(i) = -v_nv(i) * adz(i,k) * dt
+        c_qv(i) = -v_qv(i) * adz(i,k) * dt
+        c_ql(i) = -v_ql(i) * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv(i))
+      END DO
+
+      kk = k
+!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
+      DO i = its, ite
+        s_nv(i) = np(i,k) * dz(i,k) * MIN(c_nv(i),1.0_wp)
+      END DO
+      DO
+        IF (kk <= kts) EXIT
+!CDIR COLLAPSE
+        IF (MAXVAL(c_nv) <= 1.0_wp) EXIT
+        kk  = kk - 1
+!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
+        DO i = its, ite
+          IF (c_nv(i) > 1.0_wp) THEN
+            c_nv(i) = (c_nv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+            s_nv(i) = s_nv(i) + np(i,kk) * dz(i,kk) * MIN(c_nv(i),1.0_wp)
+          END IF
+        END DO
+      END DO
+
+      kk = k
+!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
+      DO i = its, ite
+        s_qv(i) = qp(i,k) * dz(i,k) * MIN(c_qv(i),1.0_wp)
+      END DO
+      DO 
+        IF (kk <= kts) EXIT
+!CDIR COLLAPSE
+        IF (MAXVAL(c_qv) <= 1.0_wp) EXIT
+        kk  = kk - 1
+!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
+        DO i = its, ite
+          IF (c_qv(i) > 1.0_wp) THEN
+            c_qv(i) = (c_qv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+            s_qv(i) = s_qv(i) + qp(i,kk) * dz(i,kk) * MIN(c_qv(i),1.0_wp)
+          END IF
+        END DO
+      END DO
+
+      kk = k
+!CDIR ON_ADB(adz,dz,ql,s_qv,s_nv,c_qv)
+      DO i = its, ite
+        s_ql(i) = ql(i,k) * dz(i,k) * MIN(c_ql(i),1.0_wp)
+      END DO
+      DO 
+        IF (kk <= kts) EXIT
+!CDIR COLLAPSE
+        IF (MAXVAL(c_ql) <= 1.0_wp) EXIT
+        kk  = kk - 1
+!CDIR ON_ADB(adz,dz,ql,s_qv,s_nv,c_qv)
+        DO i = its, ite
+          IF (c_ql(i) > 1.0_wp) THEN
+            c_ql(i) = (c_ql(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+            s_ql(i) = s_ql(i) + ql(i,kk) * dz(i,kk) * MIN(c_ql(i),1.0_wp)
+          END IF
+        END DO
+      END DO
+
+      ! Flux-limiter to avoid negative values
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+      DO i = its,ite
+        s_nv(i) = -s_nv(i) * odt
+        s_qv(i) = -s_qv(i) * odt
+        s_ql(i) = -s_ql(i) * odt
+        n_fluss(i,k_c) = MAX(s_nv(i),n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c) = MAX(s_qv(i),q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+        ql_fluss(i,k_c) = MAX(s_ql(i),ql_fluss(i,k_p)-ql(i,k) * dz(i,k)*odt)
+      END DO
+
+      DO i = its,ite
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+      ENDDO
+
+    END DO
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+
+  END SUBROUTINE sedi_icon_core_lwf
+
+#else
+
+!!$ UB: scalar version for non-vector-architectures
+  SUBROUTINE sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, its, ite, kts, kte, &
+                                np, qp, ql, precrate, cmax)
+
+    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
+    REAL(wp), INTENT(in) :: dt
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
+
+    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
+    REAL(wp)                          :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
+    REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
+    INTEGER :: i, k, kk, k_c, k_p
+    REAL(wp) :: cmax_temp, odt
+
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+
+    odt = 1.0_wp / dt
+
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    ql_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    DO k = kts, kte
+      DO i = its,ite
+
+        v_nv = v_n_sedi(i,k)
+        v_qv = v_q_sedi(i,k)
+        v_ql = v_ql_sedi(i,k)
+
+        c_nv = -v_nv * adz(i,k) * dt
+        c_qv = -v_qv * adz(i,k) * dt
+        c_ql = -v_ql * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv)
+
+        kk = k
+        s_nv = np(i,kk) * dz(i,kk) * MIN(c_nv,1.0_wp);
+        DO WHILE (c_nv > 1.0_wp .AND. kk > kts)
+          kk = kk - 1
+          c_nv = (c_nv - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+          s_nv = s_nv + np(i,kk) * dz(i,kk) * MIN(c_nv,1.0_wp)
+        END DO
+        s_nv = -s_nv * odt;
+
+        kk = k
+        s_qv = qp(i,kk) * dz(i,kk) * MIN(c_qv,1.0_wp);
+        DO WHILE (c_qv > 1.0_wp .AND. kk > kts)
+          kk = kk - 1
+          c_qv = (c_qv - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+          s_qv = s_qv + qp(i,kk) * dz(i,kk) * MIN(c_qv,1.0_wp)
+        END DO
+        s_qv = -s_qv * odt;
+
+        kk = k
+        s_ql = ql(i,kk) * dz(i,kk) * MIN(c_ql,1.0_wp);
+        DO WHILE (c_ql > 1.0_wp .AND. kk > kts)
+          kk = kk - 1
+          c_ql = (c_ql - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
+          s_ql = s_ql + ql(i,kk) * dz(i,kk) * MIN(c_ql,1.0_wp)
+        END DO
+        s_ql = -s_ql * odt;
+
+        ! Flux-limiter to avoid negative values
+        k_c = IAND(k, 1)
+        k_p = 1-IAND(k, 1)
+        n_fluss(i,k_c) = MAX(s_nv,n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c) = MAX(s_qv,q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+        ql_fluss(i,k_c) = MAX(s_ql,ql_fluss(i,k_p)-ql(i,k) * dz(i,k)*odt)
+
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+
+      ENDDO
+    END DO
+
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+
+  END SUBROUTINE sedi_icon_core_lwf
+#endif
+
+!!$ UB: This is the new explicit and more stable boxtracking sedimentation method
+!!$  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+!!$ Up to now there is no vectorized version for the NEC SX!
+  SUBROUTINE sedi_icon_box_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, its, ite, kts, kte, &
+                                    np, qp, ql, precrate, cmax)
+
+    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
+    REAL(wp), INTENT(in) :: dt
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
+
+    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
+    REAL(wp)                          :: v_nv, v_qv, v_ql, c_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte) :: s_nv, s_qv, s_ql
+    REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
+    INTEGER :: i, k, kk, k_c, k_p
+    REAL(wp) :: cmax_temp, odt, dz_loc
+
+!CDIR COLLAPSE
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+
+    odt = 1.0_wp / dt
+
+    ! .. Upper boundary condition on fluxes:
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    ql_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    s_nv(:,:) = 0.0_wp
+    s_qv(:,:) = 0.0_wp
+    s_ql(:,:) = 0.0_wp
+
+    DO k = kts, kte
+      DO i = its,ite
+
+        v_nv = v_n_sedi(i,k)
+        v_qv = v_q_sedi(i,k)
+        v_ql = v_ql_sedi(i,k)
+
+        c_qv = -v_qv * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv)
+
+        kk = 0           ! Loop index for the flux aggregation in the next boxes below the k'th box
+        dz_loc = 0.0_wp  ! Distance from the k'th lower cell face to the k+kk'th
+                         !   lower cell face for downward processing starting from k
+        DO WHILE ( dz_loc < -v_nv*dt .AND. k+kk <= kte)
+          s_nv(i,k+kk) = s_nv(i,k+kk) + np(i,k) * MIN(dz(i,k),-dz_loc-v_nv*dt)
+          kk = kk + 1
+          dz_loc = dz_loc + dz(i,k+kk)
+        END DO
+
+        ! .. The same for the time-averaged mass density flux:
+
+        kk = 0
+        dz_loc = 0.0_wp
+        DO WHILE ( dz_loc < -v_qv*dt .AND. k+kk <= kte)
+          s_qv(i,k+kk) = s_qv(i,k+kk) + qp(i,k) * MIN(dz(i,k),-dz_loc-v_qv*dt)
+          kk = kk + 1
+          dz_loc = dz_loc + dz(i,k+kk)
+        END DO
+
+        kk = 0
+        dz_loc = 0.0_wp
+        DO WHILE ( dz_loc < -v_ql*dt .AND. k+kk <= kte)
+          s_ql(i,k+kk) = s_ql(i,k+kk) + ql(i,k) * MIN(dz(i,k),-dz_loc-v_ql*dt)
+          kk = kk + 1
+          dz_loc = dz_loc + dz(i,k+kk)
+        END DO
+
+      END DO
+    END DO
+
+    ! .. Divide the time-aggregated flux by dt to get the time-averaged
+    !    flux and give a negative sign because fluxes are directed downward:
+
+    s_nv(:,:) = -s_nv(:,:) * odt
+    s_qv(:,:) = -s_qv(:,:) * odt
+    s_ql(:,:) = -s_ql(:,:) * odt
+
+
+    DO k = kts, kte
+
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+
+      DO i = its,ite
+
+        ! .. Flux-limiter to avoid negative values:
+        n_fluss(i,k_c) = MAX(s_nv(i,k),n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c) = MAX(s_qv(i,k),q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+        ql_fluss(i,k_c) = MAX(s_ql(i,k),ql_fluss(i,k_p)-ql(i,k) * dz(i,k)*odt)
+
+        ! .. Update of nx and qx due to sedimenation flux divergences:
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+
+      ENDDO
+    END DO
+
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+
+  END SUBROUTINE sedi_icon_box_core_lwf
+
+#endif
 
 END MODULE mo_2mom_mcrph_processes

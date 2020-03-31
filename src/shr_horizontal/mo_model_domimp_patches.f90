@@ -384,7 +384,8 @@ CONTAINS
 
 
     ! --- Store information about vertical levels.
-    
+! GZ: this loop is incorrectly vectorized without the novector directive!
+!$NEC novector
     DO jg = 1, n_dom
 
       patch_pre(jg)%nlev   = num_lev(jg)
@@ -1152,14 +1153,14 @@ CONTAINS
     CALL message ('', TRIM(message_text))
 
     tlen = LEN_TRIM(patch_pre%grid_filename)
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     ierr = nf_open_par(patch_pre%grid_filename(1:tlen), &
        &               IOR(nf_nowrite, nf_mpiio), &
        &               p_comm_work, MPI_INFO_NULL, ncid)
     IF (ierr /= nf_noerr) THEN
 #endif
       CALL nf(nf_open(patch_pre%grid_filename(1:tlen), nf_nowrite, ncid))
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
       WRITE(message_text,'(2a)')  'warning: falling back to serial semantics for&
            & opening netcdf file ', patch_pre%grid_filename(1:tlen)
       CALL message(routine,message_text)
@@ -1173,7 +1174,7 @@ CONTAINS
       WRITE(message_text,'(a,a)') 'Read gridref info from file ', TRIM(patch_pre%grid_filename_grfinfo)
       CALL message ('', TRIM(message_text))
       tlen = LEN_TRIM(patch_pre%grid_filename_grfinfo)
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
       ierr = nf_open_par(patch_pre%grid_filename_grfinfo(1:tlen), &
          &               IOR(nf_nowrite, nf_mpiio), p_comm_work, &
          &               MPI_INFO_NULL, ncid_grf)
@@ -1181,7 +1182,7 @@ CONTAINS
 #endif
         CALL nf(nf_open(patch_pre%grid_filename_grfinfo(1:tlen), nf_nowrite, &
              ncid_grf))
-#if HAVE_PARALLEL_NETCDF
+#if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
         WRITE(message_text,'(2a)')  'warning: falling back to serial semantics for&
              & opening netcdf file ', patch_pre%grid_filename_grfinfo(1:tlen)
         CALL message(routine,message_text)
@@ -2754,18 +2755,13 @@ CONTAINS
       ! loop over inner domain and boundary
       IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 1)  CYCLE
 
-      ! (set this entry only, if the left or right side is zero or
-      ! negative:)
-      IF (p_p%cells%refin_ctrl(jc_c,jb_c) > 0)  CYCLE
       DO i=1,3
         jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
         jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)
 
         iidx = iidx + 1
         dst_idx(iidx) = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
-        ! (we need a shift of -1 to distinguish between zero values
-        ! and unset values:)
-        in_data(iidx) = p_p%cells%refin_ctrl(jc_c,jb_c) - 1
+        in_data(iidx) = p_p%cells%refin_ctrl(jc_c,jb_c) 
       END DO
     END DO
 
@@ -2787,13 +2783,17 @@ CONTAINS
       IF (out_count(1,j) == 0)  CYCLE
             
       IF (out_count(2,j) == 0) THEN
-        ! (the "+2" takes care of the "-1"-shift above)
-        refin_e = 2*out_data(1,j) + 2
+        refin_e = 2*out_data(1,j)
+      ELSE IF ((out_data(1,j)-1)*(out_data(2,j)-1) < 0) THEN
+        ! this is needed to get the correct value at the interface
+        ! between positive and zero or negative cell refin_ctrl
+        ! indices (refin_e = 0 or -1, respectively).
+        refin_e = MIN(0,out_data(1,j)) + MIN(0,out_data(2,j)) 
       ELSE
-        refin_e = out_data(1,j) + out_data(2,j) + 2
+        refin_e = out_data(1,j) + out_data(2,j)
       END IF
 
-      p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
+      IF (p_p%edges%refin_ctrl(jc_e,jb_e) /= 1)  p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
     END DO
 
     ! Reset edges%refin_ctrl at outer boundary of a limited-area grid

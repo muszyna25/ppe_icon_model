@@ -143,7 +143,7 @@ cat > ${atmo_namelist} << EOF
  dtime_latbc     = 10800.
  latbc_path      = '${LATBC_PATH}'
  latbc_filename  = 'latbc_${grid_1}_<y><m><d><h>.nc'
- latbc_varnames_map_file = '$ICON_BASE_PATH/run/dict.latbc'
+ latbc_varnames_map_file = '$basedir/run/dict.latbc'
 /
 &diffusion_nml
  hdiff_order      = 5

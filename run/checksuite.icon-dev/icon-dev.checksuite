@@ -257,6 +257,7 @@ function diff_results
                     DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
                 fi
                 if [ -s ${DIFF_FILE} ]; then
+		    # The diff file is not empty, because "cdo diffn" has found differences.
                     echo " File 1 and file 2 differ"
                     echo " - file 1: ${FILE1}"
                     echo " - file 2: ${FILE2}"
@@ -272,6 +273,10 @@ function diff_results
                         WDIR=`dirname $FILE2`
                         cdo sub ${FILE2} ${FILE1} ${WDIR}/diff_${BFILE2%.nc}-${BFILE1}
                     fi
+                else
+                    # The diff file is empty because "cdo diffn" has not found any differences.
+                    # Thus the diff file can be deleted.
+                    rm ${DIFF_FILE}
                 fi
     
             done
@@ -336,61 +341,31 @@ function tolerance_check
     TOL_STATUS=0
     cd $MODEL_DIR
 
-    case ${BB_SLAVE} in 
-        *pgi*)
-            COMPILER=pgi ;;
-        *gcc*)
-            COMPILER=gcc ;;
-        *cce*)
-            COMPILER=cce ;;
-        *)
-            COMPILER=gcc ;;
-    esac
-    echo "Using ${COMPILER} as the reference compiler"
+    REF_BUILDER=${BB_SYSTEM/gpu/cpu}_${BB_SLAVE}
 
-    echo "Running tolerance check with compiler-specific reference (${COMPILER})"
+    echo "Running tolerance check with compiler-specific reference from builder (${REF_BUILDER})"
     # call the tolerance test with 
     # -o model output directory
     # -t tolerance file
     # --cur this model run that is to be tested
     # --ref the reference from the repository
-    # and write the output to a file (tolerance.log)
-    python probtest/probtest.py icon-test-references/config.cfg stats check \
+    python probtest/probtest.py icon-test-references/${EXPERIMENT}.cfg stats check \
         -o ${MODEL_DIR}/experiments/${EXP_BASE} \
         -e ${EXP_BASE} \
-        -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
+        -t ${MODEL_DIR}/icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv \
         --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
-        --ref ${MODEL_DIR}/icon-test-references/${COMPILER}/reference/${EXPERIMENT}.csv \
-        > tolerance.log
+        --ref ${MODEL_DIR}/icon-test-references/${REF_BUILDER}/reference/${EXPERIMENT}.csv
 
     echo "TOLERANCE test output:"
-    cat tolerance.log
+    cat probtest.log
 
     # get the relevant success check
-    fail=$(grep RESULT tolerance.log | grep 'FAIL' | wc -l)
-    crash=$(grep RESULT tolerance.log | grep 'CRASH' | wc -l)
-    finished=$(grep RESULT tolerance.log | wc -l)
+    fail=$(grep RESULT probtest.log | grep 'FAIL' | wc -l)
+    crash=$(grep RESULT probtest.log | grep 'CRASH' | wc -l)
+    finished=$(grep RESULT probtest.log | wc -l)
     if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
        echo "testsuite did not complete successfully"
        TOL_STATUS=1
-    fi
-
-    echo "Running tolerance check with GCC reference"
-    COMPILER=gcc
-    python probtest/probtest.py icon-test-references/config.cfg stats check \
-        -o ${MODEL_DIR}/experiments/${EXP_BASE} \
-        -e ${EXP_BASE} \
-        -t ${MODEL_DIR}/icon-test-references/${COMPILER}/tolerance/${EXPERIMENT}.csv \
-        --cur ${MODEL_DIR}/experiments/${EXP_BASE}/statistics.csv \
-        --ref ${MODEL_DIR}/icon-test-references/${COMPILER}/reference/${EXPERIMENT}.csv \
-        > tolerance_gcc.log
-
-    # check for validation against GCC
-    fail=$(grep RESULT tolerance_gcc.log | grep 'FAIL' | wc -l)
-    crash=$(grep RESULT tolerance_gcc.log | grep 'CRASH' | wc -l)
-    finished=$(grep RESULT tolerance_gcc.log | wc -l)
-    if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
-       echo "Careful, no validation against GCC"
     fi
 
     return $TOL_STATUS
@@ -780,11 +755,9 @@ if string_in_list $MD $CMODES; then
         sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
 
         N_NPROMA=`grep "nproma=" ${RUN_SCRIPT}`
-        N_NPROMA_NEW="nproma=17"
-        if [ "${N_NPROMA#nproma=}" == "${N_NPROMA_NEW#nproma=}" ]; then
-            N_NPROMA_NEW='nproma=19'
-        fi
-        sed s/$N_NPROMA/$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
+        N_NPROMA=${N_NPROMA#nproma=}
+        ((N_NPROMA_NEW=N_NPROMA + 1))
+        sed s/nproma=$N_NPROMA/nproma=$N_NPROMA_NEW/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
         mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
 
         echo "Perform $TEST run"
@@ -831,7 +804,7 @@ if string_in_list $MD $CMODES; then
     if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
         cd ${SCRIPT_DIR}
         MPI=`grep with_mpi exp.${SCRIPT}.run`
-        MPIYES='with_mpi="yes"'
+        MPIYES='# with_mpi=yes'
         if [ "$MPI" == "$MPIYES" ]; then
 
             # find out how many nodes and processes per node are in use
@@ -946,7 +919,7 @@ if string_in_list $MD $CMODES; then
     if [ "${OVERWRITE}" == 'yes' -o ! -d ${MODEL_DIR}/experiments/${EXP_TEST} ]; then
         cd ${SCRIPT_DIR}
         OMP=`grep with_openmp exp.${SCRIPT}.run`
-        OMPYES='with_openmp="yes"'
+        OMPYES='# with_openmp=yes'
         if [ "$OMP" == "$OMPYES" ]; then
 
             # find out how many omp threads are in use
