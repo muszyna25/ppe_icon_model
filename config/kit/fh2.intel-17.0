@@ -75,7 +75,7 @@ for arg in "$@"; do
 done
 
 # Generate input file for runscript generation:
-./config.status --file=run/create_target_header --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+./config.status --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
