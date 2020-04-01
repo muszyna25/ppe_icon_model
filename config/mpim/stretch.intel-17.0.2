@@ -72,6 +72,7 @@ done
 
 # Generate input file for runscript generation:
 ./config.status --file=run/set-up.info
+sh -ec ". run/set-up.info; set | grep -E '^(use_|VERSION)\w+='" > run/SETUP.config
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
