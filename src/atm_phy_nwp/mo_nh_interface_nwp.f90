@@ -181,7 +181,7 @@ CONTAINS
     TYPE(t_wtr_prog),           INTENT(inout) :: wtr_prog_now, wtr_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
-    TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
+    TYPE(t_var_list), INTENT(inout) :: p_prog_list !current prognostic state list
 
     TYPE(t_upatmo), TARGET, INTENT(inout) :: prm_upatmo !<upper-atmosphere variables
 
@@ -725,16 +725,11 @@ CONTAINS
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
 
       IF (.NOT. linit) THEN
-        CALL art_reaction_interface(ext_data,              & !> in
-                &                   pt_patch,              & !> in
+        CALL art_reaction_interface(jg,                    & !> in
                 &                   mtime_datetime,        & !> in
                 &                   dt_phy_jg(itfastphy),  & !> in
-                &                   p_prog_list,           & !> in
-                &                   pt_prog,               & !> in
-                &                   p_metrics,             & !> in
-                &                   pt_diag,               & !> inout
-                &                   pt_prog_rcf%tracer,    & !>
-                &                   prm_diag = prm_diag)     !> optional
+                &                   p_prog_list,           & !> inout
+                &                   pt_prog_rcf%tracer)      !>
                 
       END IF
 
@@ -1951,8 +1946,7 @@ CONTAINS
 
     IF (lart) THEN
       ! Call the ART diagnostics
-      CALL art_diagnostics_interface(pt_patch,               &
-        &                            pt_prog%rho,            &
+      CALL art_diagnostics_interface(pt_prog%rho,            &
         &                            pt_diag%pres,           &
         &                            pt_prog_now_rcf%tracer, &
         &                            p_metrics%ddqz_z_full,  &

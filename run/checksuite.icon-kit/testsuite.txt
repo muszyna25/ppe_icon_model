@@ -1,5 +1,7 @@
-runctrl_examples/run_scripts/exp.testsuite.chem0_base CHEM0 none 00:15:00 develop nodes=4
-runctrl_examples/run_scripts/exp.testsuite.chem0.emiss_base CHEM0_EMISS none 00:15:00 develop nodes=4
-runctrl_examples/run_scripts/exp.testsuite.wooART_base CHEM0 lART 01:00:00 normal nodes=10
-runctrl_examples/run_scripts/exp.testsuite.gribini_base grib_init none 00:15:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.nwp_lifetime_base CHEM0 none 00:15:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.nwp_oh_chemistry_base CHEM1 none 00:15:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.nwp_gasphase_base CHEM2 none 02:00:00 normal nodes=4
+runctrl_examples/run_scripts/exp.testsuite.nwp_ext_data_base CHEM0_EMISS none 00:15:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.nwp_wwoART_base CHEM0 lART 01:00:00 normal nodes=10
+runctrl_examples/run_scripts/exp.testsuite.nwp_grib_init_base grib_init none 00:15:00 develop nodes=4
 runctrl_examples/run_scripts/exp.testsuite.nataero.norad_base NATAERO_NORAD none 01:00:00 normal nodes=10

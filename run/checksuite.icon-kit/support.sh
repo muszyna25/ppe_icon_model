@@ -7,7 +7,7 @@ function set_cluster {
  case x"$HPC" in #(
    xuc1*) :
      echo "...UC1 at KIT"; CENTER="IMK" 
-     input_folder="/pfs/imk/ICON/TESTSUITE/"
+     input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE"
      FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
 	   icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
@@ -143,9 +143,7 @@ function create_header
 d=`date -d today +%Y%m%d`
 complete_output_folder=${output_folder}/${d}/$1
 OUTDIR=$complete_output_folder
-OUTDIR_PREFIX=`dirname ${OUTDIR}`
 output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
-OUTDIR=$complete_output_folder
 icon_data_poolFolder=$icon_data_poolFolder
 EXPERIMENT=$1
 lart=$lart
@@ -171,15 +169,15 @@ read_restart_namelists=.False.
 
 
 # Remove folder ${EXP} from OUTDIR for postprocessing output
-OUTDIR_PREFIX=`dirname ${OUTDIR}`
+OUTDIR_PREFIX=`dirname \${OUTDIR}`
 
 # Create output directory and go to this directory
 
-if [ ! -d $OUTDIR ]; then
-    mkdir -p $OUTDIR
+if [ ! -d \$OUTDIR ]; then
+    mkdir -p \$OUTDIR
 fi
 
-cd $OUTDIR
+cd \$OUTDIR
 
 
 EOF
@@ -233,7 +231,7 @@ cat > job_ICON << ENDFILE
 #SBATCH --partition=$4
 #SBATCH --constraint=LSDF
 
-export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/pfs/imk/ICON/LIBRARIES_IFORT16/szip/lib:/software/community/ICON/lib/eccodes/2.12.0_ifort19/lib
+export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/software/community/ICON/lib/szip/szip/lib:/software/community/ICON/lib/eccodes/2.12.0_ifort19/lib
 export ECCODES_DEFINITION_PATH=/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/dwd_definitions/:/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/definitions
 
 $5 
@@ -293,7 +291,7 @@ cat > job_ICON << ENDFILE
 #!/bin/bash -x
 #SBATCH --account=$account_id
 
-#SBATCH --partition=compute
+#SBATCH --partition=$4
 #SBATCH --$3
 #SBATCH --exclusive
 #SBATCH --ntasks-per-node=24
