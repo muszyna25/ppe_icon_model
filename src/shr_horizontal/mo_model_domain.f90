@@ -814,6 +814,9 @@ MODULE mo_model_domain
     !
     ! indicator if current model domain is active
     LOGICAL :: ldom_active
+    !
+    ! indicator if current model domain is owned by a PE (relevant in case of processor splitting)
+    LOGICAL :: domain_is_owned
 
     !-------------------------------------
     !> The grid domain geometry parameters

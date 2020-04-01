@@ -121,7 +121,7 @@ CONTAINS
         ! Copy layer thicknesses to local parent of current child
 
         p_lp => p_patch_local_parent(jgc)
-        ALLOCATE(p_lp%cells%ddqz_z_full(nproma, p_lp%nlev, p_lp%n_patch_cells))
+        ALLOCATE(p_lp%cells%ddqz_z_full(nproma, p_lp%nlev, p_lp%nblks_c))
         p_lp%cells%ddqz_z_full(:,:,:) = 0._wp ! Safety only
         CALL exchange_data(p_lp%comm_pat_glb_to_loc_c, p_lp%cells%ddqz_z_full, &
           &                p_nh_state(jg)%metrics%ddqz_z_full)
@@ -280,7 +280,7 @@ CONTAINS
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ic = jshift+1, jshift+nlen
           jc = p_grf%idxlist_bdyintp_src_c(ic)
           jb = p_grf%blklist_bdyintp_src_c(ic)
@@ -330,7 +330,7 @@ CONTAINS
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ie = jshift+1, jshift+nlen
           je = p_grf%idxlist_bdyintp_src_e(ie)
           jb = p_grf%blklist_bdyintp_src_e(ie)
@@ -471,8 +471,15 @@ CONTAINS
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
             ! Compute time tendency of mass flux upper boundary condition to obtain second-order accuracy in time
+#ifndef __SX__
             p_nh%diag%mflx_ic_int(jc,jb,nsubs+2) = (SUM(p_nh%diag%mflx_ic_int(jc,jb,nsubs-1:nsubs)) - &
               SUM(p_nh%diag%mflx_ic_int(jc,jb,1:2)))*rdt_ubc
+#else
+            ! Workaround for compiler optimization bug
+            p_nh%diag%mflx_ic_int(jc,jb,nsubs+2) =                                         & 
+              ((p_nh%diag%mflx_ic_int(jc,jb,nsubs-1)+p_nh%diag%mflx_ic_int(jc,jb,nsubs)) - &
+               (p_nh%diag%mflx_ic_int(jc,jb,1)+p_nh%diag%mflx_ic_int(jc,jb,2)))*rdt_ubc
+#endif
             ! Shift time level of averaged field back to the beginning of the first dynamic substep
             p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) - &
               dthalf*p_nh%diag%mflx_ic_int(jc,jb,nsubs+2)
@@ -533,7 +540,7 @@ CONTAINS
         DO jk = jk_start, nlev
 #else
       DO jk = jk_start, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ic = jshift+1, jshift+nlen
           jc = p_grf%idxlist_bdyintp_src_c(ic)
           jb = p_grf%blklist_bdyintp_src_c(ic)
@@ -577,7 +584,7 @@ CONTAINS
 #else
       DO jt = 1,ntracer_bdyintp
         DO jk = jk_start, nlev
-!CDIR NODEP
+!$NEC ivdep
           DO ic = jshift+1, jshift+nlen
             jc = p_grf%idxlist_bdyintp_src_c(ic)
             jb = p_grf%blklist_bdyintp_src_c(ic)
@@ -623,7 +630,7 @@ CONTAINS
         DO jk = jk_start, nlev
 #else
       DO jk = jk_start, nlev
-!CDIR NODEP
+!$NEC ivdep
         DO ie = jshift+1, jshift+nlen
           je = p_grf%idxlist_bdyintp_src_e(ie)
           jb = p_grf%blklist_bdyintp_src_e(ie)
@@ -775,7 +782,7 @@ CONTAINS
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
             0, min_rlcell_int)
-
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
             aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
             aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
@@ -799,7 +806,7 @@ CONTAINS
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
             grf_nudge_start_c, min_rlcell_int)
-
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
             p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
             p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
@@ -820,7 +827,7 @@ CONTAINS
 
           CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
             0, min_rlcell_int)
-
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
             aux3dp(jc,1,jb)   = p_diagp%dw_int(jc,jb,nsubs+1)
             aux3dp(jc,2:3,jb) = p_diagp%mflx_ic_int(jc,jb,nsubs+1:nsubs+2)
@@ -838,7 +845,7 @@ CONTAINS
 
           CALL get_indices_c(p_pc, jb, i_sbc, i_ebc, i_startidx, i_endidx, &
             grf_nudge_start_c, min_rlcell_int)
-
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
             p_diagc%dw_ubc(jc,jb)          = aux3dc(jc,1,jb)
             p_diagc%mflx_ic_ubc(jc,jb,1:2) = aux3dc(jc,2:3,jb)
@@ -1158,7 +1165,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=5
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
@@ -1194,7 +1200,6 @@ CONTAINS
           DO jc = i_startidx, i_endidx
             DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
           DO jk = 1, nlev_c
             DO jc = i_startidx, i_endidx
 #endif
@@ -1230,7 +1235,6 @@ CONTAINS
       DO je = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=5
       DO jk = 1, nlev_c
         DO je = i_startidx, i_endidx
 #endif
@@ -1408,7 +1412,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=8
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
@@ -1531,7 +1534,7 @@ CONTAINS
         DO jk = 1, nlev
 #else
       DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO ic = 1, p_metrics%nudge_c_dim
           jc = p_metrics%nudge_c_idx(ic)
           jb = p_metrics%nudge_c_blk(ic)
@@ -1556,7 +1559,7 @@ CONTAINS
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_e_dim
             je = p_metrics%nudge_e_idx(ic)
             jb = p_metrics%nudge_e_blk(ic)
@@ -1589,7 +1592,7 @@ CONTAINS
           DO jk = nshift+1, nlev
 #else
         DO jk = nshift+1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_c_dim
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
@@ -1625,7 +1628,7 @@ CONTAINS
           DO jk = nshift+1, nlev
 #else
         DO jk = nshift+1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_c_dim
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
@@ -1653,7 +1656,7 @@ CONTAINS
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_c_dim
             jc = p_metrics%nudge_c_idx(ic)
             jb = p_metrics%nudge_c_blk(ic)
@@ -1682,7 +1685,7 @@ CONTAINS
           DO jk = nshift+1, nlev
 #else
         DO jk = nshift+1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_metrics%nudge_e_dim
             je = p_metrics%nudge_e_idx(ic)
             jb = p_metrics%nudge_e_blk(ic)
@@ -1859,7 +1862,7 @@ CONTAINS
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, p_nh%metrics%nudge_c_dim
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)
@@ -1898,7 +1901,7 @@ CONTAINS
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, p_nh%metrics%nudge_e_dim
         je = p_nh%metrics%nudge_e_idx(ic)
         jb = p_nh%metrics%nudge_e_blk(ic)
@@ -1921,7 +1924,7 @@ CONTAINS
 #else
       DO jt = 1, ntracer_nudge
         DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO ic = 1, p_nh%metrics%nudge_c_dim
             jc = p_nh%metrics%nudge_c_idx(ic)
             jb = p_nh%metrics%nudge_c_blk(ic)
@@ -1993,7 +1996,7 @@ CONTAINS
       DO jk = 1, nlev
 #else
     DO jk = 1, nlev
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO ic = 1, p_nh%metrics%nudge_c_dim
         jc = p_nh%metrics%nudge_c_idx(ic)
         jb = p_nh%metrics%nudge_c_blk(ic)

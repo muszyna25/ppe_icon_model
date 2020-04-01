@@ -39,6 +39,7 @@ MODULE mo_echam_phy_init
   USE mo_run_config,           ONLY: ltestcase, lart,                       &
     &                                iqv, iqc, iqi, iqs, iqr, iqg, iqm_max, &
     &                                iqt, io3, ico2, ich4, in2o, ntracer
+  USE mo_advection_config,     ONLY: advection_config
 
   ! horizontal grid and indices
   USE mo_model_domain,         ONLY: t_patch
@@ -88,6 +89,9 @@ MODULE mo_echam_phy_init
   USE mo_convect_tables,       ONLY: init_convect_tables
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables
 
+  ! cloud optical properties
+  USE mo_echam_cop_config,     ONLY: print_echam_cop_config, echam_cop_config
+
   ! "echam"   cloud microphysics
   USE mo_echam_cld_config,     ONLY: eval_echam_cld_config, print_echam_cld_config, echam_cld_config
 
@@ -96,7 +100,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
   ! cloud cover
-  USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config, echam_cov_config
+  USE mo_echam_cov_config,     ONLY: eval_echam_cov_config, print_echam_cov_config
 
   ! WMO tropopause
   USE mo_echam_wmo_config,     ONLY: eval_echam_wmo_config, print_echam_wmo_config, echam_wmo_config
@@ -130,9 +134,6 @@ MODULE mo_echam_phy_init
   USE mo_psrad_setup,          ONLY: psrad_basic_setup
   USE mo_psrad_interface,      ONLY: pressure_scale, droplet_scale
   USE mo_atmo_psrad_interface, ONLY: setup_atmo_2_psrad
-  ! for microphysics  (graupel)
-  USE gscp_data,              ONLY: gscp_set_coefficients
-  USE mo_echam_mig_config,    ONLY: echam_mig_config, print_echam_mig_config
 
   ! ART
   USE mo_art_config,         ONLY: art_config
@@ -210,7 +211,7 @@ CONTAINS
     ! Set tracer indices for physics
     ! ------------------------------
 
-    CALL init_echam_phy_itracer
+    CALL init_echam_phy_tracer
 
 
     ! Parameterizations (with time control)
@@ -224,13 +225,17 @@ CONTAINS
     END DO
     IF (lany) THEN
       !
+      ! Radiation configuration
       CALL  eval_echam_rad_config
       CALL print_echam_rad_config
       !
+      ! Cloud optical properties
+      CALL print_echam_cop_config
+      !
       ! Radiation constants for gas and cloud optics
       CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
-        &                    echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-        &                    echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+        &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+        &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       !
       ! If there are concurrent psrad processes, set up communication 
       ! between the atmo and psrad processes
@@ -406,57 +411,129 @@ CONTAINS
   END SUBROUTINE init_echam_phy_params
 
 
-  SUBROUTINE init_echam_phy_itracer
+  SUBROUTINE init_echam_phy_tracer
 
-    INTEGER :: jg
+    INTEGER :: jg, jt
     LOGICAL :: lany
 
-    ! indices for water species mass mixing ratios used in the cloud microphyiscs
+    ! Set the indices for specific tracers, if they occur among the named tracers.
     !
-    ! is echam cloud microphysics active?
+    iqm_max = 0 ! number of water species tracers
+    !
+    DO jt=1,advection_config(1)%nname
+       SELECT CASE (TRIM(advection_config(1)%tracer_names(jt)))
+       CASE('qv','hus')
+          iqv=jt
+          iqm_max=iqm_max+1
+       CASE('qc','clw')
+          iqc=jt
+          iqm_max=iqm_max+1
+       CASE('qi','cli')
+          iqi=jt
+          iqm_max=iqm_max+1
+       CASE('qr')
+          iqr=jt
+          iqm_max=iqm_max+1
+       CASE('qs')
+          iqs=jt
+          iqm_max=iqm_max+1
+       CASE('qg')
+          iqg=jt
+          iqm_max=iqm_max+1
+       CASE('o3')
+          io3=jt
+       CASE('co2')
+          ico2=jt
+       CASE('ch4')
+          ich4=jt
+       CASE('n2o')
+          in2o=jt
+       END SELECT
+    END DO
+
+    iqt=iqm_max+1
+    
+    ! Is echam cloud microphysics active?
+    ! Then iqv, iqc, and iqi must be non-zero and in {1,2,3}
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. (echam_phy_tc(jg)%dt_cld > dt_zero)
     END DO
-    !
     IF (lany) THEN
-       IF (ntracer <3) CALL finish('mo_echam_phy_init:init_echam_phy_itracer', &
-            &                      'ntracer must be >=3 for ECHAM cloud microphysics')
-       iqv       = 1         ! water vapour
-       iqc       = 2         ! cloud water
-       iqi       = 3         ! cloud ice
-       iqr       = 0         ! no rain water
-       iqs       = 0         ! no snow
-       iqg       = 0         ! no graupel
-       iqm_max   = iqi       ! last index of water species mass mixing ratios
+       IF (iqv*iqc*iqi == 0) THEN
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',         &
+               &      'For ECHAM cloud microphysics, the 3 tracers '  // &
+               &      'qv/hus, qc/clw, and qi/cli must be included '  // &
+               &      'in transport_nml/tracer_names')
+       END IF
+       IF (MAX(iqv,iqc,iqi) > 3) THEN ! <-- is this needed? depends on usage of iqm_max and iqt
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',         &
+               &      'For ECHAM cloud microphysics, the 3 tracers '  // &
+               &      'qv/hus, qc/clw, and qi/cli must be among the ' // &
+               &      'first 3 included in transport_nml/tracer_names')
+       END IF
+       IF (iqm_max > 3) THEN
+          CALL print_value('mo_echam_phy_init:init_echam_phy_tracer: ATTENTION! '  // &
+               &           'ECHAM cloud microphyiscs is used with more than 3 '    // &
+               &           'water tracers: iqm_max',iqm_max)
+       END IF
     END IF
-    !
-    ! is "graupel" cloud microphysics active?
+
+    ! Is "graupel" cloud microphysics active?
+    ! Then iqv, iqc, iqi, iqr, iqs, and iqg must be non-zero and in {1,2,3,4,5,6}
     lany=.FALSE.
     DO jg = 1,n_dom
        lany = lany .OR. (echam_phy_tc(jg)%dt_mig > dt_zero)
     END DO
-    !
     IF (lany) THEN
-       IF (ntracer <6) CALL finish('mo_echam_phy_init:init_echam_phy_itracer', &
-            &                      'ntracer must be >=6 for "graupel" cloud microphysics')
-       iqv       = 1         ! water vapour
-       iqc       = 2         ! cloud water
-       iqi       = 3         ! cloud ice
-       iqr       = 4         ! rain water
-       iqs       = 5         ! snow
-       iqg       = 6         ! graupel
-       iqm_max   = iqg       ! last index of water species mass mixing ratios
+       IF (iqv*iqc*iqi*iqr*iqs*iqg == 0) THEN
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+               &      'For "Graupel" cloud microphysics, the 6 tracers '// &
+               &      'qv/hus, qc/clw, qi/cli, qr, qs, and qg must be ' // &
+               &      'included in transport_nml/tracer_names')
+       END IF
+       IF (MAX(iqv,iqc,iqi,iqr,iqs,iqg) > 6) THEN ! <-- is this needed? depends on usage of iqm_max and iqt
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',            &
+               &      'For "Graupel" cloud microphysics, the 6 tracers ' // &
+               &      'qv/hus, qc/clw, qi/cli, qr, qs, and qg must be '  // &
+               &      'among the first 6 included in transport_nml/tracer_names')
+       END IF
+       IF (iqm_max > 6) THEN
+          CALL print_value('mo_echam_phy_init:init_echam_phy_tracer: ATTENTION! '   // &
+               &           '"Graupel" cloud microphyiscs is used with more than 6 ' // &
+               &           'water tracers: iqm_max',iqm_max)
+       END IF
     END IF
 
-    ! indices for extra tracer mass mixing ratios used for convective transport and vertical diffusion
-    ! indices are set only in range [iqt,ntracer], otherwise the index value is zero
-    !
-    iqt       = iqm_max+1 ! first index of non-water species
-    io3       = MERGE(iqt+0,0,ntracer>=iqt+0) ! O3
-    ico2      = MERGE(iqt+1,0,ntracer>=iqt+1) ! CO2
-    ich4      = MERGE(iqt+2,0,ntracer>=iqt+2) ! CH4
-    in2o      = MERGE(iqt+3,0,ntracer>=iqt+3) ! N2O
+    ! Is Cariolle's linearized ozone chemistry active?
+    ! Then io3 must be non-zero.
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_car > dt_zero)
+    END DO
+    IF (lany) THEN
+       IF (io3 == 0) THEN
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+               &      'For the linearized ozone chemistry of Cariolle, '// &
+               &      'the tracer qo3 must be included in transport_nml'// &
+               &      '/tracer_names')
+       END IF
+    END IF
+
+    ! Is methane oxidation active?
+    ! Then iqv must be non-zero.
+    lany=.FALSE.
+    DO jg = 1,n_dom
+       lany = lany .OR. (echam_phy_tc(jg)%dt_mox > dt_zero)
+    END DO
+    IF (lany) THEN
+       IF (iqv == 0) THEN
+          CALL finish('mo_echam_phy_init:init_echam_phy_tracer',           &
+               &      'For the methane oxidation parameterization, the '// &
+               &      'tracer qv/hus must be included in transport_nml' // &
+               &      '/tracer_names')
+       END IF
+    END IF
 
     ! extra treatment if ART is active
        
@@ -472,19 +549,20 @@ CONTAINS
        SELECT CASE (art_config(1)%iart_echam_ghg)  
 
        CASE(1)
-          io3    = iqt + 0
+          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
        CASE(2)
-          io3    = iqt + 0
-          ico2   = iqt + 1
+          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
+          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
        CASE(3)
-          io3    = iqt + 0
-          ico2   = iqt + 1
-          ich4   = iqt + 2
+          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
+          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
+          ich4   = iqt + 2; advection_config(:)%tracer_names(ich4)  = 'qch4'
        CASE(4)
-          io3    = iqt + 0
-          ico2   = iqt + 1
-          ich4   = iqt + 2
-          in2o   = iqt + 3
+          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
+          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
+          ich4   = iqt + 2; advection_config(:)%tracer_names(ich4)  = 'qch4'
+          in2o   = iqt + 3; advection_config(:)%tracer_names(in2o)  = 'qn2o'
+
 
        CASE(0)
 
@@ -495,6 +573,11 @@ CONTAINS
 
        END SELECT
 
+       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
+                                         'ntracer is increased by ',art_config(1)%iart_ntracer, &
+                                         ' to ',ntracer
+       CALL message('mo_echam_phy_init:init_echam_phy_tracer',message_text)
+
     ENDIF
 
     CALL message('','')
@@ -504,16 +587,16 @@ CONTAINS
     CALL message('','total number of tracers')
     CALL print_value('ntracer',ntracer)
     CALL message('','index variables defined for active tracers')
-    IF (iqv  > 0) CALL print_value('iqv    ',iqv )
-    IF (iqc  > 0) CALL print_value('iqc    ',iqc )
-    IF (iqi  > 0) CALL print_value('iqi    ',iqi )
-    IF (iqr  > 0) CALL print_value('iqr    ',iqr )
-    IF (iqs  > 0) CALL print_value('iqs    ',iqs )
-    IF (iqg  > 0) CALL print_value('iqg    ',iqg )
-    IF (io3  > 0) CALL print_value('io3    ',io3 )
-    IF (ico2 > 0) CALL print_value('ico2   ',ico2)
-    IF (ich4 > 0) CALL print_value('ich4   ',ich4)
-    IF (in2o > 0) CALL print_value('in2o   ',in2o)
+    IF (iqv  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqv))//'"  : iqv    ',iqv )
+    IF (iqc  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqc))//'"  : iqc    ',iqc )
+    IF (iqi  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqi))//'"  : iqi    ',iqi )
+    IF (iqr  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqr))//'"  : iqr    ',iqr )
+    IF (iqs  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqs))//'"  : iqs    ',iqs )
+    IF (iqg  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(iqg))//'"  : iqg    ',iqg )
+    IF (io3  > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(io3))//'"  : io3    ',io3 )
+    IF (ico2 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ico2))//'" : ico2   ',ico2)
+    IF (ich4 > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(ich4))//'" : ich4   ',ich4)
+    IF (in2o > 0) CALL print_value('tracer "'//TRIM(advection_config(1)%tracer_names(in2o))//'" : in2o   ',in2o)
     CALL message('','last  index for water species mass mixing ratios')
     CALL print_value('iqm_max',iqm_max)
     CALL message('','first index for other species mass mixing ratios')
@@ -521,7 +604,7 @@ CONTAINS
     CALL message('','number of other species mass mixing ratios')
     CALL print_value('ntrac  ',ntracer-iqt+1)
 
-  END SUBROUTINE init_echam_phy_itracer
+  END SUBROUTINE init_echam_phy_tracer
 
 
   SUBROUTINE init_echam_phy_external( p_patch, mtime_current)
@@ -716,7 +799,7 @@ CONTAINS
       !
       ! read annual means
       IF (.NOT. bc_greenhouse_gases_file_read) THEN
-        CALL read_bc_greenhouse_gases
+        CALL read_bc_greenhouse_gases('bc_greenhouse_gases.nc')
       END IF
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the

@@ -81,7 +81,7 @@ fi
 
  ##
  ICON_FOLDER=$(pwd)/../..
- ART_FOLDER=$ICON_FOLDER/src/art
+ ART_FOLDER=$ICON_FOLDER/externals/art
 
 # cd ${testers_home}/CHECKOUT/icon-art-${d}-r${REVISION}
   cd $ICON_FOLDER

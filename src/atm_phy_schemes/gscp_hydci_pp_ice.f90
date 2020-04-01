@@ -319,6 +319,7 @@ IMPLICIT NONE
 
 REAL (KIND=ireals)              :: sat_pres_water
 REAL (KIND=ireals), INTENT(IN)  :: temp
+!$acc routine seq
 
 sat_pres_water = b1*EXP( b2w*(temp-b3)/(temp-b4w) )
 
@@ -343,6 +344,7 @@ IMPLICIT NONE
 
 REAL (KIND=ireals)              :: spec_humi
 REAL (KIND=ireals), INTENT(IN)  :: pres,pvap
+!$acc routine seq
 
 spec_humi = rdv*pvap/( pres - o_m_rdv*pvap )
 

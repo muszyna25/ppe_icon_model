@@ -28,7 +28,7 @@ MODULE mo_extpar_nml
                                   & config_fac_smooth_topo          => fac_smooth_topo   ,           &
                                   & config_n_iter_smooth_topo       => n_iter_smooth_topo,           &
                                   & config_hgtdiff_max_smooth_topo  => hgtdiff_max_smooth_topo,      &
-                                  & config_l_emiss                  => l_emiss,                      &
+                                  & config_itype_lwemiss            => itype_lwemiss,                &
                                   & config_read_nc_via_cdi          => read_nc_via_cdi,              &
                                   & config_heightdiff_threshold     => heightdiff_threshold,         &
                                   & config_extpar_filename          => extpar_filename,              &
@@ -50,7 +50,7 @@ MODULE mo_extpar_nml
   REAL(wp) :: fac_smooth_topo
   INTEGER  :: n_iter_smooth_topo(max_dom)
   REAL(wp) :: hgtdiff_max_smooth_topo(max_dom)
-  LOGICAL  :: l_emiss ! if true: read external emissivity map
+  INTEGER  :: itype_lwemiss     ! switch to select longwave emissivity data
   LOGICAL  :: read_nc_via_cdi ! read netcdf input via cdi library (alternative: parallel netcdf)
   REAL(wp) :: heightdiff_threshold(max_dom)
   LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
@@ -61,9 +61,9 @@ MODULE mo_extpar_nml
   ! onto GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: extpar_varnames_map_file
 
-  NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
-                        heightdiff_threshold, extpar_filename,             &
-                        extpar_varnames_map_file, hgtdiff_max_smooth_topo, &
+  NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,itype_lwemiss, &
+                        heightdiff_threshold, extpar_filename,                   &
+                        extpar_varnames_map_file, hgtdiff_max_smooth_topo,       &
                         lrevert_sea_height, itype_vegetation_cycle, read_nc_via_cdi
 
 CONTAINS
@@ -83,7 +83,7 @@ CONTAINS
     fac_smooth_topo         = 0.015625_wp
     n_iter_smooth_topo(:)   = 0
     hgtdiff_max_smooth_topo(:) = 0._wp
-    l_emiss                 = .TRUE.
+    itype_lwemiss           = 1
     read_nc_via_cdi         = .FALSE.
     heightdiff_threshold(:) = 3000._wp
     lrevert_sea_height      = .FALSE.
@@ -136,7 +136,7 @@ CONTAINS
     config_fac_smooth_topo    = fac_smooth_topo 
     config_n_iter_smooth_topo = n_iter_smooth_topo
     config_hgtdiff_max_smooth_topo = hgtdiff_max_smooth_topo
-    config_l_emiss            = l_emiss
+    config_itype_lwemiss      = itype_lwemiss
     config_read_nc_via_cdi    = read_nc_via_cdi
     config_heightdiff_threshold = heightdiff_threshold
     config_lrevert_sea_height = lrevert_sea_height

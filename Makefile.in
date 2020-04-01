@@ -1,205 +1,75 @@
-export
+# This makefile sets up the building environment and calls icon.mk.
 
-SHELL = /bin/bash
+SHELL= @SHELL@
+BUILD_ENV= @BUILD_ENV_MAKE@
+DELEGATEE_FILE= icon.mk
+# A list of targets that are explicitely delegated to $(DELEGATEE_FILE). The
+# first target in the list becomes the default one for this makefile:
+DELEGATED_RULES= all depend preprocess mostlyclean clean install srclist check
 
-ARCH = @ARCH@
-OS   = @OS@
+.SUFFIXES:
+.NOTPARALLEL:
+.PHONY: $(DELEGATED_RULES) distclean help dist snapshot runscripts force-delegate
 
-HOST = @HOST@
-SITE = @SITE@
+$(DELEGATED_RULES):
+	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 
-srcdir = @srcdir@
-VPATH = @srcdir@
+# A rule for targets that are unkown to this makefile. For example, this allows
+# for building individual object files from the command line (e.g.
+# 'make src/atm_phy_nwp/mo_nwp_rg_interface.o'). The dependency on a phony
+# target 'force-delegate' enforces running make with $(DELEGATEE_FILE) even if
+# the requested target already exists. The fact that the rule is terminal (i.e.
+# declared with double colon) allows for building targets that are normally not
+# matched by "match-anything" patter rules (e.g. 'make version.c')
+%:: force-delegate
+	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
 
-prefix = @prefix@
-exec_prefix = @exec_prefix@
-
-bindir = @bindir@
-libdir = @libdir@
-
-NETCDFFROOT    = @NETCDFFROOT@
-NETCDFROOT     = @NETCDFROOT@
-NETCDFLIBPATH  = @NETCDFLIBPATH@
-NETCDF_LIB     = @NETCDF_LIB@
-NETCDF_INCLUDE = @NETCDF_INCLUDE@
-
-CDIROOT     = @CDIROOT@
-CDILIBPATH  = @CDILIBPATH@
-CDI_LIB     = @CDI_LIB@
-CDI_INCLUDE = @CDI_INCLUDE@
-
-HDF5ROOT       = @HDF5ROOT@
-HDF5_LIB       = @HDF5_LIB@
-HDF5_INCLUDE   = @HDF5_INCLUDE@
-
-SZIPROOT       = @SZIPROOT@
-SZIP_LIB       = @SZIP_LIB@
-SZIP_INCLUDE   = @SZIP_INCLUDE@
-
-ZLIBROOT       = @ZLIBROOT@
-ZLIB_LIB       = @ZLIB_LIB@
-ZLIB_INCLUDE   = @ZLIB_INCLUDE@
-
-GRIBAPIROOT    = @GRIBAPIROOT@
-GRIBAPI_LIB    = @GRIBAPI_LIB@
-GRIBAPI_INCLUDE= @GRIBAPI_INCLUDE@
-
-SCTROOT        = @SCTROOT@
-SCT_LIB        = @SCT_LIB@
-SCT_INCLUDE    = @SCT_INCLUDE@
-
-XML2ROOT       = @XML2ROOT@
-XML2_LIB       = @XML2_LIB@
-XML2_INCLUDE   = @XML2_INCLUDE@
-
-YAXTROOT        = @YAXTROOT@
-YAXT_LIB        = @YAXT_LIB@
-YAXT_INCLUDE    = @YAXT_INCLUDE@
-
-MPIROOT        = @MPIROOT@
-MPI_LIB        = @MPI_LIB@
-MPI_INCLUDE    = @MPI_INCLUDE@
-
-LAPACKROOT     = @LAPACKROOT@
-LAPACK_LIB_PATH= @LAPACK_LIB_PATH@
-LAPACK_LIB     = @LAPACK_LIB@
-
-PROFILE_LIB     = @PROFILE_LIB@
-PROFILE_INCLUDE = @PROFILE_INCLUDE@
-
-SERIALBOX2ROOT        = @SERIALBOX2ROOT@
-SERIALBOX2_LIB        = @SERIALBOX2_LIB@
-SERIALBOX2_INCLUDE    = @SERIALBOX2_INCLUDE@
-
-CLAWFC = @CLAWFC@
-ROOT_DIR = @abs_builddir@
-CLAWFC_FLAGS = @CLAWFC_FLAGS@
-
-OTHER_LIBS     = @OTHER_LIBS@
-
-LIBS           = @LIB@ $(LAPACK_LIB) $(NETCDF_LIB) $(CDI_LIB) $(HDF5_LIB) $(SZIP_LIB) $(ZLIB_LIB) $(GRIBAPI_LIB) $(XML2_LIB) $(YAXT_LIB) $(MPI_LIB) $(PROFILE_LIB) $(SCT_LIB) $(OTHER_LIBS) $(SERIALBOX2_LIB)
-INCLUDE        = -I../include -I../../../src/include  $(YAXT_INCLUDE) $(MPI_INCLUDE) $(NETCDF_INCLUDE) $(CDI_INCLUDE) $(HDF5_INCLUDE) $(SZIP_INCLUDE) $(ZLIB_INCLUDE) $(GRIBAPI_INCLUDE) $(XML2_INCLUDE) $(PROFILE_INCLUDE) $(SCT_INCLUDE) $(SERIALBOX2_INCLUDE)
-INCLUDES       = $(INCLUDE)
-
-AS             = @AS@
-
-CC             = @CC@
-CFLAGS         = $(INCLUDE) @CFLAGS@
-
-NVCC           = @NVCC@
-NVCFLAGS       = @NVCFLAGS@
-
-FC             = @FC@
-FFLAGS         = $(INCLUDES) @MODDIR@ @FFLAGS@
-FlibFLAGS      = $(INCLUDES) @MODDIR@ @FlibFLAGS@
-F77            = @F77@
-F77FLAGS       = @F77FLAGS@
-
-AR             = @AR@
-ARFLAGS        = @ARFLAGS@
-
-LDFLAGS        = @LDFLAGS@
-
-SRCDIRS        = @SRCDIRS@
-OBJDIRS        = @OBJDIRS@
-
-ECHO_N = @ECHO_N@
-
-.PHONY: doc
-
-all:
-	@for DIR in $(OBJDIRS) ;\
-	  do \
-	    back=`pwd`; \
-	    cd $$DIR && $(MAKE) ; status=$$? ; \
-	    if [ $$status != 0 ] ; then \
-	      echo "Exit status from make was $$status" ; exit $$status ; \
-	    fi ; \
-	    cd $$back ; \
-	  done 
-model:
-	@for DIR in $(OBJDIRS) ;\
-	  do LASTDIR=$$DIR ;\
-	done ;\
-	back=`pwd` ;\
-	cd $$LASTDIR && $(MAKE) icon  ;\
-	cd $$back
-
-one:
-	@for DIR in $(OBJDIRS) ;\
-	  do LASTDIR=$$DIR ;\
-	done ;\
-	back=`pwd` ;\
-	cd $$LASTDIR && $(MAKE) $(name)  ;\
-	cd $$back
-
-
-install:
-	@for DIR in $(OBJDIRS) ;\
-	  do \
-	  (cd $$DIR && $(MAKE) install ; if [ $$? != 0 ] ; then \
-	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
-	  done
-
-clean:
-	@for DIR in $(OBJDIRS) ;\
-	  do \
-	  (cd $$DIR && $(MAKE) clean ; if [ $$? != 0 ] ; then \
-	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
-	  done
-	-rm -f ${exec_prefix}/bin/*
-	-rm -f ${exec_prefix}/lib/*.a
-	-rm -f ${exec_prefix}/module/*.mod
-	-rm -f ${exec_prefix}/src/*.o
-	-rm -f ${exec_prefix}/src/*.a
-	-rm -f ${exec_prefix}/src/*.f90
-	-rm -rf html/[a-z]*
+# Disable attempts to build this makefile with the previous
+# "match-anything" pattern rule:
+Makefile:;
 
 distclean:
-	-rm -rf build
-	-rm Makefile
-	-rm build_command
-	-rm config.log
-	-rm config.status
-	-rm config/config.h
-	-rm -f config/mh-config-use
-	-rm config/set-up.info
-	-rm -rf doc/html
-	-rm -rf doc/latex
-	-rm -rf html/[a-z]*
-	-rm -f src/messy_interface
-	-rm -f src/lnd_phy_jsbach 
-	-rm -f externals/ecrad/module/*
-	-rm -f externals/ecrad/lib/*
-	-rm -f externals/ecrad/*/*.o
-	-rm -f externals/ecrad/*/*.i
-	-rm -f externals/ecrad/*/*.lst
-	-rm -f externals/ecrad/Makefile_include.ecradICON
+	@$(BUILD_ENV) $(MAKE) -f $(DELEGATEE_FILE) $@
+	rm -f Makefile
 
-doc:
-	doxygen doc/resources/doxyfile_icon_html
-	@echo 
-	@echo "Start of HTML documentation: doc/html/index.html"
-	@echo 
+help:
+	@echo "Usage:"; \
+	echo "    make -j <jobs> <target>"; \
+	echo "where <jobs> is the number of simultaneous building jobs and <target> is one of"; \
+	echo "the following:"; \
+	echo "  'all' (default) build ICON"; \
+	echo "  'check'         check whether ICON is built correctly"; \
+	echo "  'install'       install ICON"; \
+	echo "  'depend'        generate dependency files"; \
+	echo "  'preprocess'    run source file preprocessing"; \
+	echo "  'mostlyclean'   delete files generated by the compilers"; \
+	echo "  'clean'         delete files generated by 'make'"; \
+	echo "  'distclean'     delete files generated by 'make' and 'configure'"; \
+	echo "  'srclist'       generate file './srclist' containing a list of ICON source"; \
+	echo "                  files to be compiled in the current configuration"; \
+	echo "  'dist'          create a tarball containing files from the current HEAD of"; \
+	echo "                  the ICON git repository and its git submodules"; \
+	echo "  'snapshot'      create a tarball containing all files in the source directory"; \
+	echo "                  that are not ignored by git in their current state"
 
-pdf: 
-	doxygen doc/resources/doxyfile_icon_pdf
+GIT= git
+TAR= tar
+BZIP2= bzip2
 
-index:
-	-rm -rf html/[a-z]*
-	scripts/f2html_scripts/f2html.pl -f scripts/f2html_scripts/fgenrc -d html $(SRCDIRS)
+dist:
+	@if test ! -d @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi
+	$(GIT) -C @top_srcdir@ archive --prefix=@PACKAGE_TARNAME@/ --format tar -o @abs_top_builddir@/@PACKAGE_TARNAME@.tar HEAD
+	$(GIT) -C @top_srcdir@ submodule foreach '$(GIT) archive --prefix=@PACKAGE_TARNAME@/$$path/ --format tar -o @abs_top_builddir@/$$name.tar HEAD && $(TAR) -Af @abs_top_builddir@/@PACKAGE_TARNAME@.tar @abs_top_builddir@/$$name.tar && rm @abs_top_builddir@/$$name.tar'
+	rm -f @PACKAGE_TARNAME@.tar.bz2 && BZIP2=$${BZIP2--9} $(BZIP2) @PACKAGE_TARNAME@.tar
 
-checkstyle:
-	scripts/code_processing/process_src -v
+# Includes all non-ignored files with uncommitted changes:
+snapshot:
+	@if test ! -d @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi; \
+	GIT_DIR=; unset GIT_DIR; if $(GIT) -C @top_srcdir@ ls-files --recurse-submodules >/dev/null 2>&1; then :; \
+          else echo "'$(GIT)' is not found or too old (at least version 2.11 is required)" >&2; exit 1; fi; \
+	if test '@LN_S@' != 'ln -s'; then echo "'ln -s' is not supported" >&2; exit 1; fi
+	snapshot=@PACKAGE_TARNAME@-snapshot-$(shell date -uI); \
+	rm -f "$$snapshot" && @LN_S@ @top_srcdir@ "$$snapshot"; \
+	GIT_DIR=; unset GIT_DIR; ($(GIT) -C @top_srcdir@ ls-files --recurse-submodules && $(GIT) -C @top_srcdir@ ls-files -o --exclude-standard -x "/$$snapshot") | sed "s%^%$$snapshot/%" | $(TAR) chf - -T - | BZIP2=$${BZIP2--9} $(BZIP2) -c > "$$snapshot.tar.bz2"; \
+	rm -f "$$snapshot"
 
-
-check:
-	@. config/set-up.info ; \
-	mpi_total_procs=4 ; \
-	for testprog in $(exec_prefix)/bin/test_* ; do \
-	echo $(ECHO_N) "$$testprog: " | sed -e 's/^.*\///'; \
-	case "$$testprog" in  *_mp|*_mpi) \
-	eval $$use_mpi_startrun \"\$$testprog\" && echo "SUCCESS" \
-	|| echo "ERROR" ;; \
-	*) "$$testprog" && echo "SUCCESS" || echo "ERROR" ;; \
-	esac ; done

@@ -66,6 +66,7 @@ MODULE mo_grib2
   PUBLIC :: t_grib2_var
   PUBLIC :: t_grib2_int_key
   PUBLIC :: t_grib2_dbl_key
+  PUBLIC :: t_grib2_key_list
   PUBLIC :: OPERATOR(+)
 
   ! constructor

@@ -28,11 +28,12 @@ MODULE mo_nml_crosscheck
     &                                    MCYCL, MIURA_MCYCL, MIURA3_MCYCL,                 &
     &                                    FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                                    RAYLEIGH_CLASSIC,                                 &
-    &                                    iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD
+    &                                    iedmf, icosmo, iprog, MODE_IAU, MODE_IAU_OLD,     &
+    &                                    max_echotop
   USE mo_time_config,              ONLY: time_config, dt_restart
   USE mo_extpar_config,            ONLY: itopo                                             
   USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
-    &                                    lnetcdf_flt64_output
+    &                                    lnetcdf_flt64_output, echotop_meta
   USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
     &                                    num_io_procs, itype_comm,                         &
     &                                    num_prefetch_proc, use_dp_mpi2io
@@ -83,9 +84,8 @@ MODULE mo_nml_crosscheck
   USE mo_sleve_config
   USE mo_nudging_config,           ONLY: nudging_config, indg_type
   USE mo_nudging_nml,              ONLY: check_nudging
-  USE mo_upatmo_config,            ONLY: upatmo_config
-  USE mo_upatmo_nml,               ONLY: check_upatmo
-  USE mo_name_list_output_config,  ONLY: first_output_name_list
+  USE mo_upatmo_config,            ONLY: check_upatmo
+  USE mo_name_list_output_config,  ONLY: first_output_name_list, is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
 
 #ifdef __ICON_ART
@@ -105,7 +105,7 @@ CONTAINS
 
   SUBROUTINE atm_crosscheck
 
-    INTEGER  :: jg
+    INTEGER  :: jg, i
     INTEGER  :: jt   ! tracer loop index
     INTEGER  :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: routine =  modname//'::atm_crosscheck'
@@ -475,19 +475,22 @@ CONTAINS
       !            the index range of tracers for which advection is turned off in the stratosphere
       !            (i.e. all cloud and precipitation variables including number concentrations)
       !
+      !            The indices for specific tracers (iqv, iqc, iqi, ...) have initial values 0, as valid
+      !            for unused tracers. Below the indices are properly defined for the tracers to be used
+      !            for the selected physics configuration. Accordingly also the names for theses tracers
+      !            are defined.
+      !
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
       !            around with different physics schemes.
       !
-      ico2      = 0     !> co2, 0: not to be used with NWP physics
-      !
       ! Default settings valid for all microphysics options
       !
-      iqv       = 1     !> water vapour
-      iqc       = 2     !! cloud water
-      iqi       = 3     !! ice 
-      iqr       = 4     !! rain water
-      iqs       = 5     !! snow
+      iqv       = 1 ; advection_config(:)%tracer_names(iqv) = 'qv' !> water vapour
+      iqc       = 2 ; advection_config(:)%tracer_names(iqc) = 'qc' !! cloud water
+      iqi       = 3 ; advection_config(:)%tracer_names(iqi) = 'qi' !! ice 
+      iqr       = 4 ; advection_config(:)%tracer_names(iqr) = 'qr' !! rain water
+      iqs       = 5 ; advection_config(:)%tracer_names(iqs) = 'qs' !! snow
       nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
       !
       ! The following parameters may be reset depending on the selected physics scheme
@@ -496,21 +499,6 @@ CONTAINS
       iqt       = 6     !! start index of other tracers not related at all to moisture
       !
       ntracer   = 5     !! total number of tracers
-      !
-      ! dummy settings
-      iqni     = ntracer+100    !! cloud ice number
-      iqni_nuc = ntracer+100    !! activated ice nuclei  
-      iqg      = ntracer+100    !! graupel
-      iqtvar   = ntracer+100    !! qt variance (for EDMF turbulence)
-      iqh      = ntracer+100
-      iqnr     = ntracer+100  
-      iqns     = ntracer+100
-      iqng     = ntracer+100
-      iqnh     = ntracer+100
-      iqnc     = ntracer+100
-      inccn    = ntracer+100
-      ininpot  = ntracer+100
-      ininact  = ntracer+100
 
       !
       ! Taking the 'highest' microphysics option in some cases allows using more
@@ -523,8 +511,8 @@ CONTAINS
 
        ! CALL finish('mo_atm_nml_crosscheck', 'Graupel scheme not implemented.')
         
-        iqg     = 6       !! graupel
-        iqm_max = 6
+        iqg     = 6 ; advection_config(:)%tracer_names(iqg) = 'qg' !! graupel
+        iqm_max = iqg
         iqt     = iqt + 1
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
@@ -532,23 +520,23 @@ CONTAINS
  
       CASE(3)  ! improved ice nucleation scheme C. Koehler (note: iqm_max does not change!)
 
-        iqni     = 6     !! cloud ice number
-        iqni_nuc = 7     !! activated ice nuclei
+        iqni     = 6 ; advection_config(:)%tracer_names(iqni)     = 'qni'     !! cloud ice number
+        iqni_nuc = 7 ; advection_config(:)%tracer_names(iqni_nuc) = 'qni_nuc' !! activated ice nuclei  
         iqt      = iqt + 2
 
         ntracer = ntracer + 2  !! increase total number of tracers by 2
 
       CASE(4)  ! two-moment scheme 
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mass mixing ratios
@@ -558,17 +546,17 @@ CONTAINS
 
       CASE(5)  ! two-moment scheme with CCN and IN budgets
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
-        inccn   = 15
-        ininpot = 16
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
+        inccn   = 15 ; advection_config(:)%tracer_names(inccn)   = 'nccn'
+        ininpot = 16 ; advection_config(:)%tracer_names(ininpot) = 'ninpot'
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mass mixing ratios
@@ -578,15 +566,15 @@ CONTAINS
         
       CASE(6)
       
-        iqg  = 6
-        iqh  = 7
-        iqni = 8        
-        iqnr = 9        
-        iqns = 10        
-        iqng = 11        
-        iqnh = 12
-        iqnc = 13
-        ininact = 14
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqni    = 8  ; advection_config(:)%tracer_names(iqni)    = 'qni'
+        iqnr    = 9  ; advection_config(:)%tracer_names(iqnr)    = 'qnr'
+        iqns    = 10 ; advection_config(:)%tracer_names(iqns)    = 'qns'
+        iqng    = 11 ; advection_config(:)%tracer_names(iqng)    = 'qng'
+        iqnh    = 12 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 13 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 14 ; advection_config(:)%tracer_names(ininact) = 'ninact'
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mass mixing ratios
@@ -599,7 +587,7 @@ CONTAINS
 
       IF (atm_phy_nwp_config(1)%inwp_turb == iedmf) THEN ! EDMF turbulence
 
-        iqtvar = iqt       !! qt variance
+        iqtvar = iqt ; advection_config(:)%tracer_names(iqtvar) = 'qtvar' !! qt variance
         iqt    = iqt + 1   !! start index of other tracers than hydrometeors
 
         ntracer = ntracer + 1  !! increase total number of tracers by 1
@@ -615,7 +603,7 @@ CONTAINS
 
       IF ( (advection_config(1)%iadv_tke) > 0 ) THEN
         IF ( ANY( (/icosmo,iprog/) == atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
-          iqtke = iqt        !! TKE
+          iqtke = iqt ; advection_config(:)%tracer_names(iqtke) = 'tke_mc' !! TKE
  
           ! Note that iqt is not increased, since TKE does not belong to the hydrometeor group.
 
@@ -647,14 +635,15 @@ CONTAINS
 
     CASE default ! iforcing
 
-        iqv    = 1         !  water vapour
-        iqc    = 2         ! cloud water
-        iqi    = 3         ! cloud ice
-        iqr    = 0         ! no rain water
-        iqs    = 0         ! no snow
-        iqg    = 0         ! no graupel
-        iqm_max= iqi       ! end index of water species mixing ratios
-        iqt    = iqm_max+1 ! starting index of non-water species
+      ! set indices for iqv, iqc and iqi dependent on the number of specified tracers
+      !
+      iqm_max = 0  ! end index of water species mixing ratios
+      !
+      iqv = MERGE(1,0,ntracer>=1) ; IF (iqv/=0) iqm_max=1
+      iqc = MERGE(2,0,ntracer>=2) ; IF (iqc/=0) iqm_max=2
+      iqi = MERGE(3,0,ntracer>=3) ; IF (iqi/=0) iqm_max=3
+      !
+      iqt = iqm_max+1 ! starting index of non-water species
 
     END SELECT ! iforcing
 
@@ -841,7 +830,35 @@ CONTAINS
       CALL message(routine, message_text)
     END IF
 
-
+    DO jg =1,n_dom
+      echotop_meta(jg)%nechotop = 0
+      DO i=1, max_echotop
+        IF (echotop_meta(jg)%dbzthresh(i) >= -900.0_wp) THEN
+          echotop_meta(jg)%nechotop = echotop_meta(jg)%nechotop + 1
+        END IF
+      END DO
+      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotop" , jg=jg) .AND. &
+           echotop_meta(jg)%nechotop == 0 ) THEN
+        message_text(:) = ' '
+        WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotop" in ml_varlist on domain ', jg, &
+             ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
+        CALL finish(routine, TRIM(message_text))        
+      END IF
+      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotopinm" , jg=jg) .AND. &
+           echotop_meta(jg)%nechotop == 0 ) THEN
+        message_text(:) = ' '
+        WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotopinm" in ml_varlist on domain ', jg, &
+             ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
+        CALL finish(routine, TRIM(message_text))        
+      END IF
+      IF (echotop_meta(jg)%time_interval < 0.0_wp) THEN
+        message_text(:) = ' '
+        WRITE (message_text, '(a,i2.2,a,f0.1,a)') 'invalid echotop_meta(', jg, &
+             ')%time_interval = ', echotop_meta(jg)%time_interval, ' [seconds] given in namelist /io_nml/. Must be >= 0.0!'
+        CALL finish(routine, TRIM(message_text))                
+      END IF
+    END DO
+    
     !--------------------------------------------------------------------
     ! Realcase runs
     !--------------------------------------------------------------------
@@ -874,6 +891,15 @@ CONTAINS
         ENDIF
 
         CALL deallocateDatetime(reference_dt)
+
+        IF (l_limited_area) THEN
+          ! For a negative IAU shift, no extra boundary file can be read. So it has to be taken
+          ! from the first guess file.
+          IF (timeshift%dt_shift < 0._wp .AND. .NOT. latbc_config%init_latbc_from_fg) THEN
+            WRITE (message_text,'(a)') "For dt_shift<0, latbc has to be taken from first guess (init_latbc_from_fg)"
+            CALL finish('atm_crosscheck:', message_text)
+          ENDIF
+        ENDIF
       ENDIF
 
       DO jg = 2, n_dom
@@ -911,9 +937,11 @@ CONTAINS
       &                 LATBC_TYPE_EXT, is_plane_torus, lart, ndyn_substeps, ltransport, &
       &                 nsteps, msg_level                                                )
 
-    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo, is_plane_torus, & 
-      &                l_limited_area, lart, ivctype, flat_height, itype_vert_expol,        &
-      &                ltestcase, nh_test_name, first_output_name_list, upatmo_config       ) 
+    CALL check_upatmo( n_dom_start, n_dom, iequations, iforcing, ldeepatmo,               &
+      &                atm_phy_nwp_config(:)%lupatmo_phy, is_plane_torus, l_limited_area, &
+      &                lart, ivctype, flat_height, itype_vert_expol, ltestcase,           &
+      &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
+      &                atm_phy_nwp_config(:)%inwp_radiation, first_output_name_list       )
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

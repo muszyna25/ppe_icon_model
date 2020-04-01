@@ -24,7 +24,7 @@ USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
 USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
-USE mo_io_config,            ONLY: configure_io
+USE mo_io_config,            ONLY: configure_io, init_var_in_output, var_in_output
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
@@ -39,18 +39,19 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                ldass_lhn, msg_level, &
-  &                                iqc, iqt,             &
+  &                                iqc, iqt, iqv,        &
   &                                ico2, io3,            &
   &                                number_of_grid_used
+USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
 USE mo_nh_testcases,         ONLY: init_nh_testcase
+USE mo_nh_testcases_nml,      ONLY: nh_test_name
 USE mo_ls_forcing_nml,       ONLY: is_ls_forcing, is_nudging
 USE mo_ls_forcing,           ONLY: init_ls_forcing
-USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method, &
-  &                                ldeepatmo
+USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, &
-     &                             is_plane_torus, l_limited_area, n_dom_start
+     &                             is_plane_torus, l_limited_area
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_intp_lonlat_types,    ONLY: lonlat_grids
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
@@ -60,14 +61,15 @@ USE mo_vertical_grid,        ONLY: set_nh_metrics
 USE mo_nh_nest_utilities,    ONLY: complete_nesting_setup
 ! NH-namelist state
 USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc,   &
-  &                                itime_scheme, ndyn_substeps, kstart_tracer
+  &                                itime_scheme, kstart_tracer
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
 USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
-  &                                construct_nh_state, destruct_nh_state
+  &                                construct_nh_state, destruct_nh_state,      &
+  &                                duplicate_prog_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag,      &
   &                                compute_lonlat_area_weights
 USE mo_nwp_phy_state,        ONLY: prm_diag, prm_nwp_tend,                     &
@@ -84,8 +86,7 @@ USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
-USE mo_name_list_output_config,   ONLY: first_output_name_list, &
-  &                               is_variable_in_output
+USE mo_name_list_output_config,   ONLY: first_output_name_list, is_variable_in_output
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
@@ -122,11 +123,10 @@ USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statisti
 USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
-USE mo_initicon_config,     ONLY: init_mode
-USE mo_sleve_config,        ONLY: flat_height
-USE mo_vertical_coord_table, ONLY: vct_a
-USE mo_upatmo_config,       ONLY: configure_upatmo, destruct_upatmo
+USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
+USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
+USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -135,6 +135,8 @@ USE mo_nudging_config,      ONLY: l_global_nudging
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
   USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
 #endif
+
+!$ser verbatim USE mo_ser_debug, ONLY: serialize_debug_output, ser_debug_on
 
 IMPLICIT NONE
 PRIVATE
@@ -176,20 +178,14 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
     INTEGER :: jg, jt, ist, jgroup
-    LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
-    LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
-    LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
-    LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
-    LOGICAL :: l_sdi2(n_dom)     !< Flag. TRUE if computation of supercell detection index desired
-    LOGICAL :: l_lpi(n_dom)      !< Flag. TRUE if computation of lightning potential index desired
-    LOGICAL :: l_smi(n_dom)      !< Flag. TRUE if computation of soil moisture index desired
+
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
-    IF (timers_level > 3) CALL timer_start(timer_model_init)
+    IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     IF (iforcing == iecham) THEN
       CALL init_echam_phy_params( p_patch(1:) )
@@ -217,11 +213,8 @@ CONTAINS
 
     ENDIF
 
-    ! upper atmosphere
-    CALL configure_upatmo( n_dom_start=n_dom_start, n_dom=n_dom,                 & 
-      & p_patch=p_patch(n_dom_start:), ldeepatmo=ldeepatmo, init_mode=init_mode, &
-      & iforcing=iforcing, dtime=dtime, ndyn_substeps=ndyn_substeps,             &
-      & flat_height=flat_height, msg_level=msg_level, vct_a=vct_a                ) 
+    ! Check if optional diagnostics are requested for output
+    CALL init_var_in_output(n_dom, iforcing == inwp)
 
     ! initialize ldom_active flag if this is not a restart run
 
@@ -263,48 +256,20 @@ CONTAINS
 
 
     ! Now allocate memory for the states
-    DO jg=1,n_dom
-      l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl") .OR. &
-        &              is_variable_in_output(first_output_name_list, var_name="psl_m")
-      l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")    .OR. &
-        &              is_variable_in_output(first_output_name_list, var_name="wap_m")
-    END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
-      &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
+      &                     l_pres_msl=var_in_output(:)%pres_msl, l_omega=var_in_output(:)%omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
-    IF(iforcing == inwp) THEN
-      DO jg=1,n_dom
-        l_rh(jg)   = is_variable_in_output(first_output_name_list, var_name="rh")
-        l_pv(jg)   = is_variable_in_output(first_output_name_list, var_name="pv")
-        l_sdi2(jg) = is_variable_in_output(first_output_name_list, var_name="sdi2")
-        l_lpi(jg)  = is_variable_in_output(first_output_name_list, var_name="lpi")
-        l_smi(jg)  = is_variable_in_output(first_output_name_list, var_name="smi")
-        ! Check for special case: SMI is not in one of the output lists but it is part of a output group.
-        ! In this case, the group can not be checked, as the connection between SMI and the group will be
-        ! established during the add_var call. However, add_var for SMI will only be called if l_smi =.true.
-        ! As a crutch, a character array containing the output groups of SMI from mo_lnd_nwp_config is used
-        ! here and also at the add_var call.
-        ! The check loops through the output groups. It has to be checked if l_smi is already .true., to not
-        ! overwrite an existing .true. with a false. 
-        IF(.not.l_smi(jg) ) THEN 
-          ! Check for output groups containing SMI
-          DO jgroup = 1,SIZE(groups_smi)
-            IF(.not.l_smi(jg) ) THEN
-              l_smi(jg) = is_variable_in_output(first_output_name_list, var_name='group:'//TRIM(groups_smi(jgroup)))
-            END IF
-          END DO
-        END IF
-      END DO
-    END IF
 
     IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv, l_sdi2, l_lpi )
-      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, l_smi, n_timelevels=2 )
+      CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
+      CALL construct_nwp_lnd_state( p_patch(1:), p_lnd_state, var_in_output(:)%smi, n_timelevels=2 )
       CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag, time_config%tc_current_date)
     END IF
+
+    CALL upatmo_initialize(p_patch)
 
 #ifdef MESSY
     CALL messy_init_memory(n_dom)
@@ -375,7 +340,7 @@ CONTAINS
       !
       ! This is a resumed integration. Read model state from restart file(s).
       !
-      IF (timers_level > 5) CALL timer_start(timer_read_restart)
+      IF (timers_level > 4) CALL timer_start(timer_read_restart)
       !
       DO jg = 1,n_dom
         IF (p_patch(jg)%ldom_active) THEN
@@ -385,7 +350,7 @@ CONTAINS
       !
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       !
-      IF (timers_level > 5) CALL timer_stop(timer_read_restart)
+      IF (timers_level > 4) CALL timer_stop(timer_read_restart)
       !
 #ifndef __NO_JSBACH__
       DO jg = 1,n_dom
@@ -418,7 +383,7 @@ CONTAINS
         !
         ! Initialize with real atmospheric data
         !
-        IF (timers_level > 5) CALL timer_start(timer_init_icon)
+        IF (timers_level > 4) CALL timer_start(timer_init_icon)
         !
         IF (iforcing == inwp) THEN
           !
@@ -444,9 +409,52 @@ CONTAINS
           !
         END IF ! iforcing
         !
-        IF (timers_level > 5) CALL timer_stop(timer_init_icon)
+        IF (timers_level > 4) CALL timer_stop(timer_init_icon)
         !
       END IF ! ltestcase
+
+      !$ser verbatim ser_debug_on = .TRUE.
+      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 0, .TRUE.,&
+      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
+      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
+      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
+      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
+      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
+      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
+      IF(pinit_seed > 0) THEN
+        DO jg=1,n_dom
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%w)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%vn)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%theta_v)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%exner)
+          CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                p_nh_state(jg)%prog(nnow(jg))%rho)
+          IF(nh_test_name == 'dcmip_pa_12') THEN
+             CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
+                                   p_patch(jg)%nblks_c, pinit_amplitude, pinit_seed, &
+                                   p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,1))
+          ENDIF
+          CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnew(jg)))
+        ENDDO
+      ENDIF
+      !$ser verbatim ser_debug_on = .TRUE.
+      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 1, .TRUE.,&
+      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
+      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
+      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
+      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
+      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
+      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
+
       !
       ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
       ! but may be used with ECHAM physics, for real cases or test cases.
@@ -554,9 +562,9 @@ CONTAINS
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
     IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-      IF (timers_level > 5) CALL timer_start(timer_init_latbc)
+      IF (timers_level > 4) CALL timer_start(timer_init_latbc)
       CALL init_prefetch(latbc)
-      IF (timers_level > 5) CALL timer_stop(timer_init_latbc)
+      IF (timers_level > 4) CALL timer_stop(timer_init_latbc)
     ENDIF
 
     !------------------------------------------------------------------
@@ -695,7 +703,7 @@ CONTAINS
 
       IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
            CALL init_les_turbulent_output(p_patch(jg), p_nh_state(jg)%metrics, &
-           &                              time_config%tc_startdate, l_rh(jg), ldelete=(.NOT. isRestart()))
+           &    time_config%tc_startdate, var_in_output(jg)%rh, ldelete=(.NOT. isRestart()))
 
     END DO
 
@@ -712,7 +720,7 @@ CONTAINS
         &                      opt_skip_trivial        = .TRUE.)
     END IF
 
-    IF (timers_level > 3) CALL timer_stop(timer_model_init)
+    IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_nonhydrostatic
 
@@ -761,6 +769,9 @@ CONTAINS
     ENDIF
 
     IF (iforcing == inwp) THEN
+      DO jg = 1, n_dom
+        IF ( atm_phy_nwp_config(jg)%icalc_reff .GT. 0 ) CALL reff_calc_dom(jg)%destruct()
+      ENDDO
       CALL destruct_nwp_phy_state
       CALL destruct_nwp_lnd_state( p_lnd_state )
       DO jg = 1, n_dom
@@ -775,7 +786,7 @@ CONTAINS
       CALL cleanup_echam_phy
     ENDIF
 
-    CALL destruct_upatmo()
+    CALL upatmo_finalize(p_patch)
 
     ! call close name list prefetch
     IF ((l_limited_area .OR. l_global_nudging) .AND. latbc_config%itype_latbc > 0) THEN
@@ -789,7 +800,9 @@ CONTAINS
 
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
+      CALL message(routine, 'delete output variable lists')
       CALL close_name_list_output
+      CALL message(routine, 'finish statistics streams')
       CALL finish_statistics_streams
     END IF
 #ifdef HAVE_CDI_PIO
@@ -802,6 +815,7 @@ CONTAINS
 #endif
     ! finalize meteogram output
     IF (output_mode%l_nml) THEN
+      CALL message(routine, 'finalize meteogram output')
       DO jg = 1, n_dom
         IF (meteogram_output_config(jg)%lenabled) THEN
           CALL meteogram_finalize(jg)

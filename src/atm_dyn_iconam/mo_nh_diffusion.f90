@@ -377,6 +377,7 @@ MODULE mo_nh_diffusion
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
+!$NEC outerloop_unroll(4)
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -435,7 +436,7 @@ MODULE mo_nh_diffusion
               (vn_vert2 + vn_vert1 - 2._wp*p_nh_prog%vn(je,jk,jb))  &
               *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
 
-#ifndef _OPENACC
+#if defined (__LOOP_EXCHANGE) && !defined (_OPENACC)
           ENDDO
         ENDDO
 
@@ -540,6 +541,7 @@ MODULE mo_nh_diffusion
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
+!$NEC outerloop_unroll(4)
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -696,21 +698,22 @@ MODULE mo_nh_diffusion
 !DIR$ IVDEP
           DO jk = 1, nlev
 #else
+!$NEC outerloop_unroll(4)
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
 
-            vn_vert1        = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+            vn_vert1 =        u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
                               p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
                               v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
                               p_patch%edges%primal_normal_vert(je,jb,1)%v2
 
-            vn_vert2        = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+            vn_vert2 =        u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
-            dvt_tang = p_patch%edges%tangent_orientation(je,jb)* (   &
+            dvt_tang =        p_patch%edges%tangent_orientation(je,jb)* (   &
                               u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
                               v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
@@ -730,7 +733,7 @@ MODULE mo_nh_diffusion
                               v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
                               p_patch%edges%primal_normal_cell(je,jb,2)%v2
 
-            dvt_norm = u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+            dvt_norm =        u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
                               v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
                               p_patch%edges%dual_normal_cell(je,jb,2)%v2 - &
@@ -886,6 +889,7 @@ MODULE mo_nh_diffusion
         DO je = i_startidx, i_endidx
           DO jk = 1, nlev
 #else
+!$NEC outerloop_unroll(4)
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
 #endif
@@ -1432,7 +1436,7 @@ MODULE mo_nh_diffusion
           ishift = (jb-1)*nproma_zdiffu
 !$ACC PARALLEL LOOP DEFAULT(NONE) PRESENT( icell, ilev, iblk, vcoef, geofac_n2s ) &
 !$ACC     GANG VECTOR ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO jc = 1, nlen_zdiffu
             ic = ishift+jc

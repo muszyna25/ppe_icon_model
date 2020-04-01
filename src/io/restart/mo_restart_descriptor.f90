@@ -30,6 +30,7 @@ MODULE mo_restart_descriptor
     USE mo_restart_util,              ONLY: setGeneralRestartAttributes, t_restart_args, create_restart_file_link
     USE mo_restart_var_data,          ONLY: t_RestartVarData, createRestartVarData
     USE mo_var_list,                  ONLY: varlistPacker
+    USE mo_upatmo_flowevent_utils,    ONLY: t_upatmoRestartAttributes
 
     IMPLICIT NONE
 
@@ -194,13 +195,15 @@ CONTAINS
     SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, &
                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                             &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                            &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
+                                            &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces, &
+                                            &opt_upatmo_restart_atts)
         CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
         TYPE(t_patch), INTENT(IN) :: patch
         INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                        & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
         REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
              & opt_ocean_zheight_cellInterfaces(:)
+        TYPE(t_upatmoRestartAttributes), INTENT(IN), OPTIONAL :: opt_upatmo_restart_atts
 
         INTEGER :: jg
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
@@ -213,7 +216,8 @@ CONTAINS
             CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy,                &
               &      opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd,                     &
               &      opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels,                        &
-              &      opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
+              &      opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces,                    &
+              &      opt_upatmo_restart_atts)
           END IF
         END DO
     END SUBROUTINE restartDescriptor_updatePatch

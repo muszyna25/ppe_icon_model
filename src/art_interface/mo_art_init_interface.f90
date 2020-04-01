@@ -21,14 +21,29 @@
 !!
 MODULE mo_art_init_interface
 
+  USE mo_kind,                          ONLY: wp
   USE mo_run_config,                    ONLY: lart, ntracer
+  USE mo_exception,                     ONLY: finish
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art_initInt
   USE mo_storage,                       ONLY: t_storage
+  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_state
+  USE mo_ext_data_types,                ONLY: t_external_data
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
+
   USE mo_art_config,                    ONLY: ctracer_art
   USE mo_impl_constants,                ONLY: MAX_CHAR_LENGTH
-  USE mo_exception,                     ONLY: finish
+
+  USE mtime,                            ONLY: datetime
 #ifdef __ICON_ART
+  USE mo_art_collect_atmo_state,        ONLY: art_collect_atmo_state_nwp,   &
+                                          &   art_update_atmo_state_nwp,    &
+                                          &   art_collect_atmo_state_echam, &
+                                          &   art_update_atmo_state_echam,  &
+                                          &   art_init_tracer_values_nwp,   &
+                                          &   art_init_tracer_values_echam
+
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
   USE mo_art_clean_up,                  ONLY: art_clean_up
   USE mo_art_tagging,                   ONLY: get_number_tagged_tracer
@@ -44,6 +59,8 @@ MODULE mo_art_init_interface
   PRIVATE
 
   PUBLIC :: art_init_interface, art_calc_ntracer_and_names
+  PUBLIC :: art_init_atmo_tracers_nwp, art_init_atmo_tracers_echam
+  PUBLIC :: art_update_atmo_phy
 
 CONTAINS
 !!
@@ -157,10 +174,10 @@ SUBROUTINE art_write_vcs_info
 ! Modifications:
 !>
 
-  USE mo_art_util_vcs,     ONLY: art_util_repository_url, art_util_branch_name, &
-                           & art_util_revision_key
-  USE mo_exception,    ONLY: message_text, message, finish
-  USE mo_mpi,          ONLY: my_process_is_global_root
+  USE mo_art_util_vcs,   ONLY: art_util_repository_url, art_util_branch_name, &
+                           &   art_util_revision_key
+  USE mo_exception,      ONLY: message_text, message, finish
+  USE mo_mpi,            ONLY: my_process_is_global_root
                        
 
   CHARACTER(len=256) :: art_repository  = ''
@@ -189,7 +206,9 @@ SUBROUTINE art_write_vcs_info
 #endif
   
 END SUBROUTINE art_write_vcs_info
-
+!!
+!!-------------------------------------------------------------------------
+!!
 
 SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
                &      cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml, &
@@ -322,6 +341,92 @@ SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
   END IF
 
 END SUBROUTINE
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
 
+SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
+                 &                   prm_diag, p_prog, tracer, p_prog_list)
+  IMPLICIT NONE
+  INTEGER, INTENT(in) ::  &
+    &  jg                   !< patch id
+  TYPE(datetime), POINTER :: &
+    &  mtime_current        !< current model date
+  TYPE(t_nh_state), INTENT(in) :: &
+    &  p_nh_state           !< state variables of ICON
+  TYPE(t_external_data), INTENT(in) :: &
+    &  ext_data             !< external fields for NWP physics (boundary fields etc.)
+  TYPE(t_nwp_phy_diag), INTENT(in) :: &
+    &  prm_diag             !< physics fields for NWP physics
+  TYPE(t_nh_prog), INTENT(in) :: &
+    &  p_prog               !< prognostic variables of ICON
+  REAL(wp), POINTER :: &
+    &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol, passive none)
+  TYPE(t_var_list), INTENT(in) :: &
+    &  p_prog_list          !< list of prognostic variables
+
+#ifdef __ICON_ART
+  IF (lart) THEN
+    CALL art_collect_atmo_state_nwp(jg, mtime_current, p_nh_state,  &
+                   &                ext_data, prm_diag, p_prog)
+
+    CALL art_init_tracer_values_nwp(jg, tracer, mtime_current, p_prog_list)
+  END IF
+#endif
+
+END SUBROUTINE art_init_atmo_tracers_nwp
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
+                 &                     p_prog, tracer, p_prog_list)
+  IMPLICIT NONE
+  INTEGER, INTENT(in) ::  &
+    &  jg                   !< patch id
+  TYPE(datetime), POINTER :: &
+    &  mtime_current        !< current model date
+  TYPE(t_nh_state), INTENT(in) :: &
+    &  p_nh_state           !< state variables of ICON
+  TYPE(t_nh_prog), INTENT(in) :: &
+    &  p_prog               !< prognostic variables of ICON
+  REAL(wp), POINTER  :: &
+    &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol, passive none)
+  TYPE(t_var_list), INTENT(in) :: &
+    &  p_prog_list          !< list of prognostic variables
+
+#ifdef __ICON_ART
+  IF (lart) THEN
+    CALL art_collect_atmo_state_echam(jg, mtime_current, p_nh_state, p_prog)
+
+    CALL art_init_tracer_values_echam(jg, tracer, mtime_current, p_prog_list)
+  END IF
+#endif
+
+END SUBROUTINE art_init_atmo_tracers_echam
+!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+SUBROUTINE art_update_atmo_phy(jg, mtime_current, p_prog, prm_diag)
+  IMPLICIT NONE
+  INTEGER, INTENT(in) :: &
+    &  jg                   !< patch id
+  TYPE(datetime), POINTER :: &
+    &  mtime_current        !< current model date
+  TYPE(t_nh_prog), INTENT(in) :: &
+    &  p_prog               !< prognostic variables of ICON
+  TYPE(t_nwp_phy_diag), INTENT(in), OPTIONAL :: &
+    &  prm_diag             !< phyics fields for NWP physics
+
+
+#ifdef __ICON_ART
+  IF (lart) THEN
+    IF (PRESENT(prm_diag)) THEN
+      CALL art_update_atmo_state_nwp(jg,mtime_current, p_prog, prm_diag)
+    ELSE
+      CALL art_update_atmo_state_echam(jg,mtime_current, p_prog)
+    END IF
+  END IF
+#endif
+END SUBROUTINE art_update_atmo_phy
 
 END MODULE mo_art_init_interface

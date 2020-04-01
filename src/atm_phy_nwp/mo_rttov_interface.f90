@@ -58,10 +58,8 @@ MODULE mo_rttov_interface
     &                               get_my_mpi_all_id
 #ifdef __USE_RTTOV
   USE mo_rttov_ifc,           ONLY: rttov_init, rttov_fill_input, rttov_direct_ifc, &
-    &                               NO_ERROR, rttov_ifc_errMsg
-#ifdef __RTTOV12
-  USE mo_rttov_ifc,           ONLY: default_gas_units, gas_unit_specconc, gas_unit_ppmvdry, default_use_q2m
-#endif
+    &                               NO_ERROR, rttov_ifc_errMsg, &
+                                    default_gas_units, gas_unit_specconc, gas_unit_ppmvdry, default_use_q2m
 #endif
 
   IMPLICIT NONE
@@ -197,10 +195,8 @@ CONTAINS
         WRITE (0,*) routine, ": CALL to rttov_init"
       END IF
 
-      ! use 2m humidity in case of RTTOV12
-#ifdef __RTTOV12
+      ! use 2m humidity
       default_use_q2m = .TRUE.
-#endif
 
       istatus = rttov_init(  &
         instruments     , &
@@ -272,11 +268,7 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   ! Local variables for RTTOV calls (with RTTOV-specific memory layout)
   REAL(wp), DIMENSION(nlev_rttov,nproma) :: temp, pres, qv
 
-#ifdef __RTTOV12
   REAL(wp) ::  cld(6,nlev_rttov-1,nproma), clc(nlev_rttov-1,nproma)
-#else
-  REAL(wp), DIMENSION(6,nlev_rttov-1,nproma) :: clc, cld
-#endif
 
   INTEGER,  DIMENSION(1:nproma*MAXVAL(numchans(:))) :: iprof, ichan
   REAL(wp), DIMENSION(MAXVAL(numchans(:)),nproma) :: emiss, T_b, T_b_clear, rad, rad_clear
@@ -310,8 +302,8 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   ! distance of satellite from middle of the earth
   r_sat       = 35880.e3_wp + earth_radius
 
-  ! set backward compatibility mode for input unit of QV when using RTTOV12
-#ifdef __RTTOV12
+#ifdef __USE_RTTOV
+  ! set backward compatibility mode for input unit of QV
   default_gas_units = gas_unit_ppmvdry
 #endif
 
@@ -366,17 +358,12 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
         ! cld(6) = cloud ice
         cld(6,jk,jc) = qi_rttov(jc,jk,jb)
         ! clc = cloud fraction
-#ifdef __RTTOV12
+
         clc(jk,jc) = MIN(1._wp-1.e-8_wp,clc_rttov(jc,jk,jb))
         IF (ANY(cld(:,jk,jc) > 0._wp)) THEN
           clc(jk,jc) = MAX(1.e-8_wp,clc(jk,jc))
         ENDIF
-#else
-        clc(1,jk,jc) = MIN(1._wp-1.e-8_wp,clc_rttov(jc,jk,jb))
-        IF (ANY(cld(:,jk,jc) > 0._wp)) THEN
-          clc(1,jk,jc) = MAX(1.e-8_wp,clc(1,jk,jc))
-        ENDIF
-#endif
+
       ENDDO
     ENDDO
 
@@ -393,17 +380,12 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
           stemp      = rg_tsfc(is:ie,jb),                  &
           stype      = rg_stype(is:ie,jb),                 &
           watertype  = rg_wtype(is:ie,jb),                 &
-          latgroundp = p_gcp%center(is:ie,jb)%lat*rad2deg, &
+          lat        = p_gcp%center(is:ie,jb)%lat*rad2deg, &
           satzenith  = (/(0.0_wp, jc=is,ie)/),             &
           sunZenith  = rg_cosmu0(is:ie,jb),                & ! actually unused for addsolar=.false.
           cloud      = cld(:,:,is:ie),                     &
-#ifdef __RTTOV12
           cfrac      = clc(:,is:ie),                       &
           ice_scheme = ish(is:ie),                         &
-#else
-          cfrac      = clc(:,:,is:ie),                     &
-          ish        = ish(is:ie),                         &
-#endif
           idg        = idg(is:ie),                         &
           addsolar   = .false.,                            &
           addrefrac  = .true.,                             &

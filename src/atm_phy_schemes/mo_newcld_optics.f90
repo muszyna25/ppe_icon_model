@@ -254,6 +254,7 @@ CONTAINS
 
     zfact = 1.0e6_wp*(3.0e-9_wp/(4.0_wp*pi*rhoh2o))**(1.0_wp/3.0_wp)
     DO jk=1,klev
+!$NEC ivdep 
       DO jl=1,jce
         IF (icldlyr(jl,jk)==1 .AND. (zlwp(jl,jk)+ziwp(jl,jk))>ccwmin) THEN
 
@@ -288,7 +289,7 @@ CONTAINS
           !  ***  An open question is, however, is the usage of the coefficients
           !       in the overlapping band: currently, ztau and zomg are set for LW,
           !       whereas zasy are set for SW. ***
-!cdir expand=nbnds_sw
+!$NEC unroll(nbnds_sw)
           DO iband = nbnds_lw,n_mdl_bnds-1
             ztol = zlwp(jl,jk)*(wl1*z_ext_l(ml1,iband) + wl2*z_ext_l(ml2,iband))
             ztoi = ziwp(jl,jk)*(wi1*z_ext_i(mi1,iband) + wi2*z_ext_i(mi2,iband))
@@ -305,7 +306,7 @@ CONTAINS
           !
           ! set old Cloud Optics instead of Kinne Optics for LW
           !
-!cdir expand=nbnds_lw
+!$NEC unroll(nbnds_lw)
           DO iband = 1,nbnds_lw
             zmsald=0.025520637_wp+0.2854650784_wp*EXP(-0.088968393014_wp  &
                  *re_droplets)
@@ -316,19 +317,21 @@ CONTAINS
           END DO
 
         ELSE
-!cdir begin expand=n_mdl_bnds-1
+!$NEC unroll(n_mdl_bnds-1)
           ztau(jl,jk,1:n_mdl_bnds-1)  = 0.0_wp
+!$NEC unroll(n_mdl_bnds-1)
           zomg(jl,jk,1:n_mdl_bnds-1)  = 1.0_wp
+!$NEC unroll(n_mdl_bnds-1)
           zasy(jl,jk,1:n_mdl_bnds-1)  = 0.0_wp
-!cdir end
         END IF
-!cdir expand=nbnds_lw
+!$NEC unroll(nbnds_lw)
         tau_lw(jl,jk,1:nbnds_lw) = ztau(jl,jk,1:nbnds_lw) * (1.0_wp - zomg(jl,jk,1:nbnds_lw))
-!cdir begin expand=nbnds_sw
+!$NEC unroll(nbnds_sw)
         tau_sw(jl,1:nbnds_sw,jk) = ztau(jl,jk,nbnds_lw:nbnds_lw+nbnds_sw-1)
+!$NEC unroll(nbnds_sw)
         omg(jl,1:nbnds_sw,jk)    = zomg(jl,jk,nbnds_lw:nbnds_lw+nbnds_sw-1)
+!$NEC unroll(nbnds_sw)
         asy(jl,1:nbnds_sw,jk)    = zasy(jl,jk,nbnds_lw:nbnds_lw+nbnds_sw-1)
-!cdir end
       END DO
     END DO
 

@@ -9,7 +9,8 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Add a builder to a machine.')
 parser.add_argument('builder_name', type=str,  help='builder name')
-parser.add_argument('--configureflags', dest="configureflags", type=str, help='the configure flags for the buildber', required=True)
+parser.add_argument('--build_script', dest="build_script", type=str, help='the configure wrapper file', required=False, default='./configure')
+parser.add_argument('--configureflags', dest="configureflags", type=str, help='the configure flags for the buildber', required=False,default='')
 parser.add_argument('--builderflags', dest="builderflags", type=str, help='the builder flags', required=True)
 parser.add_argument('--machine', dest="machine_name", type=str, help='the machine name to add the builder', required=True)
 parser.add_argument('--list', dest="list_name", type=str, help='the list', required=True)
@@ -17,7 +18,7 @@ parser.add_argument('--list', dest="list_name", type=str, help='the list', requi
 args = parser.parse_args()
   
 thisList  = buildbot_experiments_list(args.list_name)
-thisList.add_builder(args.builder_name, args.machine_name, args.configureflags, args.builderflags)
+thisList.add_builder(args.builder_name, args.machine_name, args.build_script, args.configureflags, args.builderflags)
 thisList.write()
 print("Builder "+args.builder_name+" is added to the Machine "+ args.machine_name+".")
 

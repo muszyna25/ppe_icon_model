@@ -90,7 +90,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .TRUE.      ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -125,14 +124,18 @@ cat > ${atmo_namelist} << EOF
  decay_exp        = 1.2
  flat_height      = 16000.      ! [m]
 /
+&initicon_nml
+ pinit_seed       = -1          ! seed for perturbation of initial model state. no perturbation by default
+ pinit_amplitude  = 0.          ! amplitude of perturbation
+/
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_vlimit     =   2,  2,  2,  2
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =   2,  2,  2,  2
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_vlimit     =    2 ,   2 ,   2
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =    2 ,   2 ,   2
 /
 &echam_phy_nml
 !

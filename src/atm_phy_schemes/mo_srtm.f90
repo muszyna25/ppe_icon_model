@@ -26,6 +26,7 @@ MODULE mo_srtm
     &    srtm_taumol24, srtm_taumol25, srtm_taumol26, srtm_taumol27, &
     &    srtm_taumol28, srtm_taumol29
   USE mo_radiation_config, ONLY: icld_overlap
+  USE mo_nwp_tuning_config, ONLY: tune_difrad_3dcont
 
   IMPLICIT NONE
 
@@ -255,14 +256,14 @@ CONTAINS
     !-------------------------------
 
     DO jk = 1, klev
-
+!$NEC ivdep
       DO ic = 1, icount
         jl = idx(ic)
         zfrcl(ic,jk)       = cld_frc_vr(jl,jk)
         zpm_fl_vr(ic,jk)   = pm_fl_vr(jl,jk)
         ztk_fl_vr(ic,jk)   = tk_fl_vr(jl,jk)
         zcol_dry_vr(ic,jk) = col_dry_vr(jl,jk)
-!CDIR EXPAND=jpinpx
+!$NEC unroll(jpinpx)
         zwkl_vr(ic,1:jpinpx,jk) = wkl_vr(jl,1:jpinpx,jk)
       ENDDO
 
@@ -565,7 +566,7 @@ CONTAINS
 
       DO jk=1,klev+1
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO ic = 1, icount
           jl = idx(ic)
           flxu_sw(jl,jk)     = zflxu_sw(ic,jk)
@@ -577,10 +578,10 @@ CONTAINS
 
 
       IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation, including simple empirical parameterization
-        DO ic = 1, icount             ! for reflected radiation on low-level clouds
+        DO ic = 1, icount             ! for 3D reflected radiation on low-level clouds
           jl = idx(ic)
           flxd_dff_sfc(jl) = MIN(zflxd_sw(ic,klev+1), &
-                             zflxd_diff(ic) + 0.5_wp*zflxd_sw(ic,klev+1)*zcloud_ll(ic)*(1._wp-zcloud_ll(ic))**2)
+                             zflxd_diff(ic) + tune_difrad_3dcont*zflxd_sw(ic,klev+1)*zcloud_ll(ic)*(1._wp-zcloud_ll(ic))**2)
    !       flxd_dff_sfc(jl) = zflxd_diff(ic)
         ENDDO
       ENDIF
@@ -1478,6 +1479,7 @@ CONTAINS
 
     !-- pass from bottom to top
 
+!$NEC outerloop_unroll(8)
     DO jk=1,klev-1
       ikp=klev+1-jk
       ikx=ikp-1
@@ -1504,6 +1506,7 @@ CONTAINS
     ENDDO
 
     !-- pass from top to bottom
+!$NEC outerloop_unroll(8)
     DO jk=2,klev
       ikp=jk+1
 !IBM* ASSERT(NODEPS)
@@ -1660,21 +1663,33 @@ CONTAINS
       IF (PRESENT(ldrtchk)) THEN
         ict = 0
         icf = 0
-        DO ic=1,icount
-          IF (ldrtchk(ic,jk)) THEN
-            ict = ict + 1
-            idxt(ict) = ic
-          ELSE
-            icf = icf + 1
-            idxf(icf) = ic
-          END IF
-        END DO
+        IF (kmodts == 2) THEN ! optimization: check first if index lists need to be generated
+          DO ic=1,icount
+            IF (ldrtchk(ic,jk)) THEN
+              ict = ict + 1
+            END IF
+          END DO
+          IF (ict == 0) icf = icount
+        END IF
+        IF (kmodts /= 2 .OR. (ict < icount .AND. icf < icount)) THEN
+          ict = 0
+          DO ic=1,icount
+            IF (ldrtchk(ic,jk)) THEN
+              ict = ict + 1
+              idxt(ict) = ic
+            ELSE
+              icf = icf + 1
+              idxf(icf) = ic
+            END IF
+          END DO
+        END IF
+
       END IF
        !-- GENERAL TWO-STREAM EXPRESSIONS
 
       IF (kmodts == 1) THEN
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = 1,ict
           ic = idxt(jc)
 
@@ -1703,7 +1718,7 @@ CONTAINS
         END DO
       ELSEIF (kmodts == 2) THEN
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
         DO jc = 1,ict
           ic = idxt(jc)
@@ -1720,7 +1735,7 @@ CONTAINS
         END DO
       ELSEIF (kmodts == 3) THEN
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = 1,ict
           ic = idxt(jc)
 
@@ -1738,9 +1753,37 @@ CONTAINS
 
       icc = 0
       icn = 0
-!IBM* ASSERT(NODEPS)
+
       DO jc = 1,ict
-        ic = idxt(jc)
+        IF (zcrit(jc) >= 0._wp) icc = icc + 1
+      END DO
+      IF (icc == 0 .AND. ict == icount) icn = icount
+      IF(icc < icount .AND. icn < icount) THEN
+        icc = 0
+
+        IF(ict == icount) THEN ! this case uses direct adressing so far
+          DO jc = 1,ict
+            IF (zcrit(jc) >= 0._wp) THEN
+               icc = icc + 1
+               idxc(icc) = jc
+            ELSE
+               icn = icn + 1
+               idxn(icn) = jc
+            END IF
+          END DO
+        ELSE ! further split existing index list
+          DO jc = 1,ict
+            ic = idxt(jc)
+            IF (zcrit(jc) >= 0._wp) THEN
+               icc = icc + 1
+               idxc(icc) = ic
+            ELSE
+               icn = icn + 1
+               idxn(icn) = ic
+            END IF
+          END DO
+        ENDIF
+      ENDIF
 
         !-- RECOMPUTE ORIGINAL S.S.A. TO TEST FOR CONSERVATIVE SOLUTION
         !   ZTEMP=(1._wp - ZG)**2
@@ -1748,15 +1791,6 @@ CONTAINS
 
         !       ZWO= ZW / (1._wp - (1._wp - ZW) * (ZG / (1._wp - ZG))**2)
         !       IF (ZWO >= ZWCRIT) THEN
-
-        IF (zcrit(jc) >= 0._wp) THEN
-           icc = icc + 1
-           idxc(icc) = ic
-        ELSE
-           icn = icn + 1
-           idxn(icn) = ic
-        END IF
-      END DO
 
        !!-- conservative scattering
 
@@ -1768,7 +1802,7 @@ CONTAINS
         END DO
       ELSE
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = 1,icc
           ic = idxc(jc)
           zem2(jc) = -MIN(ptau(ic,jk) * prmuzi(ic),500._wp)
@@ -1798,7 +1832,7 @@ CONTAINS
       ELSE
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
         DO jc = 1,icc
           ic = idxc(jc)
@@ -1834,7 +1868,7 @@ CONTAINS
         END DO
       ELSE
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
         DO jc = 1,icn
           ic = idxn(jc)
@@ -1912,7 +1946,7 @@ CONTAINS
         END DO
       ELSE
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
         DO jc = 1,icn
           ic = idxn(jc)
@@ -1974,7 +2008,7 @@ CONTAINS
         END DO
       ELSE IF (icf > 0) THEN
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = 1,icf
           ic=idxf(jc)
           pref(ic,jk) =0.0_wp
