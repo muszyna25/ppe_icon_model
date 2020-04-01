@@ -17,6 +17,17 @@ set -eu
 
 BB_SYSTEM=${BB_SYSTEM:=""}
 
+use_host='@host_fqdn@'
+case "$use_host" in
+  unknown) ;;
+  wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
+  daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
+  ic2*|uc1*|fh2*) use_site=kit.edu ;;
+  melian*) use_site=local.net ;;
+  *mpimet.mpg.de) use_site=mpg.de ;;
+esac
+
+
 add_free_var()
 {
     varName=$1
@@ -122,15 +133,41 @@ fi
 EOF
     fi
 
-    if [[ "x$use_load_modules" != "x" ]]
-    then
-	cat >> $output_script << EOF
-
-module purge
-module load $use_load_modules
+    case "$use_target" in
+      fh2*)
+if [[ "x$use_load_profile" != "x" ]]; then
+  if [[ "x$use_load_modules" != "x" ]]; then
+    profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
+cat >> $output_script << EOF
+#=============================================================================
+# load modules
+loadmodule="$use_load_modules"
+. /opt/lmod/lmod/init/ksh
+module load \$loadmodule
 module list
+#=============================================================================
 EOF
-    fi
+fi
+fi
+;;
+ *)
+
+if [[ "x$use_load_profile" != "x" ]]; then
+  if [[ "x$use_load_modules" != "x" ]]; then
+    profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
+cat >> $output_script << EOF
+#=============================================================================
+# load modules
+module purge
+module load "\$loadmodule"
+module list
+#=============================================================================
+EOF
+fi
+fi
+;;
+esac
+
 
     cat >> $output_script << EOF
 
