@@ -41,7 +41,7 @@ FCFLAGS="-I${NETCDFF_ROOT}/include -standard-semantics -pc64 -assume realloc_lhs
 
 LDFLAGS="-I/software/all/mpi/openmpi/3.0_intel_19.0/lib -I/software/all/mpi/openmpi/3.0_intel_19.0/include -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${GRIBAPI_ROOT}/lib ${BLAS_LAPACK_LDFLAGS} -L/software/all/mpi/openmpi/3.0_intel_19.0/lib -L/software/all/mpi/openmpi/3.0_intel_19.0/include -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi"
 LIBS="${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} "
-
+ICON_OCEAN_FCFLAGS=""
 MPI_LAUNCH='mpiexec'
 
 EXTRA_CONFIG_ARGS='--disable-rpaths --enable-grib2'
@@ -57,6 +57,8 @@ CFLAGS="${CFLAGS}" \
 CPPFLAGS="${CPPFLAGS}" \
 FC="${FC}" \
 FCFLAGS="${FCFLAGS}" \
+ICON_FCFLAGS="${ICON_FCFLAGS}" \
+ICON_OCEAN_FCFLAGS="${ICON_OCEAN_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
@@ -72,7 +74,8 @@ for arg in "$@"; do
 done
 
 # Generate input file for runscript generation:
-./config.status --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+./config.status  --file=run/exec.iconrun --file=run/add_run_routines --file=run/set-up.info
+echo 'use_mpi_root="openmpi"' >> run/set-up.info
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
@@ -81,5 +84,6 @@ if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
   rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
   rsync -uavz ${ICON_DIR}/make_runscripts .
   ln -sf ${ICON_DIR}/data
+  ln -sf ${ICON_DIR}/vertical_coord_tables
 fi
 

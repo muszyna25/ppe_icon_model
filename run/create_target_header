@@ -1441,9 +1441,12 @@ set_run_target_fh2()
     #| sed -r "s/(.+)\/.+/\1/"
     stripped_output="LOG.$output_script_name.err"
     cat >> $output_script << EOF
-#MSUB -e $stripped_output 
-#MSUB -l walltime=00:00:05:00
-#MSUB -l nodes=4:ppn=20
+
+#SBATCH --nodes=4
+#SBATCH --time=1:00:00
+#SBATCH --ntasks-per-node=20
+#SBATCH --partition=develop
+
 EOF
 
     start_header
