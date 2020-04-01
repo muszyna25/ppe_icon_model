@@ -615,8 +615,8 @@ CONTAINS
       ! total fresh water flux into ocean (P-E+Ro of atmosphere and land/HD)
       total_frshflx_atmhd = 0.0_wp
       IF (isRegistered('FrshFlux_AtmHD_Global')) THEN
-        xscr(:,:) = p_oce_sfc%FrshFlux_Precipitation(:,:) + p_oce_sfc%FrshFlux_Evaporation(:,:) &
-          &         + p_oce_sfc%FrshFlux_Runoff(:,:)
+        xscr = p_oce_sfc%FrshFlux_Precipitation + p_oce_sfc%FrshFlux_Evaporation &
+          &         + p_oce_sfc%FrshFlux_Runoff
         call levels_horizontal_mean( xscr, &
             & patch_2d%cells%area(:,:), &
             & owned_cells, &
@@ -627,7 +627,7 @@ CONTAINS
       ! total fresh water flux into ocean below ice
       total_frshflx_belowice = 0.0_wp
       IF (isRegistered('FrshFlux_BelowIce_Global')) THEN
-        xscr(:,:) = p_oce_sfc%FrshFlux_Runoff(:,:) + p_oce_sfc%FrshFlux_TotalOcean &
+        xscr = p_oce_sfc%FrshFlux_Runoff + p_oce_sfc%FrshFlux_TotalOcean &
           &         + p_oce_sfc%FrshFlux_VolumeIce + ice%totalsnowfall/dtime
         call levels_horizontal_mean( xscr, &
             & patch_2d%cells%area(:,:), &
