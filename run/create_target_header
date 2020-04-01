@@ -151,20 +151,6 @@ fi
 fi
 ;;
  *)
-
-if [[ "x$use_load_profile" != "x" ]]; then
-  if [[ "x$use_load_modules" != "x" ]]; then
-    profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
-cat >> $output_script << EOF
-#=============================================================================
-# load modules
-module purge
-module load "\$loadmodule"
-module list
-#=============================================================================
-EOF
-fi
-fi
 ;;
 esac
 
