@@ -26,6 +26,8 @@ MODULE mo_art_init_interface
   USE mo_exception,                     ONLY: finish
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art_initInt
+  USE mo_grid_config,                   ONLY: start_time
+  USE mo_master_config,                 ONLY: isRestart
   USE mo_storage,                       ONLY: t_storage
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_state
@@ -370,7 +372,9 @@ SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
     CALL art_collect_atmo_state_nwp(jg, mtime_current, p_nh_state,  &
                    &                ext_data, prm_diag, p_prog)
 
-    CALL art_init_tracer_values_nwp(jg, tracer, mtime_current, p_prog_list)
+    IF ((start_time(jg) <= 0.0_wp) .AND. (.NOT. isRestart())) THEN
+      CALL art_init_tracer_values_nwp(jg, tracer, mtime_current, p_prog_list)
+    END IF
   END IF
 #endif
 
@@ -398,7 +402,9 @@ SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
   IF (lart) THEN
     CALL art_collect_atmo_state_echam(jg, mtime_current, p_nh_state, p_prog)
 
-    CALL art_init_tracer_values_echam(jg, tracer, mtime_current, p_prog_list)
+    IF ((start_time(jg) <= 0.0_wp) .AND. (.NOT. isRestart())) THEN
+      CALL art_init_tracer_values_echam(jg, tracer, mtime_current, p_prog_list)
+    END IF
   END IF
 #endif
 
