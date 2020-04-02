@@ -120,6 +120,7 @@ pp_files:=
 @JSBACH_ENABLED@JSB_srcdir:= $(srcdir)/externals/jsbach
 @JSBACH_ENABLED@JSB_subdir:= $(ppdir)/jsb
 @JSBACH_ENABLED@JSB_f90_files:= $(patsubst $(JSB_srcdir)/%,$(JSB_subdir)/%,$(shell find $(JSB_srcdir)/src -name '*.f90'))
+@JSBACH_ENABLED@JSB_src_prefix:= $(JSB_subdir)/
 @JSBACH_ENABLED@f90_files+= $(JSB_f90_files)
 @JSBACH_ENABLED@pp_files+= $(JSB_f90_files)
 
@@ -129,6 +130,7 @@ pp_files:=
 @CLAW_ENABLED@@JSBACH_ENABLED@CLAW_inputs+= $(JSB_f90_files)
 @CLAW_ENABLED@@JSBACH_ENABLED@CLAW_f90_files+= $(addprefix $(CLAW_subdir)/,$(JSB_f90_files))
 @CLAW_ENABLED@@JSBACH_ENABLED@f90_files:= $(filter-out $(JSB_f90_files),$(f90_files))
+@CLAW_ENABLED@@JSBACH_ENABLED@JSB_src_prefix:= $(CLAW_subdir)/$(JSB_src_prefix)
 @CLAW_ENABLED@f90_files+= $(CLAW_f90_files)
 @CLAW_ENABLED@pp_files+= $(CLAW_f90_files)
 @CLAW_ENABLED@export CLAW_inputs+= $(addprefix $(srcdir)/externals/,mtime/src/libmtime.f90 cdi/src/mo_cdi.f90)
@@ -175,6 +177,7 @@ pp_files:=
 f90_files:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(f90_files))
 src_prefix:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(src_prefix))
 pp_files:= $(addprefix $(builddir)/,$(pp_files))
+@JSBACH_ENABLED@JSB_src_prefix:=$(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(src_prefix)$(JSB_src_prefix))
 @CLAW_ENABLED@CLAW_inputs:= $(patsubst $(ppdir)/%,$(builddir)/$(ppdir)/%,$(CLAW_inputs))
 
 # Dependency files:
@@ -185,10 +188,13 @@ dir_files= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_fil
 
 # Resulting executable files:
 exec_files:= $(bindir)/icon@EXEEXT@
+@JSBACH_ENABLED@exec_files+= $(bindir)/jsb4_driver@EXEEXT@
 
 # For each executable we need the root object file:
 #   ICON object file:
 root_obj_file:= $(src_prefix)src/drivers/icon.@OBJEXT@
+#   JSBACH object file:
+@JSBACH_ENABLED@JSB_root_obj_file:= $(JSB_src_prefix)src/drivers/jsb4_driver.@OBJEXT@
 
 # Selective search paths:
 vpath %.f90 $(srcdir)
@@ -291,6 +297,9 @@ check: all
 
 # ICON executable dependencies:
 $(bindir)/icon@EXEEXT@: $(filter %.@OBJEXT@,$(shell $(DEPLIST) @deplist.config -t $(root_obj_file) -f $(dep_files))) $(BUNDLED_LIBFILES)
+
+# JSBACH executable dependencies:
+@JSBACH_ENABLED@$(bindir)/jsb4_driver@EXEEXT@: $(filter %.@OBJEXT@,$(shell $(DEPLIST) @deplist.config -t $(JSB_root_obj_file) -f $(dep_files))) $(BUNDLED_LIBFILES)
 
 # Common linking rule for the executables:
 $(exec_files): | $(dir_files)

@@ -91,6 +91,7 @@ rerun this script with an option '--force' to disable this check"
 # $prefix/bin. Therefore, we simply copy '$builddir/bin/icon' to '$prefix/bin'.
 
 fn_copy_file "$builddir/bin/icon" "$prefix/bin/"
+test -f "$builddir/bin/jsb4_driver" && fn_copy_file "$builddir/bin/jsb4_driver" "$prefix/bin/"
 
 if test -f "$builddir/run/set-up.info"; then
   fn_copy_file "$builddir/run/set-up.info" "$prefix/run/"
