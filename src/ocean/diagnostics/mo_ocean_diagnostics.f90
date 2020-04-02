@@ -523,7 +523,7 @@ CONTAINS
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
       &        global_mean_potEnstrophy,global_heat_content, global_heat_content_solid, &
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
-    REAL(wp) :: xscr(nproma,patch_3d%p_patch_2d(1)%nblks_c)
+!   REAL(wp) :: xscr(nproma,patch_3d%p_patch_2d(1)%nblks_c)
 !   REAL(wp) :: sflux
 
     TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
@@ -614,26 +614,26 @@ CONTAINS
 
       ! total fresh water flux into ocean (P-E+Ro of atmosphere and land/HD)
       total_frshflx_atmhd = 0.0_wp
-      IF (isRegistered('FrshFlux_AtmHD_Global')) THEN
-        xscr(:,:) = p_oce_sfc%FrshFlux_Precipitation(:,:) + p_oce_sfc%FrshFlux_Evaporation(:,:) &
-          &         + p_oce_sfc%FrshFlux_Runoff(:,:)
-        call levels_horizontal_mean( xscr, &
-            & patch_2d%cells%area(:,:), &
-            & owned_cells, &
-            & total_frshflx_atmhd)
-      END IF
+!      IF (isRegistered('FrshFlux_AtmHD_Global')) THEN
+!        xscr = p_oce_sfc%FrshFlux_Precipitation + p_oce_sfc%FrshFlux_Evaporation &
+!          &         + p_oce_sfc%FrshFlux_Runoff
+!        call levels_horizontal_mean( xscr, &
+!            & patch_2d%cells%area(:,:), &
+!            & owned_cells, &
+!            & total_frshflx_atmhd)
+!      END IF
       monitor%FrshFlux_AtmHD = total_frshflx_atmhd
 
       ! total fresh water flux into ocean below ice
       total_frshflx_belowice = 0.0_wp
-      IF (isRegistered('FrshFlux_BelowIce_Global')) THEN
-        xscr(:,:) = p_oce_sfc%FrshFlux_Runoff(:,:) + p_oce_sfc%FrshFlux_TotalOcean &
-          &         + p_oce_sfc%FrshFlux_VolumeIce + ice%totalsnowfall/dtime
-        call levels_horizontal_mean( xscr, &
-            & patch_2d%cells%area(:,:), &
-            & owned_cells, &
-            & total_frshflx_belowice)
-      END IF
+ !     IF (isRegistered('FrshFlux_BelowIce_Global')) THEN
+ !       xscr = p_oce_sfc%FrshFlux_Runoff + p_oce_sfc%FrshFlux_TotalOcean &
+ !         &         + p_oce_sfc%FrshFlux_VolumeIce + ice%totalsnowfall/dtime
+ !       call levels_horizontal_mean( xscr, &
+ !           & patch_2d%cells%area(:,:), &
+ !           & owned_cells, &
+ !           & total_frshflx_belowice)
+ !     END IF
       monitor%FrshFlux_BelowIce = total_frshflx_belowice
 
       ! total (atmospheric) snowfall
