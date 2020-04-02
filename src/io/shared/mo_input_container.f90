@@ -521,15 +521,14 @@ CONTAINS
 
         CASE DEFAULT
            !NEC_RP: Read data, distribute them, and compute statistics
-           !GZ: in principle, one could use 3 sections here, but this does not give any benefit
-           !    because statistics+distribution is always faster than reading
-!$OMP PARALLEL SECTIONS NUM_THREADS(2)
+!$OMP PARALLEL SECTIONS NUM_THREADS(3)
 !$OMP SECTION
            ! first section for read of current buffer
            CALL read_data(firstcall = .FALSE.)
 !$OMP SECTION
-           ! second section for statistics on and distribution of previous buffer
+           ! second and third sections for statistics on and distribution of previous buffer
             CALL compute_statistics()
+!$OMP SECTION
             CALL distribute_data()
 !$OMP END PARALLEL SECTIONS
 

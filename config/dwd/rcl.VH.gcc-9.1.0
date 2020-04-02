@@ -60,14 +60,14 @@ echo ${BUILD_ENV}
 eval "$BUILD_ENV"
 
 # C compiler wrapper on cray machine
-CC='mpicc -vh'
+CC='mpincc -vh'
 CFLAGS='-std=gnu99 -mavx2 -mno-fma -O3 -DUSE_XML2'
 ICON_CFLAGS=''
 ICON_BUNDLED_CFLAGS='-O2'
 CPPFLAGS="-I${HDF5ROOT}/include -I${NETCDFROOT}/include ${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2"
 
 # Fortran compiler wrapper on cray machine
-FC='mpifort -vh'
+FC='mpinfort -vh'
 FCFLAGS="-I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT_LIB}/obj -cpp -std=gnu -fbacktrace -g -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
 ICON_FCFLAGS=''
 ICON_OCEAN_FCFLAGS='-O2'
