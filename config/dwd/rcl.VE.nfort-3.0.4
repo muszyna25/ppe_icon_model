@@ -46,7 +46,7 @@ SZIP_LIB='-lsz'
 ZLIB_LIB='-lz' 
 
 # RTTOV
-RTTOV_ROOT_LIB='/hpc/uhome/rfaulwet/icon/rttov/sx-VE'
+RTTOV_ROOT_LIB='/hpc/uhome/ublahak/ICON/ICON_MPI/LIB/rttov12.1_ub/sx.VE'
 RTTOV_LIBS='-lrttov12'
 
 ################################################################################
@@ -88,9 +88,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES_LIBS} 
 
 MPI_LAUNCH=''  # needed e.g. for yac configuration ?? 
 
-EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --disable-rte-rrtmgp --disable-jsbach --disable-ocean --disable-coupling'
-
-#--enable-rttov  ! will be activated once some remaining issues have been solved
+EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --disable-rte-rrtmgp --disable-psrad --disable-jsbach --disable-ocean --disable-coupling'
 
 ################################################################################
 

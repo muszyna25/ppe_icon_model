@@ -17,8 +17,6 @@
 !!
 MODULE mo_assimilation_nml
 
-  USE mo_assimilation_config,     ONLY: assimilation_config
-
   USE mo_kind,                ONLY: wp,i4
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
@@ -90,6 +88,10 @@ MODULE mo_assimilation_nml
     blacklist_file(max_dom)       ,& ! filename of blacklist for radar data
     height_file(max_dom)             ! filename of radar beam heights
 
+ LOGICAL :: dace_coupling
+ INTEGER :: dace_time_ctrl(3)
+ INTEGER :: dace_debug       ! Debugging level for DACE interface
+
 ! CHARACTER (LEN=12)               ::           &
 !    noobs_date (n_noobs)    ! array of missing observations
 
@@ -112,7 +114,8 @@ MODULE mo_assimilation_nml
                               height_file  ,lhn_spqual                 ,           &
                               lhn_dt_obs   ,nradar, radardata_file     ,           &
                               tt_artif_max  ,zlev_artif_max, std_artif_max,        &
-                              start_fadeout 
+                              start_fadeout ,                                      &
+                              dace_coupling ,dace_time_ctrl, dace_debug
 CONTAINS
   !>
   !!
@@ -127,6 +130,10 @@ CONTAINS
     !------------------------------------------------------------
     ! Set up the default values
     !------------------------------------------------------------
+    dace_coupling      = .false.
+    dace_time_ctrl     = 0
+    dace_debug         = 0
+
     llhn(:)               = ldass_lhn
     llhnverif(:)          = .TRUE.
     lhn_artif             = .TRUE.
@@ -220,6 +227,9 @@ CONTAINS
     !-----------------------------------------------------
 
     DO jg= 1,max_dom
+        assimilation_config(jg)%dace_coupling   = dace_coupling
+        assimilation_config(jg)%dace_time_ctrl  = dace_time_ctrl
+        assimilation_config(jg)%dace_debug      = dace_debug
         assimilation_config(jg)%llhn            = llhn(jg)
         assimilation_config(jg)%llhnverif       = llhnverif(jg)
         assimilation_config(jg)%lhn_artif       = lhn_artif

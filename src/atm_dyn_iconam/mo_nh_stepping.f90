@@ -227,6 +227,7 @@ MODULE mo_nh_stepping
     &                                    upatmoRestartAttributesDeallocate
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
+  use mo_icon2dace,                ONLY: mec_Event, init_dace_op, run_dace_op, dace_op_init
   USE mo_extpar_config,            ONLY: generate_td_filename
   USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
   USE mo_nudging,                  ONLY: nudging_interface  
@@ -538,6 +539,26 @@ MODULE mo_nh_stepping
       CALL write_name_list_output(jstep=0)
     END IF
 
+    !-----------------------------------------------
+    ! Pass "initialized analysis" or "analysis" when
+    ! time step 0 cannot be reached in time stepping
+    !-----------------------------------------------
+    IF (assimilation_config(1)% dace_coupling) THEN
+       IF (.NOT. ASSOCIATED (mec_Event)) &
+            CALL finish ("perform_nh_stepping","MEC not configured")
+       IF (timeshift%dt_shift == 0._wp .and. &
+            is_event_active(mec_Event, mtime_current, proc0_offloading)) THEN
+          IF (iforcing == inwp) &
+               CALL aggr_landvars
+          IF (.NOT. dace_op_init) THEN
+             CALL message('perform_nh_stepping','calling init_dace_op before run_dace_op')
+             CALL init_dace_op ()
+          END IF
+          CALL message('perform_nh_stepping','calling run_dace_op')
+          CALL run_dace_op (mtime_current)
+       END IF
+    END IF
+
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
@@ -655,13 +676,18 @@ MODULE mo_nh_stepping
                                                           ! lower boundary conditions in NWP mode
   TYPE(datetime)                      :: ref_datetime     ! reference datetime for computing 
                                                           ! climatological SST increments
-  TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file 
+  TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file
+
+  LOGICAL                             :: zero_passed      ! sim_time = 0 has been passed for MEC call
+
 !!$  INTEGER omp_get_num_threads
 
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
-  
+
+  zero_passed = .FALSE.
+
   ! calculate elapsed simulation time in seconds
   sim_time = getElapsedSimTimeInSeconds(mtime_current) 
 
@@ -1263,6 +1289,31 @@ MODULE mo_nh_stepping
       END IF
     END IF
 
+    !--------------------------------------------------------------------
+    ! Pass forecast state at selected steps to DACE observation operators
+    !--------------------------------------------------------------------
+    IF (assimilation_config(1)% dace_coupling) then
+       IF (.NOT. ASSOCIATED (mec_Event)) &
+            CALL finish ("perform_nh_timeloop","MEC not configured")
+       IF (is_event_active(mec_Event, mtime_current, proc0_offloading, plus_slack=model_time_step)) THEN
+          IF (iforcing == inwp) &
+               CALL aggr_landvars
+          sim_time = getElapsedSimTimeInSeconds(mtime_current)
+          IF (sim_time > 0._wp .OR. .NOT. zero_passed) THEN
+             IF (.NOT. dace_op_init) THEN
+                CALL message('perform_nh_timeloop','calling init_dace_op before run_dace_op')
+                CALL init_dace_op ()
+             END IF
+             IF (sim_time == 0._wp) THEN
+                CALL message('perform_nh_timeloop','calling run_dace_op for sim_time=0')
+                zero_passed = .TRUE.
+             ELSE
+                CALL message('perform_nh_timeloop','calling run_dace_op')
+             END IF
+             CALL run_dace_op (mtime_current)
+          END IF
+       END IF
+    END IF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN
       ! this needs to be done before writing the restart, but after anything esle that uses/outputs radation fluxes

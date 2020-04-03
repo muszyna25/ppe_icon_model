@@ -83,7 +83,7 @@ endif
 
 # Path suffixes (i.e. without $(srcdir) prefix) of the source files:
 src_roots:= $(addprefix $(srcdir)/,$(subdirs))
-all_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90' -o -name '*.inc' -o -name '*.incf' -o -name '*.c' -o -name '*.cu'))
+all_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90' -o -name '*.inc' -o -name '*.incf' -o -name '*.c' -o -name '*.cu' -o -name '*.interface'))
 
 # Fortran '.f90' source files:
 f90_files:= $(filter %.f90,$(all_files))
@@ -91,6 +91,8 @@ f90_files:= $(filter %.f90,$(all_files))
 inc_files:= $(filter %.inc,$(all_files))
 # Files included with the Fortran INCLUDE "filename.incf" statements:
 incf_files:= $(filter %.incf,$(all_files))
+# Files included with the pp #include "filename.interface" statements:
+incf_files+= $(filter %.interface,$(all_files))
 # C '.c' source files:
 c_files:= $(filter %.c,$(all_files))
 # CUDA '*.cu' source files:
@@ -119,6 +121,14 @@ pp_files:=
 @ART_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.f90'))
 @ART_ENABLED@inc_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.inc'))
 @ART_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.incf'))
+
+# DACE sources:
+rttov_basic_modules:=
+@DACE_ENABLED@DACE_srcdir:= $(srcdir)/externals/dace_icon/src_for_icon
+@DACE_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.f90'))
+@DACE_ENABLED@inc_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.inc'))
+@DACE_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.incf'))
+### not clear if needed: @DACE_ENABLED@makefile_FCFLAGS+= @FC_INC_FLAG@$(srcdir)/externals/dace_icon/src_for_icon
 
 # JSBACH preprocessing:
 @JSBACH_ENABLED@JSB_srcdir:= $(srcdir)/externals/jsbach

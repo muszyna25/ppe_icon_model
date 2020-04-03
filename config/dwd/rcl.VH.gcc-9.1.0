@@ -47,7 +47,7 @@ ZLIBROOT='/hpc/sw/zlib/1.2.11/x86/gnu'
 ZLIB_LIB='-lz' 
 
 # RTTOV
-RTTOV_ROOT_LIB='/hpc/uhome/rfaulwet/icon/rttov/sx-VH'
+RTTOV_ROOT_LIB='/hpc/uhome/ublahak/ICON/ICON_MPI/LIB/rttov12.1_ub/sx.VH'
 RTTOV_LIBS='-lrttov12'
 
 ################################################################################
@@ -68,7 +68,7 @@ CPPFLAGS="-I${HDF5ROOT}/include -I${NETCDFROOT}/include ${ECCODES_INCLUDE} -I${X
 
 # Fortran compiler wrapper on cray machine
 FC='mpinfort -vh'
-FCFLAGS="-I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT_LIB}/obj -cpp -std=gnu -fbacktrace -g -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
+FCFLAGS="-I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT_LIB}/obj -cpp -std=gnu -fno-range-check -fbacktrace -g -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
 ICON_FCFLAGS=''
 ICON_OCEAN_FCFLAGS='-O2'
 
@@ -77,9 +77,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${MKL_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS} ${N
 
 MPI_LAUNCH=''  # needed e.g. for yac configuration. What is the correct setting for gnu ?? 
 
-EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --enable-loop-exchange --enable-grib2 --enable-mpi --enable-openmp --disable-rte-rrtmgp --disable-jsbach --disable-ocean --disable-coupling'
-
-#--enable-rttov  ! will be activated once some remaining issues have been solved
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --enable-loop-exchange --enable-grib2 --enable-mpi --enable-openmp --enable-rttov --disable-rte-rrtmgp --disable-psrad --disable-jsbach --disable-ocean --disable-coupling'
 
 ################################################################################
 
