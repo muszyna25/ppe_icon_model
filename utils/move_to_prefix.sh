@@ -101,7 +101,7 @@ else
   eval "$cmd" || fn_error 4 "failed to generate '$prefix/run/set-up.info'"
 fi
 
-fn_rsync "$top_srcdir/run" "$prefix/" "--exclude='*in' --exclude='.*'"
+fn_rsync "$top_srcdir/run" "$prefix/" "--exclude='*.in' --exclude='.*'"
 fn_rsync "$top_srcdir/vertical_coord_tables" "$prefix/"
 fn_rsync "$top_srcdir/externals" "$prefix/" "--exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'"
 fn_rsync "$top_srcdir/data" "$prefix/"
