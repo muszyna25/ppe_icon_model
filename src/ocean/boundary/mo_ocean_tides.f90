@@ -127,18 +127,22 @@ implicit none
 REAL(dp) :: d,d0,sekunde
 INTEGER  :: year,mon,day,hour,minute
 
-INTEGER ::  molen(12),ylen(1904:2100),y,m
+INTEGER ::  molen(12),ylen(1904:2500),y,m
 
 data molen /31,28,31,30,31,30,31,31,30,31,30,31/
 
 
 
-do y = 1904,2100,1
+do y = 1904,2500,1
   ylen(y) = 365
 enddo
-do y = 1904,2100,4
+do y = 1904,2500,4
   ylen(y) = 366
   if(year.eq.y) molen(2) = 29
+enddo
+do y = 2100,2500,100
+  ylen(y) = 365
+  if(year.eq.y) molen(2) = 28
 enddo
 
 
@@ -267,7 +271,7 @@ betm = dasin( dsin(rad*(lss-Ns))*dsin(rad*i))*1.0_dp/rad  ! ecliptic latitude
 
 ! -------------------------------------------------------------
 
-T = (d + 3651.5_dp)/36525.0_dp ! number of Julian centuries since epoch 2000 January 1.5
+T = (d + 3651.5_dp)/36525.0_dp ! number of Julian centuries since epoch 2000 January 1 12:00
 
 eps = 23.43929166663333336_dp - 0.013004166666666666_dp*T - 1.6666666666666665e-7_dp*T**2 + 5.027777777777778e-7_dp*T**3 ! mean obliquity of the ecliptic
 
@@ -351,7 +355,7 @@ call adj(lam)
 
 bet = 0.0_dp
 
-T = (d + 3651.5_dp)/36525.0_dp ! number of Julian centuries since epoch 2000 January 1.5
+T = (d + 3651.5_dp)/36525.0_dp ! number of Julian centuries since epoch 2000 January 1 12:00
 
 eps = 23.43929166663333336_dp - 0.013004166666666666_dp*T - 1.6666666666666665e-7_dp*T**2 +5.027777777777778e-7_dp*T**3 ! mean obliquity of the ecliptic
 
@@ -431,7 +435,7 @@ REAL(dp) :: sekunde,gst,d,s,t0,t,ut
 
 call timing(year,mon,day,0,0,0.0_dp,d)
 
-s = d - 7193.5_dp + 10845.0_dp
+s = d + 3651.5_dp 
 t = s/36525.0_dp
 t0 = 6.697374558_dp + 2400.051336_dp*t + 0.000025862_dp*t**2
 
@@ -729,8 +733,8 @@ end subroutine findee
 !  gezhochfahr = min(1.0_dp,(dtim+3286.0_dp)/30.0_dp)  ! spin-up over the first 30 days, when starting at 2001-01-01 00:00
 !  gezhochfahr = min(1.0_dp,(dtim+2160.0_dp)/30.0_dp)  ! spin-up over the first 30 days, when starting at 2004-02-01 00:00
 
-  t = dtim+3286.0_dp ! Julian days since 2001-01-01 00:00
-  t = t/36525.0_dp  !fractional julian centuries t since 2001-01-01 00:00
+  t = dtim+3651.5_dp ! Julian days since 2000-01-01 12:00
+  t = t/36525.0_dp  !fractional julian centuries t since 2000-01-01 12:00
    
    
   pi2 = dacos(-1.0_dp) * 2.0_dp
