@@ -60,11 +60,11 @@ MODULE mo_ocean_diagnostics
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
     & diagnose_for_horizontalVelocity, OceanReferenceDensity, &
     & eddydiag
-  USE mo_sea_ice_nml,        ONLY: kice
+  USE mo_sea_ice_nml,        ONLY: kice, sice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
-  USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice, rho_ref, clw, alf
+  USE mo_physical_constants, ONLY: grav, rhos, rhoi, rho_ref, clw, alf
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &
@@ -98,6 +98,7 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
+  USE mo_ocean_check_salt , ONLY : 	calc_total_salt_content 
 
   IMPLICIT NONE
 
@@ -524,6 +525,7 @@ CONTAINS
       &        global_mean_potEnstrophy,global_heat_content, global_heat_content_solid, &
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
 !   REAL(wp) :: sflux
+      REAL(wp) ::total_salt, total_saltinseaice, total_saltinliquidwater
 
     TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
     TYPE(t_ocean_monitor),  POINTER :: monitor
@@ -538,6 +540,26 @@ CONTAINS
 
     CASE default !3D model
 
+      ! {{{ compute global mean values of:
+      ! total_salt
+      total_salt = 0.0_wp
+      total_saltinseaice = 0.0_wp
+      total_saltinliquidwater = 0.0_wp
+
+      IF (isRegistered('total_salt')) THEN
+        call calc_total_salt_content(tracers(:,:,:,2), patch_2d, &
+        sea_surface_height(:,:),&     
+        patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+             ice, 0 , total_salt, total_saltinseaice, &
+                                total_saltinliquidwater )
+
+      monitor%total_salt = total_salt
+      monitor%total_saltinseaice = total_saltinseaice
+      monitor%total_saltinliquidwater = total_saltinliquidwater
+
+        !write(0,*)'total_salt_content =' , monitor%total_salt
+
+      END IF
       ! {{{ compute global mean values of:
       ! sea surface height
       ssh_global_mean = 0.0_wp
@@ -2048,94 +2070,6 @@ CONTAINS
 
   END FUNCTION calc_mixed_layer_depth
 
-  FUNCTION calc_total_salt_content(patch_2d, thickness, ice, ocean_state, surface_fluxes, zUnderIce, &
-      & computation_type) RESULT(total_salt_content)
-    TYPE(t_patch),POINTER                                 :: patch_2d
-    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN) :: zUnderIce
-    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
-    TYPE (t_sea_ice),       INTENT(IN)                    :: ice
-    TYPE(t_hydro_ocean_state)                             :: ocean_state
-    TYPE(t_ocean_surface)                                 :: surface_fluxes
-    INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
-    REAL(wp)                                              :: total_salt_content
-
-    REAL(wp), DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks) :: salt
-
-    salt               = calc_salt_content(patch_2d, thickness, ice, ocean_state, surface_fluxes, zUnderIce, computation_type)
-    total_salt_content = global_sum_array(salt)
-  END FUNCTION calc_total_salt_content
-
-  FUNCTION calc_salt_content(patch_2d, thickness, ice, ocean_state, surface_fluxes, zUnderIce, &
-      & computation_type) &
-      & RESULT(salt)
-    TYPE(t_patch),POINTER                                 :: patch_2d
-    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN) :: zUnderIce
-    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
-    TYPE (t_sea_ice),       INTENT(IN)                    :: ice
-    TYPE(t_hydro_ocean_state)                             :: ocean_state
-    TYPE(t_ocean_surface)                                 :: surface_fluxes
-    INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
-
-    ! locals
-    REAL(wp), DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks) :: salt
-
-    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltInSeaice, saltInLiquidWater
-    TYPE(t_subset_range), POINTER                         :: subset
-    INTEGER                                               :: block, cell, cellStart,cellEnd, level
-    INTEGER                                               :: my_computation_type
-    IF(no_tracer<=1)RETURN
-    my_computation_type = 0
-    salt         = 0.0_wp
-
-    CALL assign_if_present(my_computation_type, computation_type)
-    subset => patch_2d%cells%owned
-    DO block = subset%start_block, subset%end_block
-      CALL get_index_range(subset, block, cellStart, cellEnd)
-      DO cell = cellStart, cellEnd
-        IF (subset%vertical_levels(cell,block) < 1) CYCLE
-        SELECT CASE (my_computation_type)
-        CASE (0) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
-        ! surface:
-          saltInSeaice(cell,block)    = sice*rhoi &
-            &                         * SUM(ice%hi(cell,:,block)*ice%conc(cell,:,block)) &
-            &                         * patch_2d%cells%area(cell,block)
-        !!DN This is no longer needed since we now update surface salinity
-        !directly
-        !!DN   ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) = (ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
-        !!DN   &                                            -   dtime &
-        !!DN   &                                              * surface_fluxes%FrshFlux_TotalSalt(cell,block) &
-        !!DN   &                                              * ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)) &
-        !!DN   &                                           /ice%zUnderIce(cell,block)
-          saltInLiquidWater(cell,block) = ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) &
-            &                    * zUnderIce(cell,block)*OceanReferenceDensity &
-            &                    * patch_2d%cells%area(cell,block)
-        CASE (1) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
-        ! surface:
-          saltInSeaice(cell,block)    = sice*rhoi &
-            &                         * SUM(ice%hi(cell,:,block)*ice%conc(cell,:,block)) &
-            &                         * patch_2d%cells%area(cell,block)
-        !!DN This is no longer needed since we now update surface salinity directly
-          ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) = &
-            & (ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
-            &   -  dtime  * surface_fluxes%FrshFlux_TotalSalt(cell,block) &
-            &      * ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)) &
-            &  /zUnderIce(cell,block)
-          saltInLiquidWater(cell,block) = ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) &
-            &                    * zUnderIce(cell,block)*OceanReferenceDensity &
-            &                    * patch_2d%cells%area(cell,block)
-        END SELECT
-
-        salt(cell,1,block) = saltInSeaice(cell,block) + saltInLiquidWater(cell,block)
-        DO level=2,subset%vertical_levels(cell,block)
-          salt(cell,level,block) = ocean_state%p_prog(nold(1))%tracer(cell,level,block,2) &
-            &                    * thickness(cell,level,block)*OceanReferenceDensity &
-            &                    * patch_2d%cells%area(cell,block)
-        END DO
-
-        ! rest of the underwater world
-      END DO ! cell
-    END DO !block
-  END FUNCTION calc_salt_content
 
   SUBROUTINE diag_heat_salt_tendency(patch_3d, n, ice, thetao, so, delta_ice, delta_snow, &
        delta_thetao, delta_so)

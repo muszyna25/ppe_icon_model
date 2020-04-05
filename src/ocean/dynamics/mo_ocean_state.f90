@@ -783,6 +783,23 @@ CONTAINS
 
     ! add monitoring {{{
 
+   CALL add_var(ocean_default_list, 'total_salt', ocean_state_diag%monitor%total_salt , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('total_salt', 'kg', 'total_salt', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+   CALL add_var(ocean_default_list, 'total_saltinseaice', ocean_state_diag%monitor%total_saltinseaice , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('total_saltinseaice', 'kg', 'total_saltinseaice', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
+
+    CALL add_var(ocean_default_list, 'total_saltinliquidwater', ocean_state_diag%monitor%total_saltinliquidwater , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('total_saltinliquidwater', 'kg', 'total_saltinliquidwater', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
+      & in_group=groups("ocean_monitor"),ldims=(/1/))
     CALL add_var(ocean_default_list, 'amoc26n', ocean_state_diag%monitor%amoc26n , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('amoc26n', 'Sv', 'amoc26n', datatype_flt),&
@@ -1040,12 +1057,6 @@ CONTAINS
     CALL add_var(ocean_default_list, 'volume_global', ocean_state_diag%monitor%volume , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('volume', 'm^3', 'volume', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
-      & ldims=(/1/))
-
-    CALL add_var(ocean_default_list, 'total_salt_global', ocean_state_diag%monitor%total_salt , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('total_salt', 'kg', 'total_salt', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & ldims=(/1/))
 

@@ -276,6 +276,11 @@ CONTAINS
       &          t_cf_var('SurfaceCellThicknessUnderIce', 'm', 'Cell Thickness at Surface under Ice', datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
+    CALL add_var(ocean_default_list, 'surface_sal_content', p_oce_sfc%surface_salt_content, &
+      &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &        t_cf_var('surface_salt_content', 'kg', 'surface_salt_content', datatype_flt),&
+      &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &        ldims=(/nproma,alloc_cell_blocks/), in_group=groups("oce_force_essentials"))
     ! auxillary ice salt/freshwater fluxes,
     CALL add_var(ocean_default_list, 'FrshFlux_TotalIce', p_oce_sfc%FrshFlux_TotalIce, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
