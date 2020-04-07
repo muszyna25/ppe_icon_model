@@ -262,7 +262,6 @@ MODULE mo_packed_message
         PROCEDURE, PRIVATE :: unpackBytes => PackedMessage_unpackBytes  
 
 #define doPacking(me, VALUE) CALL me%packBytes(TRANSFER(VALUE, characterArrayMold))
-#define doUnpacking(me, VALUE) VALUE = TRANSFER(me%unpackBytes(TRANSFER(VALUE, characterArrayMold)), VALUE)
 
     END TYPE t_PackedMessage
 
@@ -680,49 +679,64 @@ CONTAINS
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, INTENT(OUT) :: val
 
-        doUnpacking(me, val)
+        CHARACTER, pointer :: res(:)
+        res => me%unpackBytes(TRANSFER(val, characterArrayMold))
+        val = TRANSFER(res, val)
     END SUBROUTINE PackedMessage_unpackInt
 
     SUBROUTINE PackedMessage_unpackLong(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER(i8), INTENT(OUT) :: val
 
-        doUnpacking(me, val)
+        CHARACTER, pointer :: res(:)
+        res => me%unpackBytes(TRANSFER(val, characterArrayMold))
+        val = TRANSFER(res, val)
     END SUBROUTINE PackedMessage_unpackLong
 
     SUBROUTINE PackedMessage_unpackSingle(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         REAL(sp), INTENT(OUT) :: val
 
-        doUnpacking(me, val)
+        CHARACTER, pointer :: res(:)
+        res => me%unpackBytes(TRANSFER(val, characterArrayMold))
+        val = TRANSFER(res, val)
     END SUBROUTINE PackedMessage_unpackSingle
 
     SUBROUTINE PackedMessage_unpackDouble(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         REAL(dp), INTENT(OUT) :: val
 
-        doUnpacking(me, val)
+        CHARACTER, pointer :: res(:)
+        res => me%unpackBytes(TRANSFER(val, characterArrayMold))
+        val = TRANSFER(res, val)
     END SUBROUTINE PackedMessage_unpackDouble
 
     SUBROUTINE PackedMessage_unpackLogical(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         LOGICAL, INTENT(OUT) :: val
 
-        doUnpacking(me, val)
+        CHARACTER, pointer :: res(:)
+        res => me%unpackBytes(TRANSFER(val, characterArrayMold))
+        val = TRANSFER(res, val)
     END SUBROUTINE PackedMessage_unpackLogical
 
     SUBROUTINE PackedMessage_unpackCharacter(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(INOUT) :: val
 
-        doUnpacking(me, val)
+        CHARACTER, pointer :: res(:)
+        res => me%unpackBytes(TRANSFER(val, characterArrayMold))
+        val = TRANSFER(res, val)
     END SUBROUTINE PackedMessage_unpackCharacter
 
     SUBROUTINE PackedMessage_unpackIntcchar(me, val)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER(kind=C_SIGNED_CHAR), INTENT(OUT) :: val
 
-        doUnpacking(me, val)
+        CHARACTER, pointer :: res(:)
+        res => me%unpackBytes(TRANSFER(val, characterArrayMold))
+        val = TRANSFER(res, val)
+
     END SUBROUTINE PackedMessage_unpackIntCchar
 
     ! unpack routines for ALLOCATABLE scalars !
