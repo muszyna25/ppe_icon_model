@@ -76,6 +76,7 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: albim              !< Albedo of ice (melting)
 
 
+  REAL(wp),PUBLIC :: sice = 5.0_wp              !< bulk salinity of sea ice
   ! some analytic initialization parameters
   REAL(wp),PUBLIC :: init_analytic_temp_under_ice= -1.6_wp
   REAL(wp),PUBLIC :: init_analytic_conc_param    = 0.9_wp
@@ -131,6 +132,7 @@ MODULE mo_sea_ice_nml
     &  albsm, &
     &  albi, &
     &  albim, &
+    &  sice, &
     &  pstar, &
     &  ellipse, &
     &  c_pressure, &
