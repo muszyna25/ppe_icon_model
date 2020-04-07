@@ -406,7 +406,7 @@ output_script=runscripts/$2.run
 
 function read_configure
 {
- . ./${pwd}/../set-up.info
+. $(pwd)/../set-up.info
 
 output="module load ${use_load_modules}"
 #i=0
