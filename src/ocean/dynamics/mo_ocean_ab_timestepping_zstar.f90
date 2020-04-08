@@ -97,7 +97,6 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor, update_atmos_fluxes
   USE mo_ocean_physics,         ONLY: update_ho_params
   USE mo_ocean_ab_timestepping_mimetic,  ONLY: calculate_explicit_term_ab, fill_rhs4surface_eq_ab
-  USE mo_ice_interface,          ONLY: ice_fast_interface, ice_slow_interface
   USE mo_ocean_output, ONLY: output_ocean
   USE mo_ocean_ab_timestepping,  ONLY: calc_vert_velocity, calc_normal_velocity_ab
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers

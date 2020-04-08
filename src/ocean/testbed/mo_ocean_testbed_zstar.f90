@@ -105,7 +105,6 @@ MODULE mo_ocean_testbed_zstar
   USE mo_ocean_physics,         ONLY: update_ho_params
   USE mo_ocean_ab_timestepping_mimetic,  ONLY: calculate_explicit_term_ab, fill_rhs4surface_eq_ab, &
     & solve_free_sfc_ab_mimetic
-  USE mo_ice_interface,          ONLY: ice_fast_interface, ice_slow_interface
   USE mo_hydro_ocean_run, ONLY: update_time_g_n, update_time_indices
   USE mo_ocean_output, ONLY: output_ocean
   USE mo_ocean_ab_timestepping,  ONLY: calc_vert_velocity, calc_normal_velocity_ab
@@ -124,7 +123,7 @@ MODULE mo_ocean_testbed_zstar
     & solve_free_surface_eq_zstar, update_zstar_variables
   USE mo_ocean_tracer_zstar, ONLY:advect_individual_tracers_zstar, advect_ocean_tracers_zstar
   USE mo_swr_absorption, ONLY: subsurface_swr_absorption_zstar
-  USE mo_ocean_tracer_GMRedi, ONLY: advect_ocean_tracers_GMRedi_zstar
+  USE mo_ocean_tracer_dev, ONLY: advect_ocean_tracers_GMRedi_zstar
   USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
   USE mo_ocean_tides,         ONLY: tide    
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  

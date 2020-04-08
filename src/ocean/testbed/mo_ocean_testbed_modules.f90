@@ -116,10 +116,10 @@ MODULE mo_ocean_testbed_modules
 
   USE mo_ocean_time_events,   ONLY: ocean_time_nextStep, isEndOfThisRun, newNullDatetime
 
-  USE mo_ocean_tracer_GMRedi,    ONLY: advect_ocean_tracers_GMRedi
+  USE mo_ocean_tracer_dev,    ONLY: advect_ocean_tracers_dev
   USE mo_ocean_ab_timestepping_zstar,  ONLY: update_zstar_variables
   USE mo_ocean_tracer_zstar, ONLY:advect_ocean_tracers_zstar
-  USE mo_ocean_tracer_GMRedi, ONLY: advect_ocean_tracers_GMRedi_zstar
+  USE mo_ocean_tracer_dev, ONLY: advect_ocean_tracers_GMRedi_zstar
  
   IMPLICIT NONE
   PRIVATE
@@ -421,7 +421,7 @@ CONTAINS
              CALL  advect_ocean_tracers(old_tracer_collection, new_tracer_collection, &
                &  transport_state, operators_coefficients)
            ELSE
-             CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
+             CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
                &  ocean_state(jg), transport_state, p_phys_param, operators_coefficients)
            ENDIF
            

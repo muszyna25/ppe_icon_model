@@ -711,8 +711,9 @@ CONTAINS
             CALL ice_fast_interface(p_patch, p_ice, atmos_fluxes, this_datetime)
         ENDIF
 
-        !  (3b) Slow sea ice dynamics and thermodynamics
-        CALL ice_slow_interface(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_as, p_op_coeff)
+        CALL ice_dynamics(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_as, p_op_coeff)
+
+        CALL ice_thermodynamics(p_patch_3D, p_ice, p_oce_sfc, atmos_fluxes, p_os, p_as, p_op_coeff)
 
     ELSE !  sea ice is off
 

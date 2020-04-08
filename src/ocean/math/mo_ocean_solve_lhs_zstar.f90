@@ -123,6 +123,11 @@
         IF (this%use_shortcut) &
           & CALL finish("t_surface_height_lhs::lhs_surface_height_wp", &
             & "should not be here because of shortcut!")
+        
+        IF ( (select_lhs .EQ. select_lhs_matrix) .OR.  (l_lhs_direct .EQV. .true.) ) THEN
+          CALL finish("zstar currently only supports operator based solver", &
+            & "Set select_lhs=1 and l_lhs_direct=.false.!!")
+        END IF
     ! alloc internal arrays, if needed to
     ! if using operator implementation of lhs
         IF (select_lhs .NE. select_lhs_matrix) THEN
