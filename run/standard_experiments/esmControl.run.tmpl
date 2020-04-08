@@ -34,9 +34,10 @@ set -e
 
 MODEL_DIR=%{MODEL_DIR}
 SCRIPT_DIR=%{SCRIPT_DIR}
+BUILD_DIR=%{BUILD_DIR}
 
 # Make sure that 'add_run_routines' picks up the right base directory
-cd $MODEL_DIR/run
+cd $BUILD_DIR/run
 . ./add_run_routines
 #-----------------------------------------------------------------------------
 # target parameters
@@ -228,7 +229,7 @@ unset OMPI_MCA_coll_fca_priority
 # Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
-# basedir                       = base directory, where src/, run/ etc exist
+# MODEL_DIR                     = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm and nproma_ocn are used here.
@@ -790,7 +791,7 @@ EOF
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
+add_required_file ${MODEL_DIR}/externals/yac/input/coupling.xsd  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND
@@ -1027,13 +1028,13 @@ EOF
 
 # model files
 #
-add_link_file ${basedir}/data/lsdata.nc                                 ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+add_link_file ${MODEL_DIR}/data/lsdata.nc                                 ./
+add_link_file ${MODEL_DIR}/data/ECHAM6_CldOptProps.nc                     ./
 
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-add_required_file ${basedir}/run/dict.iconam.mpim                       ./${dict_file}
+add_required_file ${MODEL_DIR}/run/dict.iconam.mpim                       ./${dict_file}
 
 # initial conditions
 #
@@ -1083,7 +1084,7 @@ add_link_file $datadir/hdpara_icon_${atmos_gridID}_G_250719_1545.nc     ./bc_lan
 #
 # - lctlib file for JSBACH
 #
-add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
+add_link_file ${MODEL_DIR}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 #
 # - HD mask for interpolation of runoff
 #
@@ -1943,18 +1944,16 @@ fi
 #
 # directories definition
 #
-ICONDIR=$MODEL_DIR
-RUNSCRIPTDIR=$SCRIPT_DIR
 if [ x$grids_folder = x ] ; then
-   HGRIDDIR=${ICONDIR}/grids
+   HGRIDDIR=${MODEL_DIR}/grids
 else
    HGRIDDIR=$grids_folder
 fi
 
 #-----------------------------------------------------------------------------
 # Reset files and file names for check_error and check_final_status
-final_status_file=${RUNSCRIPTDIR}/${job_name}.final_status
-current_status_file=${RUNSCRIPTDIR}/${job_name}.status
+final_status_file=${SCRIPT_DIR}/${job_name}.final_status
+current_status_file=${SCRIPT_DIR}/${job_name}.status
 rm -f ${final_status_file} ${current_status_file}
 
 #-----------------------------------------------------------------------------
@@ -2069,15 +2068,15 @@ link_required_files
 
 if  [ x$restart_atmo_from != "x" ] ; then
   rm -f restart_atm_DOM01.nc
-#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm_DOM01.nc
-  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+#  ln -s ${MODEL_DIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm_DOM01.nc
+  cp ${MODEL_DIR}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
   ln -s cp_restart_atm.nc restart_atm_DOM01.nc
   restart=".true."
 fi
 if  [ x$restart_ocean_from != "x" ] ; then
   rm -f restart_oce.nc
-#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
-  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} cp_restart_oce_DOM01.nc
+#  ln -s ${MODEL_DIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
+  cp ${MODEL_DIR}/experiments/${restart_from_folder}/${restart_ocean_from} cp_restart_oce_DOM01.nc
   ln -s cp_restart_oce_DOM01.nc restart_oce_DOM01.nc
   restart=".true."
 fi
@@ -2276,10 +2275,10 @@ namelist_list=""
 #   Note: this is a different mechanism from checking the restart
 if [ $finish_status = "RESTART" ] ; then
   echo "restart next experiment..."
-  this_script="${RUNSCRIPTDIR}/${job_name}"
+  this_script="${SCRIPT_DIR}/${job_name}"
   echo 'this_script: ' "$this_script"
   touch ${restartSemaphoreFilename}
-  cd ${RUNSCRIPTDIR}
+  cd ${SCRIPT_DIR}
   ${submit} $this_script
 else
   [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
@@ -2289,7 +2288,7 @@ fi
 # automatic call/submission of post processing if available
 if [ "x${autoPostProcessing}" = "xtrue" ]; then
   # check if there is a postprocessing is available
-  cd ${RUNSCRIPTDIR}
+  cd ${SCRIPT_DIR}
   targetPostProcessingScript="./post.${EXPNAME}.run"
   [[ -x $targetPostProcessingScript ]] && ${submit} ${targetPostProcessingScript}
   cd -
@@ -2336,7 +2335,7 @@ fi
 
 #-----------------------------------------------------------------------------
 
-cd $RUNSCRIPTDIR
+cd $SCRIPT_DIR
 
 #% for job in JOB['.trigger']|list:
 %{JOB.batch_command} %{EXP_ID}.%{job} $start_date
