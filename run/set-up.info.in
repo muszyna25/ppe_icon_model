@@ -1,5 +1,7 @@
 # Version info required by mkexp
 VERSION_=@PACKAGE_VERSION@
+use_abs_top_builddir=@abs_top_builddir@
+use_abs_top_srcdir=@abs_top_srcdir@
 # Set use_site:
 use_host='@host_fqdn@'
 case "$use_host" in

@@ -21,7 +21,7 @@
 
 #=============================================================================
 #
-# ICON run script. Created by ./config/make_target_runscript
+# ICON run script. Created by ./run/make_target_runscript
 # target machine is bullx_cpu
 # target use_compiler is intel
 # with mpi=yes
@@ -35,7 +35,7 @@ set -e
 MODEL_DIR=%{MODEL_DIR}
 SCRIPT_DIR=%{SCRIPT_DIR}
 
-# Make sure that 'add_run_routines'' picks up the right base directory
+# Make sure that 'add_run_routines' picks up the right base directory
 cd $MODEL_DIR/run
 . ./add_run_routines
 #-----------------------------------------------------------------------------
@@ -46,7 +46,7 @@ target="%{use_target}"
 compiler="%{use_compiler}"
 loadmodule="%{use_load_modules}"
 with_mpi="%{use_mpi}"
-with_openmp="%{use_openmpi}"
+with_openmp="%{use_openmp}"
 job_name="%{EXP_ID}.run"
 submit="%{use_submit}"
 #-----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ export OMP_STACKSIZE=200M
 #-----------------------------------------------------------------------------
 # MPI variables
 # ----------------------------
-mpi_root=/sw/rhel6-x64/mpi/openmpi-2.0.2p1_hpcx-intel14
+mpi_root=%{use_mpi_root}
 no_of_nodes=${SLURM_JOB_NUM_NODES:=%{JOB.nodes}}
 mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
@@ -73,12 +73,10 @@ then
   . ../setting
 fi
 #-----------------------------------------------------------------------------
-rundir="run"
-bindir="${basedir}/build/x86_64-unknown-linux-gnu/bin"   # binaries
-BUILDDIR=build/x86_64-unknown-linux-gnu
+bindir=%{BIN_DIR}
 #-----------------------------------------------------------------------------
 #=============================================================================
-# load profile
+# load module package
 if [ -a $MODULESHOME/init/ksh ] ; then
 . $MODULESHOME/init/ksh
 #=============================================================================
@@ -89,9 +87,6 @@ module load "$loadmodule"
 module list
 #=============================================================================
 fi
-#=============================================================================
-export LD_LIBRARY_PATH=/sw/rhel6-x64/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14/lib:$LD_LIBRARY_PATH
-#=============================================================================
 nproma=16
 cdo="cdo"
 cdo_diff="cdo diffn"
@@ -743,7 +738,7 @@ cat > coupling.xml << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
-#%- if namelists['coupling.xml'].include_co2 is set:
+#%  if namelists['coupling.xml'].include_co2 is set:
          <transient_couple transient_id="12">
             <source component_ref="1" transient_grid_ref="12"/>
             <target transient_grid_ref="12"/>
@@ -795,7 +790,7 @@ EOF
 # xsd and xml files for yac
 # -------------------------
 #
-add_required_file ${basedir}/externals/yac/input/coupling.xsd.in  ./coupling.xsd
+add_required_file ${basedir}/externals/yac/input/coupling.xsd  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND
@@ -812,6 +807,8 @@ cat > ${atm_namelist} << EOF
 &parallel_nml
  nproma            = ${nproma_atm}
  num_io_procs      = ${mpi_atm_io_procs}
+ num_prefetch_proc = 0
+ pio_type          = 0
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grid}"
@@ -1408,6 +1405,8 @@ cat > ${oce_namelist} << EOF
 &parallel_nml
  nproma                      = ${nproma_oce}
  num_io_procs                = ${mpi_oce_io_procs}
+ num_prefetch_proc           = 0
+ pio_type                    = 0
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
 /
@@ -1887,13 +1886,13 @@ EOF
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
  # for restart from rar0026 plus 200 additional years of spinup:
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_oce_DOM01.nc 
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/esm_R2B3_R2B4_restart_oce_12000101T000000Z.nc restart_ocean_DOM01.nc 
  fi
 
 if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
  # for a restart file containing Hamocc, interpolated from a cmip6 control run to the icon grid.
  # Ocean restart is from a long tuning run, which arrived at a good state.
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_oce_DOM01.nc 
+ add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_ocean_DOM01.nc 
  fi
 
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
@@ -1978,7 +1977,7 @@ if [ x$namelist_list = x ]; then
   elif [ x$ocean_namelist != x ]; then
     # this is the ocean model
     namelist_list[0]="$ocean_namelist"
-    modelname_list[0]="ocean"
+    modelname_list[0]="oce"
     modeltype_list[0]=2
   elif [ x$psrad_namelist != x ]; then
     # this is the psrad model
@@ -2054,9 +2053,9 @@ for gridfile in ${all_grids}; do
   #
   ls -l ${HGRIDDIR}/$gridfile
   check_error $? "${HGRIDDIR}/$gridfile does not exist."
-  add_required_file ${HGRIDDIR}/${gridfile} ./
+  add_link_file ${HGRIDDIR}/${gridfile} ./
   if [ -f ${HGRIDDIR}/${grfinfofile} ]; then    
-    add_required_file ${HGRIDDIR}/${grfinfofile} ./
+    add_link_file ${HGRIDDIR}/${grfinfofile} ./
   fi
 done
 #-----------------------------------------------------------------------------
