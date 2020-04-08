@@ -44,7 +44,3 @@
 	path = externals/ecrad
 	url = git@gitlab.dkrz.de:dwd-sw/libecrad.git
 	branch = master
-[submodule "externals/dace_icon"]
-	path = externals/dace_icon
-	url = git@git.mpimet.mpg.de:dace_code.git
-	branch = dace-from-master-for-icon
