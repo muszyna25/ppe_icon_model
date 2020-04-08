@@ -262,6 +262,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: para_3dimRelax_Salt   = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   LOGICAL  :: limit_seaice          = .TRUE.     ! .TRUE.: set a cutoff limit to sea ice thickness
+  INTEGER  :: limit_seaice_type     = 1 
   REAL(wp) :: seaice_limit          = 0.4_wp     ! limit sea ice thickness to fraction of surface layer thickness
 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
@@ -766,6 +767,9 @@ MODULE mo_ocean_nml
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.   ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: zero_freshwater_flux                 = .FALSE.   ! .TRUE.: zero freshwater fluxes but salt-change possible
   LOGICAL  :: use_new_forcing                      = .FALSE.
+  INTEGER  :: surface_flux_type                    = 1
+  LOGICAL  :: lcheck_salt_content                  = .FALSE.
+  LOGICAL  :: lfix_salt_content                    = .FALSE.
   ! _type variables range
   !    0    : not used
   !   1:100 : file based input
@@ -841,6 +845,9 @@ MODULE mo_ocean_nml
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
     &                 zero_freshwater_flux                , &
+    &                 surface_flux_type                   , &
+    &                 lcheck_salt_content                 , &
+    &                 lfix_salt_content                   , &
     &                 forcing_fluxes_type                 , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
@@ -874,6 +881,7 @@ MODULE mo_ocean_nml
     &                 relax_analytical_type               , &
     &                 limit_seaice                        , &
     &                 seaice_limit                        , &
+    &                 limit_seaice_type                   , &
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &

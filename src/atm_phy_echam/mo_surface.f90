@@ -279,7 +279,6 @@ CONTAINS
     ! Sea ice
     REAL(wp) :: Tfw(kbdim)
     REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice), conc_sum(kbdim)
-!   REAL(wp) :: frac_mask(kbdim)
     LOGICAL  :: mask(kbdim)
 
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
@@ -1450,24 +1449,6 @@ CONTAINS
       END DO
     END DO
     !$ACC END PARALLEL
-
-    ! Apply fractional mask as later used in interface_echam_ocean for coupling
-    !  - contains a bug, presumably in the use of frac_mask or mask
-    !IF ( is_coupled_run() ) THEN
-    !  frac_mask(jcs:kproma) = 1.0_wp-pfrc(jcs:kproma,idx_lnd)-alake(jcs:kproma)
-    !  DO jsfc=1,ksfc_type
-    !    IF ( jsfc == idx_wtr .OR. jsfc == idx_ice ) THEN
-    !      WHERE ( frac_mask(jcs:kproma) > EPSILON(1.0_wp) )
-    !         ptsfc_tile (jcs:kproma,jsfc) = cdimissval
-    !      END WHERE
-    !    ELSE ! jsfc == idx_lnd
-    !      mask(jcs:kproma) = pfrc(jcs:kproma,jsfc) <= 0._wp
-    !      WHERE ( mask(jcs:kproma) )
-    !         ptsfc_tile (jcs:kproma,jsfc) = cdimissval
-    !      END WHERE
-    !    END IF
-    !  ENDDO
-    !ENDIF
 
     !----------------------------------------------------------------------------
     ! For consistency z0m_tile for ice is masked out here

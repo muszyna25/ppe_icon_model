@@ -201,10 +201,8 @@ MODULE mo_physical_constants
     cs           = 2090._wp,        &!  Heat capacity of snow      [J / (kg K)]
 
     Tf           = -1.80_wp,        & ! Temperature ice bottom     [C]
-    Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]
     mu           = 0.054_wp,        & ! Constant in linear freezing-
                                       ! point relationship         [C/ppt]
-    muS          = mu*Sice,         & ! = - (sea-ice liquidus 
                                       ! (aka melting) temperature) [C]
 !   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
     albedoW      = 0.07_wp,         & ! albedo of the ocean used in atmosphere
