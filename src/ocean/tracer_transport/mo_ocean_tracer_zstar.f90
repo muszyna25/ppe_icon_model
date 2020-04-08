@@ -40,11 +40,14 @@ MODULE mo_ocean_tracer_zstar
   CHARACTER(LEN=15) :: str_module = 'oceTracer_zstar'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 
+  LOGICAL :: eliminate_upper_diag = .true.
+
   PUBLIC :: advect_ocean_tracers_zstar
   PUBLIC :: advect_individual_tracers_zstar
   PUBLIC :: upwind_zstar_hflux_oce
   PUBLIC :: limiter_ocean_zalesak_horz_zstar
   PUBLIC :: tracer_diffusion_vertical_implicit_zstar
+  PUBLIC :: eliminate_upper_diag
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -492,6 +495,8 @@ CONTAINS
       DO level=1,bottom_level
         inv_prism_thickness(level)        = inv_str_c*patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_index,level,blockNo)
         inv_prisms_center_distance(level) = inv_str_c*patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo)
+
+        column_tracer(level) = field_column(cell_index,level,blockNo)
       ENDDO
 
       !------------------------------------
@@ -499,52 +504,54 @@ CONTAINS
       ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
-      c(1) = -a_v(cell_index,2,blockNo) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
-      b(1) = dt_inv - c(1)
+      c(1) = -a_v(cell_index,2,blockNo) * inv_prism_thickness(1) &
+        &* inv_prisms_center_distance(2)*dtime
+      b(1) = 1.0_wp - c(1)
       DO level = 2, bottom_level-1
-        a(level) = - a_v(cell_index,level,blockNo)   * inv_prism_thickness(level) * inv_prisms_center_distance(level)
-        c(level) = - a_v(cell_index,level+1,blockNo) * inv_prism_thickness(level) * inv_prisms_center_distance(level+1)
-        b(level) = dt_inv - a(level) - c(level)
+        a(level) = - a_v(cell_index,level,blockNo)   * inv_prism_thickness(level) &
+          &* inv_prisms_center_distance(level)*dtime
+        c(level) = - a_v(cell_index,level+1,blockNo) * inv_prism_thickness(level) &
+          & * inv_prisms_center_distance(level+1)*dtime
+        b(level) = 1.0_wp - a(level) - c(level)
       END DO
       ! bottom
       a(bottom_level) = -a_v(cell_index,bottom_level,blockNo) * &
-        & inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
-      b(bottom_level) = dt_inv - a(bottom_level)
-
-      ! precondition: set diagonal equal to diagonal_product
-      diagonal_product = PRODUCT(b(1:bottom_level))
-
-      DO level = 1, bottom_level
-        fact(level) = diagonal_product / b(level)
-        a(level)  = a(level)  * fact(level)
-        b(level)  = diagonal_product
-        c(level)  = dt_inv * fact(level) - a(level) - b(level)
- 
-        column_tracer(level) = field_column(cell_index,level,blockNo) * dt_inv * fact(level)
-
-      ENDDO
+        & inv_prism_thickness(bottom_level)* inv_prisms_center_distance(bottom_level)*dtime
+      b(bottom_level) = 1.0_wp - a(bottom_level)
       c(bottom_level) = 0.0_wp
 
-      !------------------------------------
-      ! solver from lapack
-      !
-      ! eliminate lower diagonal
-      DO level=bottom_level-1, 1, -1
-        fact(level+1)  = c( level ) / b( level+1 )
-        b( level ) = b( level ) - fact(level+1) * a( level +1 )
-        column_tracer( level ) = column_tracer( level ) - fact(level+1) * column_tracer( level+1 )
-      ENDDO
+      IF (eliminate_upper_diag) THEN
+        ! solve the tridiagonal matrix by eliminating c (the upper diagonal) 
+        DO level=bottom_level-1,1,-1
+          fact(level)=c(level)/b(level+1)
+          b(level)=b(level)-a(level+1)*fact(level)
+          c(level) = 0.0_wp
+          column_tracer(level) = column_tracer(level) - fact(level)*column_tracer(level+1)
+        ENDDO
+        
+        ocean_tracer%concentration(cell_index,1,blockNo) = column_tracer(1)/b(1)
+        DO level=2,bottom_level
+         field_column(cell_index,level,blockNo) = (column_tracer(level) - &
+            a(level)* field_column(cell_index,level-1,blockNo)) / b(level)    
+        ENDDO
+        
+      ELSE
+        ! solve the tridiagonal matrix by eliminating a (the lower diagonal) 
+        DO level=2, bottom_level
+          fact(level)=a(level)/b(level-1)
+          b(level)=b(level)-c(level-1)*fact(level)
+          a(level) = 0.0_wp
+          column_tracer(level) = column_tracer(level) - fact(level)*column_tracer(level-1)
+        ENDDO
+        ocean_tracer%concentration(cell_index,bottom_level,blockNo) = column_tracer(bottom_level)/b(bottom_level)
+        DO level=bottom_level-1,1,-1
+         field_column(cell_index,level,blockNo) = (column_tracer(level) - &
+            c(level)* field_column(cell_index,level+1,blockNo)) / b(level)    
+        ENDDO                 
+      
+      ENDIF
+    
 
-      !     Back solve with the matrix U from the factorization.
-      column_tracer( 1 ) = column_tracer( 1 ) / b( 1 )
-      DO level =  2, bottom_level
-        column_tracer( level ) = ( column_tracer( level ) - a( level ) * column_tracer( level-1 ) ) / b( level )
-      ENDDO
-
-      DO level = 1, bottom_level
-        ocean_tracer%concentration(cell_index,level,blockNo) = column_tracer(level)
-      ENDDO
-   
     ENDDO ! cell_index
 
 

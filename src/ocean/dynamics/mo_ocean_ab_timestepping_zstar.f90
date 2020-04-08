@@ -121,6 +121,8 @@ MODULE mo_ocean_ab_timestepping_zstar
   PUBLIC :: solve_free_surface_eq_zstar
   PUBLIC :: update_zstar_variables
 
+  LOGICAL :: eliminate_upper_diag = .true.
+
 ! solver object (free ocean surface)
   CLASS(t_destructible), POINTER :: free_sfc_solver => NULL()
 ! solver object (free ocean surface)
@@ -792,6 +794,8 @@ CONTAINS
       DO level=1, bottom_level
         inv_prism_thickness(level)        = inv_str_e*patch_3d%p_patch_1d(1)%inv_prism_thick_e(edge_index,level,edge_block)
         inv_prisms_center_distance(level) = inv_str_e*patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(edge_index,level,edge_block)
+
+        column_velocity(level) = velocity(edge_index,level)
       ENDDO
 
 
@@ -800,49 +804,55 @@ CONTAINS
       ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
-      c(1) = -a_v(edge_index,2) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
-      b(1) = dt_inv - c(1)
+      c(1) = -a_v(edge_index,2) * inv_prism_thickness(1) &
+        &* inv_prisms_center_distance(2)*dtime
+      b(1) = 1.0_wp - c(1)
       DO level = 2, bottom_level-1
-        a(level) = - a_v(edge_index,level)   * inv_prism_thickness(level) * inv_prisms_center_distance(level)
-        c(level) = - a_v(edge_index,level+1) * inv_prism_thickness(level) * inv_prisms_center_distance(level+1)
-        b(level) = dt_inv - a(level) - c(level)
+        a(level) = - a_v(edge_index,level)   * inv_prism_thickness(level) &
+          &* inv_prisms_center_distance(level)*dtime
+        c(level) = - a_v(edge_index,level+1) * inv_prism_thickness(level) &
+          &* inv_prisms_center_distance(level+1)*dtime
+        b(level) = 1.0_wp - a(level) - c(level)
       END DO
       ! bottom
-      a(bottom_level) = -a_v(edge_index,bottom_level) * inv_prism_thickness(bottom_level) * &
-        & inv_prisms_center_distance(bottom_level)
-      b(bottom_level) = dt_inv - a(bottom_level)
-
-      ! precondition: set diagonal equal to diagonal_product
-      diagonal_product = PRODUCT(b(1:bottom_level))
-
-      DO level = 1, bottom_level
-        fact(level) = diagonal_product / b(level)
-        a(level)  = a(level)  * fact(level)
-        b(level)  = diagonal_product
-        c(level)  = dt_inv * fact(level) - a(level) - b(level)
-        column_velocity(level) = velocity(edge_index,level) * dt_inv * fact(level)
-      ENDDO
+      a(bottom_level) = -a_v(edge_index,bottom_level) * inv_prism_thickness(bottom_level)* &
+        & inv_prisms_center_distance(bottom_level)*dtime
+      b(bottom_level) = 1.0_wp - a(bottom_level)
       c(bottom_level) = 0.0_wp
 
-      !------------------------------------
-      ! solver from lapack
-      !
-      ! eliminate lower diagonal
-      DO level = bottom_level-1, 1, -1
-        fact(level+1)  = c( level ) / b( level+1 )
-        b( level ) = b( level ) - fact(level+1) * a( level +1 )
-        column_velocity( level ) = column_velocity( level ) - fact(level+1) * column_velocity( level+1 )
-      ENDDO
+      !! TODO: Check whether this makes sense for z*
+      IF (eliminate_upper_diag) THEN
+        ! solve the tridiagonal matrix by eliminating c (the upper diagonal) 
+        DO level = bottom_level-1, 1, -1
+            fact(level)=c(level)/b(level+1)
+            b(level)=b(level)-a(level+1)*fact(level)
+            c(level) = 0.0_wp
+            column_velocity(level) = column_velocity(level) - fact(level)*column_velocity(level+1)
+        ENDDO
+  
+        velocity(edge_index,1) = column_velocity(1)/b(1)
+        DO level = 2, bottom_level
+            velocity(edge_index,level) = (column_velocity(level) - &
+              a(level)*  velocity(edge_index,level-1)) / b(level)    
+        ENDDO
+  
+      ELSE
+          ! solve the tridiagonal matrix by eliminating a (the lower diagonal) 
+          DO level=2, bottom_level
+            fact(level)=a(level)/b(level-1)
+            b(level)=b(level)-c(level-1)*fact(level)
+            a(level) = 0.0_wp
+            column_velocity(level) = column_velocity(level) - fact(level)*column_velocity(level-1)
+          ENDDO
+          velocity(edge_index,bottom_level) = column_velocity(bottom_level)/b(bottom_level)
+          DO level=bottom_level-1,1,-1
+             velocity(edge_index,level) = (column_velocity(level) - &
+              c(level) * velocity(edge_index,level+1)) / b(level)    
+          ENDDO                 
+      
+      ENDIF
 
-      !     Back solve with the matrix U from the factorization.
-      column_velocity( 1 ) = column_velocity( 1 ) / b( 1 )
-      DO level = 2, bottom_level
-        column_velocity( level ) = ( column_velocity( level ) - a( level ) * column_velocity( level-1 ) ) / b( level )
-      ENDDO
 
-      DO level = 1, bottom_level
-        velocity(edge_index,level) = column_velocity(level)
-      ENDDO
 
     END DO ! edge_index = start_index, end_index
 
@@ -889,6 +899,7 @@ CONTAINS
         CALL ICON_PP_Edge_vnPredict_scheme(patch_3d, blockNo, start_edge_index, end_edge_index, &
           & ocean_state, ocean_state%p_diag%vn_pred(:,:,blockNo))
       !In 3D case implicit vertical velocity diffusion is chosen
+      eliminate_upper_diag = .not. eliminate_upper_diag ! switch the methods 
       CALL velocity_diffusion_vertical_implicit_zstar(patch_3d, &
         & ocean_state%p_diag%vn_pred(:,:,blockNo), p_phys_param%a_veloc_v(:,:,blockNo), stretch_e, &
         & op_coeffs, start_edge_index, end_edge_index, blockNo)
