@@ -13,7 +13,7 @@
     &                                          timer_tracer_ab, timer_bgc_tot,&
     &                                          timers_level
     USE mo_ocean_tracer,                 ONLY: advect_ocean_tracers
-    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
+!    USE mo_ocean_tracer_GMRedi,          ONLY: advect_ocean_tracers_GMRedi
     USE mo_ocean_types,                  ONLY: t_hydro_ocean_state, &
     &                                          t_operator_coeff
     USE mo_ocean_tracer_transport_types, ONLY: t_tracer_collection, t_ocean_transport_state

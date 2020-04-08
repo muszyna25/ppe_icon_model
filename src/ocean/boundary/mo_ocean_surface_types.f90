@@ -48,6 +48,7 @@ MODULE mo_ocean_surface_types
       &  SST                       (:,:), & ! sea surface temperature                                   [C]
       &  SSS                       (:,:), & ! sea surface salinity                                      [psu]
       &  cellThicknessUnderIce     (:,:), & ! thickness of freeboard, open water below ice              [m]                                                [m]
+      &  surface_salt_content      (:,:), & ! surface salt content                                      [kg]                                                [m]
 
       ! heat fluxes
       &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]

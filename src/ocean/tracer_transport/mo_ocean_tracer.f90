@@ -28,7 +28,7 @@ MODULE mo_ocean_tracer
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
     & GMRedi_configuration,                                               &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & tracer_update_mode
+    & tracer_update_mode, l_with_horz_tracer_diffusion
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
@@ -259,7 +259,7 @@ CONTAINS
     !Shallow water is done with horizontal advection
       div_adv_flux_horz   (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
       div_adv_flux_vert   (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp      
-      div_diff_flux_horz  (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
+     ! div_diff_flux_horz  (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
 
       !---------------------------------------------------------------------
       CALL advect_horz( patch_3d,        &
@@ -272,6 +272,8 @@ CONTAINS
         & div_adv_flux_horz,             &
         & div_adv_flux_vert)
 
+    IF ( l_with_horz_tracer_diffusion) THEN
+
       CALL diffuse_horz( patch_3d,       &
         & old_tracer%concentration,      &
         & transport_state,               &
@@ -280,7 +282,9 @@ CONTAINS
         & transport_state%h_old,         &
         & transport_state%h_new,         &
         & div_diff_flux_horz)
-
+     ELSE
+        div_diff_flux_horz  (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
+     ENDIF
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
@@ -471,7 +475,8 @@ CONTAINS
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                   &
           & new_tracer,                 &
-          & a_v)           
+          & a_v,                        &
+          & transport_state%h_new)
           
     ENDIF!IF ( l_with_vert_tracer_diffusion )
 

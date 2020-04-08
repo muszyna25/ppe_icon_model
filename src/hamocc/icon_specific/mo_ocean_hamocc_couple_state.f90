@@ -40,10 +40,9 @@ MODULE mo_ocean_hamocc_couple_state
     &                               datatype_FLT64 => CDI_datatype_FLT64, &
     &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
     &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED, &
-    &                               GRID_ZONAL
+    &                               tstep_constant, GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
-      &                             grid_unstructured_vert, grid_vertex 
+      &                             grid_unstructured_vert, grid_vertex
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   USE mo_ocean_physics,       ONLY: scale_horizontal_diffusion, copy2Dto3D
   USE mo_cf_convention
