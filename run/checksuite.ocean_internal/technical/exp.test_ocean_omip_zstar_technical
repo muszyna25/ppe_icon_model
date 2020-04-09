@@ -10,7 +10,7 @@
 # - the restart file names: 
 #
 export EXPERIMENT='ocean_omip_zstar_technical'
-ln -s checksuite.ocean_internal/technical/exp.${ocean_omip_zstar_technical} .
+ln -s checksuite.ocean_internal/technical/exp.${EXPERIMENT} .
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
