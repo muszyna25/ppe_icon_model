@@ -297,38 +297,40 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_index, end_index)
       DO jc = start_index, end_index
+        IF(patch_3D%lsm_c(jc, 1, jb) <= sea_boundary)THEN
 
-        edge_1_index = patch_2d%cells%edge_idx(jc,jb,1)
-        edge_1_block = patch_2d%cells%edge_blk(jc,jb,1)
-        edge_2_index = patch_2d%cells%edge_idx(jc,jb,2)
-        edge_2_block = patch_2d%cells%edge_blk(jc,jb,2)
-        edge_3_index = patch_2d%cells%edge_idx(jc,jb,3)
-        edge_3_block = patch_2d%cells%edge_blk(jc,jb,3)
+          edge_1_index = patch_2d%cells%edge_idx(jc,jb,1)
+          edge_1_block = patch_2d%cells%edge_blk(jc,jb,1)
+          edge_2_index = patch_2d%cells%edge_idx(jc,jb,2)
+          edge_2_block = patch_2d%cells%edge_blk(jc,jb,2)
+          edge_3_index = patch_2d%cells%edge_idx(jc,jb,3)
+          edge_3_block = patch_2d%cells%edge_blk(jc,jb,3)
+  
+          st1 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 1)%x, &
+            & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,1)%x)  
+          st2 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 2)%x, &
+            & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,2)%x)  
+          st3 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 3)%x, &
+            & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,3)%x)  
+  
+          st1 = st1/( st1 + st2 + st3 )
+          st2 = st2/( st1 + st2 + st3 )
+          st3 = st3/( st1 + st2 + st3 )
+  
+          DO level = 1, MIN(patch_3D%p_patch_1D(1)%dolic_c(jc,jb), n_zlev)
+            
+            !! dz/dt = d(eta)/dt * (1 + z*/H )
+            !! Remember z* = 0:-H, hence the negative sign
+            dz_dt = ( ( ocean_state%p_prog(nnew(1))%eta_c(jc, jb) - &
+            & ocean_state%p_prog(nold(1))%eta_c(jc, jb) )/dtime ) * &
+            & ( 1.0_wp - patch_3d%p_patch_1d(1)%depth_CellMiddle(jc, level, jb)/H_c(jc, jb))
+  
+            w_temp(jc, level, jb) =  ( w_edg(edge_1_index, level, edge_1_block)*st1 + &
+              & w_edg(edge_2_index, level, edge_2_block)*st2 +                        &
+              & w_edg(edge_3_index, level, edge_3_block)*st3 ) + dz_dt                         
+          END DO
 
-        st1 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 1)%x, &
-          & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,1)%x)  
-        st2 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 2)%x, &
-          & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,2)%x)  
-        st3 = DOT_PRODUCT(operators_coefficients%edge2cell_coeff_cc(jc, 1, jb, 3)%x, &
-          & operators_coefficients%edge2cell_coeff_cc(jc, 1, jb ,3)%x)  
-
-        st1 = st1/( st1 + st2 + st3 )
-        st2 = st2/( st1 + st2 + st3 )
-        st3 = st3/( st1 + st2 + st3 )
-
-        DO level = 1, MIN(patch_3D%p_patch_1D(1)%dolic_c(jc,jb), n_zlev)
-          
-          !! dz/dt = d(eta)/dt * (1 + z*/H )
-          !! Remember z* = 0:-H, hence the negative sign
-          dz_dt = ( ( ocean_state%p_prog(nnew(1))%eta_c(jc, jb) - &
-          & ocean_state%p_prog(nold(1))%eta_c(jc, jb) )/dtime ) * &
-          & ( 1.0_wp - patch_3d%p_patch_1d(1)%depth_CellMiddle(jc, level, jb)/H_c(jc, jb) )
-
-          w_temp(jc, level, jb) =  ( w_edg(edge_1_index, level, edge_1_block)*st1 + &
-            & w_edg(edge_2_index, level, edge_2_block)*st2 +                        &
-            & w_edg(edge_3_index, level, edge_3_block)*st3 ) + dz_dt                         
-        END DO
-          
+        END IF
       END DO
 
     END DO ! blockNo = all_cells%start_block, all_cells%end_block
@@ -342,10 +344,12 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_index, end_index)
       DO jc = start_index, end_index
-        DO jk = 1, MIN(patch_3D%p_patch_1D(1)%dolic_c(jc,jb), n_zlev)
-          ocean_state%p_diag%w_deriv(jc, jk, jb) =  ocean_state%p_diag%w(jc, jk, jb)*stretch_c(jc, jb) &
-            & + w_deriv(jc, jk, jb)
-        END DO
+        IF(patch_3D%lsm_c(jc, 1, jb) <= sea_boundary)THEN
+          DO jk = 1, MIN(patch_3D%p_patch_1D(1)%dolic_c(jc,jb), n_zlev)
+            ocean_state%p_diag%w_deriv(jc, jk, jb) =  ocean_state%p_diag%w(jc, jk, jb)*stretch_c(jc, jb) &
+              & + w_deriv(jc, jk, jb)
+          END DO
+        END IF
       END DO
     END DO ! blockNo
 !ICON_OMP_END_PARALLEL_DO
