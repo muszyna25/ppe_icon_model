@@ -28,6 +28,7 @@ use_srcdir
 use_submit
 use_sync_submit
 use_target
+use_flags_group
 '
 
 # Set directories:
