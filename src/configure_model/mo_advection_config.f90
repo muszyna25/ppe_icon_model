@@ -318,7 +318,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     !
-    ! set dependent transport variables/model components, depending on 
+    ! set transport variables/model components, which depend on 
     ! the transport namelist and potentially other namelsists.
     !
 
@@ -1030,12 +1030,17 @@ CONTAINS
     TYPE(t_var_list)         , INTENT(IN) :: var_list_tracer   !< variable list (metadata)
 
     ! local variables
+    TYPE(t_list_element), POINTER :: tracer_list_element
+    TYPE(t_var_metadata), POINTER :: info
     CLASS(t_tracer_meta), POINTER :: tracer_info
-    TYPE(t_table)   :: table
-    INTEGER         :: ivar            ! loop counter
-    INTEGER         :: irow            ! row to fill
+
+    INTEGER       :: tracer_id       ! unique tracer_id
+    TYPE(t_table) :: table
+    INTEGER       :: irow            ! row to fill
     !
     CHARACTER(LEN=3) :: str_tracer_id
+    CHARACTER(LEN=3) :: str_startlev
+    CHARACTER(LEN=7) :: str_substep_range
     CHARACTER(LEN=3) :: str_flag
     !--------------------------------------------------------------------------
 
@@ -1051,36 +1056,68 @@ CONTAINS
     CALL add_table_column(table, "in list trAdvect")
     CALL add_table_column(table, "in list trNotAdvect")
     CALL add_table_column(table, "in list trHydroMass")
+    CALL add_table_column(table, "slev")
+    CALL add_table_column(table, "substep range")
 
 
     irow = 0
+
+    tracer_list_element => var_list_tracer%p%first_list_element
+
     ! print tracer meta-information
     !
-    DO ivar=1,var_list_tracer%p%nvars
+    DO WHILE (ASSOCIATED(tracer_list_element))
 
-      tracer_info => get_tracer_list_element_info (var_list_tracer, ivar)
+      info        => tracer_list_element%field%info
+      tracer_info => tracer_list_element%field%info_dyn%tracer
+
+
+      tracer_id = info%ncontained
 
       irow = irow + 1
       !
       CALL set_table_entry(table,irow,"VarName", TRIM(tracer_info%name))
       !
-      write(str_tracer_id,'(i3)')  ivar
+      write(str_tracer_id,'(i3)')  tracer_id
       CALL set_table_entry(table,irow,"Tracer ID", str_tracer_id)
       !
-      str_flag = MERGE('X',' ',ANY(config_obj%trFeedback%list==ivar))
+      str_flag = MERGE('X',' ',ANY(config_obj%trFeedback%list==tracer_id))
       CALL set_table_entry(table,irow,"feedback", TRIM(str_flag))
       !
-      str_flag = MERGE('X',' ',ANY(config_obj%trAdvect%list==ivar))
+      str_flag = MERGE('X',' ',ANY(config_obj%trAdvect%list==tracer_id))
       CALL set_table_entry(table,irow,"in list trAdvect", TRIM(str_flag))
       !
-      str_flag = MERGE('X',' ',ANY(config_obj%trNotAdvect%list==ivar))
+      str_flag = MERGE('X',' ',ANY(config_obj%trNotAdvect%list==tracer_id))
       CALL set_table_entry(table,irow,"in list trNotAdvect", TRIM(str_flag))
       !
       ! iforcing == inwp/iecham
       IF (ALLOCATED(config_obj%trHydroMass%list)) THEN
-        str_flag = MERGE('X',' ',ANY(config_obj%trHydroMass%list==ivar))
+        str_flag = MERGE('X',' ',ANY(config_obj%trHydroMass%list==tracer_id))
         CALL set_table_entry(table,irow,"in list trHydroMass", TRIM(str_flag))
       ENDIF
+      !
+      ! print start level for transport and 
+      ! range of levels for which substepping is applied
+      IF (ANY(config_obj%trAdvect%list==tracer_id)) THEN
+        !
+        write(str_startlev,'(i3)') config_obj%iadv_slev(tracer_id)
+        !
+        IF (ANY((/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) &
+           &     == config_obj%ihadv_tracer(tracer_id))) THEN
+          write(str_substep_range,'(i3,a,i3)')  1,'/',config_obj%iadv_qvsubstep_elev
+        ELSE
+          write(str_substep_range,'(a)') '-- / --' 
+        ENDIF
+      ELSE
+        !
+        write(str_startlev,'(a)') '--'
+        write(str_substep_range,'(a)') '-- / --' 
+      ENDIF
+      CALL set_table_entry(table,irow,"slev", TRIM(str_startlev))
+      CALL set_table_entry(table,irow,"substep range", TRIM(str_substep_range))
+
+      ! next tracer in list
+      tracer_list_element => tracer_list_element%next_list_element
     ENDDO
 
     CALL print_table(table, opt_delimiter=' | ')
@@ -1088,52 +1125,6 @@ CONTAINS
 
     WRITE (0,*) " " ! newline
   END SUBROUTINE advection_print_setup
-
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Get a copy of the metadata concerning a tracer_list element
-  !
-  FUNCTION get_tracer_list_element_info (tracer_list, tracer_ID) RESULT(tracer_info)
-    !
-    TYPE(t_var_list),     INTENT(in)  :: tracer_list  ! list
-    INTEGER,              INTENT(IN)  :: tracer_ID    ! tracer ID
-    CLASS(t_tracer_meta), POINTER     :: tracer_info  ! variable meta data
-    !
-    TYPE(t_list_element), POINTER :: element
-    !
-    element => find_tracer_list_element (tracer_list, tracer_ID)
-    IF (ASSOCIATED (element)) THEN
-      tracer_info => element%field%info_dyn%tracer
-    ELSE
-      WRITE(message_text,'(a,i3,a)') 'Element with tracer ID ', tracer_ID, ' not found.'
-      CALL finish (TRIM('get_tracer_list_element_info'), message_text)
-    ENDIF
-    !
-  END FUNCTION get_tracer_list_element_info
-
-
-  !
-  ! Find tracer list element from tracer ID 
-  !
-  FUNCTION find_tracer_list_element (tracer_list, ID) RESULT(tracer_list_element)
-    !
-    TYPE(t_var_list),   INTENT(in) :: tracer_list
-    INTEGER,            INTENT(in) :: ID
-    !
-    TYPE(t_list_element), POINTER :: tracer_list_element
-    !
-    tracer_list_element => tracer_list%p%first_list_element
-    DO WHILE (ASSOCIATED(tracer_list_element))
-      IF (ID == tracer_list_element%field%info%ncontained) THEN
-        RETURN
-      ENDIF
-      tracer_list_element => tracer_list_element%next_list_element
-    ENDDO
-    !
-    NULLIFY (tracer_list_element)
-    !
-  END FUNCTION find_tracer_list_element
 
 
 END MODULE mo_advection_config

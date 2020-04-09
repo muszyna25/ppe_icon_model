@@ -507,8 +507,8 @@ MODULE mo_nh_stepping
 
       IF (var_in_output(jg)%dbz .OR. var_in_output(jg)%dbz850 .OR. var_in_output(jg)%dbzcmax) THEN 
 
-        CALL compute_field_dbz3D_lin (jg, p_patch(jg), p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
-             &                        p_nh_state(jg)%prog(nnow_rcf(jg)),                                      &
+        CALL compute_field_dbz3D_lin (jg, p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+             &                        p_nh_state(jg)%prog(nnow_rcf(jg)),              &
              &                        p_nh_state(jg)%diag, prm_diag(jg)%dbz3d_lin )
 
 
