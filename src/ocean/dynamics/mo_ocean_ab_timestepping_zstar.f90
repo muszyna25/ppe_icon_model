@@ -166,9 +166,9 @@ CONTAINS
     INTEGER  :: jb, jc, je, bt_lev, level, jk, start_level 
     INTEGER  :: start_index, end_index 
 
-    REAL(wp) :: w_temp(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
-    REAL(wp) :: w_edg(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) !! stretch factor 
-    REAL(wp) :: w_deriv(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !! stretch factor 
+    REAL(wp) :: w_temp(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
+    REAL(wp) :: w_edg(nproma, n_zlev, patch_3d%p_patch_2d(1)%nblks_e) 
+    REAL(wp) :: w_deriv(nproma, n_zlev + 1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
 
     INTEGER, DIMENSION(:,:,:), POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: all_cells, all_edges 
@@ -337,7 +337,24 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
     w_deriv = 0.0_wp
-    CALL map_scalar_center2prismtop(patch_3d, w_temp, operators_coefficients, w_deriv)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, level)
+!ICON_OMP_DEFAULT_SCHEDULE     
+    DO jb = all_cells%start_block, all_cells%end_block
+      w_deriv(:,:,jb) = 0.0_wp
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        DO jk = 1, patch_3D%p_patch_1d(1)%dolic_c(jc, jb)-1
+          w_deriv(jc ,jk + 1, jb) &
+          & = 0.5_wp*( w_temp(jc, jk, jb)    &
+          & +          w_temp(jc, jk + 1, jb))              
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    !! FIXME: The below usage gives an error
+    !! Maybe it is because of all_cells vs cells_in_domain?
+!    CALL map_scalar_center2prismtop(patch_3d, w_temp, operators_coefficients, w_deriv)
 
     ocean_state%p_diag%w_deriv = 0.0_wp
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -346,7 +363,8 @@ CONTAINS
       DO jc = start_index, end_index
         IF(patch_3D%lsm_c(jc, 1, jb) <= sea_boundary)THEN
           DO jk = 1, MIN(patch_3D%p_patch_1D(1)%dolic_c(jc,jb), n_zlev)
-            ocean_state%p_diag%w_deriv(jc, jk, jb) =  ocean_state%p_diag%w(jc, jk, jb)*stretch_c(jc, jb) &
+            ocean_state%p_diag%w_deriv(jc, jk, jb) =  ocean_state%p_diag%w(jc, jk, jb) &
+              & *stretch_c(jc, jb) &
               & + w_deriv(jc, jk, jb)
           END DO
         END IF

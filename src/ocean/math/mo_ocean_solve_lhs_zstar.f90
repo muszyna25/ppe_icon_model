@@ -157,14 +157,19 @@
         INTEGER :: jb, je, start_index, end_index
         TYPE(t_subset_range), POINTER :: edges_in_domain
         
-        edges_in_domain => this%patch_2D%edges%in_domain
+        edges_in_domain => this%patch_2D%edges%all
+
+
+        this%stretch_e = 1.0_wp
 
     !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, je, jk, id1, id2, bl1, bl2, st1, st2) &
     !ICON_OMP ICON_OMP_DEFAULT_SCHEDULE
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, start_index, end_index)
           DO je = start_index, end_index
-            this%stretch_e(je, jb) = str_e(je, jb) 
+            IF(this%patch_3D%lsm_e(je, 1, jb) <= sea_boundary)THEN
+              this%stretch_e(je, jb) = str_e(je, jb) 
+            END IF
           ENDDO
         END DO
     !ICON_OMP_END_PARALLEL_DO
