@@ -480,7 +480,7 @@ CONTAINS
     IF (my_process_is_work()) THEN
       this%tOffCl(2) = this%tOffCl(1) + INT(this%wSizes(1), addr) * this%facDpSp
       this%tOffCl(3) = this%tOffCl(2) + INT(this%wSizes(2), addr)
-      this%tOffCl(4) = this%tOffCl(3) + INT(this%wSizes(3), addr) * this%facIntSp - one
+      this%tOffCl(4) = this%tOffCl(3) + INT(this%wSizes(3), addr) * this%facIntSp
     END IF
     myRank = p_comm_rank(p_comm_work_restart)
     splitKey = MERGE(1, myRank + 2, iAmRestartWriter())

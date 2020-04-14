@@ -25,18 +25,18 @@ MODULE mo_opt_nwp_diagnostics
   USE mo_math_constants,        ONLY: pi
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
-    &                                 vtmpc1, t3,      &
+    &                                 vtmpc1,          &
     &                                 grav,            &
     &                                 tmelt, earth_radius, &
     &                                 alvdcp, rd_o_cpd, &
     &                                 rhoh2o, rhoice, K_w_0, K_i_0
   USE mo_2mom_mcrph_main,       ONLY: init_2mom_scheme,      &
     &                                 rain_coeffs  ! contains the parameters for the mue-Dm-relation
-  USE mo_2mom_mcrph_types,      ONLY: particle, particle_frozen, particle_lwf, particle_rain_coeffs
+  USE mo_2mom_mcrph_types,      ONLY: particle, particle_frozen, particle_rain_coeffs
   USE mo_2mom_mcrph_util,       ONLY: gfct
   USE mo_2mom_mcrph_processes,  ONLY: moment_gamma
   USE mo_exception,             ONLY: finish, message
-  USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
+  USE mo_satad,                 ONLY: sat_pres_water
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
     &                                 min_rlcell, grf_bdywidth_c
@@ -44,21 +44,16 @@ MODULE mo_opt_nwp_diagnostics
     &                                 grf_ovlparea_start_c, grf_fbk_start_c
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
-       &                              iqm_max, nqtendphy, lart, &
+  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, &
        &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, msg_level
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
-  USE mo_advection_config,      ONLY: advection_config
-  USE mo_art_config,            ONLY: art_config
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_io_config,             ONLY: echotop_meta
   USE mo_lnd_nwp_config,        ONLY: nlev_soil, dzsoil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
   USE mo_ext_data_types,        ONLY: t_external_data
-  USE mo_satad,                 ONLY: qsat_rho
   USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_nwp_sfc_interp,        ONLY: wsoil2smi
   USE mo_icon_interpolation_scalar,                     &
@@ -2596,14 +2591,12 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision  :  U. Blahak, DWD (2020-01-20) 
-  SUBROUTINE compute_field_dbz3d_lin(jg, ptr_patch, p_metrics, p_prog,  p_prog_rcf, p_diag, dbz3d_lin)
+  SUBROUTINE compute_field_dbz3d_lin(jg, ptr_patch, p_prog,  p_prog_rcf, p_diag, dbz3d_lin)
 
     ! Domain index for later use with EMVORADO calc_dbz_vec():
     INTEGER, INTENT(in)  :: jg
     ! patch on which computation is performed:
     TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
-    ! NH metrics variable:
-    TYPE(t_nh_metrics) ,INTENT(IN)   :: p_metrics 
     ! nonhydrostatic state
     TYPE(t_nh_prog), INTENT(IN)    :: p_prog            !< at timelevel nnow(jg)
     TYPE(t_nh_prog), INTENT(IN)    :: p_prog_rcf        !< at timelevel nnow_rcf(jg)
@@ -2612,9 +2605,7 @@ CONTAINS
     
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = modname//': compute_field_dbz3d_lin'
-    REAL(wp) :: rho
-    INTEGER  :: i_rlstart, i_rlend, i_startblk, i_endblk, i_startidx, i_endidx, i_startidx_1, i_endidx_2, &
-      &         jc, jk, jb
+    INTEGER  :: i_rlstart, i_rlend, i_startblk, i_endblk, i_startidx, i_endidx, i_startidx_1, i_endidx_2
 
     ! without halo or boundary points:
     i_rlstart = grf_bdywidth_c + 1
@@ -2809,7 +2800,7 @@ CONTAINS
     INTEGER        :: nn, pe_center
 
     REAL(wp), SAVE :: z_r, z_g, z_s, p_r, p_s, p_g
-    REAL(wp), SAVE :: nor, nog, amg, bmg, nos, ams, bms, &
+    REAL(wp), SAVE :: nor, nog, amg, bmg, ams, bms, &
                       ami, bmi, x_i_mono, x_c_mono, mue_rain_c
 
     INTEGER,  PARAMETER :: isnow_n0temp   = 2
@@ -3618,14 +3609,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Ulrich Blahak, DWD (2020-01-23) 
   !!
-  SUBROUTINE compute_field_echotopinm( ptr_patch, jg, p_metrics, p_diag, dbz3d_lin, echotop_z )
+  SUBROUTINE compute_field_echotopinm( ptr_patch, jg, p_metrics, dbz3d_lin, echotop_z )
 
     IMPLICIT NONE
 
     TYPE(t_patch),        INTENT(IN)  :: ptr_patch        !< patch on which computation is performed
     INTEGER,              INTENT(IN)  :: jg               !< domain ID of grid
     TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics 
-    TYPE(t_nh_diag),      INTENT(IN)  :: p_diag           !< type which contains the dbz3d_lin(:,:,:) field
     REAL(wp),             INTENT(IN)  :: dbz3d_lin(:,:,:) !< reflectivity in mm^6/m^3
 
     REAL(wp),             INTENT(INOUT) :: echotop_z(:,:,:)  !< input/output variable, dim: (nproma,nechotop,nblks_c)
