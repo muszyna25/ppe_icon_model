@@ -63,6 +63,8 @@ initialiseOcean="fromRestartwithHamocc"
 # initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 
+read_restart_namelists=".false."
+
 # restart=.true.    # deactivate semaphore mechanism
 #
 # 1 ocean node is sufficient for low resolution, 9 nodes for coupled is suitable.
