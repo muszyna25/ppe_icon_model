@@ -6,10 +6,11 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes a coupled experiment test setup on a R2B3 grid based on the non-hydrostatic
-# atmosphere with ECHAM physics and the hydrostatic ocean running on an R2B4 grid. The atmosphere
-# is intialized from analysis files and using constant pre-industrial (PI-control) boundary
-# conditions for the year 1850:
+# This file describes a coupled experiment test setup on a R2B3 grid based on
+# the non-hydrostatic atmosphere with ECHAM physics and the hydrostatic ocean
+# running on an R2B4 grid. The atmosphere is initialized from analysis files and
+# using constant pre-industrial (PI-control) boundary conditions for the year
+# 1850:
 # - spectral solar irradiation
 # - well mixed greenhouse gases CO2, CH4, N2O, no CFCs
 # - O3 concentration
