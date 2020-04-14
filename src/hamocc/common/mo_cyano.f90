@@ -275,7 +275,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
              
     ENDIF
 
-    do k=2,kpke-1
+    do k=(kpke-1),2,-1  
          ! water column
         if(pddpo(j,k+1).LE.0.5_wp)then ! last wet cell
               bgctra(j,k,icya)  = (bgctra(j,k,icya)*pddpo(j,k))      &
