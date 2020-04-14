@@ -85,7 +85,7 @@ MODULE mo_ocean_model
     & construct_hydro_ocean_base, &! destruct_hydro_ocean_base, &
     & construct_hydro_ocean_state, destruct_hydro_ocean_state, &
     & construct_patch_3d, destruct_patch_3d, ocean_default_list, ocean_restart_list, construct_ocean_nudge, &
-    & construct_ocean_var_lists
+    & construct_ocean_var_lists, ocean_state
   USE mo_ocean_initialization, ONLY: init_ho_base, &
     & init_ho_basins, init_coriolis_oce, init_patch_3d,   &
     & init_patch_3d
@@ -151,7 +151,6 @@ MODULE mo_ocean_model
     TYPE(t_atmos_fluxes)                            :: atmos_fluxes
     TYPE(t_operator_coeff), TARGET                  :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), TARGET     :: solverCoefficients_sp 
-    TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
     
   !  TYPE(t_oce_timeseries), POINTER :: oce_ts
 
