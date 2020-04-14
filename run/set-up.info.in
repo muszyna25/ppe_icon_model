@@ -107,7 +107,7 @@ case "$use_site" in
     case "$use_host" in
       btlogin*|btc*|mlogin*|m*)
         use_load_profile='. /etc/profile'
-        use_load_modules='ncl/6.2.1-gccsys cdo/1.9.5-gcc64 git python @top_srcdir@/etc/Modules/icon-switch'
+        use_load_modules='ncl cdo git python @top_srcdir@/etc/Modules/icon-switch'
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun'
