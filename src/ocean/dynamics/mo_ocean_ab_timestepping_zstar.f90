@@ -1022,7 +1022,11 @@ CONTAINS
       TYPE(t_ocean_surface)                              :: p_oce_sfc
       TYPE(t_atmos_for_ocean),  INTENT(inout)            :: p_as
       TYPE(t_ho_params)                                  :: p_phys_param 
-      TYPE(t_operator_coeff),   INTENT(inout)            :: operators_coefficients
+      !! NOTE: TARGET had to be added below because of a dangling pointer error
+      !! raised by NAG compiler. Possibly when sending to init_free_sfc
+      !! since it was not a pointer, the lifetime of the variable was limited
+      !! to this subroutine only hence leading to dangling pointer
+      TYPE(t_operator_coeff), TARGET, INTENT(inout)      :: operators_coefficients
       TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
    
       INTEGER , INTENT(IN   ) :: timestep 
