@@ -110,7 +110,7 @@ MODULE mo_ocean_physics
    & WindMixingDecay, WindMixingLevel
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_ocean_velocity_diffusion, ONLY: veloc_diff_harmonic_div_grad
-  
+  USE mo_ocean_GM_Redi,       ONLY: init_GMRedi
 
   IMPLICIT NONE
 
@@ -166,6 +166,8 @@ CONTAINS
     IF(GMRedi_configuration==GMRedi_combined&
       &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
 
+      CALL init_GMRedi(patch_3d) 
+      
       physics_param%k_tracer_isoneutral = k_tracer_isoneutral_parameter
       physics_param%k_tracer_dianeutral = k_tracer_dianeutral_parameter
 

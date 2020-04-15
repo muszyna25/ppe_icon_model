@@ -22,7 +22,6 @@
     USE mo_run_config,                   ONLY: ltimer
     USE mo_ocean_nml,                    ONLY: Cartesian_Mixing, GMRedi_configuration, &
       & vert_mix_type,vmix_kpp
-    USE mo_ocean_physics,                ONLY: update_ho_params
     USE mo_hamocc_types,                 ONLY: t_hamocc_prog, t_hamocc_state
     USE mo_bgc_icon_comm,                ONLY: hamocc_state
     USE mo_dynamics_config,              ONLY: nold, nnew 
@@ -32,6 +31,12 @@
     USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
     USE mtime,                     ONLY: datetime
     USE mo_util_dbg_prnt,          ONLY: dbg_print
+    USE mo_master_control,         ONLY: my_process_is_hamocc
+    
+    ! only temporary solution
+    USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
+    USE mo_ocean_physics_types,    ONLY: v_params
+    USE mo_ocean_state,            ONLY: ocean_state
  
     IMPLICIT NONE
     PRIVATE
@@ -87,20 +92,17 @@
     start_timer(timer_tracer_ab,1)
     hamocc_state_prog => hamocc_state%p_prog(nnew(1))
 
-    IF (GMRedi_configuration == Cartesian_Mixing .AND. vert_mix_type .NE. vmix_kpp) THEN
+    IF (GMRedi_configuration == Cartesian_Mixing) THEN
       CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
     ELSE
-      CALL finish("tracer_biochemistry_transport", "GMRedi_configuration is not activated")
+      IF (my_process_is_hamocc() ) THEN
+	CALL finish("concurrent HAMOCC", "GMRedi is not possible at present")
+      ELSE
+	CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &
+          &  ocean_state(1), transport_state, v_params, operators_coefficients)
+      ENDIF
     ENDIF
-!    ELSE
-!      CALL finish("tracer_biochemistry_transport", "GMRedi_configuration is not activated")
-!    ENDIF
-!        ! the GMRedi will be treated in the sequential case; for the moment we will skip it
-!       ELSE
-!         CALL  advect_ocean_tracers_GMRedi(old_tracer_collection, new_tracer_collection, &
-!           &  ocean_state, transport_state, p_phys_param, operators_coefficients)
-!       ENDIF
-
+    
      stop_timer(timer_tracer_ab,1)
      !------------------------------------------------------------------------
     

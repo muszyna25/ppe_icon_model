@@ -362,7 +362,9 @@
      ALLOCATE(hamocc_state_prog%tracer_collection%tracer(n_bgctra))
      hamocc_state_prog%tracer_collection%no_of_tracers = n_bgctra
      hamocc_state_prog%tracer_collection%patch_3d => patch_3d
-     
+     hamocc_state_prog%tracer_collection%typeOfTracers = "hamocc"    
+     hamocc_state_prog%tracer_collection%patch_3d => patch_3d
+ 
      DO jtrc = 1, n_bgctra
           tracer => hamocc_state_prog%tracer_collection%tracer(jtrc)
           ! point the concentration to the 4D tracer

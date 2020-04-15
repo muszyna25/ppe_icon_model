@@ -115,7 +115,9 @@ MODULE mo_ocean_state
   PRIVATE :: destruct_hydro_ocean_diag
   PRIVATE :: destruct_hydro_ocean_aux
   PRIVATE :: destruct_ocean_nudge
-
+ 
+  !----------------------------------------------------------------------------
+  PUBLIC  :: ocean_state
   !----------------------------------------------------------------------------
 
   ! variables
@@ -125,6 +127,8 @@ MODULE mo_ocean_state
   TYPE(t_oce_config)                            :: oce_config
   INTEGER, PARAMETER :: max_oce_tracer = 50
   !-------------------------------------------------------------------------
+
+  TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
 
 CONTAINS
 
@@ -702,6 +706,7 @@ CONTAINS
         !--------------------------------------------------------------------------
         ! use of the ocean_tracers structure
         ALLOCATE(ocean_state_prog%tracer_collection%tracer(no_tracer))
+        ocean_state_prog%tracer_collection%typeOfTracers = "ocean"
         ocean_state_prog%tracer_collection%no_of_tracers = no_tracer
         ocean_state_prog%tracer_collection%patch_3d => patch_3d
         DO jtrc = 1,no_tracer
