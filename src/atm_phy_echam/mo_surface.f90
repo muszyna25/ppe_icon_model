@@ -279,7 +279,8 @@ CONTAINS
     ! Sea ice
     REAL(wp) :: Tfw(kbdim)
     REAL(wp) :: swflx_ice(kbdim,kice), nonsolar_ice(kbdim,kice), dnonsolardT(kbdim,kice), conc_sum(kbdim)
-    LOGICAL  :: mask(kbdim)
+
+    LOGICAL :: mask(kbdim)
 
    CHARACTER(len=*), PARAMETER :: method_name='mo_surface:update_surface'
 
