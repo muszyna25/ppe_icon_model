@@ -921,7 +921,7 @@ CONTAINS
         CALL ICON_PP_Edge_vnPredict_scheme(patch_3d, blockNo, start_edge_index, end_edge_index, &
           & ocean_state, ocean_state%p_diag%vn_pred(:,:,blockNo))
       !In 3D case implicit vertical velocity diffusion is chosen
-      eliminate_upper_diag = .not. eliminate_upper_diag ! switch the methods 
+!      eliminate_upper_diag = .not. eliminate_upper_diag ! switch the methods 
       CALL velocity_diffusion_vertical_implicit_zstar(patch_3d, &
         & ocean_state%p_diag%vn_pred(:,:,blockNo), p_phys_param%a_veloc_v(:,:,blockNo), stretch_e, &
         & op_coeffs, start_edge_index, end_edge_index, blockNo)
