@@ -150,7 +150,6 @@ author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
 # Here, ocean is initialized from long (3600y) tuning run with good AMOC and sea-ice.
 # Hamocc is initialized with cmip6 data interpolated to icon-ocean grid.
 #
-# - GM/Redi is turned off for the moment, because it does not work with HAMOCC yet
 #
 # The coupling:
 #
@@ -1761,7 +1760,7 @@ cat >> ${oce_namelist} << EOF
   velocity_TopWindMixing                     = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration                       = 0           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration                       = 1           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme                            = 1
   GMRedi_usesRelativeMaxSlopes               = .FALSE.
   S_max                                      = 1.0e-3      ! 1.0
