@@ -1006,7 +1006,12 @@ CONTAINS
         transport_state%h_old     = ocean_state%p_prog(nold(1))%h
         transport_state%h_new     = ocean_state%p_prog(nnew(1))%h
       ENDIF
-
+      
+      IF (vert_mix_type .EQ. vmix_kpp ) THEN
+	old_tracer_collection%tracer(1)%vertical_trasnport_tendencies => p_phys_param%cvmix_params%nl_trans_tend_heat
+	old_tracer_collection%tracer(2)%vertical_trasnport_tendencies => p_phys_param%cvmix_params%nl_trans_tend_salt
+      ENDIF
+      
       ! fill boundary conditions
       old_tracer_collection%tracer(1)%top_bc => p_oce_sfc%TopBC_Temp_vdiff
       IF (no_tracer > 1) &
@@ -1026,7 +1031,7 @@ CONTAINS
     IF (no_tracer>=1) THEN
       start_timer(timer_tracer_ab,1)
 
-      IF (GMRedi_configuration == Cartesian_Mixing .AND. vert_mix_type .NE. vmix_kpp ) THEN
+      IF (GMRedi_configuration == Cartesian_Mixing ) THEN
         CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
       ELSE
         CALL  advect_ocean_tracers_dev(old_tracer_collection, new_tracer_collection, &

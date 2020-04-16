@@ -28,7 +28,8 @@ MODULE mo_ocean_tracer
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
     & GMRedi_configuration,                                               &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & tracer_update_mode, l_with_horz_tracer_diffusion
+    & tracer_update_mode, l_with_horz_tracer_diffusion,                   &
+    & vert_mix_type,vmix_kpp
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
@@ -82,7 +83,8 @@ CONTAINS
         CALL advect_diffuse_individual_tracer( patch_3d,    &
           & old_tracers%tracer(tracer_index),               &
           & transport_state, operators_coeff,               &
-          & new_tracers%tracer(tracer_index))
+          & new_tracers%tracer(tracer_index),               &
+          & old_tracers%typeOfTracers)
       ENDIF
     END DO
     
@@ -153,13 +155,15 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE advect_diffuse_individual_tracer(patch_3d, old_tracer,       &
-    & transport_state, operators_coeff, new_tracer)
+    & transport_state, operators_coeff, new_tracer, typeOfTracers)
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
     TYPE(t_ocean_tracer), TARGET :: old_tracer
     TYPE(t_ocean_tracer), TARGET :: new_tracer
     TYPE(t_ocean_transport_state), TARGET :: transport_state
     TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
+    CHARACTER(LEN=*), INTENT(in)         :: typeOfTracers
+
 !     REAL(wp), INTENT(inout), OPTIONAL :: horizontally_diffused_tracer(:,:,:)
 
     !Local variables
@@ -193,13 +197,14 @@ CONTAINS
     !The 3D-case
     ELSE ! IF( iswm_oce /= 1) THEN
 
-         CALL advect_diffuse_tracer( patch_3d, &
-           & old_tracer,&
-           & transport_state,            &
-           & operators_coeff,      &
-           & old_tracer%hor_diffusion_coeff,  &
-           & old_tracer%ver_diffusion_coeff,  &
-           & new_tracer)
+      CALL advect_diffuse_tracer( patch_3d, &
+        & old_tracer,                       &
+        & transport_state,                  &
+        & operators_coeff,                  &
+        & old_tracer%hor_diffusion_coeff,   &
+        & old_tracer%ver_diffusion_coeff,   &
+        & new_tracer,                       &
+        & typeOfTracers )
 
     ENDIF
 
@@ -324,7 +329,7 @@ CONTAINS
     & patch_3d, old_tracer,                &
     & transport_state, operators_coeff,    &
     & k_h, a_v,                            &
-    & new_tracer)!,        &
+    & new_tracer, typeOfTracers)!,        &
     ! & horizontally_diffused_tracer        )
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
@@ -333,7 +338,9 @@ CONTAINS
     TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)       !horizontal mixing coeff
     REAL(wp), INTENT(inout)              :: a_v(:,:,:)       !vertical mixing coeff, in
-    TYPE(t_ocean_tracer), TARGET :: new_tracer
+    TYPE(t_ocean_tracer), TARGET         :: new_tracer
+    CHARACTER(LEN=*), INTENT(in)         :: typeOfTracers
+
 !     REAL(wp), INTENT(inout), OPTIONAL :: horizontally_diffused_tracer(:,:,:)
 
     !Local variables
@@ -453,6 +460,18 @@ CONTAINS
             &  * (  div_adv_flux_horz(jc,level,jb)  &
             &     + div_adv_flux_vert(jc,level,jb)  &
             &     - div_diff_flux_horz(jc,level,jb) ) 
+            
+          IF (vert_mix_type .EQ. vmix_kpp .and. typeOfTracers == "ocean") THEN
+            !by_Oliver: account for nonlocal transport term for heat and scalar
+            !(salinity) if KPP scheme is used
+	    new_tracer%concentration(jc,level,jb) =                          &
+	      &  new_tracer%concentration(jc,level,jb)                          &
+	      ! FIXME: check sign
+	      &    + (delta_t /patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)) &
+	      &    * old_tracer%vertical_trasnport_tendencies(jc,level,jb)
+
+	  END IF
+            
         ENDDO
 
       END DO

@@ -76,7 +76,8 @@ MODULE mo_ocean_GM_Redi
   CHARACTER(LEN=16)           :: str_module = 'GM_Redi'  ! Output of module for 1 line debug
   INTEGER                     :: idt_src    = 1          ! Level of detail for 1 line debug
 
-  PUBLIC  :: prepare_ocean_physics
+  PUBLIC  :: init_GMRedi
+  PUBLIC  :: prepare_GMRedi
   PUBLIC  :: calc_ocean_physics
   
   PRIVATE :: calc_combined_GentMcWilliamsRedi_flux
@@ -90,8 +91,28 @@ MODULE mo_ocean_GM_Redi
   PRIVATE :: calc_combined_GentMcWilliamsRedi_flux_zstar
 
   
+!  PRIVATE :: calc_bolus_velocity
+
+  TYPE(t_cartesian_coordinates), POINTER   :: taper_off_diagonal_vert(:,:,:)  
+  TYPE(t_cartesian_coordinates), POINTER   :: taper_off_diagonal_horz(:,:,:)
+  REAL(wp), POINTER                        :: taper_diagonal_horz(:,:,:)
+  REAL(wp), POINTER                        :: taper_diagonal_vert_expl(:,:,:)    
+  REAL(wp), POINTER                        :: taper_diagonal_vert_impl(:,:,:)            
+ 
 CONTAINS
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE init_GMRedi(patch_3d)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+
+    ALLOCATE(taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks))   
+    ALLOCATE(taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks))
+    ALLOCATE(taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks))
+    ALLOCATE(taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks))    
+    ALLOCATE(taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks))           
+    
+  END SUBROUTINE init_GMRedi
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -102,20 +123,24 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
 !<Optimize:inUse:done>
-  SUBROUTINE prepare_ocean_physics(patch_3d, ocean_state, param, op_coeff)
+  SUBROUTINE prepare_GMRedi(patch_3d, ocean_state, param, op_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     TYPE(t_operator_coeff),            INTENT(in) :: op_coeff
    !-------------------------------------------------------------------------------
 
-
     CALL calc_neutral_slopes(patch_3d, ocean_state, param, op_coeff)
 
     CALL calc_tapering_function(patch_3d, param, ocean_state)
-    
+
+    IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN
+      CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
+    ELSE
+      CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, op_coeff)
+    ENDIF     
      
-  END SUBROUTINE prepare_ocean_physics
+  END SUBROUTINE prepare_GMRedi
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -126,39 +151,43 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
   !<Optimize:inUse:done>
-  SUBROUTINE calc_ocean_physics(patch_3d, ocean_state, param, op_coeff, tracer_index)
+  SUBROUTINE calc_ocean_physics(patch_3d, ocean_state, param, op_coeff, GMRedi_flux_horz, GMRedi_flux_vert, &
+    & tracer, tracer_index, typeOfTracers)
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params), INTENT(inout)         :: param
     TYPE(t_operator_coeff),INTENT(in)        :: op_coeff
+    REAL(wp), INTENT(inout)                  :: GMRedi_flux_horz(:,:,:)
+    REAL(wp), INTENT(inout)                  :: GMRedi_flux_vert(:,:,:)
+    TYPE(t_ocean_tracer), TARGET             :: tracer
     INTEGER, INTENT(IN)                      :: tracer_index
+    CHARACTER(LEN=*), INTENT(in)             :: typeOfTracers
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index, blockNo,level
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     
-    onEdges                :: GMredi_flux_horz
-    onCells_HalfLevels     :: GMredi_flux_vert
     !-------------------------------------------------------------------------------
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain  => patch_2D%cells%in_domain   
-    GMredi_flux_horz => ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index)
-    GMredi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
-
+!     GMRedi_flux_horz => ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index)
+!     GMRedi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
         
     SELECT CASE(GMRedi_configuration)!GMRedi_configuration==Cartesian_Mixing)RETURN
  
     CASE(GMRedi_combined)
-    
-    
+       
         CALL calc_combined_GentMcWilliamsRedi_flux( patch_3d,        &
             & ocean_state,      &
             & param,            &
             & op_coeff,         &
             & GMRedi_flux_horz, &
             & GMRedi_flux_vert, &
-            & tracer_index)
+            & tracer,           &
+            & tracer_index,     &
+            & typeOfTracers)
+
     CASE DEFAULT
       CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
     
@@ -167,16 +196,14 @@ CONTAINS
     IF(SWITCH_ON_REDI_BALANCE_DIAGONSTIC.AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
 
      CALL diagnose_Redi_flux_balance(patch_3d, ocean_state, param, op_coeff,&
-     & tracer_index)
+     & tracer_index, typeOfTracers)
     ENDIF           
-
     
   END SUBROUTINE calc_ocean_physics
   !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
-  !
   !>
   !! !  SUBROUTINE calculates the fluxes of the isoycnical diffusion following Redi and the eddy flux of GM.
   !!
@@ -185,14 +212,16 @@ CONTAINS
   !!
   !<Optimize:inUse>
   SUBROUTINE calc_combined_GentMcWilliamsRedi_flux(patch_3d, ocean_state, param, op_coeff,&
-    &GMredi_flux_horz, GMredi_flux_vert, tracer_index)
+    & GMRedi_flux_horz, GMRedi_flux_vert, tracer, tracer_index, typeOfTracers)
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
     TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
-    onEdges, INTENT(inout)                   :: GMredi_flux_horz
-    onCells_HalfLevels, INTENT(inout)        :: GMredi_flux_vert
+    REAL(wp), INTENT(inout)                  :: GMRedi_flux_horz(:,:,:)
+    REAL(wp), INTENT(inout)                  :: GMRedi_flux_vert(:,:,:)
+    TYPE(t_ocean_tracer), TARGET             :: tracer
     INTEGER, INTENT(IN)                      :: tracer_index 
+    CHARACTER(LEN=*), INTENT(in)             :: typeOfTracers
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
@@ -205,11 +234,6 @@ CONTAINS
     TYPE(t_cartesian_coordinates),POINTER :: tracer_gradient_horz_vec_center(:,:,:), slopes(:,:,:)
     REAL(wp), POINTER :: tracer_gradient_vert_center(:,:,:)
 
-    TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-    TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)                                 :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)                                 :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-    REAL(wp)                                 :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
     REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)      
     
     REAL(wp) :: nabla_T_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -222,53 +246,46 @@ CONTAINS
     slopes          => ocean_state%p_aux%slopes 
 
     start_level=1
-
-    IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN
-      CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
-    ELSE
-      CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, &
-                      & taper_diagonal_horz,           &
-                      & taper_diagonal_vert_expl,      &
-                      & taper_diagonal_vert_impl,      &
-                      & taper_off_diagonal_horz,       &
-                      & taper_off_diagonal_vert,       &
-                      & tracer_index )
-    ENDIF
-       
+      
+    IF (typeOfTracers == "ocean" )THEN
     !Set pointers for tracer gradients, according to actual tracer index
-    IF(tracer_index==1)THEN
-      !write(0,*) "DerivTemperature_vec_center"
-      tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTemperature_horz_center
-      tracer_gradient_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
-    ELSEIF(tracer_index==2)THEN
-      !write(0,*) "DerivSalinity_vec_center"
-      tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
-      tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
-    ELSEIF(tracer_index>2)THEN
+      IF(tracer_index==1)THEN
+	!write(0,*) "DerivTemperature_vec_center"
+	tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTemperature_horz_center
+	tracer_gradient_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
+      ELSEIF(tracer_index==2)THEN
+	!write(0,*) "DerivSalinity_vec_center"
+	tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
+	tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
+      ENDIF
+    ELSE
 !write(0,*)'-------------------------------------TRACER==3-----------------------------------------'    
 !ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration=ocean_state%p_diag%rho_GM
 !&=ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index-1)%concentration 
 
       !Here we have to provide a sbr that calculates derivatives below    
       CALL calc_tracer_derivatives( patch_3d,&
-                                  & ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration,&
+                                  & tracer%concentration,&
                                   & ocean_state, &
                                   & op_coeff, &
-                                  & tracer_index)
+                                  & tracer_index, &
+                                  & typeOfTracers)
 
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTracer_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
        
     ENDIF
 
+!ICON_OMP_DO_PARALLEL  PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block        
-      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)      
+      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
       DO cell_index = start_cell_index, end_cell_index
         DO level = 1, n_zlev
           flux_vec_horz_center(cell_index,level,blockNo)%x = 0.0_wp
         ENDDO
       ENDDO
     ENDDO
+!ICON_OMP_END_DO_PARALLEL
       
     !The code below has to be executed for temperature, salinity and HAMMOC tracers, i.e. for all tracers.
     !
@@ -327,7 +344,6 @@ CONTAINS
 !          &= flux_vert_center(cell_index,level,blockNo)&
 !          &*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)
 
-
         END DO
 
       END DO                
@@ -340,7 +356,7 @@ CONTAINS
     CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
         & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
     !    
-    CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
+    CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMRedi_flux_horz, op_coeff)
 
 !ICON_OMP_DO_PARALLEL PRIVATE(start_edge_index,end_edge_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block     
@@ -348,102 +364,103 @@ CONTAINS
           DO edge_index = start_edge_index, end_edge_index
             DO level = start_level, patch_3D%p_patch_1D(1)%dolic_e(edge_index,blockNo)
             
-              GMredi_flux_horz(edge_index,level,blockNo)&
-              &=GMredi_flux_horz(edge_index,level,blockNo)*patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo) 
+              GMRedi_flux_horz(edge_index,level,blockNo)&
+              &=GMRedi_flux_horz(edge_index,level,blockNo)*patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo) 
+              
             END DO                  
           END DO                
         END DO
 !ICON_OMP_END_DO_PARALLEL
-
-
-
-    !Map the (explicit) vertical tracer flux to the prism top (where the vertical divergence is calculated later)
-    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-      CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
-    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-      CALL map_scalar_center2prismtop_GM(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)    
-    ENDIF
-
+ 
     
     IF(INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
-
-      ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
-      ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
-      IF(tracer_index<=2)THEN
-        ! 
-        !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
-        !this is the diagonal part that is handled implicitely in time
-      
-        IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
-          CALL map_scalar_center2prismtop( patch_3d, &
-          &                              taper_diagonal_vert_impl,&
-          &                              op_coeff,                &
-          &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
-
-        ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-          CALL map_scalar_center2prismtop_GM( patch_3d, &
-          &                              taper_diagonal_vert_impl,&
-          &                              op_coeff,                &
-          &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
     
-        ENDIF      
-        IF(tracer_index==1)THEN
-          Do level=1,n_zlev
-            CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
-            & this_mod_name, 4, patch_2D%cells%in_domain)
-            !CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
-            !& this_mod_name, 4, patch_2D%cells%in_domain)
-          End do
-        ENDIF
-        !
-        !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
-        !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
-        !it is discretized implicitely) with the vertical mixing coefficient from the PP-scheme. 
-        !We follow the approach in POP, where these two contributions are added
-        !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
-        !
+    !Map the (explicit) vertical tracer flux to the prism top (where the vertical divergence is calculated later)
+      IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+	CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMRedi_flux_vert)
+      ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+	CALL map_scalar_center2prismtop_GM(patch_3d, flux_vert_center, op_coeff,GMRedi_flux_vert)    
+      ENDIF
+
+!       ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
+!       ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
+!       IF(tracer_index<=2)THEN
+!         ! 
+!         !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
+!         !this is the diagonal part that is handled implicitely in time
+!       
+!         IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
+!           CALL map_scalar_center2prismtop( patch_3d, &
+!           &                              taper_diagonal_vert_impl,&
+!           &                              op_coeff,                &
+!           &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+! 
+!         ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+!           CALL map_scalar_center2prismtop_GM( patch_3d, &
+!           &                              taper_diagonal_vert_impl,&
+!           &                              op_coeff,                &
+!           &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+!     
+!         ENDIF
+      IF(typeOfTracers == "ocean" ) THEN
+      
+	IF( tracer_index==1)THEN
+	  Do level=1,n_zlev
+	    CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
+	    & this_mod_name, 4, patch_2D%cells%in_domain)
+	    !CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+	    !& this_mod_name, 4, patch_2D%cells%in_domain)
+	  End do
+	ENDIF
+	  !
+	  !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
+	  !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
+	  !it is discretized implicitely) with the vertical mixing coefficient from the PP-scheme. 
+	  !We follow the approach in POP, where these two contributions are added
+	  !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
+        
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
-          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
-          DO cell_index = start_cell_index, end_cell_index
-            DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-              param%a_tracer_v(cell_index,level,blockNo, tracer_index) =  &
-              & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-              & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
-            END DO                  
-          END DO                
-        END DO
+	DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
+	  CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
+	  DO cell_index = start_cell_index, end_cell_index
+	    DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+	      param%a_tracer_v(cell_index,level,blockNo, tracer_index) =  &
+	      & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+	      & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
+	    END DO                  
+	  END DO                
+	END DO
 !ICON_OMP_END_DO_PARALLEL
 
-    CALL sync_patch_array(sync_c, patch_2D, param%a_tracer_v(:,:,:,tracer_index))
+	CALL sync_patch_array(sync_c, patch_2D, param%a_tracer_v(:,:,:,tracer_index))
            
-
         IF(tracer_index==1)THEN
           Do level=1,n_zlev
             CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
             & this_mod_name, 4, patch_2D%cells%in_domain)
           END DO 
-        ENDIF 
-      ENDIF!IF(tracer_index<=1)THEN 
+        ENDIF
+        
+      ENDIF!IF(typeOfTracers == "ocean" ) 
       
-      ELSEIF(.NOT.INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
+    ELSEIF(.NOT.INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
         
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      
-          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-      
-          DO cell_index = start_cell_index, end_cell_index
-            DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-              !vertical GM-Redi Flux
-               GMredi_flux_vert(cell_index,level,blockNo)   &
-                &=flux_vert_center(cell_index,level,blockNo) &
-                & + tracer_gradient_vert_center(cell_index,level,blockNo)&
-                & *taper_diagonal_vert_impl(cell_index,level,blockNo)
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+    
+	CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+    
+	DO cell_index = start_cell_index, end_cell_index
+	  DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+	    !vertical GM-Redi Flux
+	      GMRedi_flux_vert(cell_index,level,blockNo)   &
+	      &=flux_vert_center(cell_index,level,blockNo) &
+	      & + tracer_gradient_vert_center(cell_index,level,blockNo)&
+	      & *taper_diagonal_vert_impl(cell_index,level,blockNo)
 
-            END DO                  
-          END DO                
-        END DO
+	  END DO                  
+	END DO                
+      END DO
 !ICON_OMP_END_DO
             
     ENDIF  
@@ -455,11 +472,11 @@ CONTAINS
 !    END DO    
     Do level=1,n_zlev
     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('InGMRedi: GMRedi_vert',GMredi_flux_vert(:,level,:),&
+    CALL dbg_print('InGMRedi: GMRedi_vert',GMRedi_flux_vert(:,level,:),&
     & str_module, idt_src, in_subset=cells_in_domain)
     END DO
     Do level=1,n_zlev
-    CALL dbg_print('InGMRedi: GMRedi_horz',GMredi_flux_horz(:,level,:),&
+    CALL dbg_print('InGMRedi: GMRedi_horz',GMRedi_flux_horz(:,level,:),&
     & str_module, idt_src, in_subset=edges_in_domain)
     END DO
     !---------------------------------------------------------------------
@@ -976,13 +993,14 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2016).
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_tracer_derivatives(patch_3d, tracer, ocean_state, op_coeff, tracer_index)
+  SUBROUTINE calc_tracer_derivatives(patch_3d, tracer, ocean_state, op_coeff, tracer_index, typeOfTracers)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp)                                         :: tracer(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
     INTEGER, INTENT(in)                              :: tracer_index
-    
+    CHARACTER(LEN=*), INTENT(in)                     :: typeOfTracers
+     
     !Local variables
     TYPE(t_cartesian_coordinates),POINTER :: grad_horz_center_vec(:,:,:)    
     REAL(wp),POINTER :: grad_vert_center(:,:,:)
@@ -1002,30 +1020,31 @@ CONTAINS
     start_level=1
     !-------------------------------------------------------------------------
 
-    IF(tracer_index==1)THEN
-    
-      grad_horz            => ocean_state%p_aux%temperature_grad_horz
-      grad_vert            => ocean_state%p_aux%temperature_deriv_vert        
+    IF (typeOfTracers == "ocean" )THEN
 
-      grad_horz_center_vec => ocean_state%p_aux%PgradTemperature_horz_center
-      grad_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
-          
-    ELSEIF(tracer_index==2)THEN      
-    
-      grad_horz             => ocean_state%p_aux%salinity_grad_horz
-      grad_vert             => ocean_state%p_aux%salinity_deriv_vert  
-          
-      grad_horz_center_vec  => ocean_state%p_aux%PgradSalinity_horz_center
-      grad_vert_center      => ocean_state%p_aux%DerivSalinity_vert_center
-  
-    ELSEIF(tracer_index>2)THEN           
+      IF(tracer_index==1)THEN
+      
+	grad_horz            => ocean_state%p_aux%temperature_grad_horz
+	grad_vert            => ocean_state%p_aux%temperature_deriv_vert        
 
+	grad_horz_center_vec => ocean_state%p_aux%PgradTemperature_horz_center
+	grad_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
+	    
+      ELSEIF(tracer_index==2)THEN      
+      
+	grad_horz             => ocean_state%p_aux%salinity_grad_horz
+	grad_vert             => ocean_state%p_aux%salinity_deriv_vert  
+	    
+	grad_horz_center_vec  => ocean_state%p_aux%PgradSalinity_horz_center
+	grad_vert_center      => ocean_state%p_aux%DerivSalinity_vert_center
+      ENDIF
+      
+    ELSE          
       grad_horz            => ocean_state%p_aux%tracer_grad_horz
       grad_vert            => ocean_state%p_aux%tracer_deriv_vert
       
       grad_horz_center_vec => ocean_state%p_aux%PgradTracer_horz_center
-      grad_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
-    
+      grad_vert_center     => ocean_state%p_aux%DerivTracer_vert_center    
     ENDIF
 
     !-------------------------------------------------------------------------------
@@ -1317,18 +1336,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_entries_mixing_tensor(patch_3d, ocean_state, param,taper_diagonal_horz,taper_diagonal_vert_expl,&
-    & taper_diagonal_vert_impl, taper_off_diagonal_horz, taper_off_diagonal_vert,tracer_index )
+  SUBROUTINE calc_entries_mixing_tensor(patch_3d, ocean_state, param, op_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
-    REAL(wp), INTENT(inout)                          :: taper_diagonal_horz(:,:,:)
-    REAL(wp), INTENT(inout)                          :: taper_diagonal_vert_expl(:,:,:)        
-    REAL(wp), INTENT(inout)                          :: taper_diagonal_vert_impl(:,:,:)    
-    TYPE(t_cartesian_coordinates), INTENT(inout)     :: taper_off_diagonal_horz(:,:,:)
-    TYPE(t_cartesian_coordinates), INTENT(inout)     :: taper_off_diagonal_vert(:,:,:) 
-    INTEGER                                          :: tracer_index   
-    
+    TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level, blockNo
@@ -1627,18 +1639,37 @@ CONTAINS
 
     END SELECT
 
-Do level=1,n_zlev    
-    CALL dbg_print('calc_mixing_tensor: horz diag', taper_diagonal_horz(:,level,:),&
-    & this_mod_name, 3, patch_2D%cells%in_domain)
-END DO   
-Do level=1,n_zlev
-    CALL dbg_print('calc_mixing_tensor: vert diag expl', taper_diagonal_vert_expl(:,level,:),&
-    & this_mod_name, 3, patch_2D%cells%in_domain)
-END DO    
-Do level=1,n_zlev
-    CALL dbg_print('calc_mixing_tensor: vert diag impl', taper_diagonal_vert_impl(:,level,:),&
-    & this_mod_name, 3, patch_2D%cells%in_domain)
-END DO
+!           IF(tracer_index<=2)THEN
+        ! 
+        !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
+        !this is the diagonal part that is handled implicitely in time
+      
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
+      CALL map_scalar_center2prismtop( patch_3d, &
+      &                              taper_diagonal_vert_impl,&
+      &                              op_coeff,                &
+      &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+
+    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+      CALL map_scalar_center2prismtop_GM( patch_3d, &
+      &                              taper_diagonal_vert_impl,&
+      &                              op_coeff,                &
+      &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+
+    ENDIF
+
+      Do level=1,n_zlev    
+	  CALL dbg_print('calc_mixing_tensor: horz diag', taper_diagonal_horz(:,level,:),&
+	  & this_mod_name, 3, patch_2D%cells%in_domain)
+      END DO   
+      Do level=1,n_zlev
+	  CALL dbg_print('calc_mixing_tensor: vert diag expl', taper_diagonal_vert_expl(:,level,:),&
+	  & this_mod_name, 3, patch_2D%cells%in_domain)
+      END DO    
+      Do level=1,n_zlev
+	  CALL dbg_print('calc_mixing_tensor: vert diag impl', taper_diagonal_vert_impl(:,level,:),&
+	  & this_mod_name, 3, patch_2D%cells%in_domain)
+      END DO
   END SUBROUTINE calc_entries_mixing_tensor
   !-------------------------------------------------------------------------
   
@@ -1655,12 +1686,13 @@ END DO
   !!
   !<Optimize:inUse>
   SUBROUTINE diagnose_Redi_flux_balance(patch_3d, ocean_state, param, op_coeff,&
-    &tracer_index)
+    &tracer_index, typeOfTracers)
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
     TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
     INTEGER, INTENT(IN)                      :: tracer_index 
+    CHARACTER(LEN=*), INTENT(in)             :: typeOfTracers
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
@@ -1690,8 +1722,8 @@ END DO
     
     REAL(wp) :: temp_array(nproma,n_zlev, patch_3d%p_patch_2D(1)%alloc_cell_blocks)  
     
-    REAL(wp)        :: GMredi_flux_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp)        :: GMredi_flux_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)        :: GMRedi_flux_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)        :: GMRedi_flux_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     
     TYPE(t_ocean_tracer) :: temp_tracer_before!(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)       
     TYPE(t_ocean_tracer) :: temp_tracer_after!(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)           
@@ -1708,8 +1740,8 @@ END DO
     ALLOCATE(temp_tracer_before%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
     ALLOCATE(temp_tracer_after%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))      
             
-    GMredi_flux_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)=0.0_wp
-    GMredi_flux_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)=0.0_wp
+    GMRedi_flux_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)=0.0_wp
+    GMRedi_flux_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)=0.0_wp
     
     balance1(:,:,:)%x(1)=0.0_wp
     balance1(:,:,:)%x(2)=0.0_wp
@@ -1729,13 +1761,7 @@ END DO
     
     start_level=1
 
-    CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, &
-                    & taper_diagonal_horz,           &
-                    & taper_diagonal_vert_expl,      &
-                    & taper_diagonal_vert_impl,      &
-                    & taper_off_diagonal_horz,       &
-                    & taper_off_diagonal_vert,       &
-                    & tracer_index )
+    CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, op_coeff)
 !    ENDIF   
              
     IF(no_tracer<=3)THEN
@@ -1772,7 +1798,8 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
                                   & ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration,&
                                   & ocean_state, &
                                   & op_coeff, &
-                                  & tracer_index)
+                                  & tracer_index, &
+                                  & typeOfTracers)
 
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTracer_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
@@ -1866,7 +1893,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       ENDIF!IF(tracer_index<=1)THEN 
 
       !Assess implicit contribution for analysis
-      CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
+      CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMRedi_flux_horz, op_coeff)
       div_diff_flux_horz(:,:,:)=0.0_wp
       CALL div_oce_3d( GMRedi_flux_horz(:,:,:),&
                    &   patch_3d, &
@@ -1876,7 +1903,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       !vertical div of explicit part of vertical GMRedi-flux
       div_diff_flux_vert(:,:,:) = 0.0_wp
       CALL verticalDiv_scalar_onFullLevels( patch_3d, &
-        & GMredi_flux_vert(:,:,:), &
+        & GMRedi_flux_vert(:,:,:), &
         & div_diff_flux_vert)
 
       temp_tracer_before%concentration = tracer &
@@ -1899,7 +1926,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
           DO cell_index = start_cell_index, end_cell_index
             DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
               !vertical GM-Redi Flux
-               GMredi_flux_vert(cell_index,level,blockNo)   &
+               GMRedi_flux_vert(cell_index,level,blockNo)   &
                 &=flux_vert_center(cell_index,level,blockNo) &
                 & + (temp_tracer_after%concentration(cell_index,level,blockNo)&
                 &   -temp_tracer_before%concentration(cell_index,level,blockNo))/dtime 
@@ -1918,7 +1945,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
           DO cell_index = start_cell_index, end_cell_index
             DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
               !vertical GM-Redi Flux
-               GMredi_flux_vert(cell_index,level,blockNo)   &
+               GMRedi_flux_vert(cell_index,level,blockNo)   &
                 &=flux_vert_center(cell_index,level,blockNo) &
                 & + tracer_gradient_vert_center(cell_index,level,blockNo)&
                 & *taper_diagonal_vert_impl(cell_index,level,blockNo)
@@ -1975,7 +2002,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
             &=-neutral_coeff(level,1)*flux_vec_horz_center(cell_index,level,blockNo)%x
             
             ocean_state%p_aux%diagnose_Redi_flux_vert(cell_index,level,blockNo)&
-            &=-neutral_coeff(level,1)*GMredi_flux_vert(cell_index,level,blockNo)
+            &=-neutral_coeff(level,1)*GMRedi_flux_vert(cell_index,level,blockNo)
  
             
            END DO
@@ -1995,7 +2022,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
  
             !vertical balance relation alphatimes Redi flux (temperature)=beta times Redi flux(salt)           
             flux_sum_vert(cell_index,level,blockNo)  = ocean_state%p_aux%diagnose_Redi_flux_vert(cell_index,level,blockNo)&
-            &+neutral_coeff(level,2)*GMredi_flux_vert(cell_index,level,blockNo)
+            &+neutral_coeff(level,2)*GMRedi_flux_vert(cell_index,level,blockNo)
             
             
             !This is about Flux horzontal tines slopes = flux vertical        
@@ -2051,13 +2078,13 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
 
     !Map the (explicit) vertical tracer flux to the prism top (where the vertical divergence is calculated later)
     IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-      CALL map_scalar_center2prismtop(patch_3d, flux_sum_vert, op_coeff,GMredi_flux_vert)
+      CALL map_scalar_center2prismtop(patch_3d, flux_sum_vert, op_coeff,GMRedi_flux_vert)
     ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-      CALL map_scalar_center2prismtop_GM(patch_3d, flux_sum_vert, op_coeff,GMredi_flux_vert)    
+      CALL map_scalar_center2prismtop_GM(patch_3d, flux_sum_vert, op_coeff,GMRedi_flux_vert)    
     ENDIF
     
     
-     CALL map_cell2edges_3D( patch_3D,flux_sum_horz, GMredi_flux_horz, op_coeff)
+     CALL map_cell2edges_3D( patch_3D,flux_sum_horz, GMRedi_flux_horz, op_coeff)
       div_diff_flux_horz(:,:,:)=0.0_wp
       CALL div_oce_3d( GMRedi_flux_horz(:,:,:),&
                    &   patch_3d, &
@@ -2077,7 +2104,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       Do level=start_level+1,n_zlev-1
         idt_src=1  ! output print level (1-5, fix)
         !write(0,*)'level',level
-        ! CALL dbg_print('diag_Redi:horz',GMredi_flux_horz(:,level,:),&
+        ! CALL dbg_print('diag_Redi:horz',GMRedi_flux_horz(:,level,:),&
         !  & str_module, idt_src, in_subset=edges_in_domain)
         CALL dbg_print('diag_Redi:horz',temp_array(:,level,:),&
         & str_module, idt_src, in_subset=cells_in_domain)
@@ -2087,7 +2114,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
       Do level=start_level+1,n_zlev-1
         idt_src=1  ! output print level (1-5, fix)
         !write(0,*)'level',level,tracer_index
-        CALL dbg_print('diag_Redi:vert',GMredi_flux_vert(:,level,:),&
+        CALL dbg_print('diag_Redi:vert',GMRedi_flux_vert(:,level,:),&
         & str_module, idt_src, in_subset=cells_in_domain)
       END DO
     
@@ -2107,8 +2134,8 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
     ENDIF
     !---------------------------------------------------------------------
     
-!      CALL sync_patch_array(sync_e, patch_2D, GMredi_flux_horz(:,:,:))
-!      CALL sync_patch_array(sync_c, patch_2D, GMredi_flux_vert(:,:,:))
+!      CALL sync_patch_array(sync_e, patch_2D, GMRedi_flux_horz(:,:,:))
+!      CALL sync_patch_array(sync_c, patch_2D, GMRedi_flux_vert(:,:,:))
      
   ELSEIF( no_tracer>2)THEN
     CALL finish(TRIM('calc_GMRediflux'),&
@@ -2346,6 +2373,12 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
 
     CALL calc_tapering_function(patch_3d, param, ocean_state)
     
+    IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN
+      CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
+    ELSE
+      CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, &
+                      & op_coeff)
+    ENDIF
      
   END SUBROUTINE prepare_ocean_physics_zstar
   !-------------------------------------------------------------------------
@@ -2357,12 +2390,14 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
   !!  Adapted for zstar
   !!
   !<Optimize:inUse:done>
-  SUBROUTINE calc_ocean_physics_zstar(patch_3d, ocean_state, param, op_coeff, tracer_index, stretch_c)
+  SUBROUTINE calc_ocean_physics_zstar(patch_3d, ocean_state, param, op_coeff,tracer_index,&
+      & typeOfTracers, stretch_c)
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params), INTENT(inout)         :: param
     TYPE(t_operator_coeff),INTENT(in)        :: op_coeff
     INTEGER, INTENT(IN)                      :: tracer_index
+    CHARACTER(LEN=*), INTENT(in)             :: typeOfTracers
     REAL(wp),                   INTENT(IN)   :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     
     !Local variables
@@ -2390,7 +2425,8 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
             & op_coeff,         &
             & GMRedi_flux_horz, &
             & GMRedi_flux_vert, &
-            & tracer_index, stretch_c)
+            & tracer_index, typeOfTracers, &
+            & stretch_c)
     CASE DEFAULT
       CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
     
@@ -2409,7 +2445,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
   !!  Adapted for zstar
   !!
   SUBROUTINE calc_combined_GentMcWilliamsRedi_flux_zstar(patch_3d, ocean_state, param, op_coeff,&
-    &GMredi_flux_horz, GMredi_flux_vert, tracer_index, stretch_c)
+      &GMredi_flux_horz, GMredi_flux_vert, tracer_index, typeOfTracers, stretch_c)
     TYPE(t_patch_3d ),TARGET, INTENT(in)     :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
@@ -2417,6 +2453,7 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
     onEdges, INTENT(inout)                   :: GMredi_flux_horz
     onCells_HalfLevels, INTENT(inout)        :: GMredi_flux_vert
     INTEGER, INTENT(IN)                      :: tracer_index 
+    CHARACTER(LEN=*), INTENT(in)             :: typeOfTracers
     REAL(wp),                   INTENT(IN)   :: stretch_c(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     
     !Local variables
@@ -2430,11 +2467,6 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
     TYPE(t_cartesian_coordinates),POINTER :: tracer_gradient_horz_vec_center(:,:,:), slopes(:,:,:)
     REAL(wp), POINTER :: tracer_gradient_vert_center(:,:,:)
 
-    TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-    TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)                                 :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)                                 :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-    REAL(wp)                                 :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
     REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)      
     
     REAL(wp) :: nabla_T_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -2448,18 +2480,6 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
 
     start_level=1
 
-    IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN
-      CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
-    ELSE
-      CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, &
-                      & taper_diagonal_horz,           &
-                      & taper_diagonal_vert_expl,      &
-                      & taper_diagonal_vert_impl,      &
-                      & taper_off_diagonal_horz,       &
-                      & taper_off_diagonal_vert,       &
-                      & tracer_index )
-    ENDIF
-       
     !Set pointers for tracer gradients, according to actual tracer index
     IF(tracer_index==1)THEN
       !write(0,*) "DerivTemperature_vec_center"
@@ -2476,7 +2496,9 @@ ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration
                                   & ocean_state%p_prog(nold(1))%tracer_collection%tracer(tracer_index)%concentration,&
                                   & ocean_state, &
                                   & op_coeff, &
-                                  & tracer_index)
+                                  & tracer_index, &
+                                  & typeOfTracers)
+
 
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTracer_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivTracer_vert_center

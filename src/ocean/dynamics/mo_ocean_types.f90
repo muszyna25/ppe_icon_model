@@ -465,8 +465,8 @@ MODULE mo_ocean_types
 !     REAL(wp),POINTER :: orientation(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
 
     ! this is a edge-to-one-cell pointer, needs to be rethinked
-    onEdges_3D_Int :: upwind_cell_idx
-    onEdges_3D_Int :: upwind_cell_blk
+!     onEdges_3D_Int :: upwind_cell_idx
+!     onEdges_3D_Int :: upwind_cell_blk
 
     !3) Scalarproduct: The following arrays are required for the reconstruction process.
     !------------------------------------------------------------------------------
