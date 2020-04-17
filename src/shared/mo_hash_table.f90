@@ -31,6 +31,7 @@ MODULE mo_hash_table
   
   IMPLICIT NONE
   
+  PUBLIC :: t_HashTable_Base
   PUBLIC :: t_HashTable, hashTable_make, t_HashIterator, t_const_hashIterator
   PUBLIC :: stringVal_len
   PUBLIC :: t_scalarVal, t_stringVal, t_realVal, t_intVal, t_logVal
@@ -86,7 +87,9 @@ MODULE mo_hash_table
     END FUNCTION f_equalKeysFunction
   END INTERFACE
 
-  TYPE :: t_HashTable
+  ! Provide a base type to t_hashTable that throws a meaningful error if
+  ! t_HashTable is used uninitialized
+  TYPE :: t_HashTable_Base
     PRIVATE
     PROCEDURE(f_hashFunction), NOPASS, POINTER :: getHash
     PROCEDURE(f_equalKeysFunction), NOPASS, POINTER :: equalKeys
@@ -98,15 +101,24 @@ MODULE mo_hash_table
 
     INTEGER :: hashBits ! the current count of bits that are used to index the hash table
   CONTAINS
-    PROCEDURE :: setEntry => hashTable_setEntry
-    PROCEDURE :: removeEntry => hashTable_removeEntry
-    PROCEDURE :: getEntry => hashTable_getEntry
-    PROCEDURE :: destruct => hashTable_destruct
-    PROCEDURE :: nentries => hashTable_nentries
+    PROCEDURE :: setEntry    => hashTable_setEntry_Base
+    PROCEDURE :: removeEntry => hashTable_removeEntry_Base
+    PROCEDURE :: getEntry    => hashTable_getEntry_Base
+    PROCEDURE :: destruct    => hashTable_destruct_Base
+    PROCEDURE :: nentries    => hashTable_nentries_Base
     
-    PROCEDURE, PRIVATE :: findBin => hashTable_findBin
-    PROCEDURE, PRIVATE :: growTable => hashTable_growTable
+    PROCEDURE, PRIVATE :: findBin        => hashTable_findBin
+    PROCEDURE, PRIVATE :: growTable      => hashTable_growTable
     PROCEDURE, PRIVATE :: removeFromList => hashTable_removeFromList
+  END TYPE t_HashTable_Base
+
+  TYPE, EXTENDS(t_HashTable_Base) :: t_HashTable
+  CONTAINS
+    PROCEDURE :: setEntry    => hashTable_setEntry
+    PROCEDURE :: removeEntry => hashTable_removeEntry
+    PROCEDURE :: getEntry    => hashTable_getEntry
+    PROCEDURE :: destruct    => hashTable_destruct
+    PROCEDURE :: nentries    => hashTable_nentries
   END TYPE t_HashTable
 
 
@@ -118,7 +130,7 @@ MODULE mo_hash_table
   !
   TYPE, ABSTRACT :: t_HashIteratorBase
     PRIVATE
-    TYPE(t_HashTable), POINTER :: table
+    CLASS(t_HashTable_Base), POINTER :: table
     INTEGER :: curBin
     TYPE(t_HashEntry), POINTER :: curEntry
   CONTAINS
@@ -265,12 +277,12 @@ CONTAINS
   FUNCTION hashTable_make(hashFunction, compareFunction) RESULT(resultVar)
     PROCEDURE(f_hashFunction) :: hashFunction
     PROCEDURE(f_equalKeysFunction) :: compareFunction
-    TYPE(t_HashTable), POINTER :: resultVar
+    CLASS(t_HashTable_base), POINTER :: resultVar
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":hashTable_make"
     INTEGER :: error, i
 
-    ALLOCATE(resultVar, STAT = error)
+    ALLOCATE(t_HashTable::resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
     resultVar%getHash => hashFunction
@@ -286,7 +298,7 @@ CONTAINS
   END FUNCTION hashTable_make
 
   FUNCTION hashTable_findBin(me, hash) RESULT(resultVar)
-    CLASS(t_HashTable), INTENT(IN) :: me
+    CLASS(t_HashTable_Base), INTENT(IN) :: me
     INTEGER(C_INT32_T), VALUE :: hash
     TYPE(t_HashEntryPtr), POINTER :: resultVar
 
@@ -303,7 +315,7 @@ CONTAINS
   END FUNCTION hashTable_findBin
 
   SUBROUTINE hashTable_growTable(me)
-    CLASS(t_HashTable), INTENT(INOUT) :: me
+    CLASS(t_HashTable_Base), INTENT(INOUT) :: me
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":hashTable_growTable"
     TYPE(t_HashEntry), POINTER :: curEntry, nextEntry
@@ -340,7 +352,7 @@ CONTAINS
   END SUBROUTINE hashTable_growTable
 
   SUBROUTINE hashTable_removeFromList(me, list, key, hash)
-    CLASS(t_HashTable), INTENT(INOUT) :: me
+    CLASS(t_HashTable_Base), INTENT(INOUT) :: me
     TYPE(t_HashEntryPtr), POINTER, INTENT(INOUT) :: list
     CLASS(t_Destructible), POINTER, INTENT(IN) :: key
     INTEGER(C_INT32_T), VALUE :: hash
@@ -401,6 +413,14 @@ CONTAINS
     IF(me%entryCount == SIZE(me%table, 1)) CALL me%growTable()
   END SUBROUTINE hashTable_setEntry
 
+  SUBROUTINE hashTable_setEntry_Base(me, key, val)
+    CLASS(t_HashTable_Base), INTENT(INOUT)     :: me
+    CLASS(t_Destructible), POINTER, INTENT(IN) :: key, val
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//":hashTable_setEntry_Base"
+
+    CALL finish(routine, "setEntry for uninitialized hash tables not possible")
+  END SUBROUTINE hashTable_setEntry_Base
+
   SUBROUTINE hashTable_removeEntry(me, key)
     CLASS(t_HashTable), INTENT(INOUT) :: me
     CLASS(t_Destructible), POINTER, INTENT(IN) :: key
@@ -412,6 +432,14 @@ CONTAINS
     bin => me%findBin(hash)
     CALL me%removeFromList(bin, key, hash)
   END SUBROUTINE hashTable_removeEntry
+
+  SUBROUTINE hashTable_removeEntry_Base(me, key)
+    CLASS(t_HashTable_Base), INTENT(INOUT)     :: me
+    CLASS(t_Destructible), POINTER, INTENT(IN) :: key
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//":hashTable_removeEntry_Base"
+
+    CALL finish(routine, "removeEntry for uninitialized hash tables not possible")
+  END SUBROUTINE hashTable_removeEntry_Base
 
   FUNCTION hashTable_getEntry(me, key) RESULT(resultVar)
     CLASS(t_HashTable), INTENT(IN) :: me
@@ -437,6 +465,16 @@ CONTAINS
     END DO
   END FUNCTION hashTable_getEntry
 
+  FUNCTION hashTable_getEntry_Base(me, key) RESULT(resultVar)
+    CLASS(t_HashTable_Base), INTENT(IN)        :: me
+    CLASS(t_Destructible), POINTER, INTENT(IN) :: key
+    CLASS(t_Destructible), POINTER :: resultVar
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//":hashTable_getEntry_Base"
+
+    resultVar => NULL()
+    CALL finish(routine, "getEntry for uninitialized hash tables not possible")
+  END FUNCTION hashTable_getEntry_Base
+
   SUBROUTINE hashTable_destruct(me)
     CLASS(t_HashTable), INTENT(INOUT) :: me
 
@@ -458,17 +496,30 @@ CONTAINS
     DEALLOCATE(me%table)
   END SUBROUTINE hashTable_destruct
 
+  SUBROUTINE hashTable_destruct_Base(me)
+    CLASS(t_HashTable_Base), INTENT(INOUT) :: me
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//":hashTable_destruct_Base"
+
+    CALL finish(routine, "destruct for uninitialized hash tables not possible")
+  END SUBROUTINE hashTable_destruct_Base
+
   INTEGER FUNCTION hashTable_nentries(me)
     CLASS(t_HashTable), INTENT(IN) :: me
     hashTable_nentries = me%entryCount
   END FUNCTION hashTable_nentries
 
+  INTEGER FUNCTION hashTable_nentries_Base(me)
+    CLASS(t_HashTable_Base), INTENT(IN) :: me
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//":hashTable_nentries_Base"
+    hashTable_nentries_Base = -1
+    CALL finish(routine, "nentries for uninitialized hash tables not possible")
+  END FUNCTION hashTable_nentries_Base
 
   !> Initialize iterator for sequential access to all entries of a
   !  hash table.
   SUBROUTINE hashIteratorBase_init(me, table)
-    CLASS(t_HashIteratorBase), INTENT(INOUT) :: me
-    TYPE(t_HashTable), POINTER, INTENT(IN) :: table
+    CLASS(t_HashIteratorBase), INTENT(INOUT)     :: me
+    CLASS(t_HashTable_Base), POINTER, INTENT(IN) :: table
 
     me%table => table
     me%curBin = 0   ! will be incremented in the first nextEntry() call

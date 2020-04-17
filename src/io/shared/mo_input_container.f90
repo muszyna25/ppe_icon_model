@@ -13,7 +13,7 @@ MODULE mo_input_container
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_exception, ONLY: message, finish, message_text
     USE mo_fortran_tools, ONLY: assign_if_present, t_Destructible
-    USE mo_hash_table, ONLY: t_HashTable, hashTable_make
+    USE mo_hash_table, ONLY: t_HashTable_base, hashTable_make
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
     USE mo_math_types, ONLY: t_Statistics
@@ -53,7 +53,7 @@ PUBLIC :: t_InputContainer, InputContainer_make
     TYPE :: t_InputContainer
         PRIVATE
         !the NAME of the variable is NOT a part of the t_InputContainer since it's ONLY needed by the t_InputRequestList
-        TYPE(t_HashTable), POINTER :: fields    !this is a collection of all the different 2D levels that have been READ (tile, level)
+        CLASS(t_HashTable_base), POINTER :: fields    !this is a collection of all the different 2D levels that have been READ (tile, level)
         INTEGER :: fieldCount
         TYPE(t_ValueList) :: tiles, levels
 

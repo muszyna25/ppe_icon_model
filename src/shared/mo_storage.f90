@@ -20,8 +20,8 @@ MODULE mo_storage
 
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
-  USE mo_hash_table,                    ONLY: t_HashTable, hashTable_make, &
-    &                                         t_stringVal, t_realVal, t_intVal, t_logVal, &
+  USE mo_hash_table,                    ONLY: t_HashTable, t_HashTable_base, hashTable_make,  &
+    &                                         t_stringVal, t_realVal, t_intVal, t_logVal,     &
     &                                         storage_hashKey_DJB_cs, storage_hashKey_DJB_ci, &
     &                                         storage_equalKeysFunction_cs, storage_equalKeysFunction_ci
   USE mo_fortran_tools,                 ONLY: t_Destructible
@@ -72,7 +72,8 @@ SUBROUTINE init_storage(this_storage,lcase_sensitivity)
   LOGICAL,INTENT(in),OPTIONAL       :: &
     &  lcase_sensitivity
   !
-  TYPE(t_HashTable), POINTER :: tmp_container
+  CHARACTER(LEN=*), PARAMETER    :: routine = modname//":init_storage"
+  CLASS(t_HashTable_base), POINTER :: tmp_container
 
   IF (PRESENT(lcase_sensitivity))THEN
     IF (lcase_sensitivity) THEN
@@ -84,8 +85,13 @@ SUBROUTINE init_storage(this_storage,lcase_sensitivity)
     ! Not present: case insensitive by default
     tmp_container => hashTable_make(storage_hashKey_DJB_ci, storage_equalKeysFunction_ci)
   ENDIF
- this_storage%container = tmp_container
- DEALLOCATE(tmp_container)
+  SELECT TYPE(tmp_container)
+    TYPE IS(t_HashTable)
+      this_storage%container = tmp_container
+    CLASS DEFAULT
+      CALL finish(routine, "Internal error: tmp_container is of wrong type")
+  END SELECT
+  DEALLOCATE(tmp_container)
 END SUBROUTINE init_storage
 !!
 !!-------------------------------------------------------------------------
