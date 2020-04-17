@@ -1381,7 +1381,7 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_oce_DOM01.nc 
+  add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_ocean_DOM01.nc 
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

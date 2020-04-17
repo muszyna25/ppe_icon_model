@@ -33,6 +33,7 @@ MODULE mo_ocean_forcing
   USE mo_grid_config,         ONLY: nroot
   USE mo_parallel_config,     ONLY: nproma
   USE mo_coupling_config,     ONLY: is_coupled_run
+  USE mo_hamocc_nml,          ONLY: l_cpl_co2
   USE mo_ocean_nml,           ONLY: no_tracer,                                &
     & basin_height_deg, basin_width_deg, basin_center_lat, basin_center_lon,  &
     & forcing_windstress_zonal_waveno, forcing_windstress_merid_waveno,       &
@@ -131,6 +132,13 @@ CONTAINS
       &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.false., in_group=groups("oce_force_essentials"))
       
     IF (is_coupled_run()) THEN
+      IF ( l_cpl_co2 ) THEN
+        CALL add_var(ocean_restart_list, 'co2_mixing_ratio', p_oce_sfc%CO2_Mixing_Ratio, &
+          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+          &        t_cf_var('Co2_Mixing_Ratio', 'ppmv', 'CO2 Mixing Ratio', datatype_flt),&
+          &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+          &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.True., in_group=groups("oce_force_essentials"))
+      ENDIF
   
       CALL add_var(ocean_restart_list, 'sea_level_pressure', p_oce_sfc%sea_level_pressure, &
         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
