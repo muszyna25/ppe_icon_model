@@ -151,7 +151,7 @@ CONTAINS
 
 !!$    CHARACTER(*), PARAMETER :: routine = "atmo_nonhydrostatic"
 
-    CALL construct_atmo_nonhydrostatic(latbc)
+!   CALL construct_atmo_nonhydrostatic(latbc)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
