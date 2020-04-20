@@ -210,17 +210,23 @@ CONTAINS
   INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_ci(key) RESULT(res)
     CLASS(t_Destructible), POINTER, INTENT(in) :: key
     ! Local
-    INTEGER :: i
+    INTEGER :: i, ic
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
     INTEGER(C_INT64_T) :: t 
   
+    INTEGER, PARAMETER :: idel = ICHAR('a')-ICHAR('A')
+    INTEGER, PARAMETER :: ia = ICHAR('A')
+    INTEGER, PARAMETER :: iz = ICHAR('Z')
+
     res = 5381
-    
+
     SELECT TYPE(key)
     TYPE IS(t_stringVal)
       DO i=1,LEN(TRIM(key%stringVal))
         t = ISHFT(res,5)
-        res = INT( MOD( (t + res) + ICHAR(tolower(key%stringVal(i:i))), p32 ), C_INT32_T)
+        ic = ICHAR(key%stringVal(i:i))
+        IF (ic >= ia .AND. ic <= iz)   ic = ic + idel
+        res = INT( MOD( (t + res) + ic, p32 ), C_INT32_T)
       END DO
     CLASS DEFAULT
       CALL finish(routine, "Unknown type for key.")
