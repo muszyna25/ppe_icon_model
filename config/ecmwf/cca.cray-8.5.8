@@ -15,7 +15,9 @@ MODULES='PrgEnv-cray cray-mpich/7.5.3 cce/8.5.8 craype-haswell cray-netcdf/4.3.2
 ### Libraries ###
 
 # RTTOV
-RTTOV_ROOT_LIB='/home/ms/de/dfj/unsupported/rttov12/cca_cray'
+RTTOV_ROOT_LIB='/home/ms/de/dfj/lib/unsupported'
+RTTOV_ROOT_INC='/home/ms/de/dfj/include/unsupported/rttov12'
+RTTOV_ROOT_OBJ='/home/ms/de/dfj/SRC/rttov12/cca_cray/obj'
 RTTOV_LIBS='-lrttov12'
 
 # HDF5
@@ -41,7 +43,7 @@ CFLAGS='-O3'
 CPPFLAGS="-I${HDF5_ROOT}/include ${ECCODES_INCLUDE} -I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
-FCFLAGS="-I${HDF5_ROOT}/include -I${RTTOV_ROOT_LIB}/include/ -I${RTTOV_ROOT_LIB}/obj/ -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
+FCFLAGS="-I${HDF5_ROOT}/include -I${RTTOV_ROOT_INC} -I${RTTOV_ROOT_OBJ} -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
 
 LDFLAGS="-L${HDF5_ROOT}/lib -L${RTTOV_ROOT_LIB} -L${AEC_DIR}/lib -L${ECCODES_LIB_DIR}"
 LIBS="-Wl,--as-needed ${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS} ${HDF5_LIBS}"
