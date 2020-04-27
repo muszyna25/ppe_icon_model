@@ -21,8 +21,8 @@ async def run_checks(test_data, reference):
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
+        check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
+        check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
         check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
@@ -36,8 +36,8 @@ async def run_checks(test_data, reference):
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
         check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
+        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
         # GRIB2 meta-data checks:
         check_grb_metadata(test_data, reference, True),                                                  \
     )

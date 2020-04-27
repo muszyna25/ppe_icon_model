@@ -667,15 +667,15 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>v01'
  stream_partitions_ml = 1
  pe_placement_ml      = 2
- ml_varlist           = 'W',         'TKE',
+ ml_varlist           = 'W_SO',         'T',
                         'ASWDIFD_S','ASWDIR_S', 'CLCT', 'CLCH', 'CLCM', 'CLCL',
                         'PMSL', 'PS',
                         'TOT_PREC', 'RAIN_CON', 'RAIN_GSP',  'SNOW_CON', 'SNOW_GSP',
                         'T_2M',     'TD_2M',    'RELHUM_2M', 'U_10M', 'V_10M',
                         'H_ICE',     'FR_ICE',  'H_SNOW', 'FRESHSNW',
-                        'CAPE_CON', 'TQV', 'TQC', 'TQI'
-                        'TMIN_2M',   'TMAX_2M',
-                        'ASOB_S',    'ASWDIFD_S', 'ASWDIFU_S', 'ASWDIR_S'
+                        'CAPE_CON', 'TQV', 'TQC_DIA', 'TQI_DIA',
+                        'TMIN_2M',   'TMAX_2M', 'T_G', 'ATHB_S',  'ATHB_T',
+                        'ASOB_S',  'ASOB_T',  'ASWDIFD_S', 'ASWDIFU_S', 'ASWDIR_S'
  stream_partitions_pl = 1
  pe_placement_pl      = 2
  pl_varlist           = 'T',         'U',         'V',
