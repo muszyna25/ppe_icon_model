@@ -1,5 +1,7 @@
 # Version info required by mkexp
 VERSION_=@PACKAGE_VERSION@
+use_abs_top_builddir=@abs_top_builddir@
+use_abs_top_srcdir=@abs_top_srcdir@
 # Set use_site:
 use_host='@host_fqdn@'
 case "$use_host" in
@@ -105,7 +107,7 @@ case "$use_site" in
     case "$use_host" in
       btlogin*|btc*|mlogin*|m*)
         use_load_profile='. /etc/profile'
-        use_load_modules='ncl/6.2.1-gccsys cdo/1.9.5-gcc64 git python @top_srcdir@/etc/Modules/icon-switch'
+        use_load_modules='ncl cdo git python @top_srcdir@/etc/Modules/icon-switch'
         use_submit='sbatch'
         use_sync_submit='sbatch --wait'
         use_mpi_startrun='srun'
