@@ -13,31 +13,33 @@
 !!
 !!  Processors are divided into
 !!    1.    worker PEs    : majority of MPI tasks, doing the actual work
-!!    2.    I/O PEs       : dedicated I/O server tasks        (only for parallel_nml::num_io_procs > 0)
-!!    3.    one test PE   : for verification runs             (only for parallel_nml::p_test_run == .TRUE.)
-!!    4.    restart PEs   : for asynchronous restart writing  (only for dedicatedRestartProcs > 0)
-!!    5.    prefetch PEs  : for prefetching of data           (only for parallel_nml::num_prefetch_proc > 0)
-!!
+!!    2.    I/O PEs       : dedicated I/O server tasks          (only for parallel_nml::num_io_procs > 0)
+!!    3.    one test PE   : for verification runs               (only for parallel_nml::p_test_run == .TRUE.)
+!!    4.    restart PEs   : for asynchronous restart writing    (only for dedicatedRestartProcs > 0)
+!!    5.    prefetch PEs  : for prefetching of data             (only for parallel_nml::num_prefetch_proc > 0)
+!!    6.    radar I/O PEs : for some async. tasks of radar      (only for parallel_nml::num_io_procs_radar > 0)
+!!                          forward operator EMVORADO (asynchr. processing: I/O and postprocessing tasks like
+!!                          radar composites, bubble generator, superobservations)
 !!
 !!  The communicators are split like this:
 !!
-!!          0    p_work_pe0    p_io_pe0    p_restart_pe0    p_pref_pe0   process_mpi_all_size
+!!          0    p_work_pe0    p_io_pe0    p_restart_pe0    p_pref_pe0    p_radario_pe0   process_mpi_all_size
 !!
-!!          |         |            |             |               |                |
-!!          V         V            V             V               V                V
+!!          |         |            |             |               |                |              |
+!!          V         V            V             V               V                V              V
 !!
-!!          +---------------------------------------------------------------------+
-!!          !                      process_mpi_all_comm                           !
-!!          +---------+------------+-------------+---------------+----------------+
-!!          | test PE | worker PEs |   I/O PEs   |  restart PEs  |  prefetch PEs  |
-!!          +---------+------------+-------------+---------------+----------------+
-!!          |    A    |     B      |     C       |      D        |       E        | p_comm_work
-!!          |    A    |     A      |             |               |                | p_comm_work_test
-!!          |    A    |     B      |     B       |               |                | p_comm_work_io
-!!          |    A    |            |     B       |               |                | p_comm_io (B is worker PE 0 if num_io_procs == 0)
-!!          |         |     A      |             |      A        |                | p_comm_work_restart
-!!          |         |     A      |             |               |       A        | p_comm_work_pref
-!!          +---------+------------+-------------+---------------+----------------+
+!!          +---------------------------------------------------------------------+---------------+
+!!          !                      process_mpi_all_comm                                           !
+!!          +---------+------------+-------------+---------------+----------------+---------------+
+!!          | test PE | worker PEs |   I/O PEs   |  restart PEs  |  prefetch PEs  | radar I/O PEs |
+!!          +---------+------------+-------------+---------------+----------------+---------------+
+!!          |    A    |     B      |     C       |      D        |       E        |               | p_comm_work
+!!          |    A    |     A      |             |               |                |               | p_comm_work_test
+!!          |    A    |     B      |     B       |               |                | (see the      | p_comm_work_io
+!!          |    A    |            |     B       |               |                |    Note^^     | p_comm_io (B is worker PE 0 if num_io_procs == 0)
+!!          |         |     A      |             |      A        |                |      below)   | p_comm_work_restart
+!!          |         |     A      |             |               |       A        |               | p_comm_work_pref
+!!          +---------+------------+-------------+---------------+----------------+---------------+
 !!
 !!  Note that there are actually two different p_comm_work_io communicators:
 !!  One that spans the worker AND I/O PEs as the NAME implies, AND one that IS ONLY defined on the test PE.
@@ -94,8 +96,8 @@
 !!         description  : Inter(!)communicator work PEs - prefetching PEs
 !!
 !!
-!!  Processor splitting
-!!  -------------------
+!!  Processor splitting:
+!!  --------------------
 !!
 !!       In order to improve the parallel load balancing, the domains
 !!       of the first refinement level can be distributed to disjoint
@@ -125,8 +127,9 @@
 !!       domains etc.
 !!
 !!
-!! Split of process_mpi_all_comm and stdio process
-!! -----------------------------
+!! Split of process_mpi_all_comm and stdio process:
+!! ------------------------------------------------
+!!
 !!    The process_mpi_all_comm is the whole model communicator and is split
 !!    to test/work/io/restart, in this order
 !!
@@ -139,6 +142,50 @@
 !!    process should be used in the case of gather and scatter procedures that do
 !!    not use the io process (the third part). This will be different from using
 !!    the stdio process only in the case of p_test
+!!
+!!
+!! ^^A Note on radar I/O PEs:
+!! --------------------------
+!!
+!!   If ANY(run_nml::luse_radarfwo(1:max_dom)) and parallel_nml::num_io_procs_radar > 0,
+!!   These PEs are appended at the very end of the PE list, but are not used by ICON itself.
+!!   They are provided exclusively to the radar forward operator EMVORADO for
+!!   Input/Output of observed and simulated radar data and postprocessing tasks
+!!   such as computing superobservations for data assimilation,
+!!   generating radar reflectivity composites for model verification and visualization,
+!!   or the "warm bubble generator" for triggering missing convective cells. 
+!!   From this set of PEs, EMVORADO creates different communicators internally on its own,
+!!   triggered by a "CALL init_emvorado_mpi()" below. These communicators
+!!   are only used in EMVORADO and its interface (src/data_assimilation/interfaces/) and consist of:
+!!
+!!     - a clone of p_comm_work                    : icomm_cart_fwo
+!!     - a communicator for the radar I/O Pes      : icomm_radario
+!!     - a combined communicator                   : icomm_radar = icomm_cart_fwo + icomm_radario
+!!
+!!   In case EMVORADO runs asynchroneously for more than 1 (N) different model domains, i.e.,
+!!   run_nml::luse_radarfwo(1:N) = .TRUE. and parallel_nml::num_io_procs_radar > 0,
+!!   and if parallel_nml::num_io_procs_radar > N,
+!!   there are also separate radar I/O sub-communicators for each model domain:
+!!
+!!     - a subset of icomm_radario for each domain : icomm_radario_dom(i), i=1...N
+!!     - a combined communicator for each domain   : icomm_radar_dom(i) = icomm_cart_fwo + icomm_radario_dom(i), i=1...N
+!!     - icomm_radario is still available as the superset of all icomm_radario_dom(i)
+!!     - icomm_radar is still available as icomm_cart_fwo + icomm_radario
+!!
+!!   This enables to run the radar I/O and postprocessing for each domain
+!!   separately and in parallel, minimizing communication latency on the worker
+!!   procs.
+!!
+!!   Although ICON does not need to access these communicators explicitly,
+!!   it checks at a few places if the PE does belong to icomm_radar or icomm_radario.
+!!   For this purpose, the following is provided PUBLIC below:
+!!
+!!   process_mpi_radario_size        : equals parallel_nml::num_io_procs_radar
+!!   process_mpi_all_radarioroot_id  : ID of root of icomm_radario in the global communicator (= p_radario_pe0)
+!!   my_process_is_radar()           : returns .TRUE. if PE belongs to icomm_radar
+!!   my_process_is_radario()         : returns .TRUE. if PE belongs to icomm_radario
+!!   my_process_is_mpi_radarioroot() : returns .TRUE. if PE is root of icomm_radario
+!!
 
 !This IS a small helper to avoid a full #ifdef ... #ELSE ... #endif sequence where we 
 !can just replace the MPI symbol with something constant.
@@ -174,6 +221,8 @@ MODULE mo_mpi
   USE mo_cdi_pio_interface, ONLY: nml_io_cdi_pio_conf_handle
 #endif
 !  USE mo_impl_constants, ONLY: SUCCESS
+
+  USE mo_emvorado_init, ONLY: init_emvorado_mpi
 
 #ifndef __STANDALONE
     USE mo_util_system, ONLY: util_exit
@@ -245,6 +294,10 @@ MODULE mo_mpi
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
   PUBLIC :: process_mpi_io_size, process_mpi_restart_size, process_mpi_pref_size
+  
+  PUBLIC :: process_mpi_all_size
+  PUBLIC :: process_mpi_radario_size, process_mpi_all_radarioroot_id
+  PUBLIC :: my_process_is_radar, my_process_is_radario, my_process_is_mpi_radarioroot
 
   PUBLIC :: process_mpi_stdio_id
   PUBLIC :: process_mpi_root_id
@@ -321,7 +374,8 @@ MODULE mo_mpi
   PUBLIC :: p_address_kind
   PUBLIC :: p_real_dp_byte, p_real_sp_byte, p_int_byte
   PUBLIC :: p_int_i4_byte, p_int_i8_byte
-
+  PUBLIC :: p_mpi_comm_null
+  
   ! mpi reduction operators
   PUBLIC :: mpi_lor, mpi_land, mpi_sum, mpi_min, mpi_max, &
        mpi_minloc, mpi_maxloc
@@ -391,6 +445,7 @@ MODULE mo_mpi
   INTEGER :: my_process_mpi_all_id        ! the id in the whole model communicator
   INTEGER :: process_mpi_all_workroot_id  ! the root process in component
   INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
+  INTEGER :: process_mpi_all_radarioroot_id    ! the first radar I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
   INTEGER :: process_mpi_all_restartroot_id ! the id of the first restart output process
   INTEGER :: process_work_io0
@@ -412,6 +467,7 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: io_mpi_process = 3
   INTEGER, PARAMETER :: restart_mpi_process = 4
   INTEGER, PARAMETER :: pref_mpi_process = 5
+  INTEGER, PARAMETER :: radario_mpi_process = 6
 
   !------------------------------------------------------------
   ! Processor distribution:
@@ -423,6 +479,8 @@ MODULE mo_mpi
   ! num_test_procs + num_work_procs + process_mpi_io_size + num_restart_procs + num_prefetch_proc = process_mpi_all_size
   INTEGER :: num_test_procs
   INTEGER :: num_work_procs
+  INTEGER :: p_radario_pe0
+  INTEGER :: process_mpi_radario_size
   INTEGER :: process_mpi_io_size
   INTEGER :: process_mpi_restart_size
   INTEGER :: process_mpi_pref_size
@@ -507,6 +565,8 @@ MODULE mo_mpi
   INTEGER :: p_int_i4_byte  = 0
   INTEGER :: p_int_i8_byte  = 0
 
+  INTEGER :: p_mpi_comm_null = -32766
+  
   ! Flag if processor splitting is active
   LOGICAL, PUBLIC :: proc_split = .FALSE.
 #ifdef _OPENACC
@@ -926,8 +986,27 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_io()
-     my_process_is_io = (my_mpi_function == io_mpi_process)
+    my_process_is_io = (my_mpi_function == io_mpi_process)
   END FUNCTION my_process_is_io
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_radar()
+    my_process_is_radar = ( my_process_is_work() .OR. my_process_is_radario() )
+  END FUNCTION my_process_is_radar
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_radario()
+    my_process_is_radario = (my_mpi_function == radario_mpi_process)
+  END FUNCTION my_process_is_radario
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_mpi_radarioroot()
+    my_process_is_mpi_radarioroot = (my_process_is_radario() .AND. &
+     &                   (my_process_mpi_all_id == process_mpi_all_radarioroot_id))
+  END FUNCTION my_process_is_mpi_radarioroot
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -1117,12 +1196,16 @@ CONTAINS
   !          We don't care about work processes here that are reused as restart writing processes.
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
     &                                   num_restart_procs, num_prefetch_proc, &
-    &                                   num_test_pe, pio_type, opt_comp_id)
+    &                                   num_test_pe, pio_type, opt_comp_id, &
+    &                                   num_io_procs_radar, radar_flag_doms_model)
+
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
     INTEGER,INTENT(IN), OPTIONAL :: num_prefetch_proc, num_test_pe
     INTEGER,INTENT(IN), OPTIONAL :: pio_type, opt_comp_id
+    INTEGER,INTENT(INOUT), OPTIONAL :: num_io_procs_radar
+    LOGICAL,INTENT(IN)   , OPTIONAL :: radar_flag_doms_model(:)
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
@@ -1131,6 +1214,12 @@ CONTAINS
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1), grp_comm_work_pref
     INTEGER :: sizeof_prefetch_processes, pio_type_
+
+    INTEGER :: num_radario_procs
+    INTEGER :: icomm_cart, my_cart_id
+    LOGICAL :: lhave_radar
+
+
 #ifdef HAVE_CDI_PIO
     INTEGER :: my_cdi_pio_role, grib_mode_for_cdi_pio
 #endif
@@ -1159,6 +1248,18 @@ CONTAINS
       pio_type_ = pio_type_async
     END IF
 
+    IF (PRESENT(num_io_procs_radar) .AND. PRESENT(radar_flag_doms_model)) THEN
+      lhave_radar = .TRUE.
+      IF (.NOT.ANY(radar_flag_doms_model)) THEN
+        CALL print_info_stderr(method_name, &
+             & 'num_io_procs_radar has no effect if there are no radar-active domains!')
+        CALL print_info_stderr(method_name, &
+             & '--> num_io_procs_radar set to 0')
+        num_io_procs_radar = 0
+      END IF
+    ELSE
+      lhave_radar = .FALSE.
+    END IF
 
 ! check l_test_openmp
 #ifndef _OPENMP
@@ -1189,6 +1290,17 @@ CONTAINS
        & '--> num_io_procs set to 0')
       num_io_procs = 0
     END IF
+
+    IF (lhave_radar) THEN
+      IF (num_io_procs_radar /= 0) THEN
+        CALL print_info_stderr(method_name, &
+             & 'num_io_procs_radar has no effect if the model is compiled with the NOMPI compiler directive')
+        CALL print_info_stderr(method_name, &
+             & '--> num_io_procs_radar set to 0')
+        num_io_procs_radar = 0
+      ENDIF
+    ENDIF
+
     IF (num_restart_procs /= 0) THEN
       CALL print_info_stderr(method_name, &
        & 'num_restart_procs has no effect if the model is compiled with the NOMPI compiler directive')
@@ -1212,6 +1324,21 @@ CONTAINS
     num_work_procs = 1
     p_comm_io = mpi_comm_self
 
+    num_radario_procs = 0
+    p_radario_pe0 = 0
+    IF (lhave_radar) THEN
+      message_text(:) = ' '
+      CALL init_emvorado_mpi ( radar_flag_doms_model,  & ! INPUT
+                               MPI_COMM_NULL, 0, 1,    & ! INPUT
+                               MPI_COMM_NULL, 0, 1,    & ! INPUT
+                               .TRUE.,                 & ! INPUT
+                               0, 0, 0,                & ! INPUT
+                               p_error, message_text )
+      IF (p_error /= 0) THEN
+        CALL finish ('init_emvorado_mpi', TRIM(message_text))
+      END IF
+    END IF
+
 #else
 
     ! A run on 1 PE is never a verification run,
@@ -1231,6 +1358,15 @@ CONTAINS
             & '--> num_io_procs set to 0')
         num_io_procs = 0
       ENDIF
+      IF (lhave_radar) THEN
+        IF (num_io_procs_radar > 0) THEN
+          CALL print_info_stderr(method_name, &
+               & 'num_io_procs_radar cannot be > 0 in seq run')
+          CALL print_info_stderr(method_name, &
+               & '--> num_io_procs_radar set to 0')
+          num_io_procs_radar = 0
+        ENDIF
+      ENDIF
       IF (num_restart_procs > 0) THEN
         CALL print_info_stderr(method_name, &
             & 'num_restart_procs cannot be > 0 in seq run')
@@ -1246,8 +1382,11 @@ CONTAINS
         sizeof_prefetch_processes = 0
       ENDIF
     ENDIF
-    IF(num_io_procs < 0) num_io_procs = 0           ! for safety only
-    IF(num_restart_procs < 0) num_restart_procs = 0 ! for safety only
+    IF(num_io_procs < 0) num_io_procs = 0              ! for safety only
+    IF (lhave_radar) THEN
+      IF (num_io_procs_radar < 0) num_io_procs_radar = 0  ! for safety only
+    ENDIF
+    IF(num_restart_procs < 0) num_restart_procs = 0    ! for safety only
     IF(sizeof_prefetch_processes < 0) sizeof_prefetch_processes = 0 ! for safety only
     ! -----------------------------------------
     ! Set if test
@@ -1260,15 +1399,33 @@ CONTAINS
     ELSE
       num_test_procs = 0
     ENDIF
+    IF (lhave_radar) THEN
+      num_radario_procs = num_io_procs_radar
+    ELSE
+      num_radario_procs = 0
+    END IF
 
     ! -----------------------------------------
     ! how many work processors?
-    num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs - num_restart_procs - sizeof_prefetch_processes
+    num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs - num_restart_procs - sizeof_prefetch_processes &
+                        - num_radario_procs
 
     ! Check if there are sufficient PEs at all
     IF(num_work_procs < 1) THEN
+      WRITE (message_text, &
+             '(a,7("  |  ",a,i0))' &
+             ) 'ERROR in processor config: ', &
+             & 'total number of procs: ', process_mpi_all_size, &
+             & 'num_test_procs: ', num_test_procs, &
+             & 'num_work_procs: ',num_work_procs, &
+             & 'num_io_procs: ',num_io_procs, &
+             & 'num_io_procs_radar: ',num_radario_procs, &
+             & 'num_restart_procs: ',num_restart_procs, &
+             & 'sizeof_prefetch_process: ',sizeof_prefetch_processes
+      CALL print_info_stderr(method_name, TRIM(message_text))
       CALL finish(method_name, &
-      & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/sizeof_prefetch_processes')
+      & 'not enough processors for given values of p_test_run/num_io_procs/num_restart_procs/'// &
+      &    'sizeof_prefetch_processes/num_radario_procs')
     ELSE IF (p_test_run .AND. num_work_procs == 1) THEN
 #ifdef _OPENACC
       PRINT *, "Testing 1 CPU against 1 GPU"
@@ -1292,6 +1449,8 @@ CONTAINS
     p_io_pe0      = num_test_procs + num_work_procs
     p_restart_pe0 = num_test_procs + num_work_procs + num_io_procs
     p_pref_pe0    = num_test_procs + num_work_procs + num_io_procs + num_restart_procs
+    ! preliminary, will be re-computed below to match the requirements from EMVORADO:
+    p_radario_pe0 = num_test_procs + num_work_procs + num_io_procs + num_restart_procs + sizeof_prefetch_processes
 
     ! Print the process layout
     WRITE (message_text, *) "0 <= ", num_test_procs, " test procs < "                          , &
@@ -1299,6 +1458,7 @@ CONTAINS
                           & p_io_pe0,      " <= ", num_io_procs, " io procs < "                , &
                           & p_restart_pe0, " <= ", num_restart_procs, " restart procs < "      , &
                           & p_pref_pe0,    " <= ", sizeof_prefetch_processes, " pref procs < " , &
+                          & p_radario_pe0, " <= ", num_radario_procs, " radario procs < "     , &
                           & process_mpi_all_size
     CALL print_info_stderr(method_name, message_text)
 
@@ -1319,11 +1479,13 @@ CONTAINS
       ! Restart PE (if present)
       p_n_work  = num_restart_procs
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs
-    ELSE
+    ELSE IF (p_pe < p_radario_pe0) THEN
       p_n_work  = sizeof_prefetch_processes
       p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs - num_restart_procs
+    ELSE
+      p_n_work  = num_radario_procs
+      p_pe_work = p_pe - num_test_procs - num_work_procs - num_io_procs - num_restart_procs - sizeof_prefetch_processes
     ENDIF
-
 
     ! Set communicators
     ! =================
@@ -1339,8 +1501,10 @@ CONTAINS
       my_mpi_function = io_mpi_process
     ELSE IF(p_pe < p_pref_pe0) THEN
       my_mpi_function = restart_mpi_process
-    ELSE
+    ELSE IF (p_pe < p_radario_pe0) THEN
       my_mpi_function = pref_mpi_process
+    ELSE
+      my_mpi_function = radario_mpi_process
     ENDIF
 
     ! create intra-communicators for
@@ -1536,8 +1700,33 @@ CONTAINS
 #ifdef _OPENMP
     IF (l_test_openmp .AND. my_mpi_function == test_mpi_process) &
          CALL OMP_SET_NUM_THREADS(1)
-    IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
+    IF (p_pe >= p_io_pe0 .AND. p_pe < p_radario_pe0) CALL OMP_SET_NUM_THREADS(1)
 #endif
+
+    IF (lhave_radar) THEN
+      IF (num_radario_procs > 0) THEN
+        p_radario_pe0 = num_test_procs + num_work_procs + num_io_procs + num_restart_procs + sizeof_prefetch_processes
+      ELSE
+        p_radario_pe0 = p_work_pe0
+      END IF
+      IF (my_process_is_work()) THEN
+        icomm_cart = p_comm_work
+        my_cart_id = p_pe_work
+      ELSE
+        icomm_cart = MPI_COMM_NULL
+        my_cart_id = MPI_UNDEFINED
+      END IF
+      message_text(:) = ' '
+      CALL init_emvorado_mpi ( radar_flag_doms_model,            & ! INPUT
+           process_mpi_all_comm, p_pe, process_mpi_all_size,     & ! INPUT
+           icomm_cart, my_cart_id, num_work_procs,               & ! INPUT
+           my_process_is_work(),                                 & ! INPUT
+           num_radario_procs, p_work_pe0, p_radario_pe0,         & ! INPUT
+           p_error, message_text)
+      IF (p_error /= 0) THEN
+        CALL finish ('init_emvorado_mpi', TRIM(message_text))
+      END IF
+    END IF
 
 #endif
 
@@ -1548,6 +1737,8 @@ CONTAINS
     process_mpi_all_restartroot_id  = p_restart_pe0
     process_mpi_restart_size        = num_restart_procs
     process_mpi_io_size             = num_io_procs
+    process_mpi_radario_size        = num_radario_procs
+    process_mpi_all_radarioroot_id  = p_radario_pe0
     process_mpi_all_prefroot_id     = p_pref_pe0
     process_mpi_pref_size           = sizeof_prefetch_processes
     p_comm_work_pref_compute_pe0    = p_work_pe0
@@ -1608,6 +1799,7 @@ CONTAINS
       WRITE (nerr,'(a,a,i5)') method_name, ' p_work_pe0=',      p_work_pe0
       WRITE (nerr,'(a,a,i5)') method_name, ' p_io_pe0=',        p_io_pe0
       WRITE (nerr,'(a,a,i5)') method_name, ' p_restart_pe0=',   p_restart_pe0
+      WRITE (nerr,'(a,a,i5)') method_name, ' p_radario_pe0=',   p_radario_pe0
       WRITE (nerr,'(a,a,i5)') method_name, ' p_comm_work=',     p_comm_work
       WRITE (nerr,'(a,a,i5)') method_name, ' p_comm_work_2_restart=', &
         & p_comm_work_2_restart
@@ -1677,6 +1869,7 @@ CONTAINS
     process_mpi_io_size         = 0
     process_mpi_restart_size    = 0
     process_mpi_pref_size       = 0
+    process_mpi_radario_size    = 0
     p_comm_work_pref_compute_pe0 = 0
 
 !     process_mpi_local_comm  = process_mpi_all_comm
@@ -1691,6 +1884,7 @@ CONTAINS
     num_work_procs = process_mpi_all_size
     p_work_pe0     = 0
     p_io_pe0       = process_mpi_all_size    ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
+    p_radario_pe0  = process_mpi_all_size 
     ! Number of restart PE 0 within all PEs (process_mpi_all_size if no restart PEs)
     p_restart_pe0  = process_mpi_all_size
     ! Number of prefetching PE 0 within all PEs (process_mpi_all_size if no prefetching PEs)
@@ -2041,6 +2235,8 @@ CONTAINS
       p_real = mpi_datatype_null
     END IF
 
+    p_mpi_comm_null = MPI_COMM_NULL
+    
 #ifdef DEBUG
     WRITE (nerr,'(/,a)')    ' MPI transfer sizes [bytes]:'
     WRITE (nerr,'(a,i4)') '  INTEGER generic:', p_int_byte
@@ -2061,6 +2257,7 @@ CONTAINS
     is_global_mpi_parallel = .false.
     process_mpi_name = 'uknown'
     process_mpi_all_comm = MPI_COMM_NULL
+    p_mpi_comm_null = MPI_COMM_NULL
 
 #endif
 

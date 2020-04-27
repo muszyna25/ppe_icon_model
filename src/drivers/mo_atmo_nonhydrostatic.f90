@@ -841,7 +841,7 @@ CONTAINS
       ! deallocate ext_data array
       DEALLOCATE(radar_data, STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish(TRIM(routine), 'deallocation of radar_data')
+        CALL finish(TRIM(routine), 'deallocation of radar_data for LHN')
       ENDIF
       CALL destruct_lhn (lhn_fields)
     ENDIF

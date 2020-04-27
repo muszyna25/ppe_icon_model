@@ -218,6 +218,21 @@ MODULE mo_timer
             timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
             timer_art_radInt, timer_art_photo, timer_art_losschem
 
+  ! Timers for EMVORADO
+  PUBLIC :: timer_radar_tot      , &
+       &    timer_radar_ini      , &
+       &    timer_radar_asynio   , &
+       &    timer_radar_asynio_barrier   , &
+       &    timer_radar_prep_compute, &
+       &    timer_radar_bubbles  , &
+       &    timer_radar_composites, &
+       &    timer_radar_compgrid , &
+       &    timer_radar_comm     , &
+       &    timer_radar_ongeom   , &
+       &    timer_radar_comppolar, &
+       &    timer_radar_out      , & 
+       &    timer_radar_barrier
+
   ! low level timing routine
   PUBLIC :: tic, toc
   PUBLIC :: timer_ls_forcing 
@@ -312,6 +327,7 @@ MODULE mo_timer
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
   INTEGER :: timer_lrtm, timer_srtm
 #ifdef PSRAD_TIMING
+  ! Timers for EMVORADO
   INTEGER :: timer_gas_optics_lw, timer_gas_optics_sw, timer_cloud_optics, &
     timer_sample_cloud_lw, timer_sample_cloud_sw, &
     timer_rrtm_coeffs, timer_psrad_scaling, timer_psrad_aerosol
@@ -407,6 +423,22 @@ MODULE mo_timer
              timer_art_cldInt, timer_art_diagInt, timer_art_sedInt, timer_art_toolInt,          &
              timer_art_tracInt, timer_art_turbdiffInt, timer_art_washoutInt, timer_art_initInt, &
              timer_art_radInt, timer_art_photo, timer_art_losschem
+
+  ! Timers for EMVORADO
+  INTEGER :: timer_radar_tot      , &
+       &     timer_radar_asynio   , &
+       &     timer_radar_asynio_barrier   , &
+       &     timer_radar_ini      , &
+       &     timer_radar_prep_compute, &
+       &     timer_radar_bubbles  , &
+       &     timer_radar_composites, &
+       &     timer_radar_compgrid , &
+       &     timer_radar_comm     , &
+       &     timer_radar_ongeom   , &
+       &     timer_radar_comppolar, &
+       &     timer_radar_out      , & 
+       &     timer_radar_barrier
+
 
 CONTAINS
 
@@ -839,6 +871,24 @@ CONTAINS
     timer_art_tracInt = new_timer("art_tracInt") 
     timer_art_turbdiffInt = new_timer("art_turbdiffInt") 
     timer_art_washoutInt = new_timer("art_washoutInt")
+
+    ! Timers for EMVORADO
+    IF (iforcing /= iecham) THEN
+      timer_radar_tot       = new_timer("EMVORADO_total")
+      timer_radar_asynio    = new_timer("EMVORADO_asynio")
+      timer_radar_asynio_barrier    = new_timer("EMVORADO_asynio_barrier (minimize!)")
+      timer_radar_ini       = new_timer("EMVORADO_init_constgeom")
+      timer_radar_prep_compute= new_timer("EMVORADO_prep_compute")
+      timer_radar_bubbles   = new_timer("EMVORADO_bubbles")
+      timer_radar_composites= new_timer("EMVORADO_composites")
+      timer_radar_compgrid  = new_timer("EMVORADO_gridpoint_values")
+      timer_radar_comm      = new_timer("EMVORADO_mpi_comm")
+      timer_radar_ongeom    = new_timer("EMVORADO_online_beampropag")
+      timer_radar_comppolar = new_timer("EMVORADO_comp_polargrid")
+      timer_radar_out       = new_timer("EMVORADO_output")
+      timer_radar_barrier   = new_timer("EMVORADO_barrier_waiting")
+    END IF
+
   END SUBROUTINE init_timer
 
 

@@ -645,6 +645,7 @@ CLAW_ENABLED
 GPU_ENABLED
 OPENMP_ENABLED
 MPI_ENABLED
+EMVORADO_ENABLED
 RTTOV_ENABLED
 DACE_NOT_ENABLED
 DACE_ENABLED
@@ -698,6 +699,7 @@ enable_atmo
 enable_ocean
 enable_jsbach
 enable_dace
+enable_emvorado
 enable_coupling
 enable_psrad
 enable_ecrad
@@ -1382,6 +1384,8 @@ Model Features:
   --enable-ocean          enable the ocean component of ICON [default=yes]
   --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-dace           enable DACE modules for data assimilation
+                          [default=no]
+  --enable-emvorado       enable the radar forward operator EMVORADO
                           [default=no]
   --enable-coupling       enable the coupling [default=yes]
   --enable-psrad          enable the radiation component PSRAD [default=yes]
@@ -2258,6 +2262,16 @@ else
 fi
 
 
+# Check whether --enable-emvorado was given.
+if test "${enable_emvorado+set}" = set; then :
+  enableval=$enable_emvorado; if test x"$enableval" != xno; then :
+  enable_emvorado=yes
+fi
+else
+  enable_emvorado=no
+fi
+
+
 # Check whether --enable-coupling was given.
 if test "${enable_coupling+set}" = set; then :
   enableval=$enable_coupling; if test x"$enableval" != xno; then :
@@ -2674,6 +2688,25 @@ if test "x$enable_rttov" = xyes; then :
 
 else
   RTTOV_ENABLED='#'
+
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+
+   icon_subdir_srcdir="$srcdir/externals/emvorado"
+   icon_subdir_unique_file="src_emvorado/radar_organize.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the EMVORADO component ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-emvorado)" "$LINENO" 5 or load submodule emvorado
+fi
+   icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   if test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"; then :
+  as_fn_error $? "unable to find sources of the DACE component which is needed by EMVORADO, for example ($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component (--disable-emvorado) or load submodule dace_icon" "$LINENO" 5
+fi
+   EMVORADO_ENABLED=''
+
+else
+  EMVORADO_ENABLED='#'
 
 fi
 
@@ -4189,6 +4222,10 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
   as_fn_append FCFLAGS " ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"
 
+fi
+
+if test "x$enable_emvorado" = xyes; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING ${FC_PP_DEF}GRIBAPI ${FC_PP_DEF}HDF5_RADAR_INPUT ${FC_PP_DEF}WITH_ZLIB ${FC_PP_DEF}NETCDF ${FC_PP_DEF}TWOMOM_SB_NEW "
 fi
 
 if test "x$enable_coupling" = xyes; then :

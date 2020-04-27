@@ -269,6 +269,7 @@ MODULE mo_2mom_mcrph_processes
   ! Functions
   PUBLIC :: particle_meanmass
   PUBLIC :: particle_assign, particle_frozen_assign, particle_lwf_assign
+  PUBLIC :: rain_mue_dm_relation
   ! Process Routines
   PUBLIC :: sedi_vel_rain, sedi_vel_sphere, init_2mom_sedi_vel
   PUBLIC :: autoconversionSB, accretionSB, rain_selfcollectionSB
@@ -4545,7 +4546,7 @@ CONTAINS
   !*******************************************************************************
 
   SUBROUTINE sedi_icon_rain (rain,rain_coeffs,qp,np,precrate,qc,rhocorr,adz,dt, &
-      &                  its,ite,kts,kte,cmax) !
+      &                      its,ite,kts,kte,cmax) !
 
     CLASS(particle), INTENT(in)             :: rain
     TYPE(particle_rain_coeffs), INTENT(in)  :: rain_coeffs
@@ -4762,8 +4763,10 @@ CONTAINS
       CALL sedi_icon_box_core_lwf (v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
            &                       its, ite, kts, kte, np, qp, ql, precrate, cmax)
     ELSE
+
       CALL sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
            &                  its, ite, kts, kte, np, qp, ql, precrate, cmax)
+
     END IF
 
     DO k=kts,kte

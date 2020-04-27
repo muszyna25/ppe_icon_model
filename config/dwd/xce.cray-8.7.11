@@ -115,6 +115,7 @@ LDFLAGS="-static -L${RTTOV_ROOT_LIB} -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
 LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
 
 # use  --enable-dace in command line to include DACE coupling
+# use  --enable-emvorado in command line to include EMVORADO coupling
 EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp --enable-rttov --disable-jsbach --disable-ocean --enable-ecrad'
 
 ################################################################################

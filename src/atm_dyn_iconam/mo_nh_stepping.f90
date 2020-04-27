@@ -73,7 +73,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc, proc0_offloading
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
-    &                                    output_mode, lart, ldass_lhn
+    &                                    output_mode, lart, luse_radarfwo, ldass_lhn
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -126,7 +126,11 @@ MODULE mo_nh_stepping
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
-    &                                    p_comm_work, my_process_is_mpi_workroot, p_pe
+       &                                 p_comm_work, my_process_is_mpi_workroot, p_pe, &
+       &                                 my_process_is_mpi_test
+#ifdef HAVE_RADARFWO
+  USE mo_emvorado_interface,       ONLY: emvorado_radarfwo
+#endif
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
@@ -294,7 +298,6 @@ MODULE mo_nh_stepping
   is_mpi_workroot = my_process_is_mpi_workroot()
 
 
-
 !!$  INTEGER omp_get_num_threads
 !!$  INTEGER omp_get_max_threads
 !!$  INTEGER omp_get_max_active_levels
@@ -430,6 +433,15 @@ MODULE mo_nh_stepping
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
       CALL init_slowphysics (mtime_current, 1, dtime)
 
+#ifdef HAVE_RADARFWO
+      IF ( .NOT.my_process_is_mpi_test() .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
+           mtime_current >= time_config%tc_exp_startdate ) THEN
+        ! Radar forward operator EMVORADO: radar simulation in the first timestep for each
+        !  radar-active model domain:
+        CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, luse_radarfwo(1:n_dom), 0, nsteps)
+      END IF
+#endif
+
       DO jg = 1, n_dom
 
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -507,10 +519,9 @@ MODULE mo_nh_stepping
 
       IF (var_in_output(jg)%dbz .OR. var_in_output(jg)%dbz850 .OR. var_in_output(jg)%dbzcmax) THEN 
 
-        CALL compute_field_dbz3D_lin (jg, p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-             &                        p_nh_state(jg)%prog(nnow_rcf(jg)),              &
-             &                        p_nh_state(jg)%diag, prm_diag(jg)%dbz3d_lin )
-
+        CALL compute_field_dbz3D_lin (jg, p_patch(jg),                                                  &
+             &                        p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnow_rcf(jg)), &
+             &                        p_nh_state(jg)%diag, prm_diag(jg), prm_diag(jg)%dbz3d_lin )
 
       END IF
         
@@ -681,6 +692,7 @@ MODULE mo_nh_stepping
   LOGICAL                             :: zero_passed      ! sim_time = 0 has been passed for MEC call
 
 !!$  INTEGER omp_get_num_threads
+
 
 !-----------------------------------------------------------------------
 
@@ -1044,7 +1056,26 @@ MODULE mo_nh_stepping
     !
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
 
+
+    ! --------------------------------------------------------------------------------
+    !
+    ! Radar forward operator EMVORADO: radar simulation in each timestep for each
+    !  radar-active model domain
+    !
+
+#ifdef HAVE_RADARFWO    
+    IF (.NOT.my_process_is_mpi_test() .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
+         ( jstep >= 0 .AND. (.NOT.iterate_iau .OR. iau_iter == 2) ) ) THEN
+      CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, &
+                              luse_radarfwo(1:n_dom), jstep, nsteps+jstep0)
+    END IF
+#endif
+
+    ! --------------------------------------------------------------------------------
+    !
     ! Compute diagnostics for output if necessary
+    !
+
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
     
       CALL diag_for_output_dyn ()

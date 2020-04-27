@@ -43,7 +43,7 @@ MODULE mo_real_timer
 
 #ifndef NOMPI
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
-                                p_pe, get_my_mpi_all_comm_size, &
+                                p_pe, get_my_mpi_all_comm_size, p_io, &
                                 p_comm_size, p_n_work
 #endif
   USE mo_parallel_config, ONLY: p_test_run, proc0_shift
@@ -53,7 +53,7 @@ MODULE mo_real_timer
     &                           p_min, p_max,  &
     &                           num_work_procs, p_sum, p_allgather, mpi_land, &
     &                           p_allreduce, my_process_is_stdio, p_io, &
-    &                           p_comm_work, p_comm_work_test, p_gather
+    &                           p_comm_work, p_comm_work_test, p_gather, p_mpi_comm_null
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
@@ -78,6 +78,7 @@ MODULE mo_real_timer
   PUBLIC :: timer_val, timer_last, timer_count, timer_average
   PUBLIC :: timer_reset, timer_reset_all
   PUBLIC :: timer_report
+  PUBLIC :: timer_report_short_gen
 
   INTEGER, PARAMETER :: timer_max = 512
 
@@ -638,9 +639,127 @@ CONTAINS
 
   END SUBROUTINE timer_report_short
 
-
   ! --
 
+  ! Generalized and more flexible version of timer_report_short():
+  ! It can be called among certain MPI communicators, not only on the workers, and
+  !  it can be called either for single timer IDs or all timer IDs.
+  
+  SUBROUTINE timer_report_short_gen(addtext, itimer, icomm, num_pe, my_id, output_pe)
+
+    CHARACTER(len=*), INTENT(in) :: addtext  ! short descriptive text printed in the headerline of the printout
+    INTEGER, INTENT(in) :: itimer(:), & ! IDs of the timer(s) to print:
+                                        !    itimer(1) <= 0 indicates to print all timers
+                                        !    itimer(:) > 0 prints the timers in the list itimer(:)
+         &                 icomm,     & ! MPI communicator for which to sum up the times. timer_report_short_single()
+                                        !  has to be called on all PEs of this comm! 
+         &                 num_pe,    & ! Number of PEs in icomm
+         &                 my_id,     & ! PE-ID of the calling PE within comm
+         &                 output_pe    ! PE-ID within icomm on which to do the timing output
+
+    INTEGER, PARAMETER :: i_sum = 1, i_min = 2, i_max = 3
+
+    REAL(dp)::sbuf(3,timer_top), rbuf(3,timer_top,num_pe), res(3,timer_top)
+    REAL(dp) :: q, avg, alpha, e
+    INTEGER  :: p_error, itpos(timer_top), itlist(timer_top)
+    INTEGER  :: ip, iiit, iit, it, it1, it2, n
+
+    CHARACTER(len=12) :: min_str, avg_str, max_str, sum_str, e_str
+
+    IF (icomm /= p_mpi_comm_null) THEN
+
+      sbuf = 0.0_dp
+      rbuf = 0.0_dp
+      res = 0.0_dp
+      itpos = -1
+      itlist = -1
+
+      IF (itimer(1) > 0) THEN
+        it1 = 1
+        it2 = SIZE(itimer)
+        itlist(it1:it2) = itimer
+      ELSE
+        it1 = 1
+        it2 = timer_top
+        itlist = (/ (it, it=1, timer_top) /)
+      ENDIF
+
+#ifdef _OPENMP
+      n = omp_get_num_threads()
+#else
+      n = 1
+#endif
+
+      DO it = it1, it2
+        iit = itlist(it)
+        sbuf(:,it) = rt(iit)%tot
+      ENDDO
+
+#ifndef NOMPI
+      CALL MPI_GATHER(sbuf, SIZE(sbuf), p_real_dp, &
+           rbuf, SIZE(sbuf), p_real_dp, &
+           output_pe, icomm, p_error)      
+#else
+      rbuf(:,:,1) = sbuf(:,:)
+#endif
+
+      IF (my_id == output_pe) THEN
+
+        n = n * num_pe
+        q = 1.0_dp/REAL(n,dp)
+        res(:,:) = rbuf(:,:,1)
+        DO ip = 2, num_pe
+          DO it = it1, it2
+            res(i_sum,it) = res(i_sum,it)    + rbuf(i_sum,it,ip)
+            res(i_min,it) = MIN(res(i_min,it), rbuf(i_min,it,ip))
+            res(i_max,it) = MAX(res(i_max,it), rbuf(i_max,it,ip))
+          ENDDO
+        ENDDO
+
+
+        CALL message ('',separator,all_print=.TRUE.)
+
+        WRITE (message_text,'(A,I6,A)') ' Timer report ( tasknum * threadnum = ',n,')  '//TRIM(addtext)
+        CALL message ('',message_text,all_print=.TRUE.)
+
+        WRITE (message_text,'(A,T42,a,4A10,1X,A6)') ' label',' :  ', &
+             't_min',   't_avg',   't_max',   't_sum', 'lbe[%]'
+
+        CALL message ('',message_text,all_print=.TRUE.)
+        CALL message ('',separator,all_print=.TRUE.)
+
+        IF (it1 /= it2) THEN
+          CALL mrgrnk(res(i_sum,it1:it2),itpos(it1:it2))
+        ELSE
+          itpos(it1) = it1
+        END IF
+
+        DO iit = it2, it1, -1
+          it = itpos(iit)
+          iiit = itlist(it)
+          IF (rt(iiit)%stat == rt_undef_stat) CYCLE
+          IF (res(i_sum,it) <= 0.0_dp) CYCLE
+          avg = res(i_sum,it)*q
+          alpha = ABS(res(i_max,it)-avg)/avg; !abs() to avoid -zero irritation
+          e = 1.0_dp/(1.0_dp+alpha)
+          sum_str = time_sec_str(res(i_sum,it))
+          min_str = time_sec_str(res(i_min,it))
+          max_str = time_sec_str(res(i_max,it))
+          avg_str = time_sec_str(avg)
+          WRITE (e_str,'(f6.2)') 100.0_dp*e
+          WRITE (message_text,'(a,4a10,1x,a6)') ' '//srt(iiit)%text(1:40)//' :  ', &
+               min_str, avg_str, max_str, sum_str, e_str
+          CALL message ('',message_text,all_print=.TRUE.)
+        ENDDO
+        CALL message ('',separator,all_print=.TRUE.)
+
+      ENDIF
+
+    END IF
+
+  END SUBROUTINE timer_report_short_gen
+
+  ! --
 
   SUBROUTINE timer_report_full(itimer)
     INTEGER, INTENT(in) :: itimer

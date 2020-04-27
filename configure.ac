@@ -80,6 +80,12 @@ AC_ARG_ENABLE([dace],
   [AS_IF([test x"$enableval" != xno], [enable_dace=yes])],
   [enable_dace=no])
 
+AC_ARG_ENABLE([emvorado],
+  [AC_HELP_STRING([--enable-emvorado],
+     [enable the radar forward operator EMVORADO @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_emvorado=yes])],
+  [enable_emvorado=no])
+
 AC_ARG_ENABLE([coupling],
   [AC_HELP_STRING([--enable-coupling],
      [enable the coupling @<:@default=yes@:>@])],
@@ -363,6 +369,23 @@ AS_VAR_IF([enable_rttov], [yes],
   [AC_SUBST([RTTOV_ENABLED], [''])],
   [AC_SUBST([RTTOV_ENABLED], ['#'])])
 
+AS_VAR_IF([enable_emvorado], [yes],
+  [
+   icon_subdir_srcdir="$srcdir/externals/emvorado"
+   icon_subdir_unique_file="src_emvorado/radar_organize.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the EMVORADO component dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-emvorado)]) or load submodule emvorado])
+   icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the DACE component which is needed by EMVORADO, for example dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-emvorado) or load submodule dace_icon])])
+   AC_SUBST([EMVORADO_ENABLED], [''])],
+  [AC_SUBST([EMVORADO_ENABLED], ['#'])])
+
 AS_VAR_IF([enable_mpi], [yes],
   [AC_SUBST([MPI_ENABLED], [''])],
   [AC_SUBST([MPI_ENABLED], ['#'])])
@@ -507,6 +530,9 @@ or --disable-dace])
   ])
   AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"])
   ])
+
+AS_VAR_IF([enable_emvorado], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING ${FC_PP_DEF}GRIBAPI ${FC_PP_DEF}HDF5_RADAR_INPUT ${FC_PP_DEF}WITH_ZLIB ${FC_PP_DEF}NETCDF ${FC_PP_DEF}TWOMOM_SB_NEW "])])
 
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])

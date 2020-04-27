@@ -18,7 +18,8 @@ MODULE mo_run_nml
                          & config_ltransport      => ltransport,      &
                          & config_ntracer         => ntracer,         &
                          & config_lart            => lart,            &
-                         & config_ldass_lhn         => ldass_lhn,         &
+                         & config_ldass_lhn       => ldass_lhn,       &
+                         & config_luse_radarfwo   => luse_radarfwo,   &
                          & config_lvert_nest      => lvert_nest,      &
                          & config_nlev            => nlev,            &
                          & config_num_lev         => num_lev,         &
@@ -48,7 +49,7 @@ MODULE mo_run_nml
                                MAX_CHAR_LENGTH
   USE mo_io_units,       ONLY: nnml, nnml_output
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,            ONLY: my_process_is_stdio 
+  USE mo_mpi,            ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_util_string,    ONLY: one_of
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
@@ -78,6 +79,8 @@ MODULE mo_run_nml
   INTEGER :: ntracer         ! number of advected tracers
   LOGICAL :: lart            ! switch for ICON-ART (Treatment of Aerosols and Trace Gases)
   LOGICAL :: ldass_lhn         ! switch for assimilation of radar data using latent heat nudging
+
+  LOGICAL :: luse_radarfwo(max_dom)  !< switch for radar forward operator EMVORADO
 
   LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
   INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
@@ -120,7 +123,8 @@ MODULE mo_run_nml
                      iforcing,     ltransport,      &
                      ntracer,                       &
                      lart,                          &
-                     ldass_lhn,                       &
+                     ldass_lhn,                     &
+                     luse_radarfwo,                 &
                      lvert_nest,                    &
                      num_lev,      nshift,          &
                      nsteps,       dtime,           &
@@ -160,6 +164,8 @@ CONTAINS
     ntracer         = 0
     lart            = .FALSE.
     ldass_lhn         = .FALSE.
+
+    luse_radarfwo(:) = .FALSE.
 
     lvert_nest = .FALSE. ! no vertical nesting
     num_lev(:) = 31    ! number of full levels for each domain
@@ -260,6 +266,8 @@ CONTAINS
     config_ntracer         = ntracer 
     config_lart            = lart
     config_ldass_lhn         = ldass_lhn
+
+    config_luse_radarfwo(:)   = luse_radarfwo(:)
 
     config_lvert_nest      = lvert_nest
     config_nlev            = num_lev(1)

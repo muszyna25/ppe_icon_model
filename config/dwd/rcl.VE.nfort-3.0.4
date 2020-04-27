@@ -30,8 +30,8 @@ HDF5_LIBS='-lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5'
 # BLAS, LAPACK
 LAPACK_LIBS='-llapack -lblas_sequential'
 
-# ECCODES
-ECCODES_LIBS='-leccodes -laec'
+# ECCODES - note that we use a double underscore because ECCODES_LIBS may be overwritten by system settings
+ECCODES__LIBS='-leccodes_f90 -leccodes'
 
 # XML
 XML2_LIBS='-lxml2'
@@ -72,11 +72,11 @@ CC='mpincc'
 CFLAGS='-std=gnu11 -O3 -finline-functions -mno-vector-fma -fno-associative-math -msched-block -fcse-after-vectorization -DUSE_XML2 -USX -D__SX__=__NEC__'
 ICON_CFLAGS='-O3'
 ICON_BUNDLED_CFLAGS='-O2'
-CPPFLAGS="-I${HDF5_DIR}/include -I${NETCDF_DIR}/include ${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2"
+CPPFLAGS="${ECCODES_INCLUDE} -I${HDF5_DIR}/include -I${NETCDF_DIR}/include ${ECCODES_INCLUDE} -I${XML2ROOT}/include/libxml2"
 
 # Fortran compiler wrapper on cray machine
 FC='mpinfort'
-FCFLAGS="-I${HDF5_DIR}/include -I${NETCDF_DIR}/include -I${RTTOV_ROOT_LIB}/obj -fdiag-vector=0 -report-all -traceback=verbose -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -mno-vector-fma -fno-associative-math -DUSE_XML2 -USX -D__SX__=__NEC__ -D__COMM_OPT__ -D__BLOCK_GET__"
+FCFLAGS="${ECCODES_INCLUDE} -I${HDF5_DIR}/include -I${NETCDF_DIR}/include -I${RTTOV_ROOT_LIB}/obj -fdiag-vector=0 -report-all -traceback=verbose -O3 -mstack-arrays -msched-block -mvector-floating-divide-instruction -mvector-sqrt-instruction -floop-unroll-completely=8 -floop-unroll-completely-nest=8 -fcse-after-vectorization -mno-vector-fma -fno-associative-math -DUSE_XML2 -USX -D__SX__=__NEC__ -D__COMM_OPT__ -D__BLOCK_GET__"
 
 ICON_FCFLAGS='-fpp -finline-functions -finline-file=${ICON_DIR}/src/advection/mo_advection_utils.f90:${ICON_DIR}/src/atm_phy_schemes/mo_cufunctions.f90:${ICON_DIR}/src/parallel_infrastructure/mo_extents.f90:${ICON_DIR}/src/shared/mo_math_utilities.f90:${ICON_DIR}/src/configure_model/mo_parallel_config.f90:${ICON_DIR}/src/atm_phy_schemes/mo_satad.f90:${ICON_DIR}/src/shared/mo_statistics.f90:${ICON_DIR}/src/atm_phy_nwp/mo_util_phys.f90:${ICON_DIR}/src/atm_phy_schemes/turb_utilities.f90:${ICON_DIR}/src/lnd_phy_nwp/mo_nwp_sfc_interp.f90'
 # for flake only: -finline-max-function-size=1000 -finline-max-depth=3 
@@ -84,7 +84,7 @@ ICON_OCEAN_FCFLAGS='-O2'
 
 LDFLAGS="-L${ZLIBROOT}/lib -L${AEC_DIR}/lib -L${SZIPROOT}/lib -L${HDF5_DIR}/lib -L${NETCDF_DIR}/lib -L${RTTOV_ROOT_LIB} -L${ECCODES_LIB_DIR} -L${LAPACKROOT}/lib -L${XML2ROOT}/lib -traceback=verbose -static -static-nec"
 
-LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES__LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
 
 MPI_LAUNCH=''  # needed e.g. for yac configuration ?? 
 
