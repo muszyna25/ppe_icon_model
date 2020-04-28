@@ -201,7 +201,7 @@ CONTAINS
       CALL atmo_hydrostatic
 
     CASE(inh_atmosphere)
-      CALL atmo_nonhydrostatic
+      CALL atmo_nonhydrostatic(latbc)
 
     CASE DEFAULT
       CALL finish(routine, 'unknown choice for iequations.')
