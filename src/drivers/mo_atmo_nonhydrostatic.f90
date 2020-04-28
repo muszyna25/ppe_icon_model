@@ -146,7 +146,7 @@ PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 CONTAINS
 
   !---------------------------------------------------------------------
-  SUBROUTINE atmo_nonhydrostatic
+  SUBROUTINE atmo_nonhydrostatic(latbc)
     TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
 !!$    CHARACTER(*), PARAMETER :: routine = "atmo_nonhydrostatic"
