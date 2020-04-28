@@ -22,7 +22,7 @@ MODULE mo_restart_util
   USE mo_restart_attributes, ONLY: t_RestartAttributeList
   USE mo_run_config,         ONLY: restart_filename
   USE mo_std_c_lib,          ONLY: strerror
-  USE mo_timer,              ONLY: ltimer, print_timer, timer_stop, timer_model_init
+  USE mo_timer,              ONLY: ltimer, print_timer, timer_stop, timer_model_init, timers_level
   USE mo_util_file,          ONLY: createSymlink
   USE mo_util_string,        ONLY: int2string, associate_keyword, with_keywords, t_keyword_list
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
@@ -74,7 +74,7 @@ CONTAINS
 
   SUBROUTINE becomeDedicatedRestartProc()
 
-    IF(ltimer) CALL timer_stop(timer_model_init)
+    IF(timers_level > 1) CALL timer_stop(timer_model_init)
   END SUBROUTINE becomeDedicatedRestartProc
 
   ! Does NOT RETURN.
