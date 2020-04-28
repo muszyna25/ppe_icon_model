@@ -132,7 +132,6 @@ CONTAINS
       &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.false., in_group=groups("oce_force_essentials"))
       
     IF (is_coupled_run()) THEN
-
       IF ( l_cpl_co2 ) THEN
         CALL add_var(ocean_restart_list, 'co2_mixing_ratio', p_oce_sfc%CO2_Mixing_Ratio, &
           &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -140,7 +139,7 @@ CONTAINS
           &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
           &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.True., in_group=groups("oce_force_essentials"))
       ENDIF
-     
+  
       CALL add_var(ocean_restart_list, 'sea_level_pressure', p_oce_sfc%sea_level_pressure, &
         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
         &        t_cf_var('Sea_Level_Pressure', 'Pa', 'Sea Level Pressure', datatype_flt),&

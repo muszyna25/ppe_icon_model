@@ -140,7 +140,6 @@ CONTAINS
         ! Initialize CO" Mixing Ration from restart file when run in coupled mode with HAMOCC
         p_as%co2 = p_oce_sfc%CO2_Mixing_Ratio
     ENDIF
-
     IF (is_restart .AND. (i_ice_dyn == 1)) THEN
         ! Initialize u_ice, v_ice with sea_ice vals read from the restart file
         CALL ice_fem_init_vel_restart(patch_3d%p_patch_2D(1), sea_ice)
@@ -585,7 +584,6 @@ CONTAINS
           p_oce_sfc%HeatFlux_Sensible      = p_atm_f%HeatFlux_Sensible
           p_oce_sfc%HeatFlux_Latent        = p_atm_f%HeatFlux_Latent
           p_oce_sfc%FrshFlux_Runoff        = p_atm_f%FrshFlux_Runoff
-
           IF ( l_cpl_co2 ) THEN
             p_oce_sfc%CO2_Mixing_Ratio     = p_as%co2
           ENDIF

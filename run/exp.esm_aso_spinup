@@ -893,7 +893,7 @@ cat > ${oce_namelist} << EOF
 /
 &io_nml
   !lnetcdf_flt64_output            = .TRUE.   ! 64 bit output in all files
-  !lkeep_in_sync                   = .TRUE.   ! sync after each timestep
+  !lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
 
@@ -959,42 +959,6 @@ if [[ "$output_oce_mon" == "yes" ]]; then
 /
 EOF
 fi
-
-## zeta/h/ssh global mean diagnostics: spot-values
-#cat >> ${oce_namelist} <<EOF
-#
-#&output_nml
-#  output_start     = "${start_date}"                  ! start date in ISO-format
-#  output_end       = "${end_date}"                    ! end date in ISO-format
-#  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-#  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-#  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-#!  operation        = 'mean'                           ! mean over output interval
-#  output_grid      = .TRUE.
-#  output_filename  = "${EXPNAME}_oce_zGL"
-#  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
-#  filename_format  = "<output_filename>_<datetime2>"
-#  ml_varlist       =  'ssh_global'
-#/
-#EOF
-
-## zeta/h/zos 2d-diagnostics: spot-values
-#cat >> ${oce_namelist} <<EOF
-#
-#&output_nml
-#  output_start     = "${start_date}"                  ! start date in ISO-format
-#  output_end       = "${end_date}"                    ! end date in ISO-format
-#  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-#  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-#  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-#!  operation        = 'mean'                           ! mean over output interval
-#  output_grid      = .TRUE.
-#  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
-#  output_filename  = "${EXPNAME}_oce_z2d"
-#  filename_format  = "<output_filename>_<datetime2>"
-#  ml_varlist       =  'zos'
-#/
-#EOF
 
 if [[ "$output_oce_def" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF

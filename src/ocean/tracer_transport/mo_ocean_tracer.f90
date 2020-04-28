@@ -398,7 +398,7 @@ CONTAINS
       & div_adv_flux_vert)
     !---------------------------------------------------------------------
 
-!     IF(GMRedi_configuration==Cartesian_Mixing)THEN
+    IF(GMRedi_configuration==Cartesian_Mixing)THEN
       !horizontal diffusion, vertical is handled implicitely below
       CALL diffuse_horz( patch_3d,      &
       & old_tracer%concentration, &
@@ -409,9 +409,9 @@ CONTAINS
       & transport_state%h_new,         &
       & div_diff_flux_horz)
 
-!     ELSE
-!       CALL finish(method_name, "wrong GMredi call")
-!     ENDIF  
+    ELSE
+      CALL finish(method_name, "wrong GMredi call")
+    ENDIF  
       
     !Case: Implicit Vertical diffusion
     start_timer(timer_dif_vert,4)

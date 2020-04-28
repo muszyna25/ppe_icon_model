@@ -10,8 +10,6 @@
 !! headers of the routines.
 !!
 
-! (create branch dev2merge)
-
 #ifdef YAC_coupling
 
 !----------------------------
@@ -375,7 +373,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
-          ! ocean coast (-1) is valid
+            ! ocean coast (-1) is valid
 !         IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
           ! all ocean points (-1, -2) are valid
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) <= -1 ) THEN
@@ -387,7 +385,6 @@ CONTAINS
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-
     ELSE
 
 !ICON_OMP_PARALLEL_DO PRIVATE(idx) ICON_OMP_DEFAULT_SCHEDULE
@@ -398,11 +395,11 @@ CONTAINS
 
     ENDIF
 
-    CALL yac_fdef_mask (          &
-      & patch_horz%n_patch_cells, &
-      & ibuffer,                  &
-      & cell_point_ids(1),        &
-      & cell_mask_ids(2) )
+      CALL yac_fdef_mask (          &
+        & patch_horz%n_patch_cells, &
+        & ibuffer,                  &
+        & cell_point_ids(1),        &
+        & cell_mask_ids(2) )
 
 
     DEALLOCATE(ibuffer)
@@ -516,6 +513,8 @@ CONTAINS
     !   field_id(8) represents "northward_sea_water_velocity"             - meridional velocity, v component of ocean surface current
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
+
+
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !  Send fields from ocean to atmosphere
