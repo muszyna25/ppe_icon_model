@@ -107,6 +107,7 @@ MODULE mo_icon2dace
   use mo_p_output,    only: flush_buf         ! write buffer to stdout
   use mo_fortran_units,only:get_unit_number, &!request free unit number
                             return_unit_number!return unit number
+  use info_3dvar,     only: INFO_RevisionTag  ! Technical: enforce dependency
   !---------------------
   ! DACE grid handling,
   ! domain decomposition
