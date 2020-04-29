@@ -1236,12 +1236,13 @@ MODULE mo_nh_testcases
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_nh_state(jg)%metrics )
 
-      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+      IF (temp_case /= 'blob') THEN
+        CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,          &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
                       & start_level=nlev-3,                                    &
                       & end_level=nlev,                                        &
                       & noise_scale=th_perturb )   
-
+      END IF
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 !
       CALL message(TRIM(routine),'End setup global RCE test')
