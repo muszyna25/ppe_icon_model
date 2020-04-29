@@ -1,187 +1,322 @@
-#!/usr/bin/env ksh
-#==============================================================================
+#! /usr/bash
+#______________________________________________________________________________
 #
 # Sets the parameters for various machine use_compiler configurations
 # and creates the run script headers for these configurations
 #
-# Leonidas Linardakis, MPI-M, 2010-11-24
-#
-# Based on previous scripts by Marco Giorgetta and Hermann Asensio
-#
-#==============================================================================
+# Original version by Marco Giorgetta and Hermann Asensio
+# Updated by Leonidas Linardakis, MPI-M, 2010-11-24
+#______________________________________________________________________________
 # Basic parameters in this script
-# -----------------------------
+#
 # use_nodes  =  no of nodes to run
 # use_mpi_procs_pernode = number of mpi procs per node
-#
-#==============================================================================
+#______________________________________________________________________________
+
+set -eu
+
+BB_SYSTEM=${BB_SYSTEM:=""}
+
+use_host='@host_fqdn@'
+case "$use_host" in
+  unknown) ;;
+  wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
+  daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
+  ic2*|uc1*|fh2*) use_site=kit.edu ;;
+  melian*) use_site=local.net ;;
+  *mpimet.mpg.de) use_site=mpg.de ;;
+esac
+
 
 add_free_var()
 {
-  varName=$1
-  varValue=$2
-  
-  let "no_of_free_variables=$no_of_free_variables+1"
-  free_variable[$no_of_free_variables]=$varName
-  free_variable_value[$no_of_free_variables]=$varValue
+    varName=$1
+    varValue=$2
+
+    (( no_of_free_variables++ ))
+    free_variable[$no_of_free_variables]=$varName
+    free_variable_value[$no_of_free_variables]=$varValue
 }
 
 set_default()
 {
-  if [[ "x$(eval echo \$$1)" == "x" ]]; then
-    eval "$1=$2"
-  fi 
+    if [[ "x$(eval echo \$$1)" == "x" ]]
+    then
+	eval "$1=$2"
+    fi
 }
-
 
 start_header()
 {
-if [[ "$use_mpi" == "no" ]]; then
-  start=${start:=""}
-else
-  start=${start:="$use_mpi_startrun"}
-fi
+    if [[ "$use_mpi" == "no" ]]
+    then
+	start=${start:=""}
+    else
+	start=${start:="$use_mpi_startrun"}
+    fi
 
-set_default use_nodes 1
-set_default use_omp_stacksize 32M
-mpi_total_procs='$((no_of_nodes * mpi_procs_pernode))'
-
-cat >> $output_script << EOF
-#=============================================================================
-#
-# ICON run script. Created by $scriptname
-# target machine is $use_target
-# target use_compiler is $use_compiler
-# with mpi=$use_mpi
-# with openmp=$use_openmp
-# memory_model=$use_memory_model
-# submit with $use_submit
-# 
+    if [[ ! -e $output_script ]]
+    then
+	echo "[ERROR] $output_script does not exist!"
+ 	exit 1
+    fi
+    cat >> $output_script << EOF
 #=============================================================================
 set -x
-. ./add_run_routines
-#-----------------------------------------------------------------------------
-# target parameters
-# ----------------------------
-site="$use_site"
-target="$use_target"
-compiler="$use_compiler"
-loadmodule="$use_load_modules"
-with_mpi="$use_mpi"
-with_openmp="$use_openmp"
-job_name="$job_name"
-submit="$use_submit"
-#-----------------------------------------------------------------------------
-# openmp environment variables
+ulimit -s unlimited
+#=============================================================================
+#
+# ICON run script:
+# !ATTENTION! Do not change the format of the following lines.
+#             They are evaluated by checksuite scripts.
+# created by $0
+# target machine is $use_target
+# target use_compiler is $use_compiler
+# with_mpi=$use_mpi
+# with_openmp=$use_openmp
+# memory_model=$use_memory_model
+# submit with $use_submit
+#
+#=============================================================================
+#
+# OpenMP environment variables
 # ----------------------------
 export OMP_NUM_THREADS=${use_openmp_threads}
 export ICON_THREADS=${use_openmp_threads}
 export OMP_SCHEDULE=${use_OMP_SCHEDULE}
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=${use_omp_stacksize}
-#-----------------------------------------------------------------------------
+#
 # MPI variables
-# ----------------------------
-mpi_root=$use_mpi_root
+# -------------
 no_of_nodes=${use_nodes}
 mpi_procs_pernode=$use_mpi_procs_pernode
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
-START="$start"
-#-----------------------------------------------------------------------------
-# load ../setting if exists  
+#
+# blocking length
+# ---------------
+nproma=$use_nproma
+#
+#=============================================================================
+
+# load local setting, if existing
+# -------------------------------
 if [ -a ../setting ]
 then
   echo "Load Setting"
   . ../setting
 fi
-#-----------------------------------------------------------------------------
-rundir="$run_folder"
-bindir="\${basedir}/bin"   # binaries
-BUILDDIR=.
-#-----------------------------------------------------------------------------
+
+# environment variables for the experiment and the target system
+# --------------------------------------------------------------
 EOF
 
+# environment variables for the experiment and the target system
 
+    i=1
+    while [ $i -le ${no_of_free_variables} ]
+    do
+	echo "export ${free_variable[$i]}=\"${free_variable_value[$i]}\"" >> $output_script
+	i=$((i+1));
+    done
+
+    if [[ "x$use_load_profile" != "x" ]]
+    then
+	profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
+	cat >> $output_script << EOF
+# load profile
+# ------------
+if [[ -a  $profile_filename ]]
+then
+	$use_load_profile
+fi
+EOF
+    fi
+
+    case "$use_target" in
+      fh2*)
 if [[ "x$use_load_profile" != "x" ]]; then
   if [[ "x$use_load_modules" != "x" ]]; then
     profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
 cat >> $output_script << EOF
 #=============================================================================
-# load profile
-if [ -a  $profile_filename ] ; then
-$use_load_profile
-#=============================================================================
-#=============================================================================
 # load modules
-module purge
-module load "\$loadmodule"
+loadmodule="$use_load_modules"
+. /opt/lmod/lmod/init/ksh
+module load \$loadmodule
 module list
 #=============================================================================
-fi
 EOF
 fi
 fi
+;;
+ *)
+;;
+esac
 
-cat >> $output_script << EOF
-nproma=$use_nproma
+
+    cat >> $output_script << EOF
+
+#=============================================================================
+
+# directories with absolute paths
+# -------------------------------
+thisdir=\$(pwd)
+basedir=\${thisdir%/*}
+export basedir
+icon_data_rootFolder="${icon_data_rootFolder}"
+
+# how to start the icon model
+# ---------------------------
+export START="$start"
+export MODEL="\${basedir}/bin/icon"
+
+# how to submit the next job
+# --------------------------
+submit="$use_submit"
+job_name="$job_name"
+
+# cdo for post-processing
+# -----------------------
 cdo="${cdo}"
 cdo_diff="${cdo} ${cdo_diff}"
-icon_data_rootFolder="${icon_data_rootFolder}"
-icon_data_poolFolder="${icon_data_poolFolder}"
-icon_data_buildbotFolder="${icon_data_rootFolder}/buildbot_data"
-icon_data_buildbotFolder_aes="${icon_data_rootFolder}/buildbot_data/aes"
-icon_data_buildbotFolder_oes="${icon_data_rootFolder}/buildbot_data/oes"
-EOF
 
-#for i in {1..$no_of_free_variables}
-i=1;while [ $i -le ${no_of_free_variables} ]
-do
-  echo "export ${free_variable[$i]}=\"${free_variable_value[$i]}\"" >> $output_script
-  i=$((i+1));
-done
+# constants for time calculations
+# -------------------------------
+second=1                                 # [s] 1 second
+minute=60                                # [s] 1 minute
+hour=3600                                # [s] 1 hour
+day=86400                                # [s] 1 day
+month=2592000                            # [s] 30 days
+year360=31104000                         # [s] 360 days
+year=31556900                            # [s] 1 earth year
+
+# define script functions used in the experiment run script
+# ---------------------------------------------------------
+. ./add_run_routines
+
+#=============================================================================
+
+EOF
 
 }
 
 #=============================================================================
 set_run_target_bullx_cpu()
 {
-  # mistral.dkrz.de  
-  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
+    # mistral.dkrz.de
+    icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
 
-  set_default use_nproma 16
-  set_default use_nodes 1
-  set_default use_account_no "$(id -gn)"
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    use_account_no="mh0156"
-  fi
-  # use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
-  use_OMP_SCHEDULE="dynamic,1"
-  use_omp_stacksize=200M
+    set_default use_nproma 16
+    set_default use_nodes 1
+    set_default use_account_no "$(id -gn)"
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	use_account_no="mh0156"
+    fi
+    #   use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
+    use_OMP_SCHEDULE="dynamic,1"
+    use_omp_stacksize=200M
 
-  # set to 1 to use smt feature
-  smt_adjust=2
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 6 / '"$smt_adjust"'))"'
-      set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '$smt_adjust' / OMP_NUM_THREADS))"'
+    # set to 1 to use smt feature
+    smt_adjust=2
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / 6 / '"$smt_adjust"'))"'
+	    set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '$smt_adjust' / OMP_NUM_THREADS))"'
+	else
+	    set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
+	fi
     else
-      set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
+	# on mistral, srun is still needed for running processes at
+	# full frequency
+	start="srun --cpu-freq=HighM1 -n 1"
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
+	    #      set_default use_mpi_procs_pernode 1
+	    start+=" --cpus-per-task=\$(($smt_adjust * OMP_NUM_THREADS))"
+	else
+	    is_serial_run="yes"
+	fi
     fi
-  else
-    # on mistral, srun is still needed for running processes at
-    # full frequency
-    start="srun --cpu-freq=HighM1 -n 1"
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
-      #      set_default use_mpi_procs_pernode 1
-      start+=" --cpus-per-task=\$(($smt_adjust * OMP_NUM_THREADS))"
+
+    [[ "x$use_queue" != 'x' ]] && queue=$use_queue
+
+    use_mpi_startrun="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((${smt_adjust} * OMP_NUM_THREADS)) --propagate=STACK,CORE"
+    # TODO: disabled because other core files are generated
+    # case $use_flags_group in
+    #   debug)
+    #     use_mpi_startrun="${use_mpi_startrun},CORE"
+    #     ;;
+    # esac
+
+    case _$use_compiler in
+	"_intel" )
+            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+            add_free_var KMP_LIBRARY "turnaround"
+            add_free_var KMP_KMP_SETTINGS "1"
+            add_free_var OMP_WAIT_POLICY "active"
+	    ;;
+    esac
+    case $use_mpi_root in
+	*bullxmpi*)
+	    # this does currently not work on mistral but is most probably needed
+	    # for other SLURM installations
+	    #use_mpi_startrun+=" --mpi=openmpi"
+	    add_free_var OMPI_MCA_pml cm
+	    add_free_var OMPI_MCA_mtl mxm
+	    add_free_var OMPI_MCA_coll '^ghc'
+	    add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+	    ;;
+	*openmpi*)
+	    add_free_var OMPI_MCA_pml cm
+	    add_free_var OMPI_MCA_mtl mxm
+	    add_free_var OMPI_MCA_coll ^fca
+	    add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+	    add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
+	    add_free_var HCOLL_ML_DISABLE_BARRIER 1
+	    add_free_var HCOLL_ML_DISABLE_IBARRIER 1
+	    add_free_var HCOLL_ML_DISABLE_BCAST 1
+	    add_free_var HCOLL_ENABLE_MCAST_ALL 1
+	    add_free_var HCOLL_ENABLE_MCAST 1
+	    add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
+	    add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallw 1
+	    add_free_var MXM_HANDLE_ERRORS bt
+	    add_free_var UCX_HANDLE_ERRORS bt
+	    ;;
+	*intel*mpi*)
+	    add_free_var I_MPI_FABRICS shm:dapl
+	    add_free_var I_MPI_DAPL_UD enable
+	    add_free_var I_MPI_DAPL_UD_PROVIDER ofa-v2-mlx5_0-1u
+	    add_free_var DAPL_UCM_REP_TIME 8000
+	    add_free_var DAPL_UCM_RTU_TIME 4000
+	    add_free_var DAPL_UCM_CQ_SIZE 1000
+	    add_free_var DAPL_UCM_QP_SIZE 1000
+	    add_free_var DAPL_UCM_RETRY 10
+	    add_free_var DAPL_ACK_RETRY 10
+	    add_free_var DAPL_ACK_TIMER 20
+	    add_free_var DAPL_UCM_TX_BURST 100
+	    add_free_var DAPL_WR_MAX 500
+	    ;;
+    esac
+
+    add_free_var MALLOC_TRIM_THRESHOLD_ -1
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	queue=${queue:="compute2,compute"}
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_ntasks_per_node=""
     else
-      is_serial_run="yes"
+	queue=${queue:="compute2,compute"}
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
     fi
-  fi
 
   [[ "x$use_queue" != 'x' ]] && queue=$use_queue
 
@@ -221,7 +356,7 @@ set_run_target_bullx_cpu()
       add_free_var HCOLL_MAIN_IB 'mlx5_0:1'
       add_free_var HCOLL_ML_DISABLE_BARRIER 1
       add_free_var HCOLL_ML_DISABLE_IBARRIER 1
-      add_free_var HCOLL_ML_DISABLE_BCAST 1
+      add_free_var HCOLL_ML_DISABLE_BCAST 0
       add_free_var HCOLL_ENABLE_MCAST_ALL 1
       add_free_var HCOLL_ENABLE_MCAST 1
       add_free_var OMPI_MCA_coll_sync_barrier_after_alltoallv 1
@@ -245,38 +380,30 @@ set_run_target_bullx_cpu()
       ;;
   esac
 
-  add_free_var MALLOC_TRIM_THRESHOLD_ -1
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="compute2,compute"}
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="compute2,compute"}
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-  fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
 
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
+    # ------------------------------------
+    s_cpu_time="00:30:00"
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time=$use_cpu_time
+    fi
+    # ------------------------------------
 
-  # ------------------------------------
-  s_cpu_time="00:30:00"
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time=$use_cpu_time
-  fi
-  # ------------------------------------
+    cat >> $output_script << EOF
+#=============================================================================
 
-  cat >> $output_script << EOF
-# =====================================
-# mistral batch job parameters
-#-----------------------------------------------------------------------------
+# mistral cpu batch job parameters
+# --------------------------------
 #SBATCH --account=$use_account_no
-$(if [[ "x$BB_SYSTEM" != 'x' ]]; then
+$(if [[ "x$BB_SYSTEM" != 'x' ]]
+ then
   printf '#SBATCH --qos=buildbot
 ';fi)
 #SBATCH --job-name=$job_name
@@ -291,7 +418,8 @@ $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --exclusive
 #SBATCH --time=$s_cpu_time
-$(if [[ "$use_mpi_root" == *intel*mpi* ]]; then
+$(if [[ "$use_mpi_root" == *intel*mpi* ]]
+ then
   printf '#========================================
 # the following line is only needed for srun to work with Intel MPI
 # but should be commented when using BullX MPI
@@ -299,12 +427,12 @@ export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 #========================================' ; fi)
 EOF
 
-# for the rest use the SLURM_JOB_NUM_NODES by default 
-use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
+    # for the rest use the SLURM_JOB_NUM_NODES by default
+    use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
 
-  # create header
-  start_header
-  cat >>$output_script <<EOF
+    start_header
+
+    cat >> $output_script <<EOF
 ulimit -s 2097152
 ulimit -c 0
 $(case $use_flags_group in
@@ -312,83 +440,81 @@ $(case $use_flags_group in
       printf 'ulimit -c unlimited'
       ;;
   esac)
-# this can not be done in use_mpi_startrun since it depends on the
-# environment at time of script execution
-#case " \$loadmodule " in
-#  *\ mxm\ *)
-#    START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
-#    ;;
-#esac
 EOF
 }
 
 #=============================================================================
 set_run_target_bullx_gpu()
 {
+    # mistral.dkrz.de
+    icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
 
-  # mistral.dkrz.de  with GPU
-  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
+    set_default use_nproma 16
+    set_default use_nodes 1
+    set_default use_account_no "$(id -gn)"
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	use_account_no="mh0156"
+    fi
+    use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
+    use_OMP_SCHEDULE="dynamic,1"
+    use_omp_stacksize=200M
 
-  set_default use_nproma 16
-  set_default use_nodes 1
-  set_default use_account_no "$(id -gn)"
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    use_account_no="mh0156"
-  fi
-  use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
-  use_OMP_SCHEDULE="dynamic,1"
-  use_omp_stacksize=200M
+    # set to 1 to use smt feature
+    smt_adjust=2
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
+    else
+	# on mistral, srun is still needed for running processes at
+	# full frequency
+	start="srun --cpu-freq=HighM1 -n 1"
+	is_serial_run="yes"
+    fi
 
-  # set to 1 to use smt feature
-  smt_adjust=2
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs_pernode '"\$((\${SLURM_JOB_CPUS_PER_NODE%%\(*} / '"$smt_adjust"'))"'
-  else
-    # on mistral, srun is still needed for running processes at
-    # full frequency
-    start="srun --cpu-freq=HighM1 -n 1"
-    is_serial_run="yes"
-  fi
+    [[ "x$use_queue" != 'x' ]] && queue=$use_queue
 
-  [[ "x$use_queue" != 'x' ]] && queue=$use_queue
+    use_mpi_startrun="srun --cpu-freq=HighM1"
 
-  use_mpi_startrun="srun --cpu-freq=HighM1"
+    add_free_var MALLOC_TRIM_THRESHOLD_ -1
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	queue=${queue:="gpu"}
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_ntasks_per_node=""
+    else
+	queue=${queue:="gpu"}
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+    fi
 
-  add_free_var MALLOC_TRIM_THRESHOLD_ -1
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    queue=${queue:="gpu"}
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_ntasks_per_node=""
- else
-    queue=${queue:="gpu"}
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-  fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
 
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
+    # ------------------------------------
+    s_cpu_time="00:30:00"
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time=$use_cpu_time
+    fi
+    # ------------------------------------
 
-  # ------------------------------------
-  s_cpu_time="00:30:00"
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time=$use_cpu_time
-  fi
-  # ------------------------------------
+    cat >> $output_script << EOF
+#=============================================================================
 
-  cat >> $output_script << EOF
-# =====================================
-# mistral batch job parameters
-#-----------------------------------------------------------------------------
+# mistral gpu batch job parameters
+# --------------------------------
 #SBATCH --account=$use_account_no
-$(if [[ "x$BB_SYSTEM" != 'x' ]]; then
+$(if [[ "x$BB_SYSTEM" != 'x' ]]
+ then
   printf '#SBATCH --qos=buildbot
 ';fi)
 #SBATCH --job-name=$job_name
@@ -404,7 +530,8 @@ $(if [[ "x$BB_SYSTEM" != 'x' ]]; then
 #SBATCH --exclusive
 #SBATCH --time=$s_cpu_time
 #SBATCH --constraint=k80
-$(if [[ "$use_mpi_root" == *intel*mpi* ]]; then
+$(if [[ "$use_mpi_root" == *intel*mpi* ]]
+ then
   printf '#========================================
 # the following line is only needed for srun to work with Intel MPI
 # but should be commented when using BullX MPI
@@ -412,12 +539,12 @@ export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 #========================================' ; fi)
 EOF
 
-# for the rest use the SLURM_JOB_NUM_NODES by default 
-use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
+    # for the rest use the SLURM_JOB_NUM_NODES by default
+    use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
 
-  # create header
-  start_header
-  cat >>$output_script <<EOF
+    start_header
+
+    cat >>$output_script << EOF
 ulimit -s 2097152
 ulimit -c 0
 $(case $use_flags_group in
@@ -431,25 +558,24 @@ EOF
 #=============================================================================
 set_run_target_mpipc()
 {
+    # *.mpimet.mpg.de with Linux (workstations and breeze)
+    icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
 
-  # *.mpimet.mpg.de with Linux (workstations and breeze)  
-  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
+    set_default use_nproma 64
+    use_nodes=1
 
-  set_default use_nproma 64
-  use_nodes=1
-  
-  if [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs_pernode 2
-  fi
-  if [[ $use_openmp == "yes" ]]; then
-    set_default use_openmp_threads 2
-  else
-    set_default use_openmp_threads 1
-  fi
+    if [[ $use_mpi == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 2
+    fi
+    if [[ $use_openmp == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    else
+	set_default use_openmp_threads 1
+    fi
 
-  # create header
-  start_header
+    start_header
 }
 
 #=============================================================================
@@ -463,99 +589,97 @@ set_run_target_()
 #=============================================================================
 set_run_target_mpimac()
 {
-  # some Macs at MPIM 
-  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
-    
-  set_default use_nproma 48
-  use_nodes=1
-  
-  if [[ "$use_mpi" == "yes" ]]; then
-    set_default use_mpi_procs_pernode 2
-  fi
-  if [[ "$use_openmp" == "yes" ]]; then
-    set_default use_openmp_threads 2
-  else
-    set_default use_openmp_threads 1
-  fi
+    # some Macs at MPIM
+    icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
 
-  # create header
-  start_header
+    set_default use_nproma 48
+    use_nodes=1
+  
+    if [[ "$use_mpi" == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 2
+    fi
+    if [[ "$use_openmp" == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    else
+	set_default use_openmp_threads 1
+    fi
+
+    start_header
 }
 
 #=============================================================================
 set_run_target_docker_cpu()
 {
-  # Docker container
-  set_default use_nproma 16
-  set_default use_nodes 1
-  set_default use_mpi_procs_pernode 1
-  set_default use_openmp_threads 1
-  tasks_per_node=1
-  use_OMP_SCHEDULE="static,12"
-  poolFolder_prefix=/icon-data-pool
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}}
-  # create header
-  start_header
-}
+    # Docker container
+    icon_data_rootFolder=${icon_data_rootFolder:=/icon-data-pool}
 
+    set_default use_nproma 16
+    use_nodes=1
+
+    set_default use_mpi_procs_pernode 1
+    set_default use_openmp_threads 1
+
+    use_OMP_SCHEDULE="static,12"
+
+    start_header
+}
 
 #=============================================================================
 set_run_target_docker_gpu()
 {
-  # Docker container with GPU
-  set_default use_nproma 20480
-  set_default use_nodes 1
-  set_default use_mpi_procs_pernode 1
-  set_default use_openmp_threads 1
-  tasks_per_node=1
-  use_OMP_SCHEDULE="static,12"
-  poolFolder_prefix=/icon-data-pool
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}}
-  # create header
-  start_header
+    # Docker container with GPU
+    icon_data_rootFolder=${icon_data_rootFolder:=/icon-data-pool}
+
+    set_default use_nproma 20480
+    use_nodes=1
+
+    set_default use_mpi_procs_pernode 1
+    set_default use_openmp_threads 1
+
+    use_OMP_SCHEDULE="static,12"
+
+    start_header
 }
 
 #=============================================================================
 set_run_target_oflws()
 {
   # *.dwd.de with Linux (workstations)
-  icon_data_rootFolder=${icon_data_rootFolder:=""}
-  icon_data_poolFolder=${icon_data_poolFolder:=""}
+    icon_data_rootFolder=${icon_data_rootFolder:=""}
     
-  set_default use_nproma 64
+    set_default use_nproma 64
+    use_nodes=1
 
-  if [[ "$use_mpi" == "yes" ]]; then
-    set_default use_mpi_procs_pernode 4
-  fi
-  if [[ "$use_openmp" == "yes" ]]; then
-    set_default use_openmp_threads 2
-  fi
+    if [[ "$use_mpi" == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 4
+    fi
+    if [[ "$use_openmp" == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    fi
 
-  # create header
-  start_header
+    start_header
 }
 
 #=============================================================================
 set_run_target_hpc()
 {
-  # xce.dwd.de
-  icon_data_rootFolder=${icon_data_rootFolder:=""}
-  icon_data_poolFolder=${icon_data_poolFolder:=""}
+    # xce.dwd.de
+    icon_data_rootFolder=${icon_data_rootFolder:=""}
     
-  set_default use_nproma 64
-  set_default use_nodes 1
-  set_default use_mpi_procs_pernode 1
-  set_default use_openmp_threads 1
+    set_default use_nproma 64
+    set_default use_nodes 1
+    set_default use_mpi_procs_pernode 1
+    set_default use_openmp_threads 1
 
-  cdo="/e/uhome/hanlauf/X86_64/bin/cdo"
-  cdo_diff="diff"
+    cdo="/e/uhome/hanlauf/X86_64/bin/cdo"
+    cdo_diff="diff"
 
     
-  cat >> $output_script << EOF
-# ===========================
+    cat >> $output_script << EOF
 #### BATCH_SYSTEM=PBS ####
 #-----------------------------------------------------------------------------
 #PBS -q lang
@@ -567,115 +691,23 @@ set_run_target_hpc()
 #-----------------------------------------------------------------------------
 # for PBS change to directory where job was submitted
 # (without this job is started in HOME)
-if [[ -n \${PBS_O_WORKDIR} ]] ; then
+if [[ -n \${PBS_O_WORKDIR} ]]
+ then
   cd \${PBS_O_WORKDIR}
 fi
 export F_PROGINF=DETAIL
 #-----------------------------------------------------------------------------
 EOF
   
-  # create header
-  start_header
-
+    start_header
 }
 
 #=============================================================================
-set_run_target_daint_cpu()
-{
-  # daint.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
-
-  set_default use_nproma 16
-  set_default use_nodes 1
-  # use_OMP_SCHEDULE="static,1"
-  use_OMP_SCHEDULE="static,12"
-
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 4
-      set_default use_openmp_threads 6
-    else
-      set_default use_mpi_procs_pernode 12
-    fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 12
-      set_default use_mpi_procs_pernode 1
-     else
-       is_serial_run="yes"
-   fi
-  fi
-
-  case _$use_compiler in
-    "_intel" )
-        use_mpi_startrun="$use_mpi_startrun --verbose"
-        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-        add_free_var KMP_LIBRARY "turnaround"
-        add_free_var KMP_KMP_SETTINGS "1"
-        add_free_var OMP_WAIT_POLICY "active"
-      ;;
-  esac
-
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_nodes="SBATCH --nodes=1"
-    SBATCH_ntasks_per_node=""
-  else
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_nodes="SBATCH --nodes=${use_nodes}"
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
-  fi
-
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
-  # ------------------------------------
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
-  fi
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 15 minutes on Daint (SLURM delays)
-    s_cpu_time="SBATCH --time=00:15:00"
-  fi
-  # ------------------------------------
-
-  use_nodes=${use_nodes}
-  use_mpi_procs_pernode=${use_mpi_procs_pernode}
-
-  cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
-#SBATCH --constraint=gpu
-#SBATCH --job-name=$job_name
-#SBATCH --output=$output_folder/$job_log_name.o
-#SBATCH --error=$output_folder/$job_log_name.o
-#$SBATCH_nodes
-#$SBATCH_ntasks_per_node
-#$s_cpu_time
-#========================================
-EOF
-  # create header
-  start_header
-
-}
-
-#=============================================================================
-set_run_target_daint_gpu()
+set_run_target_tsa_gpu()
 {
   # daint.cscs.ch with GPU
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+  icon_data_rootFolder=/scratch/dremo/remo_icon_pool
+  icon_data_poolFolder=/scratch/dremo/remo_icon_pool
 
   set_default use_nproma 8000
   set_default use_nodes 1
@@ -736,7 +768,6 @@ set_run_target_daint_gpu()
 # =====================================
 # daint batch job parameters
 #-----------------------------------------------------------------------------
-#SBATCH --constraint=gpu
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
@@ -753,243 +784,440 @@ EOF
 }
 
 #=============================================================================
+set_run_target_daint_cpu()
+{
+    rootFolder_prefix=/users/icontest
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
+
+    set_default use_nproma 16
+    set_default use_nodes 1
+    # use_OMP_SCHEDULE="static,1"
+    use_OMP_SCHEDULE="static,12"
+
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode 4
+	    set_default use_openmp_threads 6
+	else
+	    set_default use_mpi_procs_pernode 12
+	fi
+    else
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 12
+	    set_default use_mpi_procs_pernode 1
+	else
+	    is_serial_run="yes"
+	fi
+    fi
+
+    case _$use_compiler in
+	"_intel" )
+            use_mpi_startrun="$use_mpi_startrun --verbose"
+            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+            add_free_var KMP_LIBRARY "turnaround"
+            add_free_var KMP_KMP_SETTINGS "1"
+            add_free_var OMP_WAIT_POLICY "active"
+	    ;;
+    esac
+
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_nodes="SBATCH --nodes=1"
+	SBATCH_ntasks_per_node=""
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+    fi
+
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
+    # ------------------------------------
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 15 minutes on Daint (SLURM delays)
+	s_cpu_time="SBATCH --time=00:15:00"
+    fi
+    # ------------------------------------
+
+    use_nodes=${use_nodes}
+    use_mpi_procs_pernode=${use_mpi_procs_pernode}
+
+    cat >> $output_script << EOF
+#=============================================================================
+
+# daint cpu batch job parameters
+# ------------------------------
+#SBATCH --constraint=gpu
+#SBATCH --job-name=$job_name
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#$SBATCH_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+EOF
+
+  start_header
+}
+
+#=============================================================================
+#=============================================================================
+set_run_target_daint_gpu()
+{
+    rootFolder_prefix=/users/icontest
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
+
+    set_default use_nproma 8000
+    set_default use_nodes 1
+    set_default use_prefetch_procs 0
+    use_OMP_SCHEDULE="static,1"
+
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	    set_default use_openmp_threads 1
+	else
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	fi
+    else
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 1
+	    set_default use_mpi_procs_pernode $((1+use_prefetch_procs))
+	else
+	    is_serial_run="yes"
+	fi
+    fi
+
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_nodes="SBATCH --nodes=1"
+	SBATCH_ntasks_per_node=""
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_nodes="SBATCH --nodes=$use_nodes"
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+    fi
+
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
+
+    # ------------------------------------
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 45 minutes
+	s_cpu_time="SBATCH --time=00:45:00"
+    fi
+
+    # ------------------------------------
+
+    use_nodes=${use_nodes}
+    use_mpi_procs_pernode=${use_mpi_procs_pernode}
+
+    cat >> $output_script << EOF
+#=============================================================================
+
+# daint gpu batch job parameters
+# ------------------------------
+#SBATCH --constraint=gpu
+#SBATCH --job-name=$job_name
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#$SBATCH_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+EOF
+
+    start_header
+    cat >>$output_script <<EOF
+export CRAY_CUDA_MPS=1
+EOF
+}
+
+#=============================================================================
 set_run_target_dom_gpu()
 {
-  # dom.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+    rootFolder_prefix=/users/icontest
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-  set_default use_nproma 256
-  set_default use_nodes 1
-  use_OMP_SCHEDULE="static,1"
+    set_default use_nproma 256
+    set_default use_nodes 1
+    use_OMP_SCHEDULE="static,1"
 
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 1
-      set_default use_openmp_threads 1
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode 1
+	    set_default use_openmp_threads 1
+	else
+	    set_default use_mpi_procs_pernode 1
+	fi
     else
-      set_default use_mpi_procs_pernode 1
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 1
+	    set_default use_mpi_procs_pernode 1
+	else
+	    is_serial_run="yes"
+	fi
     fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 1
-      set_default use_mpi_procs_pernode 1
-     else
-       is_serial_run="yes"
-   fi
-  fi
 
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_ntasks_per_node=""
-  else
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
-  fi
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_ntasks_per_node=""
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
+    fi
 
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
 
-  # ------------------------------------
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
-  fi
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 45 minutes
-    s_cpu_time="SBATCH --time=00:45:00"
-  fi
+    # ------------------------------------
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 45 minutes
+	s_cpu_time="SBATCH --time=00:45:00"
+    fi
 
-  # ------------------------------------
+    # ------------------------------------
 
-  cat >> $output_script << EOF
-# =====================================
-# dom batch job parameters
-#-----------------------------------------------------------------------------
+    cat >> $output_script << EOF
+#=============================================================================
+
+# dom gpu batch job parameters
+# ----------------------------
 #SBATCH --job-name=$job_name
 #SBATCH --output=$job_log_name.o
 #SBATCH --error=$job_log_name.o
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
-  # create header
-  start_header
+
+    start_header
 }
 
 #=============================================================================
 set_run_target_tave_knl()
 {
-  # tyve.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+    rootFolder_prefix=/users/icontest
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-  set_default use_nproma 16
-  set_default use_nodes 1
-  use_OMP_SCHEDULE="static,2"
+    set_default use_nproma 16
+    set_default use_nodes 1
+    use_OMP_SCHEDULE="static,2"
 
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 60
-      set_default use_openmp_threads 2
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode 60
+	    set_default use_openmp_threads 2
+	else
+	    set_default use_mpi_procs_pernode 60
+	fi
     else
-      set_default use_mpi_procs_pernode 60
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 60
+	    set_default use_mpi_procs_pernode 1
+	else
+	    is_serial_run="yes"
+	fi
     fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 60
-      set_default use_mpi_procs_pernode 1
-     else
-       is_serial_run="yes"
-   fi
-  fi
 
-  case _$use_compiler in
-    "_intel" )
-        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-        add_free_var KMP_LIBRARY "turnaround"
-        add_free_var KMP_KMP_SETTINGS "1"
-        add_free_var OMP_WAIT_POLICY "active"
-      ;;
-  esac
+    case _$use_compiler in
+	"_intel" )
+            use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+            add_free_var KMP_LIBRARY "turnaround"
+            add_free_var KMP_KMP_SETTINGS "1"
+            add_free_var OMP_WAIT_POLICY "active"
+	    ;;
+    esac
 
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_ntasks_per_node=""
-  else
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=32"
-  fi
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_ntasks_per_node=""
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=32"
+    fi
 
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
-  # ------------------------------------
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
-  fi
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 45 minutes
-    s_cpu_time="SBATCH --time=00:45:00"
-  fi
-  # ------------------------------------
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
+    # ------------------------------------
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 45 minutes
+	s_cpu_time="SBATCH --time=00:45:00"
+    fi
+    # ------------------------------------
 
-  use_nodes=${use_nodes}
-  use_mpi_procs_pernode=${use_mpi_procs_pernode}
+    use_nodes=${use_nodes}
+    use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
-  cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
+    cat >> $output_script << EOF
+#=============================================================================
+# tave batch job parameters
+#--------------------------
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
-  # create header
-  start_header
-
+    start_header
 }
 
 #=============================================================================
 set_run_target_kesch_cpu()
 {
-  # kesch.cscs.ch
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+    rootFolder_prefix=/users/icontest
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-  set_default use_nproma 16
-  set_default use_nodes 1
-  # use_OMP_SCHEDULE="static,1"
-  use_OMP_SCHEDULE="static,12"
+    set_default use_nproma 16
+    set_default use_nodes 1
+    # use_OMP_SCHEDULE="static,1"
+    use_OMP_SCHEDULE="static,12"
 
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 2
-      set_default use_openmp_threads 6
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode 2
+	    set_default use_openmp_threads 6
+	else
+	    set_default use_mpi_procs_pernode 24
+	fi
     else
-      set_default use_mpi_procs_pernode 24
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 24
+	    set_default use_mpi_procs_pernode 1
+	else
+	    is_serial_run="yes"
+	fi
     fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 24
-      set_default use_mpi_procs_pernode 1
-     else
-       is_serial_run="yes"
-   fi
-  fi
 
-  case _$use_compiler in
-    "_intel" )
-        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-        add_free_var KMP_LIBRARY "turnaround"
-        add_free_var KMP_KMP_SETTINGS "1"
-        add_free_var OMP_WAIT_POLICY "active"
-      ;;
-  esac
+    case _$use_compiler in
+	"_intel" )
+            use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+            add_free_var KMP_LIBRARY "turnaround"
+            add_free_var KMP_KMP_SETTINGS "1"
+            add_free_var OMP_WAIT_POLICY "active"
+	    ;;
+    esac
 
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_nodes="SBATCH --nodes=1"
-    SBATCH_ntasks_per_node=""
-    SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
-  else
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_nodes="SBATCH --nodes=${use_nodes}"
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
-    SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
-  fi
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_nodes="SBATCH --nodes=1"
+	SBATCH_ntasks_per_node=""
+	SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=${tasks_per_node}"
+	SBATCH_cpus_per_task="SBATCH --cpus-per-task=1"
+    fi
 
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
-  # ------------------------------------
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
-  fi
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 45 minutes
-    s_cpu_time="SBATCH --time=00:45:00"
-  fi
-  # ------------------------------------
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
+    # ------------------------------------
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 45 minutes
+	s_cpu_time="SBATCH --time=00:45:00"
+    fi
+    # ------------------------------------
 
-  use_nodes=${use_nodes}
-  use_mpi_procs_pernode=${use_mpi_procs_pernode}
+    use_nodes=${use_nodes}
+    use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
-  cat >> $output_script << EOF
-# =====================================
-# kesch batch job parameters
-#-----------------------------------------------------------------------------
+    cat >> $output_script << EOF
+#=============================================================================
+
+# kesch cpu batch job parameters
+# ------------------------------
 #SBATCH --partition=debug
 #SBATCH --job-name=$job_name
 #SBATCH --output=$output_folder/$job_log_name.o
@@ -999,91 +1227,91 @@ set_run_target_kesch_cpu()
 #$SBATCH_ntasks_per_node
 #$SBATCH_cpus_per_task
 #$s_cpu_time
-#========================================
 EOF
-  # create header
-  start_header
 
+    start_header
 }
 
 #=============================================================================
 set_run_target_kesch_gpu()
 {
+    rootFolder_prefix=/users/icontest
+    icon_data_rootFolder=${icon_data_rootFolder:=${rootFolder_prefix}/pool/data/ICON}
 
-  # kesch.cscs.ch with GPU
-  typeset poolFolder_prefix=/users/icontest
-  icon_data_rootFolder=${icon_data_rootFolder:=${poolFolder_prefix}/pool/data/ICON}
-  icon_data_poolFolder=${icon_data_poolFolder:=${poolFolder_prefix}/pool/data/ICON}
+    set_default use_nproma 256
+    set_default use_nodes 1
+    use_OMP_SCHEDULE="static,1"
 
-  set_default use_nproma 256
-  set_default use_nodes 1
-  use_OMP_SCHEDULE="static,1"
-
-  is_serial_run="no"
-  if [[ $use_mpi == "yes" ]]; then
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 1
-      set_default use_openmp_threads 1
+    is_serial_run="no"
+    if [[ $use_mpi == "yes" ]]
+    then
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_mpi_procs_pernode 1
+	    set_default use_openmp_threads 1
+	else
+	    set_default use_mpi_procs_pernode 1
+	fi
     else
-      set_default use_mpi_procs_pernode 1
+	if [[ $use_openmp == "yes" ]]
+	then
+	    set_default use_openmp_threads 1
+	    set_default use_mpi_procs_pernode 1
+	else
+	    is_serial_run="yes"
+	fi
     fi
-  else
-    if [[ $use_openmp == "yes" ]]; then
-      set_default use_openmp_threads 1
-      set_default use_mpi_procs_pernode 1
-     else
-       is_serial_run="yes"
-   fi
-  fi
 
-  case _$use_compiler in
-    "_intel" )
-        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
-        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
-        add_free_var KMP_LIBRARY "turnaround"
-        add_free_var KMP_KMP_SETTINGS "1"
-        add_free_var OMP_WAIT_POLICY "active"
-      ;;
-  esac
+    case _$use_compiler in
+	"_intel" )
+            use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+            add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+            add_free_var KMP_LIBRARY "turnaround"
+            add_free_var KMP_KMP_SETTINGS "1"
+            add_free_var OMP_WAIT_POLICY "active"
+	    ;;
+    esac
 
-  if [[ "$is_serial_run" == "yes"  ]] ; then
-    use_nodes=1
-    tasks_per_node=1
-    SBATCH_nodes="SBATCH --nodes=1"
-    SBATCH_ntasks_per_node=""
-  else
-    job_type=parallel
-    tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_nodes="SBATCH --nodes=${use_nodes}"
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
-  fi
+    if [[ "$is_serial_run" == "yes"  ]]
+    then
+	use_nodes=1
+	tasks_per_node=1
+	SBATCH_nodes="SBATCH --nodes=1"
+	SBATCH_ntasks_per_node=""
+    else
+	job_type=parallel
+	tasks_per_node=$use_mpi_procs_pernode
+	SBATCH_nodes="SBATCH --nodes=${use_nodes}"
+	SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
+    fi
 
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this buildbot, do not use job id
-    job_log_name="LOG.$job_name"
-  else
-    job_log_name="LOG.$job_name.%j"
-  fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this buildbot, do not use job id
+	job_log_name="LOG.$job_name"
+    else
+	job_log_name="LOG.$job_name.%j"
+    fi
 
-  # ------------------------------------
-  s_cpu_time=""
-  if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
-  fi
-  if [[ "x$BB_SYSTEM" != "x" ]]; then
-    # this is buldbot, do not run more than 45 minutes
-    s_cpu_time="SBATCH --time=00:45:00"
-  fi
+    s_cpu_time=""
+    if [[ "x$use_cpu_time" != "x" ]]
+    then
+	s_cpu_time="SBATCH --time=$use_cpu_time"
+    fi
+    if [[ "x$BB_SYSTEM" != "x" ]]
+    then
+	# this is buldbot, do not run more than 45 minutes
+	s_cpu_time="SBATCH --time=00:45:00"
+    fi
 
-  use_nodes=${use_nodes}
-  use_mpi_procs_pernode=${use_mpi_procs_pernode}
+    use_nodes=${use_nodes}
+    use_mpi_procs_pernode=${use_mpi_procs_pernode}
 
-  # ------------------------------------
+    cat >> $output_script << EOF
+#=============================================================================
 
-  cat >> $output_script << EOF
-# =====================================
-# daint batch job parameters
-#-----------------------------------------------------------------------------
+# kesch gpu batch job parameters
+# ------------------------------
 #SBATCH --gres=gpu:1
 #SBATCH --partition=debug
 #SBATCH --job-name=$job_name
@@ -1093,39 +1321,41 @@ set_run_target_kesch_gpu()
 #$SBATCH_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
-  # create header
-  start_header
+
+    start_header
 }
 
 #=============================================================================
 set_run_target_pacluster()
 {  
-  set_default use_nproma 32
-  set_default use_nodes 1
-  set_default use_cpu_time 04:00:00
+    set_default use_nproma 32
+    set_default use_nodes 1
+    set_default use_cpu_time 04:00:00
    
-  if [[ $use_openmp == "yes" ]]; then
-    use_mpi="no"
-    set_default use_openmp_threads 24
-    queue=""
-    resources=""
-  elif [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs_pernode 12
-    if [[ "$use_mpi_procs_pernode" == "1" ]] ; then
-      queue=""
-      resources=""
+    if [[ $use_openmp == "yes" ]]
+    then
+	use_mpi="no"
+	set_default use_openmp_threads 24
+	queue=""
+	resources=""
+    elif [[ $use_mpi == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 12
+	if [[ "$use_mpi_procs_pernode" == "1" ]]
+	then
+	    queue=""
+	    resources=""
+	else
+	    queue=""
+	    resources=""
+	fi
     else
-      queue=""
-      resources=""
+	queue="-q s8"
+	resources=""
     fi
-  else
-    queue="-q s8"
-    resources=""      
-  fi
 
-  cat >> $output_script << EOF
+    cat >> $output_script << EOF
 #############################################################################
 # DLR Linux Cluster batch job parameters
 # EMBEDDED FLAGS FOR PBS Pro
@@ -1150,92 +1380,97 @@ set_run_target_pacluster()
 #-----------------------------------------------------------------------------
 # for PBS change to directory where job was submitted
 # (without this job is started in HOME)
-if [[ -n \${PBS_O_WORKDIR} ]] ; then
+if [[ -n \${PBS_O_WORKDIR} ]]
+ then
   cd \${PBS_O_WORKDIR}
 fi
 #-----------------------------------------------------------------------------
 EOF
 
-  # create header
-  start_header
+    start_header
 }
 
 #=============================================================================
 set_run_target_default()
 {
-
-  set_default use_nproma 8
-  set_default use_nodes 1
-  set_default use_mpi_procs_pernode 2
+    set_default use_nproma 8
+    set_default use_nodes 1
+    set_default use_mpi_procs_pernode 2
   
-  if [[ $use_openmp == "yes" ]]; then
-    set_default use_openmp_threads 2
-  fi
+    if [[ $use_openmp == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    fi
 
-  # create header
-  start_header
+    start_header
 }
+
 #=============================================================================
 set_run_target_fh2()
 {
+    icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/pool/data/ICON}
 
-  icon_data_rootFolder=${icon_data_rootFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
-  icon_data_poolFolder=${icon_data_poolFolder:=/pfs/work6/workspace/scratch/ln1297-boundary_mistral-0/}
-
-  set_default use_nproma 8
-  use_nodes=1
+    set_default use_nproma 8
+    use_nodes=1
   
-  if [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs_pernode 2
-  fi
-  if [[ $use_openmp == "yes" ]]; then
-    set_default use_openmp_threads 2
-  else
-    set_default use_openmp_threads 1
-fi
-output_script_name=$(basename "$output_script")
-#| sed -r "s/(.+)\/.+/\1/"
-stripped_output="LOG.$output_script_name.err"
-cat >> $output_script << EOF
-#MSUB -e $stripped_output 
-#MSUB -l walltime=00:00:05:00
-#MSUB -l nodes=4:ppn=20
+    if [[ $use_mpi == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 2
+    fi
+    if [[ $use_openmp == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    else
+	set_default use_openmp_threads 1
+    fi
+    output_script_name=$(basename "$output_script")
+    #| sed -r "s/(.+)\/.+/\1/"
+    stripped_output="LOG.$output_script_name.err"
+    cat >> $output_script << EOF
+
+#SBATCH --nodes=4
+#SBATCH --time=1:00:00
+#SBATCH --ntasks-per-node=20
+#SBATCH --partition=develop
+
 EOF
 
-  start_header
-
-
+    start_header
 }
-
 
 #=============================================================================
 create_target_header()
 {
-  exit_status=0 # exit status of database, 0=ok, 1=target not known
+    cdo="cdo"
+    cdo_diff="diffn"
+    use_OMP_SCHEDULE="static"
 
-  cdo="cdo"
-  cdo_diff="diffn"
-  use_OMP_SCHEDULE="static"
+    if [[ "$use_mpi" == "no" ]]
+    then
+	use_nodes=1
+	use_mpi_procs_pernode=1
+    fi
 
-  if [[ "$use_mpi" == "no" ]]; then
-    use_nodes=1
-    use_mpi_procs_pernode=1
-  fi
+    if [[ "$use_openmp" == "no" ]]
+    then
+	use_openmp_threads=1
+    fi
 
-  if [[ "$use_openmp" == "no" ]]; then
-    use_openmp_threads=1
-  fi
+    use_prefetch_procs=0
+    case $job_name in
+        *mch_ch_lowres*)
+            use_prefetch_procs=1
+            ;;
+    esac
 
-# set default values
-  set_default use_shell "/bin/ksh"
-  set_default use_memory_model "default"
+    # set more default values
+    set_default use_shell "/bin/ksh"
+    set_default use_memory_model "default"
+    set_default use_omp_stacksize 32M
       
-cat > $output_script << EOF
-#!$use_shell
-#=============================================================================
+    cat > $output_script << EOF
+#! $use_shell
 EOF
-
-  set_run_target_${use_target}
-
+    set_run_target_${use_target}
 }
 

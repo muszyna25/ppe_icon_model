@@ -174,6 +174,16 @@ MODULE mo_nwp_phy_types
       &  hmo3(:,:),            & !! height of O3 maximum (Pa)
       &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
       &  tsfctrad(:,:),        & !! surface temperature at trad [K]
+
+      &  lwflx_up(:,:,:),      & !! longwave  3D upward   flux            [W/m2]
+      &  lwflx_dn(:,:,:),      & !! longwave  3D downward flux            [W/m2]
+      &  swflx_up(:,:,:),      & !! shortwave 3D upward   flux            [W/m2]
+      &  swflx_dn(:,:,:),      & !! shortwave 3D downward flux            [W/m2]
+      &  lwflx_up_clr(:,:,:),  & !! longwave  3D upward   flux clear-sky  [W/m2]
+      &  lwflx_dn_clr(:,:,:),  & !! longwave  3D downward flux clear-sky  [W/m2]
+      &  swflx_up_clr(:,:,:),  & !! shortwave 3D upward   flux clear-sky  [W/m2]
+      &  swflx_dn_clr(:,:,:),  & !! shortwave 3D downward flux clear-sky  [W/m2]
+
       &  lwflxall(:,:,:),      & !! longwave net flux           [W/m2]
       &  lwflxsfc(:,:),        & !! longwave net flux at surface [W/m2]
       &  lwflx_up_sfc(:,:),    & !! longwave upward flux at surface [W/m2]
@@ -196,6 +206,7 @@ MODULE mo_nwp_phy_types
       &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
       &  swflxsfc_t(:,:,:),    & !! tile-based shortwave net flux at surface [W/m2]
       &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
+      &  lwflxtoa(:,:),        & !! thermal net flux at toa [W/m2]
       &  lwflxsfc_a(:,:),      & !! Surface net thermal radiation [W/m2], accumulated or mean since model start
       &  swflxsfc_a(:,:),      & !! Surface net solar radiation [W/m2], accumulated or mean since model start
       &  lwflxclrsfc_a(:,:),   & !! Clear-sky surface net thermal radiation [W/m2], accumulated or mean since model start
@@ -303,6 +314,8 @@ MODULE mo_nwp_phy_types
       t_2m_land(:,:)  ,    & !! temperature in 2m (land tiles only)           (  K  )
       tmax_2m(:,:)    ,    & !! maximum temperature in 2m (for specified timerange) ( K )
       tmin_2m(:,:)    ,    & !! minimum temperature in 2m (for specified timerange) ( K )
+      t_tilemax_inst_2m(:,:), & !! instantaneous 2m temperature; maximum over tiles (  K  )
+      t_tilemin_inst_2m(:,:), & !! instantaneous 2m temperature; minimum over tiles (  K  )
       qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
       td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )
       rh_2m (:,:)     ,    & !! relative humidity in 2m                       (  %  )
@@ -338,7 +351,13 @@ MODULE mo_nwp_phy_types
                              !! a means average values if lflux_avg=.TRUE.
                              !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
       qcfl_s(:,:)      ,   & !! cloud water turbulent deposition flux         (kg/m2/s)
-      qifl_s(:,:)            !! cloud ice turbulent deposition flux           (kg/m2/s)
+      qifl_s(:,:)      ,   & !! cloud ice turbulent deposition flux           (kg/m2/s)
+      reff_qc(:,:,:)   ,   & !! effective radius of cloud water               (m)
+      reff_qi(:,:,:)   ,   & !! effective radius of cloud ice                 (m)
+      reff_qr(:,:,:)   ,   & !! effective radius of cloud rain                (m)
+      reff_qs(:,:,:)   ,   & !! effective radius of cloud snow                (m)
+      reff_qg(:,:,:)   ,   & !! effective radius of cloud graupel             (m)
+      reff_qh(:,:,:)         !! effective radius of cloud hail                (m)
 
     ! need only for EDMF
     REAL(wp), POINTER       &
@@ -404,6 +423,8 @@ MODULE mo_nwp_phy_types
                               !< of the standard atmosphere 800hPa level above ground
       &  k400    (:,:),     & !< level index that corresponds to the height 
                               !< of the standard atmosphere 400hPa level above ground
+      &  k700    (:,:),     & !< level index that corresponds to the height 
+                              !< of the standard atmosphere 700hPa level above ground
       &  ktop_envel(:,:),   & !< level index of upper boundary of SSO envelope layer
       &  iww     (:,:)        !< significant weather
 
@@ -419,12 +440,28 @@ MODULE mo_nwp_phy_types
       & ldshcv    (:,:)       !< shallow convection indicator
 
     !> (Optional:) Additional diagnostic fields:
-    REAL(wp), POINTER ::  &
-      rh(:,:,:),          &   !> relative humidity
-      pv(:,:,:),          &   !> potential vorticity
-      sdi2(:,:),          &   !> supercell detection index (SDI2)
-      lpi(:,:)                !> lightning potential index (LPI)
-
+    REAL(wp), POINTER ::   &
+      rh(:,:,:),           & !> relative humidity
+      pv(:,:,:),           & !> potential vorticity
+      sdi2(:,:),           & !> supercell detection index (SDI2)
+      lpi(:,:),            & !> lightning potential index (LPI)
+      lpi_max(:,:),        & !> lightning potential index, maximum (LPI_MAX)
+      ceiling_height(:,:), & !> ceiling height
+      hbas_sc(:,:),        & !> height of base above MSL from shallow convection parameterization
+      htop_sc(:,:),        & !> height of top  above MSL from shallow convection parameterization
+      twater(:,:),         & !> Total column integrated water
+      q_sedim(:,:,:),      & !> Specific content of precipitation particles
+      tcond_max(:,:),      & !< Total column-integrated condensate
+      tcond10_max(:,:),    & !< Total column-integrated condensate above z(T=-10 degC) 
+      uh_max(:,:),         & !< Updraft helicity
+      vorw_ctmax(:,:),     & !< Maximum rotation amplitude
+      w_ctmax(:,:),        & !< Maximum updraft track
+      dbz3d_lin(:,:,:),    & !< Radar reflectivity 3D in linear units mm^6/m^3
+      dbz_850(:,:),        & !< Radar reflectivity in approx. 850 hPa
+      dbz_cmax(:,:),       & !< Column maximum radar reflectivity
+      dbz_ctmax(:,:),      & !< Column and time maximum radar reflectivity
+      echotop(:,:,:),      & !< Echotop pressure in p
+      echotopinm(:,:,:)      !< Echotop altitude in m MSL
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
     ! grid and latm_above_top = .TRUE.

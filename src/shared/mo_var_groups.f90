@@ -56,7 +56,7 @@ MODULE mo_var_groups
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(61) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(63) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -117,7 +117,9 @@ MODULE mo_var_groups
     &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracers
     &  "ART_DIAGNOSTICS       ",  &  ! ICON-ART fields for diagnostic fields
     &  "ART_ROUTINE_DIAG      ",  &  ! ICON-ART fields for routine diagnostic fields
-    &  "RTTOV                 " /)
+    &  "RTTOV                 ",  &
+    &  "UPATMO_TENDENCIES     ",  &  ! Upper-atmosphere physics tendencies
+    &  "UPATMO_RAD_GASES      " /)   ! Upper-atmosphere radiatively active gases
 
 
   ! ---------------------------------------------------------------

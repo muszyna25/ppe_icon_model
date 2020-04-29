@@ -71,8 +71,7 @@ MODULE mo_name_list_output_init
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   USE mo_math_constants,                    ONLY: rad2deg
   ! config modules
-  USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
-       use_dp_mpi2io, pio_type
+  USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io, pio_type
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
     &                                             ICON_grid_file_uri, number_of_grid_used, iforcing
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
@@ -234,6 +233,10 @@ MODULE mo_name_list_output_init
 
   ! Broadcast root for intercommunicator broadcasts form compute PEs to IO PEs using p_comm_work_2_io
   INTEGER :: bcast_root
+
+  !NEC_RP: implementation for hybrid-MPI
+  INTEGER :: compute_dt
+  PUBLIC  :: compute_dt
 
   !------------------------------------------------------------------------------------------------
   ! dictionaries for variable names:

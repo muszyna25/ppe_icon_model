@@ -245,7 +245,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
                        i_startidx, i_endidx, 2)
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -289,7 +289,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec
 
       ! take care of cells at patch boundaries, then the value of 
       ! ptr_int%rbf_vec_stencil_c might be smaller than rbf_vec_dim_c:
-!CDIR EXPAND=9
+!$NEC unroll(9)
       ptr_int%rbf_vec_stencil_c(jc,jb) = COUNT(ptr_int%rbf_vec_idx_c(1:9,jc,jb) /= 0)
 
     END DO
@@ -356,7 +356,7 @@ INTEGER :: rl_start, rl_end, i_nchdom, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -724,7 +724,7 @@ END SUBROUTINE rbf_c2grad_index
 
     DO l=1, ptr_int%cell_environ%nmbr_nghbr_cells_alloc
       CALL sync_idx(SYNC_C, SYNC_C, ptr_patch, ptr_int%cell_environ%idx(:,:,l),  &
-        &                                      ptr_int%cell_environ%idx(:,:,l) )
+        &                                      ptr_int%cell_environ%blk(:,:,l) )
     END DO
 
 
@@ -939,7 +939,7 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_e,1),UBOUND(ptr_int%rbf_vec
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
                        i_startidx, i_endidx, 2)
-
+!$NEC ivdep
     DO je = i_startidx, i_endidx
 
       ! There is not much work to do because the required stencil points
@@ -1015,7 +1015,7 @@ TYPE(t_patch), INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
-REAL(wp) :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
+REAL(wp) :: cc_e1(3), cc_e2(3), cc_c(nproma,3), cc_aux(3)  ! coordinates of edge midpoints
 
 REAL(wp) :: z_lon, z_lat          ! longitude and latitude
 
@@ -1081,7 +1081,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
 !$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil,      &
 !$OMP             ist,ile1,ibe1,cc_e1,z_lon,z_lat,z_norm,      &
-!$OMP             z_nx1,ile2,ibe2,cc_e2,cc_c,z_nx2,z_nxprod,z_dist,      &
+!$OMP             z_nx1,ile2,ibe2,cc_e2,cc_c,cc_aux,z_nx2,z_nxprod,z_dist, &
 !$OMP             z_nx3,checksum_u,checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_c
 
@@ -1096,6 +1096,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
       DO je2 = 1, je1
 
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
           DO jc = i_startidx, i_endidx
 
             IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) THEN
@@ -1190,13 +1191,12 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
     ! apply Cholesky decomposition to matrix
     !
-!CDIR NOIEXPAND
 #ifdef __SX__
     CALL choldec_v(i_startidx,i_endidx,istencil,rbf_vec_dim_c,z_rbfmat,z_diag)
 #else
     CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
     DO jc = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -1228,6 +1228,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
     !
     DO je2 = 1, rbf_vec_dim_c
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -1241,8 +1242,8 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
           ibe2   = ptr_int%rbf_vec_blk_c(je2,jc,jb)
           !
           cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
-
-          z_dist = arc_length_v(cc_c(jc,:), cc_e2)
+          cc_aux(1:3) = cc_c(jc,1:3)
+          z_dist = arc_length_v(cc_aux, cc_e2)
 
           !
           ! get Cartesian orientation vector
@@ -1433,7 +1434,7 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
 
     DO je = 1, rbf_vec_dim_c
       DO jcc = 1, rbf_c2grad_dim
-!CDIR NODEP
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -1529,7 +1530,7 @@ TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
-REAL(wp) :: cc_e1(3), cc_e2(3), cc_v(nproma,3) ! coordinates of edge midpoints
+REAL(wp) :: cc_e1(3), cc_e2(3), cc_v(nproma,3), cc_aux(3) ! coordinates of edge midpoints
 
 REAL(wp)           :: z_lon, z_lat          ! longitude and latitude
 
@@ -1609,7 +1610,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
 !$OMP DO PRIVATE (jb,jv,i_startidx,i_endidx,je1,je2,istencil,ist,ile1,ibe1, &
 !$OMP             cc_e1,z_lon,z_lat,z_norm,z_nx1,ile2,ibe2,cc_e2,cc_v,      &
-!$OMP             z_nx2,z_nxprod,z_dist,z_nx3,checksum_u,&
+!$OMP             cc_aux,z_nx2,z_nxprod,z_dist,z_nx3,checksum_u,&
 !$OMP checksum_v) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_v
 
@@ -1623,6 +1624,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
       DO je2 = 1, je1
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
           DO jv = i_startidx, i_endidx
 
             IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) THEN
@@ -1729,7 +1731,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 #else
     CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
     DO jv = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
@@ -1763,6 +1765,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
     !
     DO je2 = 1, rbf_vec_dim_v
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
         DO jv = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%verts%decomp_info%owner_mask(jv,jb)) CYCLE
@@ -1777,7 +1780,8 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
           ibe2   = ptr_int%rbf_vec_blk_v(je2,jv,jb)
           !
           cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
-          z_dist = arc_length_v(cc_v(jv,:), cc_e2)
+          cc_aux(1:3) = cc_v(jv,1:3)
+          z_dist = arc_length_v(cc_aux, cc_e2)
           !
           ! get Cartesian orientation vector
           z_nx3(jv,:) = ptr_orient(ile2,ibe2)%x(:)
@@ -1952,7 +1956,7 @@ TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 TYPE(t_int_state), TARGET, INTENT(inout) :: ptr_int
 
-REAL(wp) :: cc_e1(3), cc_e2(3), cc_e(nproma,3) ! coordinates of edge midpoints
+REAL(wp) :: cc_e1(3), cc_e2(3), cc_e(nproma,3), cc_aux(3) ! coordinates of edge midpoints
 
 REAL(wp)           :: z_lon, z_lat          ! longitude and latitude
 REAL(wp)           :: z_nu, z_nv            ! zonal and meridional component
@@ -2037,7 +2041,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
 !$OMP DO PRIVATE (jb,je,i_startidx,i_endidx,je1,je2,istencil,        &
 !$OMP    ist,ile1,ibe1,cc_e1,z_nu,z_nv,z_lon,z_lat,z_norm,z_nx1,     &
-!$OMP    ile2,ibe2,cc_e2,cc_e,z_nx2,z_nxprod,z_dist,&
+!$OMP    ile2,ibe2,cc_e2,cc_e,cc_aux,z_nx2,z_nxprod,z_dist,&
 !$OMP checksum_vt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, nblks_e
 
@@ -2051,6 +2055,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
       DO je2 = 1, je1
         IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
           DO je = i_startidx, i_endidx
 
             IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) THEN
@@ -2156,7 +2161,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 #else
     CALL choldec_v(i_startidx,i_endidx,istencil,              z_rbfmat,z_diag)
 #endif
-
+!$NEC ivdep
     DO je = i_startidx, i_endidx
 
       IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
@@ -2185,6 +2190,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
     !
     DO je2 = 1, rbf_vec_dim_e
       IF (ptr_patch%geometry_info%geometry_type == sphere_geometry) THEN ! use vectorizable version
+!$NEC ivdep
         DO je = i_startidx, i_endidx
 
           IF(.NOT. ptr_patch%edges%decomp_info%owner_mask(je,jb)) CYCLE
@@ -2198,7 +2204,8 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
           ibe2   = ptr_int%rbf_vec_blk_e(je2,je,jb)
 
           cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
-          z_dist = arc_length_v(cc_e(je,:), cc_e2)
+          cc_aux(1:3) = cc_e(je,1:3)
+          z_dist = arc_length_v(cc_aux, cc_e2)
           !
           ! get Cartesian orientation vector
           z_nx2(je,:) = ptr_orient(ile2,ibe2)%x(:)

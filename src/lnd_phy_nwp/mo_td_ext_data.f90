@@ -29,7 +29,7 @@ MODULE mo_td_ext_data
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_io_config,           ONLY: default_read_method
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_extpar_config,       ONLY: generate_td_filename, itopo, itype_vegetation_cycle
+  USE mo_extpar_config,       ONLY: generate_td_filename, itopo, itype_vegetation_cycle, itype_lwemiss
   USE mo_lnd_nwp_config,      ONLY: sst_td_filename, ci_td_filename, sstice_mode
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_radiation_config,    ONLY: albedo_type
@@ -135,7 +135,7 @@ CONTAINS
 
 
     ! Check if the SST and Sea ice fraction have to be updated (sstice_mode 3,4,5)
-    IF ( ANY((/SSTICE_ANA_CLINC, SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
+    IF ( ANY((/SSTICE_ANA_CLINC,SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
       & ) THEN
 
       CALL set_sst_and_seaice (.FALSE., target_datetime,                   &
@@ -169,6 +169,16 @@ CONTAINS
         &                        target_datetime,            &! in
         &                        ext_data%atm_td%albni_dif,  &! in
         &                        ext_data%atm%albni_dif      )! out
+
+    ENDIF
+
+    ! Interpolate also longwave emissivity data if monthly climatology is available
+    IF (itype_lwemiss == 2) THEN
+
+      CALL interpol_monthly_mean(p_patch,                   &! in
+        &                        target_datetime,           &! in
+        &                        ext_data%atm_td%lw_emiss,  &! in
+        &                        ext_data%atm%emis_rad      )! out
 
     ENDIF
 
@@ -352,7 +362,7 @@ CONTAINS
     CASE (SSTICE_AVG_DAILY) !SST and sea ice fraction updated based
       !  on the actual daily values
       !Not implemented
-      WRITE( message_text,'(a)') 'ext_data_mode == 4 not yet implemented '
+      WRITE( message_text,'(a)') 'ext_data_mode == 5 not yet implemented '
       CALL finish  (routine, TRIM(message_text))
 
     CASE DEFAULT

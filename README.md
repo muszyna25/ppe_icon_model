@@ -1071,15 +1071,6 @@ $ ln -sf /path/to/icon-srcdir/data
 $ ln -sf /path/to/icon-srcdir/vertical_coord_tables
 ```
 
-Additionaly, the runscript generation requires certain information on how the
-source code of the model was configured. This is done by calling
-`./config.status`, which is generated during the [configuration](#configuration)
-stage:
-```console
-$ cd /path/to/icon-builddir
-$ ./config.status --file=run/set-up.info
-```
-
 Once the runscript generation mechanism is initialized following the
 instructions above, you can switch to the root build directory of ICON and run
 the [make_runscripts](./make_runscripts) script:

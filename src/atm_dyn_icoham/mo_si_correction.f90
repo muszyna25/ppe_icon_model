@@ -69,7 +69,7 @@ MODULE mo_si_correction
 ! !USES
   USE mo_kind,               ONLY: wp, dp
   USE mo_exception,          ONLY: message, finish
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell
   USE mo_physical_constants, ONLY: rcpd, rd, grav
   USE mo_math_gradients,     ONLY: grad_fd_norm
   USE mo_math_divrot,        ONLY: div, div_avg
@@ -670,7 +670,8 @@ ENDIF
    SELECT CASE (idiv_method)
    CASE (1)
 
-     CALL nabla2_scalar( z_dttpot, pt_patch, pt_int_state, z_help_c )
+     CALL nabla2_scalar( z_dttpot, pt_patch, pt_int_state, z_help_c, &
+       &                 slev=1, elev=UBOUND(z_dttpot,2), rl_start=2, rl_end=min_rlcell )
 
    CASE (2,3)
 
@@ -1054,7 +1055,8 @@ ENDIF
 
    CASE(1)
 
-     CALL nabla2_scalar( p_div, pt_patch, pt_int_state, z_lapl, 1, 1 )
+     CALL nabla2_scalar( p_div, pt_patch, pt_int_state, z_lapl, &
+       &                 slev=1, elev=1, rl_start=2, rl_end=min_rlcell )
 
    CASE(2,3)
 
@@ -1280,7 +1282,8 @@ ENDIF
    SELECT CASE(idiv_method)
    CASE (1)
 
-     CALL nabla2_scalar( z_dttpot, pt_patch, pt_int_state, z_help_c )
+     CALL nabla2_scalar( z_dttpot, pt_patch, pt_int_state, z_help_c, &
+       &                 slev=1, elev=UBOUND(z_dttpot,2), rl_start=2, rl_end=min_rlcell)
 
    CASE (2,3)
 
@@ -1546,7 +1549,8 @@ ENDIF
    SELECT CASE(idiv_method)
    CASE(1)
 
-     CALL nabla2_scalar(p_ax3d, pt_patch, pt_int_state, z_help_c )
+     CALL nabla2_scalar(p_ax3d, pt_patch, pt_int_state, z_help_c, &
+       &                 slev=1, elev=UBOUND(p_ax3d,2), rl_start=2, rl_end=min_rlcell )
 
    CASE(2,3)
 

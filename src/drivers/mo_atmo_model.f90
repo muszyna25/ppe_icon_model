@@ -310,7 +310,7 @@ CONTAINS
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
-    IF (timers_level > 3) CALL timer_start(timer_model_init)
+    IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     !-------------------------------------------------------------------
     ! initialize dynamic list of vertical axes
@@ -362,7 +362,7 @@ CONTAINS
         IF (my_process_is_io()) THEN
           ! Stop timer which is already started but would not be stopped
           ! since xxx_io_main_proc never returns
-          IF (timers_level > 3) CALL timer_stop(timer_model_init)
+          IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
           ! compute sim_start, sim_end
           CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
@@ -425,16 +425,16 @@ CONTAINS
     ! 4. Import patches, perform domain decomposition
     !-------------------------------------------------------------------
 
-    IF (timers_level > 5) CALL timer_start(timer_domain_decomp)
+    IF (timers_level > 4) CALL timer_start(timer_domain_decomp)
     CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
-    IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
+    IF (timers_level > 4) CALL timer_stop(timer_domain_decomp)
 
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
-    IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
+    IF (timers_level > 4) CALL timer_start(timer_compute_coeffs)
     CALL configure_interpolation( n_dom, p_patch(1:)%level, &
                                   p_patch(1:)%geometry_info )
 
@@ -512,7 +512,7 @@ CONTAINS
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
       CALL create_grf_index_lists(p_patch, p_grf_state, p_int_state)
     ENDIF
-    IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
+    IF (timers_level > 4) CALL timer_stop(timer_compute_coeffs)
 
    !---------------------------------------------------------------------
    ! Prepare dynamics and land
@@ -534,9 +534,9 @@ CONTAINS
 
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
-    IF (timers_level > 5) CALL timer_start(timer_ext_data)
+    IF (timers_level > 4) CALL timer_start(timer_ext_data)
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-    IF (timers_level > 5) CALL timer_stop(timer_ext_data)
+    IF (timers_level > 4) CALL timer_stop(timer_ext_data)
 
    !---------------------------------------------------------------------
    ! Import vertical grid/ define vertical coordinate
@@ -594,7 +594,7 @@ CONTAINS
 
     !------------------------------------------------------------------
 
-    IF (timers_level > 3) CALL timer_stop(timer_model_init)
+    IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_model
 

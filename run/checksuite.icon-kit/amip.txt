@@ -1,1 +1,4 @@
-runctrl_examples/run_scripts/exp.testsuite.amip_base_chem0 AMIP none 00:15:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.echam_amip_lifetime_base AMIP none 00:15:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.echam_amip_oh_chemistry_base AMIP_CHEM1 none 01:00:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.echam_amip_gasphase_base AMIP_CHEM2 none 01:00:00 develop nodes=4
+runctrl_examples/run_scripts/exp.testsuite.echam_amip_ext_data_base AMIP_EXT_DATA none 00:15:00 develop nodes=4

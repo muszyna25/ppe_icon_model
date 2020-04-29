@@ -21,7 +21,9 @@ MODULE mo_reshuffle
 
   USE mo_exception,          ONLY: finish
   USE mo_util_sort, ONLY: quicksort
-
+#ifdef __SX__
+USE mo_util_sort,            ONLY: radixsort
+#endif
   IMPLICIT NONE
 
 #ifndef NOMPI
@@ -143,7 +145,7 @@ CONTAINS
 #endif
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':reshuffle'
-    INTEGER                   :: nsend, nlocal, i, j, ncollisions, local_idx, nvals, dst_idx
+    INTEGER                   :: nsend, nlocal, i, j, ncollisions, local_idx, nvals, dst_idx, nerror
     LOGICAL                   :: lfound
 #ifdef NOMPI
     LOGICAL                   :: lcollision
@@ -251,8 +253,13 @@ CONTAINS
       &      permutation_owner(nlocal), reordered_owner_idx(nlocal))
     permutation(:)       = (/ ( i, i=1,nsend) /)
     permutation_owner(:) = (/ ( i, i=1,nlocal) /)
+#ifdef __SX__
+    CALL radixsort(i_pe, permutation)
+    CALL radixsort(i_pe_owner, permutation_owner)
+#else
     CALL quicksort(i_pe, permutation)
     CALL quicksort(i_pe_owner, permutation_owner)
+#endif
     glb_idx(:)             = in_glb_idx(permutation(:))
     values(:)              = in_values(permutation(:))
     reordered_owner_idx(:) = owner_idx(permutation_owner(:))
@@ -377,6 +384,7 @@ CONTAINS
       src_idx = reg_partition%glb2local(irecv_idx_owner(i))
       offset  = (i-1)*iblock
       ! consistency check:
+
       IF ((block_end_count + offset) > SIZE(isendbuf)) THEN
         CALL finish(routine, "Internal error!")
       END IF
@@ -403,13 +411,14 @@ CONTAINS
     ! ---  each PE inserts the received index/values pairs into its
     !      part of the global index space
     out_count(:,:) = 0
+    nerror = 0
     DO i=1,nlocal
       offset  = (i-1)*iblock
       dst_idx = permutation_owner(i)
 
       ! consistency check:
       IF ((dst_idx <= 0) .OR. (dst_idx > SIZE(out_values,2))) THEN
-        CALL finish(routine, "Internal error!")
+        nerror = nerror + 1
       END IF
 
       IF (irecv_idx_owner2(1 + offset) >= 1) THEN
@@ -419,6 +428,7 @@ CONTAINS
           & irecv_idx_owner2((block_start_count + offset):(block_end_count + offset))
       END IF
     END DO   
+    IF (nerror > 0) CALL finish(routine, "Internal error!")
 
     ! ---  clean-up
     DEALLOCATE(icounts, irecv, i_pe, permutation, glb_idx, values, send_displs, recv_displs, &

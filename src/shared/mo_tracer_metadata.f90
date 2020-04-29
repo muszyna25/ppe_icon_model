@@ -31,7 +31,6 @@ MODULE mo_tracer_metadata
 
   PUBLIC  :: create_tracer_metadata
   PUBLIC  :: create_tracer_metadata_aero
-  PUBLIC  :: create_tracer_metadata_chem
   PUBLIC  :: create_tracer_metadata_passive
   PUBLIC  :: create_tracer_metadata_hydro
 
@@ -147,61 +146,6 @@ CONTAINS
     ENDIF
 
   END FUNCTION create_tracer_metadata_aero
-
-
-
-  TYPE(t_chem_meta) FUNCTION create_tracer_metadata_chem(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &
-                      &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
-                      &                                  iwash_tracer,  mol_weight)
-    ! Base type (t_tracer_meta) content
-    LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
-    LOGICAL, INTENT(IN), OPTIONAL  :: lfeedback        ! feedback from child- to parent domain
-    INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
-    INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
-    LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
-    LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
-    INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer      ! Method for sedimentation
-    LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
-    INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
-    ! Extended type (t_chem_meta) content
-    REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [kg mol-1]
-
-    ! Fill the metadata of the base type
-    CALL create_tracer_metadata_chem%construct_base(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer,  &
-      &                                             lturb_tracer, lconv_tracer)
-
-    ! Fill the meta of the extended type (t_chem_meta)
-    IF(PRESENT(mol_weight)) THEN
-      create_tracer_metadata_chem%mol_weight = mol_weight
-    ELSE
-      create_tracer_metadata_chem%mol_weight = -1._wp
-    ENDIF
-
-    ! ised_tracer
-    IF ( PRESENT(ised_tracer) ) THEN
-      create_tracer_metadata_chem%ised_tracer = ised_tracer
-    ELSE
-      create_tracer_metadata_chem%ised_tracer = 0
-    ENDIF
-
-    ! ldep_tracer
-    IF ( PRESENT(ldep_tracer) ) THEN
-      create_tracer_metadata_chem%ldep_tracer = ldep_tracer
-    ELSE
-      create_tracer_metadata_chem%ldep_tracer = .FALSE.
-    ENDIF
-
-    ! iwash_tracer
-    IF ( PRESENT(iwash_tracer) ) THEN
-      create_tracer_metadata_chem%iwash_tracer = iwash_tracer
-    ELSE
-      create_tracer_metadata_chem%iwash_tracer = 0
-    ENDIF
-
-
-  END FUNCTION create_tracer_metadata_chem
-
 
 
   TYPE(t_passive_meta) FUNCTION create_tracer_metadata_passive(lis_tracer, name, lfeedback, ihadv_tracer, ivadv_tracer, &

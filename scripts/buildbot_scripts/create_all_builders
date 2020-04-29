@@ -31,6 +31,8 @@ machine=mistral
 ./addbuilder MISTRAL_ocean_intel17  --machine $machine       --build_script="./config/buildbot/mistral_intel17_ocean"        --configureflags="--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no" --builderflags="build_only"  --list $list
 ./addbuilder MISTRAL_ocean_intel18  --machine $machine       --build_script="./config/buildbot/mistral_intel18_ocean"        --configureflags="--with-openmp --with-mpi --disable-atmo --disable-jsbach --disable-psrad  --with-yac=no" --builderflags="build_only"  --list $list
 #---------------------------------------------------------------
+./addbuilder MISTRAL_intel18_pio    --machine $machine       --build_script="./config/buildbot/mistral_intel18_pio"          --configureflags="--with-mpi --withoutout-openmp"          --builderflags="Inactive"  --list $list
+# testing for CDI-PIO
 
 # breeze builders
 machine=breeze

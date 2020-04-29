@@ -60,7 +60,7 @@ fi
 # for automatic testing
 dir=`pwd -P`
 icon_path=${dir%%scripts/postprocessing/testcases}
-icon_path=${ICON_BASE_PATH}/
+icon_path=${basedir}/
 resolution=${horizontal_resolution}${vertical_resolution}
 #
 # Where should the plot files be located? Don't forget the trailing "/".

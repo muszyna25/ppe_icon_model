@@ -625,7 +625,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=3
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -717,7 +716,6 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           DO jk = slev, elev
 #else
-!CDIR UNROLL=3
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
 #endif
@@ -734,7 +732,6 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           DO jk = slev, elev
 #else
-!CDIR UNROLL=3
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
 #endif
@@ -756,7 +753,6 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           DO jk = slev, elev
 #else
-!CDIR UNROLL=3
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
 #endif
@@ -1115,7 +1111,6 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=2
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif

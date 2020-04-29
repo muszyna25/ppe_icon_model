@@ -39,14 +39,18 @@ MODULE mo_atm_phy_nwp_config
   USE mo_limarea_config,      ONLY: configure_latbc
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: timeshift
-  USE mtime,                  ONLY: datetime, timedelta, newTimedelta, &
-    &                               getPTStringFromMS, MAX_TIMEDELTA_STR_LEN, &
-    &                               deallocateTimedelta, OPERATOR(+), OPERATOR(>)
+  USE mtime,                  ONLY: datetime, timedelta, newTimedelta, event, newEvent, no_Error,     &
+    &                               getPTStringFromMS, MAX_TIMEDELTA_STR_LEN, datetimeToString,       &
+    &                               deallocateTimedelta, OPERATOR(+), OPERATOR(>), timedeltaToString, &
+    &                               MAX_DATETIME_STR_LEN, MAX_MTIME_ERROR_STR_LEN, mtime_strerror
   USE mo_util_table,          ONLY: t_table, initialize_table, add_table_column, &
     &                               set_table_entry, print_table, finalize_table
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phy_events,          ONLY: t_phyProcFast, t_phyProcSlow, t_phyProcGroup
   USE mo_nudging_config,      ONLY: configure_nudging, nudging_config
+  USE mo_name_list_output_config,   ONLY: first_output_name_list, &
+    &                               is_variable_in_output
+  USE mo_io_config,           ONLY: dt_lpi, dt_celltracks, dt_radar_dbz
 
   IMPLICIT NONE
 
@@ -69,7 +73,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: icpl_aero_conv
   PUBLIC :: icpl_o3_tp
   PUBLIC :: iprog_aero
-
+  PUBLIC :: setup_nwp_diag_events
 
 
 
@@ -114,7 +118,10 @@ MODULE mo_atm_phy_nwp_config
                                    !! coefficient
     LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
                                    !! (reduced grid only)
+    INTEGER  :: icalc_reff         !! type of effective radius calculation
 
+    ! upper atmosphere
+    LOGICAL ::  lupatmo_phy        !! use upper atmosphere physics
 
     ! Derived variables
 
@@ -135,12 +142,17 @@ MODULE mo_atm_phy_nwp_config
                                    !       non-standard fields is specified in the output namelist.
 
     LOGICAL :: lhave_graupel       ! Flag if microphysics scheme has a prognostic variable for graupel
+    LOGICAL :: l2moment            ! Flag if 2-moment microphysics scheme is used 
+    LOGICAL :: lhydrom_read_from_fg(1:20)  ! Flag for each hydrometeor tracer, if it has been read from fg file
+    LOGICAL :: lhydrom_read_from_ana(1:20) ! Flag for each hydrometeor tracer, if it has been read from ana file
 
     LOGICAL :: is_les_phy          !>TRUE is turbulence is 3D 
                                    !>FALSE otherwise
 
     INTEGER :: nclass_gscp         !> number of hydrometeor classes for 
                                    ! chosen grid scale microphysics
+
+    LOGICAL :: l_3d_rad_fluxes     ! logical to determine if 3d radiative flux variable are allocated
 
     ! NWP events
     TYPE(t_phyProcGroup) :: phyProcs        !> physical processes event group
@@ -304,13 +316,20 @@ CONTAINS
         &  atm_phy_nwp_config(jg)%lenabled(itgwd)     = .TRUE.
 
 
-      ! Set flag for the presence of graupel
+      ! Set flags for the microphysics schemes:
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-      CASE (2,4,5,6)
+      CASE (2)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
+        atm_phy_nwp_config(jg)%l2moment = .FALSE.
+      CASE (4,5,6)
+        atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
+        atm_phy_nwp_config(jg)%l2moment = .TRUE.
       CASE DEFAULT
         atm_phy_nwp_config(jg)%lhave_graupel = .FALSE.
+        atm_phy_nwp_config(jg)%l2moment = .FALSE.
       END SELECT
+      atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) = .FALSE.
+      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:) = .FALSE.
 
       ! Configure LES physics (if activated)
       !
@@ -667,6 +686,17 @@ CONTAINS
       ! initialize lcall_phy (will be updated by mo_phy_events:mtime_ctrl_physics)
       atm_phy_nwp_config(jg)%lcall_phy(:) = .FALSE.
 
+
+      ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
+      atm_phy_nwp_config(jg)%l_3d_rad_fluxes = is_variable_in_output(first_output_name_list, var_name="lwflx_dn") & 
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn") & 
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up") & 
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn_clr") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn_clr") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up_clr") &
+                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up_clr")
+ 
     ENDDO  ! jg
 
 
@@ -955,6 +985,94 @@ CONTAINS
 
   END SUBROUTINE setupEventsNwp
 
+
+
+  !>
+  !! Setup mtime events for optional NWP diagnostics
+  !!
+  !! Shifted from nh_stepping in order to improve code structure
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2020-02-14)
+  !!
+  SUBROUTINE setup_nwp_diag_events(lpi_max_Event, celltracks_Event, dbz_Event)
+
+    TYPE(event), POINTER, INTENT(INOUT) :: lpi_max_Event, celltracks_Event, dbz_Event
+
+    ! local
+    TYPE(timedelta), POINTER               :: eventInterval    => NULL()
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)   :: td_string
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dt_string
+    CHARACTER(LEN=MAX_MTIME_ERROR_STR_LEN) :: errstring
+
+    INTEGER   :: ierr
+
+
+  ! --- create Event for LPI_MAX maximization:
+  CALL getPTStringFromMS(INT(dt_lpi*1000._wp,i8), td_string) ! default 3 mins
+  eventInterval => newTimedelta(td_string)
+  lpi_max_Event => newEvent( 'lpi_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                     time_config%tc_exp_startdate,             &   ! start
+       &                     time_config%tc_exp_stopdate,              &
+       &                     eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'lpi_max': "//errstring)
+  ENDIF
+
+
+  ! --- create Event for celltrack variables (i.e. tcond/tcond10, uh, vorw_ct, w_ct) maximization:
+  CALL getPTStringFromMS(INT(dt_celltracks*1000._wp,i8), td_string) ! default 2 mins
+  eventInterval => newTimedelta(td_string)
+  celltracks_Event => newEvent( 'celltracks', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                       time_config%tc_exp_startdate,             &   ! start
+       &                       time_config%tc_exp_stopdate,              &
+       &                       eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'celltracks': "//errstring)
+  ENDIF
+
+  ! --- create Event for DBZ maximisations:
+  CALL getPTStringFromMS(INT(dt_radar_dbz*1000._wp,i8), td_string) ! default 2 mins
+  eventInterval => newTimedelta(td_string)
+  dbz_Event     => newEvent( 'dbz_max', time_config%tc_exp_startdate,  &   ! "anchor date"
+       &                       time_config%tc_exp_startdate,             &   ! start
+       &                       time_config%tc_exp_stopdate,              &
+       &                       eventInterval, errno=ierr )
+  IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString( time_config%tc_exp_startdate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString( time_config%tc_exp_stopdate,  dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
+    CALL mtime_strerror(ierr, errstring)
+    CALL finish('setup_nwp_diag_events', "event 'dbz_max': "//errstring)
+  ENDIF
+
+  END SUBROUTINE setup_nwp_diag_events
 
   !>
   !! Checks, whether the modulo operation remainder is above a certain threshold.
