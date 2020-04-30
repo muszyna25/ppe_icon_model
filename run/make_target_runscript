@@ -112,9 +112,6 @@ echo -n "Creating the run script  $output_script ... "
 # source the script create_target_header to define the shell function create_target_header
 source $base_folder/run/create_target_header
 
-# read use_ variables from experiment description
-eval "$(egrep '^ *use_[a-zA-Z1-9_]+=' $base_folder/$input_folder/$first_name)"
-
 # execute the shell function create_target_header to create the header
 create_target_header
 
