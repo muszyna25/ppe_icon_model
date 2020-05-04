@@ -1,6 +1,6 @@
 !+ Source module for the radar forward operator of the COSMO-model
 !------------------------------------------------------------------------------
-
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
 MODULE radar_interface
 
   !------------------------------------------------------------------------------
@@ -1844,7 +1844,7 @@ CONTAINS
       DO k = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(idom), k, i_startblk, i_endblk, is, ie, grf_bdywidth_c+1, min_rlcell)
-
+!NEC$ ivdep
         DO i = is, ie
 
           ! The next IF is needed because not all halo cells are exchanged by exchange_data() above.
