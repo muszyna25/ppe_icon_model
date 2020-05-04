@@ -655,10 +655,6 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 5           ! number of tracers
-                                ! 3: hus, clw, cli
-                                ! 4: hus, clw, cli, o3
-                                ! 5: hus, clw, cli, o3, co2
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -668,7 +664,7 @@ cat > ${atm_namelist} << EOF
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
@@ -698,10 +694,10 @@ cat > ${atm_namelist} << EOF
  hdiff_smag_fac   = 0.15       ! default: 0.015  too high values are very diffusive! Upper limit should be 0.15
 /
 &transport_nml
-!                   hus,clw,cli, o3, co2
- ivadv_tracer     =   3,  3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3,  3
- ihadv_tracer     =  52,  2,  2, 52, 52
+ tracer_names     = 'hus','clw','cli','o3','co2'
+ ivadv_tracer     =    3 ,   3 ,   3 , 3  , 3
+ itype_hlimit     =    3 ,   4 ,   4 , 3  , 3
+ ihadv_tracer     =   52 ,   2 ,   2 , 52 , 52
 /
 &echam_phy_nml
 !

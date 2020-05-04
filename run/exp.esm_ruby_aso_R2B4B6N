@@ -617,7 +617,6 @@ cat > ${atm_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -627,7 +626,7 @@ cat > ${atm_namelist} << EOF
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+ itype_lwemiss    = 0
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
@@ -655,10 +654,10 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
-!                   hus,clw,cli, o3
- ivadv_tracer     =   3,  3,  3,  3
- itype_hlimit     =   3,  4,  4,  3
- ihadv_tracer     =  52,  2,  2, 52
+ tracer_names     = 'hus','clw','cli'
+ ivadv_tracer     =    3 ,   3 ,   3
+ itype_hlimit     =    3 ,   4 ,   4
+ ihadv_tracer     =   52 ,   2 ,   2
 /
 &echam_phy_nml
 !
@@ -731,14 +730,14 @@ cat > ${atm_namelist} << EOF
  !echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
 /
 &echam_cov_nml
- !echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- !echam_cov_config(1)%crt        = 0.80      ! Critical relative humidity at toa, default 0.8
+ echam_cov_config(1)%crs        = 0.978     ! Critical relative humidity at surface, default 0.968
+ echam_cov_config(1)%crt        = 0.82      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
- ! albs                           =   0.80    ! Albedo of snow (not melting)              !  def: 0.85
- ! albsm                          =   0.65    ! Albedo of snow (melting)                  !  def: 0.70
- ! albi                           =   0.70    ! Albedo of ice (not melting)               !  def: 0.75
- ! albim                          =   0.65    ! Albedo of ice (melting)                   !  def: 0.70
+ albs                           =   0.8     ! Albedo of snow (not melting)              !  def: 0.85
+ albsm                          =   0.65    ! Albedo of snow (melting)                  !  def: 0.70
+ albi                           =   0.6     ! Albedo of ice (not melting)               !  def: 0.75
+ albim                          =   0.5     ! Albedo of ice (melting)                   !  def: 0.70
 /
 EOF
 
@@ -1297,7 +1296,7 @@ if [[ "$output_oce_ice" == "yes" ]]; then
   filename_format  = "<output_filename>_<datetime2>"
   filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   m_levels         = "1...28"                         ! upper 500m
-  ml_varlist       =  'mld','condep','draftave','hi','hs','conc','to','so'
+  ml_varlist       =  'mld','condep','draftave','hi','hs','conc','to','so','ice_u','ice_v'
 /
 EOF
 fi
@@ -1506,10 +1505,6 @@ cat >> ${oce_namelist} << EOF
   albedoW_sim                                = 0.10        ! albedo of the ocean used in sea ice model
   leadclose_1                                = 0.25        ! default: 0.5 - value of MPIOM: 0.25
   leadclose_2n                               = 0.666       ! default: 0.0 - value of MPIOM: 2/3
-  !albs                                      = 0.80         ! Albedo of snow (not melting)              !  def: 0.85
-  !albsm                                     = 0.65         ! Albedo of snow (melting)                  !  def: 0.70
-  !albi                                      = 0.70         ! Albedo of ice (not melting)               !  def: 0.75
-  !albim                                     = 0.65         ! Albedo of ice (melting)                   !  def: 0.70
   pstar                                      = 40000.      ! default: 27500.; MPIOM=20000.
 /
 &ocean_forcing_nml
