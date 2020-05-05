@@ -28,7 +28,7 @@ MODULE mo_input_request_list
                     & cdiIterator_inqParamParts, gridInqNumber, gridInqPosition, cdiGribIterator_inqLongValue, t_CdiGribIterator, &
                     & cdiGribIterator_clone, cdiGribIterator_delete, cdiIterator_inqRTime, CDI_UUID_SIZE, &
                     & cdiIterator_inqFiletype, FILETYPE_GRB, FILETYPE_GRB2, institutInq, institutInqNamePtr
-    USE mo_dictionary, ONLY: t_dictionary, dict_get
+    USE mo_dictionary, ONLY: t_dictionary
     USE mo_exception, ONLY: message, finish
     USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_grid_config, ONLY: n_dom
@@ -207,7 +207,7 @@ CONTAINS
             IF(ASSOCIATED(me%list(i)%translatedVarName)) DEALLOCATE(me%list(i)%translatedVarName)
             IF(PRESENT(opt_dict)) THEN
                 tempName => toCharacter(me%list(i)%iconVarName)
-                me%list(i)%translatedVarName => toCharArray(TRIM(dict_get(opt_dict, tempName, tempName)))
+                me%list(i)%translatedVarName => toCharArray(TRIM(opt_dict%get(tempName, tempName)))
                 DEALLOCATE(tempName)
             ELSE
                 me%list(i)%translatedVarName => charArray_dup(me%list(i)%iconVarName)

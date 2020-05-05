@@ -63,8 +63,7 @@ MODULE mo_initicon_utils
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_hydro_adjust,        ONLY: hydro_adjust
   USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
-  USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
-    &                               dict_loadfile, dict_resize
+  USE mo_dictionary,          ONLY: DICT_MAX_STRLEN
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
   USE mo_linked_list,         ONLY: t_list_element
@@ -1549,22 +1548,30 @@ MODULE mo_initicon_utils
 
   SUBROUTINE initVarnamesDict(dictionary)
     TYPE(t_dictionary), INTENT(INOUT) :: dictionary
-
-    INTEGER :: itemp(3)
+    INTEGER :: itemp(2)
+    CHARACTER(LEN=DICT_MAX_STRLEN), ALLOCATABLE :: array(:,:) !< dictionary data, dims: (2,nmax_entries)
+    LOGICAL :: lcase_sensitive
 
     ! read the map file into dictionary data structure:
-    CALL dict_init(dictionary, lcase_sensitive=.FALSE.)
+    CALL dictionary%init(lcase_sensitive=.FALSE.)
     IF(ana_varnames_map_file /= ' ') THEN
-      IF (my_process_is_mpi_workroot()) &
-        CALL dict_loadfile(dictionary, TRIM(ana_varnames_map_file))
-      itemp(1) = dictionary%nmax_entries; itemp(2) = dictionary%nentries
-      itemp(3) = MERGE(1, 0, dictionary%lcase_sensitive)
+      IF (my_process_is_mpi_workroot()) THEN
+        CALL dictionary%loadfile(TRIM(ana_varnames_map_file))
+        CALL dictionary%to_array(array)
+      END IF
+
+      itemp(1) = MERGE(1, 0, dictionary%lcase_sensitive)
+      itemp(2) = SIZE(array,2)
       CALL p_bcast(itemp, p_io, p_comm_work)
-      dictionary%nmax_entries = itemp(1); dictionary%nentries = itemp(2)
-      dictionary%lcase_sensitive = itemp(3) /= 0
-      IF (.NOT. my_process_is_mpi_workroot()) &
-        CALL dict_resize(dictionary, dictionary%nmax_entries)
-      CALL p_bcast(dictionary%array, p_io, p_comm_work)
+      lcase_sensitive = itemp(1) /= 0
+      IF (.NOT. my_process_is_mpi_workroot()) ALLOCATE(array(2, itemp(2)))
+
+      CALL p_bcast(array, p_io, p_comm_work)
+
+      IF (.NOT. my_process_is_mpi_workroot()) THEN
+        CALL dictionary%from_array(array, lcase_sensitive)
+      END IF
+      DEALLOCATE(array)
     END IF
   END SUBROUTINE initVarnamesDict
 
@@ -2055,7 +2062,7 @@ MODULE mo_initicon_utils
     ENDDO ! loop over model domains
 
     ! destroy variable name dictionaries:
-    CALL dict_finalize(ana_varnames_dict)
+    CALL ana_varnames_dict%finalize()
 
   END SUBROUTINE deallocate_initicon
 

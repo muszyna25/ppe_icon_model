@@ -82,8 +82,7 @@ MODULE mo_ext_data_init
     &                              has_filetype_netcdf
   USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
-  USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
-    &                              dict_loadfile
+  USE mo_dictionary,         ONLY: t_dictionary
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
@@ -180,10 +179,10 @@ CONTAINS
     IF (iforcing == inwp) CALL inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
-    CALL dict_init(extpar_varnames_dict, lcase_sensitive=.FALSE.)
+    CALL extpar_varnames_dict%init(lcase_sensitive=.FALSE.)
     IF (ANY(cdi_filetype(:) == FILETYPE_GRB2)) THEN
       IF(extpar_varnames_map_file /= ' ') THEN
-        CALL dict_loadfile(extpar_varnames_dict, TRIM(extpar_varnames_map_file))
+        CALL extpar_varnames_dict%loadfile(TRIM(extpar_varnames_map_file))
       END IF
       read_netcdf_parallel = .FALSE. ! GRIB2 can only be read using cdi library
     ELSE IF (read_nc_via_cdi) THEN
@@ -354,7 +353,7 @@ CONTAINS
     END IF
 
     ! destroy variable name dictionary:
-    CALL dict_finalize(extpar_varnames_dict)
+    CALL extpar_varnames_dict%finalize()
 
   END SUBROUTINE init_ext_data
 

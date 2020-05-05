@@ -795,13 +795,16 @@ CONTAINS
     elapsedTime(:) = -999._wp
 
     ! get elapsed time since last trigger date in s
-    DO iproc = 1, UBOUND(phyProcGrp%proc,1)
-      IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE
-      IF (.NOT. phyProcGrp%proc(iproc)%p%is_enabled) CYCLE
-      !
-      td = phyProcGrp%proc(iproc)%p%getElapsedTime(mtime_current)
-      elapsedTime(iproc) = REAL(getTotalSecondsTimedelta(td,mtime_current),wp)
-    ENDDO
+    IF (.NOT. proc0_offloading .OR. my_process_is_stdio()) THEN
+      DO iproc = 1, UBOUND(phyProcGrp%proc,1)
+        IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE
+        IF (.NOT. phyProcGrp%proc(iproc)%p%is_enabled) CYCLE
+        !
+        td = phyProcGrp%proc(iproc)%p%getElapsedTime(mtime_current)
+        elapsedTime(iproc) = REAL(getTotalSecondsTimedelta(td,mtime_current),wp)
+      ENDDO
+    ENDIF
+    IF (proc0_offloading) CALL p_bcast(elapsedTime, p_io, p_comm_work)
 
   END SUBROUTINE phyProcGroup_serialize
 

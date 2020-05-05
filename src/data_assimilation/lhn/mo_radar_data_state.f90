@@ -57,8 +57,7 @@ MODULE mo_radar_data_state
     &                              makeInputParameters, deleteInputParameters
   USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
-  USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
-    &                              dict_loadfile
+  USE mo_dictionary,         ONLY: t_dictionary
   USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
@@ -146,10 +145,10 @@ CONTAINS
 
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
-    CALL dict_init(radar_varnames_dict, lcase_sensitive=.FALSE.)
+    CALL radar_varnames_dict%init(lcase_sensitive=.FALSE.)
     IF (ANY(cdi_filetype(:) == FILETYPE_GRB2)) THEN
       IF(radar_varnames_map_file /= ' ') THEN
-        CALL dict_loadfile(radar_varnames_dict, TRIM(radar_varnames_map_file))
+        CALL radar_varnames_dict%loadfile(TRIM(radar_varnames_map_file))
       END IF
     END IF
 
@@ -186,7 +185,7 @@ CONTAINS
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'DEALLOCATE failed!')
 
     ! destroy variable name dictionary:
-    CALL dict_finalize(radar_varnames_dict)
+    CALL radar_varnames_dict%finalize()
 
   END SUBROUTINE init_radar_data
 
@@ -983,6 +982,8 @@ CONTAINS
               CALL read_cdi_2d(parameters, 'RAD_BL', radar_data(jg)%radar_ct%blacklist)
               CALL deleteInputParameters(parameters)
             ENDIF
+            ! Mask blacklist entries on halo points
+            WHERE (p_patch(jg)%cells%decomp_info%decomp_domain(:,:) /= 0) radar_data(jg)%radar_ct%blacklist(:,:) = 0
 
             IF (assimilation_config(jg)%lhn_bright) THEN
               parameters = makeInputParameters(cdi_height_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c) ! &
@@ -1019,10 +1020,12 @@ CONTAINS
     CALL init(lhn_fields(jg)%ttend_lhn(:,:,:))
     CALL init(lhn_fields(jg)%qvtend_lhn(:,:,:))
 !    CALL init(lhn_fields(jg)%brightband(:,:),-1._wp)
-    lhn_fields(jg)%brightband(:,:) = -1._wp
     CALL init(lhn_fields(jg)%pr_obs_sum(:,:))
     CALL init(lhn_fields(jg)%pr_mod_sum(:,:))
     CALL init(lhn_fields(jg)%pr_ref_sum(:,:))
+!$OMP WORKSHARE
+    lhn_fields(jg)%brightband(:,:) = -1._wp
+!$OMP END WORKSHARE
 !$OMP END PARALLEL
 
   ENDDO

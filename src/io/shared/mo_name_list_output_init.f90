@@ -54,8 +54,7 @@ MODULE mo_name_list_output_init
   USE mo_master_control,                    ONLY: my_process_is_oceanic
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
-  USE mo_dictionary,                        ONLY: t_dictionary, dict_init, &
-    &                                             dict_loadfile, dict_get
+  USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_cdi,                          ONLY: create_cdi_variable
@@ -90,6 +89,7 @@ MODULE mo_name_list_output_init
   USE mo_lnd_nwp_config,                    ONLY: ntiles_lnd, ntiles_water, ntiles_total, tile_list, &
     &                                             isub_water, isub_lake, isub_seaice, lsnowtile
   USE mo_nwp_sfc_tiles,                     ONLY: setup_tile_list
+  USE mo_meteogram_config,                  ONLY: meteogram_output_config
 #endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, &
@@ -384,9 +384,24 @@ CONTAINS
       CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
       IF(istat /= POSITIONED) THEN
 
-        ! if no "output_nml" has been found at all, we disable this
-        ! mode (i.e. the user's namelist settings were inconsistent).
-        IF (.NOT.ASSOCIATED(first_output_name_list)) output_mode%l_nml = .FALSE.
+        ! if no "output_nml" has been found at all, we still cannot
+        ! disable this mode: There might be meteograms which have to
+        ! be handled by the output PEs.  If meteograms are disabled,
+        ! too, then the user's namelist settings were inconsistent.
+        !
+        IF (.NOT. ASSOCIATED(first_output_name_list)) THEN
+#ifndef __NO_ICON_ATMO__
+          IF (.NOT. ANY(meteogram_output_config(:)%lenabled)) THEN
+            CALL message(routine, "No output definition found; disabling output.")
+            output_mode%l_nml = .FALSE.
+          ELSE
+            CALL message(routine, "No output definition found; meteogram output only.")
+          END IF
+#else
+          CALL message(routine, "No output definition found; disabling output.")
+          output_mode%l_nml = .FALSE.
+#endif
+        END IF
 
         CALL close_nml
         RETURN
@@ -494,20 +509,20 @@ CONTAINS
 
       ! -- Read the map files into dictionary data structures
 
-      CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
-      CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
+      CALL varnames_dict%init(lcase_sensitive=.FALSE.)
+      CALL out_varnames_dict%init(lcase_sensitive=.FALSE.)
 
       NULLIFY(keywords)
       CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = with_keywords(keywords, output_nml_dict)
         CALL message(routine, "load dictionary file.")
-        CALL dict_loadfile(varnames_dict, cfilename, linverse=linvert_dict)
+        CALL varnames_dict%loadfile(cfilename, linverse=linvert_dict)
       END IF
       IF(netcdf_dict /= ' ') THEN
         cfilename = with_keywords(keywords, netcdf_dict)
         CALL message(routine, "load dictionary file (output names).")
-        CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
+        CALL out_varnames_dict%loadfile(cfilename, linverse=.TRUE.)
       END IF
 
       ! -- If "remap=1": lon-lat interpolation requested
@@ -630,20 +645,16 @@ CONTAINS
         ! -- translate variables names according to variable name
         !    dictionary:
         DO i=1,max_var_ml
-          p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
-            &                            default=p_onl%ml_varlist(i))
+          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), default=p_onl%ml_varlist(i))
         END DO
         DO i=1,max_var_pl
-          p_onl%pl_varlist(i) = dict_get(varnames_dict, p_onl%pl_varlist(i), &
-            &                            default=p_onl%pl_varlist(i))
+          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), default=p_onl%pl_varlist(i))
         END DO
         DO i=1,max_var_hl
-          p_onl%hl_varlist(i) = dict_get(varnames_dict, p_onl%hl_varlist(i), &
-            &                            default=p_onl%hl_varlist(i))
+          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), default=p_onl%hl_varlist(i))
         END DO
         DO i=1,max_var_il
-          p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
-            &                            default=p_onl%il_varlist(i))
+          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), default=p_onl%il_varlist(i))
         END DO
 
         ! allow case-insensitive variable names:
@@ -918,7 +929,7 @@ CONTAINS
             grp_name = vname(LEN(TILE_PREFIX)+1:)
 
             ! translate group name from GRIB2 to internal nomenclature, if necessary
-            grp_name = dict_get(varnames_dict, grp_name, grp_name)
+            grp_name = varnames_dict%get(grp_name, grp_name)
 
             tlen = len_trim(grp_name)
             grp_name(tlen+1:tlen+3) ="_t"
@@ -1389,7 +1400,7 @@ CONTAINS
         ev => ev%next
       END DO
     END IF
-#endif ! NOMPI
+#endif
 
     CALL message(routine,'Done')
 
@@ -1709,37 +1720,39 @@ CONTAINS
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
 
-    CALL print_output_event(all_events)                                       ! screen output
-    IF (dom_sim_step_info_jstep0 > 0) THEN
+    IF (ASSOCIATED(all_events)) THEN
+      CALL print_output_event(all_events)                                       ! screen output
+      IF (dom_sim_step_info_jstep0 > 0) THEN
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-      IF ( is_coupled_run() ) THEN
-        comp_name = get_my_process_name()
-        WRITE (osched_fname, '(3a,i0,a)') "output_schedule_", &
-          TRIM(comp_name), "_steps_", dom_sim_step_info_jstep0, "+.txt"
-      ELSE
-        WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
-          dom_sim_step_info_jstep0, "+.txt"
-      ENDIF
+        IF ( is_coupled_run() ) THEN
+          comp_name = get_my_process_name()
+          WRITE (osched_fname, '(3a,i0,a)') "output_schedule_", &
+            TRIM(comp_name), "_steps_", dom_sim_step_info_jstep0, "+.txt"
+        ELSE
+          WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
+            dom_sim_step_info_jstep0, "+.txt"
+        ENDIF
 #else
         WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
           dom_sim_step_info_jstep0, "+.txt"
 #endif
-    ELSE
-#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-      IF ( is_coupled_run() ) THEN
-        comp_name = TRIM(get_my_process_name())
-        WRITE (osched_fname, '(3a)') "output_schedule_", &
-          &                          TRIM(comp_name), ".txt"
       ELSE
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+        IF ( is_coupled_run() ) THEN
+          comp_name = TRIM(get_my_process_name())
+          WRITE (osched_fname, '(3a)') "output_schedule_", &
+            &                          TRIM(comp_name), ".txt"
+        ELSE
+          osched_fname = "output_schedule.txt"
+        ENDIF
+#else
         osched_fname = "output_schedule.txt"
-      ENDIF
-#else
-      osched_fname = "output_schedule.txt"
 #endif
+      END IF
+      CALL print_output_event(all_events, &
+        ! ASCII file output:
+        & opt_filename=TRIM(osched_fname))
     END IF
-    CALL print_output_event(all_events, &
-         ! ASCII file output:
-         & opt_filename=TRIM(osched_fname))
   END SUBROUTINE print_output_event_table
 
   ! called by all CDI-PIO async ranks after the initialization of
@@ -2335,7 +2348,7 @@ CONTAINS
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(i)
     INTEGER :: num_cblk, n
     LOGICAL :: prev_is_set, current_is_set
-    INTEGER(i8) :: pos, apos, bmask
+    INTEGER(i8) :: apos, bmask
 
     num_cblk = 0
     prev_is_set = .FALSE.
@@ -2350,6 +2363,7 @@ CONTAINS
     ENDDO
     ALLOCATE(starts(num_cblk), counts(num_cblk))
     bmask = 1_i8
+    current_is_set = .FALSE.
     DO i = 0_i8, nb-1_i8
       apos = i/nbits_i8
       current_is_set = IAND(mask(apos), bmask) /= 0_i8
@@ -3003,11 +3017,9 @@ CONTAINS
     ! var_list_name should have at least the length of var_list names
     ! (although this doesn't matter as long as it is big enough for every name)
     CHARACTER(LEN=256)            :: var_list_name
-    INTEGER                       :: idom
 
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_var_groups_dyn
-    INTEGER :: idom_log
     LOGICAL :: is_io
 
     is_io = my_process_is_io()
@@ -3206,7 +3218,7 @@ CONTAINS
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
       modname//"::replicate_coordinate_data_on_io_procs"
-    INTEGER                       :: idom, i
+    INTEGER                       :: idom
 
     INTEGER :: idom_log, temp(4,n_dom_out)
     LOGICAL :: keep_grid_info, is_io
@@ -3248,7 +3260,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE replicate_coordinate_data_on_io_procs
-#endif !.NOT. NOMPI
+#endif
 
   SUBROUTINE registerOutputVariable(name)
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name

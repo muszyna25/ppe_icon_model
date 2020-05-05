@@ -469,17 +469,11 @@ CONTAINS
         ENDDO
         IF (nsubs >= 3) THEN
 !DIR$ IVDEP
+!NEC$ ivdep
           DO jc = i_startidx, i_endidx
             ! Compute time tendency of mass flux upper boundary condition to obtain second-order accuracy in time
-#ifndef __SX__
             p_nh%diag%mflx_ic_int(jc,jb,nsubs+2) = (SUM(p_nh%diag%mflx_ic_int(jc,jb,nsubs-1:nsubs)) - &
               SUM(p_nh%diag%mflx_ic_int(jc,jb,1:2)))*rdt_ubc
-#else
-            ! Workaround for compiler optimization bug
-            p_nh%diag%mflx_ic_int(jc,jb,nsubs+2) =                                         & 
-              ((p_nh%diag%mflx_ic_int(jc,jb,nsubs-1)+p_nh%diag%mflx_ic_int(jc,jb,nsubs)) - &
-               (p_nh%diag%mflx_ic_int(jc,jb,1)+p_nh%diag%mflx_ic_int(jc,jb,2)))*rdt_ubc
-#endif
             ! Shift time level of averaged field back to the beginning of the first dynamic substep
             p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) = p_nh%diag%mflx_ic_int(jc,jb,nsubs+1) - &
               dthalf*p_nh%diag%mflx_ic_int(jc,jb,nsubs+2)

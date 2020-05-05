@@ -36,7 +36,7 @@ MODULE mo_nml_crosscheck
     &                                    lnetcdf_flt64_output, echotop_meta
   USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
     &                                    num_io_procs, itype_comm,                         &
-    &                                    num_prefetch_proc, use_dp_mpi2io
+    &                                    num_prefetch_proc, use_dp_mpi2io, num_io_procs_radar
   USE mo_limarea_config,           ONLY: latbc_config, LATBC_TYPE_CONST, LATBC_TYPE_EXT
   USE mo_master_config,            ONLY: isRestart
   USE mo_run_config,               ONLY: nsteps, dtime, iforcing, output_mode,             &
@@ -48,7 +48,7 @@ MODULE mo_nml_crosscheck
     &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
     &                                    inccn, ininact, ininpot,                          &
     &                                    activate_sync_timers, timers_level, lart,         &
-    &                                    msg_level
+    &                                    msg_level, luse_radarfwo
   USE mo_dynamics_config,          ONLY: iequations, lshallow_water, ltwotime, ldeepatmo
   USE mo_advection_config,         ONLY: advection_config
   USE mo_nonhydrostatic_config,    ONLY: itime_scheme_nh => itime_scheme,                  &
@@ -90,6 +90,10 @@ MODULE mo_nml_crosscheck
 
 #ifdef __ICON_ART
   USE mo_grid_config,              ONLY: lredgrid_phys
+#endif
+
+#ifdef HAVE_RADARFWO
+  USE radar_data,            ONLY: ndoms_max_radar => ndoms_max
 #endif
 
   IMPLICIT NONE
@@ -142,7 +146,7 @@ CONTAINS
 
 
     IF (lplane) CALL finish(routine,&
-      'Currently a plane version is not available')
+     'Currently a plane version is not available')
 
     ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
     ! or in global nudging mode or if there are no lateral boundary data to be read
@@ -953,6 +957,19 @@ CONTAINS
       &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
       &                atm_phy_nwp_config(:)%inwp_radiation, first_output_name_list       )
 
+
+    ! ********************************************************************************
+    ! [RADAROP]
+    ! ********************************************************************************
+    !
+    ! Enter "cross checks" for namelist parameters here:
+    ! *  RadarOp may be switched on only if nonhydro and inwp enabled.
+    ! *  RadarOp may be switched on only if preprocessor flag enabled (see below).
+    ! 
+    ! ********************************************************************************
+
+    CALL emvorado_crosscheck()
+
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
 
@@ -1037,4 +1054,48 @@ CONTAINS
 #endif
   END SUBROUTINE art_crosscheck
   !---------------------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE emvorado_crosscheck
+    CHARACTER(len=*), PARAMETER :: routine =  'mo_nml_crosscheck:emvorado_crosscheck'
+
+    INTEGER  :: jg, ndoms_radaractive
+    CHARACTER(len=255) :: errstring
+    
+#ifndef HAVE_RADARFWO
+    IF ( ANY(luse_radarfwo) ) THEN
+        CALL finish( routine,'run_nml: luse_radarfwo is set .TRUE. in some domains but ICON was compiled without -DHAVE_RADARFWO')
+    ENDIF
+#endif
+    
+    ndoms_radaractive = 0
+    DO jg = 1, n_dom
+      IF (luse_radarfwo(jg)) ndoms_radaractive = ndoms_radaractive + 1 
+    END DO
+#ifdef HAVE_RADARFWO
+    IF ( ndoms_radaractive > ndoms_max_radar ) THEN
+      errstring(:) = ' '
+      WRITE (errstring, '(a,i3,a,i2,a)') 'luse_radarfwo is enabled (.true.) for ', ndoms_radaractive, &
+           ' ICON domains, but EMVORADO supports max. ', ndoms_max_radar, &
+           ' domains. You may increase  parameter ''ndoms_max'' in radar_data.f90.'
+      CALL finish(routine, 'run_nml: '//TRIM(errstring))
+    END IF
+#endif
+
+    IF ( num_io_procs_radar > 0 .AND. .NOT.ANY(luse_radarfwo) ) THEN
+      CALL message(routine, 'Setting num_io_procs_radar = 0 because luse_radarfwo(:) = .FALSE.')
+      num_io_procs_radar = 0
+    END IF
+
+    IF ( (iforcing /= INWP .OR. iequations /= INH_ATMOSPHERE) .AND. ANY(luse_radarfwo) ) THEN
+      errstring(:) = ' '
+      WRITE (errstring, '(a,i2,a,i2)') 'luse_radarfwo = .true. is only possible for NWP physics iforcing = ', INWP, &
+           ' and non-hydrostatic equations iequations = ', INH_ATMOSPHERE
+      CALL finish(routine, 'run_nml: '//TRIM(errstring))
+    END IF
+
+  END SUBROUTINE emvorado_crosscheck
+
+
+
 END MODULE mo_nml_crosscheck

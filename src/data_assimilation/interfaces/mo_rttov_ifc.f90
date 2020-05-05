@@ -89,13 +89,21 @@ MODULE mo_rttov_ifc
 #define NO_RTTOV
 #endif
 #if defined(__ICON__) && !defined(NO_RTTOV)
+! derived-type broadcast does not work between different processor types
+#if !defined(__SX__) && !defined(__NEC_VH__)
 #define _RTTOV_DO_DISTRIBCOEF
+#endif
 #define RTTOV12 
+#ifdef _OPENMP
 #define RTTOV_USE_OPENMP
-#define RADSHARE
+#endif
+! UB: RADSHARE not in general, only #ifndef __DACE__
+!#define RADSHARE
 #ifdef __DACE__
-#define RTTOV_IFC_USE_MPI_DACE
+! #define RTTOV_IFC_USE_MPI_DACE
+#define RTTOV_IFC_USE_MPIF
 #else
+#define RADSHARE
 ! TODO use icon mpi routines?
 #define RTTOV_IFC_USE_MPIF
 #endif
@@ -253,8 +261,11 @@ MODULE mo_rttov_ifc
 #ifdef RTTOV_USE_OPENMP
 #ifndef RADSHARE
   use mo_omp,             only: omp_get_max_threads     !
+#else
+  use omp_lib,            only: omp_get_max_threads     ! needed at least for gfortran compiler
 #endif
 #endif
+
 
 #endif  /* !NO_RTTOV */
 
@@ -451,6 +462,7 @@ INCLUDE "mpif.h"
     ! if we don't use mo_mpi we must provide some mpi functions
     ! by ourselves
 #ifdef RTTOV_IFC_USE_MPIF
+    module procedure p_bcast_rttov_integer
     module procedure p_bcast_rttov_integer_1d
     module procedure p_bcast_rttov_integer_2d
     module procedure p_bcast_rttov_integer_3d
@@ -995,7 +1007,7 @@ FTRACE_BEGIN('rttov_init')
 
    enddo
 
-    if(any(setup_errorstatus(:) /= ERRORSTATUS_SUCCESS)) then
+    if(any(setup_errorstatus(1:nInstr) /= ERRORSTATUS_SUCCESS)) then
        print *, 'rttov_init: setup_errorstatus =', setup_errorstatus
        rttov_init = ERR_RTTOV_SETUP
        return
@@ -4197,7 +4209,7 @@ FTRACE_END('rttov_k_ifc')
          call rttov_setup_emis_atlas(ierr(1), opts, month, 1, mw_atlas(n_atlas), atlas_id = 1, &
               path = path, coefs = coefs(k))
          tel = .true.
-         if ( ierr(1) == 0 .and. dace% lpio ) write(stdout,*) 'TELSEM emissivity atlas initialized.'
+         if (ierr(1) == 0) write(stdout,*) 'TELSEM emissivity atlas initialized.'
        end if
        ! CNRM needs to be loaded for each instument that requires it (AMSU-A/-B, ATMS and/or MHS)
        do j = 1, size(cnrm)
@@ -4211,7 +4223,7 @@ FTRACE_END('rttov_k_ifc')
            call rttov_setup_emis_atlas(ierr(j+1), opts, month, 1, mw_atlas(n_atlas), atlas_id = 2, &
                 path = path, coefs = coefs(k))
            cnr(j) = .true.
-           if ( ierr(j+1) == 0 .and. dace% lpio ) write(stdout,'(1x,A,I3,A)') 'CNRM emissivity atlas for instrument ', &
+           if (ierr(j+1) == 0) write(stdout,'(1x,A,I3,A)') 'CNRM emissivity atlas for instrument ', &
                 coefs(k)% coef% id_inst, ' initialized.'
          end if
        end do
@@ -4226,15 +4238,14 @@ FTRACE_END('rttov_k_ifc')
    ! distribute atlases to all PEs
    if (n_proc > 1 ) then
      call p_bcast(n_atlas,io_proc_id,mpi_comm_type)
-     if (dace% lpio ) write(stdout,'(1x,A,I2,A)') 'Distribute ',n_atlas,' emissivity atlases.'
+     if (my_proc_id == io_proc_id) write(stdout,'(1x,A,I2,A)') 'Distribute ',n_atlas,' emissivity atlases.'
      do j = 1, n_atlas
        call p_bcast(mw_atlas(j),io_proc_id,mpi_comm_type)
      end do
    end if
+   stat = sum(ierr)
 #endif
-   if (present(stat)) stat = sum(ierr)
 #endif
-
  end subroutine init_rttov_mw_atlas
 
  subroutine get_emis_atlas(insidx, atlas_id, lprofs, chan, emis, stat)
@@ -6268,6 +6279,25 @@ FTRACE_END('dealloc_rttov_arrays')
   end subroutine p_bcast_rttov_char_1d
 
 #ifdef RTTOV_IFC_USE_MPIF
+  subroutine p_bcast_rttov_integer(buffer,source,comm)
+  integer(jpim),    intent(inout)   :: buffer
+  integer,          intent(in)      :: source
+  integer, optional,intent(in)      :: comm
+  !------------------------------------------------------------
+  ! Broadcast an integer vector across all available processors
+  !------------------------------------------------------------
+    integer :: lcom, errorcode
+
+    lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
+
+    call MPI_Bcast(buffer,1, MPI_INTEGER, source, lcom, errorcode)
+
+    if (errorcode /= MPI_SUCCESS) then
+      print *, 'MPI ERROR in MPI_Bcast: ', errorcode
+      stop 'MPI ERROR'
+    endif
+  end subroutine p_bcast_rttov_integer
+
   subroutine p_bcast_rttov_integer_1d(buffer,source,comm)
   integer(jpim),    intent(inout)   :: buffer(:)
   integer,          intent(in)      :: source
@@ -6478,7 +6508,7 @@ FTRACE_END('dealloc_rttov_arrays')
 
    lcom = MPI_COMM_WORLD ;if (present (comm)) lcom = comm
 
-   call MPI_Bcast(buffer,size(transfer(buffer,(/' '/))), MPI_BYTE, &
+   call MPI_Bcast(atlas,size(transfer(atlas,(/' '/))), MPI_BYTE, &
         source, lcom, errorcode)
 
    if (errorcode /= MPI_SUCCESS) then

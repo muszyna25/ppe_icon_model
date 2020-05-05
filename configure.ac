@@ -61,7 +61,7 @@ AC_ARG_ENABLE([atmo],
      [enable the atmosphere component of ICON @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_atmo=yes])],
   [enable_atmo=yes])
-
+  
 AC_ARG_ENABLE([ocean],
   [AC_HELP_STRING([--enable-ocean],
      [enable the ocean component of ICON @<:@default=yes@:>@])],
@@ -73,6 +73,18 @@ AC_ARG_ENABLE([jsbach],
      [enable the land component JSBACH @<:@default=yes@:>@])],
   [AS_IF([test x"$enableval" != xno], [enable_jsbach=yes])],
   [enable_jsbach=yes])
+
+AC_ARG_ENABLE([dace],
+  [AC_HELP_STRING([--enable-dace],
+     [enable DACE modules for data assimilation @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_dace=yes])],
+  [enable_dace=no])
+
+AC_ARG_ENABLE([emvorado],
+  [AC_HELP_STRING([--enable-emvorado],
+     [enable the radar forward operator EMVORADO @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_emvorado=yes])],
+  [enable_emvorado=no])
 
 AC_ARG_ENABLE([coupling],
   [AC_HELP_STRING([--enable-coupling],
@@ -338,6 +350,42 @@ AS_VAR_IF([enable_art], [yes],
    AC_SUBST([ART_ENABLED], [''])],
   [AC_SUBST([ART_ENABLED], ['#'])])
 
+AS_VAR_IF([enable_dace], [yes],
+  [icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the DACE component, for example dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-dace) or load submodule dace_icon])])
+  AC_SUBST([DACE_ENABLED], [''])
+  AC_SUBST([DACE_NOT_ENABLED], ['#'])
+  ],
+  [
+  AC_SUBST([DACE_ENABLED], ['#'])
+  AC_SUBST([DACE_NOT_ENABLED], [''])
+  ])
+
+AS_VAR_IF([enable_rttov], [yes],
+  [AC_SUBST([RTTOV_ENABLED], [''])],
+  [AC_SUBST([RTTOV_ENABLED], ['#'])])
+
+AS_VAR_IF([enable_emvorado], [yes],
+  [
+   icon_subdir_srcdir="$srcdir/externals/emvorado"
+   icon_subdir_unique_file="src_emvorado/radar_organize.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the EMVORADO component dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-emvorado)]) or load submodule emvorado])
+   icon_subdir_srcdir="$srcdir/externals/dace_icon"
+   icon_subdir_unique_file="src_for_icon/mo_fdbk_tables.f90"
+   AS_IF([test ! -r "$icon_subdir_srcdir/$icon_subdir_unique_file"],
+     [AC_MSG_ERROR([unable to find sources of the DACE component which is needed by EMVORADO, for example dnl
+($icon_subdir_unique_file) in '$icon_subdir_srcdir': disable the component dnl
+(--disable-emvorado) or load submodule dace_icon])])
+   AC_SUBST([EMVORADO_ENABLED], [''])],
+  [AC_SUBST([EMVORADO_ENABLED], ['#'])])
+
 AS_VAR_IF([enable_mpi], [yes],
   [AC_SUBST([MPI_ENABLED], [''])],
   [AC_SUBST([MPI_ENABLED], ['#'])])
@@ -473,6 +521,19 @@ AS_VAR_IF([enable_ocean], [no],
 AS_VAR_IF([enable_jsbach], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_JSBACH__"])])
 
+AS_VAR_IF([enable_dace], [yes],
+  [
+  AS_VAR_IF([enable_rttov], [no], [
+    AC_MSG_FAILURE([The DACE submodule currently only works together with the RTTOV library: dnl
+enable usage of RTTOV (--enable-rttov) and link the RTTOV lib accordingly (FCFLAGS, LDFLAGS and LIBS), dnl
+or --disable-dace])
+  ])
+  AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__DACE__ ${FC_PP_DEF}HAVE_MPI_MOD"])
+  ])
+
+AS_VAR_IF([enable_emvorado], [yes],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}HAVE_RADARFWO ${FC_PP_DEF}NUDGING ${FC_PP_DEF}GRIBAPI ${FC_PP_DEF}HDF5_RADAR_INPUT ${FC_PP_DEF}WITH_ZLIB ${FC_PP_DEF}NETCDF ${FC_PP_DEF}TWOMOM_SB_NEW "])])
+
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
@@ -486,7 +547,7 @@ AS_VAR_IF([enable_rte_rrtmgp], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_RTE_RRTMGP__"])])
 
 AS_VAR_IF([enable_rttov], [yes],
-  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV"])])
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__USE_RTTOV ${FC_PP_DEF}RTTOV12 ${FC_PP_DEF}__RTTOV12 ${FC_PP_DEF}HAVE_MPI_MOD"])])
 
 AS_VAR_IF([enable_art], [yes],
   [AS_VAR_APPEND([FCFLAGS],
@@ -868,7 +929,7 @@ type(rttov_coefs),target:: coefs(1)
 call rttov_nullify_coef(coefs(1)%coef)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
-      AC_MSG_FAILURE([unable to link a test program using RTTOV: either dnl
+      AC_MSG_FAILURE([unable to link a test program using the RTTOV library: either dnl
 disable usage of RTTOV (--disable-rttov) or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
 

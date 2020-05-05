@@ -2,15 +2,14 @@
 
 set -eu
 
-SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 
 # module command and path setup from  /etc/profile.local:
-MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles && module purge"
 
 
 MODULES='PrgEnv-cray cray-mpich/7.7.10.1 cce/8.7.11 craype-haswell cray-netcdf/4.6.3.0 cray-hdf5/1.10.5.0 eccodes aec'
-
 
 # Uncomment the following line if you want to prevent as many tests from
 # failing as possible when running 'make check' on the login nodes with Sandy
@@ -18,7 +17,8 @@ MODULES='PrgEnv-cray cray-mpich/7.7.10.1 cce/8.7.11 craype-haswell cray-netcdf/4
 # building the application for compute nodes with Haswell processors.
 # MODULES+=' craype-sandybridge'
 
-RTTOV_ROOT_LIB='/e/uhome/rfaulwet/icon/rttov12/xc_cray'
+# provisonal path to RTTOV lib until an official version (located in for0adm) becomes available
+RTTOV_ROOT_LIB='/e/uhome/ublahak/ICON/ICON_MPI/LIB/rttov12.1_ub/xce.cray'
 RTTOV_ROOT='/usr/local/pkg/for0adm'
 RTTOV_LIBS='-lrttov12'
 
@@ -44,7 +44,7 @@ RTTOV_LIBS='-lrttov12'
 #   2) pass '-l:libaec.a', which is understood by the compiler and is left as
 #      it is by libtool.
 # We implement the second solution here:
-ECCODES_LIBS='-leccodes -l:libaec.a'
+ECCODES_LIBS='-leccodes_f90 -leccodes -l:libaec.a'
 
 XML2_ROOT='/opt/cray/xc-sysroot/default/usr'
 # As it was mentioned before, libtool is not fully compatible with Cray
@@ -109,12 +109,14 @@ CFLAGS='-O3'
 CPPFLAGS="${ECCODES_INCLUDE} -I${XML2_ROOT}/include/libxml2"
 
 FC='ftn'
-FCFLAGS="-I${RTTOV_ROOT_LIB} -I${RTTOV_ROOT_LIB}/include/ -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
+FCFLAGS="${ECCODES_INCLUDE} -I${RTTOV_ROOT_LIB} -I${RTTOV_ROOT_LIB}/include/ -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
 
 LDFLAGS="-static -L${RTTOV_ROOT_LIB} -L${ECCODES_LIB_DIR} -L${AEC_DIR}/lib"
 LIBS="${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS}"
 
-EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp --enable-rttov'
+# use  --enable-dace in command line to include DACE coupling
+# use  --enable-emvorado in command line to include EMVORADO coupling
+EXTRA_CONFIG_ARGS='--disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-grib2 --enable-loop-exchange --enable-mixed-precision --enable-openmp --enable-rttov --disable-jsbach --disable-ocean --enable-ecrad'
 
 ################################################################################
 

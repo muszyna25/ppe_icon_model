@@ -28,13 +28,13 @@ MODULE mo_ecrad
   USE radiation_config,           ONLY: t_ecrad_conf=>config_type,                        &
                                     &   ISolverHomogeneous, ISolverMcICA,                 &
                                     &   ISolverSpartacus, ISolverTripleclouds,            &
+                                    &   ISolverCloudless,                                 &
                                     &   IGasModelMonochromatic, IGasModelIFSRRTMG,        &
-                                    &   IGasModelPSRRTMG,                                 &
                                     &   ILiquidModelMonochromatic, ILiquidModelSlingo,    &
-                                    &   ILiquidModelHuStamnesPSRAD, ILiquidModelSOCRATES, &
+                                    &   ILiquidModelSOCRATES,                             &
                                     &   IOverlapMaximumRandom, IOverlapExponentialRandom, &
                                     &   IOverlapExponential,                              &
-                                    &   IIceModelMonochromatic, IIceModelFuPSRAD,         &
+                                    &   IIceModelMonochromatic,                           &
                                     &   IIceModelFu, IIceModelBaran, IIceModelBaran2016,  &
                                     &   IIceModelBaran2017
   USE radiation_single_level,     ONLY: t_ecrad_single_level_type=>single_level_type
@@ -79,12 +79,11 @@ MODULE mo_ecrad
   ! Solver
   PUBLIC :: ISolverHomogeneous, ISolverMcICA, ISolverSpartacus, ISolverTripleclouds
   ! Gas model
-  PUBLIC :: IGasModelMonochromatic, IGasModelIFSRRTMG, IGasModelPSRRTMG
+  PUBLIC :: IGasModelMonochromatic, IGasModelIFSRRTMG
   ! Liquid hydrometeor scattering
-  PUBLIC :: ILiquidModelMonochromatic, ILiquidModelSlingo, ILiquidModelHuStamnesPSRAD, ILiquidModelSOCRATES
+  PUBLIC :: ILiquidModelMonochromatic, ILiquidModelSlingo, ILiquidModelSOCRATES
   ! Ice scattering
-  PUBLIC :: IIceModelMonochromatic, IIceModelFuPSRAD, IIceModelFu, &
-    &       IIceModelBaran, IIceModelBaran2016, IIceModelBaran2017
+  PUBLIC :: IIceModelMonochromatic, IIceModelFu, IIceModelBaran, IIceModelBaran2016, IIceModelBaran2017
   ! Cloud overlap
   PUBLIC :: IOverlapMaximumRandom, IOverlapExponentialRandom, IOverlapExponential
   ! Gas units

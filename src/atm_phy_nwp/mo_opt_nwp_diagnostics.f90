@@ -25,18 +25,20 @@ MODULE mo_opt_nwp_diagnostics
   USE mo_math_constants,        ONLY: pi
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
-    &                                 vtmpc1, t3,      &
+    &                                 vtmpc1,          &
     &                                 grav,            &
     &                                 tmelt, earth_radius, &
     &                                 alvdcp, rd_o_cpd, &
     &                                 rhoh2o, rhoice, K_w_0, K_i_0
+  USE gscp_data,                ONLY: cloud_num, isnow_n0temp, zami, mu_rain, zams, zams_gr, zbms, &
+    &                                 znimax_Thom, ztmix, zthn, mma, mmb, zcnue
   USE mo_2mom_mcrph_main,       ONLY: init_2mom_scheme,      &
     &                                 rain_coeffs  ! contains the parameters for the mue-Dm-relation
-  USE mo_2mom_mcrph_types,      ONLY: particle, particle_frozen, particle_lwf, particle_rain_coeffs
+  USE mo_2mom_mcrph_types,      ONLY: particle, particle_frozen, particle_rain_coeffs
   USE mo_2mom_mcrph_util,       ONLY: gfct
-  USE mo_2mom_mcrph_processes,  ONLY: moment_gamma
+  USE mo_2mom_mcrph_processes,  ONLY: moment_gamma, rain_mue_dm_relation
   USE mo_exception,             ONLY: finish, message
-  USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
+  USE mo_satad,                 ONLY: sat_pres_water
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
     &                                 min_rlcell, grf_bdywidth_c
@@ -44,21 +46,16 @@ MODULE mo_opt_nwp_diagnostics
     &                                 grf_ovlparea_start_c, grf_fbk_start_c
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
-       &                              iqm_max, nqtendphy, lart, &
+  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, &
        &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, msg_level
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_nwp_tuning_config,     ONLY: tune_gust_factor
-  USE mo_advection_config,      ONLY: advection_config
-  USE mo_art_config,            ONLY: art_config
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_io_config,             ONLY: echotop_meta
   USE mo_lnd_nwp_config,        ONLY: nlev_soil, dzsoil
   USE mo_nwp_lnd_types,         ONLY: t_lnd_diag
   USE mo_ext_data_types,        ONLY: t_external_data
-  USE mo_satad,                 ONLY: qsat_rho
   USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_nwp_sfc_interp,        ONLY: wsoil2smi
   USE mo_icon_interpolation_scalar,                     &
@@ -71,12 +68,12 @@ MODULE mo_opt_nwp_diagnostics
   USE mo_grf_intp_data_strc,    ONLY: p_grf_state_local_parent
   USE mo_communication,         ONLY: exchange_data
   USE mo_grid_config,           ONLY: l_limited_area
-  USE mo_mpi,                   ONLY: my_process_is_work, my_process_is_mpi_workroot, &
-                                      get_my_mpi_work_id, num_work_procs
+  USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, get_my_mpi_work_id
 #ifdef _OPENACC
   USE mo_mpi,                   ONLY: i_am_accel_node
 #endif
 
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -99,6 +96,10 @@ MODULE mo_opt_nwp_diagnostics
   PUBLIC :: compute_field_smi
   PUBLIC :: cal_cape_cin
   PUBLIC :: compute_field_dbz3d_lin
+#ifdef HAVE_RADARFWO
+  PUBLIC :: compute_field_dbz_1mom
+  PUBLIC :: compute_field_dbz_2mom
+#endif
   PUBLIC :: compute_field_dbzcmax
   PUBLIC :: compute_field_dbz850
   PUBLIC :: maximize_field_dbzctmax
@@ -106,7 +107,7 @@ MODULE mo_opt_nwp_diagnostics
   PUBLIC :: compute_field_echotopinm
 
   !> module name
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_phys'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_opt_nwp_diagnostics'
 
 CONTAINS
 
@@ -1039,7 +1040,7 @@ CONTAINS
     REAL(wp) :: Tmelt_m_20K
 
     REAL(wp) :: w_updraft_crit
-    REAL(wp) :: qg_low_limit, qg_upp_limit, qg_scale_inv
+    REAL(wp) :: qg_low_limit, qg_upp_limit, qg_scale_inv, q_i, q_s, q_g
     REAL(wp) :: w_thresh, w_frac_tresh
 
     REAL(wp) :: vol( nproma )
@@ -1063,13 +1064,10 @@ CONTAINS
     INTEGER :: nblks_c_lp
 
 
-    SELECT CASE ( atm_phy_nwp_config(jg)%inwp_gscp )
-    CASE ( 2, 4 )   ! 2=graupel scheme, 4=two-moment-scheme (with graupel)
-      ! (ok; graupel is available)
-    CASE DEFAULT
+    IF (.not.atm_phy_nwp_config(jg)%lhave_graupel) THEN
       CALL finish( modname//'compute_field_LPI',  &
         &     "no graupel available! Either switch off LPI output or change the microphysics scheme" )
-    END SELECT
+    END IF
 
     Tmelt_m_20K = Tmelt - 20.0_wp
 
@@ -1109,7 +1107,7 @@ CONTAINS
     ! --- calculation of the LPI integral ---
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,vol,delta_z,w_c,q_liqu,q_solid,epsw,lpi_incr), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,vol,delta_z,w_c,q_liqu,q_i,q_s,q_g,q_solid,epsw,lpi_incr), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( ptr_patch, jb, i_startblk, i_endblk,     &
@@ -1134,37 +1132,30 @@ CONTAINS
                     + p_prog_rcf%tracer(jc,jk,jb,iqr)
 
             IF (atm_phy_nwp_config(jg)%l2moment) THEN
-              q_solid =    p_prog_rcf%tracer(jc,jk,jb,iqg) *                                              &
-                &  ( SQRT( p_prog_rcf%tracer(jc,jk,jb,iqi) * (p_prog_rcf%tracer(jc,jk,jb,iqg) +               &
-                &          p_prog_rcf%tracer(jc,jk,jb,iqh)) )                                             &
-                &   / MAX( p_prog_rcf%tracer(jc,jk,jb,iqi) + p_prog_rcf%tracer(jc,jk,jb,iqg) +                &
-                &          p_prog_rcf%tracer(jc,jk,jb,iqh), 1.0e-20_wp) +                                 &
-                &    SQRT( p_prog_rcf%tracer(jc,jk,jb,iqs) * (p_prog_rcf%tracer(jc,jk,jb,iqg) +               &
-                &          p_prog_rcf%tracer(jc,jk,jb,iqh)) )                                             &
-                &   / MAX( p_prog_rcf%tracer(jc,jk,jb,iqs) + p_prog_rcf%tracer(jc,jk,jb,iqg) +                &
-                &          p_prog_rcf%tracer(jc,jk,jb,iqh), 1.0e-20_wp) )
+              ! sometimes during IAU slightly negative values of the hydrometeors were encountered, which
+              ! lead to a crash in the sqrt() below. Therefore we clip all hydrometeors at 0.0 for security:
+              q_i = MAX(p_prog_rcf%tracer(jc,jk,jb,iqi), 0.0_wp)
+              q_s = MAX(p_prog_rcf%tracer(jc,jk,jb,iqs), 0.0_wp)
+              q_g = MAX(p_prog_rcf%tracer(jc,jk,jb,iqg) + p_prog_rcf%tracer(jc,jk,jb,iqh), 0.0_wp)
             ELSE
-              q_solid =    p_prog_rcf%tracer(jc,jk,jb,iqg) *                                              &
-                &  ( SQRT( p_prog_rcf%tracer(jc,jk,jb,iqi) * p_prog_rcf%tracer(jc,jk,jb,iqg) )                &
-                &   / MAX( p_prog_rcf%tracer(jc,jk,jb,iqi) + p_prog_rcf%tracer(jc,jk,jb,iqg), 1.0e-20_wp) +   &
-                &    SQRT( p_prog_rcf%tracer(jc,jk,jb,iqs) * p_prog_rcf%tracer(jc,jk,jb,iqg) )                &
-                &   / MAX( p_prog_rcf%tracer(jc,jk,jb,iqs) + p_prog_rcf%tracer(jc,jk,jb,iqg), 1.0e-20_wp) )
+              q_i = MAX(p_prog_rcf%tracer(jc,jk,jb,iqi), 0.0_wp)
+              q_s = MAX(p_prog_rcf%tracer(jc,jk,jb,iqs), 0.0_wp)
+              q_g = MAX(p_prog_rcf%tracer(jc,jk,jb,iqg), 0.0_wp)
             END IF
+
+            q_solid = q_g *                                                 &
+                 &    ( SQRT( q_i * q_g  ) / MAX( q_i + q_g, 1.0e-20_wp) +  &
+                 &      SQRT( q_s * q_g  ) / MAX( q_s + q_g, 1.0e-20_wp) )
 
             epsw = 2.0_wp * SQRT( q_liqu * q_solid ) / MAX( q_liqu + q_solid, 1.0e-20_wp)
 
-            ! 'updraft-criterion' in the LPI interal
+            ! 'updraft-criterion' in the LPI integral
             IF ( w_c >= w_updraft_crit ) THEN
               ! only (strong enough) updrafts should be counted, no downdrafts
               lpi_incr = w_c * w_c * epsw * delta_z
 
               ! additional 'Graupel-criterion' in the LPI integral
-              IF (atm_phy_nwp_config(jg)%l2moment) THEN
-                lpi_incr = lpi_incr * MAX( MIN( (p_prog_rcf%tracer(jc,jk,jb,iqg)+p_prog_rcf%tracer(jc,jk,jb,iqh) - &
-                                                 qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
-              ELSE
-                lpi_incr = lpi_incr * MAX( MIN( (p_prog_rcf%tracer(jc,jk,jb,iqg) -qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
-              END IF
+              lpi_incr = lpi_incr * MAX( MIN( (q_g - qg_low_limit) * qg_scale_inv, 1.0_wp ), 0.0_wp )
 
             ELSE
               lpi_incr = 0.0_wp
@@ -2260,7 +2251,7 @@ CONTAINS
 
   INTEGER :: lfcfound(SIZE(te,1))   ! flag indicating if a LFC has already been found
                                     ! below, in cases where several EL and LFC's occur
-  
+  LOGICAL :: lexit(SIZE(te,1))
 !------------------------------------------------------------------------------
 ! 
 ! A well mixed near surface layer is assumed (its depth is specified with 
@@ -2278,10 +2269,12 @@ CONTAINS
                        ! mixed layer pressure
     qvp_start(:) = 0.0_wp ! specific humidities in well mixed layer
     tp_start (:) = 0.0_wp ! potential temperatures in well mixed layer
-            
+    lexit(:)     = .FALSE.
+
     ! now calculate the mixed layer average potential temperature and 
     ! specific humidity
     DO k = nlev, kmoist, -1
+      IF (ALL(lexit(i_startidx:i_endidx))) EXIT
       DO i = i_startidx, i_endidx
 
         IF ( prs(i,k) > (prs(i,nlev) - ml_depth)) THEN
@@ -2298,7 +2291,7 @@ CONTAINS
 
           k_ml(i) = k - 1
         ELSE
-          EXIT
+          lexit(i) = .TRUE.
         ENDIF
 
       ENDDO     
@@ -2589,28 +2582,27 @@ CONTAINS
 
   END SUBROUTINE cal_cape_cin
 
-  !> Wrapper routine to get the 3D radar reflectivity field depending on the microphyscis scheme
+  !> Wrapper routine to get the 3D radar reflectivity field depending on the microphysics scheme
   !  and store it in p_diag%dbz3d(:,:,:)
   !!
   !! @par Revision History
   !! Initial revision  :  U. Blahak, DWD (2020-01-20) 
-  SUBROUTINE compute_field_dbz3d_lin(jg, ptr_patch, p_metrics, p_prog,  p_prog_rcf, p_diag, dbz3d_lin)
+  SUBROUTINE compute_field_dbz3d_lin(jg, ptr_patch, p_prog,  p_prog_rcf, p_diag, prm_diag, dbz3d_lin)
 
     ! Domain index for later use with EMVORADO calc_dbz_vec():
     INTEGER, INTENT(in)  :: jg
     ! patch on which computation is performed:
     TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
-    ! NH metrics variable:
-    TYPE(t_nh_metrics) ,INTENT(IN)   :: p_metrics 
     ! nonhydrostatic state
-    TYPE(t_nh_prog), INTENT(IN)    :: p_prog            !< at timelevel nnow(jg)
-    TYPE(t_nh_prog), INTENT(IN)    :: p_prog_rcf        !< at timelevel nnow_rcf(jg)
-    TYPE(t_nh_diag), INTENT(INOUT) :: p_diag
-    REAL(wp),        INTENT(OUT)   :: dbz3d_lin(:,:,:)  !< reflectivity in mm^6/m^3
+    TYPE(t_nh_prog), INTENT(IN)       :: p_prog            !< at timelevel nnow(jg)
+    TYPE(t_nh_prog), INTENT(IN)       :: p_prog_rcf        !< at timelevel nnow_rcf(jg)
+    TYPE(t_nh_diag), INTENT(INOUT)    :: p_diag
+    TYPE(t_nwp_phy_diag), INTENT(IN)  :: prm_diag
+    REAL(wp),        INTENT(OUT)      :: dbz3d_lin(:,:,:)  !< reflectivity in mm^6/m^3
     
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = modname//': compute_field_dbz3d_lin'
-    REAL(wp) :: rho
+    REAL(wp) :: rho, qnc_s(nproma,ptr_patch%nblks_c)
     INTEGER  :: i_rlstart, i_rlend, i_startblk, i_endblk, i_startidx, i_endidx, i_startidx_1, i_endidx_2, &
       &         jc, jk, jb
 
@@ -2628,6 +2620,15 @@ CONTAINS
     SELECT CASE ( atm_phy_nwp_config(jg)%inwp_gscp )
     CASE ( 1 )
 
+      IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 2) THEN
+        ! Not yet implemented in microphysics! We give a dummy value here.
+        qnc_s(:,:) = cloud_num               ! 1/kg
+      ELSE IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1) THEN
+        qnc_s(:,:) = prm_diag%cloud_num(:,:) ! neglect difference of 1/m^3 and 1/kg for this near-surface value
+      ELSE
+        qnc_s(:,:) = cloud_num               ! 1/kg
+      END IF
+      
       CALL compute_field_dbz_1mom( npr       = nproma,                           &
                                    nlev      = ptr_patch%nlev,                   &
                                    nblks     = ptr_patch%nblks_c,                &
@@ -2636,6 +2637,9 @@ CONTAINS
                                    jk_start  = kstart_moist(jg),                 &
                                    startidx1 = i_startidx_1,                     &
                                    endidx2   = i_endidx_2,                       &
+                                   lmessage_light = (msg_level > 12 .AND. my_process_is_mpi_workroot()), &
+                                   lmessage_full  = (msg_level > 15),            &
+                                   my_id_for_message = get_my_mpi_work_id(),     &
                                    rho_w     = rhoh2o,                           &
                                    rho_ice   = rhoice,                           &
                                    K_w       = K_w_0,                            &
@@ -2649,11 +2653,20 @@ CONTAINS
                                    q_ice     = p_prog_rcf%tracer(:,:,:,iqi),     &
                                    q_rain    = p_prog_rcf%tracer(:,:,:,iqr),     &
                                    q_snow    = p_prog_rcf%tracer(:,:,:,iqs),     &
+                                   n_cloud_s = qnc_s(:,:),                       &  ! 1/kg
                                    z_radar   = dbz3d_lin(:,:,:)                  )
 
     CASE ( 2 )
 
-      ! Note: computations include halos and boundaries for later consistency to EMVORADO routine
+      IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 2) THEN
+        ! Not yet implemented in microphysics! We give a dummy value here.
+        qnc_s(:,:) = cloud_num               ! 1/kg
+      ELSE IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1) THEN
+        qnc_s(:,:) = prm_diag%cloud_num(:,:) ! neglect difference of 1/m^3 and 1/kg for this near-surface value
+      ELSE
+        qnc_s(:,:) = cloud_num               ! 1/kg
+      END IF
+      
       CALL compute_field_dbz_1mom( npr       = nproma,                           &
                                    nlev      = ptr_patch%nlev,                   &
                                    nblks     = ptr_patch%nblks_c,                &
@@ -2662,6 +2675,9 @@ CONTAINS
                                    jk_start  = kstart_moist(jg),                 &
                                    startidx1 = i_startidx_1,                     &
                                    endidx2   = i_endidx_2,                       &
+                                   lmessage_light = (msg_level > 12 .AND. my_process_is_mpi_workroot()), &
+                                   lmessage_full  = (msg_level > 15),            &
+                                   my_id_for_message = get_my_mpi_work_id(),     &
                                    rho_w     = rhoh2o,                           &
                                    rho_ice   = rhoice,                           &
                                    K_w       = K_w_0,                            &
@@ -2676,6 +2692,7 @@ CONTAINS
                                    q_rain    = p_prog_rcf%tracer(:,:,:,iqr),     &
                                    q_snow    = p_prog_rcf%tracer(:,:,:,iqs),     &
                                    q_graupel = p_prog_rcf%tracer(:,:,:,iqg),     &
+                                   n_cloud_s = qnc_s(:,:),                       &  ! 1/kg
                                    z_radar   = dbz3d_lin(:,:,:)                  )
       
     CASE ( 4, 5, 6 )
@@ -2688,6 +2705,9 @@ CONTAINS
                                    jk_start  = kstart_moist(jg),                 &
                                    startidx1 = i_startidx_1,                     &
                                    endidx2   = i_endidx_2,                       &
+                                   lmessage_light = (msg_level > 12 .AND. my_process_is_mpi_workroot()), &
+                                   lmessage_full  = (msg_level > 15),            &
+                                   my_id_for_message = get_my_mpi_work_id(),     &
                                    rho_w     = rhoh2o,                           &
                                    rho_ice   = rhoice,                           &
                                    K_w       = K_w_0,                            &
@@ -2714,7 +2734,7 @@ CONTAINS
     CASE DEFAULT
       
       CALL finish( modname//': get_field_dbz3d_lin',  &
-        &     "dbz3d-computation not available for this microphysics scheme! Available for inwp_gscp=1,2,4,5, or 6" )
+        &     "dbz3d-computation not available for this microphysics scheme! Available for inwp_gscp=1,2,4,5,6 or 7" )
 
     END SELECT
 
@@ -2728,11 +2748,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by U. Blahak, DWD (2020-01-20) 
   !!
-  SUBROUTINE compute_field_dbz_1mom( npr, nlev, nblks, startblk, endblk, jk_start,     &
-                                     startidx1, endidx2, rho_w, rho_ice,               &
-                                     K_w, K_ice, T_melt, igscp, q_crit_radar,          &
-                                     T, rho, q_cloud, q_rain, q_ice, q_snow, z_radar,  &
-                                     q_graupel, mue_rain_c_in )
+  SUBROUTINE compute_field_dbz_1mom( npr, nlev, nblks, startblk, endblk, jk_start,       &
+                                     startidx1, endidx2,                                 &
+                                     lmessage_light, lmessage_full, my_id_for_message,   &
+                                     rho_w, rho_ice,                                     &
+                                     K_w, K_ice, T_melt, igscp, q_crit_radar,            &
+                                     T, rho, q_cloud, q_rain, q_ice, q_snow, z_radar,    &
+                                     q_graupel, n_cloud_s )
  
    !------------------------------------------------------------------------------
     !
@@ -2760,14 +2782,12 @@ CONTAINS
     !               q_crit_radar : threshold for the q's to compute reflectivity  [kg/m**3]
     !               T            : temperature field          [K]
     !               rho          : air density                [kg/m**3]
-    !               q_cloud      : cloud water mixing ratio   [] 
-    !               q_rain       : rain water mixing ratio    [] 
-    !               q_ice        : cloud ice mixing ratio     []
-    !               q_snow       : snow mixing ratio          []  
-    !   OPTIONAL:   q_graupel    : graupel mixing ratio       [] 
-    !   OPTIONAL:   mue_rain_c_in: assumed constant value of mue for rain for the DSD model
-    !                                N(D) = N_0 D^mue exp(-lambda*D)    (D = diameter)
-    !                              DEFAULT: depends on igsp!
+    !               q_cloud      : cloud water mixing ratio   [kg/kg] 
+    !               q_rain       : rain water mixing ratio    [kg/kg] 
+    !               q_ice        : cloud ice mixing ratio     [kg/kg]
+    !               q_snow       : snow mixing ratio          [kg/kg]  
+    !   OPTIONAL:   q_graupel    : graupel mixing ratio       [kg/kg] 
+    !   OPTIONAL:   n_cloud_s    : surface value of cloud droplet number concentration [1/kg] 
     !
     ! Output:       z_radar      : 3D field of Z              [mm^6/m^3]
     ! 
@@ -2778,7 +2798,8 @@ CONTAINS
     !-------------------------
 
     INTEGER , INTENT(IN)       :: npr, nlev, nblks
-    INTEGER,  INTENT(IN)       :: startblk, endblk, jk_start, startidx1, endidx2
+    INTEGER,  INTENT(IN)       :: startblk, endblk, jk_start, startidx1, endidx2, my_id_for_message
+    LOGICAL,  INTENT(in)       :: lmessage_light, lmessage_full
     REAL(wp), INTENT(IN)       :: rho_w, rho_ice, K_w, K_ice, T_melt, q_crit_radar
     INTEGER , INTENT(IN)       :: igscp
     REAL(wp), INTENT(IN)       :: T(:,:,:),          &
@@ -2787,8 +2808,7 @@ CONTAINS
                                   q_rain(:,:,:),     &
                                   q_ice(:,:,:),      &
                                   q_snow(:,:,:)
-    REAL(wp), INTENT(IN), OPTIONAL :: q_graupel(:,:,:), &
-                                      mue_rain_c_in
+    REAL(wp), INTENT(IN), OPTIONAL :: q_graupel(:,:,:), n_cloud_s(:,:)
     REAL(wp), INTENT(OUT)      :: z_radar(:,:,:)
 
     ! Local Variables
@@ -2800,23 +2820,33 @@ CONTAINS
 
     INTEGER        :: jc, jk, jb, i_startidx, i_endidx
     LOGICAL, SAVE  :: firstcall = .TRUE.
+    logical        :: lqnc_input
 
-    REAL(wp)       :: z_fac_ice_dry, z_fac_ice_wet, mom_fac
-    REAL(wp)       :: mma(10), mmb(10)
-    REAL(wp)       :: ztc, m2s, m3s, alf, bet, hlp, zn0s, D_i_mono, D_c_mono
+    REAL(wp)       :: z_fac_ice_dry, z_fac_ice_wet
+    REAL(wp)       :: ztc, m2s, m3s, alf, bet, hlp, zn0s, x_c, x_i_mono, n_i
     INTEGER        :: nn, pe_center
 
-    REAL(wp), SAVE :: z_r, z_g, z_s, p_r, p_s, p_g
+
+    REAL(wp), SAVE :: z_r, z_g, z_s, p_r, p_s, p_g, mom_fac, z_fac_c
     REAL(wp), SAVE :: nor, nog, amg, bmg, nos, ams, bms, &
-                      ami, bmi, x_i_mono, x_c_mono, mue_rain_c
+                      ami, bmi, D_c_fix, x_c_fix, mue_rain_c
 
-    INTEGER,  PARAMETER :: isnow_n0temp   = 2
+    REAL(wp), PARAMETER :: zn0s1       = 13.5_wp * 5.65E5_wp, & ! parameter in N0S(T)
+                           zn0s2       = -0.107_wp,           & ! parameter in N0S(T), Field et al
+                           eps         = 1.00E-15_wp,         &
+                           n_cloud_min = 1.00E7_wp,           & ! min. allowed cloud number conc. in externally provided n_cloud_s
+                           convfac     = 1.E18_wp,            &
+                           z10olog10   = 10.0_wp / LOG(10.0_wp)
 
-    REAL(wp), PARAMETER :: zn0s1 = 13.5_wp * 5.65E5_wp, & ! parameter in N0S(T)
-                           zn0s2 = -0.107_wp,           & ! parameter in N0S(T), Field et al
-                           eps    = 1.00E-15_wp,        &
-                           convfac = 1.E18_wp,          &
-                           z10olog10 = 10.0_wp / LOG(10.0_wp)
+    TYPE(particle) :: cloud_tmp
+
+    ! Variables for cloud ice parameterization 
+    REAL(wp)                             ::  fxna               ! statement function for ice crystal number, Cooper(1986)
+    REAL(wp)                             ::  fxna_cooper        ! statement function for ice crystal number, Cooper(1986)
+    REAL(wp)                             ::  ztx, ztmelt        ! dummy arguments for statement functions
+    REAL(wp), SAVE                       ::  znimax             ! Maximum ice concentration
+    ! This is constant in both cloudice and graupel
+    LOGICAL, PARAMETER                   ::  lsuper_coolw = .TRUE.
 
     REAL(wp) :: zdebug
 
@@ -2824,49 +2854,60 @@ CONTAINS
     
 !------------------------------------------------------------------------------
 
-! Coeffs for moment relation based on 2nd moment (Field 2005)
-    mma = (/   5.065339_wp, -0.062659_wp, -3.032362_wp, 0.029469_wp, -0.000285_wp, &
-               0.312550_wp,  0.000204_wp,  0.003199_wp, 0.000000_wp, -0.015952_wp /)
-    mmb = (/   0.476221_wp, -0.015896_wp,  0.165977_wp, 0.007468_wp, -0.000141_wp, &
-               0.060366_wp,  0.000079_wp,  0.000594_wp, 0.000000_wp, -0.003577_wp /)
+    ! Number of activate ice crystals;  ztx is temperature. Statement functions
+    fxna       (ztx,ztmelt) = 1.0E2_wp  * EXP(0.2_wp   * (ztmelt - ztx))  ! 1/m^3
+    fxna_cooper(ztx,ztmelt) = 5.0E+0_wp * EXP(0.304_wp * (ztmelt - ztx))  ! 1/m^3
 
 !------------------------------------------------------------------------------
 
-    IF (msg_level > 12) THEN
+    IF (lmessage_light .OR. lmessage_full) THEN
       message_text(:) = ' '
       WRITE(message_text,'(a,i0)') 'Computing dbz3d_lin for inw_gscp = ', igscp
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(TRIM(routine), TRIM(message_text), all_print=.TRUE.)
     ENDIF
       
+    lqnc_input = PRESENT(n_cloud_s)
+
     z_fac_ice_dry = (rho_w/rho_ice)**2 * K_ice/K_w
     z_fac_ice_wet = 1.0_wp
-    mom_fac = (6.0_wp / (pi * rho_w))**2
     
     IF (firstcall) THEN
+
+      mom_fac = (6.0_wp / (pi * rho_w))**2
       
+      ! Parameters for cloud droplets:
+      !   PSD consistent to autoconversion parameterization of SB2001:
+      !   gamma distribution w.r.t. mass with gamma shape parameter zcnue from gscp_data.f90
+      D_c_fix = 2.0E-5_wp                         ! constant mean mass diameter of cloud droplets (if n_cloud_s(:,:)
+      x_c_fix = pi * rho_w / 6.0_wp * D_c_fix**3  !   is not present in argument list)
+      cloud_tmp%nu = zcnue     ! gamma shape parameter mu for cloud droplets, in Axel's notation this is called nu instead!
+      cloud_tmp%mu = 1.0_wp    ! 2nd shape parameter of generalized gamma distribution 
+      z_fac_c = moment_gamma(cloud_tmp,2) * mom_fac
+
+      ! Parameters for cloud ice:
+      ami = zami              ! mass-size-relation prefactor
+      bmi = 3.0_wp            ! mass-size-relation exponent
+      IF( lsuper_coolw) THEN
+        znimax = znimax_Thom        ! znimax_Thom = 250.E+3_wp 1/m^3
+      ELSE
+        znimax = fxna(zthn,T_melt)  ! Maximum number of cloud ice crystals in 1/m^3
+      END IF
+
+      ! Parameters for rain:
+      mue_rain_c = mu_rain
+      nor = 8.0e6_wp * EXP(3.2_wp*mue_rain_c) * (0.01_wp)**(-mue_rain_c)
+      p_r = (7.0_wp+mue_rain_c) / (4.0_wp+mue_rain_c)
+      z_r = nor*gfct(7.0_wp+mue_rain_c) * (pi*rho_w*nor*gfct(4.0_wp+mue_rain_c)/6.0_wp)**(-p_r)
+      
+      ! Parameters for snow and graupel:
       IF (igscp == 1) THEN
         
-        IF (.NOT. PRESENT(mue_rain_c_in) ) THEN
-          mue_rain_c = 0.0_wp
-        ELSE
-          mue_rain_c = mue_rain_c_in
-        END IF
-
-        D_c_mono = 2.0E-5_wp
-        x_c_mono = pi * rho_w / 6.0_wp * D_c_mono**3 
-        D_i_mono = 2.0E-4_wp
-        ami = 130.0_wp
-        bmi = 3.0_wp
-        x_i_mono = ami * D_i_mono**bmi
-        ams = 0.069_wp
-        bms = 2.0_wp
-        nor = 8.0e6_wp * EXP(3.2_wp*mue_rain_c) * (0.01_wp)**(-mue_rain_c)
-        p_r = (7.0_wp+mue_rain_c) / (4.0_wp+mue_rain_c)
+        ams = zams
+        bms = zbms
         p_s = (2.0_wp*bms+1.0_wp)/(bms+1.0_wp)
-        z_r = nor*gfct(7.0_wp+mue_rain_c) * (pi*rho_w*nor)**(-p_r)
         z_s = mom_fac*ams**2 * gfct(2.0_wp*bms+1.0_wp) * (ams*gfct(bms+1.0_wp))**(-p_s)
 
-        IF (msg_level > 12 .AND. my_process_is_mpi_workroot()) THEN
+        IF (lmessage_light) THEN
           WRITE (*, *) TRIM(routine)//": cloud ice scheme (using rain and snow)"
           WRITE (*,'(A,F10.3)') '     p_r = ', p_r
           WRITE (*,'(A,F10.3)') '     z_r = ', z_r
@@ -2884,35 +2925,19 @@ CONTAINS
           CALL finish(TRIM(routine), TRIM(message_text))
         END IF
 
-        IF (.NOT. PRESENT(mue_rain_c_in) ) THEN
-          mue_rain_c = 0.5_wp
-        ELSE
-          mue_rain_c = mue_rain_c_in
-        END IF
-      
-        D_c_mono = 2.0E-5_wp
-        x_c_mono = pi * rho_w / 6.0_wp * D_c_mono**3 
-        D_i_mono = 2.0E-4_wp
-        ami = 130.0_wp
-        bmi = 3.0_wp
-        x_i_mono = ami * D_i_mono**bmi
-        ams = 0.038_wp
-        bms = 2.0_wp
+        ams = zams_gr         
+        bms = zbms        
         amg = 169.6_wp
         bmg = 3.1_wp
-        nor = 8.0E6_wp * EXP(3.2_wp*mue_rain_c) * (0.01_wp)**(-mue_rain_c)
         nog = 4.E6_wp
-        p_r = (7.0_wp+mue_rain_c) / (4.0_wp+mue_rain_c)
         p_s = (2.0_wp*bms+1.0_wp)/(bms+1.0_wp)
         p_g = (2.0_wp*bmg+1.0_wp)/(bmg+1.0_wp)
-        z_r = nor*gfct(7.0_wp+mue_rain_c) * &
-             (pi*rho_w*nor*gfct(4.0_wp+mue_rain_c)/6.0_wp)**(-p_r)
         z_s = mom_fac*ams**2 * gfct(2.0_wp*bms+1.0_wp) *       &
                          (ams*gfct(bms+1.0_wp))**(-p_s)
         z_g = mom_fac*amg**2 * nog*gfct(2.0_wp*bmg+1.0_wp) *       &
                          (amg*nog*gfct(bmg+1.0_wp))**(-p_g)
         
-        IF (msg_level > 12 .AND. my_process_is_mpi_workroot()) THEN
+        IF (lmessage_light) THEN
           WRITE (*, *) TRIM(routine)//": graupel scheme (using rain, snow, graupel)"
           WRITE (*,'(A,F10.3)') '     p_r = ', p_r
           WRITE (*,'(A,F10.3)') '     z_r = ', z_r
@@ -2936,7 +2961,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ztc,zn0s,nn,hlp,alf,bet,m2s,m3s, &
-!$OMP            rho_c,rho_i,rho_r,rho_s,rho_g,z_cloud,z_rain,z_snow,z_ice,z_grau), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP            rho_c,rho_i,rho_r,rho_s,rho_g,z_cloud,z_rain,z_snow,z_ice,z_grau,x_c,n_i,x_i_mono), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = startblk, endblk
 
       IF (jb == startblk) THEN
@@ -2960,9 +2985,14 @@ CONTAINS
           rho_r = q_rain(jc,jk,jb)  * rho(jc,jk,jb)
           rho_s = q_snow(jc,jk,jb)  * rho(jc,jk,jb)
 
-          ! .. cloud droplets (monodisperse size distribution):
+          ! .. cloud droplets (gamma distribution w.r.t. mass x and mu_x=zcnue from gscp_data.f90):
           IF (rho_c >= q_crit_radar) THEN
-            z_cloud = mom_fac * rho_c * x_c_mono
+            IF (lqnc_input) THEN
+              x_c = q_cloud(jc,jk,jb) / MAX(n_cloud_s(jc,jb), n_cloud_min)
+            ELSE
+              x_c = x_c_fix
+            END IF
+            z_cloud = z_fac_c * rho_c * x_c
             z_radar(jc,jk,jb) = z_cloud * convfac
           ELSE
             z_radar(jc,jk,jb) = 0._wp
@@ -2976,6 +3006,12 @@ CONTAINS
 
           ! .. cloud ice (monodisperse size distribution):
           IF (rho_i >= q_crit_radar) THEN
+            IF( lsuper_coolw) THEN
+              n_i   = MIN( fxna_cooper(T(jc,jk,jb),T_melt), znimax )  ! 1/m^3
+            ELSE
+              n_i   = MIN( fxna(T(jc,jk,jb),T_melt), znimax )         ! 1/m^3
+            END IF
+            x_i_mono = rho_i / n_i
             z_ice = MERGE(z_fac_ice_dry, z_fac_ice_wet, T(jc,jk,jb) < T_melt) * mom_fac * rho_i * x_i_mono
             z_radar(jc,jk,jb) = z_radar(jc,jk,jb) + z_ice * convfac
           END IF
@@ -3045,21 +3081,12 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
-    IF ( my_process_is_work() ) THEN
-      
-      pe_center = num_work_procs / 2
-      IF ( (msg_level > 12  .AND. my_process_is_mpi_workroot()            ) .OR. &
-           (msg_level > 15 .AND. ABS(get_my_mpi_work_id()-pe_center) <= 5) ) THEN
-
-        zdebug = MAXVAL(z10olog10 * LOG(z_radar + eps))
-
-        message_text(:) = ' '
-        WRITE (message_text, '(a,i4,a,1x,f6.1)') 'reflectivity statistics on worker proc ',get_my_mpi_work_id(), &
-             ': MAX dBZ tot : ', zdebug
-        CALL message (TRIM(routine), TRIM(message_text), all_print=.TRUE.)
-        
-      ENDIF
+    IF ( lmessage_light .OR. lmessage_full ) THEN
+      zdebug = MAXVAL(z10olog10 * LOG(z_radar + eps))
+      message_text(:) = ' '
+      WRITE (message_text, '(a,i4,a,1x,f6.1)') 'reflectivity statistics on proc ',my_id_for_message, &
+           ': MAX dBZ tot : ', zdebug
+      CALL message (TRIM(routine), TRIM(message_text), all_print=.TRUE.)
     ENDIF
 
   END SUBROUTINE compute_field_dbz_1mom
@@ -3072,11 +3099,13 @@ CONTAINS
   !! Initial revision by U. Blahak, DWD (2020-01-20) 
   !!
   SUBROUTINE compute_field_dbz_2mom( npr, nlev, nblks, startblk, endblk, jk_start,          &
-                                     startidx1, endidx2, rho_w, rho_ice,                    &
+                                     startidx1, endidx2,                                    &
+                                     lmessage_light, lmessage_full, my_id_for_message,      &
+                                     rho_w, rho_ice,                                        &
                                      K_w, K_ice, T_melt, q_crit_radar, T, rho,              &
                                      q_cloud, q_rain, q_ice, q_snow, q_graupel, q_hail,     &
                                      n_cloud, n_rain, n_ice, n_snow, n_graupel, n_hail,     &
-                                     z_radar )
+                                     ql_graupel, ql_hail, z_radar )
 
     !------------------------------------------------------------------------------
     !
@@ -3103,18 +3132,20 @@ CONTAINS
     !               q_crit_radar : threshold for the q's to compute reflectivity  [kg/m**3]
     !               T            : temperature field          [K]
     !               rho          : air density                [kg/m**3]
-    !               q_cloud      : cloud water mixing ratio   [] 
-    !               q_rain       : rain water mixing ratio    [] 
-    !               q_ice        : cloud ice mixing ratio     []
-    !               q_snow       : snow mixing ratio          []  
-    !               q_graupel    : graupel mixing ratio       []
-    !               q_hail       : hail mixing ratio          []
+    !               q_cloud      : cloud water mixing ratio   [kg/kg] 
+    !               q_rain       : rain water mixing ratio    [kg/kg] 
+    !               q_ice        : cloud ice mixing ratio     [kg/kg]
+    !               q_snow       : snow mixing ratio          [kg/kg]  
+    !               q_graupel    : graupel mixing ratio       [kg/kg]
+    !               q_hail       : hail mixing ratio          [kg/kg]
     !               n_cloud      : cloud water number density [1/kg] 
     !               n_rain       : rain water number density  [1/kg] 
     !               n_ice        : cloud ice number density   [1/kg] 
     !               n_snow       : snow number density        [1/kg] 
     !               n_graupel    : graupel number density     [1/kg]
     !               n_hail       : hail number density        [1/kg]
+    !   OPTIONAL    ql_graupel   : liquid water on graupel mixing ratio  [kg/kg]
+    !   OPTIONAL    ql_hail      : liquid water on hail mixing ratio     [kg/kg]
     !
     ! Output:       z_radar      : 3D field of Z              [mm^6/m^3]
     ! 
@@ -3125,7 +3156,8 @@ CONTAINS
     !-------------------------
 
     INTEGER,  INTENT(IN) :: npr, nlev, nblks
-    INTEGER,  INTENT(IN) :: startblk, endblk, jk_start, startidx1, endidx2
+    INTEGER,  INTENT(IN) :: startblk, endblk, jk_start, startidx1, endidx2, my_id_for_message
+    LOGICAL,  INTENT(in) :: lmessage_light, lmessage_full
     REAL(wp), INTENT(in) :: K_w, K_ice, T_melt, rho_w, rho_ice, q_crit_radar
 
     REAL(wp), INTENT(IN) :: T(:,:,:),          &
@@ -3143,6 +3175,10 @@ CONTAINS
                             n_graupel(:,:,:),  &
                             n_hail(:,:,:)
 
+    REAL(wp), INTENT(IN), OPTIONAL ::          &
+                            ql_graupel(:,:,:), &
+                            ql_hail(:,:,:)
+    
     REAL(wp), INTENT(OUT) :: z_radar(:,:,:)
 
     ! Local Variables
@@ -3158,6 +3194,7 @@ CONTAINS
 
     INTEGER       :: jc,jk, jb, pe_center, i_startidx, i_endidx
     LOGICAL, SAVE :: firstcall = .TRUE.
+    LOGICAL       :: llwf_scheme
 
     REAL(wp)      :: T_a,                            &
                      q_c, n_c, x_c,                  &
@@ -3167,7 +3204,7 @@ CONTAINS
                      q_s, n_s, x_s,                  &
                      q_i, n_i, x_i,                  &
                      z_fac_ice_dry, z_fac_ice_wet,   &
-                     muD, z_fac_r_muD
+                     d_r, muD, z_fac_r_muD
 
     REAL(wp), SAVE :: z_fac_c, z_fac_r, z_fac_i, z_fac_s, z_fac_g, z_fac_h, mom_fac
 
@@ -3175,11 +3212,17 @@ CONTAINS
     TYPE(particle_frozen) :: ice, snow, graupel, hail
 !!$ LWF scheme not yet implemented:    CLASS(particle_lwf)    :: graupel_lwf, hail_lwf
 
-    IF (msg_level > 12) THEN
+    IF (lmessage_light .OR. lmessage_full) THEN
       message_text(:) = ' '
-      WRITE(message_text,'(a,i0)') 'Computing dbz3d_lin for inw_gscp = 4, 5, or 6'
+      WRITE(message_text,'(a,i0)') 'Computing dbz3d_lin for inw_gscp = 4, 5, 6 or 7'
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
+
+    IF (PRESENT(ql_graupel) .AND. PRESENT(ql_hail)) THEN
+      llwf_scheme = .TRUE.
+    ELSE
+      llwf_scheme = .FALSE.
+    END IF
 
     CALL init_2mom_scheme(cloud, rain, ice, snow, graupel, hail)
 
@@ -3195,7 +3238,7 @@ CONTAINS
       z_fac_s = moment_gamma(snow,2)    * mom_fac
       z_fac_g = moment_gamma(graupel,2) * mom_fac
       z_fac_h = moment_gamma(hail,2)    * mom_fac
-      IF (msg_level > 15 .AND. my_process_is_mpi_workroot()) THEN
+      IF (lmessage_light) THEN
         WRITE (*, *) TRIM(routine)//":"
         WRITE (*,'(A,D10.3)') "     z_fac_c = ",z_fac_c
         WRITE (*,'(A,D10.3)') "     z_fac_r = ",z_fac_r
@@ -3211,7 +3254,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,T_a,q_c,n_c,q_r,n_r,q_i,n_i,q_s,n_s,q_g,n_g,q_h,n_h, &
-!$OMP&           x_c,x_r,x_i,x_s,x_g,x_h,muD,z_fac_r_muD), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP&           x_c,x_r,x_i,x_s,x_g,x_h,d_r,muD,z_fac_r_muD), ICON_OMP_RUNTIME_SCHEDULE
     DO jb = startblk, endblk
 
       IF (jb == startblk) THEN
@@ -3234,16 +3277,21 @@ CONTAINS
           T_a = T(jc,jk,jb)
           q_c = MAX(q_cloud(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
           n_c = MAX(n_cloud(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          q_r = MAX(q_rain(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          n_r = MAX(n_rain(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          q_i = MAX(q_ice(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          n_i = MAX(n_ice(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          q_s = MAX(q_snow(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          n_s = MAX(n_snow(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          q_g = MAX(q_graupel(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
+          q_r = MAX(q_rain(jc,jk,jb) , 0.0_wp) * rho(jc,jk,jb)
+          n_r = MAX(n_rain(jc,jk,jb) , 0.0_wp) * rho(jc,jk,jb)
+          q_i = MAX(q_ice(jc,jk,jb)  , 0.0_wp) * rho(jc,jk,jb)
+          n_i = MAX(n_ice(jc,jk,jb)  , 0.0_wp) * rho(jc,jk,jb)
+          q_s = MAX(q_snow(jc,jk,jb) , 0.0_wp) * rho(jc,jk,jb)
+          n_s = MAX(n_snow(jc,jk,jb) , 0.0_wp) * rho(jc,jk,jb)
+          IF (llwf_scheme) THEN
+            q_g = MAX(q_graupel(jc,jk,jb) + ql_graupel(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
+            q_h = MAX(q_hail(jc,jk,jb)    + ql_hail(jc,jk,jb)   , 0.0_wp) * rho(jc,jk,jb)
+          ELSE
+            q_g = MAX(q_graupel(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
+            q_h = MAX(q_hail(jc,jk,jb)   , 0.0_wp) * rho(jc,jk,jb)
+          END IF
           n_g = MAX(n_graupel(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          q_h = MAX(q_hail(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
-          n_h = MAX(n_hail(jc,jk,jb), 0.0_wp) * rho(jc,jk,jb)
+          n_h = MAX(n_hail(jc,jk,jb)   , 0.0_wp) * rho(jc,jk,jb)
 
           x_c = MIN( MAX(q_c/(n_c+eps2),cloud%x_min),cloud%x_max )
           x_r = MIN( MAX(q_r/(n_r+eps2),rain%x_min),rain%x_max )
@@ -3263,7 +3311,8 @@ CONTAINS
               z_radar(jc,jk,jb) = z_radar(jc,jk,jb) + z_fac_r * q_r * x_r
             ELSE
               ! Outside of cloud cores assume mu-D-relation Seifert (2008):
-              muD = mu_d_relation_seifert(q_r,n_r,rain,rain_coeffs)            
+              d_r = rain%a_geo * EXP(rain%b_geo * LOG(x_r))
+              muD = rain_mue_dm_relation(rain_coeffs,d_r)
               z_fac_r_muD = mom_fac*(muD+6.0)*(muD+5.0)*(muD+4.0)/((muD+3.0)*(muD+2.0)*(muD+1.0))
               z_radar(jc,jk,jb) = z_radar(jc,jk,jb) + z_fac_r_muD * q_r * x_r
             END IF
@@ -3304,65 +3353,17 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
-
-    IF ( my_process_is_work() ) THEN
-      
-      pe_center = num_work_procs / 2
-      IF ( (msg_level > 12  .AND. my_process_is_mpi_workroot()            ) .OR. &
-           (msg_level > 15 .AND. ABS(get_my_mpi_work_id()-pe_center) <= 5) ) THEN
-    
-        message_text(:) = ' '
-        WRITE (message_text, '(A,i4,2(A,F10.1))') 'on proc ',get_my_mpi_work_id(),': '// &
-             'MAX dBZ = ', &
-             MAXVAL(10.0_wp / LOG(10.0_wp) * LOG(z_radar + eps)), &
-             '  MIN dBZ = ', &
-             MINVAL(10.0_wp / LOG(10.0_wp) * LOG(z_radar + eps))
-        CALL message(TRIM(routine), TRIM(message_text), all_print=.TRUE.)
-      END IF
+    IF (lmessage_light .OR. lmessage_full ) THEN
+      message_text(:) = ' '
+      WRITE (message_text, '(A,i4,2(A,F10.1))') 'on proc ',my_id_for_message,': '// &
+           'MAX dBZ = ', &
+           MAXVAL(10.0_wp / LOG(10.0_wp) * LOG(z_radar + eps)), &
+           '  MIN dBZ = ', &
+           MINVAL(10.0_wp / LOG(10.0_wp) * LOG(z_radar + eps))
+      CALL message(TRIM(routine), TRIM(message_text), all_print=.TRUE.)
     END IF
   
   END SUBROUTINE compute_field_dbz_2mom
-
-
-  !================================================================
-  !
-  ! Function to compute the gamma DSD shape parameter mu from
-  !   the mu-Dm-relation for rain of Axel Seifert (2008).
-  ! This is used in the Seifert-Beheng 2-moment scheme outside clouds.
-  !
-  !   - mu:  N(D) = N0 * D^mu * exp(-lam*D)
-  !   - Dm: mean mass diameter
-  !
-  ! Initial revision: U. Blahak 2020-01-20
-  !
-  !================================================================
-
-  FUNCTION mu_d_relation_seifert(q_r,n_r,rain,rain_coeffs) RESULT(mue)
-    IMPLICIT NONE
-    REAL(KIND=wp), INTENT(in)              :: q_r, n_r
-    TYPE(particle), INTENT(in)             :: rain
-    TYPE(particle_rain_coeffs), INTENT(in) :: rain_coeffs
-    REAL(KIND=wp)                          :: mue
-
-    REAL(KIND=wp)                          :: x_r, d_r
-    REAL(KIND=wp), PARAMETER               :: eps2 = 1e-20_wp
-
-    
-    x_r = MIN( MAX(q_r/(n_r+eps2),rain%x_min),rain%x_max )
-    
-    d_r = rain%a_geo * EXP(rain%b_geo * LOG(x_r))
-
-    IF (d_r <= rain_coeffs%cmu3) THEN ! see Seifert (2008)
-      mue = rain_coeffs%cmu0 * TANH((4.0_wp*rain_coeffs%cmu2*(d_r-rain_coeffs%cmu3))**rain_coeffs%cmu5) + &
-            rain_coeffs%cmu4
-    ELSE
-      mue = rain_coeffs%cmu1 * TANH((1.0_wp*rain_coeffs%cmu2*(d_r-rain_coeffs%cmu3))**rain_coeffs%cmu5) + &
-            rain_coeffs%cmu4
-    ENDIF
-
-    RETURN
-  END FUNCTION mu_d_relation_seifert
 
   !>
   !! Compute column maximum reflectivity from dbz3d_lin
@@ -3616,14 +3617,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Ulrich Blahak, DWD (2020-01-23) 
   !!
-  SUBROUTINE compute_field_echotopinm( ptr_patch, jg, p_metrics, p_diag, dbz3d_lin, echotop_z )
+  SUBROUTINE compute_field_echotopinm( ptr_patch, jg, p_metrics, dbz3d_lin, echotop_z )
 
     IMPLICIT NONE
 
     TYPE(t_patch),        INTENT(IN)  :: ptr_patch        !< patch on which computation is performed
     INTEGER,              INTENT(IN)  :: jg               !< domain ID of grid
     TYPE(t_nh_metrics),   INTENT(IN)  :: p_metrics 
-    TYPE(t_nh_diag),      INTENT(IN)  :: p_diag           !< type which contains the dbz3d_lin(:,:,:) field
     REAL(wp),             INTENT(IN)  :: dbz3d_lin(:,:,:) !< reflectivity in mm^6/m^3
 
     REAL(wp),             INTENT(INOUT) :: echotop_z(:,:,:)  !< input/output variable, dim: (nproma,nechotop,nblks_c)

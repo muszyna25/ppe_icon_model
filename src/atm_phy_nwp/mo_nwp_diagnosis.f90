@@ -1584,8 +1584,8 @@ CONTAINS
       ! Has to be computed before pp_scheduler_process(simulation_status) and before statistical processing between timesteps below!
 
       IF (l_need_dbz3d) THEN
-        CALL compute_field_dbz3D_lin( jg, p_patch(jg), p_nh(jg)%metrics, p_nh(jg)%prog(nnow(jg)), &
-             &                        p_nh(jg)%prog(nnow_rcf(jg)), p_nh(jg)%diag, prm_diag(jg)%dbz3d_lin )
+        CALL compute_field_dbz3D_lin( jg, p_patch(jg), p_nh(jg)%prog(nnow(jg)), p_nh(jg)%prog(nnow_rcf(jg)), &
+             &                        p_nh(jg)%diag, prm_diag(jg), prm_diag(jg)%dbz3d_lin )
       END IF
 
       ! output of dbz_ctmax (column maximum reflectivity during a time interval (namelist param. celltracks_interval) is required
@@ -1602,7 +1602,7 @@ CONTAINS
       ! output of echotopinm (maximum height where reflectivity exceeds threshold(s) 
       ! during a time interval (namelist param. echotop_meta(jg)%time_interval) is required:
       IF ( var_in_output(jg)%echotopinm .AND. (l_output(jg) .OR. l_dbz_event_active ) ) THEN
-        CALL compute_field_echotopinm ( p_patch(jg), jg, p_nh(jg)%metrics, p_nh(jg)%diag, &
+        CALL compute_field_echotopinm ( p_patch(jg), jg, p_nh(jg)%metrics, &
                                         prm_diag(jg)%dbz3d_lin, prm_diag(jg)%echotopinm )
       END IF
     END DO

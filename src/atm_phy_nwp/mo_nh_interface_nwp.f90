@@ -200,7 +200,7 @@ CONTAINS
     INTEGER :: jg,jgc            !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
-    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c, lvalid_data  !< switches for latent heat nudging
+    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c  !< switches for latent heat nudging
     LOGICAL :: lcompute_tt_lheat                                !< TRUE: store temperature tendency
                                                                 ! due to grid scale microphysics 
                                                                 ! and satad for latent heat nudging
@@ -305,7 +305,7 @@ CONTAINS
 
     ! Check whether latent heat nudging is active
     !
-    IF (ldass_lhn .AND. .NOT. linit) THEN
+    IF (ldass_lhn .AND. assimilation_config(jg)%lvalid_data .AND. .NOT. linit) THEN
       !
       IF ( jg == jgc )  CALL assimilation_config(jg)%dass_g%reinitEvents()
       lcall_lhn   = assimilation_config(jg)%dass_lhn%isActive(mtime_datetime)
@@ -750,7 +750,7 @@ CONTAINS
     !!------------------------------------------------------------------
     !> Latent heat nudging (optional)
     !!------------------------------------------------------------------
-    IF (ldass_lhn .AND. .NOT. linit) THEN
+    IF (ldass_lhn .AND. assimilation_config(jg)%lvalid_data .AND. .NOT. linit) THEN
 
       IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'applying LHN')
       IF (timers_level > 1) CALL timer_start(timer_datass)
@@ -768,9 +768,10 @@ CONTAINS
                                & radar_data(jg),                   & 
                                & prm_nwp_tend,                     &
                                & mtime_datetime,                   &
-                               & lcall_lhn, lcall_lhn_v,lvalid_data)
+                               & lcall_lhn, lcall_lhn_v,           &
+                               & assimilation_config(jg)%lvalid_data)
 
-        IF (msg_level >= 7 .AND. .NOT.lvalid_data) THEN
+        IF (msg_level >= 7 .AND. .NOT. assimilation_config(jg)%lvalid_data) THEN
           CALL message('mo_nh_interface_nwp:','LHN turned off due to lack of valid data')
         ENDIF
       ELSE IF (msg_level >= 15) THEN
@@ -780,7 +781,7 @@ CONTAINS
 
 
       lcall_lhn_c = assimilation_config(jgc)%dass_lhn%isActive(mtime_datetime)
-      lapply_lhn  = (lcall_lhn .OR. lcall_lhn_c) .AND. lvalid_data
+      lapply_lhn  = (lcall_lhn .OR. lcall_lhn_c) .AND. assimilation_config(jg)%lvalid_data
 
       IF (lapply_lhn) THEN
 

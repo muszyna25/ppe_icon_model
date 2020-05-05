@@ -2,14 +2,14 @@
 
 set -eu
 
-SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 
 # module command and path setup from  /etc/profile.local:
-MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles && module purge"
 
 
-MODULES='PrgEnv-gnu gcc/6.1.0 cray-mpich/7.6.0 cray-libsci/13.2.0 craype-haswell cray-netcdf/4.3.3.1 cray-hdf5/1.8.14 eccodes/2.9.0 aec/1.0.0-3'
+MODULES='craype cray-mpich/7.6.0 gcc/6.1.0 PrgEnv-gnu cray-libsci/13.2.0 craype-haswell cray-netcdf/4.3.3.1 cray-hdf5/1.8.14 eccodes/2.9.0 aec/1.0.0-3'
 
 # Libtool (used by the bundled CDI and some other bundled libraries) is not
 # fully compatible with Cray compiler. For each library specified with -l
@@ -33,7 +33,7 @@ MODULES='PrgEnv-gnu gcc/6.1.0 cray-mpich/7.6.0 cray-libsci/13.2.0 craype-haswell
 #   2) pass '-l:libaec.a', which is understood by the compiler and is left as
 #      it is by libtool.
 # We implement the second solution here:
-ECCODES_LIBS='-leccodes -l:libaec.a'
+ECCODES_LIBS='-leccodes_f90 -leccodes -l:libaec.a'
 
 XML2_ROOT='/opt/cray/xc-sysroot/default/usr'
 # As it was mentioned before, libtool is not fully compatible with Cray
@@ -60,7 +60,6 @@ BUILD_ENV="${MODULE_SETTINGS} && . \"${SCRIPT_DIR}/module_switcher\"; switch_for
 
 # We need some of the environment variables set by the modules now:
 eval "$BUILD_ENV"
-
 
 # C compiler wrapper on cray machine
 CC='cc'

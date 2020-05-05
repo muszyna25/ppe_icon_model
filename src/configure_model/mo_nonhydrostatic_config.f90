@@ -164,16 +164,6 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF ( kend_qvsubstep(jg) >= 1 ) THEN
-      WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-        '; QV substepping ends in layer ', kend_qvsubstep(jg)
-      CALL message(TRIM(routine),message_text)
-    ELSE
-      WRITE(message_text,'(a,i4,a)') 'Domain', jg, &
-        '; No QV substepping'
-      CALL message(TRIM(routine),message_text)
-    ENDIF
-
 
     ! Determine start level for processes related to (ART) tracers
     ! (specified by htop_tracer_proc)

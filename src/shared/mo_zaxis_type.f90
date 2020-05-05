@@ -25,7 +25,7 @@ MODULE mo_zaxis_type
   USE ISO_C_BINDING,    ONLY: C_INT32_T
   USE mo_exception,     ONLY: finish
   USE mo_fortran_tools, ONLY: t_Destructible
-  USE mo_hash_table,    ONLY: t_HashTable, hashTable_make
+  USE mo_hash_table,    ONLY: t_HashTable_base, hashTable_make
   USE mo_cdi, ONLY: ZAXIS_ALTITUDE, ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP,        &
     &               ZAXIS_DEPTH_BELOW_LAND, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, &
     &               ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_ISENTROPIC, ZAXIS_ISOTHERM_ZERO,     &
@@ -110,8 +110,8 @@ MODULE mo_zaxis_type
   !  derived data type. See "t_verticalAxis" for this task.
   !
   TYPE t_zaxisTypeList
-    TYPE(t_HashTable) :: list
-    INTEGER           :: max_icon_zaxis_type
+    CLASS(t_HashTable_base), POINTER :: list
+    INTEGER                :: max_icon_zaxis_type
 
   CONTAINS
     PROCEDURE :: finalize       => t_zaxisTypeList_finalize        !< destructor
@@ -155,7 +155,7 @@ CONTAINS
     TYPE(t_zaxisTypeList) :: za_list
 
     za_list%max_icon_zaxis_type = 0
-    za_list%list = hashTable_make(list_hashKey, list_equalKeys)
+    za_list%list => hashTable_make(list_hashKey, list_equalKeys)
 
     ZA_SURFACE                 = za_list%register(cdi_zaxis_type=ZAXIS_SURFACE            , is_2D=.TRUE.)
     ! Atmosphere

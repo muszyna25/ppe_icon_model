@@ -149,9 +149,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   ! Indices
   INTEGER :: jb, jc, jk, jk1, i_chidx, i_nchdom, i_startrow, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
-#ifdef __SX__
-  INTEGER :: jt
-#endif
+
   INTEGER :: nlev, nlevp1      !< number of full and half levels
   INTEGER :: nshift, nlevp1_rg, nst
   REAL(wp) :: exdist_h, exdist_f
@@ -483,6 +481,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 #else
     DO jk = 1, nlev
       jk1 = jk + nshift
+!NEC$ ivdep
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -498,22 +497,12 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
           clc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
           clc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-#ifdef __SX__
-        ! Workaround for vectorization bug
-        DO jt = 1,3
-          p_tot_cld(jc,jk1,jb,jt) =                                        &
-            tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_fbkwgt(jc,jb,1) + &
-            tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_fbkwgt(jc,jb,2) + &
-            tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_fbkwgt(jc,jb,3) + &
-            tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),jt)*p_fbkwgt(jc,jb,4)
-        ENDDO
-#else
         p_tot_cld(jc,jk1,jb,1:3) =                                        &
           tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1:3)*p_fbkwgt(jc,jb,1) + &
           tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),1:3)*p_fbkwgt(jc,jb,2) + &
           tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),1:3)*p_fbkwgt(jc,jb,3) + &
           tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),1:3)*p_fbkwgt(jc,jb,4)
-#endif
+
       ENDDO
     ENDDO
 
@@ -524,27 +513,17 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 #else
     DO jk = 1, nlev
       jk1 = jk + nshift
+!NEC$ ivdep
       DO jc = i_startidx, i_endidx
 #endif
 
         ! enhance averaged QC and QI in order to be more consistent with cloud cover scheme
         IF (p_clc(jc,jk1,jb) > 0._wp .AND. p_clc(jc,jk1,jb) < 0.95_wp) THEN
-#ifdef __SX__
-        ! Workaround for vectorization bug
-        DO jt = 2,3
-          p_tot_cld(jc,jk1,jb,jt) =  0.5_wp*(p_tot_cld(jc,jk1,jb,jt) + SQRT(  &
-            tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)**2*p_fbkwgt(jc,jb,1) + &
-            tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)**2*p_fbkwgt(jc,jb,2) + &
-            tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)**2*p_fbkwgt(jc,jb,3) + &
-            tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),jt)**2*p_fbkwgt(jc,jb,4)  ))
-        ENDDO
-#else
           p_tot_cld(jc,jk1,jb,2:3) =  0.5_wp*(p_tot_cld(jc,jk1,jb,2:3) + SQRT( &
             tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),2:3)**2*p_fbkwgt(jc,jb,1) + &
             tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),2:3)**2*p_fbkwgt(jc,jb,2) + &
             tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),2:3)**2*p_fbkwgt(jc,jb,3) + &
             tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),2:3)**2*p_fbkwgt(jc,jb,4)  ))
-#endif
         ENDIF
 
       ENDDO
