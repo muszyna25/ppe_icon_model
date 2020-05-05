@@ -21,6 +21,7 @@
 !!
 MODULE mo_ocean_testbed_modules
   !-------------------------------------------------------------------------
+  USE mo_master_control,         ONLY: get_my_process_name
   USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
@@ -52,7 +53,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_master_config,          ONLY: isRestart
-  USE mo_ocean_GM_Redi,          ONLY: prepare_ocean_physics,calc_ocean_physics
+  USE mo_ocean_GM_Redi,          ONLY: calc_ocean_physics
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density,&
   &                                    calc_neutralslope_coeff_func_onColumn,calc_neutralslope_coeff_func_onColumn_UNESCO
@@ -558,8 +559,7 @@ CONTAINS
         ENDIF
         !------------------------------------------------------------------------
 
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
-             &   physics_parameters) !by_Oliver
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
 
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
@@ -651,7 +651,7 @@ CONTAINS
         CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),p_oce_sfc,p_ice, operators_coefficients)
       ENDIF
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -851,7 +851,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
     
     jstep = jstep0
     TIME_LOOP: DO 
@@ -1394,7 +1394,7 @@ CONTAINS
       CALL update_time_g_n(p_os(jg))
     ENDIF
 
-    restartDescriptor => createRestartDescriptor("oce")
+    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
 
     !-------------------------- MTIME setup ---------------------------
 
@@ -1649,7 +1649,7 @@ CONTAINS
     CALL new_var_list(varnameCheckList, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( varnameCheckList,  &
       & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type='oce' )
+      & model_type=TRIM(get_my_process_name()) )
 
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     call add_var(varnamechecklist,'h',var0,grid_unstructured_cell, za_depth_below_sea_half, &

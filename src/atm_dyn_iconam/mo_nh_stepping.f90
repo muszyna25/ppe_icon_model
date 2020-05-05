@@ -147,10 +147,15 @@ MODULE mo_nh_stepping
   USE mo_name_list_output_init,    ONLY: output_file
   USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,                 ONLY: t_simulation_status
+
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
+  USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,   &
+                                     &   art_init_atmo_tracers_echam, &
+                                     &   art_update_atmo_phy
+  
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sst_and_seaice
   USE mo_reader_sst_sic,           ONLY: t_sst_sic_reader
@@ -417,6 +422,20 @@ MODULE mo_nh_stepping
            & phy_params(jg), mtime_current         ,&
            & prm_upatmo(jg)                         )
 
+
+      IF (lart) THEN
+        CALL art_init_atmo_tracers_nwp(                     &
+               &  jg,                                       &
+               &  mtime_current,                            &
+               &  p_nh_state(jg),                           &
+               &  ext_data(jg),                             &
+               &  prm_diag(jg),                             &
+               &  p_nh_state(jg)%prog(nnow(jg)),            &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+      END IF
+
+
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
@@ -491,6 +510,18 @@ MODULE mo_nh_stepping
   CASE (iecham)
     IF (.NOT.isRestart()) THEN
       CALL init_slowphysics (mtime_current, 1, dtime)
+    END IF
+
+    IF (lart) THEN
+      DO jg = 1, n_dom
+        CALL art_init_atmo_tracers_echam(                   &
+               &  jg,                                       &
+               &  mtime_current,                            &
+               &  p_nh_state(jg),                           &
+               &  p_nh_state(jg)%prog(nnow(jg)),            &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+      ENDDO
     END IF
   END SELECT ! iforcing
 
@@ -1105,18 +1136,17 @@ MODULE mo_nh_stepping
          DO jg = 1, n_dom
             IF (.NOT. p_patch(jg)%ldom_active) CYCLE
             ! Call the ART diagnostics
-            CALL art_diagnostics_interface(p_patch(jg),                              &
-                 &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
-                 &                            p_nh_state(jg)%diag%pres,                 &
-                 &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-                 &                            p_nh_state(jg)%metrics%ddqz_z_full,       &
-                 &                            p_nh_state(jg)%metrics%z_mc, jg)
+            CALL art_diagnostics_interface(p_nh_state(jg)%prog(nnew(jg))%rho,        &
+                 &                         p_nh_state(jg)%diag%pres,                 &
+                 &                         p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+                 &                         p_nh_state(jg)%metrics%ddqz_z_full,       &
+                 &                         p_nh_state(jg)%metrics%z_mc, jg)
             ! Call the ART unit conversion 
             CALL art_tools_interface('unit_conversion',                            & !< in
-                 &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
-                 &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
-                 &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
-                 &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
+                 &                   p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
+                 &                   p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
+                 &                   p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
+                 &                   p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
          END DO
          !
       END IF ! lart .AND. ntracer>0
@@ -1744,6 +1774,20 @@ MODULE mo_nh_stepping
         CALL main_tracer_beforeadv
 #endif
 
+        IF (lart) THEN
+          ! Update time dependent variables needed for ART
+          IF (iforcing == inwp) THEN
+            CALL art_update_atmo_phy(jg,                            &
+                        &            datetime_local(jg)%ptr,        &
+                        &            p_nh_state(jg)%prog(nnew(jg)), &
+                        &            prm_diag(jg))
+          ELSE IF (iforcing == iecham) THEN
+            CALL art_update_atmo_phy(jg,                            &
+                         &           datetime_local(jg)%ptr,        &
+                         &           p_nh_state(jg)%prog(nnew(jg)))
+          END IF
+        END IF
+
         ! 5. tracer advection
         !-----------------------
         IF ( ltransport) THEN
@@ -1752,16 +1796,14 @@ MODULE mo_nh_stepping
 #ifdef _OPENACC
             CALL finish (routine, 'art_emission_interface: OpenACC version currently not implemented')
 #endif
+
             CALL art_emission_interface(                       &
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in
               &      p_nh_state(jg),                           &!in
-              &      prm_diag(jg),                             &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
-              &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
               &      datetime_local(jg)%ptr,                   &!in
-              &      nnow(jg),                                 &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF
 
@@ -1816,9 +1858,7 @@ MODULE mo_nh_stepping
                &      dt_loc,                                 &!in
                &      p_nh_state(jg)%prog(n_new_rcf),         &!in
                &      p_nh_state(jg)%metrics,                 &!in
-               &      p_nh_state(jg)%prog(nnew(jg))%rho,      &!in
                &      p_nh_state(jg)%diag,                    &!in
-               &      prm_diag(jg),                           &!in
                &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart

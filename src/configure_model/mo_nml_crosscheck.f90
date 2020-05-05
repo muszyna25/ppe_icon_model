@@ -628,17 +628,6 @@ CONTAINS
       CALL message(routine,message_text)
 
 
-      IF (lart) THEN
-        
-        ntracer = ntracer + art_config(1)%iart_ntracer
-        
-        WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                     'ntracer is increased by ',art_config(1)%iart_ntracer, &
-                                     ' to ',ntracer
-        CALL message(routine,message_text)
-
-      ENDIF
-
       ! set the nclass_gscp variable for land-surface scheme to number of hydrometeor mixing ratios
       DO jg = 1, n_dom
         atm_phy_nwp_config(jg)%nclass_gscp = iqm_max
@@ -657,6 +646,18 @@ CONTAINS
       iqt = iqm_max+1 ! starting index of non-water species
 
     END SELECT ! iforcing
+
+    IF (lart) THEN
+      
+      ntracer = ntracer + art_config(1)%iart_ntracer
+      
+      WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
+                                   'ntracer is increased by ',art_config(1)%iart_ntracer, &
+                                   ' to ',ntracer
+
+      CALL message(routine,message_text)
+
+    ENDIF
 
     ! take into account additional passive tracers, if present
     ! no need to update iqt, since passive tracers do not belong to the hydrometeor group.

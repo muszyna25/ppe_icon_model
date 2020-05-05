@@ -31,7 +31,7 @@ MODULE mo_art_nml
   USE mo_art_config,          ONLY: art_config, IART_PATH_LEN
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
-  USE mo_art_init_interface,  ONLY: art_calc_number_of_art_tracers_xml
+  USE mo_art_init_interface,  ONLY: art_calc_ntracer_and_names
   
   IMPLICIT NONE
   PRIVATE
@@ -119,8 +119,6 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
-  INTEGER :: iart_echam_ghg          !< integer for number tracers of hard coded echam greenhouse gases
-  
 
 
 
@@ -137,7 +135,7 @@ MODULE mo_art_nml
    &                lart_emiss_turbdiff, nart_substeps_sedi,                           &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
-   &                iart_init_passive, lart_psc, cart_type_sedim, iart_echam_ghg
+   &                iart_init_passive, lart_psc, cart_type_sedim
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -161,10 +159,9 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg          !< patch loop index
-    INTEGER :: auto_ntracer      !< automatically computed number of tracers
-    INTEGER :: auto_ntracer_xml  !< art ntracer from one xml file
-    LOGICAL :: l_exist     !< variable for inquiring if the xml file 
+    INTEGER :: jg            !< patch loop index
+    INTEGER :: auto_ntracer  !< automatically computed number of tracers
+    LOGICAL :: l_exist       !< variable for inquiring if the xml file 
                                         !   and emission base path exist.
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_art_nml: read_art_nml'
@@ -235,8 +232,6 @@ CONTAINS
     lart_conv           = .TRUE.
     lart_turb           = .TRUE.
 
-    iart_echam_ghg      = 0
-
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
@@ -295,6 +290,9 @@ CONTAINS
     !----------------------------------------------------
 
     IF (lart) THEN
+      CALL art_calc_ntracer_and_names(auto_ntracer,                            &
+                   &   cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml, &
+                   &   lart_chem, lart_aerosol, lart_passive)
 
     
       IF (iart_aci_cold == 6 .AND. iart_dust == 0) THEN
@@ -317,66 +315,6 @@ CONTAINS
         END IF
       END IF
   
-      auto_ntracer = 0
-      ! chemistry xml file
-      IF (lart_chem) THEN
-        IF (TRIM(cart_chemistry_xml) == '') THEN
-          CALL finish('mo_art_nml:read_art_namelist','namelist parameter cart_chemistry_xml' &
-                    //' has to be given for lart_chem == .TRUE.')
-        ELSE
-          INQUIRE(file = TRIM(cart_chemistry_xml), EXIST = l_exist)
-  
-          IF (l_exist) THEN
-            CALL art_calc_number_of_art_tracers_xml(TRIM(cart_chemistry_xml),  &
-                                   &                auto_ntracer_xml)
-            auto_ntracer = auto_ntracer + auto_ntracer_xml
-          ELSE
-            CALL finish('mo_art_nml:read_art_namelist',  &
-                        TRIM(cart_chemistry_xml)//  &
-                        & ' could not be found. Check cart_chemistry_xml.')
-          END IF
-        END IF
-      END IF
-  
-      ! aerosol xml file
-      IF (lart_aerosol) THEN
-        IF (TRIM(cart_aerosol_xml) == '') THEN
-          CALL finish('mo_art_nml:read_art_namelist','namelist parameter cart_aerosol_xml' &
-                    //' has to be given for lart_aerosol == .TRUE.')
-        ELSE
-          INQUIRE(file = TRIM(cart_aerosol_xml), EXIST = l_exist)
-  
-          IF (l_exist) THEN
-            CALL art_calc_number_of_art_tracers_xml(TRIM(cart_aerosol_xml),  &
-                                   &                auto_ntracer_xml)
-            auto_ntracer = auto_ntracer + auto_ntracer_xml
-          ELSE
-            CALL finish('mo_art_nml:read_art_namelist',  &
-                        TRIM(cart_aerosol_xml)//  &
-                        & ' could not be found. Check cart_aerosol_xml.')
-          END IF
-        END IF
-      END IF
-  
-      ! passive xml file
-      IF (lart_passive) THEN
-        IF (TRIM(cart_passive_xml) == '') THEN
-          CALL finish('mo_art_nml:read_art_namelist','namelist parameter cart_passive_xml' &
-                    //' has to be given for lart_passive == .TRUE.')
-        ELSE
-          INQUIRE(file = TRIM(cart_passive_xml), EXIST = l_exist)
-  
-          IF (l_exist) THEN
-            CALL art_calc_number_of_art_tracers_xml(TRIM(cart_passive_xml),  &
-                                   &                auto_ntracer_xml)
-            auto_ntracer = auto_ntracer + auto_ntracer_xml
-          ELSE
-            CALL finish('mo_art_nml:read_art_namelist',  &
-                        TRIM(cart_passive_xml)//  &
-                        & ' could not be found. Check cart_passive_xml.')
-          END IF
-        END IF
-      END IF
 
       IF (iart_ntracer > -1) THEN
         CALL message('WARNING',  &
@@ -402,6 +340,7 @@ CONTAINS
                       & ' could not be found. Check cart_diagnostics_xml.')
         END IF
       END IF
+
 
     END IF  ! lart
 
@@ -476,7 +415,7 @@ CONTAINS
       art_config(jg)%iart_ntracer        = auto_ntracer 
 
 
-      art_config(jg)%iart_echam_ghg      = iart_echam_ghg 
+      art_config(jg)%iart_echam_ghg      = 0
     ENDDO !jg
 
     !-----------------------------------------------------

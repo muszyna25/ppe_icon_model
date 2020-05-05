@@ -37,9 +37,9 @@ MODULE mo_ice_slow_thermo
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_impl_constants,      ONLY: sea_boundary
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, alf, clw, sice
-  USE mo_sea_ice_nml,         ONLY: i_ice_therm, hmin, hnull, leadclose_1, leadclose_2n
-  USE mo_ocean_nml,           ONLY: limit_seaice, seaice_limit
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, alf, clw
+  USE mo_sea_ice_nml,         ONLY: i_ice_therm, hmin, hnull, leadclose_1, leadclose_2n, sice
+  USE mo_ocean_nml,           ONLY: limit_seaice, limit_seaice_type, seaice_limit
   USE mo_ocean_state,         ONLY: v_base
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
@@ -182,7 +182,8 @@ CONTAINS
     ! limits ice thinkness, adjust p_oce_sfc fluxes and calculates the final freeboard
     ! ToDo: limit ice thickness in the ice_growth_*. Then correction to p_oce_sfc will not be needed
     IF (limit_seaice) THEN
-        CALL ice_thickness_limiter( p_patch, ice, p_oce_sfc, p_os )
+        IF (limit_seaice_type .eq. 1) CALL ice_thickness_limiter( p_patch, ice, p_oce_sfc, p_os )
+        IF (limit_seaice_type .eq. 2) CALL ice_thickness_limiter_hh( p_patch_3d, ice, p_oce_sfc, p_os )
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -497,7 +498,7 @@ CONTAINS
 
   END SUBROUTINE ice_update_conc
 
-  !-------------------------------------------------------------------------
+   !-------------------------------------------------------------------------
   !>
   !! !  ice_thickness_limiter: Limit ice thinkness. Adjust fluxes and calculates the final freeboard
   !! !
@@ -561,6 +562,93 @@ CONTAINS
     CALL dbg_print('IceClUp: draft aft. limit'    ,p_ice%draft    ,str_module, 4, in_subset=p_patch%cells%owned)
 
   END SUBROUTINE ice_thickness_limiter
+
+  !-------------------------------------------------------------------------
+  !>
+  !! !  ice_thickness_limiter: Limit ice thinkness. Adjust fluxes and calculates the final freeboard
+  !! !
+  !! @par Revision History
+  !! Initial release by Einar Olason, MPI-M (2013-10).
+  !! Modified by Vladimir Lapin,      MPI-M (2015-07).
+  !! Modified by Helmuth Haak,        MPI-M (2020-02).
+
+  SUBROUTINE ice_thickness_limiter_hh( p_patch_3d, p_ice, p_oce_sfc, p_os )
+    TYPE(t_patch_3d),TARGET,      INTENT(IN) :: p_patch_3d
+    TYPE(t_sea_ice),           INTENT(INOUT) :: p_ice
+    TYPE(t_ocean_surface),     INTENT(INOUT) :: p_oce_sfc
+    TYPE(t_hydro_ocean_state), INTENT(IN)    :: p_os
+
+    ! Local variables
+    TYPE(t_patch), POINTER                   :: p_patch
+    TYPE(t_subset_range), POINTER            :: all_cells
+    INTEGER                                                 :: k, jb, jc, i_startidx_c, i_endidx_c
+    REAL(wp)                                 :: z_smax ,rhoicwa,zunderice_old,zunderice_new,ddice &
+                                               ,svnew,svold,draft_old 
+
+    p_patch => p_patch_3D%p_patch_2D(1)
+    all_cells => p_patch%cells%all
+    rhoicwa = rhoi / rho_ref
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+
+        DO k = 1, p_ice%kice
+
+          ! limit sea ice thickness to seaice_limit of surface layer depth
+          z_smax = seaice_limit * p_patch_3d%p_patch_1d(1)%prism_thick_c(jc,1,jb)
+          IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary  &
+               .AND.  (rhoicwa*p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb) ) > z_smax ) THEN
+
+            draft_old   = (rhos * p_ice%hs(jc,k,jb) + rhoi * p_ice%hi(jc,k,jb)) / rho_ref
+            zunderice_old = p_patch_3d%p_patch_1d(1)%prism_thick_c(jc,1,jb) &
+                 - draft_old*p_ice%conc(jc,k,jb)
+            svold =sice*rhoicwa*(p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)) &
+                       +p_os%p_prog(nold(1))%tracer(jc,1,jb,2)*zunderice_old 
+
+            ddice = MIN(  (draft_old*p_ice%conc(jc,k,jb)-z_smax)/rhoicwa &
+                 , p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb) )
+
+            p_ice%hi(jc,k,jb) = p_ice%hi(jc,k,jb)-ddice/p_ice%conc(jc,k,jb)
+            p_ice%vol(jc,k,jb) = p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)
+            p_ice%draft(jc,k,jb) = (rhos * p_ice%hs(jc,k,jb) + rhoi * p_ice%hi(jc,k,jb))/rho_ref
+            p_ice%zunderice(jc,jb) = p_patch_3d%p_patch_1d(1)%prism_thick_c(jc,1,jb) &
+                 - p_ice%draft(jc,k,jb)*p_ice%conc(jc,k,jb)
+           
+            !update surface salinity
+            p_os%p_prog(nold(1))%tracer(jc,1,jb,2) =(rhoicwa*ddice*sice &
+	                     +p_os%p_prog(nold(1))%tracer(jc,1,jb,2)*zunderice_old)/p_ice%zunderice(jc,jb)
+
+            svnew =sice*rhoicwa*(p_ice%hi(jc,k,jb)*p_ice%conc(jc,k,jb)) &
+                       +p_os%p_prog(nold(1))%tracer(jc,1,jb,2)*zunderice_new 
+
+            print*,'seaice-limiter',svnew-svold,svnew,svold,ddice,&
+                            zunderice_new,zunderice_old
+
+!            p_oce_sfc%FrshFlux_TotalIce (jc,jb) = p_oce_sfc%FrshFlux_TotalIce (jc,jb)                      &
+!                 & + ddice*rhoi/(rho_ref*dtime)  ! 
+!            p_oce_sfc%HeatFlux_Total(jc,jb) = p_oce_sfc%HeatFlux_Total(jc,jb)   &
+!                 & + ddice*alf*rhoi/dtime           ! Ice
+
+          ENDIF
+
+       ENDDO
+
+       p_ice%draftave (jc,jb) = sum(p_ice%draft(jc,:,jb) * p_ice%conc(jc,:,jb))
+
+      ENDDO
+    ENDDO
+       
+   
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('iceClUp: hi aft. limiter'     ,p_ice%hi       ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('iceClUp: hs aft. limiter'     ,p_ice%hs       ,str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: HeatTotal aft. limit',p_oce_sfc%HeatFlux_Total   ,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: TotalIce aft. limit' ,p_oce_sfc%FrshFlux_TotalIce,str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IceClUp: draft aft. limit'    ,p_ice%draft    ,str_module, 4, in_subset=p_patch%cells%owned)
+
+  END SUBROUTINE ice_thickness_limiter_hh
 
   !-------------------------------------------------------------------------------
   !>

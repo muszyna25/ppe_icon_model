@@ -12,6 +12,8 @@
 !! headers of the routines.
 
 MODULE mo_load_restart
+    USE mo_master_control,       ONLY: get_my_process_name
+    
     USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, streamClose, streamOpenRead, &
       &                              streamReadVarSlice, streamReadVarSliceF,                     &
       &                              vlistInqTaxis, vlistNvars,                                   &
@@ -226,7 +228,7 @@ CONTAINS
 
     IF(timers_level >= 5) CALL timer_start(timer_load_restart)
 
-    IF (ocean_initFromRestart_OVERRIDE) CALL read_restart_header("oce")
+    IF (ocean_initFromRestart_OVERRIDE) CALL read_restart_header(TRIM(get_my_process_name()))
     ! Make sure that all the subcounters are recognized as subcounters on all work processes.
     IF(timers_level >= 7) THEN
         CALL timer_start(timer_load_restart_io)
@@ -246,7 +248,6 @@ CONTAINS
 
     DO i = 1, SIZE(modelTypes)
         varData => createRestartVarData(p_patch%id, modelTypes(i)%a, integerTrash)
-
         !determine whether we have a multifile to READ
         CALL findRestartFile(modelTypes(i)%a, lIsMultifileRestart, restartPath)
         IF(lIsMultifileRestart) THEN

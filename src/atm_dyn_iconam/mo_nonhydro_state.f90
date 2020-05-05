@@ -1273,7 +1273,8 @@ MODULE mo_nonhydro_state
             &                       timelev=timelev,ldims=shape3d_c,tlev_source=TLEV_NNOW_RCF, &
             &                       nest_level=p_patch%nest_level)
         ENDIF
-   
+
+
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
         ! for output take field from nnow_rcf slice
         cf_desc    = t_cf_var('specific_kinetic_energy_of_air', 'm2 s-2',         &

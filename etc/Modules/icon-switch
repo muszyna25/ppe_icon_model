@@ -1,0 +1,16 @@
+#%Module1.0
+
+source [file join [file dirname $ModulesCurrentModulefile] .pkg]
+
+set ADD_BASE /home/mpim/m221078
+prepend-path-if-exists PATH $ADD_BASE/bin
+prepend-path-if-exists MANPATH $ADD_BASE/man
+prepend-path-if-exists INFOPATH $ADD_BASE/share/info
+prepend-path-if-exists PERLLIB $ADD_BASE/lib/perl5
+prepend-path-if-exists PERLLIB $ADD_BASE/lib/perl5/x86_64-linux-thread-multi
+prepend-path-if-exists PYTHONPATH $ADD_BASE/lib/python2.7/site-packages
+
+set_dependencies {
+    python/2.7.12
+    imagemagick/6.9.1-7-gcc48
+}

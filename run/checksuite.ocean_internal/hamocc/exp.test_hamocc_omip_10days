@@ -6,12 +6,12 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2011-01-01T00:00:00Z"  #  201 years to ensure write of restart at end
+  end_date="2001-01-11T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P2Y"
-checkpoint_interval="P1Y"
+restart_interval="P8Y"
+checkpoint_interval="P2Y"
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
@@ -50,7 +50,6 @@ else
 lhamocc=".false."
 lbgcadv=".false."
 fi
-
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -61,6 +60,9 @@ cat > ${ocean_namelist} << EOF0
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
+ num_prefetch_proc = 0 
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -85,22 +87,22 @@ cat > ${ocean_namelist} << EOF0
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
-  output_grid      = .TRUE.
   operation       = 'mean'
+  output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       = 'group:oce_essentials', 'group:ice_default'
 /
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   output_grid      = .true.
-  file_interval="P10Y"
   operation       = 'mean'
+  file_interval="P10Y"
   output_filename  = "${EXPNAME}_oceanMonitor"
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
@@ -113,7 +115,7 @@ cat >> ${ocean_namelist} << EOF1
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   output_grid      = .false.
   operation       = 'mean'
@@ -125,7 +127,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
@@ -137,7 +139,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_sediment"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
@@ -149,7 +151,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
@@ -161,7 +163,7 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
   file_interval="P1Y"
   !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   output_grid      = .TRUE.
@@ -175,7 +177,8 @@ cat >> ${ocean_namelist} << EOF1
   output_filename  = "${EXPNAME}_hamocc_2d_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
+  output_interval  = "${daily}"
+ !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval="P1Y"
   output_grid      = .TRUE.
   operation       = 'mean'
@@ -261,26 +264,11 @@ cat >> ${ocean_namelist} << EOF2
   bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 1.0E-5
-  velocity_TopWindMixing          = 1.0E-5
+  !  tracer_TopWindMixing            = 1.0E-5
+  !  velocity_TopWindMixing          = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  tapering_scheme=1
-  GMRedi_usesRelativeMaxSlopes = .false.
-  S_max=1.0e-4                                   !1.0
-  S_critical=0.01                             ! 1e-1 to 1e-2
-  S_d=0.00005                                 ! 5e-3 to 5e-4
-  k_tracer_GM_kappa_parameter     = 600.0     !
-  k_tracer_isoneutral_parameter   = 600.0     ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
-  k_tracer_dianeutral_parameter   = 0.0       !1.0E-5  !
-  SWITCH_OFF_DIAGONAL_VERT_EXPL          =.TRUE.
-  GMREDI_COMBINED_DIAGNOSTIC             =.FALSE.
-  SWITCH_ON_REDI_BALANCE_DIAGONSTIC      =.FALSE.
-  REVERT_VERTICAL_RECON_AND_TRANSPOSED   =.TRUE.
-  SLOPE_CALC_VIA_TEMPERTURE_SALINITY = .true.
-  INCLUDE_SLOPE_SQUARED_IMPLICIT         =.TRUE. !think of l_with_vert_tracer_diffusion
-  SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.TRUE.
+  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
@@ -318,6 +306,7 @@ sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0
 mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
 l_implsed                         =.FALSE.    ! implicit sediment formulation
+l_init_bgc                        =.TRUE.
 /
 EOF3
 fi
@@ -369,8 +358,24 @@ EOF4
 #-----------------------------------------------------------------------------
 
 
-
 #-----------------------------------------------------------------------------
-# add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
+. ${thisdir}/exec.iconrun
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#  compare with reference
+if [[ x$BB_SYSTEM != x ]]; then
+. ${thisdir}/postFunx.sh
+  dataPath="${basedir}/experiments/${EXPNAME}/"
+  cd ${dataPath}
+  slave=${BB_SYSTEM:-mistral}_${BB_SLAVE:-gcc}
+  refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}
+
+  directoryDiff ${refDir} .
+  check_error $? "DIFFCHECK for exp: ${EXPNAME}"
+  cd -
+fi
+
+exit
