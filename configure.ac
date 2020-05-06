@@ -452,7 +452,8 @@ ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
 AC_ARG_VAR([ICON_BUNDLED_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling and linking
 the bundled libraries @<:@default=$ICON_FCFLAGS@:>@])dnl
-subdir_FCFLAGS="$FCFLAGS ${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}"
+ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
+subdir_FCFLAGS=$FCFLAGS
 
 dnl Run the delayed cross-compilation check:
 AS_VAR_IF([acx_save_cross_compiling], [no],
@@ -634,7 +635,8 @@ ICON_CFLAGS=${ICON_CFLAGS-}
 AC_ARG_VAR([ICON_BUNDLED_CFLAGS],
   [C compiler flags to be appended to CFLAGS when compiling and linking
 the bundled libraries @<:@default=$ICON_CFLAGS@:>@])dnl
-subdir_CFLAGS="$CFLAGS ${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}"
+ICON_BUNDLED_CFLAGS=${ICON_BUNDLED_CFLAGS-$ICON_CFLAGS}
+subdir_CFLAGS=$CFLAGS
 
 dnl Check for headers that are protected with HAVE_* macros in the code
 dnl (override AC_INCLUDES_DEFAULT of autoconf 2.69, which runs additional
@@ -869,12 +871,23 @@ LIBS accordingly])])],
 RTE+RRTMGP (--disable-rte-rrtmgp) or provide an external version of dnl
 RTE+RRTMGP (--with-external-rte-rrtmgp) by setting FCFLAGS, LDFLAGS and dnl
 LIBS accordingly])])
+      AC_ARG_VAR([ICON_RTE_RRTMGP_FCFLAGS],
+        [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of RTE+RRTMGP
+@<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+      ICON_RTE_RRTMGP_FCFLAGS=${ICON_RTE_RRTMGP_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      AC_ARG_VAR([ICON_RTE_RRTMGP_CFLAGS],
+        [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of RTE+RRTMGP
+@<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+      ICON_RTE_RRTMGP_CFLAGS=${ICON_RTE_RRTMGP_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/rte-rrtmgp],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openacc])]],
-        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+        [[CFLAGS="$subdir_CFLAGS $ICON_RTE_RRTMGP_CFLAGS"],
+         [FCFLAGS="$subdir_FCFLAGS $ICON_RTE_RRTMGP_FCFLAGS"],
          [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
          [--enable-openacc="$enable_gpu"],
          [--enable-silent-rules="$enable_silent_rules"]])
@@ -905,12 +918,21 @@ dnl
 scheme ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
 ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
 (--with-external-ecrad) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
+      AC_ARG_VAR([ICON_ECRAD_FCFLAGS],
+        [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of ECRAD @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+      ICON_ECRAD_FCFLAGS=${ICON_ECRAD_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      AC_ARG_VAR([ICON_ECRAD_CFLAGS],
+        [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of ECRAD @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+      ICON_ECRAD_CFLAGS=${ICON_ECRAD_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/ecrad],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [NETCDF_FCFLAGS=*|NETCDF_FCLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([single-precision])]],
-        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+        [[CFLAGS="$subdir_CFLAGS $ICON_ECRAD_CFLAGS"],
+         [FCFLAGS="$subdir_FCFLAGS $ICON_ECRAD_FCFLAGS"],
          [NETCDF_FCFLAGS=], [NETCDF_FCLIBS=],
          [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/ecrad/mod "])
@@ -955,6 +977,14 @@ SCT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the SCT timer (--disable-sct) or provide an external dnl
 version of SCT (--with-external-sct) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
+      AC_ARG_VAR([ICON_SCT_FCFLAGS],
+        [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of SCT @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+      ICON_SCT_FCFLAGS=${ICON_SCT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      AC_ARG_VAR([ICON_SCT_CFLAGS],
+        [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of SCT @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+      ICON_SCT_CFLAGS=${ICON_SCT_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/sct],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [MPICC=*|MPIFC=*|MPI_LAUNCH=*],
@@ -970,7 +1000,8 @@ accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([libpapi-prefix])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([libhdf5-prefix])]],
-        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+        [[CFLAGS="$subdir_CFLAGS $ICON_SCT_CFLAGS"],
+         [FCFLAGS="$subdir_FCFLAGS $ICON_SCT_FCFLAGS"],
          [MPICC=], [MPIFC=], [--enable-static], [--disable-shared],
          [--disable-maintainer-mode], [--enable-mpi="$enable_mpi"],
          [--enable-openmp="$enable_openmp"], [--disable-rpath],
@@ -1035,6 +1066,14 @@ YAXT library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the YAXT data exchange (--disable-yaxt) or provide an external dnl
 version of YAXT (--with-external-yaxt) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
+      AC_ARG_VAR([ICON_YAXT_FCFLAGS],
+        [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of YAXT @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+      ICON_YAXT_FCFLAGS=${ICON_YAXT_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      AC_ARG_VAR([ICON_YAXT_CFLAGS],
+        [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of YAXT @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+      ICON_YAXT_CFLAGS=${ICON_YAXT_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yaxt],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
@@ -1042,8 +1081,10 @@ accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([regard-for-quality])]],
-        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-         [--enable-static], [--disable-shared], [--enable-dependency-tracking],
+        [[CFLAGS="$subdir_CFLAGS $ICON_YAXT_CFLAGS"],
+         [FCFLAGS="$subdir_FCFLAGS $ICON_YAXT_FCFLAGS"],
+         [--enable-static], [--disable-shared], [--disable-maintainer-mode],
+         [--enable-dependency-tracking],
          [--enable-silent-rules="$enable_silent_rules"],
          [--with-regard-for-quality="$enable_mpi_checks"],
          [MPI_LAUNCH="$MPI_LAUNCH"]])
@@ -1154,6 +1195,14 @@ CDI (--disable-cdi-pio) or provide an external version of CDI dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of CDI (--with-external-cdi) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
+   AC_ARG_VAR([ICON_CDI_FCFLAGS],
+     [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of CDI @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+   ICON_CDI_FCFLAGS=${ICON_CDI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+   AC_ARG_VAR([ICON_CDI_CFLAGS],
+     [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of CDI @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+   ICON_CDI_CFLAGS=${ICON_CDI_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/cdi],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
@@ -1169,8 +1218,9 @@ and LIBS accordingly])])
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([eccodes])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([threads])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([netcdf])]],
-     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-      [--enable-static], [--disable-shared],
+     [[CFLAGS="$subdir_CFLAGS $ICON_CDI_CFLAGS"],
+      [FCFLAGS="$subdir_FCFLAGS $ICON_CDI_FCFLAGS"],
+      [--enable-static], [--disable-shared], [--disable-maintainer-mode],
       [--enable-silent-rules="$enable_silent_rules"],
       [--enable-iso-c-interface], [--disable-cf-interface],
       [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
@@ -1246,6 +1296,14 @@ dnl
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of MTIME (--with-external-mtime) by setting CFLAGS, dnl
 FCFLAGS, LDFLAGS and LIBS accordingly])])
+   AC_ARG_VAR([ICON_MTIME_FCFLAGS],
+     [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of MTIME @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+   ICON_MTIME_FCFLAGS=${ICON_MTIME_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+   AC_ARG_VAR([ICON_MTIME_CFLAGS],
+     [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of MTIME @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+   ICON_MTIME_CFLAGS=${ICON_MTIME_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/mtime],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
@@ -1253,8 +1311,9 @@ FCFLAGS, LDFLAGS and LIBS accordingly])])
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openmp])]],
-     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-      [--enable-static], [--disable-shared],
+     [[CFLAGS="$subdir_CFLAGS $ICON_MTIME_CFLAGS"],
+      [FCFLAGS="$subdir_FCFLAGS $ICON_MTIME_FCFLAGS"],
+      [--enable-static], [--disable-shared], [--disable-maintainer-mode],
       [--enable-silent-rules="$enable_silent_rules"], [--disable-examples],
       [--enable-openmp="$enable_openmp"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
@@ -1309,6 +1368,14 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          _AC_SRCDIRS([.])
          yac_MTIME_CFLAGS="-I${ac_abs_top_srcdir}/externals/mtime/include"
          yac_MTIME_CLIBS="${ac_abs_top_builddir}/externals/mtime/src/.libs/libmtime.a"])
+      AC_ARG_VAR([ICON_YAC_FCFLAGS],
+        [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of YAC @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+      ICON_YAC_FCFLAGS=${ICON_YAC_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      AC_ARG_VAR([ICON_YAC_CFLAGS],
+        [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of YAC @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+      ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yac],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
@@ -1322,7 +1389,8 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([mpi-checks])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-lapack])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([external-mtime])]],
-        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+        [[CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS"],
+         [FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS"],
          [MTIME_CFLAGS="$yac_MTIME_CFLAGS"], [MTIME_CLIBS=],
          [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=], [XML2_CLIBS=],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
@@ -1359,12 +1427,21 @@ TIXI library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either dnl
 disable the ART component (--disable-art) or provide an external version of dnl
 TIXI (--with-external-tixi) by setting FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])
+      AC_ARG_VAR([ICON_TIXI_FCFLAGS],
+        [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of TIXI @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+      ICON_TIXI_FCFLAGS=${ICON_TIXI_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+      AC_ARG_VAR([ICON_TIXI_CFLAGS],
+        [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of TIXI @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+      ICON_TIXI_CFLAGS=${ICON_TIXI_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/tixi],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
-        [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-         [XML2_CFLAGS=], [XML2_CLIBS=],
+        [[CFLAGS="$subdir_CFLAGS $ICON_TIXI_CFLAGS"],
+         [FCFLAGS="$subdir_FCFLAGS $ICON_TIXI_FCFLAGS"],
+         [XML2_CFLAGS=], [XML2_CLIBS=], [--disable-maintainer-mode],
          [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/tixi/src "])
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a dnl
@@ -1393,10 +1470,20 @@ or set FCFLAGS, LDFLAGS and LIBS accordingly])])],
 library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': provide an dnl
 external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
+   AC_ARG_VAR([ICON_SELF_FCFLAGS],
+     [Fortran compiler flags to be appended to FCFLAGS when compiling and
+linking the bundled version of SELF @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
+   ICON_SELF_FCFLAGS=${ICON_SELF_FCFLAGS-$ICON_BUNDLED_FCFLAGS}
+   AC_ARG_VAR([ICON_SELF_CFLAGS],
+     [Fortran compiler flags to be appended to CFLAGS when compiling and
+linking the bundled version of SELF @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
+   ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/self],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
-     [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+     [[CFLAGS="$subdir_CFLAGS $ICON_SELF_CFLAGS"],
+      [FCFLAGS="$subdir_FCFLAGS $ICON_SELF_FCFLAGS"],
+      [--disable-maintainer-mode],
       [--enable-silent-rules="$enable_silent_rules"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/self/src "])
    BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"])
