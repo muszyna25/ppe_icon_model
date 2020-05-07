@@ -20,14 +20,17 @@
 !!
 MODULE mo_async_latbc_types
 
-  USE mo_kind,                  ONLY: sp
-  USE mo_dictionary,            ONLY: DICT_MAX_STRLEN
-  USE mtime,                    ONLY: event, datetime, timedelta, &
-    &                                 deallocateTimedelta, deallocateEvent, deallocateDatetime
-  USE mo_initicon_types,        ONLY: t_init_state, t_init_state_const
-  USE mo_impl_constants,        ONLY: SUCCESS, max_ntracer, VARNAME_LEN
-  USE mo_exception,             ONLY: finish, message
-  USE mo_reorder_info,          ONLY: t_reorder_info, release_reorder_info
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_null_ptr, C_F_POINTER
+  USE mo_kind,                     ONLY: sp
+  USE mo_dictionary,               ONLY: DICT_MAX_STRLEN
+  USE mtime,                       ONLY: event, datetime, timedelta, &
+    &                                    deallocateTimedelta, deallocateEvent, deallocateDatetime
+  USE mo_initicon_types,           ONLY: t_init_state, t_init_state_const
+  USE mo_impl_constants,           ONLY: SUCCESS, max_ntracer, VARNAME_LEN
+  USE mo_exception,                ONLY: finish, message
+  USE mo_run_config,               ONLY: msg_level
+  USE mo_reorder_info,             ONLY: t_reorder_info, release_reorder_info
+  USE mo_mpi,                      ONLY: get_my_global_mpi_id, p_comm_work, p_comm_work_pref, p_barrier
 #ifndef NOMPI
   USE mpi
 #endif
@@ -62,7 +65,8 @@ MODULE mo_async_latbc_types
      ! Currently, we use only 1 MPI window for all input prefetching
      ! Used for async prefetch only
 #ifndef NOMPI
-     INTEGER            :: mpi_win = mpi_win_null
+     INTEGER                   :: mpi_win = mpi_win_null
+     INTEGER(mpi_address_kind) :: f_mem_ptr
 #endif
      REAL(sp), POINTER  :: mem_ptr_sp(:) => NULL() !< Pointer to memory window (REAL*4)
   END TYPE t_mem_win
@@ -116,7 +120,6 @@ MODULE mo_async_latbc_types
      ! .TRUE., if heights are computed (hydrostatic model input):
      LOGICAL                                     :: lcompute_hhl_pres
 
-     CHARACTER(LEN=10)                           :: psvar
      CHARACTER(LEN=10)                           :: geop_ml_var        ! model level surface geopotential
      CHARACTER(LEN=10)                           :: hhl_var
 
@@ -231,11 +234,14 @@ CONTAINS
 
 #ifndef NOMPI
     CHARACTER(len=*), PARAMETER :: routine = modname//'::t_patch_data_finalize'
-    INTEGER :: ierror
+    LOGICAL, PARAMETER :: lprint_dbg = .FALSE.
+    INTEGER            :: ierror
+    TYPE(c_ptr)        :: c_mem_ptr
+    INTEGER, POINTER   :: baseptr
+
+    CALL message(routine, "")
+    IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
 #endif
-
-    !CALL message("", 't_patch_data_finalize')
-
     CALL release_reorder_info(patch_data%cells)
     IF (ALLOCATED(patch_data%cell_mask)) DEALLOCATE(patch_data%cell_mask)
     CALL release_reorder_info(patch_data%edges)
@@ -243,14 +249,22 @@ CONTAINS
 #ifndef NOMPI
     ! note: we do not touch the MPI window pointer here:
     !
+    IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
+    IF  ((msg_level >= 15) .OR. lprint_dbg)  CALL message(routine, "Free MPI window")
     IF (patch_data%mem_win%mpi_win /= mpi_win_null) THEN
       CALL mpi_win_free(patch_data%mem_win%mpi_win, ierror)
       IF (ierror /= 0) CALL finish(routine, "mpi_win_free failed!")
     END IF
+    IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
+    IF  ((msg_level >= 15) .OR. lprint_dbg)  CALL message(routine, "Free MPI window memory")
     IF (ASSOCIATED(patch_data%mem_win%mem_ptr_sp)) THEN
-      CALL mpi_free_mem(patch_data%mem_win%mem_ptr_sp, ierror)
+      c_mem_ptr = TRANSFER(patch_data%mem_win%f_mem_ptr, c_mem_ptr)
+      CALL C_F_POINTER(c_mem_ptr, baseptr)
+      CALL mpi_free_mem(baseptr, ierror)
       IF (ierror /= 0) CALL finish(routine, "mpi_free_mem failed!")
     END IF
+        IF (lprint_dbg) CALL p_barrier(comm=p_comm_work_pref) ! make sure all are here
+    IF  ((msg_level >= 15) .OR. lprint_dbg)  CALL message(routine, "done.")
 #endif
   END SUBROUTINE t_patch_data_finalize
 
@@ -288,7 +302,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::t_latbc_data_finalize"
     INTEGER :: tlev, ierror
 
-    CALL message("", 'deallocating latbc data')
+    CALL message(routine, 'deallocating latbc data')
 
     ! deallocate boundary data memory
     DO tlev = 1, 2
@@ -312,6 +326,7 @@ CONTAINS
       DEALLOCATE(latbc%latbc_data_const, stat=ierror)
       IF (ierror /= SUCCESS) CALL finish(routine, "deallocate failed!")
     END IF
+    IF  (msg_level >= 15)  CALL message(routine, 'done.')
   END SUBROUTINE t_latbc_data_finalize
 
 

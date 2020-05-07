@@ -29,7 +29,10 @@ MODULE mo_pp_tasks
     & TASK_FINALIZE_IPZ,                                              &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV,                       &
     & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_COMPUTE_SMI,             &
-    & TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI,                            &
+    & TASK_COMPUTE_SDI2, TASK_COMPUTE_LPI, TASK_COMPUTE_CEILING,      &
+    & TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,                     &
+    & TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM,                      &
+    & TASK_COMPUTE_DBZCMAX, TASK_COMPUTE_DBZ850,                      &
     & TASK_INTP_VER_ZLEV,                                             &
     & TASK_INTP_VER_ILEV,                                             &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
@@ -60,7 +63,7 @@ MODULE mo_pp_tasks
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag
   USE mo_nh_pzlev_config,         ONLY: t_nh_pzlev_config
   USE mo_parallel_config,         ONLY: nproma
-  USE mo_dynamics_config,         ONLY: nnow
+  USE mo_dynamics_config,         ONLY: nnow, nnow_rcf
   USE mo_zaxis_type,              ONLY: zaxisTypeList
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL,                  &
     &                                   GRID_UNSTRUCTURED_EDGE
@@ -69,11 +72,16 @@ MODULE mo_pp_tasks
     &                                   cumulative_sync_patch_array,             &
     &                                   complete_cumulative_sync
   USE mo_util_phys,               ONLY: compute_field_rel_hum_wmo,               &
-    &                                   compute_field_rel_hum_ifs,               &
-    &                                   compute_field_omega,                     &
+    &                                   compute_field_rel_hum_ifs
+  USE mo_opt_nwp_diagnostics,     ONLY: compute_field_omega,                     &
     &                                   compute_field_pv,                        &
     &                                   compute_field_sdi,                       &
     &                                   compute_field_lpi,                       &
+    &                                   compute_field_ceiling,                   &
+    &                                   compute_field_hbas_sc, compute_field_htop_sc, &
+    &                                   compute_field_twater, compute_field_q_sedim,  &
+    &                                   compute_field_dbz850,                    &
+    &                                   compute_field_dbzcmax,                   &
     &                                   compute_field_smi
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
   USE mo_grid_config,             ONLY: l_limited_area, n_dom_start
@@ -179,7 +187,7 @@ MODULE mo_pp_tasks
   !
   !  @note There might be better places in the code for such a
   !  variable!
-   TYPE t_simulation_status
+  TYPE t_simulation_status
     LOGICAL :: status_flags(4)           !< l_output_step, l_first_step, l_last_step, l_accumulation_step
     LOGICAL :: ldom_active(max_dom)      !< active domains
     INTEGER :: i_timelevel_dyn(max_dom)  !< active time level (for dynamics output variables related to nnow)
@@ -1116,8 +1124,9 @@ CONTAINS
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
     !TYPE(t_int_state),         POINTER :: p_int_state
-    TYPE(t_nh_prog),           POINTER :: p_prog
+    TYPE(t_nh_prog),           POINTER :: p_prog, p_prog_rcf
     TYPE(t_nh_diag),           POINTER :: p_diag
+    TYPE(t_nwp_phy_diag),      POINTER :: prm_diag
     CHARACTER(*), PARAMETER :: routine = modname//"::pp_task_compute_field"
     LOGICAL :: lclip                   ! limit rh to MAX(rh,100._wp)
     
@@ -1133,7 +1142,9 @@ CONTAINS
     p_patch     => ptr_task%data_input%p_patch
     !p_int_state => ptr_task%data_input%p_int_state
     p_prog      => ptr_task%data_input%p_nh_state%prog(nnow(jg))
+    p_prog_rcf  => ptr_task%data_input%p_nh_state%prog(nnow_rcf(jg))
     p_diag      => ptr_task%data_input%p_nh_state%diag
+    prm_diag    => ptr_task%data_input%prm_diag
 
     SELECT CASE(ptr_task%job_type)
     CASE (TASK_COMPUTE_RH)
@@ -1167,7 +1178,7 @@ CONTAINS
 
     CASE (TASK_COMPUTE_SDI2)
       IF ( jg >= n_dom_start+1 ) THEN
-        ! obviously the p_patch_local_parent(jg) exists
+        ! p_patch_local_parent(jg) seems to exist
         CALL compute_field_sdi( p_patch, jg, p_patch_local_parent(jg), p_int_state_local_parent(jg),     &
           &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &
           &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
@@ -1177,13 +1188,45 @@ CONTAINS
 
     CASE (TASK_COMPUTE_LPI)
       IF ( jg >= n_dom_start+1 ) THEN
-        ! obviously the p_patch_local_parent(jg) exists (??)
+        ! p_patch_local_parent(jg) seems to exist
         CALL compute_field_lpi( p_patch, jg, p_patch_local_parent(jg), p_int_state_local_parent(jg),     &
-          &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &
+          &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_prog_rcf, p_diag,    &
           &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
       ELSE
         CALL message( "pp_task_compute_field", "WARNING: LPI cannot be computed since no reduced grid is available" )
       END IF
+
+    CASE (TASK_COMPUTE_CEILING)
+      CALL compute_field_ceiling( p_patch, jg,                                       &
+          &   ptr_task%data_input%p_nh_state%metrics, prm_diag,                      &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_HBAS_SC)
+      CALL compute_field_hbas_sc( p_patch,                                           &
+          &   ptr_task%data_input%p_nh_state%metrics, prm_diag,                      &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_HTOP_SC)
+      CALL compute_field_htop_sc( p_patch,                                           &
+          &   ptr_task%data_input%p_nh_state%metrics, prm_diag,                      &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_TWATER)
+      CALL compute_field_twater( p_patch, jg,                                        &
+          &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_prog_rcf,            &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_Q_SEDIM)
+      CALL compute_field_q_sedim( p_patch, jg, p_prog,                               &
+          &   out_var%r_ptr(:,:,:,out_var_idx,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_DBZ850)
+      CALL compute_field_dbz850( p_patch, prm_diag%k850(:,:), prm_diag%dbz3d_lin(:,:,:), &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
+
+    CASE (TASK_COMPUTE_DBZCMAX)
+      CALL compute_field_dbzcmax( p_patch, jg, prm_diag%dbz3d_lin(:,:,:),            &
+          &   out_var%r_ptr(:,:,out_var_idx,1,1))   ! unused dimensions are filled up with 1
 
     CASE (TASK_COMPUTE_SMI)
       CALL compute_field_smi(p_patch, p_lnd_state(jg)%diag_lnd, &

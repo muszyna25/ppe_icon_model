@@ -125,7 +125,7 @@ MODULE mo_meteogram_output
     &                                 p_comm_io, p_comm_rank, p_comm_size
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
-  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil
+  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS
   USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -144,7 +144,7 @@ MODULE mo_meteogram_output
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
-  USE mo_lnd_nwp_config,        ONLY: tile_list, ntiles_total, ntiles_water
+  USE mo_lnd_nwp_config,        ONLY: tile_list, ntiles_total, ntiles_water, zml_soil
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs,               &
     &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
@@ -614,13 +614,13 @@ CONTAINS
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "H_ICE", "m", "sea ice depth", &
       &              jg, p_lnd_state%prog_wtr(nnow(jg))%h_ice(:,:))
 
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCT", "%", "total cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCT", "-", "total cloud cover", &
       &              jg, prm_diag%clct(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCL", "%", "low level cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCL", "-", "low level cloud cover", &
       &              jg, prm_diag%clcl(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCM", "%", "mid level cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCM", "-", "mid level cloud cover", &
       &              jg, prm_diag%clcm(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "%", "high level cloud cover", &
+    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "-", "high level cloud cover", &
       &              jg, prm_diag%clch(:,:))
 
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "hbas_con", "m", "height of convective cloud base",&

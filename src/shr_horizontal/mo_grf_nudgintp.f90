@@ -169,7 +169,6 @@ DO jb = i_startblk, i_endblk
   DO jv = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO jv = i_startidx, i_endidx
 #endif
@@ -209,7 +208,6 @@ DO jb =  i_startblk, i_endblk
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO je = i_startidx, i_endidx
 #endif
@@ -233,7 +231,6 @@ DO jb =  i_startblk, i_endblk
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO je = i_startidx, i_endidx
 #endif
@@ -255,7 +252,6 @@ DO jb =  i_startblk, i_endblk
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
 #else
-!CDIR UNROLL=6
   DO jk = 1, nlev_c
     DO je = i_startidx, i_endidx
 #endif
@@ -742,7 +738,7 @@ DO jn = 1, nfields
 #else
       DO jk = 1, elev
         IF (.NOT. l_enabled(jk)) CYCLE
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 #endif
           p_out(jn)%fld(ichcidx(jc,jb,1),jk,ichcblk(jc,jb,1)) = &
@@ -766,7 +762,7 @@ DO jn = 1, nfields
 #else
       DO jk = 1, elev
         IF (.NOT. l_enabled(jk)) CYCLE
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO jc = i_startidx, i_endidx
 #endif
 

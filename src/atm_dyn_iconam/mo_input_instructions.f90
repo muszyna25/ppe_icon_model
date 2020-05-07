@@ -34,12 +34,15 @@ MODULE mo_input_instructions
 
     PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
     PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold
-    PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
+    PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead,  kInputSourceAnaI, kInputSourceFgAnaI
 
     ! The possible RETURN values of readInstructionList_sourceOfVar().
+    ! kInputSourceBoth  : First guess and analysis increment read from file
+    ! kInputSourceAnaI  : Analysis interpolated from parent grid
+    ! kInputSourceFgAnaI: First guess read from file, analysis increment interpolated from parent grid
     ENUM, BIND(C)
         ENUMERATOR :: kInputSourceUnset = 1, kInputSourceNone, kInputSourceFg, kInputSourceAna, &
-          &           kInputSourceBoth, kInputSourceCold
+          &           kInputSourceBoth, kInputSourceCold, kInputSourceAnaI, kInputSourceFgAnaI
     END ENUM
 
     ! The possible values for statusFg AND statusAna:
@@ -196,10 +199,12 @@ CONTAINS
         CHARACTER(LEN = VARNAME_LEN), INTENT(INOUT) :: outGroup(:)
         INTEGER, INTENT(OUT) :: outGroupSize
 
-        outGroup(1:12) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
+        outGroup(1:20) = (/'alb_si       ','rho_snow_mult','aer_ss       ','aer_or       ', &
           &                'aer_bc       ','aer_su       ','aer_du       ','plantevap    ', &
-          &                't2m_bias     ','hsnow_max    ','snow_age     ','qg           '/)
-        outGroupSize  = 12
+          &                't_sk         ','t2m_bias     ','hsnow_max    ','snow_age     ', &
+          &                'qg           ','qh           ','qnc          ','qni          ', &
+          &                'qnr          ','qns          ','qng          ','qnh          '/)
+        outGroupSize  = 20
     END SUBROUTINE collectGroupFgOpt
 
     SUBROUTINE collectGroupAna(outGroup, outGroupSize, init_mode)
@@ -775,7 +780,8 @@ CONTAINS
         TYPE(t_readInstruction), POINTER :: instruction
 
         SELECT CASE(source)
-            CASE(kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, kInputSourceCold)
+            CASE(kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth, &
+              &  kInputSourceCold, kInputSourceAnaI, kInputSourceFgAnaI)
 
                 instruction => me%findInstruction(varName)
                 instruction%sourceOverride = source
@@ -803,9 +809,10 @@ CONTAINS
 
 
 
-    ! The table that is printed by this function deliberately depends on the actual read attempts and their results, not on `lReadFg` or `lReadAna`.
-    ! This is due to the fact that there are existing discrepancies between the input groups and the actual read attempts made by the `fetch...()` routines
-    ! in `mo_initicon_io`: The table is supposed to show the reality of which data was read from where, and which inputs were used,
+    ! The table that is printed by this function deliberately depends on the actual read attempts and their results, 
+    ! not on `lReadFg` or `lReadAna`. This is due to the fact that there are existing discrepancies between the 
+    ! input groups and the actual read attempts made by the `fetch...()` routines in `mo_initicon_io`: 
+    ! The table is supposed to show the reality of which data was read from where, and which inputs were used,
     ! not some hypothetical this-is-what-should-have-been-done info.
     SUBROUTINE readInstructionList_printSummary(me, domain)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
@@ -893,6 +900,10 @@ CONTAINS
                     CALL set_table_entry(table, i, useCol, "ana")
                 CASE(kInputSourceBoth)
                     CALL set_table_entry(table, i, useCol, "both")
+                CASE(kInputSourceAnaI)
+                    CALL set_table_entry(table, i, useCol, "ana(intp)")
+                CASE(kInputSourceFgAnaI)
+                    CALL set_table_entry(table, i, useCol, "fg,ana(intp)")
                 CASE DEFAULT
                     CALL finish(routine, "unexpected RESULT from curInstruction%source()")
             END SELECT

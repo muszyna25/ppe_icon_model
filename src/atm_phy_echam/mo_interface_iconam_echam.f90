@@ -116,7 +116,8 @@ MODULE mo_interface_iconam_echam
   !$ser verbatim USE mo_ser_diagnose_pres_temp, ONLY: serialize_prestemp_input => serialize_input,&
   !$ser verbatim                                      serialize_prestemp_output => serialize_output
 
-  USE mo_upatmo_config         ,ONLY: upatmo_config, idamtr
+  USE mo_upatmo_config         ,ONLY: upatmo_config
+  USE mo_upatmo_impl_const,     ONLY: idamtr
 
   IMPLICIT NONE
 
@@ -286,7 +287,7 @@ CONTAINS
     !   of an additional metric 3d-array in field, which contains the values 
     !   of the product field%dz(jc,jk,jb) * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol). 
     !   However, at the cost of the considerable memory consumption of an additional 3d-array.
-    IF (upatmo_config(jg)%phy%l_shallowatmo) THEN
+    IF (upatmo_config(jg)%echam_phy%l_shallowatmo) THEN
       ! no cell volume modification
       !$ACC PARALLEL DEFAULT(PRESENT)
       !$ACC LOOP GANG VECTOR
@@ -396,7 +397,7 @@ CONTAINS
       &                      opt_calc_temp=.TRUE.     ,&
       &                      opt_calc_pres=.TRUE.     ,&
       &                      opt_rlend=min_rlcell_int ,& 
-      &                      opt_lconstgrav=upatmo_config(jg)%phy%l_constgrav )
+      &                      opt_lconstgrav=upatmo_config(jg)%echam_phy%l_constgrav )
     !$ser verbatim call serialize_prestemp_output(jg, pt_diag)
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
@@ -453,7 +454,7 @@ CONTAINS
       &                      opt_calc_temp=.TRUE.     ,&
       &                      opt_calc_pres=.TRUE.     ,&
       &                      opt_rlend=min_rlcell_int ,& 
-      &                      opt_lconstgrav=upatmo_config(jg)%phy%l_constgrav )
+      &                      opt_lconstgrav=upatmo_config(jg)%echam_phy%l_constgrav )
 
     IF (ltimer) CALL timer_stop(timer_d2p_prep)
 

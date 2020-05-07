@@ -220,6 +220,16 @@ lhn\_relax = .TRUE.
 \tabularnewline
 
 %\hline
+ {lhn\_wweight}&
+L&
+.FALSE.&
+&
+Reduction of the LHN temperature increment in case of strong advection, messured by horizontal wind in 950, 850 and 700 hPa.\\
+The reduction is done linearly down to cero.&
+\tabularnewline
+
+
+%\hline
  {lhn\_artif}&
 L&
 .TRUE.&
@@ -234,6 +244,15 @@ R&
 5.0&
 &
 Value of the ratio of radar to model precipitation rate, from which an artificial temperature profile is applied&
+lhn\_artif=.TRUE.
+\tabularnewline
+
+%\hline
+ {fac\_lhn\_artif\_tune}&
+R&
+1.0&
+&
+Tuning factor to optimize the effectiveness of the artificial profile.&
 lhn\_artif=.TRUE.
 \tabularnewline
 
@@ -336,7 +355,7 @@ Apply a blacklist information in the radar data obtained by comparison against s
 %\hline
  {blacklist\_file(:)}&
 C (n\_dom)&
-&
+'radarblacklist.nc'&
 &
 Name of blacklist file, containing a mask concerning the quality of the radar data.\\
 Value 1: good quality\\
@@ -356,7 +375,7 @@ Apply a model intern bright band detection to avoid strong overestimation due to
 %\hline
  {height\_file(:)}&
 C (n\_dom)&
-&
+'radarheight.nc'&
 &
 Name of file containing the height of the lowest scan for each possible radar station within the given radar composite.\\
 This file is required, when applying bright band detection.\\
@@ -367,9 +386,9 @@ lhn\_bright=.TRUE.
 %\hline
  {nradar}&
 I (n\_dom)&
-200&
+20&
 &
-Maximal number of radar station contained within height\_file&
+Maximal number of radar height layers contained within height\_file&
 lhn\_bright=.TRUE.
 \tabularnewline
 
@@ -740,54 +759,6 @@ coefficient of accretion of cloud droplets by falling snow &
 echam\_phy\_config(jg)\% dt\_cld > 0.000s
 \tabularnewline
 
-echam\_cld\_config(jg)\% cn1lnd &
-R & defval & 1e6/m3 &
-cloud droplet number concentration over land, p <= 100 hPa &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
-echam\_cld\_config(jg)\% cn2lnd &
-R & defval & 1e6/m3 &
-cloud droplet number concentration over land, p >= 800 hPa &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
-echam\_cld\_config(jg)\% cn1sea &
-R & defval & 1e6/m3 &
-cloud droplet number concentration over sea, p <= 100 hPa &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
-echam\_cld\_config(jg)\% cn2sea &
-R & defval & 1e6/m3 &
-cloud droplet number concentration over sea, p >= 800 hPa &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
-echam\_cld\_config(jg)\% cinhomi &
-R & 0.8 & &
-ice    cloud inhomogeneity factor &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
-echam\_cld\_config(jg)\% cinhoml1 &
-R & 0.8 & &
-liquid cloud inhomogeneity factor, ktype = 0 = stratiform clouds &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
-echam\_cld\_config(jg)\% cinhoml2 &
-R & 0.4 & &
-liquid cloud inhomogeneity factor, ktype = 4 = shallow conv. (cf. clwprat) &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
-echam\_cld\_config(jg)\% cinhoml3 &
-R & 0.8 & &
-liquid cloud inhomogeneity factor, ktype = 1 = deep convection and ktype = 2 = shallow conv. (cf. clwprat) and ktype = 3 = mid-level conv. &
-echam\_phy\_config(jg)\% dt\_cld > 0.000s
-\tabularnewline
-
 echam\_cld\_config(jg)\% clwprat &
 R & 4.0 & &
 critical ratio of cloud liq.+ice paths below and above the top of shallow convection; for ratio > clwprat -> change ktype from 2 to 4 &
@@ -827,7 +798,7 @@ echam\_phy\_config(jg)\% dt\_cld > 0.000s
 
 The parameterization of convection for the ECHAM physics is configured by a data structure \textit{echam\_cnv\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
 
-\begin{longtab}\% 
+\begin{longtab}\ 
 %\hline
 echam\_cnv\_config(jg)\% lmfpen &
 L& .TRUE.&&
@@ -966,6 +937,66 @@ echam\_cnv\_config(jg)\% cmfcmax &
 R & 1.0 &&
 Maximum massflux value for updrafts.&
 echam\_phy\_config(jg)\% dt\_cnv > 0.000s
+\tabularnewline
+
+\end{longtab}
+
+%------------------------------------------------------------------------------
+% echam_cop_nml:
+%------------------------------------------------------------------------------
+\subsection{echam\_cop\_nml}
+
+The parameterization of cloud optical properties for the ECHAM physics is configured by a data structure \textit{echam\_cop\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
+
+\begin{longtab}
+%\hline
+echam\_cop\_config(jg)\% cn1lnd &
+R & 20. & 1e6/m3 &
+cloud droplet number concentration over land, \newline
+p <= 100 hPa &
+\tabularnewline
+
+echam\_cop\_config(jg)\% cn2lnd &
+R & 180. & 1e6/m3 &
+cloud droplet number concentration over land, \newline
+p >= 800 hPa &
+\tabularnewline
+
+echam\_cop\_config(jg)\% cn1sea &
+R & 20. & 1e6/m3 &
+cloud droplet number concentration over sea, \newline
+p <= 100 hPa &
+\tabularnewline
+
+echam\_cop\_config(jg)\% cn2sea &
+R & 80. & 1e6/m3 &
+cloud droplet number concentration over sea, \newline
+p >= 800 hPa &
+\tabularnewline
+
+echam\_cop\_config(jg)\% cinhomi &
+R & 0.8 & &
+ice    cloud inhomogeneity factor &
+\tabularnewline
+
+echam\_cop\_config(jg)\% cinhoml1 &
+R & 0.8 & &
+liquid cloud inhomogeneity factor, \newline
+ktype = 0 = stratiform clouds &
+\tabularnewline
+
+echam\_cop\_config(jg)\% cinhoml2 &
+R & 0.4 & &
+liquid cloud inhomogeneity factor, \newline
+ktype = 4 = shallow conv. (cf. clwprat) &
+\tabularnewline
+
+echam\_cop\_config(jg)\% cinhoml3 &
+R & 0.8 & &
+liquid cloud inhomogeneity factor, \newline
+ktype = 1 = deep convection and \newline
+ktype = 2 = shallow conv. (cf. clwprat) and \newline
+ktype = 3 = mid-level conv. &
 \tabularnewline
 
 \end{longtab}
@@ -2524,7 +2555,7 @@ init\_mode=5,6
 %\hline
 qcana\_mode&
 I & 0 & &
-If $>$ 0, analysis increments for cloud water are read and processed. \\
+If $>$ 0, analysis increments for cloud water concentration are read and processed. \\
 1: QC increments are added to QV increments \\
 2: QC increments are added to QC if clouds are present, otherwise to QV increments &
 init\_mode=5
@@ -2533,8 +2564,25 @@ init\_mode=5
 %\hline
 qiana\_mode&
 I & 0 & &
-1: analysis increments for cloud ice are read and processed.  &
+1: analysis increments for cloud ice concentration are read and processed.  &
 init\_mode=5
+\tabularnewline
+
+%\hline
+qrsgana\_mode&
+I & 0 & &
+1: analysis increments for rain, snow and graupel mass concentrations are read and processed. In case of the 2-moment microphysics (inwp\_gscp=4,5,6), also hail mass concentration increments are processed. &
+init\_mode=5
+\tabularnewline
+
+% \hline
+qnxana\_2mom\_mode&
+I & 0 & &
+Only effective in case of 2-moment microphysics (inwp\_gscp=4,5,6).
+Affects the analysis increments of the the number concentrations of those hydrometeors in IAU which have been selected by the settings of qcana\_mode, qiana\_mode and qrsgana\_mode: \\
+0: analysis increments are not taken from analysis files but diagnosed based on the mass concentrations (from fg) and mass increments.  \\
+1: analysis increments are taken from the analysis files. If missing for a specific hydrometeor type, they are diagnosed similar to option 0 as a fallback. &
+init\_mode=5, inwp\_gscp=4,5,6
 \tabularnewline
 
 %\hline
@@ -2917,8 +2965,81 @@ Specifies method for computation of relative humidity \\
 
 %\hline
 gust\_interval&
-R& 3600. & s&
+R(n\_dom)& 3600. & s&
 Interval over which wind gusts are maximized &
+iforcing=3
+\tabularnewline
+
+%\hline
+celltracks\_interval&
+R(n\_dom)& 3600. & s&
+Interval over which celltrack variables are maximized (lpi\_max, uh\_max, vorw\_ctmax, w\_ctmax, tcond\_max, tcond10\_mx, dbz\_ctmax) &
+iforcing=3
+\tabularnewline
+
+%\hline
+dt\_celltracks&
+R(n\_dom)& 120. & s&
+Frequency at which celltrack variables except lpi (lpi, uh, vorw, w\_ct, tcond, tcond10) are calculated &
+iforcing=3
+\tabularnewline
+
+%\hline
+dt\_lpi&
+R(n\_dom)& 180. & s&
+Frequency at which lpi is calculated for celltracks &
+iforcing=3
+\tabularnewline
+
+%\hline
+dt\_radar\_dbz&
+R(n\_dom)& 120. & s&
+Frequency at radar reflectivity is calculated for celltracks&
+iforcing=3
+\tabularnewline
+
+%\hline
+precip\_interval&
+C(n\_dom)& "P01Y" & &
+Interval over which precipitation variables are accumulated (rain\_gsp, snow\_gsp, graupel\_gsp, ice\_gsp, hail\_gsp, prec\_gsp, rain\_con, snow\_con, prec\_con, tot\_prec, prec\_con\_rate\_avg, prec\_gsp\_rate\_avg, tot\_prec\_rate\_avg)&
+iforcing=3
+\tabularnewline
+
+%\hline
+maxt\_interval&
+C(n\_dom)& "PT06H" & &
+Interval over which max/min 2-m temperatures are calculated &
+iforcing=3
+\tabularnewline
+
+%\hline
+echotop\_meta \\[2\baselineskip]
+contains:\\[\baselineskip]
+echotop\_meta(1:n\_dom)\%time\_interval\\[\baselineskip]
+echotop\_meta(1:n\_dom)\%dbzthresh &
+TYPE(n\_dom) \\[4\baselineskip]
+R(1)\\[\baselineskip]
+R(max\_echotop)\\[2\baselineskip]
+max\_echotop=10 &
+\,\\[4\baselineskip]
+3600.0\\[2\baselineskip]
+(/18.0,25.0,35.0/)&
+\,\\[4\baselineskip]
+s\\[\baselineskip]
+dBZ
+&
+Derived type to define properties of radar reflectivity echotops for each domain. Two types of echotops are available: minimum pressure ('echotop') and maximum height ('echotopinm') during
+a certain time interval where a given reflectivity threshold is exeeded. Takes effect
+if 'echotop' and/or 'echotopinm' is/are present in the \texttt{ml\_varlist} of any domain-specific namelist \texttt{output\_nml}. \\
+The derived type contains the echotop properties which are given to the left in the first column:\\
+\textbf{time\_interval:} time interval [s] over which echotops are calculated;\\
+\textbf{dbzthresh:} list of reflectivity thresholds [dBZ] for which echotops shall be computed.\\
+You have to specify properties for each domain separately, e.g.\\
+echotop\_meta(1)\%time\_interval=3600.0,\\
+echotop\_meta(1)\%dbzthresh=19.0,25.0,35.0,46.0\\ 
+echotop\_meta(2)\%time\_interval=1800.0\\
+echotop\_meta(2)\%dbzthresh=27.0,36.0\\ 
+&
 iforcing=3
 \tabularnewline
 
@@ -3329,6 +3450,14 @@ file dict.latbc in run folder.
 & num\_prefetch\_proc=1
 \tabularnewline
 
+%\hline
+latbc\_contains\_qcqi&
+L &
+.TRUE. &
+&
+Set to .FALSE. if there is no qc, qi in latbc data.
+&
+\tabularnewline
 
 %\hline
 nretries&
@@ -3391,6 +3520,17 @@ I&
 1&
 &
 number of tiles&
+\tabularnewline
+
+%\hline
+zml\_soil &
+R&
+0.005, 0.02, 0.06,\newline
+0.18, 0.54, 1.62,\newline
+4.86, 14.58&
+&
+soil full layer depths&
+init\_mode = 2, 3
 \tabularnewline
 
 %\hline
@@ -3495,7 +3635,6 @@ I & 1 &  & Type of snow-fraction diagnosis:\\
 (shold be used only in combination with lsnowtile=.TRUE.&
 \tabularnewline
 
-
 %\hline
 itype\_snowevap &
 I & 2 &  & Tuning of snow evaporation in vegetated areas:\\ 
@@ -3506,58 +3645,77 @@ I & 2 &  & Tuning of snow evaporation in vegetated areas:\\
 lsnowtile=.TRUE.
 \tabularnewline
 
-
 %\hline
 itype\_lndtbl &
 I & 3 &  & Table values used for associating surface parameters to land-cover classes: \\
-1 = defaults from extpar (GLC2000 and GLOBCOVER2009)\\
-2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only)\\
+1 = defaults from extpar (GLC2000 and GLOBCOVER2009) \\
+2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only) \\
 3 = even more tuned operational version (GLOBCOVER2009 only) \\
 4 = tuned version for new bare soil evaporation scheme (itype\_evsl=4) &
 \tabularnewline
 
 %\hline
 itype\_root &
-I & 2 &  & root density distribution: \\
-1 = constant\\
+I & 2 &  & type of root density distribution \\
+1 = constant \\
 2 = exponential &
 \tabularnewline
 
 %\hline
 itype\_evsl &
 I & 2 &  & type of bare soil evaporation parameterization \\
-2 = Dickinson (1984)\\
-3 = Noilhan and Planton (1989) \\
-4 = Resistance-based scheme by Jan-Peter Schulz &
+2 = BATS scheme, Dickinson (1984) \\
+3 = ISBA scheme, Noilhan and Planton (1989) \\
+4 = Resistance-based scheme by Schulz and Vogel (2016) &
 \tabularnewline
 
 %\hline
 itype\_trvg &
 I & 2 &  & type of plant transpiration parameterization \\
-2 = BATS scheme, Dickinson (1984)\\
+2 = BATS scheme, Dickinson (1984) \\
 3 = Extended BATS scheme with additional prognostic variable for integrated plant transpiration since sunrise; 
 should be used only with an appropriate first guess for this variable coming from the DWD assimilation cycle &
 \tabularnewline
 
 %\hline
+itype\_canopy &
+I & 1 &  & Type of canopy parameterization with respect to surface energy balance \\
+1 = Surface energy balance equation solved at the ground surface, canopy energetically not represented \\
+2 = Skin temperature formulation by Schulz and Vogel (2017), based on Viterbo and Beljaars (1995) &
+\tabularnewline
+
+%\hline
+cskinc &
+R & $-1.0$ & $\mathrm{W m^{-2} K^{-1}}$ & Skin conductivity \\
+For cskinc < 0, an external parameter field SKC is read and used \\
+For cskinc > 0, this globally constant value is used in the whole model domain \\
+Reasonable range: 10.0 -- 1000.0 &
+\tabularnewline
+
+%\hline
+tau\_skin &
+R & 3600. & s & Relaxation time scale for the computation of the skin temperature  &
+\tabularnewline
+
+%\hline
 itype\_heatcond &
 I & 2 &  & type of soil heat conductivity \\
-1 = constant soil heat conductivity\\
-2 = moisture dependent soil heat conductivity\\
+1 = constant soil heat conductivity \\
+2 = moisture dependent soil heat conductivity, cf.\ Schulz et al.\ (2016) \\
 3 = variant of option 2 with reduced near-surface heat conductivity in the presence of plant cover &
 \tabularnewline
 
 %\hline
 itype\_interception &
 I & 1 &  & type of plant interception \\
-1 = standard scheme, effectively switched off by tiny value cwimax\_ml\\
+1 = standard scheme, effectively switched off by tiny value cwimax\_ml \\
 2 = Rain and snow interception (\textcolor{red}{to be removed}) &
 \tabularnewline
 
 %\hline
 cwimax\_ml &
-R & 1.e-6 & m & scaling parameter for maximum interception storage (almost switched off); \\
-use 5.e-4 to activate interception storage & itype\_interception = 1
+R & $1.e-6$ & m & scaling parameter for maximum interception storage (almost switched off); \\
+use $5.e-4$ to activate interception storage & itype\_interception = 1 
 \tabularnewline
 
 %\hline
@@ -3629,7 +3787,8 @@ increments on a daily basis. The sea ice fraction can be modified by the seaice 
 3: SST and sea ice fraction are updated daily, based on climatological monthly
 means\\
 4: SST and sea ice fraction are updated daily, based on actual monthly means\\
-5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented})&
+5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented}) \\
+6: SST and sea ice fraction are updated with user-defined interval &
 iequations=3\\
 iforcing=3
 \tabularnewline
@@ -3640,8 +3799,9 @@ C&
 &
 Filename of SST input files for time dependent SST.
 Default is "$<$path$>$SST\_$<$year$>$\_<month>\_$<$gridfile$>$". May contain the
-keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=3,4,5
+keyword $<$path$>$ which will be substituted by model\_base\_dir \newline
+In case sstice\_mode=6, SST data for all time steps in the current simulation should be prepared in one single file, variable should be named SST in this file. &
+sstice\_mode=3,4,5,6
 \tabularnewline
 %\hline
 ci\_td\_filename &
@@ -3650,8 +3810,9 @@ C&
 &
 Filename of sea ice fraction input files for time dependent sea ice fraction.
 Default is "$<$path$>$CI\_$<$year$>$\_$<$month$>$\_$<$gridfile$>$". May contain
-the keyword $<$path$>$ which will be substituted by model\_base\_dir&
-sstice\_mode=3,4,5
+the keyword $<$path$>$ which will be substituted by model\_base\_dir \newline
+In case sstice\_mode=6, sea ice data for all time steps in the current simulation should be prepared in one single file, variable should be named SIC in this file. &
+sstice\_mode=3,4,5,6
 \tabularnewline
 \end{longtab}
 
@@ -4762,6 +4923,41 @@ C(:)&
 NetCDF file with RRTM Cloud Optical Properties for ECHAM6. &
 \tabularnewline
 
+%\hline
+ireff\_calc &
+I (max\_ dom) &
+0 &
+&
+Parameterization set for diagnostic calculations of effective radius: \\
+0 \,\,\,  = No calculation \\
+1-9 = Consistent with microphysics given by ireff\_calc (naming same convention as inwp\_gscp) \\
+100 = Consistent with current microphysics (it sets ireff\_calc = inwp\_gscp) \\
+101 = Reff given by RRTM parameterization
+&run\_nml:iforcing = inwp
+\tabularnewline
+
+%\hline
+lupatmo\_phy&
+L (max\_ dom)& .FALSE.&  & 
+Switch for upper-atmosphere physics. \\
+Examples of usage for multi-domain applications: \\
+\begin{itemize}
+\item set lupatmo\_phy = .TRUE. to switch on upatmo physics for all domains
+\item set lupatmo\_phy = .TRUE., .TRUE., .FALSE. to switch on
+upatmo physics for dom 1 and 2, but switch them off for dom 3
+\item please note that ``skipping'' domains is currently not possible, 
+i.e. lupatmo\_phy = .TRUE., .FALSE., .TRUE. is transformed into 
+lupatmo\_phy = .TRUE., .FALSE., .FALSE.
+\end{itemize}
+See upatmo\_nml for configuration of the upper-atmosphere physics
+parameterizations. 
+&
+run\_nml:iforcing = inwp \\
+init\_mode $<$ 4 \\
+inwp\_turb $>$ 0 \\
+inwp\_radiation $>$ 0
+\tabularnewline
+
 \end{longtab}
 
 
@@ -5028,6 +5224,17 @@ run\_nml:iforcing = inwp; inwp\_cldcover = 1
 \tabularnewline
 
 \hline
+icpl\_turb\_clc&
+I&
+1&
+&
+Mode of coupling between turbulence and cloud cover\\
+1: strong dependency of box width on rcld with upper and lower limit \\
+2: weak dependency of box width on rcld with additive term and upper limit &
+run\_nml:iforcing = inwp; inwp\_cldcover = 1
+\tabularnewline
+
+\hline
 lcalib\_clcov&
 L&
 .TRUE.&
@@ -5063,6 +5270,15 @@ MODIS albedo tuning\\
 1: dimmed sahara&
 run\_nml:iforcing = inwp\\
 albedo\_type=2
+\tabularnewline
+
+\hline
+tune\_difrad\_3dcont&
+R&
+0.5&
+&
+Tuning factor for 3D contribution to diagnosed diffuse radiation (no impact on prognostic results!) &
+inwp\_radiation = 1 or 4
 \tabularnewline
 
 
@@ -5792,6 +6008,22 @@ data. Maximum no of processors used for it is limited to 1). &
 itype\_latbc $\ge$ 1 
 \tabularnewline  
 
+%\hline 
+\textbf{proc0\_shift} &
+I & 0 & &
+Number of processors at the beginning of the rank list that are excluded from the domain decomposition.
+Setting this parameter to 1 serves for offloading I/O to the vector hosts of the NEC Aurora, but it
+works technically on other platforms as well. &
+\tabularnewline
+
+%\hline 
+\textbf{use\_omp\_input} &
+L & .FALSE. & &
+Setting this parameter to .TRUE. activates OpenMP sections in initicon that allow task parallelism
+for reading atmospheric input data, overlapping reading, sending, and statistics calculations. &
+\tabularnewline
+
+
 %\hline
 pio\_type &
 I & 1& &
@@ -6065,12 +6297,40 @@ iforcing=inwp
 I&
 4&
 &
-Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency)\\
-1: SZA dependency following Ritter-Geleyn; applied to unconditionally all grid points\\
-2: SZA dependency following Zaengl (pers.\ comm.). Same as 1 for water, but for 'rough surfaces' over land the direct albedo 
-   is not allowed to exceed the corresponding broadband diffuse albedo.\\
-3: SZA dependency following Yang (2008) for snow-free land points. Same as 1 for water/ice and 2 for snow.\\
-4: SZA dependency following Briegleb (1992) for snow-free land points. Same as 1 for water/ice and 2 for snow.
+Direct beam surface albedo over land and sea-ice. Options mainly differ in terms of their solar zenith angle (SZA) dependency.\\
+1: Ritter-Geleyn (1992) \\
+2: Z\"angl (pers.\ comm.): For 'rough surfaces' over land direct albedo
+   is not allowed to exceed the corresponding broadband diffuse
+   albedo. Ritter-Geleyn for ice. \\
+3: Yang et al (2008) for snow-free land points. Ritter-Geleyn for ice and Z\"angl for snow. \\
+4: Briegleb and Ramanathan (1992) for snow-free land points. Ritter-Geleyn for ice and Z\"angl for snow.
+&
+iforcing=inwp\\
+albedo\_type=2
+\tabularnewline
+
+%\hline
+\textbf{direct\_albedo\_water}&
+I&
+2&
+&
+Direct beam surface albedo over water (ocean or lake). Options mainly differ in terms of their solar zenith angle (SZA) dependency.\\
+1: Ritter-Geleyn (1992) \\
+2: Yang (2008), originally designed for land\\
+3: Taylor et al (1996) for direct and 0.06 for diffuse albedo as in the IFS. 
+&
+iforcing=inwp\\
+albedo\_type=2
+\tabularnewline
+
+%\hline
+\textbf{albedo\_whitecap}&
+I&
+0&
+&
+Ocean albedo increase by foam from breaking waves (whitecaps). Not applied over lakes.\\
+0: off \\
+1: whitecap describtion by Seferian et al 2018
 &
 iforcing=inwp\\
 albedo\_type=2
@@ -6197,16 +6457,6 @@ L&
 .FALSE.&
 &
 writes actual aerosol optical properties to output &
-\tabularnewline
-
-%\hline
-ighg &
-I&
-0&
-&
-Select dynamic greenhouse gases scenario (read from file)\\
-0 : select default gas volume mixing ratios - 1990 values (CMIP5)\\
-1 : transient CMIP5 scenario from file & run\_nml/iforcing=2 (ECHAM)
 \tabularnewline
 
 %\hline
@@ -6704,11 +6954,11 @@ For NWP runs, substepping is generally applied above $z=22\,\mathrm{km}$ (see no
 \textbf{ivadv\_tracer}&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport (note that tracer mass $\rho q$ instead of the specific tracer quantity $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
+& & & & 0: no vert. transport \\
+           (note that tracer mass $\rho q$ instead of the mass fraction $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
-& & & & 3: Piecewise parabolic method (PPM): handles $\mathrm{CFL}>1$ & \tabularnewline
-& & & & 4: Parabolic Spline Method (PSM): (handles $\mathrm{CFL}>1$)& \tabularnewline
-& & & & 5: Piecewise parabolic method (PPM): GPU-enabled version, handles $\mathrm{CFL}>1$& \tabularnewline
+& & & & 2: Parabolic Spline Method (PSM): allows for $\mathrm{CFL}>1$& \tabularnewline
+& & & & 3: Piecewise parabolic method (PPM): allows for $\mathrm{CFL}>1$ & \tabularnewline
 
 
 %\hline
@@ -7131,6 +7381,14 @@ Defined and used in: \verb+src/namelists/mo_turbdiff_nml.f90+
 % deep-atmosphere dynamics
 %
 
+\hline
+\hline
+\multicolumn{5}{|l|}{\emph{Deep-atmosphere dynamics}}
+& ldeepatmo = .TRUE.
+\tabularnewline
+\hline
+\hline
+
 %\hline
 lnontrad &
 L & .TRUE. &  
@@ -7145,8 +7403,10 @@ $f_{{\mathrm{n}},{\mathrm{t}}}=2\Omega\cos(\varphi)\boldsymbol{e_\varphi\cdot e_
 are non-traditional Coriolis parameters, with edge-normal and edge-tangential 
 components denoted by $\mathrm{n}$ and $\mathrm{t}$, the angular velocity of 
 the model Earth $\Omega$, the latitude $\varphi$, and unit vectors 
-$\boldsymbol{e_{\ldots}}$.
-& ldeepatmo = .TRUE.
+$\boldsymbol{e_{\ldots}}$. 
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7156,8 +7416,10 @@ L & .FALSE. &
 .FALSE.: gravitational acceleration varies with height (standard for deep atmosphere) \\
 .TRUE.: gravitational acceleration is constant (as in case of shallow atmosphere). 
 I.e. underlined factor in gravitational acceleration is set to 1:\\
-$\text{grav}=\text{const.}*\underline{[a/(a+z)]^2}$.
-& ldeepatmo = .TRUE.
+$\text{grav}=\text{const.}*\underline{[a/(a+z)]^2}$. 
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7173,8 +7435,9 @@ $\partial w/\partial t \underline{-\Omega^2 (a+z) \cos^2(\varphi)} +\cdots = \cd
 $\text{grav}=\text{const.}*[a/(a+z)]^2$,
 is assumed to be implicitly composed of a purely gravitational part and 
 a centrifugal part, the latter is not subtracted out for lcentrifugal = .TRUE.!)
-&
-ldeepatmo = .TRUE.
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7186,19 +7449,32 @@ in accordance with the shallow-atmosphere approximation in any case \\
 .TRUE.: input fields to the physics parameterizations are modified 
 for the deep atmosphere. (Please note: the physics parameterizations themselves 
 are not explicitly modified for the deep atmosphere!)
-& ldeepatmo = .TRUE. .AND. iforcing = 2 (ECHAM)
+%
+%\\
+& iforcing = 2 (ECHAM)
 \tabularnewline
 
 %
 % upper-atmosphere extrapolation
 %
 
+\hline
+\hline
+\multicolumn{5}{|l|}
+{\emph{Extrapolation to determine the inital state of the upper atmosphere}}
+& itype\_vert\_expol = 2
+\tabularnewline
+\hline
+\hline
+
 %\hline
 expol\_start\_height &
 R & 70000 & m
 &
 Height above which extrapolation of initial data starts.
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7207,7 +7483,9 @@ R & 10000 & m
 &
 Vertical distance above expol\_start\_height within which blending of linearly
 extrapolated state and climatological state takes place.
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7216,7 +7494,9 @@ R & 10000 & m
 &
 Scale height of vertically exponentially decaying factor multiplied to the
 extrapolated horizontal wind (to alleviate stability-endangering wind magnitudes).
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7224,7 +7504,9 @@ expol\_temp\_infty&
 R & 400 & K
 &
 Exospheric mean reference temperature of the climatology for the extrapolation blending.
-& itype\_vert\_expol = 2
+%
+\\
+& 
 \tabularnewline
 
 %\hline
@@ -7235,12 +7517,368 @@ L & .FALSE. &
 in the region above expol\_start\_height 
 (e.g., temperature values everywhere > 0). 
 (Please, apply with care, since it is computationally relatively expensive.) 
-& itype\_vert\_expol = 2
+%
+%\\
+& 
+\tabularnewline
+
+%
+% upper-atmosphere physics: general
+%
+
+\hline
+\hline
+\multicolumn{5}{|l|}
+{\emph{Upper-atmosphere physics}}
+& 
+(iforcing = 2 (ECHAM) \& \\ 
+``coming soon'') or \\
+(iforcing = 3 (NWP) \& \\ 
+lupatmo\_phy = .TRUE.)
+\tabularnewline
+\hline
+\hline
+
+%\hline
+orbit\_type&
+I & 1 & 
+&
+Orbit model for upper-atmosphere radiation 
+(compare echam\_rad\_nml: l\_orbvsop87): \\
+1: vsop87 $\rightarrow$ standard and accurate model \\
+2: kepler $\rightarrow$ simple model appropriate for idealized work 
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+solvar\_type&
+I & 1 & 
+&
+Solar activity: \\
+1: normal \\
+2: low \\
+3: high
+%
+\\
+&
+\tabularnewline
+
+%\hline
+solvar\_data&
+I & 2 & 
+&
+Data set for solar activity: \\
+1: G. Rottman data \\
+2: J. Lean data
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+solcyc\_type&
+I & 2 & 
+&
+Solar cycle: \\
+1: standard cycle \\
+2: 27-day cycle
+%
+%\\
+& 
+\tabularnewline
+
+%
+% upper-atmosphere physics: NWP-specific
+%
+
+\hline
+\multicolumn{4}{|l|}{nwp\_grp\_<groupname>\%\ldots}
+& Configuration of the upper-atmosphere process groups 
+under NWP-forcing (compare time control of processes in echam\_phy\_nml): \\
+<groupname> = imf: ion drag, molecular diffusion and frictional heating \\
+<groupname> = rad: radiation and chemical heating 
+& iforcing = 3 \\ 
+lupatmo\_phy = .TRUE.
+\tabularnewline
+\hline
+
+%\hline
+\ldots imode &
+I(max\_\\dom) & 1 &  &
+Group mode: \\
+0: all processes clustered in the group <groupname> are switched off \\
+1: all processes are switched on \\
+2: all processes run in offline-mode, i.e. tendencies are computed, 
+but not coupled to the dynamics \\
+Example of usage for multi-domain applications: \\
+\begin{itemize}
+\item set nwp\_grp\_imf\%imode = 1 to switch on the IMF-group for all domains (default) 
+\item set nwp\_grp\_rad\%imode = 1,1,0 to switch on the RAD-group for domain 1 and 2, 
+but to switch it off for domain 3
+\end{itemize}
+Please note: if imode = 1 or 2 for a domain, but lupatmo\_phy = .FALSE. 
+for this domain, imode is set to 0 and the group is switched off.
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots dt &
+R(max\_\\dom) & 300.0$|_{\text{imf}}$, \\ 600.0$|_{\text{rad}}$ & s & 
+Tendency update period. 
+New tendencies from all processes of a group are computed every dt 
+(temperature, wind and water vapor tendencies in case of IMF, 
+and temperature tendencies in case of RAD).
+Please note: internal processing will round dt to the next multiple 
+of the domain-adjusted value of run\_nml: dtime, 
+which in turn might have been rescaled,  
+if grid\_nml: grid\_rescale\_factor $\neq$ 1. 
+In case of a domain-wise assignment in a multi-domain application, 
+dt(1) $\geq$ dt(2) $\geq$ \ldots is required. 
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots t\_start \\
+\ldots t\_end  &
+C & "{ }" &  &
+Tendencies from all processes of a group are computed 
+within the time interval
+[t\_start, t\_end]. Outside this interval the tendencies are set to zero. 
+Format as for time\_nml: ini\_datetime\_string, e.g. 
+nwp\_grp\_imf\%t\_start = "2008-09-01T00:00:00Z". 
+Empty strings will be replaced by the simulation start and/or end date and
+time of the domain. t\_start and t\_end apply to all domains, 
+no domain-wise specification possible! 
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots start\_height &
+R & -999.0 & m &
+All processes of a group compute tendencies above start\_height. 
+Below start\_height the processes are inactive and all tendencies 
+are set to zero.
+A negative value means that the default start heights of each process, 
+listed in src/upper\_atmosphere/mo\_upatmo\_impl\_const: startHeightDef, 
+are applied. Please note: start\_height applies to all domains. 
+If it is above the top of one domain, 
+the group is switched off for that domain (imode(idom) is set to 0).
+%
+%\\
+& 
+\tabularnewline
+
+\hline
+\multicolumn{4}{|l|}{nwp\_gas\_<gasname>\%\ldots}
+& Configuration of the radiatively active gases in the upper atmosphere under
+NWP-forcing (compare radiation\_nml and echam\_rad\_nml): \\
+<gasname> = o3: ozone ($\text{O}_3$) \\
+<gasname> = o2: dioxygen ($\text{O}_2$) \\
+<gasname> = o: atomic oxygen ($\text{O}$) \\
+<gasname> = co2: carbon dioxide ($\text{CO}_2$) \\
+<gasname> = no: nitric oxide ($\text{NO}$) \\
+(Dinitrogen ($\text{N}_2$) is determined diagnostically.)
+& iforcing = 3 \\ 
+lupatmo\_phy = .TRUE. \\
+nwp\_grp\_rad\%imode  $>$ 0
+\tabularnewline
+\hline
+
+%\hline
+\ldots imode & I & 2 & &
+Gas mode (comparable, but generally not identical to the irad\_<gasname> 
+in radiation\_nml and echam\_rad\_nml). \\
+0: zero gas concentration \\
+1: constant gas concentration (independent of space and time), 
+specified via nwp\_gas\_<gasname>\%vmr \\
+2: external data; meridionally, vertically and monthly varying 
+gas concentrations are read from a file 
+with name nwp\_extdat\_gases\%filename
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots vmr & R & 0.0 & $\text{m}^3/\text{m}^3$ &
+Constant volume mixing ratio for a radiatively active gas. 
+%
+\\
+& nwp\_gas\_<gasname>\%imode = 1
+\tabularnewline
+
+%\hline
+\ldots fscale & R & 1.0 & &
+Scaling factor the gas concentration in each grid cell is multiplied with.
+%
+%\\
+& 
+nwp\_gas\_<gasname>\%imode $>$ 0
+\tabularnewline
+
+\hline
+\multicolumn{4}{|l|}{nwp\_extdat\_<extdatname>\%\ldots}
+& Configuration of the external upper-atmosphere data: \\
+<extdatname> = gases: concentrations of the radiatively
+active gases \\
+<extdatname> = chemheat: temperature tendencies from chemical heating \\
+Please note: the standard NWP physics use other external gas data
+(e.g., for ozone)! 
+& 
+nwp\_grp\_rad\%imode  $>$ 0
+\tabularnewline
+\hline
+
+%\hline
+\ldots dt &
+R & 86400.0 & s & 
+Update period for the time interpolation 
+of the external data. 
+Currently, the external data provide monthly mean values. 
+In order to avoid too strong jumps in the transition from 
+one month to the next, the parameters are ``smoothed'' in time 
+by a linear interpolation that is computed every dt. 
+A value of the order of a day should be entirely sufficient 
+for this purpose.
+%
+\\
+& 
+\tabularnewline
+
+%\hline
+\ldots filename &
+C & "{}upatmo\_gases\_\\chemheat.nc" &  & 
+Name of the file containing the external data.
+The file of the default name can be found in the folder data/,
+to which a link has to be set in the run script,  
+following the typical examples of nwp\_phy\_nml: lrtm\_filename 
+and cldopt\_filename. 
+May contain the keyword <path> which will be substituted by
+model\_base\_dir (e.g., "{}<path>upatmo\_\\gases\_chemheat.nc").
+Please note: if you would like to use other external data files, 
+their data structure has to follow \emph{exactly} the data structure 
+of data/upatmo\_gases\_chemheat.nc (variable and dimension names and units, 
+zonally averaged monthly mean gas concentrations on pressure levels, 
+zonally averaged monthly mean temperature tendencies from chemical heating
+on geometric height levels etc.). 
+Any other structure cannot be processed for the time being!
+%
+%\\
+& 
 \tabularnewline
 
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_upatmo_nml.f90+
+
+\paragraph{Some notes on the output of upper-atmosphere-specific variables (under NWP-forcing):}
+\mbox{}\\
+An output of upper-atmosphere fields is only possible, 
+if upper-atmosphere physics are switched on. \\
+Upper-atmosphere fields cannot be output in the GRIB format 
+(output\_nml: filetype = 2). \\
+Upper-atmosphere fields entered on output\_nml: m/h/pl\_varlist 
+need the prefix ``upatmo\_''. \\
+
+The following fields can be output, if \ldots \\
+
+\ldots lupatmo\_phy = .TRUE.:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+%----------------------------------------
+\texttt{upatmo\_mdry}      \>  Mass of dry air \\
+%----------------------------------------
+\texttt{upatmo\_amd}       \>  Molar mass of dry air \\
+%----------------------------------------
+\texttt{upatmo\_cpair}     \>  Heat capacity of (moist) air at constant pressure \\
+%----------------------------------------
+\texttt{upatmo\_grav}      \>  Gravitational acceleration of Earth 
+%----------------------------------------
+\end{tabbing}
+
+\ldots lupatmo\_phy = .TRUE. \& nwp\_grp\_rad\%imode > 0:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+%----------------------------------------
+\texttt{upatmo\_sclrlw}  \> Scaling factor for standard long-wave radiation heating rate  
+from radiative processes \\
+                         \> out of local thermodynamic equilibrium \\
+%----------------------------------------
+\texttt{upatmo\_effrsw}  \> Efficiency factor for standard short-wave radiation heating rate  
+from chemical heating \\
+%----------------------------------------
+\texttt{upatmo\_o3}      \> Mass mixing ratio of ozone (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_o2}      \> Mass mixing ratio of dioxygen (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_o}       \> Mass mixing ratio of atomic oxygen (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_co2}     \> Mass mixing ratio of carbon dioxide (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_no}      \> Mass mixing ratio of nitric oxide (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_n2}      \> Mass mixing ratio of dinitrogen (member of \texttt{group:upatmo\_rad\_gases}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_srbc}  \> Temperature tendency due to
+absorbtion by O2 in Schumann-Runge band and continuum \\ 
+                                  \> (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_nlte}  \> Temperature tendency due to 
+radiative processes out of local thermodynamic equilibrium \\
+                                  \> (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_euv}   \> Temperature tendency due to 
+heating from extreme ultraviolet radiation \\
+                                  \> (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_no}    \> Temperature tendency due to 
+NO heating at near infrared (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_chemheat}   \> Temperature tendency due to 
+chemical heating (member of \texttt{group:upatmo\_tendencies}) 
+%----------------------------------------
+\end{tabbing}
+
+
+\ldots lupatmo\_phy = .TRUE. \& nwp\_grp\_imf\%imode > 0:
+\begin{tabbing}
+\hspace*{0.4\textwidth} \= \kill
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_vdfmol}   \> Temperature tendency due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_fric}   \> Temperature tendency due to 
+frictional heating (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_temp\_joule}   \> Temperature tendency due to 
+Joule heating from ion drag (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_u\_vdfmol}   \> Zonal component of wind tendency due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_v\_vdfmol}   \> Meridionl component of wind tendency due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_u\_iondrag}   \> Zonal component of wind tendency due to 
+ion drag (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_v\_iondrag}   \> Meridionl component of wind tendency due to 
+ion drag (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\texttt{upatmo\_ddt\_qv\_vdfmol}   \> Tendency of specific humidity due to 
+molecular diffusion (member of \texttt{group:upatmo\_tendencies}) \\
+%----------------------------------------
+\end{tabbing}
+
+\newpage
 
 % =============================================================================
 %
@@ -8439,11 +9077,14 @@ If .TRUE., sea point heights will be reverted to original (raw data) heights aft
 \tabularnewline
 
 %\hline
-l\_emiss&
-L &
-.TRUE.&
+itype\_lwemiss&
+I &
+1 &
 &
-read and use  external surface emissivity map
+Type of data used for longwave surface emissivity: \\
+0: No data; use constant fallback value instead \\
+1: Read and use emissivities derived in extpar from landuse classes \\
+2: Read and use monthly climatologies derived from satellite measurements
 &
 itopo = 1
 \tabularnewline

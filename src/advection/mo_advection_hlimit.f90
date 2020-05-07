@@ -281,7 +281,7 @@ CONTAINS
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
@@ -332,7 +332,7 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=4
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -458,7 +458,7 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=2
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -540,7 +540,6 @@ CONTAINS
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=3
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
@@ -755,7 +754,7 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=4
+!$NEC outerloop_unroll(4)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
@@ -855,7 +854,7 @@ CONTAINS
         !$ACC LOOP VECTOR PRIVATE( z_signum )
         DO jk = slev, elev
 #else
-!CDIR UNROLL=5
+!$NEC outerloop_unroll(4)
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO je = i_startidx, i_endidx

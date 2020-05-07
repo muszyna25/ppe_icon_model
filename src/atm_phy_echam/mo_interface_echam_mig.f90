@@ -30,7 +30,7 @@ MODULE mo_interface_echam_mig
   USE mo_run_config          ,ONLY: iqv, iqc, iqi, iqr, iqs, iqg, msg_level
   USE gscp_graupel           ,ONLY: graupel
   USE gscp_data              ,ONLY: cloud_num
-  USE mo_satad               ,ONLY: satad_v_3d        ! new saturation adjustment
+  USE mo_satad               ,ONLY: satad_v_3d, satad_v_3D_gpu        ! new saturation adjustment
   USE mo_echam_mig_config    ,ONLY: echam_mig_config
   USE mo_fortran_tools       ,ONLY: init
   USE mo_exception           ,ONLY: warning
@@ -166,7 +166,11 @@ CONTAINS
       !!-------------------------------------------------------------------------
       !> Initial saturation adjustment (a second one follows at the end of the microphysics)
       !!-------------------------------------------------------------------------
-       CALL satad_v_3D( &
+#ifdef _OPENACC
+       CALL satad_v_3d_gpu(                                &
+#else
+       CALL satad_v_3d(                                    &
+#endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
               & te       = xlta               (:,:)       ,& !> INOUT
@@ -222,7 +226,11 @@ CONTAINS
       !!-------------------------------------------------------------------------
       !> Final saturation adjustment (as this has been removed from the end of the microphysics)
       !!-------------------------------------------------------------------------
-       CALL satad_v_3D( &
+#ifdef _OPENACC
+       CALL satad_v_3d_gpu(                                &
+#else
+       CALL satad_v_3d(                                    &
+#endif
               & maxiter  = 10                             ,& !> IN
               & tol      = 1.e-3_wp                       ,& !> IN
               & te       = xlta (:,:)                     ,& !> INOUT

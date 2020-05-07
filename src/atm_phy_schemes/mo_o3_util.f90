@@ -93,7 +93,7 @@ CONTAINS
 
   SUBROUTINE o3_pl2ml ( jcs,jce,kbdim,nlev_pres,klev,&
     &                   pfoz,phoz,ppf,pph,   &
-    &                   o3_time_int, o3_clim)
+    &                   o3_time_int, o3_clim, opt_o3_initval )
 
     !- Description: o3 pressure levels to o3 sigma hybrid levels
     !
@@ -122,6 +122,7 @@ CONTAINS
     REAL(wp),INTENT(in) ,DIMENSION(kbdim,klev+1)    :: pph  ! half level pressure
     REAL(wp),INTENT(in) ,DIMENSION(kbdim,nlev_pres) :: o3_time_int !zozonec_x
     REAL(wp),INTENT(OUT),DIMENSION(kbdim,klev)      :: o3_clim ! ozone in g/g
+    REAL(wp),INTENT(in) ,OPTIONAL                   :: opt_o3_initval ! initial value for o3_clim
 
 
     ! LOCAL
@@ -144,6 +145,14 @@ CONTAINS
     INTEGER,DIMENSION(jce)            :: kwork
     LOGICAL,DIMENSION(jce)            :: kk_flag
 
+    ! ----------
+
+    ! since o3_clim has attribute intent(out) and its assignment below 
+    ! extends over o3_clim(jcs:jce,1:klev), not o3_clim(1:kbdim,1:klev),
+    ! one might prefer to initialize the entire field with some value
+    IF (PRESENT(opt_o3_initval)) THEN
+      o3_clim(:,:) = opt_o3_initval
+    ENDIF
 
     ! interpolate ozone profile to model grid
     ! ---------------------------------------
@@ -1281,9 +1290,12 @@ CONTAINS
         DO jc = i_startidx,i_endidx
           l_found(jc) = .FALSE.
           IF (ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg > 25._wp) THEN
-            ! Determine thermal tropopause according to WMO definition
+            ! Determine thermal tropopause according to WMO definition and 375 hPa level
+            k375  = prm_diag%k850(jc,jb)          ! initialization to be safe over very high mountains
             DO jk = prm_diag%k850(jc,jb), 3, -1
-              IF (p_diag%pres(jc,jk,jb) < 37500._wp .AND. p_diag%pres(jc,jk,jb) > 10000._wp) THEN
+              IF (p_diag%pres(jc,jk,jb) > 37500._wp .AND. p_diag%pres(jc,jk-1,jb) <= 37500._wp) THEN
+                k375 = jk  ! level index right below 375 hPa
+              ELSE IF (p_diag%pres(jc,jk,jb) < 37500._wp .AND. p_diag%pres(jc,jk,jb) > 10000._wp) THEN
                 IF (dtdz(jc,jk) < -2.e-3_wp .AND. dtdz(jc,jk-1) > -2.e-3_wp) THEN
                   l_found(jc) = .TRUE.
                   DO jk1 = jk-2, 2, -1
@@ -1293,6 +1305,8 @@ CONTAINS
                     IF (dtdzavg < -2.e-3_wp) l_found(jc) = .FALSE.
                   ENDDO
                 ENDIF
+              ELSE IF (p_diag%pres(jc,jk,jb) < 10000._wp) THEN
+                EXIT
               ENDIF
               IF (l_found(jc)) THEN
                 ! weighting factor; the latitude-dependent component increases from 0 to 1 between 25 and 30 deg lat,
@@ -1306,18 +1320,18 @@ CONTAINS
             ENDDO
           ENDIF
           IF (l_found(jc)) THEN
-            ! Determine level indices right below 100 and 375 hPa
-            k375 = prm_diag%k850(jc,jb)  ! to be safe over very high mountains
+            ! Determine level index right below 100 hPa
             k100 = -1
-            DO jk = prm_diag%k850(jc,jb), 3, -1
-              IF (p_diag%pres(jc,jk,jb) > 37500._wp .AND. p_diag%pres(jc,jk-1,jb) <= 37500._wp) k375 = jk
+            DO jk = ktp, 3, -1
               IF (p_diag%pres(jc,jk,jb) > 10000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 10000._wp) THEN
                 k100 = jk
                 wfac2 = (p_diag%pres(jc,jk,jb)-10000._wp)/(p_diag%pres(jc,jk,jb)-p_diag%pres(jc,jk-1,jb))
+                EXIT
+              ELSE IF (p_diag%pres(jc,jk,jb) < 10000._wp) THEN
+                EXIT
               ENDIF
-              IF (p_diag%pres(jc,jk,jb) < 10000._wp) EXIT
             ENDDO
-            ! Check if 100 hPa level is found. This happens only, if something else went
+            ! Check if 100 hPa level is found. This happens only if something else went
             ! completely wrong, e.g. with surface pressure values > 1300 hPa. This might be caused,
             ! for example, by a too large time step.
             IF (k100 < 0) CALL finish(TRIM(routine),'100 hPa level not found!')
@@ -1330,6 +1344,7 @@ CONTAINS
                   ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + &
                     wfac*((1._wp-wfac2)*o3_clim(k100)+wfac2*o3_clim(k100-1))
                 ELSE
+!$NEC novector
                   DO jk1 = jkk, k375
                     IF (p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1-1,jb) >= 12500._wp .AND. &
                         p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1,jb)   < 12500._wp ) THEN

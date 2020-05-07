@@ -216,6 +216,12 @@ AC_ARG_ENABLE([serialization],
 'create', 'yes' (same as 'read'), 'no'])])],
 [enable_serialization=no])
 
+AC_ARG_ENABLE([testbed],
+  [AC_HELP_STRING([--enable-testbed],
+     [enable ICON Testbed infrastructure @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_testbed=yes])],
+  [enable_testbed=no])
+
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
 
@@ -462,7 +468,7 @@ ACX_FC_ATTRIBUTE_CONTIGUOUS(
   [" ${FC_PP_DEF}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])], [:])
 
 AS_VAR_APPEND([FCFLAGS],
-  [" ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
+  [" ${FC_PP_DEF}__ICON__"])
 
 AS_VAR_IF([enable_atmo], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
@@ -523,6 +529,9 @@ AS_IF([test "x$enable_serialization" != xno],
                    [" ${FC_PP_DEF}SERIALIZE_PERTURB_REFERENCE"])],
      [create], [AS_VAR_APPEND([FCFLAGS],
                   [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])])
+
+AS_VAR_IF([enable_testbed], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_TESTBED__"])])
 
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
@@ -861,22 +870,11 @@ ECRAD (--disable-ecrad) or provide an external version of ECRAD dnl
 AS_VAR_IF([enable_rttov], [yes],
   [AC_MSG_CHECKING([whether Fortran RTTOV library is available])
    AC_LINK_IFELSE([AC_LANG_PROGRAM([], [[
-      use mo_rttov_ifc, only: rttov_init
-      implicit none
-      integer :: istatus, channels(8, 2), n_chans(2), p_pe, &
-               & num_work_procs, p_io, p_comm_work
-      integer, allocatable :: instruments(:,:)
-      logical, allocatable :: addclouds(:)
-      istatus = rttov_init(  &
-        instruments     , &
-        channels        , &
-        n_chans         , &
-        p_pe            , &
-        num_work_procs  , &
-        p_io            , &
-        p_comm_work     , &
-        appRegLim=.TRUE., &
-        readCloud=addclouds)]])],
+use rttov_types, only: rttov_coefs
+implicit none
+#include "rttov_nullify_coef.interface"
+type(rttov_coefs),target:: coefs(1)
+call rttov_nullify_coef(coefs(1)%coef)]])],
      [AC_MSG_RESULT([yes])],
      [AC_MSG_RESULT([no])
       AC_MSG_FAILURE([unable to link a test program using RTTOV: either dnl
@@ -989,11 +987,13 @@ accordingly])])
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([regard-for-quality])]],
         [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-         [--enable-static], [--disable-shared], [--enable-dependency-tracking],
+         [--enable-static], [--disable-shared], [--disable-maintainer-mode],
+         [--enable-dependency-tracking],
          [--enable-silent-rules="$enable_silent_rules"],
          [--with-regard-for-quality="$enable_mpi_checks"],
          [MPI_LAUNCH="$MPI_LAUNCH"]])
@@ -1108,6 +1108,7 @@ and LIBS accordingly])])
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([iso-c-interface])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cf-interface])],
@@ -1120,7 +1121,7 @@ and LIBS accordingly])])
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([threads])],
       [ACX_CONFIG_SUBDIR_PATTERN_WITH([netcdf])]],
      [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-      [--enable-static], [--disable-shared],
+      [--enable-static], [--disable-shared], [--disable-maintainer-mode],
       [--enable-silent-rules="$enable_silent_rules"],
       [--enable-iso-c-interface], [--disable-cf-interface],
       [--disable-cdi-app], [--enable-grib], [--enable-cgribex],
@@ -1200,11 +1201,12 @@ FCFLAGS, LDFLAGS and LIBS accordingly])])
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openmp])]],
      [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-      [--enable-static], [--disable-shared],
+      [--enable-static], [--disable-shared], [--disable-maintainer-mode],
       [--enable-silent-rules="$enable_silent_rules"], [--disable-examples],
       [--enable-openmp="$enable_openmp"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/mtime/src "])
@@ -1264,6 +1266,7 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*],
          [MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([lib-only])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([xml])],
@@ -1276,7 +1279,7 @@ YAC (--with-external-yac) by setting FCFLAGS, LDFLAGS and LIBS accordingly])])
          [MTIME_CFLAGS="$yac_MTIME_CFLAGS"], [MTIME_CLIBS=],
          [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=], [XML2_CLIBS=],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
-         [FORTRAN_LAPACK_CLIBS=],
+         [FORTRAN_LAPACK_CLIBS=],  [--disable-maintainer-mode],
          [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
          [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
          [--with-external-lapack=fortran], [--with-external-mtime],
@@ -1312,9 +1315,10 @@ accordingly])])
       ACX_CONFIG_SUBDIR([externals/tixi],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
         [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
-         [XML2_CFLAGS=], [XML2_CLIBS=],
+         [XML2_CFLAGS=], [XML2_CLIBS=], [--disable-maintainer-mode],
          [--enable-silent-rules="$enable_silent_rules"]])
       AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/tixi/src "])
       BUNDLED_LIBFILES="externals/tixi/src/libicon_tixi.a dnl
@@ -1345,8 +1349,10 @@ external version of SELF (--with-external-self) by setting FCFLAGS, LDFLAGS dnl
 and LIBS accordingly])])
    ACX_CONFIG_SUBDIR([externals/self],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
      [[CFLAGS="$subdir_CFLAGS"], [FCFLAGS="$subdir_FCFLAGS"],
+      [--disable-maintainer-mode],
       [--enable-silent-rules="$enable_silent_rules"]])
    AS_VAR_APPEND([bundled_includes], ["${FC_MOD_IN}externals/self/src "])
    BUNDLED_LIBFILES="externals/self/src/libself.a $BUNDLED_LIBFILES"])
@@ -1537,6 +1543,16 @@ AC_CONFIG_FILES([
   deplist.config
   icon.mk
 ])
+
+AC_CONFIG_FILES([run/collect.set-up.info], [chmod +x "$ac_file"])
+
+dnl The runscript generator should call run/collect.set-up.info and generate
+dnl run/set-up.info. This is currently not the case, therefore we delegate this
+dnl task to the configure script (do not forget to update '*clean' rules in
+dnl 'icon.mk.in' when the following becomes redundant):
+AC_CONFIG_COMMANDS([run/set-up.info],
+  [run/collect.set-up.info "$ac_file" 2>/dev/null || dnl
+   AC_MSG_WARN([failed to create "$ac_file"])])
 
 dnl An additional step to generate dummy dependencies:
 AC_CONFIG_COMMANDS([depfiles],

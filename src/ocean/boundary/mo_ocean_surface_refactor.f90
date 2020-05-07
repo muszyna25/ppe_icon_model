@@ -331,8 +331,7 @@ CONTAINS
     ! Provide total freshwater volume forcing:
     p_oce_sfc%FrshFlux_VolumeTotal(:,:) = p_oce_sfc%FrshFlux_Runoff    (:,:) &
       &                                 + p_oce_sfc%FrshFlux_VolumeIce (:,:) &
-      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:) &
-      &                                 + p_oce_sfc%FrshFlux_Relax     (:,:)
+      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:)
 
     ! Note: old freeboard is stored in p_oce_sfc%cellThicknessUnderIce (equiv. to zUnderIceIni in apply_surface_fluxes_slo)
 
@@ -444,8 +443,7 @@ CONTAINS
     !    - total freshwater volume forcing
     p_oce_sfc%FrshFlux_VolumeTotal(:,:) = p_oce_sfc%FrshFlux_Runoff    (:,:) &
       &                                 + p_oce_sfc%FrshFlux_VolumeIce (:,:) &
-      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:) &
-      &                                 + p_oce_sfc%FrshFlux_Relax     (:,:)
+      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:)
     ! provide total salinity forcing flux for diagnostics only
     p_oce_sfc%FrshFlux_TotalSalt(:,:)   = p_oce_sfc%FrshFlux_Runoff    (:,:) &
       &                                 + p_oce_sfc%FrshFlux_TotalIce  (:,:) &

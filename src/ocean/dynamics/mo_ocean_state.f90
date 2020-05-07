@@ -697,6 +697,7 @@ CONTAINS
             & DATATYPE_FLT64, &
             & TRIM(oce_config%tracer_shortnames(jtrc))), &
             & grib2_var(255, 255, oce_config%tracer_codes(jtrc), DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+            & ref_idx=jtrc, &
             & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
             & in_group=groups("oce_default", "oce_essentials","oce_prog"))
         END DO
@@ -1998,6 +1999,7 @@ CONTAINS
 !           & oce_tracer_units(jtrc), &
 !           & oce_tracer_longnames(jtrc), DATATYPE_FLT64), &
 !           & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!           & ref_idx=jtrc, &
 !           & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
 !       END DO
 !

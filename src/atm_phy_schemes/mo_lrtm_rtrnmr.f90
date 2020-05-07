@@ -17,6 +17,10 @@
 #endif
 #include "consistent_fma.inc"
 
+#ifdef __SX__
+#define LRTM_FULL_VECTORIZATION
+#endif
+
 MODULE mo_lrtm_rtrnmr
 
   !  --------------------------------------------------------------------------
@@ -380,7 +384,6 @@ CONTAINS
       ENDIF
     ENDDO
 
-!CDIR BEGIN COLLAPSE
     urad(:,:)     = 0.0_wp
     drad(:,:)     = 0.0_wp
     totuflux(:,:) = 0.0_wp
@@ -389,15 +392,12 @@ CONTAINS
     clrdrad(:,:)  = 0.0_wp
     totuclfl(:,:) = 0.0_wp
     totdclfl(:,:) = 0.0_wp
-!CDIR END
 
     IF (idrv .EQ. 1) THEN
-!CDIR BEGIN COLLAPSE
       d_urad_dt(:,:)    = 0.0_wp
       d_clrurad_dt(:,:) = 0.0_wp
       dtotuflux_dt(:,:) = 0.0_wp
       dtotuclfl_dt(:,:) = 0.0_wp
-!CDIR END
     ENDIF
 
     lcldlyr(:, 0) = .FALSE.
@@ -693,7 +693,7 @@ CONTAINS
           npoints3 = 0
 
           ! Cloudy layer
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO icld = 1, n_cloudpoints(lev)
             jl = icld_ind(icld,lev)
@@ -716,7 +716,7 @@ CONTAINS
             ENDIF
           ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
           DO icld1 = 1, npoints1
             jl = ilist1(icld1)
 
@@ -735,7 +735,7 @@ CONTAINS
             bbutot(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odtot_rec)
           ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO icld1 = 1, npoints2
             jl = ilist2(icld1)
@@ -757,7 +757,7 @@ CONTAINS
             bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
           ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO icld1 = 1, npoints3
             jl = ilist3(icld1)
@@ -782,7 +782,7 @@ CONTAINS
             bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
           ENDDO
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO icld = 1, n_cloudpoints(lev)
             jl = icld_ind(icld,lev)
@@ -817,7 +817,7 @@ CONTAINS
           ENDDO
 
           ! Clear layer
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO iclear = 0, kproma - n_cloudpoints(lev) - 1
             jl = icld_ind(kproma - iclear,lev)
@@ -983,7 +983,7 @@ CONTAINS
         ELSE ! both cloudy and clear points are in the vector
 
           ! Cloudy layer
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO icld = 1, n_cloudpoints(lev)
             jl = icld_ind(icld,lev)
@@ -1016,7 +1016,7 @@ CONTAINS
           ENDDO
 
           ! Clear layer
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
 !DIR$ IVDEP
           DO iclear = 0, kproma - n_cloudpoints(lev) - 1
             jl = icld_ind(kproma - iclear,lev)
@@ -1230,7 +1230,7 @@ CONTAINS
         ENDDO
       ELSE IF (n_cloudpoints(lev) /= 0) THEN
         ! use index list for the case that not all points are cloudy
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
         DO icld = 1, n_cloudpoints(lev)
           jl = icld_ind(icld,lev)
           ! Maximum/random cloud overlap

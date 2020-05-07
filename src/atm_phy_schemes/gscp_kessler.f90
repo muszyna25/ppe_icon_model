@@ -610,8 +610,8 @@ loop_over_levels: DO k = 1, ke
         IF (qcg > 1.0E-6_wp) THEN
           ztau  = MIN(1.0_wp-qcg/(qcg+qrg),0.9_wp)
           zphi  = zkphi1 * ztau**zkphi2 * (1.0_wp - ztau**zkphi2)**3
-          zswra = zconst * qcg*qcg*qcg*qcg &                      ! S_au
-                 * (1.0_wp + zphi/(1.0_wp - ztau)**2)
+          zswra = zconst * qcg*qcg*qcg*qcg &                      ! S_au   ! This formula is wrong. Missing cloud_num
+                 * (1.0_wp + zphi/(1.0_wp - ztau)**2)                      ! which was removed from definition of zconst
           zphi  = (ztau/(ztau+zkphi3))**4
           zswrk = zkcac * qcg * qrg * zphi !* zrho1o2(i)          ! S_ac
         ELSE

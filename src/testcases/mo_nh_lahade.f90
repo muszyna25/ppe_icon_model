@@ -53,12 +53,12 @@ MODULE mo_nh_lahade
   USE mo_parallel_config,          ONLY: nproma
   USE mo_sync,                     ONLY: sync_patch_array, SYNC_E
   USE mo_run_config,               ONLY: msg_level
-  USE mo_upatmo_config,            ONLY: t_upatmo_dyn_config, t_upatmo_config, &
-    &                                    imsg_thr, istatus
+  USE mo_upatmo_config,            ONLY: t_upatmo_dyn_config, t_upatmo_config
   USE mo_name_list_output_types,   ONLY: t_output_name_list
   USE mo_name_list_output_config,  ONLY: is_variable_in_output
   USE mo_name_list_output,         ONLY: istime4name_list_output
   USE mo_util_string,              ONLY: int2string
+  USE mo_upatmo_impl_const,        ONLY: iUpatmoStat, imsg_thr
 
   IMPLICIT NONE
 
@@ -996,7 +996,7 @@ CONTAINS
       !---------------------------------------
 
       IF (PRESENT(upatmo_config)) THEN
-        lupatmo_checked = ANY(upatmo_config(:)%l_status(istatus%checked))
+        lupatmo_checked = ANY(upatmo_config(:)%l_status(iUpatmoStat%checked))
       ELSE
         lupatmo_checked = .FALSE.
       ENDIF

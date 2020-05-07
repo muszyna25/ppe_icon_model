@@ -34,6 +34,7 @@ MODULE mo_input_request_list
     USE mo_grid_config, ONLY: n_dom
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_initicon_config, ONLY: timeshift, lconsistency_checks
+    USE mo_parallel_config, ONLY: use_omp_input
     USE mo_initicon_utils, ONLY: initicon_inverse_post_op
     USE mo_input_container, ONLY: t_InputContainer, inputContainer_make
     USE mo_kind, ONLY: wp, dp
@@ -64,7 +65,8 @@ PUBLIC :: t_InputRequestList, InputRequestList_create
 
     CONTAINS
         PROCEDURE :: request => InputRequestList_request    !< Require that a variable be read.
-        PROCEDURE :: requestMultiple => InputRequestList_requestMultiple    !< Require that a list of variables. Unlike request() this will request the trimmed strings (because it's impossible to pass an array of strings of different LEN).
+        PROCEDURE :: requestMultiple => InputRequestList_requestMultiple    !< Require that a list of variables. Unlike request() this will request the 
+                                                                            ! trimmed strings (because it's impossible to pass an array of strings of different LEN).
         PROCEDURE :: readFile => InputRequestList_readFile  !< Scan a file for input data to satisfy the requests.
 
         PROCEDURE :: getLevels => InputRequestList_getLevels    !< Get the count AND height values (elevation/presure/whatever) of all the levels encountered IN the file.
@@ -89,11 +91,12 @@ PUBLIC :: t_InputRequestList, InputRequestList_create
         PROCEDURE :: printInventory => InputRequestList_printInventory
         PROCEDURE :: checkRuntypeAndUuids => InputRequestList_checkRuntypeAndUuids
 
+        PROCEDURE :: findIconName => InputRequestList_findIconName    !< Retrieve a t_ListEntry for the given ICON variable name if it exists already.
+
         PROCEDURE :: destruct => InputRequestList_destruct  !< Destructor.
 
         PROCEDURE, PRIVATE :: checkRequests => InputRequestList_checkRequests   !< Check that all processes IN the communicator have the same view on which variables are needed.
         PROCEDURE, PRIVATE :: translateNames => InputRequestList_translateNames !< Recalculates the translatedNames of all list entries using the given dictionary.
-        PROCEDURE, PRIVATE :: findIconName => InputRequestList_findIconName    !< Retrieve a t_ListEntry for the given ICON variable name if it exists already.
         PROCEDURE, PRIVATE :: findTranslatedName => InputRequestList_findTranslatedName    !< As findIconName, but uses the translatedVarName.
         PROCEDURE, PRIVATE :: sendStopMessage => InputRequestList_sendStopMessage
         PROCEDURE, PRIVATE :: sendFieldMetadata => InputRequestList_sendFieldMetadata
@@ -105,7 +108,8 @@ PUBLIC :: t_InputRequestList, InputRequestList_create
 PRIVATE
 
     ! These objects are created via findDomainData(, , opt_lcreate = .TRUE.), which will already instanciate an empty container.
-    ! On the I/O PE, it IS the job of InputRequestList_isRecordValid() to immediately add a MetadataCache, so that ANY DomainData object returned by findDomainData() CONTAINS both a valid InputContainer AND a valid MetadataCache.
+    ! On the I/O PE, it IS the job of InputRequestList_isRecordValid() to immediately add a MetadataCache, so that ANY DomainData 
+    ! object returned by findDomainData() CONTAINS both a valid InputContainer AND a valid MetadataCache.
     TYPE :: t_DomainData
         INTEGER :: domain
         TYPE(t_DomainData), POINTER :: next
@@ -117,7 +121,8 @@ PRIVATE
 
     TYPE :: t_ListEntry
         CHARACTER(KIND = C_CHAR), POINTER :: iconVarName(:)  !< The NAME as it has been requested.
-        CHARACTER(KIND = C_CHAR), POINTER :: translatedVarName(:)   !< The NAME as it IS matched against the stored NAME. This has dictionary translation, trimming, AND CASE canonization applied.
+        CHARACTER(KIND = C_CHAR), POINTER :: translatedVarName(:)   !< The NAME as it IS matched against the stored NAME. 
+                                                                    ! This has dictionary translation, trimming, AND CASE canonization applied.
         TYPE(t_DomainData), POINTER :: domainData   !< A linked list of an InputContainer AND a MetadataCache for each domain. Only accessed via findDomainData().
     END TYPE
 
@@ -160,7 +165,7 @@ CONTAINS
     FUNCTION findDomainData(listEntry, domain, opt_lcreate) RESULT(resultVar)
         TYPE(t_ListEntry), POINTER, INTENT(INOUT) :: listEntry
         INTEGER, VALUE :: domain
-        LOGICAL, OPTIONAL, VALUE :: opt_lcreate
+        LOGICAL, OPTIONAL :: opt_lcreate
         TYPE(t_DomainData), POINTER :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":findDomainData"
@@ -256,7 +261,8 @@ CONTAINS
         END DO
     END FUNCTION InputRequestList_findTranslatedName
 
-    !XXX: This also ensures that the requests have been given in the same order on all processes. Not technically necessary, but easier to implement and I guess, if the order is not the same, that's a hint that there is a bug somewhere else.
+    !XXX: This also ensures that the requests have been given in the same order on all processes. Not technically necessary, but easier to 
+    !     implement and I guess, if the order is not the same, that's a hint that there is a bug somewhere else.
     SUBROUTINE InputRequestList_checkRequests(me)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
 
@@ -641,14 +647,19 @@ CONTAINS
             ! Scan the file until we find a field that we are interested in.
             DO
                 IF(cdiIterator_nextField(iterator) /= 0) THEN
+                  IF (.NOT. use_omp_input) THEN
                     CALL me%sendStopMessage()
+                  ENDIF
                     RETURN
                 ELSE
                     IF(me%isRecordValid(iterator, p_patch, level, tileId, variableName, lIsFg)) THEN
                         IF(ASSOCIATED(me%findTranslatedName(variableName))) THEN
+                          IF (.NOT. use_omp_input) THEN
+                            !NEC: skip communcation here in VH_OMP case, but do in read routine
                             CALL me%sendFieldMetadata(level, tileId, variableName)
-                            resultVar = .TRUE.
-                            RETURN
+                          ENDIF
+                          resultVar = .TRUE.
+                          RETURN
                         END IF
                     ELSE
                         ignoredRecords = ignoredRecords + 1
@@ -677,6 +688,11 @@ CONTAINS
         TYPE(t_DomainData), POINTER :: domainData
         REAL(dp) :: timer(5), savetime
         LOGICAL  :: ret, l_exist
+
+        CHARACTER(LEN = :), POINTER :: fortranName_prev
+        INTEGER :: iread
+        iread = 0
+        NULLIFY(fortranName_prev)
 
         recordsRead = 0
         recordsIgnored = 0
@@ -707,7 +723,48 @@ CONTAINS
                 &  'dictionary missing. It is required when trying to read data in GRIB format.')
             END IF
         END IF
-        DO 
+        IF (use_omp_input .AND. my_process_is_mpi_workroot()) THEN
+           !NEC_RP: if masterprocess: use readField_omp routine that OMP parallelizes read, statistics and distribution
+           DO 
+               savetime = p_mpi_wtime()
+               ret = me%nextField(iterator, p_patch, level, tileId, variableName, recordsIgnored, lIsFg)
+               timer(2) = timer(2) + p_mpi_wtime() - savetime
+               IF (.NOT. ret) EXIT
+               fortranName => toCharacter(variableName)
+               IF (ASSOCIATED(fortranName_prev)) THEN
+               IF (fortranName /= fortranName_prev) THEN
+                  CALL domainData%container%readField_omp(fortranName_prev, level, tileId, timer, &
+                       p_patch%id, iterator, domainData%statistics, -1)
+                  iread = 0
+               END IF
+               END IF
+               recordsRead = recordsRead + 1
+               ! We have now found the next field that we are interested in.
+               listEntry => me%findTranslatedName(variableName)
+               IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, &
+                 "Assertion failed: Processes have different input request lists!")
+               domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
+               fortranName => toCharacter(variableName)
+               iread = iread + 1
+               CALL domainData%container%readField_omp(fortranName, level, tileId, timer, &
+                  p_patch%id, iterator, domainData%statistics, iread)
+               DEALLOCATE(variableName)
+               IF (ASSOCIATED(fortranName_prev)) THEN
+                  DEALLOCATE(fortranName_prev)
+                  NULLIFY(fortranName_prev)
+               END IF
+               fortranName_prev => fortranName
+           END DO
+           IF (ASSOCIATED(fortranName_prev)) THEN
+              CALL domainData%container%readField_omp(fortranName_prev, level, tileId, timer, &
+                p_patch%id, iterator, domainData%statistics, -1)
+              DEALLOCATE(fortranName_prev)
+              NULLIFY(fortranName_prev)
+           END IF
+           CALL me%sendStopMessage()
+        ELSE
+          !NEC_RP: all other processes use original code
+          DO 
             savetime = p_mpi_wtime()
             ret = me%nextField(iterator, p_patch, level, tileId, variableName, recordsIgnored, lIsFg)
             timer(2) = timer(2) + p_mpi_wtime() - savetime
@@ -721,7 +778,9 @@ CONTAINS
             CALL domainData%container%readField(fortranName, level, tileId, timer, p_patch%id, iterator, domainData%statistics)
             DEALLOCATE(fortranName)
             DEALLOCATE(variableName)
-        END DO
+          END DO
+        END IF
+
         timer(1) = p_mpi_wtime() - timer(1)
         IF(my_process_is_mpi_workroot()) THEN
             IF(msg_level > 4) THEN

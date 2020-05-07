@@ -365,6 +365,7 @@ CONTAINS
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                     & t_cf_var('tracer_'//TRIM(tracer_names(jtrc)), 'kg kg-1', '', datatype_flt),&
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                    & ref_idx=jtrc,                                                  &
                     & ldims=(/kproma,klev,kblks_c/))
 
       END DO
@@ -664,6 +665,7 @@ CONTAINS
                     & t_cf_var('hfl_q'//TRIM(tracer_names(jtrc)), 'kg m-1 s-1', '', &
                     &          datatype_flt), &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE),&
+                    & ref_idx=jtrc,                                                 &
                     & ldims = (/kproma,klev,kblks_e/)                               )
 
         CALL add_ref( field_list, vname_prefix//'vfl_tracer',                       &
@@ -673,6 +675,7 @@ CONTAINS
                     & t_cf_var('vfl_q'//TRIM(tracer_names(jtrc)), 'kg m-1 s-1', '', &
                     &          datatype_flt), &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+                    & ref_idx=jtrc,                                                 &
                     & ldims = (/kproma,klevp1,kblks_c/)                             )
 
       END DO
