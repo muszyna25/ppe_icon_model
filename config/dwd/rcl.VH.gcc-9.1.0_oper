@@ -52,7 +52,7 @@ RTTOV_ROOT_LIB='/hpc/uhome/ublahak/ICON/ICON_MPI/LIB/rttov12.1_ub/sx.VH'
 RTTOV_LIBS='-lrttov12'
 
 # flags needed for static linking
-STATICLINK_FLAGS='-static -Wl,--dynamic-linker=/lib64/ld-linux-x86-64.so.2 -Wl,--rpath=/hpc/sw/gcc-9.1.0/VH/lib64'
+STATICLINK_FLAGS='-static -add-gcc-rpath'
 
 ################################################################################
 
