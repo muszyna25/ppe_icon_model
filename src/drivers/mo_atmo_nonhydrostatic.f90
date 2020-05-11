@@ -119,7 +119,7 @@ USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lh
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
-USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work
+USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
@@ -265,7 +265,7 @@ CONTAINS
 
     ! Initialize DACE routines
     IF (assimilation_config(1)% dace_coupling) then
-       CALL init_dace (comm=p_comm_work, p_io=0)
+      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
     END IF
 
     IF (iforcing == inwp) THEN
@@ -846,7 +846,7 @@ CONTAINS
       CALL destruct_lhn (lhn_fields)
     ENDIF
 
-    IF (assimilation_config(1)% dace_coupling) then
+    IF (assimilation_config(1)% dace_coupling .AND. my_process_is_work_only()) then
        CALL finish_dace ()
     END IF
  

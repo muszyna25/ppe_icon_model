@@ -78,6 +78,9 @@
 !!         size         : num_work_procs (on worker PEs: num_work_procs==p_n_work)
 !!         this PE's ID : p_pe_work (= get_my_mpi_work_id())
 !!
+!!       In the case of the NEC hybrid mode (detached PE0), the sub-communicator p_comm_work_only encompasses
+!!       all true worker PEs (excluding PE0), otherwise, p_comm_work_only is identical to p_comm_work
+!!
 !!
 !!       ... less important MPI communicators ...
 !!
@@ -265,7 +268,8 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
   PUBLIC :: my_process_is_global_root
   PUBLIC :: my_process_is_mpi_prefroot, my_process_is_pref
-  PUBLIC :: my_process_is_restart, my_process_is_mpi_restartroot,my_process_is_work
+  PUBLIC :: my_process_is_restart, my_process_is_mpi_restartroot
+  PUBLIC :: my_process_is_work, my_process_is_work_only
 
   ! get parameters
   PUBLIC :: get_my_global_mpi_communicator   ! essentially a copy of MPI_COMM_WORLD
@@ -286,7 +290,7 @@ MODULE mo_mpi
     &       process_mpi_all_ioroot_id, process_mpi_all_restartroot_id, &
     &       process_mpi_all_prefroot_id, p_comm_work_pref_compute_pe0
 
-  PUBLIC :: p_comm_work, p_comm_work_test, p_comm_work_2_test
+  PUBLIC :: p_comm_work, p_comm_work_test, p_comm_work_2_test, p_comm_work_only
   PUBLIC :: p_comm_work_2_io, p_comm_work_io, &
     &       p_comm_io, p_comm_work_pref, p_comm_work_2_pref
   !restart communicators
@@ -488,6 +492,7 @@ MODULE mo_mpi
   ! Note: p_work_pe0, p_io_pe0 are identical on all PEs
 
   INTEGER :: p_work_pe0    ! Number of workgroup PE 0 within all PEs
+  INTEGER :: p_workonly_pe0 ! Number of workgroup PE 0 excluding detached PE0
   INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
   INTEGER :: p_restart_pe0 ! Number of Restart Output PE 0 within all PEs
                            ! (process_mpi_all_size if no restart PEs)
@@ -508,6 +513,7 @@ MODULE mo_mpi
 
   ! MPI communicators
   INTEGER :: p_comm_work           ! Communicator for work group
+  INTEGER :: p_comm_work_only      ! Communicator for work group excluding detached stdio-PE (NEC hybrid mode), otherwise same as p_comm_work
   INTEGER :: p_comm_work_test      ! Communicator spanning work group and test PE
   INTEGER :: p_comm_work_2_test
   INTEGER :: p_comm_work_io        ! Communicator spanning work group and I/O PEs
@@ -1039,6 +1045,13 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   !>
+  LOGICAL FUNCTION my_process_is_work_only()
+     my_process_is_work_only = (my_process_is_work() .AND. p_pe >= p_workonly_pe0)
+  END FUNCTION my_process_is_work_only
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  !>
   LOGICAL FUNCTION my_process_is_mpi_restartroot()
     my_process_is_mpi_restartroot = (my_process_is_restart() .AND. &
      &                   (my_process_mpi_all_id == process_mpi_all_restartroot_id))
@@ -1194,10 +1207,10 @@ CONTAINS
   ! Warning: The dummy argument num_restart_procs IS NOT identical to the namelist PARAMETER anymore,
   !          rather, it IS the number of *dedicated* restart processes.
   !          We don't care about work processes here that are reused as restart writing processes.
-  SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-    &                                   num_restart_procs, num_prefetch_proc, &
-    &                                   num_test_pe, pio_type, opt_comp_id, &
-    &                                   num_io_procs_radar, radar_flag_doms_model)
+  SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs,               &
+    &                                   num_restart_procs, num_prefetch_proc,                  &
+    &                                   num_test_pe, pio_type, opt_comp_id,                    &
+    &                                   num_io_procs_radar, radar_flag_doms_model, detached_pio)
 
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
@@ -1205,7 +1218,7 @@ CONTAINS
     INTEGER,INTENT(IN), OPTIONAL :: num_prefetch_proc, num_test_pe
     INTEGER,INTENT(IN), OPTIONAL :: pio_type, opt_comp_id
     INTEGER,INTENT(INOUT), OPTIONAL :: num_io_procs_radar
-    LOGICAL,INTENT(IN)   , OPTIONAL :: radar_flag_doms_model(:)
+    LOGICAL,INTENT(IN)   , OPTIONAL :: radar_flag_doms_model(:), detached_pio
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
@@ -1529,6 +1542,18 @@ CONTAINS
       p_comm_work = my_function_comm
       ! If not a test run, p_comm_work_test must not be used at all
       p_comm_work_test = MPI_COMM_NULL
+    ENDIF
+
+    ! Apply communicator splitting in case of NEC hybrid mode
+    p_comm_work_only = p_comm_work
+    p_workonly_pe0   = p_work_pe0
+
+    IF (PRESENT(detached_pio)) THEN
+      IF (my_mpi_function == work_mpi_process .AND. detached_pio) THEN
+        my_color = MERGE(1, mpi_undefined, p_pe > p_work_pe0)
+        CALL mpi_comm_split(p_comm_work, my_color, p_pe, p_comm_work_only, p_error)
+      ENDIF
+      p_workonly_pe0 = p_work_pe0 + MERGE(1,0,detached_pio)
     ENDIF
 
     ! Create p_comm_work_io, the communicator spanning work group and I/O PEs

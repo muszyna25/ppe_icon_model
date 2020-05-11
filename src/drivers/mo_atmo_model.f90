@@ -30,8 +30,6 @@ MODULE mo_atmo_model
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: num_io_procs_radar
-  USE mo_run_config,              ONLY: luse_radarfwo
 #ifdef HAVE_RADARFWO
   USE mo_emvorado_init,           ONLY: prep_emvorado_domains
   USE mo_emvorado_interface,      ONLY: radar_mpi_barrier
@@ -40,9 +38,9 @@ MODULE mo_atmo_model
        &                                detach_emvorado_io
 #endif
 #endif
-  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,               &
-    &                                   update_nproma_on_device, num_io_procs,                &
-    &                                   num_prefetch_proc, pio_type
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,                  &
+    &                                   update_nproma_on_device, num_io_procs, proc0_offloading, &
+    &                                   num_prefetch_proc, pio_type, num_io_procs_radar
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
   USE mo_impl_constants,          ONLY: pio_type_async, pio_type_cdipio
@@ -83,7 +81,7 @@ MODULE mo_atmo_model
     &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
-    &                                   iforcing
+    &                                   iforcing, luse_radarfwo
   USE mo_gribout_config,          ONLY: configure_gribout
 #ifndef __NO_JSBACH__
   USE mo_echam_phy_config,        ONLY: echam_phy_config
@@ -319,11 +317,13 @@ CONTAINS
     ENDIF
 #endif
 
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
-         &                          num_io_procs, dedicatedRestartProcs, &
-         &                          num_prefetch_proc, num_test_pe,      &
-         &                          pio_type, opt_comp_id=atmo_process,  &
-         &                          num_io_procs_radar=num_io_procs_radar, radar_flag_doms_model=luse_radarfwo(1:n_dom))
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp,                    &
+         &                          num_io_procs, dedicatedRestartProcs,          &
+         &                          num_prefetch_proc, num_test_pe,               &
+         &                          pio_type, opt_comp_id=atmo_process,           &
+         &                          num_io_procs_radar=num_io_procs_radar,        &
+         &                          radar_flag_doms_model=luse_radarfwo(1:n_dom), &
+         &                          detached_pio=proc0_offloading)
 #ifdef _OPENACC
     CALL update_nproma_on_device( my_process_is_work() )
 #endif

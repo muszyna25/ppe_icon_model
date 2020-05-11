@@ -127,7 +127,7 @@ MODULE mo_nh_stepping
   USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
        &                                 p_comm_work, my_process_is_mpi_workroot, p_pe, &
-       &                                 my_process_is_mpi_test
+       &                                 my_process_is_mpi_test, my_process_is_work_only
 #ifdef HAVE_RADARFWO
   USE mo_emvorado_interface,       ONLY: emvorado_radarfwo
 #endif
@@ -563,10 +563,10 @@ MODULE mo_nh_stepping
                CALL aggr_landvars
           IF (.NOT. dace_op_init) THEN
              CALL message('perform_nh_stepping','calling init_dace_op before run_dace_op')
-             CALL init_dace_op ()
+             IF (my_process_is_work_only()) CALL init_dace_op ()
           END IF
           CALL message('perform_nh_stepping','calling run_dace_op')
-          CALL run_dace_op (mtime_current)
+          IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
        END IF
     END IF
 
@@ -689,16 +689,12 @@ MODULE mo_nh_stepping
                                                           ! climatological SST increments
   TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file
 
-  LOGICAL                             :: zero_passed      ! sim_time = 0 has been passed for MEC call
-
 !!$  INTEGER omp_get_num_threads
 
 
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
-
-  zero_passed = .FALSE.
 
   ! calculate elapsed simulation time in seconds
   sim_time = getElapsedSimTimeInSeconds(mtime_current) 
@@ -1327,21 +1323,19 @@ MODULE mo_nh_stepping
        IF (.NOT. ASSOCIATED (mec_Event)) &
             CALL finish ("perform_nh_timeloop","MEC not configured")
        IF (is_event_active(mec_Event, mtime_current, proc0_offloading, plus_slack=model_time_step)) THEN
-          IF (iforcing == inwp) &
-               CALL aggr_landvars
+          IF (iforcing == inwp) CALL aggr_landvars
           sim_time = getElapsedSimTimeInSeconds(mtime_current)
-          IF (sim_time > 0._wp .OR. .NOT. zero_passed) THEN
+          IF (sim_time > 0._wp .OR. iau_iter == 1) THEN
              IF (.NOT. dace_op_init) THEN
                 CALL message('perform_nh_timeloop','calling init_dace_op before run_dace_op')
-                CALL init_dace_op ()
+                IF (my_process_is_work_only()) CALL init_dace_op ()
              END IF
              IF (sim_time == 0._wp) THEN
                 CALL message('perform_nh_timeloop','calling run_dace_op for sim_time=0')
-                zero_passed = .TRUE.
              ELSE
                 CALL message('perform_nh_timeloop','calling run_dace_op')
              END IF
-             CALL run_dace_op (mtime_current)
+             IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
           END IF
        END IF
     END IF
