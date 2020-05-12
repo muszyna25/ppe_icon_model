@@ -456,7 +456,7 @@ add_link_file $datadir/runoff_a2o.pre04.yac_p15.nc                        ./runo
 #add_link_file $datadir/ocean_omip_long_r2b6_smax1e-3_17250-RTC_restart_oce_21960101T000000Z.nc ./init_restart_oce.nc
 #  - add links to standard names, will be overwritten during model run
 #add_link_file ./init_restart_atm.nc                                     ./restart_atm_DOM01.nc
-#add_link_file ./init_restart_oce.nc                                     ./restart_oce_DOM01.nc
+#add_link_file ./init_restart_oce.nc                                     ./restart_ocean_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -696,6 +696,9 @@ cat > ${oce_namelist} << EOF
  nproma        = ${nproma}
  p_test_run    = .FALSE.
  l_fast_sum    = .TRUE.
+ num_prefetch_proc = 0
+ pio_type       = 0
+ num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename      = "${ocean_grids}",
@@ -807,8 +810,8 @@ cat > ${oce_namelist} << EOF
 
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   ! lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
-  velocity_TopWindMixing          = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
+  !  tracer_TopWindMixing            = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
+  !  velocity_TopWindMixing          = 4.0E-6 ! 5.0E-4  ! lower values now as in 17250-RTC
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                     =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion

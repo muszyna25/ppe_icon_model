@@ -83,7 +83,7 @@ MODULE mo_atmo_model
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
-  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
+  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic, construct_atmo_nonhydrostatic
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
@@ -139,6 +139,7 @@ MODULE mo_atmo_model
   USE mtime,                      ONLY: datetimeToString, OPERATOR(<), OPERATOR(+)
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
+  USE mo_async_latbc_types,       ONLY: t_latbc_data
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
 
@@ -164,6 +165,8 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
+    TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
+
 #ifndef NOMPI
 #if defined(__SX__)
     INTEGER  :: maxrss
@@ -175,12 +178,20 @@ CONTAINS
     ! construct the atmo model
     CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
 
+    SELECT CASE(iequations)
+
+    CASE(inh_atmosphere)
+      CALL construct_atmo_nonhydrostatic(latbc)
+
+    END SELECT
+
     !---------------------------------------------------------------------
     ! construct the coupler
     !
     IF ( is_coupled_run() ) THEN
       CALL construct_atmo_coupler(p_patch)
     ENDIF
+
 
     !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
@@ -190,7 +201,7 @@ CONTAINS
       CALL atmo_hydrostatic
 
     CASE(inh_atmosphere)
-      CALL atmo_nonhydrostatic
+      CALL atmo_nonhydrostatic(latbc)
 
     CASE DEFAULT
       CALL finish(routine, 'unknown choice for iequations.')
@@ -289,8 +300,8 @@ CONTAINS
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
          &                          num_io_procs, dedicatedRestartProcs, &
-         &                          num_prefetch_proc, num_test_pe,      &
-         &                          pio_type, opt_comp_id=atmo_process)
+         &                          atmo_process, num_prefetch_proc, num_test_pe,      &
+         &                          pio_type) 
 #ifdef _OPENACC
     CALL update_nproma_on_device( my_process_is_work() )
 #endif

@@ -1116,13 +1116,14 @@ CONTAINS
   !          rather, it IS the number of *dedicated* restart processes.
   !          We don't care about work processes here that are reused as restart writing processes.
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-    &                                   num_restart_procs, num_prefetch_proc, &
-    &                                   num_test_pe, pio_type, opt_comp_id)
+    &                                   num_restart_procs, my_comp_id, num_prefetch_proc, &
+    &                                   num_test_pe, pio_type)
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
+    INTEGER,INTENT(IN)    :: my_comp_id
     INTEGER,INTENT(IN), OPTIONAL :: num_prefetch_proc, num_test_pe
-    INTEGER,INTENT(IN), OPTIONAL :: pio_type, opt_comp_id
+    INTEGER,INTENT(IN), OPTIONAL :: pio_type
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
@@ -1147,11 +1148,7 @@ CONTAINS
       sizeof_prefetch_processes = 0
     ENDIF
 
-    IF (PRESENT(opt_comp_id)) THEN
-      comp_id = opt_comp_id
-    ELSE
-      comp_id = -1
-    END IF
+    comp_id = my_comp_id
 
     IF (PRESENT(pio_type)) THEN
       pio_type_ = pio_type
@@ -1639,6 +1636,7 @@ CONTAINS
     other_comp_root_global_mpi_id = -1
 
     DO i = 1, num_component
+  !    write(0,*) "get_mpi_work_intercomm:", i, p_work_root_processes(i)%comp_id 
       IF (p_work_root_processes(i)%comp_id == other_comp_id) THEN
         other_comp_root_global_mpi_id = p_work_root_processes(i)%global_mpi_id
       END IF

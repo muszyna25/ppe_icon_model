@@ -1,0 +1,23 @@
+#!/bin/bash
+
+addexp="./addexp"
+#############################################################################
+##
+## create icon-dev list
+##
+#############################################################################
+listname=ocean-ptest
+./rmlist $listname
+# ./mklist $listname
+./create_all_builders $listname
+
+#-----------------------------------------------------------
+# OES
+# add omip technical tests only with mpi parallelization
+$addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
+   --without-configureflags without-mpi enable-mixed --runflags "cpu_time=00:30:00 mpi_procs_pernode=5"  --list $listname
+#-----------------------------------------------------------
+#lets see the list
+./lslist $listname
+#-----------------------------------------------------------
+

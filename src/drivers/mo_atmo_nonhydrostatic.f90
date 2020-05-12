@@ -148,12 +148,12 @@ PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 CONTAINS
 
   !---------------------------------------------------------------------
-  SUBROUTINE atmo_nonhydrostatic
+  SUBROUTINE atmo_nonhydrostatic(latbc)
     TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
 !!$    CHARACTER(*), PARAMETER :: routine = "atmo_nonhydrostatic"
 
-    CALL construct_atmo_nonhydrostatic(latbc)
+!   CALL construct_atmo_nonhydrostatic(latbc)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -188,7 +188,7 @@ CONTAINS
     IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params       ( p_patch(1:) )
+      CALL init_echam_phy_params( p_patch(1:) )
       CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
       CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF

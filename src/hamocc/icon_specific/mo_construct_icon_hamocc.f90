@@ -82,9 +82,10 @@ SUBROUTINE init_icon_hamocc(hamocc_ocean_state)
   TYPE(t_hamocc_ocean_state), TARGET   :: hamocc_ocean_state
 
   if(ltimer)call timer_start(timer_bgc_ini)
+  
   CALL ini_bgc_icon(hamocc_ocean_state, isRestart())
   if(ltimer)call timer_stop(timer_bgc_ini)
- 
+   
 END SUBROUTINE init_icon_hamocc
 !------------------------------------------------------------
  
