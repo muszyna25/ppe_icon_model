@@ -630,6 +630,8 @@ CONTAINS
           zrg_albnirdif(jc,jb) = zrg_albnirdif(i_startidx,jb)
           zrg_albvisdir(jc,jb) = zrg_albvisdir(i_startidx,jb)
           zrg_albnirdir(jc,jb) = zrg_albnirdir(i_startidx,jb)
+          zrg_fr_land(jc,jb)   = zrg_fr_land(i_startidx,jb)
+          zrg_fr_glac(jc,jb)   = zrg_fr_glac(i_startidx,jb)
           zrg_emis_rad(jc,jb)  = zrg_emis_rad(i_startidx,jb)
           zrg_tsfc(jc,jb)      = zrg_tsfc(i_startidx,jb)
           zrg_pres_ifc(jc,nlev_rgp1,jb) = zrg_pres_ifc(i_startidx,nlev_rgp1,jb)
