@@ -713,7 +713,7 @@ enable_atmo
 enable_ocean
 enable_jsbach
 enable_coupling
-enable_psrad
+enable_concurrent_psrad
 enable_ecrad
 enable_rte_rrtmgp
 enable_rttov
@@ -1415,7 +1415,9 @@ Model Features:
   --enable-ocean          enable the ocean component of ICON [default=yes]
   --enable-jsbach         enable the land component JSBACH [default=yes]
   --enable-coupling       enable the coupling [default=yes]
-  --enable-psrad          enable the radiation component PSRAD [default=yes]
+  --enable-concurrent-psrad
+                          enable the concurrent mode of the radiation
+                          component PSRAD [default=yes]
   --enable-ecrad          enable usage of the ECMWF radiation scheme (ECRAD)
                           [default=no]
   --enable-rte-rrtmgp     enable usage of the RTE+RRTMGP toolbox for radiation
@@ -2362,13 +2364,13 @@ else
 fi
 
 
-# Check whether --enable-psrad was given.
-if test "${enable_psrad+set}" = set; then :
-  enableval=$enable_psrad; if test x"$enableval" != xno; then :
-  enable_psrad=yes
+# Check whether --enable-concurrent-psrad was given.
+if test "${enable_concurrent_psrad+set}" = set; then :
+  enableval=$enable_concurrent_psrad; if test x"$enableval" != xno; then :
+  enable_concurrent_psrad=yes
 fi
 else
-  enable_psrad=yes
+  enable_concurrent_psrad=yes
 fi
 
 
@@ -4257,7 +4259,7 @@ if test "x$enable_coupling" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}YAC_coupling"
 fi
 
-if test "x$enable_psrad" = xno; then :
+if test "x$enable_concurrent_psrad" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
 fi
 
