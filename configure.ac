@@ -80,11 +80,12 @@ AC_ARG_ENABLE([coupling],
   [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
   [enable_coupling=yes])
 
-AC_ARG_ENABLE([psrad],
-  [AC_HELP_STRING([--enable-psrad],
-     [enable the radiation component PSRAD @<:@default=yes@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_psrad=yes])],
-  [enable_psrad=yes])
+AC_ARG_ENABLE([concurrent-psrad],
+  [AC_HELP_STRING([--enable-concurrent-psrad],
+     [enable the concurrent mode of the radiation component PSRAD
+@<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_concurrent_psrad=yes])],
+  [enable_concurrent_psrad=yes])
 
 AC_ARG_ENABLE([ecrad],
   [AC_HELP_STRING([--enable-ecrad],
@@ -483,7 +484,7 @@ AS_VAR_IF([enable_jsbach], [no],
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
-AS_VAR_IF([enable_psrad], [no],
+AS_VAR_IF([enable_concurrent_psrad], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
 AS_VAR_IF([enable_ecrad], [yes],
