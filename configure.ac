@@ -80,11 +80,12 @@ AC_ARG_ENABLE([coupling],
   [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
   [enable_coupling=yes])
 
-AC_ARG_ENABLE([psrad],
-  [AC_HELP_STRING([--enable-psrad],
-     [enable the radiation component PSRAD @<:@default=yes@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_psrad=yes])],
-  [enable_psrad=yes])
+AC_ARG_ENABLE([concurrent-psrad],
+  [AC_HELP_STRING([--enable-concurrent-psrad],
+     [enable the concurrent mode of the radiation component PSRAD
+@<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_concurrent_psrad=yes])],
+  [enable_concurrent_psrad=yes])
 
 AC_ARG_ENABLE([ecrad],
   [AC_HELP_STRING([--enable-ecrad],
@@ -483,7 +484,7 @@ AS_VAR_IF([enable_jsbach], [no],
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
-AS_VAR_IF([enable_psrad], [no],
+AS_VAR_IF([enable_concurrent_psrad], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
 AS_VAR_IF([enable_ecrad], [yes],
@@ -683,6 +684,17 @@ AS_VAR_IF([enable_mpi], [yes],
 interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
+
+dnl The configure scripts of the most of the bundled libraries expect
+dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
+dnl accommodate when required and if possible:
+AS_IF([test -n "$MPI_LAUNCH"],
+  [AS_CASE(["$MPI_LAUNCH"],
+     [[[\\/]]* | ?:[[\\/]]*], [],
+     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
+        [MPI_LAUNCH="$acx_prog_search_abspath"],
+        [AC_MSG_WARN([unable to find the absolute path to $MPI_LAUNCH: the dnl
+bundled libraries might pick other MPI launcher commands for their tests])])])])
 
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
@@ -1328,7 +1340,7 @@ linking the bundled version of YAC @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
 linking the bundled version of YAC @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yac],
-        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
          [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*],
          [MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*],
@@ -1346,7 +1358,8 @@ linking the bundled version of YAC @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
          [MTIME_CFLAGS="$yac_MTIME_CFLAGS"], [MTIME_CLIBS=],
          [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=], [XML2_CLIBS=],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
-         [FORTRAN_LAPACK_CLIBS=],  [--disable-maintainer-mode],
+         [FORTRAN_LAPACK_CLIBS=], [MPI_LAUNCH="$MPI_LAUNCH"],
+         [--disable-maintainer-mode],
          [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
          [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
          [--with-external-lapack=fortran], [--with-external-mtime],
@@ -1608,15 +1621,10 @@ sure that path to the 'pp_ser' module is in the PYTHONPATH environment dnl
 variable, or set SB2PP accordingly])])],
    [SB2PP=])
 
+dnl We have checked this command earlier but put the declaration here so
+dnl it would be listed in the help message of the configure script at the very
+dnl end, together with other optional commands.
 AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command (optional)])dnl
-dnl The configure scripts of the most of the bundled libraries expect
-dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
-dnl accommodate when required and if possible:
-AS_IF([test -n "$MPI_LAUNCH"],
-  [AS_CASE(["$MPI_LAUNCH"],
-     [[[\\/]]* | ?:[[\\/]]*], [],
-     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
-        [MPI_LAUNCH="$acx_prog_search_path"])])])
 
 #################################### OUTPUT ####################################
 
