@@ -1837,6 +1837,7 @@ CONTAINS
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = slev, elev
+!NEC$ ivdep
             DO je = i_startidx, i_endidx
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:2))/REAL(p_ncycl,wp)
             ENDDO ! loop over edges
@@ -1846,6 +1847,7 @@ CONTAINS
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
           !$ACC LOOP GANG VECTOR COLLAPSE(2)
           DO jk = slev, elev
+!NEC$ ivdep
             DO je = i_startidx, i_endidx
               p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:3))/REAL(p_ncycl,wp)
             ENDDO ! loop over edges
@@ -3463,6 +3465,7 @@ CONTAINS
       CASE( 3 )  ! cubic reconstruction with third order cross derivatives
 
       DO jk = slev, elev
+!NEC$ ivdep
         DO je = i_startidx, i_endidx
 
 !$NEC unroll(10)

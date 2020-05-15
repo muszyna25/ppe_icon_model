@@ -600,6 +600,7 @@ CONTAINS
       ! get local copy of edge vertices
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
       !$ACC LOOP GANG VECTOR
+!NEC$ ivdep
       DO je = i_startidx, i_endidx
         edge_verts(je,1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
       ENDDO
