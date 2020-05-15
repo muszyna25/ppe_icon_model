@@ -142,7 +142,7 @@ CONTAINS
     ALLOCATE (cdi_radar_id(n_dom), cdi_black_id(n_dom), cdi_height_id(n_dom), cdi_filetype(n_dom), stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'ALLOCATE failed!')
     CALL inquire_radar_files(p_patch, cdi_radar_id, cdi_black_id, cdi_height_id, cdi_filetype, lread_process)
-
+    CALL p_bcast (cdi_filetype, p_io, p_comm_work)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
     CALL radar_varnames_dict%init(lcase_sensitive=.FALSE.)
