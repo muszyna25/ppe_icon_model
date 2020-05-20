@@ -26,7 +26,7 @@ MODULE mo_lnd_nwp_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom, SSTICE_ANA, max_nsoil
+  USE mo_impl_constants,      ONLY: SSTICE_ANA, max_nsoil
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max

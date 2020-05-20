@@ -32,7 +32,7 @@ MODULE mo_nml_crosscheck
     &                                    max_echotop
   USE mo_time_config,              ONLY: time_config, dt_restart
   USE mo_extpar_config,            ONLY: itopo                                             
-  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
+  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,                         &
     &                                    lnetcdf_flt64_output, echotop_meta
   USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
     &                                    num_io_procs, itype_comm,                         &
@@ -43,7 +43,7 @@ MODULE mo_nml_crosscheck
     &                                    ltransport, ntracer, nlev, ltestcase,             &
     &                                    nqtendphy, iqtke, iqv, iqc, iqi,                  &
     &                                    iqs, iqr, iqt, iqtvar, ltimer,                    &
-    &                                    ico2, ich4, in2o, io3,                            &
+    &                                    ico2,                                             &
     &                                    iqni, iqni_nuc, iqg, iqm_max,                     &
     &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
     &                                    inccn, ininact, ininpot,                          &

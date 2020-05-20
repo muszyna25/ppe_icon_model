@@ -194,15 +194,14 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
                                  b2i   => c3ies , & !!               -- " --
                                  b4w   => c4les , & !!               -- " --
-                                 b4i   => c4ies , & !!               -- " --
-                                 b234w => c5les     !!               -- " --
+                                 b4i   => c4ies     !!               -- " --
 
 !
 USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              itype_trvg, itype_evsl,          &
   &                              itype_root, itype_heatcond,      &
   &                              itype_hydbound,                  &
-  &                              itype_canopy, cskinc, tau_skin,  &
+  &                              itype_canopy, tau_skin,          &
   &                              lstomata,                        &
   &                              max_toplaydepth, itype_interception, &
   &                              cwimax_ml

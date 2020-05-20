@@ -84,7 +84,6 @@ MODULE mo_cumaster
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
   USE mo_cuparameters , ONLY :                                   &
-    & rtwat                                                     ,&
     & lmfdd    ,lmfdudv            ,lmfit                       ,&
     & rmflic  ,rmflia  ,rmflmax, rmfsoluv, rmfdef               ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&

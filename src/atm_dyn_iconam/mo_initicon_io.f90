@@ -48,7 +48,7 @@ MODULE mo_initicon_io
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
-    &                               VARNAME_LEN, min_rlcell_int
+    &                               VARNAME_LEN
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -67,8 +67,7 @@ MODULE mo_initicon_io
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc, &
-       &                            init_qnx_from_qx_twomom, init_qnxinc_from_qxinc_twomom, &
-       &                            get_diag_stat_str_3d
+       &                            init_qnx_from_qx_twomom, init_qnxinc_from_qxinc_twomom
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1, tmelt
   USE mo_fortran_tools,       ONLY: init
   USE mo_input_request_list,  ONLY: t_InputRequestList

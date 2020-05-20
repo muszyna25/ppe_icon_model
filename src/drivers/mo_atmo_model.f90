@@ -20,7 +20,6 @@ MODULE mo_atmo_model
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_work,       &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size,            &
-    &                                   my_process_is_radar,                                  & 
     &                                   my_process_is_radario, process_mpi_radario_size,      &
     &                                   my_process_is_mpi_test
 #ifdef HAVE_CDI_PIO

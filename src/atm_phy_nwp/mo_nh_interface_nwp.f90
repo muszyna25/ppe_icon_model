@@ -92,8 +92,6 @@ MODULE mo_nh_interface_nwp
                                         SYNC_C, SYNC_C1
   USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
-  USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
-    &                                   icon_comm_sync_all, is_ready, until_sync
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
 
   USE mo_art_washout_interface,   ONLY: art_washout_interface

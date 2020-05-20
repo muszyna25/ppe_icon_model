@@ -126,7 +126,7 @@ MODULE mo_nh_stepping
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
-       &                                 p_comm_work, my_process_is_mpi_workroot, p_pe, &
+       &                                 p_comm_work, my_process_is_mpi_workroot,   &
        &                                 my_process_is_mpi_test, my_process_is_work_only
 #ifdef HAVE_RADARFWO
   USE mo_emvorado_interface,       ONLY: emvorado_radarfwo

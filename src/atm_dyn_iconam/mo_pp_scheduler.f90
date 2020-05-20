@@ -165,7 +165,7 @@ MODULE mo_pp_scheduler
     &                                   TASK_COMPUTE_CEILING,                               &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
-    &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
+    &                                   UNDEF_TIMELEVEL, ALL_TIMELEVELS,                    &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
     &                                   STR_HINTP_TYPE

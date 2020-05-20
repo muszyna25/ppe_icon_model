@@ -31,10 +31,10 @@ MODULE mo_opt_nwp_diagnostics
     &                                 alvdcp, rd_o_cpd, &
     &                                 rhoh2o, rhoice, K_w_0, K_i_0
   USE gscp_data,                ONLY: cloud_num, isnow_n0temp, zami, mu_rain, zams, zams_gr, zbms, &
-    &                                 znimax_Thom, ztmix, zthn, mma, mmb, zcnue
+    &                                 znimax_Thom, zthn, mma, mmb, zcnue
   USE mo_2mom_mcrph_main,       ONLY: init_2mom_scheme,      &
     &                                 rain_coeffs  ! contains the parameters for the mue-Dm-relation
-  USE mo_2mom_mcrph_types,      ONLY: particle, particle_frozen, particle_rain_coeffs
+  USE mo_2mom_mcrph_types,      ONLY: particle, particle_frozen
   USE mo_2mom_mcrph_util,       ONLY: gfct
   USE mo_2mom_mcrph_processes,  ONLY: moment_gamma, rain_mue_dm_relation
   USE mo_exception,             ONLY: finish, message

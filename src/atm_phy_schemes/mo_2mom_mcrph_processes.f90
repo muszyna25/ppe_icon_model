@@ -124,7 +124,7 @@ MODULE mo_2mom_mcrph_processes
        & e_es  => sat_pres_ice       ! saturation pressure over ice
   USE mo_2mom_mcrph_types, ONLY: &
        & particle, particle_frozen, particle_lwf, atmosphere, &
-       & particle_sphere, particle_rain_coeffs, particle_cloud_coeffs, aerosol_ccn, aerosol_in, &
+       & particle_sphere, particle_rain_coeffs, particle_cloud_coeffs, aerosol_ccn, &
        & particle_ice_coeffs, particle_snow_coeffs, particle_graupel_coeffs, &
        & particle_coeffs, collection_coeffs, rain_riming_coeffs, dep_imm_coeffs
   USE mo_2mom_mcrph_util, ONLY: &
@@ -136,7 +136,6 @@ MODULE mo_2mom_mcrph_processes
        & lh_evap_RH87,               &  ! used in lwf melting scheme
        & lh_melt_RH87,               &  ! used in lwf melting scheme
        & gamlookuptable,             &  ! For look-up table of incomplete Gamma function
-       & nlookup, nlookuphr_dummy,   &  !   array size of table
        & incgfct_lower_lookup,       &  !   interpolation in table, lower incomplete Gamma function
        & incgfct_upper_lookup,       &  !   interpolation in talbe, upper incomplete Gamma function
        & dmin_wg_gr_ltab_equi,       &  ! For look-up table of wet growth diameter
