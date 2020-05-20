@@ -156,7 +156,7 @@ MODULE radar_interface
        ilow_modelgrid, iup_modelgrid, jlow_modelgrid, jup_modelgrid, klow_modelgrid, kup_modelgrid, &
        rain, cloud, snow, ice, graupel, hail, rain_coeffs, &
        Tmax_i_modelgrid, Tmax_s_modelgrid, Tmax_g_modelgrid, Tmax_h_modelgrid, &
-       lgsp_fwo, itype_gscp_fwo
+       lgsp_fwo, itype_gscp_fwo, pi6 => pi6_dp
 
   USE radar_parallel_utilities, ONLY :  &
        global_values_radar, distribute_values_radar, distribute_path_radar
@@ -593,13 +593,7 @@ CONTAINS
       itype_gscp_fwo = 3
     CASE (2)
       itype_gscp_fwo = 4
-    CASE (4)
-      ! 2-moment scheme: subtype not important, just a number >= 2000 for EMVORADO
-      itype_gscp_fwo = 2001
-    CASE (5)
-      ! 2-moment scheme: subtype not important, just a number >= 2000 for EMVORADO
-      itype_gscp_fwo = 2001
-    CASE (6)
+    CASE (4,5,6,7)
       ! 2-moment scheme: subtype not important, just a number >= 2000 for EMVORADO
       itype_gscp_fwo = 2001
     CASE default
@@ -851,119 +845,137 @@ CONTAINS
 
 #ifdef HAVE_RADARFWO
     
-    ! JM200122
     !------------------------------------------------------------------------------
-    ! incl. turn around MGD parameters from Seifert notation used in COSMO/ICON
-    ! 2-mom scheme to more common notation:
-    ! (Seifert) N(x) = N0 * x^nu * exp(-lam*x^mu)  -->
-    ! (general) N(x) = N0 * x^mu * exp(-lam*x^nu)
     !
-    ! incl. conversion of mass-size relation parameters a and b from mass-space
+    ! Changed EMVORADO-side MGD parameters mu/nu from Seifert mass-based notation used in
+    ! COSMO/ICON 2-mom scheme to general diameter-based notation:
+    !
+    ! (Seifert) N(m) = N0 * m^nu_x * exp(-lam*m^mu_x)  -->
+    ! (general) N(D) = N0 * D^mu_D * exp(-lam*D^nu_D)
+    !
+    ! (NOTE: in ICON/COSMO 2-mom, they remain to be in Seifert notation)
+    !
+    ! Conversion of mass-size relation parameters a_geo and b_geo from mass-space
     ! (as used in COSMO/ICON 2-mom) to D-space:
-    ! (mass-space) D = a_m * m^(b_m)
+    !
+    ! (mass-space) D = a_m * m^(b_m) -->
     ! (D-space)    m = a_D * D^(b_D)
+    !
     ! related by:
     ! a_D = (1/a_m)^(1/b_m)
     ! b_D = 1/b_m
     !
-    ! NOTE: mass-fallspeed-parameters are still in the original SB notation:
+    !
+    ! NOTE: Remaining a&b parameters a/b_vel (mass-fallspeed parameters) and
+    !       a/b_ven are still in the original (mass-space) SB notation:
+    !
     ! v_T = a_v * m^(b_v)
+    !
     ! The switch to D-notation might be done in the future.
     !
     !------------------------------------------------------------------------------
 
-    ! Changed EMVORADO-side MGD parameters mu/nu from Seifert to general notation
-    ! (in ICON/COSMO 2-mom, they remain to be in Seifert notation)
-
-    ! JM200320: new (D-space) settings
     cloud%name  = cloud_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     cloud%mu    = (1.0d0/cloud_2mom%b_geo)*(cloud_2mom%nu+1.0d0)-1.0d0
     cloud%nu    = (1.0d0/cloud_2mom%b_geo)*cloud_2mom%mu
     cloud%x_max = cloud_2mom%x_max
     cloud%x_min = cloud_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     cloud%a_geo = (1.0d0/cloud_2mom%a_geo)**(1.0d0/cloud_2mom%b_geo)
     cloud%b_geo = (1.0d0/cloud_2mom%b_geo)
+    ! leave those as is for now
     cloud%a_vel = cloud_2mom%a_vel
     cloud%b_vel = cloud_2mom%b_vel
     cloud%a_ven = cloud_2mom%a_ven
     cloud%b_ven = cloud_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    cloud%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     ice%name  = ice_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
-    ice%mu    = (1d0/ice_2mom%b_geo)*(ice_2mom%nu+1.0d0)-1.0d0
-    ice%nu    = (1d0/ice_2mom%b_geo)*ice_2mom%mu
+    ice%mu    = (1.0d0/ice_2mom%b_geo)*(ice_2mom%nu+1.0d0)-1.0d0
+    ice%nu    = (1.0d0/ice_2mom%b_geo)*ice_2mom%mu
     ice%x_max = ice_2mom%x_max
     ice%x_min = ice_2mom%x_min
-    ! convert a/b_m to a/b_D
-    ice%a_geo = (1d0/ice_2mom%a_geo)**(1d0/ice_2mom%b_geo)
-    ice%b_geo = (1d0/ice_2mom%b_geo)
+    ! convert a/b_geo_m to a/b_geo_D
+    ice%a_geo = (1.0d0/ice_2mom%a_geo)**(1.0d0/ice_2mom%b_geo)
+    ice%b_geo = (1.0d0/ice_2mom%b_geo)
+    ! leave those as is for now
     ice%a_vel = ice_2mom%a_vel
     ice%b_vel = ice_2mom%b_vel
     ice%a_ven = ice_2mom%a_ven
     ice%b_ven = ice_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    ice%n0_const = 1.0d0
 
-    ! JM200203: new (D-space) settings
     rain%name  = rain_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
-    rain%mu    = (1d0/rain_2mom%b_geo)*(rain_2mom%nu+1.0d0)-1.0d0
-    rain%nu    = (1d0/rain_2mom%b_geo)*rain_2mom%mu
+    rain%mu    = (1.0d0/rain_2mom%b_geo)*(rain_2mom%nu+1.0d0)-1.0d0
+    rain%nu    = (1.0d0/rain_2mom%b_geo)*rain_2mom%mu
     rain%x_max = rain_2mom%x_max
     rain%x_min = rain_2mom%x_min
-    ! convert a/b_m to a/b_D
-    rain%a_geo = (1d0/rain_2mom%a_geo)**(1d0/rain_2mom%b_geo)
-    rain%b_geo = (1d0/rain_2mom%b_geo)
+    ! convert a/b_geo_m to a/b_geo_D
+    rain%a_geo = (1.0d0/rain_2mom%a_geo)**(1.0d0/rain_2mom%b_geo)
+    rain%b_geo = (1.0d0/rain_2mom%b_geo)
+    ! leave those as is for now
     rain%a_vel = rain_2mom%a_vel
     rain%b_vel = rain_2mom%b_vel
     rain%a_ven = rain_2mom%a_ven
     rain%b_ven = rain_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    rain%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     snow%name  = snow_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     snow%mu    = (1.0d0/snow_2mom%b_geo)*(snow_2mom%nu+1.0d0)-1.0d0
     snow%nu    = (1.0d0/snow_2mom%b_geo)*snow_2mom%mu
     snow%x_max = snow_2mom%x_max
     snow%x_min = snow_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     snow%a_geo = (1.0d0/snow_2mom%a_geo)**(1.0d0/snow_2mom%b_geo)
     snow%b_geo = (1.0d0/snow_2mom%b_geo)
+    ! leave those as is for now
     snow%a_vel = snow_2mom%a_vel
     snow%b_vel = snow_2mom%b_vel
     snow%a_ven = snow_2mom%a_ven
     snow%b_ven = snow_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    snow%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     graupel%name  = graupel_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     graupel%mu    = (1.0d0/graupel_2mom%b_geo)*(graupel_2mom%nu+1.0d0)-1.0d0
     graupel%nu    = (1.0d0/graupel_2mom%b_geo)*graupel_2mom%mu
     graupel%x_max = graupel_2mom%x_max
     graupel%x_min = graupel_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     graupel%a_geo = (1.0d0/graupel_2mom%a_geo)**(1.0d0/graupel_2mom%b_geo)
     graupel%b_geo = (1.0d0/graupel_2mom%b_geo)
+    ! leave those as is for now
     graupel%a_vel = graupel_2mom%a_vel
     graupel%b_vel = graupel_2mom%b_vel
     graupel%a_ven = graupel_2mom%a_ven
     graupel%b_ven = graupel_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    graupel%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     hail%name  = hail_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     hail%mu    = (1.0d0/hail_2mom%b_geo)*(hail_2mom%nu+1.0d0)-1.0d0
     hail%nu    = (1.0d0/hail_2mom%b_geo)*hail_2mom%mu
     hail%x_max = hail_2mom%x_max
     hail%x_min = hail_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     hail%a_geo = (1.0d0/hail_2mom%a_geo)**(1.0d0/hail_2mom%b_geo)
     hail%b_geo = (1.0d0/hail_2mom%b_geo)
+    ! leave those as is for now
     hail%a_vel = hail_2mom%a_vel
     hail%b_vel = hail_2mom%b_vel
     hail%a_ven = hail_2mom%a_ven
     hail%b_ven = hail_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    hail%n0_const = 1.0d0
 
     ! No need to rename these; they DO actually refer to D-space mu
     ! (follows Seifert(2008), which applies the general MGD notation).
@@ -979,14 +991,14 @@ CONTAINS
 
   END SUBROUTINE init_2mom_types
 
-! JM200128 >>
 !----------------------------------------------------------------------------------------
 ! Particle definitions for 1-mom cases.
-! Settings taken from [vt]hydroparams_1mom subroutines.
+! Settings taken from [vt]hydroparams_1mom subroutine(s).
 !
 ! NOTE:
-! - all parameters in diameter (D) space (not in mass (x)!)
 ! - mu and nu for general DSD notation: N(D) = N0 * D^mu * exp(-lam * D^nu)
+! - mu, nu, a/b_geo in diameter (D) space (not in mass (x)!)
+! - but: a/b_vel in mass (x) space
 ! - unknown/irrelevant parameters set to fill value
 
   SUBROUTINE init_1mom_types(itype_gscp)
@@ -997,45 +1009,71 @@ CONTAINS
     cloud%name  = 'cloud1mom'            !.name...Bezeichnung der Partikelklasse
     cloud%mu    = 3.0000d0               !.mu.....Breiteparameter der Verteil.
     cloud%nu    = 3.0000d0               !.nu.....Exp.-parameter der Verteil.
-    cloud%a_geo = rho_w_model*pi/6.0d0   !.a_geo..Koeff. Geometrie
+    cloud%n0_const = 1.0d0                !.n0.....Scaling parameter of distribution (only set if constant)
+    cloud%a_geo = rho_w_model*pi6       !.a_geo..Koeff. Geometrie
     cloud%b_geo = 3.0000d0               !.b_geo..Koeff. Geometrie
     ! here: x_min == x_max == x(D_c=20um)
     ! medial mass of cloud droplets; monodisperse distribution
-    cloud%x_max = cloud%a_geo*20d-6**cloud%b_geo  !.x_max..maximale Teilchenmasse
+    cloud%x_max = cloud%a_geo*20d-6**cloud%b_geo
+                                        !.x_max..maximale Teilchenmasse
     cloud%x_min = cloud%x_max            !.x_min..minimale Teilchenmasse
-    cloud%a_vel = miss_value             !.a_vel..Koeff. Fallgesetz
-    cloud%b_vel = miss_value             !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    !  (Stokes law, T=273.15 K, dyn. visc. eta after Sutherland-formula, Archimedes buoyancy neglected)
+    !   v = g*rho_w/(18*eta) * D^2
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    cloud%a_vel = 3.17204d7             !.a_vel..Koeff. Fallgesetz
+    cloud%b_vel = 2.00000d0             !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    cloud%b_vel = cloud%b_vel/cloud%b_geo
+    cloud%a_vel = cloud%a_vel/cloud%a_geo**cloud%b_vel
     cloud%a_ven = miss_value             !.a_ven..Koeff. Ventilation
     cloud%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     IF (itype_gscp < 4) THEN
       rain%name  = 'rain1mom_gscp.lt.4' !.name...Bezeichnung der Partikelklasse
       rain%mu    = 0.0000d0            !.mu.....Breiteparameter der Verteil.
+      rain%n0_const = 8.0d6 * EXP(3.2d0*rain%mu) * (1d-2)**(-rain%mu) !* rain_n0_factor
+                                        !.n0.....Scaling parameter of distribution (only set if constant)
     ELSE
       rain%name  = 'rain1mom_gscp.ge.4' !.name...Bezeichnung der Partikelklasse
       rain%mu    = 0.5000d0             !.mu.....Breiteparameter der Verteil.
+      rain%n0_const = 8d6 * EXP(3.2d0*rain%mu) * (1d-2)**(-rain%mu) !* rain_n0_factor
+                                        !.n0.....Scaling parameter of distribution (only set if constant)
     END IF
     rain%nu    = 1.0000d0               !.nu.....Exp.-parameter der Verteil.
     rain%x_max = miss_value             !.x_max..maximale Teilchenmasse
     rain%x_min = miss_value             !.x_min..minimale Teilchenmasse
-    rain%a_geo = rho_w_model*pi/6.0d0   !.a_geo..Koeff. Geometrie
+    rain%a_geo = rho_w_model*pi6        !.a_geo..Koeff. Geometrie
     rain%b_geo = 3.0000d0               !.b_geo..Koeff. Geometrie
-    rain%a_vel = miss_value             !.a_vel..Koeff. Fallgesetz
-    rain%b_vel = miss_value             !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    rain%a_vel = 130.00d0               !.a_vel..Koeff. Fallgesetz
+    rain%b_vel = 0.5000d0  !0.25d0      !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    rain%b_vel = rain%b_vel/rain%b_geo
+    rain%a_vel = rain%a_vel/rain%a_geo**rain%b_vel
     rain%a_ven = miss_value             !.a_ven..Koeff. Ventilation
     rain%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     ice%name  = 'ice1mom'               !.name...Bezeichnung der Partikelklasse
     ice%mu    = 1.0000d0                !.mu.....Breiteparameter der Verteil.
     ice%nu    = 1.0000d0                !.nu.....Exp.-parameter der Verteil.
+    ice%n0_const = 1.0d0                  !.n0.....Scaling parameter of distribution (only set if constant)
     ice%a_geo = 130.00d0                !.a_geo..Koeff. Geometrie
     ice%b_geo = 3.0000d0                !.b_geo..Koeff. Geometrie
     ! here: x_min == x_max == x(D_c=100um)
     ! medial mass of cloud ice crystals; monodisperse distribution
-    ice%x_max = ice%a_geo*100d-6**ice%b_geo  !.x_max..maximale Teilchenmasse
+    ice%x_max = ice%a_geo*100d-6**ice%b_geo
+                                        !.x_max..maximale Teilchenmasse
     ice%x_min = ice%x_max               !.x_min..minimale Teilchenmasse
-    ice%a_vel = miss_value              !.a_vel..Koeff. Fallgesetz
-    ice%b_vel = miss_value              !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    ice%a_vel = 4.9d0 * 0.75d0  ! the 0.75 is Uli's tuning of the snow relation in the COSMO-Docs
+                                        !.a_vel..Koeff. Fallgesetz
+    ice%b_vel = 0.2500d0                !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    ice%b_vel = ice%b_vel/ice%b_geo
+    ice%a_vel = ice%a_vel/ice%a_geo**ice%b_vel
     ice%a_ven = miss_value              !.a_ven..Koeff. Ventilation
     ice%b_ven = miss_value              !.b_ven..Koeff. Ventilation
 
@@ -1049,17 +1087,25 @@ CONTAINS
     snow%b_geo = 2.0000d0               !.b_geo..Koeff. Geometrie
     snow%mu    = 0.0000d0               !.mu.....Breiteparameter der Verteil.
     snow%nu    = 1.0000d0               !.nu.....Exp.-parameter der Verteil.
+    snow%n0_const = 1.0d0                 !.n0.....Scaling parameter of distribution (only set if constant)
     ! x_min/max set from max limits for particle type in 2mom case
     snow%x_max = 2.00d-05               !.x_max..maximale Teilchenmasse
     snow%x_min = 1.00d-12               !.x_min..minimale Teilchenmasse
-    snow%a_vel = miss_value             !.a_vel..Koeff. Fallgesetz
-    snow%b_vel = miss_value             !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    snow%a_vel = 25.000d0               !.a_vel..Koeff. Fallgesetz
+    snow%b_vel = 0.5000d0               !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    snow%b_vel = snow%b_vel/snow%b_geo
+    snow%a_vel = snow%a_vel/snow%a_geo**snow%b_vel
     snow%a_ven = miss_value             !.a_ven..Koeff. Ventilation
     snow%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     graupel%name  = 'graupel1mom'       !.name...Bezeichnung der Partikelklasse
     graupel%mu    = 0.0000d0            !.mu.....Breiteparameter der Verteil.
     graupel%nu    = 1.0000d0            !.nu.....Exp.-parameter der Verteil.
+    graupel%n0_const = 4.0d6 ! * 0.1  ! factor 0.1 seems to be too low, maybe 0.2?
+                                        !.n0.....Scaling parameter of distribution (only set if constant)
     ! x_min/max set from max limits for particle type in 2mom case
     graupel%x_max = 5.00d-04            !.x_max..maximale Teilchenmasse
     !graupel%x_min = 1.00d-09            !.x_min..minimale Teilchenmasse
@@ -1067,14 +1113,21 @@ CONTAINS
     graupel%x_min = 1.00d-10            !.x_min..minimale Teilchenmasse
     graupel%a_geo = 169.60d0            !.a_geo..Koeff. Geometrie
     graupel%b_geo = 3.1000d0            !.b_geo..Koeff. Geometrie
-    graupel%a_vel = miss_value          !.a_vel..Koeff. Fallgesetz
-    graupel%b_vel = miss_value          !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    graupel%a_vel = 442.00d0            !.a_vel..Koeff. Fallgesetz
+    graupel%b_vel = 0.8900d0            !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    graupel%b_vel = graupel%b_vel/graupel%b_geo
+    graupel%a_vel = graupel%a_vel/graupel%a_geo**graupel%b_vel
     graupel%a_ven = miss_value          !.a_ven..Koeff. Ventilation
     graupel%b_ven = miss_value          !.b_ven..Koeff. Ventilation
 
-    hail%name  = 'hail'                !.name...Bezeichnung der Partikelklasse
+    ! no hail in 1mom, but to avoid issues with routines used by 1- and 2-mom, define a rudimentary set.
+    hail%name  = 'hail1mom'             !.name...Bezeichnung der Partikelklasse
     hail%mu    = miss_value             !.mu.....Breiteparameter der Verteil.
     hail%nu    = miss_value             !.nu.....Exp.-parameter der Verteil.
+    hail%n0_const = 1.0d0                 !.n0.....Scaling parameter of distribution (only set if constant)
     hail%x_max = miss_value             !.x_max..maximale Teilchenmasse
     hail%x_min = miss_value             !.x_min..minimale Teilchenmasse
     hail%a_geo = miss_value             !.a_geo..Koeff. Geometrie
@@ -1085,7 +1138,6 @@ CONTAINS
     hail%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
   END SUBROUTINE init_1mom_types
-! JM200128 <<
 
   !============================================================================
   ! 
