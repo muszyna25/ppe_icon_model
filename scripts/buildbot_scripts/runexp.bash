@@ -78,7 +78,7 @@ return_ok()
 
 
 #==============================================================================
-# runs the scrpits 
+# runs the scripts 
 run_scripts_submit()
 {
 
@@ -139,21 +139,32 @@ run_scripts_submit()
   cd run
   EXP_FILES=`cat runscripts_list`
 
-  case $submit in
-      sbatch*)
-          batch_system=slurm
-          slurm_user=`whoami`
-          typeset -A job_submitted
-      ;;
-      msub*)
-           batch_system=moab_kit
-           slurm_user=`whoami`
-           typeset -A job_submitted
+  case $HOSTNAME in
+      rcnl*)
+	  batch_system=nqsv
+	  slurm_user=`whoami`
+       	  typeset -A job_submitted
       ;;
       *)
-          batch_system=other
+	  case $submit in
+	      sbatch*)
+		  batch_system=slurm
+		  slurm_user=`whoami`
+		  typeset -A job_submitted
+	      ;;
+	      msub*)
+		  batch_system=moab_kit
+		  slurm_user=`whoami`
+		  typeset -A job_submitted
+	      ;;
+	      *)
+		  batch_system=other
+	      ;;
+	  esac
       ;;
   esac
+
+
   
   for EXP_FILE in $EXP_FILES
   do 
@@ -171,8 +182,12 @@ run_scripts_submit()
         then
             echo "echo \$? > ${EXP_FILE}.status.2" >> submit.$EXP_FILE
         fi
+
         chmod +x submit.$EXP_FILE        
         if [[ "$batch_system" = "moab_kit" ]]
+        then
+          jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
+        elif [[ "$batch_system" = "nqsv" ]]
         then
           jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
         else
@@ -188,6 +203,21 @@ run_scripts_submit()
         jobid=`squeue -u ${slurm_user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
         job_submitted["$EXP_FILE"]=$jobid
     fi
+
+    # nqsv does not support 'qsub -wait'
+    # therefore we need to run qwait explicitly
+    if [[ "$batch_system" = "nqsv" ]]
+    then
+	sleep 2
+        # get jobid
+        jobid=`echo $jobid |awk 'match($0,/[0-9]+/){print substr($0, RSTART, RLENGTH)}'`
+        job_submitted["$EXP_FILE"]=$jobid
+        # wait until job ends
+        qwait ${jobid}
+        # store status
+        echo $? > ${EXP_FILE}.status.2
+    fi
+
 
     if [[ "$batch_system" = "moab_kit" ]]
     then
