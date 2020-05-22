@@ -357,16 +357,16 @@ IF (n_dom_start == 0 .OR. n_dom > 1) THEN
 
   CALL gridref_info ( ptr_grf_state)
 
-  CALL init_fbk_wgt ( ptr_grf_state)
+  CALL init_fbk_wgt ()
 
-  CALL compute_pc2cc_distances ( ptr_grf_state)
-  CALL compute_pe2ce_distances ( ptr_grf_state)
+  CALL compute_pc2cc_distances ()
+  CALL compute_pe2ce_distances ()
 
-  CALL grf_index( ptr_grf_state)
+  CALL grf_index ()
   IF ( MOD(grf_intmethod_e,2) == 0) THEN
-    CALL rbf_compute_coeff_grf_e ( ptr_grf_state)
+    CALL rbf_compute_coeff_grf_e ()
   ELSE IF (MOD(grf_intmethod_e,2) == 1) THEN
-    CALL idw_compute_coeff_grf_e ( ptr_grf_state)
+    CALL idw_compute_coeff_grf_e ()
   ENDIF
 
 ENDIF
