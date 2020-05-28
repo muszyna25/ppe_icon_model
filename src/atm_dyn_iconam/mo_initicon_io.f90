@@ -878,8 +878,8 @@ MODULE mo_initicon_io
   SUBROUTINE fetch2d(params, varName, level, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
-    REAL(dp), VALUE :: level
-    INTEGER, VALUE :: jg
+    REAL(dp), INTENT(in) :: level
+    INTEGER, INTENT(in) :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
     TYPE(t_tileinfo_icon) :: tileinfo_icon
     LOGICAL :: fetchResult
@@ -894,7 +894,7 @@ MODULE mo_initicon_io
   SUBROUTINE fetch3d(params, varName, jg, field, found)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg
+    INTEGER, INTENT(in) :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
     LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
@@ -938,7 +938,7 @@ MODULE mo_initicon_io
   SUBROUTINE fetchSurface(params, varName, jg, field, found)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg
+    INTEGER, INTENT(in) :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
     LOGICAL, INTENT(OUT), OPTIONAL :: found ! allows to do the error handling in the calling routine
 
@@ -960,7 +960,7 @@ MODULE mo_initicon_io
   SUBROUTINE fetchTiledSurface(params, varName, jg, tileCount, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg, tileCount
+    INTEGER, INTENT(in) :: jg, tileCount
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
 
     INTEGER :: jt
@@ -987,7 +987,7 @@ MODULE mo_initicon_io
   SUBROUTINE fetchTiled3d(params, varName, jg, tileCount, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg, tileCount
+    INTEGER, INTENT(in) :: jg, tileCount
     REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
 
     INTEGER :: jt
@@ -1017,7 +1017,7 @@ MODULE mo_initicon_io
   SUBROUTINE fetchTiled3dWithFallback(params, varName, varNameFallback, jg, tileCount, field, opt_field_fallback)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName, varNameFallback
-    INTEGER, VALUE :: jg, tileCount
+    INTEGER, INTENT(in) :: jg, tileCount
     REAL(wp),           TARGET, INTENT(INOUT) :: field(:,:,:,:)
     REAL(wp), OPTIONAL, TARGET, INTENT(INOUT) :: opt_field_fallback(:,:,:,:)  ! optional target field for 
                                                                               ! fallback input
@@ -1074,7 +1074,7 @@ MODULE mo_initicon_io
   SUBROUTINE fetchRequired3d(params, varName, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg
+    INTEGER, INTENT(in) :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
     TYPE(t_tileinfo_icon) :: tileinfo_icon
 
@@ -1087,7 +1087,7 @@ MODULE mo_initicon_io
   SUBROUTINE fetchRequiredTiledSurface(params, varName, jg, tileCount, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
-    INTEGER, VALUE :: jg, tileCount
+    INTEGER, INTENT(IN) :: jg, tileCount
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
 
     INTEGER :: jt

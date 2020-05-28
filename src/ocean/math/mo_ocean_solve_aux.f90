@@ -29,31 +29,9 @@ MODULE mo_ocean_solve_aux
     PROCEDURE :: init => ocean_solve_parm_init
   END TYPE t_ocean_solve_parm
 
-  TYPE, ABSTRACT, PUBLIC :: t_destructible
-  CONTAINS
-  PROCEDURE(a_destruct), DEFERRED, PUBLIC :: destruct
-  END TYPE t_destructible
-
-  ABSTRACT INTERFACE
-    SUBROUTINE a_destruct(this)
-      IMPORT t_destructible
-      CLASS(t_destructible), INTENT(INOUT) :: this
-    END SUBROUTINE a_destruct
-  END INTERFACE
-
-  PUBLIC :: ocean_solve_clear, t_ocean_solve_parm
+  PUBLIC :: t_ocean_solve_parm
 
   CONTAINS
-
-  SUBROUTINE ocean_solve_clear(this_ptr)
-    CLASS(t_destructible), POINTER, INTENT(INOUT) :: this_ptr
-
-    IF (ASSOCIATED(this_ptr)) THEN
-      CALL this_ptr%destruct()
-      DEALLOCATE(this_ptr)
-      NULLIFY(this_ptr)
-    END IF
-  END SUBROUTINE ocean_solve_clear
 
   SUBROUTINE ocean_solve_parm_init(this, pt, nr, m, nblk, nblk_a, &
     & nidx, nidx_e, tol, use_atol)

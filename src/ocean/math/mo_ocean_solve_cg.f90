@@ -6,7 +6,6 @@
 MODULE mo_ocean_solve_cg
 
   USE mo_kind, ONLY: wp, sp
-  USE mo_exception, ONLY: finish
   USE mo_ocean_solve_backend, ONLY: t_ocean_solve_backend
 
   IMPLICIT NONE
@@ -29,24 +28,12 @@ MODULE mo_ocean_solve_cg
   CONTAINS
     PROCEDURE :: doit_wp => ocean_solve_cg_cal_wp ! override deferred
     PROCEDURE :: doit_sp => ocean_solve_cg_cal_sp ! override deferred
-    PROCEDURE :: destruct => ocean_solve_cg_destruct ! override deferred
     PROCEDURE, PRIVATE :: recover_arrays_wp => ocean_solve_cg_recover_arrays_wp
     PROCEDURE, PRIVATE :: recover_arrays_sp => ocean_solve_cg_recover_arrays_sp
     GENERIC, PRIVATE :: recover_arrays => recover_arrays_wp, recover_arrays_sp
   END TYPE t_ocean_solve_cg
 
 CONTAINS
-
-! destruct lhs-object and de-allocate arrays
-  SUBROUTINE ocean_solve_cg_destruct(this)
-    CLASS(t_ocean_solve_cg), INTENT(INOUT) :: this
-
-    CALL this%destruct_commons()
-    IF (ALLOCATED(this%z_wp)) DEALLOCATE(this%z_wp, this%d_wp, this%r_wp, &
-      & this%rsq_wp)
-    IF (ALLOCATED(this%x_sp)) DEALLOCATE(this%x_sp, this%b_sp, this%z_sp, &
-      & this%d_sp, this%r_sp, this%rsq_sp)
-  END SUBROUTINE ocean_solve_cg_destruct
 
 ! get solver arrays (alloc them, if not done so, yet) - wp-variant
   SUBROUTINE ocean_solve_cg_recover_arrays_wp(this, x, b, z, d, r, r2)
@@ -181,8 +168,6 @@ SUBROUTINE ocean_solve_cg_cal_wp(this)
 ! we should not get here...
   SUBROUTINE ocean_solve_cg_cal_sp(this)
     CLASS(t_ocean_solve_cg), INTENT(INOUT) :: this
-!    CALL finish(TRIM(this_mod_name)//":ocean_solve_cg_cal_sp()", &
-!      & "single precision cg solver not implemented")
     REAL(KIND=sp) :: alpha, beta, dz_glob, tol, tol2, rn, rn_last
     INTEGER :: nidx_e, nblk, iblk, k, m, k_final
     REAL(KIND=sp), POINTER, DIMENSION(:,:), CONTIGUOUS :: &

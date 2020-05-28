@@ -28,9 +28,8 @@ MODULE mo_input_request_list
                     & cdiIterator_inqParamParts, gridInqNumber, gridInqPosition, cdiGribIterator_inqLongValue, t_CdiGribIterator, &
                     & cdiGribIterator_clone, cdiGribIterator_delete, cdiIterator_inqRTime, CDI_UUID_SIZE, &
                     & cdiIterator_inqFiletype, FILETYPE_GRB, FILETYPE_GRB2, institutInq, institutInqNamePtr
-    USE mo_dictionary, ONLY: t_dictionary, dict_get
+    USE mo_dictionary, ONLY: t_dictionary
     USE mo_exception, ONLY: message, finish
-    USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_grid_config, ONLY: n_dom
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_initicon_config, ONLY: timeshift, lconsistency_checks
@@ -111,7 +110,7 @@ PRIVATE
     ! On the I/O PE, it IS the job of InputRequestList_isRecordValid() to immediately add a MetadataCache, so that ANY DomainData 
     ! object returned by findDomainData() CONTAINS both a valid InputContainer AND a valid MetadataCache.
     TYPE :: t_DomainData
-        INTEGER :: domain
+        INTEGER :: jg
         TYPE(t_DomainData), POINTER :: next
 
         CLASS(t_InputContainer), POINTER :: container
@@ -126,7 +125,7 @@ PRIVATE
         TYPE(t_DomainData), POINTER :: domainData   !< A linked list of an InputContainer AND a MetadataCache for each domain. Only accessed via findDomainData().
     END TYPE
 
-    TYPE, EXTENDS(t_Destructible) :: t_MetadataCache
+    TYPE :: t_MetadataCache
         CHARACTER(KIND = C_CHAR), POINTER :: rtime(:), vtime(:)
         INTEGER :: levelType, gridNumber, gridPosition, runClass, experimentId, generatingProcessType
         TYPE(t_CdiParam) :: param
@@ -162,10 +161,10 @@ CONTAINS
         END DO
     END FUNCTION InputRequestList_create
 
-    FUNCTION findDomainData(listEntry, domain, opt_lcreate) RESULT(resultVar)
+    FUNCTION findDomainData(listEntry, jg, opt_lcreate) RESULT(resultVar)
         TYPE(t_ListEntry), POINTER, INTENT(INOUT) :: listEntry
-        INTEGER, VALUE :: domain
-        LOGICAL, OPTIONAL :: opt_lcreate
+        INTEGER, INTENT(IN) :: jg
+        LOGICAL, OPTIONAL, INTENT(IN) :: opt_lcreate
         TYPE(t_DomainData), POINTER :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":findDomainData"
@@ -177,7 +176,7 @@ CONTAINS
         resultVar => listEntry%domainData
         DO
             IF(.NOT.ASSOCIATED(resultVar)) EXIT
-            IF(resultVar%domain == domain) RETURN
+            IF(resultVar%jg == jg) RETURN
             resultVar => resultVar%next
         END DO
 
@@ -186,11 +185,11 @@ CONTAINS
             IF(opt_lcreate) THEN
                 ALLOCATE(resultVar, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "error allocating memory")
-                resultVar%domain = domain
+                resultVar%jg = jg
                 resultVar%next => listEntry%domainData
                 resultVar%container => InputContainer_make()
                 resultVar%metadata => NULL()
-                CALL resultVar%statistics%construct()
+                CALL resultVar%statistics%reset()
                 listEntry%domainData => resultVar
             END IF
         END IF
@@ -207,7 +206,7 @@ CONTAINS
             IF(ASSOCIATED(me%list(i)%translatedVarName)) DEALLOCATE(me%list(i)%translatedVarName)
             IF(PRESENT(opt_dict)) THEN
                 tempName => toCharacter(me%list(i)%iconVarName)
-                me%list(i)%translatedVarName => toCharArray(TRIM(dict_get(opt_dict, tempName, tempName)))
+                me%list(i)%translatedVarName => toCharArray(TRIM(opt_dict%get(tempName, tempName)))
                 DEALLOCATE(tempName)
             ELSE
                 me%list(i)%translatedVarName => charArray_dup(me%list(i)%iconVarName)
@@ -351,7 +350,7 @@ CONTAINS
         REAL(dp), INTENT(OUT) :: level
         INTEGER, INTENT(OUT) :: tileId
         CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(INOUT) :: variableName
-        LOGICAL, VALUE :: lIsFg
+        LOGICAL, INTENT(IN) :: lIsFg
 
         INTEGER(KIND = C_INT) :: error, gridId, gridType, gridSize, tileIndex, tileAttribute
         REAL(KIND = C_DOUBLE) :: levelValue
@@ -634,13 +633,13 @@ CONTAINS
     LOGICAL FUNCTION InputRequestList_nextField(me, iterator, p_patch, level, tileId, variableName, ignoredRecords, lIsFg) &
     &RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
-        TYPE(t_CdiIterator), VALUE :: iterator
+        TYPE(t_CdiIterator), INTENT(IN) :: iterator
         TYPE(t_patch), INTENT(IN) :: p_patch
         REAL(dp), INTENT(OUT) :: level
         INTEGER, INTENT(OUT) :: tileId
         CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(INOUT) :: variableName
         INTEGER, INTENT(INOUT) :: ignoredRecords
-        LOGICAL, VALUE :: lIsFg
+        LOGICAL, INTENT(IN) :: lIsFg
 
         resultVar = .FALSE.
         IF(my_process_is_mpi_workroot()) THEN
@@ -676,7 +675,7 @@ CONTAINS
         TYPE(t_patch), INTENT(IN) :: p_patch
         CHARACTER(LEN = *, KIND = C_CHAR), INTENT(IN) :: path
         TYPE(t_dictionary), OPTIONAL, INTENT(IN) :: opt_dict
-        LOGICAL, VALUE :: lIsFg
+        LOGICAL, INTENT(IN) :: lIsFg
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_readFile"
         TYPE(t_CdiIterator) :: iterator
@@ -794,10 +793,10 @@ CONTAINS
         END IF
     END SUBROUTINE InputRequestList_readFile
 
-    FUNCTION InputRequestList_getLevels(me, varName, domain, opt_lDebug) RESULT(resultVar)
+    FUNCTION InputRequestList_getLevels(me, varName, jg, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: domain
+        INTEGER, INTENT(IN) :: jg
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
         REAL(dp), POINTER :: resultVar(:)
 
@@ -809,7 +808,7 @@ CONTAINS
         IF(.NOT. ASSOCIATED(listEntry)) THEN
             CALL finish(routine, 'attempt to fetch level data for an input variable "'//varName//'" that has not been requested')
         END IF
-        domainData => findDomainData(listEntry, domain)
+        domainData => findDomainData(listEntry, jg)
         resultVar => NULL()
         IF(ASSOCIATED(domainData)) resultVar => domainData%container%getLevels()
     END FUNCTION InputRequestList_getLevels
@@ -817,8 +816,8 @@ CONTAINS
     LOGICAL FUNCTION InputRequestList_fetch2d(me, varName, level, tile, jg, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(IN) :: level
+        INTEGER, INTENT(IN) :: tile, jg
         REAL(wp), INTENT(INOUT) :: outData(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
@@ -851,7 +850,7 @@ CONTAINS
     LOGICAL FUNCTION InputRequestList_fetch3d(me, varName, tile, jg, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: tile, jg
+        INTEGER, INTENT(IN) :: tile, jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
         INTEGER, OPTIONAL, INTENT(IN) :: optLevelDimension
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
@@ -885,7 +884,7 @@ CONTAINS
     LOGICAL FUNCTION InputRequestList_fetchSurface(me, varName, tile, jg, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: tile, jg
+        INTEGER, INTENT(IN) :: tile, jg
         REAL(wp), INTENT(INOUT) :: outData(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
@@ -930,8 +929,8 @@ CONTAINS
     LOGICAL FUNCTION InputRequestList_fetchTiled2d(me, varName, level, jg, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: jg
+        REAL(dp), INTENT(IN) :: level
+        INTEGER, INTENT(IN) :: jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
@@ -966,7 +965,7 @@ CONTAINS
     LOGICAL FUNCTION InputRequestList_fetchTiled3d(me, varName, jg, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg
+        INTEGER, INTENT(IN) :: jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:,:)
         INTEGER, OPTIONAL, INTENT(IN) :: optLevelDimension
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
@@ -1002,7 +1001,7 @@ CONTAINS
     LOGICAL FUNCTION InputRequestList_fetchTiledSurface(me, varName, jg, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg
+        INTEGER, INTENT(IN) :: jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
@@ -1049,8 +1048,8 @@ CONTAINS
     SUBROUTINE InputRequestList_fetchRequired2d(me, varName, level, tile, jg, outData)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(in) :: level
+        INTEGER, INTENT(in) :: tile, jg
         REAL(wp), INTENT(INOUT) :: outData(:,:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_fetchRequired2d"
@@ -1063,7 +1062,7 @@ CONTAINS
     SUBROUTINE InputRequestList_fetchRequired3d(me, varName, tile, jg, outData, optLevelDimension)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: tile, jg
+        INTEGER, INTENT(in) :: tile, jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
         INTEGER, OPTIONAL, INTENT(IN) :: optLevelDimension
 
@@ -1077,7 +1076,7 @@ CONTAINS
     SUBROUTINE InputRequestList_fetchRequiredSurface(me, varName, tile, jg, outData)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: tile, jg
+        INTEGER, INTENT(in) :: tile, jg
         REAL(wp), INTENT(INOUT) :: outData(:,:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_fetchRequiredSurface"
@@ -1090,8 +1089,8 @@ CONTAINS
     SUBROUTINE InputRequestList_fetchRequiredTiled2d(me, varName, level, jg, outData)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: jg
+        REAL(dp), INTENT(in) :: level
+        INTEGER, INTENT(in) :: jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_fetchRequiredTiled2d"
@@ -1104,7 +1103,7 @@ CONTAINS
     SUBROUTINE InputRequestList_fetchRequiredTiled3d(me, varName, jg, outData, optLevelDimension)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg
+        INTEGER, INTENT(IN) :: jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:,:)
         INTEGER, OPTIONAL, INTENT(IN) :: optLevelDimension
 
@@ -1118,7 +1117,7 @@ CONTAINS
     SUBROUTINE InputRequestList_fetchRequiredTiledSurface(me, varName, jg, outData)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg
+        INTEGER, INTENT(IN) :: jg
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_fetchRequiredTiledSurface"
@@ -1132,7 +1131,7 @@ CONTAINS
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: incrementVariables(:)
         TYPE(t_uuid), INTENT(IN) :: gridUuids(:)    !< gridUuids(n_dom)
-        LOGICAL, VALUE :: lIsFg, lHardCheckUuids
+        LOGICAL, INTENT(IN) :: lIsFg, lHardCheckUuids
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_checkRuntypeAndUuids"
         INTEGER :: i, jg, expectedRuntype
@@ -1245,7 +1244,7 @@ CONTAINS
                 CALL curDomain%container%getCounts(levelCount, tileCount, lUntiledData)
 
                 !domain, NAME, AND triple columns
-                CALL set_table_entry(table, curRow, domainCol, TRIM(int2string(curDomain%domain)))
+                CALL set_table_entry(table, curRow, domainCol, TRIM(int2string(curDomain%jg)))
                 varnameString => toCharacter(curVar%iconVarName)
                 CALL set_table_entry(table, curRow, variableCol, varnameString)
                 DEALLOCATE(varnameString)
@@ -1331,7 +1330,6 @@ CONTAINS
                     CALL domainData%metadata%destruct()
                     DEALLOCATE(domainData%metadata)
                 END IF
-                CALL domainData%statistics%destruct()
                 domainDataTemp => domainData%next
                 DEALLOCATE(domainData)
                 domainData => domainDataTemp

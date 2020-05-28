@@ -140,7 +140,8 @@ MODULE mo_nh_stepping
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_master_config,            ONLY: isRestart, getModelBaseDir
-  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,      ONLY: getAttributesForRestarting
+  USE mo_key_value_store,          ONLY: t_key_value_store
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output, istime4name_list_output_dom
@@ -668,7 +669,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
   TYPE(t_datetime_ptr)                 :: datetime_current(max_dom) 
-  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+  TYPE(t_key_value_store), POINTER :: restartAttributes
   CLASS(t_RestartDescriptor), POINTER  :: restartDescriptor
 
   CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)   :: td_string
@@ -727,11 +728,9 @@ MODULE mo_nh_stepping
 
   jstep0 = 0
 
-  restartAttributes => getAttributesForRestarting()
-  IF (isRestart()) THEN
-    ! get start counter for time loop from restart file:
-    jstep0 = restartAttributes%getInteger("jstep")
-  END IF
+  CALL getAttributesForRestarting(restartAttributes)
+  ! get start counter for time loop from restart file:
+  IF (isRestart()) CALL restartAttributes%get("jstep", jstep0)
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
   IF  (.NOT. ltestcase .AND. msg_level >= 13) THEN
@@ -3243,7 +3242,7 @@ MODULE mo_nh_stepping
     INTEGER                              :: jg
     INTEGER                              :: ist
     CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     !-----------------------------------------------------------------------
 
@@ -3271,15 +3270,15 @@ MODULE mo_nh_stepping
     ENDIF
     !
     ! initialize
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
     IF (ASSOCIATED(restartAttributes)) THEN
       !
       ! Get attributes from restart file
       DO jg = 1,n_dom
         WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-        ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
+        CALL restartAttributes%get(attname, ndyn_substeps_var(jg))
         WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-        jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
+        CALL restartAttributes%get(attname, jstep_adv(jg)%marchuk_order)
       ENDDO
       linit_dyn(:)      = .FALSE.
     ELSE
