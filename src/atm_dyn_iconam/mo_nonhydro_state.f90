@@ -168,7 +168,6 @@ MODULE mo_nonhydro_state
 !-----------------------------------------------------------------------
 
     CALL message (routine, 'Construction of NH state started')
-
 !$ACC ENTER DATA COPYIN(p_nh_state)
     DO jg = 1, n_dom
 
