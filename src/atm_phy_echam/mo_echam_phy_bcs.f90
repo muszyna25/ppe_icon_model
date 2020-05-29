@@ -50,7 +50,7 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_solar_irradiance        ,ONLY: read_bc_solar_irradiance, ssi_time_interpolation
   USE mo_bc_ozone                   ,ONLY: read_bc_ozone
   USE mo_bc_aeropt_kinne            ,ONLY: read_bc_aeropt_kinne
-  USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
+  USE mo_bc_aeropt_cmip6_volc       ,ONLY: read_bc_aeropt_cmip6_volc
   USE mo_atmo_psrad_interface       ,ONLY: dtrad_shift
 #if defined( _OPENACC )
   USE mo_mpi                   ,ONLY: i_am_accel_node, my_process_is_work
@@ -316,28 +316,34 @@ CONTAINS
         CALL read_bc_ozone(mtime_old%date%year, patch)
       END IF
       !
-      ! tropospheric aerosol optical properties
+      ! tropospheric aerosol optical properties after S. Kinne
       IF (echam_rad_config(jg)% irad_aero == 13) THEN
         CALL read_bc_aeropt_kinne(mtime_old, patch)
       END IF
       !
       ! stratospheric aerosol optical properties
       IF (echam_rad_config(jg)% irad_aero == 14) THEN
-        CALL read_bc_aeropt_stenchikov(mtime_old, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
       END IF
       !
-      ! tropospheric and stratospheric aerosol optical properties
+      ! tropospheric aerosols after S. Kinne and stratospheric aerosol optical properties
       IF (echam_rad_config(jg)% irad_aero == 15) THEN
         CALL read_bc_aeropt_kinne     (mtime_old, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_old, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
       END IF
       !
       ! tropospheric background aerosols (Kinne) and stratospheric
-      ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
+      ! aerosols (CMIP6) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (echam_rad_config(jg)% irad_aero == 18) THEN
         CALL read_bc_aeropt_kinne     (mtime_old, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_old, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_old, patch%id)
+      END IF
+      ! tropospheric background aerosols (Kinne), no stratospheric
+      ! aerosols + simple plumes (analytical, nothing to be read
+      ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
+      IF (echam_rad_config(jg)% irad_aero == 19) THEN
+        CALL read_bc_aeropt_kinne     (mtime_old, patch)
       END IF
       !
       ! greenhouse gas concentrations, assumed constant in horizontal dimensions

@@ -770,7 +770,7 @@ CONTAINS
       !
       ! parameterized simple plumes of tropospheric aerosols
       !
-      IF (ANY(echam_rad_config(:)%irad_aero == 18)) THEN
+      IF (ANY(echam_rad_config(:)%irad_aero == 18 .OR. echam_rad_config(:)%irad_aero == 19)) THEN
         CALL setup_bc_aeropt_splumes
       END IF
       !

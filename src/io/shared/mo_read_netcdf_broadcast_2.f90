@@ -62,6 +62,7 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_read_1D
   PUBLIC :: netcdf_read_1D_extdim_time
   PUBLIC :: netcdf_read_1D_extdim_extdim_time
+  PUBLIC :: netcdf_read_extdim_slice_extdim_extdim_extdim
   PUBLIC :: netcdf_read_2D_int
   PUBLIC :: netcdf_read_2D
   PUBLIC :: netcdf_read_REAL_2D_all
@@ -102,6 +103,10 @@ MODULE mo_read_netcdf_broadcast_2
   INTERFACE netcdf_read_1D_extdim_extdim_time
     MODULE PROCEDURE netcdf_read_REAL_1D_extdim_extdim_time
   END INTERFACE netcdf_read_1D_extdim_extdim_time
+
+  INTERFACE netcdf_read_extdim_slice_extdim_extdim_extdim
+    MODULE PROCEDURE netcdf_read_REAL_extdim_slice_extdim_extdim_extdim
+  END INTERFACE netcdf_read_extdim_slice_extdim_extdim_extdim
 
   INTERFACE netcdf_read_2D_int
     MODULE PROCEDURE netcdf_read_INT_2D
@@ -538,6 +543,107 @@ CONTAINS
     CALL broadcast_array(res)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_REAL_extdim_slice_extdim_extdim_extdim( &
+    file_id, variable_name, fill_array, dim_names, start_extdim1, &
+    end_extdim1) result(res)
+
+    REAL(wp), POINTER            :: res(:,:,:,:)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
+    INTEGER, INTENT(IN), OPTIONAL:: start_extdim1, end_extdim1
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: file_extdim1_steps, dim1_steps, start_dim1, end_dim1
+    INTEGER :: start_read_index(4), count_read_index(4)
+    INTEGER :: idim
+    INTEGER :: return_status
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_extdim_slice_extdim_extdim_extdim'
+
+    ! trivial return value.
+    NULLIFY(res)
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+        &                 var_size, var_dim_name)
+
+      ! check if the dims look ok
+      IF (var_dims /= 4 ) THEN
+        WRITE(0,*) "var_dims = ", var_dims
+        CALL finish(method_name, "Dimensions mismatch")
+      ENDIF
+
+      IF (PRESENT(dim_names)) THEN
+        DO idim = 1, 4
+          IF (TRIM(dim_names(idim)) /= TRIM(var_dim_name(idim))) THEN
+            WRITE(0,*) 'dim_name(',idim,')=',TRIM(ADJUSTL(var_dim_name(idim))),&
+                       ' but dimension name ', &
+                       TRIM(ADJUSTL(dim_names(idim))),' was expected'
+            CALL finish(method_name, 'dimension name mismatch')
+          END IF
+        END DO
+      END IF
+    END IF
+
+    ! we need to sync the var_size...
+    CALL broadcast_array(var_size(1:4))
+    file_extdim1_steps=var_size(1)
+
+    ! calculate slice of 4th dimension
+    IF (PRESENT(start_extdim1)) THEN
+      start_dim1 = start_extdim1
+    ELSE
+      start_dim1 = 1
+    ENDIF
+    IF (PRESENT(end_extdim1)) THEN
+      end_dim1 = end_extdim1
+    ELSE
+      end_dim1 = file_extdim1_steps
+    ENDIF
+!!$    use_time_range = (start_time /= 1) .OR. (end_time /= file_time_steps)
+    dim1_steps = end_dim1 - start_dim1 + 1
+!    write(0,*) "start,end time=", start_time, end_time
+    IF (dim1_steps < 1) &
+      & CALL finish(method_name, "number of slices of dimension 1 < 1")
+
+    IF (PRESENT(fill_array)) THEN
+      res => fill_array
+    ELSE
+      ALLOCATE( res(dim1_steps,var_size(2),var_size(3), &
+                var_size(4)), stat=return_status )
+      IF (return_status /= success) &
+        CALL finish (method_name, &
+          &          'ALLOCATE( netcdf_read_REAL_extdim_slice_extdim_extdim_extdim )')
+      res(:,:,:,:)=0.0_wp
+    ENDIF
+
+!!$    ! check if the size is correct
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) < var_size(1)) &
+!!$      CALL finish(method_name, "allocated size < var_size")
+!!$    IF (SIZE(netcdf_read_REAL_1D,1) > var_size(1)) &
+!!$      CALL warning(method_name, "allocated size > var_size")
+
+    IF( my_process_is_mpi_workroot()) THEN
+      start_read_index = (/start_dim1,1,1,1/)
+      count_read_index = (/dim1_steps,var_size(2),var_size(3),var_size(4)/)
+      CALL nf(nf_get_vara_double(file_id, varid, start_read_index, &
+        &                        count_read_index, res(:,:,:,:)), &
+        &     variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(res)
+
+  END FUNCTION netcdf_read_REAL_extdim_slice_extdim_extdim_extdim
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
