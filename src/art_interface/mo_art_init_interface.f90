@@ -133,7 +133,7 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer, tracer_
 
     DO idx_tracer = 1,auto_ntracer
       ! Create a storage container
-      CALL storage%init(lcase_sensitivity=.FALSE.)
+      CALL storage%init(.FALSE.)
 
       WRITE(idx_tracer_str,'(I5)') idx_tracer
       CALL art_read_elements_xml(tixi_file,'/tracers/*['     &

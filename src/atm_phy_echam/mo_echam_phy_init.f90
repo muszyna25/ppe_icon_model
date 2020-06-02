@@ -902,6 +902,8 @@ CONTAINS
     &                              geopot_agl     ,&
     &                              temp           )
 
+!FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
+
     TYPE(t_patch)    ,INTENT(in) :: p_patch
     REAL(wp)         ,INTENT(in) :: topography_c  (:,  :)
     REAL(wp)         ,INTENT(in) :: z_ifc         (:,:,:)
@@ -934,8 +936,10 @@ CONTAINS
 
       ! Assign initial values for some components of the "field" and
       ! "tend" state vectors.
-
+#ifndef __PGI
+!FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
 !$OMP PARALLEL WORKSHARE
+#endif
       !
       ! constant-in-time fields
       ! initial and re-start
@@ -952,9 +956,9 @@ CONTAINS
       !
       field%      geoi(:,:,:) = geopot_agl_ifc(:,:,:)
       field%      geom(:,:,:) =     geopot_agl(:,:,:)
- 
+#ifndef __PGI
 !$OMP END PARALLEL WORKSHARE
-
+#endif
       ! in case of restart, reset output fields of unused parameterizations,
       ! to their intial value
       !

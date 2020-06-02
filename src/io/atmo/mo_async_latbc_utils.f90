@@ -82,9 +82,9 @@
     USE mo_fortran_tools,       ONLY: copy, init
     USE mo_util_string,         ONLY: tolower
     USE mo_util_sysinfo,        ONLY: check_file_exists
-    USE mo_dictionary,          ONLY: t_dictionary, dict_get
-    IMPLICIT NONE
+    USE mo_dictionary,          ONLY: t_dictionary
 
+    IMPLICIT NONE
     PRIVATE
 
     ! handshake subroutines
@@ -360,7 +360,7 @@
         ! allocate temporary array:
         ALLOCATE(z_ifc_in(nproma, (nlev_in+1), nblks_c))
 
-        CALL read_cdi_3d(read_params(icell)%cdi_params, TRIM(dict_get(latbc_dict, latbc%buffer%hhl_var, default='z_ifc')), &
+        CALL read_cdi_3d(read_params(icell)%cdi_params, TRIM(latbc_dict%get(latbc%buffer%hhl_var, default='z_ifc')), &
                          SIZE(z_ifc_in,2), z_ifc_in, read_params(icell)%npoints, read_params(icell)%idx_ptr)
 
 
@@ -1602,7 +1602,7 @@
       INTEGER                        :: nlev
 
       IF (PRESENT(opt_latbc_dict)) THEN
-        mapped_name = dict_get(opt_latbc_dict,name,default=name)
+        mapped_name = opt_latbc_dict%get(name, default=name)
       ELSE
         mapped_name = name
       ENDIF
@@ -1632,7 +1632,7 @@
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: mapped_name
 
       IF (PRESENT(opt_latbc_dict)) THEN
-        mapped_name = dict_get(opt_latbc_dict,name,default=name)
+        mapped_name = opt_latbc_dict%get(name, default=name)
       ELSE
         mapped_name = name
       ENDIF

@@ -13,7 +13,6 @@
 
 MODULE mo_math_types
     USE ISO_C_BINDING, ONLY: C_INT64_T
-    USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_kind, ONLY: wp, sp, dp
     IMPLICIT NONE
 
@@ -48,14 +47,12 @@ MODULE mo_math_types
         TYPE(t_geographical_coordinates) :: p2
     END TYPE t_line
 
-    TYPE, EXTENDS(t_Destructible) :: t_Statistics
+    TYPE :: t_Statistics
         INTEGER(C_INT64_T) :: sampleCount
         REAL(wp) :: MIN, mean, MAX
     CONTAINS
-        PROCEDURE :: construct => statistics_construct
+        PROCEDURE :: reset => statistics_reset
         GENERIC :: add => addData_s1d, addData_d1d, addStatistics
-        PROCEDURE :: destruct => statistics_destruct
-
         ! scan a given array AND update the statistics accordingly
         PROCEDURE :: addData_s1d => statistics_addData_s1d
         PROCEDURE :: addData_d1d => statistics_addData_d1d
@@ -64,14 +61,14 @@ MODULE mo_math_types
 
 CONTAINS
 
-    SUBROUTINE statistics_construct(me)
+    SUBROUTINE statistics_reset(me)
         CLASS(t_Statistics), INTENT(INOUT) :: me
 
         me%sampleCount = 0_C_INT64_T
         me%MIN = HUGE(me%MIN)
         me%mean = 0.0_wp
         me%MAX = -HUGE(me%MAX)
-    END SUBROUTINE statistics_construct
+    END SUBROUTINE statistics_reset
 
     SUBROUTINE statistics_addData_s1d(me, DATA)
         CLASS(t_Statistics), INTENT(INOUT) :: me
@@ -81,7 +78,7 @@ CONTAINS
 
         TYPE(t_Statistics) :: newStatistics
 
-        CALL newStatistics%construct()
+        CALL newStatistics%reset()
 
         icount = 0
         data_sum = 0._wp
@@ -103,8 +100,6 @@ CONTAINS
           newStatistics%mean = data_sum / REAL(icount,wp)
         ENDIF
         CALL me%add(newStatistics)
-        CALL newStatistics%destruct()
-
     END SUBROUTINE statistics_addData_s1d
 
     SUBROUTINE statistics_addData_d1d(me, DATA)
@@ -115,7 +110,7 @@ CONTAINS
 
         TYPE(t_Statistics) :: newStatistics
 
-        CALL newStatistics%construct()
+        CALL newStatistics%reset()
 
         icount = 0
         data_sum = 0._wp
@@ -137,8 +132,6 @@ CONTAINS
         ENDIF
 
         CALL me%add(newStatistics)
-        CALL newStatistics%destruct()
-
     END SUBROUTINE statistics_addData_d1d
 
     SUBROUTINE statistics_addStatistics(me, other)
@@ -153,10 +146,5 @@ CONTAINS
         me%MAX = MAX(me%MAX, other%MAX)
         me%sampleCount = newSampleCount
     END SUBROUTINE statistics_addStatistics
-
-    SUBROUTINE statistics_destruct(me)
-        CLASS(t_Statistics), INTENT(INOUT) :: me
-        ! empty
-    END SUBROUTINE statistics_destruct
 
 END MODULE mo_math_types
