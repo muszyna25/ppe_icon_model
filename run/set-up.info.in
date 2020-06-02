@@ -150,7 +150,8 @@ case "$use_site" in
             esac
           ;;
           gcc)
-            use_submit='msub'
+            use_load_modules="compiler/gnu/7 numlib/mkl/2019 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_gnu7"
+            use_submit='sbatch'
             use_mpi_startrun='mpirun'
           ;;
         esac

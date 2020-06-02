@@ -125,24 +125,26 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
           &             phy_tend=phy_tend, ldims=ldims, tlev_source=tlev_source)
       ENDIF
 
-      IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
-        ! set timedelta according to nest level
-        dtime_ms = getTotalMilliSecondsTimeDelta(time_config%tc_dt_model,  &
-          &                                      time_config%tc_exp_refdate)
-        dtime_real = REAL(dtime_ms, wp) / 1000._wp         ! in seconds
-        dtime_real = dtime_real / 2._wp**nest_level
-        dtime_ms   = NINT(dtime_real*1000, i8)
-        CALL getPTStringFromMS(dtime_ms, dtime_string)
-        dt_model => newTimedelta(TRIM(dtime_string))
-
-        IF ( iforcing == iecham) THEN
-          irad_o3 = echam_rad_config(jg)%irad_o3
+      IF (TRIM(defcase) .EQ. 'prog') THEN
+        IF (timelev .EQ. 1) THEN 
+          ! set timedelta according to nest level
+          dtime_ms = getTotalMilliSecondsTimeDelta(time_config%tc_dt_model,  &
+            &                                      time_config%tc_exp_refdate)
+          dtime_real = REAL(dtime_ms, wp) / 1000._wp         ! in seconds
+          dtime_real = dtime_real / 2._wp**nest_level
+          dtime_ms   = NINT(dtime_real*1000, i8)
+          CALL getPTStringFromMS(dtime_ms, dtime_string)
+          dt_model => newTimedelta(TRIM(dtime_string))
+  
+          IF ( iforcing == iecham) THEN
+            irad_o3 = echam_rad_config(jg)%irad_o3
+          END IF
+  
+          CALL art_init(jg, dt_model, time_config%tc_exp_refdate, &
+            &           this_list,tracer=p_prog%tracer)
+          CALL deallocateTimedelta(dt_model)
         END IF
-
-        CALL art_init(jg, dt_model, time_config%tc_exp_refdate, &
-          &           this_list,tracer=p_prog%tracer)
-        CALL deallocateTimedelta(dt_model)
-      ENDIF
+      END IF
 
     END IF
 
