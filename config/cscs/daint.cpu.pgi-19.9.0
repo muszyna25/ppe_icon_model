@@ -18,7 +18,7 @@ SERIALBOX2_LIBS='-lSerialboxFortran'
 
 ################################################################################
 
-BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; module use /project/d56/modules; switch_for_module cce; export PATH=\"\${CRAY_BINUTILS_BIN}:\${PATH}\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". \"${SCRIPT_DIR}/module_switcher\"; module use /project/d56/modules; switch_for_module cce; export PATH=\"\${CRAY_BINUTILS_BIN}:\${PATH}\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${SERIALBOX2_ROOT}/lib:${XML2_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
 
 CC='cc'
 CFLAGS='-g -O2'
@@ -29,12 +29,7 @@ FCFLAGS="-g -O -Mrecursive -Mallocatable=03 -tp=haswell -I${SERIALBOX2_ROOT}/inc
 
 LDFLAGS="-L${SERIALBOX2_ROOT}/lib -L${XML2_ROOT}/lib"
 
-# ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
-# which depends on libomptarget.so but doesn't have an RPATH to it. For this
-# reason, it becomes impossible to run the executable without setting
-# LD_LIBRARY_PATH in advance (e.g. by loading an environment module). To solve
-# this issue, we overlink to libomptarget.so so that it can be found through
-# RPATH entries of the executable, which are injected by the compiler.
+# We need to overlink to libomptarget.so (see config/cscs/README.md):
 LIBS="-lomptarget -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${SERIALBOX2_LIBS}"
 
 SB2PP="${SERIALBOX2_ROOT}/python/pp_ser/pp_ser.py"

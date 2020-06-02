@@ -1061,8 +1061,10 @@ CONTAINS
       !  (5) grid-scale cloud cover [1 or 0]
       !-------------------------------------------------------------------------
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
+#ifndef __GFORTRAN__
+! FIXME: libgomp seems to run in deadlock here
+!$OMP PARALLEL DO PRIVATE(i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
+#endif
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1108,10 +1110,9 @@ CONTAINS
 
 
       ENDDO
-
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
+#ifndef __GFORTRAN__
+!$OMP END PARALLEL DO
+#endif
       IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
