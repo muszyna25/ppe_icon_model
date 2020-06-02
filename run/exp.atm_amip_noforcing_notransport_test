@@ -88,6 +88,8 @@ cat > ${atmo_namelist} << EOF
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
  ifs2icon_filename= "ifs2icon.nc"
+ pinit_seed       = -1          ! seed for perturbation of initial model state. no perturbation by default
+ pinit_amplitude  = 0.          ! amplitude of perturbation
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn

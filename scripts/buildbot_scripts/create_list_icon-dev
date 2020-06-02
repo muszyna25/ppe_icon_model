@@ -22,9 +22,6 @@ $addexp "aes/exp.test_concurrent_psrad_model" --without-configureflags without-m
 #-----------------------------------------------------------
 # in case reference data are not available uncomment this line
 #./rmexp checksuite.icon-dev/check.atm_amip_update  --list $listname
-# remove tolerance test for all builders, turn on only for daint below
-./rmexp checksuite.icon-dev/check.atm_amip_tolerance --list $listname
-./rmexp checksuite.icon-dev/check.atm_ape_tolerance --list $listname
 
 #-----------------------------------------------------------
 # OES
@@ -62,19 +59,11 @@ $addexp run/checksuite.infrastructure/testbed/exp.ocean_omip_yaxt  --builders MI
 ./rmexp checksuite.icon-dev/check.atm_heldsuarez                                  --builders DAINT_GPU_pgi --list $listname
 #./rmexp checksuite.icon-dev/check.atm_amip                                        --builders DAINT_GPU_pgi --list $listname
 #./rmexp checksuite.icon-dev/check.atm_amip_update                                 --builders DAINT_GPU_pgi --list $listname
-#./rmexp checksuite.icon-dev/check.atm_amip_tolerance                              --builders DAINT_GPU_pgi --list $listname
 
 # add tolerance check to daint builders
-$addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_cce --list $listname
-$addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_CPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance                            --builders DAINT_CPU_cce --list $listname
-$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance                            --builders DAINT_CPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.mch_ch_lowres_tolerance                            --builders DAINT_GPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_cce --list $listname
-$addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_CPU_pgi --list $listname
-$addexp checksuite.icon-dev/check.atm_ape_tolerance                                  --builders DAINT_GPU_pgi --list $listname
-# This test is currently not yet working on DAINT_GPU_pgi.   Debugging ongoing.
-$addexp checksuite.icon-dev/check.atm_amip_tolerance                                 --builders DAINT_GPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_CPU_cce --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_CPU_pgi --list $listname
+$addexp checksuite.icon-dev/check.mch_ch_lowres                                   --builders DAINT_GPU_pgi --list $listname
 
 # add tracer only test to DAINT builders (for checking equivalence of vertical transport code for GPU vs CPU)
 $addexp checksuite.icon-dev/check.atm_tracer_Hadley                                  --builders DAINT_CPU_cce --list $listname
