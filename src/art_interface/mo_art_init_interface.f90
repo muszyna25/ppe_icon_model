@@ -34,7 +34,7 @@ MODULE mo_art_init_interface
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
 
-  USE mo_art_config,                    ONLY: ctracer_art
+  USE mo_art_config,                    ONLY: art_config, ctracer_art
   USE mo_impl_constants,                ONLY: MAX_CHAR_LENGTH
 
   USE mtime,                            ONLY: datetime
@@ -49,10 +49,10 @@ MODULE mo_art_init_interface
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
   USE mo_art_clean_up,                  ONLY: art_clean_up
   USE mo_art_tagging,                   ONLY: get_number_tagged_tracer
-  USE mo_art_read_xml,                  ONLY: art_get_childnumber_xml,   &
-                                          &   art_read_elements_xml,     &
-                                          &   art_open_xml_file,         &
-                                          &   art_close_xml_file,        &
+  USE mo_art_read_xml,                  ONLY: art_check_tracer_children_xml,  &
+                                          &   art_read_elements_xml,          &
+                                          &   art_open_xml_file,              &
+                                          &   art_close_xml_file,             &
                                           &   t_xml_file
 #endif
   
@@ -97,15 +97,18 @@ END SUBROUTINE art_init_interface
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer, tracer_names)
+SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer,   &
+                          &                   tracer_element, tracer_names)
   IMPLICIT NONE
   CHARACTER(LEN=*), INTENT(in) :: &
      &   xml_filename                    !< name of the xml file
   INTEGER, INTENT(out) ::         &
      &   auto_ntracer                    !< automatically computed number of
                                          !   tracer within one xml file
+  CHARACTER(LEN = *), INTENT(in) :: &
+    &    tracer_element
   CHARACTER(LEN = *), POINTER, INTENT(inout) :: &
-     &   tracer_names(:)
+     &   tracer_names(:)                 !< names of the tracers in XML
 
   ! Local variables
   INTEGER ::          &
@@ -126,7 +129,7 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer, tracer_
 #ifdef __ICON_ART
   CALL art_open_xml_file(TRIM(xml_filename),tixi_file)
 
-  CALL art_get_childnumber_xml(tixi_file,"/tracers",auto_ntracer)
+  CALL art_check_tracer_children_xml(tixi_file,"/tracers",TRIM(tracer_element), auto_ntracer)
 
   IF (auto_ntracer > 0) THEN
     ALLOCATE(tracer_names(auto_ntracer))
@@ -212,21 +215,20 @@ END SUBROUTINE art_write_vcs_info
 !!-------------------------------------------------------------------------
 !!
 
-SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
-               &      cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml, &
-               &      lart_chem, lart_aerosol, lart_passive)
-  INTEGER, INTENT(inout) :: auto_ntracer      !< automatically computed number of tracers
-  CHARACTER(LEN = *), INTENT(in) :: &
+SUBROUTINE art_calc_ntracer_and_names()
+
+  ! Local variables
+  CHARACTER(LEN = MAX_CHAR_LENGTH) ::             &
        &      cart_chemistry_xml,   &
        &      cart_aerosol_xml,     &
        &      cart_passive_xml
-  LOGICAL, INTENT(in) ::            &
+  LOGICAL ::                        &
        &      lart_chem,            &
        &      lart_aerosol,         &
        &      lart_passive
 
-  ! Local variables
   INTEGER  ::                       &
+       &   auto_ntracer,            &
        &   auto_ntracer_chemistry,  &
        &   auto_ntracer_aerosol,    &
        &   auto_ntracer_passive          !< art ntracer from one xml file
@@ -237,6 +239,15 @@ SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
        &   tracer_names_aerosol(:)
   LOGICAL ::                 &
        &   l_exist
+
+  
+  cart_chemistry_xml = art_config(1)%cart_chemistry_xml
+  cart_aerosol_xml   = art_config(1)%cart_aerosol_xml
+  cart_passive_xml   = art_config(1)%cart_passive_xml
+
+  lart_chem          = art_config(1)%lart_chem
+  lart_aerosol       = art_config(1)%lart_aerosol
+  lart_passive       = art_config(1)%lart_passive
 
   auto_ntracer = 0
   ! chemistry xml file
@@ -250,7 +261,9 @@ SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
   
       IF (l_exist) THEN
         CALL art_calc_number_of_art_tracers_xml(TRIM(cart_chemistry_xml),  &
-                               &                auto_ntracer_chemistry, tracer_names_chemistry)
+                               &                auto_ntracer_chemistry,    &
+                               &                'chemical',                &
+                               &                tracer_names_chemistry)
         auto_ntracer = auto_ntracer + auto_ntracer_chemistry
       ELSE
         CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
@@ -274,7 +287,9 @@ SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
   
       IF (l_exist) THEN
         CALL art_calc_number_of_art_tracers_xml(TRIM(cart_aerosol_xml),  &
-                               &                auto_ntracer_aerosol, tracer_names_aerosol)
+                               &                auto_ntracer_aerosol,    &
+                               &                'aerosol',               &
+                               &                tracer_names_aerosol)
         auto_ntracer = auto_ntracer + auto_ntracer_aerosol
       ELSE
         CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
@@ -298,7 +313,9 @@ SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
   
       IF (l_exist) THEN
         CALL art_calc_number_of_art_tracers_xml(TRIM(cart_passive_xml),  &
-                               &                auto_ntracer_passive, tracer_names_passive)
+                               &                auto_ntracer_passive,    &
+                               &                'passive',               &
+                               &                tracer_names_passive)
         auto_ntracer = auto_ntracer + auto_ntracer_passive
       ELSE
         CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
@@ -341,6 +358,9 @@ SUBROUTINE art_calc_ntracer_and_names(auto_ntracer,                           &
   ELSE
     ALLOCATE(ctracer_art(ntracer))
   END IF
+
+  ! Setting iart_ntracer to determined number of tracer
+  art_config(1)%iart_ntracer = auto_ntracer
 
 END SUBROUTINE
 !

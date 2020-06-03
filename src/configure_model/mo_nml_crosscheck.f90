@@ -72,7 +72,7 @@ MODULE mo_nml_crosscheck
   USE mo_meteogram_config,         ONLY: meteogram_output_config, check_meteogram_configuration
   USE mo_grid_config,              ONLY: lplane, n_dom, l_limited_area, start_time,        &
     &                                    nroot, is_plane_torus, n_dom_start
-  USE mo_art_config,               ONLY: art_config
+  USE mo_art_config,               ONLY: art_config, ctracer_art
   USE mo_time_management,          ONLY: compute_timestep_settings,                        &
     &                                    compute_restart_settings,                         &
     &                                    compute_date_settings
@@ -87,6 +87,7 @@ MODULE mo_nml_crosscheck
   USE mo_upatmo_config,            ONLY: check_upatmo
   USE mo_name_list_output_config,  ONLY: first_output_name_list, is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
+  USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
 
 #ifdef __ICON_ART
   USE mo_grid_config,              ONLY: lredgrid_phys
@@ -648,7 +649,14 @@ CONTAINS
     END SELECT ! iforcing
 
     IF (lart) THEN
-      
+      ! determine number of ART-tracers (by reading given XML-Files)
+      ! * art_config(1)%iart_ntracer
+      CALL art_calc_ntracer_and_names()
+
+      IF(art_config(1)%iart_ntracer > 0) THEN
+        advection_config(1)%tracer_names(ntracer+1:ntracer+art_config(1)%iart_ntracer) =       &
+          &   ctracer_art(ntracer+1:)
+      END IF
       ntracer = ntracer + art_config(1)%iart_ntracer
       
       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&

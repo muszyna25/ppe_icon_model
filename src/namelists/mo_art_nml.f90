@@ -31,7 +31,6 @@ MODULE mo_art_nml
   USE mo_art_config,          ONLY: art_config, IART_PATH_LEN
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
-  USE mo_art_init_interface,  ONLY: art_calc_ntracer_and_names
   
   IMPLICIT NONE
   PRIVATE
@@ -290,10 +289,6 @@ CONTAINS
     !----------------------------------------------------
 
     IF (lart) THEN
-      CALL art_calc_ntracer_and_names(auto_ntracer,                            &
-                   &   cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml, &
-                   &   lart_chem, lart_aerosol, lart_passive)
-
     
       IF (iart_aci_cold == 6 .AND. iart_dust == 0) THEN
         CALL finish('mo_art_nml:read_art_namelist',  &
