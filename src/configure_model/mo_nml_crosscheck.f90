@@ -381,14 +381,6 @@ CONTAINS
             &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
             CALL finish(routine,'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
-        ELSE
-
-          SELECT CASE (irad_o3)
-          CASE(0) ! ok
-          CASE default
-            irad_o3 = 0
-            CALL message(routine,'running without radiation => irad_o3 reset to 0')
-          END SELECT
 
           ! ecRad specific checks
           IF ( (atm_phy_nwp_config(jg)%inwp_radiation == 4) )  THEN
@@ -424,6 +416,15 @@ CONTAINS
             IF ( iice_scat /= 0 ) &
               &  CALL message(routine,'Warning: iice_scat is explicitly set, but ecRad is not used')
           ENDIF
+
+        ELSE
+
+          SELECT CASE (irad_o3)
+          CASE(0) ! ok
+          CASE default
+            irad_o3 = 0
+            CALL message(routine,'running without radiation => irad_o3 reset to 0')
+          END SELECT
 
         ENDIF !inwp_radiation
 
