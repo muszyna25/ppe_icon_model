@@ -319,7 +319,7 @@ SUBROUTINE organize_lhn ( &
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb)
   DO jb = 1, pt_patch%nblks_c
-    pr_obs(:,jb) = 0.0_wp
+    pr_obs(:,jb) = -0.1_wp
     pr_ana(:,jb) = 0.0_wp
     wobs_space(:,jb) = -1.0_wp
     wobs_time(:,jb) = -1.0_wp
@@ -344,7 +344,6 @@ SUBROUTINE organize_lhn ( &
   END DO
 !$OMP END DO
 !$OMP END PARALLEL
-
 
   IF (my_process_is_stdio() .AND. (assimilation_config(jg)%lhn_diag) ) THEN
      INQUIRE (file=yulhn,OPENED=lopen_log)
@@ -814,6 +813,8 @@ SUBROUTINE organize_lhn ( &
        ttmax(jc) = MAX(ttmax(jc),lhn_fields%ttend_lhn(jc,jk,jb))
 
        prm_diag%tt_lheat(jc,jk,jb) = tt_lheat(jc,jk,jb)
+       prm_diag%ttend_lhn(jc,jk,jb) = lhn_fields%ttend_lhn(jc,jk,jb)
+       prm_diag%qvtend_lhn(jc,jk,jb) = lhn_fields%qvtend_lhn(jc,jk,jb)
      ENDDO
    ENDDO
    DO jc = i_startidx, i_endidx
@@ -996,10 +997,9 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
 
   jg = pt_patch%id
 
-!  CALL datetimeToString(datetime_current,mtime_cur_datetime)
-  pr_obs = -0.1
   tnow     => newDatetime(datetime_current)
-!  CALL print_value("mod_time (mmddhhmm)",tnow%date%month*1000000+tnow%date%day*10000+tnow%time%hour*100+tnow%time%minute)
+  IF (msg_level > 12) &
+   CALL print_value("mod_time (mmddhhmm)",tnow%date%month*1000000+tnow%date%day*10000+tnow%time%hour*100+tnow%time%minute)
 
   center_time => newDatetime(time_config%tc_current_date)
   next_time_1 => newDatetime(time_config%tc_current_date) ! create datetime pointer
@@ -1022,9 +1022,9 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
   time_delta  => newTimedelta('PT0S')
 
 
-!  CALL print_value("mod_time (mmddhhmm)",tnow%date%month*1000000+tnow%date%day*10000+tnow%time%hour*100+tnow%time%minute)
+  IF (msg_level > 12) &
+   CALL print_value("mod_time_2 (mmddhhmm)",tnow%date%month*1000000+tnow%date%day*10000+tnow%time%hour*100+tnow%time%minute)
 
-  iread=0
   iread=assimilation_config(jg)%nobs_times
 
   IF (iread < 1) THEN
@@ -1071,6 +1071,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
      prev_time_1=center_time+inc_time_m
      prev_time_2=center_time+2*inc_time_m
      weight_index_0=icenter
+     IF (msg_level > 12) CALL print_value ('o_ct',radar_data%radar_td%obs_date(icenter)%time%minute)
+     IF (msg_level > 12) CALL print_value ('icenter',icenter)
   ENDIF
 
   lp1=.FALSE.
@@ -1079,27 +1081,31 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
   lm1=.FALSE.
   lm2=.FALSE.
 
-
   DO i=1,iread
     IF (.NOT.lp1 .AND. radar_data%radar_td%obs_date(i) == next_time_1) THEN 
       weight_index_p1=i
       IF (msg_level > 12) CALL print_value ('o_p1',radar_data%radar_td%obs_date(i)%time%minute)
+      IF (msg_level > 12) CALL print_value ('o_p1',weight_index_p1)
       lp1=.true.
     ELSE IF (.NOT.lp2 .AND. radar_data%radar_td%obs_date(i) == next_time_2) THEN 
       weight_index_p2=i
       IF (msg_level > 12) CALL print_value ('o_p2',radar_data%radar_td%obs_date(i)%time%minute)
+      IF (msg_level > 12) CALL print_value ('o_p2',weight_index_p2)
       lp2=.true.
     ELSE IF (.NOT.lp3 .AND. radar_data%radar_td%obs_date(i) == next_time_3) THEN 
       weight_index_p3=i
       IF (msg_level > 12) CALL print_value ('o_p3',radar_data%radar_td%obs_date(i)%time%minute)
+      IF (msg_level > 12) CALL print_value ('o_p3',weight_index_p3)
       lp3=.true.
     ELSE IF (.NOT.lm1 .AND. radar_data%radar_td%obs_date(i) == prev_time_1) THEN 
       weight_index_m1=i
       IF (msg_level > 12) CALL print_value ('o_m1',radar_data%radar_td%obs_date(i)%time%minute)
+      IF (msg_level > 12) CALL print_value ('o_m1',weight_index_m1)
       lm1=.true.
     ELSE IF (.NOT.lm2 .AND. radar_data%radar_td%obs_date(i) == prev_time_2) THEN
       weight_index_m2=i
       IF (msg_level > 12) CALL print_value ('o_m2',radar_data%radar_td%obs_date(i)%time%minute)
+      IF (msg_level > 12) CALL print_value ('o_m2',weight_index_m2)
       lm2=.true.
     ENDIF
     IF (lp1 .AND. lp2 .AND. lp3 .AND. lm1 .AND. lm2) EXIT
@@ -1200,16 +1206,15 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
       i_startblk = pt_patch%cells%start_block(i_rlstart)
       i_endblk   = pt_patch%cells%end_block(i_rlend)
 
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
      DO jb=i_startblk,i_endblk
        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
          &                i_startidx, i_endidx, i_rlstart, i_rlend)
         DO jc=i_startidx,i_endidx
-        IF (NINT(radar_data%radar_ct%blacklist(jc,jb)) /= 1_i4 .AND. NINT(lhn_fields%brightband(jc,jb)) /= 1_i4) THEN
-           IF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
-               (radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+          IF (NINT(radar_data%radar_ct%blacklist(jc,jb)) /= 1_i4 .AND. NINT(lhn_fields%brightband(jc,jb)) /= 1_i4) THEN
+            IF ((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+               (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
               ! observation is valid between t>=0 and t<=+lhn_dt_obs
               pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_0)                           &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_0)) &
@@ -1224,8 +1229,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m1 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
-                  (radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+            ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                  (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
               ! observation is valid between t>=-lhn_dt_obs and t<=+lhn_dt_obs
               pr_obs(jc,jb)     = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                               &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))  &
@@ -1240,8 +1245,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
-                  (radar_data%radar_td%obs(jc,jb,weight_index_p2)>= pr_time_limit)) THEN
+            ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                  lp2 .AND.(radar_data%radar_td%obs(jc,jb,weight_index_p2)>= pr_time_limit)) THEN
               ! observation is valid between t>=0 and t<=+2assimilation_config(jg)%lhn_dt_obs
               pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                   &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_0))      &
@@ -1256,8 +1261,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF(((weight_index_m1 > 0).AND.radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
-                  (radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
+            ELSEIF((lm1.AND.radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                  (lp2.AND.radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
               ! observation is valid between t>=-lhn_dt_obs and t<=+2lhn_dt_obs
               pr_obs(jc,jb)    = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
@@ -1272,8 +1277,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m2 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
-                  (radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
+            ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
+                  (lp1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p1) >= pr_time_limit)) THEN
               ! observation is valid between t>=-2lhn_dt_obs and t<=+lhn_dt_obs
               pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p1)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
@@ -1288,8 +1293,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
-                  (radar_data%radar_td%obs(jc,jb,weight_index_p3)>= pr_time_limit)) THEN
+            ELSEIF((radar_data%radar_td%obs(jc,jb,weight_index_0) >= pr_time_limit) .AND. &
+                  (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3)>= pr_time_limit)) THEN
               ! observation is valid between t>=0 and t<=+3lhn_dt_obs
               pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_0)                                  &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_0))     &
@@ -1304,8 +1309,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m2 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
-                  (radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
+            ELSEIF((lm2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m2lim) >= pr_time_limit) .AND. &
+                  (lp2 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p2) >= pr_time_limit)) THEN
               ! observation is valid between t>=-2lhn_dt_obs and t<=+2lhn_dt_obs
               pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m2lim)                                  &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p2)-radar_data%radar_td%obs(jc,jb,weight_index_m2lim))     &
@@ -1320,8 +1325,8 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSEIF((weight_index_m1 > 0).AND.(radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
-                  (radar_data%radar_td%obs(jc,jb,weight_index_p3) >= pr_time_limit)) THEN
+            ELSEIF((lm1 .AND. radar_data%radar_td%obs(jc,jb,weight_index_m1lim) >= pr_time_limit) .AND. &
+                  (lp3 .AND. radar_data%radar_td%obs(jc,jb,weight_index_p3) >= pr_time_limit)) THEN
               ! observation is valid between t>=-lhn_dt_obs and t<=+3lhn_dt_obs
               pr_obs(jc,jb) = radar_data%radar_td%obs(jc,jb,weight_index_m1lim)                                  &
                    + (radar_data%radar_td%obs(jc,jb,weight_index_p3)-radar_data%radar_td%obs(jc,jb,weight_index_m1lim))     &
@@ -1336,13 +1341,13 @@ SUBROUTINE lhn_obs_prep (pt_patch,radar_data,prm_diag,lhn_fields,pr_obs, &
               ELSE
                   wobs_space(jc,jb) = 1.0_wp
               ENDIF
-           ELSE
+            ELSE
               ! observation is not valid
               pr_obs(jc,jb) = -0.1_wp
               wobs_space(jc,jb) = 0.0_wp
               wobs_time(jc,jb) = 0.0_wp
               num_t_obs (jc,jb,0) = 1
-           ENDIF
+            ENDIF
           ENDIF
         ENDDO
      ENDDO
