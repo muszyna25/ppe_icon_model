@@ -196,6 +196,12 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 
 
               phosy_cya = pho*avcyabac  
+              
+              ! limitation on DIC
+              if (bgctra(j,k,isco212).le.rcar*phosy_cya) then
+                  cyapro = min(avnit-1.e-11_wp*rnoi,max(0._wp,(bgctra(j,k,isco212)-EPSILON(1.0_wp))/(rcar*phosy_cya)*cyapro))
+                  phosy_cya=max(0._wp,(bgctra(j,k,isco212)-EPSILON(1.0_wp)))/rcar
+              endif
               ! ---------- nutrient uptake
 
               bgctra(j,k,iphosph) = bgctra(j,k,iphosph) - phosy_cya    
