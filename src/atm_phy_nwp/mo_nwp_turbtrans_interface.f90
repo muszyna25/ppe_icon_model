@@ -391,7 +391,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  depth_lk=ext_data%atm%depth_lk(:,jb),                                     & !in
           &  h_ice=wtr_prog_new%h_ice(:,jb),                                           & !in
           &  sai=ext_data%atm%sai_t(:,jb,1),                                           & !in
-          &  gz0=prm_diag%gz0(:,jb),                                                   & !inout
+          &  gz0=prm_diag%gz0_t(:,jb,1),                                               & !inout
           &  t_g=lnd_prog_new%t_g(:,jb),                                               & !in
           &  qv_s=lnd_diag%qv_s(:,jb),                                                 & !in
           &  ps=p_diag%pres_sfc(:,jb),                                                 & !in

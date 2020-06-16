@@ -1518,15 +1518,15 @@ CONTAINS
 
     INTEGER, PARAMETER :: oversamp_fac = 7
 
-    LOGICAL           :: not_owned
+    LOGICAL           :: not_owned, is_in_cell
     INTEGER           :: idom_fwo, i, ii, iidx, k, kk, iblk, i_startblk, i_endblk, is, ie, in, jn, &
          &               inear(nproma,p_patch(idom)%nblks_c), jnear(nproma,p_patch(idom)%nblks_c), &
-         &               i_idx, i_blk, ni_over, nj_over, num_neigh, &
+         &               i_idx, i_blk, ni_over, nj_over, in_over, jn_over, num_neigh, &
          &               global_idx_cell(nproma,p_patch(idom)%nblks_c)
 
     REAL(KIND=dp)     :: rlon, rlat, clon_min, clon_max, clat_min, clat_max, &
          &               dist, distlat, distlon, tmplon, tmplat, edge_length, &
-         &               dlon_edge, dlat_edge, maxx_edge_length
+         &               dlon_edge, dlat_edge, max_max_edge_length, max_rlat
 
     REAL(KIND=dp), DIMENSION(nproma,p_patch(idom)%nblks_c)       :: &
          &               max_edge_length
@@ -1950,34 +1950,43 @@ CONTAINS
       i_startblk = p_patch(idom) % cells % start_block(grf_bdywidth_c+1)
       i_endblk   = p_patch(idom) % cells % end_block(min_rlcell)    ! including halo cells
 
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(i,k,is,ie,rlon,rlat,ii,kk,ni_over,nj_over,in,jn,tmplon,tmplat,dist)
+!$OMP DO PRIVATE(i,k,is,ie,rlon,rlat,ii,kk,ni_over,nj_over,in_over,jn_over,in,jn,tmplon,tmplat,dist, &
+!$OMP&           max_max_edge_length,max_rlat,is_in_cell)
       DO k = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(idom), k, i_startblk, i_endblk, is, ie, grf_bdywidth_c+1, min_rlcell)
         
-        DO i = is, ie
+        ! determine search region in terms of auxiliary oversampling grid points:
+        max_max_edge_length = MAXVAL(max_edge_length(is:ie,k))
+        max_rlat = MAXVAL(cindex_grid(idom_fwo)%startlat + (jnear(is:ie,k)-1) * cindex_grid(idom_fwo)%dlat)
+        ni_over = FLOOR( max_max_edge_length / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlon*degrad * &
+             COS( (max_rlat+0.5_dp*raddeg*max_max_edge_length/cindex_grid(idom_fwo)%r_earth) * degrad ) ) ) + 5
+        ni_over = ni_over + MOD(ni_over+1, 2)  ! makes ni_over an odd integer
+        nj_over = FLOOR( max_max_edge_length / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlat*degrad ) ) + 5
+        nj_over = nj_over + MOD(nj_over+1, 2)  ! makes nj_over an odd integer
 
-          ! The next IF is needed because not all halo cells are exchanged by exchange_data() above.
-          ! I think that halo cells on the outer boundary are part of the loop, but not part of the inner
-          !  boundaries which have been exchanged.
-          IF (inear(i,k) > -HUGE(1)) THEN
+        DO jn_over = -nj_over/2 , nj_over/2
+          DO in_over = -ni_over/2 , ni_over/2
+!NEC$ ivdep
+            DO i = is, ie
 
-            ii   = cindex_grid(idom_fwo)%cind(inear(i,k),jnear(i,k))
+              ! The next IF is needed because not all halo cells are exchanged by exchange_data() above.
+              ! I think that halo cells on the outer boundary are part of the loop, but not part of the inner
+              !  boundaries which have been exchanged.
+              IF (inear(i,k) > -HUGE(1)) THEN
 
-            rlon = cindex_grid(idom_fwo)%startlon + (inear(i,k)-1) * cindex_grid(idom_fwo)%dlon
-            rlat = cindex_grid(idom_fwo)%startlat + (jnear(i,k)-1) * cindex_grid(idom_fwo)%dlat
+                ii   = cindex_grid(idom_fwo)%cind(inear(i,k),jnear(i,k))
+                ! Oversampling point (in,jn) for which it is checked whether it is inside the (i,k) ICON triangle:
+                !   Note: points (inear(i,k),jnear(i,k)) are all unique during an iteration of the i-loop, so (in,jn) are unique
+                !   and no dependency exists when incrementing the counter(in,jn) below.
+                in   = inear(i,k) + in_over
+                jn   = jnear(i,k) + jn_over
 
-            ! determine search region in terms of auxiliary oversampling grid points:
-            ni_over = FLOOR( max_edge_length(i,k) / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlon*degrad * &
-                 COS( (rlat+0.5_dp*raddeg*max_edge_length(i,k)/cindex_grid(idom_fwo)%r_earth) * degrad ) ) ) + 5
-            ni_over = ni_over + MOD(ni_over+1, 2)  ! makes ni_over an odd integer
-            nj_over = FLOOR( max_edge_length(i,k) / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlat*degrad ) ) + 5
-            nj_over = nj_over + MOD(nj_over+1, 2)  ! makes nj_over an odd integer
+                rlon = cindex_grid(idom_fwo)%startlon + (inear(i,k)-1) * cindex_grid(idom_fwo)%dlon
+                rlat = cindex_grid(idom_fwo)%startlat + (jnear(i,k)-1) * cindex_grid(idom_fwo)%dlat
 
-            DO jn = jnear(i,k)-nj_over/2 , jnear(i,k)+nj_over/2
-              DO in = inear(i,k)-ni_over/2 , inear(i,k)+ni_over/2
-            
                 IF ( ( in /= inear(i,k) .AND. in >= 1 .AND. in <= cindex_grid(idom_fwo)%nlon ) .OR. &
                      ( jn /= jnear(i,k) .AND. jn >= 1 .AND. jn <= cindex_grid(idom_fwo)%nlat ) ) THEN
               
@@ -1990,7 +1999,8 @@ CONTAINS
                   !  of the stored global nearest cell index, if it has already
                   !  been assigned to another cell. If yes, the cell with the larger global
                   !  index shall win:
-                  IF ( is_inside_triangle(tmplon, tmplat, lon_vertex(i,k,1:3), lat_vertex(i,k,1:3)) ) THEN
+                  is_in_cell = is_inside_triangle(tmplon, tmplat, lon_vertex(i,k,1:3), lat_vertex(i,k,1:3))
+                  IF ( is_in_cell ) THEN
                     kk = cindex_grid(idom_fwo)%cind_glob(in,jn)
                     IF ( global_idx_cell(i,k) > kk ) THEN
                       cindex_grid(idom_fwo)%cind(in,jn)      = ii
@@ -2002,15 +2012,14 @@ CONTAINS
                     END IF
                   END IF
 #endif
-                
                 END IF
+              END IF
               
-              END DO
             END DO
-          
-          END IF
-
+            
+          END DO
         END DO
+
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -2018,11 +2027,16 @@ CONTAINS
     END IF
 
 
+    !===============================================================================
+    !    Debug output:
+    !===============================================================================
+
     IF (cindex_grid(idom_fwo)%nlon > 0 .AND. cindex_grid(idom_fwo)%nlat > 0 .AND. ldebug) THEN
 
-!===============================================================================
-!    Debug file output (commented out, but left in the code for eventual later use):
-!
+      !----------------------------------------------------------------------------
+      ! Debug output of aux grid points assigned to ICON grid indices into files:
+      !----------------------------------------------------------------------------
+
       testfile(:) = ' '
       WRITE (testfile, '("testdomain_",i4.4,".dat")') my_cart_id_fwo
       OPEN(350+my_cart_id_fwo, file=TRIM(testfile), status='replace', form='formatted')
@@ -2063,14 +2077,11 @@ CONTAINS
              (counter(i,k), i=1,MIN(cindex_grid(idom_fwo)%nlon,HUGE(1)))
       END DO
       CLOSE(350+my_cart_id_fwo)
-!
-! END debug output
-!===============================================================================
-
     
-      ! 3d) Search for multiple assignments of ICON cells to aux. grid points.
-      !     If such points are found a warning is issued:
-      !     ------------------------------------------------------------------
+      !----------------------------------------------------------------------------
+      ! Search for multiple assignments of ICON cells to aux. grid points.
+      ! If such points are found a warning is issued:
+      !----------------------------------------------------------------------------
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(i,k)
@@ -2089,10 +2100,11 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-      ! 3e) Search for "holes" in the aux. grid, which are cells with no assignment and
-      !     surrounded by at least 7 assigned neighbours. If such holes are found a warning
-      !     is issued:
-      !     -------------------------------------------------------------------------------
+      !----------------------------------------------------------------------------------
+      ! Search for "holes" in the aux. grid, which are cells with no assignment and
+      ! surrounded by at least 7 assigned neighbours. If such holes are found a warning
+      ! is issued:
+      !----------------------------------------------------------------------------------
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(i,k,num_neigh,tmplon,tmplat,in,jn,iidx,iblk)
@@ -2135,7 +2147,12 @@ CONTAINS
       ! Clean up memory
       DEALLOCATE (counter)
 
-    END IF  ! PE domain overlaps with radar-covered area
+    END IF  ! PE domain overlaps with radar-covered area and ldebug=.true.
+
+!=================================================================================
+! End of debug output
+!=================================================================================
+
 
     IF (ldebug) WRITE(*,*) 'Done with '//TRIM(yzroutine)//' on proc ', my_radar_id
 
@@ -3616,14 +3633,17 @@ CONTAINS
     CALL init_vari(blk(:)    , -HUGE(1))
 
     ! calculate idx and blk indices of enclosing ICON grid cell:
+#ifdef __SX__
+    CALL geo2cell_index2d_vec (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
+                               lon_r(:), lat_r(:), idx(:), blk(:))
+#else
 !$omp parallel do
     DO irp = 1, nobsmax
-
       CALL geo2cell_index2d (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
                              lon_r(irp), lat_r(irp), idx(irp), blk(irp))
-
     ENDDO
 !$omp end parallel do
+#endif
 
     ! To gain the indices i,j of model grids southwest to radar points and 
     ! check if the radar point is in the local domain, based on lon i and lat j of radar points
@@ -3764,7 +3784,7 @@ CONTAINS
     ! Local variables:
     !-----------------
 
-    INTEGER        :: ngrd, ngrdmax, i, j, k, m, n, o, offset_i, offset_j, idx, blk
+    INTEGER        :: ngrd, ngrdmax, i, j, k, m, n, o, offset_i, offset_j, naz
 
     REAL    (KIND=dp)          :: &
          wi,& ! interpolation weight in i-direction
@@ -3774,13 +3794,15 @@ CONTAINS
 
     REAL    (KIND=dp),  ALLOCATABLE :: &
          hl(:)     ! array of geographical heights for each auxiliary grid  
-
+    
     INTEGER , ALLOCATABLE     :: &
-         ind_intptmp(:,:)  ! array of indices for each auxiliary grid (first dimension)
-                           ! the second dimension consists of:
-                           ! 1:     the continuous index of the model grid cell associated with the observation
-                           ! 2:     the continuous index representing aux grid points in
-                           !        azimuthal, arc length and vertical direction (m,n,k)
+         ind_intptmp(:,:), & ! array of indices for each auxiliary grid (first dimension)
+                             ! the second dimension consists of:
+                             ! 1:     the continuous index of the model grid cell associated with the observation
+                             ! 2:     the continuous index representing aux grid points in
+                             !        azimuthal, arc length and vertical direction (m,n,k)
+         idx(:),   &
+         blk(:)
 
 
     ! allocate and initialize local aux arrays with maximum possible vector length:
@@ -3789,6 +3811,9 @@ CONTAINS
     ALLOCATE(ind_intptmp(ngrdmax,2))
     ind_intptmp = -1
 
+    naz = SIZE(lon_g, dim=1)
+    ALLOCATE(idx(naz), blk(naz))
+
     ! loop over all grid points
     ngrd = 0     
 
@@ -3796,24 +3821,32 @@ CONTAINS
     CALL init_vari(hl, -999.99_dp)
 
     DO n = 1, rs_grid%nal+1      ! loop over arc length
+      CALL init_vari(idx(:), -HUGE(1))
+      CALL init_vari(blk(:), -HUGE(1))
+!#ifdef __SX__
+!      CALL geo2cell_index2d_vec (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
+!                                 lon_g(:,n), lat_g(:,n), idx(:), blk(:))
+!
+!      DO m = 1, rs_grid%naz_nbl  ! loop over azimuths
+!#else
       DO m = 1, rs_grid%naz_nbl  ! loop over azimuths
 
         ! calculate index idx and blk of ICON cell that contains the radar point
         CALL geo2cell_index2d (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
-                               lon_g(m,n), lat_g(m,n), idx, blk)
-
+                               lon_g(m,n), lat_g(m,n), idx(m), blk(m))
+!#endif
         ! find points within the local computational processor domain:
-        IF ( idx > -HUGE(1) .AND. blk > -HUGE(1) ) THEN
+        IF ( idx(m) > -HUGE(1) .AND. blk(m) > -HUGE(1) ) THEN
 
           DO k = je_fwo,1,-1         ! loop over heights
 
             ngrd = ngrd + 1
 
 ! This hinders OMP parallelization!
-            hl(ngrd) = hfl(idx, k, blk)
+            hl(ngrd) = hfl(idx(m), k, blk(m))
 
             ! continuous index representing the upper ICON cell idx,k,blk
-            CALL sub2ind3D(idx, k, blk, nproma, je_fwo, ind_intptmp(ngrd,1))
+            CALL sub2ind3D(idx(m), k, blk(m), nproma, je_fwo, ind_intptmp(ngrd,1))
 
             ! continuous index representing aux grid point azi, arc dist, height
             CALL sub2ind3D(m, n, k, rs_grid%naz_nbl, rs_grid%nal+1, ind_intptmp(ngrd,2))
@@ -3848,6 +3881,7 @@ CONTAINS
     END IF
 
     DEALLOCATE(ind_intptmp)
+    DEALLOCATE(idx, blk)
 
   END SUBROUTINE setup_model2azislices_vec
 
@@ -4055,7 +4089,7 @@ CONTAINS
     REAL(KIND=dp)                   :: lon_rot, lat_rot  ! rotated lon/lat
     REAL(KIND=dp)                   :: tmplon, tmplat    ! geogr. lon/lat
     REAL(KIND=dp)                   :: dist, disttmp
-    INTEGER                         :: i, k, ii,kk, idxtmp, blktmp
+    INTEGER                         :: i, k, ii,kk, inb,knb, idxtmp, blktmp
 
     IF ( ALLOCATED(cidx_grid%cind) ) THEN
 
@@ -4077,8 +4111,15 @@ CONTAINS
           tmplon = p_patch_dom % cells % center(idx,blk) % lon * raddeg
           tmplat = p_patch_dom % cells % center(idx,blk) % lon * raddeg
           dist = geo_dist(lon_geo, lat_geo, tmplon, tmplat, cidx_grid%r_earth, 0.0_dp)
+
           DO kk = MAX(k-1,1), MIN(k+1,cidx_grid%nlat)
             DO ii = MAX(i-1,1), MIN(i+1,cidx_grid%nlon)
+
+!          DO knb = -1, 1
+!            DO inb = -1, 1
+!              ii = MIN( MAX( i+inb, 1), cidx_grid%nlat )
+!              kk = MIN( MAX( k+knb, 1), cidx_grid%nlon )
+
               idxtmp = cidx_grid%idx(ii,kk)
               blktmp = cidx_grid%blk(ii,kk)
               IF ( idxtmp  > -HUGE(1) ) THEN
@@ -4119,6 +4160,146 @@ CONTAINS
     END IF
 
   END SUBROUTINE geo2cell_index2d
+
+  SUBROUTINE geo2cell_index2d_vec (cidx_grid, p_patch_dom, lon_geo, lat_geo, idx, blk)
+
+    IMPLICIT NONE
+    TYPE(t_cindex_grid), INTENT(in) :: cidx_grid
+    TYPE(t_patch)      , INTENT(in) :: p_patch_dom
+    REAL(KIND=dp), INTENT(in)       :: lon_geo(:), lat_geo(:)  ! geogr. lon/lat
+    INTEGER, INTENT(inout)          :: idx(:), blk(:)
+
+    REAL(KIND=dp)                   :: lon_rot, lat_rot  ! rotated lon/lat
+    REAL(KIND=dp)                   :: tmplon, tmplat    ! geogr. lon/lat
+    REAL(KIND=dp)                   :: disttmp
+    REAL(KIND=dp), ALLOCATABLE      :: dist(:)
+    INTEGER                         :: n, ii,kk, inb,knb, idxtmp, blktmp, size_vec
+    INTEGER, ALLOCATABLE            :: i(:), k(:)
+
+    size_vec = SIZE(lon_geo)
+
+    IF (size_vec > 0) THEN
+
+      IF ( ALLOCATED(cidx_grid%cind) ) THEN
+
+        ALLOCATE (dist(size_vec))
+        ALLOCATE (i(size_vec), k(size_vec))
+
+        ! Prepare search in the 3x3 neighbours in the auxiliary grid,
+        !  if any of their nearest cells might be closer:
+        ! -----------------------------------------------------------
+
+        dist = HUGE(1.0_dp)
+        DO  n = 1, size_vec
+
+          CALL geo2rotll_coord (lon_geo(n), lat_geo(n), &
+               cidx_grid%pollon, cidx_grid%pollat, cidx_grid%polgam, &
+               lon_rot, lat_rot)
+
+          i(n) = FLOOR( (lon_rot-cidx_grid%startlon) / cidx_grid%dlon ) + 1
+          k(n) = FLOOR( (lat_rot-cidx_grid%startlat) / cidx_grid%dlat ) + 1
+
+          IF ( i(n) > 0 .AND. i(n) <= cidx_grid%nlon .AND. &
+               k(n) > 0 .AND. k(n) <= cidx_grid%nlat ) THEN
+
+            ! Original candidate for nearest neighbour from the auxiliary grid:
+            idx(n) = cidx_grid%idx(i(n),k(n))
+            blk(n) = cidx_grid%blk(i(n),k(n))
+
+            IF (idx(n) > -HUGE(1)) THEN
+              ! The original candidate is inside ICON domain. Now get the
+              !  geo coords of this candidate from the auxiliary grid and it's
+              !  distance to the n-th geo point:
+              tmplon = p_patch_dom % cells % center(idx(n),blk(n)) % lon * raddeg
+              tmplat = p_patch_dom % cells % center(idx(n),blk(n)) % lon * raddeg
+              dist(n) = geo_dist(lon_geo(n), lat_geo(n), tmplon, tmplat, cidx_grid%r_earth, 0.0_dp)
+            END IF
+
+          ELSE
+
+            ! n-th geo point is outside auxiliary grid, no assignment possible
+            idx(n) = -HUGE(1)
+            blk(n) = -HUGE(1)
+
+          END IF
+
+        END DO
+
+
+        ! Now do the search in the 3x3 neighbours and check if any of them is
+        !  closer to the n-th geo point than the original candidate:
+        ! -------------------------------------------------------------------
+
+        DO knb = -1, 1
+          DO inb = -1, 1
+
+            ! exclude the center point of the neighbourhood from the search,
+            !  because this is the original candidate:
+            IF (inb /= 0 .OR. knb /= 0) THEN
+
+              DO  n = 1, size_vec
+
+                IF (idx(n) > -HUGE(1)) THEN
+
+                  ! The grid coords of the neighbours in the auxiliary grid,
+                  !  clipped to the range of the auxiliary grid for safety:
+                  ii = MIN( MAX( i(n)+inb, 1), cidx_grid%nlon )
+                  kk = MIN( MAX( k(n)+knb, 1), cidx_grid%nlat )
+
+                  idxtmp = cidx_grid%idx(ii,kk)
+                  blktmp = cidx_grid%blk(ii,kk)
+                  IF ( idxtmp  > -HUGE(1) ) THEN
+                    ! The geo coords of the neighour in the auxiliary grid
+                    !  and their distance to the n-th geo point:
+                    tmplon = p_patch_dom % cells % center(idxtmp,blktmp) % lon * raddeg
+                    tmplat = p_patch_dom % cells % center(idxtmp,blktmp) % lon * raddeg
+                    disttmp = geo_dist(lon_geo(n), lat_geo(n), tmplon, tmplat, cidx_grid%r_earth, 0.0_dp)
+                    ! If this neighbour is nearer to the n-th geo point, it will
+                    !  the new candidate:
+                    IF ( disttmp < dist(n) ) THEN
+                      dist(n) = disttmp
+                      idx(n)  = idxtmp
+                      blk(n)  = blktmp
+                    END IF
+                  END IF
+
+                END IF
+
+              END DO
+
+            END IF
+
+          END DO
+        END DO
+
+        ! If the indentified nearest cell is not among the interior cells,
+        !  it will be found on another PE and is flagged as not found here:
+        DO n=1, size_vec
+          IF (idx(n) > -HUGE(1)) THEN
+            IF (.NOT. p_patch_dom % cells % decomp_info % owner_mask(idx(n),blk(n))) THEN
+              idx(n) = -HUGE(1)
+              blk(n) = -HUGE(1)
+            END IF
+          END IF
+        END DO
+
+        DEALLOCATE (dist, i, k)
+
+      ELSE
+
+        ! Not on a worker PE or no overlap with radar-covered area or
+        !  setup_auxgrid_for_cellindex() has not yet been called, so we
+        !  cannot give a correct index:
+
+        idx(:) = -HUGE(1)
+        blk(:) = -HUGE(1)
+
+      END IF
+
+    END IF
+
+  END SUBROUTINE geo2cell_index2d_vec
+
 
   FUNCTION geo2cell_index1d (cidx_grid, p_patch_dom, lon_geo, lat_geo) RESULT (index1d)
 
