@@ -291,6 +291,7 @@ MODULE mo_ocean_nml
   INTEGER  :: i_sea_ice             = 1          ! 0 = no sea ice; 1=apply sea ice model using sea_ice_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
                                                  ! false = salinity is relaxed under sea ice completely
+  INTEGER  :: ice_flux_type        = 0          ! 0 = adjust heights in apply_surface_relax
 
   LOGICAL  :: use_tracer_x_height          = .FALSE. ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
   LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.  ! FALSE: no horizontal tracer diffusion
@@ -745,6 +746,7 @@ MODULE mo_ocean_nml
   NAMELIST/ocean_physics_nml/&
     &  EOS_TYPE                    , &
     &  i_sea_ice                   , &
+    &  ice_flux_type               , &
     &  LinearThermoExpansionCoefficient,  &
     &  LinearHalineContractionCoefficient,&
     &  OceanReferenceDensity,       &

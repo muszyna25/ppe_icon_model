@@ -39,7 +39,7 @@ MODULE mo_hydro_ocean_run
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
     &  use_draftave_for_transport_h, &
-    & vert_cor_type
+    & vert_cor_type, ice_flux_type
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -104,6 +104,7 @@ MODULE mo_hydro_ocean_run
  
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_ocean_tracer_diffusion, ONLY: tracer_vertdiff_eliminate_upper_diag => eliminate_upper_diag
+  USE mo_physical_constants,        ONLY: rho_ref, grav 
 
   IMPLICIT NONE
 
@@ -741,6 +742,11 @@ CONTAINS
         ELSE
           ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
         ENDIF 
+        IF (ice_flux_type .EQ. 1) THEN 
+          ocean_state(jg)%p_aux%bc_total_top_potential = &
+            & ocean_state(jg)%p_aux%bc_tides_potential  + &
+            & rho_ref * OceanReferenceDensity_inv * grav * sea_ice%draftave
+        END IF
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
