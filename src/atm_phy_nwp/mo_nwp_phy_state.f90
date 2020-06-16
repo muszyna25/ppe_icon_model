@@ -423,7 +423,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'rain_con_rate', diag%rain_con_rate,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,                                              &
-                & isteptype=TSTEP_INSTANT )
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE.)
+    __acc_attach(diag%rain_con_rate)
 
 
     ! &      diag%snow_con_rate(nproma,nblks_c)
@@ -433,7 +434,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'snow_con_rate', diag%snow_con_rate,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,                                              &
-                & isteptype=TSTEP_INSTANT )
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE.)
+    __acc_attach(diag%snow_con_rate)
 
     ! &      diag%rain_con_rate_3d(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('rain_con_rate_3d', 'kg m-2 s-1',                &
@@ -1387,7 +1389,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'albdif_t', diag%albdif_t,                &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,       &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,       &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+      __acc_attach(diag%albdif_t)
 
       ! fill the seperate variables belonging to the container albdif_t
       ALLOCATE(diag%albdif_t_ptr(ntiles_total+ntiles_water))
@@ -1457,7 +1460,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'sob_s_t', diag%swflxsfc_t,                 &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+      __acc_attach(diag%swflxsfc_t)
 
       ! fill the seperate variables belonging to the container swflxsfc_t
       ALLOCATE(diag%swflxsfc_t_ptr(ntiles_total+ntiles_water))
@@ -1480,7 +1484,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'thb_s_t', diag%lwflxsfc_t,                 &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,         &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+      __acc_attach(diag%lwflxsfc_t)
 
       ! fill the seperate variables belonging to the container lwflxsfc_t
       ALLOCATE(diag%lwflxsfc_t_ptr(ntiles_total+ntiles_water))
@@ -1607,7 +1612,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(0, 4, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_par_sfc', diag%swflx_par_sfc,           &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.TRUE., in_group=groups("rad_vars")         )
+      & ldims=shape2d, lrestart=.TRUE., in_group=groups("rad_vars"),        &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%swflx_par_sfc)
 
     ! &      diag%swflx_dn_sfc_diff(nproma,nblks_c)
     cf_desc    = t_cf_var('sodifd_s', 'W m-2', 'shortwave diffuse downward flux at surface', datatype_flt)
@@ -2153,7 +2160,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'lhfl_s', diag%lhfl_s,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
-      & in_group=groups("pbl_vars"))
+      & in_group=groups("pbl_vars"), lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_s)
                 
     WRITE(name,'(A,A6)') TRIM(prefix),"lhfl_s"
     WRITE(long_name,'(A27,A4,A18)') "surface latent heat flux ", meaning, &
@@ -2177,7 +2185,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'lhfl_bs', diag%lhfl_bs,                     &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d, lrestart=.FALSE.,                                  &
-      & in_group=groups("pbl_vars"))
+      & in_group=groups("pbl_vars"), lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_bs)
 
     WRITE(name,'(A,A7)') TRIM(prefix),"lhfl_bs"
     WRITE(long_name,'(A27,A4,A18)') "latent heat flux from bare soil", meaning, &
@@ -2198,7 +2207,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(2, 0, 194, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lhfl_pl', diag%lhfl_pl,                     &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
-      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE. )
+      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,               &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_pl)
               
     WRITE(name,'(A,A7)') TRIM(prefix),"lhfl_pl"
     WRITE(long_name,'(A27,A4,A18)') "latent heat flux from plants", meaning, &
@@ -2670,7 +2681,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(2, 0, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lhfl_bs_t', diag%lhfl_bs_t,                              &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs,    &
-      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_bs_t)
 
     ! fill the separate variables belonging to the container lhfl_bs_t
     ALLOCATE(diag%lhfl_bs_t_ptr(ntiles_total))
@@ -2692,7 +2704,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'lhfl_pl_t', diag%lhfl_pl_t,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
       & ldims=(/nproma,nlev_soil,kblks,ntiles_total/), lcontainer=.TRUE., &
-      & lrestart=.FALSE., loutput=.FALSE.)
+      & lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_pl_t)
 
     ! fill the separate variables belonging to the container lhfl_pl_t
     ALLOCATE(diag%lhfl_pl_t_ptr(ntiles_total))

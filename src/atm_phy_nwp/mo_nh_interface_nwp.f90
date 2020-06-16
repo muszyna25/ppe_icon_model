@@ -118,6 +118,7 @@ MODULE mo_nh_interface_nwp
   !$ser verbatim USE mo_ser_nh_interface_nwp, ONLY: serialize_nh_interface_nwp_input,&
   !$ser verbatim                                    serialize_nh_interface_nwp_output
   !$ser verbatim USE mo_ser_nml,              ONLY: ser_debug
+  !$ser verbatim USE mo_ser_all,              ONLY: serialize_all
 
   IMPLICIT NONE
 
@@ -613,6 +614,13 @@ CONTAINS
     IF ( l_any_fastphys .AND. ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) &
                   & .OR. ( edmf_conf==2  .AND. iedmf==atm_phy_nwp_config(jg)%inwp_turb ) ) ) THEN
       IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_surface. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
+      !$ser verbatim CALL serialize_all(nproma, 1, "surface", .TRUE., opt_lupdate_cpu=.FALSE.)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
        !! of the temperature at the lowest model level towards ground level,
@@ -625,8 +633,15 @@ CONTAINS
                              & prm_diag,                         & !>inout
                              & lnd_prog_now, lnd_prog_new,       & !>inout
                              & wtr_prog_now, wtr_prog_new,       & !>inout
-                             & lnd_diag                          ) !>input
-
+                             & lnd_diag,                         & !>input
+                             & lacc=(.not. linit)                ) !>in
+       !$ser verbatim CALL serialize_all(nproma, 1, "surface", .FALSE., opt_lupdate_cpu=.TRUE.)
+#ifdef _OPENACC
+    IF(.not. linit) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_surface. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+    ENDIF
+#endif
       IF (timers_level > 2) CALL timer_stop(timer_nwp_surface)
     END IF
 
