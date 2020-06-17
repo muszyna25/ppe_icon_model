@@ -1,14 +1,14 @@
-#!/bin/ksh
+#! /bin/ksh
 #=============================================================================
-# =====================================
-# mistral batch job parameters
-#-----------------------------------------------------------------------------
+
+# mistral cpu batch job parameters
+# --------------------------------
 #SBATCH --account=%{ACCOUNT}
 #% if JOB.qos is defined:
 #SBATCH --qos=%{JOB.qos}
 #% endif
 #SBATCH --job-name=%{EXP_ID}.run
-#SBATCH --partition=compute2,compute
+#SBATCH --partition=%{JOB.partition|d('compute2,compute')|join(',')}
 #SBATCH --nodes=%{JOB.nodes}
 #SBATCH --threads-per-core=2
 # the following is needed to work around a bug that otherwise leads to
@@ -20,17 +20,21 @@
 #SBATCH --time=%{JOB.time_limit}
 
 #=============================================================================
-#
-# ICON run script. Created by ./run/make_target_runscript
-# target machine is bullx_cpu
-# target use_compiler is intel
-# with mpi=yes
-# with openmp=no
-# memory_model=large
-# submit with sbatch
-# 
+set -ex
 #=============================================================================
-set -e
+#
+# ICON run script:
+# !ATTENTION! Do not change the format of the following lines.
+#             They are evaluated by checksuite scripts.
+# created by ./run/make_target_runscript
+# target machine is %{use_target}
+# target use_compiler is %{use_compiler}
+# with_mpi=%{use_mpi}
+# with_openmp=%{use_openmp}
+# memory_model=large
+# submit with %{use_submit}
+#
+#=============================================================================
 
 MODEL_DIR=%{MODEL_DIR}
 SCRIPT_DIR=%{SCRIPT_DIR}
@@ -39,64 +43,40 @@ BUILD_DIR=%{BUILD_DIR}
 # Make sure that 'add_run_routines' picks up the right base directory
 cd $BUILD_DIR/run
 . ./add_run_routines
-#-----------------------------------------------------------------------------
-# target parameters
-# ----------------------------
-site="%{use_site}"
-target="%{use_target}"
-compiler="%{use_compiler}"
-loadmodule="%{use_load_modules}"
-with_mpi="%{use_mpi}"
-with_openmp="%{use_openmp}"
-job_name="%{EXP_ID}.run"
-submit="%{use_submit}"
-#-----------------------------------------------------------------------------
-# openmp environment variables
+
+#=============================================================================
+#
+# OpenMP environment variables
 # ----------------------------
 export OMP_NUM_THREADS=1
 export ICON_THREADS=1
 export OMP_SCHEDULE=dynamic,1
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=200M
-#-----------------------------------------------------------------------------
+#
 # MPI variables
-# ----------------------------
-mpi_root=%{use_mpi_root}
+# -------------
 no_of_nodes=${SLURM_JOB_NUM_NODES:=%{JOB.nodes}}
 mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
-START="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS)) --propagate=STACK,CORE"
-#-----------------------------------------------------------------------------
-# load ../setting if exists  
+#
+# blocking length
+# ---------------
+nproma=16
+#
+#=============================================================================
+
+# load local setting, if existing
+# -------------------------------
 if [ -a ../setting ]
 then
   echo "Load Setting"
   . ../setting
 fi
-#-----------------------------------------------------------------------------
-bindir=%{BIN_DIR}
-#-----------------------------------------------------------------------------
-#=============================================================================
-# load module package
-if [ -a $MODULESHOME/init/ksh ] ; then
-. $MODULESHOME/init/ksh
-#=============================================================================
-#=============================================================================
-# load modules
-module purge
-module load "$loadmodule"
-module list
-#=============================================================================
-fi
-nproma=16
-cdo="cdo"
-cdo_diff="cdo diffn"
-icon_data_rootFolder="/pool/data/ICON"
-icon_data_poolFolder="/pool/data/ICON"
-icon_data_buildbotFolder="/pool/data/ICON/buildbot_data"
-icon_data_buildbotFolder_aes="/pool/data/ICON/buildbot_data/aes"
-icon_data_buildbotFolder_oes="/pool/data/ICON/buildbot_data/oes"
-export EXPNAME=%{EXP_ID}
+
+# environment variables for the experiment and the target system
+# --------------------------------------------------------------
+export EXPNAME="%{EXP_ID}"
 export KMP_AFFINITY="verbose,granularity=core,compact,1,1"
 export KMP_LIBRARY="turnaround"
 export KMP_KMP_SETTINGS="1"
@@ -116,70 +96,57 @@ export OMPI_MCA_coll_sync_barrier_after_alltoallw="1"
 export MXM_HANDLE_ERRORS="bt"
 export UCX_HANDLE_ERRORS="bt"
 export MALLOC_TRIM_THRESHOLD_="-1"
+
+# load module package
+# -------------------
+if [[ -a $MODULESHOME/init/ksh ]]
+then
+    . $MODULESHOME/init/ksh
+fi
+
+#=============================================================================
+# load modules
+module purge
+module load "%{use_load_modules}"
+module list
+#=============================================================================
+
+# directories with absolute paths
+# -------------------------------
+icon_data_rootFolder="/pool/data/ICON"
+
+# how to start the icon model
+# ---------------------------
+export START="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS)) --propagate=STACK,CORE"
+export MODEL="%{BIN_DIR}/icon"
+
+# how to submit the next job
+# --------------------------
+submit="%{use_submit}"
+job_name="%{EXP_ID}.run"
+
+# cdo for post-processing
+# -----------------------
+cdo="cdo"
+cdo_diff="cdo diffn"
+
+#=============================================================================
+
 ulimit -s 2097152
 ulimit -c 0
 
-# this can not be done in use_mpi_startrun since it depends on the
-# environment at time of script execution
-#case " $loadmodule " in
-#  *\ mxm\ *)
-#    START+=" --export=$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=${LD_PRELOAD+$LD_PRELOAD:}${MXM_HOME}/lib/libmxm.so"
-#    ;;
-#esac
-#--------------------------------------------------------------------------------------------------
-#
-# ICON-ESM R2B3 atmosphere coupled to R2B4 ocean
-#
-author_list="Monika Esch, Rene Redler, Stephan Lorenz, Lennart Ramme"
-#
-#--------------------------------------------------------------------------------------------------
-#
-# This file describes a coupled experiment test setup on a R2B3 grid based on
-# the non-hydrostatic atmosphere with ECHAM physics and the hydrostatic ocean
-# running on an R2B4 grid. The atmosphere is initialized from analysis files and
-# using constant pre-industrial (PI-control) boundary conditions for the year
-# 1850:
-# - spectral solar irradiation
-# - well mixed greenhouse gases CO2, CH4, N2O, no CFCs
-# - O3 concentration
-# - SST and sea ice are transferred via YAC from the ocean.
-# - and no (!) aerosols
-#
-# A test version for HD is included. Model is water mass conserving now.
-#
-# Here, ocean is initialized from long (3600y) tuning run with good AMOC and sea-ice.
-# Hamocc is initialized with cmip6 data interpolated to icon-ocean grid.
-#
-#
-# The coupling:
-#
-# atmosphere -> ocean:
-# . surface_downward_eastward_stress
-# . surface_downward_northward_stress
-# . surface_fresh_water_flux
-# . total_heat_flux
-# . atmosphere_sea_ice_bundle
-# . river_runoff
-# . co2_mixing_ratio
-#
-# ocean -> atmosphere:
-# . sea_surface_temperature
-# . eastward_sea_water_velocity
-# . northward_sea_water_velocity
-# . ocean_sea_ice_bundle
-# . 10m_wind_speed
-# . co2_flux
-#
-#--------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# %{EXP_DESCRIPTION|split("\n")|join("\n# ")|replace("# \n", "#\n")}
+# ----------------------------------------------------------------------------
 
 # (0) Basic model configuration
 # -----------------------------
 
-atmos_gridID="0030"
-atmos_refinement="R02B03"
+atmos_gridID="%{ATMO_GRID_ID}"
+atmos_refinement="%{ATMO_GRID_TYPE}"
 
-ocean_gridID="0014"
-ocean_refinement="R02B04"
+ocean_gridID="%{OCEAN_GRID_ID}"
+ocean_refinement="%{OCEAN_GRID_TYPE}"
 
 nproma_atm=24
 nproma_oce=48
@@ -187,8 +154,6 @@ nproma_oce=48
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
 initialiseOcean=%{JOB.init_ocean}
-# initialiseOcean="fromClimatology"
-# initialiseOcean="FALSE"
 
 read_restart_namelists=".false."
 
@@ -210,11 +175,11 @@ mpi_oce_nodes=%{JOB.ocean_nodes}
 # atmospheric timesteps > 15 min are possible with a higher value in hdiff_smag_fac, see diffusion nml
 # tested: atmTimeStep="PT20M" / atm_substeps=15 with hdiff_smag_fac=0.15
 
-radTimeStep="PT2H"               # radiation time step:    12 time steps per day
+radTimeStep="%{ATMO_RADIATION_TIME_STEP}" # radiation time step
 atmTimeStep="%{ATMO_TIME_STEP}" # atmosphere time step
-atm_substeps=%{ATMO_DYNAMICS_SUBSTEPS} # atmosphere dynamics substeps, ca. 2 min for atm-dyn-stepping
+atm_substeps=%{ATMO_DYNAMICS_SUBSTEPS} # atmosphere dynamics substeps
 oceTimeStep="%{OCEAN_TIME_STEP}" # ocean time step
-couplingTimeStep="PT60M"         # coupling time step:      2 time steps per radTimeStep 
+couplingTimeStep="%{COUPLER_TIME_STEP}" # coupling time step
 
 #--------------------------------------------------------------------------------------------------
 
@@ -335,7 +300,7 @@ output_atm_dbg=yes
 output_oce_dbg=yes
 
 # choose between none/basic/medium/full for land output
-output_lnd=basic
+output_lnd=%{JOB.output_lnd}
 
 # output switches for large atm/oce files - set to "yes" if needed for standard quickplots
 #  - yes writes much output and needs more computing time at least in high resolution
@@ -348,7 +313,7 @@ output_oce_def=yes      #  annual mean is sufficient
 # output interval for large atm/oce files, normally set to general atmos interval:
 atm_output_interval_3d="$atm_output_interval"
 atm_output_interval_2d="$atm_output_interval"
-oce_output_interval_def="$restart_interval"  # annual mean output for deep ocean
+oce_output_interval_def="%{SLOW_OUTPUT_INTERVAL}"  # annual mean output for deep ocean
 
 # output switches for HAMOCC files
 output_hamocc_mon=yes
@@ -859,12 +824,7 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
  hdiff_smag_fac   = 0.15       ! default: 0.015  too high values are very diffusive! Upper limit should be 0.15
 /
-&transport_nml
- tracer_names     = '%{namelists.NAMELIST_atm.transport_nml.tracer_names|join("', '")}'
- ivadv_tracer     = %{namelists.NAMELIST_atm.transport_nml.ivadv_tracer|join(', ')}
- itype_hlimit     = %{namelists.NAMELIST_atm.transport_nml.itype_hlimit|join(', ')}
- ihadv_tracer     = %{namelists.NAMELIST_atm.transport_nml.ihadv_tracer|join(', ')}
-/
+%{format_namelist(namelists.NAMELIST_atm, 'transport_nml')}
 &echam_phy_nml
 !
 ! domain 1
@@ -939,9 +899,7 @@ cat > ${atm_namelist} << EOF
  echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
  echam_cov_config(1)%crt        = 0.86      ! Critical relative humidity at toa, default 0.8
 /
-&ccycle_nml
- ccycle_config(1)%iccycle = %{namelists.NAMELIST_atm.ccycle_nml['ccycle_config(1)%iccycle']}
-/
+%{format_namelist(namelists.NAMELIST_atm, 'ccycle_nml')}
 &sea_ice_nml
  albs         = 0.865         ! Albedo of snow (not melting)
  albsm        = 0.65         ! Albedo of snow (melting)
@@ -1797,29 +1755,7 @@ EOF
 ## HAMOCC namelist ########################################
 if [  "x${use_hamocc}"  = "xyes" ]; then
 cat >> ${oce_namelist} << EOF
-&hamocc_nml
-l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
-l_cpl_co2                         = .TRUE.   ! CO2 coupled to land carbon cycle
-l_bgc_check                       = .FALSE.   ! mass check at every time step
-deltacalc                         = 2460.2        ! CaCO3 weathering rate [kmol/s] 
-deltaorg                          = 93.5        ! OC weathering rate [kmol/s]
-deltasil                          = 12627.6        ! Si(OH)4 weathering rate [kmol/s]
-atm_co2                           = 284.3      ! atmospheric CO2 (default 278)
-atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
-atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
-sinkspeed_opal                    = 25.       ! opal sinking speed [m/d] (default 30)
-sinkspeed_calc                    = 30.       ! calc sinking speed [m/d] (default 30)
-i_settling                        = 1         ! 0 constant POC sinking speed, 1 Martin curve, 2 AGG module (not yet implemented)
-sinkspeed_poc                     = 5.        ! detritus sinking speed [m/d] for i_settling=0 (default 5)
-sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0, mc_depth) [m/d] for i_settling=1 (default 3.5)
-mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
-mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
-l_implsed                         =.TRUE.    ! implicit sediment formulation
-cycdec                            = 0.07
-cya_growth_max                    = 0.3
-grazra                            = 0.7
-l_init_bgc                        = ${l_init_bgc}
-/
+%{format_namelist(namelists.NAMELIST_oce, 'hamocc_nml')}
 EOF
 fi
 ############################################################
@@ -1874,10 +1810,7 @@ EOF
 fi
 #
 cat >> ${oce_namelist} << EOF
-&ocean_diagnostics_nml
-  diagnostics_level                          = 1
-  diagnose_for_horizontalVelocity            = .FALSE.
-/
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_diagnostics_nml')}
 &io_nml
   restart_file_type                          = 5
   write_last_restart                         = .TRUE.
@@ -1941,7 +1874,7 @@ fi
 #
 # This section of the run script prepares and starts the model integration. 
 #
-# bindir and START must be defined as environment variables or
+# MODEL and START must be defined as environment variables or
 # they must be substituted with appropriate values.
 #
 # Marco Giorgetta, MPI-M, 2010-04-21
@@ -2223,18 +2156,14 @@ EOF
   j=`expr ${j} + 1`
 done
 fi
-#-----------------------------------------------------------------------------
-
-
-#-----------------------------------------------------------------------------
 #
 #  get model
 #
-export MODEL=${bindir}/icon
-#
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"
-#-----------------------------------------------------------------------------
+#
+ldd -v ${MODEL}
+#
 #-----------------------------------------------------------------------------
 #
 # start experiment
@@ -2264,6 +2193,7 @@ echo $finish_status
 echo "============================"
 echo "Script run successfully: $finish_status"
 echo "============================"
+
 #-----------------------------------------------------------------------------
 if [[ "x$use_hamocc" = "xyes" ]]; then
 # store HAMOCC log file
@@ -2298,45 +2228,6 @@ if [ "x${autoPostProcessing}" = "xtrue" ]; then
   targetPostProcessingScript="./post.${EXPNAME}.run"
   [[ -x $targetPostProcessingScript ]] && ${submit} ${targetPostProcessingScript}
   cd -
-fi
-
-#-----------------------------------------------------------------------------
-# check if we test the restart mechanism
-get_last_1_restart()
-{
-  model_restart_param=$1
-  restart_list=$(ls *restart_*${model_restart_param}*_*T*Z.nc)
-  
-  last_restart=""
-  last_1_restart=""  
-  for restart_file in $restart_list
-  do
-    last_1_restart=$last_restart
-    last_restart=$restart_file
-
-    echo $restart_file $last_restart $last_1_restart
-  done  
-}
-
-
-restart_atmo_from=""
-restart_ocean_from=""
-if [ x$test_restart = "xtrue" ] ; then
-  # follows a restart run in the same script
-  # set up the restart parameters
-  restart_from_folder=${EXPNAME}
-  # get the previous from last rstart file for atmo
-  get_last_1_restart "atm"
-  if [ x$last_1_restart != x ] ; then
-    restart_atmo_from=$last_1_restart
-  fi
-  get_last_1_restart "oce"
-  if [ x$last_1_restart != x ] ; then
-    restart_ocean_from=$last_1_restart
-  fi
-  
-  EXPNAME=${EXPNAME}_restart
-  test_restart="false"
 fi
 
 #-----------------------------------------------------------------------------
