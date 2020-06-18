@@ -189,7 +189,18 @@ run_scripts_submit()
           jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
         elif [[ "$batch_system" = "nqsv" ]]
         then
-          jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
+          #
+          # submit and catch jobID
+          echo "jobid=\$(($run_command) 2>&1)" > submit.$EXP_FILE
+          echo "jobid=\`echo \$jobid |awk 'match(\$0,/[0-9]+/){print substr(\$0,RSTART,RLENGTH)}'\`" >> submit.$EXP_FILE
+          # wait for job to finish and catch error status
+          echo "errstat=\$((qwait \${jobid}) 2>&1)" >> submit.$EXP_FILE
+          echo "errstat=\`echo \$errstat |awk 'match(\$0,/[0-9]+/){print substr(\$0, RSTART, RLENGTH)}'\`" >> submit.$EXP_FILE
+          echo "echo \${errstat} > ${EXP_FILE}.status.2" >> submit.$EXP_FILE
+
+          chmod +x submit.$EXP_FILE
+          # submit job
+          ./submit.$EXP_FILE &
         else
           ./submit.$EXP_FILE &
 
@@ -203,21 +214,6 @@ run_scripts_submit()
         jobid=`squeue -u ${slurm_user} -h -o '%i' -S '-i' | awk 'NR==1{print $1}'`
         job_submitted["$EXP_FILE"]=$jobid
     fi
-
-    # nqsv does not support 'qsub -wait'
-    # therefore we need to run qwait explicitly
-    if [[ "$batch_system" = "nqsv" ]]
-    then
-	sleep 2
-        # get jobid
-        jobid=`echo $jobid |awk 'match($0,/[0-9]+/){print substr($0, RSTART, RLENGTH)}'`
-        job_submitted["$EXP_FILE"]=$jobid
-        # wait until job ends
-        qwait ${jobid}
-        # store status
-        echo $? > ${EXP_FILE}.status.2
-    fi
-
 
     if [[ "$batch_system" = "moab_kit" ]]
     then
@@ -237,7 +233,7 @@ run_scripts_submit()
   wait
   sleep 30
 
-  echo ${pwd}
+  echo $(pwd)
 
   
   # print and check the results

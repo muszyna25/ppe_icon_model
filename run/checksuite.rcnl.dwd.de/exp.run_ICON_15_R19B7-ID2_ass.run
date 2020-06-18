@@ -13,7 +13,6 @@
 #PBS -l coresz_prc=0
 #PBS -T necmpi
 #PBS --use-hca=2             # Number of HCA per logical host
-##PBS -N ICON2018
 #PBS -j o
 #PBS -o LOG.exp.run_ICON_15_R19B7-ID2_ass.run.run.o
 # ----------------------------------------------------------------------------
@@ -47,8 +46,6 @@ if [[ -n ${PBS_O_WORKDIR} ]] ; then
   cd ${PBS_O_WORKDIR}
 fi
 
-THISDIR=${PBS_O_WORKDIR}
-
 
 # determine base directory
 ICONDIR=${PBS_O_WORKDIR}/../
@@ -71,12 +68,9 @@ DATADIR=$DATAROOT/ICON-D2-preopera-ass
 LBCDIR=$DATAROOT/ICON-D2-preopera-ass
 
 
-
 # path to model binary, including the executable:
 #MODEL=${ICONDIR}/build/VE/bin/icon
 #MODEL_SCAL=${ICONDIR}/build/VH/bin/icon
-#MODEL=${ICONDIR}/build.sx/bin/icon
-#MODEL_SCAL=${ICONDIR}/build.x86/bin/icon
 
 MODEL=${ICONDIR}/vector/bin/icon
 MODEL_SCAL=${ICONDIR}/host/bin/icon
@@ -140,7 +134,7 @@ ln -sf $ICONDIR/run/dict.latbc .
 
 
 # specific for EMVORADO:
-luse_radarfwo=".false." # not yet activated - bugfix in Emvorado needed
+luse_radarfwo=".true." # include 3D radar forward operator
 itype_refl=1
 NPIORADAR=2
 ### normally used to precompute and store the Mie tables:
@@ -1148,7 +1142,6 @@ export VE_ERRCTL_ALLOCATE=MSG
 export NMPI_PROGINF=YES
 export VE_TRACEBACK=VERBOSE
 export NMPI_SEPSELECT=3
-# export LD_LIBRARY_PATH=/hpc/sw/intel/compilers_and_libraries_2020.0.166/linux/mkl/lib/intel64_lin:/hpc/sw/gcc-9.1.0/VH/lib64:/opt/nec/ve/mpi/2.3.1/lib/vh/gnu/9.1.0:/hpc/sw/grib_api-1.23.1/VH/lib:/hpc/sw/hdf5/1.10.5/VH/gnu/lib:/hpc/sw/netcdf4/4.7.3/VH/gnu/lib:$LD_LIBRARY_PATH
 export GMON_OUT_PREFIX=scal_prof
 export VE_FPE_ENABLE=DIV,FOF,INV
 
@@ -1157,15 +1150,11 @@ export GFORTRAN_UNBUFFERED_PRECONNECTED=y
 
 export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 
-#. /etc/profile
-#module load intel gcc netcdf4/4.7.3-VH-gnu hdf5/1.10.5-VH-gnu
-#date
-which mpirun
-# process 0 on VH 0 and 2 I/O processes on VH 0 and 1
+# process 0 on VH 0 and 5 I/O processes on VH 0 and 1
 /opt/nec/ve/bin/mpirun -v    -vh     -node 0        -np 1      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
            -x -venode -node 0-${NE1} -np ${PPN} -env OMP_NUM_THREADS 1 ${MODEL} : \
-              -vh     -node 0        -np 3      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} # : \
-    #          -vh     -node 1        -np 2      -env OMP_NUM_THREADS 1 ${MODEL_SCAL}  ### to be activated together with emvorado
+              -vh     -node 0        -np 3      -env OMP_NUM_THREADS 1 ${MODEL_SCAL} : \
+              -vh     -node 1        -np 2      -env OMP_NUM_THREADS 1 ${MODEL_SCAL}
 
 
 date
