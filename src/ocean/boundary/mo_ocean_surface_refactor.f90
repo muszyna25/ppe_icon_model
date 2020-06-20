@@ -751,7 +751,7 @@ CONTAINS
 
     IF (ice_flux_type .EQ. 0) THEN
       CALL apply_surface_fluxes_slo_zstar(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
-    ELSE IF (ice_flux_type .EQ. 0) THEN
+    ELSE IF (ice_flux_type .EQ. 1) THEN
       CALL apply_surface_fluxes_zstar(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
     END IF
 
