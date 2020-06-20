@@ -1096,8 +1096,8 @@ CONTAINS
           temp_eta     = eta_c(jc,jb)              
 
           eta_c(jc,jb) = eta_c(jc,jb)               &
-            &           + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime &
-            &           + p_ice%totalsnowfall(jc,jb)
+            &           + p_oce_sfc%FrshFlux_VolumeTotal(jc, jb)*dtime &
+            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime
 
           !! Only change the stretching parameter if it is above a certain threshold
           !! This avoids divide by 0 
