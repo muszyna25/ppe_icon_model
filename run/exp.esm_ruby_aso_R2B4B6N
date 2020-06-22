@@ -714,9 +714,11 @@ cat > ${atm_namelist} << EOF
 &echam_sso_nml
  !echam_sso_config(1)%gkdrag     = 0.05      ! default: 0.05
  !echam_sso_config(1)%gkwake     = 0.05      ! default: 0.05
+ !echam_sso_config(:)%gklift     = 0.7       ! default: 0.
 /
 &echam_vdf_nml
- echam_vdf_config(1)%pr0        = 0.8       ! neutral limit Prandtl no - default:  1.0
+ !echam_vdf_config(1)%pr0        = 0.8       ! neutral limit Prandtl no - default:  1.0
+ !echam_vdf_config(1)%fsl        = 0.5       ! default: 0.4
 /
 &echam_cnv_nml
  !echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
@@ -730,14 +732,14 @@ cat > ${atm_namelist} << EOF
  !echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (default was 10.0)
 /
 &echam_cov_nml
- echam_cov_config(1)%crs        = 0.978     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.82      ! Critical relative humidity at toa, default 0.8
+ !echam_cov_config(1)%crs        = 0.978     ! Critical relative humidity at surface, default 0.968
+ !echam_cov_config(1)%crt        = 0.82      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
- albs                           =   0.8     ! Albedo of snow (not melting)              !  def: 0.85
- albsm                          =   0.65    ! Albedo of snow (melting)                  !  def: 0.70
- albi                           =   0.6     ! Albedo of ice (not melting)               !  def: 0.75
- albim                          =   0.5     ! Albedo of ice (melting)                   !  def: 0.70
+ !albs                           = 0.8       ! Albedo of snow (not melting)              !  def: 0.85
+ !albsm                          = 0.72      ! Albedo of snow (melting)                  !  def: 0.70
+ !albi                           = 0.6       ! Albedo of ice (not melting)               !  def: 0.75
+ !albim                          = 0.57      ! Albedo of ice (melting)                   !  def: 0.70
 /
 EOF
 
@@ -1205,6 +1207,11 @@ ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}"
 ocean_grid_folder="$ocean_data_InputFolder"
 #ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 
+# new sill depths, 2020-05
+#Setupdir=/work/mh0469/m211032/Icon/Git_Icon/icon.oes.20200506/experiments/Setup
+#ocean_grid_folder="$Setupdir"
+#ocean_grid="icon_grid_${ocean_gridID}_modsills_${ocean_refinement}_O.nc"    #  no land points
+
 #-----------------------------------------------------------------------------
 #
 # ocean namelist
@@ -1276,7 +1283,7 @@ if [[ "$output_oce_def" == "yes" ]]; then
   output_grid                = .FALSE.
   filename_format            = "<output_filename>_<datetime2>"
   operation                  = "mean"
-  ml_varlist                 = 'group:oce_default', 'group:oce_essentials'
+  ml_varlist                 = 'group:oce_default'
 /
 EOF
 fi
@@ -1483,8 +1490,8 @@ cat >> ${oce_namelist} << EOF
   S_max                                      = 1.0e-3      ! 1.0
   S_d                                        = 1.0e-4      ! 5e-3 to 5e-4
                                                            !
-  k_tracer_GM_kappa_parameter                = 1000.0      !
-  k_tracer_isoneutral_parameter              = 1000.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+  k_tracer_GM_kappa_parameter                =  400.0      !
+  k_tracer_isoneutral_parameter              =  400.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
   k_tracer_dianeutral_parameter              = 0.0         ! 1.0E-5  !
                                                            !
   switch_off_diagonal_vert_expl              = .TRUE.
@@ -1506,6 +1513,9 @@ cat >> ${oce_namelist} << EOF
   leadclose_1                                = 0.25        ! default: 0.5 - value of MPIOM: 0.25
   leadclose_2n                               = 0.666       ! default: 0.0 - value of MPIOM: 2/3
   pstar                                      = 40000.      ! default: 27500.; MPIOM=20000.
+  !therm_conduct_snow                         = 0.7         ! default: ks=0.31
+  !therm_conduct_ice                          = 2.4         ! default: ki=2.1656
+  !therm_emiss                                = 0.97        ! default: zemiss_def=0.996
 /
 &ocean_forcing_nml
   iforc_oce                                  = 14          ! ocean forcing: 14 from coupling via YAC
@@ -1523,6 +1533,12 @@ cat >> ${oce_namelist} << EOF
   lswr_jerlov                                = .TRUE.      ! use jerlov water types for sw absorption (default=T)
   jerlov_atten                               = 0.08        ! jerlov water type IB
   jerlov_bluefrac                            = 0.36        ! jerlov water type IB
+                                                           ! parameters for salt content conservation
+  lfix_salt_content                          = .true.      ! fix global ocean+ice salt content to constant (def=F)
+  !surface_flux_type                          = 1           ! 1: apply_surface_fluxes_slo (def), 2: apply_surface_fluxes (Vladimir L.)
+  !lcheck_salt_content                        = .false.     ! diagnostic output of salt content (def=F)
+  !limit_seaice                               =  .true.     ! use seaice limiter
+  !limit_seaice_type                          = 1           ! 1: ice_thickness_limiter (def), 2: ice_thickness_limiter_hh (H. Haak)
 /
 EOF
 #
@@ -1561,6 +1577,7 @@ cat >> ${oce_namelist} << EOF
 &ocean_diagnostics_nml
   diagnostics_level                          = 1
   diagnose_for_horizontalVelocity            = .FALSE.
+  diagnose_for_heat_content                  = .TRUE.      ! T: add heat content to monitoring (def=F)
 /
 &io_nml
   restart_file_type                          = 5
