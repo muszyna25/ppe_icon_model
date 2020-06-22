@@ -38,7 +38,7 @@ MODULE mo_ocean_physics
     & BiharmonicViscosity_reference,                          &
     & tracer_RichardsonCoeff, velocity_RichardsonCoeff,                    &
     & use_wind_mixing,                                        &
-    & vert_mix_type, vmix_pp, vmix_tke, vmix_kpp,             & ! by_nils / by_ogut
+    & vert_mix_type, vmix_pp, vmix_tke, vmix_kpp, vmix_idemix_tke,         & ! by_nils / by_ogut
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
@@ -105,6 +105,7 @@ MODULE mo_ocean_physics
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
   USE mo_ocean_cvmix_tke,     ONLY: calc_tke, setup_tke
+  USE mo_ocean_cvmix_idemix,  ONLY: calc_idemix, setup_idemix
   USE mo_ocean_cvmix_kpp,     ONLY: calc_kpp, setup_kpp
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, &
    & WindMixingDecay, WindMixingLevel
@@ -273,12 +274,16 @@ CONTAINS
     SELECT CASE(vert_mix_type)
     CASE(vmix_pp)
       write(*,*) ''
-    CASE(vmix_tke)
+    CASE(vmix_tke) ! by_nils
       write(*,*) 'Setup cvmix/tke scheme.'
-      CALL setup_tke()   ! by_nils
-    CASE(vmix_kpp)
+      CALL setup_tke()
+    CASE(vmix_idemix_tke) ! by_nils
+      write(*,*) 'Setup cvmix/idemix_tke scheme.'
+      CALL setup_idemix(patch_3d)
+      CALL setup_tke()
+    CASE(vmix_kpp) ! by_ogut
       write(*,*) 'Setup cvmix/kpp scheme.'
-      CALL setup_kpp()   ! by_ogut
+      CALL setup_kpp()
     CASE default
       write(*,*) "Unknown vert_mix_type!"
       stop
@@ -787,9 +792,14 @@ CONTAINS
     CALL calc_vertical_stability(patch_3d, ocean_state)
 
     SELECT CASE(vert_mix_type)
-    CASE(1)
+    CASE(vmix_pp)
       CALL update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs)
-    CASE(2)
+    CASE(vmix_tke)
+      !write(*,*) 'Do calc_tke...'
+      CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
+    CASE(vmix_idemix_tke)
+      !write(*,*) 'Do calc_idemix...'
+      CALL calc_idemix(patch_3d, ocean_state, params_oce, op_coeffs, atmos_fluxes)
       CALL calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
     CASE(3) ! by_ogut 
       CALL calc_kpp(patch_3d, ocean_state, params_oce, atmos_fluxes, p_oce_sfc, concsum)

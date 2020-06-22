@@ -142,7 +142,10 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 600 !  40
 /
 &ocean_vertical_diffusion_nml
-  vert_mix_type                            = 1 ! 1=PP, 2=TKE, 3=KPP
+!  vert_mix_type                            = 1 ! 1=PP, 2=TKE, 3=KPP
+  vert_mix_type                            = 4  ! 1: PP; 2: TKE; 3: KPP; 4 TKE+IDEMIX
+  only_tke                                 = .false. ! .true. for TKE; .false. for TKE+IDEMIX
+  l_use_idemix_forcing                     = .false. ! .false. should only be used for debugging
   PPscheme_type                            = 4
   velocity_VerticalDiffusion_background    =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
@@ -221,4 +224,5 @@ EOF
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
+
 #-----------------------------------------------------------------------------

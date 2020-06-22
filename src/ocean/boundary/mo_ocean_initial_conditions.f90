@@ -231,6 +231,7 @@ CONTAINS
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
+        ! FIXME: to complicated, better use land sea mask
         DO level = patch_3d%p_patch_1d(1)%dolic_c(idx,block) + 1, 1
 !          IF ( variable(idx,block) /=  0.0_wp) THEN
 !            CALL warning(method_name, "non-zero variable on land")
