@@ -436,9 +436,13 @@ CONTAINS
     IF ( iswm_oce /= 1 ) THEN
       ! calculate density from EOS using temperature and salinity at timelevel n
       start_detail_timer(timer_extra2,4)
-      CALL calculate_density( patch_3d,                         &
-       & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
-       & ocean_state%p_diag%rho(:,:,:) )
+      
+      !------------------------------------------------------------------------
+      ! this is calculated before the dynamics
+!       CALL calculate_density( patch_3d,                         &
+!        & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+!        & ocean_state%p_diag%rho(:,:,:) )
+      !------------------------------------------------------------------------
 
 !       IF(.NOT.l_partial_cells)THEN      
 !         ! calculate hydrostatic pressure from density at timelevel nc

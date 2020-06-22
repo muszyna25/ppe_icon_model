@@ -34,7 +34,7 @@ MODULE mo_hydro_ocean_run
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
     &  lswr_jerlov, &
-    &  Cartesian_Mixing, GMRedi_configuration, use_tides, tides_mod, OceanReferenceDensity_inv, &
+    &  Cartesian_Mixing, GMRedi_configuration, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
     &  use_draftave_for_transport_h
@@ -93,11 +93,12 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
   USE mo_hamocc_nml,             ONLY: l_cpl_co2
   USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
-  USE mo_ocean_tides,            ONLY: tide, tide_mpi    
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_ocean_tracer_diffusion, ONLY: tracer_vertdiff_eliminate_upper_diag => eliminate_upper_diag
-
+  USE mo_ocean_pressure_bc_conditions,  ONLY: create_pressure_bc_conditions
+  
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -384,19 +385,16 @@ CONTAINS
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
         stop_detail_timer(timer_extra22,4)
         
+        !--------------------------------------------------------------------------
+        ! calculate in situ density here, as it may be used fotr the tides load
+        CALL calculate_density( patch_3d,                         &
+          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,:),      &
+          & ocean_state(jg)%p_diag%rho(:,:,:) )
+
+        !--------------------------------------------------------------------------
+        CALL create_pressure_bc_conditions(patch_3d,ocean_state(jg), p_as, current_time)
         !------------------------------------------------------------------------
-        ! compute tidal potential
-        IF (use_tides) THEN
-          IF(tides_mod.eq.1) CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
-          IF(tides_mod.eq.2) CALL tide_mpi(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
-        ENDIF
-        ! total top potential
-        IF (atm_pressure_included_in_ocedyn) THEN
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential  &
-            & + p_as%pao * OceanReferenceDensity_inv
-        ELSE
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
-        ENDIF 
+       
 
   !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
   !       CALL calc_scalar_product_veloc_3d( patch_3d,  &

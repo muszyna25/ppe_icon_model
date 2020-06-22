@@ -274,6 +274,7 @@ CONTAINS
     SELECT CASE(vert_mix_type)
     CASE(vmix_pp)
       write(*,*) ''
+
     CASE(vmix_tke) ! by_nils
       write(*,*) 'Setup cvmix/tke scheme.'
       CALL setup_tke()
@@ -292,6 +293,25 @@ CONTAINS
   END SUBROUTINE init_ho_params
   !-------------------------------------------------------------------------
 
+   !-------------------------------------------------------------------------
+  REAL(wp) FUNCTION edge_area(patch_2D, je,jb) 
+    TYPE(t_patch), POINTER :: patch_2D
+    INTEGER, INTENT(in) :: je, jb
+  
+    INTEGER :: c1_idx, c1_blk,  c2_idx, c2_blk
+    
+    c1_idx = patch_2D%edges%cell_idx(je,jb,1)
+    c1_blk = patch_2D%edges%cell_blk(je,jb,1)
+    c2_idx = patch_2D%edges%cell_idx(je,jb,2)
+    c2_blk = patch_2D%edges%cell_blk(je,jb,2)
+  
+    edge_area = (patch_2D%cells%area(c1_idx, c1_blk) + patch_2D%cells%area(c2_idx, c2_blk)) * 0.5_wp
+    
+!     edge_area = patch_2D%edges%primal_edge_length(je,jb)*patch_2D%edges%dual_edge_length(je,jb))
+  END FUNCTION edge_area
+  !-------------------------------------------------------------------------
+  
+  
   !-------------------------------------------------------------------------
   SUBROUTINE scale_horizontal_diffusion(patch_3D, &
     & DiffusionScaling, DiffusionReferenceValue, DiffusionBackgroundValue, out_DiffusionCoefficients)
@@ -345,7 +365,6 @@ CONTAINS
 !       out_DiffusionCoefficients(:,:) = 3.82E-12_wp * &
 !         & (points_in_munk_layer * maxEdgeLength)**3
 
-#define edge_area(je,jb) (patch_2D%edges%primal_edge_length(je,jb)*patch_2D%edges%dual_edge_length(je,jb))
 
    CASE(2)
       ! linear scale
@@ -356,7 +375,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & SQRT(edge_area(je,jb))
+            & SQRT(edge_area(patch_2D,je,jb))
 
         END DO
       END DO
@@ -382,7 +401,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & edge_area(je,jb)
+            & edge_area(patch_2D,je,jb)
 
         END DO
       END DO
@@ -396,7 +415,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & SQRT(edge_area(je,jb))**3
+            & SQRT(edge_area(patch_2D,je,jb))**3
 
         END DO
       END DO
@@ -455,7 +474,7 @@ CONTAINS
 
           out_DiffusionCoefficients(je,jb) = &
             & DiffusionBackgroundValue + DiffusionReferenceValue * &
-            & edge_area(je,jb)**2
+            & edge_area(patch_2D,je,jb)**2
 
         END DO
       END DO
@@ -492,7 +511,7 @@ CONTAINS
         DO je = start_index, end_index
 
           length_scale = &
-          & sqrt(edge_area(je,jb))
+          & sqrt(edge_area(patch_2D,je,jb))
 
           out_DiffusionCoefficients(je,jb)=C_MPIOM*length_scale**2
 
@@ -556,8 +575,6 @@ CONTAINS
 
     END SELECT
 
-#undef edge_area
-
     ! smooth if requested
     DO i=1, HorizontalViscosity_SmoothIterations
       CALL smooth_lapl_diff( patch_3d, &
@@ -601,6 +618,7 @@ CONTAINS
 
   END SUBROUTINE calc_lower_bound_veloc_diff
   !-------------------------------------------------------------------------
+ 
   !-------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
@@ -680,6 +698,88 @@ CONTAINS
     ! Local variables
     TYPE(t_patch), POINTER  :: patch_2D
     INTEGER :: je,jv,jk, jev, ile, ibe, level
+    INTEGER :: il_c1,ib_c1, il_c2,ib_c2
+    INTEGER :: start_index, end_index, blockNo
+    REAL(wp), POINTER :: z_k_ave_c(:,:,:)
+    INTEGER  :: sea_edges_onLevel(n_zlev)
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER ::all_edges, cells_in_domain
+    !-------------------------------------------------------------------------
+    patch_2D => patch_3d%p_patch_2D(1)
+    all_edges => patch_2D%edges%all
+    cells_in_domain => patch_2D%cells%in_domain
+
+    ALLOCATE(z_k_ave_c(nproma,n_zlev, patch_2D%alloc_cell_blocks))
+ 
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo, start_index, end_index, jv, jev, ile, ibe, sea_edges_onLevel, level)
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+    
+      z_k_ave_c(:,:,blockNo) = 0.0_wp
+
+      CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+      DO jv = start_index, end_index
+        sea_edges_onLevel(:) = 0
+        DO jev = 1, patch_2D%cells%num_edges(jv,blockNo)
+          ile = patch_2D%cells%edge_idx(jv,blockNo,jev)
+          ibe = patch_2D%cells%edge_blk(jv,blockNo,jev)
+          DO level=1,patch_3D%p_patch_1D(1)%dolic_e(ile,ibe)
+            z_k_ave_c(jv,level,blockNo)= z_k_ave_c(jv,level,blockNo) + k_h(ile,level,ibe)
+            sea_edges_onLevel(level) = sea_edges_onLevel(level) + 1
+          END DO 
+        END DO 
+        DO level=1,n_zlev
+          IF (sea_edges_onLevel(level) > 1) &
+            z_k_ave_c(jv,level,blockNo) = z_k_ave_c(jv,level,blockNo) / REAL(sea_edges_onLevel(level),wp)
+        ENDDO
+      ENDDO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ! we do need to sync here
+    CALL sync_patch_array(sync_c, patch_2D, z_k_ave_c)    
+        
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo, start_index, end_index, je, il_c1, ib_c1, il_c2, ib_c2, level)
+    DO blockNo = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, blockNo, start_index, end_index)
+      DO je = start_index, end_index
+
+        il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+        ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+        il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+        ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+   
+        DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+          k_h(je,level,blockNo)= 0.5_wp * smoothFactor * (z_k_ave_c(il_c1,level,ib_c1) + z_k_ave_c(il_c2,level,ib_c2)) + &
+            & (1.0_wp - smoothFactor) * k_h(je,level,blockNo)
+        ENDDO
+      ENDDO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ! we do not need to sync edge coefficients
+    ! CALL sync_patch_array(sync_e, patch_2D, k_h)   
+    
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=1  ! output print levels - 0: print in any case
+    CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
+      & in_subset=patch_2D%edges%owned)
+    !---------------------------------------------------------------------
+    DEALLOCATE(z_k_ave_c)
+
+  END SUBROUTINE smooth_lapl_diff_3D
+  !-------------------------------------------------------------------------
+ 
+  !-------------------------------------------------------------------------
+  !! @par Revision History
+  !! Initial release by Peter Korn, MPI-M (2011-08)
+!<Optimize:inUse:initOnly>
+  SUBROUTINE smooth_lapl_diff_verts_3D( patch_3d, k_h, smoothFactor )
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(inout)    :: k_h(:,:,:)
+    REAL(wp), INTENT(in)       ::smoothFactor
+    ! Local variables
+    TYPE(t_patch), POINTER  :: patch_2D
+    INTEGER :: je,jv,jk, jev, ile, ibe, level
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
     INTEGER :: start_index, end_index, blockNo
     INTEGER :: i_startidx_v, i_endidx_v
@@ -747,7 +847,7 @@ CONTAINS
     !---------------------------------------------------------------------
     DEALLOCATE(z_k_ave_v)
 
-  END SUBROUTINE smooth_lapl_diff_3D
+  END SUBROUTINE smooth_lapl_diff_verts_3D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

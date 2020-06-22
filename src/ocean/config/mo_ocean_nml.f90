@@ -562,6 +562,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: PP_alpha   = 5.0               !
   REAL(wp) :: PP_loc_exp = 2.0               !
 
+  LOGICAL :: use_bc_SAL_potential = .false.
+
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
     &  laplacian_form,                  & ! 1=curlcurl-graddiv, 2=div k  grad
@@ -865,7 +867,9 @@ MODULE mo_ocean_nml
   INTEGER      :: tides_mod = 1 !1: tidal potential by Logemann, HZG 2020. 2: tidal potential from MPI-OM.
   CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
   REAL(wp)     :: tides_esl_damping_coeff = 0.69_wp
-
+  LOGICAL      :: use_tides_SAL  = .FALSE.
+  REAL(wp)     :: tides_SAL_coeff = 0.085_wp
+  INTEGER      :: tides_smooth_iterations = 0
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
@@ -936,7 +940,10 @@ MODULE mo_ocean_nml
     &                 use_tides                           , &
     &                 tides_mod                           , &
     &                 tide_startdate                      , &
-    &                 tides_esl_damping_coeff
+    &                 tides_esl_damping_coeff             , &
+    &                 use_tides_SAL                      , &
+    &                 tides_SAL_coeff                    , &
+    &                 tides_smooth_iterations
   ! } END FORCING
 
   !----------------------------------------------------------------------------
@@ -1245,6 +1252,9 @@ MODULE mo_ocean_nml
       END IF
     END SELECT
 
+    use_bc_SAL_potential = use_tides_SAL
+    CALL message(method_name, "use_bc_SAL_potential acitvated")
+    
     CALL position_nml ('ocean_initialConditions_nml', status=i_status)
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()

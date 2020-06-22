@@ -389,8 +389,10 @@ MODULE mo_ocean_types
       & bc_top_w        ,& ! vertical velocity boundary condition at surface
       & bc_bot_w        ,&   ! vertical velocity boundary condition at bottom
       & bc_tides_potential, &
-      & bc_total_top_potential
-      
+      & bc_tides_load,   &
+      & bc_total_top_potential, &
+      & bc_SAL_potential
+            
     onCells_2D_tracers :: &
       & bc_top_tracer,    &
       & bc_bot_tracer 
