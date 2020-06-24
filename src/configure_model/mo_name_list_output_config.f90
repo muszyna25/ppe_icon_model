@@ -147,7 +147,7 @@ CONTAINS
       ig = -1
     ENDIF
 
-    CALL ptr_outvar%init(lcase_sensitivity = .FALSE.)
+    CALL ptr_outvar%init(.FALSE.)
     p_onl => first_output_name_list
     DO WHILE (ASSOCIATED(p_onl))
       IF (p_onl%dom == ig .OR. ig == -1 .OR. p_onl%dom == -1) THEN
@@ -200,7 +200,7 @@ CONTAINS
     ENDIF
 
     ! hashtable look-up if "var_name" exists:
-    CALL output_variables%get(var_name, lval, ierror)
+    CALL output_variables%get(var_name, lval, opt_err=ierror)
     retval = (ierror == SUCCESS)
 
   END FUNCTION is_variable_in_output
@@ -221,6 +221,7 @@ CONTAINS
     ! local variables
     INTEGER :: ierror, ig
     LOGICAL :: lval
+    CHARACTER(1) :: jg_str
 
     ! if called for the first time: set up (case insensitive) hash
     ! table containing all output variable names
@@ -233,7 +234,7 @@ CONTAINS
     ENDIF
 
     ! hashtable look-up if "var_name" exists:
-    CALL outputvar_dom(jg)%ptr%get(var_name, lval, ierror)
+    CALL outputvar_dom(jg)%ptr%get(var_name, lval, opt_err=ierror)
     retval = (ierror == SUCCESS)
 
   END FUNCTION is_variable_in_output_dom

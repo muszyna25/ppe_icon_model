@@ -1374,9 +1374,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
+#ifndef __PGI
+!FIXME: PGI + OpenMP produce deadlock in this loop... check correctness of parallel code
+!$OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
 !$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori,nzprv,zvariaux,zrhon) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1551,9 +1553,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       ENDDO
 
     ENDDO  ! jb
-!$OMP END DO
-
-!$OMP END PARALLEL
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
 

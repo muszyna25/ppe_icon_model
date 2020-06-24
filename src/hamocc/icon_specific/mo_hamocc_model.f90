@@ -88,7 +88,8 @@ MODULE mo_hamocc_model
   USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
-  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
+  USE mo_key_value_store,      ONLY: t_key_value_store
+  USE mo_restart_nml_and_att,  ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
   USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_output_event_types,   ONLY: t_sim_step_info
@@ -198,15 +199,15 @@ MODULE mo_hamocc_model
     TYPE(datetime), POINTER        :: current_time     => NULL()
     CHARACTER(LEN=32)              :: datestring
     INTEGER :: jstep,  jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(*), PARAMETER :: method_name = "mo_hamocc_model:hamocc_timestep"
     
     current_time => newNullDatetime()
     jstep0 = 0
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
     IF (ASSOCIATED(restartAttributes)) THEN
       ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
+      CALL restartAttributes%get("jstep", jstep0)
     END IF
     
     jstep = jstep0
@@ -505,7 +506,7 @@ MODULE mo_hamocc_model
 
     TYPE(t_sim_step_info)   :: sim_step_info
     INTEGER                 :: jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: &
       & method_name = 'mo_hamocc_model:init_io_processes'
     
@@ -542,12 +543,9 @@ MODULE mo_hamocc_model
         sim_step_info%dtime      = dtime
         jstep0 = 0
 
-        restartAttributes => getAttributesForRestarting()
-        IF (ASSOCIATED(restartAttributes)) THEN
-
-          ! get start counter for time loop from restart file:
-          jstep0 = restartAttributes%getInteger("jstep")
-        END IF
+        CALL getAttributesForRestarting(restartAttributes)
+        ! get start counter for time loop from restart file:
+        IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
         sim_step_info%jstep0    = jstep0
 !         CALL name_list_io_main_proc(sim_step_info, isample=1)
         CALL name_list_io_main_proc(sim_step_info)
@@ -569,7 +567,7 @@ MODULE mo_hamocc_model
 
     TYPE(t_sim_step_info)               :: sim_step_info
     INTEGER                             :: jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     !------------------------------------------------------------------
     ! Initialize output file if necessary;
@@ -589,12 +587,9 @@ MODULE mo_hamocc_model
       sim_step_info%dtime      = dtime
       jstep0 = 0
 
-      restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes)) THEN
-
-        ! get start counter for time loop from restart file:
-        jstep0 = restartAttributes%getInteger("jstep")
-      END IF
+      CALL getAttributesForRestarting(restartAttributes)
+      ! get start counter for time loop from restart file:
+      IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
       sim_step_info%jstep0    = jstep0
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)

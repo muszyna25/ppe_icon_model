@@ -36,8 +36,8 @@ MODULE mo_parallel_config
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-       &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
-       &  use_div_from_file, io_proc_chunk_size,                    &
+       &  restart_chunk_size, restart_load_scale_max, ext_div_from_file, &
+       &  write_div_to_file, use_div_from_file, io_proc_chunk_size, &
        &  num_dist_array_replicas, comm_pattern_type_orig,          &
        &  comm_pattern_type_yaxt, default_comm_pattern_type,        &
        &  io_process_stride, io_process_rotate, proc0_shift,        &
@@ -153,9 +153,13 @@ MODULE mo_parallel_config
   !
   LOGICAL :: use_dp_mpi2io
 
-  ! The (asynchronous) restart is capable of writing and communicating
-  ! more than one 2D slice at once
+  ! The asynchronous and multifile checkpointing frameworks are capable of writing
+  ! and communicating more than one 2D slice at once.
   INTEGER :: restart_chunk_size
+
+  ! The multifile checkpointing framework is capable of reading and distributing
+  ! full 3d arrays (if there are less than restart_load_scale_max work PE per file.
+  INTEGER :: restart_load_scale_max = 1
 
   ! The (asynchronous) name list output is capable of writing and communicating
   ! more than one 2D slice at once

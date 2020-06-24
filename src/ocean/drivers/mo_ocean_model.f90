@@ -113,11 +113,11 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: success
 
   USE mo_ocean_nudging,       ONLY: ocean_nudge
-
+  USE mo_key_value_store,      ONLY: t_key_value_store
   USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
-  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
+  USE mo_restart_nml_and_att,  ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
   USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_output_event_types,   ONLY: t_sim_step_info
@@ -126,6 +126,7 @@ MODULE mo_ocean_model
   USE mo_ocean_testbed,        ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,            ONLY: restartWritingParameters, write_initial_state
+  USE mo_restart, ONLY: detachRestartProcs
   USE mo_ocean_time_events,    ONLY: init_ocean_time_events, getCurrentDate_to_String
   !-------------------------------------------------------------
   ! For the coupling
@@ -417,6 +418,8 @@ MODULE mo_ocean_model
     !-------------------------------------------------------------------
     ! If we belong to the I/O PEs just call xxx_io_main_proc before
     ! reading patches.  This routine will never return
+    CALL detachRestartProcs(ltimer)
+
     CALL init_io_processes()
 
     ! 4. Import patches
@@ -596,7 +599,7 @@ MODULE mo_ocean_model
 
     TYPE(t_sim_step_info)   :: sim_step_info
     INTEGER                 :: jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: &
       & method_name = 'mo_ocean_model:init_io_processes'
     
@@ -673,12 +676,9 @@ MODULE mo_ocean_model
         sim_step_info%dtime      = dtime
         jstep0 = 0
 
-        restartAttributes => getAttributesForRestarting()
-        IF (ASSOCIATED(restartAttributes)) THEN
-
-          ! get start counter for time loop from restart file:
-          jstep0 = restartAttributes%getInteger("jstep")
-        END IF
+        CALL getAttributesForRestarting(restartAttributes)
+        ! get start counter for time loop from restart file:
+        IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
         sim_step_info%jstep0    = jstep0
         CALL init_statistics_streams
       ENDIF
@@ -732,7 +732,7 @@ MODULE mo_ocean_model
 
     TYPE(t_sim_step_info)               :: sim_step_info
     INTEGER                             :: jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     !------------------------------------------------------------------
     ! Initialize output file if necessary;
@@ -752,12 +752,10 @@ MODULE mo_ocean_model
       sim_step_info%dtime      = dtime
       jstep0 = 0
 
-      restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes)) THEN
+      CALL getAttributesForRestarting(restartAttributes)
+      ! get start counter for time loop from restart file:
+      IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
 
-        ! get start counter for time loop from restart file:
-        jstep0 = restartAttributes%getInteger("jstep")
-      END IF
       sim_step_info%jstep0    = jstep0
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)

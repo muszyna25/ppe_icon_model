@@ -6,7 +6,7 @@ MODULE mo_ocean_solve_subset_transfer
   USE mo_kind, ONLY: wp, sp
   USE mo_exception, ONLY: finish
   USE mo_ocean_solve_transfer, ONLY: t_transfer
-  USE mo_ocean_solve_aux, ONLY: t_destructible, solve_trans_scatter, &
+  USE mo_ocean_solve_aux, ONLY: solve_trans_scatter, &
     & solve_trans_compact, solve_cell, solve_edge, solve_vert
   USE mo_model_domain, ONLY: t_patch
   USE mo_mpi, ONLY: p_n_work, p_pe_work, p_comm_work, p_sum, p_int, &
@@ -29,10 +29,9 @@ MODULE mo_ocean_solve_subset_transfer
 ! arrays are just locally copied... (and converted between different real-kinds, if necessary)
 
   IMPLICIT NONE
-
   PRIVATE
 
-  PUBLIC :: t_subset_transfer, subset_transfer_ptr
+  PUBLIC :: t_subset_transfer
 
   TYPE, EXTENDS(t_transfer) :: t_subset_transfer
     PRIVATE
@@ -61,19 +60,6 @@ MODULE mo_ocean_solve_subset_transfer
 
 CONTAINS
 
-  FUNCTION subset_transfer_ptr(this) RESULT(this_ptr)
-    CLASS(t_destructible), TARGET, INTENT(INOUT) :: this
-    CLASS(t_subset_transfer), POINTER :: this_ptr
-
-    SELECT TYPE (this)
-    CLASS IS (t_subset_transfer)
-      this_ptr => this
-    CLASS DEFAULT
-      NULLIFY(this_ptr)
-      CALL finish("subset_transfer_ptr", "not correct type!")
-    END SELECT
-  END FUNCTION subset_transfer_ptr
-
   SUBROUTINE subset_transfer_construct(this, sync_type, patch_2d, redfac, mode)
     CLASS(t_subset_transfer), INTENT(INOUT) :: this
     INTEGER, INTENT(IN) :: sync_type, redfac, mode
@@ -99,7 +85,7 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: cl_ntot, cl_rnk, gID_tmp, cl_nbnd
 #endif
 
-    CALL this%destruct()
+    IF (this%is_init) RETURN
     IF (ltimer) THEN
       this%timer_init = new_timer("triv-t init")
       CALL timer_start(this%timer_init)
@@ -332,7 +318,7 @@ CONTAINS
       this%timer_glob_sum = new_timer("sub-t glb_sum")
       this%timer_sync = new_timer("sub-t sync")
     END IF
-    ALLOCATE(this%is_init(1))
+    this%is_init = .true.
 #endif !! ifndef NOMPI
   END SUBROUTINE subset_transfer_construct
 
@@ -349,7 +335,7 @@ CONTAINS
     IF (ASSOCIATED(this%glb_idx_loc)) DEALLOCATE(this%glb_idx_loc)
     IF (ASSOCIATED(this%glb_idx_cal)) DEALLOCATE(this%glb_idx_cal)
     NULLIFY(this%glb_idx_loc, this%glb_idx_cal)
-    IF(ALLOCATED(this%is_init)) DEALLOCATE(this%is_init)
+    this%is_init = .false.
   END SUBROUTINE subset_transfer_destruct
 
   SUBROUTINE subset_transfer_into_once_2d_wp(this, data_in, data_out, tt)

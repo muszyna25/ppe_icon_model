@@ -64,7 +64,8 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
   USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting
+  USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_ice_fem_interface,      ONLY: ice_fem_init_vel_restart, ice_fem_update_vel_restart
@@ -229,7 +230,7 @@ CONTAINS
     INTEGER :: level,ifiles,i,j
     REAL(wp) :: r
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
     CHARACTER(LEN = *), PARAMETER :: routine = 'mo_hydro_ocean_run:perform_ho_stepping'
 
@@ -258,11 +259,9 @@ CONTAINS
     !------------------------------------------------------------------
     jstep0 = 0
 
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
-      ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
-    END IF
+    CALL getAttributesForRestarting(restartAttributes)
+    ! get start counter for time loop from restart file:
+    IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
