@@ -3492,6 +3492,8 @@ elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORAT
   acx_cv_fc_compiler_vendor=portland
 elif $FC -V 2>&1 | grep '^Cray Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=cray
+elif $FC --version 2>&1 | grep '^Copyright.*NEC Corporation' >/dev/null 2>&1; then :
+  acx_cv_fc_compiler_vendor=nec
 elif $FC --version 2>/dev/null | grep '^GNU Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=gnu
 else
@@ -3518,6 +3520,8 @@ else
     acx_cv_fc_compiler_version=`$FC -V 2>/dev/null | sed -n 's/\(pgfortran\|pgf90\) \([0-9][0-9]*\.[0-9][0-9]*\)-\([0-9][0-9]*\).*/\2.\3/p'` ;; #(
   cray) :
     acx_cv_fc_compiler_version=`$FC -V 2>&1 | sed -n 's/.*ersion \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
+  nec) :
+    acx_cv_fc_compiler_version=`$FC --version 2>&1 | sed -n 's/^nfort (NFORT) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   gnu) :
     acx_cv_fc_compiler_version=`$FC -dumpfullversion 2>/dev/null`
          if test $? -ne 0 || test -z "$acx_cv_fc_compiler_version"; then :
@@ -5102,7 +5106,9 @@ elif $CC -V 2>&1 | grep '^Cray C' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
 elif $CC --version 2>&1 | grep '^Cray clang' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
-elif $CC --version | grep '^gcc' >/dev/null 2>&1; then :
+elif $CC --version 2>&1 | grep '^Copyright.*NEC Corporation' >/dev/null 2>&1; then :
+  acx_cv_c_compiler_vendor=nec
+elif $CC --version 2>/dev/null | grep '^gcc' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=gnu
 else
   acx_cv_c_compiler_vendor=unknown
@@ -5134,6 +5140,8 @@ fi
 else
   acx_cv_c_compiler_version="classic:${acx_cv_c_compiler_version}"
 fi ;; #(
+  nec) :
+    acx_cv_c_compiler_version=`$CC --version 2>&1 | sed -n 's/^ncc (NCC) \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'` ;; #(
   gnu) :
     acx_cv_c_compiler_version=`$CC -dumpfullversion 2>/dev/null`
          if test $? -ne 0 || test -z "$acx_cv_c_compiler_version"; then :
