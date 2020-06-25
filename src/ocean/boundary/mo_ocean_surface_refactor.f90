@@ -1068,7 +1068,8 @@ CONTAINS
           !                 since draft was increased by snowfall but water below ice is not affected by snowfall
           !                 snow to ice conversion does not effect draft
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * &
-          &                      stretch_c(jc,jb) 
+          &                 stretch_c(jc,jb) + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime
+
 
 
           !******  (Thermodynamic Eq. 3)  ******
