@@ -72,7 +72,7 @@ MODULE mo_nwp_phy_init
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
-  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init
+  USE mo_2mom_mcrph_driver,   ONLY: two_moment_mcrph_init
   USE mo_art_clouds_interface,ONLY: art_clouds_interface_2mom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
@@ -673,7 +673,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain,&
       &                   tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
 
-  CASE (4) !two moment micrphysics
+  CASE (4,7) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
     IF (jg == 1) CALL two_moment_mcrph_init(igscp=atm_phy_nwp_config(jg)%inwp_gscp, msg_level=msg_level )

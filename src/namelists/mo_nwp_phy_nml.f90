@@ -334,8 +334,8 @@ CONTAINS
 
     DO jg = 1, max_dom
 
-      IF ( ALL((/0,1,2,3,4,5,6,9/) /= inwp_gscp(jg)) ) THEN
-        CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,5 or 9.')
+      IF ( ALL((/0,1,2,3,4,5,6,7,9/) /= inwp_gscp(jg)) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,5,6,7 or 9.')
       END IF
       
       IF ( ALL((/0,1,2,3,4,5,6,7,9,100,101/) /= icalc_reff(jg)) ) THEN

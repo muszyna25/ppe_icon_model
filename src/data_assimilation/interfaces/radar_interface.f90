@@ -1,6 +1,7 @@
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
+
 !+ Source module for the radar forward operator of the COSMO-model
 !------------------------------------------------------------------------------
-!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
 MODULE radar_interface
 
   !------------------------------------------------------------------------------
@@ -58,8 +59,7 @@ MODULE radar_interface
   USE mo_util_mtime,            ONLY: getElapsedSimTimeInSeconds
   USE mo_run_config,            ONLY: dtime, nsteps, ntracer, ltimer, &
        &                              iqc,  iqi,  iqr,  iqs,  iqg,  iqh,  iqv, &
-       &                              iqnc, iqni, iqnr, iqns, iqng, iqnh
-!  USE mo_run_config,            ONLY: iqgl, qghl   ! later, if inwp_gscp=7 will be available
+       &                              iqnc, iqni, iqnr, iqns, iqng, iqnh, iqgl, iqhl
   USE mo_gribout_config,        ONLY: gribout_config
   USE mtime,                    ONLY: datetimeToString
   USE mo_vertical_coord_table,  ONLY: vct_a
@@ -713,10 +713,10 @@ CONTAINS
       IF (iqnh > 0 .AND. iqnh <= ntracer) THEN
         qnh => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqnh)
       END IF
-!      IF (iqgl > 0 .AND. iqgl <= ntracer) THEN
-!        ! 2mom scheme with liquid water fraction of graupel qgl:
-!        qgl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqgl)
-!      ELSE IF (iqng > 0 .AND. iqng <= ntracer) THEN
+      IF (iqgl > 0 .AND. iqgl <= ntracer) THEN
+        ! 2mom scheme with liquid water fraction of graupel qgl:
+        qgl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqgl)
+      ELSE IF (iqng > 0 .AND. iqng <= ntracer) THEN
         ! 2mom scheme without lwf of graupel. qgl needs to be allocated
         ! with 0.0:
         IF (.NOT. ASSOCIATED(dum_dom(idom)%dummy0)) THEN
@@ -724,11 +724,11 @@ CONTAINS
           dum_dom(idom)%dummy0 = 0.0_wp
         END IF
         qgl => dum_dom(idom)%dummy0(:,1:nk,:)
-!      END IF
-!      IF (iqhl > 0 .AND. iqhl <= ntracer) THEN
-!        ! 2mom scheme with liquid water fraction of hail qhl:
-!        qhl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqhl)
-!      ELSE IF (iqnh > 0 .AND. iqnh <= ntracer) THEN
+      END IF
+      IF (iqhl > 0 .AND. iqhl <= ntracer) THEN
+        ! 2mom scheme with liquid water fraction of hail qhl:
+        qhl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqhl)
+      ELSE IF (iqnh > 0 .AND. iqnh <= ntracer) THEN
         ! 2mom scheme without lwf of hail. qhl needs to be allocated
         ! with 0.0:
         IF (.NOT. ASSOCIATED(dum_dom(idom)%dummy0)) THEN
@@ -736,7 +736,7 @@ CONTAINS
           dum_dom(idom)%dummy0 = 0.0_wp
         END IF
         qhl => dum_dom(idom)%dummy0(:,1:nk,:)
-!      END IF
+      END IF
       
       IF (atm_phy_nwp_config(idom)%icpl_aero_gscp == 2) THEN
         ! Not yet implemented in microphysics! We give a dummy value here.

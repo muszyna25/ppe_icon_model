@@ -1,3 +1,4 @@
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
 !>
 !! Routines for optional diagnostic output variables in NWP
 !! (formerly located in mo_util_phys)
@@ -48,7 +49,7 @@ MODULE mo_opt_nwp_diagnostics
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, &
-       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, msg_level
+       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, iqgl, iqhl, msg_level
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
@@ -1142,6 +1143,18 @@ CONTAINS
               q_s = MAX(p_prog_rcf%tracer(jc,jk,jb,iqs), 0.0_wp)
               q_g = MAX(p_prog_rcf%tracer(jc,jk,jb,iqg), 0.0_wp)
             END IF
+
+            IF (atm_phy_nwp_config(jg)%inwp_gscp == 7) THEN
+              q_g = q_g + p_prog_rcf%tracer(jc,jk,jb,iqgl) + p_prog_rcf%tracer(jc,jk,jb,iqhl)
+            END IF
+            
+            q_solid = q_g *                                                 &
+                 &    ( SQRT( q_i * q_g  ) / MAX( q_i + q_g, 1.0e-20_wp) +  &
+                 &      SQRT( q_s * q_g  ) / MAX( q_s + q_g, 1.0e-20_wp) )
+
+            q_solid = q_g *                                                 &
+                 &    ( SQRT( q_i * q_g  ) / MAX( q_i + q_g, 1.0e-20_wp) +  &
+                 &      SQRT( q_s * q_g  ) / MAX( q_s + q_g, 1.0e-20_wp) )
 
             q_solid = q_g *                                                 &
                  &    ( SQRT( q_i * q_g  ) / MAX( q_i + q_g, 1.0e-20_wp) +  &
@@ -2731,6 +2744,44 @@ CONTAINS
                                    z_radar   = dbz3d_lin(:,:,:)                  )
 
       
+    CASE ( 7 )
+
+      CALL compute_field_dbz_2mom( npr       = nproma,                           &
+                                   nlev      = ptr_patch%nlev,                   &
+                                   nblks     = ptr_patch%nblks_c,                &
+                                   startblk  = i_startblk,                       &
+                                   endblk    = i_endblk,                         &
+                                   jk_start  = kstart_moist(jg),                 &
+                                   startidx1 = i_startidx_1,                     &
+                                   endidx2   = i_endidx_2,                       &
+                                   lmessage_light = (msg_level > 12 .AND. my_process_is_mpi_workroot()), &
+                                   lmessage_full  = (msg_level > 15),            &
+                                   my_id_for_message = get_my_mpi_work_id(),     &
+                                   rho_w     = rhoh2o,                           &
+                                   rho_ice   = rhoice,                           &
+                                   K_w       = K_w_0,                            &
+                                   K_ice     = K_i_0,                            &
+                                   T_melt    = Tmelt,                            &
+                                   q_crit_radar = 1e-8_wp,                       &
+                                   T         = p_diag%temp(:,:,:),               &
+                                   rho       = p_prog%rho(:,:,:),                &
+                                   q_cloud   = p_prog_rcf%tracer(:,:,:,iqc),     &
+                                   q_ice     = p_prog_rcf%tracer(:,:,:,iqi),     &
+                                   q_rain    = p_prog_rcf%tracer(:,:,:,iqr),     &
+                                   q_snow    = p_prog_rcf%tracer(:,:,:,iqs),     &
+                                   q_graupel = p_prog_rcf%tracer(:,:,:,iqg),     &
+                                   q_hail    = p_prog_rcf%tracer(:,:,:,iqh),     &
+                                   n_cloud   = p_prog_rcf%tracer(:,:,:,iqnc),    &
+                                   n_ice     = p_prog_rcf%tracer(:,:,:,iqni),    &
+                                   n_rain    = p_prog_rcf%tracer(:,:,:,iqnr),    &
+                                   n_snow    = p_prog_rcf%tracer(:,:,:,iqns),    &
+                                   n_graupel = p_prog_rcf%tracer(:,:,:,iqng),    &
+                                   n_hail    = p_prog_rcf%tracer(:,:,:,iqnh),    &
+                                   ql_graupel= p_prog_rcf%tracer(:,:,:,iqgl),    &
+                                   ql_hail   = p_prog_rcf%tracer(:,:,:,iqhl),    &
+                                   z_radar   = dbz3d_lin(:,:,:)                  )
+
+      
     CASE DEFAULT
       
       CALL finish( modname//': get_field_dbz3d_lin',  &
@@ -3144,8 +3195,8 @@ CONTAINS
     !               n_snow       : snow number density        [1/kg] 
     !               n_graupel    : graupel number density     [1/kg]
     !               n_hail       : hail number density        [1/kg]
-    !   OPTIONAL    ql_graupel   : liquid water on graupel mixing ratio  [kg/kg]
-    !   OPTIONAL    ql_hail      : liquid water on hail mixing ratio     [kg/kg]
+    !   OPTIONAL:   ql_graupel   : liquid water on graupel mixing ratio  [kg/kg]
+    !   OPTIONAL:   ql_hail      : liquid water on hail mixing ratio     [kg/kg]
     !
     ! Output:       z_radar      : 3D field of Z              [mm^6/m^3]
     ! 

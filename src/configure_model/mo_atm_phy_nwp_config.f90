@@ -321,7 +321,7 @@ CONTAINS
       CASE (2)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
         atm_phy_nwp_config(jg)%l2moment = .FALSE.
-      CASE (4,5,6)
+      CASE (4,5,6,7)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
         atm_phy_nwp_config(jg)%l2moment = .TRUE.
       CASE DEFAULT

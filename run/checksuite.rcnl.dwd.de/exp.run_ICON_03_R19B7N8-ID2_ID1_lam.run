@@ -103,7 +103,7 @@ cp $ICONDIR/data/ECHAM6_CldOptProps.nc .
 cp $ICONDIR/data/rrtmg_lw.nc .
 
 # lookup table for 2-mom microphysics
-cp $ICONDIR/data/dmin_wetgrowth_lookup.dat .
+cp $ICONDIR/data/dmin_wetgrowth_lookup.nc .
 
 
 

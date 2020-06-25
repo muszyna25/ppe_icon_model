@@ -41,7 +41,7 @@ MODULE mo_nwp_diagnosis
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: iqv, iqc, iqi, iqr, iqs,  &
-                                   iqni, iqg, iqh, iqnc, iqm_max
+                                   iqni, iqg, iqh, iqnc, iqm_max, iqgl, iqhl
   USE mo_grid_config,        ONLY: n_dom, n_dom_start
   USE mo_timer,              ONLY: ltimer, timer_start, timer_stop, timer_nh_diagnostics
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_nh_state
@@ -1842,12 +1842,14 @@ CONTAINS
 
     ! Local variables
     REAL(wp), DIMENSION(p_patch%nblks_c) ::                                              &
-         & qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax,  &
-         & qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin
+         & qvmax, qcmax, qrmax, qimax, qsmax, qhmax, qgmax, tmax, wmax, qncmax, qnimax, qglmax, qhlmax, &
+         & qvmin, qcmin, qrmin, qimin, qsmin, qhmin, qgmin, tmin, wmin, qncmin, qnimin, qglmin, qhlmin
     REAL(wp) ::                                                                          &
-         & qvmaxi, qcmaxi, qrmaxi, qimaxi, qsmaxi, qhmaxi, qgmaxi, tmaxi, wmaxi, qncmaxi, qnimaxi,  &
-         & qvmini, qcmini, qrmini, qimini, qsmini, qhmini, qgmini, tmini, wmini, qncmini, qnimini
+         & qvmaxi, qcmaxi, qrmaxi, qimaxi, qsmaxi, qhmaxi, qgmaxi, tmaxi, wmaxi, qncmaxi, qnimaxi, qglmaxi, qhlmaxi,  &
+         & qvmini, qcmini, qrmini, qimini, qsmini, qhmini, qgmini, tmini, wmini, qncmini, qnimini, qglmini, qhlmini
 
+
+    
     ! loop indices
     INTEGER :: jc,jk,jb,jg
 
@@ -1890,6 +1892,11 @@ CONTAINS
     qgmin = 0.0_wp
     qhmax = 0.0_wp
     qhmin = 0.0_wp
+    
+    qglmax = 0.0_wp
+    qglmin = 0.0_wp
+    qhlmax = 0.0_wp
+    qhlmin = 0.0_wp
 
     qncmax = 0.0_wp
     qncmin = 0.0_wp
@@ -1921,11 +1928,17 @@ CONTAINS
             qsmin(jb) = MIN(qsmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqs))
             
             IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
-                 & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+                 & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
                qgmax(jb) = MAX(qgmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
                qgmin(jb) = MIN(qgmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqg))
                qhmax(jb) = MAX(qhmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
                qhmin(jb) = MIN(qhmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqh))
+            END IF
+            IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
+               qglmax(jb) = MAX(qglmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqgl))
+               qglmin(jb) = MIN(qglmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqgl))
+               qhlmax(jb) = MAX(qhlmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqhl))
+               qhlmin(jb) = MIN(qhlmin(jb),p_prog_rcf%tracer(jc,jk,jb,iqhl))
             END IF
             IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
                qncmax(jb) = MAX(qncmax(jb),p_prog_rcf%tracer(jc,jk,jb,iqnc))
@@ -1956,11 +1969,17 @@ CONTAINS
     qsmaxi = MAXVAL(qsmax(i_startblk:i_endblk))
     qsmini = MINVAL(qsmin(i_startblk:i_endblk))
     IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
-         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR.atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
        qgmaxi = MAXVAL(qgmax(i_startblk:i_endblk))
        qgmini = MINVAL(qgmin(i_startblk:i_endblk))
        qhmaxi = MAXVAL(qhmax(i_startblk:i_endblk))
        qhmini = MINVAL(qhmin(i_startblk:i_endblk))
+    END IF
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
+       qglmaxi = MAXVAL(qglmax(i_startblk:i_endblk))
+       qglmini = MINVAL(qglmin(i_startblk:i_endblk))
+       qhlmaxi = MAXVAL(qhlmax(i_startblk:i_endblk))
+       qhlmini = MINVAL(qhlmin(i_startblk:i_endblk))
     END IF
     IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
        qncmaxi = MAXVAL(qncmax(i_startblk:i_endblk))
@@ -1985,11 +2004,17 @@ CONTAINS
     qsmaxi = global_max(qsmaxi)
     qsmini = global_min(qsmini)
     IF(atm_phy_nwp_config(jg)%inwp_gscp==4 &
-         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+         & .OR.atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
        qgmaxi = global_max(qgmaxi)
        qgmini = global_min(qgmini)
        qhmaxi = global_max(qhmaxi)
        qhmini = global_min(qhmini)
+    END IF
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==7)THEN
+       qglmaxi = global_max(qglmaxi)
+       qglmini = global_min(qglmini)
+       qhlmaxi = global_max(qhlmaxi)
+       qhlmini = global_min(qhlmini)
     END IF
     IF(atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
        qncmaxi = global_max(qncmaxi)
@@ -2020,6 +2045,13 @@ CONTAINS
        WRITE(message_text,'(A10,10E11.3)') '  max: ', wmaxi,qvmaxi,qcmaxi,qrmaxi,qimaxi,qsmaxi,qgmaxi,qhmaxi,qncmaxi,qnimaxi
        CALL message("",TRIM(message_text))
        WRITE(message_text,'(A10,10E11.3)') '  min: ', wmini,qvmini,qcmini,qrmini,qimini,qsmini,qgmini,qhmini,qncmini,qnimini
+       CALL message("",TRIM(message_text))       
+    CASE(7)
+       WRITE(message_text,'(A10,10A11)')   '  var: ', 'w','qv','qc','qr','qi','qs','qg','qh','qgl','qhl'
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,10E11.3)') '  max: ', wmaxi,qvmaxi,qcmaxi,qrmaxi,qimaxi,qsmaxi,qgmaxi,qhmaxi,qglmaxi,qhlmaxi
+       CALL message("",TRIM(message_text))
+       WRITE(message_text,'(A10,10E11.3)') '  min: ', wmini,qvmini,qcmini,qrmini,qimini,qsmini,qgmini,qhmini,qhlmini,qhlmini
        CALL message("",TRIM(message_text))       
     CASE DEFAULT       
           CALL finish('nwp_diag_output_minmax_micro', 'Cloud microphysics scheme not yet known in diagnostics.')

@@ -395,7 +395,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
 
     !For two moment microphysics
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (4,5,6)
+    CASE (4,5,6,7)
 
        ! &      diag%ice_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &
@@ -556,7 +556,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (4,5,6)
+    CASE (4,5,6,7)
 
        ! &      diag%ice_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp', 'kg m-2', 'gridscale ice', datatype_flt)
@@ -2332,7 +2332,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
         &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
 
 
-      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=2 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 6) THEN
+      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=2 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 7) THEN
         cf_desc      = t_cf_var('reff_qg', 'm',  'effective radius of graupel', datatype_flt)
         grib2_desc   = grib2_var(0, 254, 54, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_54 in DWD
         CALL add_var( diag_list, 'reff_qg', diag%reff_qg,                                 &
@@ -2348,7 +2348,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
           &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
       END IF
 
-      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=4 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 6) THEN
+      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=4 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 7) THEN
         cf_desc      = t_cf_var('reff_qh', 'm',  'effective radius of hail', datatype_flt)
         grib2_desc   = grib2_var(0, 254, 55, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_55 in DWD
         CALL add_var( diag_list, 'reff_qh', diag%reff_qh,                                 &

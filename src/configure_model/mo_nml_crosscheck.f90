@@ -45,7 +45,7 @@ MODULE mo_nml_crosscheck
     &                                    iqs, iqr, iqt, iqtvar, ltimer,                    &
     &                                    ico2,                                             &
     &                                    iqni, iqni_nuc, iqg, iqm_max,                     &
-    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
+    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc, iqgl, iqhl,    & 
     &                                    inccn, ininact, ininpot,                          &
     &                                    activate_sync_timers, timers_level, lart,         &
     &                                    msg_level, luse_radarfwo
@@ -560,6 +560,26 @@ CONTAINS
         iqt       = 15    !! start index of other tracers not related at all to moisture
        
         ntracer = 14
+
+      CASE(7)  ! two-moment scheme with additional prognostic liquid water (melting) variables for graupel and hail
+      
+        iqg  = 6
+        iqh  = 7
+        iqgl = 8
+        iqhl = 9        
+        iqni = 10        
+        iqnr = 11       
+        iqns = 12        
+        iqng = 13        
+        iqnh = 14
+        iqnc = 15
+        ininact = 16
+
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 9     !! end index of water species mass mixing ratios
+        iqt       = 17    !! start index of other tracers not related at all to moisture
+       
+        ntracer = 16
 
       CASE(5)  ! two-moment scheme with CCN and IN budgets
       

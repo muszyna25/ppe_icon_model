@@ -82,7 +82,7 @@ MODULE mo_initicon_utils
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
   USE mo_upatmo_config,       ONLY: upatmo_config
-  USE mo_mcrph_sb,            ONLY: set_qnc, set_qnr, set_qni,   &
+  USE mo_2mom_mcrph_driver,   ONLY: set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng, set_qnh
 
 

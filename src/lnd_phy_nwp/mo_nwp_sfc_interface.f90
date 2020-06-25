@@ -252,7 +252,7 @@ CONTAINS
     jg = p_patch%id
 
 
-    IF (atm_phy_nwp_config(jg)%inwp_gscp == 2) THEN
+    IF (atm_phy_nwp_config(jg)%lhave_graupel) THEN
       ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
       p_graupel_gsp_rate => prm_diag%graupel_gsp_rate(:,:)
     ELSE
@@ -374,8 +374,18 @@ CONTAINS
            snow_con_rate(jc,isubs)    = prm_diag%snow_con_rate(jc,jb)
            graupel_gsp_rate(jc,isubs) = p_graupel_gsp_rate    (jc,jb)
          END DO
+         IF( atm_phy_nwp_config(jg)%l2moment) THEN
+           DO ic = 1, i_count
+             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+             ! for 1mom ice is included in snow_gsp, but for 2mom not
+             snow_gsp_rate(jc,isubs)    = snow_gsp_rate(jc,isubs) + prm_diag%ice_gsp_rate(jc,jb)
+             ! here we ignore the different densities of graupel and hail in TERRA (at least for now)
+             graupel_gsp_rate(jc,isubs) = graupel_gsp_rate(jc,isubs) + prm_diag%hail_gsp_rate(jc,jb) 
+           END DO
+         ENDIF
        END DO
        !$acc end parallel
+
 
        IF (lsnowtile .AND. itype_snowevap == 3) THEN
          !$acc parallel if(lzacc)

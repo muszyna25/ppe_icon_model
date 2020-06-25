@@ -38,7 +38,7 @@ MODULE mo_run_config
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2, ich4, in2o, io3
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
-  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
+  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact, iqgl, iqhl
   PUBLIC :: iqtke
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
@@ -132,7 +132,9 @@ MODULE mo_run_config
     INTEGER :: inccn      !<ccn number
     INTEGER :: ininpot    !<number of aerosol particles which are potential IN
     INTEGER :: ininact    !<number of activated IN
-
+    INTEGER :: iqgl        !<liquid on graupel
+    INTEGER :: iqhl        !<liquid on hail
+    
     ! For TKE advection
     INTEGER :: iqtke      !< turbulent kinetic energy
 
