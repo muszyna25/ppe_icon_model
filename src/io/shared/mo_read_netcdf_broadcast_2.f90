@@ -34,12 +34,10 @@
 MODULE mo_read_netcdf_broadcast_2
 
   USE mo_kind,               ONLY: sp, dp, wp
-  USE mo_scatter,            ONLY: broadcast_array
   USE mo_exception,          ONLY: message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success
   USE mo_parallel_config,    ONLY: nproma
   USE mo_io_units,           ONLY: filename_max
-
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_comm_work, &
     &                              process_mpi_root_id, p_bcast
   USE mo_read_netcdf_distributed, ONLY: var_data_2d_wp, var_data_2d_int, &
@@ -176,7 +174,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(zlocal)
+    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
 
     res=zlocal(1)
 
@@ -230,7 +228,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(zlocal)
+    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
 
     res=zlocal(1)
 
@@ -263,7 +261,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(zlocal)
+    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
 
     res=zlocal(1)
 
@@ -305,7 +303,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -327,7 +325,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_1D
   !-------------------------------------------------------------------------
@@ -389,7 +387,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:3))
+    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
     file_time_steps=var_size(3)
 
     ! calculate time range
@@ -434,7 +432,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_time
   !-------------------------------------------------------------------------
@@ -494,7 +492,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:4))
+    CALL p_bcast(var_size(1:4), process_mpi_root_id, p_comm_work)
     file_time_steps=var_size(4)
 
     ! calculate time range
@@ -540,7 +538,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time
   !-------------------------------------------------------------------------
@@ -595,7 +593,7 @@ CONTAINS
     END IF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:4))
+    CALL p_bcast(var_size(1:4), process_mpi_root_id, p_comm_work)
     file_extdim1_steps=var_size(1)
 
     ! calculate slice of 4th dimension
@@ -641,7 +639,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_extdim_slice_extdim_extdim_extdim
   !-------------------------------------------------------------------------
@@ -778,7 +776,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -804,7 +802,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_2D_all
   !-------------------------------------------------------------------------
@@ -880,7 +878,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     IF( my_process_is_mpi_workroot()) THEN
       SELECT CASE(var_type(1))
@@ -1045,10 +1043,10 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
     file_time_steps      = var_size(2)
 
     ! calculate time range
@@ -1227,7 +1225,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
     file_time_steps      = var_size(2)
 
     ! calculate time range
@@ -1320,7 +1318,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:3))
+    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -1350,7 +1348,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL broadcast_array(res)
+    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
 
   END FUNCTION netcdf_read_REAL_3D_all
   !-------------------------------------------------------------------------
@@ -1407,10 +1405,10 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
+    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
     file_vertical_levels = var_size(2)
 
     !-----------------------
@@ -1557,10 +1555,10 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(var_type)
+    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
 
     ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:3))
+    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
     file_vertical_levels = var_size(2)
     file_time_steps      = var_size(3)
 
@@ -1738,7 +1736,7 @@ CONTAINS
 
     ENDIF
 
-    CALL broadcast_array(broadcastValue)
+    CALL p_bcast(broadcastValue, process_mpi_root_id, p_comm_work)
     
     IF (broadcastValue(1) == 0.0_wp) THEN
       has_missValue = .false.

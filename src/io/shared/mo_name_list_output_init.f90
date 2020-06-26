@@ -54,8 +54,7 @@ MODULE mo_name_list_output_init
   USE mo_master_control,                    ONLY: my_process_is_oceanic
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
-  USE mo_dictionary,                        ONLY: t_dictionary, dict_init, &
-    &                                             dict_loadfile, dict_get
+  USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_cdi,                          ONLY: create_cdi_variable
@@ -66,7 +65,8 @@ MODULE mo_name_list_output_init
     &                                             real2string, remove_whitespace
   USE mo_util_hash,                         ONLY: util_hashword
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
-  USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
+  USE mo_key_value_store,                   ONLY: t_key_value_store
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   USE mo_math_constants,                    ONLY: rad2deg
@@ -494,20 +494,20 @@ CONTAINS
 
       ! -- Read the map files into dictionary data structures
 
-      CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
-      CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
+      CALL varnames_dict%init(.FALSE.)
+      CALL out_varnames_dict%init(.FALSE.)
 
       NULLIFY(keywords)
       CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = with_keywords(keywords, output_nml_dict)
         CALL message(routine, "load dictionary file.")
-        CALL dict_loadfile(varnames_dict, cfilename, linverse=linvert_dict)
+        CALL varnames_dict%loadfile(cfilename, linverse=linvert_dict)
       END IF
       IF(netcdf_dict /= ' ') THEN
         cfilename = with_keywords(keywords, netcdf_dict)
         CALL message(routine, "load dictionary file (output names).")
-        CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
+        CALL out_varnames_dict%loadfile(cfilename, linverse=.TRUE.)
       END IF
 
       ! -- If "remap=1": lon-lat interpolation requested
@@ -630,19 +630,19 @@ CONTAINS
         ! -- translate variables names according to variable name
         !    dictionary:
         DO i=1,max_var_ml
-          p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
+          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), &
             &                            default=p_onl%ml_varlist(i))
         END DO
         DO i=1,max_var_pl
-          p_onl%pl_varlist(i) = dict_get(varnames_dict, p_onl%pl_varlist(i), &
+          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), &
             &                            default=p_onl%pl_varlist(i))
         END DO
         DO i=1,max_var_hl
-          p_onl%hl_varlist(i) = dict_get(varnames_dict, p_onl%hl_varlist(i), &
+          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), &
             &                            default=p_onl%hl_varlist(i))
         END DO
         DO i=1,max_var_il
-          p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
+          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), &
             &                            default=p_onl%il_varlist(i))
         END DO
 
@@ -918,7 +918,7 @@ CONTAINS
             grp_name = vname(LEN(TILE_PREFIX)+1:)
 
             ! translate group name from GRIB2 to internal nomenclature, if necessary
-            grp_name = dict_get(varnames_dict, grp_name, grp_name)
+            grp_name = varnames_dict%get(grp_name, grp_name)
 
             tlen = len_trim(grp_name)
             grp_name(tlen+1:tlen+3) ="_t"
@@ -1787,10 +1787,10 @@ CONTAINS
     TYPE(datetime), POINTER :: mtime_datetime, mtime_date
     INTEGER(c_int64_t) :: total_ms
     INTEGER :: tlen
-    INTEGER :: iintvl, nintvls, ifile
+    INTEGER :: iintvl, nintvls, ifile, opt_err
     INTEGER :: errno
 
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     LOGICAL :: include_last
     CHARACTER(LEN=max_timedelta_str_len) :: time_offset_str
     CHARACTER(LEN=max_datetime_str_len) :: output_interval(max_time_intervals)
@@ -1817,12 +1817,13 @@ CONTAINS
       fname_metadata%extn = of%name_list%filename_extn(1:tlen)
     END IF
 
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
     IF (ASSOCIATED(restartAttributes)) THEN
       ! Restart case: Get starting index of ouput from restart file
       !               (if there is such an attribute available).
       WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-      fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
+      CALL restartAttributes%get(attname, fname_metadata%jfile_offset, opt_err=opt_err)
+      fname_metadata%jfile_offset = MERGE(fname_metadata%jfile_offset, 0, opt_err .EQ. 0)
     ELSE
       fname_metadata%jfile_offset = 0
     END IF

@@ -32,7 +32,7 @@ MODULE mo_psrad_interface
   USE mo_namelist,                   ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,                   ONLY: nnml, nnml_output
   USE mo_mpi,                        ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
+  USE mo_restart_nml_and_att,        ONLY: open_tmpfile, store_and_close_namelist
 
 #ifdef PSRAD_TIMING
   USE mo_timer,                      ONLY: timer_rrtm_coeffs,   &

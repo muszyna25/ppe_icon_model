@@ -52,7 +52,8 @@ MODULE mo_atmo_model
     &                                   ishallow_water, inwp
   USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
-  USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_key_value_store,         ONLY: t_key_value_store
+  USE mo_restart_nml_and_att,     ONLY: getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -248,7 +249,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
     INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
     TYPE(t_sim_step_info)   :: sim_step_info  
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
     CALL lonlat_grids%init()
@@ -335,7 +336,7 @@ CONTAINS
     !-------------------------------------------------------------------
 
     ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
-    CALL detachRestartProcs()
+    CALL detachRestartProcs(timers_level > 1)
 
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return
@@ -372,11 +373,9 @@ CONTAINS
           sim_step_info%dtime      = dtime
           jstep0 = 0
 
-          restartAttributes => getAttributesForRestarting()
-          IF (ASSOCIATED(restartAttributes)) THEN
-            ! get start counter for time loop from restart file:
-            jstep0 = restartAttributes%getInteger("jstep")
-          END IF
+          CALL getAttributesForRestarting(restartAttributes)
+          ! get start counter for time loop from restart file:
+          IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
         END IF

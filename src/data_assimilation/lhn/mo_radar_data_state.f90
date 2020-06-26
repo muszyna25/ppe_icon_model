@@ -57,8 +57,7 @@ MODULE mo_radar_data_state
     &                              makeInputParameters, deleteInputParameters
   USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
   USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
-  USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
-    &                              dict_loadfile
+  USE mo_dictionary,         ONLY: t_dictionary
   USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
@@ -146,11 +145,10 @@ CONTAINS
 
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
-    CALL dict_init(radar_varnames_dict, lcase_sensitive=.FALSE.)
+    CALL radar_varnames_dict%init(.FALSE.)
     IF (ANY(cdi_filetype(:) == FILETYPE_GRB2)) THEN
-      IF(radar_varnames_map_file /= ' ') THEN
-        CALL dict_loadfile(radar_varnames_dict, TRIM(radar_varnames_map_file))
-      END IF
+      IF (radar_varnames_map_file /= ' ') &
+        & CALL radar_varnames_dict%loadfile(TRIM(radar_varnames_map_file))
     END IF
 
     !------------------------------------------------------------------
@@ -186,7 +184,7 @@ CONTAINS
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'DEALLOCATE failed!')
 
     ! destroy variable name dictionary:
-    CALL dict_finalize(radar_varnames_dict)
+    CALL radar_varnames_dict%finalize()
 
   END SUBROUTINE init_radar_data
 

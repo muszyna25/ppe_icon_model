@@ -27,7 +27,7 @@ MODULE mo_assimilation_nml
   USE mo_impl_constants,      ONLY: max_dom
   
   USE mo_master_config,       ONLY: isRestart
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,   &
                             &       open_and_restore_namelist, close_tmpfile
   USE mo_assimilation_config, ONLY: assimilation_config !,n_noobs
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
