@@ -14,10 +14,10 @@ function set_cluster {
      ;;
    xfh2*) :
      echo "...FH2  at KIT"; CENTER="IMK"
-     input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE/"
+     input_folder="/pfs/work6/workspace/scratch/my9453-icon-input-0/TESTSUITE/"
      FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
-	   icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
+	   icon_data_poolFolder=/pfs/work6/workspace/scratch/my9453-icon-input-0/INPUT/AMIP/amip_input
      ;;
    xxce*) :
      echo "...XCE at DWD"; CENTER="DWD"
@@ -229,7 +229,6 @@ cat > job_ICON << ENDFILE
 #SBATCH --time=$2
 #SBATCH --ntasks-per-node=20
 #SBATCH --partition=$4
-#SBATCH --constraint=LSDF
 
 export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/software/community/ICON/lib/szip/szip/lib:/software/community/ICON/lib/eccodes/2.12.0_ifort19/lib
 export ECCODES_DEFINITION_PATH=/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/dwd_definitions/:/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/definitions
