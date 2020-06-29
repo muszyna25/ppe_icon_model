@@ -964,9 +964,12 @@ CONTAINS
         IF (jb == nblks) i_endidx = npromz
 
         DO jc=i_startidx,i_endidx
-          in_points(jc,jb,:) = &
-            &  (/ meteogram_output_config%station_list(jc,jb)%location%lon, &
-            &     meteogram_output_config%station_list(jc,jb)%location%lat  /) * pi_180
+!          in_points(jc,jb,:) = &
+!            &  (/ meteogram_output_config%station_list(jc,jb)%location%lon, &
+!            &     meteogram_output_config%station_list(jc,jb)%location%lat  /) * pi_180
+           
+           in_points(jc,jb,1) = meteogram_output_config%station_list(jc,jb)%location%lon * pi_180
+           in_points(jc,jb,2) = meteogram_output_config%station_list(jc,jb)%location%lat * pi_180                    
         END DO
       END DO
 
