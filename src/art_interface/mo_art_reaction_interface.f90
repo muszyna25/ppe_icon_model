@@ -36,11 +36,13 @@ MODULE mo_art_reaction_interface
                                           &   timer_art_losschem, timer_art_photo
   USE mo_radiation_config,              ONLY: irad_o3
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo, t_art_chem
+  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo, &
+                                          &   t_art_chem_param,       &
+                                          &   t_art_chem_indices
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
-  USE mo_art_gasphase,                  ONLY: art_loss_gasphase
+  USE mo_art_full_chemistry,            ONLY: art_loss_full_chemistry
   USE mo_art_photolysis,                ONLY: art_photolysis
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_radio
@@ -48,6 +50,10 @@ MODULE mo_art_reaction_interface
   USE mo_art_psc_state,                 ONLY: art_psc_main
   USE mo_art_feedback_icon,             ONLY: art_feedback_o3,     &
                                           &   art_dry_freezing_H2O
+  USE mo_art_cell_loop,                 ONLY: art_loop_cell_array
+  USE mo_art_chem_utils,                ONLY: art_calc_vmr2Nconc,            &
+                                          &   art_convert_tracers_mmr_Nconc, &
+                                          &   art_convert_tracers_Nconc_mmr
 #endif
 
   IMPLICIT NONE
@@ -82,27 +88,30 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
   TYPE(t_var_list), INTENT(INOUT)     :: &
     &  p_prog_list                       !< current prognostic state list
   REAL(wp), INTENT(INOUT)           :: &
-    &  tracer(:,:,:,:)                   !< tracer mixing ratios (mol/mol)
+    &  tracer(:,:,:,:)                   !< tracer mixing ratios (kg/kg)
 ! Local variables
   INTEGER                           :: &
     &  jb,                             & !< loop index
     &  istart, iend                      !< Start and end of nproma loop
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
-  TYPE(t_art_chem), POINTER :: &
-    &  art_chem
+  TYPE(t_art_chem_indices), POINTER :: &
+    &  art_indices
+  TYPE(t_art_chem_param), POINTER :: &
+    &  art_param
   TYPE(t_art_atmo), POINTER :: &
     &  art_atmo
   
   !-----------------------------------------------------------------------
  
-  IF(lart) THEN
+  IF (lart) THEN
 
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_reacInt)
 
-    art_atmo => p_art_data(jg)%atmo
-    art_chem => p_art_data(jg)%chem
+    art_atmo  => p_art_data(jg)%atmo
+    art_param => p_art_data(jg)%chem%param
+    art_indices => p_art_data(jg)%chem%indices
 
     IF (art_config(jg)%lart_aerosol) THEN
       ! ----------------------------------
@@ -134,79 +143,81 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
 
     IF (art_config(jg)%lart_chem) THEN
 
+      ! Convert mass mixing ratio into number concentration in #/cm3
+      CALL art_loop_cell_array(jg,p_art_data(jg)%chem%vmr2Nconc,art_calc_vmr2Nconc)
+
+      CALL art_convert_tracers_mmr_Nconc(jg, tracer, p_prog_list, p_art_data(jg)%chem%vmr2Nconc)
+
       ! ----------------------------------
       ! ---  Treat PSCs
       ! ---------------------------------
     
       IF (art_config(jg)%lart_psc) THEN
-       CALL art_psc_main(p_art_data(jg)%PSC_meta,    &
-                 &       p_dtime,                    &
-                 &       art_atmo%temp,              &
-                 &       art_atmo%pres,              &
-                 &       art_atmo%rho,               &
-                 &       art_atmo%dz,                &
-                 &       art_atmo%cell_area,         &
+       CALL art_psc_main(p_art_data(jg)%chem%PSC_meta,  &
+                 &       p_dtime,                       &
+                 &       art_atmo%temp,                 &
+                 &       art_atmo%pres,                 &
+                 &       art_atmo%rho,                  &
+                 &       art_atmo%dz,                   &
+                 &       art_atmo%cell_area,            &
                  &       jg, tracer)
       END IF
 
       ! Dry freezing of H2O
-      IF (art_chem%iTRH2O /= 0) THEN
-        CALL art_dry_freezing_H2O(jg, tracer(:,:,:,art_chem%iTRH2O))
+      IF (art_indices%iTRH2O /= 0) THEN
+        CALL art_dry_freezing_H2O(jg, tracer(:,:,:,art_indices%iTRH2O),  &
+                     &            p_art_data(jg)%chem%vmr2Nconc)
       END IF
 
 
-      SELECT CASE(art_config(jg)%iart_chem_mechanism)
-        CASE(0,1)
+      IF ((p_art_data(jg)%chem%param%OH_chem_meta%is_init)  &
+        &  .OR. art_config(jg)%lart_mecca) THEN
+        IF (timers_level > 3) CALL timer_start(timer_art_photo)
+  
+        CALL art_photolysis(jg,                           &
+               &            current_date,                 &
+               &            p_dtime,                      &
+               &            tracer,                       &
+               &            p_art_data(jg)%chem%vmr2Nconc)
+        IF (timers_level > 3) CALL timer_stop(timer_art_photo)
+      END  IF
+        
 
-          IF (p_art_data(jg)%OH_chem_meta%is_init) THEN
-            IF (timers_level > 3) CALL timer_start(timer_art_photo)
-
-            CALL art_photolysis(jg,                     &
-                   &            current_date,           &
-                   &            p_dtime,                &
-                   &            tracer)
-            IF (timers_level > 3) CALL timer_stop(timer_art_photo)
-          END IF
-
-
+      IF (art_config(jg)%lart_chemtracer) THEN
+        ! Only calculate the parametrised tracers if there are any of them
+        IF (art_param%number_param_tracers > 0) THEN
           IF (timers_level > 3) CALL timer_start(timer_art_losschem)
-
+  
           CALL art_loss_chemtracer(jg,             &
                                  & current_date,   &
                                  & p_dtime,        &
                                  & p_prog_list,    &
                                  & tracer)
           IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
-        CASE(2)
-          IF (timers_level > 3) CALL timer_start(timer_art_photo)
+        END IF
+      END IF
 
-          CALL art_photolysis(jg,                 &
-                            & current_date,       &
-                            & p_dtime,            &
-                            & tracer)
+      IF (art_config(jg)%lart_mecca) THEN
+        IF (timers_level > 3) CALL timer_start(timer_art_losschem)
 
-          IF (timers_level > 3) CALL timer_stop(timer_art_photo)
-          IF (timers_level > 3) CALL timer_start(timer_art_losschem)
+        CALL art_loss_full_chemistry(current_date,  &
+                             & jg,                  &
+                             & p_dtime,             &
+                             & tracer)
 
-          CALL art_loss_gasphase(current_date,    &
-                               & jg,              &
-                               & p_dtime,         &
-                               & tracer)
+        IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
+      END IF
 
-          IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
-
-        CASE DEFAULT
-          CALL finish('mo_art_reaction_interface:art_reaction_interface', &
-               &      'ART: Unknown iart_chem_mechanism')
-      END SELECT
+      ! Convert number concentration in #/cm3 back to mass mixing ratio
+      CALL art_convert_tracers_Nconc_mmr(jg, tracer, p_prog_list, p_art_data(jg)%chem%vmr2Nconc)
 
 
       SELECT CASE ( irad_o3 )
         CASE (10)
           IF (art_config(jg)%O3_feedback == 1) THEN 
       
-            IF (art_chem%iTRO3 /= 0) THEN
-              CALL art_feedback_o3(jg,art_atmo%o3_field_icon,tracer(:,:,:,art_chem%iTRO3))
+            IF (art_indices%iTRO3 /= 0) THEN
+              CALL art_feedback_o3(jg,art_atmo%o3_field_icon,tracer(:,:,:,art_indices%iTRO3))
             ELSE
                CALL finish('mo_art_reaction_interface:art_reaction_interface', &
                     &      'You have chosen ART-ozone feedback, irad_o3 = 10, '&

@@ -219,61 +219,90 @@ SUBROUTINE art_calc_ntracer_and_names()
 
   ! Local variables
   CHARACTER(LEN = MAX_CHAR_LENGTH) ::             &
-       &      cart_chemistry_xml,   &
-       &      cart_aerosol_xml,     &
-       &      cart_passive_xml
+       &      cart_chemtracer_xml,  &
+       &      cart_mecca_xml,       &
+       &      cart_aerosol_xml
   LOGICAL ::                        &
        &      lart_chem,            &
-       &      lart_aerosol,         &
-       &      lart_passive
+       &      lart_chemtracer,      &
+       &      lart_mecca,           &
+       &      lart_aerosol
 
   INTEGER  ::                       &
        &   auto_ntracer,            &
-       &   auto_ntracer_chemistry,  &
-       &   auto_ntracer_aerosol,    &
-       &   auto_ntracer_passive          !< art ntracer from one xml file
+       &   auto_ntracer_chemtracer, &
+       &   auto_ntracer_mecca,      &
+       &   auto_ntracer_aerosol        !< art ntracer from one xml file
   CHARACTER(LEN = MAX_CHAR_LENGTH), POINTER ::   &
-       &   tracer_names(:),           &
-       &   tracer_names_chemistry(:), &
-       &   tracer_names_passive(:),   &
+       &   tracer_names(:),            &
+       &   tracer_names_chemtracer(:), &
+       &   tracer_names_mecca(:),      &
        &   tracer_names_aerosol(:)
   LOGICAL ::                 &
        &   l_exist
 
   
-  cart_chemistry_xml = art_config(1)%cart_chemistry_xml
-  cart_aerosol_xml   = art_config(1)%cart_aerosol_xml
-  cart_passive_xml   = art_config(1)%cart_passive_xml
+  cart_chemtracer_xml = art_config(1)%cart_chemtracer_xml
+  cart_mecca_xml      = art_config(1)%cart_mecca_xml
+  cart_aerosol_xml    = art_config(1)%cart_aerosol_xml
 
   lart_chem          = art_config(1)%lart_chem
   lart_aerosol       = art_config(1)%lart_aerosol
-  lart_passive       = art_config(1)%lart_passive
+  lart_chemtracer    = art_config(1)%lart_chemtracer
+  lart_mecca         = art_config(1)%lart_mecca
 
   auto_ntracer = 0
-  ! chemistry xml file
-  IF (lart_chem) THEN
-    IF (TRIM(cart_chemistry_xml) == '') THEN
-      CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
-             &    'namelist parameter cart_chemistry_xml'              &
-             &  //' has to be given for lart_chem == .TRUE.')
+
+  ! chemtracer xml file
+  IF ((lart_chem) .AND. (lart_chemtracer)) THEN
+    IF (TRIM(cart_chemtracer_xml) == '') THEN
+      CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',   &
+             &    'namelist parameter cart_chemtracer_xml'              &
+             &  //' has to be given for lart_chem == .TRUE. and lart_chemtracer = .TRUE.')
     ELSE
-      INQUIRE(file = TRIM(cart_chemistry_xml), EXIST = l_exist)
-  
+      INQUIRE(file = TRIM(cart_chemtracer_xml), EXIST = l_exist)
+    
       IF (l_exist) THEN
-        CALL art_calc_number_of_art_tracers_xml(TRIM(cart_chemistry_xml),  &
-                               &                auto_ntracer_chemistry,    &
-                               &                'chemical',                &
-                               &                tracer_names_chemistry)
-        auto_ntracer = auto_ntracer + auto_ntracer_chemistry
+        CALL art_calc_number_of_art_tracers_xml(TRIM(cart_chemtracer_xml),  &
+                               &                auto_ntracer_chemtracer,    &
+                               &                'chemtracer',               &
+                               &                tracer_names_chemtracer)
+        auto_ntracer = auto_ntracer + auto_ntracer_chemtracer
       ELSE
         CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
-                    TRIM(cart_chemistry_xml)//  &
-                    & ' could not be found. Check cart_chemistry_xml.')
+                &   TRIM(cart_chemtracer_xml)                            &
+                & //' could not be found. Check cart_chemtracer_xml.')
       END IF
     END IF
   ELSE
-    auto_ntracer_chemistry = 0
-    NULLIFY(tracer_names_chemistry)
+    auto_ntracer_chemtracer = 0
+    NULLIFY(tracer_names_chemtracer)
+  END IF
+
+
+  IF ((lart_chem) .AND. (lart_mecca)) THEN
+    IF (TRIM(cart_mecca_xml) == '') THEN
+      CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',   &
+             &    'namelist parameter cart_mecca_xml'                   &
+             &  //' has to be given for lart_chem == .TRUE. and lart_mecca = .TRUE.')
+    ELSE
+      INQUIRE(file = TRIM(cart_mecca_xml), EXIST = l_exist)
+    
+      IF (l_exist) THEN
+        CALL art_calc_number_of_art_tracers_xml(TRIM(cart_mecca_xml),  &
+                               &                auto_ntracer_mecca,    &
+                               &                'meccatracer',         &
+                               &                tracer_names_mecca)
+        auto_ntracer = auto_ntracer + auto_ntracer_mecca
+      ELSE
+        CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
+               &    TRIM(cart_mecca_xml)                                 &
+               &  //' could not be found. Check cart_mecca_xml.')
+      END IF
+    END IF
+  ELSE
+    auto_ntracer_mecca = 0
+    NULLIFY(tracer_names_mecca)
   END IF
   
   ! aerosol xml file
@@ -302,58 +331,32 @@ SUBROUTINE art_calc_ntracer_and_names()
     NULLIFY(tracer_names_aerosol)
   END IF
   
-  ! passive xml file
-  IF (lart_passive) THEN
-    IF (TRIM(cart_passive_xml) == '') THEN
-      CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
-             &    'namelist parameter cart_passive_xml'                &
-             &  //' has to be given for lart_passive == .TRUE.')
-    ELSE
-      INQUIRE(file = TRIM(cart_passive_xml), EXIST = l_exist)
-  
-      IF (l_exist) THEN
-        CALL art_calc_number_of_art_tracers_xml(TRIM(cart_passive_xml),  &
-                               &                auto_ntracer_passive,    &
-                               &                'passive',               &
-                               &                tracer_names_passive)
-        auto_ntracer = auto_ntracer + auto_ntracer_passive
-      ELSE
-        CALL finish('mo_art_init_interface:art_calc_ntracer_and_names',  &
-                    TRIM(cart_passive_xml)//  &
-                    & ' could not be found. Check cart_passive_xml.')
-      END IF
-    END IF
-  ELSE
-    auto_ntracer_passive = 0
-    NULLIFY(tracer_names_passive)
-  END IF
-
-
   IF (auto_ntracer > 0) THEN
     ALLOCATE(tracer_names(auto_ntracer))
 
     ! This setting of the tracer names actually requires the correct order of
-    ! including the ART tracers in mo_art_tracer: first aerosols, then chemical,
-    ! then passive tracers
+    ! including the ART tracers in mo_art_tracer: first aerosols, then chemical
+    ! tracers
     IF (auto_ntracer_aerosol > 0) THEN
       tracer_names(1:auto_ntracer_aerosol) = tracer_names_aerosol
     END IF
   
-    IF (auto_ntracer_chemistry > 0) THEN
-      tracer_names(auto_ntracer_aerosol+1:auto_ntracer_aerosol + auto_ntracer_chemistry) &
-         &    = tracer_names_chemistry
+    IF (auto_ntracer_chemtracer > 0) THEN
+      tracer_names(auto_ntracer_aerosol+1:auto_ntracer_aerosol + auto_ntracer_chemtracer) &
+         &    = tracer_names_chemtracer
     END IF
   
-    IF (auto_ntracer_passive > 0) THEN
-      tracer_names(auto_ntracer_aerosol+auto_ntracer_chemistry+1:) = tracer_names_passive
+    IF (auto_ntracer_mecca > 0) THEN
+      tracer_names(auto_ntracer_chemtracer+1:auto_ntracer_chemtracer + auto_ntracer_mecca) &
+         &    = tracer_names_mecca
     END IF
   
     ALLOCATE(ctracer_art(ntracer+auto_ntracer))
     ctracer_art(ntracer+1:) = tracer_names
   
     DEALLOCATE(tracer_names)
-    IF (ASSOCIATED(tracer_names_passive)) DEALLOCATE(tracer_names_passive)
-    IF (ASSOCIATED(tracer_names_chemistry)) DEALLOCATE(tracer_names_chemistry)
+    IF (ASSOCIATED(tracer_names_chemtracer)) DEALLOCATE(tracer_names_chemtracer)
+    IF (ASSOCIATED(tracer_names_mecca)) DEALLOCATE(tracer_names_mecca)
     IF (ASSOCIATED(tracer_names_aerosol)) DEALLOCATE(tracer_names_aerosol)
   ELSE
     ALLOCATE(ctracer_art(ntracer))
@@ -362,7 +365,7 @@ SUBROUTINE art_calc_ntracer_and_names()
   ! Setting iart_ntracer to determined number of tracer
   art_config(1)%iart_ntracer = auto_ntracer
 
-END SUBROUTINE
+END SUBROUTINE art_calc_ntracer_and_names
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -383,7 +386,7 @@ SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
   TYPE(t_nh_prog), INTENT(in) :: &
     &  p_prog               !< prognostic variables of ICON
   REAL(wp), POINTER :: &
-    &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol, passive none)
+    &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
   TYPE(t_var_list), INTENT(in) :: &
     &  p_prog_list          !< list of prognostic variables
 
@@ -414,7 +417,7 @@ SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
   TYPE(t_nh_prog), INTENT(in) :: &
     &  p_prog               !< prognostic variables of ICON
   REAL(wp), POINTER  :: &
-    &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol, passive none)
+    &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
   TYPE(t_var_list), INTENT(in) :: &
     &  p_prog_list          !< list of prognostic variables
 

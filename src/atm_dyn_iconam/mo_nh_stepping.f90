@@ -1798,6 +1798,7 @@ MODULE mo_nh_stepping
 #endif
 
             CALL art_emission_interface(                       &
+              &      p_nh_state_lists(jg)%prog_list(n_new_rcf),&!inout
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in

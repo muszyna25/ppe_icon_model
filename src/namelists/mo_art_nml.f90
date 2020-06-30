@@ -46,7 +46,6 @@ MODULE mo_art_nml
     &  cart_input_folder             !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero(1:max_dom)          !< Initialization of aerosol species
-  INTEGER :: iart_init_passive(1:max_dom)       !< Initialization of passive species
   INTEGER :: iart_init_gas(1:max_dom)           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
   LOGICAL :: lart_pntSrc             !< Enables point sources
@@ -58,9 +57,9 @@ MODULE mo_art_nml
 
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
-  LOGICAL :: lart_passive            !< Main switch to enable passive tracers
+  LOGICAL :: lart_chemtracer         !< switch for parametrised chemtracers
+  LOGICAL :: lart_mecca              !< switch for MECCA chemistry
   LOGICAL :: lart_psc                !< switch for computation of PSCs 
-  INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_vortex_init_date         !< Date of vortex initialization
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -71,11 +70,11 @@ MODULE mo_art_nml
       &  cart_cheminit_type          !< type of chemical initialization coordinate file
   ! Paths and filenames of XML configuration
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_chemistry_xml            !< Path to XML file for chemical tracers
+    &  cart_chemtracer_xml           !< Path to XML file for parametrised chemtracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_mecca_xml                !< Path to XML file for MECCA tracers
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_aerosol_xml              !< Path to XML file for aerosol tracers
-  CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_passive_xml              !< Path to XML file for passive tracers
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_modes_xml                !< Path to XML file for modes
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -121,8 +120,8 @@ MODULE mo_art_nml
 
 
 
-  NAMELIST/art_nml/ cart_input_folder, lart_chem, lart_passive,                        &
-   &                iart_chem_mechanism, cart_io_suffix, lart_pntSrc,                  &
+  NAMELIST/art_nml/ cart_input_folder, lart_chem, lart_chemtracer, lart_mecca,         &
+   &                cart_io_suffix, lart_pntSrc,                                       &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen, iart_nonsph,                      &
@@ -132,9 +131,9 @@ MODULE mo_art_nml
    &                cart_vortex_init_date , cart_cheminit_file, cart_cheminit_coord,   &
    &                cart_cheminit_type,                                                &
    &                lart_emiss_turbdiff, nart_substeps_sedi,                           &
-   &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
+   &                cart_chemtracer_xml, cart_mecca_xml, cart_aerosol_xml,             &
    &                cart_modes_xml, cart_pntSrc_xml, cart_diagnostics_xml,             &
-   &                iart_init_passive, lart_psc, cart_type_sedim
+   &                lart_psc, cart_type_sedim
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -174,7 +173,6 @@ CONTAINS
     cart_input_folder          = ''
     iart_ntracer               = -1    !< default value if it is not given
     iart_init_aero(:)          = 0
-    iart_init_passive(:)       = 0
     iart_init_gas(:)           = 0
     lart_diag_out              = .FALSE.
     lart_pntSrc                = .FALSE.
@@ -183,18 +181,18 @@ CONTAINS
 
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem             = .FALSE.
-    lart_passive          = .FALSE.
+    lart_chemtracer       = .FALSE.
+    lart_mecca            = .FALSE.
     lart_psc              = .FALSE.
-    iart_chem_mechanism   = 0
     cart_vortex_init_date = ''
     cart_cheminit_file(:) = ''
     cart_cheminit_coord   = ''
     cart_cheminit_type    = ''
 
     ! Paths and filenames of XML configuration
-    cart_chemistry_xml    = ''
+    cart_chemtracer_xml   = ''
+    cart_mecca_xml        = ''
     cart_aerosol_xml      = ''
-    cart_passive_xml      = ''
     cart_modes_xml        = ''
     cart_pntSrc_xml       = ''
     cart_diagnostics_xml  = ''
@@ -255,7 +253,6 @@ CONTAINS
 
       ! Set array parameters to dummy values to determine which ones are actively set in the namelist
       iart_init_aero(:)     = -1
-      iart_init_passive(:)  = -1
       iart_init_gas(:)      = -1
       nart_substeps_sedi(:) = -1
 
@@ -263,14 +260,12 @@ CONTAINS
 
       ! Restore default values for global domain where nothing at all has been specified
       IF (iart_init_aero(1) < 0)     iart_init_aero(1)     = 0
-      IF (iart_init_passive(1) < 0)  iart_init_passive(1)  = 0
       IF (iart_init_gas(1) < 0)      iart_init_gas(1)      = 0
       IF (nart_substeps_sedi(1) < 0) nart_substeps_sedi(1) = 2    ! number of substeps for sedimentation
 
       ! Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
       DO jg = 2, max_dom
         IF (iart_init_aero(jg) < 0)     iart_init_aero(jg)     = iart_init_aero(jg-1)
-        IF (iart_init_passive(jg) < 0)  iart_init_passive(jg)  = iart_init_passive(jg-1)
         IF (iart_init_gas(jg) < 0)      iart_init_gas(jg)      = iart_init_gas(jg-1)
         IF (nart_substeps_sedi(jg) < 0) nart_substeps_sedi(jg) = nart_substeps_sedi(jg-1)
       ENDDO
@@ -349,7 +344,6 @@ CONTAINS
       art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
       art_config(jg)%iart_init_aero      = iart_init_aero(jg)
       art_config(jg)%iart_init_gas       = iart_init_gas(jg)
-      art_config(jg)%iart_init_passive   = iart_init_passive(jg)
       art_config(jg)%lart_diag_out       = lart_diag_out
       art_config(jg)%lart_pntSrc         = lart_pntSrc
       art_config(jg)%lart_emiss_turbdiff = lart_emiss_turbdiff
@@ -357,8 +351,8 @@ CONTAINS
 
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem             = lart_chem
-      art_config(jg)%lart_passive          = lart_passive
-      art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
+      art_config(jg)%lart_chemtracer       = lart_chemtracer
+      art_config(jg)%lart_mecca            = lart_mecca
       art_config(jg)%lart_psc              = lart_psc
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
       art_config(jg)%cart_cheminit_file    = TRIM(cart_cheminit_file(jg))
@@ -366,9 +360,9 @@ CONTAINS
       art_config(jg)%cart_cheminit_type    = TRIM(cart_cheminit_type)
 
       ! Paths and filenames of XML configuration
-      art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml)
+      art_config(jg)%cart_chemtracer_xml   = TRIM(cart_chemtracer_xml)
+      art_config(jg)%cart_mecca_xml        = TRIM(cart_mecca_xml)
       art_config(jg)%cart_aerosol_xml      = TRIM(cart_aerosol_xml)
-      art_config(jg)%cart_passive_xml      = TRIM(cart_passive_xml)
       art_config(jg)%cart_modes_xml        = TRIM(cart_modes_xml)
       art_config(jg)%cart_pntSrc_xml       = TRIM(cart_pntSrc_xml)
       art_config(jg)%cart_diagnostics_xml  = TRIM(cart_diagnostics_xml)
@@ -408,9 +402,6 @@ CONTAINS
 
       ! art number of tracers
       art_config(jg)%iart_ntracer        = auto_ntracer 
-
-
-      art_config(jg)%iart_echam_ghg      = 0
     ENDDO !jg
 
     !-----------------------------------------------------

@@ -41,6 +41,7 @@ MODULE mo_art_emission_interface
   USE mo_model_domain,                  ONLY: t_patch
   USE mo_lnd_nwp_config,                ONLY: dzsoil
   USE mo_exception,                     ONLY: finish
+  USE mo_linked_list,                   ONLY: t_var_list
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_nonhydro_types,                ONLY: t_nh_state
   USE mo_ext_data_types,                ONLY: t_external_data
@@ -57,7 +58,7 @@ MODULE mo_art_emission_interface
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_pollen, t_fields_volc
   USE mo_art_data,                      ONLY: p_art_data, t_art_atmo
-  USE mo_art_wrapper_routines,        ONLY: art_get_indices_c
+  USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
@@ -70,7 +71,7 @@ MODULE mo_art_emission_interface
                                           &   art_seas_emiss_smith
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
-  USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
+  USE mo_art_emission_full_chemistry,   ONLY: art_emiss_full_chemistry
   USE mo_art_emission_pollen,           ONLY: art_emiss_pollen
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
@@ -78,7 +79,6 @@ MODULE mo_art_emission_interface
   USE omp_lib
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
 
-  USE mo_art_passive_emission,          ONLY: art_emiss_passive
   USE mo_art_chem_deposition,           ONLY: art_CO2_deposition
 
   USE mo_art_diagnostics,               ONLY: art_save_aerosol_emission
@@ -94,7 +94,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-  SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,&
+  SUBROUTINE art_emission_interface(p_prog_list,ext_data,p_patch,dtime,p_nh_state,&
        &                            p_diag_lnd,&
        &                            current_date,tracer)
   !! Interface for ART: Emissions
@@ -102,6 +102,8 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! Rewritten by Daniel Rieger, KIT (2013-09-30)
+  TYPE(t_var_list), INTENT(inout) :: &
+    &  p_prog_list             !< list of prognostic variables
   TYPE(t_external_data), INTENT(in) ::  &
     &  ext_data                !< Atmosphere external data
   TYPE(t_patch), TARGET, INTENT(in) ::  &
@@ -147,8 +149,7 @@ CONTAINS
     ! TODO: this is a very expensive way of handling temporary arrays!
     ALLOCATE(emiss_rate(art_atmo%nproma,art_atmo%nlev))
 
-    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem   &
-        .OR. art_config(jg)%lart_passive) THEN
+    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem) THEN
 
       CALL art_prescribe_tracers(tracer, p_art_data(jg)%prescr_list,     &
                &                 p_patch, current_date)
@@ -355,61 +356,31 @@ CONTAINS
     ! --- emissions of chemical tracer
     ! ----------------------------------
 
-    IF ((art_config(jg)%lart_chem) .OR. (art_config(jg)%lart_passive)) THEN
+    IF (art_config(jg)%lart_chem) THEN
 
 
-      IF (art_config(jg)%lart_passive) THEN
-        DO jb = art_atmo%i_startblk, art_atmo%i_endblk
-          CALL art_get_indices_c(jg, jb, istart, iend)
-
-          CALL art_emiss_passive(current_date, tracer, jg, jb,istart,iend)
-        ENDDO
-      END IF
-
-
-      IF (p_art_data(jg)%chem%iTRCO2 /= 0) THEN
-        ! Please note that the molar weight of CO2 should be taken from the
-        ! storage in the future
-        CALL art_CO2_deposition(jg,tracer(:,:,:,p_art_data(jg)%chem%iTRCO2), 44.e-3_wp, dtime,  &
-                   &            p_art_data(jg)%atmo)
+      IF (p_art_data(jg)%chem%indices%iTRCO2 /= 0) THEN
+        CALL art_CO2_deposition(jg,tracer(:,:,:,p_art_data(jg)%chem%indices%iTRCO2),  &
+                   &            dtime, p_art_data(jg)%atmo)
       END IF
      
 
-      SELECT CASE(art_config(jg)%iart_chem_mechanism)
-        CASE(0)
-          DO jb = art_atmo%i_startblk, art_atmo%i_endblk
-            CALL art_get_indices_c(jg, jb, istart, iend)
+      IF (art_config(jg)%lart_chemtracer) THEN
+        CALL art_emiss_chemtracer(current_date,                   &
+          &                       dtime,                          &
+          &                       tracer,                         &
+          &                       jg,                             &
+          &                       p_prog_list)
+      END IF
 
-            CALL art_emiss_chemtracer(current_date,                   &
-              &                       dtime,                          &
-              &                       tracer,                         &
-              &                       jg,                             &
-              &                       jb,istart,iend)
-          ENDDO
-        CASE(1)
-          DO jb = art_atmo%i_startblk, art_atmo%i_endblk
-            CALL art_get_indices_c(jg, jb, istart, iend)
 
-            CALL art_emiss_chemtracer(current_date,                   &
-              &                       dtime,                          &
-              &                       tracer,                         &
-              &                       jg,                             &
-              &                       jb,istart,iend)
-          ENDDO
-        CASE(2)
-          DO jb = art_atmo%i_startblk, art_atmo%i_endblk
-            CALL art_get_indices_c(jg, jb, istart, iend)
-
-            CALL art_emiss_gasphase(current_date,                   &
-              &                     dtime,                          &
-              &                     tracer,                         &
-              &                     jg,                             &
-              &                     jb,istart,iend)
-          ENDDO
-        CASE DEFAULT
-          CALL finish('mo_art_emission_interface:art_emission_interface', &
-               &      'ART: Unknown iart_chem_mechanism')
-      END SELECT !iart_chem_mechanism
+      IF (art_config(jg)%lart_mecca) THEN
+        CALL art_emiss_full_chemistry(current_date,                   &
+          &                           dtime,                          &
+          &                           tracer,                         &
+          &                           jg,                             &
+          &                           p_prog_list)
+      END IF
     ENDIF !lart_chem
 
     CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=tracer(:,:,:,:))

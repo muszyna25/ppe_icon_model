@@ -107,7 +107,6 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_run_config,            ONLY: lart
-  USE mo_art_config,            ONLY: art_config
 #if defined( _OPENACC )
   USE mo_var_list_gpu          ,ONLY: gpu_h2d_var_list, gpu_d2h_var_list
 #endif
@@ -933,7 +932,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-IF (lart) jt_end = iqm_max + art_config(1)%iart_echam_ghg
+IF (lart) jt_end = advection_config(jg)%nname
 
 #ifdef _OPENACC
     CALL warning('GPU:mo_interface_iconam_echam','GPU mode currently disables echam_phy_config(jg)%iqneg_p2d triggered output!')

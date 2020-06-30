@@ -535,50 +535,6 @@ CONTAINS
        END IF
     END IF
 
-    ! extra treatment if ART is active
-       
-    IF (lart) THEN
-        
-       io3    = 0     !! O3
-       ico2   = 0     !! CO2
-       ich4   = 0     !! CH4
-       in2o   = 0     !! N2O
-
-       art_config(1)%iart_echam_ghg = ntracer - art_config(1)%iart_ntracer - iqt + 1
-
-       SELECT CASE (art_config(1)%iart_echam_ghg)  
-
-       CASE(1)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-       CASE(2)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
-       CASE(3)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
-          ich4   = iqt + 2; advection_config(:)%tracer_names(ich4)  = 'qch4'
-       CASE(4)
-          io3    = iqt + 0; advection_config(:)%tracer_names(io3)  = 'qo3'
-          ico2   = iqt + 1; advection_config(:)%tracer_names(ico2)  = 'qco2'
-          ich4   = iqt + 2; advection_config(:)%tracer_names(ich4)  = 'qch4'
-          in2o   = iqt + 3; advection_config(:)%tracer_names(in2o)  = 'qn2o'
-
-
-       CASE(0)
-
-       CASE DEFAULT
-          CALL finish('mo_echam_phy_init:init_echam_phy_itracer',     &
-                 &    'iart_echam_ghg > 4 or < 0 is not supported.'// &
-                 &    ' ntracer large enough?')
-
-       END SELECT
-
-       WRITE(message_text,'(a,i3,a,i3)') 'Attention: transport of ART tracers is active, '//&
-                                         'ntracer is increased by ',art_config(1)%iart_ntracer, &
-                                         ' to ',ntracer
-       CALL message('mo_echam_phy_init:init_echam_phy_tracer',message_text)
-
-    ENDIF
 
     CALL message('','')
     CALL message('','Tracer configuration')
