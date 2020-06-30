@@ -99,7 +99,8 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
-  USE mo_ocean_check_salt , ONLY : 	calc_total_salt_content 
+  USE mo_ocean_check_salt , ONLY : 	calc_total_salt_content, calc_total_salt_content_zstar 
+
 
   IMPLICIT NONE
 
@@ -551,11 +552,19 @@ CONTAINS
       total_saltinliquidwater = 0.0_wp
 
       IF (isRegistered('total_salt')) THEN
-        call calc_total_salt_content(tracers(:,:,:,2), patch_2d, &
-        sea_surface_height(:,:),&     
-        patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
-             ice, 0 , total_salt, total_saltinseaice, &
-                                total_saltinliquidwater )
+        IF (vert_cor_type .EQ. 0) THEN
+          call calc_total_salt_content(tracers(:,:,:,2), patch_2d, &
+          sea_surface_height(:,:),&     
+          patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+               ice, 0 , total_salt, total_saltinseaice, &
+                                  total_saltinliquidwater )
+        ELSE IF (vert_cor_type .EQ. 1) THEN
+          call calc_total_salt_content_zstar(tracers(:,:,:,2), patch_2d, &
+            & ocean_state%p_prog(nnew(1))%stretch_c(:, :), &
+            & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+            & ice, total_salt, total_saltinseaice, &
+            & total_saltinliquidwater )
+        END IF
 
       monitor%total_salt = total_salt
       monitor%total_saltinseaice = total_saltinseaice

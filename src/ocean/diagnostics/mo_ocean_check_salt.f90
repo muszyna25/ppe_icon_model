@@ -83,6 +83,7 @@ MODULE mo_ocean_check_salt
   IMPLICIT NONE
 
   PUBLIC :: calc_total_salt_content, check_total_salt_content, check_total_si_volume
+  PUBLIC :: check_total_salt_content_zstar, calc_total_salt_content_zstar
 
 
   REAL(wp) :: total_salt_old=1.0_wp
@@ -340,6 +341,166 @@ CONTAINS
 
 
    END SUBROUTINE check_total_si_volume
+
+   
+   SUBROUTINE check_total_salt_content_zstar(id, so, patch_2d, stretch, thickness, ice, p_oce_sfc)
+
+    TYPE(t_patch), TARGET, INTENT(IN)                                 :: patch_2d
+    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN)  :: stretch
+    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
+    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: so !salinity
+    TYPE (t_sea_ice),       INTENT(IN)                    :: ice
+
+    INTEGER :: id
+
+    REAL(wp)                                              :: total_salt
+    REAL(wp)                                              :: total_saltinseaice
+    REAL(wp)                                              :: total_saltinliquidwater
+
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: salt
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltinseaice
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltinliquidwater
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !! REMOVE
+    TYPE(t_ocean_surface)                       :: p_oce_sfc
+    TYPE(t_subset_range), POINTER                :: subset
+    INTEGER                                      :: block, cell, cellStart,cellEnd, level
+    REAL(wp)  :: flux, flux_tot 
+
+    flux     = 0.0_wp
+    flux_tot = 0.0_wp
+
+    subset => patch_2d%cells%owned
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, cellStart, cellEnd)
+      DO cell = cellStart, cellEnd
+        flux = flux + patch_2d%cells%area(cell,BLOCK) *p_oce_sfc%FrshFlux_IceSalt(cell, block) * dtime
+      END DO ! cell
+    END DO !block
+    
+    flux_tot = global_sum_array(flux)
+!    IF (my_process_is_stdio()) THEN
+!       WRITE(0,*) '(',id,')', ' flux   :', flux_tot 
+!     ENDIF
+ 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    CALL calc_salt_content_zstar(so, patch_2d, stretch, thickness, ice, &
+                           salt, saltinseaice, saltinliquidwater )
+
+    total_salt = global_sum_array(salt)
+    total_saltinseaice = global_sum_array(saltinseaice)
+    total_saltinliquidwater = global_sum_array(saltinliquidwater)
+    IF (initial_total_salt == 0.0_wp) THEN 
+      initial_total_salt = total_salt
+      total_salt_old = total_salt
+      accumulated_run_error(:) = 0.0_wp
+    ELSE
+      accumulated_run_error(id) = accumulated_run_error(id) + total_salt - total_salt_old
+    ENDIF
+
+     IF (my_process_is_stdio()) THEN
+       WRITE(0,*) '(',id,')', ' salt   :' , total_salt, total_salt - total_salt_old
+!       WRITE(0,*) '(',id,')', ' saltice:' , total_saltinseaice, total_saltinseaice - total_saltinseaice_old
+!       WRITE(0,*) '(',id,')', ' saltwat:' , total_saltinliquidwater, total_saltinliquidwater - total_saltinliquidwater_old
+!       WRITE(0,*) '(',id,')', ' saltwat:' , total_saltinliquidwater, total_saltinseaice
+     ENDIF
+   
+!    IF (my_process_is_stdio()) THEN
+!       WRITE(0,*) '(',id,')', ' -- total init error:', (total_salt - initial_total_salt) / initial_total_salt 
+!       WRITE(0,*) '(',id,')', ' -- accumulated run error:', accumulated_run_error(id) /  total_salt
+!    ENDIF
+   
+    total_salt_old = total_salt
+    total_saltinseaice_old = total_saltinseaice
+    total_saltinliquidwater_old = total_saltinliquidwater
+
+
+
+  END SUBROUTINE check_total_salt_content_zstar
+
+  
+  SUBROUTINE calc_total_salt_content_zstar(so, patch_2d, stretch, thickness, ice, &
+      & total_salt, total_saltinseaice, total_saltinliquidwater)
+
+    TYPE(t_patch), TARGET, INTENT(IN)                                 :: patch_2d
+    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN)  :: stretch
+    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
+    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: so !salinity
+    TYPE (t_sea_ice),       INTENT(IN)                    :: ice
+
+    REAL(wp), INTENT(OUT)                                 :: total_salt
+    REAL(wp), INTENT(OUT)                                 :: total_saltinseaice
+    REAL(wp), INTENT(OUT)                                 :: total_saltinliquidwater
+
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: salt
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltinseaice
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltinliquidwater
+
+
+    CALL calc_salt_content_zstar(so, patch_2d, stretch, thickness, ice, &
+                           salt, saltinseaice, saltinliquidwater )
+
+    total_salt = global_sum_array(salt)
+    total_saltinseaice = global_sum_array(saltinseaice)
+    total_saltinliquidwater = global_sum_array(saltinliquidwater)
+
+  END SUBROUTINE calc_total_salt_content_zstar
+ 
+  
+  SUBROUTINE calc_salt_content_zstar(so, patch_2d, stretch, thickness, ice, &
+            salt, saltinseaice, saltinliquidwater)
+    TYPE(t_patch), TARGET, INTENT(IN)                                 :: patch_2d
+    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN)  :: stretch
+    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
+    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: so !salinity
+    TYPE (t_sea_ice),       INTENT(IN)                    :: ice
+
+    ! locals
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: salt
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltinseaice
+    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltinliquidwater
+
+    REAL(wp) :: rhoicwa,rhosnwa,draftave
+
+ 
+    TYPE(t_subset_range), POINTER                         :: subset
+    INTEGER                                               :: block, cell, cellStart,cellEnd, level
+
+    IF(no_tracer<=1)RETURN
+
+    salt         = 0.0_wp
+    saltinseaice = 0.0_wp
+    saltinliquidwater = 0.0_wp
+
+    rhoicwa = rhoi / rho_ref
+    rhosnwa = rhos / rho_ref
+
+    subset => patch_2d%cells%owned
+    DO block = subset%start_block, subset%end_block
+      CALL get_index_range(subset, block, cellStart, cellEnd)
+      DO cell = cellStart, cellEnd
+        IF (subset%vertical_levels(cell,block) < 1) CYCLE
+
+        ! surface:
+        saltInSeaice(cell,BLOCK)    = sice*rhoicwa &
+             &                         * SUM(ice%hi(cell,:,BLOCK)*ice%conc(cell,:,BLOCK)) &
+             &                         * patch_2d%cells%area(cell,BLOCK)
+
+        DO level=1,subset%vertical_levels(cell,BLOCK)
+          saltinliquidwater(cell,BLOCK) = saltinliquidwater(cell,BLOCK) + so(cell,level,BLOCK) &
+            &   * stretch(cell, block) * thickness(cell,level,block) &
+            &                          * patch_2d%cells%area(cell,block)
+        END DO
+
+        salt(cell,block) = saltInSeaice(cell,block) + saltInLiquidWater(cell,block)
+
+        ! rest of the underwater world
+      END DO ! cell
+    END DO !block
+  END SUBROUTINE calc_salt_content_zstar
+
 
 
 END MODULE mo_ocean_check_salt
