@@ -76,13 +76,12 @@ SUBROUTINE su_bc_aeropt_cmip6_volc( p_patch_id,                          &
   IF (my_process_is_stdio()) THEN
     WRITE(ckyear,*) kyear
     ! for non-amip simulations, an arbitrary year may be stored in a file without
-    ! the year in the filename. However, such a boundary condition file does not
-    ! yet exist.
-!!$    IF ( echam_phy_config(p_patch_id)%lamip ) THEN
+    ! the year in the filename.
+    IF ( echam_phy_config(p_patch_id)%lamip ) THEN
       cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
-!!$    ELSE
-!!$      cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc'
-!!$    ENDIF
+    ELSE
+      cfname='bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc'
+    ENDIF
     ifile_id=openInputFile(cfname)
 !!$write(0,*) 'cfname=',TRIM(ADJUSTL(cfname)),'ifile_id=',ifile_id
     CALL nf(nf_inq_dimid(ifile_id,TRIM(ADJUSTL(clat_dim)),idim_id), &

@@ -116,7 +116,7 @@ start_date=${start_date:="1979-01-01T00:00:00Z"}
 # restart intervals
 # -----------------
 checkpoint_interval="P1Y"
-restart_interval="P1Y"
+restart_interval="P1D"
 
 # output intervals
 # ----------------
@@ -166,7 +166,7 @@ fi
 # asynchronous diagnostic output processes
 # ----------------------------------------
 
-mpi_atm_io_procs=3                 # for atmosphere plus land
+mpi_atm_io_procs=0                 # for atmosphere plus land
 mpi_oce_io_procs=0                 # for ocean (not working yet)
 
 # output file selection
@@ -742,8 +742,10 @@ cat > ${lnd_namelist} << EOF
 /
 &jsb_hd_nml
   active               = .TRUE.
-  routing_scheme       = 'zero'          ! simple scheme with zero runoff everywhere
+  routing_scheme       = 'full'          ! simple scheme with zero runoff everywhere
+  ic_filename          = 'ic_land_hd.nc'
   bc_filename          = 'bc_land_hd.nc'
+  read_initial_reservoirs = .TRUE.
   diag_water_budget    = .TRUE.
   debug_hd             = .FALSE.
   enforce_water_budget = .FALSE.         ! Rene: check! TRUE: stop in case of water conservation problem
@@ -778,15 +780,15 @@ datadir=${atmo_data_InputFolder}/initial_condition/r0002
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time?
-datadir=${atmo_data_InputFolder}/land/r0002
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
+datadir=${atmo_data_InputFolder}/land/r0009
+add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
 # - well mixed greenhouse gases
 #
 datadir=${icon_data_poolFolder}/independent/greenhouse_gases
-add_link_file ${datadir}/greenhouse_historical_plus.nc                  ./bc_greenhouse_gases.nc
+add_link_file ${datadir}/greenhouse_historical_ext_rcp45.nc             ./bc_greenhouse_gases.nc
 #
 # range of years for yearly files
 # assume start_date and end_date have the format yyyy-...
@@ -801,9 +803,11 @@ datadir=${atmo_data_InputFolder}/ozone/r0002
 #
 add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
 #
-# - tropospheric anthropogenic aerosols, simple plumes
+# - tropospheric anthropogenic aerosols, simple plumes (irad_aero=18)
 #
-add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
+datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
+#
+add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc ./MACv2.0-SP_v1.nc
 #
 #   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
@@ -815,24 +819,15 @@ add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
-# - stratospheric aerosol (CMIP6)
+# - stratospheric aerosol (CMIP6) (irad_aero=18)
+#
 datadir=${icon_data_poolFolder}/independent/CMIP6Forcing
 #
 if [ ! -d $datadir ]; then
   echo 'directory '$datadir' for stratospheric aerosol data does not exist'
   exit -1
 fi	
-year=$start_year
-while [[ $year -le $end_year ]]
-do
-  if [[ $year -le 2014 ]]
-  then
-    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
-  else
-    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
-  fi
-  (( year = year+1 ))
-done
+add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_1850.nc       ./bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc
 #
 # - sst and sic
 #
@@ -849,12 +844,12 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0002
+datadir=${atmo_data_InputFolder}/land/r0009
 #
-add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1976.nc               ./bc_land_frac.nc
-add_link_file ${datadir}/bc_land_phys_1976.nc                              ./bc_land_phys.nc
-add_link_file ${datadir}/bc_land_soil_1976.nc                              ./bc_land_soil.nc
-add_link_file ${datadir}/bc_land_sso_1976.nc                               ./bc_land_sso.nc
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc               ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1992.nc                              ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1992.nc                              ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1992.nc                               ./bc_land_sso.nc
 #
 # - lctlib file for JSBACH
 #
@@ -862,6 +857,10 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lct
 #
 # - HD mask for interpolation of runoff
 #
+datadir=${atmo_data_InputFolder}/land/r0003
+#
+add_link_file ${datadir}/hdrestart_R02B04_013_G_210120_1334_with_grid_file_mask.nc ./ic_land_hd.nc
+add_link_file ${datadir}/hdpara_icon_r2b4_013_using_grid_lsmask.nc         ./bc_land_hd.nc
 add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                     ./hd_mask.nc
 #
 # - the atmosphere grid itself (the grid copy section below from $HGRIDDIR is ignored)
@@ -1028,9 +1027,9 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
-                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
-                    'hydro_w_soil_column_box'
+ ml_varlist       = 'pheno_lai_box'           , 'pheno_fract_fpc_veg'       , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'    , 'hydro_w_skin_box'          , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box' , 'hydro_discharge_ocean_box' , ‘hydro_discharge_box’ 
 /
 EOF
 fi
@@ -1059,6 +1058,7 @@ cat > ${oce_namelist} << EOF
  num_io_procs                = ${mpi_oce_io_procs}
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
+ num_prefetch_proc           = 0
 /
 &grid_nml
  dynamics_grid_filename      = "${ocean_grid}"
@@ -1282,7 +1282,7 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_oce_DOM01.nc 
+  add_link_file ${ocean_data_InputFolder}/restart/r0001/rar0026_restart_oce_20500101T000000Z.nc restart_ocean_DOM01.nc 
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

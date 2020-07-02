@@ -197,7 +197,7 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- tracer_names     = 'hus','clw','cli', 'qr', 'qi', 'qg'
+ tracer_names     = 'hus','clw','cli', 'qr', 'qs', 'qg'
  ivadv_tracer     =    3 ,   3 ,   3 ,   3 ,   3 ,   3
  itype_hlimit     =    3 ,   4 ,   4 ,   4 ,   4 ,   4
  ihadv_tracer     =   52 ,   2 ,   2 ,   2 ,   2 ,   2

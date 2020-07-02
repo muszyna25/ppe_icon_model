@@ -1413,6 +1413,7 @@ cat > ${oce_namelist} << EOF
  io_process_stride           = 12
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
+ num_prefetch_proc           = 0
 /
 &grid_nml
  dynamics_grid_filename      = "${ocean_grid}"
