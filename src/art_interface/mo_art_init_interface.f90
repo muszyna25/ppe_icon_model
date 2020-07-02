@@ -28,7 +28,7 @@ MODULE mo_art_init_interface
                                           &   timer_art_initInt
   USE mo_grid_config,                   ONLY: start_time
   USE mo_master_config,                 ONLY: isRestart
-  USE mo_storage,                       ONLY: t_storage
+  USE mo_key_value_store,                       ONLY: t_key_value_store
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_state
   USE mo_ext_data_types,                ONLY: t_external_data
@@ -113,7 +113,7 @@ SUBROUTINE art_calc_number_of_art_tracers_xml(xml_filename,auto_ntracer, tracer_
      &   ntags                           !< number of tags for the current tracer
   CHARACTER(LEN = 5) :: &
      &   idx_tracer_str                  !< string of the index
-  TYPE(t_storage) :: &
+  TYPE(t_key_value_store) :: &
      &   storage                         !< temporally created storage for the tracer
 
 #ifdef __ICON_ART
