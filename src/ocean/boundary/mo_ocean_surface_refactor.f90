@@ -966,7 +966,8 @@ CONTAINS
   !>
   !! Apply Thermodynamic Equations for Thermal and Haline Boundary Conditions
   !!
-  !! Adapted for zstar
+  !! Adapted for zstar and modified to remove zUnderIce formulation
+  !! even though the variable is still being used
   !
   SUBROUTINE apply_surface_fluxes_zstar(p_patch_3D, p_os, p_ice, p_oce_sfc, eta_c, stretch_c)
 
