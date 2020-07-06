@@ -106,14 +106,9 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_finalize'
 
-    IF (ASSOCIATED(dict%hashtable)) THEN
-      CALL dict%hashtable%destruct()
-      DEALLOCATE(dict%hashtable)
-    END IF
-    IF (ASSOCIATED(dict%hashtable_inv)) THEN
-      CALL dict%hashtable_inv%destruct()
-      DEALLOCATE(dict%hashtable_inv)
-    END IF
+    CALL dict%hashtable%destruct()
+    CALL dict%hashtable_inv%destruct()
+    DEALLOCATE(dict%hashtable, dict%hashtable_inv)
   END SUBROUTINE dict_finalize
 
 
