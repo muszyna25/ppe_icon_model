@@ -54,7 +54,8 @@ MODULE mo_name_list_output_init
   USE mo_master_control,                    ONLY: my_process_is_oceanic
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
-  USE mo_dictionary,                        ONLY: t_dictionary
+  USE mo_dictionary,                        ONLY: t_dictionary, dict_init, &
+    &                                             dict_loadfile, dict_get
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_cdi,                          ONLY: create_cdi_variable
@@ -493,20 +494,20 @@ CONTAINS
 
       ! -- Read the map files into dictionary data structures
 
-      CALL varnames_dict%init(lcase_sensitive=.FALSE.)
-      CALL out_varnames_dict%init(lcase_sensitive=.FALSE.)
+      CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
+      CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
       NULLIFY(keywords)
       CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = with_keywords(keywords, output_nml_dict)
         CALL message(routine, "load dictionary file.")
-        CALL varnames_dict%loadfile(cfilename, linverse=linvert_dict)
+        CALL dict_loadfile(varnames_dict, cfilename, linverse=linvert_dict)
       END IF
       IF(netcdf_dict /= ' ') THEN
         cfilename = with_keywords(keywords, netcdf_dict)
         CALL message(routine, "load dictionary file (output names).")
-        CALL out_varnames_dict%loadfile(cfilename, linverse=.TRUE.)
+        CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
       END IF
 
       ! -- If "remap=1": lon-lat interpolation requested
@@ -629,16 +630,20 @@ CONTAINS
         ! -- translate variables names according to variable name
         !    dictionary:
         DO i=1,max_var_ml
-          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), default=p_onl%ml_varlist(i))
+          p_onl%ml_varlist(i) = dict_get(varnames_dict, p_onl%ml_varlist(i), &
+            &                            default=p_onl%ml_varlist(i))
         END DO
         DO i=1,max_var_pl
-          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), default=p_onl%pl_varlist(i))
+          p_onl%pl_varlist(i) = dict_get(varnames_dict, p_onl%pl_varlist(i), &
+            &                            default=p_onl%pl_varlist(i))
         END DO
         DO i=1,max_var_hl
-          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), default=p_onl%hl_varlist(i))
+          p_onl%hl_varlist(i) = dict_get(varnames_dict, p_onl%hl_varlist(i), &
+            &                            default=p_onl%hl_varlist(i))
         END DO
         DO i=1,max_var_il
-          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), default=p_onl%il_varlist(i))
+          p_onl%il_varlist(i) = dict_get(varnames_dict, p_onl%il_varlist(i), &
+            &                            default=p_onl%il_varlist(i))
         END DO
 
         ! allow case-insensitive variable names:
@@ -913,7 +918,7 @@ CONTAINS
             grp_name = vname(LEN(TILE_PREFIX)+1:)
 
             ! translate group name from GRIB2 to internal nomenclature, if necessary
-            grp_name = varnames_dict%get(grp_name, grp_name)
+            grp_name = dict_get(varnames_dict, grp_name, grp_name)
 
             tlen = len_trim(grp_name)
             grp_name(tlen+1:tlen+3) ="_t"
@@ -1384,7 +1389,7 @@ CONTAINS
         ev => ev%next
       END DO
     END IF
-#endif
+#endif ! NOMPI
 
     CALL message(routine,'Done')
 
@@ -2330,7 +2335,7 @@ CONTAINS
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(i)
     INTEGER :: num_cblk, n
     LOGICAL :: prev_is_set, current_is_set
-    INTEGER(i8) :: apos, bmask
+    INTEGER(i8) :: pos, apos, bmask
 
     num_cblk = 0
     prev_is_set = .FALSE.
@@ -2345,7 +2350,6 @@ CONTAINS
     ENDDO
     ALLOCATE(starts(num_cblk), counts(num_cblk))
     bmask = 1_i8
-    current_is_set = .FALSE.
     DO i = 0_i8, nb-1_i8
       apos = i/nbits_i8
       current_is_set = IAND(mask(apos), bmask) /= 0_i8
@@ -2999,9 +3003,11 @@ CONTAINS
     ! var_list_name should have at least the length of var_list names
     ! (although this doesn't matter as long as it is big enough for every name)
     CHARACTER(LEN=256)            :: var_list_name
+    INTEGER                       :: idom
 
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_var_groups_dyn
+    INTEGER :: idom_log
     LOGICAL :: is_io
 
     is_io = my_process_is_io()
@@ -3200,7 +3206,7 @@ CONTAINS
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
       modname//"::replicate_coordinate_data_on_io_procs"
-    INTEGER                       :: idom
+    INTEGER                       :: idom, i
 
     INTEGER :: idom_log, temp(4,n_dom_out)
     LOGICAL :: keep_grid_info, is_io
@@ -3242,7 +3248,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE replicate_coordinate_data_on_io_procs
-#endif
+#endif !.NOT. NOMPI
 
   SUBROUTINE registerOutputVariable(name)
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name

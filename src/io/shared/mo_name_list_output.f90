@@ -94,6 +94,7 @@ MODULE mo_name_list_output
   USE mo_exception,                 ONLY: finish, message, message_text
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords,         &
   &                                       int2string
+  USE mo_dictionary,                ONLY: dict_finalize
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
     &                                     print_timer
   USE mo_level_selection_types,     ONLY: t_level_selection
@@ -414,8 +415,8 @@ CONTAINS
     DEALLOCATE(output_file)
 
     ! destroy variable name dictionaries:
-    CALL varnames_dict%finalize()
-    CALL out_varnames_dict%finalize()
+    CALL dict_finalize(varnames_dict)
+    CALL dict_finalize(out_varnames_dict)
 
   END SUBROUTINE close_name_list_output
 

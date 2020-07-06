@@ -14,6 +14,7 @@
 
 MODULE mo_input_instructions
 
+    USE mo_dictionary,         ONLY: dict_get
     USE mo_exception,          ONLY: message, finish
     USE mo_impl_constants,     ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, &
       &                              MODE_COMBINED, MODE_COSMO, max_ntracer
@@ -428,7 +429,7 @@ CONTAINS
         DO ivar=1,SIZE(initicon_config(p_patch%id)%fg_checklist)
             IF (initicon_config(p_patch%id)%fg_checklist(ivar) == ' ') EXIT
 
-            curInstruction => resultVar%findInstruction(TRIM(ana_varnames_dict%get( &
+            curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
                  &                                                  initicon_config(p_patch%id)%fg_checklist(ivar), &
                  &                                                  linverse=.TRUE.)), opt_expand=.FALSE.)
             ! Note that depending on the Namelist settings, not every field listed in 
@@ -437,7 +438,7 @@ CONTAINS
             IF (ASSOCIATED(curInstruction) .AND. curInstruction%lOptionalFg) THEN
                 curInstruction%lOptionalFg = .FALSE.
 
-                WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(ana_varnames_dict%get( &
+                WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(dict_get(ana_varnames_dict, &
                  &                                initicon_config(p_patch%id)%fg_checklist(ivar), linverse=.TRUE.)), &
                  &                               ' into a mandatory first guess field for DOM', p_patch%id
                 CALL message(routine, TRIM(message_text))
@@ -452,7 +453,7 @@ CONTAINS
             DO ivar=1,SIZE(initicon_config(p_patch%id)%ana_checklist)
                 IF (initicon_config(p_patch%id)%ana_checklist(ivar) == ' ') EXIT
 
-                curInstruction => resultVar%findInstruction(TRIM(ana_varnames_dict%get( &
+                curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
                 &                                                      initicon_config(p_patch%id)%ana_checklist(ivar), &
                 &                                                      linverse=.TRUE.)))
                 curInstruction%lReadAna = .TRUE.

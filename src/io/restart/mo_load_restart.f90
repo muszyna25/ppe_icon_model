@@ -19,7 +19,8 @@ MODULE mo_load_restart
       &                              taxisInqVdate, taxisInqVtime, zaxisInqType, zaxisInqSize,    &
       &                              gridInqSize, ZAXIS_SURFACE, cdiStringError
     USE mo_fortran_tools,      ONLY: t_alloc_character
-    USE mo_dictionary,         ONLY: t_dictionary, DICT_MAX_STRLEN
+    USE mo_dictionary,         ONLY: t_dictionary, dict_size, dict_getKey, dict_set, dict_init,   &
+      &                              dict_finalize
     USE mo_communication,      ONLY: t_ScatterPattern
     USE mo_exception,          ONLY: message, finish, warning
     USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SINGLE_T, REAL_T, INT_T, SUCCESS
@@ -193,29 +194,25 @@ CONTAINS
     TYPE(t_dictionary) :: modelTypes    !this dictionary IS actually used as a set, so the values are empty strings
     INTEGER :: i, modelTypeCount, error
     CHARACTER(*), PARAMETER :: routine = modname//":getModelTypes"
-    CHARACTER(LEN=DICT_MAX_STRLEN), ALLOCATABLE :: array(:,:) !< dictionary data, dims: (2,nmax_entries)
 
-    CALL modelTypes%init(.TRUE.)
+    CALL dict_init(modelTypes, .TRUE.)
 
     !insert all the model_type strings as keys into the dictionary
     DO i = 1, nvar_lists
         IF(var_lists(i)%p%patch_id == domain) THEN
-          CALL modelTypes%set(var_lists(i)%p%model_type, "")
+          CALL dict_set(modelTypes, var_lists(i)%p%model_type, "")
         END IF
     END DO
 
     !convert the RESULT into an array
-    modelTypeCount = modelTypes%get_size()
+    modelTypeCount = dict_size(modelTypes)
     ALLOCATE(resultVar(modelTypeCount), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-
-    CALL modelTypes%to_array(array)
-    DO i=1,SIZE(array,2)
-      resultVar(i)%a = TRIM(array(1,i))
+    DO i = 1, modelTypeCount
+        resultVar(i)%a = TRIM(dict_getKey(modelTypes, i))
     END DO
-    DEALLOCATE(array)
 
-    CALL modelTypes%finalize()
+    CALL dict_finalize(modelTypes)
   END SUBROUTINE getModelTypes
 
   SUBROUTINE read_restart_files(p_patch, opt_ndom)

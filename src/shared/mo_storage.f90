@@ -18,12 +18,11 @@
 !!
 MODULE mo_storage
 
+  USE ISO_C_BINDING,                    ONLY: C_INT32_T, C_INT64_T
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
-  USE mo_hash_table,                    ONLY: t_HashTable, hashTable_make, &
-    &                                         t_stringVal, t_realVal, t_intVal, t_logVal, &
-    &                                         storage_hashKey_DJB_cs, storage_hashKey_DJB_ci, &
-    &                                         storage_equalKeysFunction_cs, storage_equalKeysFunction_ci
+  USE mo_util_string,                   ONLY: tolower
+  USE mo_hash_table,                    ONLY: t_HashTable, hashTable_make
   USE mo_fortran_tools,                 ONLY: t_Destructible
   USE mo_impl_constants,                ONLY: SUCCESS
 
@@ -31,8 +30,41 @@ MODULE mo_storage
 
   PRIVATE
 
+  INTEGER,PARAMETER :: stringVal_len= 120  !< Maximum allowed length for string keys or values
+
+  INTEGER(C_INT32_T), PARAMETER :: i32_t = 0
+  INTEGER(C_INT64_T), PARAMETER :: p32 = INT(HUGE(i32_t), C_INT64_T) + 1 
+
+
+  TYPE, EXTENDS(t_Destructible) :: t_scalarVal
+    PRIVATE
+  CONTAINS
+    PROCEDURE :: destruct => scalarVal_destruct
+  END TYPE t_scalarVal
+
+  TYPE, EXTENDS(t_scalarVal) :: t_stringVal
+    PRIVATE
+    CHARACTER(LEN=stringVal_len) :: stringVal
+  END TYPE t_stringVal
+
+  TYPE, EXTENDS(t_scalarVal) :: t_realVal
+    PRIVATE
+    REAL(wp) :: realVal
+  END TYPE t_realVal
+
+  TYPE, EXTENDS(t_scalarVal) :: t_intVal
+    PRIVATE
+    INTEGER :: intVal
+  END TYPE t_intVal
+
+  TYPE, EXTENDS(t_scalarVal) :: t_logVal
+    PRIVATE
+    LOGICAL :: logVal
+  END TYPE t_logVal
+
   TYPE t_storage
-    TYPE(t_HashTable), PRIVATE :: container
+    TYPE(t_HashTable),PRIVATE :: &
+      &  container
     CONTAINS
       PROCEDURE, PUBLIC  :: init     => init_storage
       PROCEDURE, PUBLIC  :: destruct => destruct_storage
@@ -87,6 +119,12 @@ SUBROUTINE init_storage(this_storage,lcase_sensitivity)
  this_storage%container = tmp_container
  DEALLOCATE(tmp_container)
 END SUBROUTINE init_storage
+!!
+!!-------------------------------------------------------------------------
+!!
+SUBROUTINE scalarVal_destruct(me)
+  CLASS(t_scalarVal), INTENT(inout) :: me
+END SUBROUTINE scalarVal_destruct
 !!
 !!-------------------------------------------------------------------------
 !!
@@ -347,5 +385,97 @@ SUBROUTINE get_logical(this_storage, key, value, ierror)
   DEALLOCATE(p_key)
 
 END SUBROUTINE get_logical
+!!
+!!-------------------------------------------------------------------------
+!!
+INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_cs(key) RESULT(result)
+! Create hash key as proposed by Daniel J. Bernstein
+  CLASS(t_Destructible), POINTER, INTENT(in) :: key
+! Local
+  integer :: i
+  CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
+  INTEGER(C_INT64_T) :: t 
 
+  result = 5381
+
+  SELECT TYPE(key)
+    TYPE IS(t_stringVal)
+      do i=1,len(TRIM(key%stringVal))
+        t = ISHFT(RESULT,5)
+        RESULT = MOD( (t + RESULT) + ICHAR(key%stringVal(i:i)), p32 ) 
+      end do
+    CLASS DEFAULT
+      CALL finish(routine, "Unknown type for key.")
+  END SELECT
+END FUNCTION storage_hashKey_DJB_cs
+!!
+!!-------------------------------------------------------------------------
+!!
+INTEGER(C_INT32_T) FUNCTION storage_hashKey_DJB_ci(key) RESULT(result)
+! Create hash key as proposed by Daniel J. Bernstein
+  CLASS(t_Destructible), POINTER, INTENT(in) :: key
+! Local
+  integer :: i
+  CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_hashKey_DJB"
+  INTEGER(C_INT64_T) :: t 
+
+  result = 5381
+
+  SELECT TYPE(key)
+    TYPE IS(t_stringVal)
+      do i=1,len(TRIM(key%stringVal))
+        t = ISHFT(RESULT,5)
+        RESULT = MOD( (t + RESULT) + ICHAR(tolower(key%stringVal(i:i))), p32 ) 
+      end do
+    CLASS DEFAULT
+      CALL finish(routine, "Unknown type for key.")
+  END SELECT
+END FUNCTION storage_hashKey_DJB_ci
+!!
+!!-------------------------------------------------------------------------
+!!
+LOGICAL FUNCTION storage_equalKeysFunction_cs(keyA, keyB) RESULT(result)
+! Simple string comparison (case sensitive)
+  CLASS(t_Destructible), POINTER, INTENT(in) :: keyA, keyB
+! Local
+  CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_equalKeysFunction"
+
+  SELECT TYPE(keyA)
+    TYPE IS(t_stringVal)
+      SELECT TYPE(keyB)
+        TYPE IS(t_stringVal)
+          result =.FALSE.
+          IF(TRIM(keyA%stringVal) == TRIM(keyB%stringVal)) result =.TRUE.
+        CLASS DEFAULT
+          CALL finish(routine, "Unknown type for keyB.")
+      END SELECT
+    CLASS DEFAULT
+      CALL finish(routine, "Unknown type for keyA.")
+  END SELECT
+END FUNCTION storage_equalKeysFunction_cs
+!!
+!!-------------------------------------------------------------------------
+!!
+LOGICAL FUNCTION storage_equalKeysFunction_ci(keyA, keyB) RESULT(result)
+! Simple string comparison (case insensitive)
+  CLASS(t_Destructible), POINTER, INTENT(in) :: keyA, keyB
+! Local
+  CHARACTER(LEN=*), PARAMETER    :: routine = modname//":storage_equalKeysFunction"
+
+  SELECT TYPE(keyA)
+    TYPE IS(t_stringVal)
+      SELECT TYPE(keyB)
+        TYPE IS(t_stringVal)
+          result =.FALSE.
+          IF(TRIM(tolower(keyA%stringVal)) == TRIM(tolower(keyB%stringVal))) result =.TRUE.
+        CLASS DEFAULT
+          CALL finish(routine, "Unknown type for keyB.")
+      END SELECT
+    CLASS DEFAULT
+      CALL finish(routine, "Unknown type for keyA.")
+  END SELECT
+END FUNCTION storage_equalKeysFunction_ci
+!!
+!!-------------------------------------------------------------------------
+!!
 END MODULE mo_storage
