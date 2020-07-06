@@ -4421,7 +4421,7 @@ if test "x$enable_vectorized_lrtm" = xyes; then :
 fi
 
 if test "x$enable_mixed_precision" = xyes; then :
-  as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__MIXED_PRECISION"
 fi
 
 ######################### C COMPILER COMMAND AND FLAGS #########################
@@ -7124,7 +7124,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7214,7 +7214,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS" FCFLAGS="$subdir_FCFLAGS" XML2_CFLAGS= XML2_CLIBS= --enable-silent-rules="$enable_silent_rules" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_TIXI_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_TIXI_FCFLAGS" XML2_CFLAGS= XML2_CLIBS= --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :

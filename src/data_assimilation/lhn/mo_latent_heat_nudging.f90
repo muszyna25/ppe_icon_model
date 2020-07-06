@@ -65,7 +65,7 @@ USE mtime,                       ONLY: timedeltaToString, MAX_TIMEDELTA_STR_LEN,
   &                                    getPTStringFromSeconds, deallocateTimedelta, deallocateDatetime
 !USE mo_mtime_extensions,        ONLY: get_datetime_string
 
-USE mo_kind,               ONLY: wp, vp2, i4, i8
+USE mo_kind,               ONLY: wp, i4, i8
 
 USE mo_parallel_config,    ONLY: nproma
 
@@ -1550,7 +1550,7 @@ SUBROUTINE lhn_t_inc (i_startidx, i_endidx,jg,ke,zlev,tt_lheat,wobs_time, wobs_s
     wobs_time, wobs_space, pr_obs, pr_mod
   REAL(KIND=wp), DIMENSION(:,:), INTENT(IN) ::   &   ! dim (ie,ke)
     tt_lheat,zlev
-!  REAL(KIND=vp2), DIMENSION(:,:), INTENT(IN) ::  ddt_temp_pconv
+!  REAL(KIND=vp), DIMENSION(:,:), INTENT(IN) ::  ddt_temp_pconv
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
     ttend_lhn
   REAL(KIND=wp), DIMENSION(:), INTENT(OUT) ::   &   ! dim (ie,ke)

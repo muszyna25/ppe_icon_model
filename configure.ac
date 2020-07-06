@@ -603,7 +603,7 @@ AS_VAR_IF([enable_vectorized_lrtm], [yes],
 
 AS_VAR_IF([enable_mixed_precision], [yes],
   [AS_VAR_APPEND([FCFLAGS],
-     [" ${FC_PP_DEF}__MIXED_PRECISION ${FC_PP_DEF}__MIXED_PRECISION_2"])])
+     [" ${FC_PP_DEF}__MIXED_PRECISION"])])
 
 ######################### C COMPILER COMMAND AND FLAGS #########################
 dnl Override the default flags set by AC_PROG_CC:
