@@ -13,7 +13,7 @@ MODULE mo_restart_attributes
                                     & cdidefAttInt
   USE mo_exception,             ONLY: finish
   USE mo_fortran_tools,         ONLY: t_Destructible
-  USE mo_hash_table,            ONLY: t_HashTable_Base, hashTable_make, t_HashIterator
+  USE mo_hash_table,            ONLY: t_HashTable, hashTable_make, t_HashIterator
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_kind,                  ONLY: wp
   USE mo_master_config,         ONLY: isRestart
@@ -31,7 +31,7 @@ MODULE mo_restart_attributes
   ! The ONLY restart connected part about it IS, that it's also able to dump itself into the global attributes of a NetCDF file,
   ! AND to recreate a t_RestartAttributeList from that file, ignoring namelist attributes that may also be PRESENT IN the NetCDF file.
   TYPE, EXTENDS(t_Destructible) :: t_RestartAttributeList
-    CLASS(t_HashTable_Base), POINTER :: table
+    TYPE(t_HashTable), POINTER :: table
 
   CONTAINS
     PROCEDURE :: setText => RestartAttributeList_setText

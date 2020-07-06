@@ -30,7 +30,7 @@ MODULE mo_dictionary
   USE mo_utilities,      ONLY: finish, message_text, SUCCESS, &
     &                          find_next_free_unit
 #endif
-  USE mo_hash_table,     ONLY: t_HashTable_Base, hashTable_make, t_stringVal,                 &
+  USE mo_hash_table,     ONLY: t_HashTable, hashTable_make, t_stringVal,                      &
     &                          stringVal_len, storage_hashKey_DJB_cs, storage_hashKey_DJB_ci, &
     &                          storage_equalKeysFunction_cs, storage_equalKeysFunction_ci,    &
     &                          t_const_hashIterator
@@ -54,7 +54,7 @@ MODULE mo_dictionary
     !> Flag. If .TRUE. key strings are handled case-sensitively
     LOGICAL :: lcase_sensitive
     !> key-value hashtable (and its inverse):
-    CLASS(t_HashTable_Base), POINTER :: hashtable, hashtable_inv
+    TYPE(t_HashTable), POINTER :: hashtable, hashtable_inv
 
   CONTAINS
     PROCEDURE :: init       => dict_init
@@ -230,8 +230,8 @@ CONTAINS
   !--------------------------------------------------------------------------
   !> Auxiliary function: Add string to hash table.
   SUBROUTINE put_string(hashtable, key, value)
-    CLASS(t_HashTable_Base),INTENT(inout),POINTER :: hashtable
-    CHARACTER(LEN=*),INTENT(in)           :: key, value
+    CLASS(t_hashtable),INTENT(inout) :: hashtable
+    CHARACTER(LEN=*),INTENT(in)    :: key, value
     ! Local
     CLASS(t_Destructible), POINTER  :: p_key, p_value
 
@@ -256,8 +256,8 @@ CONTAINS
   !
   SUBROUTINE dict_set(dict, key, val)
     CLASS(t_dictionary), INTENT(INOUT) :: dict !< dictionary data structure
-    CHARACTER(LEN=*),   INTENT(IN)     :: key  !< new search key
-    CHARACTER(LEN=*),   INTENT(IN)     :: val  !< new value associated with key
+    CHARACTER(LEN=*),   INTENT(IN)    :: key  !< new search key
+    CHARACTER(LEN=*),   INTENT(IN)    :: val  !< new value associated with key
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_set'
 
@@ -282,13 +282,13 @@ CONTAINS
   !       interface "get" is not distinguishable otherwise.
   !
   SUBROUTINE get_string(hashtable, key, value, ierror)
-    CLASS(t_HashTable_Base),INTENT(in) :: hashtable
-    CHARACTER(LEN=*),INTENT(in)        :: key
-    CHARACTER(LEN=*),INTENT(out)       :: value
-    INTEGER,OPTIONAL,INTENT(out)       :: ierror
+    CLASS(t_hashtable),INTENT(in)  :: hashtable
+    CHARACTER(LEN=*),INTENT(in)    :: key
+    CHARACTER(LEN=*),INTENT(out)   :: value
+    INTEGER,OPTIONAL,INTENT(out)   :: ierror
     ! Local
-    CHARACTER(LEN=*), PARAMETER        :: routine = modname//":get_string"
-    CLASS(t_Destructible),POINTER      :: p_key, p_value
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//":get_string"
+    CLASS(t_Destructible),POINTER  :: p_key, p_value
 
     ALLOCATE(t_stringVal :: p_key)
     IF (PRESENT(ierror)) ierror = SUCCESS
@@ -325,9 +325,9 @@ CONTAINS
   !          provided, this function throws an error message.
   !
   FUNCTION dict_get(dict, key, default, linverse)
-    CHARACTER(LEN=DICT_MAX_STRLEN)           :: dict_get !< return value.
-    CLASS(t_dictionary),INTENT(IN)           :: dict     !< dictionary data structure
-    CHARACTER(LEN=*),   INTENT(IN)           :: key      !< new search key
+    CHARACTER(LEN=DICT_MAX_STRLEN) dict_get !< return value.
+    CLASS(t_dictionary), INTENT(IN)    :: dict !< dictionary data structure
+    CHARACTER(LEN=*),   INTENT(IN)    :: key  !< new search key
     CHARACTER(LEN=*),   INTENT(IN), OPTIONAL :: default  !< default value
     LOGICAL,            INTENT(IN), OPTIONAL :: linverse !< Flag. If .TRUE., the dictionary is queried in inverse order.
     ! local variables:
