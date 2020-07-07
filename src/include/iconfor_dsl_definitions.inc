@@ -37,6 +37,8 @@
 #define onVertices_3D_Int INTEGER, POINTER, DIMENSION(:,:,:)
 #define onVertices_3D_Type(tp) TYPE(tp), POINTER, DIMENSION(:,:,:)
 
+#define onVertices_2D_Real REAL(wp), POINTER, DIMENSION(:,:)
+
 !---------------------
 ! block definitions
 #define onCellsBlock_3D_Real REAL(wp),  POINTER, DIMENSION(:,:)

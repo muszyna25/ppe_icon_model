@@ -107,6 +107,9 @@ MODULE mo_advection_config
       &  tracer_names(MAX_NTRACER)       !< these are only required for 
                                          !< idealized runs without NWP or ECHAM forcing.
 
+    INTEGER :: nname                !< number of names read from transport_nml/tracer_names
+                                    !< which are stored in advection_config/tracer_names
+
     INTEGER :: &                    !< selects horizontal transport scheme       
       &  ihadv_tracer(MAX_NTRACER)  !< 0:  no horizontal advection                
                                     !< 1:  1st order upwind                       
@@ -352,7 +355,7 @@ CONTAINS
     !
     advection_config(jg)%iadv_slev(:) = 1
     advection_config(jg)%iadv_qvsubstep_elev = 1
-    IF (iforcing == inwp) THEN
+    IF (iforcing == inwp .OR. iforcing == iecham) THEN
       ! Set iadv_slev to kstart_moist for all moisture fields but QV
       ! note: iqt denotes the first tracer index not related to moisture
       advection_config(jg)%iadv_slev(iqc:iqt-1) = kstart_moist

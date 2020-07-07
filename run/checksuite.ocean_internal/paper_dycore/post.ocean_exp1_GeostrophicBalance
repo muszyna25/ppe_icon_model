@@ -1,7 +1,7 @@
 oType="png"
 # ================================================================================
 # technical stuff
-basePath=${ICON_BASE_PATH}
+basePath=${basedir}
 dataPath="${baseBath}../experiments/${EXPNAME}/"
 scriptPath="../../scripts/postprocessing/tools"
 nclCaller="nclsh"

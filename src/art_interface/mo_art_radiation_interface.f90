@@ -63,7 +63,7 @@ SUBROUTINE art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
     &  ks, ke,               & !< loop index jk
     &  jcs, jce,             & !< loop index jc
     &  nlong,nshort            !< number of bands long/shortwave. Sorting of arrays: longwave first, then shortwave bands
-  REAL(wp), INTENT(out) ::   &
+  REAL(wp), OPTIONAL, INTENT(out) ::   &
     &  aer_tau_lw_vr(:,:,:), & !< longwave aerosol optical depth [layer-1], vertically reverse
     &  aer_tau_sw_vr(:,:,:), & !< shortwave aerosol optical depth [layer-1], vertically reverse
     &  aer_piz_sw_vr(:,:,:), & !< shortwave aerosol single scattering albedo [layer-1], vertically reverse

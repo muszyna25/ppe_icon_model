@@ -192,7 +192,8 @@ MODULE mo_timer
   PUBLIC :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
        &    timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &    timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-       &    timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot 
+       &    timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
+       &    timer_exchange_ocean_hamocc
 
   ! restart timers
   PUBLIC :: timer_load_restart
@@ -402,7 +403,8 @@ MODULE mo_timer
   INTEGER :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
        &     timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
        &     timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
-       &     timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot
+       &     timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot, &
+       &     timer_exchange_ocean_hamocc
 
   ! restart timers
   INTEGER :: timer_load_restart
@@ -815,6 +817,7 @@ CONTAINS
     timer_bgc_ini     = new_timer("hamocc_ini") 
     timer_bgc_inv     = new_timer("hamocc_inventories") 
     timer_bgc_tot     = new_timer("hamocc_total") 
+    timer_exchange_ocean_hamocc = new_timer("exch_hamocc_ocean") 
 
     ! timers for restart writing/loading
     timer_load_restart = new_timer("load_restart")

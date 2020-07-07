@@ -24,7 +24,6 @@ MODULE mo_art_turbdiff_interface
 
 
   USE mo_kind,                          ONLY: wp
-  USE mo_parallel_config,               ONLY: nproma
   USE mo_model_domain,                  ONLY: t_patch
   USE mo_exception,                     ONLY: message, message_text, finish
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_diag, t_nh_prog

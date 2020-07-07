@@ -24,7 +24,7 @@
 MODULE mo_advection_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish, message_text, message
+  USE mo_exception,           ONLY: finish, message_text, message, print_value
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_run_config,          ONLY: ntracer
@@ -34,7 +34,7 @@ MODULE mo_advection_nml
     &                               islopel_vsm, ifluxl_vpd, VNAME_LEN
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_advection_config,    ONLY: advection_config 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -170,6 +170,7 @@ CONTAINS
     INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
     INTEGER :: it          !< loop counter
+    INTEGER :: nname       !< number of names given in transport_nml/tracer_names
     CHARACTER(len=VNAME_LEN) :: tname
 
     CHARACTER(len=*), PARAMETER ::  &
@@ -198,10 +199,7 @@ CONTAINS
     npassive_tracer      = 0         ! no additional passive tracers
     init_formula         = ''        ! no explizit initialization of passive tracers
 
-    DO it=1,max_ntracer         ! use tracer index as name suffix
-      WRITE(tname,'(I3)') it
-      tracer_names(it) = TRIM(ADJUSTL(tname)) 
-    ENDDO
+    tracer_names(:) = '...'          ! default name for undefined tracers
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -237,6 +235,49 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Sanity check
     !----------------------------------------------------
+
+    ! check consistency of run_nml/ntracer and the number of tracer
+    ! names given in transport
+    !
+    ! Count the number of names given in tracer_names(:) before the first
+    ! default name '...' is found.
+    CALL message(' ',' ')
+    CALL message(TRIM(routine),'Evaluate the number of names in transport_nml/tracer_names')
+    nname=0
+    DO
+      IF (TRIM(ADJUSTL(tracer_names(nname+1))) /= '...') THEN
+        nname=nname+1
+        CALL print_value('tracer name '//TRIM(ADJUSTL(tracer_names(nname)))//' in position',nname)
+      ELSE
+        CALL print_value('number of named tracers',nname)
+        EXIT
+      END IF
+    END DO
+    !
+    ! Set ntracer if zero so far but tracer names are given
+    IF (ntracer==0 .AND. nname > 0) THEN
+      ntracer=nname
+      CALL print_value('ntracer changed from 0 to',nname)
+    END IF
+    !
+    ! Stop if ntracer has been set to non-zero but less than the number of tracer names
+    IF (0<ntracer .AND. ntracer<nname) THEN
+      CALL finish(TRIM(routine),'Found inconsistent setup: 0 < run_nml/ntracer < ' //&
+           &      'number of names in transport_nml/tracer_names')
+    END IF
+    !
+    ! If ntracer has been set and ntracer > nname, then fill in default names 'q<no>'
+    ! for tracers with indices nname+1 to ntracer.
+    IF (nname<ntracer) THEN
+      CALL message(TRIM(routine),'Setting default names for tracers without names.')
+      CALL print_value('number of tracers without names',ntracer-nname)
+      DO it=nname+1,ntracer
+        WRITE(tname,'(i3)') it
+        tracer_names(it) = 'q'//TRIM(ADJUSTL(tname))
+        CALL print_value('tracer name '//TRIM(ADJUSTL(tracer_names(it)))//' in position',it)
+      END DO
+    END IF
+    CALL message(' ',' ')
 
     ! flux computation methods - sanity check
     !
@@ -301,6 +342,7 @@ CONTAINS
 
     DO jg= 0,max_dom
       advection_config(jg)%tracer_names(:)     = ADJUSTL(tracer_names(:))
+      advection_config(jg)%nname               = nname
       advection_config(jg)%ihadv_tracer(:)     = ihadv_tracer(:)
       advection_config(jg)%ivadv_tracer(:)     = ivadv_tracer(:)
       advection_config(jg)%lvadv_tracer        = lvadv_tracer

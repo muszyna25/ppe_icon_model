@@ -1,0 +1,36 @@
+#%Module1.0
+
+set specs       [split [module-info name] /]
+set name        [lindex $specs 0]
+set version     [lindex $specs 1]
+
+conflict $name
+
+proc ModulesHelp { } {
+    global name version
+    puts stderr "\t$name - loads version $version of the $name package"
+}
+
+module-whatis "loads the $name package"
+
+proc prepend-path-if-exists {var path} {
+    if [file isdirectory $path] {
+        prepend-path $var $path
+    }
+}
+
+proc set_dependencies {dependencies} {
+    if [module-info mode whatis] return
+    foreach dependency $dependencies {
+        set dep_info [split $dependency /]
+        set dep_name [lindex $dep_info 0]
+        set dep_version [lindex $dep_info 1]
+        if [expr ! [module-info mode remove] && \
+                 [is-loaded $dep_name] && \
+                 ! [is-loaded $dependency]] {
+            module sw $dependency
+            puts stderr "Hey: $dep_name was switched to $dep_version, will be removed by unload"
+        }
+        module add $dependency
+    }
+}

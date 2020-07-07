@@ -29,7 +29,7 @@ MODULE mo_util_cdi
     &                              my_process_is_mpi_workroot
   USE mo_util_string,        ONLY: tolower, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
-  USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
+  USE mo_dictionary,         ONLY: t_dictionary, DICT_MAX_STRLEN
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_gribout_config,     ONLY: t_gribout_config
@@ -166,8 +166,8 @@ CONTAINS
 
     me%have_dict = .FALSE.
     IF(PRESENT(opt_dict)) THEN
-      CALL dict_init(me%dict, lcase_sensitive=.FALSE.)
-      CALL dict_copy(opt_dict, me%dict)
+      CALL me%dict%init(.FALSE.)
+      CALL opt_dict%copy(me%dict)
       me%have_dict = .TRUE.
     END IF
     me%distribution => distribution
@@ -311,10 +311,8 @@ CONTAINS
     INTEGER :: i, j
 
     mapped_name = trim(name)
-    IF(me%have_dict) THEN
-      ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = TRIM(dict_get(me%dict, TRIM(name), DEFAULT=name))
-    END IF
+    IF (me%have_dict) &
+      & mapped_name = TRIM(me%dict%get(TRIM(name), DEFAULT=name))
     mapped_name = tolower(trim(mapped_name))
 
     varID      = -1
@@ -399,7 +397,7 @@ CONTAINS
     END IF
     CALL me%distribution%printStatistics()
 
-    IF(me%have_dict) CALL dict_finalize(me%dict)
+    IF(me%have_dict) CALL me%dict%finalize()
     DEALLOCATE(me%variableNames)
     DEALLOCATE(me%variableDatatype)
     DEALLOCATE(me%variableTileinfo)
@@ -424,7 +422,7 @@ CONTAINS
 
     IF (PRESENT(opt_dict)) THEN
       ! Search name mapping for name in NetCDF/GRIB2 file
-      mapped_name = tolower(dict_get(opt_dict, name, DEFAULT=name))
+      mapped_name = tolower(opt_dict%get(name, DEFAULT=name))
     ELSE
       mapped_name = tolower(name)
     END IF
@@ -1197,9 +1195,9 @@ CONTAINS
 
     ! Search name mapping for name in NetCDF file
     IF (info%cf%short_name /= '') THEN
-      mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
+      mapped_name = out_varnames_dict%get(info%cf%short_name, default=info%cf%short_name)
     ELSE
-      mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
+      mapped_name = out_varnames_dict%get(info%name, default=info%name)
     END IF
 
     ! note that an explicit call of vlistDefVarTsteptype is obsolete, since

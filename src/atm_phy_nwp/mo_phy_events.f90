@@ -40,7 +40,8 @@ MODULE mo_phy_events
   USE mo_run_config,               ONLY: msg_level
   USE mo_parallel_config,          ONLY: proc0_offloading
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, p_comm_work, p_io
-  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,      ONLY: getAttributesForRestarting
+  USE mo_key_value_store,          ONLY: t_key_value_store
 
   IMPLICIT NONE
 
@@ -831,12 +832,12 @@ CONTAINS
     REAL(wp)                              :: elapsedTime
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: elapsedTime_str
     TYPE(timedelta), POINTER              :: mtime_elapsedTime   ! elapsed time in mtime format
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(len=MAX_CHAR_LENGTH)        :: attname             ! attribute name
     CHARACTER(LEN=*), PARAMETER           :: routine = modname//":phyProcGroup_deserialize"
   !-----------------------------------------------------------------
  
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
 
     IF (ASSOCIATED(restartAttributes)) THEN
       DO iproc=1,UBOUND(phyProcGrp%proc,1)
@@ -848,7 +849,7 @@ CONTAINS
         ELSE
           WRITE(attname,'(a,i2.2,a,i2.2)') TRIM(optAttnamePrefix),phyProcGrp%pid,'_PHY',iproc
         ENDIF
-        elapsedTime = restartAttributes%getReal(TRIM(attname))
+        CALL restartAttributes%get(attname, elapsedTime)
 
         ! Note that elapsedTime is multiplied by -1, since we only have a 
         ! '+' operator available.
