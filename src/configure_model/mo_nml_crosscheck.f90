@@ -551,17 +551,17 @@ CONTAINS
 
       CASE(7)  ! two-moment scheme with additional prognostic liquid water (melting) variables for graupel and hail
       
-        iqg  = 6
-        iqh  = 7
-        iqgl = 8
-        iqhl = 9        
-        iqni = 10        
-        iqnr = 11       
-        iqns = 12        
-        iqng = 13        
-        iqnh = 14
-        iqnc = 15
-        ininact = 16
+        iqg     = 6  ; advection_config(:)%tracer_names(iqg)     = 'qg'
+        iqh     = 7  ; advection_config(:)%tracer_names(iqh)     = 'qh'
+        iqgl    = 8  ; advection_config(:)%tracer_names(iqgl)    = 'qgl'
+        iqhl    = 9  ; advection_config(:)%tracer_names(iqhl)    = 'qhl'      
+        iqni    = 10 ; advection_config(:)%tracer_names(iqni)    = 'qni'       
+        iqnr    = 11 ; advection_config(:)%tracer_names(iqnr)    = 'qnr'      
+        iqns    = 12 ; advection_config(:)%tracer_names(iqns)    = 'qns'       
+        iqng    = 13 ; advection_config(:)%tracer_names(iqng)    = 'qng'       
+        iqnh    = 14 ; advection_config(:)%tracer_names(iqnh)    = 'qnh'
+        iqnc    = 15 ; advection_config(:)%tracer_names(iqnc)    = 'qnc'
+        ininact = 16 ; advection_config(:)%tracer_names(ininact) = 'ninact'
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 9     !! end index of water species mass mixing ratios
