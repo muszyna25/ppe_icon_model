@@ -36,8 +36,9 @@ MODULE mo_art_reaction_interface
                                           &   timer_art_losschem, timer_art_photo
   USE mo_radiation_config,              ONLY: irad_o3
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo, &
-                                          &   t_art_chem_param,       &
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_atmo_data,                 ONLY: t_art_atmo
+  USE mo_art_chem_data,                 ONLY: t_art_chem_param,       &
                                           &   t_art_chem_indices
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact

@@ -21,11 +21,12 @@
 !!
 MODULE mo_art_init_interface
 
-  USE mo_kind,                          ONLY: wp
+  USE mo_kind,                          ONLY: wp, i8
   USE mo_run_config,                    ONLY: lart, ntracer
   USE mo_exception,                     ONLY: finish
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art_initInt
+  USE mo_time_config,                   ONLY: time_config
   USE mo_grid_config,                   ONLY: start_time
   USE mo_master_config,                 ONLY: isRestart
   USE mo_storage,                       ONLY: t_storage
@@ -37,7 +38,12 @@ MODULE mo_art_init_interface
   USE mo_art_config,                    ONLY: art_config, ctracer_art
   USE mo_impl_constants,                ONLY: MAX_CHAR_LENGTH
 
-  USE mtime,                            ONLY: datetime
+  USE mtime,                            ONLY: datetime, timedelta,           &
+                                          &   MAX_TIMEDELTA_STR_LEN,         &
+                                          &   newTimedelta,                  &
+                                          &   getTotalMilliSecondsTimeDelta, &
+                                          &   getPTStringFromMS,             &
+                                          &   deallocateTimedelta
 #ifdef __ICON_ART
   USE mo_art_collect_atmo_state,        ONLY: art_collect_atmo_state_nwp,   &
                                           &   art_update_atmo_state_nwp,    &
@@ -47,6 +53,7 @@ MODULE mo_art_init_interface
                                           &   art_init_tracer_values_echam
 
   USE mo_art_init_all_dom,              ONLY: art_init_all_dom
+  USE mo_art_init,                      ONLY: art_init
   USE mo_art_clean_up,                  ONLY: art_clean_up
   USE mo_art_tagging,                   ONLY: get_number_tagged_tracer
   USE mo_art_read_xml,                  ONLY: art_check_tracer_children_xml,  &
@@ -369,9 +376,47 @@ END SUBROUTINE art_calc_ntracer_and_names
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
+SUBROUTINE art_init_one_dom(jg, p_prog_list, tracer, nest_level)
+  IMPLICIT NONE
+  INTEGER, INTENT(in) ::  &
+    &  jg                   !< patch id
+  TYPE(t_var_list), INTENT(in) :: &
+    &  p_prog_list          !< list of prognostic variables
+  REAL(wp), POINTER :: &
+    &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
+  INTEGER, INTENT(in) :: &
+    &  nest_level           !< beginning with zero in global domain
+  ! local variables
+#ifdef __ICON_ART
+  INTEGER(i8) ::   &
+    &   dtime_ms
+  REAL(wp) ::  &
+    &   dtime_real
+  CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) ::  &
+    &   dtime_string
+  TYPE(timedelta), POINTER ::  &
+    &   dt_model
+  
+  ! set timedelta according to nest level
+  dtime_ms = getTotalMilliSecondsTimeDelta(time_config%tc_dt_model,  &
+    &                                      time_config%tc_exp_refdate)
+  dtime_real = REAL(dtime_ms, wp) / 1000._wp         ! in seconds
+  dtime_real = dtime_real / 2._wp**nest_level
+  dtime_ms   = NINT(dtime_real*1000, i8)
+  CALL getPTStringFromMS(dtime_ms, dtime_string)
+  dt_model => newTimedelta(TRIM(dtime_string))
+
+  CALL art_init(jg, dt_model, time_config%tc_exp_refdate,  &
+           &    p_prog_list, tracer)
+
+  CALL deallocateTimedelta(dt_model)
+
+#endif
+END SUBROUTINE art_init_one_dom
 
 SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
-                 &                   prm_diag, p_prog, tracer, p_prog_list)
+                 &                   prm_diag, p_prog, tracer, p_prog_list,   &
+                 &                   nest_level)
   IMPLICIT NONE
   INTEGER, INTENT(in) ::  &
     &  jg                   !< patch id
@@ -389,11 +434,15 @@ SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
     &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
   TYPE(t_var_list), INTENT(in) :: &
     &  p_prog_list          !< list of prognostic variables
+  INTEGER, INTENT(in) :: &
+    &  nest_level           !< beginning with zero in global domain
 
 #ifdef __ICON_ART
   IF (lart) THEN
     CALL art_collect_atmo_state_nwp(jg, mtime_current, p_nh_state,  &
                    &                ext_data, prm_diag, p_prog)
+
+    CALL art_init_one_dom(jg, p_prog_list, tracer, nest_level)
 
     IF ((start_time(jg) <= 0.0_wp) .AND. (.NOT. isRestart())) THEN
       CALL art_init_tracer_values_nwp(jg, tracer, mtime_current, p_prog_list)
@@ -406,7 +455,8 @@ END SUBROUTINE art_init_atmo_tracers_nwp
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
-                 &                     p_prog, tracer, p_prog_list)
+                 &                     p_prog, tracer, p_prog_list,   &
+                 &                     nest_level)
   IMPLICIT NONE
   INTEGER, INTENT(in) ::  &
     &  jg                   !< patch id
@@ -420,10 +470,14 @@ SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
     &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
   TYPE(t_var_list), INTENT(in) :: &
     &  p_prog_list          !< list of prognostic variables
+  INTEGER, INTENT(in) :: &
+    &  nest_level           !< beginning with zero in global domain
 
 #ifdef __ICON_ART
   IF (lart) THEN
     CALL art_collect_atmo_state_echam(jg, mtime_current, p_nh_state, p_prog)
+
+    CALL art_init_one_dom(jg, p_prog_list, tracer, nest_level)
 
     IF ((start_time(jg) <= 0.0_wp) .AND. (.NOT. isRestart())) THEN
       CALL art_init_tracer_values_echam(jg, tracer, mtime_current, p_prog_list)

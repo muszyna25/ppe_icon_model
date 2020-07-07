@@ -57,7 +57,8 @@ MODULE mo_art_emission_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_pollen, t_fields_volc
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_atmo_data,                 ONLY: t_art_atmo
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_config,                    ONLY: art_config

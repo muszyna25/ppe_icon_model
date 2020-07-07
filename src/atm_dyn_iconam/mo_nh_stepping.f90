@@ -424,15 +424,16 @@ MODULE mo_nh_stepping
 
 
       IF (lart) THEN
-        CALL art_init_atmo_tracers_nwp(                     &
-               &  jg,                                       &
-               &  mtime_current,                            &
-               &  p_nh_state(jg),                           &
-               &  ext_data(jg),                             &
-               &  prm_diag(jg),                             &
-               &  p_nh_state(jg)%prog(nnow(jg)),            &
-               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+        CALL art_init_atmo_tracers_nwp(                        &
+               &  jg,                                          &
+               &  mtime_current,                               &
+               &  p_nh_state(jg),                              &
+               &  ext_data(jg),                                &
+               &  prm_diag(jg),                                &
+               &  p_nh_state(jg)%prog(nnow(jg)),               &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,    &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)),&
+               &  p_patch(jg)%nest_level)
       END IF
 
 
@@ -514,13 +515,14 @@ MODULE mo_nh_stepping
 
     IF (lart) THEN
       DO jg = 1, n_dom
-        CALL art_init_atmo_tracers_echam(                   &
-               &  jg,                                       &
-               &  mtime_current,                            &
-               &  p_nh_state(jg),                           &
-               &  p_nh_state(jg)%prog(nnow(jg)),            &
-               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+        CALL art_init_atmo_tracers_echam(                      &
+               &  jg,                                          &
+               &  mtime_current,                               &
+               &  p_nh_state(jg),                              &
+               &  p_nh_state(jg)%prog(nnow(jg)),               &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,    &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)),&
+               &  p_patch(jg)%nest_level )
       ENDDO
     END IF
   END SELECT ! iforcing

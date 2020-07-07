@@ -34,7 +34,8 @@ MODULE mo_art_diagnostics_interface
 
 ! ART
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_atmo_data,                 ONLY: t_art_atmo
   USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_aero_optical_props,        ONLY: art_calc_aod, art_calc_bsc

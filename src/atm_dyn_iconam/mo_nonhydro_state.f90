@@ -1270,8 +1270,7 @@ MODULE mo_nonhydro_state
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
             &                       ptr_arr=p_prog%tracer_ptr,advconf=advconf,p_prog=p_prog,   &
-            &                       timelev=timelev,ldims=shape3d_c,tlev_source=TLEV_NNOW_RCF, &
-            &                       nest_level=p_patch%nest_level)
+            &                       timelev=timelev,ldims=shape3d_c,tlev_source=TLEV_NNOW_RCF)
         ENDIF
 
 
