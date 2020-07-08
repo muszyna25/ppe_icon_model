@@ -154,9 +154,9 @@ CONTAINS
 
     IF (.NOT.me%is_init) CALL finish(modname//"put", "data structure not initialized")
     IF (me%lcase_sensitive) THEN
-      CALL put_actual(key)
+      CALL put_actual(TRIM(key))
     ELSE
-      CALL put_actual(tolower(key))
+      CALL put_actual(tolower(TRIM(key)))
     END IF
   CONTAINS
 
@@ -167,11 +167,11 @@ CONTAINS
       TYPE(t_char_workaround), POINTER :: key_p
 
       ALLOCATE(key_p)
-      ALLOCATE(CHARACTER(LEN=LEN_TRIM(key)) :: key_p%c)
-      WRITE(key_p%c, "(a)") TRIM(key)
+      ALLOCATE(CHARACTER(LEN=LEN(key)) :: key_p%c)
+      WRITE(key_p%c, "(a)") key
       keyObj => key_p
 #else
-      ALLOCATE(keyObj , SOURCE=TRIM(key))
+      ALLOCATE(keyObj , SOURCE=key)
 #endif
       CALL me%table%setEntry(keyObj, valObj)
     END SUBROUTINE put_actual
@@ -365,7 +365,6 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//"output"
     TYPE(t_HashIterator) :: iterator
     CLASS(*), POINTER :: curKey, curVal
-    CHARACTER(:), ALLOCATABLE :: label_loc
     CHARACTER(:), POINTER :: ccKey, ccVal
     LOGICAL :: selector(4)
 
