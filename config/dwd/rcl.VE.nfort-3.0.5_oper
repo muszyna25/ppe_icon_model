@@ -124,9 +124,6 @@ for arg in "$@"; do
   esac
 done
 
-# Generate input file for runscript generation:
-./config.status --file=run/set-up.info
-echo 'use_mpi_root="openmpi"' >> run/set-up.info
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
