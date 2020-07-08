@@ -198,6 +198,7 @@ MODULE mo_multifile_restart
     &                                        timers_level, timer_write_restart_setup,                    &
     &                                        timer_write_restart_wait
   USE mo_util_string,                  ONLY: int2string, real2string
+  USE mo_restart_nml_and_att,          ONLY: restartAttributeList_write_to_cdi
 
   IMPLICIT NONE
 
@@ -415,7 +416,7 @@ CONTAINS
       grid = gridCreate(GRID_GENERIC, 1)
       zaxis = zaxisCreate(ZAXIS_GENERIC, 1)
       var = vlistDefVar(vlist, grid, zaxis, TSTEP_CONSTANT)
-      CALL rAttribs%output(vlistID=vlist)
+      CALL restartAttributeList_write_to_cdi(rAttribs, vlist)
       CALL streamDefVlist(metaFile, vlist)
       CALL streamDefRecord(metaFile, var, 0)
       CALL streamClose(metaFile)

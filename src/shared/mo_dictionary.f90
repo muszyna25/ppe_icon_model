@@ -172,10 +172,10 @@ CONTAINS
       val => line(klen+1:llen)
       IF (.NOT. lread_inverse) THEN
         CALL dict%dic%put(key, val)
-        CALL dict%idic%put(key, val)
+        CALL dict%idic%put(val, key)
       ELSE
         CALL dict%dic%put(val, key)
-        CALL dict%idic%put(val, key)
+        CALL dict%idic%put(key, val)
       END IF
     ENDDO
     CLOSE(unit=iunit)

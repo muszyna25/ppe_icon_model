@@ -629,34 +629,29 @@ CONTAINS
 
         ! -- translate variables names according to variable name
         !    dictionary:
-        DO i=1,max_var_ml
-          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), &
-            &                            default=p_onl%ml_varlist(i))
-        END DO
-        DO i=1,max_var_pl
-          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), &
-            &                            default=p_onl%pl_varlist(i))
-        END DO
-        DO i=1,max_var_hl
-          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), &
-            &                            default=p_onl%hl_varlist(i))
-        END DO
-        DO i=1,max_var_il
-          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), &
-            &                            default=p_onl%il_varlist(i))
-        END DO
-
         ! allow case-insensitive variable names:
         DO i=1,max_var_ml
+          IF (' ' == p_onl%ml_varlist(i)) EXIT ! since read from nml-file array is filled bottom to top...
+          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), &
+            &                            default=p_onl%ml_varlist(i))
           p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
         END DO
         DO i=1,max_var_pl
+          IF (' ' == p_onl%pl_varlist(i)) EXIT
+          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), &
+            &                            default=p_onl%pl_varlist(i))
           p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
         END DO
         DO i=1,max_var_hl
+          IF (' ' == p_onl%hl_varlist(i)) EXIT
+          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), &
+            &                            default=p_onl%hl_varlist(i))
           p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
         END DO
         DO i=1,max_var_il
+          IF (' ' == p_onl%il_varlist(i)) EXIT
+          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), &
+            &                            default=p_onl%il_varlist(i))
           p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
         END DO
 
