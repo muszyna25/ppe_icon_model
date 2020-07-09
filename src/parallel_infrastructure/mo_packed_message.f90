@@ -24,7 +24,7 @@ MODULE mo_packed_message
 #ifndef NOMPI
   HANDLE_MPI_ERROR_USE
   USE mo_mpi, ONLY: p_int, p_get_bcast_role, MPI_SUCCESS
-  USE mpi
+  USE mpi, ONLY: MPI_CHAR, MPI_STATUS_SIZE
 #endif
 
   IMPLICIT NONE
@@ -34,12 +34,15 @@ MODULE mo_packed_message
 
   INTEGER, PARAMETER, PUBLIC :: kPackOp = 1
   INTEGER, PARAMETER, PUBLIC :: kUnpackOp = 2
-#ifdef __PGI
-  INTEGER :: tbytes(7) = -1
+#ifndef __PGI
+! * obtain the storge size of supported data types in units of C_SIGNED_CHAR
+! (pgf90 needs some workaround since STORAGE_SIZE appears to be broken)
+  INTEGER, PARAMETER :: tbytes(7) = ([ STORAGE_SIZE(1), STORAGE_SIZE(1_i8), &
+     & STORAGE_SIZE(1_C_SIGNED_CHAR), STORAGE_SIZE(.false.), &
+     & STORAGE_SIZE(1._dp), STORAGE_SIZE(1._sp), STORAGE_SIZE('a') ] + &
+     & STORAGE_SIZE(1_C_SIGNED_CHAR) - 1) / STORAGE_SIZE(1_C_SIGNED_CHAR)
 #else
-  INTEGER, PARAMETER :: tbytes(7) = [ STORAGE_SIZE(1)/8, STORAGE_SIZE(1_i8)/8, &
-     & STORAGE_SIZE(1_C_SIGNED_CHAR)/8, STORAGE_SIZE(.false.)/8, &
-     & STORAGE_SIZE(1._dp)/8, STORAGE_SIZE(1._sp)/8, STORAGE_SIZE('a')/8 ]
+  INTEGER :: tbytes(7) = -1
 #endif
   ! A t_PackedMessage IS used to bundle a number of different values
   ! together into a single message, that can be communicated via a
@@ -75,17 +78,10 @@ MODULE mo_packed_message
   ! knowing that it will be simply impossible to mix up the sequence
   ! when setting operation to kUnpackOp to unpack the message.
   !
-  ! XXX: This originated as a wrapper around MPI_Pack() AND friends
-  ! that IS able to manage the buffer that's used to hold the packed
-  ! message.  However, it turned OUT to be more sensible to DO the
-  ! packing ourselves: We need to be able to pack/unpack even when
-  ! NOMPI IS defined.
-
   TYPE :: t_PackedMessage
     PRIVATE
-    INTEGER :: messageSize = 0
-    INTEGER :: readPosition = 0
-    CHARACTER, ALLOCATABLE :: messageBuffer(:)
+    INTEGER(C_SIGNED_CHAR), ALLOCATABLE :: messageBuffer(:)
+    INTEGER :: messageSize = 0, readPosition = 0
   CONTAINS
     PROCEDURE :: reset => PackedMessage_reset   
 
@@ -183,22 +179,23 @@ CONTAINS
     REAL(dp), PARAMETER :: crap_dp(8) = 1._sp
     REAL(sp), PARAMETER :: crap_sp(8) = 1._dp
     CHARACTER(LEN=1), PARAMETER :: crap_c(8) = 'a'
-    INTEGER(C_SIZE_T) :: tmp
+    INTEGER(C_SIZE_T) :: tmp, schar
 
-    tmp = C_SIZEOF(crap_i)
-    tbytes(1) = INT(tmp) / 8
-    tmp = C_SIZEOF(crap_i8) 
-    tbytes(2) = INT(tmp) / 8
-    tmp = C_SIZEOF(crap_Cchar) 
-    tbytes(3) = INT(tmp) / 8
-    tmp = C_SIZEOF(crap_l) 
-    tbytes(4) = INT(tmp) / 8
-    tmp = C_SIZEOF(crap_dp) 
-    tbytes(5) = INT(tmp) / 8
-    tmp = C_SIZEOF(crap_sp) 
-    tbytes(6) = INT(tmp) / 8
-    tmp = C_SIZEOF(crap_c) 
-    tbytes(7) = INT(tmp) / 8
+    schar = C_SIZEOF(crap_Cchar)
+    tmp = C_SIZEOF(crap_i) + schar - 1
+    tbytes(1) = INT(tmp) / schar
+    tmp = C_SIZEOF(crap_i8) + schar - 1
+    tbytes(2) = INT(tmp) / schar
+    tmp = C_SIZEOF(crap_Cchar) + schar - 1
+    tbytes(3) = INT(tmp) / schar
+    tmp = C_SIZEOF(crap_l) + schar - 1
+    tbytes(4) = INT(tmp) / schar
+    tmp = C_SIZEOF(crap_dp) + schar - 1
+    tbytes(5) = INT(tmp) / schar
+    tmp = C_SIZEOF(crap_sp) + schar - 1
+    tbytes(6) = INT(tmp) / schar
+    tmp = C_SIZEOF(crap_c) + schar - 1
+    tbytes(7) = INT(tmp) / schar
   END SUBROUTINE init_tbytes
 #endif
 
@@ -213,7 +210,7 @@ CONTAINS
     CLASS(t_PackedMessage), INTENT(INOUT) :: me
     INTEGER, INTENT(IN) :: requiredSpace
     INTEGER :: ierr, oldSize, newSize
-    CHARACTER, ALLOCATABLE :: newBuffer(:)
+    INTEGER(C_SIGNED_CHAR), ALLOCATABLE :: newBuffer(:)
     CHARACTER(*), PARAMETER :: routine = modname//":ensureSpace"
 
     oldSize = 0
@@ -227,11 +224,28 @@ CONTAINS
     CALL MOVE_ALLOC(newBuffer, me%messageBuffer)
   END SUBROUTINE PackedMessage_ensureSpace
 
+! ********************************************************************
+! * new implementation replaces the old implementation via TRANSFER
+! * basically this resembles somewhat of a "reinterpret cast" of a 
+! * (void*) pointer "cptr" (obtained via C_LOC() in calling routine)
+! * to a (char*) pointer "vptr" using C_F_POINTER()
+! * then copy the full body of the payload (length=asize) at once 
+! * exploiting fortan array syntax
+! *
+! * avdantages:
+! *    - fewer (implicit) copies
+! *    - memcpy en bloc instead of copying byte by byte
+! *    - avoids fortran CHARACTER-string handling as far as possible
+! *    - (gcc >= 7 had problems with the old TRANSFER impemetation)
+! *
+! * you should not care about the details.
+! * do not touch!
+! ********************************************************************
   SUBROUTINE PackedMessage_packBlock(me, cptr, asize, tid)
     CLASS(t_PackedMessage), INTENT(INOUT), TARGET :: me
     TYPE(c_ptr), INTENT(INOUT) :: cptr
     INTEGER, INTENT(IN) :: asize, tid
-    CHARACTER, POINTER :: vptr(:)
+    INTEGER(C_SIGNED_CHAR), POINTER :: vptr(:)
     INTEGER :: bsize
 
 #ifdef __PGI
@@ -328,12 +342,15 @@ CONTAINS
 
 #undef PM_packArray
 
+! * see comment above PackedMessage_packBlock
+! * you should not care.
+! * do not touch!
   SUBROUTINE PackedMessage_unpackBlock(me, cptr, asize, tid)
     CLASS(t_PackedMessage), INTENT(INOUT) :: me
     TYPE(c_ptr), INTENT(INOUT), TARGET :: cptr
     INTEGER, INTENT(IN) :: asize, tid
     CHARACTER(*), PARAMETER :: routine = modname//"unpackBlock"
-    CHARACTER, POINTER :: vptr(:)
+    INTEGER(C_SIGNED_CHAR), POINTER :: vptr(:)
     INTEGER :: bsize
 
 #ifdef __PGI
@@ -529,7 +546,7 @@ CONTAINS
 
     CALL MPI_Send(me%messageSize, 1, p_int, dest, tag, comm, ierr)
     HANDLE_MPI_ERROR(ierr, "MPI_Send")
-    CALL MPI_Send(me%messageBuffer, INT(me%messageSize), MPI_BYTE, dest, tag, comm, ierr)
+    CALL MPI_Send(me%messageBuffer, INT(me%messageSize), MPI_CHAR, dest, tag, comm, ierr)
     HANDLE_MPI_ERROR(ierr, "MPI_Send")
 #endif
   END SUBROUTINE PackedMessage_send
@@ -545,23 +562,21 @@ CONTAINS
     CALL MPI_Recv(msize, 1, p_int, source, tag, comm, mstat, ierr)
     HANDLE_MPI_ERROR(ierr, "MPI_Recv")
     CALL me%ensureSpace(msize)
-    CALL MPI_Recv(me%messageBuffer, msize, MPI_PACKED, source, tag, comm, mstat, ierr)
+    CALL MPI_Recv(me%messageBuffer, msize, MPI_CHAR, source, tag, comm, mstat, ierr)
     HANDLE_MPI_ERROR(ierr, "MPI_Recv")
     me%messageSize = msize
 #endif
   END SUBROUTINE PackedMessage_recv
 
   SUBROUTINE PackedMessage_bcast(me, root, comm)
-    CLASS(t_PackedMessage), INTENT(INOUT), TARGET :: me
+    CLASS(t_PackedMessage), INTENT(INOUT) :: me
     INTEGER, INTENT(IN) :: root, comm
 #ifndef NOMPI
     INTEGER :: ierr, msize
     LOGICAL :: isSource, isDestination
     CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_bcast"
-    CHARACTER, POINTER :: msg_body(:)
-    CHARACTER, TARGET :: dummy_c(0)
+    INTEGER(C_SIGNED_CHAR) :: dummy_c(0)
 
-    msg_body => dummy_c
     CALL p_get_bcast_role(root, comm, isSource, isDestination)
     msize = me%messageSize
     CALL MPI_Bcast(msize, 1, p_int, root, comm, ierr)
@@ -570,8 +585,11 @@ CONTAINS
       CALL me%reset()
       CALL me%ensureSpace(msize)
     END IF
-    IF (isDestination .OR. isSource) msg_body => me%messageBuffer
-    CALL MPI_Bcast(msg_body, msize, MPI_PACKED, root, comm, ierr)
+    IF (isDestination .OR. isSource) THEN
+      CALL MPI_Bcast(me%messageBuffer, msize, MPI_CHAR, root, comm, ierr)
+    ELSE
+      CALL MPI_Bcast(dummy_c, 0, MPI_CHAR, root, comm, ierr)
+    END IF
     HANDLE_MPI_ERROR(ierr, "MPI_Bcast")
     IF(isDestination) me%messageSize = msize
 #endif
