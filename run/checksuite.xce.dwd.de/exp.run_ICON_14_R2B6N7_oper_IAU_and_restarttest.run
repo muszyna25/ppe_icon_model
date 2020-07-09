@@ -162,7 +162,6 @@ EXP3="restart"
 for iter in 1 2 3 ; do
 
 
-
 if [ $iter -eq 1 ] ; then
 
 echo "##############################################################"
@@ -573,7 +572,7 @@ done # model run iterations
 # now start with the tests
 
 # absolute path to cdo
-CDODIR="/e/uhome/dreinert/bin"
+CDODIR="/hpc/rhome/software/cdo/lc/1.8.0/bin"
 
 
 EXIT_STATUS=0
@@ -599,32 +598,54 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
  echo "=> Compare experiments: $EXP1 $EXP2"
 
  ${CDODIR}/cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} > ${DIFF_FILE_DOM01}
+ cdo_exitstat_DOM01=$(echo $?)
  ${CDODIR}/cdo diffn ${FILE1_DOM02} ${FILE2_DOM02} > ${DIFF_FILE_DOM02}
+ cdo_exitstat_DOM02=$(echo $?)
 
- if [ -s ${DIFF_FILE_DOM01} ]; then
-   echo " DOM01: file 1 and file 2 differ"
-   echo " - file 1: ${FILE1_DOM01}"
-   echo " - file 2: ${FILE2_DOM01}"
-   cat ${DIFF_FILE_DOM01}
-   rm  ${DIFF_FILE_DOM01}
+
+ # DOM01 IAU
+ if [[ ${cdo_exitstat_DOM01} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM01} ]; then
+      echo " DOM01: file 1 and file 2 differ"
+      echo " - file 1: ${FILE1_DOM01}"
+      echo " - file 2: ${FILE2_DOM01}"
+      cat ${DIFF_FILE_DOM01}
+      rm  ${DIFF_FILE_DOM01}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_IAU=1
+   else
+     echo "DOM01: EXP $EXP1 and EXP $EXP2 are identical"
+   fi
+ else
+   echo "DOM01: cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_IAU=1
- else
-   echo "DOM01: EXP $EXP1 and EXP $EXP2 are identical"
  fi
- if [ -s ${DIFF_FILE_DOM02} ]; then
-   echo " DOM02: file 1 and file 2 differ"
-   echo " - file 1: ${FILE1_DOM02}"
-   echo " - file 2: ${FILE2_DOM02}"
-   cat ${DIFF_FILE_DOM02}
-   rm  ${DIFF_FILE_DOM02}
+ #
+ # DOM02 IAU
+ if [[ ${cdo_exitstat_DOM02} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM02} ]; then
+      echo " DOM02: file 1 and file 2 differ"
+      echo " - file 1: ${FILE1_DOM02}"
+      echo " - file 2: ${FILE2_DOM02}"
+      cat ${DIFF_FILE_DOM02}
+      rm  ${DIFF_FILE_DOM02}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_IAU=1
+   else
+     echo "DOM02: EXP $EXP1 and EXP $EXP2 are identical"
+   fi
+ else
+   echo "DOM02: cdo diffn ${FILE1_DOM02} ${FILE2_DOM02} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_IAU=1
- else
-   echo "DOM02: EXP $EXP1 and EXP $EXP2 are identical"
  fi
+
+
 
 
  echo "=================================================================="
@@ -632,32 +653,52 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
  echo "=> Compare experiments:" $EXP2 $EXP3
 
  ${CDODIR}/cdo diffn ${FILE2_DOM01} ${FILE3_DOM01} > ${DIFF_FILE_DOM01}
+ cdo_exitstat_DOM01=$(echo $?)
  ${CDODIR}/cdo diffn ${FILE2_DOM02} ${FILE3_DOM02} > ${DIFF_FILE_DOM02}
+ cdo_exitstat_DOM02=$(echo $?)
 
- if [ -s ${DIFF_FILE_DOM01} ]; then
-   echo " DOM01: file 2 and file 3 differ"
-   echo " - file 1: ${FILE2_DOM01}"
-   echo " - file 2: ${FILE3_DOM01}"
-   cat ${DIFF_FILE_DOM01}
-   rm  ${DIFF_FILE_DOM01}
+ # DOM01 RESTART
+ if [[ ${cdo_exitstat_DOM01} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM01} ]; then
+      echo " DOM01: file 2 and file 3 differ"
+      echo " - file 2: ${FILE2_DOM01}"
+      echo " - file 3: ${FILE3_DOM01}"
+      cat ${DIFF_FILE_DOM01}
+      rm  ${DIFF_FILE_DOM01}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_RESTART=1
+   else
+     echo "DOM01: EXP $EXP2 and EXP $EXP3 are identical"
+   fi
+ else
+   echo "DOM01: cdo diffn ${FILE2_DOM01} ${FILE3_DOM01} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_RESTART=1
- else
-   echo "DOM01: EXP $EXP2 and EXP $EXP3 are identical"
  fi
- if [ -s ${DIFF_FILE_DOM02} ]; then
-   echo " DOM02: file 2 and file 3 differ"
-   echo " - file 1: ${FILE2_DOM02}"
-   echo " - file 2: ${FILE3_DOM02}"
-   cat ${DIFF_FILE_DOM02}
-   rm  ${DIFF_FILE_DOM02}
+ #
+ # DOM02 RESTART
+ if [[ ${cdo_exitstat_DOM02} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM02} ]; then
+      echo " DOM02: file 2 and file 3 differ"
+      echo " - file 2: ${FILE2_DOM02}"
+      echo " - file 3: ${FILE3_DOM02}"
+      cat ${DIFF_FILE_DOM02}
+      rm  ${DIFF_FILE_DOM02}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_RESTART=1
+   else
+     echo "DOM02: EXP $EXP2 and EXP $EXP3 are identical"
+   fi
+ else
+   echo "DOM02: cdo diffn ${FILE2_DOM02} ${FILE3_DOM02} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_RESTART=1
- else
-   echo "DOM02: EXP $EXP2 and EXP $EXP3 are identical"
  fi
+
 
 #
 #-----------------------------------------------------------------------------
@@ -668,7 +709,7 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
    echo " "
  else
    echo " "
-   echo "IAU test FAILED:"
+   echo "IAU test FAILED"
    echo " "
  fi
  if [ $DIFF_STATUS_RESTART == 0 ]; then
@@ -677,7 +718,7 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
    echo " "
  else
    echo " "
-   echo "Restart test FAILED:"
+   echo "Restart test FAILED"
    echo " "
  fi
 
