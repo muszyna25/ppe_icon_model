@@ -894,7 +894,7 @@ CONTAINS
           IF (in_varlist(nvars+1) == ' ') EXIT
           nvars = nvars + 1
         END DO
-
+!         write(0,*) "nvars=", nvars, "  ntotal_vars=", ntotal_vars
         IF (nvars>ntotal_vars)  CALL finish(routine, "Internal error: nvars > ntotal_vars")
 
         if (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
@@ -1931,7 +1931,8 @@ CONTAINS
 
       p_of%verticalAxisList = t_verticalAxisList()
 
-      IF (iequations/=ihs_ocean) THEN ! atm
+!       IF (iequations/=ihs_ocean) THEN ! atm
+      IF (.not. my_process_is_oceanic()) THEN ! atm
         SELECT CASE(p_of%ilev_type)
         CASE (level_type_ml)
           CALL setup_ml_axes_atmo(p_of%verticalAxisList, p_of%level_selection, p_of%log_patch_id)

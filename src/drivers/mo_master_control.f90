@@ -40,7 +40,7 @@ MODULE mo_master_control
     & my_process_is_ocean, get_my_model_no,                               &
     & are_multiple_models, use_restart_namelists, isRestart,              &
     & process_exists, hamocc_process, my_process_is_hamocc,               &
-    & my_process_is_oceanic 
+    & my_process_is_oceanic, icon_output_process, my_process_is_icon_output
    
 
   ! ------------------------------------------------------------------------
@@ -49,6 +49,7 @@ MODULE mo_master_control
   INTEGER, PARAMETER :: ps_radiation_process = 3
   INTEGER, PARAMETER :: hamocc_process       = 4
   INTEGER, PARAMETER :: testbed_process      = 99
+  INTEGER, PARAMETER :: icon_output_process  = 100
   ! ------------------------------------------------------------------------
 
   INTEGER :: my_process_model ! =atmo_process,ocean_process,...
@@ -195,6 +196,7 @@ CONTAINS
       CASE (ps_radiation_process)
       CASE (hamocc_process)
       CASE (testbed_process)
+      CASE (icon_output_process)
       CASE default
         CALL finish("check_my_component","my_process_model is unkown")
     END SELECT
@@ -297,9 +299,18 @@ CONTAINS
   !------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_oceanic()
 
-    my_process_is_oceanic = (my_process_model == ocean_process) .or. (my_process_model == hamocc_process)
+    my_process_is_oceanic = (my_process_model == ocean_process) .or. (my_process_model == hamocc_process) &
+      & .or. (my_process_model == icon_output_process) ! FixMe: temporary to make it work with the ocean 
 
   END FUNCTION my_process_is_oceanic
+  !------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_icon_output()
+
+    my_process_is_icon_output = (my_process_model == icon_output_process)
+
+  END FUNCTION my_process_is_icon_output
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------

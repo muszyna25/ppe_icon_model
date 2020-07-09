@@ -7,6 +7,7 @@
 #define onCells_3D_Type(tp) TYPE(tp), POINTER, DIMENSION(:,:,:)
 #define onCells_3D_RealPrecision(pr) REAL(pr), POINTER, DIMENSION(:,:,:)
 #define onCells_3D_Real REAL(wp),  POINTER, DIMENSION(:,:,:)
+#define onCells_3D_sp REAL(sp),  POINTER, DIMENSION(:,:,:)
 #define onCells_HalfLevels_tracers REAL(wp), POINTER, DIMENSION(:,:,:,:)
 #define onCells_HalfLevels         REAL(wp), POINTER, DIMENSION(:,:,:)
 

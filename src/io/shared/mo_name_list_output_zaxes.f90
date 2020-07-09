@@ -69,7 +69,7 @@ MODULE mo_name_list_output_zaxes
   USE mo_level_selection_types,             ONLY: t_level_selection
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_math_utilities,                    ONLY: set_zlev, t_value_set
-  USE mo_run_config,                        ONLY: num_lev, iforcing
+  USE mo_run_config,                        ONLY: num_lev, iforcing, nlev
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxis, t_verticalAxisList
 #ifndef __NO_ICON_ATMO__
   USE mo_io_config,                         ONLY: echotop_meta
@@ -77,7 +77,7 @@ MODULE mo_name_list_output_zaxes
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow, zml_soil
 #endif
 #ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m,lhamocc
+  USE mo_ocean_nml,                         ONLY: dzlev_m,lhamocc, n_zlev
   USE mo_hamocc_nml,                        ONLY: ks, ksp, dzsed
 #endif
 
@@ -399,13 +399,13 @@ CONTAINS
   !> Setup of vertical axes for output module: Ocean component
   !
   SUBROUTINE setup_zaxes_oce(verticalAxisList, level_selection)
+  
     TYPE(t_verticalAxisList), INTENT(INOUT) :: verticalAxisList
     TYPE(t_level_selection),  INTENT(IN), POINTER :: level_selection
     ! local variables
     REAL(wp), ALLOCATABLE             :: levels_i(:), levels_m(:)
     REAL(wp), ALLOCATABLE             :: levels_s(:), levels_sp(:)
-
-
+    
 #ifndef __NO_ICON_OCEAN__
     ALLOCATE(levels_i(n_zlev+1), levels_m(n_zlev))
     CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
