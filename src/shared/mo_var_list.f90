@@ -29,7 +29,7 @@ MODULE mo_var_list
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
     &                            MAX_GROUPS, VINTP_TYPE_LIST,       &
-    &                            t_post_op_meta,                    &
+    &                            t_post_op_meta, t_var_metadata_ptr, &
     &                            CLASS_DEFAULT, CLASS_TILE,         &
     &                            CLASS_TILE_LAND
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
@@ -4348,108 +4348,91 @@ CONTAINS
   !
   ! (Un)pack the var_lists
   ! This IS needed for the restart modules that need to communicate the var_lists from the worker PEs to dedicated restart PEs.
-  !
-  SUBROUTINE varlistPacker(operation, packedMessage)
-    INTEGER, VALUE :: operation
+  SUBROUTINE varlistPacker(operation, packedMessage, restart_only, nv_all)
+    INTEGER, INTENT(IN) :: operation
     TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
-
-    INTEGER :: info_size, iv, nv, nelems, patch_id, restart_type, vlevel_type, n, ierrstat
-    INTEGER, ALLOCATABLE            :: info_storage(:)
+    LOGICAL, INTENT(IN) :: restart_only
+    INTEGER, INTENT(OUT), OPTIONAL :: nv_all
+    INTEGER :: info_size, iv, nv, nelems, nelems_all, patch_id, restart_type, vlevel_type, n, ierrstat, ivd
+    INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_list_element), POINTER   :: element, newElement
     TYPE(t_var_metadata)            :: info
     TYPE(t_var_list)                :: p_var_list
     CHARACTER(LEN=128)              :: var_list_name
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart
-
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
-    ! delete old var lists
-    IF(operation == kUnpackOp) CALL delete_var_lists
-
-    ! get the size - in default INTEGER words - which is needed to
-    ! hold the contents of TYPE(t_var_metadata)
     info_size = SIZE(TRANSFER(info, (/ 0 /)))
-    ALLOCATE(info_storage(info_size), STAT=ierrstat)
+    IF(operation == kUnpackOp) CALL delete_var_lists
+    ALLOCATE(info_buf(info_size), STAT=ierrstat)
     IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
-
-    ! get the number of var lists
     nv = nvar_lists
+    nelems_all = 0
     CALL packedMessage%packer(operation, nv)
-
-    ! for each var list, get its components
     DO iv = 1, nv
-        IF(operation == kPackOp) THEN
-            ! copy the values needed for the new_var_list() CALL to local variables
-            lrestart = var_lists(iv)%p%lrestart
-            var_list_name = var_lists(iv)%p%name
-            model_type = var_lists(iv)%p%model_type
-            patch_id = var_lists(iv)%p%patch_id
-            restart_type = var_lists(iv)%p%restart_type
-            vlevel_type = var_lists(iv)%p%vlevel_type
-
-            ! count the number of variable restart entries
-            element => var_lists(iv)%p%first_list_element
-            nelems = 0
-            DO WHILE (ASSOCIATED(element))
-                IF(element%field%info%lrestart) nelems = nelems+1
-                element => element%next_list_element
-            END DO
-        END IF
-        CALL packedMessage%packer(operation, lrestart)
-        CALL packedMessage%packer(operation, var_list_name)
-        CALL packedMessage%packer(operation, model_type)
-        CALL packedMessage%packer(operation, patch_id)
-        CALL packedMessage%packer(operation, restart_type)
-        CALL packedMessage%packer(operation, vlevel_type)
-        CALL packedMessage%packer(operation, nelems)
-
-        IF(.NOT. lrestart) CYCLE  ! transfer only a restart var_list
-        IF(nelems == 0) CYCLE ! check if there are valid restart fields
-
-        IF(operation == kPackOp) THEN
-            element => var_lists(iv)%p%first_list_element
-            DO WHILE (ASSOCIATED(element))
-                IF(element%field%info%lrestart) THEN
-                    info_storage = TRANSFER(element%field%info, (/ 0 /))
-                    CALL packedMessage%packer(operation, info_storage)
-                END IF
-                element => element%next_list_element
-            END DO
-        END IF
-
-        IF(operation == kUnpackOp) THEN
-            ! create var list
-            CALL new_var_list(p_var_list, var_list_name, patch_id=patch_id, restart_type=restart_type, vlevel_type=vlevel_type, &
-                             &lrestart=.TRUE.)
-            p_var_list%p%model_type = TRIM(model_type)
-
-            ! insert elements into var list
-            DO n = 1, nelems
-                ! ALLOCATE a new element
-                ALLOCATE(newElement, STAT=ierrstat)
-                IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
-                IF(n == 1) THEN   ! the first element pointer needs to be stored IN a different variable than the later pointers (there are no double pointers IN FORTRAN...)
-                    p_var_list%p%first_list_element => newElement
-                ELSE
-                    element%next_list_element => newElement
-                END IF
-                element => newElement
-                element%next_list_element => NULL()
-
-                ! these pointers don't make sense on the restart PEs, NULLIFY them
-                NULLIFY(element%field%r_ptr, element%field%s_ptr, element%field%i_ptr, element%field%l_ptr)
-                element%field%var_base_size = 0 ! Unknown here
-
-                ! set info structure from binary representation in info_storage
-                CALL packedMessage%packer(operation, info_storage)
-                element%field%info = TRANSFER(info_storage, info)
-            END DO
-        END IF
-
+      IF(operation == kPackOp) THEN
+        ! copy the values needed for the new_var_list() CALL to local variables
+        lrestart = var_lists(iv)%p%lrestart
+        var_list_name = var_lists(iv)%p%name
+        model_type = var_lists(iv)%p%model_type
+        patch_id = var_lists(iv)%p%patch_id
+        restart_type = var_lists(iv)%p%restart_type
+        vlevel_type = var_lists(iv)%p%vlevel_type
+        element => var_lists(iv)%p%first_list_element
+        nelems = 0
+        DO WHILE (ASSOCIATED(element))
+          IF(element%field%info%lrestart .OR. .NOT.restart_only) nelems = nelems+1
+          element => element%next_list_element
+        END DO
+        nelems_all = nelems_all + nelems
+      END IF
+      CALL packedMessage%packer(operation, lrestart)
+      CALL packedMessage%packer(operation, var_list_name)
+      CALL packedMessage%packer(operation, model_type)
+      CALL packedMessage%packer(operation, patch_id)
+      CALL packedMessage%packer(operation, restart_type)
+      CALL packedMessage%packer(operation, vlevel_type)
+      CALL packedMessage%packer(operation, nelems)
+      IF (restart_only .AND. .NOT. lrestart) CYCLE  ! transfer only a restart var_list
+      IF (nelems == 0) CYCLE ! check if there are valid restart fields
+      IF (operation == kPackOp) THEN
+        element => var_lists(iv)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
+          IF(element%field%info%lrestart .OR. .NOT.restart_only) THEN
+            info_buf(:) = TRANSFER(element%field%info, (/ 0 /))
+            CALL packedMessage%pack(info_buf)
+          END IF
+          element => element%next_list_element
+        END DO
+      END IF
+      IF (operation == kUnpackOp) THEN
+        ! create var list
+        CALL new_var_list(p_var_list, var_list_name, patch_id=patch_id, restart_type=restart_type, vlevel_type=vlevel_type, &
+                         &lrestart=lrestart)
+        p_var_list%p%model_type = TRIM(model_type)
+        NULLIFY(p_var_list%p%first_list_element)
+        ! insert elements into var list
+        DO n = 1, nelems
+          ALLOCATE(newElement, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
+          IF (n == 1) THEN   ! the first element pointer needs to be stored IN a different variable than the later pointers (there are no double pointers IN FORTRAN...)
+            p_var_list%p%first_list_element => newElement
+          ELSE
+            element%next_list_element => newElement
+          END IF
+          element => newElement
+          NULLIFY(element%next_list_element ,element%field%r_ptr, element%field%s_ptr, &
+            &     element%field%i_ptr, element%field%l_ptr)
+          element%field%var_base_size = 0 ! Unknown here
+          CALL packedMessage%unpack(info_buf)
+          element%field%info = TRANSFER(info_buf, info)
+        END DO
+      END IF
     END DO
+    CALL packedMessage%packer(operation, nelems_all)
+    IF (PRESENT(nv_all)) nv_all = nelems_all
   END SUBROUTINE varlistPacker
-
 
   !>  Detailed print-out of variable groups.
   !

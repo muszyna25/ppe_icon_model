@@ -109,7 +109,7 @@ MODULE mo_name_list_output_init
     &                                             process_mpi_io_size, p_n_work,  &
     &                                             p_pe_work, p_io_pe0, p_work_pe0, p_pe, &
     &                                             my_process_is_work, num_test_procs, &
-    &                                             p_allgather, MPI_COMM_NULL
+    &                                             p_allgather, MPI_COMM_NULL, p_get_bcast_role
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -119,9 +119,10 @@ MODULE mo_name_list_output_init
   USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
-    &                                             new_var_list,                                   &
+    &                                             new_var_list, varlistPacker,                    &
     &                                             total_number_of_variables, collect_group,       &
     &                                             get_var_timelevel, get_var_name
+  USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
     &                                             level_type_il
   ! lon-lat interpolation
@@ -2965,24 +2966,10 @@ CONTAINS
   !  This routine has to be called by all PEs (work and I/O)
   !
   SUBROUTINE replicate_data_on_io_procs()
-
-    ! local variables
     CHARACTER(len=*), PARAMETER :: routine = modname//"::replicate_data_on_io_procs"
-    INTEGER                       :: ivct_len
-    INTEGER                       :: info_size, iv, nv, nelems, n, list_info(4)
-    INTEGER, ALLOCATABLE          :: info_storage(:,:)
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_metadata)          :: info
-    TYPE(t_var_list)              :: p_var_list
-    ! var_list_name should have at least the length of var_list names
-    ! (although this doesn't matter as long as it is big enough for every name)
-    CHARACTER(LEN=256)            :: var_list_name
-    INTEGER                       :: idom
-
-    INTEGER :: nvgrid, ivgrid
-    INTEGER :: size_var_groups_dyn
-    INTEGER :: idom_log
-    LOGICAL :: is_io
+    INTEGER :: ivct_len, nvgrid, ivgrid, size_var_groups_dyn
+    LOGICAL :: is_io, lIsSender, lIsReceiver
+    TYPE(t_packedMessage) :: pmsg
 
     is_io = my_process_is_io()
     !-----------------------------------------------------------------------------------------------
@@ -2997,124 +2984,20 @@ CONTAINS
 ! #ifndef __NO_ICON_ATMO__
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
-
-    ! Get the size - in default INTEGER words - which is needed to
-    ! hold the contents of TYPE(t_var_metadata)
-
-    info_size = SIZE(TRANSFER(info, (/ 0 /)))
-
-    ! Get the number of var_lists
-    IF (.NOT. is_io) nv = nvar_lists
-    CALL p_bcast(nv, bcast_root, p_comm_work_2_io)
-
-    ! For each var list, get its components
-    DO iv = 1, nv
-
-      ! Send name
-      IF (.NOT. is_io) var_list_name = var_lists(iv)%p%name
-      CALL p_bcast(var_list_name, bcast_root, p_comm_work_2_io)
-
-      IF (.NOT. is_io) THEN
-
-        ! Count the number of variable entries
-        element => var_lists(iv)%p%first_list_element
-        nelems = 0
-        DO WHILE (ASSOCIATED(element))
-          nelems = nelems+1
-          element => element%next_list_element
-        ENDDO
-
-        ! Gather the components needed for name list I/O and send them.
-        ! Please note that not the complete list is replicated, unneeded
-        ! entries are left away!
-
-        list_info(1) = nelems
-        list_info(2) = var_lists(iv)%p%patch_id
-        list_info(3) = var_lists(iv)%p%vlevel_type
-        list_info(4) = MERGE(1,0,var_lists(iv)%p%loutput)
-
-      ENDIF
-
-      ! Send basic info:
-
-      CALL p_bcast(list_info, bcast_root, p_comm_work_2_io)
-
-      IF (is_io) THEN
-        nelems = list_info(1)
-        ! Create var list
-        CALL new_var_list( p_var_list, var_list_name, patch_id=list_info(2), &
-                           vlevel_type=list_info(3), loutput=(list_info(4)/=0) )
-      ENDIF
-
-      ! Get the binary representation of all info members of the variables
-      ! of the list and send it to the receiver.
-      ! Using the Fortran TRANSFER intrinsic may seem like a hack,
-      ! but it has the advantage that it is completely independet of the
-      ! actual declaration if TYPE(t_var_metadata).
-      ! Thus members may added to or removed from TYPE(t_var_metadata)
-      ! without affecting the code below and we don't have an additional
-      ! cross dependency between TYPE(t_var_metadata) and this module.
-
-      ALLOCATE(info_storage(info_size, nelems))
-
-      IF (.NOT. is_io) THEN
-        element => var_lists(iv)%p%first_list_element
-        nelems = 0
-        DO WHILE (ASSOCIATED(element))
-          nelems = nelems+1
-          info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
-          element => element%next_list_element
-        ENDDO
-      ENDIF
-
-      ! Send binary representation of all info members
-
-      CALL p_bcast(info_storage, bcast_root, p_comm_work_2_io)
-
-      IF (is_io) THEN
-
-        ! Insert elements into var list
-
-        IF (nelems >= 1) THEN
-          ALLOCATE(p_var_list%p%first_list_element)
-          element => p_var_list%p%first_list_element
-        ELSE
-          NULLIFY(p_var_list%p%first_list_element)
-        END IF
-        DO n = 1, nelems
-          IF(n > 1) THEN
-            ALLOCATE(element%next_list_element)
-            element => element%next_list_element
-          ENDIF
-
-          NULLIFY(element%next_list_element)
-
-          ! Nullify all pointers in element%field, they don't make sense on the I/O PEs
-          NULLIFY(element%field%r_ptr, element%field%s_ptr, &
-               element%field%i_ptr, element%field%l_ptr)
-          element%field%var_base_size = 0 ! Unknown here
-
-          ! Set info structure from binary representation in info_storage
-          element%field%info = TRANSFER(info_storage(:, n), info)
-        ENDDO
-
-      ENDIF
-
-      DEALLOCATE(info_storage)
-
-    ENDDO
+    CALL p_get_bcast_role(bcast_root, p_comm_work_2_io, lIsSender, lIsReceiver)
+    IF(lIsSender) CALL varlistPacker(kPackOp, pmsg, .FALSE.)
+    CALL pmsg%bcast(bcast_root, p_comm_work_2_io)
+    IF(lIsReceiver) CALL varlistPacker(kUnpackOp, pmsg, .FALSE.)
 
     ! var_groups_dyn is required in function 'group_id', which is called in
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
     size_var_groups_dyn = 0
-    IF (ALLOCATED(var_groups_dyn%name)) THEN
-       size_var_groups_dyn = SIZE(var_groups_dyn%name)
-    end if
+    IF (ALLOCATED(var_groups_dyn%name)) &
+       & size_var_groups_dyn = SIZE(var_groups_dyn%name)
     CALL p_bcast(size_var_groups_dyn, bcast_root, p_comm_work_2_io)
     if (size_var_groups_dyn > 0) then
-       IF (.NOT. ALLOCATED(var_groups_dyn%name)) THEN
-          ALLOCATE(var_groups_dyn%name(size_var_groups_dyn))
-       ENDIF
+       IF (.NOT. ALLOCATED(var_groups_dyn%name)) &
+         & ALLOCATE(var_groups_dyn%name(size_var_groups_dyn))
        CALL p_bcast(var_groups_dyn%name, bcast_root, p_comm_work_2_io)
     end if
 
@@ -3129,44 +3012,35 @@ CONTAINS
     ! from gribout config state
     CALL p_bcast(gribout_config(1:n_dom_out)%generatingCenter,    bcast_root, p_comm_work_2_io)
     CALL p_bcast(gribout_config(1:n_dom_out)%generatingSubcenter, bcast_root, p_comm_work_2_io)
-
       ! from extpar config state
     CALL p_bcast(i_lctype(1:n_dom_out)                          , bcast_root, p_comm_work_2_io)
 
     IF (iforcing == INWP) THEN
       ! from nwp land config state
-      !
       CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
       CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
       CALL p_bcast(isub_water                                , bcast_root, p_comm_work_2_io)
       CALL p_bcast(isub_lake                                 , bcast_root, p_comm_work_2_io)
       CALL p_bcast(isub_seaice                               , bcast_root, p_comm_work_2_io)
-      IF (.NOT.ALLOCATED(tile_list%tile)) THEN
-        CALL setup_tile_list (tile_list, ntiles_lnd, lsnowtile, isub_water, isub_lake, isub_seaice)
-      ENDIF
+      IF (.NOT.ALLOCATED(tile_list%tile)) CALL setup_tile_list(tile_list, ntiles_lnd, lsnowtile, &
+                                                               isub_water, isub_lake, isub_seaice)
     ENDIF
 #endif
     ! allocate vgrid_buffer on asynchronous output PEs, for storing
     ! the vertical grid UUID
     !
     ! get buffer size and broadcast
-    IF (ALLOCATED(vgrid_buffer)) THEN
-       nvgrid = SIZE(vgrid_buffer)
-    ELSE
-       nvgrid = 0
-    END IF
+    nvgrid = 0
+    IF (ALLOCATED(vgrid_buffer)) nvgrid = SIZE(vgrid_buffer)
     CALL p_bcast(nvgrid, bcast_root, p_comm_work_2_io)
     !
     ! allocate on asynchronous PEs
-    IF (is_io) THEN
-      ALLOCATE(vgrid_buffer(nvgrid))
-    ENDIF
+    IF (is_io)  ALLOCATE(vgrid_buffer(nvgrid))
     ! broadcast
     DO ivgrid = 1,nvgrid
       CALL p_bcast(vgrid_buffer(ivgrid)%uuid%DATA, SIZE(vgrid_buffer(ivgrid)%uuid%DATA, 1), &
         &          bcast_root, p_comm_work_2_io)
     ENDDO
-
   END SUBROUTINE replicate_data_on_io_procs
 
   !-------------------------------------------------------------------------------------------------

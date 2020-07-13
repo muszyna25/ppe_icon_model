@@ -122,9 +122,9 @@ CONTAINS
     CALL p_bcast(me%modelType, bcast_root, p_comm_work_2_restart)
     CALL p_bcast(n_dom, bcast_root, p_comm_work_2_restart)
     CALL p_get_bcast_role(bcast_root, p_comm_work_2_restart, lIsSender, lIsReceiver)
-    IF(lIsSender) CALL varlistPacker(kPackOp, packedMessage)
+    IF(lIsSender) CALL varlistPacker(kPackOp, packedMessage, .TRUE.)
     CALL packedMessage%bcast(bcast_root, p_comm_work_2_restart)
-    IF(lIsReceiver) CALL varlistPacker(kUnpackOp, packedMessage)
+    IF(lIsReceiver) CALL varlistPacker(kUnpackOp, packedMessage, .TRUE.)
     CALL bcastNamelistStore(bcast_root, p_comm_work_2_restart)
 #endif
   END SUBROUTINE restartDescriptor_transferGlobalParameters

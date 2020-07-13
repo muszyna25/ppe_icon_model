@@ -202,7 +202,9 @@ MODULE mo_var_metadata_types
     PROCEDURE :: finalize => t_var_metadata_finalize   !< destructor
   END TYPE t_var_metadata
 
-
+  TYPE t_var_metadata_ptr
+    TYPE(t_var_metadata), POINTER :: p => NULL()
+  END TYPE t_var_metadata_ptr
   ! The type t_var_metadata_dynamic is (in contrast to t_var_metadata) not transfered to the output PE.
   ! This allows for dynamical objects inside t_var_metadata_dynamic like pointers or allocatables.
   TYPE t_var_metadata_dynamic
@@ -218,7 +220,7 @@ MODULE mo_var_metadata_types
   PUBLIC :: MAX_GROUPS
 
   PUBLIC :: t_union_vals
-  PUBLIC :: t_var_metadata
+  PUBLIC :: t_var_metadata, t_var_metadata_ptr
   PUBLIC :: t_var_metadata_dynamic
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta

@@ -194,7 +194,6 @@ MODULE mo_async_latbc
 #ifndef NOMPI
     USE mpi
 #endif
-
     ! basic modules
     USE mo_kind,                      ONLY: i8, sp
     USE mo_exception,                 ONLY: finish, message, message_text
@@ -209,7 +208,7 @@ MODULE mo_async_latbc
     USE mo_mpi,                       ONLY: p_comm_work, p_comm_work_pref, p_comm_work_2_pref
     ! MPI Communication routines
     ! MPI Process type intrinsics
-    USE mo_mpi,                       ONLY: my_process_is_work
+    USE mo_mpi,                       ONLY: my_process_is_work, p_get_bcast_role
     ! MPI Process group sizes
     USE mo_mpi,                       ONLY: num_work_procs
     ! Processor numbers
@@ -234,9 +233,10 @@ MODULE mo_async_latbc
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_linked_list,               ONLY: t_var_list, t_list_element
-    USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
+    USE mo_var_metadata_types,        ONLY: t_var_metadata, t_var_metadata_ptr, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
-         &                                  collect_group, get_var_name
+         &                                  collect_group, get_var_name, varlistPacker
+    USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary
     USE mo_util_string,               ONLY: add_to_list, tolower
@@ -285,10 +285,6 @@ MODULE mo_async_latbc
     
     ! max. number of LATBC group variables
     INTEGER,          PARAMETER :: MAX_NUM_GRPVARS = 200
-
-  TYPE t_var_data
-    TYPE(t_var_metadata), POINTER :: info  ! Info structure for variable
-  END TYPE t_var_data
 
   CONTAINS
 
@@ -603,7 +599,7 @@ MODULE mo_async_latbc
       INTEGER(mpi_address_kind)     :: mem_size
       LOGICAL                       :: is_pref, is_work, is_test
       INTEGER, ALLOCATABLE :: cell_ro_idx(:), edge_ro_idx(:), var_buf_map(:)
-      TYPE(t_var_data), ALLOCATABLE :: var_data(:)
+      TYPE(t_var_metadata_ptr), ALLOCATABLE :: var_data(:)
 
       is_pref = my_process_is_pref()
       is_work = my_process_is_work()
@@ -1240,137 +1236,30 @@ MODULE mo_async_latbc
     !
 #ifndef NOMPI
     SUBROUTINE replicate_data_on_pref_proc(var_data, bcast_root)
-      TYPE(t_var_data), ALLOCATABLE, INTENT(out) :: var_data(:)
+      TYPE(t_var_metadata_ptr), ALLOCATABLE, INTENT(out) :: var_data(:)
       INTEGER,             INTENT(IN) :: bcast_root
-
-      ! local variables
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
-      INTEGER                       :: info_size, i, iv, nelems, nv, n, &
-           &                           all_nvars, nvars, i2, ierrstat
-      LOGICAL                       :: is_pref
-      INTEGER, ALLOCATABLE          :: info_storage(:,:)
+      INTEGER                       :: nv, i, i2, all_nvars
+      LOGICAL                       :: is_pref, lIsSender, lIsReceiver
       TYPE(t_list_element), POINTER :: element
-      TYPE(t_var_metadata)          :: info
-      TYPE(t_var_list)              :: p_var_list
-      ! var_list_name should have at least the length of var_list names
-      CHARACTER(LEN=256)            :: var_list_name
-
-      ! get the size - in default INTEGER words - which is needed to
-      ! hold the contents of TYPE(t_var_metadata)
-      info_size = SIZE(TRANSFER(info, (/ 0 /)))
+      TYPE(t_packedMessage) :: pmsg
 
       is_pref = my_process_is_pref()
-      ! get the number of var lists
-      IF (.NOT. is_pref) nv = nvar_lists
-      CALL p_bcast(nv, bcast_root, p_comm_work_2_pref)
-
-      IF (.NOT. is_pref) THEN
-         all_nvars = 0
-         DO i = 1, nvar_lists
-
-            ! Count the number of variable entries
-            element => var_lists(i)%p%first_list_element
-            !   IF(element%field%info%used_dimensions(2) == 0) CYCLE
-            nvars = 0
-            DO WHILE (ASSOCIATED(element))
-               !      IF(element%field%info%used_dimensions(2) == 0) CYCLE
-               nvars = nvars+1
-               element => element%next_list_element
-            ENDDO
-            all_nvars = all_nvars + nvars
-         ENDDO
-      ENDIF
-
-      ! get the number of var lists
-      CALL p_bcast(all_nvars, bcast_root, p_comm_work_2_pref)
-
-      IF (all_nvars <= 0) RETURN
-
-      ! allocate the array of variables
+      CALL p_get_bcast_role(bcast_root, p_comm_work_2_pref, lIsSender, lIsReceiver)
+      IF(lIsSender) CALL varlistPacker(kPackOp, pmsg, .FALSE.)
+      CALL pmsg%bcast(bcast_root, p_comm_work_2_pref)
+      IF(lIsReceiver) CALL varlistPacker(kUnpackOp, pmsg, .FALSE., all_nvars)
       ALLOCATE(var_data(all_nvars))
-
+      nv = nvar_lists
       i2 = 0
-      ! For each var list, get its components
-      DO iv = 1, nv
-
-         ! Send name
-         IF (.NOT. is_pref) var_list_name = var_lists(iv)%p%name
-         CALL p_bcast(var_list_name, bcast_root, p_comm_work_2_pref)
-
-         IF (.NOT. is_pref) THEN
-            ! Count the number of variable entries
-            element => var_lists(iv)%p%first_list_element
-            nelems = 0
-            DO WHILE (ASSOCIATED(element))
-               nelems = nelems+1
-               element => element%next_list_element
-            ENDDO
-         ENDIF
-
-         ! Send basic info:
-         CALL p_bcast(nelems, bcast_root, p_comm_work_2_pref)
-
-         IF (is_pref) THEN
-            ! Create var list
-            CALL new_var_list( p_var_list, var_list_name)
-         ENDIF
-
-         ! Get the binary representation of all info members of the
-         ! variables of the list and send it to the receiver.  Using
-         ! the Fortran TRANSFER intrinsic may seem like a hack, but it
-         ! has the advantage that it is completely independent from
-         ! the actual declaration if TYPE(t_var_metadata).  Thus
-         ! members may added to or removed from TYPE(t_var_metadata)
-         ! without affecting the code below and we don't have an
-         ! additional cross dependency between TYPE(t_var_metadata)
-         ! and this module.
-
-         ALLOCATE(info_storage(info_size, nelems), STAT=ierrstat)
-         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-         IF (.NOT. is_pref) THEN
-            element => var_lists(iv)%p%first_list_element
-            nelems = 0
-            DO WHILE (ASSOCIATED(element))
-               i2 = i2 + 1
-               var_data(i2)%info => element%field%info
-               nelems = nelems+1
-               info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
-               element => element%next_list_element
-            ENDDO
-         ENDIF
-
-         ! Send binary representation of all info members
-
-         CALL p_bcast(info_storage, bcast_root, p_comm_work_2_pref)
-
-         IF (is_pref) THEN
-
-            ! Insert elements into var list
-           IF (nelems > 0) THEN
-             ALLOCATE(p_var_list%p%first_list_element)
-             element => p_var_list%p%first_list_element
-             DO n = 1, nelems-1
-               i2 = i2 + 1
-
-               ! Set info structure from binary representation in info_storage
-               element%field%info = TRANSFER(info_storage(:, n), info)
-               var_data(i2)%info => element%field%info
-               ALLOCATE(element%next_list_element)
-               element => element%next_list_element
-             ENDDO
-             i2 = i2 + 1
-             element%field%info = TRANSFER(info_storage(:, nelems), info)
-             var_data(i2)%info => element%field%info
-             NULLIFY(element%next_list_element)
-           ELSE
-             NULLIFY(p_var_list%p%first_list_element)
-           END IF
-         ENDIF
-         DEALLOCATE(info_storage, STAT=ierrstat)
-         IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      ENDDO
-
+      DO i = 1, nvar_lists
+        element => var_lists(i)%p%first_list_element
+        DO WHILE (ASSOCIATED(element))
+          i2 = i2 + 1
+          var_data(i2)%p => element%field%info
+          element => element%next_list_element
+        END DO
+      END DO
     END SUBROUTINE replicate_data_on_pref_proc
 
 
@@ -1487,7 +1376,7 @@ MODULE mo_async_latbc
       TYPE(t_buffer), INTENT(in) :: buffer
       INTEGER, ALLOCATABLE, INTENT(out) :: map(:)
       CHARACTER(LEN=varname_len), INTENT(in) :: StrLowCasegrp(buffer%ngrp_vars)
-      TYPE(t_var_data), INTENT(in) :: var_data(:)
+      TYPE(t_var_metadata_ptr), INTENT(in) :: var_data(:)
 
       LOGICAL :: grp_vars_bool(buffer%ngrp_vars)
       INTEGER :: grp_tlen(buffer%ngrp_vars)
@@ -1501,12 +1390,12 @@ MODULE mo_async_latbc
       grp_vars_bool = .FALSE.
 
       DO iv = 1, SIZE(var_data)
-        ndims = var_data(iv)%info%ndims
+        ndims = var_data(iv)%p%ndims
         DO jp = 1, buffer%ngrp_vars
           ! Use only the variables of time level 1 (".TL1") to determine memory sizes.
           IF (       .NOT. grp_vars_bool(jp) &
-               .AND. (StrLowCasegrp(jp) == var_data(iv)%info%name &
-               &      .OR. StrLowCasegrp(jp)(1:grp_tlen(jp))//TIMELEVEL_SUFFIX//'1' == var_data(iv)%info%name)) THEN
+               .AND. (StrLowCasegrp(jp) == var_data(iv)%p%name &
+               &      .OR. StrLowCasegrp(jp)(1:grp_tlen(jp))//TIMELEVEL_SUFFIX//'1' == var_data(iv)%p%name)) THEN
             nlevs = MERGE(1, buffer%nlev(jp), ndims == 2)
             IF (nlevs /= 0) THEN
               map(jp) = iv
@@ -1519,7 +1408,7 @@ MODULE mo_async_latbc
 
     SUBROUTINE infer_buffer_hgrid(buffer, var_data, map)
       TYPE(t_buffer), INTENT(inout) :: buffer
-      TYPE(t_var_data), INTENT(in) :: var_data(:)
+      TYPE(t_var_metadata_ptr), INTENT(in) :: var_data(:)
       INTEGER, INTENT(in) :: map(buffer%ngrp_vars)
 
       INTEGER :: jp, iv
@@ -1528,7 +1417,7 @@ MODULE mo_async_latbc
       DO jp = 1, buffer%ngrp_vars
         iv = map(jp)
         IF (iv /= -1) THEN
-          buffer%hgrid(jp) = var_data(iv)%info%hgrid
+          buffer%hgrid(jp) = var_data(iv)%p%hgrid
         ELSE
           buffer%hgrid(jp) = -1
         END IF
@@ -1546,7 +1435,7 @@ MODULE mo_async_latbc
     SUBROUTINE create_client_buffers(buffer, var_data, n_own_cells, nblks_c, &
          n_own_edges, nblks_e, map, mem_size)
       TYPE(t_buffer), INTENT(inout) :: buffer
-      TYPE(t_var_data), INTENT(in) :: var_data(:)
+      TYPE(t_var_metadata_ptr), INTENT(in) :: var_data(:)
       INTEGER, INTENT(in) :: n_own_cells, n_own_edges, nblks_c, nblks_e, map(:)
       INTEGER(kind=mpi_address_kind), INTENT(out) :: mem_size
 
@@ -1563,7 +1452,7 @@ MODULE mo_async_latbc
       DO jp = 1, buffer%ngrp_vars
         iv = map(jp)
         IF (iv /= -1) THEN
-          IF (var_data(iv)%info%ndims == 2) THEN
+          IF (var_data(iv)%p%ndims == 2) THEN
             nlevs = 1
           ELSE
             nlevs = buffer%nlev(jp)
