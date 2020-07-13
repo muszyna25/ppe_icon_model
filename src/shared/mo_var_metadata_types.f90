@@ -220,7 +220,7 @@ MODULE mo_var_metadata_types
   PUBLIC :: MAX_GROUPS
 
   PUBLIC :: t_union_vals
-  PUBLIC :: t_var_metadata, t_var_metadata_ptr
+  PUBLIC :: t_var_metadata, t_var_metadata_ptr, var_metadata_get_size
   PUBLIC :: t_var_metadata_dynamic
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
@@ -234,6 +234,17 @@ CONTAINS
     ! nothing to be done (yet)
   END SUBROUTINE t_var_metadata_finalize
 
+  !-------------------------------------------------------------------------------------------------
+  !> @return size of a single variable's info object
+  !
+  !  @author F. Prill, DWD
+  !
+  FUNCTION var_metadata_get_size() RESULT(info_size)
+    INTEGER :: info_size
+    TYPE(t_var_metadata) :: info  ! dummy meta data object
+
+    info_size = SIZE(TRANSFER(info, (/ 0 /)))
+  END FUNCTION var_metadata_get_size
 
   SUBROUTINE t_var_metadata_dynamic_finalize(this)
     CLASS(t_var_metadata_dynamic), INTENT(INOUT) :: this
