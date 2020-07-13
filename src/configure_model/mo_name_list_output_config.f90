@@ -34,7 +34,7 @@ MODULE mo_name_list_output_config
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
   USE mo_name_list_output_types,ONLY: t_output_name_list
-  USE mo_storage,               ONLY: t_storage
+  USE mo_key_value_store,               ONLY: t_key_value_store
 
   IMPLICIT NONE
 
@@ -52,12 +52,12 @@ MODULE mo_name_list_output_config
   LOGICAL :: use_async_name_list_io = .FALSE.
 
   TYPE :: t_storage_array
-    TYPE(t_storage), POINTER :: ptr
+    TYPE(t_key_value_store), POINTER :: ptr
   END TYPE t_storage_array
 
   !> auxiliary data structures: (case insensitive) hash table containing
   !  all output variable names, either for all model domains or domain-specific
-  TYPE(t_storage), POINTER, PRIVATE       :: output_variables => NULL()
+  TYPE(t_key_value_store), POINTER, PRIVATE       :: output_variables => NULL()
   TYPE(t_storage_array), POINTER, PRIVATE :: outputvar_dom(:) => NULL()
 
 CONTAINS
@@ -134,7 +134,7 @@ CONTAINS
 
     !> head output namelist list
     TYPE(t_output_name_list), POINTER :: first_output_name_list
-    TYPE(t_storage), POINTER, INTENT(INOUT)  :: ptr_outvar
+    TYPE(t_key_value_store), POINTER, INTENT(INOUT)  :: ptr_outvar
     INTEGER, INTENT(IN), OPTIONAL :: jg
 
     ! local variables
