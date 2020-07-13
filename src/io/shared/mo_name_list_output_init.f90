@@ -65,7 +65,7 @@ MODULE mo_name_list_output_init
   USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
   USE mo_key_value_store,                   ONLY: t_key_value_store
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
-  USE mo_math_utilities,                    ONLY: merge_values_into_set
+  USE mo_math_utilities,                    ONLY: merge_values_into_set, t_value_set
   USE mo_math_constants,                    ONLY: rad2deg
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io, pio_type
@@ -261,7 +261,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//'::read_name_list_output_namelists'
 
-    INTEGER                               :: istat, i, j, idom
+    INTEGER                               :: istat, idom
     TYPE(t_output_name_list), POINTER     :: p_onl
     LOGICAL                               :: lrewind
 
@@ -562,9 +562,9 @@ CONTAINS
         IF (dom(1) < 0)  THEN
           lonlat%l_dom(:) = .TRUE.
         ELSE
-          DOM_LOOP : DO i = 1, max_dom
-            IF (dom(i) < 0) EXIT DOM_LOOP
-            lonlat%l_dom( dom(i) ) = .TRUE.
+          DOM_LOOP : DO idom = 1, max_dom
+            IF (dom(idom) < 0) EXIT DOM_LOOP
+            lonlat%l_dom( dom(idom) ) = .TRUE.
           ENDDO DOM_LOOP
         END IF
       ENDIF
@@ -638,136 +638,64 @@ CONTAINS
         p_onl%pe_placement_hl(:)       = pe_placement_hl(:)
         p_onl%pe_placement_il(:)       = pe_placement_il(:)
 
-        ! -- translate variables names according to variable name
-        !    dictionary:
+        ! -- translate variables names according to variable name dictionary:
         ! allow case-insensitive variable names:
-        DO i=1,max_var_ml
-          IF (' ' == p_onl%ml_varlist(i)) EXIT ! since read from nml-file array is filled bottom to top...
-          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), &
-            &                            default=p_onl%ml_varlist(i))
-          p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
-        END DO
-        DO i=1,max_var_pl
-          IF (' ' == p_onl%pl_varlist(i)) EXIT
-          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), &
-            &                            default=p_onl%pl_varlist(i))
-          p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
-        END DO
-        DO i=1,max_var_hl
-          IF (' ' == p_onl%hl_varlist(i)) EXIT
-          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), &
-            &                            default=p_onl%hl_varlist(i))
-          p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
-        END DO
-        DO i=1,max_var_il
-          IF (' ' == p_onl%il_varlist(i)) EXIT
-          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), &
-            &                            default=p_onl%il_varlist(i))
-          p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
-        END DO
-
-        p_onl%next => NULL()
-
         ! -- if the namelist switch "output_grid" has been enabled: add
-        !    "clon, "clat", "elon", "elat", etc. to the list of
-        !    variables:
-        !
+        !    "clon, "clat", "elon", "elat", etc. to the list of variables:
         IF (p_onl%output_grid) THEN
-          ! model levels
-          IF (LEN_TRIM(p_onl%ml_varlist(1)) /=  0) THEN
-            SELECT CASE(p_onl%remap)
-            CASE (REMAP_NONE)
-              DO i=1,3
-                DO j=1,2
-                  CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(i,j))
-                END DO
-              END DO
-            CASE (REMAP_REGULAR_LATLON)
-              DO j=1,2
-                CALL append_varname(p_onl%ml_varlist, GRB2_GRID_INFO_NAME(0,j))
-              END DO
-            END SELECT
-          END IF
-          ! pressure levels
-          IF (LEN_TRIM(p_onl%pl_varlist(1)) /=  0) THEN
-            SELECT CASE(p_onl%remap)
-            CASE (REMAP_NONE)
-              DO i=1,3
-                DO j=1,2
-                  CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(i,j))
-                END DO
-              END DO
-            CASE (REMAP_REGULAR_LATLON)
-              DO j=1,2
-                CALL append_varname(p_onl%pl_varlist, GRB2_GRID_INFO_NAME(0,j))
-              END DO
-            END SELECT
-          END IF
-          ! height levels
-          IF (LEN_TRIM(p_onl%hl_varlist(1)) /=  0) THEN
-            SELECT CASE(p_onl%remap)
-            CASE (REMAP_NONE)
-              DO i=1,3
-                DO j=1,2
-                  CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(i,j))
-                END DO
-              END DO
-            CASE (REMAP_REGULAR_LATLON)
-              DO j=1,2
-                CALL append_varname(p_onl%hl_varlist, GRB2_GRID_INFO_NAME(0,j))
-              END DO
-            END SELECT
-          END IF
-          ! isentropic levels
-          IF (LEN_TRIM(p_onl%il_varlist(1)) /=  0) THEN
-            SELECT CASE(p_onl%remap)
-            CASE (REMAP_NONE)
-              DO i=1,3
-                DO j=1,2
-                  CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(i,j))
-                END DO
-              END DO
-            CASE (REMAP_REGULAR_LATLON)
-              DO j=1,2
-                CALL append_varname(p_onl%il_varlist, GRB2_GRID_INFO_NAME(0,j))
-              END DO
-            END SELECT
-          END IF
+          CALL translate_lower_append_grid_output(p_onl%ml_varlist, p_onl%remap)
+          CALL translate_lower_append_grid_output(p_onl%pl_varlist, p_onl%remap)
+          CALL translate_lower_append_grid_output(p_onl%hl_varlist, p_onl%remap)
+          CALL translate_lower_append_grid_output(p_onl%il_varlist, p_onl%remap)
+        ELSE
+          CALL translate_lower_append_grid_output(p_onl%ml_varlist)
+          CALL translate_lower_append_grid_output(p_onl%pl_varlist)
+          CALL translate_lower_append_grid_output(p_onl%hl_varlist)
+          CALL translate_lower_append_grid_output(p_onl%il_varlist)
         END IF
-
+        p_onl%next => NULL()
       END DO DOM_LOOP2
 
       ! -- write the contents of the namelist to an ASCII file
-
       IF (is_stdio) WRITE(nnml_output,nml=output_nml)
 
     ENDDO
 
     CALL close_nml
+  CONTAINS
 
+    SUBROUTINE translate_lower_append_grid_output(varlist, remap)
+      CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
+      INTEGER, INTENT(IN), OPTIONAL :: remap
+      INTEGER :: k
+
+      DO k = 1, SIZE(varlist)
+        IF (' ' == varlist(k)) EXIT ! since read from nml-file array is filled bottom to top...
+        varlist(k) = varnames_dict%get(varlist(k), default=varlist(k))
+        varlist(k) = tolower(varlist(k))
+      END DO
+      IF (PRESENT(remap)) THEN 
+        IF (k .GT. 1) THEN
+          SELECT CASE(remap)
+          CASE (REMAP_NONE)
+            IF (k+5 .GT. SIZE(varlist)) &
+              & CALL finish(routine, "Insufficient array size!")
+            varlist(k  ) = tolower(GRB2_GRID_INFO_NAME(1,1))
+            varlist(k+1) = tolower(GRB2_GRID_INFO_NAME(1,2))
+            varlist(k+2) = tolower(GRB2_GRID_INFO_NAME(2,1))
+            varlist(k+3) = tolower(GRB2_GRID_INFO_NAME(2,2))
+            varlist(k+4) = tolower(GRB2_GRID_INFO_NAME(3,1))
+            varlist(k+5) = tolower(GRB2_GRID_INFO_NAME(3,2))
+          CASE (REMAP_REGULAR_LATLON)
+            IF (k+1 .GT. SIZE(varlist)) &
+              & CALL finish(routine, "Insufficient array size!")
+            varlist(k  ) = tolower(GRB2_GRID_INFO_NAME(0,1))
+            varlist(k+1) = tolower(GRB2_GRID_INFO_NAME(0,2))
+          END SELECT
+        END IF
+      END IF
+    END SUBROUTINE translate_lower_append_grid_output
   END SUBROUTINE read_name_list_output_namelists
-
-
-  !------------------------------------------------------------------------------------------------
-  !> Utility routine: searches for the end of a list of variable name
-  !  and appends another entry.
-  SUBROUTINE append_varname(p_varlist, new_varname)
-    CHARACTER(LEN=vname_len), INTENT(INOUT) :: p_varlist(:)
-    CHARACTER(len=*),         INTENT(IN)    :: new_varname
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::append_varname"
-    INTEGER :: ivar
-
-    ! Get the number of variables in varlist
-    DO ivar = 1, SIZE(p_varlist)
-      IF (p_varlist(ivar) == ' ') EXIT ! Last one reached
-    ENDDO
-    IF (ivar > SIZE(p_varlist)) THEN
-      CALL finish(routine, "Insufficient array size!")
-    END IF
-    p_varlist(ivar) = tolower(new_varname)
-  END SUBROUTINE append_varname
-
 
   !------------------------------------------------------------------------------------------------
   !> Appends the chosen p-levels, z-levels, i-levels to the levels
@@ -776,77 +704,43 @@ CONTAINS
   !  selection for each output namelist):
   !
   SUBROUTINE collect_requested_ipz_levels()
-    ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_requested_ipz_levels"
-    !
-    TYPE(t_output_name_list), POINTER     :: p_onl
-    INTEGER :: n_dom_out, jp, log_patch_id, nlevs
+    TYPE(t_output_name_list), POINTER  :: onl
+    INTEGER :: n_dom_out, jp, id
 
 #ifndef __NO_ICON_ATMO__
-    ! Loop over the output namelists and create a union set of
-    ! all requested vertical levels (per domain):
-    p_onl => first_output_name_list
-
+    ! Loop over the output namelists and create a union set of all requested vertical levels (per domain):
+    onl => first_output_name_list
     n_dom_out = MERGE(n_phys_dom, n_dom, l_output_phys_patch)
-
-    DO WHILE (ASSOCIATED(p_onl))
-
+    DO WHILE (ASSOCIATED(onl))
       DO jp = 1, n_dom_out
         ! append the chosen p-levels, z-levels, i-levels
-
-        log_patch_id = jp
-        IF(l_output_phys_patch)  log_patch_id = p_phys_patch(jp)%logical_id
-
-        IF (p_onl%dom == log_patch_id) THEN
-
-          ! pressure levels
-          !
-          ! count the no. of levels
-          DO nlevs=1,SIZE(p_onl%p_levels)
-            IF (p_onl%p_levels(nlevs) < 0._wp) EXIT
-          END DO
-          nlevs = nlevs - 1
-          IF ((nlevs == 0) .AND. (p_onl%pl_varlist(1) /= ' ')) THEN
-            CALL finish(routine, "Input error (output_nml): User has requested pressure interpolation without specifying levels!")
-          END IF
-          ! append nlevs pressure levels (domain log_patch_id)
-          IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%p_levels, &
-            &                                        nh_pzlev_config(log_patch_id)%plevels)
-
-          ! height levels
-          !
-          ! count the no. of levels
-          DO nlevs=1,SIZE(p_onl%z_levels)
-            IF (p_onl%z_levels(nlevs) < 0._wp) EXIT
-          END DO
-          nlevs = nlevs - 1
-          IF ((nlevs == 0) .AND. (p_onl%hl_varlist(1) /= ' ')) THEN
-            CALL finish(routine, "Input error (output_nml): User has requested height interpolation without specifying levels!")
-          END IF
-          ! append nlevs height levels
-          IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%z_levels, &
-            &                                        nh_pzlev_config(log_patch_id)%zlevels)
-
-          ! isentropic levels
-          !
-          ! count the no. of levels
-          DO nlevs=1,SIZE(p_onl%i_levels)
-            IF (p_onl%i_levels(nlevs) < 0._wp) EXIT
-          END DO
-          nlevs = nlevs - 1
-          IF ((nlevs == 0) .AND. (p_onl%il_varlist(1) /= ' ')) THEN
-            CALL finish(routine, "Input error (output_nml): User has requested isentropic interpolation without specifying levels!")
-          END IF
-          ! append nlevs isentropic levels
-          IF (nlevs > 0)  CALL merge_values_into_set(nlevs, p_onl%i_levels, &
-            &                                        nh_pzlev_config(log_patch_id)%ilevels)
-        END IF
+        id = MERGE(p_phys_patch(jp)%logical_id, jp, l_output_phys_patch)
+        IF (onl%dom .NE. id) CYCLE
+        CALL merge_set(onl%p_levels, "pressure",   onl%pl_varlist(1), nh_pzlev_config(id)%plevels)
+        CALL merge_set(onl%z_levels, "height",     onl%hl_varlist(1), nh_pzlev_config(id)%zlevels)
+        CALL merge_set(onl%i_levels, "isentropic", onl%il_varlist(1), nh_pzlev_config(id)%ilevels)
       END DO
-      p_onl => p_onl%next
+      onl => onl%next
+    END DO ! onl
+  CONTAINS
 
-    END DO ! p_onl
+  SUBROUTINE merge_set(levels, intp_name, vl1, mergeset)
+    REAL(wp), INTENT(IN) :: levels(:)
+    CHARACTER(*), INTENT(IN) :: intp_name, vl1
+    TYPE(t_value_set), INTENT(INOUT) :: mergeset
+    INTEGER :: nlevs
+
+    DO nlevs=1,SIZE(levels)
+      IF (levels(nlevs) < 0._wp) EXIT
+    END DO
+    nlevs = nlevs - 1
+    IF ((nlevs == 0) .AND. (vl1 /= ' ')) &
+      & CALL finish(routine, "Input from output_nml: requested " // &
+        & intp_name // "interpolation without specifying levels!")
+    IF (nlevs > 0)  CALL merge_values_into_set(nlevs, levels, mergeset)
+  END SUBROUTINE merge_set
 #endif
-
   END SUBROUTINE collect_requested_ipz_levels
 
 
