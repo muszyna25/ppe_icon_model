@@ -702,7 +702,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%irad_o2    =  2
  echam_rad_config(1)%irad_cfc11 =  0
  echam_rad_config(1)%irad_cfc12 =  0
- echam_rad_config(1)%irad_aero  =  0
+ echam_rad_config(1)%irad_aero  = 12
  echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ration
  echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ration
  echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ration
@@ -848,19 +848,38 @@ datadir=${atmo_data_InputFolder}/initial_condition/r0002
 add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
 #
 # - land: source?, date+time? - not yet set to 1850!
-datadir=${atmo_data_InputFolder}/land/r0006
-add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
+#datadir=${atmo_data_InputFolder}/land/r0006
+#add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
+#
+# preliminary path for land data at 1850 / pre-industrial (2020-06-19)
+#datadir=/work/mj0060/m212005/data/icon/ruby/0013-0031/land/r0001
+datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
+add_link_file ${datadir}/ic_land_soil_1850.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
 # - ozone
-# -- for irad_o3=8
+# -- for irad_o3=2: ozone climatology (annual cycle, filename without year) of MPI
 #
 datadir=${atmo_data_InputFolder}/ozone/r0002
-#
 add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
 #
-# - sst and sic
+# - tropospheric anthropogenic aerosols, simple plumes (irad_aero=19)
+#
+#add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                          ./MACv2.0-SP_v1.nc
+#
+#   Kinne background aerosols for the year 1850 (irad_aero=12, filename without year)
+#
+#   Here we use revised data (r0002) based on work by Sebastian Rast
+#
+datadir=${atmo_data_InputFolder}/aerosol_kinne/r0002
+add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                  ./
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                  ./
+#
+#   use exlcusively Kinne background aerosols for the year 1850, filename without year (irad_aero=12)
+add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
+#
+# - sst and sic - still needed for the first year and/or initializing atmosphere?
 #
 datadir=${atmo_data_InputFolder}/sst_and_seaice/r0002
 #
@@ -869,23 +888,34 @@ add_link_file ${datadir}/bc_sst_1979_2016.nc                            ./bc_sst
 #
 # - ssi and tsi
 #
-datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
+# isolrad=6: use cmip6 constant value
 #
-add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_solar_irradiance_sw_b14.nc
+# isolrad=1: read ssi and tsi from file
+#datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
+#add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0006
-#
+# old path for data at 1992
+#datadir=${atmo_data_InputFolder}/land/r0006
+#datadir=${atmo_data_InputFolder}/land/r0010 ??
 #  - not yet set to 1850!
-add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
-add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
-add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
-add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
+#add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
+#add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
+#add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
+#add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
+#
+# preliminary path for land data at 1850 / pre-industrial (2020-06-19)
+#datadir=/work/mj0060/m212005/data/icon/ruby/0013-0031/land/r0001
+datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
+add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1850.nc            ./bc_land_frac.nc
+add_link_file ${datadir}/bc_land_phys_1850.nc                           ./bc_land_phys.nc
+add_link_file ${datadir}/bc_land_soil_1850.nc                           ./bc_land_soil.nc
+add_link_file ${datadir}/bc_land_sso_1850.nc                            ./bc_land_sso.nc
 #
 # - HD model input by Tom Riddick 
 #
-#  prelinminary test version
+#  prelinminary version not exactly at coastline
 datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
 #add_link_file $datadir/hdpara_icon_${atmos_gridID}_20190927.nc          ./bc_land_hd.nc
 #add_link_file $datadir/hdpara_icon_${atmos_gridID}_${atmos_refinement}_20200303_v2.nc ./bc_land_hd.nc
@@ -1201,16 +1231,14 @@ fi
 #-----------------------------------------------------------------------------
 
 ocean_vertical_levels=64
-ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"    #  no land points
+#ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"    #  no land points
 #ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_G.nc"    #  global ocean mask
-ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}"
-ocean_grid_folder="$ocean_data_InputFolder"
-#ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
+#ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}"
+#ocean_grid_folder="$ocean_data_InputFolder"
 
 # new sill depths, 2020-05
-#Setupdir=/work/mh0469/m211032/Icon/Git_Icon/icon.oes.20200506/experiments/Setup
-#ocean_grid_folder="$Setupdir"
-#ocean_grid="icon_grid_${ocean_gridID}_modsills_${ocean_refinement}_O.nc"    #  no land points
+ocean_grid_folder="/pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}"
+ocean_grid="icon_grid_${ocean_gridID}_modsills_${ocean_refinement}_O.nc"    #  no land points
 
 #-----------------------------------------------------------------------------
 #
@@ -1596,8 +1624,14 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
   # initialise atmosphere and use link to ocean restart:
+  OMIPrestartdir=/pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}
+  #
   # link to OMIP-spinup 19346-PCA by Helmuth used for ocean restart-file - second OMIP
-  add_link_file /pool/data/ICON/grids/private/Stephan/mpim/${ocean_gridID}/ocean/restart/ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc init-restart-oce.nc
+  #OMIPrestartfile=ocean_omip_long_tke_r2b6_19346-PCA_restart_oce_21010101T000000Z.nc
+  #
+  # link to OMIP-spinup 20133-CIQ 2200y by Helmuth used for ocean restart-file - OMIP with updated sill depth
+  OMIPrestartfile=restart-omipCIQ_2200y.nc
+  add_link_file $OMIPrestartdir/$OMIPrestartfile init-restart-oce.nc
   add_link_file init-restart-oce.nc restart_ocean_DOM01.nc
 fi
 #
