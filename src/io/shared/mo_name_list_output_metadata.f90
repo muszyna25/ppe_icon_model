@@ -10,7 +10,8 @@ MODULE mo_name_list_output_metadata
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer
   USE mo_exception,                         ONLY: finish
-  USE mo_var_metadata_types,                ONLY: t_var_metadata, var_metadata_get_size
+  USE mo_var_metadata_types,                ONLY: t_var_metadata, var_metadata_get_size, &
+    & var_metadata_toBinary, var_metadata_fromBinary
   USE mo_name_list_output_types,            ONLY: t_mem_win
   USE mo_mpi,                               ONLY: p_int, p_comm_work_io,      &
     &                                             p_comm_rank
@@ -49,8 +50,7 @@ CONTAINS
     TYPE(t_mem_win),      INTENT(INOUT) :: memwin ! MPI memory window
     INTEGER,              INTENT(IN)    :: nvars  ! total no. of variables
 #ifndef NOMPI
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_allocate_memory_window"
+    CHARACTER(*), PARAMETER :: routine = modname//"::metainfo_allocate_memory_window"
     INTEGER                         :: ierror, comm_rank, mem_size
     INTEGER, TARGET                 :: dummy(1, 1)
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes, nbytes_int, lb
@@ -95,14 +95,13 @@ CONTAINS
     TYPE(t_mem_win),      INTENT(INOUT) :: memwin ! MPI memory window
     INTEGER,              INTENT(IN)    :: ivar   ! index of variable (corresponds to data memwin)
     TYPE(t_var_metadata), INTENT(IN)    :: info   ! meta data for variable
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_write_to_memwin"
-    IF (.NOT. ASSOCIATED(memwin%mem_ptr_metainfo_pe0)) THEN
-      CALL finish(routine, "Internal error!")
-    END IF
+    CHARACTER(*), PARAMETER :: routine = modname//"::metainfo_write_to_memwin"
+
+    IF (.NOT. ASSOCIATED(memwin%mem_ptr_metainfo_pe0)) &
+      & CALL finish(routine, "Internal error!")
 
     ! copy the info object into the memory window
-    memwin%mem_ptr_metainfo_pe0(:, ivar) =  TRANSFER(info, (/ 0 /))
+    memwin%mem_ptr_metainfo_pe0(:, ivar) = var_metadata_toBinary(info)
   END SUBROUTINE metainfo_write_to_memwin
 
 
@@ -114,12 +113,11 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   SUBROUTINE metainfo_get_from_buffer(buf, info)
-    INTEGER, INTENT(IN)    :: buf(:)
+    INTEGER, INTENT(IN) :: buf(:)
     TYPE(t_var_metadata), INTENT(OUT) :: info   ! meta data for variable
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_get_from_memwin"
+
     ! copy the info object from the memory window
-    info = TRANSFER(buf, info)
+    info = var_metadata_fromBinary(buf)
   END SUBROUTINE metainfo_get_from_buffer
 
   !-------------------------------------------------------------------------------------------------
@@ -130,8 +128,7 @@ CONTAINS
   INTEGER FUNCTION metainfo_get_timelevel(info,domain) RESULT(timelevel)
     TYPE(t_var_metadata), INTENT(IN) :: info
     INTEGER, INTENT(IN)              :: domain
-
-    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::metainfo_get_timelevel"
+    CHARACTER(*), PARAMETER       :: routine = modname//"::metainfo_get_timelevel"
 
     SELECT CASE (info%tlev_source)
     CASE(TLEV_NNOW);     timelevel = nnow(domain)

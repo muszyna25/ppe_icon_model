@@ -25,13 +25,14 @@ MODULE mo_var_list
   USE mo_run_config,       ONLY: msg_level
   USE mo_var_groups,       ONLY: var_groups_dyn, groups
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
-    &                            t_var_metadata_dynamic,            &
+    & t_var_metadata_dynamic, var_metadata_fromBinary, &
+    & var_metadata_toBinary, t_var_metadata_ptr, &
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
     &                            MAX_GROUPS, VINTP_TYPE_LIST,       &
-    &                            t_post_op_meta, t_var_metadata_ptr, &
+    &                            t_post_op_meta,                    &
     &                            CLASS_DEFAULT, CLASS_TILE,         &
-    &                            CLASS_TILE_LAND, var_metadata_get_size
+    &                            CLASS_TILE_LAND
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
     &                            post_op, actions
@@ -4353,10 +4354,9 @@ CONTAINS
     TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
     LOGICAL, INTENT(IN) :: restart_only
     INTEGER, INTENT(OUT), OPTIONAL :: nv_all
-    INTEGER :: iv, nv, nelems, nelems_all, patch_id, restart_type, vlevel_type, n, ierrstat, ivd
+    INTEGER :: iv, nv, nelems, nelems_all, patch_id, restart_type, vlevel_type, n, ierrstat
     INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_list_element), POINTER   :: element, newElement
-    TYPE(t_var_metadata)            :: info
     TYPE(t_var_list)                :: p_var_list
     CHARACTER(LEN=128)              :: var_list_name
     CHARACTER(LEN=32)               :: model_type
@@ -4364,8 +4364,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
     IF(operation == kUnpackOp) CALL delete_var_lists
-    ALLOCATE(info_buf(var_metadata_get_size()), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
     nv = nvar_lists
     nelems_all = 0
     CALL packedMessage%packer(operation, nv)
@@ -4399,7 +4397,7 @@ CONTAINS
         element => var_lists(iv)%p%first_list_element
         DO WHILE (ASSOCIATED(element))
           IF(element%field%info%lrestart .OR. .NOT.restart_only) THEN
-            info_buf(:) = TRANSFER(element%field%info, (/ 0 /))
+            info_buf = var_metadata_toBinary(element%field%info)
             CALL packedMessage%pack(info_buf)
           END IF
           element => element%next_list_element
@@ -4425,7 +4423,7 @@ CONTAINS
             &     element%field%i_ptr, element%field%l_ptr)
           element%field%var_base_size = 0 ! Unknown here
           CALL packedMessage%unpack(info_buf)
-          element%field%info = TRANSFER(info_buf, info)
+          element%field%info = var_metadata_fromBinary(info_buf)
         END DO
       END IF
     END DO
