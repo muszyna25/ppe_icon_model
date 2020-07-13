@@ -17,7 +17,10 @@ MODULE mo_var_metadata_types
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_model_domain,          ONLY: t_subset_range
   USE mo_var_groups,            ONLY: MAX_GROUPS
-
+  USE ISO_C_BINDING,            ONLY: C_F_POINTER, C_LOC
+#ifdef __PGI
+  USE ISO_C_BINDING,            ONLY: C_SIZEOF
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -221,6 +224,7 @@ MODULE mo_var_metadata_types
 
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata, t_var_metadata_ptr, var_metadata_get_size
+  PUBLIC :: var_metadata_toBinary, var_metadata_fromBinary
   PUBLIC :: t_var_metadata_dynamic
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
@@ -239,12 +243,33 @@ CONTAINS
   !
   !  @author F. Prill, DWD
   !
-  FUNCTION var_metadata_get_size() RESULT(info_size)
-    INTEGER :: info_size
-    TYPE(t_var_metadata) :: info  ! dummy meta data object
+  INTEGER FUNCTION var_metadata_get_size()
+    TYPE(t_var_metadata) :: info
+#ifndef __PGI
+    INTEGER, PARAMETER :: info_size = STORAGE_SIZE(info) / STORAGE_SIZE(1)
+#else
+    INTEGER, SAVE :: info_size = -1
 
-    info_size = SIZE(TRANSFER(info, (/ 0 /)))
+    IF (info_size .EQ. -1) info_size = C_SIZEOF(info) / C_SIZEOF(1)
+#endif
+    var_metadata_get_size = info_size
   END FUNCTION var_metadata_get_size
+
+  FUNCTION var_metadata_toBinary(info) RESULT(binptr)
+    TYPE(t_var_metadata), TARGET, INTENT(IN) :: info
+    INTEGER, POINTER :: binptr(:)
+
+    CALL C_F_POINTER(C_LOC(info), binptr, (/ var_metadata_get_size() /))
+  END FUNCTION var_metadata_toBinary
+
+  FUNCTION var_metadata_fromBinary(bin) RESULT(infoptr)
+    INTEGER, TARGET, INTENT(IN) :: bin(:)
+    TYPE(t_var_metadata), POINTER :: infoptr
+
+    NULLIFY(infoptr)
+    IF (SIZE(bin) .EQ. var_metadata_get_size()) &
+      & CALL C_F_POINTER(C_LOC(bin), infoptr)
+  END FUNCTION var_metadata_fromBinary
 
   SUBROUTINE t_var_metadata_dynamic_finalize(this)
     CLASS(t_var_metadata_dynamic), INTENT(INOUT) :: this
