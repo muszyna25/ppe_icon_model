@@ -31,7 +31,7 @@ MODULE mo_var_list
     &                            MAX_GROUPS, VINTP_TYPE_LIST,       &
     &                            t_post_op_meta, t_var_metadata_ptr, &
     &                            CLASS_DEFAULT, CLASS_TILE,         &
-    &                            CLASS_TILE_LAND
+    &                            CLASS_TILE_LAND, var_metadata_get_size
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
     &                            post_op, actions
@@ -4353,7 +4353,7 @@ CONTAINS
     TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
     LOGICAL, INTENT(IN) :: restart_only
     INTEGER, INTENT(OUT), OPTIONAL :: nv_all
-    INTEGER :: info_size, iv, nv, nelems, nelems_all, patch_id, restart_type, vlevel_type, n, ierrstat, ivd
+    INTEGER :: iv, nv, nelems, nelems_all, patch_id, restart_type, vlevel_type, n, ierrstat, ivd
     INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_list_element), POINTER   :: element, newElement
     TYPE(t_var_metadata)            :: info
@@ -4363,9 +4363,8 @@ CONTAINS
     LOGICAL                         :: lrestart
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
-    info_size = SIZE(TRANSFER(info, (/ 0 /)))
     IF(operation == kUnpackOp) CALL delete_var_lists
-    ALLOCATE(info_buf(info_size), STAT=ierrstat)
+    ALLOCATE(info_buf(var_metadata_get_size()), STAT=ierrstat)
     IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
     nv = nvar_lists
     nelems_all = 0
