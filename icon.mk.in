@@ -452,7 +452,7 @@ c_binding.d: icon.mk
 	  echo '$(call get_obj_names,src/io/shared/mo_util_nml.f90):| support/nml_annotate.@OBJEXT@'; \
 	  echo '$(call get_obj_names,src/shared/mo_expression.f90):| support/util_arithmetic_expr.@OBJEXT@'; \
 	  echo '$(call get_obj_names,src/shared/mo_util_backtrace.f90):| support/util_backtrace.@OBJEXT@'; \
-	  echo '$(call get_obj_names,src/shared/mo_util_hash.f90):| support/util_hash.@OBJEXT@'; \
+	  echo '$(call get_obj_names,src/shared/mo_util_texthash.f90):| support/util_hash.@OBJEXT@'; \
 	  echo '$(call get_obj_names,src/shared/mo_util_stride.f90):| support/util_stride.@OBJEXT@'; \
 	  echo '$(call get_obj_names,src/shared/mo_util_string_parse.f90):| support/util_string_parse.@OBJEXT@'; \
 	  echo '$(call get_obj_names,src/shared/mo_util_sysinfo.f90):| support/util_sysinfo.@OBJEXT@'; \

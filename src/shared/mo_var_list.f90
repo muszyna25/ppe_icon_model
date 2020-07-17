@@ -15,11 +15,8 @@ MODULE mo_var_list
 #endif
 #endif
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_null_char, C_SIZE_T
-
   USE mo_kind,             ONLY: sp, wp, i8
-  USE mo_cdi,              ONLY: TSTEP_INSTANT,                     &
-       &                         CDI_UNDEFID
+  USE mo_cdi,              ONLY: TSTEP_INSTANT, CDI_UNDEFID
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_run_config,       ONLY: msg_level
@@ -44,7 +41,7 @@ MODULE mo_var_list
        &                         new_list, delete_list,             &
        &                         append_list_element
   USE mo_exception,        ONLY: message, message_text, finish
-  USE mo_util_hash,        ONLY: util_hashword
+  USE mo_util_texthash,    ONLY: text_hash_c
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
     &                            pretty_print_string_list, tolower, &
     &                            difference, find_trailing_number
@@ -52,8 +49,7 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
     &                            BOOL_T, INT_T, SUCCESS,            &
-    &                            VARNAME_LEN,                       &
-    &                            TIMELEVEL_SUFFIX
+    &                            VARNAME_LEN, TIMELEVEL_SUFFIX
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: assign_if_present, &
@@ -64,8 +60,8 @@ MODULE mo_var_list
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_sort,        ONLY: quicksort
 #ifdef DEBUG_MVSTREAM
-  USE mo_mpi,              ONLY: my_process_is_stdio
   USE mo_util_string,      ONLY: int2string
+  USE mo_mpi,              ONLY: my_process_is_stdio
   USE self_assert,         ONLY: print_summary
 #endif
 
@@ -787,7 +783,7 @@ CONTAINS
     !
     ! hash variable name for fast search
     !
-    IF (PRESENT(name)) info%key = util_hashword(name//c_null_char, int(LEN_TRIM(name), C_SIZE_T), 0)
+    IF (PRESENT(name)) info%key = text_hash_c(TRIM(name))
     !
 !!$    CALL assign_if_present (info%used_dimensions(1:SIZE(ldims)), ldims)
     CALL assign_if_present (info%used_dimensions, ldims)
@@ -4265,7 +4261,7 @@ CONTAINS
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)
     !
-    key = util_hashword(name//c_null_char, INT(LEN_TRIM(name), C_SIZE_T), 0)
+    key = text_hash_c(TRIM(name))
     name_has_time_level = has_time_level(name)
     !
     element => this_list%p%first_list_element
@@ -4291,7 +4287,7 @@ CONTAINS
     INTEGER, OPTIONAL              :: opt_hgrid
     !
     TYPE(t_list_element), POINTER  :: this_list_element
-    INTEGER :: key,hgrid
+    INTEGER :: hgrid
 
     hgrid = -1
     CALL assign_if_present(hgrid,opt_hgrid)

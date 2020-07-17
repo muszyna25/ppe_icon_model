@@ -19,21 +19,18 @@
 !NEC$ options "-fno-loop-unroll"
 MODULE mo_name_list_output_init
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t, c_double, c_null_char, C_SIZE_T
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_f_pointer, c_int64_t, c_double
 
   ! constants and global settings
-  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
-                                                & cdiEncodeTime, institutInq, institutDef, vlistCreate, vlistDefVar,          &
-                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
-                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
-                                                & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
-                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
-                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
-                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals,  &
-                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, gridDefReference,      &
-                                                & taxisDefTunit, taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,  &
-                                                & cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL, vlistDefVarDblKey, &
-                                                & gridDefProj, GRID_PROJECTION, GRID_CURVILINEAR
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,         &
+                                                & cdiEncodeTime, institutInq, vlistCreate, TUNIT_MINUTE, CDI_UNDEFID,           &
+                                                & TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE, GRID_UNSTRUCTURED, GRID_LONLAT,  &
+                                                & gridDefPosition, gridDefXsize, gridDefXname, gridDefXunits, gridDefYsize,     &
+                                                & gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, vlistDefInstitut,    &
+                                                & gridDefNvertex, gridDefXvals, cdiDefAttTxt, CDI_GLOBAL, gridDefParamRLL,      &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, gridDefReference,           &
+                                                & taxisDefTunit, taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis, &
+                                                & gridDefProj, GRID_PROJECTION, GRID_CURVILINEAR, institutDef
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, GRID_ZONAL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -65,7 +62,7 @@ MODULE mo_name_list_output_init
     &                                             sort_and_compress_list,                         &
     &                                             real2string, remove_whitespace,                 &
     &                                             lowcase
-  USE mo_util_hash,                         ONLY: util_hashword
+  USE mo_util_texthash,                     ONLY: text_hash_c
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
   USE mo_key_value_store,                   ONLY: t_key_value_store
@@ -95,8 +92,7 @@ MODULE mo_name_list_output_init
   USE mo_meteogram_config,                  ONLY: meteogram_output_config
 #endif
   ! MPI Communication routines
-  USE mo_mpi,                               ONLY: p_bcast, &
-    &                                             p_comm_work, p_comm_work_2_io,                  &
+  USE mo_mpi,                               ONLY: p_bcast, p_comm_work, p_comm_work_2_io,         &
     &                                             p_comm_io, p_comm_work_io,                      &
     &                                             mpi_comm_null, mpi_comm_self,                   &
     &                                             p_send, p_recv,                                 &
@@ -3054,7 +3050,7 @@ CONTAINS
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
       modname//"::replicate_coordinate_data_on_io_procs"
-    INTEGER                       :: idom, i
+    INTEGER                       :: idom
 
     INTEGER :: idom_log, temp(5,n_dom_out)
     LOGICAL :: keep_grid_info, is_io
@@ -3103,18 +3099,13 @@ CONTAINS
   SUBROUTINE registerOutputVariable(name)
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name
 
-    INTEGER :: key
-
-    key = util_hashword(TRIM(tolower(name))//c_null_char, &
-      &                 INT(LEN_TRIM(name), C_SIZE_T),0)
-    CALL outputRegister%add(key)
+    CALL outputRegister%add(text_hash_c(tolower(TRIM(name))))
   END SUBROUTINE registerOutputVariable
 
   LOGICAL FUNCTION isRegistered(name)
     CHARACTER(LEN=*), INTENT(IN) :: name
 
-    isRegistered = outputRegister%includes(util_hashword(TRIM(tolower(name))//c_null_char, &
-      &                                    INT(LEN_TRIM(name), C_SIZE_T), 0))
+    isRegistered = outputRegister%includes(text_hash_c(tolower(TRIM(name))))
   END FUNCTION
 
 
