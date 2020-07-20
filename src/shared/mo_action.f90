@@ -503,6 +503,7 @@ CONTAINS
 
         ! Check whether event-pointer is associated.
         IF (.NOT. ASSOCIATED(this_event)) THEN
+          field => act_obj%var_element_ptr(ivar)%p
           WRITE (message_text,'(a,i2,a,a,a)')                           &
                'WARNING: action event ', var_action_idx, ' of field ',  &
                TRIM(field%info%name),': Event-Ptr is disassociated!'
