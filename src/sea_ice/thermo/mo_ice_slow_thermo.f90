@@ -39,7 +39,8 @@ MODULE mo_ice_slow_thermo
   USE mo_impl_constants,      ONLY: sea_boundary
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, alf, clw
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, hmin, hnull, leadclose_1, leadclose_2n, sice
-  USE mo_ocean_nml,           ONLY: limit_seaice, limit_seaice_type, seaice_limit
+  USE mo_ocean_nml,           ONLY: limit_seaice, limit_seaice_type, seaice_limit, &
+    & vert_cor_type
   USE mo_ocean_state,         ONLY: v_base
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
@@ -532,6 +533,9 @@ CONTAINS
 
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
             z_smax = seaice_limit * prism_thick_flat
+            IF (vert_cor_type .eq. 1) THEN
+              z_smax = z_smax*p_os%p_prog(nold(1))%stretch_c(jc, jb)
+            END IF
             IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN
                 ! Tracer flux due to removal
                 p_oce_sfc%FrshFlux_TotalIce (jc,jb) = p_oce_sfc%FrshFlux_TotalIce (jc,jb)                      &
