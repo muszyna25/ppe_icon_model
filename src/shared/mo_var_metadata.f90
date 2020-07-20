@@ -23,14 +23,11 @@ MODULE mo_var_metadata
 
   USE mo_kind,               ONLY: wp, sp, dp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF, &
-    &                              MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: HINTP_TYPE_LONLAT_RBF, MAX_CHAR_LENGTH
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
-    &                              t_union_vals,                          &
-    &                              t_post_op_meta,                        &
-    &                              VINTP_TYPE_LIST, POST_OP_NONE
+    &                              t_post_op_meta, VINTP_TYPE_LIST
   USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
   USE mo_fortran_tools,      ONLY: assign_if_present
@@ -160,17 +157,6 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL     :: &
       &  lower_limit
 
-    ! set default values
-    vert_interp_meta%vert_intp_type(:) = .FALSE.
-    vert_interp_meta%vert_intp_method  = VINTP_METHOD_LIN
-    vert_interp_meta%l_hires_intp      = .FALSE.
-    vert_interp_meta%l_restore_fricred = .FALSE.
-    vert_interp_meta%l_loglin          = .FALSE.
-    vert_interp_meta%l_extrapol        = .TRUE.
-    vert_interp_meta%l_satlimit        = .FALSE.
-    vert_interp_meta%l_restore_pbldev  = .FALSE.
-    vert_interp_meta%l_pd_limit        = .FALSE.
-    vert_interp_meta%lower_limit       = 0._wp
     ! supersede with user definitions
     CALL assign_if_present(vert_interp_meta%vert_intp_type     , vert_intp_type    )
     CALL assign_if_present(vert_interp_meta%vert_intp_method   , vert_intp_method  )
@@ -195,25 +181,17 @@ CONTAINS
     TYPE(t_grib2_var), INTENT(IN), OPTIONAL :: new_grib2        !< GRIB2 information of modified field
     CLASS(*),          INTENT(IN), OPTIONAL :: arg1             !< post-op argument (e.g. scaling factor)
 
-
-    post_op%ipost_op_type = POST_OP_NONE
-    post_op%lnew_cf       = .FALSE.
-    post_op%lnew_grib2    = .FALSE.
-    post_op%arg1          = t_union_vals( 0._dp, 0._sp, 0, .FALSE.)
-
     IF (PRESENT(ipost_op_type)) post_op%ipost_op_type = ipost_op_type
-
     IF (PRESENT(arg1)) THEN
       SELECT TYPE(arg1)
       TYPE is (INTEGER)
-        post_op%arg1 = t_union_vals( 0.0_dp, 0.0_sp, arg1, .FALSE.)
+        post_op%arg1%ival = arg1
       TYPE is (REAL(dp))
-        post_op%arg1 = t_union_vals( arg1  , 0.0_sp,    0, .FALSE.)
+        post_op%arg1%rval = arg1
       TYPE is (REAL(sp))
-        post_op%arg1 = t_union_vals( 0.0_dp,   arg1,    0, .FALSE.)
+        post_op%arg1%sval = arg1
       END SELECT
     ENDIF
-
     IF (PRESENT(new_cf)) THEN
       post_op%lnew_cf = .TRUE.
       post_op%new_cf  = new_cf

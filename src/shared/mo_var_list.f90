@@ -16,7 +16,6 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: sp, wp, i8
-  USE mo_cdi,              ONLY: TSTEP_INSTANT, CDI_UNDEFID
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_run_config,       ONLY: msg_level
@@ -27,9 +26,8 @@ MODULE mo_var_list
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
     &                            MAX_GROUPS, VINTP_TYPE_LIST,       &
-    &                            t_post_op_meta,                    &
-    &                            CLASS_DEFAULT, CLASS_TILE,         &
-    &                            CLASS_TILE_LAND
+    &                            t_post_op_meta, &
+    &                            CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
     &                            post_op, actions
@@ -47,9 +45,8 @@ MODULE mo_var_list
     &                            difference, find_trailing_number
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
-    &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
-    &                            BOOL_T, INT_T, SUCCESS,            &
-    &                            VARNAME_LEN, TIMELEVEL_SUFFIX
+    &                            REAL_T, SINGLE_T, BOOL_T, INT_T,   &
+    &                            SUCCESS, VARNAME_LEN, TIMELEVEL_SUFFIX
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: assign_if_present, &
@@ -612,6 +609,21 @@ CONTAINS
     ENDIF
     !    
   END SUBROUTINE get_tracer_info_dyn_by_idx
+
+  SUBROUTINE default_var_list_metadata(this_info, this_list)
+    TYPE(t_var_metadata), INTENT(out) :: this_info
+    TYPE(t_var_list), INTENT(in)      :: this_list
+    !
+    this_info%grib2               = grib2_var(-1, -1, -1, -1, -1, -1)
+    this_info%lrestart            = this_list%p%lrestart
+    this_info%lmiss               = this_list%p%lmiss
+    this_info%lmask_boundary      = this_list%p%lmask_boundary
+    this_info%vert_interp         = create_vert_interp_metadata()
+    this_info%hor_interp          = create_hor_interp_metadata()
+    this_info%post_op             = post_op()
+    this_info%in_group(:)         = groups()
+    this_info%action_list         = actions()
+  END SUBROUTINE default_var_list_metadata
   !------------------------------------------------------------------------------------------------
   !
   ! Set default meta data of output var_list
@@ -651,70 +663,6 @@ CONTAINS
     CALL assign_if_present (this_list%p%model_type,       model_type)
     !
   END SUBROUTINE default_var_list_settings
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE default_var_list_metadata(this_info, this_list)
-    !> memory info structure
-    TYPE(t_var_metadata), INTENT(out) :: this_info
-    !
-    !> output var_list
-    TYPE(t_var_list), INTENT(in)      :: this_list
-    !
-
-    this_info%key                 = 0
-    this_info%name                = ''
-    this_info%var_class           = CLASS_DEFAULT
-    !
-    this_info%cf                  = t_cf_var('', '', '', -1)
-    this_info%grib2               = grib2_var(-1, -1, -1, -1, -1, -1)
-    !
-    this_info%allocated           = .FALSE.
-    this_info%ndims               = 0
-    this_info%used_dimensions(:)  = 0
-    !
-    ! RJ: Set default loutput to .TRUE., regardless of this_list%p%loutput
-    this_info%loutput             = .TRUE.
-    this_info%isteptype           = TSTEP_INSTANT
-    this_info%resetval            = t_union_vals( 0.0_wp, 0.0_sp, 0, .FALSE.)
-    this_info%lrestart            = this_list%p%lrestart
-    this_info%lrestart_cont       = .FALSE.
-    this_info%lrestart_read       = .FALSE.
-
-    this_info%lmiss               = this_list%p%lmiss
-    this_info%missval             = t_union_vals( 0.0_wp, 0.0_sp, 0, .FALSE.)
-    this_info%lmask_boundary      = this_list%p%lmask_boundary
-
-    this_info%initval             = t_union_vals( 0.0_wp, 0.0_sp, 0, .FALSE.)
-    !
-    this_info%lcontainer          = .FALSE.
-    this_info%lcontained          = .FALSE.
-    this_info%ncontained          = 0
-    this_info%var_ref_pos         = -1 ! UNDEFINED
-    this_info%maxcontained        = 0
-    !
-    this_info%hgrid               = -1
-    this_info%vgrid               = -1
-    !
-    this_info%tlev_source         = TLEV_NNOW
-    !
-    this_info%cdiVarID            = CDI_UNDEFID
-    this_info%cdiGridID           = CDI_UNDEFID
-    !
-    this_info%vert_interp         = create_vert_interp_metadata()
-    this_info%hor_interp          = create_hor_interp_metadata()
-    !
-    this_info%post_op             = post_op()
-    !
-    this_info%in_group(:)         = groups()
-    !
-    this_info%action_list         = actions()
-    !
-    this_info%l_pp_scheduler_task = 0
-    !
-    this_info%lopenacc            = .FALSE.
-
-  END SUBROUTINE default_var_list_metadata
-
-
 
   !------------------------------------------------------------------------------------------------
   !
