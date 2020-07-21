@@ -38,8 +38,7 @@ MODULE mo_var_list
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
-       &                         new_list, delete_list,             &
-       &                         append_list_element
+       &                         delete_list, append_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_texthash,    ONLY: text_hash_c
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
@@ -207,7 +206,7 @@ CONTAINS
     END IF
     nvl_used = nvl_used + 1
     nvar_lists = nvl_used
-    CALL new_list(var_lists(nvl_used))
+    ALLOCATE(var_lists(nvl_used)%p)
     this_list%p => var_lists(nvl_used)%p
     CALL var_lists_map%put(vlname, nvar_lists)
     ! set default list characteristics
@@ -776,14 +775,7 @@ CONTAINS
     resetval= new_list_element%field%info%resetval
 
     ! and set meta data
-
-    IF (PRESENT(p5_r) .OR. PRESENT(p5_s) .OR. PRESENT(p5_i) .OR. PRESENT(p5_l)) THEN
-      referenced = .TRUE.
-      new_list_element%field%info%allocated = .TRUE.
-    ELSE
-      referenced = .FALSE.
-    ENDIF
-
+    referenced = ANY([PRESENT(p5_r), PRESENT(p5_s), PRESENT(p5_i), PRESENT(p5_l)])
     IF (PRESENT(missval_r))  missval%rval  = missval_r
     IF (PRESENT(missval_s))  missval%sval  = missval_s
     IF (PRESENT(missval_i))  missval%ival  = missval_i
@@ -836,7 +828,6 @@ CONTAINS
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         !$ACC ENTER DATA CREATE( new_list_element%field%l_ptr ) IF( new_list_element%field%info%lopenacc )
       END SELECT
-      new_list_element%field%info%allocated = .TRUE.
       IF (istat /= 0) &
         CALL finish(routine, 'allocation of array '//TRIM(name)//' failed')
       this_list%p%memory_used = this_list%p%memory_used &
@@ -854,6 +845,7 @@ CONTAINS
         new_list_element%field%l_ptr => p5_l
       END SELECT
     ENDIF
+    new_list_element%field%info%allocated = .TRUE.
     IF(PRESENT(info)) info => new_list_element%field%info
 
     ! initialize the new array
