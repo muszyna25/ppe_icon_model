@@ -17,7 +17,7 @@ MODULE mo_var_list
 #endif
 #endif
 
-  USE mo_kind,             ONLY: sp, wp, i8
+  USE mo_kind,             ONLY: sp, dp, i8
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_run_config,       ONLY: msg_level
@@ -35,7 +35,7 @@ MODULE mo_var_list
     &                            post_op, actions
   USE mo_var_groups,       ONLY: groups
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
-  USE mo_tracer_metadata_types,ONLY: t_tracer_meta
+  USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
@@ -49,8 +49,7 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            REAL_T, SINGLE_T, BOOL_T, INT_T,   &
     &                            SUCCESS, TIMELEVEL_SUFFIX
-  USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
-    &                            GRID_REGULAR_LONLAT
+  USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: init_contiguous_dp, init_contiguous_sp, &
     &                            init_contiguous_i4, init_contiguous_l
   USE mo_action_types,     ONLY: t_var_action
@@ -65,9 +64,6 @@ MODULE mo_var_list
 #endif
 
   IMPLICIT NONE
-
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list'
-
   PRIVATE
 
   PUBLIC :: new_var_list              ! get a pointer to a new output var_list
@@ -173,7 +169,8 @@ MODULE mo_var_list
   INTEGER :: nvar_lists     =   0      ! var_lists allocated so far
   TYPE(t_var_list), ALLOCATABLE, TARGET :: var_lists(:)  ! memory buffer array
   TYPE(t_key_value_store) :: var_lists_map
-  !
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list'
+
 CONTAINS
   !------------------------------------------------------------------------------------------------
   !
@@ -669,95 +666,6 @@ CONTAINS
     ENDIF
   END SUBROUTINE set_var_metadata_dyn
 
-  ! Auxiliary routine: initialize array, REAL(wp) variant
-  SUBROUTINE init_array_r5d(ptr, linit, initval, lmiss, missval)
-    REAL(wp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
-    LOGICAL,            INTENT(IN)  :: linit, lmiss
-    TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
-    REAL(wp) :: init_val
-
-    IF (linit) THEN
-      init_val = initval%rval
-    ELSE IF (lmiss) THEN
-      init_val = missval%rval
-    ELSE
-#if    defined (VARLIST_INITIZIALIZE_WITH_NAN) \
-    && (defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
-      init_val = ieee_value(ptr, ieee_signaling_nan)
-#else
-      init_val = 0.0_wp
-#endif
-    END IF
-!$omp parallel
-    CALL init_contiguous_dp(ptr, SIZE(ptr), init_val)
-!$omp end parallel
-  END SUBROUTINE init_array_r5d
-
-  ! Auxiliary routine: initialize array, REAL(sp) variant
-  SUBROUTINE init_array_s5d(ptr, linit, initval, lmiss, missval)
-    REAL(sp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
-    LOGICAL,            INTENT(IN)  :: linit, lmiss
-    TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
-    REAL(sp) :: init_val
-
-    IF (linit) THEN
-      init_val = initval%sval
-    ELSE IF (lmiss) THEN
-      init_val = missval%sval
-    ELSE
-#if    defined (VARLIST_INITIZIALIZE_WITH_NAN) \
-    && (defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
-      init_val = ieee_value(ptr, ieee_signaling_nan)
-#else
-      init_val = 0.0_sp
-#endif
-    END IF
-!$omp parallel
-    CALL init_contiguous_sp(ptr, SIZE(ptr), init_val)
-!$omp end parallel
-  END SUBROUTINE init_array_s5d
-
-
-  ! Auxiliary routine: initialize array, INTEGER variant
-  SUBROUTINE init_array_i5d(ptr, linit, initval, lmiss, missval)
-    INTEGER, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
-    LOGICAL,            INTENT(IN)  :: linit, lmiss
-    TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
-    INTEGER :: init_val
-
-    IF (linit) THEN
-      init_val = initval%ival
-    ELSE IF (lmiss) THEN
-      init_val = missval%ival
-    ELSE
-      init_val = 0
-    END IF
-!$omp parallel
-    CALL init_contiguous_i4(ptr, SIZE(ptr), init_val)
-!$omp end parallel
-  END SUBROUTINE init_array_i5d
-
-
-  ! Auxiliary routine: initialize array, REAL(wp) variant
-  SUBROUTINE init_array_l5d(ptr, linit, initval, lmiss, missval)
-    LOGICAL, POINTER                :: ptr(:,:,:,:,:)      ! pointer to field
-    LOGICAL,            INTENT(IN)  :: linit, lmiss
-    TYPE(t_union_vals), INTENT(IN)  :: initval, missval    ! optional initialization value
-    LOGICAL :: init_val
-
-    IF (linit) THEN
-      init_val = initval%lval
-    ELSE IF (lmiss) THEN
-      init_val = missval%lval
-    ELSE
-      init_val = .FALSE.
-    END IF
-!$omp parallel
-    CALL init_contiguous_l(ptr, SIZE(ptr), init_val)
-!$omp end parallel
-  END SUBROUTINE init_array_l5d
-
-
   !------------------------------------------------------------------------------------------------
   !
   ! Create a list new entry
@@ -795,7 +703,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
+    REAL(dp),         CONTIGUOUS_TARGET, OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
     REAL(sp),         CONTIGUOUS_TARGET, OPTIONAL :: p5_s(:,:,:,:,:)              ! provided pointer
     INTEGER,          CONTIGUOUS_TARGET, OPTIONAL :: p5_i(:,:,:,:,:)              ! provided pointer
     LOGICAL,          CONTIGUOUS_TARGET, OPTIONAL :: p5_l(:,:,:,:,:)              ! provided pointer
@@ -807,15 +715,15 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
-    REAL(wp),                INTENT(in), OPTIONAL :: initval_r                    ! value if var not available
+    REAL(dp),                INTENT(in), OPTIONAL :: initval_r                    ! value if var not available
     REAL(sp),                INTENT(in), OPTIONAL :: initval_s                    ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: initval_i                    ! value if var not available
     LOGICAL,                 INTENT(in), OPTIONAL :: initval_l                    ! value if var not available
-    REAL(wp),                INTENT(in), OPTIONAL :: resetval_r                   ! reset value (after accumulation)
+    REAL(dp),                INTENT(in), OPTIONAL :: resetval_r                   ! reset value (after accumulation)
     REAL(sp),                INTENT(in), OPTIONAL :: resetval_s                   ! reset value (after accumulation)
     INTEGER,                 INTENT(in), OPTIONAL :: resetval_i                   ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: resetval_l                   ! reset value (after accumulation)
-    REAL(wp),                INTENT(in), OPTIONAL :: missval_r                    ! missing value
+    REAL(dp),                INTENT(in), OPTIONAL :: missval_r                    ! missing value
     REAL(sp),                INTENT(in), OPTIONAL :: missval_s                    ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: missval_i                    ! missing value
     LOGICAL,                 INTENT(in), OPTIONAL :: missval_l                    ! missing value
@@ -823,7 +731,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
 
     ! local variables
-    TYPE(t_union_vals) :: missval, initval, resetval
+    TYPE(t_union_vals) :: missval, initval, resetval, ivals
     INTEGER :: idims(5), istat
     LOGICAL :: referenced, is_restart_var
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":add_var_list_element_5d"
@@ -949,26 +857,39 @@ CONTAINS
     IF(PRESENT(info)) info => new_list_element%field%info
 
     ! initialize the new array
+#if    defined (VARLIST_INITIZIALIZE_WITH_NAN) \
+    && (defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
+    ivals%rval = ieee_value(ptr, ieee_signaling_nan)
+    ivals%sval = ieee_value(ptr, ieee_signaling_nan)
+#endif
+    IF (ANY([PRESENT(initval_r), PRESENT(initval_s), PRESENT(initval_i), PRESENT(initval_l)])) THEN
+      ivals = initval
+    ELSE IF (ANY([PRESENT(missval_r), PRESENT(missval_s), PRESENT(missval_i), PRESENT(missval_l)])) THEN
+      ivals = missval
+    END IF
     SELECT CASE(data_type)
     CASE (REAL_T)
-      CALL init_array_r5d(new_list_element%field%r_ptr, linit=PRESENT(initval_r), initval=initval, &
-        &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$OMP PARALLEL
+      CALL init_contiguous_dp(new_list_element%field%r_ptr, SIZE(new_list_element%field%r_ptr), ivals%rval)
+      !$OMP END PARALLEL
       !$ACC UPDATE DEVICE( new_list_element%field%r_ptr ) IF( new_list_element%field%info%lopenacc )
     CASE (SINGLE_T)
-      CALL init_array_s5d(new_list_element%field%s_ptr, linit=PRESENT(initval_s), initval=initval, &
-        &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$OMP PARALLEL
+      CALL init_contiguous_sp(new_list_element%field%s_ptr, SIZE(new_list_element%field%s_ptr), ivals%sval)
+      !$OMP END PARALLEL
       !$ACC UPDATE DEVICE( new_list_element%field%s_ptr ) IF( new_list_element%field%info%lopenacc )
     CASE (INT_T)
-      CALL init_array_i5d(new_list_element%field%i_ptr, linit=PRESENT(initval_i), initval=initval, &
-        &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$OMP PARALLEL
+      CALL init_contiguous_i4(new_list_element%field%i_ptr, SIZE(new_list_element%field%i_ptr), ivals%ival)
+      !$OMP END PARALLEL
       !$ACC UPDATE DEVICE( new_list_element%field%i_ptr ) IF( new_list_element%field%info%lopenacc )
     CASE (BOOL_T)
-      CALL init_array_l5d(new_list_element%field%l_ptr, linit=PRESENT(initval_l), initval=initval, &
-        &                 lmiss=PRESENT(lmiss), missval=missval)
+      !$OMP PARALLEL
+      CALL init_contiguous_l(new_list_element%field%l_ptr, SIZE(new_list_element%field%l_ptr), ivals%lval)
+      !$OMP END PARALLEL
       !$ACC UPDATE DEVICE( new_list_element%field%l_ptr ) IF( new_list_element%field%info%lopenacc )
     END SELECT
   END SUBROUTINE add_var_list_element_5d
-
 
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
@@ -985,7 +906,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
+    REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -995,14 +916,14 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
-    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    REAL(dp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
-    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    REAL(dp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
-    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    REAL(dp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(dp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1045,7 +966,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
+    REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1055,15 +976,15 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
-    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    REAL(dp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
-    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    REAL(dp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
-    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    REAL(dp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(dp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1106,7 +1027,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
+    REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1116,15 +1037,15 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
-    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    REAL(dp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
-    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    REAL(dp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
-    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    REAL(dp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(dp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1168,7 +1089,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
+    REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1178,14 +1099,14 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer                   ! container flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                     ! restart flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont                ! continue restart if var not available
-    REAL(wp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
+    REAL(dp),                INTENT(in), OPTIONAL :: initval                      ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
-    REAL(wp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
+    REAL(dp),                INTENT(in), OPTIONAL :: resetval                     ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
-    REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
+    REAL(dp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(dp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1960,7 +1881,7 @@ CONTAINS
   SUBROUTINE get_var_list_element_r5d (this_list, name, ptr)
     TYPE(t_var_list), INTENT(in) :: this_list      ! list
     CHARACTER(len=*), INTENT(in) :: name           ! name of variable
-    REAL(wp),         POINTER    :: ptr(:,:,:,:,:) ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:,:,:,:,:) ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     !
@@ -1976,7 +1897,7 @@ CONTAINS
   SUBROUTINE get_var_list_element_r4d (this_list, name, ptr)
     TYPE(t_var_list), INTENT(in) :: this_list    ! list
     CHARACTER(len=*), INTENT(in) :: name         ! name of variable
-    REAL(wp),         POINTER    :: ptr(:,:,:,:) ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:,:,:,:) ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     !
@@ -1992,7 +1913,7 @@ CONTAINS
   SUBROUTINE get_var_list_element_r3d (this_list, name, ptr)
     TYPE(t_var_list), INTENT(in) :: this_list    ! list
     CHARACTER(len=*), INTENT(in) :: name         ! name of variable
-    REAL(wp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
@@ -2007,7 +1928,7 @@ CONTAINS
   SUBROUTINE get_var_list_element_r2d (this_list, name, ptr)
     TYPE(t_var_list), INTENT(in) :: this_list  ! list
     CHARACTER(len=*), INTENT(in) :: name       ! name of variable
-    REAL(wp),         POINTER    :: ptr(:,:)   ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:,:)   ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     !
@@ -2023,7 +1944,7 @@ CONTAINS
   SUBROUTINE get_var_list_element_r1d (this_list, name, ptr)
     TYPE(t_var_list), INTENT(in) :: this_list ! list
     CHARACTER(len=*), INTENT(in) :: name      ! name of variable
-    REAL(wp),         POINTER    :: ptr(:)    ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:)    ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
@@ -2038,7 +1959,7 @@ CONTAINS
   FUNCTION fget_var_list_element_r1d (this_list, name) RESULT(ptr)
     TYPE(t_var_list), INTENT(in) :: this_list   ! list
     CHARACTER(len=*), INTENT(in) :: name        ! name of variable
-    REAL(wp),         POINTER    :: ptr(:)      ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:)      ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
@@ -2057,7 +1978,7 @@ CONTAINS
   FUNCTION fget_var_list_element_r2d (this_list, name) RESULT(ptr)
     TYPE(t_var_list), INTENT(in) :: this_list   ! list
     CHARACTER(len=*), INTENT(in) :: name        ! name of variable
-    REAL(wp),         POINTER    :: ptr(:,:)    ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:,:)    ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
@@ -2076,7 +1997,7 @@ CONTAINS
   FUNCTION fget_var_list_element_r3d (this_list, name) RESULT(ptr)
     TYPE(t_var_list), INTENT(in) :: this_list    ! list
     CHARACTER(len=*), INTENT(in) :: name         ! name of variable
-    REAL(wp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
+    REAL(dp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
     !
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
@@ -2410,7 +2331,7 @@ CONTAINS
     TYPE(t_var_list),        INTENT(inout)           :: this_list
     CHARACTER(len=*),        INTENT(in)              :: target_name
     CHARACTER(len=*),        INTENT(in)              :: name
-    REAL(wp), POINTER                                :: ptr(:,:,:)
+    REAL(dp), POINTER                                :: ptr(:,:,:)
     INTEGER,                 INTENT(in)              :: hgrid                      ! horizontal grid type used
     INTEGER,                 INTENT(in)              :: vgrid                      ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)              :: cf                         ! CF related metadata
@@ -2420,11 +2341,11 @@ CONTAINS
     LOGICAL,                 INTENT(in),    OPTIONAL :: loutput                    ! output flag
     LOGICAL,                 INTENT(in),    OPTIONAL :: lrestart                   ! restart flag
     LOGICAL,                 INTENT(in),    OPTIONAL :: lrestart_cont              ! continue restart if var not available
-    REAL(wp),                INTENT(in),    OPTIONAL :: initval                    ! value if var not available
+    REAL(dp),                INTENT(in),    OPTIONAL :: initval                    ! value if var not available
     INTEGER,                 INTENT(in),    OPTIONAL :: isteptype                  ! type of statistical processing
-    REAL(wp),                INTENT(in),    OPTIONAL :: resetval                   ! reset value (after accumulation)
+    REAL(dp),                INTENT(in),    OPTIONAL :: resetval                   ! reset value (after accumulation)
     LOGICAL,                 INTENT(in),    OPTIONAL :: lmiss                      ! missing value flag
-    REAL(wp),                INTENT(in),    OPTIONAL :: missval                    ! missing value
+    REAL(dp),                INTENT(in),    OPTIONAL :: missval                    ! missing value
     INTEGER,                 INTENT(in),    OPTIONAL :: tlev_source                ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in),    OPTIONAL :: tracer_info                ! tracer meta data
     TYPE(t_var_metadata), POINTER,          OPTIONAL :: info                       ! returns reference to metadata
@@ -2588,17 +2509,13 @@ CONTAINS
     IF (.NOT. ASSOCIATED(new_list_element%field%r_ptr)) THEN
       WRITE (0,*) 'problem with association of ptr for '//TRIM(name)
     ENDIF
-    !
     IF(PRESENT(info)) info => new_list_element%field%info
-    !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%rval
     ELSE
-      ptr = 0.0_wp
+      ptr = 0.0_dp
     END IF
-    !
   END SUBROUTINE add_var_list_reference_r3d
-
 
   !------------------------------------------------------------------------------------------------
   !
@@ -2618,7 +2535,7 @@ CONTAINS
     TYPE(t_var_list),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
     CHARACTER(len=*),        INTENT(in)           :: name
-    REAL(wp), POINTER                             :: ptr(:,:)
+    REAL(dp), POINTER                             :: ptr(:,:)
     INTEGER,                 INTENT(in)           :: hgrid                       ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                       ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                          ! CF related metadata
@@ -2628,11 +2545,11 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput                     ! output flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart                    ! restart flag
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont               ! continue restart if var not available
-    REAL(wp),                INTENT(in), OPTIONAL :: initval                     ! value if var not available
+    REAL(dp),                INTENT(in), OPTIONAL :: initval                     ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                   ! type of statistical processing
-    REAL(wp),                INTENT(in), OPTIONAL :: resetval                    ! reset value (after accumulation)
+    REAL(dp),                INTENT(in), OPTIONAL :: resetval                    ! reset value (after accumulation)
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                       ! missing value flag
-    REAL(wp),                INTENT(in), OPTIONAL :: missval                     ! missing value
+    REAL(dp),                INTENT(in), OPTIONAL :: missval                     ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                 ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                 ! tracer meta data
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                        ! returns reference to metadata
@@ -2796,13 +2713,11 @@ CONTAINS
     ENDIF
     !
     IF(PRESENT(info)) info => new_list_element%field%info
-    !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%rval
     ELSE
-      ptr = 0.0_wp
+      ptr = 0.0_dp
     END IF
-    !
   END SUBROUTINE add_var_list_reference_r2d
 
   SUBROUTINE add_var_list_reference_s3d (this_list, target_name, name, ptr,                      &
@@ -2995,15 +2910,12 @@ CONTAINS
     ENDIF
     !
     IF(PRESENT(info)) info => new_list_element%field%info
-    !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%sval
     ELSE
       ptr = 0.0_sp
     END IF
-    !
   END SUBROUTINE add_var_list_reference_s3d
-
 
   !------------------------------------------------------------------------------------------------
   !
@@ -3196,16 +3108,12 @@ CONTAINS
     ENDIF
     !
     IF(PRESENT(info)) info => new_list_element%field%info
-    !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%sval
     ELSE
       ptr = 0.0_sp
     END IF
-    !
   END SUBROUTINE add_var_list_reference_s2d
-
-
 
   ! INTEGER SECTION ----------------------------------------------------------------------------------
   !
@@ -3397,14 +3305,12 @@ CONTAINS
     ENDIF
     !
     IF(PRESENT(info)) info => new_list_element%field%info
-    !
     IF (PRESENT(lmiss)) THEN
       ptr = new_list_element%field%info%missval%ival
     ELSE
       ptr = 0
     END IF
   END SUBROUTINE add_var_list_reference_i2d
-
 
   !================================================================================================
   !------------------------------------------------------------------------------------------------
