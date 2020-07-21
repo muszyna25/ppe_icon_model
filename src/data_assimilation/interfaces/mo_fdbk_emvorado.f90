@@ -76,11 +76,11 @@ MODULE mo_fdbk_emvorado
 ! Documenting Exchangeable Fortran 90 Code".
 !===============================================================================
 
-USE mo_kind,          ONLY: sp, wp
+USE mo_kind,          ONLY: sp
 
 USE mo_fdbk,          ONLY: t_fdbk
 
-USE mo_t_netcdf_file, ONLY: t_netcdf_file, nlen
+USE mo_t_netcdf_file, ONLY: nlen
 
 USE mo_netcdf_param   ! provides access to the parameters defined
                       ! in 'netcdf.inc' of the NetCDF package

@@ -224,7 +224,7 @@ MODULE mo_async_latbc
          &                                  async_pref_send_handshake,  async_pref_wait_for_start, &
          &                                  allocate_pref_latbc_data
     USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, TIMELEVEL_SUFFIX, &
-         &                                  VARNAME_LEN, max_ntracer
+         &                                  VARNAME_LEN
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state, p_nh_state_lists
@@ -243,7 +243,7 @@ MODULE mo_async_latbc
     USE mtime,                        ONLY: datetime, OPERATOR(+)
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
-         &                                  streamClose, streamInqFiletype,                    &
+         &                                  streamInqFiletype,                                 &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
          &                                  cdi_max_name
     USE mo_read_interface,            ONLY: nf

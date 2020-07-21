@@ -119,7 +119,7 @@ USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lh
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
-USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work
+USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
@@ -136,8 +136,6 @@ USE mo_icon2dace,           ONLY: init_dace, finish_dace
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
   USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
 #endif
-
-!$ser verbatim USE mo_ser_debug, ONLY: serialize_debug_output, ser_debug_on
 
 IMPLICIT NONE
 PRIVATE
@@ -265,7 +263,7 @@ CONTAINS
 
     ! Initialize DACE routines
     IF (assimilation_config(1)% dace_coupling) then
-       CALL init_dace (comm=p_comm_work, p_io=0)
+      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
     END IF
 
     IF (iforcing == inwp) THEN
@@ -418,14 +416,6 @@ CONTAINS
         !
       END IF ! ltestcase
 
-      !$ser verbatim ser_debug_on = .TRUE.
-      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 0, .TRUE.,&
-      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
-      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
-      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
-      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
-      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
-      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
       IF(pinit_seed > 0) THEN
         DO jg=1,n_dom
           CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
@@ -451,14 +441,6 @@ CONTAINS
           CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnew(jg)))
         ENDDO
       ENDIF
-      !$ser verbatim ser_debug_on = .TRUE.
-      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 1, .TRUE.,&
-      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
-      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
-      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
-      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
-      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
-      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
 
       !
       ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
@@ -846,7 +828,7 @@ CONTAINS
       CALL destruct_lhn (lhn_fields)
     ENDIF
 
-    IF (assimilation_config(1)% dace_coupling) then
+    IF (assimilation_config(1)% dace_coupling .AND. my_process_is_work_only()) then
        CALL finish_dace ()
     END IF
  

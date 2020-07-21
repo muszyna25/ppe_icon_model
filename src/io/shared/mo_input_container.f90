@@ -7,7 +7,7 @@
 !! headers of the routines.
 
 MODULE mo_input_container
-    USE ISO_C_BINDING, ONLY: C_INT32_T, C_INT64_T, C_DOUBLE, C_FLOAT, C_ASSOCIATED, C_CHAR
+    USE ISO_C_BINDING, ONLY: C_INT32_T, C_INT64_T, C_DOUBLE, C_FLOAT, C_ASSOCIATED
     USE mo_cdi, ONLY: t_CdiIterator, gridInqSize, cdiIterator_inqGridId, cdiIterator_readField, cdiIterator_readFieldF, &
                     & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
@@ -17,11 +17,11 @@ MODULE mo_input_container
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
     USE mo_math_types, ONLY: t_Statistics
-    USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio, p_mpi_wtime, process_mpi_root_id
+    USE mo_mpi, ONLY: p_bcast, p_comm_work, p_mpi_wtime, process_mpi_root_id
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_nwp_sfc_tiles, ONLY: trivial_tile_att, t_tileinfo_icon
-    USE mo_util_string, ONLY: int2string, real2string, toCharacter
+    USE mo_util_string, ONLY: int2string, real2string
 #ifdef _OPENMP
     USE omp_lib
 #endif

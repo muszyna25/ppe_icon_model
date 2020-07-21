@@ -120,6 +120,14 @@ MODULE mo_timer
   PUBLIC :: timer_phys_sync_ddt_u
   PUBLIC :: timer_phys_sync_vn
   PUBLIC :: timer_phys_reff
+  PUBLIC :: timer_phys_2mom_dmin_init
+  PUBLIC :: timer_phys_2mom_wetgrowth
+  PUBLIC :: timer_phys_2mom_prepost
+  PUBLIC :: timer_phys_2mom_proc
+  PUBLIC :: timer_phys_2mom_sedi
+  PUBLIC :: timer_phys_micro_specific
+  PUBLIC :: timer_phys_micro_satad
+
 
   PUBLIC :: timer_held_suarez_intr
 
@@ -281,6 +289,14 @@ MODULE mo_timer
   INTEGER :: timer_phys_sync_ddt_u
   INTEGER :: timer_phys_sync_vn
   INTEGER :: timer_phys_reff
+  INTEGER :: timer_phys_2mom_dmin_init
+  INTEGER :: timer_phys_2mom_wetgrowth
+  INTEGER :: timer_phys_2mom_prepost
+  INTEGER :: timer_phys_2mom_proc
+  INTEGER :: timer_phys_2mom_sedi
+  INTEGER :: timer_phys_micro_specific
+  INTEGER :: timer_phys_micro_satad
+
   INTEGER :: timer_dyn_theta, timer_dyn_temp
 !   INTEGER :: timer_sync_wait
 !   INTEGER :: timer_sync_delay,timer_sync_outbuffer
@@ -686,7 +702,14 @@ CONTAINS
     timer_phys_sync_vn  = new_timer("phys_sync_vn")
     timer_prep_echam_phy = new_timer("prep_echam_phy")
     timer_prep_phy = new_timer("prep_phy")
-    timer_phys_reff = new_timer("phys_reff")    
+    timer_phys_reff = new_timer("phys_reff") 
+    timer_phys_2mom_dmin_init = new_timer("phys_2mom_dmin_init")
+    timer_phys_2mom_wetgrowth = new_timer("phys_2mom_wetgrowth")  
+    timer_phys_2mom_prepost = new_timer("phys_2mom_prepost")  
+    timer_phys_2mom_proc = new_timer("phys_2mom_proc")  
+    timer_phys_2mom_sedi = new_timer("phys_2mom_sedi")  
+    timer_phys_micro_specific = new_timer("phys_micro_specific")  
+    timer_phys_micro_satad = new_timer("phys_micro_satad")  
 
     timer_update_prog_phy = new_timer("update_prog_phy")
     timer_nh_diagnostics = new_timer("nh_diagnostics")

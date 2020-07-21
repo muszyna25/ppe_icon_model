@@ -69,8 +69,7 @@ MODULE mo_nudging
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_async_latbc_utils,     ONLY: update_lin_interpolation
   USE mo_sync_latbc,            ONLY: update_lin_interc
-  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp, &
-    &                                 diag_temp, diag_pres
+  USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_util_string,           ONLY: int2string, real2string
   USE mo_math_divrot,           ONLY: div
   USE mo_mpi,                   ONLY: my_process_is_stdio,          &

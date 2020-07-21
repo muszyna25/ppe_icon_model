@@ -38,6 +38,7 @@ listname=dwd
 ./set_builder_flags Inactive --builders DAINT_CPU_cce                --list $listname
 ./set_builder_flags Inactive --builders DAINT_CPU_pgi                --list $listname
 ./set_builder_flags Inactive --builders DAINT_GPU_pgi                --list $listname
+./set_builder_flags Inactive --builders DWD_nec                      --list $listname
 ./set_builder_flags Active   --builders DWD_cray                     --list $listname
 
 # run only some nwp checks on DWD-site and have some tea meanwhile

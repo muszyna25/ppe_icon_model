@@ -30,7 +30,7 @@ MODULE mo_ser_all
   USE mo_run_config,         ONLY: iforcing
   USE mo_impl_constants,     ONLY: inwp
   USE mo_ser_nml,            ONLY: ser_output_diag, ser_latbc_data, ser_dynamics, ser_diffusion, ser_step_advection, &
-                                   ser_physics, ser_nudging, ser_all_debug
+                                   ser_physics, ser_nudging, ser_all_debug, ser_surface
 
   IMPLICIT NONE
 
@@ -44,6 +44,7 @@ MODULE mo_ser_all
   INTEGER :: step_advection_cnt = 0
   INTEGER :: physics_cnt = 0
   INTEGER :: nudging_cnt = 0
+  INTEGER :: surface_cnt = 0
   INTEGER :: debug_cnt = 0
 
   CONTAINS
@@ -290,6 +291,11 @@ MODULE mo_ser_all
       CASE("nudging")
          nudging_cnt = nudging_cnt + 1
          IF(nudging_cnt > ser_nudging*2) THEN
+             do_serialization = .FALSE.
+         ENDIF
+      CASE("surface")
+         surface_cnt = surface_cnt + 1
+         IF(surface_cnt > ser_surface*2) THEN
              do_serialization = .FALSE.
          ENDIF
       CASE DEFAULT

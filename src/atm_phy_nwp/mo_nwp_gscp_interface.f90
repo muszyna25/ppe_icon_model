@@ -58,14 +58,14 @@ MODULE mo_nwp_gscp_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,       &
                                      iqni, iqni_nuc, iqg, iqh, iqnr, iqns,     &
                                      iqng, iqnh, iqnc, inccn, ininpot, ininact,&
-                                     iqtvar
+                                     iqtvar, iqgl, iqhl
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero
   USE gscp_kessler,            ONLY: kessler
   USE gscp_cloudice,           ONLY: cloudice
   USE gscp_graupel,            ONLY: graupel
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
-  USE mo_mcrph_sb,             ONLY: two_moment_mcrph, set_qnc, &
+  USE mo_2mom_mcrph_driver,    ONLY: two_moment_mcrph, set_qnc, &
        &                             set_qnr,set_qni,set_qns,set_qng,set_qnh
   USE mo_art_clouds_interface, ONLY: art_clouds_interface_2mom
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
@@ -74,6 +74,10 @@ MODULE mo_nwp_gscp_interface
                                      specccn_segalkhain_simple
   USE mo_grid_config,          ONLY: l_limited_area
   USE mo_satad,                ONLY: satad_v_3D, satad_v_3D_gpu
+
+  USE mo_timer,                ONLY: timers_level, timer_start, timer_stop,    &
+      &                              timer_phys_micro_specific,                &
+      &                              timer_phys_micro_satad                               
 
   !$ser verbatim USE mo_ser_nwp_graupel, ONLY: serialize_graupel_input,&
   !$ser verbatim                               serialize_graupel_output
@@ -133,7 +137,7 @@ CONTAINS
 
     REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma),rholoc,rhoinv
     LOGICAL  :: l_nest_other_micro
-    LOGICAL  :: ltwomoment, ldiag_ttend, ldiag_qtend
+    LOGICAL  :: ldiag_ttend, ldiag_qtend
 
 
 
@@ -156,10 +160,6 @@ CONTAINS
       ldiag_qtend = .FALSE.
     ENDIF
 
-    ! logical for SB two-moment scheme
-    ltwomoment = ( atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5 .OR. &
-               &   atm_phy_nwp_config(jg)%inwp_gscp==6)
-
     ! boundary conditions for number densities
     IF (jg > 1) THEN
        IF (atm_phy_nwp_config(jg)%inwp_gscp .ne. atm_phy_nwp_config(jg-1)%inwp_gscp) THEN
@@ -178,7 +178,7 @@ CONTAINS
     !$ser verbatim                              p_prog_rcf, p_diag, prm_diag, prm_nwp_tend)
 
     SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-    CASE(4,5,6)
+    CASE(4,5,6,7)
 
 #ifdef _OPENACC
         CALL finish('mo_nwp_gscp_interface:','only graupel microphysics (inwp_gscp=2) is supported on GPU!')
@@ -232,7 +232,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_block(i_rlend)
 
     ! Some run time diagnostics (can also be used for other schemes)
-    IF (msg_level>14 .AND. ltwomoment) THEN
+    IF (msg_level>14 .AND. atm_phy_nwp_config(jg)%l2moment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
     
@@ -273,6 +273,9 @@ CONTAINS
               prm_diag%aerosol(:,iorg,jb), prm_diag%aerosol(:,idu,jb), zncn)
 
             CALL specccn_segalkhain_simple (nproma, i_startidx, i_endidx, zncn(:,nlev), prm_diag%cloud_num(:,jb))
+!!$ UB: formally qnc_s is in the wrong unit (1/m^3) for the 1-moment schemes. Should be 1/kg.
+!!$   However: since only the near-surface value of level nlev is used and the vertical profile is disregarded
+!!$            anyways, we neglect this small near-surface difference and assume rho approx. 1.0. 
             qnc_s(i_startidx:i_endidx) = prm_diag%cloud_num(i_startidx:i_endidx,jb)
 
           ENDIF
@@ -301,9 +304,10 @@ CONTAINS
           !$acc end parallel
         ENDIF
 
+        IF (timers_level > 10) CALL timer_start(timer_phys_micro_specific) 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
 
-
+          
         CASE(0)  ! no microphysics scheme - in this case, this interface should not be called anyway
           
           WRITE(0,*) "                           "
@@ -432,6 +436,7 @@ CONTAINS
                        ks     = kstart_moist(jg),      &!in: start level
                        dt     = tcall_gscp_jg ,        &!in: time step
                        dz     = p_metrics%ddqz_z_full(:,:,jb),  &!in: vertical layer thickness
+                       hhl    = p_metrics%z_ifc(:,:,jb),        &!in: height of half levels
                        rho    = p_prog%rho(:,:,jb  )       ,    &!in:  density
                        pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
                        qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout:sp humidity
@@ -454,11 +459,9 @@ CONTAINS
                        prec_i = prm_diag%ice_gsp_rate (:,jb),   &!inout precp rate ice
                        prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
-                       prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
-!#ifdef NUDGING
-!                       qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !< out: precipitation flux
-!#endif
-                       msg_level = msg_level                ,    &
+                       prec_h = prm_diag%hail_gsp_rate (:,jb),  &!inout precp rate hail
+                       qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
+                       msg_level = msg_level,                   &
                        l_cv=.TRUE.          )    
 
         CASE(5)  ! two-moment scheme with prognostic cloud droplet number
@@ -472,6 +475,7 @@ CONTAINS
                        ks     = kstart_moist(jg),      &!in: start level
                        dt     = tcall_gscp_jg ,        &!in: time step
                        dz     = p_metrics%ddqz_z_full(:,:,jb),  &!in: vertical layer thickness
+                       hhl    = p_metrics%z_ifc(:,:,jb),        &!in: height of half levels
                        rho    = p_prog%rho(:,:,jb  )       ,    &!in:  density
                        pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
                        qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout: humidity
@@ -497,9 +501,7 @@ CONTAINS
                        prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
-!#ifdef NUDGING
-!                      qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !< out: precipitation flux
-!#endif
+                       qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.     )
     
@@ -527,13 +529,51 @@ CONTAINS
                        prec_s = prm_diag%snow_gsp_rate (:,jb),   &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
+! not impl yet!        qrsflux= prm_diag%qrs_flux(:,:,jb),      & !inout: 3D precipitation flux for LHN
                        tkvh   = prm_diag%tkvh(:,:,jb),           &!in: turbulent diffusion coefficients for heat     (m/s2 )
-!#ifdef NUDGING
-!                       qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !< out: precipitation flux
-!#endif
                        msg_level = msg_level,                    &
                        l_cv=.TRUE.     )
     
+        CASE(7)  ! two-moment scheme with liquid water on graupel and hail (lwf scheme)
+
+          CALL two_moment_mcrph(                       &
+                       isize  = nproma,                &!in: array size
+                       ke     = nlev,                  &!in: end level/array size
+                       is     = i_startidx,            &!in: start index
+                       ie     = i_endidx,              &!in: end index
+                       ks     = kstart_moist(jg),      &!in: start level
+                       dt     = tcall_gscp_jg ,        &!in: time step
+                       dz     = p_metrics%ddqz_z_full(:,:,jb),  &!in: vertical layer thickness
+                       hhl    = p_metrics%z_ifc(:,:,jb),        &!in: height of half levels
+                       rho    = p_prog%rho(:,:,jb  )       ,    &!in:  density
+                       pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
+                       qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout:sp humidity
+                       qc     = p_prog_rcf%tracer (:,:,jb,iqc), &!inout:cloud water
+                       qnc    = p_prog_rcf%tracer (:,:,jb,iqnc),&!inout: cloud droplet number 
+                       qr     = p_prog_rcf%tracer (:,:,jb,iqr), &!inout:rain
+                       qnr    = p_prog_rcf%tracer (:,:,jb,iqnr),&!inout:rain droplet number 
+                       qi     = p_prog_rcf%tracer (:,:,jb,iqi), &!inout: ice
+                       qni    = p_prog_rcf%tracer (:,:,jb,iqni),&!inout: cloud ice number
+                       qs     = p_prog_rcf%tracer (:,:,jb,iqs), &!inout: snow 
+                       qns    = p_prog_rcf%tracer (:,:,jb,iqns),&!inout: snow number
+                       qg     = p_prog_rcf%tracer (:,:,jb,iqg), &!inout: graupel 
+                       qng    = p_prog_rcf%tracer (:,:,jb,iqng),&!inout: graupel number
+                       qgl    = p_prog_rcf%tracer (:,:,jb,iqgl),&!inout: liquid water on graupel 
+                       qh     = p_prog_rcf%tracer (:,:,jb,iqh), &!inout: hail 
+                       qnh    = p_prog_rcf%tracer (:,:,jb,iqnh),&!inout: hail number
+                       qhl    = p_prog_rcf%tracer (:,:,jb,iqhl),&!inout: liquid water on hail
+                       ninact = p_prog_rcf%tracer (:,:,jb,ininact), &!inout: IN number
+                       tk     = p_diag%temp(:,:,jb),            &!inout: temp 
+                       w      = p_prog%w(:,:,jb),               &!inout: w
+                       prec_r = prm_diag%rain_gsp_rate (:,jb),  &!inout precp rate rain
+                       prec_i = prm_diag%ice_gsp_rate (:,jb),   &!inout precp rate ice
+                       prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
+                       prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
+                       prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
+                       qrsflux= prm_diag%qrs_flux  (:,:,jb)     ,    & !inout: 3D precipitation flux for LHN
+                       msg_level = msg_level                ,    &
+                       l_cv=.TRUE.          )    
+
         CASE(9)  ! Kessler scheme (warm rain scheme)
 
           CALL kessler (                                     &
@@ -573,6 +613,8 @@ CONTAINS
 
         END SELECT
 
+        IF (timers_level > 10) CALL timer_stop(timer_phys_micro_specific) 
+
         IF (ldiag_ttend) THEN
           !$acc parallel default(present)
           !$acc loop gang vector collapse(2)
@@ -607,7 +649,7 @@ CONTAINS
       
         IF (atm_phy_nwp_config(jg)%lcalc_acc_avg) THEN
           SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
-          CASE(4,5,6)
+          CASE(4,5,6,7)
 
 #ifdef _OPENACC
            CALL finish('mo_nwp_gscp_interface:','only graupel microphysics (inwp_gscp=2) is supported on GPU!')
@@ -685,6 +727,7 @@ CONTAINS
         ! - this is the second satad call
         ! - first satad in physics interface before microphysics
 
+        IF (timers_level > 10) CALL timer_start(timer_phys_micro_satad) 
         IF (lsatad) THEN
 
           IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN   ! EDMF DUALM: no satad in PBL
@@ -730,6 +773,8 @@ CONTAINS
 
         ENDIF
 
+        IF (timers_level > 10) CALL timer_stop(timer_phys_micro_satad) 
+
         ! Update tt_lheat to be used in LHN
         IF (lcompute_tt_lheat) THEN
             !$acc parallel default(present)
@@ -748,7 +793,7 @@ CONTAINS
 
  
     ! Some more run time diagnostics (can also be used for other schemes)
-    IF (msg_level>14 .AND. ltwomoment) THEN
+    IF (msg_level>14 .AND. atm_phy_nwp_config(jg)%l2moment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 

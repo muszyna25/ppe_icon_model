@@ -17,7 +17,7 @@ MODULE mo_name_list_output_printvars
 
   USE mo_cdi,                               ONLY: streamOpenWrite, FILETYPE_GRB2, gridCreate,                &
     &                                             GRID_UNSTRUCTURED, TAXIS_ABSOLUTE,                         &
-    &                                             vlistDestroy, zaxisDestroy, streamClose, streamDefVlist,   &
+    &                                             vlistDestroy, streamClose, streamDefVlist,                 &
     &                                             streamWriteVarSlice, gridDestroy, cdi_max_name,            &
     &                                             streamOpenRead, streamInqVlist, vlistinqvarname,           &
     &                                             taxisDestroy, vlistCreate, taxisCreate, institutInq,       &
@@ -37,9 +37,7 @@ MODULE mo_name_list_output_printvars
   USE mo_util_sort,                         ONLY: quicksort
   USE mo_util_string,                       ONLY: remove_duplicates, toupper, tolower, int2string
   USE mo_util_file,                         ONLY: util_unlink
-  USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
-    &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
-    &                                             setup_zaxes_oce
+  USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_zaxes_oce
   USE mo_util_cdi,                          ONLY: create_cdi_variable
 #ifndef __NO_JSBACH__
   USE mo_echam_phy_config,                  ONLY: echam_phy_config

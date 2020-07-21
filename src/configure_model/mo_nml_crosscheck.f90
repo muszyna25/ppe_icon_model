@@ -32,7 +32,7 @@ MODULE mo_nml_crosscheck
     &                                    max_echotop
   USE mo_time_config,              ONLY: time_config, dt_restart
   USE mo_extpar_config,            ONLY: itopo                                             
-  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,inextra_2d, inextra_3d,  &
+  USE mo_io_config,                ONLY: dt_checkpoint, lflux_avg,                         &
     &                                    lnetcdf_flt64_output, echotop_meta
   USE mo_parallel_config,          ONLY: check_parallel_configuration,                     &
     &                                    num_io_procs, itype_comm,                         &
@@ -43,9 +43,9 @@ MODULE mo_nml_crosscheck
     &                                    ltransport, ntracer, nlev, ltestcase,             &
     &                                    nqtendphy, iqtke, iqv, iqc, iqi,                  &
     &                                    iqs, iqr, iqt, iqtvar, ltimer,                    &
-    &                                    ico2, ich4, in2o, io3,                            &
+    &                                    ico2,                                             &
     &                                    iqni, iqni_nuc, iqg, iqm_max,                     &
-    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc,                & 
+    &                                    iqh, iqnr, iqns, iqng, iqnh, iqnc, iqgl, iqhl,    & 
     &                                    inccn, ininact, ininpot,                          &
     &                                    activate_sync_timers, timers_level, lart,         &
     &                                    msg_level, luse_radarfwo
@@ -381,14 +381,6 @@ CONTAINS
             &  ( atm_phy_nwp_config(jg)%icpl_aero_gscp > 0 .OR. icpl_aero_conv > 0 ) ) THEN
             CALL finish(routine,'aerosol-precipitation coupling requires irad_aero=6 or =9')
           ENDIF
-        ELSE
-
-          SELECT CASE (irad_o3)
-          CASE(0) ! ok
-          CASE default
-            irad_o3 = 0
-            CALL message(routine,'running without radiation => irad_o3 reset to 0')
-          END SELECT
 
           ! ecRad specific checks
           IF ( (atm_phy_nwp_config(jg)%inwp_radiation == 4) )  THEN
@@ -424,6 +416,15 @@ CONTAINS
             IF ( iice_scat /= 0 ) &
               &  CALL message(routine,'Warning: iice_scat is explicitly set, but ecRad is not used')
           ENDIF
+
+        ELSE
+
+          SELECT CASE (irad_o3)
+          CASE(0) ! ok
+          CASE default
+            irad_o3 = 0
+            CALL message(routine,'running without radiation => irad_o3 reset to 0')
+          END SELECT
 
         ENDIF !inwp_radiation
 
@@ -559,6 +560,26 @@ CONTAINS
         iqt       = 15    !! start index of other tracers not related at all to moisture
        
         ntracer = 14
+
+      CASE(7)  ! two-moment scheme with additional prognostic liquid water (melting) variables for graupel and hail
+      
+        iqg  = 6
+        iqh  = 7
+        iqgl = 8
+        iqhl = 9        
+        iqni = 10        
+        iqnr = 11       
+        iqns = 12        
+        iqng = 13        
+        iqnh = 14
+        iqnc = 15
+        ininact = 16
+
+        nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
+        iqm_max   = 9     !! end index of water species mass mixing ratios
+        iqt       = 17    !! start index of other tracers not related at all to moisture
+       
+        ntracer = 16
 
       CASE(5)  ! two-moment scheme with CCN and IN budgets
       

@@ -346,6 +346,11 @@ be overridden by setting the variable to an empty value: `ICON_OCEAN_FCFLAGS=`);
 `FCFLAGS` when configuring the bundled libraries (defaults to `ICON_FCFLAGS`,
 which can be overridden by setting the variable to an empty value:
 `ICON_BUNDLED_FCFLAGS=`);
+- `ICON_RTE_RRTMGP_FCFLAGS`, `ICON_ECRAD_FCFLAGS`, etc. &mdash; Fortran compiler
+flags to be appended to `FCFLAGS` when configuring the respective bundled
+libraries (defaults to `ICON_BUNDLED_FCFLAGS`, which can be overridden by
+setting the variablies to empty values: `ICON_RTE_RRTMGP_FCFLAGS=`,
+`ICON_ECRAD_FCFLAGS=`, etc.);
 - `CFLAGS` &mdash; C compiler flags to be used at the configuration **and**
 building stages when compiling ICON, as well as compiling **and** linking the
 bundled libraries (the list of flags might be extended by the configure scripts,
@@ -361,6 +366,10 @@ building stage when compiling ICON;
 - `ICON_BUNDLED_CFLAGS` &mdash; C compiler flags to be appended to `CFLAGS` when
 configuring the bundled libraries (defaults to `ICON_CFLAGS`, which can be
 overridden by setting the variable to an empty value: `ICON_BUNDLED_CFLAGS=`);
+- `ICON_CDI_CFLAGS`, `ICON_MTIME_CFLAGS`, etc. &mdash; C compiler flags to be
+appended to `CFLAGS` when configuring the respective bundled libraries
+(defaults to `ICON_BUNDLED_CFLAGS`, which can be overridden by setting the
+variablies to empty values: `ICON_CDI_CFLAGS=`, `ICON_MTIME_CFLAGS=`, etc.);
 - `NVCFLAGS` &mdash;
 [NVIDIA CUDA Compiler](https://developer.nvidia.com/cuda-llvm-compiler) flags to
 be used at the configuration **and** building stages when compiling ICON (the
@@ -394,7 +403,7 @@ whether they need to be passed to Fortran or C compiler, respectively.
 Fortran and C compilers should be appended to `FCFLAGS` and `CFLAGS`,
 respectively.
 3. Fortran and C compiler flags that need to be used when compiling and linking
-ICON but at the same time can break the configuration (a flag is to restrictive
+ICON but at the same time can break the configuration (a flag is too restrictive
 for the configure checks to pass, e.g. `-fimplicit-none` for Gfortran) or the
 functionality of the bundled libraries (e.g. the optimization level required
 for ICON is too high and leads to errors in the functionality of the bundled
@@ -406,6 +415,9 @@ the bundled libraries but at the same time conflict with the flags required for
 ICON (e.g. you want to compile ICON with `-O3` flag but the bundled libraies
 need to be compiled with `-O2`) can be specified as `ICON_BUNDLED_FCFLAGS` and
 `ICON_BUNDLED_CFLAGS`, respectively.
+6. If a set of Fortran (or C) compiler flags needs to be passed only to some
+particular bundled library, it can be specified in the respective variable,
+e.g. in `ICON_CDI_FCFLAGS` (or `ICON_CDI_CFLAGS`).
 
 ## Dynamic libraries
 

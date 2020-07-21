@@ -34,7 +34,7 @@ MODULE mo_initicon_utils
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, &
     &                               t_pi_sfc, t_sfc_inc, ana_varnames_dict, t_init_state_const
-  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, qrsgana_mode, qnxana_2mom_mode, &
+  USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, qrsgana_mode, &
     &                               ana_varnames_map_file, lread_vn,      &
     &                               lvert_remap_fg, aerosol_fg_present
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
@@ -82,7 +82,7 @@ MODULE mo_initicon_utils
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
   USE mo_upatmo_config,       ONLY: upatmo_config
-  USE mo_mcrph_sb,            ONLY: set_qnc, set_qnr, set_qni,   &
+  USE mo_2mom_mcrph_driver,   ONLY: set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng, set_qnh
 
 

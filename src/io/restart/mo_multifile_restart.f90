@@ -208,7 +208,7 @@ MODULE mo_multifile_restart
   USE mo_io_config,                    ONLY: restartWritingParameters
   USE mo_kind,                         ONLY: dp, i8
   USE mtime,                           ONLY: datetime
-  USE mo_mpi,                          ONLY: p_bcast, my_process_is_work, my_process_is_restart,        &
+  USE mo_mpi,                          ONLY: my_process_is_work, my_process_is_restart,                 &
     &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
     &                                        my_process_is_mpi_workroot, p_reduce, mpi_sum, p_barrier

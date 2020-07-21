@@ -29,7 +29,6 @@ MODULE mo_icon2dace
   !-------------
   USE mo_kind,           ONLY: wp                    ! working precision kind
   USE mo_exception,      ONLY: finish, message
-  USE mo_mpi,            only: p_pe                  ! PE of this task
   USE mo_namelist,       ONLY: open_nml,            &! open namelist file
                                close_nml,           &! close namelist file
                                position_nml,        &! position to nml group
@@ -340,13 +339,14 @@ MODULE mo_icon2dace
   !============================================================================
 contains
   !============================================================================
-  subroutine init_dace (comm, p_io)
+  subroutine init_dace (comm, p_io, ldetached)
     !----------------------------------------
     ! set the DACE MPI communicator from ICON
     ! initialize domain decomposition, grid
     !----------------------------------------
     integer ,intent(in) :: comm  ! communicator to use
     integer ,intent(in) :: p_io  ! PE to use for I/O
+    logical, intent(in) :: ldetached ! indicates that current PE is a detached IO-PE
     !----------------
     ! Local variables
     !----------------
@@ -366,7 +366,15 @@ contains
 
     dbg_level = max (dbg_level, assimilation_config(1)% dace_debug)
 
-    call set_dace_comm (comm, p_io)
+    IF (.not. ldetached) then
+      call set_dace_comm (comm, p_io)
+    ENDIF
+
+    !--------------------------
+    ! Set up time slots for MEC
+    !--------------------------
+    call set_dace_timer () ! the mtime event needs to be created on a detached IO-PE as well;
+    IF (ldetached) RETURN  ! afterwards, this process is excluded from DACE coupling
 
     !---------------------------
     ! Get ICON model information
@@ -466,16 +474,11 @@ contains
     !-------------------------------------------
     allocate (grid% icongrid)
     call set_global_indices (grid)
-    call icongrid_from_icon (grid% icongrid, p_patch(1))
+    call icongrid_from_icon (grid% icongrid, p_patch(1),comm)
     call grid_from_icon     (grid)
     deallocate              (cell_glb_idx, vert_glb_idx)
 
     call message ("icon2dace","grid setup completed")
-
-    !--------------------------
-    ! Set up time slots for MEC
-    !--------------------------
-    call set_dace_timer ()
 
     call message ("icon2dace","init_dace done.")
 
@@ -764,9 +767,10 @@ contains
 
   end SUBROUTINE setup_com_custom
   !----------------------------------------------------------------------------
-  subroutine icongrid_from_icon (icongrid, patch, verbose)
+  subroutine icongrid_from_icon (icongrid, patch, comm, verbose)
     type(t_grid_icon),  intent(out)   :: icongrid ! DACE: metadata of ICON grid
     type(t_patch_icon), intent(inout) :: patch    ! ICON native patch
+    integer,            intent(in)    :: comm     ! communicator handle
     logical, optional,  intent(in)    :: verbose  ! Enable debugging
     !-------------------------------------------
     ! Gather ICON grid metadata required by DACE
@@ -778,13 +782,16 @@ contains
     integer                     :: n_cells, n_edges, n_verts
     integer                     :: nproma_c, nproma_e, nproma_v
     integer                     :: j1, j2, k1, k2, ne
-    integer                     :: jc, jb, kc, kb, nc, nb
+    integer                     :: jc, jb, kc, kb, nc, nb, p_pe, ierr
     INTEGER                     :: i_startblk, i_endblk
     INTEGER                     :: i_startidx, i_endidx
     integer,  allocatable       :: i1(:), i2(:), i3(:)
     real(wp), allocatable       :: c1(:), c2(:), d1(:), d2(:)
     integer,  allocatable       :: owner_c(:,:,:)
     integer,  allocatable       :: owner_v(:,:,:)
+
+    ! This is needed for consistency with set_dace_comm
+    call MPI_COMM_RANK (comm, p_pe, ierr)
 
     !-----------------------------------------------------
     ! Reconstruct owner information for cells and vertices
@@ -1310,7 +1317,7 @@ contains
              write(0,*) "min/max(ngp) =", minval (ngp(1:n_verts)), maxval (ngp(1:n_verts))
              write(0,*) "min/max(w)   =", minval (w(:,1:n_verts)), maxval (w(:,1:n_verts))
              write(0,*) "Time for search [s]:", real (t2-t1)
-             write(0,*) "Time for search [µs/point]:", real ((t2-t1)/n_verts*1.e6_wp)
+             write(0,*) "Time for search [Âµs/point]:", real ((t2-t1)/n_verts*1.e6_wp)
              write(0,*)
           end if
           !---------------------------------------
@@ -1357,7 +1364,7 @@ contains
              write(0,*) "min/max(ngp) =", minval (ngp(1:n_cells)), maxval (ngp(1:n_cells))
              write(0,*) "min/max(w)   =", minval (w(:,1:n_cells)), maxval (w(:,1:n_cells))
              write(0,*) "Time for search [s]:", real (t2-t1)
-             write(0,*) "Time for search [µs/point]:", real ((t2-t1)/n_cells*1.e6_wp)
+             write(0,*) "Time for search [Âµs/point]:", real ((t2-t1)/n_cells*1.e6_wp)
              write(0,*)
           end if
           !---------------------------------------
@@ -1624,7 +1631,7 @@ contains
 !   integer             :: nz
     real(wp)            :: z, zs
     real(wp), parameter :: P_00 = 101325._wp
-    real(wp), parameter :: T_00 =    213.15_wp ! -60°C
+    real(wp), parameter :: T_00 =    213.15_wp ! -60Â°C
     real(wp), parameter :: DT   =     75._wp
     real(wp), parameter :: H_0  =  10000._wp   ! 10 km
 

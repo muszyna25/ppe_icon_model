@@ -47,7 +47,7 @@ MODULE mo_nwp_turbdiff_interface
     &                                  iqs, iqns, iqtvar, lart
   USE mo_atm_phy_nwp_config,     ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,  ONLY: kstart_moist, kstart_tracer
-  USE turb_data,                 ONLY: get_turbdiff_param, lsflcnd, modvar, nmvar, ndim
+  USE turb_data,                 ONLY: get_turbdiff_param, lsflcnd, modvar, ndim
   USE turb_diffusion,            ONLY: turbdiff
   USE turb_vertdiff,             ONLY: vertdiff
   USE mo_gme_turbdiff,           ONLY: partura, progimp_turb
@@ -213,13 +213,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   END IF
 
   ! logical for SB two-moment scheme
-  ltwomoment = .FALSE.
-  SELECT CASE(atm_phy_nwp_config(jg)%inwp_gscp)
-    CASE(4,5,6)
-      ltwomoment = .TRUE.
-    CASE DEFAULT
-      ltwomoment = .FALSE.
-  END SELECT
+  ltwomoment = atm_phy_nwp_config(jg)%l2moment
 
   ! Serialbox2 input fields serialization
   !$ser verbatim call serialize_turbdiff_interface_input(jg, nproma, nlev,&

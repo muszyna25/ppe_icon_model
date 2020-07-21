@@ -62,6 +62,7 @@ MODULE mo_nonhydro_state
     &                                ico2, ich4, in2o, io3,                     &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
+    &                                iqgl, iqhl,                                &
     &                                iqtke, nqtendphy, ltestcase, lart
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output
   USE mo_limarea_config,       ONLY: latbc_config
@@ -981,7 +982,8 @@ MODULE mo_nonhydro_state
         !are listed in mo_nml_crosscheck.f90
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
              & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
-             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6) THEN            
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==7) THEN            
 
             !graupel (iqg=6)
             CALL add_ref( p_prog_list, 'tracer',                                      &
@@ -1033,6 +1035,62 @@ MODULE mo_nonhydro_state
                     &                 "mode_iau_fg_in",                               &
                     &                 "LATBC_PREFETCH_VARS")  )
 
+        END IF
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==7) THEN
+            ! liquid water (meltwater) on graupel (shortname "QG_LIQ")
+            CALL add_ref( p_prog_list, 'tracer',                                      &
+                    & TRIM(vname_prefix)//'qgl'//suffix, p_prog%tracer_ptr(iqgl)%p_3d,&
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                    & t_cf_var(TRIM(vname_prefix)//'qgl',                             &
+                    &  'kgkg-1 ','Specific mass of liquid water coating on graupel', datatype_flt), &
+                    & grib2_var(0, 1, 113, ibits, GRID_UNSTRUCTURED, GRID_CELL),      & ! from shortName.def
+                    & ldims=shape3d_c,                                                &
+                    & tlev_source=TLEV_NNOW_RCF,                                      &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,     &
+                    &             name        = TRIM(vname_prefix)//'qgl'//suffix,    &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqgl),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqgl)),           &
+                    & vert_interp=create_vert_interp_metadata(                        &
+                    &             vert_intp_type=vintp_types("P","Z","I"),            &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                  &
+                    &             l_loglin=.FALSE.,                                   &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                               & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars", &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
+                    &                 "LATBC_PREFETCH_VARS")  )          
+            ! liquid water (meltwater) on hail  (shortname "QH_LIQ")
+            CALL add_ref( p_prog_list, 'tracer',                                      &
+                    & TRIM(vname_prefix)//'qhl'//suffix, p_prog%tracer_ptr(iqhl)%p_3d,&
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                    & t_cf_var(TRIM(vname_prefix)//'qhl',                             &
+                    &  'kgkg-1 ','Specific mass of liquid water coating on hail', datatype_flt), &
+                    & grib2_var(0, 1, 110, ibits, GRID_UNSTRUCTURED, GRID_CELL),      & ! from shortName.def
+                    & ldims=shape3d_c,                                                &
+                    & tlev_source=TLEV_NNOW_RCF,                                      &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,     &
+                    &             name        = TRIM(vname_prefix)//'qhl'//suffix,    &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqhl),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqhl)),           &
+                    & vert_interp=create_vert_interp_metadata(                        &
+                    &             vert_intp_type=vintp_types("P","Z","I"),            &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                  &
+                    &             l_loglin=.FALSE.,                                   &
+                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,             &
+                    &             lower_limit=0._wp  ),                               & 
+                    & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars", &
+                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",             &
+                    &                 "mode_iau_ana_in", "mode_iau_anaatm_in",        &
+                    &                 "mode_iau_fg_in",                               &
+                    &                 "LATBC_PREFETCH_VARS")  )          
+        END IF
+        IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==7) THEN            
+            
             !ice number concentration (iqni=8)
             CALL add_ref( p_prog_list, 'tracer',                                       &
                     & TRIM(vname_prefix)//'qni'//suffix, p_prog%tracer_ptr(iqni)%p_3d, &
@@ -1204,7 +1262,7 @@ MODULE mo_nonhydro_state
                     &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
                     &             lower_limit=0._wp  ),                              & 
                     & in_group=groups("atmo_ml_vars", "atmo_pl_vars", "atmo_zl_vars")  )
-        END IF ! inwp_gscp==4, inwp_gscp==5 .or. inwp_gscp==6
+        END IF ! inwp_gscp==4, inwp_gscp==5 .or. inwp_gscp==6 .or. inwp_gscp==7
 
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN
             ! concentration of cloud condensation nuclei
@@ -2556,7 +2614,7 @@ MODULE mo_nonhydro_state
        ENDIF  ! iqm_max >= 5
 
 
-      IF ( ANY((/2,4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+      IF ( ANY((/2,4,5,6,7/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
         !
         ! Q6 vertical integral: tqg(nproma,nblks_c)
         cf_desc    = t_cf_var('tqg', 'kg m-2', 'total column integrated graupel',  &
@@ -2568,9 +2626,9 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
 
 
-        ! Note that hail is only taken into account by schemes 4, 5 and 6
+        ! Note that hail is only taken into account by schemes 4, 5, 6 and 7
         !
-        IF ( ANY((/4,5,6/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
+        IF ( ANY((/4,5,6,7/) == atm_phy_nwp_config(p_patch%id)%inwp_gscp ) ) THEN
           ! Q7 vertical integral: tqh(nproma,nblks_c)
           cf_desc    = t_cf_var('tqh', 'kg m-2', 'total column integrated hail',     &
             &          datatype_flt)

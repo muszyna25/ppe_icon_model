@@ -44,6 +44,7 @@ CPPFLAGS="-I${HDF5_ROOT}/include ${ECCODES_INCLUDE} -I${XML2_ROOT}/include/libxm
 
 FC='ftn'
 FCFLAGS="-I${HDF5_ROOT}/include -I${RTTOV_ROOT_INC} -I${RTTOV_ROOT_OBJ} -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -O cache0 -r am -Ktrap=divz,ovf,inv"
+ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
 LDFLAGS="-L${HDF5_ROOT}/lib -L${RTTOV_ROOT_LIB} -L${AEC_DIR}/lib -L${ECCODES_LIB_DIR}"
 LIBS="-Wl,--as-needed ${XML2_LIBS} ${ECCODES_LIBS} ${RTTOV_LIBS} ${HDF5_LIBS}"
@@ -62,6 +63,7 @@ CFLAGS="$CFLAGS" \
 CPPFLAGS="$CPPFLAGS" \
 FC="$FC" \
 FCFLAGS="$FCFLAGS" \
+ICON_ECRAD_FCFLAGS="${ICON_ECRAD_FCFLAGS}" \
 LDFLAGS="$LDFLAGS" \
 LIBS="$LIBS" \
 ${EXTRA_CONFIG_ARGS} \

@@ -150,7 +150,7 @@ MODULE mo_rttov_ifc
   ! modules used
   !=============
 !NOIEXPAND (rttov_clear_rad_var)
-#if !defined(RADSHARE) && !defined(NO_RTTOV)
+#ifndef RADSHARE
   use mo_rad,             only: t_radv                  ! derived type to store radiance obs.
 #endif
 
@@ -187,7 +187,7 @@ MODULE mo_rttov_ifc
                                 jpis,                  &! small integer
                                 jprb                    ! default double precision (hopefully)
 
-#if !defined(RADSHARE) && !defined(NO_RTTOV)
+#ifndef RADSHARE
   use mo_rttov_ifc_tools, only: get_height,            &!
                                 god_thresh              !
 #endif
@@ -245,7 +245,7 @@ MODULE mo_rttov_ifc
                                 rttov_coef_pccomp1,    &! Structure for RTTOV principal component coefficients
                                 rttov_chanprof          !
 
-#if !defined(RADSHARE) && !defined(NO_RTTOV)
+#ifndef RADSHARE
   use rttov_types,        only: ipr_deb,               &!
                                 pe_rt => pe
 #endif
@@ -261,11 +261,8 @@ MODULE mo_rttov_ifc
 #ifdef RTTOV_USE_OPENMP
 #ifndef RADSHARE
   use mo_omp,             only: omp_get_max_threads     !
-#else
-  use omp_lib,            only: omp_get_max_threads     ! needed at least for gfortran compiler
 #endif
 #endif
-
 
 #endif  /* !NO_RTTOV */
 
@@ -286,16 +283,10 @@ MODULE mo_rttov_ifc
   public :: ERR_RTTOV_SETUP      ! error in rttov setup
   public :: ERR_CLOUD_AERO_MISSM ! aerosol and cloud classes change
                                  ! for different coef_scatt_ir structures
-  public :: ERROR_RTTOV_CALL     ! unable to calculate bt for all profiles
-  public :: ERROR_RTTOV_CALL_ANY ! unable to calculate bt for some profiles
-  public :: WARN_RTTOV_DIR_ALL   ! warning for all profiles
-                                 ! nevertheless bt were calculated
-  public :: WARN_RTTOV_DIR_ANY   ! warning for some profiles
-                                 ! nevertheless bt were calculated
+  public :: ERR_RTTOV_CALL       ! unable to calculate bt for all profiles
+  public :: WARN_RTTOV           ! warning
   public :: ERR_RTTOV_MPI        ! mpi comm. error
                                  ! while reading/distributing the coeffs.
-  public :: ERR_RTTOV_CL_AER     ! mismatch in rttov setup and profile
-                                 ! initialization (cloud/aerosol treatment)
   public :: ERR_NO_RTTOV_LIB     ! mismatch in rttov setup and profile
                                  ! initialization (cloud/aerosol treatment)
   public :: ERR_INVALID_TSKIN    ! invalid t_skin
@@ -354,7 +345,7 @@ MODULE mo_rttov_ifc
   public :: tmin_ifc
   public :: tmax_ifc
   public :: rttov_print_profiles
-#ifdef RTTOV12 
+#ifdef RTTOV12
 #ifndef RADSHARE
   public :: mw_atlas              ! stores atlas information for use
 #endif
@@ -511,40 +502,31 @@ INCLUDE "mpif.h"
   !-----------------------------
   ! error numbers of this module
   !-----------------------------
-  integer ,parameter :: NO_ERROR             =  0 ! everything was ok.
-  integer ,parameter :: ERR_ALLOC            =  1 ! allocation error
-  integer ,parameter :: ERR_DIM              =  2 ! mismatch in dimensions
-  integer ,parameter :: ERR_RTTOV_SETUP      =  3 ! error in rttov setup
-  integer ,parameter :: ERR_CLOUD_AERO_MISSM =  4 ! aerosol and cloud classes change
-                                                  ! for different coef_scatt_ir structures
-  integer ,parameter :: ERROR_RTTOV_CALL     =  5 ! unable to calculate bt for all profiles
-  integer ,parameter :: ERROR_RTTOV_CALL_ANY =  6 ! unable to calculate bt for some profiles
-  integer ,parameter :: WARN_RTTOV_DIR_ALL   =  7 ! warning for all profiles
-                                                  ! nevertheless bt were calculated
-  integer ,parameter :: WARN_RTTOV_DIR_ANY   =  8 ! warning for some profiles
-                                                  ! nevertheless bt were calculated
-  integer ,parameter :: ERR_RTTOV_MPI        =  9 ! mpi comm. error
-                                                  ! while reading/distributing the coeffs.
-  integer ,parameter :: ERR_RTTOV_CL_AER     = 10 ! mismatch in rttov setup and profile
-                                                  ! initialization (cloud/aerosol treatment)
-  integer ,parameter :: ERR_NO_RTTOV_LIB     = 11 ! mismatch in rttov setup and profile
-                                                  ! initialization (cloud/aerosol treatment)
-  integer ,parameter :: ERR_RTTOV_PREC       = 12 ! mismatch in real kind precision of
-                                                  !  input variables and rttov library.
-  integer ,parameter :: ERR_CLOUD_INCONSIS   = 14 ! missing cloud fraction for cloud calc.
-  integer ,parameter :: ERR_GOD_FILE         = 15 ! missing cloud fraction for cloud calc.
-  integer ,parameter :: ERR_WR_PROF          = 16 ! missing cloud fraction for cloud calc.
-  integer ,parameter :: ERR_INVALID_TSKIN    = 17 ! invalid t_skin
-  integer ,parameter :: ERR_INPUT            = 18 ! Invalid/unsupported input
-  integer ,parameter :: ERR_NO_ATLAS         = 19 ! No atlas support in current configuration
-  integer ,parameter :: ERR_ATLAS_INIT       = 20 ! Atlas was not initialized
-  integer ,parameter :: ERR_INVALID_INSTR    = 21 ! Invalid instrument (e.g. not supported by atlas)
+  integer ,parameter :: nerr                 = 20 ! number of different error messages
+  character(len=100) :: err_msg(0:nerr)
 
-  integer ,parameter :: nerr                 = 21 ! number of different error messages
-  character(len=256) :: rttov_ifc_errMsg (nerr)   ! holds the error messages
-                                                  ! for the errors above
-  logical, save      :: init_errMsg = .false.     ! switch: set to true if
-                                                  ! rttov_ifc_errMsg initialized
+#define DEF_ERR(codename, code, msg) integer,parameter::codename=code;data err_msg(code)/msg/
+
+  DEF_ERR(NO_ERROR            ,  0, 'No error. Everything okay.')
+  DEF_ERR(ERR_ALLOC           ,  1, 'Allocation error.')
+  DEF_ERR(ERR_DIM             ,  2, 'Wrong dimension size of input array')
+  DEF_ERR(ERR_RTTOV_SETUP     ,  3, 'Error in RTTOV setup')
+  DEF_ERR(ERR_CLOUD_AERO_MISSM,  4, 'Cloud/Aerosol class mismatch')
+  DEF_ERR(ERR_RTTOV_CALL      ,  5, 'RTTOV call failed')
+  DEF_ERR(WARN_RTTOV          ,  6, 'Warning: RTTOV error status /= 0')
+  DEF_ERR(ERR_RTTOV_MPI       ,  7, 'MPI error')
+  DEF_ERR(ERR_NO_RTTOV_LIB    ,  8, 'No RTTOV library available')
+  DEF_ERR(ERR_RTTOV_PREC      ,  9, 'Mismatch of working precision and RTTOV precision')
+  DEF_ERR(ERR_CLOUD_INCONSIS  , 10, 'Cloud cover and cloud water content arrays inconsistent')
+  DEF_ERR(ERR_GOD_FILE        , 11, 'Failed to read god_par_file')
+  DEF_ERR(ERR_WR_PROF         , 12, 'Failed to write hdf5 profile file')
+  DEF_ERR(ERR_INVALID_TSKIN   , 13, 'Some invalid t_surf/T_G/ts_fg')
+  DEF_ERR(ERR_INPUT           , 14, 'Invalid/unsupported input')
+  DEF_ERR(ERR_NO_ATLAS        , 15, 'No atlas support in current configuration')
+  DEF_ERR(ERR_ATLAS_INIT      , 16, 'Atlas was not initialized')
+  DEF_ERR(ERR_INVALID_INSTR   , 17, 'Invalid instrument (e.g. not supported by atlas)')
+! DEF_ERR(ERR_                , 20, '')
+
 #ifndef NO_RTTOV
   !----------------------------------
   ! RTTOV relating internal parameter
@@ -637,7 +619,7 @@ INCLUDE "mpif.h"
   !-------------------------------------------
   ! general variables for RTTOV_... interfaces
   !-------------------------------------------
-  integer(jpim)                             :: alloc_status(20)
+  integer(jpim)                             :: alloc_status
   !------------------------------------
   ! variables for RTTOV_setup interface
   !------------------------------------
@@ -695,10 +677,6 @@ INCLUDE "mpif.h"
 
   integer         ,save     :: default_fastem_version  = -1      ! otherwise
   integer         ,save     :: default_ir_emis_version = -1      ! otherwise
-! real(jprb)      ,save     :: qmin_ifc                = -1._jprb
-! real(jprb)      ,save     :: qmax_ifc                = -1._jprb
-! real(jprb)      ,save     :: tmin_ifc                = -1._jprb
-! real(jprb)      ,save     :: tmax_ifc                = -1._jprb
 
 #endif
   !-------------------------------------------------------------
@@ -739,56 +717,18 @@ INCLUDE "mpif.h"
 contains
 !======================================================================
 
-  function ini_rttov_ifc_errHandle()
-  integer :: ini_rttov_ifc_errHandle
-  !----------------------------------------------------------
-  ! initialization routine for the rttov error message vector
-  !----------------------------------------------------------
-    integer :: irun1
+  function rttov_ifc_errMsg(code) result(msg)
+    character(len=100) :: msg
+    integer, intent(in) :: code
 
-    ini_rttov_ifc_errHandle = NO_ERROR
-    if (.not.init_errMsg) then
-       init_errMsg = .true.
-       do irun1=1, size(rttov_ifc_errMsg)
-          rttov_ifc_errMsg(irun1) = ''
-       enddo
-       rttov_ifc_errMsg (1)  = 'an allocation error occurred'
-       rttov_ifc_errMsg (2)  = 'a mismatch in the dimensions of some arrays occurred'
-       rttov_ifc_errMsg (3)  = 'an error in rttov setup occurred'
-       rttov_ifc_errMsg (4)  = 'this error occurs if the aerosol and cloud classes change for different ' // &
-                               'rttovids coef_scatt_ir structures rewrite code for single profiles ' // &
-                               'allocation due to aerosol and cloud treatment'
-       rttov_ifc_errMsg (5)  = 'rttov was not able to calculate the brightness temperatures for all ' // &
-                               'of the input profiles'
-       rttov_ifc_errMsg (6)  = 'rttov was not able to calculate the brightness temperatures for some ' // &
-                               'of the input profiles'
-       rttov_ifc_errMsg (7)  = 'a warning occurred for all of the input profiles; nevertheless the ' // &
-                               'brightness temperatures (increments) were calculated'
-       rttov_ifc_errMsg (8)  = 'a warning occurred for some of the input profiles; nevertheless the ' // &
-                               'brightness temperatures (increments) were calculated'
-       rttov_ifc_errMsg (9)  = 'an mpi communication error occurred while reading/distributing the coeffs.!'
-       rttov_ifc_errMsg (10) = 'mismatch in call of rttov setup routine and profile initialization ' // &
-                               '(cloud and/or aerosol treatment)!'
-       rttov_ifc_errMsg (11) = 'the rttov library is not provided.'
-       rttov_ifc_errMsg (12) = 'mismatch in real kind precision of input variables and rttov library.'
-       rttov_ifc_errMsg (13) = 'more than one cloud type in one level'
-       rttov_ifc_errMsg (14) = 'cloud cover and cloud water content arrays inconsistent'
-       rttov_ifc_errMsg (15) = 'failed to read god_par_file.'
-       rttov_ifc_errMsg (16) = 'failed to write hdf5 profile file.'
-       rttov_ifc_errMsg (17) = 'some invalid t_surf/T_G/ts_fg.'
-       rttov_ifc_errMsg (18) = 'invalid/unsupported input.'
-       rttov_ifc_errMsg (19) = 'no atlas support in current configuration'
-       rttov_ifc_errMsg (20) = 'atlas was not initialized'
-       rttov_ifc_errMsg (21) = 'invalid instrument (e.g. not supported by atlas)'
-    endif
+    write(msg, '("(",I4,")")') code
+    if (code >= lbound(err_msg,1) .and. code <= ubound(err_msg,1)) then
+      msg = trim(msg)//' '//trim(err_msg(code))
+    else
+      msg = trim(msg)//' '//'Unknown error'
+    end if
+  end function rttov_ifc_errMsg
 
-#ifdef NO_RTTOV
-    ini_rttov_ifc_errHandle = ERR_NO_RTTOV_LIB
-#else
-    if (jprb /= wp) ini_rttov_ifc_errHandle = ERR_RTTOV_PREC
-#endif
-
-  end function ini_rttov_ifc_errHandle
   !======================================================================
 
   function rttov_init(instruments,channels,nchansPerInst,my_proc_id,n_proc,  &
@@ -828,12 +768,11 @@ contains
     integer(jpim)            :: error_status
 #endif
 
-    rttov_init = ini_rttov_ifc_errHandle()
-    if (rttov_init /= NO_ERROR) return
 #ifdef NO_RTTOV
     rttov_init = ERR_NO_RTTOV_LIB
     return
 #else
+    rttov_init = NO_ERROR
 
 FTRACE_BEGIN('rttov_init')
 
@@ -842,7 +781,6 @@ FTRACE_BEGIN('rttov_init')
     nlevs            = 0
     nmaxchansperinst = int(maxval(nchansPerInst(:)),jpim)
     nInstr           = size(instruments, 2)
-    alloc_status(:)  = 0_jpim
 
 #if defined(RTTOV12)
 !    opts%config%verbose = .true.
@@ -908,13 +846,14 @@ FTRACE_BEGIN('rttov_init')
 #endif
 
     ! allocate, read and initialise coefficients
-    allocate(setup_errorstatus(nInstr),stat=alloc_status(1))
-    allocate(coefs            (nInstr),stat=alloc_status(2))
-    allocate(instr_addclouds  (nInstr),stat=alloc_status(3))
-    allocate(instr_addaerosl  (nInstr),stat=alloc_status(4))
-    allocate(nchans_instr     (nInstr),stat=alloc_status(3))
+    allocate(setup_errorstatus(nInstr),&
+             coefs            (nInstr),&
+             instr_addclouds  (nInstr),&
+             instr_addaerosl  (nInstr),&
+             nchans_instr     (nInstr),&
+             stat=alloc_status)
 
-    if(any(alloc_status /= 0)) then
+    if(alloc_status /= 0) then
        rttov_init = ERR_ALLOC
        return
     end if
@@ -949,10 +888,10 @@ FTRACE_BEGIN('rttov_init')
 #endif
     verbose_reg_lims_p = .false.
 
-
     do run1 = 1, nInstr
       addclouds_p = instr_addclouds(run1)
       addaerosl_p = instr_addaerosl(run1)
+      FTRACE_BEGIN('read_coeffs')
 #if defined(_RTTOV_DO_DISTRIBCOEF)
       if (io_proc_id == my_proc_id) then
 #endif
@@ -990,13 +929,16 @@ FTRACE_BEGIN('rttov_init')
       if (n_proc > 1 ) &
            call p_bcast(setup_errorstatus(run1:run1), io_proc_id, mpi_comm_type)
 #endif
+      FTRACE_END('read_coeffs')
 
       if (setup_errorstatus(run1) /= errorstatus_success) cycle
 
 #if defined(_RTTOV_DO_DISTRIBCOEF)
       ! distribute loaded coefficients to all PEs
+      FTRACE_BEGIN('distrib_coeffs')
       if (n_proc > 1 ) &
            call p_bcast(coefs(run1),io_proc_id,mpi_comm_type)
+      FTRACE_END('distrib_coeffs')
 #endif
 
 #if ! defined(RTTOV12)
@@ -1035,7 +977,8 @@ FTRACE_BEGIN('rttov_init')
     end if
 
 #ifndef RADSHARE
-#if defined(RTTOV12) 
+      FTRACE_BEGIN('read_god_par')
+#if defined(RTTOV12)
     if (god_par_file /= '') then
       if (io_proc_id == my_proc_id) call read_god_par(setup_errorstatus(1))
 #if defined(_RTTOV_DO_DISTRIBCOEF)
@@ -1052,6 +995,7 @@ FTRACE_BEGIN('rttov_init')
 #endif
     end if
 #endif
+      FTRACE_END('read_god_par')
 #endif
 
     deallocate(setup_errorstatus)
@@ -1311,13 +1255,11 @@ FTRACE_END('rttov_init')
 #endif
     integer :: k
 
-    rttov_cleanup = ini_rttov_ifc_errHandle()
-    if (rttov_cleanup /= NO_ERROR) return
-
 #ifdef NO_RTTOV
     rttov_cleanup = ERR_NO_RTTOV_LIB
     return
 #else
+    rttov_cleanup = NO_ERROR
 
     ! deallocation of rttov permanent arrays
     errorstatus = ERR_ALLOC
@@ -1538,7 +1480,7 @@ FTRACE_END('rttov_init')
 
   function rttov_fill_input (press,temp,humi,t2m,q2m,psurf,hsurf,u10m,v10m,stemp,    &
                              stype,lat,lon,satzenith,sunZenith,                      &
-#if !defined(RADSHARE) && !defined(NO_RTTOV)
+#ifndef RADSHARE
                              rad,                                                    &
 #endif
                              fastem,satazim,   &
@@ -1566,7 +1508,7 @@ FTRACE_END('rttov_init')
                                                                 !   (nprofs) [hPa] default: 500
   real(wp),     intent(in), optional, target :: cfraction   (:) ! cloud fraction (of a black body cloud)
                                                                 !   (nprofs) range (0-1) default: 0
-#if !defined(RADSHARE) && !defined(NO_RTTOV)
+#ifndef RADSHARE
   ! --- or this must be present
   type(t_radv), intent(in), optional, target :: rad      ! derived type to store all the above info
 #endif
@@ -1667,13 +1609,11 @@ FTRACE_END('rttov_init')
 #endif
     integer :: pe_loc
 
-    rttov_fill_input = ini_rttov_ifc_errHandle()
-    if (rttov_fill_input /= NO_ERROR) return
-
 #ifdef NO_RTTOV
     rttov_fill_input = ERR_NO_RTTOV_LIB
     return
 #else
+    rttov_fill_input = NO_ERROR
 
     if (present(pe)) then
       pe_loc = pe
@@ -1991,6 +1931,9 @@ FTRACE_BEGIN('rttov_fill_input')
       addrefrac_p = default_addrefrac
     endif
     ozone_data_p = present(o3)
+#ifndef RADSHARE
+    if (present(rad)) ozone_data_p = ozone_data_p .or. rad%i_o3 > 0
+#endif
     co2_data_p   = present(co2)
     n2o_data_p   = present(n2o)
     co_data_p    = present(co)
@@ -2045,21 +1988,21 @@ FTRACE_BEGIN('rttov_fill_input')
         enddo
       end if
 
-!cdir novector
+!NEC$ novector
       do i=1,n_levs
         if (associated(press_p)) then
-!cdir vector
+!NEC$ vector
           do irun1=1,nprof
             ! profile variables:
             profiles(irun1)% p(i+nlevs_top) = press_p(i,irun1)
           end do
         else
-!cdir vector
+!NEC$ vector
           do irun1=1,nprof
             profiles(irun1)% p(i+nlevs_top) = press_const_p(i)
           end do
         end if
-!cdir vector
+!NEC$ vector
         do irun1=1,nprof
           ! profile variables:
           profiles(irun1)% t(i+nlevs_top) = min(tmax_ifc,max(tmin_ifc,temp_p (i,irun1)))
@@ -2067,7 +2010,7 @@ FTRACE_BEGIN('rttov_fill_input')
         enddo
       enddo
 
-!cdir vector
+!NEC$ vector
        do irun1=1,nprof
           if (associated(id_p)) then
             write(profiles(irun1)% id,*) id_p(irun1)
@@ -2143,15 +2086,23 @@ FTRACE_BEGIN('rttov_fill_input')
           endif
 
           if (associated(sunazangle_p)) then
-             profiles(irun1)% sunazangle = sunazangle_p(irun1)
+            if (abs(sunazangle_p(irun1)) <= 360._wp) then
+              profiles(irun1)% sunazangle = sunazangle_p(irun1)
+            else
+              profiles(irun1)% sunazangle = default_sunazangle
+            end if
           else
              profiles(irun1)% sunazangle = default_sunazangle
           endif
 
           if (associated(sunzenith_p)) then
-             profiles(irun1)% sunzenangle = sunzenith_p(irun1)
+            if (abs(sunzenith_p(irun1)) <= 360._wp) then
+              profiles(irun1)% sunzenangle = sunzenith_p(irun1)
+            else
+              profiles(irun1)% sunzenangle = default_sunzenangle
+            end if
           else
-             profiles(irun1)% sunzenangle = default_sunzenangle
+            profiles(irun1)% sunzenangle = default_sunzenangle
           endif
 
           if (present(o3_surf)) then
@@ -2173,22 +2124,35 @@ FTRACE_BEGIN('rttov_fill_input')
          do irun1 = 1, nprof
             profiles(irun1)% o3(1) = o3(1,irun1)
          enddo
-!cdir novector
+!NEC$ novector
          do i=1,n_levs
-!cdir vector
+!NEC$ vector
            do irun1 = 1, nprof
               profiles(irun1)% o3(i+nlevs_top) = o3(i,irun1)
            enddo
          enddo
+#ifndef RADSHARE
+       elseif (ozone_data_p) then
+         do irun1 = 1, nprof
+            profiles(irun1)% o3(1) = rad%spec(rad%i_o3,1,irun1)
+         enddo
+!NEC$ novector
+         do i=1,n_levs
+!NEC$ vector
+           do irun1 = 1, nprof
+              profiles(irun1)% o3(i+nlevs_top) = rad%spec(rad%i_o3,i,irun1)
+           enddo
+         enddo
+#endif
        endif
 
        if (present(co2)) then
          do irun1 = 1, nprof
             profiles(irun1)% co2(1) = co2(1,irun1)
          enddo
-!cdir novector
+!NEC$ novector
          do i=1,n_levs
-!cdir vector
+!NEC$ vector
            do irun1 = 1, nprof
               profiles(irun1)% co2(i + nlevs_top) = co2(i,irun1)
            enddo
@@ -2199,9 +2163,9 @@ FTRACE_BEGIN('rttov_fill_input')
          do irun1 = 1, nprof
             profiles(irun1)% n2o(1) = n2o(1,irun1)
          enddo
-!cdir novector
+!NEC$ novector
          do i=1,n_levs
-!cdir vector
+!NEC$ vector
            do irun1 = 1, nprof
               profiles(irun1)% n2o(i + nlevs_top) = n2o(i,irun1)
            enddo
@@ -2212,9 +2176,9 @@ FTRACE_BEGIN('rttov_fill_input')
          do irun1 = 1, nprof
             profiles(irun1)% co(1) = co(1,irun1)
          enddo
-!cdir novector
+!NEC$ novector
          do i=1,n_levs
-!cdir vector
+!NEC$ vector
            do irun1 = 1, nprof
               profiles(irun1)% co(i + nlevs_top) = co(i,irun1)
            enddo
@@ -2225,9 +2189,9 @@ FTRACE_BEGIN('rttov_fill_input')
          do irun1 = 1, nprof
             profiles(irun1)% ch4(1) = ch4(1,irun1)
          enddo
-!cdir novector
+!NEC$ novector
          do i=1,n_levs
-!cdir vector
+!NEC$ vector
            do irun1 = 1, nprof
               profiles(irun1)% ch4(i + nlevs_top) = ch4(i,irun1)
            enddo
@@ -2238,9 +2202,9 @@ FTRACE_BEGIN('rttov_fill_input')
          do irun1 = 1, nprof
             profiles(irun1)% clw(1) = clw(1,irun1)
          enddo
-!cdir novector
+!NEC$ novector
          do i=1,n_levs
-!cdir vector
+!NEC$ vector
            do irun1 = 1, nprof
               profiles(irun1)% clw(i + nlevs_top) = clw(i,irun1)
            enddo
@@ -2248,11 +2212,11 @@ FTRACE_BEGIN('rttov_fill_input')
        endif
 
        if (present(aerosols)) then
-!cdir novector
+!NEC$ novector
           do i=1,n_lev_layers
-!cdir novector
+!NEC$ novector
              do j=1,size(aerosols,1)
-!cdir vector
+!NEC$ vector
                 do irun1=1,nprof
                    profiles(irun1)% aerosols(j,i) = aerosols(j,i,irun1)
                 enddo
@@ -2261,11 +2225,11 @@ FTRACE_BEGIN('rttov_fill_input')
        endif
 
        if (associated(cld_p)) then
-!cdir novector
+!NEC$ novector
           do i=1,n_lev_layers
-!cdir novector
+!NEC$ novector
              do j=1,size(cld_p,1)
-!cdir vector
+!NEC$ vector
                 do irun1=1,nprof
                    profiles(irun1)% cloud(j,i) = cld_p(j,i,irun1)
                 enddo
@@ -2275,16 +2239,16 @@ FTRACE_BEGIN('rttov_fill_input')
 
        if (associated(cfr_p)) then
 #if defined(RTTOV12)
-!cdir novector
+!NEC$ novector
           do i=1,n_lev_layers
              do irun1=1,nprof
                 profiles(irun1)% cfrac(i) = cfr_p(i,irun1)
              enddo
           enddo
 #else
-!cdir novector
+!NEC$ novector
           do j=1,size(profiles(irun1)% cfrac,1)
-!cdir novector
+!NEC$ novector
              do i=1,n_lev_layers
                 do irun1=1,nprof
                    profiles(irun1)% cfrac(j,i) = cfr_p(i,irun1)
@@ -2381,12 +2345,20 @@ FTRACE_BEGIN('rttov_fill_input')
             profiles(irun1)% azangle         = default_satazim
           end if
           if (associated(sunazangle_p)) then
-            profiles(irun1)%sunazangle  = sunazangle_p   (irun1)
+            if (abs(sunazangle_p(irun1)) <= 360._wp) then
+              profiles(irun1)%sunazangle  = sunazangle_p   (irun1)
+            else
+              profiles(irun1)% sunazangle      = default_sunazangle
+            end if
           else
             profiles(irun1)% sunazangle      = default_sunazangle
           end if
           if (associated(sunZenith_p)) then
-            profiles(irun1)%sunzenangle = sunZenith_p    (irun1)
+            if (abs(sunZenith_p(irun1)) <= 360._wp) then
+              profiles(irun1)%sunzenangle = sunZenith_p    (irun1)
+            else
+              profiles(irun1)%sunzenangle = default_sunzenangle
+            end if
           else
             profiles(irun1)%sunzenangle = default_sunzenangle
           end if
@@ -2417,6 +2389,11 @@ FTRACE_BEGIN('rttov_fill_input')
           if (present(o3)) then
              profiles(irun1)% o3(1)               = o3  (1       ,irun1)
              profiles(irun1)% o3(1+nlevs_top:)    = o3  (1:n_levs,irun1)
+#ifndef RADSHARE
+          elseif (ozone_data_p) then
+             profiles(irun1)% o3(1)               = rad% spec(rad%i_o3,1,irun1)
+             profiles(irun1)% o3(1+nlevs_top:)    = rad% spec(rad%i_o3,1:n_levs,irun1)
+#endif
           endif
           if (present(co2)) then
              profiles(irun1)% co2(1)               = co2 (1       ,irun1)
@@ -2593,7 +2570,7 @@ FTRACE_END('rttov_fill_input')
    real(jprb)                 :: emissivity    (size(chans))
 #endif
 #endif
-   integer(jpim)              :: rttov_errorstatus(1)
+   integer(jpim)              :: rttov_errorstatus
    type(rttov_chanprof)       :: chanprof(size(chans))
    integer                    :: lims_flag(nlevs,2)
 #endif
@@ -2608,12 +2585,11 @@ FTRACE_END('rttov_fill_input')
    character(len=1000) :: msg_ = ''
 #endif
 
-   rttov_direct_ifc = ini_rttov_ifc_errHandle()
-   if (rttov_direct_ifc /= NO_ERROR) return
 #ifdef NO_RTTOV
    rttov_direct_ifc      = ERR_NO_RTTOV_LIB
    return
 #else
+   rttov_direct_ifc      = NO_ERROR
 
    lpio = .false.
    if (present(l_pio)) lpio=l_pio
@@ -2719,7 +2695,7 @@ FTRACE_BEGIN('rttov_direct_ifc')
         eind = eind + nchans
       enddo
     else
-!cdir nodep
+!NEC$ ivdep
       do i = 1, nchansprofs
 #if defined(RTTOV12)
         emissivity(i)%emis_in  = emissiv(istore(i,1),istore(i,2))
@@ -2967,7 +2943,7 @@ FTRACE_BEGIN('rttov_direct_ifc')
     calcemis(1:nchansprofs) = emissivity    (1:nchansprofs) < 0.01_jprb
 #endif
 
-    rttov_errorstatus(:) = errorstatus_success
+    rttov_errorstatus = errorstatus_success
 
     !---------------------
     ! fill in the chanprof
@@ -2982,7 +2958,7 @@ FTRACE_BEGIN('rttov_direct_ifc')
 #if defined(RTTOV12)
 #ifdef RTTOV_USE_OPENMP
     call rttov_parallel_direct (                            &
-           rttov_errorstatus(1)                            ,& ! --> error flag
+           rttov_errorstatus                               ,& ! --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate
            opts                                            ,& ! <-- options
            pack(profiles(iprof_s:iprof_e), mask=prof_used) ,& ! <--  profile array
@@ -2995,7 +2971,7 @@ FTRACE_BEGIN('rttov_direct_ifc')
            nthreads=omp_get_max_threads()                   )
 #else
     call rttov_direct (                                     &
-           rttov_errorstatus(1)                            ,& ! --> error flag
+           rttov_errorstatus                               ,& ! --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate
            opts                                            ,& ! <-- options
            pack(profiles(iprof_s:iprof_e), mask=prof_used) ,& ! <--  profile array
@@ -3008,7 +2984,7 @@ FTRACE_BEGIN('rttov_direct_ifc')
 #endif
 #elif defined(RTTOV10)
     call rttov_direct (                                     &
-           rttov_errorstatus(1)                            ,& ! --> error flag
+           rttov_errorstatus                               ,& ! --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate
            opts                                            ,& ! <-- options
            pack(profiles(iprof_s:iprof_e), mask=prof_used) ,& ! <--  profile array
@@ -3022,9 +2998,9 @@ FTRACE_BEGIN('rttov_direct_ifc')
     !----------------------------------------------
     ! check for completely awful rttov error status
     !----------------------------------------------
-    if (rttov_errorstatus(1) == ERRORSTATUS_FATAL) then
+    if (rttov_errorstatus == ERRORSTATUS_FATAL) then
        print *, 'after rttov direct -> fatal error'
-       rttov_direct_ifc = ERROR_RTTOV_CALL
+       rttov_direct_ifc = ERR_RTTOV_CALL
        return
     endif
 
@@ -3105,7 +3081,7 @@ FTRACE_BEGIN('rttov_direct_ifc')
         eind = eind + nchans
       enddo
     else
-!cdir nodep
+!NEC$ ivdep
       do i = 1, nchansprofs
 #if defined(RTTOV12)
         emissiv(istore(i,1),istore(i,2)) = dble(emissivity(i)%emis_out)
@@ -3229,13 +3205,11 @@ FTRACE_BEGIN('rttov_direct_ifc')
 #endif
 
 #ifdef RTTOV10
-    if (any(rttov_errorstatus == errorstatus_warning)) &
-       rttov_direct_ifc = WARN_RTTOV_DIR_ANY
-    if (all(rttov_errorstatus == errorstatus_warning)) &
-       rttov_direct_ifc = WARN_RTTOV_DIR_ALL
+    if (rttov_errorstatus == errorstatus_warning) &
+       rttov_direct_ifc = WARN_RTTOV
 #endif
 
-    if (present(errorstatus)) errorstatus(1:nprof) = rttov_errorstatus(1)
+    if (present(errorstatus)) errorstatus(1:nprof) = rttov_errorstatus
 
 FTRACE_END('rttov_direct_ifc')
 
@@ -3356,7 +3330,7 @@ FTRACE_END('rttov_direct_ifc')
     real(jprb)                 :: emissivity_k(size(chans))
 #endif
 #endif
-    integer(jpim)              :: rttov_errorstatus(1)
+    integer(jpim)              :: rttov_errorstatus
     type(rttov_chanprof)       :: chanprof(size(chans))
     integer(jpim)              :: n_lev_layers ! This variable is used to switch between
                                                ! RTTOV9 levels and RTTOV10 layers
@@ -3378,8 +3352,7 @@ FTRACE_END('rttov_direct_ifc')
     rttov_k_ifc = ERR_NO_RTTOV_LIB
     return
 #else
-    rttov_k_ifc = ini_rttov_ifc_errHandle()
-    if (rttov_k_ifc /= NO_ERROR) return
+    rttov_k_ifc = NO_ERROR
 
     lpio = .false.
     if (present(l_pio)) lpio=l_pio
@@ -3492,7 +3465,7 @@ FTRACE_BEGIN('rttov_k_ifc')
         eind = eind + nchans
       enddo
     else
-!cdir nodep
+!NEC$ ivdep
       do i = 1, nchansprofs
 #if defined(RTTOV12)
         emissivity  (i)%emis_in  = real (emissiv  (istore(i,1),istore(i,2)),jprb)
@@ -3720,7 +3693,7 @@ FTRACE_BEGIN('rttov_k_ifc')
     calcemis(1:nchansprofs) = emissivity(1:nchansprofs) < 0.01_jprb
 #endif
 
-    rttov_errorstatus(:) = errorstatus_success
+    rttov_errorstatus = errorstatus_success
 
     !---------------------------------------------------
     ! TODO: the following may be optimized,
@@ -3754,7 +3727,7 @@ FTRACE_BEGIN('rttov_k_ifc')
 #if defined(RTTOV12)
 #ifdef RTTOV_USE_OPENMP
     call rttov_parallel_k(                                  &
-           rttov_errorstatus(1)                            ,& !  --> error flag
+           rttov_errorstatus                               ,& !  --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate
            opts                                            ,& ! <-- options
            pack(profiles(iprof_s:iprof_e), mask=prof_used) ,& ! <--  profile array
@@ -3770,7 +3743,7 @@ FTRACE_BEGIN('rttov_k_ifc')
            nthreads=omp_get_max_threads()                   )
 #else
     call rttov_k(                                           &
-           rttov_errorstatus(1)                            ,& !  --> error flag
+           rttov_errorstatus                               ,& !  --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate
            opts                                            ,& ! <-- options
            pack(profiles(iprof_s:iprof_e), mask=prof_used) ,& ! <--  profile array
@@ -3786,7 +3759,7 @@ FTRACE_BEGIN('rttov_k_ifc')
 #endif
 #elif defined(RTTOV10)
     call rttov_k(                                           &
-           rttov_errorstatus(1)                            ,& !  --> error flag
+           rttov_errorstatus                               ,& !  --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate
            opts                                            ,& ! <-- options
            pack(profiles(iprof_s:iprof_e), mask=prof_used) ,& ! <--  profile array
@@ -3806,9 +3779,9 @@ FTRACE_BEGIN('rttov_k_ifc')
     !----------------------------------------------
     ! check for completely awful rttov error status
     !----------------------------------------------
-    if (rttov_errorstatus(1) == errorstatus_fatal) then
+    if (rttov_errorstatus == errorstatus_fatal) then
        print *, 'after rttov_k -> fatal error'
-       rttov_k_ifc = ERROR_RTTOV_CALL
+       rttov_k_ifc = ERR_RTTOV_CALL
        return
     endif
 
@@ -4029,11 +4002,8 @@ FTRACE_BEGIN('rttov_k_ifc')
 
 
 #ifdef RTTOV10
-    if (any(rttov_errorstatus == errorstatus_warning)) then
-       rttov_k_ifc = WARN_RTTOV_DIR_ANY
-    endif
-    if (all(rttov_errorstatus == errorstatus_warning)) then
-       rttov_k_ifc = WARN_RTTOV_DIR_ALL
+    if (rttov_errorstatus == errorstatus_warning) then
+       rttov_k_ifc = WARN_RTTOV
     endif
 #endif
 
@@ -4078,6 +4048,7 @@ FTRACE_END('rttov_k_ifc')
    integer                 :: k, iprint
 #endif
 
+   stat = NO_ERROR
    if (RTTOV_IFC_VERSION < 12) then
      stat = ERR_NO_ATLAS
      return
@@ -4099,7 +4070,7 @@ FTRACE_END('rttov_k_ifc')
    if (any(lprofs(:) /= 1 )) then
      stat = ERR_DIM
      return
-   end if     
+   end if
 
    !--------------------------------------------
    ! Allocate auxiliary arrays
@@ -4178,13 +4149,13 @@ FTRACE_END('rttov_k_ifc')
    integer,            intent(out):: stat           ! error status
 
    logical   :: tel, cnr(3)
-   integer   :: k, j, n_atlas
-   integer   :: ierr(4)
+   integer   :: k, j, n_atlas, ierr(4)
 
    if (RTTOV_IFC_VERSION < 12) then
      stat = ERR_NO_ATLAS
      return
    end if
+   stat = NO_ERROR
 
 #ifdef RTTOV12
    tel = .false.
@@ -4209,7 +4180,11 @@ FTRACE_END('rttov_k_ifc')
          call rttov_setup_emis_atlas(ierr(1), opts, month, 1, mw_atlas(n_atlas), atlas_id = 1, &
               path = path, coefs = coefs(k))
          tel = .true.
-         if (ierr(1) == 0) write(stdout,*) 'TELSEM emissivity atlas initialized.'
+         if ( ierr(1) == 0) then
+           write(stdout,*) 'TELSEM emissivity atlas initialized.'
+         else
+           write(0,*) 'Failed to initialize TELSEM emissivity atlas.'
+         end if
        end if
        ! CNRM needs to be loaded for each instument that requires it (AMSU-A/-B, ATMS and/or MHS)
        do j = 1, size(cnrm)
@@ -4223,8 +4198,13 @@ FTRACE_END('rttov_k_ifc')
            call rttov_setup_emis_atlas(ierr(j+1), opts, month, 1, mw_atlas(n_atlas), atlas_id = 2, &
                 path = path, coefs = coefs(k))
            cnr(j) = .true.
-           if (ierr(j+1) == 0) write(stdout,'(1x,A,I3,A)') 'CNRM emissivity atlas for instrument ', &
+           if ( ierr(j+1) == 0) then
+             write(stdout,'(1x,A,I3,A)') 'CNRM emissivity atlas for instrument ', &
                 coefs(k)% coef% id_inst, ' initialized.'
+             print*,n_atlas,mw_atlas(n_atlas)%init
+           else
+             write(0,'(A,I3)') 'Failed to initialize TELSEM emissivity atlas for instrument ',coefs(k)% coef% id_inst
+           end if
          end if
        end do
        if ( tel .and. all(cnr)) exit
@@ -4238,7 +4218,7 @@ FTRACE_END('rttov_k_ifc')
    ! distribute atlases to all PEs
    if (n_proc > 1 ) then
      call p_bcast(n_atlas,io_proc_id,mpi_comm_type)
-     if (my_proc_id == io_proc_id) write(stdout,'(1x,A,I2,A)') 'Distribute ',n_atlas,' emissivity atlases.'
+     if (io_proc_id == mpi_my_proc_id) write(stdout,'(1x,A,I2,A)') 'Distribute ',n_atlas,' emissivity atlases.'
      do j = 1, n_atlas
        call p_bcast(mw_atlas(j),io_proc_id,mpi_comm_type)
      end do
@@ -4269,6 +4249,7 @@ FTRACE_END('rttov_k_ifc')
      stat = ERR_NO_ATLAS
      return
    end if
+   stat = NO_ERROR
 
 #ifdef RTTOV12
    if (coefs(insidx)% coef% id_sensor /= 2) then
@@ -4294,11 +4275,11 @@ FTRACE_END('rttov_k_ifc')
    enddo
 
    do irun = 1, size(mw_atlas)
-      if (.not. mw_atlas(irun)% init) cycle
-      if (.not. mw_atlas(irun)% is_mw) cycle
-      if (mw_atlas(irun)% atlas_id /= atlas_id) cycle
-      if (atlas_id == 2 .and. mw_atlas(irun)% cnrm_mw_atlas% inst_id /= coefs(insidx)% coef% id_inst) cycle
-      atlas = mw_atlas(irun)
+     if (.not. mw_atlas(irun)% init) cycle
+     if (.not. mw_atlas(irun)% is_mw) cycle
+     if (mw_atlas(irun)% atlas_id /= atlas_id) cycle
+     if (atlas_id == 2 .and. mw_atlas(irun)% cnrm_mw_atlas% inst_id /= coefs(insidx)% coef% id_inst) cycle
+     atlas = mw_atlas(irun)
    end do
    if ( .not. atlas% init ) then
      stat = ERR_ATLAS_INIT
@@ -4468,7 +4449,7 @@ FTRACE_END('rttov_k_ifc')
 
     ! Initialize profile components
     do i=1,size(profiles)
-!CDIR SHORTLOOP
+!NEC$ shortloop
 !CDIR ARRAYCOMB
        profiles(i)% p  (:)          =  0._jprb ! no AD on pressure levels
        profiles(i)% t  (:)          =  0._jprb ! temperature
@@ -4577,17 +4558,14 @@ FTRACE_BEGIN('alloc_rttov_arrays')
 
     n_lev_layers    = n_levs - 1
 
-    alloc_rttov_arrays  = ini_rttov_ifc_errHandle ()
-    if (alloc_rttov_arrays /= NO_ERROR) return
-
-    alloc_status(:) = 0_jpim
+    alloc_rttov_arrays  = NO_ERROR
 
     if (present(profs )) call alloc_profs(profs )
 
     if (present(rads)) then
       ! allocate radiance structure
 #if defined(RTTOV10)
-      call rttov_alloc_rad(alloc_status(1),&
+      call rttov_alloc_rad(alloc_status,&
            n_channels,     &
            rads,           &
            n_lev_layers,   &
@@ -4595,7 +4573,7 @@ FTRACE_BEGIN('alloc_rttov_arrays')
            init=.true.     )
 #elif defined(RTTOV12)
       if (present(rads2)) then
-        call rttov_alloc_rad(alloc_status(1),&
+        call rttov_alloc_rad(alloc_status,&
              n_channels,     &
              rads,           &
              n_levs,         &
@@ -4603,7 +4581,7 @@ FTRACE_BEGIN('alloc_rttov_arrays')
              rads2,          &
              init=.true.     )
       else
-        call rttov_alloc_rad(alloc_status(1),&
+        call rttov_alloc_rad(alloc_status,&
              n_channels,     &
              rads,           &
              n_levs,         &
@@ -4611,7 +4589,7 @@ FTRACE_BEGIN('alloc_rttov_arrays')
              init=.true.     )
       end if
 #endif
-      if( any (alloc_status /= 0)) then
+      if(alloc_status /= 0) then
         alloc_rttov_arrays = ERR_ALLOC
         return
       endif
@@ -4619,7 +4597,7 @@ FTRACE_BEGIN('alloc_rttov_arrays')
 
     if (present(transm)) then
       ! allocate parts of transmission structure and error status
-      call rttov_alloc_transmission(alloc_status(1) ,&
+      call rttov_alloc_transmission(alloc_status ,&
            transm          ,&
 #if defined(RTTOV12)
            n_levs          ,&
@@ -4630,15 +4608,15 @@ FTRACE_BEGIN('alloc_rttov_arrays')
            RTTOV_ALLOC     ,&
            .true.)           !Initialize the transmission
 
-      if(any(alloc_status /= 0)) then
+      if(alloc_status /= 0) then
         alloc_rttov_arrays = ERR_ALLOC
         return
       end if
     end if
 
     if (present(height)) then
-      allocate(height(n_channels), stat=alloc_status(1))
-      if(alloc_status(1) /= 0) then
+      allocate(height(n_channels), stat=alloc_status)
+      if(alloc_status /= 0) then
         alloc_rttov_arrays = ERR_ALLOC
         return
       end if
@@ -4660,19 +4638,14 @@ FTRACE_END('alloc_rttov_arrays')
 
       if (l_req) then
         if (associated(profs)) then
-          call rttov_alloc_prof(alloc_status(1),size(profs),profs,         &
+          call rttov_alloc_prof(alloc_status,size(profs),profs,         &
                size(profs(1)%p),opts,RTTOV_DEALLOC,coefs(1))
-          deallocate(profs, stat = alloc_status(2))
-          if(any (alloc_status(1:2) /= 0)) then
-            alloc_rttov_arrays = ERR_ALLOC
-            return
-          end if
+          if (alloc_status/= 0) then ; alloc_rttov_arrays = ERR_ALLOC ; return ; end if
+          deallocate(profs, stat = alloc_status)
+          if (alloc_status/= 0) then ; alloc_rttov_arrays = ERR_ALLOC ; return ; end if
         END if
-        allocate(profs(n_profs), stat = alloc_status(1))
-        if(alloc_status(1) /= 0) then
-          alloc_rttov_arrays = ERR_ALLOC
-          return
-        end if
+        allocate(profs(n_profs), stat = alloc_status)
+        if (alloc_status/= 0) then ; alloc_rttov_arrays = ERR_ALLOC ; return ; end if
 
         loc1 = maxloc(coefs(:)%coef_scatt_ir%fmv_aer_comp)
         loc2 = maxloc(coefs(:)%coef_scatt_ir%fmv_wcl_comp)
@@ -4683,7 +4656,7 @@ FTRACE_END('alloc_rttov_arrays')
         endif
 
         call rttov_alloc_prof (  &
-             alloc_status(1) , &
+             alloc_status    , &
              n_profs         , &
              profs           , &
              n_levs          , &
@@ -4692,7 +4665,7 @@ FTRACE_END('alloc_rttov_arrays')
              coefs(loc1(1))  , &
              init      = l_init)
 
-        if(alloc_status(1) /= 0) then
+        if(alloc_status /= 0) then
           alloc_rttov_arrays  = ERR_ALLOC
           return
         endif
@@ -4732,8 +4705,7 @@ FTRACE_END('alloc_rttov_arrays')
 
 FTRACE_BEGIN('dealloc_rttov_arrays')
 
-    dealloc_rttov_arrays = ini_rttov_ifc_errHandle()
-    if (dealloc_rttov_arrays /= NO_ERROR) return
+    dealloc_rttov_arrays = NO_ERROR
     errorstatus = errorstatus_success
 
     if (present(rads)) then
@@ -4777,14 +4749,14 @@ FTRACE_BEGIN('dealloc_rttov_arrays')
     if (present(transm)) then
 #if defined(RTTOV10)
       if (associated(transm%tau_levels)) then
-        call rttov_alloc_transmission(alloc_status(1),transm, &
+        call rttov_alloc_transmission(alloc_status,transm, &
                                       size(transm%tau_levels,1) - 1, &
                                       size(transm%tau_levels,2),     &
                                       RTTOV_DEALLOC)
       end if
 #elif defined(RTTOV12)
       if (associated(transm%tau_levels)) then
-        call rttov_alloc_transmission(alloc_status(1),transm, &
+        call rttov_alloc_transmission(alloc_status,transm, &
                                       size(transm%tau_levels,1) - 1, &
                                       size(transm%tau_levels,2),     &
                                       RTTOV_DEALLOC)

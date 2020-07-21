@@ -9186,11 +9186,8 @@ This affects most local arrays in the dynamical core routines (solve\_nonhydro a
 arrays in the tracer transport routines, the metrics coefficients,
 arrays used for storing tendencies or differenced fields (gradients, divergence etc.), reference atmosphere fields,
 and interpolation coefficients. Prognostic variables and intermediate variables affecting the accuracy of mass conservation
-are still treated in double precision. To activate the mixed-precision option, the cpp flags '-D\_\_MIXED\_PRECISION' and  
-'-D\_\_MIXED\_PRECISION\_2' need to be specified in the configuration settings used for generating the Makefile.
-The latter flag is used for physics tendencies.
-Note that interpolation to a latitude-longitude grid is not supported for single-precision variables; if you desire to output
-physics tendency fields on a regular grid for diagnostic purposes, do not set '-D\_\_MIXED\_PRECISION\_2'.
+are still treated in double precision. To activate the mixed-precision option, run the configure script with the 
+'-\,-enable-mixed-precision' flag.
 
 
 

@@ -14,7 +14,7 @@ ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 MODULE_SETTINGS=". ${MODULESHOME}/init/sh; module purge"
 
 
-MODULES='apps sx/default gcc/9.1.0 mpi/2.3.1 netcdf4/4.7.3-VH-gnu hdf5/1.10.5-VH-gnu eccodes/2.14.1-VH-gnu aec/1.0.3-VH-gnu intel/2020 szip/2.1.1-VH-gnu'
+MODULES='apps sx/default gcc/9.1.0 mpi/2.6.0 netcdf4/4.7.3-VH-gnu hdf5/1.10.5-VH-gnu eccodes/2.14.1-VH-gnu aec/1.0.3-VH-gnu aocl/2.1-VH-gnu szip/2.1.1-VH-gnu'
 
 
 ### Libraries ###
@@ -27,7 +27,8 @@ NETCDF_LIBS='-lnetcdf'
 HDF5_LIBS='-lhdf5hl_fortran -lhdf5_fortran -lhdf5_hl -lhdf5'
 
 # BLAS, LAPACK
-MKL_LIBS='-lmkl_gf_lp64 -lmkl_sequential -lmkl_core'
+AMDLIB_ROOT='/hpc/sw/amd/aocl/2.1'
+AMD_LIBS='-lflame -lblis'
 
 # ECCODES - note that we use a double underscore because ECCODES_LIBS may be overwritten by system settings
 ECCODES__LIBS='-leccodes_f90 -leccodes'
@@ -47,8 +48,11 @@ ZLIBROOT='/hpc/sw/zlib/1.2.11/x86/gnu'
 ZLIB_LIB='-lz' 
 
 # RTTOV
-RTTOV_ROOT_LIB='/hpc/uhome/ublahak/ICON/ICON_MPI/LIB/rttov12.1_ub/sx.VH'
+RTTOV_ROOT='/hpc/rhome/for0adm/nwp/x86_vh/external'
 RTTOV_LIBS='-lrttov12'
+
+# flags needed for static linking
+STATICLINK_FLAGS='-static -add-gcc-rpath'
 
 ################################################################################
 
@@ -68,12 +72,13 @@ CPPFLAGS="${ECCODES_INCLUDE} -I${HDF5ROOT}/include -I${NETCDFROOT}/include ${ECC
 
 # Fortran compiler wrapper on cray machine
 FC='mpinfort -vh'
-FCFLAGS="${ECCODES_INCLUDE} -I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT_LIB}/obj -cpp -std=gnu -fno-range-check -fbacktrace -g -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
+FCFLAGS="${ECCODES_INCLUDE} -I${HDF5ROOT}/include -I${NETCDFROOT}/include -I${NETCDFFROOT}/include -I${RTTOV_ROOT}/include/rttov12 -cpp -std=gnu -fno-range-check -fbacktrace -g -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -mavx2 -O2 -mno-fma -mpc64  -D__COMM_OPT__ -D__BLOCK_GET__ -D__NEC_VH__ -DUSE_XML2"
 ICON_FCFLAGS=''
 ICON_OCEAN_FCFLAGS='-O2'
+ICON_ECRAD_FCFLAGS="-D__ECRAD_LITTLE_ENDIAN"
 
-LDFLAGS="-L${ZLIBROOT}/lib -L${AEC_DIR}/lib -L${SZIPROOT}/lib -L${HDF5ROOT}/lib -L${NETCDFROOT}/lib -L${NETCDFFROOT}/lib -L${RTTOV_ROOT_LIB} -L${ECCODES_LIB_DIR} -L${MKLROOT}/lib/intel64 -L${XML2ROOT}/lib"
-LIBS="-Wl,--as-needed ${XML2_LIBS} ${MKL_LIBS} ${ECCODES__LIBS} ${RTTOV_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB}"
+LDFLAGS="-L${ZLIBROOT}/lib -L${AEC_DIR}/lib -L${SZIPROOT}/lib -L${HDF5ROOT}/lib -L${NETCDFROOT}/lib -L${NETCDFFROOT}/lib -L${RTTOV_ROOT}/lib -L${ECCODES_LIB_DIR} -L${AMDLIB_ROOT}/libs -L${XML2ROOT}/lib"
+LIBS="-Wl,--as-needed ${XML2_LIBS} ${ECCODES__LIBS} ${RTTOV_LIBS} ${AMD_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${SZIP_LIB} ${AEC_LIB} ${ZLIB_LIB} ${STATICLINK_FLAGS}"
 
 MPI_LAUNCH=''  # needed e.g. for yac configuration. What is the correct setting for gnu ?? 
 
@@ -93,6 +98,7 @@ ICON_BUNDLED_CFLAGS="${ICON_BUNDLED_CFLAGS}" \
 ICON_CFLAGS="${ICON_CFLAGS}" \
 ICON_FCFLAGS="${ICON_FCFLAGS}" \
 ICON_OCEAN_FCFLAGS="${ICON_OCEAN_FCFLAGS}" \
+ICON_ECRAD_FCFLAGS="${ICON_ECRAD_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \

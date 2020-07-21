@@ -51,5 +51,8 @@ machine=daint
 #DWD machines
 machine=dwd_cray
 ./addmachine $machine --list $list
-./addbuilder DWD_cray            --machine $machine  --build_script="./config/buildbot/dwd_cray"   --configureflags="--with-fortran=cray"   --builderflags="Active"  --list $list
+./addbuilder DWD_cray            --machine $machine  --build_script="./config/buildbot/dwd_cray"   --configureflags="--with-fortran=cray"   --builderflags="Active"      --list $list
+machine=dwd_nec
+./addmachine $machine --list $list
+./addbuilder DWD_nec             --machine $machine  --build_script="./config/buildbot/dwd_nec"    --builderflags="Active"  --list $list
 

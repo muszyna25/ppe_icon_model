@@ -792,7 +792,7 @@ CONTAINS
 
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
-        CALL interpol_scal_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx),  &
+        CALL interpol_scal_ubc (p_pc, p_grf%p_dom(i_chidx),  &
           ntracer+4, aux3dp, aux3dc)
 
 !$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc,jt) ICON_OMP_DEFAULT_SCHEDULE
@@ -832,7 +832,7 @@ CONTAINS
 
         CALL sync_patch_array(SYNC_C,p_pp,aux3dp)
 
-        CALL interpol_scal_ubc(p_pp, p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
+        CALL interpol_scal_ubc(p_pc, p_grf%p_dom(i_chidx), 4, aux3dp, aux3dc)
 
 !$OMP PARALLEL DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_sbc, i_ebc
@@ -1011,7 +1011,6 @@ CONTAINS
     TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
     TYPE(t_grid_edges), POINTER     :: p_gep => NULL()
     TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
-    TYPE(t_gridref_state), POINTER  :: p_grfc => NULL()
     TYPE(t_int_state), POINTER      :: p_int => NULL()
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
@@ -1056,7 +1055,6 @@ CONTAINS
     p_parent_prog_rcf => p_nh_state(jgp)%prog(nnow_rcf(jgp))
     p_child_prog_rcf  => p_nh_state(jg)%prog(nnow_rcf(jg))
     p_diag            => p_nh_state(jg)%diag
-    p_grfc            => p_grf_state(jg)
     p_pc              => p_patch(jg)
 
     p_grf => p_grf_state_local_parent(jg)
@@ -1257,13 +1255,13 @@ CONTAINS
     ! wind tendencies because this turns out to improve noise filtering
 
     IF(l_parallel) CALL exchange_data(p_pp%comm_pat_e, diff_vn)
-    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grfc,    &
-      &                        i_chidx, 0, istartblk_e, diff_vn,p_diag%grf_tend_vn )
+    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx),   &
+      &                        0, istartblk_e, diff_vn,p_diag%grf_tend_vn )
     CALL sync_patch_array(SYNC_E,p_pc,p_diag%grf_tend_vn)
 
     IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, 3, 3*nlev_c+1, &
       recv1=diff_thv, recv2=diff_rho, recv3=diff_w)
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 3, istartblk_c, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0, 3, istartblk_c,          &
       &                         f3din1=diff_thv, f3dout1=p_diag%grf_tend_thv,                  &
       &                         f3din2=diff_rho, f3dout2=p_diag%grf_tend_rho,                  &
       &                         f3din3=diff_w,   f3dout3=p_diag%grf_tend_w                     )
@@ -1273,7 +1271,7 @@ CONTAINS
     IF (ltransport) THEN
       IF(l_parallel) CALL exchange_data_mult(p_pp%comm_pat_c, ntracer_nudge, ntracer_nudge*nlev_c, recv4d=diff_tr)
 
-      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx,          &
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx),                   &
         &                         0, ntracer_nudge, istartblk_c, f4din=diff_tr,        &
         &                         f4dout=p_diag%grf_tend_tracer(:,:,:,1:ntracer_nudge) )
       CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer_nudge,f4din=p_diag%grf_tend_tracer(:,:,:,1:ntracer_nudge))
@@ -1437,7 +1435,7 @@ CONTAINS
     ! those, the nudging tendencies are applied outside the dynamical core for reasons of mass consistency
 
     IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, diff_rho)
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 1, istartblk_c, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0, 1, istartblk_c, &
       &                         f3din1=diff_rho, f3dout1=p_diag%grf_tend_rho                   )
     CALL sync_patch_array(SYNC_C,p_pc,p_diag%grf_tend_rho)
 

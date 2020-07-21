@@ -20,7 +20,7 @@
 !!
 MODULE mo_fortran_tools
 
-  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4, vp2
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
   USE mo_impl_constants,          ONLY: SUCCESS
   USE mo_impl_constants,          ONLY: VARNAME_LEN
@@ -36,7 +36,7 @@ MODULE mo_fortran_tools
 
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
-  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_2d3d_vp2
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
   PUBLIC :: alloc
   PUBLIC :: ensureSize
@@ -113,12 +113,6 @@ MODULE mo_fortran_tools
     REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
     REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d_vp
-
-  TYPE t_ptr_2d3d_vp2
-    REAL(vp2),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
-    REAL(vp2),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
-  END TYPE t_ptr_2d3d_vp2
-
 
   TYPE t_ptr_i2d3d
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array

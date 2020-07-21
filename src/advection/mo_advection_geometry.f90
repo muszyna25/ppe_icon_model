@@ -1019,6 +1019,7 @@ CONTAINS
       ! get arrival and departure points. Note that the indices of the departure
       ! points have to be switched so that departure point 1 belongs to arrival
       ! point one and departure point 2 to arrival point 2.
+!NEC$ ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)

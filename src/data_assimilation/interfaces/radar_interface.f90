@@ -1,6 +1,7 @@
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
+
 !+ Source module for the radar forward operator of the COSMO-model
 !------------------------------------------------------------------------------
-!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
 MODULE radar_interface
 
   !------------------------------------------------------------------------------
@@ -45,6 +46,7 @@ MODULE radar_interface
   USE mo_kind,                  ONLY: sp, dp, wp
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot
   USE mo_exception,             ONLY: finish
+  USE mo_master_config,         ONLY: isRestart
   USE mo_grid_config,           ONLY: start_time, end_time ! in seconds since experiment start for each domain
   USE mo_parallel_config,       ONLY: nproma, blk_no, idx_no, idx_1d
   USE mo_nonhydro_state,        ONLY: p_nh_state
@@ -58,8 +60,7 @@ MODULE radar_interface
   USE mo_util_mtime,            ONLY: getElapsedSimTimeInSeconds
   USE mo_run_config,            ONLY: dtime, nsteps, ntracer, ltimer, &
        &                              iqc,  iqi,  iqr,  iqs,  iqg,  iqh,  iqv, &
-       &                              iqnc, iqni, iqnr, iqns, iqng, iqnh
-!  USE mo_run_config,            ONLY: iqgl, qghl   ! later, if inwp_gscp=7 will be available
+       &                              iqnc, iqni, iqnr, iqns, iqng, iqnh, iqgl, iqhl
   USE mo_gribout_config,        ONLY: gribout_config
   USE mtime,                    ONLY: datetimeToString
   USE mo_vertical_coord_table,  ONLY: vct_a
@@ -156,7 +157,7 @@ MODULE radar_interface
        ilow_modelgrid, iup_modelgrid, jlow_modelgrid, jup_modelgrid, klow_modelgrid, kup_modelgrid, &
        rain, cloud, snow, ice, graupel, hail, rain_coeffs, &
        Tmax_i_modelgrid, Tmax_s_modelgrid, Tmax_g_modelgrid, Tmax_h_modelgrid, &
-       lgsp_fwo, itype_gscp_fwo
+       lgsp_fwo, itype_gscp_fwo, pi6 => pi6_dp
 
   USE radar_parallel_utilities, ONLY :  &
        global_values_radar, distribute_values_radar, distribute_path_radar
@@ -396,7 +397,7 @@ MODULE radar_interface
 
   PUBLIC abort_run, setup_auxgrid_for_cellindex, diagnose_and_store_uv_pres_temp, &
          get_model_variables, get_model_hydrometeors, get_model_config_for_radar, &
-         setup_runtime_timings, get_runtime_timings
+         setup_runtime_timings, get_runtime_timings, run_is_restart
   
 #ifdef HAVE_RADARFWO
   PUBLIC get_model_time_sec, get_model_inputdir, get_model_outputdir,               &
@@ -533,7 +534,20 @@ CONTAINS
 
   END SUBROUTINE abort_run
 
-  
+  !============================================================================
+  ! 
+  ! Function for checking if the actual model run is a restart run.
+  ! Is, e.g., used for determining if pre-existing output files
+  ! of different kinds in the output directory have to be clobbered
+  ! (no restart run) or have to be appended (restart run).
+  ! 
+  !============================================================================
+
+  FUNCTION run_is_restart() RESULT (lis_restart)
+    LOGICAL :: lis_restart
+    lis_restart = isRestart()
+  END FUNCTION run_is_restart
+
   !============================================================================
   ! 
   ! Subroutine for getting the necessary configuration variables of the model.
@@ -593,13 +607,7 @@ CONTAINS
       itype_gscp_fwo = 3
     CASE (2)
       itype_gscp_fwo = 4
-    CASE (4)
-      ! 2-moment scheme: subtype not important, just a number >= 2000 for EMVORADO
-      itype_gscp_fwo = 2001
-    CASE (5)
-      ! 2-moment scheme: subtype not important, just a number >= 2000 for EMVORADO
-      itype_gscp_fwo = 2001
-    CASE (6)
+    CASE (4,5,6,7)
       ! 2-moment scheme: subtype not important, just a number >= 2000 for EMVORADO
       itype_gscp_fwo = 2001
     CASE default
@@ -719,10 +727,10 @@ CONTAINS
       IF (iqnh > 0 .AND. iqnh <= ntracer) THEN
         qnh => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqnh)
       END IF
-!      IF (iqgl > 0 .AND. iqgl <= ntracer) THEN
-!        ! 2mom scheme with liquid water fraction of graupel qgl:
-!        qgl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqgl)
-!      ELSE IF (iqng > 0 .AND. iqng <= ntracer) THEN
+      IF (iqgl > 0 .AND. iqgl <= ntracer) THEN
+        ! 2mom scheme with liquid water fraction of graupel qgl:
+        qgl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqgl)
+      ELSE IF (iqng > 0 .AND. iqng <= ntracer) THEN
         ! 2mom scheme without lwf of graupel. qgl needs to be allocated
         ! with 0.0:
         IF (.NOT. ASSOCIATED(dum_dom(idom)%dummy0)) THEN
@@ -730,11 +738,11 @@ CONTAINS
           dum_dom(idom)%dummy0 = 0.0_wp
         END IF
         qgl => dum_dom(idom)%dummy0(:,1:nk,:)
-!      END IF
-!      IF (iqhl > 0 .AND. iqhl <= ntracer) THEN
-!        ! 2mom scheme with liquid water fraction of hail qhl:
-!        qhl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqhl)
-!      ELSE IF (iqnh > 0 .AND. iqnh <= ntracer) THEN
+      END IF
+      IF (iqhl > 0 .AND. iqhl <= ntracer) THEN
+        ! 2mom scheme with liquid water fraction of hail qhl:
+        qhl => p_nh_state(idom)%prog(ntlev)%tracer(:,:,:,iqhl)
+      ELSE IF (iqnh > 0 .AND. iqnh <= ntracer) THEN
         ! 2mom scheme without lwf of hail. qhl needs to be allocated
         ! with 0.0:
         IF (.NOT. ASSOCIATED(dum_dom(idom)%dummy0)) THEN
@@ -742,7 +750,7 @@ CONTAINS
           dum_dom(idom)%dummy0 = 0.0_wp
         END IF
         qhl => dum_dom(idom)%dummy0(:,1:nk,:)
-!      END IF
+      END IF
       
       IF (atm_phy_nwp_config(idom)%icpl_aero_gscp == 2) THEN
         ! Not yet implemented in microphysics! We give a dummy value here.
@@ -851,119 +859,137 @@ CONTAINS
 
 #ifdef HAVE_RADARFWO
     
-    ! JM200122
     !------------------------------------------------------------------------------
-    ! incl. turn around MGD parameters from Seifert notation used in COSMO/ICON
-    ! 2-mom scheme to more common notation:
-    ! (Seifert) N(x) = N0 * x^nu * exp(-lam*x^mu)  -->
-    ! (general) N(x) = N0 * x^mu * exp(-lam*x^nu)
     !
-    ! incl. conversion of mass-size relation parameters a and b from mass-space
+    ! Changed EMVORADO-side MGD parameters mu/nu from Seifert mass-based notation used in
+    ! COSMO/ICON 2-mom scheme to general diameter-based notation:
+    !
+    ! (Seifert) N(m) = N0 * m^nu_x * exp(-lam*m^mu_x)  -->
+    ! (general) N(D) = N0 * D^mu_D * exp(-lam*D^nu_D)
+    !
+    ! (NOTE: in ICON/COSMO 2-mom, they remain to be in Seifert notation)
+    !
+    ! Conversion of mass-size relation parameters a_geo and b_geo from mass-space
     ! (as used in COSMO/ICON 2-mom) to D-space:
-    ! (mass-space) D = a_m * m^(b_m)
+    !
+    ! (mass-space) D = a_m * m^(b_m) -->
     ! (D-space)    m = a_D * D^(b_D)
+    !
     ! related by:
     ! a_D = (1/a_m)^(1/b_m)
     ! b_D = 1/b_m
     !
-    ! NOTE: mass-fallspeed-parameters are still in the original SB notation:
+    !
+    ! NOTE: Remaining a&b parameters a/b_vel (mass-fallspeed parameters) and
+    !       a/b_ven are still in the original (mass-space) SB notation:
+    !
     ! v_T = a_v * m^(b_v)
+    !
     ! The switch to D-notation might be done in the future.
     !
     !------------------------------------------------------------------------------
 
-    ! Changed EMVORADO-side MGD parameters mu/nu from Seifert to general notation
-    ! (in ICON/COSMO 2-mom, they remain to be in Seifert notation)
-
-    ! JM200320: new (D-space) settings
     cloud%name  = cloud_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     cloud%mu    = (1.0d0/cloud_2mom%b_geo)*(cloud_2mom%nu+1.0d0)-1.0d0
     cloud%nu    = (1.0d0/cloud_2mom%b_geo)*cloud_2mom%mu
     cloud%x_max = cloud_2mom%x_max
     cloud%x_min = cloud_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     cloud%a_geo = (1.0d0/cloud_2mom%a_geo)**(1.0d0/cloud_2mom%b_geo)
     cloud%b_geo = (1.0d0/cloud_2mom%b_geo)
+    ! leave those as is for now
     cloud%a_vel = cloud_2mom%a_vel
     cloud%b_vel = cloud_2mom%b_vel
     cloud%a_ven = cloud_2mom%a_ven
     cloud%b_ven = cloud_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    cloud%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     ice%name  = ice_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
-    ice%mu    = (1d0/ice_2mom%b_geo)*(ice_2mom%nu+1.0d0)-1.0d0
-    ice%nu    = (1d0/ice_2mom%b_geo)*ice_2mom%mu
+    ice%mu    = (1.0d0/ice_2mom%b_geo)*(ice_2mom%nu+1.0d0)-1.0d0
+    ice%nu    = (1.0d0/ice_2mom%b_geo)*ice_2mom%mu
     ice%x_max = ice_2mom%x_max
     ice%x_min = ice_2mom%x_min
-    ! convert a/b_m to a/b_D
-    ice%a_geo = (1d0/ice_2mom%a_geo)**(1d0/ice_2mom%b_geo)
-    ice%b_geo = (1d0/ice_2mom%b_geo)
+    ! convert a/b_geo_m to a/b_geo_D
+    ice%a_geo = (1.0d0/ice_2mom%a_geo)**(1.0d0/ice_2mom%b_geo)
+    ice%b_geo = (1.0d0/ice_2mom%b_geo)
+    ! leave those as is for now
     ice%a_vel = ice_2mom%a_vel
     ice%b_vel = ice_2mom%b_vel
     ice%a_ven = ice_2mom%a_ven
     ice%b_ven = ice_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    ice%n0_const = 1.0d0
 
-    ! JM200203: new (D-space) settings
     rain%name  = rain_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
-    rain%mu    = (1d0/rain_2mom%b_geo)*(rain_2mom%nu+1.0d0)-1.0d0
-    rain%nu    = (1d0/rain_2mom%b_geo)*rain_2mom%mu
+    rain%mu    = (1.0d0/rain_2mom%b_geo)*(rain_2mom%nu+1.0d0)-1.0d0
+    rain%nu    = (1.0d0/rain_2mom%b_geo)*rain_2mom%mu
     rain%x_max = rain_2mom%x_max
     rain%x_min = rain_2mom%x_min
-    ! convert a/b_m to a/b_D
-    rain%a_geo = (1d0/rain_2mom%a_geo)**(1d0/rain_2mom%b_geo)
-    rain%b_geo = (1d0/rain_2mom%b_geo)
+    ! convert a/b_geo_m to a/b_geo_D
+    rain%a_geo = (1.0d0/rain_2mom%a_geo)**(1.0d0/rain_2mom%b_geo)
+    rain%b_geo = (1.0d0/rain_2mom%b_geo)
+    ! leave those as is for now
     rain%a_vel = rain_2mom%a_vel
     rain%b_vel = rain_2mom%b_vel
     rain%a_ven = rain_2mom%a_ven
     rain%b_ven = rain_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    rain%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     snow%name  = snow_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     snow%mu    = (1.0d0/snow_2mom%b_geo)*(snow_2mom%nu+1.0d0)-1.0d0
     snow%nu    = (1.0d0/snow_2mom%b_geo)*snow_2mom%mu
     snow%x_max = snow_2mom%x_max
     snow%x_min = snow_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     snow%a_geo = (1.0d0/snow_2mom%a_geo)**(1.0d0/snow_2mom%b_geo)
     snow%b_geo = (1.0d0/snow_2mom%b_geo)
+    ! leave those as is for now
     snow%a_vel = snow_2mom%a_vel
     snow%b_vel = snow_2mom%b_vel
     snow%a_ven = snow_2mom%a_ven
     snow%b_ven = snow_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    snow%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     graupel%name  = graupel_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     graupel%mu    = (1.0d0/graupel_2mom%b_geo)*(graupel_2mom%nu+1.0d0)-1.0d0
     graupel%nu    = (1.0d0/graupel_2mom%b_geo)*graupel_2mom%mu
     graupel%x_max = graupel_2mom%x_max
     graupel%x_min = graupel_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     graupel%a_geo = (1.0d0/graupel_2mom%a_geo)**(1.0d0/graupel_2mom%b_geo)
     graupel%b_geo = (1.0d0/graupel_2mom%b_geo)
+    ! leave those as is for now
     graupel%a_vel = graupel_2mom%a_vel
     graupel%b_vel = graupel_2mom%b_vel
     graupel%a_ven = graupel_2mom%a_ven
     graupel%b_ven = graupel_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    graupel%n0_const = 1.0d0
 
-    ! JM200320: new (D-space) settings
     hail%name  = hail_2mom%name
     ! turn around MGD parameters & convert from mu/nu_m to mu/nu_D
     hail%mu    = (1.0d0/hail_2mom%b_geo)*(hail_2mom%nu+1.0d0)-1.0d0
     hail%nu    = (1.0d0/hail_2mom%b_geo)*hail_2mom%mu
     hail%x_max = hail_2mom%x_max
     hail%x_min = hail_2mom%x_min
-    ! convert a/b_m to a/b_D
+    ! convert a/b_geo_m to a/b_geo_D
     hail%a_geo = (1.0d0/hail_2mom%a_geo)**(1.0d0/hail_2mom%b_geo)
     hail%b_geo = (1.0d0/hail_2mom%b_geo)
+    ! leave those as is for now
     hail%a_vel = hail_2mom%a_vel
     hail%b_vel = hail_2mom%b_vel
     hail%a_ven = hail_2mom%a_ven
     hail%b_ven = hail_2mom%b_ven
+    ! in 2mom, n0 just a dummy (but needs to be positive)
+    hail%n0_const = 1.0d0
 
     ! No need to rename these; they DO actually refer to D-space mu
     ! (follows Seifert(2008), which applies the general MGD notation).
@@ -979,14 +1005,14 @@ CONTAINS
 
   END SUBROUTINE init_2mom_types
 
-! JM200128 >>
 !----------------------------------------------------------------------------------------
 ! Particle definitions for 1-mom cases.
-! Settings taken from [vt]hydroparams_1mom subroutines.
+! Settings taken from [vt]hydroparams_1mom subroutine(s).
 !
 ! NOTE:
-! - all parameters in diameter (D) space (not in mass (x)!)
 ! - mu and nu for general DSD notation: N(D) = N0 * D^mu * exp(-lam * D^nu)
+! - mu, nu, a/b_geo in diameter (D) space (not in mass (x)!)
+! - but: a/b_vel in mass (x) space
 ! - unknown/irrelevant parameters set to fill value
 
   SUBROUTINE init_1mom_types(itype_gscp)
@@ -997,45 +1023,77 @@ CONTAINS
     cloud%name  = 'cloud1mom'            !.name...Bezeichnung der Partikelklasse
     cloud%mu    = 3.0000d0               !.mu.....Breiteparameter der Verteil.
     cloud%nu    = 3.0000d0               !.nu.....Exp.-parameter der Verteil.
-    cloud%a_geo = rho_w_model*pi/6.0d0   !.a_geo..Koeff. Geometrie
+    cloud%n0_const = 1.0d0                !.n0.....Scaling parameter of distribution (only set if constant)
+    cloud%a_geo = rho_w_model*pi6       !.a_geo..Koeff. Geometrie
     cloud%b_geo = 3.0000d0               !.b_geo..Koeff. Geometrie
     ! here: x_min == x_max == x(D_c=20um)
     ! medial mass of cloud droplets; monodisperse distribution
-    cloud%x_max = cloud%a_geo*20d-6**cloud%b_geo  !.x_max..maximale Teilchenmasse
+    cloud%x_max = cloud%a_geo*20d-6**cloud%b_geo
+                                        !.x_max..maximale Teilchenmasse
     cloud%x_min = cloud%x_max            !.x_min..minimale Teilchenmasse
-    cloud%a_vel = miss_value             !.a_vel..Koeff. Fallgesetz
-    cloud%b_vel = miss_value             !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    !  (Stokes law, T=273.15 K, dyn. visc. eta after Sutherland-formula, Archimedes buoyancy neglected)
+    !   v = g*rho_w/(18*eta) * D^2
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    cloud%a_vel = 3.17204d7             !.a_vel..Koeff. Fallgesetz
+    cloud%b_vel = 2.00000d0             !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    cloud%b_vel = cloud%b_vel/cloud%b_geo
+    cloud%a_vel = cloud%a_vel/cloud%a_geo**cloud%b_vel
     cloud%a_ven = miss_value             !.a_ven..Koeff. Ventilation
     cloud%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     IF (itype_gscp < 4) THEN
       rain%name  = 'rain1mom_gscp.lt.4' !.name...Bezeichnung der Partikelklasse
       rain%mu    = 0.0000d0            !.mu.....Breiteparameter der Verteil.
+      rain%n0_const = 8.0d6 * EXP(3.2d0*rain%mu) * (1d-2)**(-rain%mu) !* rain_n0_factor
+                                        !.n0.....Scaling parameter of distribution (only set if constant)
     ELSE
       rain%name  = 'rain1mom_gscp.ge.4' !.name...Bezeichnung der Partikelklasse
       rain%mu    = 0.5000d0             !.mu.....Breiteparameter der Verteil.
+      rain%n0_const = 8d6 * EXP(3.2d0*rain%mu) * (1d-2)**(-rain%mu) !* rain_n0_factor
+                                        !.n0.....Scaling parameter of distribution (only set if constant)
     END IF
     rain%nu    = 1.0000d0               !.nu.....Exp.-parameter der Verteil.
     rain%x_max = miss_value             !.x_max..maximale Teilchenmasse
     rain%x_min = miss_value             !.x_min..minimale Teilchenmasse
-    rain%a_geo = rho_w_model*pi/6.0d0   !.a_geo..Koeff. Geometrie
+    rain%a_geo = rho_w_model*pi6        !.a_geo..Koeff. Geometrie
     rain%b_geo = 3.0000d0               !.b_geo..Koeff. Geometrie
-    rain%a_vel = miss_value             !.a_vel..Koeff. Fallgesetz
-    rain%b_vel = miss_value             !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    rain%a_vel = 130.00d0               !.a_vel..Koeff. Fallgesetz
+    rain%b_vel = 0.5000d0  !0.25d0      !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    rain%b_vel = rain%b_vel/rain%b_geo
+    rain%a_vel = rain%a_vel/rain%a_geo**rain%b_vel
     rain%a_ven = miss_value             !.a_ven..Koeff. Ventilation
     rain%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     ice%name  = 'ice1mom'               !.name...Bezeichnung der Partikelklasse
-    ice%mu    = 1.0000d0                !.mu.....Breiteparameter der Verteil.
-    ice%nu    = 1.0000d0                !.nu.....Exp.-parameter der Verteil.
+    ice%mu    = 1.0000d0                !.mu.....DUMMY, because monodisperse PDF is assumed
+    ice%nu    = 1.0000d0                !.nu.....DUMMY, because monodisperse PDF is assumed
+    ice%n0_const = 1.0d0                  !.n0.....Scaling parameter of distribution (only set if constant)
     ice%a_geo = 130.00d0                !.a_geo..Koeff. Geometrie
     ice%b_geo = 3.0000d0                !.b_geo..Koeff. Geometrie
-    ! here: x_min == x_max == x(D_c=100um)
-    ! medial mass of cloud ice crystals; monodisperse distribution
-    ice%x_max = ice%a_geo*100d-6**ice%b_geo  !.x_max..maximale Teilchenmasse
-    ice%x_min = ice%x_max               !.x_min..minimale Teilchenmasse
-    ice%a_vel = miss_value              !.a_vel..Koeff. Fallgesetz
-    ice%b_vel = miss_value              !.b_vel..Koeff. Fallgesetz
+    ! mean mass of cloud ice crystals; monodisperse distribution
+    ice%x_max = ice%a_geo*1.5d-3**ice%b_geo !.x_max equivalent to D=1.5 mm
+    ice%x_min = ice%a_geo*10d-6**ice%b_geo  !.x_min equivalent to D=10 microns
+
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! First, set them as D-space parameters (adapted from the COSMO snow parameters):
+    ice%a_vel = 4.9d0 * 0.75d0  ! the 0.75 is Uli's tuning of the snow relation in the COSMO-Docs
+                                        !.a_vel..Koeff. Fallgesetz
+    ice%b_vel = 0.2500d0                !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    ice%b_vel = ice%b_vel/ice%b_geo
+    ice%a_vel = ice%a_vel/ice%a_geo**ice%b_vel
+    
+    ! REMARK: the original ice sedimentation velocity consistent with 1-mom microphysics
+    !  would be the following, adapted from from Heymsfield&Donner 1990:
+    ! v(rho_i) = 1.1 * rho_i^0.16 => v(x_i) = a_vel * (n_i(T)*x_i)^0.16
+    !  - values seem to be rather small
+    !  - a_vel would depend on T, i.e., the habit is parameterized implicity as function of T
+
     ice%a_ven = miss_value              !.a_ven..Koeff. Ventilation
     ice%b_ven = miss_value              !.b_ven..Koeff. Ventilation
 
@@ -1049,17 +1107,25 @@ CONTAINS
     snow%b_geo = 2.0000d0               !.b_geo..Koeff. Geometrie
     snow%mu    = 0.0000d0               !.mu.....Breiteparameter der Verteil.
     snow%nu    = 1.0000d0               !.nu.....Exp.-parameter der Verteil.
+    snow%n0_const = 1.0d0                 !.n0.....Scaling parameter of distribution (only set if constant)
     ! x_min/max set from max limits for particle type in 2mom case
     snow%x_max = 2.00d-05               !.x_max..maximale Teilchenmasse
     snow%x_min = 1.00d-12               !.x_min..minimale Teilchenmasse
-    snow%a_vel = miss_value             !.a_vel..Koeff. Fallgesetz
-    snow%b_vel = miss_value             !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    snow%a_vel = 25.000d0               !.a_vel..Koeff. Fallgesetz
+    snow%b_vel = 0.5000d0               !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    snow%b_vel = snow%b_vel/snow%b_geo
+    snow%a_vel = snow%a_vel/snow%a_geo**snow%b_vel
     snow%a_ven = miss_value             !.a_ven..Koeff. Ventilation
     snow%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     graupel%name  = 'graupel1mom'       !.name...Bezeichnung der Partikelklasse
     graupel%mu    = 0.0000d0            !.mu.....Breiteparameter der Verteil.
     graupel%nu    = 1.0000d0            !.nu.....Exp.-parameter der Verteil.
+    graupel%n0_const = 4.0d6 ! * 0.1  ! factor 0.1 seems to be too low, maybe 0.2?
+                                        !.n0.....Scaling parameter of distribution (only set if constant)
     ! x_min/max set from max limits for particle type in 2mom case
     graupel%x_max = 5.00d-04            !.x_max..maximale Teilchenmasse
     !graupel%x_min = 1.00d-09            !.x_min..minimale Teilchenmasse
@@ -1067,14 +1133,21 @@ CONTAINS
     graupel%x_min = 1.00d-10            !.x_min..minimale Teilchenmasse
     graupel%a_geo = 169.60d0            !.a_geo..Koeff. Geometrie
     graupel%b_geo = 3.1000d0            !.b_geo..Koeff. Geometrie
-    graupel%a_vel = miss_value          !.a_vel..Koeff. Fallgesetz
-    graupel%b_vel = miss_value          !.b_vel..Koeff. Fallgesetz
+    ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
+    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    graupel%a_vel = 442.00d0            !.a_vel..Koeff. Fallgesetz
+    graupel%b_vel = 0.8900d0            !.b_vel..Koeff. Fallgesetz
+    ! now convert to x-space (more practical to use in code)
+    graupel%b_vel = graupel%b_vel/graupel%b_geo
+    graupel%a_vel = graupel%a_vel/graupel%a_geo**graupel%b_vel
     graupel%a_ven = miss_value          !.a_ven..Koeff. Ventilation
     graupel%b_ven = miss_value          !.b_ven..Koeff. Ventilation
 
-    hail%name  = 'hail'                !.name...Bezeichnung der Partikelklasse
+    ! no hail in 1mom, but to avoid issues with routines used by 1- and 2-mom, define a rudimentary set.
+    hail%name  = 'hail1mom'             !.name...Bezeichnung der Partikelklasse
     hail%mu    = miss_value             !.mu.....Breiteparameter der Verteil.
     hail%nu    = miss_value             !.nu.....Exp.-parameter der Verteil.
+    hail%n0_const = 1.0d0                 !.n0.....Scaling parameter of distribution (only set if constant)
     hail%x_max = miss_value             !.x_max..maximale Teilchenmasse
     hail%x_min = miss_value             !.x_min..minimale Teilchenmasse
     hail%a_geo = miss_value             !.a_geo..Koeff. Geometrie
@@ -1085,7 +1158,6 @@ CONTAINS
     hail%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
   END SUBROUTINE init_1mom_types
-! JM200128 <<
 
   !============================================================================
   ! 
@@ -1466,15 +1538,15 @@ CONTAINS
 
     INTEGER, PARAMETER :: oversamp_fac = 7
 
-    LOGICAL           :: not_owned
+    LOGICAL           :: not_owned, is_in_cell
     INTEGER           :: idom_fwo, i, ii, iidx, k, kk, iblk, i_startblk, i_endblk, is, ie, in, jn, &
          &               inear(nproma,p_patch(idom)%nblks_c), jnear(nproma,p_patch(idom)%nblks_c), &
-         &               i_idx, i_blk, ni_over, nj_over, num_neigh, &
+         &               i_idx, i_blk, ni_over, nj_over, in_over, jn_over, num_neigh, &
          &               global_idx_cell(nproma,p_patch(idom)%nblks_c)
 
     REAL(KIND=dp)     :: rlon, rlat, clon_min, clon_max, clat_min, clat_max, &
          &               dist, distlat, distlon, tmplon, tmplat, edge_length, &
-         &               dlon_edge, dlat_edge, maxx_edge_length
+         &               dlon_edge, dlat_edge, max_max_edge_length, max_rlat
 
     REAL(KIND=dp), DIMENSION(nproma,p_patch(idom)%nblks_c)       :: &
          &               max_edge_length
@@ -1898,34 +1970,43 @@ CONTAINS
       i_startblk = p_patch(idom) % cells % start_block(grf_bdywidth_c+1)
       i_endblk   = p_patch(idom) % cells % end_block(min_rlcell)    ! including halo cells
 
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(i,k,is,ie,rlon,rlat,ii,kk,ni_over,nj_over,in,jn,tmplon,tmplat,dist)
+!$OMP DO PRIVATE(i,k,is,ie,rlon,rlat,ii,kk,ni_over,nj_over,in_over,jn_over,in,jn,tmplon,tmplat,dist, &
+!$OMP&           max_max_edge_length,max_rlat,is_in_cell)
       DO k = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch(idom), k, i_startblk, i_endblk, is, ie, grf_bdywidth_c+1, min_rlcell)
         
-        DO i = is, ie
+        ! determine search region in terms of auxiliary oversampling grid points:
+        max_max_edge_length = MAXVAL(max_edge_length(is:ie,k))
+        max_rlat = MAXVAL(cindex_grid(idom_fwo)%startlat + (jnear(is:ie,k)-1) * cindex_grid(idom_fwo)%dlat)
+        ni_over = FLOOR( max_max_edge_length / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlon*degrad * &
+             COS( (max_rlat+0.5_dp*raddeg*max_max_edge_length/cindex_grid(idom_fwo)%r_earth) * degrad ) ) ) + 5
+        ni_over = ni_over + MOD(ni_over+1, 2)  ! makes ni_over an odd integer
+        nj_over = FLOOR( max_max_edge_length / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlat*degrad ) ) + 5
+        nj_over = nj_over + MOD(nj_over+1, 2)  ! makes nj_over an odd integer
 
-          ! The next IF is needed because not all halo cells are exchanged by exchange_data() above.
-          ! I think that halo cells on the outer boundary are part of the loop, but not part of the inner
-          !  boundaries which have been exchanged.
-          IF (inear(i,k) > -HUGE(1)) THEN
+        DO jn_over = -nj_over/2 , nj_over/2
+          DO in_over = -ni_over/2 , ni_over/2
+!NEC$ ivdep
+            DO i = is, ie
 
-            ii   = cindex_grid(idom_fwo)%cind(inear(i,k),jnear(i,k))
+              ! The next IF is needed because not all halo cells are exchanged by exchange_data() above.
+              ! I think that halo cells on the outer boundary are part of the loop, but not part of the inner
+              !  boundaries which have been exchanged.
+              IF (inear(i,k) > -HUGE(1)) THEN
 
-            rlon = cindex_grid(idom_fwo)%startlon + (inear(i,k)-1) * cindex_grid(idom_fwo)%dlon
-            rlat = cindex_grid(idom_fwo)%startlat + (jnear(i,k)-1) * cindex_grid(idom_fwo)%dlat
+                ii   = cindex_grid(idom_fwo)%cind(inear(i,k),jnear(i,k))
+                ! Oversampling point (in,jn) for which it is checked whether it is inside the (i,k) ICON triangle:
+                !   Note: points (inear(i,k),jnear(i,k)) are all unique during an iteration of the i-loop, so (in,jn) are unique
+                !   and no dependency exists when incrementing the counter(in,jn) below.
+                in   = inear(i,k) + in_over
+                jn   = jnear(i,k) + jn_over
 
-            ! determine search region in terms of auxiliary oversampling grid points:
-            ni_over = FLOOR( max_edge_length(i,k) / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlon*degrad * &
-                 COS( (rlat+0.5_dp*raddeg*max_edge_length(i,k)/cindex_grid(idom_fwo)%r_earth) * degrad ) ) ) + 5
-            ni_over = ni_over + MOD(ni_over+1, 2)  ! makes ni_over an odd integer
-            nj_over = FLOOR( max_edge_length(i,k) / ( cindex_grid(idom_fwo)%r_earth*cindex_grid(idom_fwo)%dlat*degrad ) ) + 5
-            nj_over = nj_over + MOD(nj_over+1, 2)  ! makes nj_over an odd integer
+                rlon = cindex_grid(idom_fwo)%startlon + (inear(i,k)-1) * cindex_grid(idom_fwo)%dlon
+                rlat = cindex_grid(idom_fwo)%startlat + (jnear(i,k)-1) * cindex_grid(idom_fwo)%dlat
 
-            DO jn = jnear(i,k)-nj_over/2 , jnear(i,k)+nj_over/2
-              DO in = inear(i,k)-ni_over/2 , inear(i,k)+ni_over/2
-            
                 IF ( ( in /= inear(i,k) .AND. in >= 1 .AND. in <= cindex_grid(idom_fwo)%nlon ) .OR. &
                      ( jn /= jnear(i,k) .AND. jn >= 1 .AND. jn <= cindex_grid(idom_fwo)%nlat ) ) THEN
               
@@ -1938,7 +2019,8 @@ CONTAINS
                   !  of the stored global nearest cell index, if it has already
                   !  been assigned to another cell. If yes, the cell with the larger global
                   !  index shall win:
-                  IF ( is_inside_triangle(tmplon, tmplat, lon_vertex(i,k,1:3), lat_vertex(i,k,1:3)) ) THEN
+                  is_in_cell = is_inside_triangle(tmplon, tmplat, lon_vertex(i,k,1:3), lat_vertex(i,k,1:3))
+                  IF ( is_in_cell ) THEN
                     kk = cindex_grid(idom_fwo)%cind_glob(in,jn)
                     IF ( global_idx_cell(i,k) > kk ) THEN
                       cindex_grid(idom_fwo)%cind(in,jn)      = ii
@@ -1950,15 +2032,14 @@ CONTAINS
                     END IF
                   END IF
 #endif
-                
                 END IF
+              END IF
               
-              END DO
             END DO
-          
-          END IF
-
+            
+          END DO
         END DO
+
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -1966,11 +2047,16 @@ CONTAINS
     END IF
 
 
+    !===============================================================================
+    !    Debug output:
+    !===============================================================================
+
     IF (cindex_grid(idom_fwo)%nlon > 0 .AND. cindex_grid(idom_fwo)%nlat > 0 .AND. ldebug) THEN
 
-!===============================================================================
-!    Debug file output (commented out, but left in the code for eventual later use):
-!
+      !----------------------------------------------------------------------------
+      ! Debug output of aux grid points assigned to ICON grid indices into files:
+      !----------------------------------------------------------------------------
+
       testfile(:) = ' '
       WRITE (testfile, '("testdomain_",i4.4,".dat")') my_cart_id_fwo
       OPEN(350+my_cart_id_fwo, file=TRIM(testfile), status='replace', form='formatted')
@@ -2011,14 +2097,11 @@ CONTAINS
              (counter(i,k), i=1,MIN(cindex_grid(idom_fwo)%nlon,HUGE(1)))
       END DO
       CLOSE(350+my_cart_id_fwo)
-!
-! END debug output
-!===============================================================================
-
     
-      ! 3d) Search for multiple assignments of ICON cells to aux. grid points.
-      !     If such points are found a warning is issued:
-      !     ------------------------------------------------------------------
+      !----------------------------------------------------------------------------
+      ! Search for multiple assignments of ICON cells to aux. grid points.
+      ! If such points are found a warning is issued:
+      !----------------------------------------------------------------------------
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(i,k)
@@ -2037,10 +2120,11 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-      ! 3e) Search for "holes" in the aux. grid, which are cells with no assignment and
-      !     surrounded by at least 7 assigned neighbours. If such holes are found a warning
-      !     is issued:
-      !     -------------------------------------------------------------------------------
+      !----------------------------------------------------------------------------------
+      ! Search for "holes" in the aux. grid, which are cells with no assignment and
+      ! surrounded by at least 7 assigned neighbours. If such holes are found a warning
+      ! is issued:
+      !----------------------------------------------------------------------------------
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(i,k,num_neigh,tmplon,tmplat,in,jn,iidx,iblk)
@@ -2083,7 +2167,12 @@ CONTAINS
       ! Clean up memory
       DEALLOCATE (counter)
 
-    END IF  ! PE domain overlaps with radar-covered area
+    END IF  ! PE domain overlaps with radar-covered area and ldebug=.true.
+
+!=================================================================================
+! End of debug output
+!=================================================================================
+
 
     IF (ldebug) WRITE(*,*) 'Done with '//TRIM(yzroutine)//' on proc ', my_radar_id
 
@@ -3564,14 +3653,17 @@ CONTAINS
     CALL init_vari(blk(:)    , -HUGE(1))
 
     ! calculate idx and blk indices of enclosing ICON grid cell:
+#ifdef __SX__
+    CALL geo2cell_index2d_vec (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
+                               lon_r(:), lat_r(:), idx(:), blk(:))
+#else
 !$omp parallel do
     DO irp = 1, nobsmax
-
       CALL geo2cell_index2d (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
                              lon_r(irp), lat_r(irp), idx(irp), blk(irp))
-
     ENDDO
 !$omp end parallel do
+#endif
 
     ! To gain the indices i,j of model grids southwest to radar points and 
     ! check if the radar point is in the local domain, based on lon i and lat j of radar points
@@ -3712,7 +3804,7 @@ CONTAINS
     ! Local variables:
     !-----------------
 
-    INTEGER        :: ngrd, ngrdmax, i, j, k, m, n, o, offset_i, offset_j, idx, blk
+    INTEGER        :: ngrd, ngrdmax, i, j, k, m, n, o, offset_i, offset_j, naz
 
     REAL    (KIND=dp)          :: &
          wi,& ! interpolation weight in i-direction
@@ -3722,13 +3814,15 @@ CONTAINS
 
     REAL    (KIND=dp),  ALLOCATABLE :: &
          hl(:)     ! array of geographical heights for each auxiliary grid  
-
+    
     INTEGER , ALLOCATABLE     :: &
-         ind_intptmp(:,:)  ! array of indices for each auxiliary grid (first dimension)
-                           ! the second dimension consists of:
-                           ! 1:     the continuous index of the model grid cell associated with the observation
-                           ! 2:     the continuous index representing aux grid points in
-                           !        azimuthal, arc length and vertical direction (m,n,k)
+         ind_intptmp(:,:), & ! array of indices for each auxiliary grid (first dimension)
+                             ! the second dimension consists of:
+                             ! 1:     the continuous index of the model grid cell associated with the observation
+                             ! 2:     the continuous index representing aux grid points in
+                             !        azimuthal, arc length and vertical direction (m,n,k)
+         idx(:),   &
+         blk(:)
 
 
     ! allocate and initialize local aux arrays with maximum possible vector length:
@@ -3737,6 +3831,9 @@ CONTAINS
     ALLOCATE(ind_intptmp(ngrdmax,2))
     ind_intptmp = -1
 
+    naz = SIZE(lon_g, dim=1)
+    ALLOCATE(idx(naz), blk(naz))
+
     ! loop over all grid points
     ngrd = 0     
 
@@ -3744,24 +3841,32 @@ CONTAINS
     CALL init_vari(hl, -999.99_dp)
 
     DO n = 1, rs_grid%nal+1      ! loop over arc length
+      CALL init_vari(idx(:), -HUGE(1))
+      CALL init_vari(blk(:), -HUGE(1))
+!#ifdef __SX__
+!      CALL geo2cell_index2d_vec (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
+!                                 lon_g(:,n), lat_g(:,n), idx(:), blk(:))
+!
+!      DO m = 1, rs_grid%naz_nbl  ! loop over azimuths
+!#else
       DO m = 1, rs_grid%naz_nbl  ! loop over azimuths
 
         ! calculate index idx and blk of ICON cell that contains the radar point
         CALL geo2cell_index2d (cindex_grid(list_domains_for_radar(idom_model)), p_patch(idom_model), &
-                               lon_g(m,n), lat_g(m,n), idx, blk)
-
+                               lon_g(m,n), lat_g(m,n), idx(m), blk(m))
+!#endif
         ! find points within the local computational processor domain:
-        IF ( idx > -HUGE(1) .AND. blk > -HUGE(1) ) THEN
+        IF ( idx(m) > -HUGE(1) .AND. blk(m) > -HUGE(1) ) THEN
 
           DO k = je_fwo,1,-1         ! loop over heights
 
             ngrd = ngrd + 1
 
 ! This hinders OMP parallelization!
-            hl(ngrd) = hfl(idx, k, blk)
+            hl(ngrd) = hfl(idx(m), k, blk(m))
 
             ! continuous index representing the upper ICON cell idx,k,blk
-            CALL sub2ind3D(idx, k, blk, nproma, je_fwo, ind_intptmp(ngrd,1))
+            CALL sub2ind3D(idx(m), k, blk(m), nproma, je_fwo, ind_intptmp(ngrd,1))
 
             ! continuous index representing aux grid point azi, arc dist, height
             CALL sub2ind3D(m, n, k, rs_grid%naz_nbl, rs_grid%nal+1, ind_intptmp(ngrd,2))
@@ -3796,6 +3901,7 @@ CONTAINS
     END IF
 
     DEALLOCATE(ind_intptmp)
+    DEALLOCATE(idx, blk)
 
   END SUBROUTINE setup_model2azislices_vec
 
@@ -4003,7 +4109,7 @@ CONTAINS
     REAL(KIND=dp)                   :: lon_rot, lat_rot  ! rotated lon/lat
     REAL(KIND=dp)                   :: tmplon, tmplat    ! geogr. lon/lat
     REAL(KIND=dp)                   :: dist, disttmp
-    INTEGER                         :: i, k, ii,kk, idxtmp, blktmp
+    INTEGER                         :: i, k, ii,kk, inb,knb, idxtmp, blktmp
 
     IF ( ALLOCATED(cidx_grid%cind) ) THEN
 
@@ -4025,8 +4131,15 @@ CONTAINS
           tmplon = p_patch_dom % cells % center(idx,blk) % lon * raddeg
           tmplat = p_patch_dom % cells % center(idx,blk) % lon * raddeg
           dist = geo_dist(lon_geo, lat_geo, tmplon, tmplat, cidx_grid%r_earth, 0.0_dp)
+
           DO kk = MAX(k-1,1), MIN(k+1,cidx_grid%nlat)
             DO ii = MAX(i-1,1), MIN(i+1,cidx_grid%nlon)
+
+!          DO knb = -1, 1
+!            DO inb = -1, 1
+!              ii = MIN( MAX( i+inb, 1), cidx_grid%nlat )
+!              kk = MIN( MAX( k+knb, 1), cidx_grid%nlon )
+
               idxtmp = cidx_grid%idx(ii,kk)
               blktmp = cidx_grid%blk(ii,kk)
               IF ( idxtmp  > -HUGE(1) ) THEN
@@ -4067,6 +4180,146 @@ CONTAINS
     END IF
 
   END SUBROUTINE geo2cell_index2d
+
+  SUBROUTINE geo2cell_index2d_vec (cidx_grid, p_patch_dom, lon_geo, lat_geo, idx, blk)
+
+    IMPLICIT NONE
+    TYPE(t_cindex_grid), INTENT(in) :: cidx_grid
+    TYPE(t_patch)      , INTENT(in) :: p_patch_dom
+    REAL(KIND=dp), INTENT(in)       :: lon_geo(:), lat_geo(:)  ! geogr. lon/lat
+    INTEGER, INTENT(inout)          :: idx(:), blk(:)
+
+    REAL(KIND=dp)                   :: lon_rot, lat_rot  ! rotated lon/lat
+    REAL(KIND=dp)                   :: tmplon, tmplat    ! geogr. lon/lat
+    REAL(KIND=dp)                   :: disttmp
+    REAL(KIND=dp), ALLOCATABLE      :: dist(:)
+    INTEGER                         :: n, ii,kk, inb,knb, idxtmp, blktmp, size_vec
+    INTEGER, ALLOCATABLE            :: i(:), k(:)
+
+    size_vec = SIZE(lon_geo)
+
+    IF (size_vec > 0) THEN
+
+      IF ( ALLOCATED(cidx_grid%cind) ) THEN
+
+        ALLOCATE (dist(size_vec))
+        ALLOCATE (i(size_vec), k(size_vec))
+
+        ! Prepare search in the 3x3 neighbours in the auxiliary grid,
+        !  if any of their nearest cells might be closer:
+        ! -----------------------------------------------------------
+
+        dist = HUGE(1.0_dp)
+        DO  n = 1, size_vec
+
+          CALL geo2rotll_coord (lon_geo(n), lat_geo(n), &
+               cidx_grid%pollon, cidx_grid%pollat, cidx_grid%polgam, &
+               lon_rot, lat_rot)
+
+          i(n) = FLOOR( (lon_rot-cidx_grid%startlon) / cidx_grid%dlon ) + 1
+          k(n) = FLOOR( (lat_rot-cidx_grid%startlat) / cidx_grid%dlat ) + 1
+
+          IF ( i(n) > 0 .AND. i(n) <= cidx_grid%nlon .AND. &
+               k(n) > 0 .AND. k(n) <= cidx_grid%nlat ) THEN
+
+            ! Original candidate for nearest neighbour from the auxiliary grid:
+            idx(n) = cidx_grid%idx(i(n),k(n))
+            blk(n) = cidx_grid%blk(i(n),k(n))
+
+            IF (idx(n) > -HUGE(1)) THEN
+              ! The original candidate is inside ICON domain. Now get the
+              !  geo coords of this candidate from the auxiliary grid and it's
+              !  distance to the n-th geo point:
+              tmplon = p_patch_dom % cells % center(idx(n),blk(n)) % lon * raddeg
+              tmplat = p_patch_dom % cells % center(idx(n),blk(n)) % lon * raddeg
+              dist(n) = geo_dist(lon_geo(n), lat_geo(n), tmplon, tmplat, cidx_grid%r_earth, 0.0_dp)
+            END IF
+
+          ELSE
+
+            ! n-th geo point is outside auxiliary grid, no assignment possible
+            idx(n) = -HUGE(1)
+            blk(n) = -HUGE(1)
+
+          END IF
+
+        END DO
+
+
+        ! Now do the search in the 3x3 neighbours and check if any of them is
+        !  closer to the n-th geo point than the original candidate:
+        ! -------------------------------------------------------------------
+
+        DO knb = -1, 1
+          DO inb = -1, 1
+
+            ! exclude the center point of the neighbourhood from the search,
+            !  because this is the original candidate:
+            IF (inb /= 0 .OR. knb /= 0) THEN
+
+              DO  n = 1, size_vec
+
+                IF (idx(n) > -HUGE(1)) THEN
+
+                  ! The grid coords of the neighbours in the auxiliary grid,
+                  !  clipped to the range of the auxiliary grid for safety:
+                  ii = MIN( MAX( i(n)+inb, 1), cidx_grid%nlon )
+                  kk = MIN( MAX( k(n)+knb, 1), cidx_grid%nlat )
+
+                  idxtmp = cidx_grid%idx(ii,kk)
+                  blktmp = cidx_grid%blk(ii,kk)
+                  IF ( idxtmp  > -HUGE(1) ) THEN
+                    ! The geo coords of the neighour in the auxiliary grid
+                    !  and their distance to the n-th geo point:
+                    tmplon = p_patch_dom % cells % center(idxtmp,blktmp) % lon * raddeg
+                    tmplat = p_patch_dom % cells % center(idxtmp,blktmp) % lon * raddeg
+                    disttmp = geo_dist(lon_geo(n), lat_geo(n), tmplon, tmplat, cidx_grid%r_earth, 0.0_dp)
+                    ! If this neighbour is nearer to the n-th geo point, it will
+                    !  the new candidate:
+                    IF ( disttmp < dist(n) ) THEN
+                      dist(n) = disttmp
+                      idx(n)  = idxtmp
+                      blk(n)  = blktmp
+                    END IF
+                  END IF
+
+                END IF
+
+              END DO
+
+            END IF
+
+          END DO
+        END DO
+
+        ! If the indentified nearest cell is not among the interior cells,
+        !  it will be found on another PE and is flagged as not found here:
+        DO n=1, size_vec
+          IF (idx(n) > -HUGE(1)) THEN
+            IF (.NOT. p_patch_dom % cells % decomp_info % owner_mask(idx(n),blk(n))) THEN
+              idx(n) = -HUGE(1)
+              blk(n) = -HUGE(1)
+            END IF
+          END IF
+        END DO
+
+        DEALLOCATE (dist, i, k)
+
+      ELSE
+
+        ! Not on a worker PE or no overlap with radar-covered area or
+        !  setup_auxgrid_for_cellindex() has not yet been called, so we
+        !  cannot give a correct index:
+
+        idx(:) = -HUGE(1)
+        blk(:) = -HUGE(1)
+
+      END IF
+
+    END IF
+
+  END SUBROUTINE geo2cell_index2d_vec
+
 
   FUNCTION geo2cell_index1d (cidx_grid, p_patch_dom, lon_geo, lat_geo) RESULT (index1d)
 

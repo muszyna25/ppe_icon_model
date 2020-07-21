@@ -1003,21 +1003,21 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg, rg_aclcov, rg_lwflxall,   &
   l_limit(1) = .TRUE.      ! limit transmissivity differences to non-negative values
   l_limit(2:3) = .FALSE.
 
-  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 3, 1, &
+  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), nshift, 3, 1,          &
     &                         f3din1=zrg_trdiffsolall, f3dout1=z_trdiffsolall,          &
     &                         f3din2=p_lwflxall,       f3dout2=lwflxall,                &
     &                         f3din3=zrg_aux3d,        f3dout3=z_aux3d,                 &
     &                         llimit_nneg=l_limit,     overshoot_fac=1.0_wp)
 
   IF (atm_phy_nwp_config(jg)%l_3d_rad_fluxes) THEN
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 4, 1, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), nshift, 4, 1,          &
       &                         f3din1=p_lwflx_up,       f3dout1=lwflx_up,                &
       &                         f3din2=p_lwflx_dn,       f3dout2=lwflx_dn,                &
       &                         f3din3=p_swflx_up,       f3dout3=swflx_up,                &
       &                         f3din4=p_swflx_dn,       f3dout4=swflx_dn,                &
       &                         overshoot_fac=1.0_wp)
   
-    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 4, 1, &
+    CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), nshift, 4, 1,          &
       &                         f3din1=p_lwflx_up_clr,       f3dout1=lwflx_up_clr,        &
       &                         f3din2=p_lwflx_dn_clr,       f3dout2=lwflx_dn_clr,        &
       &                         f3din3=p_swflx_up_clr,       f3dout3=swflx_up_clr,        &
@@ -1991,7 +1991,7 @@ SUBROUTINE downscale_rad_output_rg( jg, jgp, nlev_rg,                &
   l_limit(2:3) = .FALSE.
   rlimval(:)   = 2.94e-37_wp ! seems to be the lower threshold for SW transmissivity
 
-  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 3, 1, &
+  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), nshift, 3, 1,          &
     &                         f3din1=p_trsolall, f3dout1=trsolall,                      &
     &                         f3din2=p_lwflxall, f3dout2=lwflxall,                      &
     &                         f3din3=zrg_aux3d,  f3dout3=z_aux3d,                       &
