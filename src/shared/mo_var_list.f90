@@ -73,7 +73,6 @@ MODULE mo_var_list
   PUBLIC :: delete_var_list           ! delete an output var_list
   PUBLIC :: delete_var_lists          ! delete all output var_lists
   PUBLIC :: get_var_list              ! get a pointer to an existing output var_list
-  PUBLIC :: set_var_list              ! set default parameters of an output var_list
   PUBLIC :: print_var_list
   PUBLIC :: print_all_var_lists
   PUBLIC :: print_memory_use
@@ -181,7 +180,6 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_action_list
   END INTERFACE struct_assign_if_present
 
-  
   INTEGER :: nvar_lists     =   0      ! var_lists allocated so far
   TYPE(t_var_list), ALLOCATABLE, TARGET :: var_lists(:)  ! memory buffer array
   TYPE(t_key_value_store) :: var_lists_map
@@ -197,14 +195,9 @@ CONTAINS
        &                   linitial, patch_id, vlevel_type)
     TYPE(t_var_list), INTENT(inout)        :: this_list    ! anchor
     CHARACTER(len=*), INTENT(in)           :: vlname         ! name of output var_list
-    INTEGER,          INTENT(in), OPTIONAL :: output_type  ! 'GRIB2' or 'NetCDF'
-    INTEGER,          INTENT(in), OPTIONAL :: restart_type ! 'GRIB2' or 'NetCDF'
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf     ! suffix of output file
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: rest_suf     ! suffix of restart file
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: init_suf     ! suffix of initial file
-    LOGICAL,          INTENT(in), OPTIONAL :: loutput      ! write to  output file
-    LOGICAL,          INTENT(in), OPTIONAL :: lrestart     ! write to restart file
-    LOGICAL,          INTENT(in), OPTIONAL :: linitial     ! read from initial file
+    INTEGER,          INTENT(in), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
+    LOGICAL,          INTENT(in), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
     INTEGER,          INTENT(in), OPTIONAL :: patch_id     ! patch ID
     INTEGER,          INTENT(in), OPTIONAL :: vlevel_type  ! 1/2/3 for model/pres./height levels
     INTEGER :: i, ierr, nvl_used
@@ -236,26 +229,17 @@ CONTAINS
     this_list%p%rest_suf = this_list%p%post_suf
     this_list%p%init_suf = this_list%p%post_suf
     this_list%p%loutput  = .TRUE.
-    !
     ! set non-default list characteristics
-    this_list%p%restart_type = restart_file_type
-    CALL assign_if_present(this_list%p%output_type,  output_type)
-    CALL assign_if_present(this_list%p%restart_type, restart_type)
-    CALL assign_if_present(this_list%p%post_suf,     post_suf)
-    CALL assign_if_present(this_list%p%rest_suf,     rest_suf)
-    CALL assign_if_present(this_list%p%init_suf,     init_suf)
-    CALL assign_if_present(this_list%p%loutput,      loutput)
-    CALL assign_if_present(this_list%p%lrestart,     lrestart)
-    CALL assign_if_present(this_list%p%linitial,     linitial)
-    CALL assign_if_present(this_list%p%patch_id,     patch_id)
-    CALL assign_if_present(this_list%p%vlevel_type,  vlevel_type)
+    CALL set_var_list(this_list, output_type=output_type,                &
+      & restart_type=restart_type, post_suf=post_suf, rest_suf=rest_suf, &
+      & init_suf=init_suf, loutput=loutput, lrestart=lrestart,           &
+      & linitial=linitial, patch_id=patch_id, vlevel_type=vlevel_type)
   END SUBROUTINE new_var_list
   !------------------------------------------------------------------------------------------------
   !
   ! Get a reference to a memory buffer/output var_list
   !
   SUBROUTINE get_var_list (this_list, vlname)
-    !
     TYPE(t_var_list), POINTER, INTENT(OUT) :: this_list ! pointer
     CHARACTER(len=*), INTENT(IN) :: vlname      ! name of output var_list
     INTEGER :: i, ierr
@@ -271,13 +255,10 @@ CONTAINS
   !
   FUNCTION total_number_of_variables()
     INTEGER :: total_number_of_variables
-    ! local variables
     INTEGER :: i
     TYPE(t_list_element), POINTER :: element
 
     total_number_of_variables = 0
-    !- loop over variables
-
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
     DO i = 1,nvar_lists
@@ -313,31 +294,18 @@ CONTAINS
     TYPE(t_var_metadata), POINTER :: info
 
     ! clear result
-    DO i=1,SIZE(varlist)
-      varlist(i) = ' '
-    END DO
-
+    FORALL(i = 1:SIZE(varlist)) varlist(i) = ' '
     ! default values for some criteria:
     lcontainer = .FALSE.
-    CALL assign_if_present(lcontainer, opt_lcontainer)
-
+    loutput = .FALSE.
+    hor_intp_type_match = -1
+    vert_intp_type = .FALSE.
+    IF (PRESENT(opt_lcontainer)) lcontainer = opt_lcontainer
     loutput_matters = PRESENT(opt_loutput)
-    IF (loutput_matters) THEN
-      loutput = opt_loutput
-    ELSE
-      loutput = .FALSE.
-    END IF
+    IF (loutput_matters) loutput = opt_loutput
     hor_intp_matters= PRESENT(opt_hor_intp_type)
-    IF (hor_intp_matters) THEN
-      hor_intp_type_match = opt_hor_intp_type
-    ELSE
-      hor_intp_type_match = -1
-    END IF
-    IF (PRESENT(opt_vert_intp_type)) THEN
-      vert_intp_type = opt_vert_intp_type
-    ELSE
-      vert_intp_type = .FALSE.
-    END IF
+    IF (hor_intp_matters) hor_intp_type_match = opt_hor_intp_type
+    IF (PRESENT(opt_vert_intp_type)) vert_intp_type = opt_vert_intp_type
     !- loop over variables
     ivar = 0
     ! Note that there may be several variables with different time
@@ -349,7 +317,7 @@ CONTAINS
       IF (PRESENT(opt_vlevel_type)) THEN
         IF(var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE LOOP_VARLISTS
       END IF
-      IF (PRESENT(opt_loutput)) THEN
+      IF (loutput_matters) THEN
         ! Skip var_lists for which loutput .NEQV. opt_loutput
         IF (opt_loutput .NEQV. var_lists(i)%p%loutput) CYCLE LOOP_VARLISTS
       END IF
@@ -389,11 +357,10 @@ CONTAINS
   FUNCTION get_var_name(var)
     CHARACTER(LEN=VARNAME_LEN) :: get_var_name
     TYPE(t_var_list_element)   :: var
-    ! local variable
     INTEGER :: idx
 
     idx = INDEX(var%info%name,TIMELEVEL_SUFFIX)
-    IF (idx==0) THEN
+    IF (idx .EQ. 0) THEN
       get_var_name = var%info%name
     ELSE
       get_var_name = var%info%name(1:idx-1)
@@ -403,11 +370,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! construct varname  with timelevel
   !
-  FUNCTION get_varname_with_timelevel(varname,timelevel)
-    CHARACTER(LEN=VARNAME_LEN) :: varname
+  CHARACTER(LEN=VARNAME_LEN) FUNCTION get_varname_with_timelevel(varname,timelevel)
+    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: varname
     INTEGER, INTENT(IN)        :: timelevel
-
-    CHARACTER(LEN=VARNAME_LEN) :: get_varname_with_timelevel
 
     get_varname_with_timelevel = TRIM(varname)//get_timelevel_string(timelevel)
   END FUNCTION get_varname_with_timelevel
@@ -417,7 +382,6 @@ CONTAINS
   !
   FUNCTION get_timelevel_string(timelevel) RESULT(suffix)
     INTEGER, INTENT(IN) :: timelevel
-
     CHARACTER(len=4) :: suffix
 
     WRITE(suffix,'("'//TIMELEVEL_SUFFIX//'",i1)') timelevel
@@ -426,93 +390,94 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return time level (extracted from time level suffix) or "-1"
   !
-  FUNCTION get_var_timelevel(info)
-    INTEGER :: get_var_timelevel
+  INTEGER FUNCTION get_var_timelevel(info) RESULT(tl)
     TYPE(t_var_metadata), INTENT(IN) :: info
-    ! local variable
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_timelevel'
-    INTEGER :: idx
 
-    idx = INDEX(info%name,TIMELEVEL_SUFFIX)
-    IF (idx == 0) THEN
-      get_var_timelevel = -1
-      RETURN
+    tl = INDEX(info%name,TIMELEVEL_SUFFIX)
+    IF (tl .EQ. 0) THEN
+      tl = -1
+    ELSE
+      tl = ICHAR(info%name(tl+3:tl+3)) - ICHAR('0')
+      IF (tl .LE. 0 .OR. tl .GT. MAX_TIME_LEVELS) &
+        & CALL finish(routine, 'Illegal time level in '//TRIM(info%name))
     END IF
-
-    ! Get time level
-    get_var_timelevel = ICHAR(info%name(idx+3:idx+3)) - ICHAR('0')
-    IF(get_var_timelevel<=0 .OR. get_var_timelevel>MAX_TIME_LEVELS) &
-      CALL finish(routine, 'Illegal time level in '//TRIM(info%name))
   END FUNCTION get_var_timelevel
 
   ! return logical if a variable name has a timelevel encoded
   LOGICAL FUNCTION has_time_level(varname)
-    CHARACTER(LEN=*) :: varname
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':has_time_level'
-    INTEGER :: idx
+    CHARACTER(*), INTENT(IN) :: varname
 
-    idx = INDEX(varname,TIMELEVEL_SUFFIX)
-    has_time_level = (0 .EQ. idx)
+    has_time_level = (0 .EQ. INDEX(varname,TIMELEVEL_SUFFIX))
   END FUNCTION
 
   !------------------------------------------------------------------------------------------------
   !> @return tile index (extracted from tile index suffix "t_") or "-1"
   !
-  FUNCTION get_var_tileidx(varname)
-    INTEGER :: get_var_tileidx
-    CHARACTER(LEN=*) :: varname
-    ! local variable
+  INTEGER FUNCTION get_var_tileidx(varname) RESULT(tidx)
+    CHARACTER(LEN=*), INTENT(IN) :: varname
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_tileidx'
-    INTEGER :: idx
 
-    idx = INDEX(varname,'_t_')
-    IF (idx == 0) THEN
-      get_var_tileidx = 0
-      RETURN
+    tidx = INDEX(varname,'_t_')
+    IF (tidx .NE. 0) THEN
+      tidx = ICHAR(varname(+3:tidx+3)) - ICHAR('0')
+      IF (tidx .LE. 0) &
+        CALL finish(routine, 'Illegal time level in '//TRIM(varname))
     END IF
-
-    ! Get time level
-    get_var_tileidx = ICHAR(varname(idx+3:idx+3)) - ICHAR('0')
-    IF (get_var_tileidx<=0) &
-      CALL finish(routine, 'Illegal time level in '//TRIM(varname))
   END FUNCTION get_var_tileidx
-
 
   !------------------------------------------------------------------------------------------------
   !
   ! Change parameters of an already existent output var_list
   !
-  SUBROUTINE set_var_list (this_list, output_type, restart_type,  &
-       &                   post_suf, rest_suf, init_suf, loutput, &
-       &                   lrestart, linitial, patch_id,          &
-       &                   vlevel_type)
-    !
+  SUBROUTINE set_var_list (this_list, output_type, restart_type,   &
+      & post_suf, rest_suf, init_suf, loutput, lrestart, linitial, &
+      & patch_id, vlevel_type, filename, compression_type, model_type)
     TYPE(t_var_list), INTENT(inout)        :: this_list      ! output var_list to change
-    INTEGER,          INTENT(in), OPTIONAL :: output_type    ! 'GRIB' or 'NetCDF'
-    INTEGER,          INTENT(in), OPTIONAL :: restart_type   ! 'GRIB' or 'NetCDF'
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf       ! suffix of output  file
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: rest_suf       ! suffix of restart file
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: init_suf       ! suffix of initial file
-    LOGICAL,          INTENT(in), OPTIONAL :: loutput        ! in standard output file
-    LOGICAL,          INTENT(in), OPTIONAL :: lrestart       ! in standard restartfile
-    LOGICAL,          INTENT(in), OPTIONAL :: linitial       ! in standard initialfile
+    INTEGER,          INTENT(in), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
+    LOGICAL,          INTENT(in), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
     INTEGER,          INTENT(in), OPTIONAL :: patch_id       ! patch ID
     INTEGER,          INTENT(in), OPTIONAL :: vlevel_type    ! 1/2/3 for model/pres./height levels
-    !
-    this_list%p%restart_type = restart_file_type
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: filename       ! name of output file
+    INTEGER,          INTENT(in), OPTIONAL :: compression_type
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: model_type     ! output file associated
 
-    CALL assign_if_present(this_list%p%output_type,  output_type)
-    CALL assign_if_present(this_list%p%restart_type, restart_type)
-    CALL assign_if_present(this_list%p%post_suf,     post_suf)
-    CALL assign_if_present(this_list%p%rest_suf,     rest_suf)
-    CALL assign_if_present(this_list%p%init_suf,     init_suf)
-    CALL assign_if_present(this_list%p%loutput,      loutput)
-    CALL assign_if_present(this_list%p%lrestart,     lrestart)
-    CALL assign_if_present(this_list%p%linitial,     linitial)
-    CALL assign_if_present(this_list%p%patch_id,     patch_id)
-    CALL assign_if_present(this_list%p%vlevel_type,  vlevel_type)
-    !
+    this_list%p%restart_type = restart_file_type
+    IF (PRESENT(output_type))      this_list%p%output_type      = output_type
+    IF (PRESENT(restart_type))     this_list%p%restart_type     = restart_type
+    IF (PRESENT(post_suf))         this_list%p%post_suf         = post_suf
+    IF (PRESENT(rest_suf))         this_list%p%rest_suf         = rest_suf
+    IF (PRESENT(init_suf))         this_list%p%init_suf         = init_suf
+    IF (PRESENT(loutput))          this_list%p%loutput          = loutput
+    IF (PRESENT(lrestart))         this_list%p%lrestart         = lrestart
+    IF (PRESENT(linitial))         this_list%p%linitial         = linitial
+    IF (PRESENT(patch_id))         this_list%p%patch_id         = patch_id
+    IF (PRESENT(vlevel_type))      this_list%p%vlevel_type      = vlevel_type
+    IF (PRESENT(filename))         this_list%p%filename         = filename
+    IF (PRESENT(compression_type)) this_list%p%compression_type =  compression_type
+    IF (PRESENT(model_type))       this_list%p%model_type       = model_type
   END SUBROUTINE set_var_list
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Set default meta data of output var_list
+  !
+  SUBROUTINE default_var_list_settings (this_list, filename, loutput, &
+    & lrestart, linitial, post_suf, rest_suf, init_suf, output_type,  &
+    & restart_type, compression_type, model_type)
+    TYPE(t_var_list), INTENT(INOUT)        :: this_list        ! output var_list
+    LOGICAL,          INTENT(IN), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
+    CHARACTER(len=*), INTENT(IN), OPTIONAL :: filename         ! name of output file
+    INTEGER,          INTENT(IN), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
+    CHARACTER(len=*), INTENT(IN), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
+    INTEGER,          INTENT(IN), OPTIONAL :: compression_type ! compression type
+    CHARACTER(len=*), INTENT(IN), OPTIONAL :: model_type       ! output file associated
+
+    CALL set_var_list(this_list, output_type=output_type, restart_type=restart_type,    &
+      & post_suf=post_suf, rest_suf=rest_suf, init_suf=init_suf, loutput=loutput,       &
+      & lrestart=lrestart, linitial=linitial, filename=filename, model_type=model_type, &
+      & compression_type=compression_type)
+  END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
   !
   ! Delete an output var_list, nullify the associated pointer
@@ -594,46 +559,6 @@ CONTAINS
     this_info%in_group(:)         = groups()
     this_info%action_list         = actions()
   END SUBROUTINE default_var_list_metadata
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Set default meta data of output var_list
-  !
-  SUBROUTINE default_var_list_settings (this_list,                                   &
-       &                                filename,                                    &
-       &                                loutput, lrestart, linitial,                 &
-       &                                post_suf, rest_suf, init_suf,                &
-       &                                output_type, restart_type, compression_type, &
-       &                                model_type)
-    !
-    TYPE(t_var_list),   INTENT(inout)        :: this_list        ! output var_list
-    LOGICAL,            INTENT(in), OPTIONAL :: loutput          ! to output
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart         ! from/to restart
-    LOGICAL,            INTENT(in), OPTIONAL :: linitial         ! from initial
-    CHARACTER(len=*),   INTENT(in), OPTIONAL :: filename         ! name of output file
-    CHARACTER(len=*),   INTENT(in), OPTIONAL :: post_suf         ! suffix of output  file
-    CHARACTER(len=*),   INTENT(in), OPTIONAL :: rest_suf         ! suffix of restart file
-    CHARACTER(len=*),   INTENT(in), OPTIONAL :: init_suf         ! suffix of initial file
-    INTEGER,            INTENT(in), OPTIONAL :: output_type      ! output file type
-    INTEGER,            INTENT(in), OPTIONAL :: restart_type     ! restart file type
-    INTEGER,            INTENT(in), OPTIONAL :: compression_type ! compression type
-    CHARACTER(len=*),   INTENT(in), OPTIONAL :: model_type       ! output file associated
-    !
-    this_list%p%restart_type = restart_file_type
-
-    CALL assign_if_present (this_list%p%loutput,          loutput)
-    CALL assign_if_present (this_list%p%lrestart,         lrestart)
-    CALL assign_if_present (this_list%p%linitial,         linitial)
-    CALL assign_if_present (this_list%p%filename,         filename)
-    CALL assign_if_present (this_list%p%post_suf,         post_suf)
-    CALL assign_if_present (this_list%p%rest_suf,         rest_suf)
-    CALL assign_if_present (this_list%p%init_suf,         init_suf)
-    CALL assign_if_present (this_list%p%output_type,      output_type)
-    CALL assign_if_present (this_list%p%restart_type,     restart_type)
-    CALL assign_if_present (this_list%p%compression_type, compression_type)
-    CALL assign_if_present (this_list%p%model_type,       model_type)
-    !
-  END SUBROUTINE default_var_list_settings
-
   !------------------------------------------------------------------------------------------------
   !
   ! Set parameters of list element already created
