@@ -7,6 +7,8 @@
 !! headers of the routines.
 MODULE mo_var_list
 
+#include <icon_contiguous_defines.h>
+
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)
 #ifdef VARLIST_INITIZIALIZE_WITH_NAN
   USE, INTRINSIC :: ieee_features
@@ -49,8 +51,7 @@ MODULE mo_var_list
     &                            SUCCESS, TIMELEVEL_SUFFIX
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
-  USE mo_fortran_tools,    ONLY: assign_if_present, &
-    &                            init_contiguous_dp, init_contiguous_sp, &
+  USE mo_fortran_tools,    ONLY: init_contiguous_dp, init_contiguous_sp, &
     &                            init_contiguous_i4, init_contiguous_l
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
@@ -168,17 +169,6 @@ MODULE mo_var_list
     MODULE PROCEDURE get_var_list_element_l2d
     MODULE PROCEDURE get_var_list_element_l1d
   END INTERFACE get_var
-
-  INTERFACE struct_assign_if_present  ! purely internal
-    MODULE PROCEDURE assign_if_present_cf
-    MODULE PROCEDURE assign_if_present_grib2
-    MODULE PROCEDURE assign_if_present_union
-    MODULE PROCEDURE assign_if_present_tracer_meta
-    MODULE PROCEDURE assign_if_present_vert_interp
-    MODULE PROCEDURE assign_if_present_hor_interp
-    MODULE PROCEDURE assign_if_present_post_op
-    MODULE PROCEDURE assign_if_present_action_list
-  END INTERFACE struct_assign_if_present
 
   INTEGER :: nvar_lists     =   0      ! var_lists allocated so far
   TYPE(t_var_list), ALLOCATABLE, TARGET :: var_lists(:)  ! memory buffer array
@@ -610,82 +600,50 @@ CONTAINS
     LOGICAL :: lverbose
     !
     ! set flags from optional parameters
-    !
     lverbose = .FALSE.
-    CALL assign_if_present (lverbose, verbose)
-    !
+    IF (PRESENT(name)) THEN
+      info%name      = name
+      info%key = text_hash_c(TRIM(name))
+    END IF
+    IF (PRESENT(verbose))       lverbose             = verbose
+    IF (PRESENT(data_type))     info%data_type       = data_type
     ! set components describing the 'Content of the field'
-    CALL assign_if_present(info%data_type, data_type)
-    !
-    ! set components describing the 'Content of the field'
-    !
-    CALL assign_if_present (info%name,  name)
-    CALL assign_if_present (info%var_class,  var_class)
-    CALL struct_assign_if_present (info%cf,    cf)
-    CALL struct_assign_if_present (info%grib2, grib2)
-    !
-    ! hash variable name for fast search
-    !
-    IF (PRESENT(name)) info%key = text_hash_c(TRIM(name))
-    !
-!!$    CALL assign_if_present (info%used_dimensions(1:SIZE(ldims)), ldims)
-    CALL assign_if_present (info%used_dimensions, ldims)
-    !
-    ! set grid type
-    !
-    CALL assign_if_present (info%hgrid, hgrid)
-    CALL assign_if_present (info%vgrid, vgrid)
-    !
-    ! set flags concerning I/O
-    !
-    CALL assign_if_present (info%loutput,       loutput)
-    CALL assign_if_present (info%lcontainer,    lcontainer)
+    IF (PRESENT(var_class))     info%var_class       = var_class
+    IF (PRESENT(cf))            info%cf              = cf
+    IF (PRESENT(grib2))         info%grib2           = grib2
+    IF (PRESENT(hgrid))         info%hgrid           = hgrid
+    IF (PRESENT(vgrid))         info%vgrid           = vgrid
+    info%used_dimensions = ldims
+    IF (PRESENT(loutput))       info%loutput         = loutput
+    IF (PRESENT(lcontainer))    info%lcontainer      = lcontainer
     IF (info%lcontainer) THEN
       info%ncontained   =  0
       info%var_ref_pos  = -1 ! UNDEFINED
     END IF
-    CALL struct_assign_if_present(info%resetval,resetval)
-    CALL assign_if_present(info%isteptype, isteptype)
-    CALL assign_if_present(info%lmiss, lmiss)
-    CALL struct_assign_if_present(info%missval, missval)
-    CALL assign_if_present(info%lrestart, lrestart)
-    CALL assign_if_present(info%lrestart_cont, lrestart_cont)
-    CALL struct_assign_if_present(info%initval, initval)
-    CALL assign_if_present(info%tlev_source, tlev_source)
-    !
+    IF (PRESENT(resetval))      info%resetval      = resetval
+    IF (PRESENT(isteptype))     info%isteptype     = isteptype
+    IF (PRESENT(lmiss))         info%lmiss         = lmiss
+    IF (PRESENT(missval))       info%missval       = missval
+    IF (PRESENT(lrestart))      info%lrestart      = lrestart
+    IF (PRESENT(lrestart_cont)) info%lrestart_cont = lrestart_cont
+    IF (PRESENT(initval))       info%initval       = initval
+    IF (PRESENT(tlev_source))   info%tlev_source   = tlev_source
     ! set flags concerning vertical interpolation
-    CALL struct_assign_if_present (info%vert_interp,   vert_interp )
-
-    ! set flags concerning horizontal interpolation
-    CALL struct_assign_if_present (info%hor_interp,    hor_interp )
-
-    ! set meta data containing the groups to which a variable belongs
-    IF (PRESENT(in_group)) THEN
-      info%in_group(1:SIZE(in_group)) = in_group(:)
-    END IF
-
-    CALL assign_if_present (info%l_pp_scheduler_task, l_pp_scheduler_task)
-
-    CALL struct_assign_if_present (info%post_op, post_op)
-
-    CALL struct_assign_if_present (info%action_list, action_list)
-
+    IF (PRESENT(vert_interp))   info%vert_interp   = vert_interp
+    IF (PRESENT(hor_interp))    info%hor_interp    = hor_interp
+    IF (PRESENT(in_group)) &
+      & info%in_group(:SIZE(in_group)) = in_group(:)
+    IF (PRESENT(l_pp_scheduler_task)) &
+      & info%l_pp_scheduler_task = l_pp_scheduler_task
+    IF (PRESENT(post_op))       info%post_op       = post_op
+    IF (PRESENT(action_list))   info%action_list   = action_list
     ! indices of tracer in tracer container and in diagnostic container
-    CALL assign_if_present (info%idx_tracer, idx_tracer)
-    CALL assign_if_present (info%idx_diag, idx_diag)
-
-    ! Create data on GPU
-    CALL assign_if_present(info%lopenacc, lopenacc)
-
+    IF (PRESENT(idx_tracer))    info%idx_tracer    = idx_tracer
+    IF (PRESENT(idx_diag))      info%idx_diag      = idx_diag
+    IF (PRESENT(lopenacc))      info%lopenacc      = lopenacc
     ! perform consistency checks on variable's meta-data:
     CALL check_metadata_consistency(info)
-
-    !
-    ! printout (optional)
-    !
-
     !LK    IF (lverbose) CALL print_var_metadata (info)
-    !
   END SUBROUTINE set_var_metadata
 
 
@@ -696,12 +654,20 @@ CONTAINS
   !
   SUBROUTINE set_var_metadata_dyn(this_info_dyn,tracer_info)
     TYPE(t_var_metadata_dynamic),INTENT(INOUT) :: this_info_dyn
-    CLASS(t_tracer_meta),INTENT(IN),OPTIONAL :: tracer_info
-
-    CALL assign_if_present_tracer_meta(this_info_dyn%tracer,tracer_info)
-
+    CLASS(t_tracer_meta), INTENT(IN), OPTIONAL :: tracer_info
+    CLASS(t_tracer_meta), POINTER :: tmp
+    
+    IF (PRESENT(tracer_info)) THEN
+      ALLOCATE(this_info_dyn%tracer, source=tracer_info)
+    ELSE
+      ALLOCATE(t_tracer_meta :: this_info_dyn%tracer)
+      tmp => this_info_dyn%tracer
+      SELECT TYPE(tmp)
+      TYPE IS(t_tracer_meta)
+        tmp = create_tracer_metadata(lis_tracer=.FALSE.)
+      END SELECT
+    ENDIF
   END SUBROUTINE set_var_metadata_dyn
-
 
   ! Auxiliary routine: initialize array, REAL(wp) variant
   SUBROUTINE init_array_r5d(ptr, linit, initval, lmiss, missval)
@@ -829,26 +795,10 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
-    REAL(sp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5_s(:,:,:,:,:)              ! provided pointer
-    INTEGER,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5_i(:,:,:,:,:)              ! provided pointer
-    LOGICAL,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5_l(:,:,:,:,:)              ! provided pointer
+    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
+    REAL(sp),         CONTIGUOUS_TARGET, OPTIONAL :: p5_s(:,:,:,:,:)              ! provided pointer
+    INTEGER,          CONTIGUOUS_TARGET, OPTIONAL :: p5_i(:,:,:,:,:)              ! provided pointer
+    LOGICAL,          CONTIGUOUS_TARGET, OPTIONAL :: p5_l(:,:,:,:,:)              ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -894,9 +844,8 @@ CONTAINS
     END IF
 
     is_restart_var = this_list%p%lrestart
-    CALL assign_if_present(is_restart_var, lrestart)
-
     IF (PRESENT(lrestart)) THEN
+      is_restart_var = lrestart
       IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
         CALL finish(routine, 'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
                            & 'but restart of '//TRIM(name)//' requested.')
@@ -927,21 +876,18 @@ CONTAINS
       referenced = .FALSE.
     ENDIF
 
-    CALL assign_if_present(missval%rval, missval_r)
-    CALL assign_if_present(missval%sval, missval_s)
-    CALL assign_if_present(missval%ival, missval_i)
-    CALL assign_if_present(missval%lval, missval_l)
-
-    CALL assign_if_present(initval%rval, initval_r)
-    CALL assign_if_present(initval%sval, initval_s)
-    CALL assign_if_present(initval%ival, initval_i)
-    CALL assign_if_present(initval%lval, initval_l)
-
-    CALL assign_if_present(resetval%rval, resetval_r)
-    CALL assign_if_present(resetval%sval, resetval_s)
-    CALL assign_if_present(resetval%ival, resetval_i)
-    CALL assign_if_present(resetval%lval, resetval_l)
-
+    IF (PRESENT(missval_r))  missval%rval  = missval_r
+    IF (PRESENT(missval_s))  missval%sval  = missval_s
+    IF (PRESENT(missval_i))  missval%ival  = missval_i
+    IF (PRESENT(missval_l))  missval%lval  = missval_l
+    IF (PRESENT(initval_r))  initval%rval  = initval_r
+    IF (PRESENT(initval_s))  initval%sval  = initval_s
+    IF (PRESENT(initval_i))  initval%ival  = initval_i
+    IF (PRESENT(initval_l))  initval%lval  = initval_l
+    IF (PRESENT(resetval_r)) resetval%rval = resetval_r
+    IF (PRESENT(resetval_s)) resetval%sval = resetval_s
+    IF (PRESENT(resetval_i)) resetval%ival = resetval_i
+    IF (PRESENT(resetval_l)) resetval%lval = resetval_l
     CALL set_var_metadata( new_list_element%field%info,                      &
          name=name, hgrid=hgrid, vgrid=vgrid, cf=cf, grib2=grib2,            &
          ldims=ldims(1:ndims), loutput=loutput, lcontainer=lcontainer,       &
@@ -959,14 +905,11 @@ CONTAINS
     new_list_element%field%info%ndims                    = ndims
     new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
     new_list_element%field%info%dom                      => this_list%p%patch_id
+    NULLIFY(new_list_element%field%r_ptr, new_list_element%field%s_ptr, &
+      &     new_list_element%field%i_ptr, new_list_element%field%l_ptr)
     IF (.NOT. referenced) THEN
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
-
-      NULLIFY(new_list_element%field%r_ptr)
-      NULLIFY(new_list_element%field%s_ptr)
-      NULLIFY(new_list_element%field%i_ptr)
-      NULLIFY(new_list_element%field%l_ptr)
       SELECT CASE(data_type)
       CASE (REAL_T)
         new_list_element%field%var_base_size    = 8
@@ -985,12 +928,9 @@ CONTAINS
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
         !$ACC ENTER DATA CREATE( new_list_element%field%l_ptr ) IF( new_list_element%field%info%lopenacc )
       END SELECT
-
-      IF (istat /= 0) THEN
+      new_list_element%field%info%allocated = .TRUE.
+      IF (istat /= 0) &
         CALL finish(routine, 'allocation of array '//TRIM(name)//' failed')
-      ELSE
-        new_list_element%field%info%allocated = .TRUE.
-      ENDIF
       this_list%p%memory_used = this_list%p%memory_used &
            + INT(new_list_element%field%var_base_size, i8) &
            & * INT(PRODUCT(idims(1:5)),i8)
@@ -1006,7 +946,6 @@ CONTAINS
         new_list_element%field%l_ptr => p5_l
       END SELECT
     ENDIF
-
     IF(PRESENT(info)) info => new_list_element%field%info
 
     ! initialize the new array
@@ -1046,7 +985,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),                POINTER              :: ptr(:,:,:,:)                 ! reference to field
+    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1063,11 +1002,7 @@ CONTAINS
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1110,7 +1045,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),                POINTER              :: ptr(:,:,:)                   ! reference to field
+    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1128,11 +1063,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1175,7 +1106,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),                POINTER              :: ptr(:,:)                     ! reference to field
+    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1193,11 +1124,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1241,7 +1168,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(wp),                POINTER              :: ptr(:)                       ! reference to field
+    REAL(wp),       POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1258,11 +1185,7 @@ CONTAINS
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(wp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(wp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1306,7 +1229,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(sp),                POINTER              :: ptr(:,:,:,:)                 ! reference to field
+    REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1323,11 +1246,7 @@ CONTAINS
     REAL(sp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1370,7 +1289,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(sp),                POINTER              :: ptr(:,:,:)                   ! reference to field
+    REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1388,11 +1307,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1435,7 +1350,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(sp),                POINTER              :: ptr(:,:)                     ! reference to field
+    REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1453,11 +1368,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1501,7 +1412,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    REAL(sp),                POINTER              :: ptr(:)                       ! reference to field
+    REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1518,11 +1429,7 @@ CONTAINS
     REAL(sp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    REAL(sp),                TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    REAL(sp),         CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1566,7 +1473,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    INTEGER,                 POINTER              :: ptr(:,:,:,:)                 ! reference to field
+    INTEGER,        POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1583,11 +1490,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1631,7 +1534,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    INTEGER,                 POINTER              :: ptr(:,:,:)                   ! reference to field
+    INTEGER,        POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1648,11 +1551,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1696,7 +1595,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    INTEGER,                 POINTER              :: ptr(:,:)                     ! reference to field
+    INTEGER,        POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1713,11 +1612,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1761,7 +1656,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    INTEGER,                 POINTER              :: ptr(:)                       ! reference to field
+    INTEGER,        POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1778,11 +1673,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    INTEGER,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    INTEGER,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1825,7 +1716,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    LOGICAL,                 POINTER              :: ptr(:,:,:,:)                 ! reference to field
+    LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1842,11 +1733,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1890,7 +1777,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    LOGICAL,                 POINTER              :: ptr(:,:,:)                   ! reference to field
+    LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1907,11 +1794,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -1955,7 +1838,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    LOGICAL,                 POINTER              :: ptr(:,:)                     ! reference to field
+    LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -1972,11 +1855,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -2020,7 +1899,7 @@ CONTAINS
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
-    LOGICAL,                 POINTER              :: ptr(:)                       ! reference to field
+    LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in)           :: cf                           ! CF related metadata
@@ -2037,11 +1916,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
-    LOGICAL,                 TARGET &
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-      , CONTIGUOUS &
-#endif
-      ,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
+    LOGICAL,          CONTIGUOUS_TARGET, OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: in_group(:)                  ! groups to which a variable belongs
@@ -2644,13 +2519,12 @@ CONTAINS
     !
     ! init local fields
     !
-    missvalt = ref_info%missval
-    initvalt = ref_info%initval
-    resetvalt= ref_info%resetval
-    !
-    CALL assign_if_present(missvalt%rval,  missval)
-    CALL assign_if_present(initvalt%rval,  initval)
-    CALL assign_if_present(resetvalt%rval, resetval)
+    missvalt  = ref_info%missval
+    initvalt  = ref_info%initval
+    resetvalt = ref_info%resetval
+    IF (PRESENT(missval))  missvalt%rval  = missval
+    IF (PRESENT(initval))  initvalt%rval  = initval
+    IF (PRESENT(resetval)) resetvalt%rval = resetval
     !
     CALL set_var_metadata (new_list_element%field%info,                      &
          name=name, hgrid=hgrid, vgrid=vgrid,                                &
@@ -2853,13 +2727,12 @@ CONTAINS
     !
     ! init local fields
     !
-    missvalt = ref_info%missval
-    initvalt = ref_info%initval
-    resetvalt= ref_info%resetval
-    !
-    CALL assign_if_present(missvalt%rval,  missval)
-    CALL assign_if_present(initvalt%rval,  initval)
-    CALL assign_if_present(resetvalt%rval, resetval)
+    missvalt  = ref_info%missval
+    initvalt  = ref_info%initval
+    resetvalt = ref_info%resetval
+    IF (PRESENT(missval))  missvalt%rval  = missval
+    IF (PRESENT(initval))  initvalt%rval  = initval
+    IF (PRESENT(resetval)) resetvalt%rval = resetval
     !
     CALL set_var_metadata (new_list_element%field%info,                      &
          name=name, hgrid=hgrid, vgrid=vgrid,                                &
@@ -3052,14 +2925,12 @@ CONTAINS
     !
     ! init local fields
     !
-    missvalt = ref_info%missval
-    initvalt = ref_info%initval
-    resetvalt= ref_info%resetval
-    !
-    CALL assign_if_present(missvalt%sval,  missval)
-    CALL assign_if_present(initvalt%sval,  initval)
-    CALL assign_if_present(resetvalt%sval, resetval)
-    !
+    missvalt  = ref_info%missval
+    initvalt  = ref_info%initval
+    resetvalt = ref_info%resetval
+    IF (PRESENT(missval))  missvalt%sval  = missval
+    IF (PRESENT(initval))  initvalt%sval  = initval
+    IF (PRESENT(resetval)) resetvalt%sval = resetval
     CALL set_var_metadata (new_list_element%field%info,                      &
          name=name, hgrid=hgrid, vgrid=vgrid,                                &
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
@@ -3257,14 +3128,12 @@ CONTAINS
     !
     ! init local fields
     !
-    missvalt = ref_info%missval
-    initvalt = ref_info%initval
-    resetvalt= ref_info%resetval
-    !
-    CALL assign_if_present(missvalt%sval,  missval)
-    CALL assign_if_present(initvalt%sval,  initval)
-    CALL assign_if_present(resetvalt%sval, resetval)
-    !
+    missvalt  = ref_info%missval
+    initvalt  = ref_info%initval
+    resetvalt = ref_info%resetval
+    IF (PRESENT(missval))  missvalt%sval  = missval
+    IF (PRESENT(initval))  initvalt%sval  = initval
+    IF (PRESENT(resetval)) resetvalt%sval = resetval
     CALL set_var_metadata (new_list_element%field%info,                      &
          name=name, hgrid=hgrid, vgrid=vgrid,                                &
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
@@ -3461,14 +3330,12 @@ CONTAINS
     !
     ! init local fields
     !
-    missvalt = ref_info%missval
-    initvalt = ref_info%initval
-    resetvalt= ref_info%resetval
-    !
-    CALL assign_if_present(missvalt%ival,  missval)
-    CALL assign_if_present(initvalt%ival,  initval)
-    CALL assign_if_present(resetvalt%ival, resetval)
-    !
+    missvalt  = ref_info%missval
+    initvalt  = ref_info%initval
+    resetvalt = ref_info%resetval
+    IF (PRESENT(missval))  missvalt%ival  = missval
+    IF (PRESENT(initval))  initvalt%ival  = initval
+    IF (PRESENT(resetval)) resetvalt%ival = resetval
     CALL set_var_metadata (new_list_element%field%info,                      &
          name=name, hgrid=hgrid, vgrid=vgrid,                                &
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
@@ -3615,9 +3482,10 @@ CONTAINS
     CHARACTER(len=32) :: dimension_text, dtext,keytext
     INTEGER :: i, igrp, ivintp_type
     CHARACTER(len=4) :: localMode = '----'
-    LOGICAL :: short = .FALSE.
+    LOGICAL :: short
 
-    CALL assign_if_present(short,lshort)
+    short = .FALSE.
+    IF (PRESENT(lshort)) short = lshort
     CALL message('','')
     CALL message('','')
     CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')
@@ -3967,63 +3835,6 @@ CONTAINS
 
   END SUBROUTINE collect_group
 
-
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_cf (y,x)
-    TYPE(t_cf_var), INTENT(inout)        :: y
-    TYPE(t_cf_var), INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_cf
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_grib2 (y,x)
-    TYPE(t_grib2_var), INTENT(inout)        :: y
-    TYPE(t_grib2_var) ,INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_grib2
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_union (y,x)
-    TYPE(t_union_vals), INTENT(inout)        :: y
-    TYPE(t_union_vals) ,INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_union
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_tracer_meta (y,x)
-    CLASS(t_tracer_meta), POINTER, INTENT(out) :: y
-    CLASS(t_tracer_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) THEN
-      ALLOCATE(y, source=x)
-    ELSE
-      ALLOCATE(t_tracer_meta :: y)
-      SELECT TYPE(y)
-        TYPE IS(t_tracer_meta)
-          y = create_tracer_metadata(lis_tracer=.FALSE.)
-      END SELECT
-    ENDIF
-  END SUBROUTINE assign_if_present_tracer_meta
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_vert_interp (y,x)
-    TYPE(t_vert_interp_meta), INTENT(inout)        :: y
-    TYPE(t_vert_interp_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_vert_interp
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_hor_interp (y,x)
-    TYPE(t_hor_interp_meta), INTENT(inout)        :: y
-    TYPE(t_hor_interp_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_hor_interp
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_post_op (y,x)
-    TYPE(t_post_op_meta), INTENT(inout)        :: y
-    TYPE(t_post_op_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_post_op
-  !------------------------------------------------------------------------------------------------
-  SUBROUTINE assign_if_present_action_list (y,x)
-    TYPE(t_var_action), INTENT(inout)        :: y
-    TYPE(t_var_action) ,INTENT(in) ,OPTIONAL :: x
-    IF (PRESENT(x)) y = x
-  END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
   LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,name_has_time_level,element,case_insensitive)
     INTEGER, INTENT(in) :: key2look4
@@ -4053,25 +3864,20 @@ CONTAINS
   ! A character string is used so it is straight forward only one find
   !
   FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(element)
-    !
     TYPE(t_var_list),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
-    !
     TYPE(t_list_element), POINTER :: element
     INTEGER :: key,hgrid
-    LOGICAL :: name_has_time_level
-    LOGICAL :: case_insensitive
-    case_insensitive = .FALSE.
-    CALL assign_if_present(case_insensitive, opt_caseInsensitive)
+    LOGICAL :: name_has_time_level, case_insensitive
 
+    case_insensitive = .FALSE.
+    IF (PRESENT(opt_caseInsensitive)) case_insensitive = opt_caseInsensitive
     hgrid = -1
-    CALL assign_if_present(hgrid,opt_hgrid)
-    !
+    IF (PRESENT(opt_hgrid)) hgrid = opt_hgrid
     key = text_hash_c(TRIM(name))
     name_has_time_level = has_time_level(name)
-    !
     element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(element))
       IF (-1 == hgrid .OR. hgrid == element%field%info%hgrid) THEN
@@ -4080,7 +3886,6 @@ CONTAINS
       ENDIF
       element => element%next_list_element
     ENDDO
-    !
   END FUNCTION find_list_element
   
   !------------------------------------------------------------------------------------------------
@@ -4089,17 +3894,14 @@ CONTAINS
   ! Overloaded to search for a tracer by its index (ncontained)
   !
   FUNCTION find_tracer_by_index (this_list, ncontained, opt_hgrid) RESULT(this_list_element)
-    !
     TYPE(t_var_list),   INTENT(in) :: this_list
     INTEGER,            INTENT(in) :: ncontained
     INTEGER, OPTIONAL              :: opt_hgrid
-    !
     TYPE(t_list_element), POINTER  :: this_list_element
     INTEGER :: hgrid
 
     hgrid = -1
-    CALL assign_if_present(hgrid,opt_hgrid)
-    !
+    IF (PRESENT(opt_hgrid)) hgrid = opt_hgrid
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
       IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
@@ -4113,31 +3915,26 @@ CONTAINS
       ENDIF
       this_list_element => this_list_element%next_list_element
     ENDDO
-    !
     NULLIFY (this_list_element)
-    !
   END FUNCTION find_tracer_by_index
 
   !-----------------------------------------------------------------------------
   !
   ! Find named list element accross all knows variable lists
   !
-  FUNCTION find_element_from_all (name, opt_patch_id, opt_hgrid, opt_caseInsensitive,opt_returnList) RESULT(element)
-    CHARACTER(len=*),   INTENT(in) :: name
-    INTEGER, OPTIONAL              :: opt_patch_id
-    INTEGER, OPTIONAL              :: opt_hgrid
+  FUNCTION find_element_from_all (vname, opt_patch_id, opt_hgrid, opt_caseInsensitive,opt_returnList) RESULT(element)
+    CHARACTER(len=*),   INTENT(in) :: vname
+    INTEGER, OPTIONAL              :: opt_patch_id, opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
-    TYPE(t_var_list), POINTER, OPTIONAL     :: opt_returnList
-
+    TYPE(t_var_list), POINTER, OPTIONAL :: opt_returnList
     TYPE(t_list_element), POINTER :: element
     INTEGER :: i,patch_id
 
     patch_id = 1
-    CALL assign_if_present(patch_id,opt_patch_id)
-
+    IF (PRESENT(opt_patch_id)) patch_id = opt_patch_id
     DO i=1,nvar_lists
       IF ( patch_id /= var_lists(i)%p%patch_id ) CYCLE
-      element => find_list_element(var_lists(i),name,opt_hgrid,opt_caseInsensitive)
+      element => find_list_element(var_lists(i),vname,opt_hgrid,opt_caseInsensitive)
       IF (ASSOCIATED (element)) THEN
 #ifdef DEBUG_MVSTREAM
         if (my_process_is_stdio()) call &
