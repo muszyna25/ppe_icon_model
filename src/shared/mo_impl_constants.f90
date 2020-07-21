@@ -526,7 +526,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VARNAME_LEN = 256 
 
   INTEGER, PARAMETER :: &
-    max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
     max_var_ml     = 999, & ! maximum number of output model-level variables
     max_var_pl     = 150, & ! maximum number of pressure-level variables

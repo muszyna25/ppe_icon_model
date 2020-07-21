@@ -43,10 +43,10 @@ MODULE mo_var_list
   USE mo_util_string,      ONLY: remove_duplicates, toupper,        &
     &                            pretty_print_string_list, tolower, &
     &                            difference, find_trailing_number
-  USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
+  USE mo_impl_constants,   ONLY: vname_len, VARNAME_LEN,            &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            REAL_T, SINGLE_T, BOOL_T, INT_T,   &
-    &                            SUCCESS, VARNAME_LEN, TIMELEVEL_SUFFIX
+    &                            SUCCESS, TIMELEVEL_SUFFIX
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: assign_if_present, &
@@ -56,6 +56,7 @@ MODULE mo_var_list
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_sort,        ONLY: quicksort
+  USE mo_key_value_store,  ONLY: t_key_value_store
 #ifdef DEBUG_MVSTREAM
   USE mo_util_string,      ONLY: int2string
   USE mo_mpi,              ONLY: my_process_is_stdio
@@ -82,7 +83,6 @@ MODULE mo_var_list
 
   PUBLIC :: var_lists                 ! vector of output var_lists
   PUBLIC :: nvar_lists                ! number of output var_lists defined so far
-  PUBLIC :: max_var_lists
 
   PUBLIC :: add_var                   ! create/allocate a new var_list list entry
   PUBLIC :: add_var_list_reference
@@ -182,9 +182,9 @@ MODULE mo_var_list
   END INTERFACE struct_assign_if_present
 
   
-  INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
-  !
-  TYPE(t_var_list), TARGET, SAVE :: var_lists(max_var_lists)  ! memory buffer array
+  INTEGER :: nvar_lists     =   0      ! var_lists allocated so far
+  TYPE(t_var_list), ALLOCATABLE, TARGET :: var_lists(:)  ! memory buffer array
+  TYPE(t_key_value_store) :: var_lists_map
   !
 CONTAINS
   !------------------------------------------------------------------------------------------------
@@ -192,12 +192,11 @@ CONTAINS
   ! Create a new memory buffer / output var_list
   ! Get a pointer to the new var_list
   !
-  SUBROUTINE new_var_list (this_list, name, output_type, restart_type,      &
+  SUBROUTINE new_var_list (this_list, vlname, output_type, restart_type,      &
        &                   post_suf, rest_suf, init_suf, loutput, lrestart, &
        &                   linitial, patch_id, vlevel_type)
-    !
     TYPE(t_var_list), INTENT(inout)        :: this_list    ! anchor
-    CHARACTER(len=*), INTENT(in)           :: name         ! name of output var_list
+    CHARACTER(len=*), INTENT(in)           :: vlname         ! name of output var_list
     INTEGER,          INTENT(in), OPTIONAL :: output_type  ! 'GRIB2' or 'NetCDF'
     INTEGER,          INTENT(in), OPTIONAL :: restart_type ! 'GRIB2' or 'NetCDF'
     CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf     ! suffix of output file
@@ -208,56 +207,38 @@ CONTAINS
     LOGICAL,          INTENT(in), OPTIONAL :: linitial     ! read from initial file
     INTEGER,          INTENT(in), OPTIONAL :: patch_id     ! patch ID
     INTEGER,          INTENT(in), OPTIONAL :: vlevel_type  ! 1/2/3 for model/pres./height levels
+    INTEGER :: i, ierr, nvl_used
+    TYPE(t_var_list), ALLOCATABLE :: tmp(:)
     !
-    INTEGER :: i
-    !
-    ! look, if name exists already in list
-    !
-    DO i = 1, nvar_lists
-      IF (var_lists(i)%p%name == name) THEN
-        CALL finish('new_list', 'output var_list '//TRIM(name)//' already used.')
-      ENDIF
-    ENDDO
-    !
+    CALL message('','')
+    CALL message('','adding new var_list '//TRIM(vlname))
+    IF (.NOT.var_lists_map%is_init) CALL var_lists_map%init(.FALSE.)
+    CALL var_lists_map%get(vlname, i, ierr)
+    IF (ierr .EQ. 0) CALL finish('new_var_list', ' >'//TRIM(vlname)//'< already in use.')
     this_list%p => NULL()
-    !
-    ! - check, if there is an entry without name in the existing vector
-    !
-    DO i = 1, nvar_lists
-      IF (var_lists(i)%p%name == '') THEN
-        this_list%p => var_lists(i)%p
-        EXIT
-      ENDIF
-    END DO
-    !
-    ! - if not successful, append to vector of lists
-    !
-    IF(.NOT. ASSOCIATED(this_list%p)) THEN
-      nvar_lists = nvar_lists + 1
-      IF (nvar_lists > max_var_lists) THEN
-        CALL finish('new_list', &
-             &      'var_lists container overflow, increase "max_var_lists" in mo_var_list.f90')
-      ENDIF
-    ENDIF
-    !
-    CALL new_list (var_lists(nvar_lists))
-    !
-    ! connect anchor and backbone by referencing
-    !
-    this_list%p => var_lists(nvar_lists)%p
-    !
+    nvl_used = var_lists_map%getEntryCount()
+    IF (nvar_lists .NE. nvl_used) CALL finish('new_var_list', "inconsistent element counts")
+    IF (.NOT.ALLOCATED(var_lists)) THEN
+      ALLOCATE(var_lists(12))
+    ELSE IF (nvl_used .GE. SIZE(var_lists)) THEN
+      ALLOCATE(tmp(SIZE(var_lists) + 4))
+      FORALL(i = 1:nvl_used) tmp(i)%p => var_lists(i)%p
+      CALL MOVE_ALLOC(tmp, var_lists) 
+    END IF
+    nvl_used = nvl_used + 1
+    nvar_lists = nvl_used
+    CALL new_list(var_lists(nvl_used))
+    this_list%p => var_lists(nvl_used)%p
+    CALL var_lists_map%put(vlname, nvar_lists)
     ! set default list characteristics
-    !
-    this_list%p%name     = name
-    this_list%p%post_suf = '_'//TRIM(name)
+    this_list%p%name     = vlname
+    this_list%p%post_suf = '_'//TRIM(vlname)
     this_list%p%rest_suf = this_list%p%post_suf
     this_list%p%init_suf = this_list%p%post_suf
     this_list%p%loutput  = .TRUE.
     !
     ! set non-default list characteristics
-    !
     this_list%p%restart_type = restart_file_type
-
     CALL assign_if_present(this_list%p%output_type,  output_type)
     CALL assign_if_present(this_list%p%restart_type, restart_type)
     CALL assign_if_present(this_list%p%post_suf,     post_suf)
@@ -268,31 +249,20 @@ CONTAINS
     CALL assign_if_present(this_list%p%linitial,     linitial)
     CALL assign_if_present(this_list%p%patch_id,     patch_id)
     CALL assign_if_present(this_list%p%vlevel_type,  vlevel_type)
-    !
-    CALL message('','')
-    CALL message('','adding new var_list '//TRIM(name))
-    !
   END SUBROUTINE new_var_list
   !------------------------------------------------------------------------------------------------
   !
   ! Get a reference to a memory buffer/output var_list
   !
-  SUBROUTINE get_var_list (this_list, name)
+  SUBROUTINE get_var_list (this_list, vlname)
     !
-    TYPE(t_var_list), POINTER    :: this_list ! pointer
-    CHARACTER(len=*), INTENT(in) :: name      ! name of output var_list
-    !
-    INTEGER :: i
-    !
-    NULLIFY (this_list)
-    !
-    DO i = 1, nvar_lists
-      IF (var_lists(i)%p%name == name) THEN
-        this_list => var_lists(i)
-        EXIT
-      ENDIF
-    END DO
-    !
+    TYPE(t_var_list), POINTER, INTENT(OUT) :: this_list ! pointer
+    CHARACTER(len=*), INTENT(IN) :: vlname      ! name of output var_list
+    INTEGER :: i, ierr
+
+    CALL var_lists_map%get(vlname, i, ierr)
+    NULLIFY(this_list)
+    IF (ierr .EQ. 0) this_list => var_lists(i)
   END SUBROUTINE get_var_list
 
   !------------------------------------------------------------------------------------------------
@@ -548,30 +518,30 @@ CONTAINS
   ! Delete an output var_list, nullify the associated pointer
   !
   SUBROUTINE delete_var_list(this_list)
-    !
     TYPE(t_var_list) :: this_list
     !
     IF (ASSOCIATED(this_list%p)) THEN
+      CALL var_lists_map%remove(TRIM(this_list%p%name))
       CALL delete_list(this_list)
       DEALLOCATE(this_list%p)
     ENDIF
-    !
   END SUBROUTINE delete_var_list
   !------------------------------------------------------------------------------------------------
   !
   ! Delete all output var_lists
   !
   SUBROUTINE delete_var_lists
-    !
     TYPE(t_var_list), POINTER :: this_list
-    !
     INTEGER :: i
     !
     DO i = 1, nvar_lists
       this_list => var_lists(i)
-      CALL delete_var_list (this_list)
+      IF (ASSOCIATED(this_list%p)) THEN
+        CALL delete_list(this_list)
+        DEALLOCATE(this_list%p)
+      END IF
     END DO
-    !
+    CALL var_lists_map%destruct()
   END SUBROUTINE delete_var_lists
   !------------------------------------------------------------------------------------------------
   !
@@ -3660,65 +3630,30 @@ CONTAINS
     ! ... put other consistency checks here ...
   END SUBROUTINE check_metadata_consistency
 
-
-
   !================================================================================================
   !------------------------------------------------------------------------------------------------
   !
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   !
-  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision, in_group)
+  SUBROUTINE add_var_list_reference (to_var_list, vname, from_var_list, loutput, bit_precision, in_group)
     TYPE(t_var_list), INTENT(inout)          :: to_var_list
-    CHARACTER(len=*), INTENT(in)             :: name
-    CHARACTER(len=*), INTENT(in)             :: from_var_list
-    LOGICAL,          INTENT(in),   OPTIONAL :: loutput
+    CHARACTER(len=*), INTENT(in)             :: vname, from_var_list
+    LOGICAL,          INTENT(in),   OPTIONAL :: loutput, in_group(MAX_GROUPS)
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
-    LOGICAL,          INTENT(in),   OPTIONAL :: in_group(MAX_GROUPS)  ! groups to which a variable belongs
+    TYPE(t_list_element),     POINTER :: n_list_e, o_list_e => NULL()
+    INTEGER :: i, ierr
     !
-    TYPE(t_var_list_element), POINTER :: source
-    TYPE(t_list_element),     POINTER :: new_list_element
-    !
-    CALL locate (source, name, from_var_list)
-    IF (ASSOCIATED(source)) THEN
-      CALL append_list_element (to_var_list, new_list_element)
-      new_list_element%field                = source
-      new_list_element%field%info%allocated = .FALSE.
-      new_list_element%field%info%lrestart  = .FALSE.
-      CALL assign_if_present(new_list_element%field%info%loutput, loutput)
-      CALL assign_if_present(new_list_element%field%info%grib2%bits, bit_precision)
-      if (present(in_group)) then
-        new_list_element%field%info%in_group(:)=in_group(:)
-      end if
+    CALL var_lists_map%get(from_var_list, i, ierr)
+    IF (ierr .EQ. 0) o_list_e => find_list_element(var_lists(i), vname)
+    IF (ASSOCIATED(o_list_e)) THEN
+      CALL append_list_element(to_var_list, n_list_e)
+      n_list_e%field                = o_list_e%field
+      n_list_e%field%info%allocated = .FALSE.
+      n_list_e%field%info%lrestart  = .FALSE.
+      IF (PRESENT(loutput))       n_list_e%field%info%loutput     = loutput
+      IF (PRESENT(bit_precision)) n_list_e%field%info%grib2%bits  = bit_precision
+      IF (PRESENT(in_group))      n_list_e%field%info%in_group(:) = in_group(:)
     ENDIF
-    !
-  CONTAINS
-    !----------------------------------------------------------------------------------------------
-    !
-    ! find an entry
-    !
-    SUBROUTINE locate (element, name, in_var_list)
-      TYPE(t_var_list_element), POINTER        :: element
-      CHARACTER(len=*), INTENT(in)           :: name
-      CHARACTER(len=*), INTENT(in), OPTIONAL :: in_var_list
-      !
-      INTEGER                     :: i
-      TYPE(t_list_element), POINTER :: link
-      !
-      NULLIFY (element)
-      !
-      DO i = 1, nvar_lists
-        IF (PRESENT(in_var_list)) THEN
-          IF (in_var_list /= var_lists(i)%p%name) CYCLE
-        ENDIF
-        link => find_list_element (var_lists(i), name)
-        IF (ASSOCIATED(link)) THEN
-          element => link%field
-          EXIT
-        ENDIF
-      END DO
-      !
-    END SUBROUTINE locate
-    !
   END SUBROUTINE add_var_list_reference
 
   !------------------------------------------------------------------------------------------------

@@ -114,10 +114,9 @@ MODULE mo_name_list_output_init
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
-  USE mo_var_list,                          ONLY: nvar_lists, max_var_lists, var_lists,           &
-    &                                             new_var_list, varlistPacker,                    &
+  USE mo_var_list,                          ONLY: nvar_lists, var_lists, new_var_list,            &
     &                                             total_number_of_variables, collect_group,       &
-    &                                             get_var_timelevel, get_var_name
+    &                                             get_var_timelevel, get_var_name, varlistPacker
   USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
     &                                             level_type_il
@@ -1375,7 +1374,7 @@ CONTAINS
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     INTEGER, POINTER                     :: pe_placement(:)
     INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, nvl, &
-         vl_list(max_var_lists), j, log_patch_id
+         vl_list(SIZE(var_lists)), j, log_patch_id
     CHARACTER(len=*), PARAMETER :: routine &
          = modname//"::output_name_lists_to_files"
     LOGICAL :: is_work

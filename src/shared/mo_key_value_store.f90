@@ -50,6 +50,7 @@ MODULE mo_key_value_store
     PROCEDURE, PRIVATE :: get_l => key_value_store_get_l
     GENERIC, PUBLIC :: get => get_c, get_r, get_i, get_l
     PROCEDURE, PRIVATE :: get_internal => key_value_store_get_internal
+    PROCEDURE, PUBLIC :: remove => key_value_store_remove
     PROCEDURE, PRIVATE :: input_pmsg => key_value_store_input_pmsg
     GENERIC, PUBLIC :: input => input_pmsg
     PROCEDURE, PUBLIC :: output => key_value_store_output
@@ -270,6 +271,21 @@ CONTAINS
 
     CALL key_value_store_get_internal(me, TRIM(key), opt_l = res, opt_err = opt_err)
   END SUBROUTINE key_value_store_get_l
+
+  SUBROUTINE key_value_store_remove(me, key)
+    CLASS(t_key_value_store), INTENT(INOUT) :: me
+    CHARACTER(*), INTENT(IN) :: key
+    CHARACTER(LEN=LEN_TRIM(key)), TARGET :: key_c
+    CLASS(*), POINTER :: keyObj
+
+    IF (me%lcase_sensitive) THEN
+      key_c = key
+    ELSE
+      key_c = tolower(key)
+    END IF
+    keyObj => key_c
+    CALL me%table%removeEntry(keyObj)
+  END SUBROUTINE key_value_store_remove
 
   SUBROUTINE key_value_store_input_pmsg(me, pmsg)
     CLASS(t_key_value_store), INTENT(INOUT) :: me
