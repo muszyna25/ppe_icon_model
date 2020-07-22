@@ -23,26 +23,22 @@ MODULE mo_var_metadata
 
   USE mo_kind,               ONLY: wp, sp, dp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: HINTP_TYPE_LONLAT_RBF, MAX_CHAR_LENGTH
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
     &                              t_post_op_meta, VINTP_TYPE_LIST
   USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
-  USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_time_config,        ONLY: time_config
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
     &                              timedelta, newTimedelta, deallocateTimedelta, &
     &                              OPERATOR(+), dateTimeToString, MAX_DATETIME_STR_LEN
 
   IMPLICIT NONE
-
   PRIVATE
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata'
-
 
   PUBLIC  :: create_hor_interp_metadata
   PUBLIC  :: create_vert_interp_metadata
@@ -52,9 +48,7 @@ MODULE mo_var_metadata
   PUBLIC  :: new_action
   PUBLIC  :: actions
 
-
 CONTAINS
-
 
   !------------------------------------------------------------------------------------------------
   !
@@ -62,22 +56,14 @@ CONTAINS
   !
   ! Fills data structure with default values (unless set otherwise).
   FUNCTION create_hor_interp_metadata(hor_intp_type, fallback_type, lonlat_id)    &
-    RESULT(hor_interp_meta)
-
-    TYPE(t_hor_interp_meta) :: hor_interp_meta
-    INTEGER, INTENT(IN), OPTIONAL      :: &
-      &  hor_intp_type, fallback_type, lonlat_id
-
-    ! set default values
-    hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT_RBF
-    hor_interp_meta%fallback_type    = HINTP_TYPE_LONLAT_RBF
-    hor_interp_meta%lonlat_id        = 0 ! invalid ID
+    & RESULT(him)
+    TYPE(t_hor_interp_meta) :: him
+    INTEGER, INTENT(IN), OPTIONAL :: hor_intp_type, fallback_type, lonlat_id
 
     ! supersede with user definitions
-    CALL assign_if_present(hor_interp_meta%hor_intp_type, hor_intp_type)
-    CALL assign_if_present(hor_interp_meta%fallback_type, fallback_type)
-    CALL assign_if_present(hor_interp_meta%lonlat_id,     lonlat_id)
-
+    IF (PRESENT(hor_intp_type)) him%hor_intp_type = hor_intp_type
+    IF (PRESENT(fallback_type)) him%fallback_type = fallback_type
+    IF (PRESENT(lonlat_id))     him%lonlat_id     = lonlat_id
   END FUNCTION create_hor_interp_metadata
 
 
@@ -140,35 +126,27 @@ CONTAINS
   ! Quasi-constructor for vertical interpolation meta data
   !
   ! Fills data structure with default values (unless set otherwise).
-  FUNCTION create_vert_interp_metadata(vert_intp_type, vert_intp_method,                     &
-    &  l_hires_intp, l_restore_fricred, l_loglin, l_extrapol, l_satlimit, l_restore_pbldev,  &
-    &  l_pd_limit, lower_limit)               &
-    RESULT(vert_interp_meta)
-
-    TYPE(t_vert_interp_meta) :: vert_interp_meta
-    LOGICAL, INTENT(IN), OPTIONAL      :: &
-      &  vert_intp_type(SIZE(VINTP_TYPE_LIST))
-    INTEGER, INTENT(IN), OPTIONAL      :: &
-      &  vert_intp_method
-    LOGICAL, INTENT(IN), OPTIONAL      :: &
-      &  l_hires_intp, l_restore_fricred, l_loglin, &
-      &  l_extrapol, l_satlimit, l_restore_pbldev,  &
-      &  l_pd_limit
-    REAL(wp), INTENT(IN), OPTIONAL     :: &
-      &  lower_limit
+  FUNCTION create_vert_interp_metadata(vert_intp_type, vert_intp_method, l_hires_intp,       &
+    & l_restore_fricred, l_loglin, l_extrapol, l_satlimit, l_restore_pbldev, l_pd_limit,     &
+    & lower_limit) RESULT(vim)
+    TYPE(t_vert_interp_meta) :: vim
+    LOGICAL, INTENT(IN), OPTIONAL :: vert_intp_type(SIZE(VINTP_TYPE_LIST))
+    INTEGER, INTENT(IN), OPTIONAL :: vert_intp_method 
+    LOGICAL, INTENT(IN), OPTIONAL :: l_hires_intp, l_restore_fricred, &
+      & l_loglin, l_extrapol, l_satlimit, l_restore_pbldev, l_pd_limit
+    REAL(wp), INTENT(IN), OPTIONAL :: lower_limit
 
     ! supersede with user definitions
-    CALL assign_if_present(vert_interp_meta%vert_intp_type     , vert_intp_type    )
-    CALL assign_if_present(vert_interp_meta%vert_intp_method   , vert_intp_method  )
-    CALL assign_if_present(vert_interp_meta%l_hires_intp       , l_hires_intp      )
-    CALL assign_if_present(vert_interp_meta%l_restore_fricred  , l_restore_fricred )
-    CALL assign_if_present(vert_interp_meta%l_loglin           , l_loglin          )
-    CALL assign_if_present(vert_interp_meta%l_extrapol         , l_extrapol        )
-    CALL assign_if_present(vert_interp_meta%l_satlimit         , l_satlimit        )
-    CALL assign_if_present(vert_interp_meta%l_restore_pbldev   , l_restore_pbldev  )
-    CALL assign_if_present(vert_interp_meta%l_pd_limit         , l_pd_limit        )
-    CALL assign_if_present(vert_interp_meta%lower_limit        , lower_limit       )
-
+    IF (PRESENT(vert_intp_type))    vim%vert_intp_type    = vert_intp_type
+    IF (PRESENT(vert_intp_method))  vim%vert_intp_method  = vert_intp_method
+    IF (PRESENT(l_hires_intp))      vim%l_hires_intp      = l_hires_intp
+    IF (PRESENT(l_restore_fricred)) vim%l_restore_fricred = l_restore_fricred
+    IF (PRESENT(l_loglin))          vim%l_loglin          = l_loglin
+    IF (PRESENT(l_extrapol))        vim%l_extrapol        = l_extrapol
+    IF (PRESENT(l_satlimit))        vim%l_satlimit        = l_satlimit
+    IF (PRESENT(l_restore_pbldev))  vim%l_restore_pbldev  = l_restore_pbldev
+    IF (PRESENT(l_pd_limit))        vim%l_pd_limit        = l_pd_limit
+    IF (PRESENT(lower_limit))       vim%lower_limit       = lower_limit
   END FUNCTION create_vert_interp_metadata
 
 
@@ -226,7 +204,7 @@ CONTAINS
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_ref   ! action reference time [ISO_8601]
 
     ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':new_action'
+    CHARACTER(*), PARAMETER :: routine = modname//':new_action'
     TYPE(timedelta), POINTER              :: start_offset, end_offset, ref_offset
     TYPE(datetime), TARGET                :: startdatetime, enddatetime, refdatetime
     TYPE(datetime), POINTER               :: dummy_ptr

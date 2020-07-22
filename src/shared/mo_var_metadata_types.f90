@@ -10,7 +10,8 @@
 MODULE mo_var_metadata_types
 
   USE mo_kind,                  ONLY: dp, wp, sp
-  USE mo_impl_constants,        ONLY: TLEV_NNOW, VARNAME_LEN, VINTP_METHOD_LIN
+  USE mo_impl_constants,        ONLY: TLEV_NNOW, VARNAME_LEN, &
+    & VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_action_types,          ONLY: t_var_action
   USE mo_cf_convention,         ONLY: t_cf_var
@@ -97,9 +98,9 @@ MODULE mo_var_metadata_types
 
   !> data specific for horizontal interpolation.
   TYPE t_hor_interp_meta
-    INTEGER :: hor_intp_type ! NONE/RBF/Nearest-Neighbor/...
-    INTEGER :: fallback_type ! replaces "hor_intp_type" if this is not feasible
-    INTEGER :: lonlat_id     ! lon-lat grid (ID in global list)
+    INTEGER :: hor_intp_type = HINTP_TYPE_LONLAT_RBF ! NONE/RBF/Nearest-Neighbor/...
+    INTEGER :: fallback_type = HINTP_TYPE_LONLAT_RBF ! replaces "hor_intp_type" if this is not feasible
+    INTEGER :: lonlat_id     = 0 ! lon-lat grid (ID in global list)
   END TYPE t_hor_interp_meta
 
 
