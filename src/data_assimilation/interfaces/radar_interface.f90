@@ -46,6 +46,7 @@ MODULE radar_interface
   USE mo_kind,                  ONLY: sp, dp, wp
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot
   USE mo_exception,             ONLY: finish
+  USE mo_master_config,         ONLY: isRestart
   USE mo_grid_config,           ONLY: start_time, end_time ! in seconds since experiment start for each domain
   USE mo_parallel_config,       ONLY: nproma, blk_no, idx_no, idx_1d
   USE mo_nonhydro_state,        ONLY: p_nh_state
@@ -396,7 +397,7 @@ MODULE radar_interface
 
   PUBLIC abort_run, setup_auxgrid_for_cellindex, diagnose_and_store_uv_pres_temp, &
          get_model_variables, get_model_hydrometeors, get_model_config_for_radar, &
-         setup_runtime_timings, get_runtime_timings
+         setup_runtime_timings, get_runtime_timings, run_is_restart
   
 #ifdef HAVE_RADARFWO
   PUBLIC get_model_time_sec, get_model_inputdir, get_model_outputdir,               &
@@ -533,7 +534,20 @@ CONTAINS
 
   END SUBROUTINE abort_run
 
-  
+  !============================================================================
+  ! 
+  ! Function for checking if the actual model run is a restart run.
+  ! Is, e.g., used for determining if pre-existing output files
+  ! of different kinds in the output directory have to be clobbered
+  ! (no restart run) or have to be appended (restart run).
+  ! 
+  !============================================================================
+
+  FUNCTION run_is_restart() RESULT (lis_restart)
+    LOGICAL :: lis_restart
+    lis_restart = isRestart()
+  END FUNCTION run_is_restart
+
   !============================================================================
   ! 
   ! Subroutine for getting the necessary configuration variables of the model.
@@ -1056,24 +1070,30 @@ CONTAINS
     rain%b_ven = miss_value             !.b_ven..Koeff. Ventilation
 
     ice%name  = 'ice1mom'               !.name...Bezeichnung der Partikelklasse
-    ice%mu    = 1.0000d0                !.mu.....Breiteparameter der Verteil.
-    ice%nu    = 1.0000d0                !.nu.....Exp.-parameter der Verteil.
+    ice%mu    = 1.0000d0                !.mu.....DUMMY, because monodisperse PDF is assumed
+    ice%nu    = 1.0000d0                !.nu.....DUMMY, because monodisperse PDF is assumed
     ice%n0_const = 1.0d0                  !.n0.....Scaling parameter of distribution (only set if constant)
     ice%a_geo = 130.00d0                !.a_geo..Koeff. Geometrie
     ice%b_geo = 3.0000d0                !.b_geo..Koeff. Geometrie
-    ! here: x_min == x_max == x(D_c=100um)
-    ! medial mass of cloud ice crystals; monodisperse distribution
-    ice%x_max = ice%a_geo*100d-6**ice%b_geo
-                                        !.x_max..maximale Teilchenmasse
-    ice%x_min = ice%x_max               !.x_min..minimale Teilchenmasse
+    ! mean mass of cloud ice crystals; monodisperse distribution
+    ice%x_max = ice%a_geo*1.5d-3**ice%b_geo !.x_max equivalent to D=1.5 mm
+    ice%x_min = ice%a_geo*10d-6**ice%b_geo  !.x_min equivalent to D=10 microns
+
     ! Parameters for terminal velocity: vt = a_velD * D^b_velD = a_velx * x^b_velx
-    ! first, set them as D-space parameters (as were given in vthydroparams_1mom)
+    ! First, set them as D-space parameters (adapted from the COSMO snow parameters):
     ice%a_vel = 4.9d0 * 0.75d0  ! the 0.75 is Uli's tuning of the snow relation in the COSMO-Docs
                                         !.a_vel..Koeff. Fallgesetz
     ice%b_vel = 0.2500d0                !.b_vel..Koeff. Fallgesetz
     ! now convert to x-space (more practical to use in code)
     ice%b_vel = ice%b_vel/ice%b_geo
     ice%a_vel = ice%a_vel/ice%a_geo**ice%b_vel
+    
+    ! REMARK: the original ice sedimentation velocity consistent with 1-mom microphysics
+    !  would be the following, adapted from from Heymsfield&Donner 1990:
+    ! v(rho_i) = 1.1 * rho_i^0.16 => v(x_i) = a_vel * (n_i(T)*x_i)^0.16
+    !  - values seem to be rather small
+    !  - a_vel would depend on T, i.e., the habit is parameterized implicity as function of T
+
     ice%a_ven = miss_value              !.a_ven..Koeff. Ventilation
     ice%b_ven = miss_value              !.b_ven..Koeff. Ventilation
 
