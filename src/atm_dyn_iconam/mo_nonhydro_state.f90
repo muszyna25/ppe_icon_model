@@ -101,8 +101,7 @@ MODULE mo_nonhydro_state
     &                                DATATYPE_PACK16, DATATYPE_PACK24,               &
     &                                DATATYPE_INT, TSTEP_CONSTANT, TSTEP_AVG,        &
     &                                GRID_UNSTRUCTURED
-  USE mo_action,               ONLY: ACTION_RESET, new_action
-  USE mo_action_types,         ONLY: actions
+  USE mo_action,               ONLY: ACTION_RESET, new_action, actions
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
   USE mo_upatmo_config,        ONLY: upatmo_dyn_config
   USE mo_upatmo_impl_const,    ONLY: idamtr

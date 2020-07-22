@@ -59,8 +59,7 @@ MODULE mo_echam_phy_memory
     &                               new_var_list,              &
     &                               delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
-  USE mo_action,              ONLY: ACTION_RESET, new_action
-  USE mo_action_types,        ONLY: actions
+  USE mo_action,              ONLY: ACTION_RESET, new_action, actions
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &

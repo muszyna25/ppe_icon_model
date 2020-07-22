@@ -24,13 +24,11 @@ MODULE mo_action_types
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: actions ! TODO: disentagle varlists and usage of action stuff, so "actions" can move to mo_action...
   PUBLIC :: t_var_action_element, t_var_action
 
   INTEGER, PARAMETER :: NMAX_ACTION=5
 
   ! defines single variable specific action
-  !
   TYPE t_var_action_element
     INTEGER                             :: actionTyp             ! Type of action
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: start                 ! action start time (TimeStamp)
@@ -54,43 +52,8 @@ MODULE mo_action_types
   !
   TYPE t_var_action
     TYPE(t_var_action_element) :: action(NMAX_ACTION)
-    INTEGER                    :: n_actions           ! number of variable specific actions  
+    INTEGER                    :: n_actions = 0       ! number of variable specific actions  
   END TYPE t_var_action
-
-CONTAINS
-
-  !>
-  !! Generate list (array) of variable specific actions
-  !!
-  !! Generate list (array) of variable specific actions.
-  !! Creates array 'action_list' of type t_var_action
-  !
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
-  !!
-  FUNCTION actions(a01, a02, a03, a04, a05)  RESULT(action_list)
-    TYPE(t_var_action_element), INTENT(IN), OPTIONAL :: a01, a02, a03, a04, a05
-    TYPE(t_var_action)             :: action_list
-    INTEGER :: n_act             ! action counter
-    ! create action list
-    n_act = 0
-    CALL add_action_item(a01)
-    CALL add_action_item(a02)
-    CALL add_action_item(a03)
-    CALL add_action_item(a04)
-    CALL add_action_item(a05)
-    action_list%n_actions = n_act
-  CONTAINS
-
-    SUBROUTINE add_action_item(aX)
-      TYPE(t_var_action_element), INTENT(IN), OPTIONAL :: aX
-
-      IF (PRESENT(aX)) THEN
-        n_act = n_act + 1
-        action_list%action(n_act) = aX
-      END IF
-    END SUBROUTINE add_action_item
-  END FUNCTION actions
 
 END MODULE mo_action_types
 

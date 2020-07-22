@@ -109,8 +109,7 @@ USE mo_synsat_config,        ONLY: lsynsat, num_images, get_synsat_name, num_sen
   &                                total_numchans, get_synsat_grib_triple
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
-USE mo_action,               ONLY: ACTION_RESET, new_action
-USE mo_action_types,         ONLY: actions
+USE mo_action,               ONLY: ACTION_RESET, new_action, actions
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mo_io_config,            ONLY: lflux_avg, lnetcdf_flt64_output, gust_interval, &
   &                                celltracks_interval, echotop_meta, &

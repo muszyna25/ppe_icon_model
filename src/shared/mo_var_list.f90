@@ -26,13 +26,11 @@ MODULE mo_var_list
     & t_var_metadata_dynamic, var_metadata_fromBinary, &
     & var_metadata_toBinary, t_var_metadata_ptr, &
     &                            t_vert_interp_meta,                &
-    &                            t_hor_interp_meta,                 &
+    &                            t_hor_interp_meta, t_post_op_meta, &
     &                            MAX_GROUPS, VINTP_TYPE_LIST,       &
-    &                            t_post_op_meta, &
     &                            CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
-    &                            create_hor_interp_metadata,        &
-    &                            post_op
+    &                            create_hor_interp_metadata
   USE mo_var_groups,       ONLY: groups
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
@@ -51,7 +49,7 @@ MODULE mo_var_list
   USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_fortran_tools,    ONLY: init_contiguous_dp, init_contiguous_sp, &
     &                            init_contiguous_i4, init_contiguous_l
-  USE mo_action_types,     ONLY: t_var_action, actions
+  USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_sort,        ONLY: quicksort
@@ -541,9 +539,7 @@ CONTAINS
     this_info%lmask_boundary      = this_list%p%lmask_boundary
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
-    this_info%post_op             = post_op()
     this_info%in_group(:)         = groups()
-    this_info%action_list         = actions()
   END SUBROUTINE default_var_list_metadata
   !------------------------------------------------------------------------------------------------
   !
