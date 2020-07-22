@@ -1876,7 +1876,6 @@ MODULE mo_nh_stepping
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in
-              &      p_nh_state(jg),                           &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
               &      datetime_local(jg)%ptr,                   &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
