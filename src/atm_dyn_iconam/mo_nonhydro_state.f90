@@ -85,7 +85,7 @@ MODULE mo_nonhydro_state
   USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic, MAX_GROUPS
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
-    &                                vintp_types, new_action, actions
+    &                                vintp_types
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata,                 &
     &                                create_tracer_metadata_hydro
   USE mo_advection_utils,      ONLY: add_tracer_ref
@@ -101,7 +101,8 @@ MODULE mo_nonhydro_state
     &                                DATATYPE_PACK16, DATATYPE_PACK24,               &
     &                                DATATYPE_INT, TSTEP_CONSTANT, TSTEP_AVG,        &
     &                                GRID_UNSTRUCTURED
-  USE mo_action,               ONLY: ACTION_RESET
+  USE mo_action,               ONLY: ACTION_RESET, new_action
+  USE mo_action_types,         ONLY: actions
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
   USE mo_upatmo_config,        ONLY: upatmo_dyn_config
   USE mo_upatmo_impl_const,    ONLY: idamtr

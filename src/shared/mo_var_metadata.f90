@@ -27,12 +27,7 @@ MODULE mo_var_metadata
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
     &                              t_post_op_meta, VINTP_TYPE_LIST
-  USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
-  USE mo_time_config,        ONLY: time_config
-  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
-    &                              timedelta, newTimedelta, deallocateTimedelta, &
-    &                              OPERATOR(+), dateTimeToString, MAX_DATETIME_STR_LEN
 
   IMPLICIT NONE
   PRIVATE
@@ -45,11 +40,8 @@ MODULE mo_var_metadata
   PUBLIC  :: post_op
   PUBLIC  :: vintp_types
   PUBLIC  :: vintp_type_id
-  PUBLIC  :: new_action
-  PUBLIC  :: actions
 
 CONTAINS
-
   !------------------------------------------------------------------------------------------------
   !
   ! Quasi-constructor for horizontal interpolation meta data
@@ -65,7 +57,6 @@ CONTAINS
     IF (PRESENT(fallback_type)) him%fallback_type = fallback_type
     IF (PRESENT(lonlat_id))     him%lonlat_id     = lonlat_id
   END FUNCTION create_hor_interp_metadata
-
 
   !------------------------------------------------------------------------------------------------
   ! HANDLING OF VERTICAL INTERPOLATION MODES
@@ -96,7 +87,6 @@ CONTAINS
       &  CALL finish(routine, "Invalid vertical interpolation type!")
   END FUNCTION vintp_type_id
 
-
   !> Utility function with *a lot* of optional string parameters v1,
   !  v2, v3, v4, ...; mapping those onto a
   !  LOGICAL(:) according to the "vintp_type_id"
@@ -119,7 +109,6 @@ CONTAINS
     IF (PRESENT(v09)) vintp_types(vintp_type_id(v09)) = .TRUE.
     IF (PRESENT(v10)) vintp_types(vintp_type_id(v10)) = .TRUE.
   END FUNCTION vintp_types
-
 
   !------------------------------------------------------------------------------------------------
   !
@@ -148,7 +137,6 @@ CONTAINS
     IF (PRESENT(l_pd_limit))        vim%l_pd_limit        = l_pd_limit
     IF (PRESENT(lower_limit))       vim%lower_limit       = lower_limit
   END FUNCTION create_vert_interp_metadata
-
 
   !----------------------------------------------------------------------------------------
   !
@@ -179,258 +167,6 @@ CONTAINS
       post_op%new_grib2  = new_grib2
     END IF
   END FUNCTION post_op
-
-
-  !------------------------------------------------------------------------------------------------
-  ! HANDLING OF ACTION EVENTS
-  !------------------------------------------------------------------------------------------------
-  !>
-  !! Initialize single variable specific action
-  !!
-  !! Initialize single variable specific action. A variable named 'var_action'
-  !! of type t_var_action_element is initialized.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
-  !! Modification by Daniel Reinert, DWD (2014-12-03)
-  !! - add optional start and end time arguments
-  !!
-  FUNCTION new_action(actionTyp, intvl, opt_start, opt_end, opt_ref) RESULT(var_action)
-
-    INTEGER                   , INTENT(IN) :: actionTyp ! type of action
-    CHARACTER(LEN=*)          , INTENT(IN) :: intvl     ! action interval [ISO_8601]
-    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_start ! action start time [ISO_8601]
-    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_end   ! action end time [ISO_8601]
-    CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_ref   ! action reference time [ISO_8601]
-
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//':new_action'
-    TYPE(timedelta), POINTER              :: start_offset, end_offset, ref_offset
-    TYPE(datetime), TARGET                :: startdatetime, enddatetime, refdatetime
-    TYPE(datetime), POINTER               :: dummy_ptr
-    TYPE(t_var_action_element)            :: var_action
-    TYPE(datetime), POINTER               :: inidatetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime      ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_expstart_datetime ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_end_datetime      ! ISO_8601
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start, end, ref      ! start, end, and reference time
-                                                                  ! in ISO_8601 format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start0, end0, ref0   ! start, end, and reference time
-                                                                  ! in ISO_8601 format
-    !---------------------------------------------------------------------------------
-
-    ! create model ini_datetime in ISO_8601 format
-    CALL dateTimeToString(time_config%tc_startdate, iso8601_ini_datetime)
-    ! create experiment start in ISO_8601 format
-    CALL dateTimeToString(time_config%tc_exp_startdate, iso8601_expstart_datetime)
-    ! create model end_datetime in ISO_8601 format
-    CALL dateTimeToString(time_config%tc_stopdate, iso8601_end_datetime)
-
-    ! default start time = model initialization time
-    start0 = TRIM(iso8601_ini_datetime)
-    ! default end time = model end time
-    end0 = TRIM(iso8601_end_datetime)
-    ! default reference time = experiment start time
-    ref0 = TRIM(iso8601_expstart_datetime)
-
-
-    ! assign modified start time if offset opt_start is present
-    IF (PRESENT(opt_start)) THEN
-      !
-      ! convert model ini datetime from ISO_8601 format to type datetime
-      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
-      !
-      ! convert start offset from ISO_8601 to TYPE timedelta
-      start_offset => newTimedelta(TRIM(opt_start))
-      !
-      ! add start offset to model ini date
-      startdatetime = inidatetime + start_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => startdatetime
-      CALL dateTimeToString(dummy_ptr, start0)
-      ! cleanup
-      CALL deallocateDatetime(inidatetime)
-      CALL deallocateTimeDelta(start_offset)
-    ENDIF
-
-
-    ! assign modified end time if offset opt_end is present
-    IF (PRESENT(opt_end)) THEN
-      !
-      ! convert model ini datetime from ISO_8601 format to type datetime
-      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
-      !
-      ! convert end offset from ISO_8601 to TYPE timedelta
-      end_offset => newTimedelta(TRIM(opt_end))
-      !
-      ! add end offset to model ini date
-      enddatetime = inidatetime + end_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => enddatetime
-      CALL dateTimeToString(dummy_ptr, end0)
-      ! cleanup
-      CALL deallocateDatetime(inidatetime)
-      CALL deallocateTimeDelta(end_offset)
-    ENDIF
-
-    ! assign modified reference time if offset opt_ref is present
-    IF (PRESENT(opt_ref)) THEN
-      !
-      ! convert model ini datetime from ISO_8601 format to type datetime
-      inidatetime  => newDatetime(TRIM(iso8601_ini_datetime))
-      !
-      ! convert ref offset from ISO_8601 to TYPE timedelta
-      ref_offset => newTimedelta(TRIM(opt_ref))
-      !
-      ! add ref offset to model ini date
-      refdatetime = inidatetime + ref_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => refdatetime
-      CALL dateTimeToString(dummy_ptr, ref0)
-      ! cleanup
-      CALL deallocateDatetime(inidatetime)
-      CALL deallocateTimeDelta(ref_offset)
-    ENDIF
-
-    ! default start time = model initialization time
-    start = TRIM(iso8601_ini_datetime)
-    ! default end time = model end time
-    end = TRIM(iso8601_end_datetime)
-    ! default reference time = experiment start time
-    ref = TRIM(iso8601_expstart_datetime)
-
-    !---------------------------------------------------------------------------------
-
-#ifdef _MTIME_DEBUG
-
-    ! CONSISTENCY CHECK: compares the implementation above with an
-    ! mtime-based implementation
-
-    ! assign modified start time if offset opt_start is present
-    IF (PRESENT(opt_start)) THEN
-      !
-      ! convert start offset from ISO_8601 to TYPE timedelta
-      start_offset => newTimedelta(TRIM(opt_start))
-      !
-      ! add start offset to model ini date
-      startdatetime = time_config%tc_startdate + start_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => startdatetime
-      CALL dateTimeToString(dummy_ptr, start)
-      ! cleanup
-      CALL deallocateTimeDelta(start_offset)
-    ENDIF
-
-
-    ! assign modified end time if offset opt_end is present
-    IF (PRESENT(opt_end)) THEN
-      !
-      ! convert end offset from ISO_8601 to TYPE timedelta
-      end_offset => newTimedelta(TRIM(opt_end))
-      !
-      ! add end offset to model ini date
-      enddatetime = time_config%tc_startdate + end_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => enddatetime
-      CALL dateTimeToString(dummy_ptr, end)
-      ! cleanup
-      CALL deallocateTimeDelta(end_offset)
-    ENDIF
-
-    ! assign modified reference time if offset opt_ref is present
-    IF (PRESENT(opt_ref)) THEN
-      !
-      ! convert ref offset from ISO_8601 to TYPE timedelta
-      ref_offset => newTimedelta(TRIM(opt_ref))
-      !
-      ! add ref offset to model ini date
-      refdatetime = time_config%tc_startdate + ref_offset
-      ! transform back from TYPE datetime to ISO_8601
-      dummy_ptr => refdatetime
-      CALL dateTimeToString(dummy_ptr, ref)
-      ! cleanup
-      CALL deallocateTimeDelta(ref_offset)
-    ENDIF
-
-    IF ((TRIM(start0) /= TRIM(start)) .OR.   &
-      & (TRIM(end0)   /= TRIM(end))   .OR.   &
-      & (TRIM(ref0)   /= TRIM(ref))) THEN
-      CALL finish(routine, "Error in mtime consistency check!")
-    END IF
-
-#endif
-
-    !---------------------------------------------------------------------------------
-
-    ! define var_action
-    var_action%actionTyp  = actionTyp
-    var_action%intvl      = TRIM(intvl)               ! interval
-    var_action%start      = TRIM(start)               ! start
-    var_action%end        = TRIM(end)                 ! end
-    var_action%ref        = TRIM(ref)                 ! ref date
-    var_action%lastActive = TRIM(start)               ! arbitrary init
-
-    !
-    ! convert start datetime from ISO_8601 format to type datetime
-    dummy_ptr => newDatetime(TRIM(start))
-    IF (.NOT. ASSOCIATED(dummy_ptr)) THEN
-      CALL finish(routine, "date/time conversion error: "//TRIM(start))
-    END IF
-    var_Action%EventLastTriggerDate = dummy_ptr    ! arbitrary init
-
-    ! cleanup
-    CALL deallocateDatetime(dummy_ptr)
-
-  END FUNCTION new_action
-
-
-  !>
-  !! Generate list (array) of variable specific actions
-  !!
-  !! Generate list (array) of variable specific actions.
-  !! Creates array 'action_list' of type t_var_action
-  !
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
-  !!
-  FUNCTION actions(a01, a02, a03, a04, a05)  RESULT(action_list)
-
-    TYPE(t_var_action_element), INTENT(IN), OPTIONAL :: a01, a02, a03, a04, a05
-    TYPE(t_var_action)             :: action_list
-
-    INTEGER :: n_act             ! action counter
-
-    ! create action list
-    !
-    n_act = 0
-    IF (PRESENT(a01))  THEN
-      n_act = n_act + 1
-      action_list%action(n_act) = a01
-    ENDIF
-
-    IF (PRESENT(a02))  THEN
-      n_act = n_act + 1
-      action_list%action(n_act) = a02
-    ENDIF
-
-    IF (PRESENT(a03))  THEN
-      n_act = n_act + 1
-      action_list%action(n_act) = a03
-    ENDIF
-
-    IF (PRESENT(a04))  THEN
-      n_act = n_act + 1
-      action_list%action(n_act) = a04
-    ENDIF
-
-    IF (PRESENT(a05))  THEN
-      n_act = n_act + 1
-      action_list%action(n_act) = a05
-    ENDIF
-
-    action_list%n_actions = n_act
-
-  END FUNCTION actions
 
 END MODULE mo_var_metadata
 

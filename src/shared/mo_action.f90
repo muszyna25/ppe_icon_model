@@ -49,17 +49,17 @@ MODULE mo_action
   USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
     &                              isCurrentEventActive, deallocateDatetime,         &
-    &                              MAX_DATETIME_STR_LEN,                             &
-    &                              MAX_EVENTNAME_STR_LEN, timedelta,                 &
-    &                              newTimedelta, deallocateTimedelta,                &
+    &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
+    &                              MAX_EVENTNAME_STR_LEN, timedelta, newTimedelta,   &
+    &                              deallocateTimedelta, getPTStringFromMS,           &
     &                              getTriggeredPreviousEventAtDateTime,              &
-    &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=),    &
-    &                              datetimetostring
+    &                              OPERATOR(+), OPERATOR(>=), OPERATOR(<=)
   USE mo_util_mtime,         ONLY: is_event_active
+  USE mo_time_config,        ONLY: time_config
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
     &                              set_table_entry, print_table, t_table
-  USE mo_action_types,       ONLY: t_var_action
+  USE mo_action_types,       ONLY: t_var_action, t_var_action_element
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
@@ -70,15 +70,13 @@ MODULE mo_action
   USE mo_fortran_tools,      ONLY: init
 
   IMPLICIT NONE
-
   PRIVATE
 
   ! VARIABLES/OBJECTS
   PUBLIC :: reset_act
 
   ! Functions/Subroutines
-  PUBLIC :: getActiveAction
-
+  PUBLIC :: getActiveAction, new_action
 
   ! PARAMETER
   PUBLIC :: ACTION_NAMES
@@ -86,15 +84,12 @@ MODULE mo_action
   INTEGER, PARAMETER :: NMAX_VARS = 100 ! maximum number of fields that can be
                                         ! assigned to a single action
 
-
   ! List of available action types
   !
   INTEGER, PARAMETER, PUBLIC :: ACTION_RESET = 1   ! re-set field to 0
   !
   ! corresponding array of action names
   CHARACTER(LEN=10), PARAMETER :: ACTION_NAMES(1) =(/"RESET     "/)
-
-
 
   ! type for generating an array of pointers of type t_var_list_element
   !
@@ -137,8 +132,6 @@ MODULE mo_action
     END SUBROUTINE kernel
   END INTERFACE
 
-
-
   ! extension of the action base type for the purpose of creating objects of that type.
   !
   ! create specific type for reset-action
@@ -147,7 +140,6 @@ MODULE mo_action
   CONTAINS
     PROCEDURE :: kernel => reset_kernel     ! type-specific action kernel (to be defined by user)
   END TYPE t_reset_obj
-
 
   ! create action object
   !
@@ -657,6 +649,86 @@ CONTAINS
 
   END FUNCTION getActiveAction
 
+  !------------------------------------------------------------------------------------------------
+  ! HANDLING OF ACTION EVENTS
+  !------------------------------------------------------------------------------------------------
+  !>
+  !! Initialize single variable specific action
+  !!
+  !! Initialize single variable specific action. A variable named 'var_action'
+  !! of type t_var_action_element is initialized.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2014-01-13)
+  !! Modification by Daniel Reinert, DWD (2014-12-03)
+  !! - add optional start and end time arguments
+  !!
+  FUNCTION new_action(actionTyp, intvl, opt_start, opt_end, opt_ref) RESULT(var_action)
+    INTEGER, INTENT(IN)                :: actionTyp ! type of action
+    CHARACTER(*), INTENT(IN)           :: intvl     ! action interval
+    CHARACTER(*), OPTIONAL, INTENT(IN) :: opt_start, opt_end, opt_ref ! action times [ISO_8601]
+    CHARACTER(*), PARAMETER             :: routine = 'mo_action:new_action'
+    TYPE(datetime), POINTER             :: dummy_ptr, itime_dt
+    TYPE(t_var_action_element)          :: var_action
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: start0, end0, ref0
+#ifdef _MTIME_DEBUG
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: start1, end1, ref1, itime
+#endif
+
+    start0 = get_time_str(time_config%tc_startdate, &
+      &                        time_config%tc_startdate,     opt_start)
+    end0   = get_time_str(time_config%tc_stopdate, &
+      &                        time_config%tc_startdate,     opt_end)
+    ref0   = get_time_str(time_config%tc_exp_startdate, &
+      &                        time_config%tc_startdate,     opt_ref)
+#ifdef _MTIME_DEBUG
+    ! CONSISTENCY CHECK:
+    CALL dateTimeToString(time_config%tc_startdate, itime)
+    itime_dt => newDatetime(TRIM(itime))
+    start1 = get_time_str(time_config%tc_startdate,     itime_dt, opt_start)
+    end1   = get_time_str(time_config%tc_stopdate,      itime_dt, opt_end)
+    ref1   = get_time_str(time_config%tc_exp_startdate, itime_dt, opt_ref)
+    CALL deallocateDatetime(itime_dt)
+
+    IF ((TRIM(start0) /= TRIM(start1)) .OR.   &
+      & (TRIM(end0)   /= TRIM(end1))   .OR.   &
+      & (TRIM(ref0)   /= TRIM(ref1))) THEN
+      CALL finish(routine, "Error in mtime consistency check!")
+    END IF
+#endif
+    ! define var_action
+    var_action%actionTyp  = actionTyp
+    var_action%intvl      = TRIM(intvl)               ! interval
+    var_action%start      = TRIM(start0)               ! start
+    var_action%end        = TRIM(end0)                 ! end
+    var_action%ref        = TRIM(ref0)                 ! ref date
+    var_action%lastActive = TRIM(start0)               ! arbitrary init
+    ! convert start datetime from ISO_8601 format to type datetime
+    dummy_ptr => newDatetime(TRIM(start0))
+    IF (.NOT. ASSOCIATED(dummy_ptr)) &
+      & CALL finish(routine, "date/time conversion error: "//TRIM(start0))
+    var_Action%EventLastTriggerDate = dummy_ptr    ! arbitrary init
+    CALL deallocateDatetime(dummy_ptr)
+  CONTAINS
+
+    FUNCTION get_time_str(a_time, init_time, opt_offset) RESULT(time_str)
+      TYPE(datetime), POINTER, INTENT(IN) :: a_time, init_time
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: time_str
+      CHARACTER(*), OPTIONAL, INTENT(IN)  :: opt_offset
+      TYPE(timedelta), POINTER            :: offset_td
+      TYPE(datetime), TARGET              :: time_dt
+
+      IF (PRESENT(opt_offset)) THEN
+        offset_td => newTimedelta(TRIM(opt_offset))
+        time_dt = init_time + offset_td
+        dummy_ptr => time_dt
+        CALL dateTimeToString(dummy_ptr, time_str)
+        CALL deallocateTimeDelta(offset_td)
+      ELSE
+        CALL dateTimeToString(a_time, time_str)
+      END IF
+    END FUNCTION get_time_str
+  END FUNCTION new_action
 
 END MODULE mo_action
 

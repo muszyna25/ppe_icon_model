@@ -88,8 +88,7 @@ USE mo_var_groups,          ONLY: groups, MAX_GROUPS
 USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM, VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
-  &                               vintp_types, post_op, &
-  &                               new_action, actions
+  &                               vintp_types, post_op
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
@@ -110,7 +109,8 @@ USE mo_synsat_config,        ONLY: lsynsat, num_images, get_synsat_name, num_sen
   &                                total_numchans, get_synsat_grib_triple
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
-USE mo_action,               ONLY: ACTION_RESET
+USE mo_action,               ONLY: ACTION_RESET, new_action
+USE mo_action_types,         ONLY: actions
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 USE mo_io_config,            ONLY: lflux_avg, lnetcdf_flt64_output, gust_interval, &
   &                                celltracks_interval, echotop_meta, &
