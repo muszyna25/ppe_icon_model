@@ -30,11 +30,10 @@ MODULE mo_ocean_hamocc_couple_state
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_groups,          ONLY: groups
   USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
     &                               get_timelevel_string,     &
     &                               default_var_list_settings,&
     &                               add_ref
+  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
     &                               datatype_FLT64 => CDI_datatype_FLT64, &

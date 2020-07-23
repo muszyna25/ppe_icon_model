@@ -38,9 +38,8 @@ MODULE mo_radar_data_state
 
   USE mo_radar_data_types,   ONLY: t_radar_fields,t_radar_td_fields, t_radar_ct_fields, t_lhn_diag
 
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var, new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: default_var_list_settings, add_var
+  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32,                 &

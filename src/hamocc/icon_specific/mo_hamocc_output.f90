@@ -24,12 +24,9 @@
 
       USE mo_cdi_constants,      ONLY: grid_unstructured_cell, grid_cell
 
-      USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
-    &                               default_var_list_settings,&
-    &                               get_timelevel_string,     &
-    &                               add_ref
+      USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string, &
+    &                                   default_var_list_settings
+      USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
 
       USE mo_grid_config,         ONLY: n_dom
 

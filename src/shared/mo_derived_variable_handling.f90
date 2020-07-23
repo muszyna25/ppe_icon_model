@@ -27,10 +27,9 @@ MODULE mo_derived_variable_handling
   USE mo_mpi, ONLY: my_process_is_stdio
   USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
-  USE mo_var_list, ONLY: new_var_list,&
-       total_number_of_variables, &
-       get_var_name, default_var_list_settings, add_var, find_element, find_list_element, &
-       & get_varname_with_timelevel, delete_var_list, print_all_var_lists
+  USE mo_var_list, ONLY: get_var_name, default_var_list_settings, add_var, get_varname_with_timelevel
+  USE mo_var_list_global, ONLY: find_element => find_var_global, new_var_list, &
+    & total_number_of_variables, delete_var_list, print_all_var_lists
   USE mo_linked_list, ONLY: t_var_list, t_list_element
   USE mo_exception, ONLY: finish, message, message_text
   USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&

@@ -36,10 +36,8 @@ MODULE mo_icoham_dyn_memory
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, &
-                                  & add_var, add_ref,          &
-                                  & new_var_list,              &
-                                  & delete_var_list
+  USE mo_var_list,            ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, GRID_UNSTRUCTURED

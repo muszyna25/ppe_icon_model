@@ -71,7 +71,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
-  USE mo_var_list
+  USE mo_var_list_global,        ONLY: new_var_list, delete_var_list
+  USE mo_var_list,               ONLY: print_var_list, default_var_list_settings, add_var
   USE mo_linked_list
   USE mo_cdi
   use mo_cdi_constants
@@ -152,7 +153,6 @@ CONTAINS
         CALL test_sea_ice( patch_3d, ocean_state,  &
           & this_datetime, ocean_surface,        &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
-
       CASE (5)
         CALL test_neutralcoeff( patch_3d, ocean_state)
 

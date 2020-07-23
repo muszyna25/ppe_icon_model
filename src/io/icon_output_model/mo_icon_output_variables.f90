@@ -53,11 +53,10 @@ MODULE mo_icon_output_variables
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
     &                               get_timelevel_string,     &
     &                               default_var_list_settings,&
     &                               add_ref
+  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print

@@ -25,7 +25,8 @@ MODULE mo_restart_var_data
   USE mo_kind,               ONLY: dp, sp
   USE mo_linked_list,        ONLY: t_list_element, t_var_list
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list,           ONLY: nvar_lists, var_lists, get_var_timelevel
+  USE mo_var_list_global,    ONLY: nvar_lists, var_lists
+  USE mo_var_list,           ONLY: get_var_timelevel
   USE mo_var_list_element,   ONLY: t_p_var_list_element, t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
 #ifndef __NO_ICON_ATMO__

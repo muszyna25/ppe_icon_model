@@ -26,10 +26,8 @@ MODULE mo_psrad_interface_memory
   USE mtime,                  ONLY: datetime
 
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, &
-    &                               add_var,                   &
-    &                               new_var_list,              &
-    &                               delete_var_list
+  USE mo_var_list,            ONLY: default_var_list_settings, add_var
+  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var

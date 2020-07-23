@@ -64,13 +64,10 @@ MODULE mo_ocean_state
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var,                  &
-    &                               new_var_list,             &
-    &                               delete_var_list,          &
-    &                               get_timelevel_string,     &
-    &                               default_var_list_settings,&
-    &                               add_ref
-  USE mo_var_groups,          ONLY: groups, max_groups
+  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
+  USE mo_var_list,            ONLY: add_var, add_ref, default_var_list_settings, &
+    &                               get_timelevel_string
+  USE mo_var_groups,          ONLY: groups, MAX_GROUPS 
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
@@ -656,7 +653,7 @@ CONTAINS
     INTEGER :: jtrc
     TYPE(t_ocean_tracer), POINTER :: tracer
     TYPE(t_patch), POINTER         :: patch_2d
-    LOGICAL :: oce_tr_groups(max_groups)
+    LOGICAL :: oce_tr_groups(MAX_GROUPS)
 
     oce_tr_groups = groups("oce_default", "oce_essentials","oce_prog")
     patch_2d => patch_3d%p_patch_2d(1)
@@ -779,7 +776,7 @@ CONTAINS
     INTEGER :: datatype_flt, jc, blockNo, start_cell_index, end_cell_index
     REAL(wp), PARAMETER :: equator = 0.00001_wp
     TYPE(t_subset_range), POINTER :: owned_cells
-    LOGICAL, DIMENSION(max_groups) :: groups_oce_monitor, groups_oce_flows, &
+    LOGICAL, DIMENSION(MAX_GROUPS) :: groups_oce_monitor, groups_oce_flows, &
          groups_oce_eddy, groups_oce_diag, groups_oce_default, groups_oce_moc, &
          groups_oce_dde
     TYPE(t_grib2_var) :: dflt_g2_decl_lonlat, dflt_g2_decl_cell, dflt_g2_decl_edge
@@ -2230,7 +2227,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_ocean_nudge'
     INTEGER :: datatype_flt
-    LOGICAL :: groups_oce_nudge(max_groups)
+    LOGICAL :: groups_oce_nudge(MAX_GROUPS)
     TYPE(t_grib2_var) :: dflt_g2_decl_cell
 
     dflt_g2_decl_cell = grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell)
@@ -2328,14 +2325,10 @@ CONTAINS
     TYPE(t_ocean_transport_state), TARGET,INTENT(inout)  :: ocean_transport_state
 
     ! local variables
-
-    INTEGER ::  ist  !, jtrc
-    INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
-
-    CHARACTER(LEN=*), PARAMETER :: &
-      & routine = 'mo_ocean_state:construct_hydro_ocean_aux'
+    INTEGER ::  ist, alloc_cell_blocks, nblks_e, nblks_v
+    CHARACTER(*), PARAMETER :: routine = 'mo_ocean_state:construct_hydro_ocean_aux'
     INTEGER :: datatype_flt
-    LOGICAL, DIMENSION(max_groups) :: groups_oce_diag, groups_oce_aux
+    LOGICAL, DIMENSION(MAX_GROUPS) :: groups_oce_diag, groups_oce_aux
     TYPE(t_grib2_var) :: dflt_g2_decl_cell, dflt_g2_decl_edge
 
     dflt_g2_decl_cell = grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell)
@@ -2694,7 +2687,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_patch_3D'
     INTEGER :: datatype_flt
-    LOGICAL, DIMENSION(max_groups) :: groups_oce_geometry
+    LOGICAL, DIMENSION(MAX_GROUPS) :: groups_oce_geometry
     TYPE(t_grib2_var) :: dflt_g2_decl_lonlat, dflt_g2_decl_cell, &
          dflt_g2_decl_edge, dflt_g2_decl_vrtx
 

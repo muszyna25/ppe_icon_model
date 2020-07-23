@@ -27,7 +27,7 @@ MODULE mo_load_restart
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
   USE mo_util_string,        ONLY: separator, toCharacter
-  USE mo_var_list,           ONLY: nvar_lists, var_lists
+  USE mo_var_list_global,    ONLY: nvar_lists, var_lists
   USE mo_master_control,     ONLY: get_my_process_name
 
   IMPLICIT NONE

@@ -27,7 +27,7 @@ MODULE mo_restart_descriptor
   USE mo_restart_util, ONLY: t_restart_args, create_restart_file_link, &
     & getRestartFilename, restartBcastRoot
   USE mo_restart_var_data,          ONLY: has_valid_time_level
-  USE mo_var_list,                  ONLY: varlistPacker
+  USE mo_var_list_global,           ONLY: varlistPacker
   USE mo_upatmo_flowevent_utils,    ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesSet
   USE mo_cdi_ids,                   ONLY: t_CdiIds
   USE mo_cdi,                       ONLY: FILETYPE_NC2, FILETYPE_NC4

@@ -46,15 +46,14 @@ MODULE mo_opt_diagnostics
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_zaxis_type,           ONLY: ZA_REFERENCE, ZA_REFERENCE_HALF, ZA_SURFACE, &
     &                                ZA_MEANSEA
-  USE mo_var_list,             ONLY: default_var_list_settings
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                  &
     &                                DATATYPE_PACK24,                                  & 
     &                                DATATYPE_FLT64, GRID_UNSTRUCTURED,                &
     &                                TSTEP_CONSTANT
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
-  USE mo_var_list,             ONLY: default_var_list_settings,                        &
-    &                                new_var_list, delete_var_list, add_var, add_ref
+  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
   USE mo_name_list_output_config, ONLY: is_variable_in_output

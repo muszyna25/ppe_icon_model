@@ -75,7 +75,8 @@ MODULE mo_initicon_io
 
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list_element,    ONLY: t_var_list_element, level_type_ml
-  USE mo_var_list,            ONLY: nvar_lists, var_lists, get_var_name
+  USE mo_var_list_global,     ONLY: nvar_lists, var_lists
+  USE mo_var_list,            ONLY: get_var_name
   USE mo_var_groups,          ONLY: var_groups_dyn
 
   ! High level overview of how `mo_initicon` reads input data

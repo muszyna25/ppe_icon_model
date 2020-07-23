@@ -61,10 +61,8 @@ MODULE mo_ocean_ext_data
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var, add_ref,            &
-    &                              new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var

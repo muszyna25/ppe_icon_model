@@ -82,13 +82,10 @@ MODULE mo_ocean_diagnostics
     & verticallyIntegrated_field
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_linked_list,        ONLY: t_var_list
-  USE mo_var_list,           ONLY: add_var,                  &
-    &                              new_var_list,             &
-    &                              delete_var_list,          &
-    &                              default_var_list_settings,&
-    &                              add_ref
+  USE mo_var_list,           ONLY: add_var, default_var_list_settings, add_ref
+  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_var_groups,         ONLY: groups
-  USE mo_cf_convention
+  USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
   USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
@@ -98,11 +95,10 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
-  USE mo_ocean_check_salt , ONLY : calc_total_salt_content
+  USE mo_ocean_check_salt, ONLY : calc_total_salt_content
 
   IMPLICIT NONE
-
-  !PRIVATE
+  PRIVATE
 
   CHARACTER(LEN=12)           :: str_module    = 'oceDiag     '  ! Output of module for 1 line debug
   INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
@@ -148,7 +144,7 @@ MODULE mo_ocean_diagnostics
     & mass_flx_e_u(:,:,:), mass_flx_e_v(:,:,:), pressure_grad_u(:,:,:), pressure_grad_v(:,:,:), &
     & potential_vort_e(:,:,:), potential_vort_c(:,:,:)
 
- CHARACTER(LEN=*), PARAMETER :: module_name="mo_ocean_statistics"
+  CHARACTER(*), PARAMETER :: module_name="mo_ocean_statistics"
 
 CONTAINS
 

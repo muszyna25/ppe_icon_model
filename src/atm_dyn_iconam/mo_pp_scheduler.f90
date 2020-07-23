@@ -173,9 +173,9 @@ MODULE mo_pp_scheduler
     &                                   STR_HINTP_TYPE
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
-  USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
-    &                                   get_var_timelevel, find_list_element,               &
-    &                                   get_timelevel_string
+  USE mo_var_list,                ONLY: add_var, get_var_name, get_var_timelevel,           &
+    &                                   find_list_element, get_timelevel_string
+  USE mo_var_list_global,         ONLY: var_lists, nvar_lists
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
@@ -248,14 +248,12 @@ CONTAINS
   !
   SUBROUTINE pp_scheduler_init(l_init_prm_diag)
     LOGICAL, INTENT(IN) :: l_init_prm_diag
-
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init"
     INTEGER                          :: jg, i
     TYPE(t_list_element), POINTER    :: element, element_pres
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
-
     !-------------------------------------------------------------
     !--- setup of optional diagnostic fields updated by the 
     !    post-processing scheduler
@@ -263,124 +261,36 @@ CONTAINS
     !- loop over model level variables
     DO i = 1,nvar_lists
       jg = var_lists(i)%p%patch_id         
-
-      element => NULL()
-      DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT
-
+      element => var_lists(i)%p%first_list_element
+      DO WHILE(ASSOCIATED(element))
         IF (element%field%info%l_pp_scheduler_task /= TASK_NONE) THEN
-
           IF (dbg_level > 5)  &
             & CALL message(routine, "Inserting pp task: "//TRIM(element%field%info%name))
-
           SELECT CASE(element%field%info%l_pp_scheduler_task)
-          CASE (TASK_COMPUTE_RH) 
-            ! relative humidity
+          CASE (TASK_COMPUTE_RH,      TASK_COMPUTE_OMEGA,   TASK_COMPUTE_PV,      &
+            &   TASK_COMPUTE_VOR_U,   TASK_COMPUTE_VOR_V,   TASK_COMPUTE_BVF2,    &
+            &   TASK_COMPUTE_PARCELFREQ2,                                         &
+            &   TASK_COMPUTE_LPI,     TASK_COMPUTE_CEILING, TASK_COMPUTE_HBAS_SC, &
+            &   TASK_COMPUTE_HTOP_SC, TASK_COMPUTE_TWATER,  TASK_COMPUTE_Q_SEDIM, &
+            &   TASK_COMPUTE_DBZ850,  TASK_COMPUTE_SMI,     TASK_COMPUTE_SDI2)
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_RH )
-            !
-          CASE (TASK_COMPUTE_OMEGA)
-            ! vertical velocity
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_OMEGA )
-            !
-          CASE (TASK_COMPUTE_PV) 
-            ! potential vorticity
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PV )
-            !
-          CASE (TASK_COMPUTE_VOR_U) 
-            ! zonal component of relative vorticity
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_VOR_U )
-            !
-          CASE (TASK_COMPUTE_VOR_V) 
-            ! meridional component of relative vorticity
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_VOR_V )
-            !
-          CASE (TASK_COMPUTE_BVF2) 
-            ! square of Brunt-Vaisala frequency
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_BVF2 )
-            !
-          CASE (TASK_COMPUTE_PARCELFREQ2) 
-            ! square of air parcel oscillation frequency
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PARCELFREQ2 )
-            !
-          CASE (TASK_COMPUTE_SDI2) 
-            ! super cell detection index (SDI2)
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_SDI2 )
-            !
-          CASE (TASK_COMPUTE_LPI) 
-            ! lightning potential index (LPI)
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_LPI )
-            !
-          CASE (TASK_COMPUTE_CEILING) 
-            ! ceiling height
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_CEILING )
-            !
-          CASE (TASK_COMPUTE_HBAS_SC) 
-            ! height of base over MSL from shallow convection parameterization
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_HBAS_SC )
-            !
-          CASE (TASK_COMPUTE_HTOP_SC)
-            ! height of top over MSL from shallow convection parameterization
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_HTOP_SC )
-            !
-          CASE (TASK_COMPUTE_TWATER) 
-            ! Total column integrated water
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_TWATER )
-            !
-          CASE (TASK_COMPUTE_Q_SEDIM)
-            ! Specific content of precipitation particles
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_Q_SEDIM )
-            !
-          CASE (TASK_COMPUTE_DBZ850)
-            ! Radar reflectivity
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_DBZ850 )
-            !
-          CASE (TASK_COMPUTE_DBZCMAX)
-            ! Radar reflectivity
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_DBZCMAX )
-            !
-          CASE (TASK_COMPUTE_SMI) 
-            ! soil moisture index
-            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
-              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_SMI )
-            !
+              &    l_init_prm_diag=l_init_prm_diag, job_type=element%field%info%l_pp_scheduler_task ) 
           CASE (TASK_INTP_MSL)   
             ! mean sea level pressure
             !
             ! find the standard pressure field:
             element_pres => find_list_element (p_nh_state_lists(jg)%diag_list, 'pres')
-            IF (ASSOCIATED (element)) THEN
+            IF (ASSOCIATED (element)) &
               ! register task for interpolation to z=0:
-              CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              & CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
                 &                         job_type=TASK_INTP_MSL,                                 &
                 &                         l_init_prm_diag=l_init_prm_diag,                        &
                 &                         opt_p_in_var=element_pres)
-            END IF
-            CASE DEFAULT
-            CALL finish(routine, "Unknown pp task type!")
+          CASE DEFAULT
+              CALL finish(routine, "Unknown pp task type!")
           END SELECT
         END IF
-        
+        element => element%next_list_element        
       ENDDO ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
 

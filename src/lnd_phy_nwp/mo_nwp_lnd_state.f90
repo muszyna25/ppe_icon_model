@@ -65,11 +65,9 @@ MODULE mo_nwp_lnd_state
   USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings,  &
-    &                                add_var, add_ref,           &
-    &                                new_var_list,               &
-    &                                delete_var_list,            &
+  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref, &
     &                                get_timelevel_string
+  USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &

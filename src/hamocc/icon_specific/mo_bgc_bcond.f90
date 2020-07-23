@@ -30,11 +30,8 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
-
-  USE mo_var_list,           ONLY: default_var_list_settings,   &
-    &                              add_var,             &
-    &                              new_var_list,                &
-    &                              delete_var_list
+  USE mo_var_list,           ONLY: default_var_list_settings, add_var
+  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -45,13 +42,11 @@ USE mo_master_control,       ONLY: get_my_process_name
     &                              associate_keyword
   USE mo_cdi,                ONLY: DATATYPE_FLT32, GRID_UNSTRUCTURED
   USE mo_zaxis_type,         ONLY: ZA_SURFACE
-
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_bgc
   USE mo_ocean_ext_data,     ONLY: ext_data
   USE mtime,                 ONLY: datetime
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &                         
-    &                              GRID_CELL
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL
   USE mo_ocean_nml,          ONLY: lsediment_only
   USE mo_run_config,         ONLY: dtime
 

@@ -52,8 +52,8 @@ MODULE mo_ext_data_state
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
-  USE mo_var_list,           ONLY: new_var_list, delete_var_list, add_var, add_ref, &
-    &                              default_var_list_settings
+  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
+  USE mo_var_list,           ONLY: add_var, add_ref, default_var_list_settings
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
     &                              OPERATOR(+)

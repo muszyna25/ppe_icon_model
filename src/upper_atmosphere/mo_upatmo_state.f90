@@ -37,8 +37,8 @@ MODULE mo_upatmo_state
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref, &
-    &                                new_var_list, delete_var_list
+  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, & 
     &                                GRID_UNSTRUCTURED
   USE mo_cdi_constants,        ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, &
