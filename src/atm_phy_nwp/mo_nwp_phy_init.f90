@@ -1373,7 +1373,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
 
 
 #ifndef __PGI
-!FIXME: PGI + OpenMP produce deadlock in this loop... check correctness of parallel code
+!FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
 !$OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
 !$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori,nzprv,zvariaux,zrhon) ICON_OMP_DEFAULT_SCHEDULE
 #endif
