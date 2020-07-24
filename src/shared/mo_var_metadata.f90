@@ -26,8 +26,13 @@ MODULE mo_var_metadata
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
-    &                              t_post_op_meta, VINTP_TYPE_LIST
+    &  t_post_op_meta, VINTP_TYPE_LIST, t_var_metadata, t_union_vals, &
+    &  t_var_metadata_dynamic
   USE mo_util_string,        ONLY: toupper
+  USE mo_action_types,       ONLY: t_var_action
+  USE mo_util_texthash,      ONLY: text_hash_c
+  USE mo_tracer_metadata_types, ONLY: t_tracer_meta
+  USE mo_tracer_metadata,    ONLY: create_tracer_metadata
 
   IMPLICIT NONE
   PRIVATE
@@ -35,11 +40,9 @@ MODULE mo_var_metadata
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata'
 
-  PUBLIC  :: create_hor_interp_metadata
-  PUBLIC  :: create_vert_interp_metadata
-  PUBLIC  :: post_op
-  PUBLIC  :: vintp_types
-  PUBLIC  :: vintp_type_id
+  PUBLIC :: create_hor_interp_metadata, create_vert_interp_metadata
+  PUBLIC :: post_op, vintp_types, vintp_type_id, set_var_metadata
+  PUBLIC :: set_var_metadata_dyn
 
 CONTAINS
   !------------------------------------------------------------------------------------------------
@@ -167,6 +170,134 @@ CONTAINS
       post_op%new_grib2  = new_grib2
     END IF
   END FUNCTION post_op
+
+  !------------------------------------------------------------------------------------------------
+  ! Set parameters of list element already created
+  ! (private routine within this module)
+  !
+  ! Set each parameter in data type var_metadata if the respective
+  ! optional parameter is present.
+  SUBROUTINE set_var_metadata (info,                                           &
+         &                     name, hgrid, vgrid, cf, grib2, ldims,           &
+         &                     loutput, lcontainer, lrestart, lrestart_cont,   &
+         &                     initval, isteptype, resetval, lmiss, missval,   &
+         &                     tlev_source, vert_interp,                       &
+         &                     hor_interp, in_group, verbose,                  &
+         &                     l_pp_scheduler_task, post_op, action_list,      &
+         &                     var_class, data_type, idx_tracer, idx_diag,     &
+         &                     lopenacc)
+    TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
+    CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
+    INTEGER,                 INTENT(in), OPTIONAL :: hgrid         ! horizontal grid type used
+    INTEGER,                 INTENT(in), OPTIONAL :: vgrid         ! vertical grid type used
+    TYPE(t_cf_var),          INTENT(in), OPTIONAL :: cf            ! CF convention
+    TYPE(t_grib2_var),       INTENT(in), OPTIONAL :: grib2         ! GRIB2
+    INTEGER,                 INTENT(in)           :: ldims(:)      ! used dimensions
+    LOGICAL,                 INTENT(in), OPTIONAL :: loutput       ! into output var_list
+    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer    ! true if container
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart      ! restart file flag
+    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont ! continue on restart
+    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: initval       ! value if var not available
+    INTEGER,                 INTENT(in), OPTIONAL :: isteptype     ! type of statistical processing
+    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: resetval      ! reset value
+    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss         ! missing value flag
+    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval       ! missing value
+    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source   ! actual TL for TL dependent vars
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(:)          ! groups to which a variable belongs
+    LOGICAL,                 INTENT(in), OPTIONAL :: verbose
+    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
+    TYPE(t_post_op_meta),    INTENT(in), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(in), OPTIONAL :: action_list   !< regularly triggered events
+    INTEGER,                 INTENT(in), OPTIONAL :: var_class     ! variable class/species
+    INTEGER,                 INTENT(IN), OPTIONAL :: data_type     ! variable data type
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer    ! index of tracer in tracer container 
+    INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag      ! index of tracer in diagnostics container 
+    LOGICAL,                 INTENT(IN), OPTIONAL :: lopenacc      ! variable data type
+    LOGICAL :: lverbose
+
+    ! set flags from optional parameters
+    lverbose = .FALSE.
+    IF (PRESENT(name)) THEN
+      info%name      = name
+      info%key = text_hash_c(TRIM(name))
+    END IF
+    IF (PRESENT(verbose))       lverbose             = verbose
+    IF (PRESENT(data_type))     info%data_type       = data_type
+    ! set components describing the 'Content of the field'
+    IF (PRESENT(var_class))     info%var_class       = var_class
+    IF (PRESENT(cf))            info%cf              = cf
+    IF (PRESENT(grib2))         info%grib2           = grib2
+    IF (PRESENT(hgrid))         info%hgrid           = hgrid
+    IF (PRESENT(vgrid))         info%vgrid           = vgrid
+    info%used_dimensions = 1
+    info%used_dimensions(1:SIZE(ldims)) = ldims
+    IF (PRESENT(loutput))       info%loutput         = loutput
+    IF (PRESENT(lcontainer))    info%lcontainer      = lcontainer
+    IF (info%lcontainer) THEN
+      info%ncontained   =  0
+      info%var_ref_pos  = -1 ! UNDEFINED
+    END IF
+    IF (PRESENT(resetval))      info%resetval      = resetval
+    IF (PRESENT(isteptype))     info%isteptype     = isteptype
+    IF (PRESENT(lmiss))         info%lmiss         = lmiss
+    IF (PRESENT(missval))       info%missval       = missval
+    IF (PRESENT(lrestart))      info%lrestart      = lrestart
+    IF (PRESENT(lrestart_cont)) info%lrestart_cont = lrestart_cont
+    IF (PRESENT(initval))       info%initval       = initval
+    IF (PRESENT(tlev_source))   info%tlev_source   = tlev_source
+    ! set flags concerning vertical interpolation
+    IF (PRESENT(vert_interp))   info%vert_interp   = vert_interp
+    IF (PRESENT(hor_interp))    info%hor_interp    = hor_interp
+    IF (PRESENT(in_group)) &
+      & info%in_group(:SIZE(in_group)) = in_group(:)
+    IF (PRESENT(l_pp_scheduler_task)) &
+      & info%l_pp_scheduler_task = l_pp_scheduler_task
+    IF (PRESENT(post_op))       info%post_op       = post_op
+    IF (PRESENT(action_list))   info%action_list   = action_list
+    ! indices of tracer in tracer container and in diagnostic container
+    IF (PRESENT(idx_tracer))    info%idx_tracer    = idx_tracer
+    IF (PRESENT(idx_diag))      info%idx_diag      = idx_diag
+    IF (PRESENT(lopenacc))      info%lopenacc      = lopenacc
+    ! perform consistency checks on variable's meta-data:
+    CALL check_metadata_consistency(info)
+    !LK    IF (lverbose) CALL print_var_metadata (info)
+  END SUBROUTINE set_var_metadata
+  !------------------------------------------------------------------------------------------------
+  !
+  ! perform consistency checks on variable's meta-data.
+  !
+  SUBROUTINE check_metadata_consistency(info)
+    TYPE(t_var_metadata), INTENT(IN) :: info  ! variable meta data
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':check_metadata_consistency'
+
+    IF (info%lrestart .AND. info%lcontainer) THEN
+      CALL finish(routine//' - '//TRIM(info%name), &
+        &         'Container variables are not restartable! Use var references instead.')
+    END IF
+    ! ... put other consistency checks here ...
+  END SUBROUTINE check_metadata_consistency
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Set dynamic metadata, i.e. polymorphic tracer metadata
+  !
+  SUBROUTINE set_var_metadata_dyn(this_info_dyn,tracer_info)
+    TYPE(t_var_metadata_dynamic),INTENT(INOUT) :: this_info_dyn
+    CLASS(t_tracer_meta), INTENT(IN), OPTIONAL :: tracer_info
+    CLASS(t_tracer_meta), POINTER :: tmp
+
+    IF (PRESENT(tracer_info)) THEN
+      ALLOCATE(this_info_dyn%tracer, source=tracer_info)
+    ELSE
+      ALLOCATE(t_tracer_meta :: this_info_dyn%tracer)
+      tmp => this_info_dyn%tracer
+      SELECT TYPE(tmp)
+      TYPE IS(t_tracer_meta)
+        tmp = create_tracer_metadata(lis_tracer=.FALSE.)
+      END SELECT
+    ENDIF
+  END SUBROUTINE set_var_metadata_dyn
 
 END MODULE mo_var_metadata
 
