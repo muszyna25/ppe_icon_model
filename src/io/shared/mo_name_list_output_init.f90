@@ -2008,7 +2008,7 @@ CONTAINS
             IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
 
             ! get time level
-            tl = get_var_timelevel(element%field%info)
+            tl = get_var_timelevel(element%field%info%name)
 
             ! Found it, add it to the variable list of output file
             IF(tl == -1) THEN

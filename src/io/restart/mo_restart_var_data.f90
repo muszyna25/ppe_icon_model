@@ -276,7 +276,7 @@ CONTAINS
     lskip_extra_timelevs = iequations == INH_ATMOSPHERE .AND. &
       &                    .NOT. (l_limited_area .AND. patch_id == 1)
     ! get time index of the given field
-    time_level = get_var_timelevel(p_info)
+    time_level = get_var_timelevel(p_info%name)
     !TODO: I found the `time_level >= 0` condition IN the async restart code ONLY. Check whether it should be removed OR NOT.
     IF(time_level >= 0) THEN
       ! get information about time level to be skipped for current field

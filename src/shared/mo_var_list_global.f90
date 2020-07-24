@@ -11,7 +11,7 @@ MODULE mo_var_list_global
   USE mo_var_metadata_types,ONLY: t_var_metadata, MAX_GROUPS, VINTP_TYPE_LIST, &
     & var_metadata_fromBinary, var_metadata_toBinary
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
-  USE mo_var_list,         ONLY: find_list_element, print_var_list
+  USE mo_var_list,         ONLY: find_list_element, print_var_list, get_var_name
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         delete_list, append_list_element
   USE mo_exception,        ONLY: message, finish
@@ -219,83 +219,6 @@ CONTAINS
     CALL remove_duplicates(varlist, ivar)
 
   END SUBROUTINE get_all_var_names
-
-
-  !------------------------------------------------------------------------------------------------
-  !> @return Plain variable name (i.e. without TIMELEVEL_SUFFIX)
-  !
-  FUNCTION get_var_name(var)
-    CHARACTER(LEN=VARNAME_LEN) :: get_var_name
-    TYPE(t_var_list_element)   :: var
-    INTEGER :: idx
-
-    idx = INDEX(var%info%name,TIMELEVEL_SUFFIX)
-    IF (idx .EQ. 0) THEN
-      get_var_name = var%info%name
-    ELSE
-      get_var_name = var%info%name(1:idx-1)
-    END IF
-  END FUNCTION get_var_name
-
-  !------------------------------------------------------------------------------------------------
-  ! construct varname  with timelevel
-  !
-  CHARACTER(LEN=VARNAME_LEN) FUNCTION get_varname_with_timelevel(varname,timelevel)
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: varname
-    INTEGER, INTENT(IN)        :: timelevel
-
-    get_varname_with_timelevel = TRIM(varname)//get_timelevel_string(timelevel)
-  END FUNCTION get_varname_with_timelevel
-
-  !------------------------------------------------------------------------------------------------
-  ! construct string for timelevel encoding into variable names
-  !
-  FUNCTION get_timelevel_string(timelevel) RESULT(suffix)
-    INTEGER, INTENT(IN) :: timelevel
-    CHARACTER(len=4) :: suffix
-
-    WRITE(suffix,'("'//TIMELEVEL_SUFFIX//'",i1)') timelevel
-  END FUNCTION get_timelevel_string
-
-  !------------------------------------------------------------------------------------------------
-  !> @return time level (extracted from time level suffix) or "-1"
-  !
-  INTEGER FUNCTION get_var_timelevel(info) RESULT(tl)
-    TYPE(t_var_metadata), INTENT(IN) :: info
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_timelevel'
-
-    tl = INDEX(info%name,TIMELEVEL_SUFFIX)
-    IF (tl .EQ. 0) THEN
-      tl = -1
-    ELSE
-      tl = ICHAR(info%name(tl+3:tl+3)) - ICHAR('0')
-      IF (tl .LE. 0 .OR. tl .GT. MAX_TIME_LEVELS) &
-        & CALL finish(routine, 'Illegal time level in '//TRIM(info%name))
-    END IF
-  END FUNCTION get_var_timelevel
-
-  ! return logical if a variable name has a timelevel encoded
-  LOGICAL FUNCTION has_time_level(varname)
-    CHARACTER(*), INTENT(IN) :: varname
-
-    has_time_level = (0 .EQ. INDEX(varname,TIMELEVEL_SUFFIX))
-  END FUNCTION
-
-  !------------------------------------------------------------------------------------------------
-  !> @return tile index (extracted from tile index suffix "t_") or "-1"
-  !
-  INTEGER FUNCTION get_var_tileidx(varname) RESULT(tidx)
-    CHARACTER(LEN=*), INTENT(IN) :: varname
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_tileidx'
-
-    tidx = INDEX(varname,'_t_')
-    IF (tidx .NE. 0) THEN
-      tidx = ICHAR(varname(+3:tidx+3)) - ICHAR('0')
-      IF (tidx .LE. 0) &
-        CALL finish(routine, 'Illegal time level in '//TRIM(varname))
-    END IF
-  END FUNCTION get_var_tileidx
-
   !------------------------------------------------------------------------------------------------
   !
   ! Change parameters of an already existent output var_list

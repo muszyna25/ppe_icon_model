@@ -54,8 +54,6 @@ MODULE mo_var_list
   PUBLIC :: add_ref                   ! create/reference a new var_list list entry
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
-  PUBLIC :: get_var_tileidx           ! return variable tile index
-  PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
   PUBLIC :: get_tracer_info_dyn_by_idx! return a copy of the dynamic metadata of a certain tracer
   PUBLIC :: get_timelevel_string      ! return the default string with timelevel encoded
   PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
@@ -131,41 +129,19 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return time level (extracted from time level suffix) or "-1"
   !
-  INTEGER FUNCTION get_var_timelevel(info) RESULT(tl)
-    TYPE(t_var_metadata), INTENT(IN) :: info
+  INTEGER FUNCTION get_var_timelevel(vname) RESULT(tl)
+    CHARACTER(*), INTENT(IN) :: vname
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_timelevel'
 
-    tl = INDEX(info%name,TIMELEVEL_SUFFIX)
+    tl = INDEX(vname,TIMELEVEL_SUFFIX)
     IF (tl .EQ. 0) THEN
       tl = -1
     ELSE
-      tl = ICHAR(info%name(tl+3:tl+3)) - ICHAR('0')
+      tl = ICHAR(vname(tl+3:tl+3)) - ICHAR('0')
       IF (tl .LE. 0 .OR. tl .GT. MAX_TIME_LEVELS) &
-        & CALL finish(routine, 'Illegal time level in '//TRIM(info%name))
+        & CALL finish(routine, 'Illegal time level in '//TRIM(vname))
     END IF
   END FUNCTION get_var_timelevel
-
-  ! return logical if a variable name has a timelevel encoded
-  LOGICAL FUNCTION has_time_level(varname)
-    CHARACTER(*), INTENT(IN) :: varname
-
-    has_time_level = (0 .EQ. INDEX(varname,TIMELEVEL_SUFFIX))
-  END FUNCTION
-
-  !------------------------------------------------------------------------------------------------
-  !> @return tile index (extracted from tile index suffix "t_") or "-1"
-  !
-  INTEGER FUNCTION get_var_tileidx(varname) RESULT(tidx)
-    CHARACTER(LEN=*), INTENT(IN) :: varname
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':get_var_tileidx'
-
-    tidx = INDEX(varname,'_t_')
-    IF (tidx .NE. 0) THEN
-      tidx = ICHAR(varname(+3:tidx+3)) - ICHAR('0')
-      IF (tidx .LE. 0) &
-        CALL finish(routine, 'Illegal time level in '//TRIM(varname))
-    END IF
-  END FUNCTION get_var_tileidx
 
   !------------------------------------------------------------------------------------------------
   !
@@ -221,42 +197,25 @@ CONTAINS
   END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
   !
-  ! Get a copy of the metadata concerning a var_list element
-  !
-  SUBROUTINE get_var_list_element_info (this_list, name, info)
-    !
-    TYPE(t_var_list),     INTENT(in)  :: this_list    ! list
-    CHARACTER(len=*),     INTENT(in)  :: name         ! name of variable
-    TYPE(t_var_metadata), INTENT(out) :: info         ! variable meta data
-    !
-    TYPE(t_list_element), POINTER :: element
-    !
-    element => find_list_element (this_list, name)
-    IF (ASSOCIATED (element)) THEN
-      info = element%field%info
-    ENDIF
-    !
-  END SUBROUTINE get_var_list_element_info
-  !------------------------------------------------------------------------------------------------
-  !
   ! Get a copy of the dynamic metadata concerning a var_list element by index of the element
   !
   SUBROUTINE get_tracer_info_dyn_by_idx (this_list, ncontained, info_dyn)
-    !    
     TYPE(t_var_list),             INTENT(in)  :: this_list    ! list
     INTEGER,                      INTENT(in)  :: ncontained   ! index of variable in container
     TYPE(t_var_metadata_dynamic), INTENT(out) :: info_dyn     ! dynamic variable meta data
-    !    
     TYPE(t_list_element), POINTER :: element
-    !    
-    element => find_tracer_by_index (this_list, ncontained)
-    IF (ASSOCIATED (element)) THEN 
-      info_dyn = element%field%info_dyn
-    ENDIF
-    !    
+
+    element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(element))
+      IF (element%field%info_dyn%tracer%lis_tracer) THEN
+        IF(ncontained == element%field%info%ncontained) EXIT
+      END IF
+      element => element%next_list_element
+    END DO
+    IF (ASSOCIATED (element)) info_dyn = element%field%info_dyn
   END SUBROUTINE get_tracer_info_dyn_by_idx
 
-  SUBROUTINE default_var_list_metadata(this_info, this_list)
+  SUBROUTINE inherit_var_list_metadata(this_info, this_list)
     TYPE(t_var_metadata), INTENT(out) :: this_info
     TYPE(t_var_list), INTENT(in)      :: this_list
     !
@@ -267,7 +226,7 @@ CONTAINS
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
     this_info%in_group(:)         = groups()
-  END SUBROUTINE default_var_list_metadata
+  END SUBROUTINE inherit_var_list_metadata
 
   !------------------------------------------------------------------------------------------------
   !
@@ -371,7 +330,7 @@ CONTAINS
     ! add list entry
 
     CALL append_list_element (this_list, new_list_element)
-    CALL default_var_list_metadata(new_list_element%field%info, this_list)
+    CALL inherit_var_list_metadata(new_list_element%field%info, this_list)
 
     ! init local fields
 
@@ -1589,7 +1548,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    CALL default_var_list_metadata(ref_info, this_list)
+    CALL inherit_var_list_metadata(ref_info, this_list)
 
     !
     ! init local fields
@@ -1794,7 +1753,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    CALL default_var_list_metadata(ref_info, this_list)
+    CALL inherit_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -1989,7 +1948,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    CALL default_var_list_metadata(ref_info, this_list)
+    CALL inherit_var_list_metadata(ref_info, this_list)
 
     !
     ! init local fields
@@ -2190,7 +2149,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    CALL default_var_list_metadata(ref_info, this_list)
+    CALL inherit_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -2388,7 +2347,7 @@ CONTAINS
     CALL append_list_element (this_list, new_list_element)
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
-    CALL default_var_list_metadata(ref_info, this_list)
+    CALL inherit_var_list_metadata(ref_info, this_list)
     !
     ! init local fields
     !
@@ -2738,28 +2697,6 @@ CONTAINS
     !
   END SUBROUTINE print_var_list
 
-  !------------------------------------------------------------------------------------------------
-  LOGICAL FUNCTION elementFoundByName(key2look4,name2look4,name_has_time_level,element,case_insensitive)
-    INTEGER, INTENT(in) :: key2look4
-    CHARACTER(len=*),   INTENT(in) :: name2look4
-    TYPE(t_list_element), INTENT(in) :: element
-    LOGICAL, INTENT(in) :: name_has_time_level, case_insensitive
-
-    ! go forward only if both variables have NO or THE SAME timelevel
-    IF (name_has_time_level .NEQV. has_time_level(element%field%info%name)) THEN
-      elementFoundByName = .FALSE.
-      RETURN
-    ENDIF
-
-    IF (case_insensitive) THEN
-      elementFoundByName &
-        = tolower(name2look4) == tolower(get_var_name(element%field))
-    ELSE
-      ! fixme: unless perfect hashing can be employed, this
-      ! might create false positives
-      elementFoundByName = key2look4 == element%field%info%key
-    END IF
-  END FUNCTION elementFoundByName
   !-----------------------------------------------------------------------------
   
   ! Should be overloaded to be able to search for the different information 
@@ -2772,52 +2709,30 @@ CONTAINS
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
     TYPE(t_list_element), POINTER :: element
-    INTEGER :: key,hgrid
-    LOGICAL :: name_has_time_level, case_insensitive
+    INTEGER :: key,hgrid, time_lev
+    LOGICAL :: case_insensitive
 
     case_insensitive = .FALSE.
     IF (PRESENT(opt_caseInsensitive)) case_insensitive = opt_caseInsensitive
     hgrid = -1
     IF (PRESENT(opt_hgrid)) hgrid = opt_hgrid
-    key = text_hash_c(TRIM(name))
-    name_has_time_level = has_time_level(name)
+    IF (.NOT.case_insensitive) key = text_hash_c(TRIM(name))
+    time_lev = get_var_timelevel(name)
     element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(element))
       IF (-1 == hgrid .OR. hgrid == element%field%info%hgrid) THEN
-        IF (elementFoundByName(key,name,name_has_time_level,&
-          &                    element,case_insensitive)) RETURN
+        IF (time_lev .EQ. get_var_timelevel(element%field%info%name)) THEN
+          IF (case_insensitive) THEN
+            ! HB: get_var_name strips timelevel-suffix -- is that intended?
+            IF (tolower(name) == tolower(get_var_name(element%field))) EXIT
+          ELSE
+            ! fixme: unless perfect hashing can be employed, this might create false positives
+            IF (key .EQ. element%field%info%key) EXIT
+          END IF
+        END IF
       ENDIF
       element => element%next_list_element
     ENDDO
   END FUNCTION find_list_element
   
-  !------------------------------------------------------------------------------------------------
-  !-----------------------------------------------------------------------------
-  !
-  ! Overloaded to search for a tracer by its index (ncontained)
-  !
-  FUNCTION find_tracer_by_index (this_list, ncontained, opt_hgrid) RESULT(this_list_element)
-    TYPE(t_var_list),   INTENT(in) :: this_list
-    INTEGER,            INTENT(in) :: ncontained
-    INTEGER, OPTIONAL              :: opt_hgrid
-    TYPE(t_list_element), POINTER  :: this_list_element
-    INTEGER :: hgrid
-
-    hgrid = -1
-    IF (PRESENT(opt_hgrid)) hgrid = opt_hgrid
-    this_list_element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
-        IF(ncontained == this_list_element%field%info%ncontained) THEN
-          IF (-1 == hgrid) THEN
-            RETURN
-          ELSE
-            IF (hgrid == this_list_element%field%info%hgrid) RETURN
-          ENDIF
-        ENDIF
-      ENDIF
-      this_list_element => this_list_element%next_list_element
-    ENDDO
-    NULLIFY (this_list_element)
-  END FUNCTION find_tracer_by_index
 END MODULE mo_var_list
