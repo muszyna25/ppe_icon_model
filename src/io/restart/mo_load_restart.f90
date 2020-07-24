@@ -213,11 +213,11 @@ CONTAINS
       INTEGER :: i, lm
       LOGICAL :: skip
 
-      skip = .FALSE.
       DO i = 1, nvar_lists
         IF (var_lists(i)%p%patch_id .NE. p_patch%id) CYCLE
         lm = LEN_TRIM(var_lists(i)%p%model_type)
         cur_mType => entry_mType
+        skip = .FALSE.
         DO WHILE(ASSOCIATED(cur_mType%next))
           skip = var_lists(i)%p%model_type(1:lm) == cur_mType%next%a
           IF (skip) EXIT
