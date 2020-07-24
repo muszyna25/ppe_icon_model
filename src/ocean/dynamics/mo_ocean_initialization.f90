@@ -40,7 +40,7 @@ MODULE mo_ocean_initialization
     & on_cells, on_edges, on_vertices
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
     & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude,   &
-    & use_smooth_ocean_boundary, max_allocated_levels
+    & use_smooth_ocean_boundary, max_allocated_levels, minVerticalLevels
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
@@ -300,7 +300,7 @@ CONTAINS
     ! Coordinate surfaces - n_zlev z-levels:
     ! First vertical level loop to set wet cells below surface (and second layer) only
     
-    init_zloop: DO jk = 3, n_zlev
+    init_zloop: DO jk = minVerticalLevels+1, n_zlev
       
       !-----------------------------
       ! set dolic and wet grid points on cells:
@@ -1268,10 +1268,11 @@ CONTAINS
     REAL(wp) :: z_y, coriolis_lat
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_ocean_initialization:init_coriolis_oce')
-    TYPE(t_subset_range), POINTER :: all_verts, all_edges
+    TYPE(t_subset_range), POINTER :: all_verts, all_edges, all_cells
     !-----------------------------------------------------------------------
     all_verts => patch_2D%verts%ALL
     all_edges => patch_2D%edges%ALL
+    all_cells => patch_2D%cells%ALL
     
     CALL message (TRIM(routine), 'start')
     
@@ -1347,7 +1348,13 @@ CONTAINS
           patch_2D%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%edges%center(je,jb)%lat)
         END DO
       END DO
-           
+       DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, StartEdgeIndex, EndEdgeIndex)
+        DO je = StartEdgeIndex, EndEdgeIndex
+          patch_2D%cells%f_c(je,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%cells%center(je,jb)%lat)
+        END DO
+      END DO
+          
     END SELECT
     
     CALL message (TRIM(routine), 'end')

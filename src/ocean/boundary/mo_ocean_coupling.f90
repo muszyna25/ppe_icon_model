@@ -349,7 +349,7 @@ CONTAINS
     field_name(13) = "co2_flux"
     field_name(14) = "sea_level_pressure"
 
-    ! Define the mask for all fields but the runoff (idx=1 to 10)
+    ! Define the mask for all fields but the runoff
 
     DO idx = 1, no_of_fields 
       if(field_name(idx).ne. "river_runoff")then
@@ -364,15 +364,19 @@ CONTAINS
       endif
     ENDDO
 
-    ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
+    ! Define cell_mask_ids(2) for runoff: all ocean points are valid.
+    !!slo! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
+    !!slo!  - todo: use same mask as for other ones: all points, better wet points only
 
     IF ( mask_checksum > 0 ) THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
-          IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
             ! ocean coast (-1) is valid
+!         IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
+          ! all ocean points (-1, -2) are valid
+          IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) <= -1 ) THEN
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
             ! elsewhere (land or open ocean 1, 2, -2) is undef
@@ -381,6 +385,15 @@ CONTAINS
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
+    ELSE
+
+!ICON_OMP_PARALLEL_DO PRIVATE(idx) ICON_OMP_DEFAULT_SCHEDULE
+      DO idx = 1, patch_horz%nblks_c * nproma
+        ibuffer(idx) = 0
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
 
       CALL yac_fdef_mask (          &
         & patch_horz%n_patch_cells, &
@@ -388,7 +401,6 @@ CONTAINS
         & cell_point_ids(1),        &
         & cell_mask_ids(2) )
 
-    ENDIF
 
     DEALLOCATE(ibuffer)
 
@@ -482,6 +494,7 @@ CONTAINS
     nbr_hor_cells = patch_horz%n_patch_cells
 
     !
+    !
     !  Receive fields from atmosphere
     !   field_id(1) represents "surface_downward_eastward_stress" bundle  - zonal wind stress component over ice and water
     !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
@@ -501,7 +514,6 @@ CONTAINS
     !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
 
-    !  add another comment here - 
 
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****

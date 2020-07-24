@@ -16,7 +16,7 @@ listname=oes-ref
 
 # add omip binary-identical test on mistral
 $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days \
- checksuite.ocean_internal/omip/exp.test_hamocc_omip_10days       \
+ checksuite.ocean_internal/hamocc/exp.test_hamocc_omip_10days       \
  --machines mistral --without-configureflags enable-mixed --runflags "cpu_time=00:30:00 queue=compute" --list $listname
 
 #-----------------------------------------------------------

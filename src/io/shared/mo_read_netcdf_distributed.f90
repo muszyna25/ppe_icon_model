@@ -19,7 +19,8 @@ MODULE mo_read_netcdf_distributed
 
   USE mo_kind, ONLY: wp
   USE mo_exception, ONLY: finish, message, em_warn
-  USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work
+  USE mo_mpi, ONLY: p_n_work, p_pe_work, p_bcast, p_comm_work, &
+    & p_allreduce, mpi_max, process_mpi_root_id
   USE ppm_extents, ONLY: extent
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
     & t_glb2loc_index_lookup, &
@@ -45,6 +46,7 @@ MODULE mo_read_netcdf_distributed
 
   PUBLIC :: distrib_read
   PUBLIC :: distrib_nf_open
+  PUBLIC :: distrib_nf_inq_varexists
   PUBLIC :: distrib_nf_close
   PUBLIC :: setup_distrib_read
   PUBLIC :: delete_distrib_read
@@ -119,6 +121,10 @@ MODULE mo_read_netcdf_distributed
   END TYPE
 
   TYPE(t_basic_distrib_read_data), TARGET, ALLOCATABLE :: basic_data(:)
+
+  ! This one only depends on n_io_processes and io_process_stride, so it is
+  ! save to store it in a module variable.
+  INTEGER :: parRootRank
 
 CONTAINS
 
@@ -251,6 +257,7 @@ CONTAINS
        n_io_processes, io_process_stride)
     INTEGER, INTENT(out) :: n_io_processes, io_process_stride
     INTEGER :: io_process_rotate
+    INTEGER :: temp_n_io_processes, temp_io_process_stride
 
     IF (config_io_process_stride > 0) THEN
       io_process_stride = MAX(1, MODULO(config_io_process_stride, p_n_work))
@@ -258,8 +265,12 @@ CONTAINS
       n_io_processes = (p_n_work - io_process_rotate + io_process_stride - 1)&
            / io_process_stride
     ELSE
-      n_io_processes = NINT(SQRT(REAL(p_n_work)))
-      io_process_stride = (p_n_work + n_io_processes - 1) / n_io_processes
+      temp_n_io_processes = NINT(SQRT(REAL(p_n_work)))
+      temp_io_process_stride = &
+        (p_n_work + temp_n_io_processes - 1) / temp_n_io_processes
+      ! improve io process stride by rounding to the next power of two
+      io_process_stride = 2**CEILING(LOG(REAL(temp_io_process_stride))/LOG(2.))
+      n_io_processes = (p_n_work + io_process_stride - 1) / io_process_stride
     END IF
   END SUBROUTINE distrib_nf_io_rank_distribution
 
@@ -291,6 +302,8 @@ CONTAINS
 
     INTEGER :: n_io_processes, io_process_stride
 
+    LOGICAL, SAVE :: isParRootRankInitialized = .FALSE.
+
 #if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     INTEGER              :: myColor, ierr, nvars, i
     INTEGER, ALLOCATABLE :: varids(:)
@@ -303,6 +316,12 @@ CONTAINS
     CALL message ("distrib_nf_open:",path)
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
+    IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
+      parRootRank = p_pe_work
+    ELSE
+      parRootRank = 0
+    ENDIF
+    parRootRank = p_allreduce(parRootRank, mpi_max, p_comm_work)
 #if defined (HAVE_PARALLEL_NETCDF) && !defined (NOMPI)
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
       myColor = 1
@@ -357,6 +376,28 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+  FUNCTION distrib_nf_inq_varexists(ncid, var_name) result(ret)
+
+    INTEGER, INTENT(in) :: ncid
+    CHARACTER(LEN=*), INTENT(in) :: var_name
+
+    INTEGER :: n_io_processes, io_process_stride
+    INTEGER :: err, varid
+    LOGICAL :: ret
+
+    CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
+
+    IF (p_pe_work == parRootRank) THEN
+      err = nf_inq_varid(ncid, var_name, varid)
+    END IF
+    CALL p_bcast(err, parRootRank, p_comm_work)
+
+    ret = (err == nf_noerr)
+
+  END FUNCTION distrib_nf_inq_varexists
+
+  !-------------------------------------------------------------------------
+
   SUBROUTINE distrib_nf_close(ncid)
 
     INTEGER, INTENT(in) :: ncid
@@ -364,7 +405,6 @@ CONTAINS
     INTEGER :: n_io_processes, io_process_stride
 
     CALL distrib_nf_io_rank_distribution(n_io_processes, io_process_stride)
-
     IF (distrib_nf_rank_does_io(n_io_processes, io_process_stride)) THEN
       CALL nf(nf_close(ncid))
     END IF
@@ -1039,7 +1079,7 @@ CONTAINS
     INTEGER :: varid, temp(1), i
     INTEGER :: temp_var_dimlen(NF_MAX_VAR_DIMS), var_dimids(NF_MAX_VAR_DIMS)
 
-    IF ( p_pe_work == 0 ) THEN
+    IF ( p_pe_work == parRootRank ) THEN
       CALL nf(nf_inq_varid(file_id, var_name, varid))
       CALL nf(nf_inq_varndims(file_id, varid, var_ndims))
       CALL nf(nf_inq_vardimid(file_id, varid, var_dimids))
@@ -1050,9 +1090,9 @@ CONTAINS
     END IF
 
 #ifndef NOMPI
-    CALL p_bcast(temp, 0, p_comm_work)
-    CALL p_bcast(var_ndims, 0, p_comm_work)
-    CALL p_bcast(temp_var_dimlen(1:var_ndims), 0, p_comm_work)
+    CALL p_bcast(temp, parRootRank, p_comm_work)
+    CALL p_bcast(var_ndims, parRootRank, p_comm_work)
+    CALL p_bcast(temp_var_dimlen(1:var_ndims), parRootRank, p_comm_work)
     temp(1) = var_ndims
 #endif
 

@@ -92,11 +92,12 @@ AC_ARG_ENABLE([coupling],
   [AS_IF([test x"$enableval" != xno], [enable_coupling=yes])],
   [enable_coupling=yes])
 
-AC_ARG_ENABLE([psrad],
-  [AC_HELP_STRING([--enable-psrad],
-     [enable the radiation component PSRAD @<:@default=yes@:>@])],
-  [AS_IF([test x"$enableval" != xno], [enable_psrad=yes])],
-  [enable_psrad=yes])
+AC_ARG_ENABLE([concurrent-psrad],
+  [AC_HELP_STRING([--enable-concurrent-psrad],
+     [enable the concurrent mode of the radiation component PSRAD
+@<:@default=yes@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_concurrent_psrad=yes])],
+  [enable_concurrent_psrad=yes])
 
 AC_ARG_ENABLE([ecrad],
   [AC_HELP_STRING([--enable-ecrad],
@@ -227,6 +228,12 @@ AC_ARG_ENABLE([serialization],
 --enable-serialization='$enableval'; valid values are 'read', 'perturb', dnl
 'create', 'yes' (same as 'read'), 'no'])])],
 [enable_serialization=no])
+
+AC_ARG_ENABLE([testbed],
+  [AC_HELP_STRING([--enable-testbed],
+     [enable ICON Testbed infrastructure @<:@default=no@:>@])],
+  [AS_IF([test x"$enableval" != xno], [enable_testbed=yes])],
+  [enable_testbed=no])
 
 m4_divert_once([HELP_ENABLE], [[
 Optimization Features:]])
@@ -511,7 +518,7 @@ ACX_FC_ATTRIBUTE_CONTIGUOUS(
   [" ${FC_PP_DEF}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])], [:])
 
 AS_VAR_APPEND([FCFLAGS],
-  [" ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"])
+  [" ${FC_PP_DEF}__ICON__"])
 
 AS_VAR_IF([enable_atmo], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_ATMO__"])])
@@ -538,7 +545,7 @@ AS_VAR_IF([enable_emvorado], [yes],
 AS_VAR_IF([enable_coupling], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}YAC_coupling"])])
 
-AS_VAR_IF([enable_psrad], [no],
+AS_VAR_IF([enable_concurrent_psrad], [no],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_PS_RAD__"])])
 
 AS_VAR_IF([enable_ecrad], [yes],
@@ -585,6 +592,9 @@ AS_IF([test "x$enable_serialization" != xno],
                    [" ${FC_PP_DEF}SERIALIZE_PERTURB_REFERENCE"])],
      [create], [AS_VAR_APPEND([FCFLAGS],
                   [" ${FC_PP_DEF}SERIALIZE_CREATE_REFERENCE"])])])
+
+AS_VAR_IF([enable_testbed], [no],
+  [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__NO_ICON_TESTBED__"])])
 
 AS_VAR_IF([enable_loop_exchange], [yes],
   [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}__LOOP_EXCHANGE"])])
@@ -735,6 +745,17 @@ AS_VAR_IF([enable_mpi], [yes],
 interface of MPI: either disable MPI support (--disable-mpi) or set FC to dnl
 the MPI Fortran compiler wrapper, or set FCFLAGS, LDFLAGS and LIBS dnl
 accordingly])])])
+
+dnl The configure scripts of the most of the bundled libraries expect
+dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
+dnl accommodate when required and if possible:
+AS_IF([test -n "$MPI_LAUNCH"],
+  [AS_CASE(["$MPI_LAUNCH"],
+     [[[\\/]]* | ?:[[\\/]]*], [],
+     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
+        [MPI_LAUNCH="$acx_prog_search_abspath"],
+        [AC_MSG_WARN([unable to find the absolute path to $MPI_LAUNCH: the dnl
+bundled libraries might pick other MPI launcher commands for their tests])])])])
 
 AS_VAR_IF([enable_openmp], [yes],
   [ACX_LANG_OPENMP_FLAG(
@@ -1078,6 +1099,7 @@ linking the bundled version of YAXT @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([dependency-tracking])],
          [ACX_CONFIG_SUBDIR_PATTERN_WITH([regard-for-quality])]],
@@ -1207,6 +1229,7 @@ linking the bundled version of CDI @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*|F77=*|CXX=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([iso-c-interface])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([cf-interface])],
@@ -1308,6 +1331,7 @@ linking the bundled version of MTIME @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([static])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([shared])],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([examples])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([openmp])]],
@@ -1377,10 +1401,11 @@ linking the bundled version of YAC @<:@default=$ICON_BUNDLED_FCFLAGS@:>@])dnl
 linking the bundled version of YAC @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ICON_YAC_CFLAGS=${ICON_YAC_CFLAGS-$ICON_BUNDLED_CFLAGS}
       ACX_CONFIG_SUBDIR([externals/yac],
-        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+        [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*],
          [MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*],
          [MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([lib-only])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([xml])],
@@ -1394,7 +1419,8 @@ linking the bundled version of YAC @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
          [MTIME_CFLAGS="$yac_MTIME_CFLAGS"], [MTIME_CLIBS=],
          [NETCDF_CFLAGS=], [NETCDF_CLIBS=], [XML2_CFLAGS=], [XML2_CLIBS=],
          [MPI_CFLAGS=], [MPI_CLIBS=], [MPI_FCFLAGS=], [MPI_FCLIBS=],
-         [FORTRAN_LAPACK_CLIBS=],
+         [FORTRAN_LAPACK_CLIBS=], [MPI_LAUNCH="$MPI_LAUNCH"],
+         [--disable-maintainer-mode],
          [--enable-silent-rules="$enable_silent_rules"], [--enable-lib-only],
          [--enable-xml], [--enable-netcdf], [--enable-mpi="$enable_mpi"],
          [--with-external-lapack=fortran], [--with-external-mtime],
@@ -1438,6 +1464,7 @@ linking the bundled version of TIXI @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
       ACX_CONFIG_SUBDIR([externals/tixi],
         [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
          [XML2_CFLAGS=*|XML2_CLIBS=*],
+         [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
          [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
         [[CFLAGS="$subdir_CFLAGS $ICON_TIXI_CFLAGS"],
          [FCFLAGS="$subdir_FCFLAGS $ICON_TIXI_FCFLAGS"],
@@ -1480,6 +1507,7 @@ linking the bundled version of SELF @<:@default=$ICON_BUNDLED_CFLAGS@:>@])dnl
    ICON_SELF_CFLAGS=${ICON_SELF_CFLAGS-$ICON_BUNDLED_CFLAGS}
    ACX_CONFIG_SUBDIR([externals/self],
      [[BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*],
+      [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([maintainer-mode])],
       [ACX_CONFIG_SUBDIR_PATTERN_ENABLE([silent-rules])]],
      [[CFLAGS="$subdir_CFLAGS $ICON_SELF_CFLAGS"],
       [FCFLAGS="$subdir_FCFLAGS $ICON_SELF_FCFLAGS"],
@@ -1654,15 +1682,10 @@ sure that path to the 'pp_ser' module is in the PYTHONPATH environment dnl
 variable, or set SB2PP accordingly])])],
    [SB2PP=])
 
+dnl We have checked this command earlier but put the declaration here so
+dnl it would be listed in the help message of the configure script at the very
+dnl end, together with other optional commands.
 AC_ARG_VAR([MPI_LAUNCH], [interactive MPI launcher command (optional)])dnl
-dnl The configure scripts of the most of the bundled libraries expect
-dnl MPI_LAUNCH to be set in the form of an absolute path, which we try to
-dnl accommodate when required and if possible:
-AS_IF([test -n "$MPI_LAUNCH"],
-  [AS_CASE(["$MPI_LAUNCH"],
-     [[[\\/]]* | ?:[[\\/]]*], [],
-     [ACX_PROG_SEARCH_ABSPATH([$MPI_LAUNCH],
-        [MPI_LAUNCH="$acx_prog_search_path"])])])
 
 #################################### OUTPUT ####################################
 
@@ -1674,6 +1697,16 @@ AC_CONFIG_FILES([
   deplist.config
   icon.mk
 ])
+
+AC_CONFIG_FILES([run/collect.set-up.info], [chmod +x "$ac_file"])
+
+dnl The runscript generator should call run/collect.set-up.info and generate
+dnl run/set-up.info. This is currently not the case, therefore we delegate this
+dnl task to the configure script (do not forget to update '*clean' rules in
+dnl 'icon.mk.in' when the following becomes redundant):
+AC_CONFIG_COMMANDS([run/set-up.info],
+  [run/collect.set-up.info "$ac_file" 2>/dev/null || dnl
+   AC_MSG_WARN([failed to create "$ac_file"])])
 
 dnl An additional step to generate dummy dependencies:
 AC_CONFIG_COMMANDS([depfiles],

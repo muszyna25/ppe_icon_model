@@ -46,7 +46,8 @@ MODULE mo_psrad_orbit
        &                        deg2rad         ! pi/180
   USE mo_exception,      ONLY : finish, message, message_text, em_param, warning, print_value
   USE mtime,             ONLY : julianday, newJulianday, deallocateJulianday, getJulianDayFromDatetime, &
-       &                        newDateTime, deallocateDateTime, datetime, no_of_ms_in_a_day
+       &                        newDateTime, deallocateDateTime, datetime, no_of_ms_in_a_day, &
+       &                        getNoOfDaysInYearDateTime
 
   IMPLICIT NONE
   PRIVATE 
@@ -824,94 +825,54 @@ CONTAINS
   !>
   !! @brief Returns orbit time
   !
-  SUBROUTINE get_orbit_times( current_datetime,  &
+  SUBROUTINE get_orbit_times( l_orbvsop87, current_datetime,  &
                            & lyr_perp, yr_perp,  &
-!!$    lrad_date,          lyr_perp,    &
-!!$  & nmonth,        yr_perp,          &
                            & time_of_day, orbit_date    )
 
+    LOGICAL, INTENT(IN) :: l_orbvsop87
     TYPE(datetime), POINTER, INTENT(IN) :: current_datetime
     LOGICAL, INTENT(in) :: lyr_perp
     INTEGER, INTENT(in) :: yr_perp
-!!$    LOGICAL, INTENT (IN)    :: lrad_date, lyr_perp
-!!$    INTEGER, INTENT (IN)    :: nmonth, yr_perp
     REAL (wp), INTENT (OUT) :: time_of_day, orbit_date
 
-    TYPE(julianday), POINTER :: jd 
-!!$    TYPE(julian_date) :: date_now, date_pal
-!!$    TYPE(ly360_date)  :: idate_format
-    TYPE(datetime), POINTER  :: valid_datetime
-!!$
-!!$    INTEGER  :: iyr, imo, idy, isec
-!!$    REAL(wp) :: rsec, daylen, zdy, zdy_mar0, zscr
+    TYPE(julianday), POINTER :: jd, jd_pal
+    TYPE(datetime), POINTER  :: valid_datetime, pal_datetime
+    REAL(wp)    :: zdy, zdy_mar0, zscr, zyearlen_days
 
        valid_datetime => newDateTime(current_datetime)
        IF (lyr_perp) THEN
          valid_datetime%date%year = yr_perp
        END IF
-!!$    if (lrad_date) then
-!!$      valid_date = datetime
-!!$    else
-!!$      valid_date = datetime
-!!$    end if
 
-! date components
-!!$    CALL get_date_components(valid_date, year=iyr, month=imo, day=idy)
-!!$    CALL TC_get(valid_date, second=jsec)
-!!$    time_of_day = (REAL(jsec, dp)/day_len())*2.0_dp*pi
-!!$    time_of_day = (valid_date%caltime-0.5_wp)*2.0_wp*pi
-    !
-    ! Calculate orbital model input for a real orbit, with the possibility
-    ! of a perpetual year, as determined by (lyr_perp, yr_perp)
-    ! --------------------------------
-!!$    IF (l_orbvsop87) THEN
-!!$      if (lyr_perp) iyr = yr_perp  ! use the specified yr for perptual yr case
-!!$      CALL Set_JulianDay(iyr, imo, idy, jsec, date_now, lperpetual_year=lyr_perp)
-!!$      orbit_date = date_now%day + date_now%fraction
-!!$      !
-!!$      ! Calculate orbital model imput for an idealized orbit with exception
-!!$      ! handling. Exceptions include:  perpetual month experiments (where the
-!!$      ! orbital parameters are fixed on the middle point of the month), and an
-!!$      ! artificial 360 day calendar.  For this orbital model the day must be
-!!$      ! converted to days from vernal equinox, and to conform with CMIP specs.
-!!$      ! orbital positions are based on the days elapsed since 1900-01-01.
-!!$      ! --------------------------------
-!!$    ELSE
-!!$      SELECT CASE (get_calendar_type())
-!!$      CASE (JULIAN)
-!!$        CALL Set_JulianDay(1900, 1, 1, 0, date_pal)
-!!$        IF (nmonth /= 0) then
-!!$          idy  = get_month_len(1987,nmonth)
-!!$          isec = INT(MOD(idy,2)*IDAYLEN*0.5_wp)
-!!$          idy  = idy/2 + 1
-!!$          CALL Set_JulianDay(1987, nmonth, idy, isec, date_now)
-!!$        ELSE
-!!$          CALL Set_JulianDay(iyr, imo, idy, jsec, date_now)
-!!$        END IF
-!!$      CASE (CYL360)
-!!$        CALL Set_Ly360Day(1900, 1,   1,     0, idate_format)
-!!$        date_pal%day      = REAL(idate_format%day,wp)
-!!$        date_pal%fraction = idate_format%fraction
-!!$        CALL Set_Ly360Day(iyr, imo, idy, jsec, idate_format)
-!!$        date_now%day      = REAL(idate_format%day,wp)
-!!$        date_now%fraction = idate_format%fraction
-!!$      END SELECT
-!!$      zdy = (date_now%day+date_now%fraction)-(date_pal%day+date_pal%fraction)
-!!$      !
-!!$      ! Here is we convert to days since vernal equinox
-!!$      ! --------------------------------
-!!$      zdy_mar0   = 78.41_wp - 0.0078_wp*(1900-1987) + 0.25_wp*MOD(1900,4)
-!!$      zscr       = zdy + get_year_len() - zdy_mar0
-!!$      orbit_date = MOD(zscr/get_year_len(),1.0_wp)*2.0_wp*pi
-!!$    END IF
-
-    jd => newJulianday(0_i8, 0_i8)
-    CALL getJulianDayFromDatetime(valid_datetime, jd) 
-    orbit_date = REAL(jd%day,wp) + REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)
-    time_of_day = (REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)-0.5_wp)*2.0_wp*pi
-    CALL deallocateJulianday(jd)
-    CALL deallocateDateTime(valid_datetime)
-
+    IF (l_orbvsop87) THEN
+      jd => newJulianday(0_i8, 0_i8)
+      CALL getJulianDayFromDatetime(valid_datetime, jd) 
+      orbit_date = REAL(jd%day,wp) + REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)
+      time_of_day = (REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)-0.5_wp)*twopi
+      CALL deallocateJulianday(jd)
+      CALL deallocateDateTime(valid_datetime)
+   ELSE !Kepler orbit that needs fraction with respect to vernal equinox in rad
+      ! mtime routines should be able to handle different calendars...
+      jd => newJulianday(0_i8, 0_i8)
+      CALL getJulianDayFromDatetime(valid_datetime, jd)
+      time_of_day = (REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp)-0.5_wp)*twopi
+      jd_pal => newJulianday(0_i8, 0_i8)
+      pal_datetime => newDateTime('1900-01-01T00:00:00Z')
+      CALL getJulianDayFromDatetime(pal_datetime, jd_pal)
+      zyearlen_days=REAL(getNoOfDaysInYearDateTime(valid_datetime),wp)
+      zdy = (REAL(jd%day,wp)+REAL(jd%ms,wp)/REAL(no_of_ms_in_a_day,wp))-       &
+          &(REAL(jd_pal%day,wp)+REAL(jd_pal%ms,wp)/REAL(no_of_ms_in_a_day,wp))
+      !
+      ! Here is we convert to days since vernal equinox
+      ! --------------------------------
+      zdy_mar0   = 78.41_wp - 0.0078_wp*(1900-1987) + 0.25_wp*MOD(1900,4)
+      zscr       = zdy + zyearlen_days - zdy_mar0
+      orbit_date = MOD(zscr/zyearlen_days,1.0_wp)*twopi
+      CALL deallocateJulianday(jd)
+      CALL deallocateJulianday(jd_pal)
+      CALL deallocateDateTime(valid_datetime)
+    END IF
+      
   END SUBROUTINE get_orbit_times
 
 END MODULE mo_psrad_orbit
