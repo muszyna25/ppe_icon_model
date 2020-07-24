@@ -19,7 +19,7 @@
 !!
 MODULE mo_advection_config
 
-  USE mo_kind,                  ONLY: wp
+  USE mo_kind,                  ONLY: wp, dp
   USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,   &
     &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,    &
     &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,   &
@@ -32,7 +32,7 @@ MODULE mo_advection_config
   USE mo_run_config,            ONLY: msg_level
   USE mo_expression,            ONLY: expression, parse_expression_string
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
-  USE mo_var_list,              ONLY: fget_var_list_element_r3d, get_timelevel_string
+  USE mo_var_list,              ONLY: get_timelevel_string, find_list_element
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
   USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &
@@ -996,7 +996,7 @@ CONTAINS
 
       WRITE(message_text,'(2a)') 'Initialize additional passive tracer: ',TRIM(tracer_name)
       CALL message('',message_text)
-
+      !NOTE (HB): if wp /= dp the following is not correct, since r_ptr is of type REAL(dp)
       CALL formula%evaluate( fget_var_list_element_r3d (tracer_list(ntl), &
         &                    TRIM(tracer_name)))
       CALL formula%finalize()
@@ -1005,6 +1005,22 @@ CONTAINS
       start_pos=end_pos+1
 
     ENDDO
+
+  CONTAINS
+    FUNCTION fget_var_list_element_r3d (this_list, name) RESULT(ptr)
+      TYPE(t_var_list), INTENT(in) :: this_list    ! list
+      CHARACTER(len=*), INTENT(in) :: name         ! name of variable
+      REAL(dp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
+      TYPE(t_list_element), POINTER :: element
+  
+      element => find_list_element (this_list, name)
+      NULLIFY (ptr)
+      IF (element%field%info%lcontained) THEN
+        IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,element%field%info%ncontained,1)
+      ELSE
+        IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,1,1)
+      ENDIF
+    END FUNCTION fget_var_list_element_r3d
 
   END SUBROUTINE init_passive_tracer
 
