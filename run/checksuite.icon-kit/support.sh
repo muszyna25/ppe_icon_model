@@ -7,17 +7,18 @@ function set_cluster {
  case x"$HPC" in #(
    xuc1*) :
      echo "...UC1 at KIT"; CENTER="IMK" 
-     input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE"
-     FILETYPE="4" 
+     input_folder="/pfs/imk/ICON/TESTSUITE/"
+	 FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
-	   icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
+	 icon_data_poolFolder=/pfs/work6/workspace/scratch/ln1297-AMIP_release2.5-0/MISTRAL
      ;;
    xfh2*) :
      echo "...FH2  at KIT"; CENTER="IMK"
-     input_folder="/lsdf/kit/imk/projects/icon/TESTSUITE/"
-     FILETYPE="4" 
+     input_folder="/pfs/imk/ICON/TESTSUITE/"
+	 FILETYPE="4" 
      output_folder="${WORK}/TESTSUITE_OUTPUT"
-	   icon_data_poolFolder=/lsdf/kit/imk/projects/icon/INPUT/AMIP/amip_input
+	 icon_data_poolFolder=/pfs/work6/workspace/scratch/ln1297-AMIP_release2.5-0/MISTRAL
+
      ;;
    xxce*) :
      echo "...XCE at DWD"; CENTER="DWD"
@@ -69,7 +70,7 @@ function set_cluster {
  esac
  ##
  ICON_FOLDER=$(pwd)/../..
- ART_FOLDER=$ICON_FOLDER/externals/art
+ ART_FOLDER=$ICON_FOLDER/src/art
 
 
  }
@@ -143,7 +144,9 @@ function create_header
 d=`date -d today +%Y%m%d`
 complete_output_folder=${output_folder}/${d}/$1
 OUTDIR=$complete_output_folder
+OUTDIR_PREFIX=`dirname ${OUTDIR}`
 output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
+OUTDIR=$complete_output_folder
 icon_data_poolFolder=$icon_data_poolFolder
 EXPERIMENT=$1
 lart=$lart
@@ -169,15 +172,15 @@ read_restart_namelists=.False.
 
 
 # Remove folder ${EXP} from OUTDIR for postprocessing output
-OUTDIR_PREFIX=`dirname \${OUTDIR}`
+OUTDIR_PREFIX=`dirname ${OUTDIR}`
 
 # Create output directory and go to this directory
 
-if [ ! -d \$OUTDIR ]; then
-    mkdir -p \$OUTDIR
+if [ ! -d $OUTDIR ]; then
+    mkdir -p $OUTDIR
 fi
 
-cd \$OUTDIR
+cd $OUTDIR
 
 
 EOF
@@ -189,7 +192,7 @@ output_script=$ICON_FOLDER/run/checksuite.icon-kit/runscripts/$1.run
 
 cat >> $output_script << EOF
 	
-cp $ICON_FOLDER/bin/icon ./icon.exe
+cp -p $ICON_FOLDER/build/x86_64-unknown-linux-gnu/bin/icon ./icon.exe
 EOF
  case x"$HPC" in #(
       xjuwels*)
@@ -229,10 +232,8 @@ cat > job_ICON << ENDFILE
 #SBATCH --time=$2
 #SBATCH --ntasks-per-node=20
 #SBATCH --partition=$4
-#SBATCH --constraint=LSDF
 
-export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/software/community/ICON/lib/szip/szip/lib:/software/community/ICON/lib/eccodes/2.12.0_ifort19/lib
-export ECCODES_DEFINITION_PATH=/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/dwd_definitions/:/software/community/ICON/lib/eccodes/2.12.0_ifort19/share/eccodes/definitions
+export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:/pfs/imk/ICON/LIBRARIES_IFORT16/szip/lib:/pfs/imk/ICON/LIBRARIES_IFORT16/grib-api/lib
 
 $5 
 
@@ -291,7 +292,7 @@ cat > job_ICON << ENDFILE
 #!/bin/bash -x
 #SBATCH --account=$account_id
 
-#SBATCH --partition=$4
+#SBATCH --partition=compute
 #SBATCH --$3
 #SBATCH --exclusive
 #SBATCH --ntasks-per-node=24
@@ -309,21 +310,6 @@ export MXM_LOG_LEVEL=ERROR
 # Disable GHC algorithm for collective communication
 export OMPI_MCA_coll=^ghc
 
-export MXM_HANDLE_ERRORS=bt
-export UCX_HANDLE_ERRORS=bt
-
-export OMPI_MCA_coll=^fca
-export OMPI_MCA_coll_hcoll_enable=1
-export OMPI_MCA_coll_hcoll_priority=95
-export OMPI_MCA_coll_hcoll_np=8
-export HCOLL_MAIN_IB=mlx5_0:1
-export HCOLL_ENABLE_MCAST=1
-export HCOLL_ENABLE_MCAST_ALL=1
-
-export HCOLL_ML_DISABLE_BARRIER=1
-export HCOLL_ML_DISABLE_IBARRIER=1
-export HCOLL_ML_DISABLE_BCAST=1
-export HCOLL_ML_DISABLE_REDUCE=1
 
 srun -l --propagate=STACK --cpu_bind=cores \
   --distribution=block:cyclic ./icon.exe
@@ -406,7 +392,7 @@ output_script=runscripts/$2.run
 
 function read_configure
 {
- . ./${pwd}/../set-up.info
+ . ./${pwd}/../../config/set-up.info
 
 output="module load ${use_load_modules}"
 #i=0

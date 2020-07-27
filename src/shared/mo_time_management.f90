@@ -70,8 +70,7 @@ MODULE mo_time_management
     &                                    set_tc_dt_restart, set_tc_dt_checkpoint,          &
     &                                    set_tc_current_date, set_tc_write_restart,        &
     &                                    end_datetime_string
-  USE mo_restart_nml_and_att,      ONLY: getAttributesForRestarting
-  USE mo_key_value_store,          ONLY: t_key_value_store
+  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
 
 #ifndef __NO_ICON_ATMO__
   USE mo_nonhydrostatic_config,    ONLY: divdamp_order
@@ -437,7 +436,7 @@ CONTAINS
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   ::  ini_datetime1, end_datetime1, dstring
     CHARACTER(LEN=32)                     ::  ini_datetime2, end_datetime2
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   ::   &
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   ::  start_datetime_string,         & !< run start date
       &                                       stop_datetime_string,          & !< run stop date
       &                                       exp_start_datetime_string,     & !< experiment start date
       &                                       exp_stop_datetime_string,      & !< experiment stop date
@@ -455,8 +454,7 @@ CONTAINS
     INTEGER                               ::  mtime_calendar, dtime_calendar,&
       &                                       errno, tlen1, tlen2
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
-    TYPE(t_key_value_store), POINTER ::  restartAttributes
-    CHARACTER(LEN=:), ALLOCATABLE :: start_datetime_string !< run start date
+    TYPE(t_RestartAttributeList), POINTER ::  restartAttributes
 #ifndef __NO_ICON_ATMO__
     REAL(wp)                              :: zdt_shift            ! rounded dt_shift
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: dt_shift_string
@@ -652,9 +650,9 @@ CONTAINS
 
       ELSE
         CALL message('','Read restart file meta data ...')
-        CALL getAttributesForRestarting(restartAttributes)
+        restartAttributes => getAttributesForRestarting()
         IF (ASSOCIATED(restartAttributes)) THEN
-          CALL restartAttributes%get('tc_startdate', start_datetime_string)
+          start_datetime_string = restartAttributes%getText('tc_startdate')
         ELSE
           CALL finish(routine, "Could not retrieve tc_startdate from restart file!")
         ENDIF

@@ -72,7 +72,7 @@ CONTAINS
         & physics_parameters, timestep, op_coeffs, solverCoeff_sp, return_status)
 
     ELSE
-      CALL finish ('solve_free_surface_eq_ab: ',' Discretization type not supported !!')
+      CALL finish ('calc_vert_velocity: ',' Discretization type not supported !!')
     ENDIF
 
   END SUBROUTINE solve_free_surface_eq_ab

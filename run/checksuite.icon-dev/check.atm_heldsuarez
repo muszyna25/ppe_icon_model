@@ -3,7 +3,7 @@
 #
 # _bb_table_Description_  Held-Suarez experiment
 # _bb_table_Model_        non-hydrostatic atmosphere
-
+#
 #--------------------------------------------------------------------------------
 #
 # 1. Define the experiment and the files to be checked
@@ -39,7 +39,6 @@ export RESTART_DATE='00010101T003000Z'
 # n = nproma test
 # m = mpi test
 # o = omp test
-# t = tolerance test
 #
 # default: MD='rnmo'
 #

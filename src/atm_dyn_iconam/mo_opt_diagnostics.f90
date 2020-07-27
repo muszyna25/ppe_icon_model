@@ -478,7 +478,6 @@ CONTAINS
                   &  t_cf_var('specific_humidity', 'kg kg-1',                       &
                   &           'specific_humidity (time mean)', datatype_flt),       &
                   &  grib2_var( 0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
-                  &  ref_idx=jt,                                                    &
                   &  ldims=shape3d_c,                                               &
                   &  tlev_source=1,                                                 &
                   &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -498,7 +497,6 @@ CONTAINS
                   &  t_cf_var('specific_cloud_water_content', 'kg kg-1',            &
                   &           'specific_cloud_water_content (time mean)',datatype_flt), &
                   &  grib2_var(0, 1, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
-                  &  ref_idx=jt,                                                    &
                   &  ldims=shape3d_c,                                               &
                   &  tlev_source=1,                                                 &
                   &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
@@ -519,7 +517,6 @@ CONTAINS
                   &  t_cf_var('specific_cloud_ice_content', 'kg kg-1',              &
                   &           'specific_cloud_ice_content (time mean)', datatype_flt),  &
                   &  grib2_var(0, 1, 82, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
-                  &  ref_idx=jt,                                                    &
                   &  ldims=shape3d_c,                                               &
                   &  tlev_source=1,                                                 &
                   &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &

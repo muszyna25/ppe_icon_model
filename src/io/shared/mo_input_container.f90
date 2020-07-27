@@ -12,8 +12,8 @@ MODULE mo_input_container
                     & cdiIterator_inqDatatype, CDI_DATATYPE_PACK23, CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_exception, ONLY: message, finish, message_text
-    USE mo_fortran_tools, ONLY: assign_if_present
-    USE mo_hash_table, ONLY: t_HashTable, hashTable_make
+    USE mo_fortran_tools, ONLY: assign_if_present, t_Destructible
+    USE mo_hash_table, ONLY: t_HashTable_base, hashTable_make
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
     USE mo_math_types, ONLY: t_Statistics
@@ -32,13 +32,14 @@ PUBLIC :: t_InputContainer, InputContainer_make
 
     TYPE :: t_ValueList
         PRIVATE
-        REAL(dp), ALLOCATABLE :: values(:)
+        REAL(dp), POINTER :: values(:)
         INTEGER :: valueCount
     CONTAINS
         PROCEDURE :: init => ValueList_init
         PROCEDURE :: addValue => ValueList_addValue
         PROCEDURE :: haveValue => ValueList_haveValue
         PROCEDURE :: ensureSpace => ValueList_ensureSpace
+        PROCEDURE :: destruct => ValueList_destruct
     END TYPE
 
     ! A t_InputContainer is used for file driven I/O to cache input DATA IN a distributed fashion
@@ -52,7 +53,7 @@ PUBLIC :: t_InputContainer, InputContainer_make
     TYPE :: t_InputContainer
         PRIVATE
         !the NAME of the variable is NOT a part of the t_InputContainer since it's ONLY needed by the t_InputRequestList
-        TYPE(t_HashTable), POINTER :: fields    !this is a collection of all the different 2D levels that have been READ (tile, level)
+        CLASS(t_HashTable_base), POINTER :: fields    !this is a collection of all the different 2D levels that have been READ (tile, level)
         INTEGER :: fieldCount
         TYPE(t_ValueList) :: tiles, levels
 
@@ -75,15 +76,21 @@ PUBLIC :: t_InputContainer, InputContainer_make
 
 PRIVATE
 
-    TYPE :: t_LevelKey
-      PRIVATE
-      REAL(dp) :: levelValue
-      INTEGER :: tileId   !< the ICON-internal tile id
+    TYPE, EXTENDS(t_Destructible) :: t_LevelKey
+        PRIVATE
+        REAL(dp) :: levelValue
+        INTEGER :: tileId   !< the ICON-internal tile id
+
+    CONTAINS
+        PROCEDURE :: destruct => LevelKey_destruct  !< override
     END TYPE
 
-    TYPE :: t_LevelPointer
-      PRIVATE
-      REAL(wp), ALLOCATABLE :: ptr(:,:)   !dimensions: (nproma, nblks_*)
+    TYPE, EXTENDS(t_Destructible) :: t_LevelPointer
+        PRIVATE
+        REAL(wp), POINTER :: ptr(:,:)   !dimensions: (nproma, nblks_*)
+
+    CONTAINS
+        PROCEDURE :: destruct => LevelPointer_destruct  !< override
     END TYPE
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_input_container"
@@ -92,7 +99,7 @@ PRIVATE
 CONTAINS
 
     INTEGER(C_INT32_T) FUNCTION InputContainer_hashKey(key) RESULT(resultVar)
-        CLASS(*), POINTER, INTENT(IN) :: key
+        CLASS(t_Destructible), POINTER, INTENT(IN) :: key
 
         ! Just some large primes to produce some good pseudorandom bits in the hashes.
         INTEGER(C_INT64_T), PARAMETER :: prime1 = 729326603, prime2 = 941095657
@@ -102,34 +109,46 @@ CONTAINS
         INTEGER(KIND = C_INT64_T), PARAMETER :: mask = 2_C_INT64_T**31 - 1_C_INT64_T    ! a bitmask for the 31 low order bits
 
         SELECT TYPE(key)
-        TYPE IS(t_LevelKey)
-          temp = prime1*INT(key%levelValue, C_INT64_T)
-          temp = temp + prime2*INT(key%tileId, C_INT64_T)
-          resultVar = INT(IAND(temp, mask), C_INT32_T)
-        CLASS DEFAULT
-          CALL finish(routine, "illegal argument type")
+            TYPE IS(t_LevelKey)
+                temp = prime1*INT(key%levelValue, C_INT64_T)
+                temp = temp + prime2*INT(key%tileId, C_INT64_T)
+                resultVar = INT(IAND(temp, mask), C_INT32_T)
+            CLASS DEFAULT
+                CALL finish(routine, "illegal argument type")
         END SELECT
     END FUNCTION InputContainer_hashKey
 
     LOGICAL FUNCTION InputContainer_equalKeysFunction(keyA, keyB) RESULT(resultVar)
-        CLASS(*), POINTER, INTENT(IN) :: keyA, keyB
+        CLASS(t_Destructible), POINTER, INTENT(IN) :: keyA, keyB
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":InputContainer_equalKeysFunction"
 
         SELECT TYPE(keyA)
-        TYPE IS(t_LevelKey)
-          SELECT TYPE(keyB)
-          TYPE IS(t_LevelKey)
-            resultVar = keyA%levelValue > keyB%levelValue - k_levelComparisonInterval .AND. &
-                 & keyA%levelValue < keyB%levelValue + k_levelComparisonInterval
-            resultVar = resultVar .AND. keyA%tileId == keyB%tileId
-          CLASS DEFAULT
-            CALL finish(routine, "illegal argument type")
-          END SELECT
-        CLASS DEFAULT
-          CALL finish(routine, "illegal argument type")
+            TYPE IS(t_LevelKey)
+                SELECT TYPE(keyB)
+                    TYPE IS(t_LevelKey)
+                        resultVar = keyA%levelValue > keyB%levelValue - k_levelComparisonInterval .and. &
+                               & keyA%levelValue < keyB%levelValue + k_levelComparisonInterval
+                        resultVar = resultVar .and. keyA%tileId == keyB%tileId
+                    CLASS DEFAULT
+                        CALL finish(routine, "illegal argument type")
+                END SELECT
+            CLASS DEFAULT
+                CALL finish(routine, "illegal argument type")
         END SELECT
     END FUNCTION InputContainer_equalKeysFunction
+
+    SUBROUTINE LevelKey_destruct(me)
+        CLASS(t_LevelKey), INTENT(INOUT) :: me
+    END SUBROUTINE LevelKey_destruct
+
+    SUBROUTINE LevelPointer_destruct(me)
+        CLASS(t_LevelPointer), INTENT(INOUT) :: me
+
+        CHARACTER(*), PARAMETER :: routine = modname//":LevelPointer_destruct"
+
+        DEALLOCATE(me%ptr)
+    END SUBROUTINE LevelPointer_destruct
 
     FUNCTION InputContainer_make() RESULT(resultVar)
         CLASS(t_InputContainer), POINTER :: resultVar
@@ -180,8 +199,7 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(IN) :: opt_tile, opt_jg
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_dataAvailable"
-        TYPE(t_levelkey), TARGET :: key
-        CLASS(*), POINTER :: polymorphicKey, val
+        CLASS(t_Destructible), POINTER :: key, polymorphicKey, val
         INTEGER :: levelCount, tileCount, levelIndex, tileIndex, error
 
         resultVar = .FALSE.
@@ -192,33 +210,46 @@ CONTAINS
         tileCount = me%tiles%valueCount
         IF(PRESENT(opt_tile)) tileCount = 1
 
-        polymorphicKey => key
-        resultVar = .TRUE.
-        outerLoop: DO levelIndex = 1, levelCount
-          key%levelValue = me%levels%values(levelIndex)
-          IF(PRESENT(opt_level)) key%levelValue = opt_level
-          DO tileIndex = 1, tileCount
-            key%tileId = INT(me%tiles%values(tileIndex))
-            IF(PRESENT(opt_tile)) key%tileId = opt_tile
-            val => me%fields%getEntry(polymorphicKey)
-            IF(.NOT.ASSOCIATED(val)) THEN
-              resultVar = .FALSE.
-              EXIT outerLoop
-            END IF
-          END DO
-        END DO outerLoop
+        ALLOCATE(t_LevelKey :: key, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+        polymorphicKey => key   !Fortran needs this X|
+        SELECT TYPE(key)
+            TYPE IS(t_LevelKey)
+
+                resultVar = .TRUE.
+                outerLoop: DO levelIndex = 1, levelCount
+                    key%levelValue = me%levels%values(levelIndex)
+                    IF(PRESENT(opt_level)) key%levelValue = opt_level
+                    DO tileIndex = 1, tileCount
+                        key%tileId = INT(me%tiles%values(tileIndex))
+                        IF(PRESENT(opt_tile)) key%tileId = opt_tile
+
+                        val => me%fields%getEntry(polymorphicKey)
+                        IF(.NOT.ASSOCIATED(val)) THEN
+                            resultVar = .FALSE.
+                            EXIT outerLoop
+                        END IF
+                    END DO
+                END DO outerLoop
+
+            CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+        END SELECT
+
+        CALL key%destruct()
+        DEALLOCATE(key)
     END FUNCTION InputContainer_dataAvailable
 
     LOGICAL FUNCTION InputContainer_fetch2D(me, level, tile, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
-        REAL(dp), INTENT(IN) :: level
-        INTEGER, INTENT(IN) :: tile
+        REAL(dp), VALUE :: level
+        INTEGER, VALUE :: tile
         REAL(wp), INTENT(INOUT) :: outData(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_fetch2D"
-        TYPE(t_levelkey), TARGET :: key
-        CLASS(*), POINTER :: polymorphicKey, val
+        INTEGER :: error
+        CLASS(t_Destructible), POINTER :: key, val
         LOGICAL :: debugInfo
 
         debugInfo = .FALSE.
@@ -227,15 +258,21 @@ CONTAINS
         resultVar = me%dataAvailable(opt_level = level, opt_tile = tile)
         IF(.NOT.resultVar) RETURN
 
-        key%levelValue = level
-        key%tileId = tile
-        polymorphicKey => key
-        val => me%fields%getEntry(polymorphicKey)
+        ALLOCATE(t_LevelKey :: key, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+        SELECT TYPE(key)
+            TYPE IS(t_LevelKey)
+                key%levelValue = level
+                key%tileId = tile
+            CLASS DEFAULT
+                CALL finish(routine, "assertion failed")
+        END SELECT
+        val => me%fields%getEntry(key)
 
         IF(.NOT.ASSOCIATED(val)) CALL finish(routine, "internal error: dataAvailable() returned TRUE, but getEntry() failed")
         SELECT TYPE(val)
             TYPE IS(t_LevelPointer)
-              IF (ANY(SHAPE(outData) /= SHAPE(val%ptr))) THEN
+                IF(SIZE(outData, 1) /= SIZE(val%ptr, 1) .OR.  SIZE(outData, 2) /= SIZE(val%ptr, 2)) THEN
                    CALL finish(routine, "dimensions of output array do not match the dimensions of the data read from file")
                 END IF
                 outData(:,:) = val%ptr(:,:)
@@ -243,6 +280,8 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
 
+        CALL key%destruct()
+        DEALLOCATE(key)
     END FUNCTION InputContainer_fetch2D
 
     LOGICAL FUNCTION InputContainer_fetch3D(me, tile, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
@@ -285,7 +324,7 @@ CONTAINS
 
     LOGICAL FUNCTION InputContainer_fetchTiled2D(me, level, outData, opt_lDebug) RESULT(resultVar)
         CLASS(t_InputContainer), INTENT(IN) :: me
-        REAL(dp), INTENT(IN) :: level
+        REAL(dp), VALUE :: level
         REAL(wp), INTENT(INOUT) :: outData(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
 
@@ -403,6 +442,8 @@ CONTAINS
 
         CALL me%fields%destruct()
         DEALLOCATE(me%fields)
+        CALL me%tiles%destruct()
+        CALL me%levels%destruct()
     END SUBROUTINE InputContainer_destruct
 
     !NEC_RP: new routine that OMP parallelizes read, statistics and distribution
@@ -417,7 +458,8 @@ CONTAINS
         INTEGER, INTENT(IN) :: iread
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField_omp"
-        CLASS(*), POINTER :: val, key
+        CLASS(t_Destructible), POINTER :: val
+        CLASS(t_Destructible), POINTER :: key
         REAL(C_DOUBLE), SAVE, POINTER :: bufferD(:)
         REAL(C_FLOAT), SAVE, POINTER :: bufferS(:)
         INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
@@ -425,7 +467,7 @@ CONTAINS
         REAL(dp) :: message(3)
         ! Variables for deferred sending
         CHARACTER(LEN=:), ALLOCATABLE, SAVE :: variableName_prev
-        CLASS(*), POINTER :: key_prev
+        CLASS(t_Destructible), POINTER :: key_prev
         REAL(C_DOUBLE), SAVE, POINTER :: bufferD_prev(:)
         REAL(C_FLOAT), SAVE, POINTER :: bufferS_prev(:)
         REAL(C_DOUBLE), POINTER :: tmpDP(:)
@@ -696,14 +738,14 @@ CONTAINS
     SUBROUTINE InputContainer_readField(me, variableName, level, tile, timer, jg, iterator, statistics)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: variableName
-        REAL(dp), INTENT(IN) :: level
-        INTEGER, INTENT(IN) :: tile, jg
+        REAL(dp), VALUE :: level
+        INTEGER, VALUE :: tile, jg
         REAL(dp), INTENT(INOUT) :: timer(:)
         TYPE(t_CdiIterator), VALUE :: iterator
         TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField"
-        CLASS(*), POINTER :: key, val
+        CLASS(t_Destructible), POINTER :: key, val
         REAL(C_DOUBLE), POINTER :: bufferD(:)
         REAL(C_FLOAT), POINTER :: bufferS(:)
         INTEGER :: gridSize, datatype, packedMessage(2), error    !packedMessage(1) == gridSize, packedMessage(2) == datatype
@@ -820,12 +862,14 @@ CONTAINS
         ALLOCATE(me%values(8), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
         me%valueCount = 0
-        me%values(:) = 0.0
+        DO i = 1, SIZE(me%values, 1)
+            me%values(i) = 0.0
+        END DO
     END SUBROUTINE ValueList_init
 
     SUBROUTINE ValueList_addValue(me, val)
         CLASS(t_ValueList), INTENT(INOUT) :: me
-        REAL(dp), INTENT(IN) :: val
+        REAL(dp), VALUE :: val
 
         CHARACTER(*), PARAMETER :: routine = modname//":ValueList_addValue"
         INTEGER :: i, j
@@ -865,17 +909,28 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":ValueList_ensureSpace"
         INTEGER :: i, error
-        REAL(dp), ALLOCATABLE :: temp(:)
+        REAL(dp), POINTER :: temp(:)
 
         IF(me%valueCount == SIZE(me%values, 1)) THEN
-            ALLOCATE(temp(2*SIZE(me%values, 1)), STAT = error)
+            temp => me%values
+            ALLOCATE(me%values(2*SIZE(me%values, 1)), STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             DO i = 1, me%valueCount
-                temp(i) = me%values(i)
+                me%values(i) = temp(i)
             END DO
-            temp(me%valueCount + 1:) = 0.0
-            CALL move_ALLOC(temp, me%values)
+            DO i = me%valueCount + 1, SIZE(me%values, 1)
+                me%values(i) = 0.0
+            END DO
+            DEALLOCATE(temp)
         END IF
     END SUBROUTINE ValueList_ensureSpace
+
+    SUBROUTINE ValueList_destruct(me)
+        CLASS(t_ValueList) :: me
+
+        CHARACTER(*), PARAMETER :: routine = modname//":ValueList_destruct"
+
+        DEALLOCATE(me%values)
+    END SUBROUTINE ValueList_destruct
 
 END MODULE mo_input_container

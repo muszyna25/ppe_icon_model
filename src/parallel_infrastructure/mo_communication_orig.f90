@@ -169,7 +169,6 @@ END TYPE t_comm_pattern_orig
 TYPE t_p_comm_pattern_orig
    TYPE(t_comm_pattern_orig), POINTER :: p
 END TYPE t_p_comm_pattern_orig
-  PUBLIC :: t_p_comm_pattern_orig
 
 TYPE, EXTENDS(t_comm_pattern_collection) :: t_comm_pattern_collection_orig
 
@@ -200,6 +199,13 @@ END TYPE t_comm_pattern_collection_orig
 !
 
 CHARACTER(*), PARAMETER :: modname = "mo_communication_orig"
+
+  PUBLIC :: exchange_data_noblk
+  INTERFACE exchange_data_noblk
+    MODULE PROCEDURE exchange_data_r1d_2d
+    MODULE PROCEDURE exchange_data_s1d_2d
+    MODULE PROCEDURE exchange_data_i1d_2d
+  END INTERFACE exchange_data_noblk
 
 !-------------------------------------------------------------------------
 
@@ -926,6 +932,7 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Modified by Guenther Zaengl for vectorization
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
@@ -1182,6 +1189,7 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Modified by Guenther Zaengl for vectorization
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
@@ -1625,6 +1633,7 @@ CONTAINS
   END SUBROUTINE exchange_data_s3d_seq
 
 
+  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
@@ -1867,6 +1876,7 @@ CONTAINS
   END SUBROUTINE exchange_data_i3d
 
 
+  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_l3d(p_pat, recv, send)
@@ -3574,6 +3584,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, l_recv_exists)
@@ -3631,6 +3642,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_s2d(p_pat, recv, send, add, l_recv_exists)
@@ -3834,6 +3846,7 @@ CONTAINS
   END SUBROUTINE exchange_data_s2d_seq
 
 
+  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, l_recv_exists)
@@ -3959,6 +3972,7 @@ CONTAINS
   END SUBROUTINE exchange_data_i2d_seq
 
 
+  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
@@ -4091,6 +4105,178 @@ CONTAINS
 
     pelist_recv = comm_pat%pelist_recv
   END SUBROUTINE get_pelist_recv
+
+  !================================================================================================
+  !
+  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
+  ! output as a blocked (nproma,nblks) 2D array.
+  !
+  SUBROUTINE exchange_data_r1d_2d(p_pat, recv, send)
+
+    TYPE(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
+    REAL(dp), INTENT(INOUT), TARGET          :: recv(:,:)
+    REAL(dp), INTENT(IN)                     :: send(:)
+
+    REAL(dp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
+
+    INTEGER :: i, il, k, np, irs, iss, pid, icount
+
+    !-----------------------------------------------------------------------
+
+    ! Set up irecv's for receive buffers
+    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+      irs    = p_pat%recv_startidx(np)
+      icount = p_pat%recv_count(np)
+      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    ! Set up send buffer
+!$OMP PARALLEL DO PRIVATE(il)
+    DO i = 1, p_pat%n_send
+      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
+      send_buf(i) = send(il)
+    ENDDO
+!$OMP END PARALLEL DO
+
+    ! Send our data
+    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+      pid    = p_pat%pelist_send(np) ! ID of sender PE
+      iss    = p_pat%send_startidx(np)
+      icount = p_pat%send_count(np)
+      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    CALL p_wait
+
+    ! Fill in receive buffer
+!$OMP PARALLEL DO
+    DO i = 1, p_pat%n_pnts
+      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE exchange_data_r1d_2d
+
+  !================================================================================================
+  !
+  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
+  ! output as a blocked (nproma,nblks) 2D array.
+  !
+  SUBROUTINE exchange_data_s1d_2d(p_pat, recv, send)
+
+    TYPE(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
+    REAL(sp), INTENT(INOUT), TARGET          :: recv(:,:)
+    REAL(sp), INTENT(IN)                     :: send(:)
+
+    REAL(sp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
+
+    INTEGER :: i, il, k, np, irs, iss, pid, icount
+
+    !-----------------------------------------------------------------------
+
+    ! Set up irecv's for receive buffers
+    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+      irs    = p_pat%recv_startidx(np)
+      icount = p_pat%recv_count(np)
+      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+
+    ! Set up send buffer
+!$OMP PARALLEL DO PRIVATE(il)
+    DO i = 1, p_pat%n_send
+      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
+      send_buf(i) = send(il)
+    ENDDO
+!$OMP END PARALLEL DO
+
+
+    ! Send our data
+    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+      pid    = p_pat%pelist_send(np) ! ID of sender PE
+      iss    = p_pat%send_startidx(np)
+      icount = p_pat%send_count(np)
+      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    CALL p_wait
+
+    ! Fill in receive buffer
+!$OMP PARALLEL DO
+    DO i = 1, p_pat%n_pnts
+      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE exchange_data_s1d_2d
+
+  !================================================================================================
+  !
+  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
+  ! output as a blocked (nproma,nblks) 2D array.
+  !
+  SUBROUTINE exchange_data_i1d_2d(p_pat, recv, send)
+
+    TYPE(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
+    INTEGER, INTENT(INOUT), TARGET          :: recv(:,:)
+    INTEGER, INTENT(IN)                     :: send(:)
+
+    INTEGER :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
+
+    INTEGER :: i, il, k, np, irs, iss, pid, icount
+
+    !-----------------------------------------------------------------------
+
+    ! Set up irecv's for receive buffers
+    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+      irs    = p_pat%recv_startidx(np)
+      icount = p_pat%recv_count(np)
+      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+
+    ! Set up send buffer
+!$OMP PARALLEL DO PRIVATE(il)
+    DO i = 1, p_pat%n_send
+      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
+      send_buf(i) = send(il)
+    ENDDO
+!$OMP END PARALLEL DO
+
+
+    ! Send our data
+    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+      pid    = p_pat%pelist_send(np) ! ID of sender PE
+      iss    = p_pat%send_startidx(np)
+      icount = p_pat%send_count(np)
+      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+    ENDDO
+
+    CALL p_wait
+
+    ! Fill in receive buffer
+!$OMP PARALLEL DO
+    DO i = 1, p_pat%n_pnts
+      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
+    ENDDO
+!$OMP END PARALLEL DO
+
+  END SUBROUTINE exchange_data_i1d_2d
 
 END MODULE mo_communication_orig
 !

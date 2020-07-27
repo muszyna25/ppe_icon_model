@@ -95,8 +95,15 @@ run_scripts_submit()
   stop_check="warning_on_error"
 
   # check if the tolerance infrastructure needs to be initialized
-  if [[ $(hostname) == *"daint"* ]]; then
-    echo "Initializing tolerance infrastructure..."
+  cnt=$(grep -c -i "tolerance" run/runscripts_list)
+  if [ $? -gt 1 ]
+  then
+      echo "Could not find run/runscripts_list ..."
+      exit 1
+  else
+      echo "found tolerance check. Initializing infrastructure..."
+  fi
+  if [ $cnt -gt 0 ]; then
     # make sure that repos do not exist
     if [ -d probtest ]; then
         rm -rf probtest
@@ -130,7 +137,7 @@ run_scripts_submit()
 
   echo "Run all *.run in run directory"
   cd run
-  EXP_FILES=`cat runscript_list`
+  EXP_FILES=`cat runscripts_list`
 
   case $HOSTNAME in
       rcnl*)

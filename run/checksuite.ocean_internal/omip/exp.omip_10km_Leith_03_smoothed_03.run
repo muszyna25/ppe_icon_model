@@ -161,9 +161,6 @@ cat > ${ocean_namelist} << EOF
  nproma         = $nproma
  p_test_run     = .false.
  l_fast_sum     = .true.
- num_prefetch_proc = 0 
- pio_type       = 0
- num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -289,8 +286,8 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  !  tracer_TopWindMixing            = 1.0E-5
-  !  velocity_TopWindMixing          = 1.0E-5
+  tracer_TopWindMixing            = 1.0E-5
+  velocity_TopWindMixing          = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion

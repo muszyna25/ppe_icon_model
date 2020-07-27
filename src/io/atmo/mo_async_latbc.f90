@@ -615,10 +615,10 @@ MODULE mo_async_latbc
       ENDIF
 
       ! read the map file into dictionary data structure
-      CALL latbc_varnames_dict%init(.FALSE.)
+      CALL latbc_varnames_dict%init(lcase_sensitive=.FALSE.)
       tlen = LEN_TRIM(latbc_config%latbc_varnames_map_file)
-      IF (tlen > 0) &
-        & CALL latbc_varnames_dict%loadfile(latbc_config%latbc_varnames_map_file(1:tlen))
+      IF(tlen > 0) &
+         CALL latbc_varnames_dict%loadfile(latbc_config%latbc_varnames_map_file(1:tlen))
 
       CALL set_patch_data_params(latbc%patch_data, bcast_root)
 

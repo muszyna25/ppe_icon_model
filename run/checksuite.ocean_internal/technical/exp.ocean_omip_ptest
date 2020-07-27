@@ -26,7 +26,7 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
-#icon_data_rootFolder=/pool/data/ICON
+icon_data_rootFolder=/pool/data/ICON
 
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -36,9 +36,6 @@ cat > ${ocean_namelist} << EOF
  p_test_run     = .true.
  L_TEST_OPENMP  = .true.
  l_fast_sum     = .false.
- num_prefetch_proc = 0
- pio_type       = 0
- num_io_procs   = 0
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -58,7 +55,7 @@ cat > ${ocean_namelist} << EOF
  debug_check_level    = 1
 /
 &dbg_index_nml
-  idbg_mxmn=5                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -85,8 +82,8 @@ cat > ${ocean_namelist} << EOF
   use_absolute_solver_tolerance   = .true.
   solver_tolerance                = 1.0E-13 ! this may further be reduced
 
-  select_lhs                      = 2       ! 1=operator based (default) 2=matrix based
-  l_lhs_direct                    = .true. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
+  select_lhs                      = 1       ! 1=operator based (default) 2=matrix based
+  l_lhs_direct                    = .false. ! .true.= use lhs implementation directly  .false.= matrix scanner (default) 
   solver_FirstGuess               = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
 
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
@@ -132,8 +129,8 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  !  tracer_TopWindMixing            = 4.0E-6
-  !  velocity_TopWindMixing          = 4.0E-6
+  tracer_TopWindMixing            = 4.0E-6
+  velocity_TopWindMixing          = 4.0E-6
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -170,15 +167,6 @@ cat > ${ocean_namelist} << EOF
 ! limit_seaice                    = .TRUE.    ! default: true
   seaice_limit                    =   0.8     ! hard limit set to 80% of upper layer for sea ice
   limit_elevation                 = .TRUE.
-  !atm_pressure_included_in_ocedyn = .TRUE.   ! use atm. pressure in the ocean dynamics
-  !atm_pressure_included_in_icedyn = .TRUE.   ! use atm. pressure in the ice dynamics
-  use_tides                       = .TRUE.
-  tides_mod                       =  1        ! 1 Default 2 MPIOM 
-  tide_startdate                  = '2001-01-01 00:00'
-  !lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
-  !jerlov_atten                    = 0.08      ! jerlov water type IB
-  !jerlov_bluefrac                 = 0.36      ! jerlov water type IB
-/
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read from file

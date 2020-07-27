@@ -114,7 +114,6 @@ cat > ${atmo_namelist} << EOF
  vwind_offctr         = 0.0          ! default=0.15
 /
 &transport_nml
-  tracer_names = 'q4'           ! list of tracer names
  ihadv_tracer         = 2            ! default: miura
  ivadv_tracer         = 0          
  lvadv_tracer         = .FALSE.      ! default: .FALSE.

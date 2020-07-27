@@ -23,8 +23,8 @@ MODULE mo_ice_winton
   USE mo_run_config,          ONLY: dtime
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,&
-    &                               mu ,ci, alf, I_0!,Tf
-  USE mo_sea_ice_nml,         ONLY: hci_layer, sice
+    &                               mus,ci, alf, I_0!, mu,Tf
+  USE mo_sea_ice_nml,         ONLY: hci_layer
   USE mo_sea_ice_types,       ONLY: t_sea_ice
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -107,12 +107,10 @@ CONTAINS
       & Tsurfm,      & ! Surface melting temperature
       & I              ! Penetrating shortwave radiation (taking snow cover into account)
     
-    REAL(wp) :: muS
     REAL(wp) :: idt2 ! 1 / (2*dt)
 
     INTEGER :: k, jk, jc ! loop indices
     
-    muS = mu*Sice
     
    !-------------------------------------------------------------------------------
     !$ACC DATA PRESENT ( Tsurf, T1, T2, hi, hs, Qtop, Qbot, SWnet, nonsolar,   &
@@ -258,9 +256,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     
     INTEGER :: k, jb, jc, i_startidx_c, i_endidx_c     ! loop indices
-    REAL(wp) :: muS
-
-    muS = mu*Sice
 
     ! Necessary initialisation
     Q_surplus(:,:,:) = 0.0_wp

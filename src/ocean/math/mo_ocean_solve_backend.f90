@@ -12,18 +12,19 @@ MODULE mo_ocean_solve_backend
   USE mo_ocean_solve_lhs, ONLY: t_lhs
   USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen
   USE mo_ocean_solve_transfer, ONLY: t_transfer
-  USE mo_ocean_solve_aux, ONLY: t_ocean_solve_parm
+  USE mo_ocean_solve_aux, ONLY: t_destructible, t_ocean_solve_parm
   USE mo_timer, ONLY: timer_start, timer_stop, new_timer
   USE mo_run_config, ONLY: ltimer
  
   IMPLICIT NONE
+  
   PRIVATE
  
   PUBLIC :: t_ocean_solve_backend
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_ocean_solve_backend'
 
 ! abstract solver backend type
-  TYPE, ABSTRACT :: t_ocean_solve_backend
+  TYPE, ABSTRACT, EXTENDS(t_destructible) :: t_ocean_solve_backend
 ! typeIDs, dimensions, max-iters
     INTEGER :: timer_wait
     TYPE(t_ocean_solve_parm) :: par, par_sp
@@ -41,7 +42,7 @@ MODULE mo_ocean_solve_backend
     REAL(KIND=wp), POINTER, DIMENSION(:,:) :: x_loc_wp, b_loc_wp
     REAL(KIND=wp), POINTER, DIMENSION(:) :: res_loc_wp
 ! internal arrays (int)
-    INTEGER, ALLOCATABLE, DIMENSION(:) :: niter
+    INTEGER, POINTER, DIMENSION(:) :: niter
     INTEGER, ALLOCATABLE, DIMENSION(:) :: niter_cal
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: x_sp, b_sp
@@ -54,6 +55,7 @@ MODULE mo_ocean_solve_backend
     PROCEDURE(a_solve_backend_wp), DEFERRED :: doit_wp ! call actual solve (wp)
     PROCEDURE(a_solve_backend_sp), DEFERRED :: doit_sp ! call actual solve (sp)
     PROCEDURE :: solve => ocean_solve_backend_solve
+    PROCEDURE :: destruct_commons => ocean_solve_backend_destruct_commons
   END TYPE t_ocean_solve_backend
 
 ! abstract interfaces to be declared in extended solver types
@@ -91,13 +93,14 @@ CONTAINS
   SUBROUTINE ocean_solve_backend_construct(this, par, par_sp, lhs_agen, trans)
     CLASS(t_ocean_solve_backend), INTENT(INOUT) :: this
     TYPE(t_ocean_solve_parm), INTENT(IN) :: par, par_sp
-    CLASS(t_lhs_agen), TARGET, INTENT(IN) :: lhs_agen
-    CLASS(t_transfer), TARGET, INTENT(IN) :: trans
+    CLASS(t_lhs_agen), POINTER, INTENT(IN) :: lhs_agen
+    CLASS(t_transfer), POINTER, INTENT(IN) :: trans
     CHARACTER(LEN=*), PARAMETER :: routine = this_mod_name// &
       & "::ocean_solve_t::ocean_solve_backend_construct()"
 
     IF (ASSOCIATED(this%trans)) CALL finish(routine, &
       & "already initialized!")
+    CALL this%destruct()
     this%par = par
     this%par_sp = par_sp
     this%abs_tol_wp = par%tol
@@ -176,5 +179,15 @@ CONTAINS
     niter = this%niter(1)
     niter_sp = this%niter(2)
   END SUBROUTINE ocean_solve_backend_solve
+
+  SUBROUTINE ocean_solve_backend_destruct_commons(this)
+    CLASS(t_ocean_solve_backend), INTENT(INOUT) :: this
+
+    CALL this%lhs%destruct()
+    NULLIFY(this%trans)
+    IF (ALLOCATED(this%niter_cal)) &
+      & DEALLOCATE(this%niter, this%niter_cal, this%res_wp)
+    IF (ALLOCATED(this%x_wp)) DEALLOCATE(this%x_wp, this%b_wp)
+  END SUBROUTINE ocean_solve_backend_destruct_commons
 
 END MODULE mo_ocean_solve_backend

@@ -21,6 +21,13 @@ author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
+# (0) unset some setting of create_target_header for mistral
+
+unset OMPI_MCA_coll_fca_enable
+unset OMPI_MCA_coll_fca_priority
+
+#--------------------------------------------------------------------------------------------------
+
 # (1) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
@@ -137,6 +144,7 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
+ ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -173,10 +181,10 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- tracer_names     = 'hus','clw','cli'
- ivadv_tracer     =    3 ,   3 ,   3
- itype_hlimit     =    3 ,   4 ,   4
- ihadv_tracer     =   52 ,   2 ,   2
+!                   hus,clw,cli, o3
+ ivadv_tracer     =   3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  3
+ ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
 !
@@ -668,6 +676,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
+                    !'qo3_phy' ,
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d_mean1TS"
@@ -686,6 +695,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
+                    !'qo3_phy' ,
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d_mean2TS"
@@ -704,6 +714,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
+                    !'qo3_phy' ,
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d_mean3TS"
@@ -722,6 +733,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
+                    !'qo3_phy' ,
 /
 &output_nml
  output_filename  = "${EXPNAME}_atm_3d_mean4TS"
@@ -740,6 +752,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
                     'ua'      , 'va'      , 'wap'     ,
                     'hus'     , 'clw'     , 'cli'     ,
                     'hur'     , 'cl'      ,
+                    !'qo3_phy' ,
 /
 EOF
 fi
@@ -1128,6 +1141,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_mean1TS"
@@ -1148,6 +1162,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_mean2TS"
@@ -1168,6 +1183,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_mean3TS"
@@ -1188,6 +1204,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_mean4TS"
@@ -1208,6 +1225,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_min1TS"
@@ -1228,6 +1246,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_min2TS"
@@ -1248,6 +1267,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_min3TS"
@@ -1268,6 +1288,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_min4TS"
@@ -1288,6 +1309,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_max1TS"
@@ -1308,6 +1330,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_max2TS"
@@ -1328,6 +1351,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_max3TS"
@@ -1348,6 +1372,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_max4TS"
@@ -1368,6 +1393,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_square1TS"
@@ -1388,6 +1414,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_square2TS"
@@ -1408,6 +1435,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_square3TS"
@@ -1428,6 +1456,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 &output_nml
  output_filename  = "${EXPNAME}_trc_3d_square4TS"
@@ -1448,6 +1477,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
                     'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
                     'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 EOF
 fi

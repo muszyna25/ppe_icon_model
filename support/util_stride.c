@@ -3,6 +3,11 @@
 
 #include <stddef.h>
 
+void util_c_loc(const void *ptr_in, const void **ptr_out)
+{
+  *ptr_out = ptr_in;
+}
+
 void util_stride_1d(int *out, int elemsize, void *p1, void *p2)
 {
   ptrdiff_t d = (unsigned char *)p2 - (unsigned char *)p1;

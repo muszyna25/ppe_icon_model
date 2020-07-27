@@ -150,7 +150,8 @@ MODULE mo_real_timer
   INTEGER, PARAMETER     :: active_timers_max=32       ! max number of simultaneously active timers
   INTEGER                :: active_timers(active_timers_max), &   ! initialization in "init"
                             active_timers_top
-  !$omp threadprivate(rt, active_timers, active_timers_top)
+  COMMON /th_real_timer/ rt, active_timers, active_timers_top
+  !$omp threadprivate(/th_real_timer/)
 
   TYPE(t_srt), PARAMETER :: srt_init = t_srt(.FALSE., 'noname')
   TYPE(t_rt) , PARAMETER :: rt_init  = t_rt( &

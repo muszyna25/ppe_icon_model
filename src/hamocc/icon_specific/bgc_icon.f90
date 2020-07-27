@@ -47,7 +47,6 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
   USE mo_ocean_hamocc_couple_state, ONLY: t_ocean_to_hamocc_state, t_hamocc_to_ocean_state, &
     & t_hamocc_ocean_state
 !   USE mo_util_dbg_prnt,          ONLY: dbg_print
-  USE mo_memory_bgc, ONLY      : swr_frac
 
   IMPLICIT NONE
 
@@ -135,7 +134,6 @@ ENDIF
  &                          ocean_to_hamocc_state%ice_concentration_sum(:,jb),                           & ! sea ice concentration
  &                          p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))   ! level thickness
 
-        hamocc_to_ocean_state%swr_fraction(:,:,jb) = swr_frac(:,:)
         stop_detail_timer(timer_bgc_swr,5)
 
        ! Linear age

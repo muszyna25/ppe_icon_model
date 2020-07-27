@@ -39,12 +39,12 @@ MODULE mo_sea_ice
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: sea_boundary
   USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref, Tf,        &
-    &                               mu, alf, clw
+    &                               mu, alf, clw, sice
 
   USE mo_ocean_nml,           ONLY: no_tracer
   USE mo_sea_ice_nml,         ONLY: hnull, hmin,                    &
     &                               leadclose_1, leadclose_2n,      &
-    &                               use_constant_tfreez, t_heat_base, sice
+    &                               use_constant_tfreez, t_heat_base
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_ocean_state,         ONLY: v_base
 

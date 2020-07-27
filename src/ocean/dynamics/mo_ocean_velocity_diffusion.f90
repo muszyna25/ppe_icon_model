@@ -56,8 +56,6 @@ MODULE mo_ocean_velocity_diffusion
   PUBLIC :: velocity_diffusion_vertical_implicit
   PUBLIC :: velocity_diffusion_vertical_implicit_onBlock
   PUBLIC :: veloc_diff_harmonic_div_grad
-
-  LOGICAL :: eliminate_upper_diag = .true.
   
 CONTAINS
   
@@ -970,7 +968,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     edges_in_domain       =>  patch_3d%p_patch_2d(1)%edges%in_domain
     !-----------------------------------------------------------------------
-   
+    
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO edge_block = edges_in_domain%start_block, edges_in_domain%end_block    
       CALL get_index_range(edges_in_domain, edge_block, start_index, end_index)
@@ -984,8 +982,6 @@ CONTAINS
         
     END DO
 !ICON_OMP_END_PARALLEL_DO 
-
-    eliminate_upper_diag = .not. eliminate_upper_diag ! switch the methods
     
   END SUBROUTINE velocity_diffusion_vertical_implicit
   !------------------------------------------------------------------------
@@ -1015,7 +1011,7 @@ CONTAINS
     TYPE(t_operator_coeff),INTENT(IN) ,TARGET :: operators_coefficients
     INTEGER , INTENT(in):: start_index, end_index, edge_block
     !
-!     REAL(wp) :: dt_inv
+    REAL(wp) :: dt_inv
     REAL(wp) :: inv_prism_thickness(1:n_zlev), inv_prisms_center_distance(1:n_zlev)
     REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev), diagonal_product
     REAL(wp) :: column_velocity(1:n_zlev)
@@ -1026,7 +1022,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
 
     !-----------------------------------------------------------------------
-!     dt_inv = 1.0_wp/dtime
+    dt_inv = 1.0_wp/dtime
 
     DO edge_index = start_index, end_index
       bottom_level = patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
@@ -1037,8 +1033,6 @@ CONTAINS
       DO level=1, bottom_level
         inv_prism_thickness(level)        = patch_3d%p_patch_1d(1)%inv_prism_thick_e(edge_index,level,edge_block)
         inv_prisms_center_distance(level) = patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(edge_index,level,edge_block)
-        
-        column_velocity(level) = velocity(edge_index,level)
       ENDDO
 
       !------------------------------------
@@ -1046,49 +1040,49 @@ CONTAINS
       ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
-      c(1) = -a_v(edge_index,2) * inv_prism_thickness(1) * inv_prisms_center_distance(2)*dtime
-      b(1) = 1.0_wp - c(1)
+      c(1) = -a_v(edge_index,2) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+      b(1) = dt_inv - c(1)
       DO level = 2, bottom_level-1
-        a(level) = - a_v(edge_index,level)   * inv_prism_thickness(level) * inv_prisms_center_distance(level)*dtime
-        c(level) = - a_v(edge_index,level+1) * inv_prism_thickness(level) * inv_prisms_center_distance(level+1)*dtime
-        b(level) = 1.0_wp - a(level) - c(level)
+        a(level) = - a_v(edge_index,level)   * inv_prism_thickness(level) * inv_prisms_center_distance(level)
+        c(level) = - a_v(edge_index,level+1) * inv_prism_thickness(level) * inv_prisms_center_distance(level+1)
+        b(level) = dt_inv - a(level) - c(level)
       END DO
       ! bottom
-      a(bottom_level) = -a_v(edge_index,bottom_level) *  &
-        & inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level) * dtime
-      b(bottom_level) = 1.0_wp - a(bottom_level)
+      a(bottom_level) = -a_v(edge_index,bottom_level) * inv_prism_thickness(bottom_level) * &
+        & inv_prisms_center_distance(bottom_level)
+      b(bottom_level) = dt_inv - a(bottom_level)
+
+      ! precondition: set diagonal equal to diagonal_product
+      diagonal_product = PRODUCT(b(1:bottom_level))
+
+      DO level = 1, bottom_level
+        fact(level) = diagonal_product / b(level)
+        a(level)  = a(level)  * fact(level)
+        b(level)  = diagonal_product
+        c(level)  = dt_inv * fact(level) - a(level) - b(level)
+        column_velocity(level) = velocity(edge_index,level) * dt_inv * fact(level)
+      ENDDO
       c(bottom_level) = 0.0_wp
 
-      IF (eliminate_upper_diag) THEN
-        ! solve the tridiagonal matrix by eliminating c (the upper diagonal) 
+      !------------------------------------
+      ! solver from lapack
+      !
+      ! eliminate lower diagonal
       DO level = bottom_level-1, 1, -1
-          fact(level)=c(level)/b(level+1)
-          b(level)=b(level)-a(level+1)*fact(level)
-          c(level) = 0.0_wp
-          column_velocity(level) = column_velocity(level) - fact(level)*column_velocity(level+1)
+        fact(level+1)  = c( level ) / b( level+1 )
+        b( level ) = b( level ) - fact(level+1) * a( level +1 )
+        column_velocity( level ) = column_velocity( level ) - fact(level+1) * column_velocity( level+1 )
       ENDDO
 
-        velocity(edge_index,1) = column_velocity(1)/b(1)
+      !     Back solve with the matrix U from the factorization.
+      column_velocity( 1 ) = column_velocity( 1 ) / b( 1 )
       DO level = 2, bottom_level
-          velocity(edge_index,level) = (column_velocity(level) - &
-            a(level)*  velocity(edge_index,level-1)) / b(level)    
+        column_velocity( level ) = ( column_velocity( level ) - a( level ) * column_velocity( level-1 ) ) / b( level )
       ENDDO
 
-      ELSE
-        ! solve the tridiagonal matrix by eliminating a (the lower diagonal) 
-        DO level=2, bottom_level
-          fact(level)=a(level)/b(level-1)
-          b(level)=b(level)-c(level-1)*fact(level)
-          a(level) = 0.0_wp
-          column_velocity(level) = column_velocity(level) - fact(level)*column_velocity(level-1)
+      DO level = 1, bottom_level
+        velocity(edge_index,level) = column_velocity(level)
       ENDDO
-         velocity(edge_index,bottom_level) = column_velocity(bottom_level)/b(bottom_level)
-        DO level=bottom_level-1,1,-1
-           velocity(edge_index,level) = (column_velocity(level) - &
-            c(level) * velocity(edge_index,level+1)) / b(level)    
-        ENDDO                 
-      
-      ENDIF
 
     END DO ! edge_index = start_index, end_index
 

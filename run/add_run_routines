@@ -7,16 +7,17 @@ check_final_status()
     #   $1 = error status: 0 = OK, not 0 = ERROR
     #   $2 = error message
 
-    if [ "${current_status_file}" = "" ]
+    if [ "_${STATUS_FILE}" = "_" ]
     then
-      current_status_file=${basedir}/run/${job_name}.status
+      STATUS_FILE=${basedir}/.status.file
     fi
     if [ "${final_status_file}" = "" ]
     then
       final_status_file=${basedir}/run/${job_name}.final_status
     fi
     
-    echo "$1" > $current_status_file
+    echo "$1" > ${STATUS_FILE}
+    echo "$1" > ${basedir}/run/${job_name}.status
     echo "$1" > $final_status_file
 
     if [ $1 != 0 ] 
@@ -39,12 +40,13 @@ check_error()
       check_final_status $1 "$2"
     fi
 
-    if [ "${current_status_file}" = "" ]
+    if [ "${STATUS_FILE}" = "" ]
     then
-      current_status_file=${basedir}/run/${job_name}.status
+      STATUS_FILE=${basedir}/.status.file
     fi
     
-    echo "$1" > $current_status_file
+    echo "$1" > ${STATUS_FILE}
+    echo "$1" > ${basedir}/run/${job_name}.status
 }
 
 warning()
@@ -123,25 +125,40 @@ link_required_files()
   i=0
   while [ $i -lt $number_of_linked_files ]
   do
-    rm -f ${output_linked_file[${i}]}   # remove in order to replace the link if necessary
-    ln -s ${input_linked_file[${i}]} ${output_linked_file[${i}]}
+    rm ${output_linked_file[${i}]}   # remove in order to replace the link if necessary
+    ln -sf ${input_linked_file[${i}]} ${output_linked_file[${i}]}
    (( i=i+1 ))
   done    
 }
 
+#-----------------------------------------------------------------------------
+export F_NORCW=65535
+ulimit -s unlimited
+#-----------------------------------------------------------------------------
+# absolute paths of directories
+calldir=$(pwd)
+thisdir=$(pwd)
+basedir=${thisdir%/*}                   # determine base directory
+MODEL_BASE_PATH=$basedir
+ICON_BASE_PATH=$basedir
+export ICON_BASE_PATH
+RUNSCRIPT_NAME=`basename $0`
+ICON_RUN_PATH=$ICON_BASE_PATH/run
+#-----------------------------------------------------------------------------
+. ${thisdir}/../run/set-up.info
 
-get_2digits()
-{
-  local in=$1
-  local outname=$2
-  
-  if [ $in -lt  10 ] ; then
-    local f2dig=0$in
-  else
-    local f2dig=$in
-  fi
-  
- eval $outname=$f2dig
-}
+#-----------------------------------------------------------------------------
+# set default data paths
+# can be overwritten by the experiment, or by the add_required_ocean_files,
+# add_required_atmo_files, etc
+# icon_data_RootFolder=/pool/data/ICON/buildbot
 
+#-----------------------------------------------------------------------------
+second=1                                 # [s] 1 second
+minute=60                                # [s] 1 minute
+hour=3600                                # [s] 1 hour
+day=86400                                # [s] 1 day
+month=2592000                            # [s] 30 days
+year360=31104000                         # [s] 360 days
+year=31556900                            # [s] 1 earth year 
 #-----------------------------------------------------------------------------

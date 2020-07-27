@@ -6,7 +6,7 @@ maskName="wet_c"
 oType="eps"
 # ================================================================================
 # technical stuff
-basePath=${basedir}
+basePath=${ICON_BASE_PATH}
 dataPath="${baseBath}../experiments/${EXP}/"
 scriptPath="${icon_data_poolFolder}/tools"
 nclCaller="nclsh"

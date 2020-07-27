@@ -40,9 +40,9 @@ MODULE mo_ocean_hamocc_couple_state
     &                               datatype_FLT64 => CDI_datatype_FLT64, &
     &                               DATATYPE_INT8 => CDI_DATATYPE_INT8, &
     &                               DATATYPE_PACK16 => CDI_DATATYPE_PACK16, &
-    &                               tstep_constant, GRID_UNSTRUCTURED
+    &                               tstep_constant, GRID_LONLAT, GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell, grid_unstructured_edge, &
-      &                             grid_unstructured_vert, grid_vertex
+      &                             grid_unstructured_vert, grid_vertex, GRID_ZONAL
   USE mo_zaxis_type,          ONLY: za_depth_below_sea, za_depth_below_sea_half, za_surface
   USE mo_ocean_physics,       ONLY: scale_horizontal_diffusion, copy2Dto3D
   USE mo_cf_convention
@@ -80,11 +80,11 @@ MODULE mo_ocean_hamocc_couple_state
   !----------------------------------------------
   TYPE t_hamocc_to_ocean_state
   
+!    onCells ::  swr_fraction ! for later use
+  
    ! this is actually to the atmosphere, but for the moment we keep it here
    onCells_2D :: co2_flux
-
-   onCells ::  swr_fraction 
-    
+  
   END TYPE t_hamocc_to_ocean_state
   !----------------------------------------------
   
@@ -99,7 +99,7 @@ MODULE mo_ocean_hamocc_couple_state
   END TYPE t_hamocc_ocean_state
   !----------------------------------------------
   
-  TYPE(t_hamocc_ocean_state), TARGET :: hamocc_ocean_state
+  TYPE(t_hamocc_ocean_state) :: hamocc_ocean_state
   TYPE(t_var_list)           :: hamocc_ocean_state_list
   TYPE(t_ocean_transport_state), TARGET :: ocean_transport_state
   !-------------------------------------------------------------------------
@@ -137,20 +137,21 @@ CONTAINS
       & model_type='hamocc' )
 
     ! transport state, ocean to hamocc
-    CALL add_var(hamocc_ocean_state_list,'vn', ocean_transport_state%vn, &
+    CALL add_var(hamocc_ocean_state_list,'vn_time_weighted', ocean_transport_state%vn, &
       & grid_unstructured_edge, za_depth_below_sea, &
-      & t_cf_var('vn', '', 'vn', datatype_flt),&
+      & t_cf_var('vn_time_weighted', '', 'vn_time_weighted', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("hamocc_ocean_state"))
     ocean_transport_state%vn = 0.0_wp
+    
+    CALL add_var(hamocc_ocean_state_list, 'mass_flux', ocean_transport_state%mass_flux_e, &
+      & grid_unstructured_edge,&
+      & za_depth_below_sea, t_cf_var('mass flux','',' mass flux at edges', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("hamocc_ocean_state"),lrestart_cont=.FALSE.)
+    ocean_transport_state%mass_flux_e = 0.0_wp
 
-    CALL add_var(hamocc_ocean_state_list,'mass_flux_e', ocean_transport_state%mass_flux_e, &
-      & grid_unstructured_edge, za_depth_below_sea, &
-      & t_cf_var('mass flux e', '', 'mass flux at edges', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("hamocc_ocean_state"))
-    ocean_transport_state%vn = 0.0_wp
- 
+
     CALL add_var(hamocc_ocean_state_list, 'w', ocean_transport_state%w, &
       & grid_unstructured_cell, za_depth_below_sea_half, &
       & t_cf_var('w','m/s','vertical velocity at cells', datatype_flt),&
@@ -269,15 +270,6 @@ CONTAINS
       & ldims=(/nproma,alloc_cell_blocks/),&
       & in_group=groups("hamocc_ocean_state"))
     hamocc_ocean_state%hamocc_to_ocean_state%co2_flux = 0.0_wp
-    
-   ! relative swr absorption factor from hamocc (LFB_BGC_OCE)
-    CALL add_var(hamocc_ocean_state_list, 'swr_fraction', hamocc_ocean_state%hamocc_to_ocean_state%swr_fraction,&
-      & grid_unstructured_cell, &
-      & za_depth_below_sea, &
-      & t_cf_var('swr_fraction','1','swr_fraction', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("hamocc_ocean_state"))
-    
     
    END SUBROUTINE construct_hamocc_ocean_state
    !-------------------------------------------------------------------------

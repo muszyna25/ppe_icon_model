@@ -29,7 +29,7 @@ MODULE mo_echam_phy_diag
 
   USE mo_physical_constants  ,ONLY: cpd, cpv, cvd, cvv, Tf, tmelt
   USE mo_run_config          ,ONLY: iqv
-  USE mo_echam_cop_config    ,ONLY: echam_cop_config
+  USE mo_echam_cld_config    ,ONLY: echam_cld_config
   USE mo_echam_sfc_indices   ,ONLY: nsfc_type, iwtr, iice, ilnd
   !$ser verbatim USE mo_ser_echam_diag, ONLY: serialize_fractions_input,&
   !$ser verbatim                              serialize_droplet_number_input,&
@@ -186,14 +186,14 @@ CONTAINS
     LOGICAL                             :: lglac(nproma)
     REAL(wp)                            :: zprat, zn1, zn2, zcdnc
 
-    ! Shortcuts to components of echam_cop_config
+    ! Shortcuts to components of echam_cld_config
     !
     REAL(wp) :: cn1lnd, cn2lnd, cn1sea, cn2sea
     !
-    cn1lnd = echam_cop_config(jg)% cn1lnd
-    cn2lnd = echam_cop_config(jg)% cn2lnd
-    cn1sea = echam_cop_config(jg)% cn1sea
-    cn2sea = echam_cop_config(jg)% cn2sea
+    cn1lnd = echam_cld_config(jg)% cn1lnd
+    cn2lnd = echam_cld_config(jg)% cn2lnd
+    cn1sea = echam_cld_config(jg)% cn1sea
+    cn2sea = echam_cld_config(jg)% cn2sea
 
     field => prm_field(jg)
 

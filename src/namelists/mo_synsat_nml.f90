@@ -26,7 +26,7 @@ MODULE mo_synsat_nml
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_synsat_config,       ONLY: config_lsynsat    => lsynsat, &

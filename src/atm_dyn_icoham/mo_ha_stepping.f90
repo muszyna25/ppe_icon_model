@@ -60,8 +60,7 @@ MODULE mo_ha_stepping
   USE mo_parallel_config,     ONLY: use_icon_comm
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_restart,             ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_nml_and_att, ONLY: getAttributesForRestarting
-  USE mo_key_value_store,     ONLY: t_key_value_store
+  USE mo_restart_attributes,  ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: datetime, datetimeToString, MAX_DATETIME_STR_LEN,    &
     &                               OPERATOR(+), OPERATOR(>=) 
@@ -221,7 +220,7 @@ CONTAINS
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
   CHARACTER(LEN=MAX_DATETIME_STR_LEN)          :: dstring
-  TYPE(t_key_value_store), POINTER        :: restartAttributes
+  TYPE(t_RestartAttributeList), POINTER        :: restartAttributes
   CLASS(t_RestartDescriptor), POINTER          :: restartDescriptor
 
 #ifdef _OPENMP
@@ -240,9 +239,11 @@ CONTAINS
 
   jstep0 = 0
 
-  CALL getAttributesForRestarting(restartAttributes)
-  ! get start counter for time loop from restart file:
-  IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+  restartAttributes => getAttributesForRestarting()
+  IF (ASSOCIATED(restartAttributes)) THEN
+    ! get start counter for time loop from restart file:
+    jstep0 = restartAttributes%getInteger("jstep")
+  END IF
 
   jstep = jstep0+1  
   TIME_LOOP: DO 

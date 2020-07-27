@@ -68,7 +68,7 @@ else
 fi
 #-----------------------------------------------------------------------------
 # the grid files if not defined
-grids_folder=${icon_data_rootFolder}/grids/private/m300232
+grids_folder=${icon_data_poolFolder}/grids/private/m300232
 atmo_dyn_grids=${atmo_dyn_grids:='torus_grid_r120000s64.nc'}
 ozon_file="tor120000s64_ozone_CMIP5_aqua_1870_march.nc"
 if [ x$atmo_rad_gridname = x ] ; then

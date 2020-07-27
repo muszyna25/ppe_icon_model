@@ -1,5 +1,5 @@
 # technical stuff
-    basePath=${basedir}
+    basePath=${ICON_BASE_PATH}
     dataPath="../experiments/${EXPNAME}/"
 postProcPath="${basePath}/scripts/postprocessing/tools"
    nclConfig="${postProcPath}/.hluresfile"

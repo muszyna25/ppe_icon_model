@@ -74,10 +74,6 @@ MODULE mo_statistics
   END INTERFACE LInfNorm
 
 
-  INTERFACE verticallyIntegrated_field 
-    MODULE PROCEDURE verticallyIntegrated_field_weighted
-    MODULE PROCEDURE verticallyIntegrated_field_notWeighted
-  END INTERFACE verticallyIntegrated_field
 
   ! weighted total sum, uses indexed subset
   ! used for calculating total fluxes acros given paths
@@ -2638,7 +2634,7 @@ CONTAINS
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
-  SUBROUTINE verticallyIntegrated_field_weighted(vint_field,field_3D,subset,height,levels)
+  SUBROUTINE verticallyIntegrated_field(vint_field,field_3D,subset,height,levels)
     REAL(wp),INTENT(inout)          :: vint_field(:,:)
     REAL(wp),INTENT(in)             :: field_3D(:,:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
@@ -2680,52 +2676,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
     ENDIF
-  END SUBROUTINE verticallyIntegrated_field_weighted
-  !-----------------------------------------------------------------------
-
-  !-----------------------------------------------------------------------
-  SUBROUTINE verticallyIntegrated_field_notWeighted(vint_field,field_3D,subset,levels)
-    REAL(wp),INTENT(inout)          :: vint_field(:,:)
-    REAL(wp),INTENT(in)             :: field_3D(:,:,:)
-    TYPE(t_subset_range),INTENT(in) :: subset
-    INTEGER,INTENT(in),OPTIONAL :: levels
-
-    INTEGER :: idx,block,level,start_index,end_index
-
-    INTEGER :: mylevels
-    LOGICAL :: my_force_level
-
-    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-          vint_field(idx,block) = 0.0_wp
-          DO level = 1, subset%vertical_levels(idx,block)
-            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block) 
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-
-    ELSE
-      ! use constant levels
-      mylevels   = SIZE(field_3D, VerticalDim_Position)
-      IF (PRESENT(levels)) mylevels = levels
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
-      DO block = subset%start_block, subset%end_block
-        CALL get_index_range(subset, block, start_index, end_index)
-        DO idx = start_index, end_index
-           vint_field(idx,block) = 0.0_wp
-           DO level = 1, mylevels
-            vint_field(idx,block) = vint_field(idx,block) + field_3D(idx,level,block) 
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-
-    ENDIF
-  END SUBROUTINE verticallyIntegrated_field_notWeighted
+  END SUBROUTINE verticallyIntegrated_field
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------

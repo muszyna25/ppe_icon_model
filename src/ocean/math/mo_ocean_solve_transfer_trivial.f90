@@ -6,7 +6,7 @@ MODULE mo_ocean_solve_trivial_transfer
   USE mo_kind, ONLY: wp, sp
   USE mo_exception, ONLY: finish
   USE mo_ocean_solve_transfer, ONLY: t_transfer
-  USE mo_ocean_solve_aux, ONLY: solve_cell, solve_edge, solve_vert
+  USE mo_ocean_solve_aux, ONLY: t_destructible, solve_cell, solve_edge, solve_vert
   USE mo_model_domain, ONLY: t_patch
   USE mo_mpi, ONLY: p_pe_work, p_comm_work, my_process_is_mpi_parallel
   USE mo_parallel_config, ONLY: nproma
@@ -23,7 +23,7 @@ MODULE mo_ocean_solve_trivial_transfer
 
   PRIVATE
 
-  PUBLIC :: t_trivial_transfer
+  PUBLIC :: t_trivial_transfer, trivial_transfer_ptr
 
   TYPE, EXTENDS(t_transfer) :: t_trivial_transfer
     PRIVATE
@@ -50,6 +50,19 @@ MODULE mo_ocean_solve_trivial_transfer
 
 CONTAINS
 
+  FUNCTION trivial_transfer_ptr(this) RESULT(this_ptr)
+    CLASS(t_destructible), TARGET, INTENT(INOUT) :: this
+    CLASS(t_trivial_transfer), POINTER :: this_ptr
+
+    SELECT TYPE (this)
+    CLASS IS (t_trivial_transfer)
+      this_ptr => this
+    CLASS DEFAULT
+      NULLIFY(this_ptr)
+      CALL finish("trivial_transfer_ptr", "not correct type!")
+    END SELECT
+  END FUNCTION trivial_transfer_ptr
+
   SUBROUTINE trivial_transfer_construct(this, sync_type, patch_2d)
     CLASS(t_trivial_transfer), INTENT(INOUT) :: this
     INTEGER, INTENT(IN) :: sync_type
@@ -62,7 +75,7 @@ CONTAINS
 !DIR$ ATTRIBUTES ALIGN : 64 :: gID_tmp
 #endif
 
-    IF (this%is_init) RETURN
+    CALL this%destruct()
     IF (ltimer) THEN
       this%timer_init = new_timer("triv-t init")
       CALL timer_start(this%timer_init)
@@ -132,7 +145,7 @@ CONTAINS
       this%timer_out = new_timer("triv-t out")
       CALL timer_stop(this%timer_init)
     END IF
-    this%is_init = .true.
+    ALLOCATE(this%is_init(1))
   END SUBROUTINE trivial_transfer_construct
 
   SUBROUTINE trivial_transfer_destruct(this)
@@ -140,7 +153,7 @@ CONTAINS
 
     IF (ASSOCIATED(this%glb_idx_loc)) DEALLOCATE(this%glb_idx_loc)
     NULLIFY(this%glb_idx_loc, this%glb_idx_cal)
-    this%is_init = .false.
+    IF(ALLOCATED(this%is_init)) DEALLOCATE(this%is_init)
   END SUBROUTINE trivial_transfer_destruct
 
   SUBROUTINE trivial_transfer_into_once_2d_wp(this, data_in, data_out, tt)

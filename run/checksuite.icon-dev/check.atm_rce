@@ -39,7 +39,6 @@ export RESTART_DATE='19790101T000800Z'
 # n = nproma test
 # m = mpi test
 # o = omp test
-# t = tolerance test
 #
 # default: MD='rnmo'
 #

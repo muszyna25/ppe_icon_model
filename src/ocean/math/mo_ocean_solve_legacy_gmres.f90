@@ -26,9 +26,20 @@ MODULE mo_ocean_solve_legacy_gmres
   CONTAINS
     PROCEDURE :: doit_wp => ocean_solve_legacy_gmres_cal_wp ! override deferred
     PROCEDURE :: doit_sp => ocean_solve_legacy_gmres_cal_sp ! override deferred
+    PROCEDURE, PUBLIC :: destruct => ocean_solve_legacy_gmres_destruct ! override deferred
   END TYPE t_ocean_solve_legacy_gmres
 
 CONTAINS
+
+! destruct lhs-object and de-allocate arrays
+  SUBROUTINE ocean_solve_legacy_gmres_destruct(this)
+    CLASS(t_ocean_solve_legacy_gmres), INTENT(INOUT) :: this
+
+    CALL this%lhs%destruct()
+    NULLIFY(this%trans, this%niter)
+    IF (ALLOCATED(this%x_wp)) DEALLOCATE(this%x_wp, this%b_wp)
+    IF (ALLOCATED(this%res_wp)) DEALLOCATE(this%res_wp, this%niter_cal)
+  END SUBROUTINE ocean_solve_legacy_gmres_destruct
 
 ! actual GMRES solve (vanilla)
   SUBROUTINE ocean_solve_legacy_gmres_cal_wp(this)

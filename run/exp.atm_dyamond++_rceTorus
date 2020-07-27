@@ -18,6 +18,13 @@ author_list="Tobias Becker, Rene Redler, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
+# (0) unset some setting of create_target_header for mistral
+
+unset OMPI_MCA_coll_fca_enable
+unset OMPI_MCA_coll_fca_priority
+
+#--------------------------------------------------------------------------------------------------
+
 # (1) Variables provided by the scripting mechanism
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
@@ -107,6 +114,7 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .TRUE.      ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
+ ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 12          ! level of details report during integration 
@@ -149,10 +157,10 @@ cat > ${atmo_namelist} << EOF
  flat_height    = 16000.
 /
 &transport_nml
- tracer_names     = 'hus','clw','cli'
- ivadv_tracer     =    3 ,   3 ,   3
- itype_hlimit     =    3 ,   4 ,   4
- ihadv_tracer     =   52 ,   2 ,   2
+!                   hus,clw,cli, o3
+ ivadv_tracer     =   3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  3
+ ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
 !
@@ -218,12 +226,10 @@ cat > ${atmo_namelist} << EOF
 &echam_cnv_nml
 /
 &echam_cld_nml
-/
-&echam_cop_nml
- echam_cop_config(1)%cinhomi    = 1.0
- echam_cop_config(1)%cinhoml1   = 1.0
- echam_cop_config(1)%cinhoml2   = 1.0
- echam_cop_config(1)%cinhoml3   = 1.0
+ echam_cld_config(1)%cinhomi    = 1.0
+ echam_cld_config(1)%cinhoml1   = 1.0
+ echam_cld_config(1)%cinhoml2   = 1.0
+ echam_cld_config(1)%cinhoml3   = 1.0
 /
 &echam_cov_nml
  echam_cov_config(1)%icov       = 2     ! 0/1 cloud cover based on rel. hum.

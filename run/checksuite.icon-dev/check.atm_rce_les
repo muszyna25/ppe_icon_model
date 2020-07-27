@@ -2,7 +2,7 @@
 #--------------------------------------------------------------------------------
 # 
 # 1. Define the experiment and the files to be checked
-#
+
 # EXPERIMENT is the name of the experiment, that defines the experiment descriptor
 # file run/exp.<EXPNAME>. EXPNAME is used also for:
 # - the output directory name: experiments/<EXPNAME>
@@ -34,7 +34,6 @@ export RESTART_DATE='20080801T002000Z'
 # n = nproma test
 # m = mpi test
 # o = omp test
-# t = tolerance test
 #
 # default: MD='rnmo'
 #

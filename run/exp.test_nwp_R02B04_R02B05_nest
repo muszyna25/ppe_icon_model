@@ -68,12 +68,12 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-grids_folder="${icon_data_rootFolder}/buildbot_data/nwp/grids/R02B04_R02B05_nest"
+grids_folder="${icon_data_poolFolder}/buildbot_data/nwp/grids/R02B04_R02B05_nest"
 atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
 #
 #-----------------------------------------------------------------------------
 
-INDIR="${icon_data_rootFolder}/buildbot_data/nwp/R02B04_R02B05_nest"
+INDIR="${icon_data_poolFolder}/buildbot_data/nwp/R02B04_R02B05_nest"
 
 add_link_file $INDIR/extpar_iconR2B04_DOM01.nc extpar_iconR2B04_DOM01.nc
 add_link_file $INDIR/extpar_iconR2B05_DOM02.nc extpar_iconR2B05_DOM02.nc

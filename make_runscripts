@@ -1,30 +1,25 @@
-#! /bin/bash
-#______________________________________________________________________________
-#
+#!/bin/bash
+#==============================================================================
 # Creates the ICON run scripts
-# Original version by Leonidas Linardakis, MPI-M, 2011-25-1
-#______________________________________________________________________________
-#______________________________________________________________________________
-#
+# Leonidas Linardakis, MPI-M, 2011-25-1
+#==============================================================================
+#==============================================================================
 # The basic command for creating an ICON experiment run script is
 #
 #  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
 #
-# By default the folder in use is ./run, and the run script is named
-# exp.<name>.run.
-# 
+# By default the folder in use is ./run, and the run script is named exp.<name>.run.
+#
 # Basic optional parameters for the $make_runscript command are:
 #
-#    out_script=<output run script name>. By default is
-#    <in_script>.run
+#    out_script=<output run script name>. By default is <in_script>.run
 #
 #    in_folder=<input folder>. By default is run
 #
 #    out_folder=<output folder>. By default is =<in_folder>
 #
-#    mpi_procs_pernode=<number of mpi processes>. In the case of MPI
-#       configuration, defines how many processes per node will be
-#       used.
+#    mpi_procs_pernode=<number of mpi processes>. In the case of MPI configuration,
+#       defines how many processes per node will be used.
 #
 #    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
 #       defines how many nodes will be used.
@@ -34,124 +29,349 @@
 #
 #    cpu_time=<wall time>. Defines the expected run wall time.
 #
-#    <free_variable>=<value> Free variables can be passed to the run
-#       script using this syntax. For example: EXPNAME=test, will
-#       result the definition of the variable EXPNAME=test in the run
-#       script.
+#    <free_variable>=<value> Free variables can be passed to the run script
+#       using this syntax. For example: EXPNAME=test, will result the
+#       definition of the variable EXPNAME=test in the run script.
 #
-# For more details see the parameters in the
-#./run/make_target_runscript
-#______________________________________________________________________________
-
-set -eu
-
+# For more details see the parameters in the ./run/make_target_runscript
+#==============================================================================
+rundir=run
+param=all
 while getopts "hr:s:" opt
 do
     case $opt in
         h) echo "usage: ./make_runscripts [-r <run directory to process>]"
-           echo "                         [-s <experiment name>]"
-	   exit 0
-	   ;;
-        r) my_run_folder="${OPTARG}"
-	   ;;
-        s) my_experiment_name="${OPTARG}"
-	   ;;
+           echo "                         [-s <all|single exxperiment>]"    
+	    exit 0
+	    ;;
+        r) rundir="${OPTARG}"
+	    ;;
+        s) param="${OPTARG}"
+	    ;;
     esac
 done
+echo "-----------------------------------------------------------"
 
-#______________________________________________________________________________
+#set -ux
+
+base_folder=$(pwd)
+input_folder=${rundir}
+
+#==============================================================================
+if test -f run/set-up.info ; then
+  . run/set-up.info ;
+else
+  echo "Cound not find setup.info file !!";
+  exit 1;
+fi
+use_shell=${use_shell:="/bin/bash"}
+# The $make_runscript command directs to the ./run/make_target_runscript
+make_runscript="$use_shell ./run/make_target_runscript"
+
+#==============================================================================
+# define the runscripts to be created
+make_restart_exp="false"
+make_restart_post="false"
+grid_list=""
+exp_list=""
+post_list=""
+define_grids_folder=""
+
+cd $input_folder
+
+case $param in
+  all)  # create all but not the restarts
+    exp_list=$(find . -maxdepth 1 -name "exp.*")
+    post_list=$(find . -maxdepth 1 -name "post.*")
+    ;;
+  test)  # create _all_ scripts for use in buildbot
+    make_restart_exp="true"
+    make_restart_post="true"
+    exp_list=$(find . -maxdepth 1 -name "exp.*")
+    post_list=$(find . -maxdepth 1 -name "post.*")
+    # define_grids_folder='grids_folder="/pool/data/ICON/grids/buildbot"'
+    ;;
+  post_test)  # create _all_ post-processing scripts for buildbot
+    make_restart_post="true"
+    exp_list=""
+    post_list=$(find . -maxdepth 1 -name "post.*")
+    ;;
+  *)  # create only one experiment
+    if [ -r "exp.$param" ] ; then
+      exp_list="exp.$param"
+    fi
+    if [ -r "post.$param" ] ; then
+      post_list="post.$param"
+    fi
+esac
+
+cd $base_folder
+
+#==============================================================================
+use_queue="default"
+
+#==============================================================================
+# Create the ICON experiment run scripts
+# These consist of the namelist definition in exp.<name> file and the
+# run part, defined in the exec.iconrun file.
+#
+# Note: The ICON experiments require the definition of the EXPNAME=<name> variable
 #==============================================================================
 
-source ./run/set-up.info
-use_shell=${use_shell:="/bin/bash"}
+#---------------------------------------------------------------
+# returns "true" in accepted_script, if the script name is accepted
+check_accept_script()
+{
+#  set -ux
 
-# default for options
+  check_accepted_filename=$1
 
-in_folder=${my_run_folder:="run"}
-name=${my_experiment_name:="all"}
+  if [[ -r $input_folder/$check_accepted_filename ]] ; then
+    accepted_script="true"
+  else
+    accepted_script="false"
+    return 1
+  fi
 
-#______________________________________________________________________________
-# define the runscripts to be created
-name_found="no"
+  case $check_accepted_filename in
+    *.run)
+       accepted_script="false"
+       ;;
+    *~)
+       accepted_script="false"
+       ;;
+    *.status)
+       accepted_script="false"
+       ;;
+    *)
+       accepted_script="true"	  
+  esac
+  #--------------------------
+  if [[ "$accepted_script" = "false" ]] ; then
+      return 1
+  fi
+  
+   #--------------------------
+   # check which scripts run with openmp
+   # if [[ $use_openmp = "yes" ]] ; then
+   #   case $check_accepted_filename in
+   #   *test_atm_icoles_nested*)
+   #      accepted_script="false"   #  ocean does not run with openmp
+   #      ;;
+   #   esac
+   # fi
 
-# experiment runscript
+   #--------------------------
+   # check which scripts run without mpi
+   if [[ $use_mpi != "yes" ]] ; then
+     case $check_accepted_filename in
+       *test_oce_parallel*)
+          accepted_script="false"
+          ;;
+       *nat_jww_nwp_mpiomp*)
+          accepted_script="false"
+          ;;
+       *test_couple*)
+          accepted_script="false"
+          ;;
+       *ptest*)
+          accepted_script="false"
+          ;;
+       esac
+   fi
 
-if [[ -r "${in_folder}/exp.${name}" ]]
-then
-    name_found="yes"
+   #--------------------------
+   # machine based checks
+   case $use_target in
 
-    #__________________________________________________________________________
-    # Create the experiment run script
-    #
-    # This consist of a target specific header, the experiment description in
-    # exp.<name> and the executing part in exec.iconrun.
-    #
-    # Note: The ICON experiments require the definition of the
-    #       EXPNAME=<name> variable
-    #__________________________________________________________________________
+     sx9)
+       case $check_accepted_filename in
+       *test_oce_*)
+          accepted_script="false"
+          ;;
+       *test_nh_hdcp2_lam_r15000_modified*)
+          accepted_script="false"
+          ;;
+       *_rce_*)
+          accepted_script="false"
+          ;;
+       *test_icon*)
+          accepted_script="false"
+          ;;
+      #  post.test_hat_jw*)
+      #    accepted_script="false"
+      #    ;;
+       esac
+       if [[ _${define_grids_folder} != "_" ]] ; then
+         define_grids_folder='grids_folder="/e/uscratch/extwsauf/buildbot.grids"'
+       fi
+     ;;
+     
+   esac
 
-    ./run/make_target_runscript \
-	in_folder=${in_folder} \
-	in_script=exp.${name} \
-	in_script=exec.iconrun EXPNAME=${name} \
-	memory_model="large" \
-	omp_stacksize=200M
-fi
+   #--------------------------
+   # compiler based checks
+   case $use_compiler in
 
-# post-processing runscript
+     pgi)
+       case $check_accepted_filename in
+       *test_nat_jww_nwp_mpiomp*)
+          accepted_script="false"
+          ;;
+       *test_atm_icoles_nested*)
+          accepted_script="false"
+          ;;
+       esac
+     ;;
 
-if [[ -r "${in_folder}/post.${name}" ]]
-then
-    name_found="yes"
+     nag)
+       case $check_accepted_filename in
+       *test_nh_moist_cbl*)
+          accepted_script="false"
+          ;;
+       esac
+     ;;
 
-    #__________________________________________________________________________
-    # Create the postprocessing script
-    #
-    # This consist of a target specific header and the executing part
-    # in post.<name>.
-    #
-    # NOTE: The postprocessing script is sequential, so we define:
-    #    with_mpi="no" with_openmp="no"
-    #__________________________________________________________________________
+   esac
 
-    ./run/make_target_runscript \
-	in_folder=${in_folder} \
-	in_script=post.${name} \
-	out_script=post.${name}.run \
-	EXPNAME=${name} \
-	with_mpi="no" \
-	with_openmp="no" \
-	queue="express"
-fi
+   #---------------------------------------------------------------
+   # Search the script's contents for "EXCLUDE" keyword.
+   #
+   exclude_compiler=$(grep "__exclude_compiler=${use_compiler};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_compiler" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   exclude_target=$(grep "__exclude_target=${use_target};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_target" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   exclude_target_compiler=$(grep "__exclude_target_compiler=${use_target},${use_compiler};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_target_compiler" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   exclude_target_compiler_mode=$(grep "__exclude_target_compiler_mode=${use_target},${use_compiler},mpi=${use_mpi};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_target_compiler_mode" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   BB_SYSTEM=${BB_SYSTEM:-""}
+   BB_SLAVE=${BB_SLAVE:-""}
+   exclude_bbsystem_bbslave=$(grep "__exclude_bbsystem_bbslave=${BB_SYSTEM},${BB_SLAVE};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_bbsystem_bbslave" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
 
-# do not remove the all case as this is heavily used in infrastructure testing
+   if [[ $accepted_script != "true" ]] ; then
+     return 1
+   fi
 
-if [[ "${name}" == "all" ]]
-then
-    all_experiments=$( (cd ${in_folder} && ls -1 exp.* | egrep -v ".run$") )
-    for experiment in $all_experiments
-    do
-	expname=${experiment##*.}
-	./run/make_target_runscript \
-	    in_folder=${in_folder} \
-	    in_script=${experiment} \
-	    in_script=exec.iconrun \
-	    EXPNAME=${expname} \
-	    memory_model="large" \
-	    omp_stacksize=200M
-    done
-else
-    # error message if nothing found
-    if [[ "$name_found" = "no" ]]
-    then
-	echo
-	echo "ERROR: Found neither exp.${name} nor post.${name} in ./${in_folder} !"
-	echo "usage: ./make_runscripts [-r <run directory to process>]"
-	echo "                         [-s <experiment name>]"
-	echo
-	exit 1
+}
+#---------------------------------------------------------------
+
+omp_stacksize=200M
+
+for filename in $exp_list
+do
+  filename=${filename/\.\//}  
+
+  check_accept_script $filename
+
+  if [[ $accepted_script = "true" ]] ; then
+
+    name=${filename#*.}
+    if [[ ${name} == test* ]]; then
+      queue="$use_queue"
+    else
+      queue="default"
     fi
-fi
+    case $name in
+    *_nwp_*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      memory_model="huge"  omp_stacksize="500M" queue="$queue" ${define_grids_folder}
+      ;;
+    *_nh35_tri_jws*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      memory_model="small" queue="$queue" ${define_grids_folder}
+      ;;
+    *mch_ch_lowres*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      memory_model="large" omp_stacksize=$omp_stacksize ${define_grids_folder} no_of_nodes=2
+      ;;
+    *mch_ch*)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      memory_model="large" omp_stacksize=$omp_stacksize ${define_grids_folder} no_of_nodes=33
+      ;;
+    *)
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      memory_model="large" omp_stacksize=$omp_stacksize ${define_grids_folder}
+      ;;
+    esac
 
-exit 0
-#______________________________________________________________________________
+  fi
+
+done
+#==============================================================================
+
+#==============================================================================
+# special treatment for exp.couple_atmo-radiation
+# if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
+#   name=couple_atmo-radiation
+#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" openmp_threads=3
+# fi
+#==============================================================================
+
+
+#==============================================================================
+# Create the postprocessing scripts
+#
+# NOTE: The postprocessing scripts are all sequential, so we define:
+#    with_mpi="no" with_openmp="no"
+#==============================================================================
+for filename in $post_list
+do
+  check_accept_script $filename
+  if [[ $accepted_script = "true" ]] ; then
+    name=${filename#*.}
+    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
+    with_mpi="no" with_openmp="no" queue="express" EXPNAME=$name
+  fi
+done
+
+
+#==============================================================================
+# following is the section for creating the restart tests
+#==============================================================================
+create_restart()
+{
+  # set -x
+  name=$1
+  check_accept_script exp.$name
+  if [[ $accepted_script != "true" ]] ; then
+    return 1
+  fi
+
+  if [ $make_restart_exp = "true" ] ; then
+
+    $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+      in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" test_restart="true" \
+      queue="$queue" cpu_time="$cpu_time"  ${define_grids_folder}
+
+  fi
+
+  # postprocessing for comparing the restarts
+  if [ $make_restart_post = "true" ] ; then
+    $make_runscript in_folder=$input_folder in_script=post.test_compare_restarts out_script=post.${name}_compare_restarts.run\
+      with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" EXPNAME="$name"
+  fi
+}
+
+#==============================================================================
+# special treatment for exp.test_oce_default
+#create_restart test_oce_default
+
+
+echo "-----------------------------------------------------------"

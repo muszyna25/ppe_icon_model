@@ -24,6 +24,7 @@
 MODULE mo_art_clouds_interface
 
   USE mo_kind,                          ONLY: wp
+  USE mo_model_domain,                  ONLY: t_patch
   USE mo_exception,                     ONLY: finish
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
@@ -32,6 +33,7 @@ MODULE mo_art_clouds_interface
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_2mom_driver,               ONLY: art_2mom_mcrph,               &
                                           &   art_2mom_mcrph_init
+  USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_prepare_aerosol,           ONLY: art_prepare_dust_KL06
 #endif
 

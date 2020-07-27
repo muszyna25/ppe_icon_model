@@ -601,14 +601,14 @@ CONTAINS
     IF (return_status /= success) THEN
       CALL finish ('mo_operator_ocean_coeff_3d:allocating bnd_edges_per_vertex failed')
     ENDIF
-!     ALLOCATE(operators_coefficients%upwind_cell_idx(nproma,n_zlev,nblks_e),stat=return_status)
-!     IF (return_status /= success) THEN
-!       CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind_cell_idx failed')
-!     ENDIF
-!     ALLOCATE(operators_coefficients%upwind_cell_blk(nproma,n_zlev,nblks_e),stat=return_status)
-!     IF (return_status /= success) THEN
-!       CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind_cell_blk failed')
-!     ENDIF
+    ALLOCATE(operators_coefficients%upwind_cell_idx(nproma,n_zlev,nblks_e),stat=return_status)
+    IF (return_status /= success) THEN
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind_cell_idx failed')
+    ENDIF
+    ALLOCATE(operators_coefficients%upwind_cell_blk(nproma,n_zlev,nblks_e),stat=return_status)
+    IF (return_status /= success) THEN
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind_cell_blk failed')
+    ENDIF
     !
     ! arrays that are required for setting up the scalar product
     !
@@ -822,8 +822,8 @@ CONTAINS
 !     operators_coefficients%orientation  = 0.0_wp
     operators_coefficients%bnd_edges_per_vertex= 0
 
-!    operators_coefficients%upwind_cell_idx = 1
-!    operators_coefficients%upwind_cell_blk = 1
+    operators_coefficients%upwind_cell_idx = 1
+    operators_coefficients%upwind_cell_blk = 1
 
     CALL message ('mo_operator_ocean_coeff_3d:allocate_operators_coefficients',&
       & 'memory allocation finished')
@@ -856,8 +856,8 @@ CONTAINS
     DEALLOCATE(operators_coefficients%boundaryEdge_Coefficient_Index)
 !     DEALLOCATE(operators_coefficients%orientation)
     DEALLOCATE(operators_coefficients%bnd_edges_per_vertex)
-!     DEALLOCATE(operators_coefficients%upwind_cell_idx)
-!     DEALLOCATE(operators_coefficients%upwind_cell_blk)
+    DEALLOCATE(operators_coefficients%upwind_cell_idx)
+    DEALLOCATE(operators_coefficients%upwind_cell_blk)
 
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff)
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_top)

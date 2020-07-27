@@ -192,14 +192,14 @@ cat >> ${atmo_namelist} << EOF
  !hbot_qvsubstep  = 86000.
 /
 &transport_nml
- tracer_names  ='qv','qw','qi','q4','q5','q6' ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
- ihadv_tracer  = 32 ,  2 ,  2 ,  2 ,  2 ,  0
- ivadv_tracer  =  3 ,  3 ,  3 ,  3 ,  3 ,  0
- itype_hlimit  =  3 ,  4 ,  4 ,  4 ,  4 ,  0
- itype_vlimit  = 1
+ tracer_names='v','w','i','4','5','6'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ ihadv_tracer  = 32,2,2,2,2,0
+ ivadv_tracer  = 3,3,3,3,3,0
  ! igrad_c_miura = 1
  lvadv_tracer  = .TRUE.
  lstrang       = .FALSE.
+ itype_hlimit = 3,4,4,4,4,0
+ itype_vlimit  = 1
  iord_backtraj = 1          ! default: 1
 /
 &diffusion_nml

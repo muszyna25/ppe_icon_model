@@ -1174,17 +1174,15 @@ CONTAINS
 !$ACC         IF ( use_acc .AND. iprog_aero >= 1 )
 
     ! 1. Feedback of child-domain variables to the parent grid
-#ifndef __PGI
-!FIXME: PGI + OpenMP produce error in this routine. Compiler bug suspected
+
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
+
     ! Compute perturbation theta_v
 
     i_startblk = p_gcc%start_blk(grf_bdywidth_c+1,1)
     i_endblk   = p_gcc%end_blk(min_rlcell,i_nchdom)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, &
@@ -1203,14 +1201,12 @@ CONTAINS
 !$ACC END PARALLEL
 
     ENDDO
-#ifndef __PGI
 !$OMP END DO
-#endif
+
     i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
     i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,nt,z_rho_corr,z_fbk_rho) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -1320,16 +1316,14 @@ CONTAINS
       ENDIF
 
     ENDDO
-#ifndef __PGI
 !$OMP END DO
-#endif
+
     ! Velocity feedback
 
     i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
     i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -1354,11 +1348,10 @@ CONTAINS
 !$ACC END PARALLEL
 
     ENDDO
-#ifndef __PGI
 !$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
-#endif
+
 #ifdef __MIXED_PRECISION
     CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, 3, 3*nlev_c, &
       RECV1_SP=parent_rho,     SEND1_SP=feedback_rho,      &
@@ -1409,14 +1402,12 @@ CONTAINS
 
     ! 2. Compute differences between feedback velocity and corresponding parent field,
     !    smooth velocity increment and execute velocity relaxation
-#ifndef __PGI
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
+
     i_startblk = p_patch(jgp)%edges%start_blk(1,1)
     i_endblk   = p_patch(jgp)%edges%end_blk(i_rlend_e,i_nchdom_p)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
@@ -1452,10 +1443,9 @@ CONTAINS
 !$ACC END PARALLEL
 
     ENDDO
-#ifndef __PGI
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#endif
+
     CALL sync_patch_array(SYNC_E,p_patch(jgp),diff_vn)
 
     ! 2a. Smoothing of velocity feedback-parent differences 
@@ -1472,14 +1462,13 @@ CONTAINS
     ievidx => p_patch(jgp)%edges%vertex_idx
     ievblk => p_patch(jgp)%edges%vertex_blk
 
-#ifndef __PGI
+
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
+
     i_startblk = p_patch(jgp)%verts%start_blk(1,1)
     i_endblk   = p_patch(jgp)%verts%end_blk(min_rlvert_int-1,i_nchdom_p)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_v(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert_int-1)
@@ -1514,14 +1503,12 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
     ENDDO
-#ifndef __PGI
 !$OMP END DO
-#endif
+
     i_startblk = p_patch(jgp)%cells%start_blk(1,1)
     i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell_int-1,i_nchdom_p)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlcell_int-1)
@@ -1553,14 +1540,12 @@ CONTAINS
       ENDDO
 !$ACC END PARALLEL
     ENDDO
-#ifndef __PGI
 !$OMP END DO
-#endif
+
     i_startblk = p_patch(jgp)%edges%start_blk(1,1)
     i_endblk   = p_patch(jgp)%edges%end_blk(i_rlend_e,i_nchdom_p)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_e)
@@ -1628,17 +1613,15 @@ CONTAINS
 !$ACC END PARALLEL
 
     ENDDO
-#ifndef __PGI
 !$OMP END DO
-#endif
+
 
     ! 3. The same for mass-point variables
 
     i_startblk = p_patch(jgp)%cells%start_blk(1,1)
     i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_nchdom_p)
-#ifndef __PGI
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,nt,diff_rho,diff_thv,diff_w,rho_parent_sv) ICON_OMP_DEFAULT_SCHEDULE
-#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, i_rlend_c)
@@ -1776,10 +1759,9 @@ CONTAINS
       ENDIF  ! ltransport
 
     ENDDO
-#ifndef __PGI
 !$OMP END DO
 !$OMP END PARALLEL
-#endif
+
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
     IF (ltransport .AND. iprog_aero >= 1 .AND. PRESENT(prm_diag)) THEN

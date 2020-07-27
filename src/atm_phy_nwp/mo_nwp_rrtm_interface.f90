@@ -1057,10 +1057,8 @@ CONTAINS
 
       ENDIF ! msg_level >= 16
 
-#if !defined(__PGI)
-!FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
-!ICON_OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac) ICON_OMP_GUIDED_SCHEDULE
-#endif
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -1181,6 +1179,10 @@ CONTAINS
           &  flx_sw_up_clr = zrg_swflx_up_clr(:,:,jb) )  !< Upward SW flux   (clear sky) [Wm2]
 
       ENDDO ! blocks
+
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
 
       CALL downscale_rad_output(pt_patch%id, pt_par_patch%id, nlev_rg, zrg_aclcov,                     &
         &  zrg_lwflxall, zrg_trsolall, zrg_trsol_clr_sfc, zrg_lwflx_clr_sfc, zrg_lwflx_up_sfc,         &

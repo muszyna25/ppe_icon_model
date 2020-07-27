@@ -10,6 +10,7 @@ MODULE mo_surface_height_lhs
   USE mo_kind, ONLY: wp
   USE mo_exception, ONLY: finish
   USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen
+  USE mo_ocean_solve_aux, ONLY: t_destructible
   USE mo_ocean_types, ONLY: t_solverCoeff_singlePrecision, t_operator_coeff
   USE mo_grid_subset, ONLY: t_subset_range, get_index_range
   USE mo_ocean_nml, ONLY: select_lhs, select_lhs_matrix, ab_gam, ab_beta, &
@@ -30,7 +31,7 @@ MODULE mo_surface_height_lhs
 
   PRIVATE
 
-  PUBLIC :: t_surface_height_lhs
+  PUBLIC :: t_surface_height_lhs, lhs_surface_height_ptr
 
   TYPE, EXTENDS(t_lhs_agen) :: t_surface_height_lhs
     PRIVATE
@@ -46,6 +47,7 @@ MODULE mo_surface_height_lhs
   CONTAINS
     PROCEDURE :: lhs_wp => lhs_surface_height_wp
     PROCEDURE :: construct => lhs_surface_height_construct
+    PROCEDURE :: destruct => lhs_surface_height_destruct
     PROCEDURE, PRIVATE :: internal_matrix_wp => lhs_surface_height_ab_mim_matrix_wp
     PROCEDURE, PRIVATE :: internal_wp => lhs_surface_height_ab_mim_wp
     PROCEDURE :: lhs_matrix_shortcut => lhs_surface_height_ab_mim_matrix_shortcut
@@ -54,6 +56,21 @@ MODULE mo_surface_height_lhs
   INTEGER, PARAMETER :: topLevel = 1
 
 CONTAINS
+
+! returns pointer to t_primal_flip_flop_lhs object, if provided a matching
+! object of corresponding abstract type
+  FUNCTION lhs_surface_height_ptr(this) RESULT(this_ptr)
+    CLASS(t_destructible), INTENT(IN), TARGET :: this
+    CLASS(t_surface_height_lhs), POINTER :: this_ptr
+
+    SELECT TYPE (this)
+    CLASS IS (t_surface_height_lhs)
+      this_ptr => this
+    CLASS DEFAULT
+      NULLIFY(this_ptr)
+      CALL finish("surface_height_lhs_ptr", "not correct type!")
+    END SELECT
+  END FUNCTION lhs_surface_height_ptr
 
 !init generator object
   SUBROUTINE lhs_surface_height_construct(this, patch_3d, thick_e, &
@@ -64,6 +81,7 @@ CONTAINS
     TYPE(t_operator_coeff), TARGET, INTENT(IN) :: op_coeffs_wp
     TYPE(t_solverCoeff_singlePrecision), TARGET, INTENT(IN) :: op_coeffs_sp
 
+    CALL this%destruct()
     this%patch_3d => patch_3d
     this%patch_2d => patch_3d%p_patch_2d(1)
     this%thickness_e_wp => thick_e
@@ -74,8 +92,18 @@ CONTAINS
     IF (this%patch_2d%cells%max_connectivity .NE. 3 .AND. .NOT.l_lhs_direct) &
       & CALL finish("t_surface_height_lhs::lhs_surface_height_construct", &
       &  "internal matrix implementation only works with triangular grids!")
-    this%is_init = .true.
+    ALLOCATE(this%is_init(1))
   END SUBROUTINE lhs_surface_height_construct
+
+! interface routine clear object internals
+  SUBROUTINE lhs_surface_height_destruct(this)
+    CLASS(t_surface_height_lhs), INTENT(INOUT) :: this
+
+    NULLIFY(this%patch_3d, this%patch_2d, this%thickness_e_wp)
+    NULLIFY(this%op_coeffs_wp, this%op_coeffs_sp)
+    IF (ALLOCATED(this%z_e_wp)) DEALLOCATE(this%z_e_wp, this%z_grad_h_wp)
+    IF (ALLOCATED(this%is_init)) DEALLOCATE(this%is_init)
+  END SUBROUTINE lhs_surface_height_destruct
 
 ! interface routine for the left hand side computation
   SUBROUTINE lhs_surface_height_wp(this, x, ax)

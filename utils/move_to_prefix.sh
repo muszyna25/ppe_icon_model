@@ -91,18 +91,16 @@ rerun this script with an option '--force' to disable this check"
 # $prefix/bin. Therefore, we simply copy '$builddir/bin/icon' to '$prefix/bin'.
 
 fn_copy_file "$builddir/bin/icon" "$prefix/bin/"
-test -f "$builddir/bin/jsb4_driver" && fn_copy_file "$builddir/bin/jsb4_driver" "$prefix/bin/"
 
 if test -f "$builddir/run/set-up.info"; then
   fn_copy_file "$builddir/run/set-up.info" "$prefix/run/"
 else
   fn_warn "cannot find 'run/set-up.info' in '$builddir': trying to generate it..."
-  cmd="\"$builddir/run/collect.set-up.info\" \"$prefix/run/set-up.info\""
-  echo "$cmd"
-  eval "$cmd" || fn_error 4 "failed to generate '$prefix/run/set-up.info'"
+  "$builddir/config.status" --file="$prefix/run/set-up.info:$top_srcdir/run/set-up.info.in" || \
+  fn_error 4 "failed to generate '$prefix/run/set-up.info'"
 fi
 
-fn_rsync "$top_srcdir/run" "$prefix/" "--exclude='*.in' --exclude='.*'"
+fn_rsync "$top_srcdir/run" "$prefix/" "--exclude='*in' --exclude='.*'"
 fn_rsync "$top_srcdir/vertical_coord_tables" "$prefix/"
 fn_rsync "$top_srcdir/externals" "$prefix/" "--exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'"
 fn_rsync "$top_srcdir/data" "$prefix/"

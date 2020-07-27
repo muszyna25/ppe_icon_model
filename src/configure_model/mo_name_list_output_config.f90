@@ -34,7 +34,7 @@ MODULE mo_name_list_output_config
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
   USE mo_name_list_output_types,ONLY: t_output_name_list
-  USE mo_key_value_store,               ONLY: t_key_value_store
+  USE mo_storage,               ONLY: t_storage
 
   IMPLICIT NONE
 
@@ -52,12 +52,12 @@ MODULE mo_name_list_output_config
   LOGICAL :: use_async_name_list_io = .FALSE.
 
   TYPE :: t_storage_array
-    TYPE(t_key_value_store), POINTER :: ptr
+    TYPE(t_storage), POINTER :: ptr
   END TYPE t_storage_array
 
   !> auxiliary data structures: (case insensitive) hash table containing
   !  all output variable names, either for all model domains or domain-specific
-  TYPE(t_key_value_store), POINTER, PRIVATE       :: output_variables => NULL()
+  TYPE(t_storage), POINTER, PRIVATE       :: output_variables => NULL()
   TYPE(t_storage_array), POINTER, PRIVATE :: outputvar_dom(:) => NULL()
 
 CONTAINS
@@ -134,7 +134,7 @@ CONTAINS
 
     !> head output namelist list
     TYPE(t_output_name_list), POINTER :: first_output_name_list
-    TYPE(t_key_value_store), POINTER, INTENT(INOUT)  :: ptr_outvar
+    TYPE(t_storage), POINTER, INTENT(INOUT)  :: ptr_outvar
     INTEGER, INTENT(IN), OPTIONAL :: jg
 
     ! local variables
@@ -147,7 +147,7 @@ CONTAINS
       ig = -1
     ENDIF
 
-    CALL ptr_outvar%init(.FALSE.)
+    CALL ptr_outvar%init(lcase_sensitivity = .FALSE.)
     p_onl => first_output_name_list
     DO WHILE (ASSOCIATED(p_onl))
       IF (p_onl%dom == ig .OR. ig == -1 .OR. p_onl%dom == -1) THEN
@@ -200,7 +200,7 @@ CONTAINS
     ENDIF
 
     ! hashtable look-up if "var_name" exists:
-    CALL output_variables%get(var_name, lval, opt_err=ierror)
+    CALL output_variables%get(var_name, lval, ierror)
     retval = (ierror == SUCCESS)
 
   END FUNCTION is_variable_in_output
@@ -221,7 +221,6 @@ CONTAINS
     ! local variables
     INTEGER :: ierror, ig
     LOGICAL :: lval
-    CHARACTER(1) :: jg_str
 
     ! if called for the first time: set up (case insensitive) hash
     ! table containing all output variable names
@@ -234,7 +233,7 @@ CONTAINS
     ENDIF
 
     ! hashtable look-up if "var_name" exists:
-    CALL outputvar_dom(jg)%ptr%get(var_name, lval, opt_err=ierror)
+    CALL outputvar_dom(jg)%ptr%get(var_name, lval, ierror)
     retval = (ierror == SUCCESS)
 
   END FUNCTION is_variable_in_output_dom

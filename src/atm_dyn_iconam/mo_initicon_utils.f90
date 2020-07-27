@@ -47,7 +47,7 @@ MODULE mo_initicon_utils
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io,  p_comm_work, &
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work, &
     &                               p_comm_work, my_process_is_mpi_workroot, &
     &                               p_min, p_max, p_sum, num_work_procs, my_process_is_work
   USE mo_util_string,         ONLY: tolower
@@ -63,6 +63,7 @@ MODULE mo_initicon_utils
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_hydro_adjust,        ONLY: hydro_adjust
   USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
+  USE mo_dictionary,          ONLY: DICT_MAX_STRLEN
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
   USE mo_linked_list,         ONLY: t_list_element
@@ -1547,13 +1548,30 @@ MODULE mo_initicon_utils
 
   SUBROUTINE initVarnamesDict(dictionary)
     TYPE(t_dictionary), INTENT(INOUT) :: dictionary
+    INTEGER :: itemp(2)
+    CHARACTER(LEN=DICT_MAX_STRLEN), ALLOCATABLE :: array(:,:) !< dictionary data, dims: (2,nmax_entries)
+    LOGICAL :: lcase_sensitive
 
     ! read the map file into dictionary data structure:
-    CALL dictionary%init(.FALSE.)
+    CALL dictionary%init(lcase_sensitive=.FALSE.)
     IF(ana_varnames_map_file /= ' ') THEN
-      IF (my_process_is_mpi_workroot()) &
+      IF (my_process_is_mpi_workroot()) THEN
         CALL dictionary%loadfile(TRIM(ana_varnames_map_file))
-      CALL dictionary%bcast(p_io, p_comm_work)
+        CALL dictionary%to_array(array)
+      END IF
+
+      itemp(1) = MERGE(1, 0, dictionary%lcase_sensitive)
+      itemp(2) = SIZE(array,2)
+      CALL p_bcast(itemp, p_io, p_comm_work)
+      lcase_sensitive = itemp(1) /= 0
+      IF (.NOT. my_process_is_mpi_workroot()) ALLOCATE(array(2, itemp(2)))
+
+      CALL p_bcast(array, p_io, p_comm_work)
+
+      IF (.NOT. my_process_is_mpi_workroot()) THEN
+        CALL dictionary%from_array(array, lcase_sensitive)
+      END IF
+      DEALLOCATE(array)
     END IF
   END SUBROUTINE initVarnamesDict
 

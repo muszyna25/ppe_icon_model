@@ -25,8 +25,7 @@ MODULE mo_dynamics_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
-  USE mo_restart_nml_and_att,   ONLY: getAttributesForRestarting
-  USE mo_key_value_store,       ONLY: t_key_value_store
+  USE mo_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_util_string,           ONLY: int2string
 
   IMPLICIT NONE
@@ -82,24 +81,24 @@ CONTAINS
     INTEGER,INTENT(IN) :: ndom
 
     INTEGER :: jdom
-    TYPE(t_key_value_store), POINTER :: restartAttributes
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_config:setup_dynamics_config'
 
     !------------------------
     ! Set time level indices
 
-    CALL getAttributesForRestarting(restartAttributes)
+    restartAttributes => getAttributesForRestarting()
     IF (ASSOCIATED(restartAttributes)) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
 
       DO jdom = 1,ndom
-        CALL restartAttributes%get('nold_DOM'//TRIM(int2string(jdom, "(i2.2)")), nold(jdom))
-        CALL restartAttributes%get('nnow_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnow(jdom))
-        CALL restartAttributes%get('nnew_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnew(jdom))
-        CALL restartAttributes%get('nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnow_rcf(jdom))
-        CALL restartAttributes%get('nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")), nnew_rcf(jdom))
+        nold(jdom) = restartAttributes%getInteger('nold_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnow(jdom) = restartAttributes%getInteger('nnow_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnew(jdom) = restartAttributes%getInteger('nnew_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnow_rcf(jdom) = restartAttributes%getInteger('nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnew_rcf(jdom) = restartAttributes%getInteger('nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
       END DO
 
     ELSE ! not isRestart

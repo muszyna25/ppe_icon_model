@@ -166,7 +166,7 @@ CONTAINS
 
     me%have_dict = .FALSE.
     IF(PRESENT(opt_dict)) THEN
-      CALL me%dict%init(.FALSE.)
+      CALL me%dict%init(lcase_sensitive=.FALSE.)
       CALL opt_dict%copy(me%dict)
       me%have_dict = .TRUE.
     END IF
@@ -311,8 +311,10 @@ CONTAINS
     INTEGER :: i, j
 
     mapped_name = trim(name)
-    IF (me%have_dict) &
-      & mapped_name = TRIM(me%dict%get(TRIM(name), DEFAULT=name))
+    IF(me%have_dict) THEN
+      ! Search name mapping for name in NetCDF/GRIB2 file
+      mapped_name = TRIM(me%dict%get(TRIM(name), DEFAULT=name))
+    END IF
     mapped_name = tolower(trim(mapped_name))
 
     varID      = -1
@@ -851,8 +853,8 @@ CONTAINS
 
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':read_cdi_2d_lbc'
-    INTEGER :: jk, ierrstat, nmiss, i
-    INTEGER :: vlistId, varId, zaxisId, gridId, tile_index
+    INTEGER :: ierrstat, nmiss, i
+    INTEGER :: vlistId, varId, gridId, tile_index
     REAL(sp), ALLOCATABLE :: tmp_buf(:), map_buf(:) ! temporary local array
     LOGICAL :: lmap_buf
 

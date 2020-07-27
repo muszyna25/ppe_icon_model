@@ -28,16 +28,27 @@ MODULE mo_art_reaction_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
+  USE mo_model_domain,                  ONLY: t_patch
+  USE mo_impl_constants,                ONLY: min_rlcell_int, iecham, inwp
+  USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
+  USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_linked_list,                   ONLY: t_var_list
-  USE mo_run_config,                    ONLY: lart
+  USE mo_nonhydro_types,                ONLY: t_nh_diag
+  USE mo_nonhydro_state,                ONLY: p_nh_state
+  USE mo_run_config,                    ONLY: lart, iforcing
+  USE mo_parallel_config,               ONLY: nproma
+  USE mo_ext_data_types,                ONLY: t_external_data
+  USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
+  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mtime,                            ONLY: datetime
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_reacInt,            &
                                           &   timer_art_losschem, timer_art_photo
+  USE mo_echam_phy_memory,              ONLY: t_echam_phy_tend,    &
+                                           &  prm_field
   USE mo_radiation_config,              ONLY: irad_o3
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo, t_art_chem
-  USE mo_art_wrapper_routines,          ONLY: art_get_indices_c
+  USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
   USE mo_art_gasphase,                  ONLY: art_loss_gasphase
@@ -46,8 +57,7 @@ MODULE mo_art_reaction_interface
   USE mo_art_modes,                     ONLY: t_fields_radio
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_psc_state,                 ONLY: art_psc_main
-  USE mo_art_feedback_icon,             ONLY: art_feedback_o3,     &
-                                          &   art_dry_freezing_H2O
+  USE mo_art_feedback_icon,             ONLY: art_feedback_o3
 #endif
 
   IMPLICIT NONE
@@ -60,7 +70,8 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
+SUBROUTINE art_reaction_interface(ext_data, p_patch,current_date,p_dtime,p_prog_list,p_prog, &
+  &                               p_metrics,p_diag,tracer, prm_diag, tend)
 
   !>
   !! Interface for ART-routines treating reactions of any kind (chemistry, radioactive decay)
@@ -73,36 +84,57 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
   !! Initial revision by Max Bangert, KIT (2013-02-25)
   !!
   ! atmosphere external data                                
-  INTEGER, INTENT(IN)                 :: & 
-    &  jg                                !< patch id
+  TYPE(t_external_data), INTENT(INOUT) :: &
+    &  ext_data
+  TYPE(t_patch), TARGET, INTENT(IN)   :: & 
+    &  p_patch                           !< patch on which computation is performed
   TYPE(datetime), POINTER, INTENT(IN) :: &
-    &  current_date                      !< current time and date
+    &  current_date                      !< Actual time and date
   REAL(wp), INTENT(IN)                :: &
     &  p_dtime                           !< time step
-  TYPE(t_var_list), INTENT(INOUT)     :: &
+  TYPE(t_var_list), INTENT(IN)        :: &
     &  p_prog_list                       !< current prognostic state list
+  TYPE(t_nh_prog), INTENT(IN)         :: &
+    &  p_prog
+  TYPE(t_nh_metrics), INTENT(IN)      :: &
+    &  p_metrics                         !< NH metrics state
+  TYPE(t_nh_diag), INTENT(IN)       :: &
+    &  p_diag                            !< list of diagnostic fields
   REAL(wp), INTENT(INOUT)           :: &
-    &  tracer(:,:,:,:)                   !< tracer mixing ratios (mol/mol)
+    &  tracer(:,:,:,:)                   !< tracer mixing ratios (specific concentrations)
+  TYPE(t_nwp_phy_diag),OPTIONAL, INTENT(IN)  :: &
+    &  prm_diag                          !< NH metrics state
+  TYPE(t_echam_phy_tend) , OPTIONAL,  POINTER  :: tend
 ! Local variables
   INTEGER                           :: &
+    &  iTRO3,                          & !< index of O3 tracer
     &  jb,                             & !< loop index
-    &  istart, iend                      !< Start and end of nproma loop
+    &  jg,                             & !< domain index
+    &  i_startblk, i_endblk,           & !< Start and end of block loop
+    &  istart, iend,                   & !< Start and end of nproma loop
+    &  i_rlstart, i_rlend,             & !< Relaxation start and end
+    &  i_nchdom,                       & !< Number of child domains
+    &  nlev                              !< Number of levels (equals index of lowest full level)
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
-  TYPE(t_art_chem), POINTER :: &
-    &  art_chem
-  TYPE(t_art_atmo), POINTER :: &
-    &  art_atmo
+#endif
   
   !-----------------------------------------------------------------------
  
+#ifdef __ICON_ART
   IF(lart) THEN
 
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_reacInt)
 
-    art_atmo => p_art_data(jg)%atmo
-    art_chem => p_art_data(jg)%chem
+    ! --- Get the loop indizes
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+    jg         = p_patch%id
+    nlev       = p_patch%nlev
+    i_rlstart  = grf_bdywidth_c+1
+    i_rlend    = min_rlcell_int
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
     IF (art_config(jg)%lart_aerosol) THEN
       ! ----------------------------------
@@ -114,10 +146,10 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
         ! Select type of mode
         SELECT TYPE (fields=>this_mode%fields)
           TYPE IS (t_fields_radio)
-            DO jb = art_atmo%i_startblk, art_atmo%i_endblk
-              CALL art_get_indices_c(jg, jb, istart, iend)
-
-              CALL art_decay_radioact(p_dtime,istart,iend,art_atmo%nlev,     &
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                &                istart, iend, i_rlstart, i_rlend)
+              CALL art_decay_radioact(p_dtime,istart,iend,nlev,     &
                 &                     fields%halflife,tracer(:,:,jb,fields%itr))
             ENDDO
         END SELECT
@@ -139,61 +171,133 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
       ! ---------------------------------
     
       IF (art_config(jg)%lart_psc) THEN
-       CALL art_psc_main(p_art_data(jg)%PSC_meta,    &
-                 &       p_dtime,                    &
-                 &       art_atmo%temp,              &
-                 &       art_atmo%pres,              &
-                 &       art_atmo%rho,               &
-                 &       art_atmo%dz,                &
-                 &       art_atmo%cell_area,         &
+       CALL art_psc_main(p_art_data(jg)%PSC_meta,                                  &
+                 &       p_patch,                                                  &
+                 &       p_dtime,                                                  &
+                 &       p_diag%temp,                                              &
+                 &       p_diag%pres,                                              &
+                 &       p_prog%rho,                                               &
+                 &       p_metrics%z_ifc(:,1:nlev,:)-p_metrics%z_ifc(:,2:nlev+1,:),&
+                 &       i_startblk, i_endblk, i_rlstart, i_rlend, nlev,           &
                  &       jg, tracer)
-      END IF
-
-      ! Dry freezing of H2O
-      IF (art_chem%iTRH2O /= 0) THEN
-        CALL art_dry_freezing_H2O(jg, tracer(:,:,:,art_chem%iTRH2O))
       END IF
 
 
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
-        CASE(0,1)
-
-          IF (p_art_data(jg)%OH_chem_meta%is_init) THEN
-            IF (timers_level > 3) CALL timer_start(timer_art_photo)
-
-            CALL art_photolysis(jg,                     &
-                   &            current_date,           &
-                   &            p_dtime,                &
-                   &            tracer)
-            IF (timers_level > 3) CALL timer_stop(timer_art_photo)
-          END IF
-
-
+        CASE(0)
           IF (timers_level > 3) CALL timer_start(timer_art_losschem)
-
-          CALL art_loss_chemtracer(jg,             &
-                                 & current_date,   &
-                                 & p_dtime,        &
-                                 & p_prog_list,    &
-                                 & tracer)
+          CALL art_loss_chemtracer(ext_data, p_patch, &
+                 & current_date,                      &
+                 & p_dtime,                           &
+                 & p_prog,                            &
+                 & p_prog_list,                       &
+                 & p_diag,                            &
+                 & p_metrics,                         &
+                 & tracer,                            &
+                 & iTRO3)
           IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
-        CASE(2)
+        CASE(1)
           IF (timers_level > 3) CALL timer_start(timer_art_photo)
-
-          CALL art_photolysis(jg,                 &
-                            & current_date,       &
-                            & p_dtime,            &
-                            & tracer)
+            IF (iforcing == inwp) THEN
+          CALL art_photolysis(ext_data,               &
+                 & p_patch,                           &
+                 & current_date,                      &
+                 & p_dtime,                           &
+                 & p_prog_list,                       &
+                 & p_prog,                            &
+                 & p_diag,                            &
+                 & p_prog%rho,                        &
+                 & p_metrics,                         &
+                 & tracer,                            &
+                 & prm_diag = prm_diag                )
+         ELSEIF (iforcing == iecham) THEN
+          CALL art_photolysis(ext_data,               &
+                 & p_patch,                           &
+                 & current_date,                      &
+                 & p_dtime,                           &
+                 & p_prog_list,                       &
+                 & p_prog,                            &
+                 & p_diag,                            &
+                 & p_prog%rho,                        &
+                 & p_metrics,                         &
+                 & tracer                             )
+          ENDIF
 
           IF (timers_level > 3) CALL timer_stop(timer_art_photo)
+
           IF (timers_level > 3) CALL timer_start(timer_art_losschem)
 
-          CALL art_loss_gasphase(current_date,    &
-                               & jg,              &
-                               & p_dtime,         &
-                               & tracer)
-
+          CALL art_loss_chemtracer(ext_data, p_patch, &
+                 & current_date,                      &
+                 & p_dtime,                           &
+                 & p_prog,                            &
+                 & p_prog_list,                       &
+                 & p_diag,                            &
+                 & p_metrics,                         &
+                 & tracer,                            &
+                 & iTRO3)
           IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
+        CASE(2)
+          IF (iforcing == inwp) THEN
+            IF (timers_level > 3) CALL timer_start(timer_art_photo)
+
+            CALL art_photolysis(ext_data,               &
+                   & p_patch,                           &
+                   & current_date,                      &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_prog,                            &
+                   & p_diag,                            &
+                   & p_prog%rho,                        &
+                   & p_metrics,                         &
+                   & tracer,                            &
+                   & prm_diag = prm_diag)
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_photo)
+            IF (timers_level > 3) CALL timer_start(timer_art_losschem)
+
+            CALL art_loss_gasphase(nproma,              &
+                   & current_date,                      &
+                   & ext_data,                          &
+                   & p_patch,                           &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_diag,                            &
+                   & p_metrics,                         &
+                   & tracer,                            &
+                   & iTRO3)
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
+          ELSEIF (iforcing == iecham) THEN
+            IF (timers_level > 3) CALL timer_start(timer_art_photo)
+
+            CALL art_photolysis(ext_data,               &
+                   & p_patch,                           &
+                   & current_date,                      &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_prog,                            &
+                   & p_diag,                            &
+                   & p_prog%rho,                        &
+                   & p_metrics,                         &
+                   & tracer                             )
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_photo)
+            IF (timers_level > 3) CALL timer_start(timer_art_losschem)
+
+            CALL art_loss_gasphase(nproma,              &
+                   & current_date,                      &
+                   & ext_data,                          &
+                   & p_patch,                           &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_diag,                            &
+                   & p_metrics,                         &
+                   & tracer,                            &
+                   & iTRO3)
+
+            IF (timers_level > 3) CALL timer_stop(timer_art_losschem)
+          ENDIF
 
         CASE DEFAULT
           CALL finish('mo_art_reaction_interface:art_reaction_interface', &
@@ -205,8 +309,14 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
         CASE (10)
           IF (art_config(jg)%O3_feedback == 1) THEN 
       
-            IF (art_chem%iTRO3 /= 0) THEN
-              CALL art_feedback_o3(jg,art_atmo%o3_field_icon,tracer(:,:,:,art_chem%iTRO3))
+            IF (iTRO3 /= 0) THEN
+              SELECT CASE ( iforcing )
+                CASE( inwp )
+                  CALL art_feedback_o3(p_patch,ext_data%atm%o3,tracer(:,:,:,iTRO3))
+                CASE (iecham)
+                  CALL art_feedback_o3(p_patch,prm_field(jg)%o3,tracer(:,:,:,iTRO3))
+             END SELECT
+           
             ELSE
                CALL finish('mo_art_reaction_interface:art_reaction_interface', &
                     &      'You have chosen ART-ozone feedback, irad_o3 = 10, '&

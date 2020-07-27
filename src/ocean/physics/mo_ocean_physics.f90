@@ -42,7 +42,7 @@ MODULE mo_ocean_physics
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & lambda_wind,                                            &
+    & lambda_wind, wma_visc,                                  &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
@@ -110,7 +110,7 @@ MODULE mo_ocean_physics
    & WindMixingDecay, WindMixingLevel
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_ocean_velocity_diffusion, ONLY: veloc_diff_harmonic_div_grad
-  USE mo_ocean_GM_Redi,       ONLY: init_GMRedi
+  
 
   IMPLICIT NONE
 
@@ -125,7 +125,7 @@ MODULE mo_ocean_physics
   !PUBLIC :: init_ho_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
-!   PUBLIC :: calc_characteristic_physical_numbers
+  PUBLIC :: calc_characteristic_physical_numbers
   PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
   
   ! variables
@@ -166,8 +166,6 @@ CONTAINS
     IF(GMRedi_configuration==GMRedi_combined&
       &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
 
-      CALL init_GMRedi(patch_3d) 
-      
       physics_param%k_tracer_isoneutral = k_tracer_isoneutral_parameter
       physics_param%k_tracer_dianeutral = k_tracer_dianeutral_parameter
 

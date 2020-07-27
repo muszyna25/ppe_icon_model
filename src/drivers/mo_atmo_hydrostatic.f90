@@ -33,8 +33,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
 
   USE mo_load_restart,          ONLY: read_restart_files
-  USE mo_key_value_store,       ONLY: t_key_value_store
-  USE mo_restart_nml_and_att,   ONLY: getAttributesForRestarting
+  USE mo_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_name_list_output_init, ONLY: init_name_list_output
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
@@ -90,8 +89,8 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "construct_atmo_hydrostatic"
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0, opt_err
-    TYPE(t_key_value_store), POINTER :: restartAttributes
+    INTEGER :: jstep0
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     !------------------------------------------------------------------
     ! Initialize parameters and solvers;
@@ -147,11 +146,10 @@ CONTAINS
 
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      CALL getAttributesForRestarting(restartAttributes)
-      ! get start counter for time loop from restart file:
+      restartAttributes => getAttributesForRestarting()
       IF (ASSOCIATED(restartAttributes)) THEN
-        CALL restartAttributes%get("jstep", jstep0, opt_err=opt_err)
-        jstep0 = MERGE(jstep0, 0, opt_err .EQ. 0)
+        ! get start counter for time loop from restart file:
+        jstep0 = restartAttributes%getInteger("jstep", jstep0)
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info)

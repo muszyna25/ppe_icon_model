@@ -20,6 +20,7 @@ MODULE mo_ocean_solve_lhs
   USE mo_run_config, ONLY: ltimer
 
   IMPLICIT NONE
+
   PRIVATE
 
   PUBLIC :: t_lhs
@@ -35,7 +36,7 @@ MODULE mo_ocean_solve_lhs
     LOGICAL :: is_const, have_sp
     CLASS(t_lhs_agen), POINTER :: agen => NULL()
     CLASS(t_transfer), POINTER :: trans => NULL()
-    LOGICAL, PUBLIC :: is_init = .false.
+    INTEGER, ALLOCATABLE, DIMENSION(:), PUBLIC :: is_init
     REAL(KIND=wp), ALLOCATABLE, DIMENSION(:,:) :: x_t, ax_t, dcoef_c_wp
     REAL(KIND=sp), ALLOCATABLE, DIMENSION(:,:,:) :: coef_c_sp
     REAL(KIND=wp), ALLOCATABLE, DIMENSION(:,:,:) :: coef_l_wp, coef_c_wp
@@ -45,7 +46,7 @@ MODULE mo_ocean_solve_lhs
     INTEGER, ALLOCATABLE, DIMENSION(:,:) :: grp_map_idx, grp_map_blk, &
       & inz_t, dnz_cal
 #ifdef __INTEL_COMPILER
-!DIR$ ATTRIBUTES ALIGN : 64 :: x_t, ax_t, coef_l_wp, coef_c_sp
+!DIR$ ATTRIBUTES ALIGN : 64 :: is_init, x_t, ax_t, coef_l_wp, coef_c_sp
 !DIR$ ATTRIBUTES ALIGN : 64 :: coef_c_wp, dcoef_c_sp, dcoef_c_wp, blk_loc
 !DIR$ ATTRIBUTES ALIGN : 64 :: idx_loc, dnz_cal, blk_cal, idx_cal
 !DIR$ ATTRIBUTES ALIGN : 64 :: grp_map_idx, grp_map_blk, grp_smap_blk
@@ -66,6 +67,7 @@ MODULE mo_ocean_solve_lhs
     PROCEDURE, PUBLIC :: update => lhs_update
 ! service routines
     PROCEDURE, PUBLIC :: construct => lhs_construct
+    PROCEDURE, PUBLIC :: destruct => lhs_destruct
     PROCEDURE, PUBLIC :: dump_matrix => lhs_dump_matrix
     PROCEDURE, PUBLIC :: dump_ax => lhs_dump_ax
     PROCEDURE, PRIVATE :: find_nnzero => lhs_find_nnzero
@@ -235,8 +237,8 @@ CONTAINS
       & "::lhs_update()"
 
     IF (ltimer) CALL timer_start(this%timer_upd)
-    IF (.NOT.this%is_init) &
-      &CALL finish(routine, "t_lhs was not initiaized-...!")
+    IF (.NOT.ALLOCATED(this%is_init)) &
+      & CALL finish(routine, "t_lhs was not initiaized-...!")
     IF (.NOT.this%is_const .AND. .NOT.l_lhs_direct) THEN
 ! re-compute coeffs
       CALL this%create_matrix()
@@ -248,39 +250,72 @@ CONTAINS
     IF (ltimer) CALL timer_stop(this%timer_upd)
   END SUBROUTINE lhs_update
 
+! interface routine to free all internal arrays
+  SUBROUTINE lhs_destruct(this)
+    CLASS(t_lhs), INTENT(INOUT) :: this
+
+    NULLIFY(this%agen, this%trans)
+    IF (ALLOCATED(this%x_t)) DEALLOCATE(this%x_t, this%ax_t)
+    IF (ALLOCATED(this%idx_loc)) DEALLOCATE(this%idx_loc, this%blk_loc)
+    IF (ALLOCATED(this%grp_smap_idx)) DEALLOCATE(this%grp_smap_idx, &
+      & this%grp_smap_blk, this%grp_smap_inz)
+    IF (ALLOCATED(this%inz_t)) DEALLOCATE(this%inz_t)
+    IF (ALLOCATED(this%grp_map_idx)) &
+      & DEALLOCATE(this%grp_map_idx, this%grp_map_blk)
+    IF (ALLOCATED(this%idx_cal)) DEALLOCATE(this%idx_cal, this%blk_cal)
+    IF (ALLOCATED(this%coef_l_wp)) DEALLOCATE(this%coef_l_wp)
+    IF (ALLOCATED(this%coef_c_sp)) DEALLOCATE(this%coef_c_sp)
+    IF (ALLOCATED(this%coef_c_wp)) DEALLOCATE(this%coef_c_wp)
+    IF (ALLOCATED(this%dcoef_c_sp)) DEALLOCATE(this%dcoef_c_sp)
+    IF (ALLOCATED(this%dcoef_c_wp)) DEALLOCATE(this%dcoef_c_wp)
+    IF (ALLOCATED(this%dnz_cal)) DEALLOCATE(this%dnz_cal)
+    IF (ALLOCATED(this%is_init)) DEALLOCATE(this%is_init)
+  END SUBROUTINE lhs_destruct
+
 ! interface to init lhs-object using the provided t_agen - object (i.e. matrix generator)
   SUBROUTINE lhs_construct(this, have_sp, par, agen, trans)
     CLASS(t_lhs), INTENT(INOUT) :: this
     LOGICAL, INTENT(IN) :: have_sp
     TYPE(t_ocean_solve_parm), INTENT(IN) :: par
-    CLASS(t_lhs_agen), TARGET, INTENT(IN) :: agen
-    CLASS(t_transfer), TARGET, INTENT(IN) :: trans
+    CLASS(t_lhs_agen), POINTER, INTENT(IN) :: agen
+    CLASS(t_transfer), POINTER, INTENT(IN) :: trans
     CHARACTER(LEN=*), PARAMETER :: routine = module_name//&
       & "::lhs_construct()"
 
+    CALL this%destruct()
     IF (ltimer) THEN
       this%timer_init = new_timer("lhs init")
       CALL timer_start(this%timer_init)
     END IF
-    IF (agen%is_init) THEN
-      this%agen => agen
-    ELSE
-      CALL finish(routine, &
-        & "matrix generating type/func has to be initialized...")
-    END IF
-    IF (trans%is_init) THEN
-      this%trans => trans
-      IF (l_lhs_direct) THEN
-        SELECT TYPE (trans)
-        CLASS IS (t_trivial_transfer)
-        CLASS DEFAULT
-          CALL finish(routine, &
-            & "direct use of t_agen in lhs only for t_trivial_transfer type!")
-        END SELECT
+    IF(ASSOCIATED(agen)) THEN
+      IF (ALLOCATED(agen%is_init)) THEN
+        this%agen => agen
+      ELSE
+        CALL finish(routine, &
+          & "matrix generating type/func has to be initialized...")
       END IF
     ELSE
       CALL finish(routine, &
-        & "transfer type has to be initialized...")
+        & "no valid matrix generating type/func had been provided...")
+    END IF
+    IF(ASSOCIATED(trans)) THEN
+      IF (ALLOCATED(trans%is_init)) THEN
+        this%trans => trans
+        IF (l_lhs_direct) THEN
+          SELECT TYPE (trans)
+          CLASS IS (t_trivial_transfer)
+          CLASS DEFAULT
+            CALL finish(routine, &
+              & "direct use of t_agen in lhs only for t_trivial_transfer type!")
+          END SELECT
+        END IF
+      ELSE
+        CALL finish(routine, &
+          & "transfer type has to be initialized...")
+      END IF
+    ELSE
+      CALL finish(routine, &
+        & "no valid transfer type had been provided...")
     END IF
     IF (par%nidx .GT. 0) THEN
       this%nidx_loc = par%nidx
@@ -322,7 +357,7 @@ CONTAINS
       this%timer_upd = new_timer("lhs update")
       this%timer = new_timer("lhs apply")
     END IF
-    this%is_init = .true.
+    ALLOCATE(this%is_init(1))
   END SUBROUTINE lhs_construct
 
 ! backend routine to update or create the lhs-matrix
@@ -659,7 +694,8 @@ CONTAINS
     LOGICAL :: l_direct
     CHARACTER(LEN=*),PARAMETER :: routine = module_name//":lhs_apply_wp()"
 
-    IF (.NOT.this%is_init) CALL finish(routine, "t_lhs was not initiaized-...!")
+    IF (.NOT.ALLOCATED(this%is_init)) &
+      & CALL finish(routine, "t_lhs was not initiaized-...!")
     l_direct = l_lhs_direct
     IF (PRESENT(opt_direct)) l_direct = opt_direct
     IF (ltimer) CALL timer_start(this%timer)
@@ -679,7 +715,8 @@ CONTAINS
     REAL(KIND=wp), INTENT(OUT), DIMENSION(:,:), CONTIGUOUS :: ax
     CHARACTER(LEN=*),PARAMETER :: routine = module_name//":lhs_apply_noaii_wp()"
 
-    IF (.NOT.this%is_init) CALL finish(routine, "t_lhs was not initiaized-...!")
+    IF (.NOT.ALLOCATED(this%is_init)) &
+      & CALL finish(routine, "t_lhs was not initiaized-...!")
     IF (ltimer) CALL timer_start(this%timer)
     CALL this%noaii_doit(x, ax, this%coef_c_wp, &
       & this%blk_cal, this%idx_cal)
@@ -724,7 +761,8 @@ CONTAINS
     LOGICAL :: l_direct
     CHARACTER(LEN=*),PARAMETER :: routine = module_name//":lhs_apply_sp()"
 
-    IF (.NOT.this%is_init) CALL finish(routine, "t_lhs was not initiaized-...!")
+    IF (.NOT.ALLOCATED(this%is_init)) &
+      & CALL finish(routine, "t_lhs was not initiaized-...!")
     l_direct = l_lhs_direct
     IF (PRESENT(opt_direct)) l_direct = opt_direct
     IF (ltimer) CALL timer_start(this%timer)
@@ -778,7 +816,8 @@ CONTAINS
     REAL(KIND=sp), INTENT(OUT), DIMENSION(:,:), CONTIGUOUS :: ax
     CHARACTER(LEN=*),PARAMETER :: routine = module_name//":lhs_apply_noaii_sp()"
 
-    IF (.NOT.this%is_init) CALL finish(routine, "t_lhs was not initiaized-...!")
+    IF (.NOT.ALLOCATED(this%is_init)) &
+      & CALL finish(routine, "t_lhs was not initiaized-...!")
     IF (ltimer) CALL timer_start(this%timer)
     CALL this%noaii_doit(x, ax, this%coef_c_sp, this%blk_cal, this%idx_cal)
     IF (ltimer) CALL timer_stop(this%timer)

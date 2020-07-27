@@ -20,7 +20,7 @@ MODULE mo_parallel_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist, open_and_restore_namelist, close_tmpfile
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, open_and_restore_namelist, close_tmpfile
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -62,7 +62,6 @@ MODULE mo_parallel_nml
     & config_max_mpi_message_size => max_mpi_message_size,    &
     & config_use_physics_barrier  => use_physics_barrier,     &
     & config_restart_chunk_size => restart_chunk_size,        &
-    & config_restart_load_scale_max => restart_load_scale_max, &
     & config_io_proc_chunk_size => io_proc_chunk_size,        &
     & config_num_dist_array_replicas => num_dist_array_replicas, &
     & config_io_process_stride => io_process_stride,          &
@@ -175,9 +174,6 @@ MODULE mo_parallel_nml
     ! The (asynchronous) restart is capable of writing and communicating
     ! more than one 2D slice at once
     INTEGER :: restart_chunk_size
-    ! The multifile checkpointing framework is capable of reading and distributing
-    ! full 3d arrays (if there are less than restart_load_scale_max work PE per file.
-    INTEGER :: restart_load_scale_max
 
     ! The (asynchronous) name list output is capable of writing and communicating
     ! more than one 2D slice at once
@@ -212,7 +208,7 @@ MODULE mo_parallel_nml
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
       & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc, &
       & num_dist_array_replicas, io_process_stride, io_process_rotate, &
-      & default_comm_pattern_type, use_omp_input, restart_load_scale_max
+      & default_comm_pattern_type, use_omp_input
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -304,7 +300,6 @@ MODULE mo_parallel_nml
     use_dp_mpi2io = .FALSE.
 
     restart_chunk_size = -1
-    restart_load_scale_max = 1
 
     io_proc_chunk_size = -1
 
@@ -394,8 +389,7 @@ MODULE mo_parallel_nml
     config_use_dp_mpi2io        = use_dp_mpi2io
     config_restart_chunk_size   = restart_chunk_size
     config_io_proc_chunk_size   = io_proc_chunk_size
-    config_restart_load_scale_max = restart_load_scale_max
-    config_num_dist_array_replicas = num_dist_array_replicas
+    config_num_dist_array_replicas   = num_dist_array_replicas
     config_io_process_stride    = io_process_stride
     config_io_process_rotate    = io_process_rotate
     config_default_comm_pattern_type = default_comm_pattern_type

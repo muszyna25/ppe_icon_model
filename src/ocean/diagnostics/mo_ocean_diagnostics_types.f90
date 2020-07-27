@@ -44,8 +44,6 @@ MODULE mo_ocean_diagnostics_types
     REAL(wp), POINTER :: global_heat_content(:)
     REAL(wp), POINTER :: global_heat_content_solid(:)
     REAL(wp), POINTER :: total_salt(:)
-    REAL(wp), POINTER :: total_saltinseaice(:)
-    REAL(wp), POINTER :: total_saltinliquidwater(:)
     REAL(wp), POINTER :: vorticity(:)
     REAL(wp), POINTER :: enstrophy(:)
     REAL(wp), POINTER :: ssh_global(:)

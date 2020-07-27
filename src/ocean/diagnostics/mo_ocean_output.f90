@@ -117,7 +117,7 @@ CONTAINS
     ENDIF
 
    !write(0,*) "out_step=", jstep, nsteps_since_last_output, timeSteps_per_outputStep, out_step
-   IF (.not. istime4name_list_output(out_step) )  RETURN
+   IF (.not. istime4name_list_output(jstep) )  RETURN
    !write(0,*) "write ....."
 
     !------------------------------------------------------------------
@@ -128,9 +128,6 @@ CONTAINS
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
     WRITE(message_text,'(a,a)') 'Write output at:', TRIM(datestring)
     CALL message (TRIM(routine),message_text)
-
-    IF (output_mode%l_nml) CALL write_name_list_output(out_step)
-
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
 

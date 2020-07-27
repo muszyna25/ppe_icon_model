@@ -42,14 +42,12 @@ MODULE mo_ocean_surface_types
     REAL(wp), POINTER ::   &
       &  top_dilution_coeff        (:,:), & ! wind speed in 10m height                                  [m/s]
       &  Wind_Speed_10m            (:,:), & ! wind speed in 10m height                                  [m/s]
-      &  CO2_Mixing_Ratio          (:,:), & ! CO2 mixing ratio                                          [ppmv]
       &  Sea_level_pressure        (:,:), & ! sea level pressure                                        [Pa]
       &  TopBC_WindStress_u        (:,:), & ! forcing of zonal component of velocity equation           [Pa]
       &  TopBC_WindStress_v        (:,:), & ! forcing of meridional component of velocity equation      [Pa]
       &  SST                       (:,:), & ! sea surface temperature                                   [C]
       &  SSS                       (:,:), & ! sea surface salinity                                      [psu]
       &  cellThicknessUnderIce     (:,:), & ! thickness of freeboard, open water below ice              [m]                                                [m]
-      &  surface_salt_content      (:,:), & ! surface salt content                                      [kg]                                                [m]
 
       ! heat fluxes
       &  HeatFlux_Total            (:,:), & ! sum of forcing surface heat flux                          [W/m2]

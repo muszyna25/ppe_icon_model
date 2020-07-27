@@ -23,8 +23,7 @@ USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
-USE mo_key_value_store,      ONLY: t_key_value_store
-USE mo_restart_nml_and_att,  ONLY: getAttributesForRestarting
+USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
 USE mo_io_config,            ONLY: configure_io, init_var_in_output, var_in_output
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
@@ -39,7 +38,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                ldass_lhn, msg_level, &
-  &                                iqc, iqt, iqv,        &
+  &                                iqc, iqt,             &
   &                                ico2, io3,            &
   &                                number_of_grid_used
 USE mo_initicon_config,      ONLY: pinit_seed, pinit_amplitude
@@ -126,7 +125,7 @@ USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
-USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
+USE mo_random_util,         ONLY: add_random_noise
 
 USE mo_icon2dace,           ONLY: init_dace, finish_dace
 
@@ -148,12 +147,12 @@ PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 CONTAINS
 
   !---------------------------------------------------------------------
-  SUBROUTINE atmo_nonhydrostatic(latbc)
+  SUBROUTINE atmo_nonhydrostatic
     TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
 !!$    CHARACTER(*), PARAMETER :: routine = "atmo_nonhydrostatic"
 
-!   CALL construct_atmo_nonhydrostatic(latbc)
+    CALL construct_atmo_nonhydrostatic(latbc)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -177,18 +176,18 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist, jgroup
+    INTEGER :: jg, jt, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
-    TYPE(t_key_value_store), POINTER :: restartAttributes
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params( p_patch(1:) )
+      CALL init_echam_phy_params       ( p_patch(1:) )
       CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
       CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF
@@ -252,6 +251,8 @@ CONTAINS
     ENDIF
 
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
+
+
 
     ! Now allocate memory for the states
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
@@ -603,9 +604,11 @@ CONTAINS
       sim_step_info%dtime      = dtime
       jstep0 = 0
 
-      CALL getAttributesForRestarting(restartAttributes)
-      ! get start counter for time loop from restart file:
-      IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+      restartAttributes => getAttributesForRestarting()
+      IF (ASSOCIATED(restartAttributes)) THEN
+        ! get start counter for time loop from restart file:
+        jstep0 = restartAttributes%getInteger("jstep")
+      END IF
       sim_step_info%jstep0    = jstep0
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info)

@@ -463,7 +463,6 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('t_g_t_'//TRIM(csfc), '', '', datatype_flt),       &
                & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-               & ref_idx=jsfc,                                                 &
                & ldims=shape2d,                                                &
                & var_class=CLASS_TILE,                                         &
                & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
@@ -492,7 +491,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('t_s_t_'//csfc, '', '', datatype_flt),               &
            & grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-           & ref_idx=jsfc,                                                 &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE,                                         &
            & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
@@ -519,7 +517,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('t_sk_t_'//csfc, '', '', datatype_flt),              &
            & grib2_var(0, 0, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-           & ref_idx=jsfc,                                                 &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE, tlev_source=TLEV_NNOW_RCF,              & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t")         )
@@ -550,7 +547,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
            & t_cf_var('w_i_t_'//csfc, '', '', datatype_flt),               &
            & grib2_var(2, 0, 13, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-           & ref_idx=jsfc,                                                   &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -581,7 +577,6 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
              & t_cf_var('w_p_t_'//csfc, '', '', datatype_flt),               &
              & grib2_var(2, 0, 14, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-             & ref_idx=jsfc,                                                   &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
              & tlev_source=TLEV_NNOW_RCF,                                      &
@@ -608,7 +603,6 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
              & t_cf_var('w_s_t_'//csfc, '', '', datatype_flt),               &
              & grib2_var(2, 0, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-             & ref_idx=jsfc,                                                   &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
              & tlev_source=TLEV_NNOW_RCF,                                      &
@@ -638,7 +632,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1,                 &
            & t_cf_var('t_so_t_'//csfc, '', '', datatype_flt),              &
            & grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-           & ref_idx=jsfc,                                                   &
            & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -670,7 +663,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
            & t_cf_var('w_so_t_'//csfc, '', '', datatype_flt),              &
            & grib2_var(2, 3, 20, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-           & ref_idx=jsfc,                                                   &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -702,7 +694,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
            & t_cf_var('w_so_ice_t_'//csfc, '', '', datatype_flt),          &
            & grib2_var(2, 3, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-           & ref_idx=jsfc,                                                   &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
            & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
@@ -735,7 +726,6 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
              & t_cf_var('t_snow_t_'//csfc, '', '', datatype_flt),          &
              & grib2_var(0, 0, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-             & ref_idx=jsfc,                                                 &
              & ldims=shape2d,                                                &
              & var_class=CLASS_TILE_LAND,                                    &
              & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
@@ -764,7 +754,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('w_snow_t_'//csfc, '', '', datatype_flt),          &
            & grib2_var(0, 1, 60, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-           & ref_idx=jsfc,                                                 &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE_LAND,                                    &
            & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
@@ -793,7 +782,6 @@ MODULE mo_nwp_lnd_state
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
            & t_cf_var('rho_snow_t_'//csfc, '', '', datatype_flt),          &
            & grib2_var(0, 1, 61, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-           & ref_idx=jsfc,                                                   &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -824,7 +812,6 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                 &
              & t_cf_var('rho_snow_mult_t_'//csfc, '', '', datatype_flt),      &
              & grib2_var(0, 1, 61, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-             & ref_idx=jsfc,                                                    &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,               &
              & var_class=CLASS_TILE_LAND,                                       &
              & tlev_source=TLEV_NNOW_RCF,                                       &
@@ -857,7 +844,6 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW_HALF,                         &
              & t_cf_var('t_snow_mult_t_'//csfc, '', '', datatype_flt),     &
              & grib2_var(0, 0, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-             & ref_idx=jsfc,                                                 &
              & ldims=(/nproma,nlev_snow+1,kblks/),                           &
              & var_class=CLASS_TILE_LAND,                                    &
              & lrestart=.TRUE.,                                              &
@@ -888,7 +874,6 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                &
              & t_cf_var('wtot_snow_t_'//csfc, '', '', datatype_flt),           &
              & grib2_var(0, 1, 60, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-             & ref_idx=jsfc,                                                   &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND, tlev_source=TLEV_NNOW_RCF,           &
              & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") ) ! for output take field from nnow_rcf slice
@@ -917,7 +902,6 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                &
              & t_cf_var('wliq_snow_t_'//csfc, '', '', datatype_flt),           &
              & grib2_var(0, 1, 210, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-             & ref_idx=jsfc,                                                   &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND, tlev_source=TLEV_NNOW_RCF,           &
              & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") ) ! for output take field from nnow_rcf slice
@@ -946,7 +930,6 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                &
                & t_cf_var('dzh_snow_t_'//csfc, '', '', datatype_flt),            &
                & grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
-               & ref_idx=jsfc,                                                   &
                & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
                & var_class=CLASS_TILE_LAND, tlev_source=TLEV_NNOW_RCF,           &
                & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") ) ! for output take field from nnow_rcf slice
@@ -1363,9 +1346,8 @@ MODULE mo_nwp_lnd_state
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
              & t_cf_var('qv_s_t_'//csfc, '', '', datatype_flt),            &
              & grib2_var(0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-             & ref_idx=jsfc,                                                 &
-             & ldims=shape2d,                                                &
              & var_class=CLASS_TILE,                                         &
+             & ldims=shape2d,                                                &
              & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     ENDDO
 
@@ -1594,10 +1576,9 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S,                      &
                & t_cf_var('runoff_s_t_'//csfc, '', '', datatype_flt),            &
                & grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-               & ref_idx=jsfc,                                                   &
-               & ldims=shape2d,                                                  &
 !               & isteptype=TSTEP_ACCUM,                                          &
-               & var_class=CLASS_TILE_LAND )
+               & var_class=CLASS_TILE_LAND,                                      &
+               & ldims=shape2d )
     END DO
 
 
@@ -1630,10 +1611,9 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G,                      &
                & t_cf_var('runoff_g_t_'//csfc, '', '', datatype_flt),            &
                & grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-               & ref_idx=jsfc,                                                   &
-               & ldims=shape2d,                                                  &
 !               & isteptype=TSTEP_ACCUM,                                          &
-               & var_class=CLASS_TILE_LAND )
+               & var_class=CLASS_TILE_LAND,                                      &
+               & ldims=shape2d )
     END DO
 
 
@@ -1688,10 +1668,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                & t_cf_var('plantevap_t_'//csfc, '', '', datatype_flt),           &
                & grib2_var(2, 0, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-               & ref_idx=jsfc,                                                   &
-               & ldims=shape2d,                                                  &
                & var_class=CLASS_TILE_LAND,in_group=groups("land_tile_vars",     &
-               & "dwd_fg_sfc_vars_t") )
+               & "dwd_fg_sfc_vars_t"), ldims=shape2d )
       END DO
     ENDIF
 
@@ -1765,9 +1743,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('h_snow_t_'//csfc, '', '', datatype_flt),          &
                & grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-               & ref_idx=jsfc,                                                 &
-               & ldims=shape2d,                                                &
                & var_class=CLASS_TILE_LAND,                                    &
+               & ldims=shape2d,                                                &
                & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
       ENDDO
 
@@ -1805,9 +1782,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                & t_cf_var('freshsnow_t_'//csfc, '', '', datatype_flt),      &
                & grib2_var(0, 1, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-               & ref_idx=jsfc,                                                &
-               & ldims=shape2d,                                               &
                & var_class=CLASS_TILE_LAND,                                   &
+               & ldims=shape2d,                                               &
                & in_group=groups("dwd_fg_sfc_vars_t") )
     END DO
 
@@ -1857,9 +1833,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('snowfrac_t_'//csfc, '', '', datatype_flt),        &
                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-               & ref_idx=jsfc,                                                 &
-               & ldims=shape2d,                                                &
                & var_class=CLASS_TILE_LAND,                                    &
+               & ldims=shape2d,                                                &
                & in_group=groups("land_tile_vars"),                            &
                & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
     END DO
@@ -1889,9 +1864,7 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('snowfrac_lc_t_'//csfc, '', '', datatype_flt),     &
                & grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
-               & ref_idx=jsfc,                                                 &
-               & ldims=shape2d,                                                &
-               & var_class=CLASS_TILE_LAND,                                    &
+               & var_class=CLASS_TILE_LAND, ldims=shape2d,                     &
                & in_group=groups("land_tile_vars", "dwd_fg_sfc_vars_t"),       &
                & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
     END DO
@@ -1921,9 +1894,7 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('snowfrac_lcu_t_'//csfc, '', '', datatype_flt),      &
                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-               & ref_idx=jsfc,                                                 &
-               & ldims=shape2d, lrestart=.TRUE.,                               &
-               & var_class=CLASS_TILE_LAND )
+               & var_class=CLASS_TILE_LAND, ldims=shape2d, lrestart=.TRUE. )
     END DO
 
 

@@ -179,10 +179,11 @@ CONTAINS
     IF (iforcing == inwp) CALL inquire_external_files(p_patch, cdi_extpar_id, cdi_filetype)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
-    CALL extpar_varnames_dict%init(.FALSE.)
+    CALL extpar_varnames_dict%init(lcase_sensitive=.FALSE.)
     IF (ANY(cdi_filetype(:) == FILETYPE_GRB2)) THEN
-      IF (extpar_varnames_map_file /= ' ') &
-        & CALL extpar_varnames_dict%loadfile(TRIM(extpar_varnames_map_file))
+      IF(extpar_varnames_map_file /= ' ') THEN
+        CALL extpar_varnames_dict%loadfile(TRIM(extpar_varnames_map_file))
+      END IF
       read_netcdf_parallel = .FALSE. ! GRIB2 can only be read using cdi library
     ELSE IF (read_nc_via_cdi) THEN
       read_netcdf_parallel = .FALSE.

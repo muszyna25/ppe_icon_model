@@ -262,7 +262,7 @@ MODULE mo_ps_radiation_model
     !-------------------------------------------------------------------
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
                                     num_restart_procs, &
-                                    my_comp_id=ps_radiation_process)
+                                    opt_comp_id=ps_radiation_process)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers

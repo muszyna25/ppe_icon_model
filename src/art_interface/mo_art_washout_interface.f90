@@ -53,10 +53,9 @@ MODULE mo_art_washout_interface
   USE mo_art_washout_volc,              ONLY: art_washout_volc
   USE mo_art_washout_radioact,          ONLY: art_washout_radioact
   USE mo_art_washout_aerosol,           ONLY: art_aerosol_washout
-#ifdef _OPENMP
   USE omp_lib
-#endif
   USE mo_art_diagnostics,               ONLY: art_save_aerosol_wet_deposition
+
 #endif
 
   IMPLICIT NONE
@@ -201,7 +200,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                    CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  wash_rate_m3(:,:), dtime,  &
                         & istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
                   ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
-                   CALL art_save_aerosol_wet_deposition(p_art_data(jg),                                      &
+                   CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),      &
                         & wash_rate_m3(:,:), art_config(jg)%iart_aero_washout,                               &
                         & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                         &
                         & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr3(ijsp), jb,                        &
@@ -212,7 +211,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), wash_rate_m0(:,:), dtime,            &
                      &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
                 ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
-                CALL art_save_aerosol_wet_deposition(p_art_data(jg),                                         &
+                CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),         &
                      & wash_rate_m0(:,:), art_config(jg)%iart_aero_washout,                                  &
                      & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                            &
                      & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr0, jb,                                 &
@@ -250,7 +249,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                     CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  wash_rate_m3(:,:), dtime, &
                       &  istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
                    ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
-                    CALL art_save_aerosol_wet_deposition(p_art_data(jg),                                     &
+                    CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),     &
                          & wash_rate_m3(:,:), art_config(jg)%iart_aero_washout+100,                          &
                          & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                        &
                          & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr3(ijsp), jb,                       &
@@ -260,7 +259,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                   CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), wash_rate_m0(:,:), dtime,     &
                        &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
                   ! DIAGNOSTIC: acc_wetdepo_gscp/acc_wetdepo_con/acc_wetdepo_rrsfc of art-tracer
-                  CALL art_save_aerosol_wet_deposition(p_art_data(jg),                                  &
+                  CALL art_save_aerosol_wet_deposition(p_nh_state_lists(jg)%diag_list, p_art_data(jg),  &
                        & wash_rate_m0(:,:), art_config(jg)%iart_aero_washout+100,                       &
                        & prm_diag%rain_gsp_rate(:,jb)+prm_diag%rain_con_rate(:,jb),                     &
                        & p_metrics%ddqz_z_full(:,:,:), dtime, fields%itr0, jb,                          &

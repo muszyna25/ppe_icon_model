@@ -1,6 +1,6 @@
 # ================================================================================
 # technical stuff
-basePath=${basedir}
+basePath=${ICON_BASE_PATH}
 dataPath="${baseBath}../experiments/"
 # ================================================================================
 function myDiff {

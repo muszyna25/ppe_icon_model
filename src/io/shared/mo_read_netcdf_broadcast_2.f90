@@ -34,12 +34,13 @@
 MODULE mo_read_netcdf_broadcast_2
 
   USE mo_kind,               ONLY: sp, dp, wp
+  USE mo_scatter,            ONLY: broadcast_array
   USE mo_exception,          ONLY: message, warning, finish, em_warn
   USE mo_impl_constants,     ONLY: success
   USE mo_parallel_config,    ONLY: nproma
   USE mo_io_units,           ONLY: filename_max
-  USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_comm_work, &
-    &                              process_mpi_root_id, p_bcast
+
+  USE mo_mpi,                ONLY: my_process_is_mpi_workroot
   USE mo_read_netcdf_distributed, ONLY: var_data_2d_wp, var_data_2d_int, &
     &                                   var_data_3d_wp, var_data_3d_int
   USE mo_communication,      ONLY: t_scatterPattern
@@ -54,7 +55,6 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_open_input, netcdf_close
 
   PUBLIC :: netcdf_read_att_int
-  PUBLIC :: netcdf_read_inq_varexists
   PUBLIC :: netcdf_read_0D_real
   PUBLIC :: netcdf_read_0D_int
   PUBLIC :: netcdf_read_1D
@@ -169,32 +169,11 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(zlocal)
 
     res=zlocal(1)
 
   END FUNCTION netcdf_read_ATT_INT
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  FUNCTION netcdf_read_inq_varexists(file_id, variable_name) result(ret)
-    LOGICAL                      :: ret
-    INTEGER, INTENT(IN)          :: file_id
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-
-    INTEGER                      :: err, varid
-    CHARACTER(LEN=*), PARAMETER  :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_inq_varexists'
-
-    IF( my_process_is_mpi_workroot()  ) THEN
-      err = nf_inq_varid(file_id, variable_name, varid)
-    ENDIF
-
-    CALL p_bcast(err, process_mpi_root_id, p_comm_work)
-
-    ret = (err == nf_noerr)
-  END FUNCTION netcdf_read_inq_varexists
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -223,7 +202,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(zlocal)
 
     res=zlocal(1)
 
@@ -256,7 +235,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(zlocal, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(zlocal)
 
     res=zlocal(1)
 
@@ -298,7 +277,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:2))
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -320,7 +299,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(res)
 
   END FUNCTION netcdf_read_REAL_1D
   !-------------------------------------------------------------------------
@@ -382,7 +361,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:3))
     file_time_steps=var_size(3)
 
     ! calculate time range
@@ -427,7 +406,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(res)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_time
   !-------------------------------------------------------------------------
@@ -487,7 +466,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:4), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:4))
     file_time_steps=var_size(4)
 
     ! calculate time range
@@ -533,7 +512,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(res)
 
   END FUNCTION netcdf_read_REAL_1D_extdim_extdim_time
   !-------------------------------------------------------------------------
@@ -670,7 +649,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:2))
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -696,7 +675,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(res)
 
   END FUNCTION netcdf_read_REAL_2D_all
   !-------------------------------------------------------------------------
@@ -772,7 +751,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_type)
 
     IF( my_process_is_mpi_workroot()) THEN
       SELECT CASE(var_type(1))
@@ -937,10 +916,10 @@ CONTAINS
 
     ENDIF
 
-    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_type)
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:2))
     file_time_steps      = var_size(2)
 
     ! calculate time range
@@ -1119,7 +1098,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:2))
     file_time_steps      = var_size(2)
 
     ! calculate time range
@@ -1212,7 +1191,7 @@ CONTAINS
     ENDIF
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:3))
 
     IF (PRESENT(fill_array)) THEN
       res => fill_array
@@ -1242,7 +1221,7 @@ CONTAINS
     ENDIF
 
     ! broadcast...
-    CALL p_bcast(res, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(res)
 
   END FUNCTION netcdf_read_REAL_3D_all
   !-------------------------------------------------------------------------
@@ -1299,10 +1278,10 @@ CONTAINS
 
     ENDIF
 
-    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_type)
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:2), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:2))
     file_vertical_levels = var_size(2)
 
     !-----------------------
@@ -1449,10 +1428,10 @@ CONTAINS
 
     ENDIF
 
-    CALL p_bcast(var_type, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_type)
 
     ! we need to sync the var_size...
-    CALL p_bcast(var_size(1:3), process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(var_size(1:3))
     file_vertical_levels = var_size(2)
     file_time_steps      = var_size(3)
 
@@ -1630,7 +1609,7 @@ CONTAINS
 
     ENDIF
 
-    CALL p_bcast(broadcastValue, process_mpi_root_id, p_comm_work)
+    CALL broadcast_array(broadcastValue)
     
     IF (broadcastValue(1) == 0.0_wp) THEN
       has_missValue = .false.

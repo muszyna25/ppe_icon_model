@@ -1,7 +1,7 @@
 #!/bin/ksh
 #--------------------------------------------------------------------------------
 #
-# _bb_table_Description_  AMIP experiment
+# _bb_table_Description_  AMIP update experiment
 # _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 
 #--------------------------------------------------------------------------------
@@ -14,10 +14,6 @@
 # - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
 # - the restart file names: 
 #
-# For this test a separate experiment name is needed. Therefore a soft-link
-# is created for the new name exp.atm_amip_update_test.
-rm -f exp.atm_amip_update_test
-ln -s exp.atm_amip_test exp.atm_amip_update_test
 export EXPERIMENT='atm_amip_update_test'
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
@@ -34,18 +30,6 @@ export DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200
 # 
 export RESTART_DATE='19790101T000800Z'
 
-# REFERENCE model directory and reference experiment for update test
-# (abs. path or relative paths w.r.t. <model dir>/run, e.g. .../icon-dev/run)
-#
-export OVERWRITE=no
-#
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix="/users/icontest"
-else
-    poolFolder_prefix=""
-fi
-export REFERENCE=${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.22bec705_icon-aes/${BB_SYSTEM}_${BB_SLAVE}/
 #--------------------------------------------------------------------------------
 # 
 # 2. Define the checksuite mode
@@ -55,11 +39,7 @@ export REFERENCE=${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference
 # n = nproma test
 # m = mpi test
 # o = omp test
-# t = tolerance test
 #
-# default: MD='rnmo'
-#
-export MD='u'
 
 #--------------------------------------------------------------------------------
 # 
@@ -68,7 +48,15 @@ export MD='u'
 rundir=`pwd`
 cd checksuite.icon-dev
 
-./icon-dev.checksuite
+if [ -d /users/icontest ]
+then
+    poolFolder_prefix="/users/icontest"
+else
+    poolFolder_prefix=""
+fi
+
+./icon-dev.checksuite -m update -o no -r ${poolFolder_prefix}/pool/data/ICON/buildbot_data/aes/reference.f44a40f2_icon-nwp/${BB_SYSTEM}_${BB_SLAVE}/
+
 STATUS=$?
 
 check_final_status $STATUS "$EXPERIMENT"

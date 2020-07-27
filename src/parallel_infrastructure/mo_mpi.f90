@@ -247,11 +247,6 @@ MODULE mo_mpi
   ! start/stop methods
   PUBLIC :: start_mpi, stop_mpi, abort_mpi
 
-#ifndef NOMPI
-  ! print mpi error
-  PUBLIC :: handle_mpi_error
-#endif
-
   ! split the global communicator to _process_mpi_communicator
   PUBLIC :: split_global_mpi_communicator
   !The given communicator will be the all communicator for this component
@@ -273,7 +268,7 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
   PUBLIC :: my_process_is_global_root
   PUBLIC :: my_process_is_mpi_prefroot, my_process_is_pref
-  PUBLIC :: my_process_is_restart
+  PUBLIC :: my_process_is_restart, my_process_is_mpi_restartroot
   PUBLIC :: my_process_is_work, my_process_is_work_only
 
   ! get parameters
@@ -284,7 +279,7 @@ MODULE mo_mpi
   PUBLIC :: get_my_mpi_work_comm_size   ! this is the the size of the workers
 
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
-  PUBLIC :: get_mpi_all_ioroot_id
+  PUBLIC :: get_mpi_all_ioroot_id, get_mpi_all_restartroot_id
   PUBLIC :: get_my_mpi_work_id, get_mpi_prefroot_id
   PUBLIC :: default_comm_type, null_comm_type
 
@@ -292,7 +287,7 @@ MODULE mo_mpi
   ! some public communicators
   PUBLIC :: process_mpi_all_comm
   PUBLIC :: process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    &       process_mpi_all_ioroot_id, &
+    &       process_mpi_all_ioroot_id, process_mpi_all_restartroot_id, &
     &       process_mpi_all_prefroot_id, p_comm_work_pref_compute_pe0
 
   PUBLIC :: p_comm_work, p_comm_work_test, p_comm_work_2_test, p_comm_work_only
@@ -355,7 +350,7 @@ MODULE mo_mpi
   PUBLIC :: p_pe, p_io
   PUBLIC :: num_test_procs, num_work_procs,     &
        &    p_work_pe0, p_io_pe0,               &
-       &    p_n_work, p_pe_work, &
+       &    p_n_work, p_pe_work, p_restart_pe0, &
        &    p_pref_pe0
   !--------------------------------------------------------------------
 
@@ -456,6 +451,7 @@ MODULE mo_mpi
   INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
   INTEGER :: process_mpi_all_radarioroot_id    ! the first radar I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
+  INTEGER :: process_mpi_all_restartroot_id ! the id of the first restart output process
   INTEGER :: process_work_io0
   INTEGER :: process_mpi_all_prefroot_id ! the id of the first prefetch process
   INTEGER :: p_comm_work_pref_compute_pe0 ! the ID for Communicator spanning work group and prefetch PEs
@@ -498,6 +494,8 @@ MODULE mo_mpi
   INTEGER :: p_work_pe0    ! Number of workgroup PE 0 within all PEs
   INTEGER :: p_workonly_pe0 ! Number of workgroup PE 0 excluding detached PE0
   INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
+  INTEGER :: p_restart_pe0 ! Number of Restart Output PE 0 within all PEs
+                           ! (process_mpi_all_size if no restart PEs)
   INTEGER :: p_pref_pe0    ! Number of the prefetching PE 0 within all PEs (process_mpi_all_size
   !                          if no prefetching PEs)
 
@@ -889,22 +887,6 @@ MODULE mo_mpi
 
 CONTAINS
 
-#ifndef NOMPI
-  SUBROUTINE handle_mpi_error(ierror, routine, line, mpi_routine)
-    INTEGER, INTENT(in) :: ierror, line
-    CHARACTER(*), INTENT(in) :: routine, mpi_routine
-
-    INTEGER :: msg_len, ierror_
-    CHARACTER(len=mpi_max_error_string) :: msg
-
-    CALL mpi_error_string(ierror, msg, msg_len, ierror_)
-    WRITE (nerr, '(3a,i0,a,i0,4a)') 'In routine ', routine, ' at line ', line, &
-         ' error ', ierror, ' occurred when calling ', mpi_routine, &
-         ': ', msg(1:msg_len)
-    CALL abort_mpi
-  END SUBROUTINE handle_mpi_error
-#endif
-
   !------------------------------------------------------------------------------
   REAL(dp) FUNCTION get_mpi_time()
     get_mpi_time = MERGE_HAVE_MPI(MPI_Wtime(), 0.0_dp)
@@ -969,6 +951,12 @@ CONTAINS
   INTEGER FUNCTION get_mpi_all_ioroot_id()
     get_mpi_all_ioroot_id = process_mpi_all_ioroot_id
   END FUNCTION get_mpi_all_ioroot_id
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_mpi_all_restartroot_id()
+    get_mpi_all_restartroot_id = process_mpi_all_restartroot_id
+  END FUNCTION get_mpi_all_restartroot_id
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -1060,6 +1048,14 @@ CONTAINS
   LOGICAL FUNCTION my_process_is_work_only()
      my_process_is_work_only = (my_process_is_work() .AND. p_pe >= p_workonly_pe0)
   END FUNCTION my_process_is_work_only
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  !>
+  LOGICAL FUNCTION my_process_is_mpi_restartroot()
+    my_process_is_mpi_restartroot = (my_process_is_restart() .AND. &
+     &                   (my_process_mpi_all_id == process_mpi_all_restartroot_id))
+  END FUNCTION my_process_is_mpi_restartroot
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -1212,18 +1208,17 @@ CONTAINS
   !          rather, it IS the number of *dedicated* restart processes.
   !          We don't care about work processes here that are reused as restart writing processes.
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs,               &
-    &                                   num_restart_procs, my_comp_id, num_prefetch_proc,      &
-    &                                   num_test_pe, pio_type,                                 &
+    &                                   num_restart_procs, num_prefetch_proc,                  &
+    &                                   num_test_pe, pio_type, opt_comp_id,                    &
     &                                   num_io_procs_radar, radar_flag_doms_model, detached_pio)
 
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
-    INTEGER,INTENT(IN)    :: my_comp_id
     INTEGER,INTENT(IN), OPTIONAL :: num_prefetch_proc, num_test_pe
+    INTEGER,INTENT(IN), OPTIONAL :: pio_type, opt_comp_id
     INTEGER,INTENT(INOUT), OPTIONAL :: num_io_procs_radar
     LOGICAL,INTENT(IN)   , OPTIONAL :: radar_flag_doms_model(:), detached_pio
-    INTEGER,INTENT(IN), OPTIONAL :: pio_type
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error, global_dup_comm
@@ -1241,8 +1236,6 @@ CONTAINS
 #ifdef HAVE_CDI_PIO
     INTEGER :: my_cdi_pio_role, grib_mode_for_cdi_pio
 #endif
-    INTEGER :: p_restart_pe0 ! Number of Restart Output PE 0 within all PEs
-                             ! (process_mpi_all_size if no restart PEs)
     INTEGER :: num_component, i
     INTEGER, ALLOCATABLE :: root_buffer(:)
     INTEGER :: comp_id
@@ -1256,7 +1249,11 @@ CONTAINS
       sizeof_prefetch_processes = 0
     ENDIF
 
-    comp_id = my_comp_id
+    IF (PRESENT(opt_comp_id)) THEN
+      comp_id = opt_comp_id
+    ELSE
+      comp_id = -1
+    END IF
 
     IF (PRESENT(pio_type)) THEN
       pio_type_ = pio_type
@@ -1762,6 +1759,7 @@ CONTAINS
     process_mpi_all_workroot_id     = p_work_pe0
     process_mpi_all_ioroot_id       = p_io_pe0
     process_mpi_all_test_id         = p_work_pe0-1
+    process_mpi_all_restartroot_id  = p_restart_pe0
     process_mpi_restart_size        = num_restart_procs
     process_mpi_io_size             = num_io_procs
     process_mpi_radario_size        = num_radario_procs
@@ -1858,7 +1856,6 @@ CONTAINS
     other_comp_root_global_mpi_id = -1
 
     DO i = 1, num_component
-  !    write(0,*) "get_mpi_work_intercomm:", i, p_work_root_processes(i)%comp_id 
       IF (p_work_root_processes(i)%comp_id == other_comp_id) THEN
         other_comp_root_global_mpi_id = p_work_root_processes(i)%global_mpi_id
       END IF
@@ -1913,6 +1910,8 @@ CONTAINS
     p_work_pe0     = 0
     p_io_pe0       = process_mpi_all_size    ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
     p_radario_pe0  = process_mpi_all_size 
+    ! Number of restart PE 0 within all PEs (process_mpi_all_size if no restart PEs)
+    p_restart_pe0  = process_mpi_all_size
     ! Number of prefetching PE 0 within all PEs (process_mpi_all_size if no prefetching PEs)
     p_pref_pe0     = process_mpi_all_size
     p_n_work       = process_mpi_all_size
@@ -6760,7 +6759,7 @@ CONTAINS
   SUBROUTINE p_sendrecv_char_array (sendbuf, p_dest, recvbuf, p_source, p_tag, comm)
     CHARACTER(KIND = C_CHAR), INTENT(in) :: sendbuf (:)
     CHARACTER(KIND = C_CHAR), INTENT(out) :: recvbuf (:)
-    INTEGER, INTENT(IN) :: p_dest, p_source, p_tag
+    INTEGER, VALUE :: p_dest, p_source, p_tag
     INTEGER, INTENT(in), OPTIONAL :: comm
 
 #ifndef NOMPI
@@ -8228,30 +8227,42 @@ CONTAINS
 
   END SUBROUTINE p_bcast_datetime
 
+
+
   ! Collective CALL to determine whether this process IS a sender/receiver IN a broadcast operation.
   ! This routine IS robust IN the presence of inter-communicators (which IS its reason d'etre).
-  SUBROUTINE p_get_bcast_role(root, comm, isSender, isReceiver)
-    INTEGER, INTENT(IN) :: root, comm
-    LOGICAL, INTENT(OUT) :: isSender, isReceiver
-#ifndef NOMPI
-    INTEGER :: ierr
-    LOGICAL :: isInterComm
-    CHARACTER(*), PARAMETER :: routine = modname//"::p_get_bcast_role"
+  SUBROUTINE p_get_bcast_role(root, communicator, lIsSender, lIsReceiver)
+    INTEGER, VALUE :: root, communicator
+    LOGICAL, INTENT(OUT) :: lIsSender, lIsReceiver
 
-    CALL MPI_Comm_test_inter(comm, isInterComm, ierr)
-    IF(ierr /= MPI_SUCCESS) CALL finish(routine, "MPI_Comm_test_inter() returned an error")
-    IF(isInterComm) THEN
-        isSender = root == MPI_ROOT
-        isReceiver = root /= MPI_ROOT .AND. root /= MPI_PROC_NULL
+#ifndef NOMPI
+    INTEGER :: error
+    LOGICAL :: lIsInterCommunicator
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//"::p_get_bcast_role"
+
+    ! IS this an inter-communicator?
+    CALL MPI_Comm_test_inter(communicator, lIsInterCommunicator, error)
+    IF(error /= MPI_SUCCESS) CALL finish(routine, "MPI_Comm_test_inter() returned an error")
+    IF(lIsInterCommunicator) THEN
+        ! inter-communicator, we have to check for the special values MPI_ROOT AND MPI_PROC_NULL IN the root variable
+        lIsSender = .FALSE.
+        IF(root == MPI_ROOT) lIsSender = .TRUE.
+
+        lIsReceiver = .FALSE.
+        IF(root /= MPI_ROOT .AND. root /= MPI_PROC_NULL) lIsReceiver = .TRUE.
     ELSE
-        isSender = root == p_comm_rank(comm)
-        isReceiver = .NOT.isSender
+        ! intra-communicator, we have to compare the root variable against our own rank
+        lIsSender = root == p_comm_rank(communicator)
+        lIsReceiver = .NOT.lIsSender
     END IF
 #else
-    isSender = .TRUE.
-    isReceiver = .FALSE.
+    ! same behavior as IF there IS ONLY a single MPI process, which consequently must be the root of the bcast() operation
+    lIsSender = .TRUE.
+    lIsReceiver = .FALSE.
 #endif
   END SUBROUTINE p_get_bcast_role
+
+
 
   ! probe implementation
 
@@ -10952,7 +10963,7 @@ CONTAINS
 
 
   LOGICAL FUNCTION p_isEqual_int(val, comm) RESULT(resultVar)
-    INTEGER, INTENT(IN) :: val
+    INTEGER, VALUE :: val
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 
 #ifndef NOMPI

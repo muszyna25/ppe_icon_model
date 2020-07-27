@@ -70,7 +70,7 @@ atmo_model_equations=3             # equation system
 nlev=40              # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid parameters
-grids_folder=${icon_data_rootFolder}/grids/buildbot
+grids_folder=${icon_data_poolFolder}/grids/buildbot
 atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
 dynamics_parent_grid_id="0,                1"
 atmo_rad_grids="iconR2B03_DOM00.nc"

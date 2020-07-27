@@ -34,11 +34,22 @@ ocean_refinement="R02B05"
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 
-icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
+# overwrite the default setting with the new path and handle daint (CSCS)
+
+if [ -d /users/icontest ]
+then
+    poolFolder_prefix=/users/icontest
+else
+    poolFolder_prefix=
+fi
+
+icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+
+icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
 
 ocean_vertical_levels=40
 ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
-ocean_grid_folder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim/${ocean_gridID}"
+ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 #-----------------------------------------------------------------------------
 # Input files (initial conditions, OMIP forcing, HAMOCC forcing)
@@ -199,8 +210,8 @@ cat >> ${oce_namelist} << EOF
   bottom_drag_coeff                          = 3.0E-3           ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                            = .TRUE.           ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                                = 0.03
-  !  tracer_TopWindMixing                       = 1.0E-5
-  !  velocity_TopWindMixing                     = 1.0E-5
+  tracer_TopWindMixing                       = 1.0E-5
+  velocity_TopWindMixing                     = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                       = 1                ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion

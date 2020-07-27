@@ -4,8 +4,6 @@
 #if defined HAVE_FC_ATTRIBUTE_CONTIGUOUS \
   && ((! defined __INTEL_COMPILER) || defined __OPTIMIZE__)
 #define USE_CONTIGUOUS 1
-#else
-#undef USE_CONTIGUOUS
 #endif
 MODULE mo_reorder_info
   USE mo_kind, ONLY: i4, i8, dp, sp
@@ -68,8 +66,6 @@ MODULE mo_reorder_info
   INTERFACE ri_cpy_blk2part
     MODULE PROCEDURE ri_blk2part_2d_dp_dp, ri_blk2part_2d_sp_sp, &
          ri_blk2part_2d_sp_dp, ri_blk2part_2d_i4_i4, ri_blk2part_2d_i4_dp
-    MODULE PROCEDURE ri_blk2part_3d_dp_dp, ri_blk2part_3d_sp_sp, &
-         ri_blk2part_3d_sp_dp, ri_blk2part_3d_i4_i4, ri_blk2part_3d_i4_dp
   END INTERFACE ri_cpy_blk2part
   PUBLIC :: t_reorder_info
   PUBLIC :: transfer_reorder_info
@@ -458,7 +454,6 @@ CONTAINS
     ofs = ri%pe_off(part_idx)
     n = ri%pe_own(part_idx)
     nlev = SIZE(part_data, 2)
-!$omp do
     DO k = 1, nlev
       DO i = 1, n
         whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
@@ -479,7 +474,6 @@ CONTAINS
     ofs = ri%pe_off(part_idx)
     n = ri%pe_own(part_idx)
     nlev = SIZE(part_data, 2)
-!$omp do
     DO k = 1, nlev
       DO i = 1, n
         whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
@@ -500,7 +494,6 @@ CONTAINS
     ofs = ri%pe_off(part_idx)
     n = ri%pe_own(part_idx)
     nlev = SIZE(part_data, 2)
-!$omp do
     DO k = 1, nlev
       DO i = 1, n
         whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
@@ -521,7 +514,6 @@ CONTAINS
     ofs = ri%pe_off(part_idx)
     n = ri%pe_own(part_idx)
     nlev = SIZE(part_data, 2)
-!$omp do
     DO k = 1, nlev
       DO i = 1, n
         whole_data(ri%reorder_index(ofs + i), k) = REAL(part_data(i, k), sp)
@@ -542,7 +534,6 @@ CONTAINS
     ofs = ri%pe_off(part_idx)
     n = ri%pe_own(part_idx)
     nlev = SIZE(part_data, 2)
-!$omp do
     DO k = 1, nlev
       DO i = 1, n
         whole_data(ri%reorder_index(ofs + i), k) = part_data(i, k)
@@ -550,22 +541,19 @@ CONTAINS
     END DO
   END SUBROUTINE ri_part2whole_2d_i4_i4
 
+  ! in the following routines, part_data has the POINTER attribute because
+  ! ifort is being a dick about copying in the array otherwise
   SUBROUTINE ri_blk2part_2d_dp_dp(ri, blk_data, part_data, offset)
     TYPE(t_reorder_info), INTENT(IN) :: ri
     REAL(dp), INTENT(in) :: blk_data(:,:)
     REAL(dp), INTENT(inout) :: part_data(:)
     INTEGER, INTENT(inout) :: offset
     INTEGER :: i, n
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
 
     n = ri%n_own
-!$omp do
     DO i = 1, n
       part_data(offset + i) = blk_data(ri%own_idx(i), ri%own_blk(i))
     END DO
-!$omp end do nowait
     offset = offset + n
   END SUBROUTINE ri_blk2part_2d_dp_dp
 
@@ -575,16 +563,11 @@ CONTAINS
     REAL(sp), INTENT(inout) :: part_data(:)
     INTEGER, INTENT(inout) :: offset
     INTEGER :: i, n
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
 
     n = ri%n_own
-!$omp do
     DO i = 1, n
       part_data(offset + i) = blk_data(ri%own_idx(i), ri%own_blk(i))
     END DO
-!$omp end do nowait
     offset = offset + n
   END SUBROUTINE ri_blk2part_2d_sp_sp
 
@@ -596,11 +579,9 @@ CONTAINS
     INTEGER :: i, n
 
     n = ri%n_own
-!$omp do
     DO i = 1, n
       part_data(offset + i) = REAL(blk_data(ri%own_idx(i), ri%own_blk(i)), dp)
     END DO
-!$omp end do nowait
     offset = offset + n
   END SUBROUTINE ri_blk2part_2d_sp_dp
 
@@ -610,16 +591,11 @@ CONTAINS
     INTEGER(i4), INTENT(inout) :: part_data(:)
     INTEGER, INTENT(inout) :: offset
     INTEGER :: i, n
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
 
     n = ri%n_own
-!$omp do
     DO i = 1, n
       part_data(offset + i) = blk_data(ri%own_idx(i), ri%own_blk(i))
     END DO
-!$omp end do nowait
     offset = offset + n
   END SUBROUTINE ri_blk2part_2d_i4_i4
 
@@ -629,132 +605,12 @@ CONTAINS
     REAL(dp), INTENT(inout) :: part_data(:)
     INTEGER, INTENT(inout) :: offset
     INTEGER :: i, n
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
 
     n = ri%n_own
-!$omp do
     DO i = 1, n
       part_data(offset + i) = REAL(blk_data(ri%own_idx(i), ri%own_blk(i)), dp)
     END DO
-!$omp end do nowait
     offset = offset + n
   END SUBROUTINE ri_blk2part_2d_i4_dp
-
-  SUBROUTINE ri_blk2part_3d_dp_dp(ri, blk_data, part_data, offset)
-    TYPE(t_reorder_info), INTENT(IN) :: ri
-    REAL(dp), INTENT(in) :: blk_data(:,:,:)
-    REAL(dp), INTENT(inout) :: part_data(:)
-    INTEGER, INTENT(inout) :: offset
-    INTEGER :: i, j, n, nlev, ofs
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
-
-    n = ri%n_own
-    nlev = SIZE(blk_data, 2)
-!$omp do
-    DO j = 1, nlev
-      ofs = offset + (j - 1) * n
-      DO i = 1, n
-        part_data(ofs + i) = blk_data(ri%own_idx(i), j, ri%own_blk(i))
-      END DO
-    END DO
-!$omp end do nowait
-    offset = offset + nlev * n
-  END SUBROUTINE ri_blk2part_3d_dp_dp
-
-  SUBROUTINE ri_blk2part_3d_sp_sp(ri, blk_data, part_data, offset)
-    TYPE(t_reorder_info), INTENT(IN) :: ri
-    REAL(sp), INTENT(in) :: blk_data(:,:,:)
-    REAL(sp), INTENT(inout) :: part_data(:)
-    INTEGER, INTENT(inout) :: offset
-    INTEGER :: i, j, n, nlev, ofs
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
-
-    n = ri%n_own
-    nlev = SIZE(blk_data, 2)
-!$omp do
-    DO j = 1, nlev
-      ofs = offset + (j - 1) * n
-      DO i = 1, n
-        part_data(ofs + i) = blk_data(ri%own_idx(i), j, ri%own_blk(i))
-      END DO
-    END DO
-!$omp end do nowait
-    offset = offset + n * nlev
-  END SUBROUTINE ri_blk2part_3d_sp_sp
-
-  SUBROUTINE ri_blk2part_3d_sp_dp(ri, blk_data, part_data, offset)
-    TYPE(t_reorder_info), INTENT(IN) :: ri
-    REAL(sp), INTENT(in) :: blk_data(:,:,:)
-    REAL(dp), INTENT(inout) :: part_data(:)
-    INTEGER, INTENT(inout) :: offset
-    INTEGER :: i, j, n, nlev, ofs
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
-
-    n = ri%n_own
-    nlev = SIZE(blk_data, 2)
-!$omp do
-    DO j = 1, nlev
-      ofs = offset + (j - 1) * n
-      DO i = 1, n
-        part_data(ofs + i) = REAL(blk_data(ri%own_idx(i), j, ri%own_blk(i)), dp)
-      END DO
-    END DO
-!$omp end do nowait
-    offset = offset + n * nlev
-  END SUBROUTINE ri_blk2part_3d_sp_dp
-
-  SUBROUTINE ri_blk2part_3d_i4_i4(ri, blk_data, part_data, offset)
-    TYPE(t_reorder_info), INTENT(IN) :: ri
-    INTEGER(i4), INTENT(in) :: blk_data(:,:,:)
-    INTEGER(i4), INTENT(inout) :: part_data(:)
-    INTEGER, INTENT(inout) :: offset
-    INTEGER :: i, j, n, nlev, ofs
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
-
-    n = ri%n_own
-    nlev = SIZE(blk_data, 2)
-!$omp do
-    DO j = 1, nlev
-      ofs = offset + (j - 1) * n
-      DO i = 1, n
-        part_data(ofs + i) = blk_data(ri%own_idx(i), j, ri%own_blk(i))
-      END DO
-    END DO
-!$omp end do nowait
-    offset = offset + n * nlev
-  END SUBROUTINE ri_blk2part_3d_i4_i4
-
-  SUBROUTINE ri_blk2part_3d_i4_dp(ri, blk_data, part_data, offset)
-    TYPE(t_reorder_info), INTENT(IN) :: ri
-    INTEGER(i4), INTENT(in) :: blk_data(:,:,:)
-    REAL(dp), INTENT(inout) :: part_data(:)
-    INTEGER, INTENT(inout) :: offset
-    INTEGER :: i, j, n, nlev, ofs
-#ifdef USE_CONTIGUOUS
-    CONTIGUOUS :: part_data, blk_data
-#endif
-
-    n = ri%n_own
-    nlev = SIZE(blk_data, 2)
-!$omp do
-    DO j = 1, nlev
-      ofs = offset + (j - 1) * n
-      DO i = 1, n
-        part_data(ofs + i) = REAL(blk_data(ri%own_idx(i), j, ri%own_blk(i)), dp)
-      END DO
-    END DO
-!$omp end do nowait
-    offset = offset + n * nlev
-  END SUBROUTINE ri_blk2part_3d_i4_dp
 
 END MODULE mo_reorder_info

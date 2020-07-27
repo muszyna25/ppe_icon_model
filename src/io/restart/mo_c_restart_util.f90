@@ -46,7 +46,7 @@ CONTAINS
 
     INTEGER FUNCTION checkMultifileDir(path, expectedDomainCount, expectedFileCount) RESULT(resultVar)
         CHARACTER(LEN = *), INTENT(IN) :: path
-        INTEGER, INTENT(IN) :: expectedDomainCount, expectedFileCount
+        INTEGER, VALUE :: expectedDomainCount, expectedFileCount
 
         CHARACTER(KIND = C_CHAR) :: pathCopy(LEN(path) + 1)
         INTEGER :: i

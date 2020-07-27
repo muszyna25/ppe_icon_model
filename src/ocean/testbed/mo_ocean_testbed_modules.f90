@@ -21,7 +21,6 @@
 !!
 MODULE mo_ocean_testbed_modules
   !-------------------------------------------------------------------------
-  USE mo_master_control,         ONLY: get_my_process_name
   USE mo_kind,                   ONLY: wp
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
@@ -41,8 +40,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_hamocc_types,           ONLY: t_hamocc_state
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting
-  USE mo_key_value_store,        ONLY: t_key_value_store
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
@@ -54,7 +52,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_master_config,          ONLY: isRestart
-  USE mo_ocean_GM_Redi,          ONLY: calc_ocean_physics
+  USE mo_ocean_GM_Redi,          ONLY: prepare_ocean_physics,calc_ocean_physics
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density,&
   &                                    calc_neutralslope_coeff_func_onColumn,calc_neutralslope_coeff_func_onColumn_UNESCO
@@ -560,7 +558,8 @@ CONTAINS
         ENDIF
         !------------------------------------------------------------------------
 
-        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients)
+        CALL advect_ocean_tracers(old_tracer_collection, new_tracer_collection, transport_state, operators_coefficients, &
+             &   physics_parameters) !by_Oliver
 
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
@@ -652,7 +651,7 @@ CONTAINS
         CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),p_oce_sfc,p_ice, operators_coefficients)
       ENDIF
 
-    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
+    restartDescriptor => createRestartDescriptor("oce")
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -768,7 +767,7 @@ CONTAINS
     CHARACTER(len=MAX_MTIME_ERROR_STR_LEN):: errstring
 
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
-    TYPE(t_key_value_store), POINTER :: restartAttributes
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     TYPE(datetime), POINTER               :: current_date
     !------------------------------------------------------------------
     patch_2D      => patch_3d%p_patch_2d(1)
@@ -779,9 +778,11 @@ CONTAINS
     jg = n_dom
 
     jstep0 = 0
-    CALL getAttributesForRestarting(restartAttributes)
-    ! get start counter for time loop from restart file:
-    IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
+      ! get start counter for time loop from restart file:
+      jstep0 = restartAttributes%getInteger("jstep")
+    END IF
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
@@ -850,7 +851,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
-    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
+    restartDescriptor => createRestartDescriptor("oce")
     
     jstep = jstep0
     TIME_LOOP: DO 
@@ -1327,7 +1328,7 @@ CONTAINS
 
     TYPE(t_patch), POINTER          :: p_patch
     TYPE(t_subset_range), POINTER   :: owned_cells
-    TYPE(t_key_value_store), POINTER :: restartAttributes
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
     CHARACTER(LEN = *), PARAMETER   :: routine = 'mo_ocean_testbed_modules:test_sea_ice'
 
@@ -1383,15 +1384,17 @@ CONTAINS
     !------------------------------------------------------------------
     jstep0 = 0
 
-    CALL getAttributesForRestarting(restartAttributes)
-    ! get start counter for time loop from restart file:
-    IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
+      ! get start counter for time loop from restart file:
+      jstep0 = restartAttributes%getInteger("jstep")
+    END IF
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(p_os(jg))
     ENDIF
 
-    restartDescriptor => createRestartDescriptor(TRIM(get_my_process_name()) )
+    restartDescriptor => createRestartDescriptor("oce")
 
     !-------------------------- MTIME setup ---------------------------
 
@@ -1646,7 +1649,7 @@ CONTAINS
     CALL new_var_list(varnameCheckList, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( varnameCheckList,  &
       & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type=TRIM(get_my_process_name()) )
+      & model_type='oce' )
 
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     call add_var(varnamechecklist,'h',var0,grid_unstructured_cell, za_depth_below_sea_half, &

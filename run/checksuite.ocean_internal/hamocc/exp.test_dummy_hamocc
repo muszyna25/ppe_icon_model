@@ -78,6 +78,32 @@ cat > ${hamocc_namelist} << EOF0
  timers_level         = 10
  debug_check_level    = 1
 /
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}"
+  filename_format  = "<output_filename>_<datetime2>"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "${daily}"
+  file_interval="P1Y"
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .false.
+  operation       = 'mean'
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       = 'group:oce_essentials', 'group:ice_default'
+/
+&output_nml
+  output_start     = "${start_date}"
+  output_end       = "${end_date}"
+  output_interval  = "${daily}"
+  output_grid      = .true.
+  operation       = 'mean'
+  file_interval="P10Y"
+  output_filename  = "${EXPNAME}_oceanMonitor"
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  'group:ocean_monitor'
+/
 EOF0
 if [  "x${use_hamocc}"  = "xyes" ]; then
 cat >> ${hamocc_namelist} << EOF1
@@ -234,8 +260,8 @@ cat >> ${hamocc_namelist} << EOF2
   bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  !  tracer_TopWindMixing            = 1.0E-5
-  !  velocity_TopWindMixing          = 1.0E-5
+  tracer_TopWindMixing            = 1.0E-5
+  velocity_TopWindMixing          = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -338,7 +364,7 @@ EOF4
 #  compare with reference
 if [[ x$BB_SYSTEM != x ]]; then
 . ${thisdir}/postFunx.sh
-  dataPath="${basedir}/experiments/${EXPNAME}/"
+  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
   cd ${dataPath}
   slave=${BB_SYSTEM:-mistral}_${BB_SLAVE:-gcc}
   refDir=${builbot_ocean_reference_path}/${slave}/${EXPNAME}

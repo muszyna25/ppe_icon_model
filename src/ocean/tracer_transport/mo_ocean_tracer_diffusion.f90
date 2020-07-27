@@ -39,14 +39,12 @@ MODULE mo_ocean_tracer_diffusion
   CHARACTER(LEN=12)           :: str_module    = 'oceDiffusion'  ! Output of module for 1 line debug
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
   
-  LOGICAL :: eliminate_upper_diag = .true.
   !
   ! PUBLIC INTERFACE
   !
   INTEGER, PARAMETER :: top=1
   PUBLIC :: tracer_diffusion_horz
   PUBLIC :: tracer_diffusion_vertical_implicit
-  PUBLIC :: eliminate_upper_diag
   
 CONTAINS
     
@@ -145,14 +143,12 @@ CONTAINS
   SUBROUTINE tracer_diffusion_vertical_implicit( &
     & patch_3d,                  &
     & ocean_tracer,              &
-    & a_v,                       &
-    & h) !,  &
+    & a_v) !,  &
     ! & diff_column)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_ocean_tracer), TARGET :: ocean_tracer
     REAL(wp), INTENT(inout)              :: a_v(:,:,:)
-    REAL(wp), INTENT(in)                 :: h(:,:)
     !
     INTEGER :: cell_block, start_index, end_index
     TYPE(t_subset_range), POINTER :: cells_in_domain
@@ -161,21 +157,19 @@ CONTAINS
     !-----------------------------------------------------------------------
     cells_in_domain       =>  patch_3d%p_patch_2d(1)%cells%in_domain
     !-----------------------------------------------------------------------
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
     DO cell_block = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, cell_block, start_index, end_index)
 
       CALL tracer_diffusion_vertical_implicit_onBlock( &
-        & patch_3d,                       &
-        & ocean_tracer,                   &
-        & a_v(:,:,cell_block),            &
-        & h(:,cell_block),                &
+        & patch_3d,                  &
+        & ocean_tracer,              &
+        & a_v,                       &
         & cell_block, start_index, end_index)
 
     END DO
 !ICON_OMP_END_PARALLEL_DO
-
-!     eliminate_upper_diag = .not. eliminate_upper_diag ! done in ocean_run
 
   END SUBROUTINE tracer_diffusion_vertical_implicit
   !------------------------------------------------------------------------
@@ -196,14 +190,12 @@ CONTAINS
     & patch_3d,                &
     & ocean_tracer,            &
     & a_v,                     &
-    & h,                       &
     & blockNo, start_index, end_index) !,  &
     ! & diff_column)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_ocean_tracer), TARGET :: ocean_tracer
-    REAL(wp), INTENT(inout)              :: a_v(:,:)
-    REAL(wp), INTENT(in)                 :: h(:)
+    REAL(wp), INTENT(inout)              :: a_v(:,:,:)
     INTEGER, INTENT(in) :: blockNo, start_index, end_index
     !
     !
@@ -211,12 +203,12 @@ CONTAINS
     REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)! , nb(1:n_zlev)
     REAL(wp) :: fact(1:n_zlev)
     REAL(wp) :: column_tracer(1:n_zlev)
+    REAL(wp) :: dt_inv, diagonal_product
     REAL(wp), POINTER :: field_column(:,:,:)
     INTEGER :: bottom_level
     INTEGER :: cell_index, level
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
-    REAL(wp) :: top_cell_thickness
 
 !     REAL(wp) :: tmp, tmp_add
     !-----------------------------------------------------------------------
@@ -224,30 +216,16 @@ CONTAINS
     cells_in_domain => patch_2d%cells%in_domain
     field_column    => ocean_tracer%concentration
     !-----------------------------------------------------------------------
-!     dt_inv = 1.0_wp/dtime
+    dt_inv = 1.0_wp/dtime
     
     DO cell_index = start_index, end_index
       bottom_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
 
       IF (bottom_level < 2 ) CYCLE ! nothing to diffuse
 
-      top_cell_thickness = &
-              & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,1,blockNo) + h(cell_index)
-
-      inv_prism_thickness(1) = 1.0_wp /  top_cell_thickness
-      
-      inv_prisms_center_distance(2) = 1.0_wp / ( 0.5_wp * &
-              & (top_cell_thickness + patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,2,blockNo)))
-      
-      DO level=2,bottom_level
-        inv_prism_thickness(level)        = patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_index,level,blockNo)
-       ENDDO
-      DO level=3,bottom_level
-        inv_prisms_center_distance(level) = patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo)
-      ENDDO
-      
       DO level=1,bottom_level
-       column_tracer(level) = field_column(cell_index,level,blockNo)
+        inv_prism_thickness(level)        = patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_index,level,blockNo)
+        inv_prisms_center_distance(level) = patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(cell_index,level,blockNo)
       ENDDO
 
       !------------------------------------
@@ -255,54 +233,73 @@ CONTAINS
       ! b is diagonal, a is the upper diagonal, c is the lower
       !   top level
       a(1) = 0.0_wp
-      c(1) = -a_v(cell_index,2) * inv_prism_thickness(1) * inv_prisms_center_distance(2)*dtime
-      b(1) = 1.0_wp - c(1)
+      c(1) = -a_v(cell_index,2,blockNo) * inv_prism_thickness(1) * inv_prisms_center_distance(2)
+      b(1) = dt_inv - c(1)
       DO level = 2, bottom_level-1
-        a(level) = - a_v(cell_index,level)   * inv_prism_thickness(level) * inv_prisms_center_distance(level)*dtime
-        c(level) = - a_v(cell_index,level+1) * inv_prism_thickness(level) * inv_prisms_center_distance(level+1)*dtime
-        b(level) = 1.0_wp - a(level) - c(level)
+        a(level) = - a_v(cell_index,level,blockNo)   * inv_prism_thickness(level) * inv_prisms_center_distance(level)
+        c(level) = - a_v(cell_index,level+1,blockNo) * inv_prism_thickness(level) * inv_prisms_center_distance(level+1)
+        b(level) = dt_inv - a(level) - c(level)
       END DO
       ! bottom
-      a(bottom_level) = -a_v(cell_index,bottom_level) * &
-        & inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)*dtime
-      b(bottom_level) = 1.0_wp - a(bottom_level)
-      c(bottom_level) = 0.0_wp
+      a(bottom_level) = -a_v(cell_index,bottom_level,blockNo) * &
+        & inv_prism_thickness(bottom_level) * inv_prisms_center_distance(bottom_level)
+      b(bottom_level) = dt_inv - a(bottom_level)
 
-      IF (eliminate_upper_diag) THEN
-        ! solve the tridiagonal matrix by eliminating c (the upper diagonal) 
-        DO level=bottom_level-1,1,-1
-          fact(level)=c(level)/b(level+1)
-          b(level)=b(level)-a(level+1)*fact(level)
-          c(level) = 0.0_wp
-          column_tracer(level) = column_tracer(level) - fact(level)*column_tracer(level+1)
-        ENDDO
-        
-        ocean_tracer%concentration(cell_index,1,blockNo) = column_tracer(1)/b(1)
-        DO level=2,bottom_level
-         field_column(cell_index,level,blockNo) = (column_tracer(level) - &
-            a(level)* field_column(cell_index,level-1,blockNo)) / b(level)    
-        ENDDO
-        
-      ELSE
-        ! solve the tridiagonal matrix by eliminating a (the lower diagonal) 
-        DO level=2, bottom_level
-          fact(level)=a(level)/b(level-1)
-          b(level)=b(level)-c(level-1)*fact(level)
-          a(level) = 0.0_wp
-          column_tracer(level) = column_tracer(level) - fact(level)*column_tracer(level-1)
-        ENDDO
-        ocean_tracer%concentration(cell_index,bottom_level,blockNo) = column_tracer(bottom_level)/b(bottom_level)
-        DO level=bottom_level-1,1,-1
-         field_column(cell_index,level,blockNo) = (column_tracer(level) - &
-            c(level)* field_column(cell_index,level+1,blockNo)) / b(level)    
-        ENDDO                 
-      
-      ENDIF
+      ! precondition: set diagonal equal to diagonal_product
+      diagonal_product = PRODUCT(b(1:bottom_level))
+!       tmp_add = 0.0_wp
+
+      DO level = 1, bottom_level
+        fact(level) = diagonal_product / b(level)
+        a(level)  = a(level)  * fact(level)
+        b(level)  = diagonal_product
+        c(level)  = dt_inv * fact(level) - a(level) - b(level)
+ 
+!         tmp = field_column(cell_index,level,blockNo)
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = dt_inv
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = diagonal_product
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = b(level)
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = fact(level)
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+
+        column_tracer(level) = field_column(cell_index,level,blockNo) * dt_inv * fact(level)
+
+      ENDDO
+      c(bottom_level) = 0.0_wp
+!       write(0,*) tmp_add
+
+      !------------------------------------
+      ! solver from lapack
+      !
+      ! eliminate lower diagonal
+      DO level=bottom_level-1, 1, -1
+        fact(level+1)  = c( level ) / b( level+1 )
+        b( level ) = b( level ) - fact(level+1) * a( level +1 )
+        column_tracer( level ) = column_tracer( level ) - fact(level+1) * column_tracer( level+1 )
+      ENDDO
+
+      !     Back solve with the matrix U from the factorization.
+      column_tracer( 1 ) = column_tracer( 1 ) / b( 1 )
+      DO level =  2, bottom_level
+        column_tracer( level ) = ( column_tracer( level ) - a( level ) * column_tracer( level-1 ) ) / b( level )
+      ENDDO
+
+      DO level = 1, bottom_level
+        ocean_tracer%concentration(cell_index,level,blockNo) = column_tracer(level)
+      ENDDO
     
     ENDDO ! cell_index
     
   END SUBROUTINE tracer_diffusion_vertical_implicit_onBlock
   !------------------------------------------------------------------------
-  
-   
+    
 END MODULE mo_ocean_tracer_diffusion

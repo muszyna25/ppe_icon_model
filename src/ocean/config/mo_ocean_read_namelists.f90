@@ -67,7 +67,7 @@ CONTAINS
     ! actual values used in the model run will be stored.
     !-----------------------------------------------------------------
 
-    IF(my_process_is_stdio()) CALL open_nml_output(TRIM(oce_namelist_filename)//'_output')
+    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_oce')
 
     !-----------------------------------------------------------------
     ! Read namelists that are shared by all components of the model.
@@ -136,7 +136,7 @@ CONTAINS
     IF (my_process_is_stdio()) CALL close_nml_output
 
     ! write an annotate table of all namelist settings to a text file
-    IF (my_process_is_stdio()) CALL log_nml_settings(TRIM(oce_namelist_filename)//".log")
+    IF (my_process_is_stdio()) CALL log_nml_settings("nml.ocean.log")
 
   END SUBROUTINE read_ocean_namelists
   !-------------------------------------------------------------------------

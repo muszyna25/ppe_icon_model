@@ -29,12 +29,11 @@ MODULE mo_psrad_interface_namelist
  
   USE mo_echam_phy_nml,  ONLY: process_echam_phy_nml
   USE mo_echam_cld_nml  ,ONLY: process_echam_cld_nml
-  USE mo_echam_cop_nml  ,ONLY: process_echam_cop_nml
   USE mo_echam_rad_nml  ,ONLY: process_echam_rad_nml
 
   USE mtime,               ONLY: OPERATOR(>)
   USE mo_echam_phy_config, ONLY: eval_echam_phy_config, eval_echam_phy_tc, echam_phy_tc, dt_zero
-  USE mo_echam_cop_config, ONLY: echam_cop_config
+  USE mo_echam_cld_config, ONLY: echam_cld_config
   USE mo_time_config,    ONLY: time_config, dt_restart
   USE mo_run_config,     ONLY: nlev, num_lev, configure_run
   USE mo_grid_config,    ONLY: init_grid_configuration, n_dom
@@ -110,8 +109,8 @@ CONTAINS
       !
       ! Radiation constants for gas and cloud optics
       CALL psrad_basic_setup(.false., nlev, pressure_scale, droplet_scale,               &
-        &                    echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
-        &                    echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
+        &                    echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
+        &                    echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
       !
     END IF
 
@@ -164,7 +163,6 @@ CONTAINS
     !    
     CALL process_echam_phy_nml        (TRIM(ps_rad_namelist_filename)) 
     CALL process_echam_cld_nml        (TRIM(ps_rad_namelist_filename))
-    CALL process_echam_cop_nml        (TRIM(ps_rad_namelist_filename))
     CALL process_echam_rad_nml        (TRIM(ps_rad_namelist_filename))
 
     CALL read_psrad_nml               (TRIM(ps_rad_namelist_filename))

@@ -103,8 +103,6 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
-  LOGICAL            :: use_ssh_in_momentum_eq = .TRUE.   ! if true use dz(1) + ssh in the momentum eq.
-
   ! Parameters for tracer transport scheme
   !
   !identifiers for different modes of updating the tracer state (substep
@@ -262,7 +260,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: para_3dimRelax_Salt   = 1.0_wp     ! strength of 3-dim relaxation for salinity in months
   LOGICAL  :: limit_elevation       = .FALSE.    ! .TRUE.: balance sea level elevation
   LOGICAL  :: limit_seaice          = .TRUE.     ! .TRUE.: set a cutoff limit to sea ice thickness
-  INTEGER  :: limit_seaice_type     = 1 
   REAL(wp) :: seaice_limit          = 0.4_wp     ! limit sea ice thickness to fraction of surface layer thickness
 
   INTEGER  :: coriolis_type         = 1          ! 0=zero Coriolis, the non-rotating case
@@ -317,8 +314,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: RUN_FORWARD            = 0
   INTEGER, PARAMETER :: RUN_ADJOINT            = 1
   INTEGER :: run_mode               = 0
-  INTEGER :: minVerticalLevels       = 2
-  
+
   NAMELIST/ocean_dynamics_nml/&
     &                 ab_beta                      , &
     &                 ab_const                     , &
@@ -339,7 +335,6 @@ MODULE mo_ocean_nml
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
-    &                 use_ssh_in_momentum_eq       , &
     &                 iswm_oce                     , &
     &                 l_RIGID_LID                  , &
     &                 l_edge_based                 , &
@@ -374,10 +369,9 @@ MODULE mo_ocean_nml
     &                 use_smooth_ocean_boundary    , &
     &                 run_mode                     , &
     &                 ncheckpoints                 , &
-    &                 createSolverMatrix           , &
-    &                 minVerticalLevels
+    &                 createSolverMatrix
 
-  LOGICAL :: use_draftave_for_transport_h = .true.   ! 
+
   NAMELIST/ocean_tracer_transport_nml/&
     &                 no_tracer                    , &  
     &                 flux_calculation_horz        , &
@@ -398,8 +392,7 @@ MODULE mo_ocean_nml
     &                 tracer_update_mode           , &
     &                 tracer_HorizontalAdvection_type, &
     &                 l_LAX_FRIEDRICHS             , &
-    &                 l_GRADIENT_RECONSTRUCTION    , &
-    &                 use_draftave_for_transport_h
+    &                 l_GRADIENT_RECONSTRUCTION
 
 
   ! tracer horizontal diffusion
@@ -416,9 +409,10 @@ MODULE mo_ocean_nml
 
   ! tracer vertical diffusion
   INTEGER, PARAMETER  :: PPscheme_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
+  INTEGER, PARAMETER  :: PPscheme_MPIOM_type      = 2
   INTEGER, PARAMETER  :: PPscheme_ICON_Edge_type  = 3
   INTEGER, PARAMETER  :: PPscheme_ICON_Edge_vnPredict_type = 4
-  INTEGER  :: PPscheme_type = PPscheme_ICON_Edge_vnPredict_type
+  INTEGER  :: PPscheme_type = PPscheme_MPIOM_type
 
   INTEGER, PARAMETER :: vmix_pp  = 1
   INTEGER, PARAMETER :: vmix_tke = 2
@@ -433,10 +427,12 @@ MODULE mo_ocean_nml
   REAL(wp) :: Salinity_VerticalDiffusion_background      = 1.5E-5   ! vertical diffusion coefficient for salinity
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   REAL(wp) :: lambda_wind           = 0.05_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
+  REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
+  REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
   LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
   LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
-  REAL(wp) :: tracer_TopWindMixing   = 0.5E-3_wp ! Value from MPIOM
-  REAL(wp) :: velocity_TopWindMixing = 0.5E-3_wp ! Value from MPIOM
+  REAL(wp) :: tracer_TopWindMixing   = 2.5E-4_wp
+  REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
   REAL(wp) :: WindMixingDecayDepth  = 40.0
 
  
@@ -602,6 +598,7 @@ MODULE mo_ocean_nml
     &  velocity_RichardsonCoeff    ,&
     &  tracer_RichardsonCoeff,      &
     &  lambda_wind                 ,&
+    &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice,&
     &  use_wind_mixing,             &
     &  tracer_TopWindMixing,        &
@@ -767,9 +764,6 @@ MODULE mo_ocean_nml
   LOGICAL  :: forcing_set_runoff_to_zero           = .FALSE.   ! .TRUE.: set river runoff to zero for comparion to MPIOM
   LOGICAL  :: zero_freshwater_flux                 = .FALSE.   ! .TRUE.: zero freshwater fluxes but salt-change possible
   LOGICAL  :: use_new_forcing                      = .FALSE.
-  INTEGER  :: surface_flux_type                    = 1
-  LOGICAL  :: lcheck_salt_content                  = .FALSE.
-  LOGICAL  :: lfix_salt_content                    = .FALSE.
   ! _type variables range
   !    0    : not used
   !   1:100 : file based input
@@ -836,18 +830,13 @@ MODULE mo_ocean_nml
 !   - Namelist (default Type IB) 
 
   LOGICAL      :: use_tides  = .FALSE.
-  INTEGER      :: tides_mod = 1 !1: tidal potential by Logemann, HZG 2020. 2: tidal potential from MPI-OM.
   CHARACTER*16 :: tide_startdate = '2001-01-01 00:00' ! date when tidal spin-up (over 30 days) should start                                                              
   REAL(wp)     :: tides_esl_damping_coeff = 0.69_wp
-
 
   NAMELIST/ocean_forcing_nml/&
     &                 forcing_center                      , &
     &                 forcing_enable_freshwater           , &
     &                 zero_freshwater_flux                , &
-    &                 surface_flux_type                   , &
-    &                 lcheck_salt_content                 , &
-    &                 lfix_salt_content                   , &
     &                 forcing_fluxes_type                 , &
     &                 forcing_set_runoff_to_zero          , &
     &                 forcing_timescale                   , &
@@ -881,7 +870,6 @@ MODULE mo_ocean_nml
     &                 relax_analytical_type               , &
     &                 limit_seaice                        , &
     &                 seaice_limit                        , &
-    &                 limit_seaice_type                   , &
     &                 type_surfRelax_Temp                 , &
     &                 relax_temperature_min               , &
     &                 relax_temperature_max               , &
@@ -908,7 +896,6 @@ MODULE mo_ocean_nml
     &                 jerlov_atten                        , &
     &                 jerlov_bluefrac                     , &
     &                 use_tides                           , &
-    &                 tides_mod                           , &
     &                 tide_startdate                      , &
     &                 tides_esl_damping_coeff
   ! } END FORCING
@@ -943,8 +930,6 @@ MODULE mo_ocean_nml
   INTEGER  :: smooth_initial_salinity_iterations = 0
   INTEGER  :: smooth_initial_temperature_iterations = 0
   INTEGER  :: smooth_initial_height_iterations = 0
-  INTEGER  :: smooth_initial_velocity_iterations = 0
-  REAL(wp) :: smooth_initial_velocity_weights(2)  = 0.0_wp   ! if > 0, initial height is smoothed by these weights, 1st=this, 2nd=neigbors
   REAL(wp) :: initial_perturbation_waveNumber = 2.0_wp 
   REAL(wp) :: initial_perturbation_max_ratio  = 0.05_wp 
   LOGICAL  :: initialize_fromRestart = .false.
@@ -976,8 +961,6 @@ MODULE mo_ocean_nml
     & smooth_initial_salinity_iterations, &
     & smooth_initial_temperature_weights, &
     & smooth_initial_temperature_iterations, &
-    & smooth_initial_velocity_iterations, &
-    & smooth_initial_velocity_weights, &
     & initial_temperature_scale_depth, &
     & initial_perturbation_waveNumber, & 
     & initial_perturbation_max_ratio,  &
@@ -999,11 +982,9 @@ MODULE mo_ocean_nml
   INTEGER :: agulhas_longer(100)         = -1
   LOGICAL :: diagnose_for_horizontalVelocity = .false.
 
-  
   ! run eddy diagnostics
   LOGICAL  :: eddydiag             = .FALSE.
-  LOGICAL  :: diagnose_for_tendencies = .false.
-  LOGICAL  :: diagnose_for_heat_content = .false.
+
 
   NAMELIST/ocean_diagnostics_nml/ diagnostics_level, &
     & florida_strait, &
@@ -1020,9 +1001,7 @@ MODULE mo_ocean_nml
     & agulhas_long, &
     & agulhas_longer, &
     & diagnose_for_horizontalVelocity, &
-    & eddydiag, &
-    & diagnose_for_tendencies, &
-    & diagnose_for_heat_content
+    & eddydiag
   ! ------------------------------------------------------------------------
   ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model
@@ -1250,11 +1229,6 @@ MODULE mo_ocean_nml
     !------------------------------------------------------------
     ! 6.0 check the consistency of the parameters
     !------------------------------------------------------------
-    
-    ! adjust wind mixxing coefficient as in MPIOM
-    tracer_TopWindMixing   = tracer_TopWindMixing / (6.0_wp**3)
-    velocity_TopWindMixing = velocity_TopWindMixing / (6.0_wp**3)
-    
     If (laplacian_form /= 1 .and. laplacian_form /= 2) THEN
       CALL finish(method_name, 'wrong laplacian_form parameter')
     ENDIF

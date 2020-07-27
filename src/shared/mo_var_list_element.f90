@@ -53,10 +53,4 @@ MODULE mo_var_list_element
 
   PUBLIC :: t_var_list_element
 
-  TYPE t_p_var_list_element
-    TYPE(t_var_list_element), POINTER :: p
-  END TYPE t_p_var_list_element
-
-  PUBLIC :: t_p_var_list_element
-
 END MODULE mo_var_list_element

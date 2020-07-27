@@ -15,20 +15,22 @@ MODULE mo_ocean_solve_transfer
   USE mo_parallel_config, ONLY: l_fast_sum
   USE mo_timer, ONLY: timer_start, timer_stop
   USE mo_mpi, ONLY: p_sum, p_max
+  USE mo_ocean_solve_aux, ONLY: t_destructible
   USE mo_exception, ONLY: finish
   USE mo_run_config, ONLY: ltimer
 
   IMPLICIT NONE
+
   PRIVATE
 
-  PUBLIC :: t_transfer
+  PUBLIC :: t_transfer, transfer_ptr
 
-  TYPE, ABSTRACT :: t_transfer
+  TYPE, ABSTRACT, EXTENDS(t_destructible) :: t_transfer
     PRIVATE
     INTEGER, PUBLIC :: comm, nblk_a, nblk, nidx, nidx_e, nidx_l, ngid_a_l
     INTEGER, PUBLIC :: timer_sync, timer_in(4), timer_out, timer_glob_sum, timer_init
     LOGICAL, PUBLIC :: is_solver_pe, is_leader_pe
-    LOGICAL, PUBLIC :: is_init = .false.
+    INTEGER, ALLOCATABLE, DIMENSION(:), PUBLIC :: is_init
     INTEGER, POINTER, DIMENSION(:), PUBLIC :: glb_idx_loc => NULL(), &
       & glb_idx_cal => NULL()
   CONTAINS
@@ -73,7 +75,6 @@ MODULE mo_ocean_solve_transfer
 ! global indices
     PROCEDURE :: globalID_loc => ocean_solve_transfer_globalID_loc
     PROCEDURE :: globalID_cal => ocean_solve_transfer_globalID_cal
-    PROCEDURE(a_trans_destruct), DEFERRED :: destruct
   END TYPE t_transfer
 
   ABSTRACT INTERFACE
@@ -166,10 +167,6 @@ MODULE mo_ocean_solve_transfer
       CLASS(t_transfer), INTENT(INOUT) :: this
       REAL(KIND=sp), INTENT(INOUT), DIMENSION(:,:), CONTIGUOUS :: data_inout
     END SUBROUTINE a_trans_sync_2d_sp
-    SUBROUTINE a_trans_destruct(this)
-      IMPORT t_transfer
-      CLASS(t_transfer), INTENT(INOUT) :: this
-    END SUBROUTINE a_trans_destruct
   END INTERFACE
 
   INTERFACE simple_sum_local
@@ -194,6 +191,19 @@ MODULE mo_ocean_solve_transfer
   CHARACTER(LEN=*), PARAMETER :: module_name = "mo_ocean_solve_transfer"
 
 CONTAINS
+
+  FUNCTION transfer_ptr(this) RESULT(this_ptr)
+    CLASS(t_destructible), TARGET, INTENT(INOUT) :: this
+    CLASS(t_transfer), POINTER :: this_ptr
+
+    SELECT TYPE (this)
+    CLASS IS (t_transfer)
+      this_ptr => this
+    CLASS DEFAULT
+      NULLIFY(this_ptr)
+      CALL finish("trivial_transfer_ptr", "not correct type!")
+    END SELECT
+  END FUNCTION transfer_ptr
 
 ! returns global index for (iidx,iblk) in a worker-side array
   PURE ELEMENTAL FUNCTION ocean_solve_transfer_globalID_loc(this, &

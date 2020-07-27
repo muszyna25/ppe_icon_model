@@ -33,7 +33,7 @@ fi
 # for automatic testing
 dir=`pwd -P`
 icon_path=${dir%%scripts/postprocessing/testcases}
-icon_path=${basedir}/
+icon_path=${ICON_BASE_PATH}/
 
 # 1.2 The data file name is constructed in the same way as in the model.
 # The name is composed of experiment name, hor. and vert. resolution,

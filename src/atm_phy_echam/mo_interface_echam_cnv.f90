@@ -155,7 +155,7 @@ CONTAINS
           END DO
           !$ACC END PARALLEL
           !
-          IF(ntrac .GT. 0) THEN
+          IF(ntracer .GT. iqt) THEN
             zqtrc_iqt => zqtrc(:,:,iqt:)
             tend_qtrc_cnv_iqt => tend_qtrc_cnv  (:,:,iqt:)
           ELSE

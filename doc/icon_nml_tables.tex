@@ -759,6 +759,54 @@ coefficient of accretion of cloud droplets by falling snow &
 echam\_phy\_config(jg)\% dt\_cld > 0.000s
 \tabularnewline
 
+echam\_cld\_config(jg)\% cn1lnd &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over land, p <= 100 hPa &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% cn2lnd &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over land, p >= 800 hPa &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% cn1sea &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over sea, p <= 100 hPa &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% cn2sea &
+R & defval & 1e6/m3 &
+cloud droplet number concentration over sea, p >= 800 hPa &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% cinhomi &
+R & 0.8 & &
+ice    cloud inhomogeneity factor &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% cinhoml1 &
+R & 0.8 & &
+liquid cloud inhomogeneity factor, ktype = 0 = stratiform clouds &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% cinhoml2 &
+R & 0.4 & &
+liquid cloud inhomogeneity factor, ktype = 4 = shallow conv. (cf. clwprat) &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
+echam\_cld\_config(jg)\% cinhoml3 &
+R & 0.8 & &
+liquid cloud inhomogeneity factor, ktype = 1 = deep convection and ktype = 2 = shallow conv. (cf. clwprat) and ktype = 3 = mid-level conv. &
+echam\_phy\_config(jg)\% dt\_cld > 0.000s
+\tabularnewline
+
 echam\_cld\_config(jg)\% clwprat &
 R & 4.0 & &
 critical ratio of cloud liq.+ice paths below and above the top of shallow convection; for ratio > clwprat -> change ktype from 2 to 4 &
@@ -798,7 +846,7 @@ echam\_phy\_config(jg)\% dt\_cld > 0.000s
 
 The parameterization of convection for the ECHAM physics is configured by a data structure \textit{echam\_cnv\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
 
-\begin{longtab}\ 
+\begin{longtab}\% 
 %\hline
 echam\_cnv\_config(jg)\% lmfpen &
 L& .TRUE.&&
@@ -937,66 +985,6 @@ echam\_cnv\_config(jg)\% cmfcmax &
 R & 1.0 &&
 Maximum massflux value for updrafts.&
 echam\_phy\_config(jg)\% dt\_cnv > 0.000s
-\tabularnewline
-
-\end{longtab}
-
-%------------------------------------------------------------------------------
-% echam_cop_nml:
-%------------------------------------------------------------------------------
-\subsection{echam\_cop\_nml}
-
-The parameterization of cloud optical properties for the ECHAM physics is configured by a data structure \textit{echam\_cop\_config(jg=1:ndom)\%<param>}, which is a 1-dimensional array extending over all  domains. The structure contains parameters providing control over the parametrized effects:
-
-\begin{longtab}
-%\hline
-echam\_cop\_config(jg)\% cn1lnd &
-R & 20. & 1e6/m3 &
-cloud droplet number concentration over land, \newline
-p <= 100 hPa &
-\tabularnewline
-
-echam\_cop\_config(jg)\% cn2lnd &
-R & 180. & 1e6/m3 &
-cloud droplet number concentration over land, \newline
-p >= 800 hPa &
-\tabularnewline
-
-echam\_cop\_config(jg)\% cn1sea &
-R & 20. & 1e6/m3 &
-cloud droplet number concentration over sea, \newline
-p <= 100 hPa &
-\tabularnewline
-
-echam\_cop\_config(jg)\% cn2sea &
-R & 80. & 1e6/m3 &
-cloud droplet number concentration over sea, \newline
-p >= 800 hPa &
-\tabularnewline
-
-echam\_cop\_config(jg)\% cinhomi &
-R & 0.8 & &
-ice    cloud inhomogeneity factor &
-\tabularnewline
-
-echam\_cop\_config(jg)\% cinhoml1 &
-R & 0.8 & &
-liquid cloud inhomogeneity factor, \newline
-ktype = 0 = stratiform clouds &
-\tabularnewline
-
-echam\_cop\_config(jg)\% cinhoml2 &
-R & 0.4 & &
-liquid cloud inhomogeneity factor, \newline
-ktype = 4 = shallow conv. (cf. clwprat) &
-\tabularnewline
-
-echam\_cop\_config(jg)\% cinhoml3 &
-R & 0.8 & &
-liquid cloud inhomogeneity factor, \newline
-ktype = 1 = deep convection and \newline
-ktype = 2 = shallow conv. (cf. clwprat) and \newline
-ktype = 3 = mid-level conv. &
 \tabularnewline
 
 \end{longtab}
@@ -6473,6 +6461,26 @@ L&
 .FALSE.&
 &
 writes actual aerosol optical properties to output &
+\tabularnewline
+
+%\hline
+ighg &
+I&
+0&
+&
+Select dynamic greenhouse gases scenario (read from file)\\
+0 : select default gas volume mixing ratios - 1990 values (CMIP5)\\
+1 : transient CMIP5 scenario from file & run\_nml/iforcing=2 (ECHAM)
+\tabularnewline
+
+%\hline
+ghg\_filename &
+C&
+bc\_greenhouse\_\newline gases.nc &
+&
+Time-depedent greenhouse gas data file
+&
+run\_nml/iforcing=2, 3 (ECHAM, NWP)
 \tabularnewline
 
 %\hline

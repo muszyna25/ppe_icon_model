@@ -12,30 +12,42 @@
 !! headers of the routines.
 
 MODULE mo_load_restart
-  USE mo_cdi,                ONLY: streamOpenRead, cdiStringError, streamInqVlist, streamClose
-  USE mo_exception,          ONLY: message, finish, warning
-  USE mo_load_multifile_restart, ONLY: multifileReadPatch, multifileCheckRestartFiles
-  USE mo_load_singlefile_restart, ONLY: singlefileReadPatch, singlefileCheckRestartFiles
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_mpi,                ONLY: p_comm_work, p_comm_rank, my_process_is_mpi_workroot, my_process_is_stdio
-  USE mo_multifile_restart_util, ONLY: multifileRestartLinkName
-  USE mo_restart_nml_and_att,ONLY: restartAttributeList_read, ocean_initFromRestart_OVERRIDE
-  USE mo_restart_util,       ONLY: restartSymlinkName
-  USE mo_restart_var_data,   ONLY: createRestartVarData
-  USE mo_var_list_element,   ONLY: t_p_var_list_element
-  USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
-    & timer_load_restart_comm_setup, timer_load_restart_communication, &
-    & timer_load_restart_get_var_id, timers_level
-  USE mo_util_string,        ONLY: separator, toCharacter
-  USE mo_var_list,           ONLY: nvar_lists, var_lists
-  USE mo_master_control,     ONLY: get_my_process_name
+    USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, streamClose, streamOpenRead, &
+      &                              streamReadVarSlice, streamReadVarSliceF,                     &
+      &                              vlistInqTaxis, vlistNvars,                                   &
+      &                              vlistInqVarName, vlistInqVarGrid, vlistInqVarZaxis,          &
+      &                              taxisInqVdate, taxisInqVtime, zaxisInqType, zaxisInqSize,    &
+      &                              gridInqSize, ZAXIS_SURFACE, cdiStringError
+    USE mo_fortran_tools,      ONLY: t_alloc_character
+    USE mo_dictionary,         ONLY: t_dictionary, DICT_MAX_STRLEN
+    USE mo_communication,      ONLY: t_ScatterPattern
+    USE mo_exception,          ONLY: message, finish, warning
+    USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SINGLE_T, REAL_T, INT_T, SUCCESS
+    USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,              &
+      &                              GRID_UNSTRUCTURED_EDGE
+    USE mo_load_multifile_restart, ONLY: multifileReadPatch, multifileCheckRestartFiles
+    USE mo_load_singlefile_restart, ONLY: singlefileReadPatch, singlefileCheckRestartFiles
+    USE mo_kind,               ONLY: dp, sp
+    USE mo_linked_list,        ONLY: t_list_element
+    USE mo_model_domain,       ONLY: t_patch
+    USE mo_mpi,                ONLY: p_comm_work, p_comm_rank, my_process_is_mpi_workroot, my_process_is_stdio
+    USE mo_multifile_restart_util, ONLY: multifileRestartLinkName, multifileAttributesPath
+    USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, &
+      & setAttributesForRestarting, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
+    USE mo_restart_namelist,   ONLY: t_NamelistArchive, namelistArchive
+    USE mo_restart_util,       ONLY: restartSymlinkName
+    USE mo_restart_var_data,   ONLY: t_restartVarData, createRestartVarData
+    USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
+                                   & timer_load_restart_comm_setup, timer_load_restart_communication, &
+                                   & timer_load_restart_get_var_id, timers_level
+    USE mo_util_string,        ONLY: int2string, separator, toCharacter
+    USE mo_var_list,           ONLY: nvar_lists, var_lists
 
-  IMPLICIT NONE
-  PRIVATE
+    IMPLICIT NONE
 
-  PUBLIC :: read_restart_files, read_restart_header
+    PUBLIC :: read_restart_files, read_restart_header
 
-  CHARACTER(LEN = *), PARAMETER :: modname = "mo_load_restart"
+    CHARACTER(LEN = *), PARAMETER :: modname = "mo_load_restart"
 
 CONTAINS
 
@@ -59,37 +71,44 @@ CONTAINS
     IF(modelType == '') CALL finish(routine, "assertion failed: invalid modelType")
 
     IF(.NOT.cache_isValid) THEN
-      !get the two possible paths
-      CALL restartSymlinkName(modelType, 1, singlefileLinkName, -1)
-      CALL multifileRestartLinkName(modelType, multifileLinkName)
-      !check whether the respective files exist
-      INQUIRE(file = singlefileLinkName, exist = haveSinglefileLink)
+        !get the two possible paths
+        CALL restartSymlinkName(modelType, 1, singlefileLinkName)
+        CALL multifileRestartLinkName(modelType, multifileLinkName)
+
+        !check whether the respective files exist
+        INQUIRE(file = singlefileLinkName, exist = haveSinglefileLink)
 #if defined (__INTEL_COMPILER)
-      INQUIRE(directory = multifileLinkName, exist = haveMultifileLink)
+        INQUIRE(directory = multifileLinkName, exist = haveMultifileLink)
 #else
-      INQUIRE(file = multifileLinkName, exist = haveMultifileLink)
+        INQUIRE(file = multifileLinkName, exist = haveMultifileLink)
 #endif
-      !determine which path to USE
-      IF(haveMultifileLink) THEN
-        cache_isMultifile = .TRUE.
-        IF (haveSinglefileLink) CALL warning(routine, &
-          & "both kinds, single- and multi-file restart-links, present, choosing multi-file")
-      ELSE
+
+        !determine which path to USE
         IF(haveSinglefileLink) THEN
-          cache_isMultifile = .FALSE.
+            IF(haveMultifileLink) THEN
+                CALL warning(routine, "both a singlefile and a multifile restart file are present, using the multifile restart")
+                cache_isMultifile = .TRUE.
+            ELSE
+                cache_isMultifile = .FALSE.
+            END IF
         ELSE
-          WRITE (0,*) "singlefileLinkName = ", singlefileLinkName
-          WRITE (0,*) "multifileLinkName = ", multifileLinkName
-          CALL finish(routine, "no functional symlink found")
+            IF(haveMultifileLink) THEN
+                cache_isMultifile = .TRUE.
+            ELSE
+              WRITE (0,*) "singlefileLinkName = ", singlefileLinkName
+              WRITE (0,*) "multifileLinkName = ", multifileLinkName
+                CALL finish(routine, "fatal error: could not locate the restart symlink to use")
+            END IF
         END IF
-      END IF
-      cache_isValid = .TRUE.
+
+        cache_isValid = .TRUE.
     END IF
+
     out_lIsMultifile = cache_isMultifile
     IF(cache_isMultifile) THEN
-      CALL multifileRestartLinkName(modelType, linkname)
+        CALL multifileRestartLinkName(modelType, linkname)
     ELSE
-      CALL restartSymlinkName(modelType, 1, linkname, -1)
+        CALL restartSymlinkName(modelType, 1, linkname)
     END IF
   END SUBROUTINE findRestartFile
 
@@ -98,29 +117,46 @@ CONTAINS
   ! model default, and will later be overwritten if the user has
   ! specified something different for this integration.
   !
+  ! Note: We read the namelists AND attributes only once and assume that these
+  !       are identical for all domains (which IS guaranteed by the way the restart files are written).
+  !
   ! Collective across p_comm_work.
   !
   ! This IS used for both single- AND multifile restart files.
   SUBROUTINE readRestartAttributeFile(attributeFile)
     CHARACTER(*), INTENT(IN) :: attributeFile
-    INTEGER :: fileId, vlistId
-    CHARACTER(:), POINTER :: cdiErrorText 
-    CHARACTER(*), PARAMETER :: routine = modname//":readRestartAttributeFile"
-    LOGICAL :: isReader
 
-    isReader = 0 == p_comm_rank(p_comm_work)
-    IF(isReader) THEN
-      fileId  = streamOpenRead(attributeFile)
-      ! check if the file could be opened
-      IF(fileId < 0) THEN
-        cdiErrorText => toCharacter(cdiStringError(fileId))
-        CALL finish(routine, 'File '//attributeFile//' cannot be opened: '//cdiErrorText)
-      END IF
-      vlistId = streamInqVlist(fileId)
+    INTEGER :: myRank, fileId, vlistId
+    TYPE(t_NamelistArchive), POINTER :: namelists
+    CHARACTER(:), POINTER :: cdiErrorText
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CHARACTER(*), PARAMETER :: routine = modname//":readRestartAttributeFile"
+
+    myRank = p_comm_rank(p_comm_work)
+
+    IF(.NOT.ocean_initFromRestart_OVERRIDE) &
+! no namelists needed in case of initialize_FromRestart=true
+! only the other attributes are actually of interest...
+      & namelists => namelistArchive()
+    IF(myRank == 0) THEN
+        fileId  = streamOpenRead(attributeFile)
+        ! check if the file could be opened
+        IF(fileId < 0) THEN
+            cdiErrorText => toCharacter(cdiStringError(fileId))
+            CALL finish(routine, 'File '//attributeFile//' cannot be opened: '//cdiErrorText)
+        END IF
+        vlistId = streamInqVlist(fileId)
+        IF(.NOT.ocean_initFromRestart_OVERRIDE) &
+          & CALL namelists%readFromFile(vlistId)
     END IF
-    CALL restartAttributeList_read(vlistId, 0, p_comm_work)
-    IF(isReader) CALL streamClose(fileId)
-    CALL message(routine, "read namelists and attributes from restart file")
+    IF(.NOT.ocean_initFromRestart_OVERRIDE) &
+      & CALL namelists%bcast(0, p_comm_work)
+    restartAttributes => RestartAttributeList_make(vlistId, 0, p_comm_work)
+    CALL setAttributesForRestarting(restartAttributes)
+    IF(myRank == 0) THEN
+        CALL streamClose(fileId)
+        WRITE(0,*) "restart: read namelists and attributes from restart file"
+    END IF
   END SUBROUTINE readRestartAttributeFile
 
   ! Reads attributes and namelists for all available domains from restart file.
@@ -131,33 +167,69 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//":read_restart_header"
 
     ! Must NOT USE a timer here as the timers are NOT initialized yet,
+    ! AND I dare NOT to make such a significant order change within construct_atmo_model()
+    ! for fear of silently breaking the initialization of some other global variable.
+!   IF(timers_level >= 5) CALL timer_start(timer_load_restart)
+
     CALL findRestartFile(modelType, lIsMultifile, filename)
     IF(lIsMultifile) THEN
-      mfaname = filename//"/attributes.nc"
-      CALL readRestartAttributeFile(mfaname)
-      IF(my_process_is_stdio()) CALL multifileCheckRestartFiles(filename)
+        CALL multifileAttributesPath(filename, mfaname)
+        CALL readRestartAttributeFile(mfaname)
+        IF(my_process_is_stdio()) CALL multifileCheckRestartFiles(filename)
     ELSE
-      CALL readRestartAttributeFile(filename)
-      IF(my_process_is_stdio()) CALL singlefileCheckRestartFiles(modelType)
+        CALL readRestartAttributeFile(filename)
+        IF(my_process_is_stdio()) CALL singlefileCheckRestartFiles(modelType)
     END IF
+
+    ! See above.
+!   IF(timers_level >= 5) CALL timer_stop(timer_load_restart)
   END SUBROUTINE read_restart_header
+
+  !returns an array with all the different model types that are PRESENT IN var_lists
+  SUBROUTINE getModelTypes(domain, resultVar) 
+    TYPE(t_alloc_character), ALLOCATABLE, INTENT(INOUT) :: resultVar(:)
+    INTEGER, INTENT(IN) :: domain
+
+    TYPE(t_dictionary) :: modelTypes    !this dictionary IS actually used as a set, so the values are empty strings
+    INTEGER :: i, modelTypeCount, error
+    CHARACTER(*), PARAMETER :: routine = modname//":getModelTypes"
+    CHARACTER(LEN=DICT_MAX_STRLEN), ALLOCATABLE :: array(:,:) !< dictionary data, dims: (2,nmax_entries)
+
+    CALL modelTypes%init(.TRUE.)
+
+    !insert all the model_type strings as keys into the dictionary
+    DO i = 1, nvar_lists
+        IF(var_lists(i)%p%patch_id == domain) THEN
+          CALL modelTypes%set(var_lists(i)%p%model_type, "")
+        END IF
+    END DO
+
+    !convert the RESULT into an array
+    modelTypeCount = modelTypes%get_size()
+    ALLOCATE(resultVar(modelTypeCount), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+
+    CALL modelTypes%to_array(array)
+    DO i=1,SIZE(array,2)
+      resultVar(i)%a = TRIM(array(1,i))
+    END DO
+    DEALLOCATE(array)
+
+    CALL modelTypes%finalize()
+  END SUBROUTINE getModelTypes
 
   SUBROUTINE read_restart_files(p_patch, opt_ndom)
     TYPE(t_patch), INTENT(in) :: p_patch
     INTEGER, OPTIONAL, INTENT(in) :: opt_ndom
     CHARACTER(:), ALLOCATABLE :: restartPath
     LOGICAL :: lIsMultifileRestart, lMultifileTimersInitialized
-    TYPE mtype_ll
-      CHARACTER(:), ALLOCATABLE :: a
-      TYPE(mtype_ll), POINTER :: next => NULL()
-    END TYPE mtype_ll
-    TYPE(mtype_ll), POINTER :: cur_mType, entry_mType
-    INTEGER :: ndom_deopt
-    TYPE(t_p_var_list_element), ALLOCATABLE :: varData(:)
+    TYPE(t_alloc_character), ALLOCATABLE :: modelTypes(:)
+    INTEGER :: i, integerTrash
+    TYPE(t_restartVarData), POINTER :: varData(:)
 
     IF(timers_level >= 5) CALL timer_start(timer_load_restart)
 
-    IF (ocean_initFromRestart_OVERRIDE) CALL read_restart_header(TRIM(get_my_process_name()))
+    IF (ocean_initFromRestart_OVERRIDE) CALL read_restart_header("oce")
     ! Make sure that all the subcounters are recognized as subcounters on all work processes.
     IF(timers_level >= 7) THEN
         CALL timer_start(timer_load_restart_io)
@@ -170,13 +242,16 @@ CONTAINS
     IF (my_process_is_mpi_workroot()) &
          WRITE(0,'(a,i0,a,i0)') "restart: reading restart data for patch ", &
          p_patch%id, ", nvar_lists = ", nvar_lists
-    ALLOCATE(entry_mType)
-    CALL getModelTypes()
-    cur_mType => entry_mType
-    DO WHILE(ASSOCIATED(cur_mType%next))
-        CALL createRestartVarData(varData, p_patch%id, cur_mType%next%a)
+
+    ! get the list of all the different model types that we need to
+    ! consider:
+    CALL getModelTypes(p_patch%id, modelTypes)
+
+    DO i = 1, SIZE(modelTypes)
+        varData => createRestartVarData(p_patch%id, modelTypes(i)%a, integerTrash)
+
         !determine whether we have a multifile to READ
-        CALL findRestartFile(cur_mType%next%a, lIsMultifileRestart, restartPath)
+        CALL findRestartFile(modelTypes(i)%a, lIsMultifileRestart, restartPath)
         IF(lIsMultifileRestart) THEN
             !multifile loading also uses these two timers
             IF(timers_level >= 7 .AND..NOT.lMultifileTimersInitialized) THEN
@@ -191,15 +266,10 @@ CONTAINS
             CALL multifileReadPatch(varData, p_patch, restartPath)
         ELSE
             !can't USE restartPath here because the path IS patch dependent IN the single file CASE
-            ndom_deopt = -1
-            IF (PRESENT(opt_ndom)) ndom_deopt = opt_ndom
-            CALL singlefileReadPatch(varData, cur_mType%next%a, p_patch, ndom_deopt)
+            CALL singlefileReadPatch(varData, modelTypes(i)%a, p_patch, opt_ndom)
         END IF
 
         DEALLOCATE(varData)
-        entry_mType => cur_mType
-        cur_mType => cur_mType%next
-        DEALLOCATE(entry_mType)
     END DO
 
     IF(timers_level >= 5) CALL timer_stop(timer_load_restart)
@@ -207,27 +277,6 @@ CONTAINS
     CALL message('','')
     CALL message('',separator)
     CALL message('','')
-  CONTAINS
-
-    SUBROUTINE getModelTypes()
-      INTEGER :: i, lm
-      LOGICAL :: skip
-
-      skip = .FALSE.
-      DO i = 1, nvar_lists
-        IF (var_lists(i)%p%patch_id .NE. p_patch%id) CYCLE
-        lm = LEN_TRIM(var_lists(i)%p%model_type)
-        cur_mType => entry_mType
-        DO WHILE(ASSOCIATED(cur_mType%next))
-          skip = var_lists(i)%p%model_type(1:lm) == cur_mType%next%a
-          IF (skip) EXIT
-          cur_mType => cur_mType%next
-        END DO
-        IF (skip) CYCLE
-        ALLOCATE(cur_mType%next)
-        cur_mType%next%a = var_lists(i)%p%model_type(1:lm)
-      END DO
-    END SUBROUTINE getModelTypes
   END SUBROUTINE read_restart_files
 
 END MODULE mo_load_restart

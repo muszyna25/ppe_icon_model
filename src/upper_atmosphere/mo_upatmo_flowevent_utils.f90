@@ -23,8 +23,8 @@ MODULE mo_upatmo_flowevent_utils
   USE mo_impl_constants,        ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_upatmo_impl_const,     ONLY: iUpatmoStat
   USE mo_upatmo_types,          ONLY: t_upatmo
-  USE mo_restart_nml_and_att,   ONLY: getAttributesForRestarting
-  USE mo_key_value_store,       ONLY: t_key_value_store
+  USE mo_restart_attributes,    ONLY: t_RestartAttributeList, &
+    &                                 getAttributesForRestarting
   USE mo_upatmo_config,         ONLY: upatmo_config
   USE mo_upatmo_utils,          ONLY: t_varstate_set
   USE mtime,                    ONLY: datetime
@@ -93,24 +93,24 @@ MODULE mo_upatmo_flowevent_utils
     LOGICAL,  ALLOCATABLE :: tendStateSet_l_initialized(:)
   END TYPE t_upatmoRestartAttributes
 
-  CHARACTER(*), PARAMETER :: keyStrElapsedTimePhy                 = "upatmo_elapsedTimePhy_DOM"
-  CHARACTER(*), PARAMETER :: keyStrElapsedTimeExtdat              = "upatmo_elapsedTimeExtdat_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_i_old             = "upatmo_tendStateSet_i_old_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_i_new             = "upatmo_tendStateSet_i_new_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_n_swap            = "upatmo_tendStateSet_n_swap_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_n_state           = "upatmo_tendStateSet_n_state_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_n_statep1         = "upatmo_tendStateSet_n_statep1_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_swapped         = "upatmo_tendStateSet_l_swapped_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_updated         = "upatmo_tendStateSet_l_updated_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_locked          = "upatmo_tendStateSet_l_locked_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_locking         = "upatmo_tendStateSet_l_locking_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_unlockable      = "upatmo_tendStateSet_l_unlockable_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_final           = "upatmo_tendStateSet_l_final_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_finish_on_error = "upatmo_tendStateSet_l_finish_on_error_DOM"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSet_l_initialized     = "upatmo_tendStateSet_l_initialized_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrElapsedTimePhy                 = "upatmo_elapsedTimePhy_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrElapsedTimeExtdat              = "upatmo_elapsedTimeExtdat_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_i_old             = "upatmo_tendStateSet_i_old_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_i_new             = "upatmo_tendStateSet_i_new_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_n_swap            = "upatmo_tendStateSet_n_swap_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_n_state           = "upatmo_tendStateSet_n_state_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_n_statep1         = "upatmo_tendStateSet_n_statep1_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_swapped         = "upatmo_tendStateSet_l_swapped_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_updated         = "upatmo_tendStateSet_l_updated_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_locked          = "upatmo_tendStateSet_l_locked_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_locking         = "upatmo_tendStateSet_l_locking_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_unlockable      = "upatmo_tendStateSet_l_unlockable_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_final           = "upatmo_tendStateSet_l_final_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_finish_on_error = "upatmo_tendStateSet_l_finish_on_error_DOM"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSet_l_initialized     = "upatmo_tendStateSet_l_initialized_DOM"
   !
-  CHARACTER(*), PARAMETER :: keyStrElapsedTimeSuffix  = "_PHY"
-  CHARACTER(*), PARAMETER :: keyStrTendStateSetSuffix = "_TEND"
+  CHARACTER(LEN=*), PARAMETER :: keyStrElapsedTimeSuffix  = "_PHY"
+  CHARACTER(LEN=*), PARAMETER :: keyStrTendStateSetSuffix = "_TEND"
 
   INTEGER, PARAMETER :: domRestartLimit = 2
 
@@ -338,7 +338,7 @@ CONTAINS !......................................................................
     ! In/out variables
     INTEGER,                         INTENT(IN)    :: jg
     TYPE(t_upatmoRestartAttributes), INTENT(IN)    :: upatmoRestartAttributes
-    TYPE(t_key_value_store),    INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList),    INTENT(INOUT) :: restartAttributes
 
     ! Local variables
     CHARACTER(LEN=2) :: domStr
@@ -346,41 +346,54 @@ CONTAINS !......................................................................
 
     !----------------------------------------------
 
-    domStr = int2string(jg, "(i2.2)")
+    domStr = TRIM(int2string(jg, "(i2.2)"))
     
     ! elapsedTimePhy:
-    keyStr = domStr//keyStrElapsedTimeSuffix
-    CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%elapsedTimePhy, keyStrElapsedTimePhy//keyStr)
+    keyStr = TRIM(keyStrElapsedTimePhy)//TRIM(domStr)//TRIM(keyStrElapsedTimeSuffix)
+    CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%elapsedTimePhy, keyStr)
     ! elapsedTimeExtdat:
-    CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%elapsedTimeExtdat, keyStrElapsedTimeExtdat//keyStr)
+    keyStr = TRIM(keyStrElapsedTimeExtdat)//TRIM(domStr)//TRIM(keyStrElapsedTimeSuffix)
+    CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%elapsedTimeExtdat, keyStr)
     IF (jg <= domRestartLimit) THEN
-      keyStr = domStr//keyStrTendStateSetSuffix
       ! i_old:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_i_old, keyStrTendStateSet_i_old//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_i_old)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_i_old, keyStr)
       ! i_new:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_i_new, keyStrTendStateSet_i_new//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_i_new)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_i_new, keyStr)
       ! n_swap:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_swap, keyStrTendStateSet_n_swap//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_n_swap)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_swap, keyStr)
       ! n_state:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_state, keyStrTendStateSet_n_state//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_n_state)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_state, keyStr)
       ! n_statep1:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_statep1, keyStrTendStateSet_n_statep1//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_n_statep1)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_statep1, keyStr)
       ! l_swapped:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_swapped, keyStrTendStateSet_l_swapped//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_swapped)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_swapped, keyStr)
       ! l_updated:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_updated, keyStrTendStateSet_l_updated//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_updated)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_updated, keyStr)
       ! l_locked:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_locked, keyStrTendStateSet_l_locked//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_locked)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_locked, keyStr)
       ! l_locking:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_locking, keyStrTendStateSet_l_locking//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_locking)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_locking, keyStr)
       ! l_unlockable:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_unlockable, keyStrTendStateSet_l_unlockable//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_unlockable)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_unlockable, keyStr)
       ! l_final:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_final, keyStrTendStateSet_l_final//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_final)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_final, keyStr)
       ! l_finish_on_error:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_finish_on_error, keyStrTendStateSet_l_finish_on_error//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_finish_on_error)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_finish_on_error, keyStr)
       ! l_initialized:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_initialized, keyStrTendStateSet_l_initialized//keyStr)
+      keyStr = TRIM(keyStrTendStateSet_l_initialized)//TRIM(domStr)//TRIM(keyStrTendStateSetSuffix)
+      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_initialized, keyStr)
     ENDIF
 
   END SUBROUTINE upatmoRestartAttributesSet
@@ -403,26 +416,27 @@ CONTAINS !......................................................................
     TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current
 
     ! Local variables
-    TYPE(t_key_value_store), POINTER :: restartAttributes
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     TYPE(t_varstate_set), TARGET :: tendStateSet
     INTEGER :: i
     LOGICAL :: lmessage
     CHARACTER(LEN=2) :: domStr, iStr
-    CHARACTER(:), ALLOCATABLE :: keyStr
-    CHARACTER(*), PARAMETER :: routine = modname//':upatmoRestartAttributesGet'
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: keyStr
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = modname//':upatmoRestartAttributesGet'
 
     !----------------------------------------------
 
     IF (.NOT. ALLOCATED(prm_upatmo%tend%ddt%state)) THEN
-      CALL finish(routine, 'prm_upatmo%tend%ddt%state is not allocated')
+      CALL finish(TRIM(routine), 'prm_upatmo%tend%ddt%state is not allocated')
     ENDIF
 
     ! Message output desired?
     lmessage = upatmo_config(jg)%l_status( iUpatmoStat%message )
 
-    domStr = int2string(jg, '(i2.2)')
+    domStr = TRIM(int2string(jg, '(i2.2)'))
 
-    IF (lmessage) CALL message(routine, &
+    IF (lmessage) CALL message(TRIM(routine), &
       & 'Start to get metadata from restart file on domain '//domStr)
 
     ! Event management object
@@ -430,41 +444,66 @@ CONTAINS !......................................................................
     CALL upatmo_config(jg)%nwp_phy%event_mgmt_extdat%deserialize(mtime_current, optAttnamePrefix=keyStrElapsedTimeExtdat)
         
     ! State of accumulative tendencies
-    CALL getAttributesForRestarting(restartAttributes)
+    restartAttributes => getAttributesForRestarting()
 
     ! If src/configure_model/mo_master_config: isRestart() => .FALSE., 
     ! restartAttributes should point to NULL()
     IF (ASSOCIATED(restartAttributes) .AND. jg <= domRestartLimit) THEN
       
       DO i = 1, SIZE(prm_upatmo%tend%ddt%state)
-        iStr = int2string(i, '(i2.2)')
+        iStr = TRIM(int2string(i, '(i2.2)'))
         ! i_old:
-        keyStr = domStr//keyStrTendStateSetSuffix//iStr
-        CALL restartAttributes%get(keyStrTendStateSet_i_old//keyStr, tendStateSet%i_old)
+        keyStr = TRIM(keyStrTendStateSet_i_old)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%i_old = restartAttributes%getInteger(TRIM(keyStr))
         ! i_new:
-        CALL restartAttributes%get(keyStrTendStateSet_i_new//keyStr, tendStateSet%i_new)
+        keyStr = TRIM(keyStrTendStateSet_i_new)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%i_new = restartAttributes%getInteger(TRIM(keyStr))
         ! n_swap:
-        CALL restartAttributes%get(keyStrTendStateSet_n_swap//keyStr,tendStateSet%n_swap)
+        keyStr = TRIM(keyStrTendStateSet_n_swap)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%n_swap = restartAttributes%getInteger(TRIM(keyStr))
         ! n_state:
-        CALL restartAttributes%get(keyStrTendStateSet_n_state//keyStr, tendStateSet%n_state)
+        keyStr = TRIM(keyStrTendStateSet_n_state)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%n_state = restartAttributes%getInteger(TRIM(keyStr))
         ! n_statep1:
-        CALL restartAttributes%get(keyStrTendStateSet_n_statep1//keyStr, tendStateSet%n_statep1)
+        keyStr = TRIM(keyStrTendStateSet_n_statep1)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%n_statep1 = restartAttributes%getInteger(TRIM(keyStr))
         ! l_swapped:
-        CALL restartAttributes%get(keyStrTendStateSet_l_swapped//keyStr, tendStateSet%l_swapped)
+        keyStr = TRIM(keyStrTendStateSet_l_swapped)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_swapped = restartAttributes%getLogical(TRIM(keyStr))
         ! l_updated:
-        CALL restartAttributes%get(keyStrTendStateSet_l_updated//keyStr, tendStateSet%l_updated)
+        keyStr = TRIM(keyStrTendStateSet_l_updated)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_updated = restartAttributes%getLogical(TRIM(keyStr))
         ! l_locked:
-        CALL restartAttributes%get(keyStrTendStateSet_l_locked//keyStr, tendStateSet%l_locked)
+        keyStr = TRIM(keyStrTendStateSet_l_locked)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_locked = restartAttributes%getLogical(TRIM(keyStr))
         ! l_locking:
-        CALL restartAttributes%get(keyStrTendStateSet_l_locking//keyStr, tendStateSet%l_locking)
+        keyStr = TRIM(keyStrTendStateSet_l_locking)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_locking = restartAttributes%getLogical(TRIM(keyStr))
         ! l_unlockable:
-        CALL restartAttributes%get(keyStrTendStateSet_l_unlockable//keyStr, tendStateSet%l_unlockable)
+        keyStr = TRIM(keyStrTendStateSet_l_unlockable)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_unlockable = restartAttributes%getLogical(TRIM(keyStr))
         ! l_final:
-        CALL restartAttributes%get(keyStrTendStateSet_l_final//keyStr, tendStateSet%l_final)
+        keyStr = TRIM(keyStrTendStateSet_l_final)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_final = restartAttributes%getLogical(TRIM(keyStr))
         ! l_finish_on_error:
-        CALL restartAttributes%get(keyStrTendStateSet_l_finish_on_error//keyStr, tendStateSet%l_finish_on_error)
+        keyStr = TRIM(keyStrTendStateSet_l_finish_on_error)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_finish_on_error = restartAttributes%getLogical(TRIM(keyStr))
         ! l_initialized:
-        CALL restartAttributes%get(keyStrTendStateSet_l_initialized//keyStr, tendStateSet%l_initialized)
+        keyStr = TRIM(keyStrTendStateSet_l_initialized)//TRIM(domStr) &
+          & //TRIM(keyStrTendStateSetSuffix)//TRIM(iStr)
+        tendStateSet%l_initialized = restartAttributes%getLogical(TRIM(keyStr))
         ! 
         CALL prm_upatmo%tend%ddt%state(i)%reset(optSet4Reset=tendStateSet)
       ENDDO
@@ -540,20 +579,21 @@ CONTAINS !......................................................................
   SUBROUTINE setRestartAttributes_R1D( restartAttributes, attribute, key )
 
     ! In/out variables
-    TYPE(t_key_value_store), INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     REAL(wp), ALLOCATABLE,        INTENT(IN)    :: attribute(:)
-    CHARACTER(*),             INTENT(IN)    :: key
+    CHARACTER(LEN=*),             INTENT(IN)    :: key
 
     ! Local variables
     INTEGER :: i
-    CHARACTER(*), PARAMETER :: routine = modname//':setRestartAttributes_R1D'
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = modname//':setRestartAttributes_R1D'
 
     !----------------------------------------------
 
-    IF (LEN_TRIM(key) == 0) CALL finish(routine, 'Invalid key')
+    IF (LEN_TRIM(key) == 0) CALL finish(TRIM(routine), 'Invalid key')
     IF (ALLOCATED(attribute)) THEN
       DO i = 1, SIZE(attribute)
-        CALL restartAttributes%put(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
+        CALL restartAttributes%setReal(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
       ENDDO
     ENDIF
 
@@ -570,20 +610,21 @@ CONTAINS !......................................................................
   SUBROUTINE setRestartAttributes_I1D( restartAttributes, attribute, key )
 
     ! In/out variables
-    TYPE(t_key_value_store), INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     INTEGER, ALLOCATABLE,         INTENT(IN)    :: attribute(:)
     CHARACTER(LEN=*),             INTENT(IN)    :: key
 
     ! Local variables
     INTEGER :: i
-    CHARACTER(*), PARAMETER :: routine = modname//':setRestartAttributes_I1D'
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = modname//':setRestartAttributes_I1D'
 
     !----------------------------------------------
 
-    IF (LEN_TRIM(key) == 0) CALL finish(routine, 'Invalid key')
+    IF (LEN_TRIM(key) == 0) CALL finish(TRIM(routine), 'Invalid key')
     IF (ALLOCATED(attribute)) THEN
       DO i = 1, SIZE(attribute)
-        CALL restartAttributes%put(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
+        CALL restartAttributes%setInteger(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
       ENDDO
     ENDIF
 
@@ -600,20 +641,21 @@ CONTAINS !......................................................................
   SUBROUTINE setRestartAttributes_L1D( restartAttributes, attribute, key )
 
     ! In/out variables
-    TYPE(t_key_value_store), INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     LOGICAL, ALLOCATABLE,         INTENT(IN)    :: attribute(:)
     CHARACTER(LEN=*),             INTENT(IN)    :: key
 
     ! Local variables
     INTEGER :: i
-    CHARACTER(*), PARAMETER :: routine = modname//':setRestartAttributes_L1D'
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = modname//':setRestartAttributes_L1D'
 
     !----------------------------------------------
 
-    IF (LEN_TRIM(key) == 0) CALL finish(routine, 'Invalid key')
+    IF (LEN_TRIM(key) == 0) CALL finish(TRIM(routine), 'Invalid key')
     IF (ALLOCATED(attribute)) THEN
       DO i = 1, SIZE(attribute)
-        CALL restartAttributes%put(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
+        CALL restartAttributes%setLogical(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
       ENDDO
     ENDIF
 
@@ -639,13 +681,14 @@ CONTAINS !......................................................................
 
     ! Local variables
     INTEGER :: ierrstat
-    CHARACTER(*), PARAMETER :: routine = modname//':DO_DEALLOCATE_l1D'
+    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = modname//':DO_DEALLOCATE_l1D'
 
     !----------------------------------------------
 
     IF (ALLOCATED(object)) THEN
       DEALLOCATE(object, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, 'Deallocation failed!')
+      IF (ierrstat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation failed!')
     END IF
 
   END SUBROUTINE DO_DEALLOCATE_l1D

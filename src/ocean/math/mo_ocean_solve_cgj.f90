@@ -28,11 +28,21 @@ MODULE mo_ocean_solve_cgj
   CONTAINS
     PROCEDURE :: doit_wp => ocean_solve_cgj_cal_wp ! override deferred
     PROCEDURE :: doit_sp => ocean_solve_cgj_cal_sp ! override deferred
+    PROCEDURE :: destruct => ocean_solve_cgj_destruct ! override deferred
     PROCEDURE, PRIVATE :: recover_arrays_wp => ocean_solve_cgj_recover_arrays_wp
     GENERIC, PRIVATE :: recover_arrays => recover_arrays_wp
   END TYPE t_ocean_solve_cgj
 
 CONTAINS
+
+! destruct lhs-object and de-allocate arrays
+  SUBROUTINE ocean_solve_cgj_destruct(this)
+    CLASS(t_ocean_solve_cgj), INTENT(INOUT) :: this
+
+    CALL this%destruct_commons()
+    IF (ALLOCATED(this%z_wp)) DEALLOCATE(this%z_wp, this%d_wp, this%r1_wp, &
+      & this%rsq_wp, this%h_wp)
+  END SUBROUTINE ocean_solve_cgj_destruct
 
 ! get solver arrays (alloc them, if not done so, yet) - wp-variant  
 SUBROUTINE ocean_solve_cgj_recover_arrays_wp(this, x, b, z, d, r, r2, &

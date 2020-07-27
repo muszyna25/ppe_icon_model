@@ -17,20 +17,21 @@ MODULE mo_restart
   USE mo_exception, ONLY: finish, message
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_config, ONLY: restartWritingParameters, kSyncRestartModule, kAsyncRestartModule, kMultifileRestartModule
-  USE mo_mpi, ONLY: stop_mpi, my_process_is_restart, process_mpi_restart_size
+  USE mo_mpi, ONLY: my_process_is_restart, process_mpi_restart_size
   USE mo_multifile_restart, ONLY: t_MultifileRestartDescriptor
 #ifndef NOMPI
   USE mo_multifile_restart, ONLY: multifileRestart_mainLoop
 #endif
   USE mo_restart_descriptor, ONLY: t_RestartDescriptor
+  USE mo_restart_util, ONLY: becomeDedicatedRestartProc, shutdownRestartProc
   USE mo_sync_restart, ONLY: t_SyncRestartDescriptor
 #ifdef YAC_coupling
   USE mo_coupling_config, ONLY: is_coupled_run
   USE mo_io_coupling, ONLY: construct_io_coupler, destruct_io_coupler
 #endif
-  USE mo_timer, ONLY: print_timer, timer_stop, timer_model_init, ltimer
 
   IMPLICIT NONE
+
   PRIVATE
   ! documentation for t_RestartDescriptor IS found IN mo_restart_descriptor
   PUBLIC :: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor, detachRestartProcs
@@ -84,15 +85,15 @@ CONTAINS
   ! Enter the restart main proc IF this IS a pure restart PE AND set use_async_restart_output accordingly.
   !
   ! This routine does NOT RETURN on dedicated restart processes.
-  SUBROUTINE detachRestartProcs(timer_started)
-    LOGICAL, INTENT(IN) :: timer_started
+  SUBROUTINE detachRestartProcs()
     INTEGER :: restartModule
     CHARACTER(*), PARAMETER :: routine = modname//":detachRestartProcs"
 
     IF(process_mpi_restart_size <= 0) RETURN    ! no dedicated restart processes configured -> noop
     IF(.NOT.my_process_is_restart()) RETURN ! this IS NOT a dedicated restart process -> noop
 #ifdef NOMPI
-    CALL finish(routine, 'no MPI-support -> no restart procs -> go away!')
+    CALL finish('', 'this executable was compiled without MPI support, hence restart writing with dedicated restart processes &
+                      &is not available')
 #else
     ! Actually detach the restart processes.
 #ifdef YAC_coupling
@@ -100,11 +101,12 @@ CONTAINS
     ! in MPI_COMM_WORLD. Thus we do it here for the restart processes.
     IF ( is_coupled_run() ) CALL construct_io_coupler ( "restart_io" )
 #endif
-    IF (timer_started) CALL timer_stop(timer_model_init)
+    CALL becomeDedicatedRestartProc()
     CALL restartWritingParameters(opt_restartModule = restartModule)
     SELECT CASE(restartModule)
     CASE(kSyncRestartModule)
-      CALL finish(routine, "sync mode, but on restart proc !?!")
+      CALL finish(routine, "assertion failed: value of process_mpi_restart_size is inconsistent with result of &
+                           &restartWritingParameters()")
     CASE(kAsyncRestartModule)
       CALL asyncRestart_mainLoop()
     CASE(kMultifileRestartModule)
@@ -113,10 +115,8 @@ CONTAINS
 #ifdef YAC_coupling
     IF ( is_coupled_run() ) CALL destruct_io_coupler ( "restart_io" )
 #endif
-    ! This is the end of all things!
-    IF(ltimer) CALL print_timer
-    CALL stop_mpi
-    STOP
+    ! This IS a FUNCTION of no RETURN!
+    CALL shutdownRestartProc()
 #endif
   END SUBROUTINE detachRestartProcs
 

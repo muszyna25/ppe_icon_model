@@ -62,8 +62,7 @@ MODULE mo_atmo_model
     &                                   ishallow_water, inwp
   USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
-  USE mo_key_value_store,         ONLY: t_key_value_store
-  USE mo_restart_nml_and_att,     ONLY: getAttributesForRestarting
+  USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -94,7 +93,7 @@ MODULE mo_atmo_model
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
-  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic, construct_atmo_nonhydrostatic
+  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
@@ -150,7 +149,6 @@ MODULE mo_atmo_model
   USE mtime,                      ONLY: datetimeToString, OPERATOR(<), OPERATOR(+)
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
-  USE mo_async_latbc_types,       ONLY: t_latbc_data
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
 
@@ -176,8 +174,6 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
-    TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
-
 #ifndef NOMPI
 #if defined(__SX__)
     INTEGER  :: maxrss
@@ -188,20 +184,12 @@ CONTAINS
     ! construct the atmo model
     CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
 
-    SELECT CASE(iequations)
-
-    CASE(inh_atmosphere)
-      CALL construct_atmo_nonhydrostatic(latbc)
-
-    END SELECT
-
     !---------------------------------------------------------------------
     ! construct the coupler
     !
     IF ( is_coupled_run() ) THEN
       CALL construct_atmo_coupler(p_patch)
     ENDIF
-
 
     !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
@@ -211,7 +199,7 @@ CONTAINS
       CALL atmo_hydrostatic
 
     CASE(inh_atmosphere)
-      CALL atmo_nonhydrostatic(latbc)
+      CALL atmo_nonhydrostatic
 
     CASE DEFAULT
       CALL finish(routine, 'unknown choice for iequations.')
@@ -271,7 +259,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
     INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
     TYPE(t_sim_step_info)   :: sim_step_info  
-    TYPE(t_key_value_store), POINTER :: restartAttributes
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
     CALL lonlat_grids%init()
@@ -330,12 +318,11 @@ CONTAINS
 
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp,                    &
          &                          num_io_procs, dedicatedRestartProcs,          &
-         &                          atmo_process, num_prefetch_proc, num_test_pe, &
-         &                          pio_type,                                     &
+         &                          num_prefetch_proc, num_test_pe,               &
+         &                          pio_type, opt_comp_id=atmo_process,           &
          &                          num_io_procs_radar=num_io_procs_radar,        &
          &                          radar_flag_doms_model=luse_radarfwo(1:n_dom), &
          &                          detached_pio=proc0_offloading)
-
 #ifdef _OPENACC
     CALL update_nproma_on_device( my_process_is_work() )
 #endif
@@ -369,7 +356,7 @@ CONTAINS
     !-------------------------------------------------------------------
 
     ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
-    CALL detachRestartProcs(timers_level > 1)
+    CALL detachRestartProcs()
 
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return
@@ -406,9 +393,11 @@ CONTAINS
           sim_step_info%dtime      = dtime
           jstep0 = 0
 
-          CALL getAttributesForRestarting(restartAttributes)
-          ! get start counter for time loop from restart file:
-          IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+          restartAttributes => getAttributesForRestarting()
+          IF (ASSOCIATED(restartAttributes)) THEN
+            ! get start counter for time loop from restart file:
+            jstep0 = restartAttributes%getInteger("jstep")
+          END IF
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
         END IF

@@ -24,9 +24,9 @@
 
 # Build stage files:
 *.i
-*.lst
 *.o
-/bin
+*.lst
+/bin/icon
 /mod
 /pp
 /srclist
@@ -36,7 +36,7 @@
 /icon-*.tar.bz2
 
 # Extra sources that are not treated as submodules:
-externals/art
+/externals/art
 
 # Mac OS files:
 *.dSYM
@@ -55,5 +55,4 @@ externals/art
 cdo_diffn*.out
 experiments*
 src/lnd_phy_jsbach
-tags
 

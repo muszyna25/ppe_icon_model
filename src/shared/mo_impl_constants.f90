@@ -516,7 +516,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: SINGLE_T = 2
   INTEGER, PARAMETER :: BOOL_T   = 3
   INTEGER, PARAMETER :: INT_T    = 4
-  INTEGER, PARAMETER :: CHAR_T   = 5
 
   !----------------!
   !  MODEL OUTPUT  !
@@ -665,7 +664,6 @@ MODULE mo_impl_constants
   END TYPE t_ivexpol
   TYPE(t_ivexpol), PARAMETER :: ivexpol = t_ivexpol( 1, &  !lin 
     &                                                2  )  !upatmo
-
 
 
 !--------------------------------------------------------------------

@@ -22,7 +22,6 @@
 !!
 MODULE mo_ocean_nml_crosscheck
 
-  USE mo_master_control,    ONLY: get_my_process_name
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message, finish, warning
   USE mo_grid_config,       ONLY: init_grid_configuration
@@ -75,7 +74,7 @@ CONTAINS
     !
     CALL compute_timestep_settings()
     CALL compute_restart_settings()
-    CALL compute_date_settings(TRIM(get_my_process_name()), dt_restart, nsteps)
+    CALL compute_date_settings("oce", dt_restart, nsteps)
 
     CALL init_grid_configuration
 

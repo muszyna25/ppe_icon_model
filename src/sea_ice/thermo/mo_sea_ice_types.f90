@@ -92,7 +92,6 @@ MODULE mo_sea_ice_types
       & draft      (:,:,:)       ,   & ! Water equivalent of ice and snow over ice covered area [m]
       & draftave   (:,:)         ,   & ! Averaged water equivalent of ice and snow over grid area [m]
       & zUnderIce  (:,:)         ,   & ! water in upper ocean grid cell below ice               [m]
-      & draftave_old(:,:)         ,   & ! water in upper ocean grid cell below ice               [m]
       ! thermodynamics, fast (winton scheme only -- not currently functional)
       & T1         (:,:,:)       ,   & ! Temperature upper layer                                [C]
       & T2         (:,:,:)       ,   & ! Temperature lower layer                                [C]

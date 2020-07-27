@@ -180,7 +180,7 @@ CONTAINS
     TYPE(t_wtr_prog),           INTENT(inout) :: wtr_prog_now, wtr_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
-    TYPE(t_var_list), INTENT(inout) :: p_prog_list !current prognostic state list
+    TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
 
     TYPE(t_upatmo), TARGET, INTENT(inout) :: prm_upatmo !<upper-atmosphere variables
 
@@ -738,11 +738,16 @@ CONTAINS
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
 
       IF (.NOT. linit) THEN
-        CALL art_reaction_interface(jg,                    & !> in
+        CALL art_reaction_interface(ext_data,              & !> in
+                &                   pt_patch,              & !> in
                 &                   mtime_datetime,        & !> in
                 &                   dt_phy_jg(itfastphy),  & !> in
-                &                   p_prog_list,           & !> inout
-                &                   pt_prog_rcf%tracer)      !>
+                &                   p_prog_list,           & !> in
+                &                   pt_prog,               & !> in
+                &                   p_metrics,             & !> in
+                &                   pt_diag,               & !> inout
+                &                   pt_prog_rcf%tracer,    & !>
+                &                   prm_diag = prm_diag)     !> optional
                 
       END IF
 
@@ -1075,10 +1080,8 @@ CONTAINS
       !  (5) grid-scale cloud cover [1 or 0]
       !-------------------------------------------------------------------------
 
-#ifndef __GFORTRAN__
-! FIXME: libgomp seems to run in deadlock here
-!$OMP PARALLEL DO PRIVATE(i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
-#endif
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1124,9 +1127,10 @@ CONTAINS
 
 
       ENDDO
-#ifndef __GFORTRAN__
-!$OMP END PARALLEL DO
-#endif
+
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
       IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
@@ -1961,7 +1965,8 @@ CONTAINS
 
     IF (lart) THEN
       ! Call the ART diagnostics
-      CALL art_diagnostics_interface(pt_prog%rho,            &
+      CALL art_diagnostics_interface(pt_patch,               &
+        &                            pt_prog%rho,            &
         &                            pt_diag%pres,           &
         &                            pt_prog_now_rcf%tracer, &
         &                            p_metrics%ddqz_z_full,  &
