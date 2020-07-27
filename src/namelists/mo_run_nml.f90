@@ -54,7 +54,7 @@ MODULE mo_run_nml
   USE mo_util_string,    ONLY: one_of
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,   &
        &                            open_and_restore_namelist, close_tmpfile
   USE mtime,                  ONLY: max_timedelta_str_len
   
@@ -236,16 +236,8 @@ CONTAINS
       CALL finish( TRIM(routine),'wrong value for iforcing')
     END SELECT
 
-    ! If we choose to have NWP-forcing for the nonhydrostatic model, we want 
-    ! to avoid the necessity of setting ntracer explicitly. Thus, a sanity 
-    ! check for ntracer is triggered only, if iforcing /= INWP.
-    IF (iforcing /= INWP) THEN
-      IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
-      'wrong number of tracers. Valid range: 0<= ntracer <=20')
-
-      IF (ltransport .AND. ntracer<1) CALL finish(TRIM(routine), &
-      'Tracer transport is switched on, but number of advected tracers is smaller than 1')
-    ENDIF
+    IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
+      & 'wrong number of tracers. Valid range: 0 <= ntracer <= max_ntracer')
 
     IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
     IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')

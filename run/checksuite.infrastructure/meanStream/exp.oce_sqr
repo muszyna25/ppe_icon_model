@@ -25,7 +25,6 @@ daily="P1D"
 monthly="P1M"
 file_interval="P1Y"
 modelTimeStep="PT1H"
-icon_data_rootFolder=/pool/data/ICON
 autoPostProcessing="false"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -37,9 +36,6 @@ ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
 grids_folder=/pool/data/ICON/oes/input/r0002//OceanOnly_Icos_0158km_etopo40
 ocean_data_InputFolder=/pool/data/ICON/oes/input/r0002/OceanOnly_Icos_0158km_etopo40
-#-----------------------------------------------------------------------------
-#icon_data_rootFolder=/pool/data/ICON
-#
 #-----------------------------------------------------------------------------
 # HAMOCC
 use_hamocc=no
@@ -310,8 +306,8 @@ lkeep_in_sync = .true.
   bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                     = 0.03
-  tracer_TopWindMixing            = 1.0E-5
-  velocity_TopWindMixing          = 1.0E-5
+  !  tracer_TopWindMixing            = 1.0E-5
+  !  velocity_TopWindMixing          = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion

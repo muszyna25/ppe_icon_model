@@ -1,0 +1,301 @@
+#!@SHELL@
+
+# Define a variable with a name that is hardly owerriten by $BUILD_ENV:
+_collected_set_up_info=
+
+# The first argument is our output file:
+test "$#" -gt 0 && test -n "$1" && rm -f "$1" && _collected_set_up_info=$1
+
+# Silently initialize the environment:
+{ @BUILD_ENV@:; } >/dev/null 2>&1
+
+# List of output variables
+output_vars='
+use_builddir
+use_compiler
+use_compiler_version
+use_gpu
+use_host
+use_load_modules
+use_load_profile
+use_mpi
+use_mpi_procs_pernode
+use_mpi_root
+use_mpi_startrun
+use_openmp
+use_shell
+use_srcdir
+use_submit
+use_sync_submit
+use_target
+use_flags_group
+VERSION_
+'
+
+# Set directories:
+use_srcdir='@abs_top_srcdir@'
+use_builddir='@abs_top_builddir@'
+
+# Version info required by mkexp
+VERSION_='@PACKAGE_VERSION@'
+
+# Set use_site:
+use_host='@host_fqdn@'
+case "$use_host" in
+  unknown) ;;
+  wizard*|mlogin*|btlogin*|btc*) use_site=dkrz.de ;;
+  daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
+  ic2*|uc1*|fh2*) use_site=kit.edu ;;
+  melian*) use_site=local.net ;;
+  *mpimet.mpg.de) use_site=mpg.de ;;
+  xc*|rcnl*|oflws*) use_site=dwd.de ;;
+esac
+test -z "$use_site" && test x"$ICON_DOCKER" = x1 && use_site=docker
+test -n "$use_site" || use_site=`echo "$use_host" | sed 's/^[^.]*\\.//'`
+test -n "$use_site" || use_site='local.net'
+
+# Set use_compiler:
+use_compiler='@FC_VENDOR@'
+case "$use_compiler" in
+  gnu) use_compiler='gcc' ;;
+  portland) use_compiler='pgi' ;;
+  unknown) use_compiler= ;;
+esac
+
+# Set use_compiler_version:
+use_compiler_version='@FC_VERSION@'
+case "$use_compiler_version" in
+  unknown) use_compiler_version= ;;
+esac
+
+# Set use_mpi:
+use_mpi='no'
+@MPI_ENABLED@use_mpi='yes'
+
+# Set use_openmp:
+use_openmp='no'
+@OPENMP_ENABLED@use_openmp='yes'
+
+# Set use_gpu:
+use_gpu='no'
+@GPU_ENABLED@use_gpu='yes'
+
+# Set use_mpi_startrun:
+test -n '@MPI_LAUNCH@' && use_mpi_startrun='@MPI_LAUNCH@ -n $mpi_total_procs'
+
+# Set site-specific values:
+case "$use_site" in
+  cscs.ch)
+    case "$HOST" in
+      *daint*|*dom*)
+        use_load_profile='. /opt/modules/default/etc/modules.sh'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
+        if test xyes = x"${use_gpu}"; then use_target='daint_gpu'; else use_target='daint_cpu'; fi
+      ;;
+
+      *tave*)
+        use_load_profile='. /opt/modules/default/etc/modules.sh'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
+        use_target='tave_knl'
+      ;;
+
+      *kesch*)
+        use_load_profile='. /etc/profile.d/modules.sh'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun -n $mpi_total_procs --ntasks-per-node $mpi_procs_pernode --threads-per-core=1 --cpus-per-task $OMP_NUM_THREADS'
+        if test xyes = x"${use_gpu}"; then use_target='kesch_gpu'; else use_target='kesch_cpu'; fi
+      ;;
+    esac
+  ;;
+
+  dwd.de)
+    case "$use_host" in
+      rcnl*)
+        use_load_profile='/usr/share/Modules/init/sh'
+        use_submit='qsub'
+        use_sync_submit='qsub'
+      ;;
+      xc*)
+        use_submit='qsub'
+        use_sync_submit='qsub -Wblock=true'
+      ;;
+      oflws*)
+        use_target='oflws'
+      ;;
+      *) #hpc
+        use_submit='qsubw'
+        use_sync_submit='qsub -W block=true'
+        use_target='hpc'
+      ;;
+    esac
+  ;;
+
+  dkrz.de)
+    case "$use_host" in
+      btlogin*|btc*|mlogin*|m*)
+        use_load_profile='. /etc/profile'
+        use_load_modules='ncl cdo git python @top_srcdir@/etc/Modules/icon-switch'
+        use_submit='sbatch'
+        use_sync_submit='sbatch --wait'
+        use_mpi_startrun='srun'
+        if test xyes = x"${use_gpu}"; then use_target='bullx_gpu'; else use_target='bullx_cpu'; fi
+
+        # We need to set $use_mpi_root, which actually serves as a vendor ID of
+        # MPI library. Later, we might implement a proper check for MPI vendor
+        # in the configure script by calling MPI_Get_library_version()
+        # (supported only starting MPI 3 though). For now, we set use_mpi_root
+        # depending on whether $FC is an MPI wrapper or not:
+        #     a) if $FC is an MPI wrapper, we assume that it resides in
+        #        $use_mpi_root/bin (or in any other first-level subdirectory of
+        #        the root directory);
+        #     b) otherwise, we parse $FCFLAGS for -I flags, detect the first
+        #        directory containing mpi.mod file and assume that its path
+        #        is $use_mpi_root/include (or any other first-level
+        #        subdirectory of the root directory).
+        # In both cases, we set use_mpi_root accordingly. We also know that we
+        # are on Mistral, therefore we don't have to care too much about
+        # portability of the following checks.
+
+        if @FC@ -show >/dev/null 2>&1; then
+          # If $FC accepts '-show' then consider it to be an MPI wrapper (we
+          # use head -1 to account for the case when $FC is a program with
+          # arguments, i.e. 'ifort -someflag'):
+          use_mpi_root=$(cd "$(dirname "$(which @FC@ | head -1)")/.."; pwd)
+        else
+          # Otherwise, we extract all -I flags from $FC $FCFLAGS and return
+          # path to the first directory containing mpi.mod.
+
+          # Find out the real name of the MPI Fortran module:
+          mpi_mod=mpi.@FC_MOD_FILE_EXT@
+          test xyes = x"@FC_MOD_FILE_UPPER@" && mpi_mod=MPI.@FC_MOD_FILE_EXT@
+
+          # Replace '-I[ ]*' with _INCLUDE_MARKER_ in $FC $FCFLAGS:
+          fcflags=`echo '@FC@ @FCFLAGS@' | sed 's%-I[ ]*%_INCLUDE_MARKER_%g'`
+
+          # Find the directory containing $mpi_mod.
+          for flag in $fcflags; do
+            case $flag in
+              _INCLUDE_MARKER_*)
+                dir=`echo "$flag" | sed 's%_INCLUDE_MARKER_%%'`
+                test -f "$dir/$mpi_mod" && use_mpi_root=$(dirname "$dir") && break
+              ;;
+            esac
+          done
+        fi
+      ;;
+    esac
+  ;;
+
+  kfa-juelich.de|fz-juelich.de|*jureca*|*juwels*)
+    case "$use_host" in
+      jrl*|juwels*)
+        use_submit='sbatch'
+        use_mpi_startrun='srun'
+        use_target='jureca'
+      ;;
+      juqueen*)
+        use_submit='llsubmit'
+        use_mpi_startrun='runjob --ranks-per-node \$mpi_procs_pernode --envs OMP_NUM_THREADS=\$OMP_NUM_THREADS --exe'
+        use_target='juqueen'
+      ;;
+    esac
+  ;;
+
+  kit.edu)
+    case "$use_host" in
+      uc1*)
+        use_submit='sbatch'
+        use_mpi_startrun='runjob --ranks-per-node \$mpi_procs_pernode --envs OMP_NUM_THREADS=\$OMP_NUM_THREADS --exe'
+        use_target='ic2'
+      ;;
+      fh2*)
+        use_target='fh2'
+        case "$use_compiler" in
+          intel)
+            use_submit='sbatch'
+            use_load_profile='/etc/profile'
+            case "$use_compiler_version" in
+              19.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun'
+                    use_load_modules="compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19"
+                    ;;
+              17.*) use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun' 
+                    use_load_modules='compiler/intel/19.0 mpi/openmpi/3.0 lib/netcdf/4.6 lib/hdf5/1.10 lib/netcdf-fortran/4.4 eccodes/eccodes_ifort19'
+                     ;;
+            esac
+          ;;
+          gcc)
+            use_submit='msub'
+            use_mpi_startrun='mpirun'
+          ;;
+        esac
+        #use_mpi_startrun='/software/all/mpi/openmpi/3.0_intel_19.0/bin/mpirun'
+      ;;
+    esac
+  ;;
+
+  mpg.de)
+    case "$use_host" in
+      mpipc*|breeze*)
+        use_target='mpipc'
+        case "`lsb_release -c | awk '{print $2}'`" in
+          stretch)
+            use_load_profile='. /etc/profile.d/mpim.sh'
+            use_load_modules='cdo/1.9.6-gccsys python/2.7.14-stable'
+          ;;
+        esac
+      ;;
+      *)
+        case '@host_os@' in
+          darwin*)
+            use_target='mpimac'
+            use_mpi_startrun='/opt/local/bin/mpiexec -n $mpi_total_procs'
+          ;;
+        esac
+      ;;
+    esac
+  ;;
+
+  ecmwf.int)
+  ;;
+
+  local.net)
+    case "$use_host" in
+      melian)
+        use_target='archlinux'
+        use_mpi_startrun='mpiexec'
+        use_mpi_procs_pernode=2
+        use_shell='/bin/bash'
+      ;;
+    esac
+  ;;
+
+  pa.cluster)
+    use_target='pacluster'
+    use_submit='qsub'
+  ;;
+
+  docker)
+    if test xyes = x"${use_gpu}"; then use_target='docker_gpu'; else use_target='docker_cpu'; fi
+  ;;
+
+esac
+
+test -n "$_collected_set_up_info" && exec >>"$_collected_set_up_info"
+
+for var in $output_vars; do
+  eval value=\$$var
+
+  # Replace any occurrence of the single-quote (') in the $value with the
+  # escape sequence ('\''), so that the output of this script could be sourced.
+  case $value in
+    *\'*)
+      value=`echo "$value" | sed "s/'/'\\\\\\\\''/g"` ;;
+  esac
+
+  echo "$var='$value'"
+done

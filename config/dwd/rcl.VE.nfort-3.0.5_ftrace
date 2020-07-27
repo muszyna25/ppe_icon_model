@@ -90,7 +90,7 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${RTTOV_LIBS} ${LAPACK_LIBS} ${ECCODES__LIBS}
 
 MPI_LAUNCH=''  # needed e.g. for yac configuration ?? 
 
-EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --disable-rte-rrtmgp --disable-psrad --disable-jsbach --disable-ocean --disable-coupling'
+EXTRA_CONFIG_ARGS='--host='${HOST}' --disable-mpi-checks --disable-rpaths --enable-active-target-sync --enable-mixed-precision --disable-loop-exchange --enable-grib2 --enable-mpi --disable-openmp --enable-rttov --disable-rte-rrtmgp --disable-concurrent-psrad --disable-jsbach --disable-ocean --disable-coupling'
 # full operational NWP configuration would include ecrad and DACE+EMVORADO coupling:
 # --enable-ecrad --enable-dace --enable-emvorado
 
@@ -126,9 +126,6 @@ for arg in "$@"; do
   esac
 done
 
-# Generate input file for runscript generation:
-./config.status --file=run/set-up.info
-echo 'use_mpi_root="openmpi"' >> run/set-up.info
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then

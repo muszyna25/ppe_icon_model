@@ -18,7 +18,7 @@ author_list="Helmuth Haak, Rene Redler, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 
-# (0) Basic model configuration
+# (1) Basic model configuration
 # -----------------------------
 
 ocean_gridID="0014"
@@ -31,17 +31,10 @@ initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 #--------------------------------------------------------------------------------------------------
 #
-# (1) Define the model time stepping
+# (2) Define the model time stepping
 # ----------------------------------
 
 oceTimeStep="PT60M"              # ocean time step:   24 time steps per day
-
-#--------------------------------------------------------------------------------------------------
-
-# (2) unset some setting of create_target_header for mistral
-
-unset OMPI_MCA_coll_fca_enable
-unset OMPI_MCA_coll_fca_priority
 
 #--------------------------------------------------------------------------------------------------
 
@@ -55,16 +48,7 @@ unset OMPI_MCA_coll_fca_priority
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 #                                 -> deprecated. nproma_atm is used here.
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 #--------------------------------------------------------------------------------------------------
 
@@ -75,7 +59,7 @@ icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
 # ----------------
 oce_grid_name=icon_grid_${ocean_gridID}_${ocean_refinement}_O
 
-ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
+ocean_grid_folder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
 
@@ -278,8 +262,8 @@ cat >> ${oce_namelist} << EOF
   bottom_drag_coeff                          = 3.0E-3           ! default=2.5E-3; active for i_bc_veloc_bot=1
   use_wind_mixing                            = .TRUE.           ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
   lambda_wind                                = 0.03
-  tracer_TopWindMixing                       = 1.0E-5
-  velocity_TopWindMixing                     = 1.0E-5
+  !  tracer_TopWindMixing                       = 1.0E-5
+  !  velocity_TopWindMixing                     = 1.0E-5
 /
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration                       = 1                ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion

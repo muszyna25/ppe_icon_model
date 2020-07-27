@@ -29,18 +29,13 @@ MODULE mo_fortran_tools
   USE openacc
 #endif
   USE iso_c_binding,              ONLY: c_ptr, c_f_pointer, c_loc, c_null_ptr
-  USE mo_util_stride,             ONLY: util_c_loc, util_stride_1d, &
-                                      & util_stride_2d
+  USE mo_util_stride,             ONLY: util_stride_1d, util_stride_2d
 
   IMPLICIT NONE
 
-  PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
   PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
-  PUBLIC :: alloc
-  PUBLIC :: ensureSize
-  PUBLIC :: t_alloc_character
   PUBLIC :: t_ptr_1d
   PUBLIC :: t_ptr_1d_int
   PUBLIC :: t_ptr_1d_ptr_1d
@@ -57,20 +52,8 @@ MODULE mo_fortran_tools
   PUBLIC :: DO_DEALLOCATE
   PUBLIC :: DO_PTR_DEALLOCATE
   PUBLIC :: insert_dimension
-  LOGICAL, PARAMETER, PUBLIC :: no_copy = .false.
 
   PRIVATE
-
-  !> Just a small base CLASS for anything that needs a destructor.
-  !> XXX: This will become unnecessary once all relevant compilers support the FINAL keyword.
-  TYPE, ABSTRACT :: t_Destructible
-  CONTAINS
-    PROCEDURE(interface_destructor), DEFERRED :: destruct
-  END TYPE t_Destructible
-
-  TYPE t_alloc_character
-    CHARACTER(:), ALLOCATABLE :: a
-  END TYPE t_alloc_character
 
   TYPE t_ptr_1d
     REAL(wp),POINTER :: p(:)  ! pointer to 1D (spatial) array
@@ -143,22 +126,6 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_real_allocatable_1d
   END INTERFACE assign_if_present_allocatable
 
-  ! This allocates an array, adjusting the allocation SIZE to 1 IF the given SIZE IS zero OR less, AND checking for allocation failure.
-  INTERFACE alloc
-    MODULE PROCEDURE alloc_int_1d
-    MODULE PROCEDURE alloc_double_1d
-    MODULE PROCEDURE alloc_single_1d
-  END INTERFACE alloc
-
-  ! This handles the recuring CASE of growing a buffer to match possibly increasing needs.
-  ! We USE a POINTER to pass the buffer because that allows us to avoid an extra copy when reallocating the buffer.
-  ! The association status of the POINTER that IS passed IN must be defined.
-  INTERFACE ensureSize
-    MODULE PROCEDURE ensureSize_dp_1d
-    MODULE PROCEDURE ensureSize_sp_1d
-    MODULE PROCEDURE ensureSize_int_1d
-  END INTERFACE ensureSize
-
   !> this is meant to make it easier for compilers to circumvent
   !! temporaries as are too often created in a(:, :, :) = b(:, :, :)
   !! uses omp orphaning
@@ -206,14 +173,6 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE swap_int
   END INTERFACE swap
 
-  ABSTRACT INTERFACE
-    !> destructor interface
-    SUBROUTINE interface_destructor(me)
-        IMPORT t_Destructible
-        CLASS(t_Destructible), INTENT(INOUT) :: me
-    END SUBROUTINE interface_destructor
-  END INTERFACE
-
   ! auxiliary routines
   INTERFACE DO_DEALLOCATE
     MODULE PROCEDURE DO_DEALLOCATE_r4D
@@ -246,11 +205,11 @@ MODULE mo_fortran_tools
 #endif
 
   INTERFACE insert_dimension
-    MODULE PROCEDURE insert_dimension_r_wp_3_2, insert_dimension_r_wp_3_2_s
+    MODULE PROCEDURE insert_dimension_r_dp_3_2, insert_dimension_r_dp_3_2_s
     MODULE PROCEDURE insert_dimension_r_sp_3_2, insert_dimension_r_sp_3_2_s
     MODULE PROCEDURE insert_dimension_i4_3_2, insert_dimension_i4_3_2_s
     MODULE PROCEDURE insert_dimension_l_3_2, insert_dimension_l_3_2_s
-    MODULE PROCEDURE insert_dimension_r_wp_6_5, insert_dimension_r_wp_6_5_s
+    MODULE PROCEDURE insert_dimension_r_dp_6_5, insert_dimension_r_dp_6_5_s
     MODULE PROCEDURE insert_dimension_r_sp_6_5, insert_dimension_r_sp_6_5_s
     MODULE PROCEDURE insert_dimension_i4_6_5, insert_dimension_i4_6_5_s
   END INTERFACE insert_dimension
@@ -400,162 +359,6 @@ CONTAINS
     END IF
     y(:) = x(:)
   END SUBROUTINE assign_if_present_real_allocatable_1d
-
-  SUBROUTINE alloc_int_1d(array, allocSize)
-    INTEGER, ALLOCATABLE, INTENT(INOUT) :: array(:)
-    INTEGER, VALUE :: allocSize
-
-    INTEGER :: error
-    CHARACTER(*), PARAMETER :: routine = modname//":alloc_int_1d"
-
-    IF(allocSize < 1) allocSize = 1
-    IF(ALLOCATED(array)) THEN
-        IF(SIZE(array) == allocSize) RETURN
-        DEALLOCATE(array)
-    END IF
-    ALLOCATE(array(allocSize), STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-  END SUBROUTINE alloc_int_1d
-
-  SUBROUTINE alloc_double_1d(array, allocSize)
-    REAL(dp), ALLOCATABLE, INTENT(INOUT) :: array(:)
-    INTEGER, VALUE :: allocSize
-
-    INTEGER :: error
-    CHARACTER(*), PARAMETER :: routine = modname//":alloc_double_1d"
-
-    IF(allocSize < 1) allocSize = 1
-    IF(ALLOCATED(array)) THEN
-        IF(SIZE(array) == allocSize) RETURN
-        DEALLOCATE(array)
-    END IF
-    ALLOCATE(array(allocSize), STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-  END SUBROUTINE alloc_double_1d
-
-  SUBROUTINE alloc_single_1d(array, allocSize)
-    REAL(sp), ALLOCATABLE, INTENT(INOUT) :: array(:)
-    INTEGER, VALUE :: allocSize
-
-    INTEGER :: error
-    CHARACTER(*), PARAMETER :: routine = modname//":alloc_single_1d"
-
-    IF(allocSize < 1) allocSize = 1
-    IF(ALLOCATED(array)) THEN
-        IF(SIZE(array) == allocSize) RETURN
-        DEALLOCATE(array)
-    END IF
-    ALLOCATE(array(allocSize), STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-  END SUBROUTINE alloc_single_1d
-
-  SUBROUTINE ensureSize_dp_1d(buffer, requiredSize, do_copy_in)
-    REAL(dp), POINTER, INTENT(INOUT) :: buffer(:)
-    INTEGER, VALUE ::requiredSize
-    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
-    REAL(dp), POINTER :: newBuffer(:)
-    INTEGER :: oldSize, error
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
-    LOGICAL :: do_copy
-
-    IF (PRESENT(do_copy_in)) THEN
-      do_copy = do_copy_in
-    ELSE
-      do_copy = .true.
-    END IF
-    IF(ASSOCIATED(buffer)) THEN
-      oldSize = SIZE(buffer, 1)
-      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
-      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp)) ! avoid quadratic complexity
-      ALLOCATE(newBuffer(requiredSize), STAT = error)
-      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-      IF (do_copy) THEN
-        newBuffer(1:oldSize) = buffer(1:oldSize)
-        newBuffer(oldSize + 1:requiredSize) = 0._dp
-      END IF
-      DEALLOCATE(buffer)
-      buffer => newBuffer
-      newBuffer => NULL()
-    ELSE
-      ALLOCATE(buffer(requiredSize), STAT = error)
-      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-      IF (do_copy) THEN
-        buffer(1:requiredSize) = 0._dp
-      END IF
-    END IF
-  END SUBROUTINE ensureSize_dp_1d
-
-  SUBROUTINE ensureSize_sp_1d(buffer, requiredSize, do_copy_in)
-    REAL(sp), POINTER, INTENT(INOUT) :: buffer(:)
-    INTEGER, VALUE ::requiredSize
-    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
-    REAL(sp), POINTER :: newBuffer(:)
-    INTEGER :: oldSize, error
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
-    LOGICAL :: do_copy
-
-    IF (PRESENT(do_copy_in)) THEN
-      do_copy = do_copy_in
-    ELSE
-      do_copy = .true.
-    END IF
-    IF(ASSOCIATED(buffer)) THEN
-      oldSize = SIZE(buffer, 1)
-      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
-      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp))
-      ALLOCATE(newBuffer(requiredSize), STAT = error)
-      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-      IF (do_copy) THEN
-        newBuffer(1:oldSize) = buffer(1:oldSize)
-        newBuffer(oldSize + 1:requiredSize) = 0._sp
-      END IF
-      DEALLOCATE(buffer)
-      buffer => newBuffer
-      newBuffer => NULL()
-    ELSE
-      ALLOCATE(buffer(requiredSize), STAT = error)
-      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-      IF (do_copy) THEN
-          buffer(1:requiredSize) = 0._sp
-      END IF
-    END IF
-  END SUBROUTINE ensureSize_sp_1d
-
-  SUBROUTINE ensureSize_int_1d(buffer, requiredSize, do_copy_in)
-    INTEGER, POINTER, INTENT(INOUT) :: buffer(:)
-    INTEGER, VALUE ::requiredSize
-    LOGICAL, OPTIONAL, INTENT(IN) :: do_copy_in
-    INTEGER, POINTER :: newBuffer(:)
-    INTEGER :: oldSize, error
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
-    LOGICAL :: do_copy
-
-    IF (PRESENT(do_copy_in)) THEN
-      do_copy = do_copy_in
-    ELSE
-      do_copy = .true.
-    END IF
-    IF(ASSOCIATED(buffer)) THEN
-      oldSize = SIZE(buffer, 1)
-      IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
-      requiredSize = MAX(requiredSize, INT(REAL(oldSize, dp) * 1.1_dp))
-      ALLOCATE(newBuffer(requiredSize), STAT = error)
-      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-      IF (do_copy) THEN
-        newBuffer(1:oldSize) = buffer(1:oldSize)
-        newBuffer(oldSize + 1:requiredSize) = 0
-      END IF
-      DEALLOCATE(buffer)
-      buffer => newBuffer
-      newBuffer => NULL()
-    ELSE
-      ALLOCATE(buffer(requiredSize), STAT = error)
-      IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-      IF (do_copy) THEN
-        buffer(1:requiredSize) = 0
-      END IF
-    END IF
-  END SUBROUTINE ensureSize_int_1d
 
   !>
   !! Swap content of two Integers
@@ -1690,12 +1493,12 @@ CONTAINS
 #endif
   END SUBROUTINE init_contiguous_l
 
-  SUBROUTINE insert_dimension_r_wp_3_2_s(ptr_out, ptr_in, in_shape, &
+  SUBROUTINE insert_dimension_r_dp_3_2_s(ptr_out, ptr_in, in_shape, &
        new_dim_rank)
     INTEGER, PARAMETER :: out_rank = 3
     INTEGER, INTENT(in) :: in_shape(out_rank-1), new_dim_rank
-    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:)
-    REAL(wp), TARGET, INTENT(in) :: ptr_in
+    REAL(dp), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    REAL(dp), TARGET, INTENT(in) :: ptr_in
     INTEGER :: out_shape(out_rank), i
     TYPE(c_ptr) :: cptr
     out_shape(1:out_rank-1) = in_shape
@@ -1705,13 +1508,13 @@ CONTAINS
     END DO
     out_shape(new_dim_rank) = 1
     CALL C_F_POINTER(cptr, ptr_out, out_shape)
-  END SUBROUTINE insert_dimension_r_wp_3_2_s
+  END SUBROUTINE insert_dimension_r_dp_3_2_s
 
-  SUBROUTINE insert_dimension_r_wp_3_2(ptr_out, ptr_in, new_dim_rank)
+  SUBROUTINE insert_dimension_r_dp_3_2(ptr_out, ptr_in, new_dim_rank)
     INTEGER, PARAMETER :: out_rank = 3
-    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    REAL(dp), POINTER, INTENT(out) :: ptr_out(:,:,:)
     ! note: must have target attribute in caller!
-    REAL(wp), TARGET, INTENT(in) :: ptr_in(:,:)
+    REAL(dp), TARGET, INTENT(in) :: ptr_in(:,:)
     INTEGER, INTENT(in) :: new_dim_rank
     INTEGER :: base_shape(out_rank-1), &
          in_shape(out_rank-1), in_stride(out_rank-1), &
@@ -1737,7 +1540,7 @@ CONTAINS
         base_shape(1) = in_stride(2)
       END IF
       base_shape(2) = in_shape(2)
-      CALL insert_dimension_r_wp_3_2_s(ptr_out, ptr_in(1,1), &
+      CALL insert_dimension_r_dp_3_2_s(ptr_out, ptr_in(1,1), &
            base_shape, new_dim_rank)
       IF (in_stride(1) > 1 .OR. in_stride(2) > in_shape(1) &
            .OR. base_shape(1) /= in_shape(1)) THEN
@@ -1763,7 +1566,24 @@ CONTAINS
       out_shape(new_dim_rank) = 1
       CALL C_F_POINTER(c_null_ptr, ptr_out, out_shape)
     END IF
-  END SUBROUTINE insert_dimension_r_wp_3_2
+  END SUBROUTINE insert_dimension_r_dp_3_2
+
+  SUBROUTINE insert_dimension_r_sp_3_2_s(ptr_out, ptr_in, in_shape, &
+       new_dim_rank)
+    INTEGER, PARAMETER :: out_rank = 3
+    INTEGER, INTENT(in) :: in_shape(out_rank-1), new_dim_rank
+    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:)
+    REAL(sp), TARGET, INTENT(in) :: ptr_in
+    INTEGER :: out_shape(out_rank), i
+    TYPE(c_ptr) :: cptr
+    out_shape(1:out_rank-1) = in_shape
+    cptr = C_LOC(ptr_in)
+    DO i = out_rank, new_dim_rank+1, -1
+      out_shape(i) = out_shape(i-1)
+    END DO
+    out_shape(new_dim_rank) = 1
+    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+  END SUBROUTINE insert_dimension_r_sp_3_2_s
 
   SUBROUTINE insert_dimension_r_sp_3_2(ptr_out, ptr_in, new_dim_rank)
     INTEGER, PARAMETER :: out_rank = 3
@@ -1822,23 +1642,6 @@ CONTAINS
       CALL C_F_POINTER(c_null_ptr, ptr_out, out_shape)
     END IF
   END SUBROUTINE insert_dimension_r_sp_3_2
-
-  SUBROUTINE insert_dimension_r_sp_3_2_s(ptr_out, ptr_in, in_shape, &
-       new_dim_rank)
-    INTEGER, PARAMETER :: out_rank = 3
-    INTEGER, INTENT(in) :: in_shape(out_rank-1), new_dim_rank
-    REAL(sp), POINTER, INTENT(out) :: ptr_out(:,:,:)
-    REAL(sp), TARGET, INTENT(in) :: ptr_in
-    INTEGER :: out_shape(out_rank), i
-    TYPE(c_ptr) :: cptr
-    out_shape(1:out_rank-1) = in_shape
-    cptr = C_LOC(ptr_in)
-    DO i = out_rank, new_dim_rank+1, -1
-      out_shape(i) = out_shape(i-1)
-    END DO
-    out_shape(new_dim_rank) = 1
-    CALL C_F_POINTER(cptr, ptr_out, out_shape)
-  END SUBROUTINE insert_dimension_r_sp_3_2_s
 
   SUBROUTINE insert_dimension_i4_3_2_s(ptr_out, ptr_in, in_shape, new_dim_rank)
     INTEGER, PARAMETER :: out_rank = 3
@@ -1921,14 +1724,12 @@ CONTAINS
     LOGICAL, POINTER, INTENT(out) :: ptr_out(:,:,:)
     LOGICAL, TARGET, INTENT(in) :: ptr_in
     INTEGER :: out_shape(out_rank), i
-    TYPE(c_ptr) :: cptr
     out_shape(1:out_rank-1) = in_shape
-    CALL util_c_loc(C_LOC(ptr_in), cptr)
     DO i = out_rank, new_dim_rank+1, -1
       out_shape(i) = out_shape(i-1)
     END DO
     out_shape(new_dim_rank) = 1
-    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+    CALL C_F_POINTER(C_LOC(ptr_in), ptr_out, out_shape)
   END SUBROUTINE insert_dimension_l_3_2_s
 
   ! insert dimension of size 1 (so that total array size remains the
@@ -1990,11 +1791,11 @@ CONTAINS
     END IF
   END SUBROUTINE insert_dimension_l_3_2
 
-  SUBROUTINE insert_dimension_r_wp_6_5_s(ptr_out, ptr_in, in_shape, &
+  SUBROUTINE insert_dimension_r_dp_6_5_s(ptr_out, ptr_in, in_shape, &
        new_dim_rank)
     INTEGER, INTENT(in) :: in_shape(5), new_dim_rank
-    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
-    REAL(wp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
+    REAL(dp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(dp), TARGET, INTENT(in) :: ptr_in(in_shape(1),in_shape(2),&
          in_shape(3),in_shape(4),in_shape(5))
     INTEGER :: out_shape(6), i
     TYPE(c_ptr) :: cptr
@@ -2005,18 +1806,18 @@ CONTAINS
     END DO
     out_shape(new_dim_rank) = 1
     CALL C_F_POINTER(cptr, ptr_out, out_shape)
-  END SUBROUTINE insert_dimension_r_wp_6_5_s
+  END SUBROUTINE insert_dimension_r_dp_6_5_s
 
   ! insert dimension of size 1 (so that total array size remains the
   ! same but an extra dimension is inserted into the shape)
-  SUBROUTINE insert_dimension_r_wp_6_5(ptr_out, ptr_in, new_dim_rank)
-    REAL(wp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
-    REAL(wp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
+  SUBROUTINE insert_dimension_r_dp_6_5(ptr_out, ptr_in, new_dim_rank)
+    REAL(dp), POINTER, INTENT(out) :: ptr_out(:,:,:,:,:,:)
+    REAL(dp), TARGET, INTENT(in) :: ptr_in(:,:,:,:,:)
     INTEGER, INTENT(in) :: new_dim_rank
     INTEGER :: in_shape(5)
     in_shape = SHAPE(ptr_in)
     CALL insert_dimension(ptr_out, ptr_in, in_shape, new_dim_rank)
-  END SUBROUTINE insert_dimension_r_wp_6_5
+  END SUBROUTINE insert_dimension_r_dp_6_5
 
   SUBROUTINE insert_dimension_r_sp_6_5_s(ptr_out, ptr_in, in_shape, new_dim_rank)
     INTEGER, INTENT(in) :: in_shape(5), new_dim_rank

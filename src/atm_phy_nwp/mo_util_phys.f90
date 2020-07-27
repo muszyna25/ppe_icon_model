@@ -754,11 +754,8 @@ CONTAINS
 
     ! additional clipping for qr, qs, ... up to iqm_max
     ! (very small negative values may occur during the transport process (order 10E-15))
-    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
-      iq_start = iqg  ! qr, qs already clipped above
-    ELSE
-      iq_start = iqr
-    ENDIF 
+    iq_start = MAXVAL(ptr_conv_list(:)) + 1  ! all others have already been clipped above
+    !
     DO jt=iq_start, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx

@@ -18,6 +18,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 MODULE mo_ocean_diagnostics
+  USE mo_master_control,     ONLY: get_my_process_name
   USE mo_kind,               ONLY: wp, dp, i8
 #ifdef _OPENMP
   USE omp_lib
@@ -59,11 +60,11 @@ MODULE mo_ocean_diagnostics
     & iforc_oce, No_Forcing, i_sea_ice, diagnostics_level, &
     & diagnose_for_horizontalVelocity, OceanReferenceDensity, &
     & eddydiag
-  USE mo_sea_ice_nml,        ONLY: kice
+  USE mo_sea_ice_nml,        ONLY: kice, sice
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: dtime, nsteps
-  USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice, rho_ref, clw, alf
+  USE mo_physical_constants, ONLY: grav, rhos, rhoi, rho_ref, clw, alf
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
   USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &
@@ -97,6 +98,7 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
+  USE mo_ocean_check_salt , ONLY : 	calc_total_salt_content 
 
   IMPLICIT NONE
 
@@ -196,7 +198,7 @@ CONTAINS
     WRITE(listname,'(a)')  'horizontal_velocity_diagnostics'
     CALL new_var_list(horizontal_velocity_diagnostics, listname, patch_id=patch_2d%id)
     CALL default_var_list_settings( horizontal_velocity_diagnostics,            &
-      & lrestart=.FALSE.,model_type='oce',loutput=.TRUE. )
+      & lrestart=.FALSE.,model_type=TRIM(get_my_process_name()),loutput=.TRUE. )
     !-----------------------------------------------------------------------
     IF (diagnose_for_horizontalVelocity) THEN
       CALL add_var(horizontal_velocity_diagnostics, 'veloc_adv_horz_u', veloc_adv_horz_u, &
@@ -517,12 +519,13 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index,i
     INTEGER :: jk,jc,blockNo!,je
     REAL(wp):: ssh_global_mean,sst_global,sss_global,total_runoff_flux,total_heat_flux, &
-      &        total_fresh_water_flux,total_evaporation_flux, atmos_snowfall_flux, &
+      &        total_precipitation_flux,total_evaporation_flux, atmos_snowfall_flux, &
       &        ice_volume_nh, ice_volume_sh, ice_extent_nh, ice_extent_sh, &
       &        global_mean_potEnergy, global_mean_kinEnergy, global_mean_totalEnergy, &
       &        global_mean_potEnstrophy,global_heat_content, global_heat_content_solid, &
       &        VolumeIce_flux, TotalOcean_flux, TotalIce_flux, VolumeTotal_flux, totalsnowfall_flux
 !   REAL(wp) :: sflux
+      REAL(wp) ::total_salt, total_saltinseaice, total_saltinliquidwater
 
     TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
     TYPE(t_ocean_monitor),  POINTER :: monitor
@@ -537,6 +540,26 @@ CONTAINS
 
     CASE default !3D model
 
+      ! {{{ compute global mean values of:
+      ! total_salt
+      total_salt = 0.0_wp
+      total_saltinseaice = 0.0_wp
+      total_saltinliquidwater = 0.0_wp
+
+      IF (isRegistered('total_salt')) THEN
+        call calc_total_salt_content(tracers(:,:,:,2), patch_2d, &
+        sea_surface_height(:,:),&     
+        patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
+             ice, 0 , total_salt, total_saltinseaice, &
+                                total_saltinliquidwater )
+
+      monitor%total_salt = total_salt
+      monitor%total_saltinseaice = total_saltinseaice
+      monitor%total_saltinliquidwater = total_saltinliquidwater
+
+        !write(0,*)'total_salt_content =' , monitor%total_salt
+
+      END IF
       ! {{{ compute global mean values of:
       ! sea surface height
       ssh_global_mean = 0.0_wp
@@ -559,7 +582,7 @@ CONTAINS
       END IF
       monitor%sst_global = sst_global
 
-      ! sea surface height
+      ! sea surface salinity
       sss_global = 0.0_wp
       IF (isRegistered('sss_global')) THEN
 !       CALL levels_horizontal_mean( p_oce_sfc%sss, &
@@ -580,15 +603,15 @@ CONTAINS
       END IF
       monitor%HeatFlux_Total = total_heat_flux
 
-      ! total fresh water flux
-      total_fresh_water_flux = 0.0_wp
+      ! total precipitation flux
+      total_precipitation_flux = 0.0_wp
       IF (isRegistered('FrshFlux_Precipitation_Global')) THEN
       call levels_horizontal_mean( p_oce_sfc%FrshFlux_Precipitation, &
           & patch_2d%cells%area(:,:), &
           & owned_cells, &
-          & total_fresh_water_flux)
+            & total_precipitation_flux)
       END IF
-      monitor%FrshFlux_Precipitation = total_fresh_water_flux
+      monitor%FrshFlux_Precipitation = total_precipitation_flux
 
       ! total evaporation
       total_evaporation_flux = 0.0_wp
@@ -824,7 +847,8 @@ CONTAINS
            isRegistered('wT') .OR. isRegistered('wS') .OR. isRegistered('wR') .OR. &
            isRegistered('uu') .OR. isRegistered('uv') .OR. isRegistered('uw') .OR. &
            isRegistered('vv') .OR. isRegistered('ww') .OR. isRegistered('vw') .OR. &
-           isRegistered('sigma0') ) &
+           isRegistered('sigma0') .OR. isRegistered('hflR') .OR. isRegistered('fwR') .OR. &
+           isRegistered('tauxU') .OR. isRegistered('tauyV') ) &
           ) THEN
 
         CALL calc_eddydiag(patch_3d, p_diag%u, p_diag%v, p_diag%w_prismcenter  &
@@ -832,8 +856,11 @@ CONTAINS
                ,p_diag%uT, p_diag%uS, p_diag%uR, p_diag%uu    &
                ,p_diag%vT, p_diag%vS, p_diag%vR, p_diag%vv    &
                ,p_diag%wT, p_diag%wS, p_diag%wR, p_diag%ww    &
-               ,p_diag%uv, p_diag%uw, p_diag%vw, p_diag%sigma0 )
-
+               ,p_diag%uv, p_diag%uw, p_diag%vw, p_diag%sigma0 &
+               ,p_diag%hflR, p_diag%fwR, p_diag%tauxU, p_diag%tauyV &
+               ,p_oce_sfc%topbc_windstress_u, p_oce_sfc%topbc_windstress_v &
+               ,p_oce_sfc%heatflux_total, p_oce_sfc%frshflux_volumetotal )
+               
       ENDIF
 
       IF (isRegistered('mld')) THEN
@@ -912,7 +939,10 @@ CONTAINS
      
       IF (isRegistered('verticallyTotal_mass_flux_e')) THEN
         CALL verticallyIntegrated_field(ocean_state%p_diag%verticallyTotal_mass_flux_e, &
-          & ocean_state%p_diag%mass_flx_e, owned_edges, patch_3D%p_patch_1d(1)%prism_thick_e)
+          & ocean_state%p_diag%mass_flx_e, owned_edges)
+        CALL dbg_print('Total_mass_flux_e ', ocean_state%p_diag%verticallyTotal_mass_flux_e, &
+           str_module, 1, in_subset=owned_edges)
+
       ENDIF
       
 !TODO       CASE (10)
@@ -2040,94 +2070,6 @@ CONTAINS
 
   END FUNCTION calc_mixed_layer_depth
 
-  FUNCTION calc_total_salt_content(patch_2d, thickness, ice, ocean_state, surface_fluxes, zUnderIce, &
-      & computation_type) RESULT(total_salt_content)
-    TYPE(t_patch),POINTER                                 :: patch_2d
-    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN) :: zUnderIce
-    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
-    TYPE (t_sea_ice),       INTENT(IN)                    :: ice
-    TYPE(t_hydro_ocean_state)                             :: ocean_state
-    TYPE(t_ocean_surface)                                 :: surface_fluxes
-    INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
-    REAL(wp)                                              :: total_salt_content
-
-    REAL(wp), DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks) :: salt
-
-    salt               = calc_salt_content(patch_2d, thickness, ice, ocean_state, surface_fluxes, zUnderIce, computation_type)
-    total_salt_content = global_sum_array(salt)
-  END FUNCTION calc_total_salt_content
-
-  FUNCTION calc_salt_content(patch_2d, thickness, ice, ocean_state, surface_fluxes, zUnderIce, &
-      & computation_type) &
-      & RESULT(salt)
-    TYPE(t_patch),POINTER                                 :: patch_2d
-    REAL(wp),DIMENSION(nproma,patch_2d%alloc_cell_blocks),INTENT(IN) :: zUnderIce
-    REAL(wp),DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks),INTENT(IN) :: thickness
-    TYPE (t_sea_ice),       INTENT(IN)                    :: ice
-    TYPE(t_hydro_ocean_state)                             :: ocean_state
-    TYPE(t_ocean_surface)                                 :: surface_fluxes
-    INTEGER,INTENT(IN), OPTIONAL                          :: computation_type
-
-    ! locals
-    REAL(wp), DIMENSION(nproma,n_zlev,patch_2d%alloc_cell_blocks) :: salt
-
-    REAL(wp), DIMENSION(nproma,patch_2d%alloc_cell_blocks) :: saltInSeaice, saltInLiquidWater
-    TYPE(t_subset_range), POINTER                         :: subset
-    INTEGER                                               :: block, cell, cellStart,cellEnd, level
-    INTEGER                                               :: my_computation_type
-    IF(no_tracer<=1)RETURN
-    my_computation_type = 0
-    salt         = 0.0_wp
-
-    CALL assign_if_present(my_computation_type, computation_type)
-    subset => patch_2d%cells%owned
-    DO block = subset%start_block, subset%end_block
-      CALL get_index_range(subset, block, cellStart, cellEnd)
-      DO cell = cellStart, cellEnd
-        IF (subset%vertical_levels(cell,block) < 1) CYCLE
-        SELECT CASE (my_computation_type)
-        CASE (0) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
-        ! surface:
-          saltInSeaice(cell,block)    = sice*rhoi &
-            &                         * SUM(ice%hi(cell,:,block)*ice%conc(cell,:,block)) &
-            &                         * patch_2d%cells%area(cell,block)
-        !!DN This is no longer needed since we now update surface salinity
-        !directly
-        !!DN   ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) = (ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
-        !!DN   &                                            -   dtime &
-        !!DN   &                                              * surface_fluxes%FrshFlux_TotalSalt(cell,block) &
-        !!DN   &                                              * ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)) &
-        !!DN   &                                           /ice%zUnderIce(cell,block)
-          saltInLiquidWater(cell,block) = ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) &
-            &                    * zUnderIce(cell,block)*OceanReferenceDensity &
-            &                    * patch_2d%cells%area(cell,block)
-        CASE (1) ! use zunderIce for volume in tracer change, multiply flux with top layer salinity
-        ! surface:
-          saltInSeaice(cell,block)    = sice*rhoi &
-            &                         * SUM(ice%hi(cell,:,block)*ice%conc(cell,:,block)) &
-            &                         * patch_2d%cells%area(cell,block)
-        !!DN This is no longer needed since we now update surface salinity directly
-          ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) = &
-            & (ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)*zUnderIce(cell,block) &
-            &   -  dtime  * surface_fluxes%FrshFlux_TotalSalt(cell,block) &
-            &      * ocean_state%p_prog(nold(1))%tracer(cell,1,block,2)) &
-            &  /zUnderIce(cell,block)
-          saltInLiquidWater(cell,block) = ocean_state%p_prog(nold(1))%tracer(cell,1,block,2) &
-            &                    * zUnderIce(cell,block)*OceanReferenceDensity &
-            &                    * patch_2d%cells%area(cell,block)
-        END SELECT
-
-        salt(cell,1,block) = saltInSeaice(cell,block) + saltInLiquidWater(cell,block)
-        DO level=2,subset%vertical_levels(cell,block)
-          salt(cell,level,block) = ocean_state%p_prog(nold(1))%tracer(cell,level,block,2) &
-            &                    * thickness(cell,level,block)*OceanReferenceDensity &
-            &                    * patch_2d%cells%area(cell,block)
-        END DO
-
-        ! rest of the underwater world
-      END DO ! cell
-    END DO !block
-  END FUNCTION calc_salt_content
 
   SUBROUTINE diag_heat_salt_tendency(patch_3d, n, ice, thetao, so, delta_ice, delta_snow, &
        delta_thetao, delta_so)
@@ -2299,7 +2241,10 @@ END SUBROUTINE diag_heat_salt_tendency
   SUBROUTINE calc_eddydiag(patch_3d,u,v,w,T,S,R &
                ,uT, uS, uR, uu    &
                ,vT, vS, vR, vv    &
-               ,wT, wS, wR, ww, uv, uw, vw, sigma0)
+               ,wT, wS, wR, ww, uv, uw, vw, sigma0   &
+               ,hflr, fwr, tauxu, tauyv & 
+               , topbc_windstress_u, topbc_windstress_v &
+               ,heatflux_total, frshflux_volumetotal)
 
     TYPE(t_patch_3d), TARGET, INTENT(in)  :: patch_3d
 
@@ -2309,10 +2254,18 @@ END SUBROUTINE diag_heat_salt_tendency
     REAL(wp), INTENT(IN)   :: T(:,:,:) !< temerature
     REAL(wp), INTENT(IN)   :: S(:,:,:) !< salinity
     REAL(wp), INTENT(IN)   :: R(:,:,:) !< density
+    REAL(wp), INTENT(in)  :: heatflux_total(:,:)   !< net heatflux
+    REAL(wp), INTENT(in)  :: frshflux_volumetotal(:,:)   !< net fresh water flux 
+    REAL(wp), INTENT(in)  :: topbc_windstress_u(:,:)  !< windstress x 
+    REAL(wp), INTENT(in)  :: topbc_windstress_v(:,:)  !< windstress y
 
 
     REAL(wp), INTENT(INOUT)  :: sigma0(:,:,:) !< density - 1000
 
+    REAL(wp), INTENT(INOUT)  :: hflR(:,:) !< product of netheatflux and density
+    REAL(wp), INTENT(INOUT)  :: fwR(:,:) !< product of fw flux and density
+    REAL(wp), INTENT(INOUT)  :: tauxU(:,:) !< product of x-windstress and u-velocity
+    REAL(wp), INTENT(INOUT)  :: tauyV(:,:) !< product of y-windstress and v-velocity 
     REAL(wp), INTENT(INOUT)  :: uT(:,:,:) !< product of temperature and u-velocity
     REAL(wp), INTENT(INOUT)  :: uS(:,:,:) !< product of salinity and u-velocity
     REAL(wp), INTENT(INOUT)  :: uR(:,:,:) !< product of density and u-velocity
@@ -2342,6 +2295,12 @@ END SUBROUTINE diag_heat_salt_tendency
     DO blk = subset%start_block, subset%end_block
       CALL get_index_range(subset, blk, cellStart, cellEnd)
       DO cell = cellStart, cellEnd
+
+          hflR(cell,blk) = heatflux_total(cell,blk) * ( R(cell,1,blk) -1000.0_wp )
+          fwR(cell,blk) = frshflux_volumetotal(cell,blk) * ( R(cell,1,blk) -1000.0_wp )
+          tauxu(cell,blk) = topbc_windstress_u(cell,blk) * U(cell,1,blk)
+          tauyv(cell,blk) = topbc_windstress_v(cell,blk) * V(cell,1,blk)
+
 
         DO level=1,subset%vertical_levels(cell,blk)
 

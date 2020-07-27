@@ -56,8 +56,8 @@ check_restarts()
 }
 #-----------------------------------------------------------------------------
 
-restart_folder_1=$ICON_BASE_PATH/experiments/$EXPNAME
-restart_folder_2=$ICON_BASE_PATH/experiments/${EXPNAME}_restart
+restart_folder_1=$basedir/experiments/$EXPNAME
+restart_folder_2=$basedir/experiments/${EXPNAME}_restart
 diff_file=${EXPNAME}_compare_restarts.diff
 
 #-----------------------------------------------------------------------------
@@ -70,7 +70,7 @@ restart_ocean=$last_restart
 #-----------------------------------------------------------------------------
 
 
-cd $ICON_BASE_PATH/run
+cd $basedir/run
 
 if [ x$restart_atmo != x ] ; then
   check_restarts $restart_atmo

@@ -1247,7 +1247,7 @@ MODULE mo_initicon
               p_diag%rhor_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qr(jc,jk,jb)
               p_diag%rhos_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qs(jc,jk,jb)
             ENDDO
-            IF (iqg <= iqm_max) THEN
+            IF (iqg > 0) THEN
               DO jc = i_startidx, i_endidx
                 p_diag%rhog_incr(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) * initicon(jg)%atm_inc%qg(jc,jk,jb)
               ENDDO
@@ -1533,7 +1533,7 @@ MODULE mo_initicon
                 p_prog_now_rcf%tracer(jc,jk,jb,iqs) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqs)+&
                                                                  p_diag%rhos_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))
               ENDDO
-              IF (iqg <= iqm_max) THEN
+              IF (iqg > 0) THEN
                 DO jc = i_startidx, i_endidx
                   p_prog_now_rcf%tracer(jc,jk,jb,iqg) = MAX(0._wp, p_prog_now_rcf%tracer(jc,jk,jb,iqg)+&
                                                                    p_diag%rhog_incr(jc,jk,jb)/p_prog_now%rho(jc,jk,jb))

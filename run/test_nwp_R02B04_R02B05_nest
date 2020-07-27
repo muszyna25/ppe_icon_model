@@ -88,10 +88,6 @@ nproma=16
 cdo="cdo"
 cdo_diff="cdo diffn"
 icon_data_rootFolder="/pool/data/ICON"
-icon_data_poolFolder="/pool/data/ICON"
-icon_data_buildbotFolder="/pool/data/ICON/buildbot_data"
-icon_data_buildbotFolder_aes="/pool/data/ICON/buildbot_data/aes"
-icon_data_buildbotFolder_oes="/pool/data/ICON/buildbot_data/oes"
 export EXPNAME=test_nwp_R02B04_R02B05_nest
 export I_MPI_FABRICS=shm:dapl
 export I_MPI_DAPL_UD=enable
@@ -181,12 +177,12 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-grids_folder="${icon_data_poolFolder}/buildbot_data/nwp/grids/R02B04_R02B05_nest"
+grids_folder="${icon_data_rootFolder}/buildbot_data/nwp/grids/R02B04_R02B05_nest"
 atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
 #
 #-----------------------------------------------------------------------------
 
-INDIR="${icon_data_poolFolder}/buildbot_data/nwp/R02B04_R02B05_nest"
+INDIR="${icon_data_rootFolder}/buildbot_data/nwp/R02B04_R02B05_nest"
 
 add_link_file $INDIR/extpar_iconR2B04_DOM01.nc extpar_iconR2B04_DOM01.nc
 add_link_file $INDIR/extpar_iconR2B05_DOM02.nc extpar_iconR2B05_DOM02.nc
@@ -394,7 +390,7 @@ EOF
 #
 # directories definition
 #
-ICONDIR=${ICON_BASE_PATH}
+ICONDIR=${basedir}
 RUNSCRIPTDIR=${ICONDIR}/run
 if [ x$grids_folder = x ] ; then
    HGRIDDIR=${ICONDIR}/grids

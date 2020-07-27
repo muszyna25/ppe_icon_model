@@ -90,6 +90,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
   USE sfc_seaice,                  ONLY: frsi_min
   USE mo_ext_data_state,           ONLY: ext_data
+  USE mo_turbdiff_config,          ONLY: turbdiff_config
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch, p_patch_local_parent
   USE mo_time_config,              ONLY: time_config
@@ -143,17 +144,23 @@ MODULE mo_nh_stepping
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_master_config,            ONLY: isRestart, getModelBaseDir
-  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,      ONLY: getAttributesForRestarting
+  USE mo_key_value_store,          ONLY: t_key_value_store
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output, istime4name_list_output_dom
   USE mo_name_list_output_init,    ONLY: output_file
   USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,                 ONLY: t_simulation_status
+
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
+  USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,   &
+                                     &   art_init_atmo_tracers_echam, &
+                                     &   art_update_atmo_phy
+  
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sst_and_seaice
   USE mo_reader_sst_sic,           ONLY: t_sst_sic_reader
@@ -420,6 +427,20 @@ MODULE mo_nh_stepping
            & phy_params(jg), mtime_current         ,&
            & prm_upatmo(jg)                         )
 
+
+      IF (lart) THEN
+        CALL art_init_atmo_tracers_nwp(                     &
+               &  jg,                                       &
+               &  mtime_current,                            &
+               &  p_nh_state(jg),                           &
+               &  ext_data(jg),                             &
+               &  prm_diag(jg),                             &
+               &  p_nh_state(jg)%prog(nnow(jg)),            &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+      END IF
+
+
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
@@ -503,6 +524,18 @@ MODULE mo_nh_stepping
   CASE (iecham)
     IF (.NOT.isRestart()) THEN
       CALL init_slowphysics (mtime_current, 1, dtime)
+    END IF
+
+    IF (lart) THEN
+      DO jg = 1, n_dom
+        CALL art_init_atmo_tracers_echam(                   &
+               &  jg,                                       &
+               &  mtime_current,                            &
+               &  p_nh_state(jg),                           &
+               &  p_nh_state(jg)%prog(nnow(jg)),            &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+      ENDDO
     END IF
   END SELECT ! iforcing
 
@@ -639,7 +672,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: ierr
   LOGICAL                              :: l_compute_diagnostic_quants,  &
     &                                     l_nml_output, l_nml_output_dom(max_dom), lprint_timestep, &
-    &                                     lwrite_checkpoint, lcfl_watch_mode
+    &                                     lwrite_checkpoint, lcfl_watch_mode, l_need_dbz3d
   TYPE(t_simulation_status)            :: simulation_status
   TYPE(datetime),   POINTER            :: mtime_old         ! copy of current datetime (mtime)
 
@@ -668,7 +701,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
   TYPE(t_datetime_ptr)                 :: datetime_current(max_dom) 
-  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+  TYPE(t_key_value_store), POINTER :: restartAttributes
   CLASS(t_RestartDescriptor), POINTER  :: restartDescriptor
 
   CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)   :: td_string
@@ -729,11 +762,9 @@ MODULE mo_nh_stepping
 
   jstep0 = 0
 
-  restartAttributes => getAttributesForRestarting()
-  IF (isRestart()) THEN
-    ! get start counter for time loop from restart file:
-    jstep0 = restartAttributes%getInteger("jstep")
-  END IF
+  CALL getAttributesForRestarting(restartAttributes)
+  ! get start counter for time loop from restart file:
+  IF (isRestart()) CALL restartAttributes%get("jstep", jstep0)
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
   IF  (.NOT. ltestcase .AND. msg_level >= 13) THEN
@@ -1157,18 +1188,17 @@ MODULE mo_nh_stepping
          DO jg = 1, n_dom
             IF (.NOT. p_patch(jg)%ldom_active) CYCLE
             ! Call the ART diagnostics
-            CALL art_diagnostics_interface(p_patch(jg),                              &
-                 &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
-                 &                            p_nh_state(jg)%diag%pres,                 &
-                 &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-                 &                            p_nh_state(jg)%metrics%ddqz_z_full,       &
-                 &                            p_nh_state(jg)%metrics%z_mc, jg)
+            CALL art_diagnostics_interface(p_nh_state(jg)%prog(nnew(jg))%rho,        &
+                 &                         p_nh_state(jg)%diag%pres,                 &
+                 &                         p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+                 &                         p_nh_state(jg)%metrics%ddqz_z_full,       &
+                 &                         p_nh_state(jg)%metrics%z_mc, jg)
             ! Call the ART unit conversion 
             CALL art_tools_interface('unit_conversion',                            & !< in
-                 &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
-                 &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
-                 &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
-                 &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
+                 &                   p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
+                 &                   p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
+                 &                   p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
+                 &                   p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
          END DO
          !
       END IF ! lart .AND. ntracer>0
@@ -1819,6 +1849,20 @@ MODULE mo_nh_stepping
         CALL main_tracer_beforeadv
 #endif
 
+        IF (lart) THEN
+          ! Update time dependent variables needed for ART
+          IF (iforcing == inwp) THEN
+            CALL art_update_atmo_phy(jg,                            &
+                        &            datetime_local(jg)%ptr,        &
+                        &            p_nh_state(jg)%prog(nnew(jg)), &
+                        &            prm_diag(jg))
+          ELSE IF (iforcing == iecham) THEN
+            CALL art_update_atmo_phy(jg,                            &
+                         &           datetime_local(jg)%ptr,        &
+                         &           p_nh_state(jg)%prog(nnew(jg)))
+          END IF
+        END IF
+
         ! 5. tracer advection
         !-----------------------
         IF ( ltransport) THEN
@@ -1827,16 +1871,13 @@ MODULE mo_nh_stepping
 #ifdef _OPENACC
             CALL finish (routine, 'art_emission_interface: OpenACC version currently not implemented')
 #endif
+
             CALL art_emission_interface(                       &
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in
-              &      p_nh_state(jg),                           &!in
-              &      prm_diag(jg),                             &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
-              &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
               &      datetime_local(jg)%ptr,                   &!in
-              &      nnow(jg),                                 &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF
 
@@ -1891,9 +1932,7 @@ MODULE mo_nh_stepping
                &      dt_loc,                                 &!in
                &      p_nh_state(jg)%prog(n_new_rcf),         &!in
                &      p_nh_state(jg)%metrics,                 &!in
-               &      p_nh_state(jg)%prog(nnew(jg))%rho,      &!in
                &      p_nh_state(jg)%diag,                    &!in
-               &      prm_diag(jg),                           &!in
                &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart
@@ -3278,7 +3317,7 @@ MODULE mo_nh_stepping
     INTEGER                              :: jg
     INTEGER                              :: ist
     CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     !-----------------------------------------------------------------------
 
@@ -3306,15 +3345,15 @@ MODULE mo_nh_stepping
     ENDIF
     !
     ! initialize
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
     IF (ASSOCIATED(restartAttributes)) THEN
       !
       ! Get attributes from restart file
       DO jg = 1,n_dom
         WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-        ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
+        CALL restartAttributes%get(attname, ndyn_substeps_var(jg))
         WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-        jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
+        CALL restartAttributes%get(attname, jstep_adv(jg)%marchuk_order)
       ENDDO
       linit_dyn(:)      = .FALSE.
     ELSE

@@ -65,7 +65,8 @@ MODULE mo_name_list_output_init
     &                                             real2string, remove_whitespace
   USE mo_util_hash,                         ONLY: util_hashword
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
-  USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,               ONLY: getAttributesForRestarting
+  USE mo_key_value_store,                   ONLY: t_key_value_store
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   USE mo_math_constants,                    ONLY: rad2deg
@@ -509,8 +510,8 @@ CONTAINS
 
       ! -- Read the map files into dictionary data structures
 
-      CALL varnames_dict%init(lcase_sensitive=.FALSE.)
-      CALL out_varnames_dict%init(lcase_sensitive=.FALSE.)
+      CALL varnames_dict%init(.FALSE.)
+      CALL out_varnames_dict%init(.FALSE.)
 
       NULLIFY(keywords)
       CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
@@ -644,30 +645,29 @@ CONTAINS
 
         ! -- translate variables names according to variable name
         !    dictionary:
-        DO i=1,max_var_ml
-          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), default=p_onl%ml_varlist(i))
-        END DO
-        DO i=1,max_var_pl
-          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), default=p_onl%pl_varlist(i))
-        END DO
-        DO i=1,max_var_hl
-          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), default=p_onl%hl_varlist(i))
-        END DO
-        DO i=1,max_var_il
-          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), default=p_onl%il_varlist(i))
-        END DO
-
         ! allow case-insensitive variable names:
         DO i=1,max_var_ml
+          IF (' ' == p_onl%ml_varlist(i)) EXIT ! since read from nml-file array is filled bottom to top...
+          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), &
+            &                            default=p_onl%ml_varlist(i))
           p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
         END DO
         DO i=1,max_var_pl
+          IF (' ' == p_onl%pl_varlist(i)) EXIT
+          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), &
+            &                            default=p_onl%pl_varlist(i))
           p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
         END DO
         DO i=1,max_var_hl
+          IF (' ' == p_onl%hl_varlist(i)) EXIT
+          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), &
+            &                            default=p_onl%hl_varlist(i))
           p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
         END DO
         DO i=1,max_var_il
+          IF (' ' == p_onl%il_varlist(i)) EXIT
+          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), &
+            &                            default=p_onl%il_varlist(i))
           p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
         END DO
 
@@ -1400,7 +1400,7 @@ CONTAINS
         ev => ev%next
       END DO
     END IF
-#endif
+#endif ! NOMPI
 
     CALL message(routine,'Done')
 
@@ -1800,10 +1800,10 @@ CONTAINS
     TYPE(datetime), POINTER :: mtime_datetime, mtime_date
     INTEGER(c_int64_t) :: total_ms
     INTEGER :: tlen
-    INTEGER :: iintvl, nintvls, ifile
+    INTEGER :: iintvl, nintvls, ifile, opt_err
     INTEGER :: errno
 
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     LOGICAL :: include_last
     CHARACTER(LEN=max_timedelta_str_len) :: time_offset_str
     CHARACTER(LEN=max_datetime_str_len) :: output_interval(max_time_intervals)
@@ -1830,12 +1830,13 @@ CONTAINS
       fname_metadata%extn = of%name_list%filename_extn(1:tlen)
     END IF
 
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
     IF (ASSOCIATED(restartAttributes)) THEN
       ! Restart case: Get starting index of ouput from restart file
       !               (if there is such an attribute available).
       WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-      fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
+      CALL restartAttributes%get(attname, fname_metadata%jfile_offset, opt_err=opt_err)
+      fname_metadata%jfile_offset = MERGE(fname_metadata%jfile_offset, 0, opt_err .EQ. 0)
     ELSE
       fname_metadata%jfile_offset = 0
     END IF
@@ -2348,7 +2349,7 @@ CONTAINS
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(i)
     INTEGER :: num_cblk, n
     LOGICAL :: prev_is_set, current_is_set
-    INTEGER(i8) :: apos, bmask
+    INTEGER(i8) :: pos, apos, bmask
 
     num_cblk = 0
     prev_is_set = .FALSE.
@@ -2363,7 +2364,6 @@ CONTAINS
     ENDDO
     ALLOCATE(starts(num_cblk), counts(num_cblk))
     bmask = 1_i8
-    current_is_set = .FALSE.
     DO i = 0_i8, nb-1_i8
       apos = i/nbits_i8
       current_is_set = IAND(mask(apos), bmask) /= 0_i8
@@ -3017,9 +3017,11 @@ CONTAINS
     ! var_list_name should have at least the length of var_list names
     ! (although this doesn't matter as long as it is big enough for every name)
     CHARACTER(LEN=256)            :: var_list_name
+    INTEGER                       :: idom
 
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_var_groups_dyn
+    INTEGER :: idom_log
     LOGICAL :: is_io
 
     is_io = my_process_is_io()
@@ -3218,7 +3220,7 @@ CONTAINS
     ! local variables
     CHARACTER(len=*), PARAMETER :: routine = &
       modname//"::replicate_coordinate_data_on_io_procs"
-    INTEGER                       :: idom
+    INTEGER                       :: idom, i
 
     INTEGER :: idom_log, temp(4,n_dom_out)
     LOGICAL :: keep_grid_info, is_io
@@ -3260,7 +3262,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE replicate_coordinate_data_on_io_procs
-#endif
+#endif !.NOT. NOMPI
 
   SUBROUTINE registerOutputVariable(name)
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name

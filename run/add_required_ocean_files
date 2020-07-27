@@ -14,7 +14,7 @@
   fi
   #ocean_location= ${ocean_location:="buildbot"}
   #ocean_location="local" #${ocean_location:="local"}
-  builbot_ocean_reference_path=/pool/data/ICON/buildbot_data/oes/reference.20044
+  builbot_ocean_reference_path=/pool/data/ICON/buildbot_data/oes/reference.20125
 
   get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 
@@ -25,15 +25,15 @@
 
 
   if [[ "x$ocean_location" = "xbuildbot" ]] ; then
-    ocean_data_MainFolder=${icon_data_buildbotFolder_oes}
+    ocean_data_MainFolder=${icon_data_rootFolder}/buildbot_data/oes
   elif [[ "x$ocean_location" = "xlocal" ]] ; then
-    ocean_data_MainFolder=${ICON_BASE_PATH}/grids 
+    ocean_data_MainFolder=${basedir}/grids 
     ocean_data_InputFolder=${ocean_data_InputFolder:=${ocean_data_MainFolder}}
   elif [[ "x$ocean_location" != "x" ]] ; then
     ocean_data_MainFolder=${icon_data_rootFolder}/oes/${ocean_location}
   fi
   #if ocean_data_MainFolder not defined, use the buildbot root folder
-  ocean_data_MainFolder=${ocean_data_MainFolder:=${icon_data_buildbotFolder_oes}}
+  ocean_data_MainFolder=${ocean_data_MainFolder:=${icon_data_rootFolder}/buildbot_data/oes}
   grid_name=${ocean_grids%.nc}
   ocean_data_InputFolder=${ocean_data_InputFolder:=${ocean_data_MainFolder}/${grid_name}}
   grids_folder=${grids_folder:=${ocean_data_InputFolder}}
@@ -85,7 +85,7 @@
    
   #=======================================================
   # add required files if this is not post processing
-  case "x$RUNSCRIPT_NAME" in
+  case "x$job_name" in
     *post*)
       # for postprocessing we do not need files
     ;;
