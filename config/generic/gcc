@@ -43,7 +43,7 @@ else
   # Most probably, this will fail because the compiler will not be able to find
   # Fortran module files even if they are installed to a standard directory.
   echo "WARNING: directory '${ICON_SW_PREFIX}' not found: \
-set environment variable ICON_SW_PREFIX to the directory with ICON dependencies (NetCDF, OpenBLAS, etc.)" >&2
+set environment variable ICON_SW_PREFIX to the directory with ICON dependencies (NetCDF, LAPACK, etc.)" >&2
 fi
 
 ################################################################################
@@ -115,13 +115,17 @@ done
 
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${icon_dir}"; pwd); then
-  echo "Copying runscript input files from the source directory..."
-  rsync -uavz ${icon_dir}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
-  ln -sf ${icon_dir}/run/standard_* run/
-  ln -sf set-up.info run/SETUP.config
-  rsync -uavz ${icon_dir}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
-  rsync -uavz ${icon_dir}/make_runscripts .
-  ln -sf ${icon_dir}/data
-  ln -sf ${icon_dir}/vertical_coord_tables
+  if rsync -h >/dev/null 2>&1; then
+    echo "Copying runscript input files from the source directory..."
+    rsync -uavz ${icon_dir}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
+    ln -sf ${icon_dir}/run/standard_* run/
+    ln -sf set-up.info run/SETUP.config
+    rsync -uavz ${icon_dir}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
+    rsync -uavz ${icon_dir}/make_runscripts .
+    ln -sf ${icon_dir}/data
+    ln -sf ${icon_dir}/vertical_coord_tables
+  else
+    echo "WARNING: 'rsync' is not available: unable to copy runscript input files from the source directory." >&2
+  fi
 fi
 

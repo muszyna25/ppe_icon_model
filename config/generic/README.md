@@ -50,19 +50,23 @@ with NetCDF-4 support
 - [NetCDF-Fortran](https://www.unidata.ucar.edu/software/netcdf/docs-fortran)
 - [ecCodes](https://confluence.ecmwf.int/display/ECC) with JPEG2000 support
 (only C interface required)
-- [OpenBLAS](https://www.openblas.net) with LAPACK support
+- [BLAS](http://www.netlib.org/blas)
+- [LAPACK](http://www.netlib.org/lapack)
 - [Libxml2](http://www.xmlsoft.org)
 
 See section [ICON dependencies](../../README.md#icon-dependencies) for more
 details.
 
-## Optional runtime tools
+## Optional tools
 
-- [KornShell](http://www.kornshell.com/) for the
+- [KornShell](http://www.kornshell.com) for the
 [generated runscripts](../../README.md#running)
 - <a name="cdo"/> [CDO](https://code.mpimet.mpg.de/projects/cdo) for pre- and
 post-processing, also used by some of the
 [generated runscripts](../../README.md#running)
+- [rsync](https://rsync.samba.org/) for the
+[generated runscipts](../../README.md#running) in the case of
+[out-of-source building](../../README.md#out-of-source-configuration-building)
 
 # Tested platforms
 
@@ -73,7 +77,7 @@ systems using relevant
 [package managers](https://en.wikipedia.org/wiki/Package_manager).
 
 > **_NOTE:_** The current recommended version of [GCC](https://gcc.gnu.org/) is
-**6.x**. This is why all the examples below are based on this version.
+**6.x**. This is why most of the examples below are based on this version.
 
 ## [MacPorts](https://www.macports.org)
 
@@ -87,7 +91,7 @@ rest of the required software can be installed by running the following
 commands:
 
 ```bash
-# Install ICON dependencies:
+# Install building tools and ICON dependencies:
 sudo port -N install       \
   gcc6                     \
   mpich-gcc6               \
@@ -95,7 +99,6 @@ sudo port -N install       \
   netcdf                   \
   netcdf-fortran +gcc6     \
   eccodes                  \
-  openblas +lapack+gcc6    \
   libxml2
 
 # Select the compiler and MPI compiler wrappers:
@@ -103,7 +106,7 @@ sudo port select --set gcc mp-gcc6
 sudo port select --set mpi mpich-gcc6-fortran
 hash -r
 
-# Install optional runtime tools:
+# Install optional tools:
 sudo port -N install cdo +netcdf
 ```
 
@@ -112,7 +115,7 @@ sudo port -N install cdo +netcdf
 **Tested on `Ubuntu Bionic Beaver 18.04.4 LTS`.**
 
 ```bash
-# Install ICON dependencies:
+# Install building tools and ICON dependencies:
 sudo apt install -y \
   build-essential   \
   python3           \
@@ -123,7 +126,8 @@ sudo apt install -y \
   libnetcdf-dev     \
   libnetcdff-dev    \
   libeccodes-dev    \
-  libopenblas-dev   \
+  libblas-dev       \
+  liblapack-dev     \
   libxml2-dev
 
 # Select the compiler:
@@ -142,9 +146,40 @@ sudo update-alternatives --set mpirun /usr/bin/mpirun.mpich
 # sudo update-alternatives --config mpirun
 # sudo update-alternatives --config mpi
 
-# Install optional runtime tools:
+# Install optional tools:
 sudo apt install -y ksh cdo
 ```
+
+## [Pacman](https://wiki.archlinux.org/index.php/pacman)
+
+**Tested on `Arch Linux 2020.07.01`.**
+
+```bash
+# Install building tools and ICON dependencies:
+sudo pacman -S --noconfirm \
+  base-devel               \
+  git                      \
+  python                   \
+  gcc-fortran              \
+  openmpi                  \
+  hdf5                     \
+  netcdf                   \
+  netcdf-fortran           \
+  blas                     \
+  lapack                   \
+  libxml2
+
+# Install ecCodes from the Arch User Repository:
+git clone https://aur.archlinux.org/openjpeg.git && cd openjpeg && makepkg -csi --noconfirm && cd ..
+git clone https://aur.archlinux.org/eccodes.git && cd eccodes && makepkg -csi --noconfirm && cd ..
+
+# Install optional tools:
+sudo pacman -S --noconfirm rsync ksh
+```
+
+> **_NOTE:_** [ecCodes package](https://aur.archlinux.org/packages/eccodes) is
+currently broken and its `PKGBUILD` file might need to be extended with an
+additional CMake argument `-DCMAKE_Fortran_FLAGS=-fallow-argument-mismatch`.
 
 ## [Spack](https://spack.io)
 
@@ -187,7 +222,7 @@ spack compiler remove --all gcc@7:
 spack install openmpi &&
   spack install netcdf-fortran ^hdf5+hl+szip+threadsafe &&
   spack install eccodes &&
-  spack install openblas &&
+  spack install netlib-lapack &&
   spack install libxml2
 
 # Symlink the dependencies to a single prefix (e.g. to $HOME/icon-sw):
@@ -196,10 +231,10 @@ spack view symlink -i "$ICON_SW_PREFIX" \
   openmpi                               \
   netcdf-fortran                        \
   eccodes                               \
-  openblas                              \
+  netlib-lapack                         \
   libxml2
 
-# Install optional runtime tools:
+# Install optional tools:
 spack install cdo ^hdf5+hl+szip+threadsafe
 spack load cdo
 ```
