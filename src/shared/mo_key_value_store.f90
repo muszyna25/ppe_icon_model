@@ -440,16 +440,17 @@ CONTAINS
     END SUBROUTINE output_pmsg
 
     SUBROUTINE output_stdio()
-      CHARACTER(LEN=4096) :: message_text ! message_text from mo_exception is too short
-  
+      CHARACTER(LEN=576) :: message_text ! message_text from mo_exception is too short
+
       message_text = ''
+      NULLIFY(ccVal)
       SELECT TYPE(curVal)
 #ifdef __PGI
       TYPE IS(t_char_workaround)
-        WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", curVal%c, "<"
+        ccVal => curVal%c
 #else
       TYPE IS(CHARACTER(*))
-        WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", curVal, "<"
+        ccVal => curVal
 #endif
       TYPE IS(REAL(wp))
         WRITE(message_text, "(3a,e12.5,a)") "key = >", ccKey, "< val = >", curVal, "<"
@@ -460,6 +461,13 @@ CONTAINS
       CLASS DEFAULT
         CALL finish(routine, "val: invalid type")
       END SELECT
+      IF (ASSOCIATED(ccVal)) THEN
+        IF (LEN(ccVal) .GT. 448) THEN
+          WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", ccVal(1:400), "< !TRUNCATED!"
+        ELSE
+          WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", ccVal, "<"
+        END IF
+      END IF
       IF (PRESENT(label)) THEN
         CALL message(routine, message_text)
       ELSE
