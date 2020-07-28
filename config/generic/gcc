@@ -58,7 +58,7 @@ NETCDFF_LIBS='-lnetcdff'
 GRIB2_LIBS='-leccodes'
 
 # BLAS/LAPACK
-BLAS_LAPACK_LIBS='-lopenblas'
+BLAS_LAPACK_LIBS='-llapack -lblas'
 
 # Libxml2
 XML2_LIBS='-lxml2'
