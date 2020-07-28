@@ -15,7 +15,7 @@ MODULE mo_linked_list
   ! should be replaced by a proper generic version.
   !----------------------------------------------------------------------------
   USE mo_kind,             ONLY: i8
-  USE mo_exception,        ONLY: finish, message
+  USE mo_exception,        ONLY: finish
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   !
   IMPLICIT NONE
@@ -34,7 +34,7 @@ MODULE mo_linked_list
   ! and a reference to the next element in the list
   TYPE t_list_element
     TYPE(t_var_list_element)      :: field
-    TYPE(t_list_element), POINTER :: next_list_element
+    TYPE(t_list_element), POINTER :: next_list_element => NULL()
   END TYPE t_list_element
   !
   TYPE t_var_list_intrinsic
@@ -66,7 +66,7 @@ MODULE mo_linked_list
   END TYPE t_var_list_intrinsic
   !
   TYPE t_var_list
-    TYPE(t_var_list_intrinsic), POINTER :: p
+    TYPE(t_var_list_intrinsic), POINTER :: p => NULL()
   END type t_var_list
   !
 CONTAINS
@@ -101,28 +101,9 @@ CONTAINS
       ENDIF
       DEALLOCATE (this)
     END DO
-    this_list%p%first_list_element => NULL()
-    this_list%p%memory_used = 0_i8
-    this_list%p%list_elements = 0
+    DEALLOCATE(this_list%p)
+    NULLIFY(this_list%p)
   END SUBROUTINE delete_list
-  !-----------------------------------------------------------------------------
-  SUBROUTINE create_list_element(this_list, current_list_element)
-    TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: current_list_element
-    INTEGER :: ist
-    !
-    ALLOCATE (current_list_element, STAT=ist)
-    IF (ist /= 0) THEN
-      CALL finish('create_list_element','Cannot add element to linked list ...')
-    ENDIF
-    this_list%p%list_elements = this_list%p%list_elements+1
-    !
-    current_list_element%next_list_element => NULL()
-    current_list_element%field%r_ptr       => NULL()
-    current_list_element%field%s_ptr       => NULL()
-    current_list_element%field%i_ptr       => NULL()
-    current_list_element%field%l_ptr       => NULL()
-  END SUBROUTINE create_list_element
   !-----------------------------------------------------------------------------
   ! add a list element to the linked list
   SUBROUTINE append_list_element(this_list, new_list_element)
@@ -132,7 +113,7 @@ CONTAINS
     !
     ! insert as first element if list is empty
     IF (.NOT. ASSOCIATED (this_list%p%first_list_element)) THEN
-      CALL create_list_element (this_list, this_list%p%first_list_element)
+      ALLOCATE(this_list%p%first_list_element)
       new_list_element => this_list%p%first_list_element
       this_list%p%nvars = this_list%p%nvars + 1
       RETURN
@@ -145,10 +126,10 @@ CONTAINS
     ENDDO
     !
     ! insert element
-    CALL create_list_element (this_list, new_list_element)
+    ALLOCATE(new_list_element)
     new_list_element%next_list_element => current_list_element%next_list_element
     current_list_element%next_list_element => new_list_element
-    !
+    this_list%p%list_elements = this_list%p%list_elements+1
     this_list%p%nvars = this_list%p%nvars + 1
   END SUBROUTINE append_list_element
 
