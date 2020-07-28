@@ -26,7 +26,7 @@ MODULE mo_async_latbc_types
   USE mtime,                       ONLY: event, datetime, timedelta, &
     &                                    deallocateTimedelta, deallocateEvent, deallocateDatetime
   USE mo_initicon_types,           ONLY: t_init_state, t_init_state_const
-  USE mo_impl_constants,           ONLY: SUCCESS, max_ntracer, VARNAME_LEN
+  USE mo_impl_constants,           ONLY: SUCCESS, max_ntracer, vname_len
   USE mo_exception,                ONLY: finish, message
   USE mo_run_config,               ONLY: msg_level
   USE mo_reorder_info,             ONLY: t_reorder_info, release_reorder_info
@@ -89,7 +89,7 @@ MODULE mo_async_latbc_types
 
      ! for additional tracer variables, e.g. ART tracers
      LOGICAL                                     :: lread_tracer(max_ntracer) ! provided as input?
-     CHARACTER(LEN=VARNAME_LEN)                  :: name_tracer(max_ntracer)  ! names
+     CHARACTER(LEN=vname_len)                  :: name_tracer(max_ntracer)  ! names
      INTEGER                                     :: idx_tracer(max_ntracer)   ! indices in tracer container
 
      LOGICAL                                     :: lread_vn           ! is vn provided as input?

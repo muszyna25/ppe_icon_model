@@ -26,7 +26,7 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: max_ntracer, VARNAME_LEN
+  USE mo_impl_constants,       ONLY: max_ntracer, vname_len
   USE mo_run_config,           ONLY: ntracer
   USE mo_var_list_element,     ONLY: t_var_list_element
   USE mo_dictionary,           ONLY: t_dictionary
@@ -256,8 +256,8 @@ MODULE mo_initicon_types
   END TYPE t_saveinit_state
 
 
-  CHARACTER(LEN=VARNAME_LEN) :: geop_ml_var  ! model level surface geopotential
-  CHARACTER(LEN=VARNAME_LEN) :: alb_snow_var ! snow albedo
+  CHARACTER(LEN=vname_len) :: geop_ml_var  ! model level surface geopotential
+  CHARACTER(LEN=vname_len) :: alb_snow_var ! snow albedo
 
 
   ! dictionary which maps internal variable names onto

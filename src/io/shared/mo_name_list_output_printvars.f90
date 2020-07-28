@@ -24,7 +24,7 @@ MODULE mo_name_list_output_printvars
     &                                             vlistDefTaxis, vlistDefInstitut
   USE mo_mpi,                               ONLY: get_my_global_mpi_id
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS, VARNAME_LEN
+  USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS, vname_len
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_exception,                         ONLY: finish, message_text
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
@@ -63,7 +63,7 @@ CONTAINS
   !> @return variable name without time level or tile suffix
   !
   FUNCTION get_var_basename(var)
-    CHARACTER(LEN=VARNAME_LEN) :: get_var_basename
+    CHARACTER(LEN=vname_len) :: get_var_basename
     TYPE(t_var_list_element)   :: var
     ! local variable
     INTEGER          :: endidx
@@ -256,7 +256,7 @@ CONTAINS
     INTEGER,                INTENT(IN) :: print_patch_id
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::print_var_list"
-    INTEGER,          PARAMETER :: max_str_len = cdi_max_name + 1 + 128 + VARNAME_LEN + 99
+    INTEGER,          PARAMETER :: max_str_len = cdi_max_name + 1 + 128 + vname_len + 99
 
     CHARACTER(LEN=*), PARAMETER :: varprefix = "\varname{"
     INTEGER,          PARAMETER :: PREF = LEN_TRIM(varprefix)

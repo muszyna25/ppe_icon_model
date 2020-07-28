@@ -35,7 +35,7 @@ MODULE mo_var_list
   USE mo_exception,        ONLY: message, finish, message_text
   USE mo_util_texthash,    ONLY: text_hash_c
   USE mo_util_string,      ONLY: toupper, tolower
-  USE mo_impl_constants,   ONLY: VARNAME_LEN, TIMELEVEL_SUFFIX,     &
+  USE mo_impl_constants,   ONLY: vname_len, TIMELEVEL_SUFFIX,     &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            REAL_T, SINGLE_T, BOOL_T, INT_T
   USE mo_fortran_tools,    ONLY: init_contiguous_dp, init_contiguous_sp, &
@@ -93,7 +93,7 @@ CONTAINS
   !> @return Plain variable name (i.e. without TIMELEVEL_SUFFIX)
   !
   FUNCTION get_var_name(var)
-    CHARACTER(LEN=VARNAME_LEN) :: get_var_name
+    CHARACTER(LEN=vname_len) :: get_var_name
     TYPE(t_var_list_element)   :: var
     INTEGER :: idx
 
@@ -108,8 +108,8 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! construct varname  with timelevel
   !
-  CHARACTER(LEN=VARNAME_LEN) FUNCTION get_varname_with_timelevel(varname,timelevel)
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: varname
+  CHARACTER(LEN=vname_len) FUNCTION get_varname_with_timelevel(varname,timelevel)
+    CHARACTER(LEN=vname_len), INTENT(IN) :: varname
     INTEGER, INTENT(IN)        :: timelevel
 
     get_varname_with_timelevel = TRIM(varname)//get_timelevel_string(timelevel)

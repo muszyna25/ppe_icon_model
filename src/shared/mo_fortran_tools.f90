@@ -22,8 +22,7 @@ MODULE mo_fortran_tools
 
   USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
-  USE mo_impl_constants,          ONLY: SUCCESS
-  USE mo_impl_constants,          ONLY: VARNAME_LEN
+  USE mo_impl_constants,          ONLY: SUCCESS, vname_len
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
   USE openacc
@@ -391,11 +390,11 @@ CONTAINS
   !!
   SUBROUTINE resize_arr_c1d(arr,nelem)
     ! GCC 4.9.0 complained about CHARACTER(:); Cray did not!
-    CHARACTER(len=VARNAME_LEN), ALLOCATABLE, INTENT(INOUT) :: arr(:)   ! array to be resized
+    CHARACTER(len=vname_len), ALLOCATABLE, INTENT(INOUT) :: arr(:)   ! array to be resized
     INTEGER                  , INTENT(IN)    :: nelem    ! number of elements to expand
     !
     ! local variables
-    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: tmp_arr(:)
+    CHARACTER(len=vname_len), ALLOCATABLE :: tmp_arr(:)
     INTEGER :: istat                   ! status
     !-----------------------------
 

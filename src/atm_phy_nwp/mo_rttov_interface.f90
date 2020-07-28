@@ -36,7 +36,7 @@ MODULE mo_rttov_interface
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_impl_constants,      ONLY: min_rlcell_int, RTTOV_BT_CL, RTTOV_BT_CS, &
-    &                               RTTOV_RAD_CL, RTTOV_RAD_CS, VARNAME_LEN
+    &                               RTTOV_RAD_CL, RTTOV_RAD_CS, vname_len
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_fbk_start_c
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
@@ -94,7 +94,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::rttov_initialize"
     INTEGER                    :: n_chans(num_sensors)
     INTEGER                    :: channels(mchans, num_sensors)
-    CHARACTER(LEN=VARNAME_LEN) :: shortname
+    CHARACTER(LEN=vname_len) :: shortname
     CHARACTER(LEN=128)         :: longname
     INTEGER                    :: isens, ierrstat, k, isynsat, j
 #ifdef __USE_RTTOV

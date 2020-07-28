@@ -225,8 +225,7 @@ MODULE mo_async_latbc
 #ifndef NOMPI
     USE mo_async_latbc_utils,         ONLY: read_init_latbc_data
 #endif
-    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, TIMELEVEL_SUFFIX, &
-         &                                  VARNAME_LEN
+    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, TIMELEVEL_SUFFIX, vname_len
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state, p_nh_state_lists
@@ -585,7 +584,7 @@ MODULE mo_async_latbc
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch"
 
       ! grp name in lower case letter
-      CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: StrLowCasegrp(:)
+      CHARACTER(LEN=vname_len), ALLOCATABLE :: StrLowCasegrp(:)
 
       ! Broadcast root for intercommunicator broadcasts form compute
       ! PEs to prefetching PE using p_comm_work_2_pref
@@ -764,7 +763,7 @@ MODULE mo_async_latbc
     !
     SUBROUTINE read_init_file(latbc, StrLowCasegrp, latbc_varnames_dict, p_patch, fileID)
       TYPE (t_latbc_data),        INTENT(INOUT) :: latbc
-      CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: StrLowCasegrp(:) !< grp name in lower case letter
+      CHARACTER(LEN=vname_len), INTENT(INOUT) :: StrLowCasegrp(:) !< grp name in lower case letter
       TYPE (t_dictionary),        INTENT(IN)    :: latbc_varnames_dict
       TYPE(t_patch), OPTIONAL,    INTENT(IN)    :: p_patch
       INTEGER,       OPTIONAL,    INTENT(OUT)   :: fileID
@@ -773,7 +772,7 @@ MODULE mo_async_latbc
       LOGICAL,      PARAMETER                   :: ldebug  = .FALSE.
 #ifndef NOMPI
       ! local variables
-      CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:), grp_vars_lc(:)
+      CHARACTER(LEN=vname_len), ALLOCATABLE :: grp_vars(:), grp_vars_lc(:)
       ! dictionary which maps prefetch variable names onto
       ! GRIB2 shortnames or NetCDF var names.
       INTEGER                                 :: ierrstat, vlistID, nvars, varID, zaxisID,  &
@@ -1017,7 +1016,7 @@ MODULE mo_async_latbc
         &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
 
-      CHARACTER(LEN=VARNAME_LEN)      :: current_name     !< name of current tracer
+      CHARACTER(LEN=vname_len)      :: current_name     !< name of current tracer
       TYPE(t_list_element), POINTER   :: current_element  !< pointer to current element in the list
       INTEGER                         :: current_index    !< index of current tracer in container
       INTEGER                         :: idx, numlbc_tracer
@@ -1375,7 +1374,7 @@ MODULE mo_async_latbc
     SUBROUTINE match_var_data_to_buffer(map, buffer, var_data, StrLowCasegrp)
       TYPE(t_buffer), INTENT(in) :: buffer
       INTEGER, ALLOCATABLE, INTENT(out) :: map(:)
-      CHARACTER(LEN=varname_len), INTENT(in) :: StrLowCasegrp(buffer%ngrp_vars)
+      CHARACTER(LEN=vname_len), INTENT(in) :: StrLowCasegrp(buffer%ngrp_vars)
       TYPE(t_var_metadata_ptr), INTENT(in) :: var_data(:)
 
       LOGICAL :: grp_vars_bool(buffer%ngrp_vars)

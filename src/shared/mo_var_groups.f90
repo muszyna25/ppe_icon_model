@@ -10,7 +10,7 @@
 !!
 MODULE mo_var_groups
 
-  USE mo_impl_constants,        ONLY: VARNAME_LEN, TIMELEVEL_SUFFIX
+  USE mo_impl_constants,        ONLY: vname_len, TIMELEVEL_SUFFIX
   USE mo_exception,             ONLY: finish
   USE mo_util_string,           ONLY: toupper, int2string
   USE mo_fortran_tools,         ONLY: resize_arr_c1d
@@ -56,7 +56,7 @@ MODULE mo_var_groups
   ! non-public. Its contents are copied to a dynamically growing list
   ! "var_groups_dyn".
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: VAR_GROUPS_STATIC(62) = &
+  CHARACTER(LEN=vname_len), PARAMETER :: VAR_GROUPS_STATIC(62) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -130,7 +130,7 @@ MODULE mo_var_groups
     ! entry #i (= ID #i) corresponds to the i'th LOGICAL entry in the
     ! "in_group" of the t_var_metadata type below.
     !
-    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: name(:)
+    CHARACTER(len=vname_len), ALLOCATABLE :: name(:)
 
   CONTAINS
 
@@ -315,11 +315,11 @@ CONTAINS
   !> Returns an alphabetically sorted list of all groups.
   ! 
   FUNCTION t_var_groups_alphabetical_list(var_groups)  RESULT(sorted_list)
-    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: sorted_list(:)
+    CHARACTER(len=vname_len), ALLOCATABLE :: sorted_list(:)
     CLASS(t_var_groups), INTENT(IN) :: var_groups
     INTEGER :: i
 
-    ALLOCATE(CHARACTER(VARNAME_LEN) :: sorted_list(SIZE(var_groups%name)))
+    ALLOCATE(CHARACTER(vname_len) :: sorted_list(SIZE(var_groups%name)))
     DO i=1,SIZE(var_groups%name(:))
       sorted_list(i) = toupper(var_groups%name(i))
     END DO
@@ -358,11 +358,11 @@ CONTAINS
 
   !----------------------------------------------------------------------------------------
   !> The same, but provide list of groups as one character vector of group names.
-  !  Attention: the strings passed in group_list must be of length VARNAME_LEN !
+  !  Attention: the strings passed in group_list must be of length vname_len !
   !
   FUNCTION groups_vec(group_list)
     LOGICAL :: groups_vec(MAX_GROUPS)
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: group_list(:)
+    CHARACTER(LEN=vname_len), INTENT(IN) :: group_list(:)
 
     CHARACTER(*), PARAMETER :: routine = modname//"::groups_vec"
     INTEGER :: i, grp_id

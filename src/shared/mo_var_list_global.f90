@@ -17,7 +17,7 @@ MODULE mo_var_list_global
   USE mo_exception,        ONLY: message, finish
   USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
     &                            tolower, difference, find_trailing_number
-  USE mo_impl_constants,   ONLY: vname_len, VARNAME_LEN, MAX_TIME_LEVELS, SUCCESS
+  USE mo_impl_constants,   ONLY: vname_len, MAX_TIME_LEVELS, SUCCESS
   USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
@@ -346,7 +346,7 @@ CONTAINS
     &                      opt_vlevel_type, opt_dom_id,     &
     &                      opt_lquiet)
     CHARACTER(LEN=*),           INTENT(IN)    :: grp_name
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: var_name(:)
+    CHARACTER(LEN=vname_len), INTENT(INOUT) :: var_name(:)
     INTEGER,                    INTENT(OUT)   :: nvars
     ! loutputvars_only: If set to .TRUE. all variables in the group
     ! which have the the loutput flag equal to .FALSE. are skipped.
@@ -367,7 +367,7 @@ CONTAINS
     INTEGER                       :: i, grp_id, llmsg_len
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
-    CHARACTER(LEN=VARNAME_LEN)    :: name
+    CHARACTER(LEN=vname_len)    :: name
     CHARACTER(len=*), PARAMETER   :: llmsg = " lon-lat"
     LOGICAL                       :: lquiet, verbose, skip
 
@@ -548,8 +548,8 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: opt_skip_trivial        !< Flag: skip empty of single-entry groups
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::print_group_details"
-    CHARACTER(len=VARNAME_LEN), ALLOCATABLE :: group_names(:)
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:), grp_vars_output(:)
+    CHARACTER(len=vname_len), ALLOCATABLE :: group_names(:)
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: grp_vars(:), grp_vars_output(:)
     INTEGER,                    ALLOCATABLE :: slen(:)
     INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j, k, t
     LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial, lfound

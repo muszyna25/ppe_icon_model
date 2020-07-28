@@ -34,16 +34,14 @@ MODULE mo_name_list_output_init
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, GRID_ZONAL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS, VARNAME_LEN,      &
+  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS, vname_len,      &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
-    &                                             MAX_TIME_LEVELS, vname_len,                       &
-    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
+    &                                             MAX_TIME_LEVELS, pio_type_cdipio, INWP,           &
+    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS, nlat_moc,      &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
     &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
-    &                                             pio_type_cdipio,                  &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
-    &                                             dtime_cly360              => cly360,              &
-    &                                             INWP, nlat_moc
+    &                                             dtime_cly360              => cly360
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,            &
     &                                             GRID_UNSTRUCTURED_EDGE, GRID_REGULAR_LONLAT, GRID_VERTEX,  &
     &                                             GRID_EDGE, GRID_CELL
@@ -871,8 +869,8 @@ CONTAINS
   SUBROUTINE parse_variable_groups()
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::parse_variable_groups"
     !
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:)
-    CHARACTER(LEN=VARNAME_LEN)              :: vname, grp_name
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: varlist(:), grp_vars(:)
+    CHARACTER(LEN=vname_len)              :: vname, grp_name
     INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
       &                                        ivar, ntotal_vars, jvar, i,        &
       &                                        nsubtract_vars, tlen, ninserted
@@ -3096,7 +3094,7 @@ CONTAINS
 #endif
 
   SUBROUTINE registerOutputVariable(name)
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name
+    CHARACTER(LEN=vname_len), INTENT(IN) :: name
 
     CALL outputRegister%add(text_hash_c(tolower(TRIM(name))))
   END SUBROUTINE registerOutputVariable

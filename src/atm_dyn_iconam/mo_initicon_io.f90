@@ -48,7 +48,7 @@ MODULE mo_initicon_io
   USE mo_impl_constants,      ONLY: max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
-    &                               VARNAME_LEN
+    &                               vname_len
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -1661,7 +1661,7 @@ MODULE mo_initicon_io
     INTEGER                           :: i, grp_id, idx
     TYPE(t_list_element), POINTER     :: element
     TYPE(t_var_list_element), POINTER :: var_element
-    CHARACTER(LEN=VARNAME_LEN)        :: name
+    CHARACTER(LEN=vname_len)        :: name
     REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
 
     idx = 0

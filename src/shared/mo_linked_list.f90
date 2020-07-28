@@ -15,7 +15,6 @@ MODULE mo_linked_list
   ! should be replaced by a proper generic version.
   !----------------------------------------------------------------------------
   USE mo_kind,             ONLY: i8
-  USE mo_exception,        ONLY: finish
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   !
   IMPLICIT NONE

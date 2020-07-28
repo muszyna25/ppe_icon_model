@@ -18,7 +18,7 @@ MODULE mo_derived_variable_handling
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_statistics, ONLY: add_fields, max_fields, min_fields, assign_fields, add_sqr_fields
   USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW,    &
-    &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T, VARNAME_LEN
+    &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
   USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
                               & GRID_ZONAL
   USE mo_name_list_output_types, ONLY: t_output_name_list
@@ -255,7 +255,7 @@ CONTAINS
   END FUNCTION output_varlist_length
 
   SUBROUTINE fill_list_of_output_varnames(varlist,in_varlist,ntotal_vars)
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: varlist(:)
+    CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
     CHARACTER(LEN=vname_len), POINTER, INTENT(IN) :: in_varlist(:)
     INTEGER, INTENT(IN)               :: ntotal_vars
 
@@ -275,7 +275,7 @@ CONTAINS
 
   SUBROUTINE print_src_dest_info(src_element, dest_element, dest_element_name,in_varlist,i)
     TYPE(t_list_element), POINTER :: src_element, dest_element
-    CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
+    CHARACTER(LEN=vname_len) :: dest_element_name
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER,INTENT(IN) :: i
 
@@ -301,8 +301,8 @@ CONTAINS
   SUBROUTINE find_src_element(src_element, varlist_element, dest_element_name, &
           &  dom, src_list, prognosticsList, prognosticsPointerList)
     TYPE(t_list_element), POINTER :: src_element
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: varlist_element
-    CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
+    CHARACTER(LEN=vname_len), INTENT(IN) :: varlist_element
+    CHARACTER(LEN=vname_len) :: dest_element_name
     INTEGER, INTENT(IN) :: dom
     TYPE(t_var_list), POINTER :: src_list
     TYPE(vector) :: prognosticsList
@@ -437,7 +437,7 @@ CONTAINS
   !!
   FUNCTION copy_var_to_list(list,name,source_element,patch_2d) RESULT(dest_element)
     TYPE(t_var_list) :: list
-    CHARACTER(LEN=VARNAME_LEN) :: name
+    CHARACTER(LEN=vname_len) :: name
     TYPE(t_list_element),POINTER :: source_element
     TYPE(t_patch),TARGET, INTENT(in)    :: patch_2d
 
@@ -493,10 +493,8 @@ CONTAINS
   !! return internal name for accumulation variables
   !!
   FUNCTION get_statistics_varname(varname,output_setup)
-    CHARACTER(LEN=VARNAME_LEN)  :: varname
-    TYPE(t_output_name_list) :: output_setup
-
-    CHARACTER(LEN=VARNAME_LEN)  :: get_statistics_varname
+    CHARACTER(LEN=vname_len)  :: varname, get_statistics_varname
+    type(t_output_name_list) :: output_setup
 
     get_statistics_varname = &
       &TRIM(varname)//separator//&
@@ -504,16 +502,13 @@ CONTAINS
       &TRIM(output_setup%output_interval(1))//separator//&
       &TRIM(output_setup%output_start(1))//separator//&
       &'DOM'//TRIM(int2string(output_setup%dom))
-
   END FUNCTION get_statistics_varname
 
   !>
   !! return internal name from accumulation variable name
   !!
   FUNCTION get_real_varname(mean_varname)
-    CHARACTER(LEN=VARNAME_LEN)  :: mean_varname
-
-    CHARACTER(LEN=VARNAME_LEN)  :: get_real_varname
+    CHARACTER(LEN=vname_len)  :: mean_varname, get_real_varname
 
     get_real_varname = mean_varname(1:INDEX(mean_varname,separator)-1)
   END FUNCTION get_real_varname
@@ -548,8 +543,8 @@ CONTAINS
     TYPE(t_event_wrapper) :: event_wrapper
     CLASS(*), pointer :: myBuffer
     TYPE(t_list_element), POINTER :: src_element, dest_element
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
-    CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: varlist(:)
+    CHARACTER(LEN=vname_len) :: dest_element_name
     LOGICAL :: foundPrognostic
     TYPE(t_var_list), POINTER :: src_list
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mvstream"

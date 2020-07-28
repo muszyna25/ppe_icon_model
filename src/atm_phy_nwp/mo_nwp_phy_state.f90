@@ -68,7 +68,7 @@ USE mo_impl_constants,      ONLY: success, max_var_list_name_len,     &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
   &                               RTTOV_RAD_CL, RTTOV_RAD_CS,         &
   &                               iss, iorg, ibc, iso4,               &
-  &                               idu, nclass_aero, VARNAME_LEN
+  &                               idu, nclass_aero, vname_len
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,             &
   &                               GRID_CELL
 USE mo_parallel_config,     ONLY: nproma
@@ -311,7 +311,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
       &        wave_no, wave_no_scalfac, iimage, isens, k
-    CHARACTER(LEN=VARNAME_LEN) :: shortname
+    CHARACTER(LEN=vname_len) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
     CHARACTER(len=max_timedelta_str_len) :: gust_int, celltracks_int, echotop_int
     !

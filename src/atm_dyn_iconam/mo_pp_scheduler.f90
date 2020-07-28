@@ -170,7 +170,7 @@ MODULE mo_pp_scheduler
     &                                   UNDEF_TIMELEVEL, ALL_TIMELEVELS,                    &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
-    &                                   STR_HINTP_TYPE, VARNAME_LEN
+    &                                   STR_HINTP_TYPE
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_var_name, get_var_timelevel,           &
@@ -324,7 +324,7 @@ CONTAINS
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
-    CHARACTER(len=varname_len)    :: name
+    CHARACTER(len=vname_len)    :: name
     CHARACTER(len=4)              :: suffix
     TYPE(t_cf_var)                :: cf
     TYPE(t_grib2_var)             :: grib2
@@ -936,7 +936,7 @@ CONTAINS
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
-    CHARACTER(len=varname_len)    :: name
+    CHARACTER(len=vname_len)    :: name
     CHARACTER(len=4)              :: suffix
     TYPE(t_cf_var)                :: cf
     TYPE(t_grib2_var)             :: grib2
