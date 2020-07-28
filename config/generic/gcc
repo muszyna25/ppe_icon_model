@@ -75,7 +75,10 @@ CPPFLAGS="${CPPFLAGS-}"
 
 FC='mpif90'
 FCFLAGS="${FCFLAGS-} -fmodule-private -fimplicit-none -fmax-identifier-length=63 -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter -Wno-surprising -fall-intrinsics -g -march=native -fbacktrace -fbounds-check -fstack-protector-all -finit-real=nan -finit-integer=-2147483648 -finit-character=127 -O2"
-ICON_FCFLAGS='-std=f2008'
+
+# Avoid Error: Rank mismatch between actual argument at (1) and actual argument at (2) (scalar and rank-1)
+# for gcc 10:
+ICON_FCFLAGS='-std=legacy'
 
 LDFLAGS="${LDFLAGS-}"
 LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${GRIB2_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS}"
@@ -95,6 +98,7 @@ FC="${FC}" \
 FCFLAGS="${FCFLAGS}" \
 ICON_BUNDLED_CFLAGS="${ICON_BUNDLED_CFLAGS}" \
 ICON_CFLAGS="${ICON_CFLAGS}" \
+ICON_FCFLAGS="${ICON_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
