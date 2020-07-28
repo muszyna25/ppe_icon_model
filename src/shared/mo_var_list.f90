@@ -290,29 +290,20 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: missval_l                    ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
     LOGICAL,                 INTENT(in), OPTIONAL :: lopenacc                     ! create variable on GPU
-
     ! local variables
     TYPE(t_union_vals) :: missval, initval, resetval, ivals
     INTEGER :: idims(5), istat
     LOGICAL :: referenced, is_restart_var
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":add_var_list_element_5d"
 
-    ! consistency check for restart and output
-    TYPE(t_list_element), POINTER :: duplicate
-
-    ! Check for a variable of the same name. This consistency check
-    ! only makes sense for single-domain setups which, in addition,
-    ! must not use internal post-processing (lon-lat or vertically
-    ! interpolated output).
-!TODO: find way without cycle-dependency
-!    IF (msg_level > 20) THEN
-!      duplicate => find_element(name)
-!      IF (ASSOCIATED(duplicate)) THEN
-!        CALL message('ADD_VAR:','Found double entry for varname:'//TRIM(name))
-!        NULLIFY(duplicate)
-!      ENDIF
-!    END IF
-
+    ! Check for a variable of the same name in this list
+    ! This consistency check only makes sense inside individual lists.
+    ! For single-domain setups and/or when using internal post-processing 
+    ! (e.g. lon-lat or vertically interpolated output)  
+    ! duplicate names may exist in different lists
+    IF (ASSOCIATED(find_list_element(this_list, name))) &
+      & CALL finish(routine, "duplicate var-name ("//TRIM(name)//") exists in var_list ("//TRIM(this_list%p%name)//")")
+    
     is_restart_var = this_list%p%lrestart
     IF (PRESENT(lrestart)) THEN
       is_restart_var = lrestart

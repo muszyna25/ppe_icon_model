@@ -61,42 +61,39 @@ CONTAINS
   SUBROUTINE new_var_list (this_list, vlname, output_type, restart_type,      &
        &                   post_suf, rest_suf, init_suf, loutput, lrestart, &
        &                   linitial, patch_id, vlevel_type)
-    TYPE(t_var_list), INTENT(inout)        :: this_list    ! anchor
-    CHARACTER(len=*), INTENT(in)           :: vlname         ! name of output var_list
-    INTEGER,          INTENT(in), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
-    LOGICAL,          INTENT(in), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
-    INTEGER,          INTENT(in), OPTIONAL :: patch_id     ! patch ID
-    INTEGER,          INTENT(in), OPTIONAL :: vlevel_type  ! 1/2/3 for model/pres./height levels
-    INTEGER :: i, ierr, nvl_used
+    TYPE(t_var_list), INTENT(OUT)        :: this_list    ! anchor
+    CHARACTER(len=*), INTENT(IN)           :: vlname         ! name of output var_list
+    INTEGER,          INTENT(IN), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
+    CHARACTER(len=*), INTENT(IN), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
+    LOGICAL,          INTENT(IN), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
+    INTEGER,          INTENT(IN), OPTIONAL :: patch_id     ! patch ID
+    INTEGER,          INTENT(IN), OPTIONAL :: vlevel_type  ! 1/2/3 for model/pres./height levels
+    INTEGER :: i, ierr
     TYPE(t_var_list), ALLOCATABLE :: tmp(:)
-    !
+
     CALL message('','')
     CALL message('','adding new var_list '//TRIM(vlname))
     IF (.NOT.var_lists_map%is_init) CALL var_lists_map%init(.FALSE.)
     CALL var_lists_map%get(vlname, i, ierr)
     IF (ierr .EQ. 0) CALL finish('new_var_list', ' >'//TRIM(vlname)//'< already in use.')
-    this_list%p => NULL()
-    nvl_used = var_lists_map%getEntryCount()
-    IF (nvar_lists .NE. nvl_used) CALL finish('new_var_list', "inconsistent element counts")
+    IF (nvar_lists .NE. var_lists_map%getEntryCount()) &
+      & CALL finish('new_var_list', "inconsistent element counts")
     IF (.NOT.ALLOCATED(var_lists)) THEN
       ALLOCATE(var_lists(12))
-    ELSE IF (nvl_used .GE. SIZE(var_lists)) THEN
+    ELSE IF (nvar_lists .GE. SIZE(var_lists)) THEN
       ALLOCATE(tmp(SIZE(var_lists) + 4))
-      FORALL(i = 1:nvl_used) tmp(i)%p => var_lists(i)%p
+      FORALL(i = 1:nvar_lists) tmp(i)%p => var_lists(i)%p
       CALL MOVE_ALLOC(tmp, var_lists) 
     END IF
-    nvl_used = nvl_used + 1
-    nvar_lists = nvl_used
-    ALLOCATE(var_lists(nvl_used)%p)
-    this_list%p => var_lists(nvl_used)%p
+    nvar_lists = nvar_lists + 1
+    ALLOCATE(var_lists(nvar_lists)%p)
+    this_list%p => var_lists(nvar_lists)%p
     CALL var_lists_map%put(vlname, nvar_lists)
     ! set default list characteristics
     this_list%p%name     = vlname
     this_list%p%post_suf = '_'//TRIM(vlname)
     this_list%p%rest_suf = this_list%p%post_suf
     this_list%p%init_suf = this_list%p%post_suf
-    this_list%p%loutput  = .TRUE.
     ! set non-default list characteristics
     CALL set_var_list(this_list, output_type=output_type,                &
       & restart_type=restart_type, post_suf=post_suf, rest_suf=rest_suf, &
@@ -274,30 +271,26 @@ CONTAINS
   ! Delete an output var_list, nullify the associated pointer
   !
   SUBROUTINE delete_var_list(this_list)
-    TYPE(t_var_list) :: this_list
+    TYPE(t_var_list), INTENT(INOUT) :: this_list
     !
     IF (ASSOCIATED(this_list%p)) THEN
       CALL var_lists_map%remove(TRIM(this_list%p%name))
       CALL delete_list(this_list)
-      DEALLOCATE(this_list%p)
     ENDIF
   END SUBROUTINE delete_var_list
   !------------------------------------------------------------------------------------------------
   !
   ! Delete all output var_lists
   !
-  SUBROUTINE delete_var_lists
-    TYPE(t_var_list), POINTER :: this_list
+  SUBROUTINE delete_var_lists()
     INTEGER :: i
     !
     DO i = 1, nvar_lists
-      this_list => var_lists(i)
-      IF (ASSOCIATED(this_list%p)) THEN
-        CALL delete_list(this_list)
-        DEALLOCATE(this_list%p)
-      END IF
+      IF (ASSOCIATED(var_lists(i)%p)) CALL delete_list(var_lists(i))
     END DO
     CALL var_lists_map%destruct()
+    IF(nvar_lists .GT. 0) DEALLOCATE(var_lists)
+    nvar_lists = 0
   END SUBROUTINE delete_var_lists
 
   !================================================================================================

@@ -131,17 +131,17 @@ MODULE mo_var_metadata_types
     INTEGER                    :: key         = 0              ! hash value of name
     CHARACTER(len=vname_len)   :: name        = ''             ! variable name
     INTEGER                    :: var_class   = CLASS_DEFAULT  ! variable type
-    !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
-    INTEGER                    :: data_type             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
+    !                                                          ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
+    INTEGER                    :: data_type   = -1             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
     !
     TYPE(t_cf_var)             :: cf          = t_cf_var('', '', '', -1)  ! CF convention information 
     TYPE(t_grib2_var)          :: grib2  ! GRIB2 related information
     !
     LOGICAL                    :: allocated   = .FALSE.        ! allocation status
     INTEGER                    :: ndims       = 0              ! number of dimensions used
-    INTEGER                    :: used_dimensions(5) = 0     ! final dimensions of variable
+    INTEGER                    :: used_dimensions(5) = 0       ! final dimensions of variable
     ! 
-    LOGICAL                    :: lrestart              ! write field to restart
+    LOGICAL                    :: lrestart    = .FALSE.        ! write field to restart
     LOGICAL                    :: loutput     = .TRUE.         ! write field to output
     INTEGER                    :: isteptype   = TSTEP_INSTANT  ! Type of statistical processing
     !                                          
@@ -158,8 +158,8 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: hgrid        = -1            ! CDI horizontal grid type
     INTEGER                    :: vgrid        = -1            ! CDI vertical grid type
-    TYPE(t_subset_range)       :: subset                ! subset for latter field access
-    INTEGER, POINTER           :: dom                   ! pointer to the variable list
+    TYPE(t_subset_range)       :: subset                       ! subset for latter field access
+    INTEGER, POINTER           :: dom => NULL()                ! pointer to the variable list
     !
     INTEGER                    :: tlev_source  = TLEV_NNOW     ! Information where to find the actual
     !                                                     timelevel for timelevel dependent variables:        
@@ -197,17 +197,14 @@ MODULE mo_var_metadata_types
 
     ! Metadata for missing value masking
 
-    LOGICAL                    :: lmiss          ! flag: true, if variable should be initialized with missval
-    TYPE(t_union_vals)         :: missval        ! missing value
-    LOGICAL                    :: lmask_boundary ! flag: true, if interpolation zone should be masked *in output*
+    LOGICAL                    :: lmiss = .FALSE.           ! flag: true, if variable should be initialized with missval
+    TYPE(t_union_vals)         :: missval                   ! missing value
+    LOGICAL                    :: lmask_boundary = .FALSE.  ! flag: true, if interpolation zone should be masked *in output*
 
     ! Index of tracer in tracer and in diagnostics container
-    INTEGER                    :: idx_tracer          !< index of tracer in tracer container
-    INTEGER                    :: idx_diag            !< index of tracer in diagnostics container
-    LOGICAL                    :: lopenacc     = .FALSE.   ! Variable exists on GPU
-
-  CONTAINS
-    PROCEDURE :: finalize => t_var_metadata_finalize   !< destructor
+    INTEGER                    :: idx_tracer   = -1         !< index of tracer in tracer container
+    INTEGER                    :: idx_diag     = -1         !< index of tracer in diagnostics container
+    LOGICAL                    :: lopenacc     = .FALSE.    ! Variable exists on GPU
   END TYPE t_var_metadata
 
   TYPE t_var_metadata_ptr
@@ -216,10 +213,7 @@ MODULE mo_var_metadata_types
   ! The type t_var_metadata_dynamic is (in contrast to t_var_metadata) not transfered to the output PE.
   ! This allows for dynamical objects inside t_var_metadata_dynamic like pointers or allocatables.
   TYPE t_var_metadata_dynamic
-    CLASS(t_tracer_meta), POINTER       :: tracer      ! Tracer-specific metadata
-
-  CONTAINS
-    PROCEDURE :: finalize => t_var_metadata_dynamic_finalize   !< destructor
+    CLASS(t_tracer_meta), ALLOCATABLE :: tracer      ! Tracer-specific metadata
   END TYPE t_var_metadata_dynamic
 
 
@@ -234,11 +228,6 @@ MODULE mo_var_metadata_types
   PUBLIC :: t_post_op_meta
 
 CONTAINS
-
-  SUBROUTINE t_var_metadata_finalize(this)
-    CLASS(t_var_metadata), INTENT(INOUT) :: this
-    ! nothing to be done (yet)
-  END SUBROUTINE t_var_metadata_finalize
 
   !-------------------------------------------------------------------------------------------------
   !> @return size of a single variable's info object
@@ -272,12 +261,5 @@ CONTAINS
     IF (SIZE(bin) .EQ. var_metadata_get_size()) &
       & CALL C_F_POINTER(C_LOC(bin), infoptr)
   END FUNCTION var_metadata_fromBinary
-
-  SUBROUTINE t_var_metadata_dynamic_finalize(this)
-    CLASS(t_var_metadata_dynamic), INTENT(INOUT) :: this
-    IF (ASSOCIATED(this%tracer)) THEN
-      DEALLOCATE(this%tracer)
-    END IF
-  END SUBROUTINE t_var_metadata_dynamic_finalize
 
 END MODULE mo_var_metadata_types

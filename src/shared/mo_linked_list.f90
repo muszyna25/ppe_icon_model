@@ -42,20 +42,20 @@ MODULE mo_linked_list
     TYPE(t_list_element), POINTER :: first_list_element => NULL() ! reference to first
     INTEGER(i8)                   :: memory_used = 0_i8 ! memory allocated
     INTEGER                       :: list_elements = 0  ! allocated elements
-    LOGICAL                       :: loutput = .FALSE.  ! output stream
+    LOGICAL                       :: loutput = .TRUE.   ! output stream
     LOGICAL                       :: lrestart = .FALSE. ! restart stream
     LOGICAL                       :: linitial = .FALSE. ! initial stream
     CHARACTER(len=256)            :: filename = ''      ! name of file
     CHARACTER(len=8)              :: post_suf = ''      ! suffix of output  file
     CHARACTER(len=8)              :: rest_suf = ''      ! suffix of restart file
     CHARACTER(len=8)              :: init_suf = ''      ! suffix of initial file
-    LOGICAL                       :: first              ! first var_list in file
+    LOGICAL                       :: first = .FALSE.    ! first var_list in file
     INTEGER                       :: output_type = -1   ! CDI format
     INTEGER                       :: restart_type = -1  ! CDI format
     INTEGER                       :: compression_type = -1 ! CDI compression type
     LOGICAL                       :: restart_opened = .FALSE. ! true, if restart file opened
     LOGICAL                       :: output_opened = .FALSE. ! true, if output file opened
-    CHARACTER(len=8)              :: model_type = ''    ! store model type
+    CHARACTER(len=8)              :: model_type = 'atm' ! store model type (default is 'atm' for reasons)
     INTEGER                       :: patch_id = -1      ! ID of patch to which list variables belong
     INTEGER                       :: vlevel_type = level_type_ml ! 1: model levels, 2: pressure levels, 3: height levels
     INTEGER                       :: nvars = 0
@@ -73,8 +73,8 @@ CONTAINS
   ! remove all elements of a linked list
   ! check if all elements are removed
   SUBROUTINE delete_list(this_list)
-    TYPE(t_var_list), INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: this, next
+    TYPE(t_var_list), INTENT(INOUT) :: this_list
+    TYPE(t_list_element), POINTER   :: this, next
 
     next => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(next))
@@ -95,8 +95,6 @@ CONTAINS
           DEALLOCATE (this%field%l_ptr)
         ENDIF
         this%field%info%allocated = .FALSE.
-        CALL this%field%info%finalize()
-        CALL this%field%info_dyn%finalize()
       ENDIF
       DEALLOCATE (this)
     END DO
@@ -105,29 +103,26 @@ CONTAINS
   END SUBROUTINE delete_list
   !-----------------------------------------------------------------------------
   ! add a list element to the linked list
-  SUBROUTINE append_list_element(this_list, new_list_element)
-    TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: new_list_element
-    TYPE(t_list_element), POINTER :: current_list_element
-    !
-    ! insert as first element if list is empty
-    IF (.NOT. ASSOCIATED (this_list%p%first_list_element)) THEN
+  SUBROUTINE append_list_element(this_list, new_element)
+    TYPE(t_var_list),     INTENT(INOUT) :: this_list
+    TYPE(t_list_element), POINTER, INTENT(OUT) :: new_element
+    TYPE(t_list_element), POINTER :: cur_element
+
+    IF (.NOT.ASSOCIATED(this_list%p%first_list_element)) THEN
+      ! insert as first element if list is empty
       ALLOCATE(this_list%p%first_list_element)
-      new_list_element => this_list%p%first_list_element
-      this_list%p%nvars = this_list%p%nvars + 1
-      RETURN
-    ENDIF
-    !
-    ! loop over list elements to find position
-    current_list_element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(current_list_element%next_list_element)) 
-      current_list_element => current_list_element%next_list_element
-    ENDDO
-    !
-    ! insert element
-    ALLOCATE(new_list_element)
-    new_list_element%next_list_element => current_list_element%next_list_element
-    current_list_element%next_list_element => new_list_element
+      new_element => this_list%p%first_list_element
+    ELSE
+      ! loop over list elements to find position
+      cur_element => this_list%p%first_list_element
+      DO WHILE (ASSOCIATED(cur_element%next_list_element)) 
+        cur_element => cur_element%next_list_element
+      ENDDO
+      ! insert element
+      ALLOCATE(new_element)
+      new_element%next_list_element => cur_element%next_list_element
+      cur_element%next_list_element => new_element
+    END IF
     this_list%p%list_elements = this_list%p%list_elements+1
     this_list%p%nvars = this_list%p%nvars + 1
   END SUBROUTINE append_list_element

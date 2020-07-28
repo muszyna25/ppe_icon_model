@@ -215,15 +215,15 @@ CONTAINS
     INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer    ! index of tracer in tracer container 
     INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag      ! index of tracer in diagnostics container 
     LOGICAL,                 INTENT(IN), OPTIONAL :: lopenacc      ! variable data type
-    LOGICAL :: lverbose
+    !LOGICAL :: lverbose
 
     ! set flags from optional parameters
-    lverbose = .FALSE.
+    !lverbose = .FALSE.
     IF (PRESENT(name)) THEN
       info%name      = name
       info%key = text_hash_c(TRIM(name))
     END IF
-    IF (PRESENT(verbose))       lverbose             = verbose
+    !IF (PRESENT(verbose))       lverbose             = verbose
     IF (PRESENT(data_type))     info%data_type       = data_type
     ! set components describing the 'Content of the field'
     IF (PRESENT(var_class))     info%var_class       = var_class
@@ -231,8 +231,8 @@ CONTAINS
     IF (PRESENT(grib2))         info%grib2           = grib2
     IF (PRESENT(hgrid))         info%hgrid           = hgrid
     IF (PRESENT(vgrid))         info%vgrid           = vgrid
-    info%used_dimensions = 1
-    info%used_dimensions(1:SIZE(ldims)) = ldims
+    info%used_dimensions(:SIZE(ldims)) = ldims(:)
+    IF (SIZE(ldims) .LT. 5) info%used_dimensions(SIZE(ldims)+1:) = 1
     IF (PRESENT(loutput))       info%loutput         = loutput
     IF (PRESENT(lcontainer))    info%lcontainer      = lcontainer
     IF (info%lcontainer) THEN
@@ -261,23 +261,20 @@ CONTAINS
     IF (PRESENT(idx_diag))      info%idx_diag      = idx_diag
     IF (PRESENT(lopenacc))      info%lopenacc      = lopenacc
     ! perform consistency checks on variable's meta-data:
-    CALL check_metadata_consistency(info)
+    CALL check_metadata_consistency()
     !LK    IF (lverbose) CALL print_var_metadata (info)
-  END SUBROUTINE set_var_metadata
-  !------------------------------------------------------------------------------------------------
-  !
-  ! perform consistency checks on variable's meta-data.
-  !
-  SUBROUTINE check_metadata_consistency(info)
-    TYPE(t_var_metadata), INTENT(IN) :: info  ! variable meta data
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':check_metadata_consistency'
+  CONTAINS
 
-    IF (info%lrestart .AND. info%lcontainer) THEN
-      CALL finish(routine//' - '//TRIM(info%name), &
-        &         'Container variables are not restartable! Use var references instead.')
-    END IF
+    SUBROUTINE check_metadata_consistency()
+      CHARACTER(*), PARAMETER :: routine = modname//':check_metadata_consistency'
+
+      IF (info%lrestart .AND. info%lcontainer) &
+        & CALL finish(routine//' - '//TRIM(info%name), &
+          & 'Container variables are not restartable! Use var references instead.')
     ! ... put other consistency checks here ...
-  END SUBROUTINE check_metadata_consistency
+    END SUBROUTINE check_metadata_consistency
+
+  END SUBROUTINE set_var_metadata
   !------------------------------------------------------------------------------------------------
   !
   ! Set dynamic metadata, i.e. polymorphic tracer metadata
@@ -285,16 +282,14 @@ CONTAINS
   SUBROUTINE set_var_metadata_dyn(this_info_dyn,tracer_info)
     TYPE(t_var_metadata_dynamic),INTENT(INOUT) :: this_info_dyn
     CLASS(t_tracer_meta), INTENT(IN), OPTIONAL :: tracer_info
-    CLASS(t_tracer_meta), POINTER :: tmp
 
     IF (PRESENT(tracer_info)) THEN
       ALLOCATE(this_info_dyn%tracer, source=tracer_info)
     ELSE
       ALLOCATE(t_tracer_meta :: this_info_dyn%tracer)
-      tmp => this_info_dyn%tracer
-      SELECT TYPE(tmp)
+      SELECT TYPE(tm => this_info_dyn%tracer)
       TYPE IS(t_tracer_meta)
-        tmp = create_tracer_metadata(lis_tracer=.FALSE.)
+        tm = create_tracer_metadata(lis_tracer=.FALSE.)
       END SELECT
     ENDIF
   END SUBROUTINE set_var_metadata_dyn
