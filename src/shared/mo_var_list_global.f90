@@ -10,16 +10,14 @@ MODULE mo_var_list_global
   USE mo_var_groups,       ONLY: var_groups_dyn, MAX_GROUPS
   USE mo_var_metadata_types,ONLY: t_var_metadata, VINTP_TYPE_LIST, &
     & var_metadata_fromBinary, var_metadata_toBinary
-  USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
+  USE mo_var_list_element, ONLY: level_type_ml
   USE mo_var_list,         ONLY: find_list_element, print_var_list, get_var_name
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         delete_list, append_list_element
   USE mo_exception,        ONLY: message, finish
-  USE mo_util_string,      ONLY: remove_duplicates,        &
-    &                            pretty_print_string_list, tolower, &
-    &                            difference, find_trailing_number
-  USE mo_impl_constants,   ONLY: vname_len, VARNAME_LEN, MAX_TIME_LEVELS,   &
-    &                            SUCCESS, TIMELEVEL_SUFFIX
+  USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
+    &                            tolower, difference, find_trailing_number
+  USE mo_impl_constants,   ONLY: vname_len, VARNAME_LEN, MAX_TIME_LEVELS, SUCCESS
   USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
