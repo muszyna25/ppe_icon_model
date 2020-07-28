@@ -16,7 +16,7 @@ MODULE mo_input_instructions
 
     USE mo_exception,          ONLY: message, finish, message_text
     USE mo_impl_constants,     ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, &
-      &                              MODE_COMBINED, MODE_COSMO, max_ntracer
+      &                              MODE_COMBINED, MODE_COSMO, max_ntracer, VARNAME_LEN
     USE mo_initicon_config,    ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr,    &
       &                              lp2cintp_sfcana, lvert_remap_fg
     USE mo_initicon_types,     ONLY: ana_varnames_dict
@@ -27,7 +27,6 @@ MODULE mo_input_instructions
     USE mo_util_table,         ONLY: t_table, initialize_table, add_table_column, set_table_entry,  &
       &                              print_table, finalize_table
     USE mo_var_list_global,    ONLY: collect_group
-    USE mo_var_metadata_types, ONLY: VARNAME_LEN
 
     IMPLICIT NONE
 

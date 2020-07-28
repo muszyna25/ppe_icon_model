@@ -1187,7 +1187,8 @@ MODULE mo_jsb_varlist_iface
   USE mo_var_list, ONLY: add_var_icon => add_var, find_list_element
   USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
   USE mo_var_groups,         ONLY: groups
-  USE mo_var_metadata_types, ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_impl_constants,     ONLY: VARNAME_LEN
   USE mo_linked_list,        ONLY: t_var_list, t_list_element
 
   USE mo_jsb_io_iface, ONLY: t_cf_var, t_grib2_var

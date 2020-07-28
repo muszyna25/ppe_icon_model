@@ -20,13 +20,12 @@ MODULE mo_var_list
   USE mo_kind,             ONLY: sp, dp, i8
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
-  USE mo_var_groups,       ONLY: var_groups_dyn, groups
+  USE mo_var_groups,       ONLY: var_groups_dyn, groups, MAX_GROUPS
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
-    & t_var_metadata_dynamic, t_var_metadata_ptr, &
-    &                            t_vert_interp_meta,                &
+    &                            t_var_metadata_dynamic, t_var_metadata_ptr, &
+    &                            t_vert_interp_meta, CLASS_TILE,    &
     &                            t_hor_interp_meta, t_post_op_meta, &
-    &                            MAX_GROUPS, VINTP_TYPE_LIST,       &
-    &                            CLASS_TILE, CLASS_TILE_LAND
+    &                            VINTP_TYPE_LIST, CLASS_TILE_LAND
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata, &
     &                            set_var_metadata, set_var_metadata_dyn

@@ -7,8 +7,8 @@
 !! headers of the routines.
 MODULE mo_var_list_global
 
-  USE mo_var_groups,       ONLY: var_groups_dyn
-  USE mo_var_metadata_types,ONLY: t_var_metadata, MAX_GROUPS, VINTP_TYPE_LIST, &
+  USE mo_var_groups,       ONLY: var_groups_dyn, MAX_GROUPS
+  USE mo_var_metadata_types,ONLY: t_var_metadata, VINTP_TYPE_LIST, &
     & var_metadata_fromBinary, var_metadata_toBinary
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_var_list,         ONLY: find_list_element, print_var_list, get_var_name

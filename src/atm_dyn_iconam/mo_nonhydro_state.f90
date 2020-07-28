@@ -81,7 +81,7 @@ MODULE mo_nonhydro_state
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list, add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
-  USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic, MAX_GROUPS
+  USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
     &                                vintp_types

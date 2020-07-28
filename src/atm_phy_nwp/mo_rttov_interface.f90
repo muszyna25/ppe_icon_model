@@ -36,7 +36,7 @@ MODULE mo_rttov_interface
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_impl_constants,      ONLY: min_rlcell_int, RTTOV_BT_CL, RTTOV_BT_CS, &
-    &                               RTTOV_RAD_CL, RTTOV_RAD_CS
+    &                               RTTOV_RAD_CL, RTTOV_RAD_CS, VARNAME_LEN
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_fbk_start_c
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
@@ -52,7 +52,6 @@ MODULE mo_rttov_interface
     &                               addclouds, nlev_rttov, num_images, iwc2effdiam,  &
     &                               iceshape, zenmax10, get_synsat_name
   USE mo_name_list_output_config, ONLY: is_variable_in_output
-  USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_mpi,                 ONLY: p_pe, p_comm_work, p_io, num_work_procs, p_barrier, &
     &                               get_my_mpi_all_id
 #ifdef __USE_RTTOV

@@ -17,9 +17,8 @@ MODULE mo_derived_variable_handling
   USE mo_io_config, ONLY: lnetcdf_flt64_output
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_statistics, ONLY: add_fields, max_fields, min_fields, assign_fields, add_sqr_fields
-  USE mo_var_metadata_types, ONLY: VARNAME_LEN
   USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW,    &
-    &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
+    &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T, VARNAME_LEN
   USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
                               & GRID_ZONAL
   USE mo_name_list_output_types, ONLY: t_output_name_list

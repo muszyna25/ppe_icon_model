@@ -224,8 +224,6 @@ MODULE mo_var_metadata_types
 
 
   PUBLIC :: VINTP_TYPE_LIST
-  PUBLIC :: VARNAME_LEN
-  PUBLIC :: MAX_GROUPS
 
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata, t_var_metadata_ptr, var_metadata_get_size

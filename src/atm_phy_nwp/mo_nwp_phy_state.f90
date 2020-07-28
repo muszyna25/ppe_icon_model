@@ -68,7 +68,7 @@ USE mo_impl_constants,      ONLY: success, max_var_list_name_len,     &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
   &                               RTTOV_RAD_CL, RTTOV_RAD_CS,         &
   &                               iss, iorg, ibc, iso4,               &
-  &                               idu, nclass_aero
+  &                               idu, nclass_aero, VARNAME_LEN
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,             &
   &                               GRID_CELL
 USE mo_parallel_config,     ONLY: nproma
@@ -85,7 +85,7 @@ USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, add_var, add_ref
 USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
 USE mo_var_groups,          ONLY: groups, MAX_GROUPS
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM, VARNAME_LEN
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               vintp_types, post_op

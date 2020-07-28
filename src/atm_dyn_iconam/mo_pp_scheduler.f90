@@ -170,7 +170,7 @@ MODULE mo_pp_scheduler
     &                                   UNDEF_TIMELEVEL, ALL_TIMELEVELS,                    &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
-    &                                   STR_HINTP_TYPE
+    &                                   STR_HINTP_TYPE, VARNAME_LEN
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_var_name, get_var_timelevel,           &
@@ -178,8 +178,7 @@ MODULE mo_pp_scheduler
   USE mo_var_list_global,         ONLY: var_lists, nvar_lists
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
-    &                                   t_post_op_meta
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, t_post_op_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id
   USE mo_intp_data_strc,          ONLY: p_int_state
   USE mo_intp_lonlat_types,       ONLY: t_lon_lat_intp, lonlat_grids

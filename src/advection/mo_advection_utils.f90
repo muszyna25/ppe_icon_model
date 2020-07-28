@@ -43,10 +43,9 @@ MODULE mo_advection_utils
   USE mo_var_metadata_types,    ONLY: t_var_metadata,                    &
     &                                 t_vert_interp_meta,                &
     &                                 t_hor_interp_meta,                 &
-    &                                 MAX_GROUPS,                        &
     &                                 t_post_op_meta
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
-
+  USE mo_var_groups,            ONLY: MAX_GROUPS
   USE mo_advection_config,      ONLY: t_advection_config
 
   IMPLICIT NONE

@@ -26,10 +26,9 @@
 MODULE mo_initicon_types
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: max_ntracer
+  USE mo_impl_constants,       ONLY: max_ntracer, VARNAME_LEN
   USE mo_run_config,           ONLY: ntracer
   USE mo_var_list_element,     ONLY: t_var_list_element
-  USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
   USE mo_ifs_coord,            ONLY: t_vct
   USE mo_fortran_tools,        ONLY: DO_DEALLOCATE, DO_PTR_DEALLOCATE

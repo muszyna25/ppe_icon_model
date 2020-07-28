@@ -24,11 +24,11 @@ MODULE mo_name_list_output_printvars
     &                                             vlistDefTaxis, vlistDefInstitut
   USE mo_mpi,                               ONLY: get_my_global_mpi_id
   USE mo_kind,                              ONLY: wp, dp
-  USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS
+  USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS, VARNAME_LEN
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_exception,                         ONLY: finish, message_text
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
-  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_gribout_config,                    ONLY: t_gribout_config
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_level_selection_types,             ONLY: t_level_selection

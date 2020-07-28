@@ -34,7 +34,7 @@ MODULE mo_name_list_output_init
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, GRID_ZONAL
   USE mo_kind,                              ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
+  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS, VARNAME_LEN,      &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
     &                                             MAX_TIME_LEVELS, vname_len,                       &
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
@@ -112,7 +112,7 @@ MODULE mo_name_list_output_init
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
   ! variable lists
   USE mo_var_groups,                        ONLY: var_groups_dyn
-  USE mo_var_metadata_types,                ONLY: t_var_metadata, VARNAME_LEN
+  USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list_global,                   ONLY: collect_group, new_var_list, varlistPacker,     &
     &                                             total_number_of_variables, nvar_lists, var_lists
