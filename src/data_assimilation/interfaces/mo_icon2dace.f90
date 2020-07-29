@@ -1599,11 +1599,10 @@ contains
        state% rh2m  (j,1,1,1) = phy_d% rh_2m    (idx,blk)
        state% u_10m (j,1,1,1) = phy_d% u_10m    (idx,blk)
        state% v_10m (j,1,1,1) = phy_d% v_10m    (idx,blk)
-       state% clct  (j,1,1,1) = phy_d% clct     (idx,blk)
-       state% clcl  (j,1,1,1) = phy_d% clcl     (idx,blk)
-       state% clcm  (j,1,1,1) = phy_d% clcm     (idx,blk)
-       state% clch  (j,1,1,1) = phy_d% clch     (idx,blk)
-
+       state% clct  (j,1,1,1) = phy_d% clct     (idx,blk)*100._wp !convert to percent
+       state% clcl  (j,1,1,1) = phy_d% clcl     (idx,blk)*100._wp !convert to percent
+       state% clcm  (j,1,1,1) = phy_d% clcm     (idx,blk)*100._wp !convert to percent
+       state% clch  (j,1,1,1) = phy_d% clch     (idx,blk)*100._wp !convert to percent
        state% tsurf (j,1,1,1) = lnd_p% t_g      (idx,blk)
        state% h_snow(j,1,1,1) = lnd_d% h_snow   (idx,blk)
        state% fr_ice(j,1,1,1) = lnd_d% fr_seaice(idx,blk)
