@@ -113,7 +113,7 @@ MODULE mo_name_list_output_init
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_linked_list,                       ONLY: t_var_list, t_list_element
   USE mo_var_list_global,                   ONLY: collect_group, new_var_list, varlistPacker,     &
-    &                                             total_number_of_variables, nvar_lists, var_lists
+    &                                             total_number_of_variables, var_lists
   USE mo_var_list,                          ONLY: get_var_timelevel, get_var_name
   USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
@@ -1041,7 +1041,7 @@ CONTAINS
       this_i_lctype = i_lctype(print_patch_id)
 #endif
 
-      CALL print_var_list(var_lists, nvar_lists, out_varnames_dict,   &
+      CALL print_var_list(var_lists, out_varnames_dict,   &
         &                 print_patch_id, iequations,                 &
         &                 gribout_config(print_patch_id),             &
         &                 this_i_lctype)
@@ -1450,9 +1450,9 @@ CONTAINS
 
           ! Select all var_lists which belong to current logical domain and i_typ
           nvl = 0
-          DO j = 1, nvar_lists
-
-            IF(.NOT. var_lists(j)%p%loutput) CYCLE
+          DO j = 1, SIZE(var_lists)
+            IF (.NOT.ASSOCIATED(var_lists(j)%p)) CYCLE
+            IF (.NOT.var_lists(j)%p%loutput) CYCLE
             ! patch_id in var_lists always corresponds to the LOGICAL domain
             IF(var_lists(j)%p%patch_id /= log_patch_id) CYCLE
 
@@ -2061,7 +2061,8 @@ CONTAINS
       IF (.NOT. found) THEN
 
         IF (is_stdio) THEN
-          DO i = 1, nvar_lists
+          DO i = 1, SIZE(var_lists)
+            IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
             WRITE(message_text,'(3a, i2)') &
                  'Variable list name: ',TRIM(var_lists(i)%p%name), &
                  ' Patch: ',var_lists(i)%p%patch_id

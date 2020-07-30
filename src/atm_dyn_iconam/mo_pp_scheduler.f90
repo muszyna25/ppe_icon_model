@@ -175,7 +175,7 @@ MODULE mo_pp_scheduler
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_var_name, get_var_timelevel,           &
     &                                   find_list_element, get_timelevel_string
-  USE mo_var_list_global,         ONLY: var_lists, nvar_lists
+  USE mo_var_list_global,         ONLY: var_lists
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, t_post_op_meta
@@ -258,7 +258,8 @@ CONTAINS
     !    post-processing scheduler
 
     !- loop over model level variables
-    DO i = 1,nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       jg = var_lists(i)%p%patch_id         
       element => var_lists(i)%p%first_list_element
       DO WHILE(ASSOCIATED(element))
@@ -291,7 +292,7 @@ CONTAINS
         END IF
         element => element%next_list_element        
       ENDDO ! loop over vlist "i"
-    ENDDO ! i = 1,nvar_lists
+    ENDDO ! i = 1, SIZE(var_lists)
 
     !-------------------------------------------------------------
     !--- setup of vertical interpolation onto i/p/z-levels
@@ -343,7 +344,8 @@ CONTAINS
     !- loop over model level variables
     ! Note that there are several "vn" variables with different time
     ! levels, we just add unconditionally all
-    DO i = 1,nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       jg = var_lists(i)%p%patch_id
 
       SELECT CASE(lev_type)
@@ -616,7 +618,8 @@ CONTAINS
       !- loop over model level variables
       ! Note that there may be several variables with different time levels,
       ! we just add unconditionally all
-      LIST_LOOP : DO i = 1,nvar_lists
+      LIST_LOOP : DO i = 1, SIZE(var_lists)
+        IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
         ! Do not inspect lists which are disabled for output
         IF (.NOT. var_lists(i)%p%loutput) CYCLE
         ! Do not inspect lists if vertical level type does not
@@ -793,7 +796,7 @@ CONTAINS
           found     = .TRUE.
           
         ENDDO VAR_LOOP ! loop over vlist "i"
-      ENDDO LIST_LOOP ! i = 1,nvar_lists
+      ENDDO LIST_LOOP ! i = 1, SIZE(var_lists)
     END DO ! ivar
 
     DEALLOCATE(ll_varlist, ll_vargrid, ll_varlevs, STAT=ierrstat)
@@ -962,7 +965,8 @@ CONTAINS
     !- loop over model level variables
     ! Note that there may be several variables with different time levels,
     ! we just add unconditionally all
-    DO i = 1,nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       ! Do not inspect lists which are disabled for output
       IF (.NOT. var_lists(i)%p%loutput) CYCLE
       ! loop only over model level variables
@@ -1350,7 +1354,8 @@ CONTAINS
           !- loop over model level variables
           ! Note that there may be several variables with different time levels,
           ! we just add unconditionally all
-          DO i = 1,nvar_lists
+          DO i = 1, SIZE(var_lists)
+            IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
             ! Do not inspect lists which are disabled for output
             IF (.NOT. var_lists(i)%p%loutput) CYCLE
             ! loop only over model level variables
@@ -1449,7 +1454,7 @@ CONTAINS
               found = .TRUE.
 
             ENDDO ! loop over vlist "i"
-          ENDDO ! i = 1,nvar_lists
+          ENDDO ! i = 1, SIZE(var_lists)
         
           ! Check that at least one element with this name has been found
           IF(.NOT. found) &

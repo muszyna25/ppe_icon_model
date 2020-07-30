@@ -75,7 +75,7 @@ MODULE mo_initicon_io
 
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list_element,    ONLY: t_var_list_element, level_type_ml
-  USE mo_var_list_global,     ONLY: nvar_lists, var_lists
+  USE mo_var_list_global,     ONLY: var_lists
   USE mo_var_list,            ONLY: get_var_name
   USE mo_var_groups,          ONLY: var_groups_dyn
 
@@ -1668,7 +1668,8 @@ MODULE mo_initicon_io
     grp_id = var_groups_dyn%group_id(grp_name)
 
     ! loop over all variable lists and variables
-    DO i = 1, nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
       ! do not inspect variable list if its domain does not match:
       IF (var_lists(i)%p%patch_id /= jg)  CYCLE

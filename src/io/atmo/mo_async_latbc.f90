@@ -233,7 +233,7 @@ MODULE mo_async_latbc
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_linked_list,               ONLY: t_var_list, t_list_element
     USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
-    USE mo_var_list_global,           ONLY: nvar_lists, var_lists, new_var_list, collect_group, varlistPacker
+    USE mo_var_list_global,           ONLY: var_lists, new_var_list, collect_group, varlistPacker
     USE mo_var_list,                  ONLY: get_var_name
     USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
@@ -1238,7 +1238,7 @@ MODULE mo_async_latbc
       TYPE(t_var_metadata_ptr), ALLOCATABLE, INTENT(out) :: var_data(:)
       INTEGER,             INTENT(IN) :: bcast_root
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
-      INTEGER                       :: nv, i, i2, all_nvars
+      INTEGER                       :: i, i2, all_nvars
       LOGICAL                       :: is_pref, lIsSender, lIsReceiver
       TYPE(t_list_element), POINTER :: element
       TYPE(t_packedMessage) :: pmsg
@@ -1249,9 +1249,9 @@ MODULE mo_async_latbc
       CALL pmsg%bcast(bcast_root, p_comm_work_2_pref)
       IF(lIsReceiver) CALL varlistPacker(kUnpackOp, pmsg, .FALSE., all_nvars)
       ALLOCATE(var_data(all_nvars))
-      nv = nvar_lists
       i2 = 0
-      DO i = 1, nvar_lists
+      DO i = 1, SIZE(var_lists)
+        IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
         element => var_lists(i)%p%first_list_element
         DO WHILE (ASSOCIATED(element))
           i2 = i2 + 1

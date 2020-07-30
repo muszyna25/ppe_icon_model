@@ -27,7 +27,7 @@ MODULE mo_load_restart
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
   USE mo_util_string,        ONLY: separator, toCharacter
-  USE mo_var_list_global,    ONLY: nvar_lists, var_lists
+  USE mo_var_list_global,    ONLY: var_lists
   USE mo_master_control,     ONLY: get_my_process_name
 
   IMPLICIT NONE
@@ -168,8 +168,7 @@ CONTAINS
     lMultifileTimersInitialized = .FALSE.
 
     IF (my_process_is_mpi_workroot()) &
-         WRITE(0,'(a,i0,a,i0)') "restart: reading restart data for patch ", &
-         p_patch%id, ", nvar_lists = ", nvar_lists
+         WRITE(0,'(a,i0)') "restart: reading restart data for patch ", p_patch%id
     ALLOCATE(entry_mType)
     CALL getModelTypes()
     cur_mType => entry_mType
@@ -213,7 +212,8 @@ CONTAINS
       INTEGER :: i, lm
       LOGICAL :: skip
 
-      DO i = 1, nvar_lists
+      DO i = 1, SIZE(var_lists)
+        IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
         IF (var_lists(i)%p%patch_id .NE. p_patch%id) CYCLE
         lm = LEN_TRIM(var_lists(i)%p%model_type)
         cur_mType => entry_mType

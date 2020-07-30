@@ -66,7 +66,7 @@ MODULE mo_initicon_utils
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name
-  USE mo_var_list_global,     ONLY: nvar_lists, var_lists
+  USE mo_var_list_global,     ONLY: var_lists
   USE mo_var_list_element,    ONLY: level_type_ml
   USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
@@ -154,7 +154,8 @@ MODULE mo_initicon_utils
     lc_varname = tolower(varname)
     ! get metadata information for field to be read
     info => NULL()
-    DO i = 1,nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       ! loop only over model level variables
       IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
 

@@ -125,10 +125,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return container variable
   !
-  FUNCTION get_var_container(var_lists, nvar_lists, print_patch_id, contained_elt)  RESULT(res)
+  FUNCTION get_var_container(var_lists, print_patch_id, contained_elt)  RESULT(res)
     TYPE(t_list_element), POINTER :: res
     TYPE(t_var_list),              INTENT(IN) :: var_lists(:)
-    INTEGER,                       INTENT(IN) :: nvar_lists
     INTEGER,                       INTENT(IN) :: print_patch_id
     TYPE(t_list_element), POINTER, INTENT(IN) :: contained_elt
     ! local variables
@@ -141,7 +140,8 @@ CONTAINS
     ! compare pointers.
 
     res => contained_elt
-    VARLIST_LOOP : DO i = 1, nvar_lists
+    VARLIST_LOOP : DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
 
       element => var_lists(i)%p%first_list_element
@@ -243,12 +243,11 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Print list of all output variables (LaTeX table formatting).
   !
-  SUBROUTINE print_var_list(var_lists, nvar_lists, out_varnames_dict,   &
+  SUBROUTINE print_var_list(var_lists, out_varnames_dict,   &
     &                       print_patch_id, iequations, gribout_config, &
     &                       i_lctype)
 
     TYPE(t_var_list),       INTENT(IN) :: var_lists(:)
-    INTEGER,                INTENT(IN) :: nvar_lists
     TYPE(t_dictionary),     INTENT(IN) :: out_varnames_dict
     INTEGER,                INTENT(IN) :: iequations
     TYPE(t_gribout_config), INTENT(IN) :: gribout_config
@@ -292,7 +291,8 @@ CONTAINS
 
     ! count the no. of output variables:
     nout_vars = 0
-    DO i = 1, nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
       IF(.NOT. var_lists(i)%p%loutput) CYCLE
       IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
@@ -314,8 +314,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     iout_var = 0
-    DO i = 1, nvar_lists
-
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       IF (var_lists(i)%p%patch_id /= print_patch_id) CYCLE
       ! Inspect only model level variables
       IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
@@ -343,7 +343,7 @@ CONTAINS
         ! "reference" into another variable, then search for this
         ! source variable:
         IF ((LEN_TRIM(this_cf%long_name) == 0) .AND. info%lcontained) THEN
-          src_element => get_var_container(var_lists, nvar_lists, print_patch_id, element)
+          src_element => get_var_container(var_lists, print_patch_id, element)
           this_cf => src_element%field%info%cf
         END IF
 

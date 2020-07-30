@@ -39,14 +39,12 @@ MODULE mo_var_list_global
   PUBLIC :: print_all_var_lists
   PUBLIC :: collect_group
   PUBLIC :: var_lists                 ! vector of output var_lists
-  PUBLIC :: nvar_lists                ! number of output var_lists defined so far
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: find_var_global   ! find an element in the list
   PUBLIC :: varlistPacker
   PUBLIC :: print_group_details
   PUBLIC :: add_var_list_reference
 
-  INTEGER :: nvar_lists     =   0      ! var_lists allocated so far
   TYPE(t_var_list), ALLOCATABLE, TARGET :: var_lists(:)  ! memory buffer array
   TYPE(t_key_value_store) :: var_lists_map
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list'
@@ -78,16 +76,13 @@ CONTAINS
     IF (.NOT.var_lists_map%is_init) CALL var_lists_map%init(.FALSE.)
     CALL var_lists_map%get(vlname, i, ierr)
     IF (ierr .EQ. 0) CALL finish('new_var_list', ' >'//TRIM(vlname)//'< already in use.')
-    IF (nvar_lists .NE. var_lists_map%getEntryCount()) &
-      & CALL finish('new_var_list', "inconsistent element counts")
     IF (.NOT.ALLOCATED(var_lists)) THEN
       ALLOCATE(var_lists(12))
-    ELSE IF (nvar_lists .GE. SIZE(var_lists)) THEN
+    ELSE IF (var_lists_map%getEntryCount() .GE. SIZE(var_lists)) THEN
       ALLOCATE(tmp(SIZE(var_lists) + 4))
-      FORALL(i = 1:nvar_lists) tmp(i)%p => var_lists(i)%p
+      FORALL(i = 1:SIZE(var_lists), ASSOCIATED(var_lists(i)%p)) tmp(i)%p => var_lists(i)%p
       CALL MOVE_ALLOC(tmp, var_lists) 
     END IF
-    nvar_lists = nvar_lists + 1
     i = 1
     DO WHILE(ASSOCIATED(var_lists(i)%p))
       i = i + 1 ! find first free vector element
@@ -142,7 +137,8 @@ CONTAINS
     total_number_of_variables = 0
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
-    DO i = 1,nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       element => var_lists(i)%p%first_list_element
       LOOPVAR : DO WHILE (ASSOCIATED(element))
         ! Do not count element if it is a container
@@ -150,7 +146,7 @@ CONTAINS
              + MERGE(1, 0, .NOT. element%field%info%lcontainer)
         element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
-    ENDDO ! i = 1,nvar_lists
+    ENDDO ! i = 1, SIZE(var_lists)
   END FUNCTION total_number_of_variables
 
   !------------------------------------------------------------------------------------------------
@@ -171,13 +167,14 @@ CONTAINS
   !
   SUBROUTINE delete_var_lists()
     INTEGER :: i
-    !
-    DO i = 1, nvar_lists
-      IF (ASSOCIATED(var_lists(i)%p)) CALL delete_list(var_lists(i))
-    END DO
-    CALL var_lists_map%destruct()
-    IF(nvar_lists .GT. 0) DEALLOCATE(var_lists)
-    nvar_lists = 0
+    
+    IF (ALLOCATED(var_lists)) THEN
+      DO i = 1, SIZE(var_lists)
+        IF(ASSOCIATED(var_lists(i)%p)) CALL delete_list(var_lists(i))
+      END DO
+      CALL var_lists_map%destruct()
+      DEALLOCATE(var_lists)
+    END IF
   END SUBROUTINE delete_var_lists
 
   !================================================================================================
@@ -213,8 +210,8 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(IN) :: lshort
     INTEGER :: i
 
-    DO i = 1, nvar_lists
-      CALL print_var_list(var_lists(i), lshort=lshort)
+    DO i = 1, SIZE(var_lists)
+      IF (ASSOCIATED(var_lists(i)%p)) CALL print_var_list(var_lists(i), lshort=lshort)
     END DO
   END SUBROUTINE print_all_var_lists
 
@@ -258,7 +255,8 @@ CONTAINS
     verbose = .NOT. lquiet
 
     ! loop over all variable lists and variables
-    DO i = 1,nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       IF (PRESENT(opt_vlevel_type)) THEN
         IF (var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE
       ENDIF
@@ -298,7 +296,7 @@ CONTAINS
         END IF
         element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
-    ENDDO ! i = 1,nvar_lists
+    ENDDO ! i = 1, SIZE(var_lists)
 
     CALL remove_duplicates(var_name, nvars)
 
@@ -317,7 +315,8 @@ CONTAINS
 
     patch_id = 1
     IF (PRESENT(opt_patch_id)) patch_id = opt_patch_id
-    DO i=1,nvar_lists
+    DO i = 1, SIZE(var_lists)
+      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
       IF ( patch_id /= var_lists(i)%p%patch_id ) CYCLE
       element => find_list_element(var_lists(i),vname,opt_hgrid,opt_caseInsensitive)
       IF (ASSOCIATED (element)) THEN
@@ -351,9 +350,10 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
     IF(operation == kUnpackOp) CALL delete_var_lists
-    nv = nvar_lists
+    nv = var_lists_map%getEntryCount()
     nelems_all = 0
     CALL packedMessage%packer(operation, nv)
+    IF(operation == kPackOp) nv = SIZE(var_lists)
     DO iv = 1, nv
       IF(operation == kPackOp) THEN
         ! copy the values needed for the new_var_list() CALL to local variables
