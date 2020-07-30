@@ -87,7 +87,6 @@ MODULE mo_hydro_ocean_run
   USE mo_statistics
   USE mo_var_list
   USE mo_swr_absorption,         ONLY: jerlov_swr_absorption
-  USE mo_ocean_statistics
   USE mo_ocean_hamocc_interface, ONLY: ocean_to_hamocc_interface
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
   USE mo_ocean_output
