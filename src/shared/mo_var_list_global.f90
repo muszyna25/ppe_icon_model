@@ -88,9 +88,13 @@ CONTAINS
       CALL MOVE_ALLOC(tmp, var_lists) 
     END IF
     nvar_lists = nvar_lists + 1
-    ALLOCATE(var_lists(nvar_lists)%p)
-    this_list%p => var_lists(nvar_lists)%p
-    CALL var_lists_map%put(vlname, nvar_lists)
+    i = 1
+    DO WHILE(ASSOCIATED(var_lists(i)%p))
+      i = i + 1 ! find first free vector element
+    END DO
+    ALLOCATE(var_lists(i)%p)
+    this_list%p => var_lists(i)%p
+    CALL var_lists_map%put(vlname, i)
     ! set default list characteristics
     this_list%p%name     = vlname
     this_list%p%post_suf = '_'//TRIM(vlname)
