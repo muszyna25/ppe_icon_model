@@ -47,12 +47,10 @@ MODULE mo_var_list
   PRIVATE
 
   PUBLIC :: print_var_list
-  PUBLIC :: print_memory_use
   PUBLIC :: add_var                   ! create/allocate a new var_list list entry
   PUBLIC :: add_ref                   ! create/reference a new var_list list entry
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
-  PUBLIC :: get_tracer_info_dyn_by_idx! return a copy of the dynamic metadata of a certain tracer
   PUBLIC :: get_timelevel_string      ! return the default string with timelevel encoded
   PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
   PUBLIC :: find_list_element   ! find an element in the list
@@ -140,26 +138,6 @@ CONTAINS
         & CALL finish(routine, 'Illegal time level in '//TRIM(vname))
     END IF
   END FUNCTION get_var_timelevel
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Get a copy of the dynamic metadata concerning a var_list element by index of the element
-  !
-  SUBROUTINE get_tracer_info_dyn_by_idx (this_list, ncontained, info_dyn)
-    TYPE(t_var_list),             INTENT(in)  :: this_list    ! list
-    INTEGER,                      INTENT(in)  :: ncontained   ! index of variable in container
-    TYPE(t_var_metadata_dynamic), INTENT(out) :: info_dyn     ! dynamic variable meta data
-    TYPE(t_list_element), POINTER :: element
-
-    element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(element))
-      IF (element%field%info_dyn%tracer%lis_tracer) THEN
-        IF(ncontained == element%field%info%ncontained) EXIT
-      END IF
-      element => element%next_list_element
-    END DO
-    IF (ASSOCIATED (element)) info_dyn = element%field%info_dyn
-  END SUBROUTINE get_tracer_info_dyn_by_idx
 
   SUBROUTINE inherit_var_list_metadata(this_info, this_list)
     TYPE(t_var_metadata), INTENT(out) :: this_info
@@ -2362,28 +2340,6 @@ CONTAINS
     END IF
   END SUBROUTINE add_var_list_reference_i2d
 
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Print routines for control output and debuggung
-  !
-  SUBROUTINE print_memory_use (this_list, ldetailed)
-    TYPE(t_var_list) ,INTENT(in) :: this_list ! list
-    LOGICAL, INTENT(in), OPTIONAL :: ldetailed
-    !
-    IF (PRESENT(ldetailed)) THEN
-      WRITE (message_text,'(a32,a,a,i10,a,i4,a)')                    &
-           TRIM(this_list%p%name), '-buffer: ',                      &
-           'Memory in use: ', this_list%p%memory_used, ' bytes in ', &
-           this_list%p%list_elements, ' fields.'
-    ELSE
-      WRITE (message_text,'(a32,a,a,i10,a,i6,a)')                         &
-           TRIM(this_list%p%name), '-buffer: ',                           &
-           'Memory in use: ', this_list%p%memory_used/1024_i8, ' kb in ', &
-           this_list%p%list_elements, ' fields.'
-    ENDIF
-    CALL message('',message_text)
-    !
-  END SUBROUTINE print_memory_use
   !------------------------------------------------------------------------------------------------
   !
   ! print current memory table
