@@ -143,38 +143,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Change parameters of an already existent output var_list
-  !
-  SUBROUTINE set_var_list (this_list, output_type, restart_type,   &
-      & post_suf, rest_suf, init_suf, loutput, lrestart, linitial, &
-      & patch_id, vlevel_type, filename, compression_type, model_type)
-    TYPE(t_var_list), INTENT(inout)        :: this_list      ! output var_list to change
-    INTEGER,          INTENT(in), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
-    LOGICAL,          INTENT(in), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
-    INTEGER,          INTENT(in), OPTIONAL :: patch_id       ! patch ID
-    INTEGER,          INTENT(in), OPTIONAL :: vlevel_type    ! 1/2/3 for model/pres./height levels
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: filename       ! name of output file
-    INTEGER,          INTENT(in), OPTIONAL :: compression_type
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: model_type     ! output file associated
-
-    this_list%p%restart_type = restart_file_type
-    IF (PRESENT(output_type))      this_list%p%output_type      = output_type
-    IF (PRESENT(restart_type))     this_list%p%restart_type     = restart_type
-    IF (PRESENT(post_suf))         this_list%p%post_suf         = post_suf
-    IF (PRESENT(rest_suf))         this_list%p%rest_suf         = rest_suf
-    IF (PRESENT(init_suf))         this_list%p%init_suf         = init_suf
-    IF (PRESENT(loutput))          this_list%p%loutput          = loutput
-    IF (PRESENT(lrestart))         this_list%p%lrestart         = lrestart
-    IF (PRESENT(linitial))         this_list%p%linitial         = linitial
-    IF (PRESENT(patch_id))         this_list%p%patch_id         = patch_id
-    IF (PRESENT(vlevel_type))      this_list%p%vlevel_type      = vlevel_type
-    IF (PRESENT(filename))         this_list%p%filename         = filename
-    IF (PRESENT(compression_type)) this_list%p%compression_type =  compression_type
-    IF (PRESENT(model_type))       this_list%p%model_type       = model_type
-  END SUBROUTINE set_var_list
-  !------------------------------------------------------------------------------------------------
-  !
   ! Get a copy of the dynamic metadata concerning a var_list element by index of the element
   !
   SUBROUTINE get_tracer_info_dyn_by_idx (this_list, ncontained, info_dyn)
