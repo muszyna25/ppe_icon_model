@@ -6,7 +6,7 @@ MODULE mo_ser_nml
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist
 
   IMPLICIT NONE
   PUBLIC

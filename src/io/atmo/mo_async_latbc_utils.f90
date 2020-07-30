@@ -83,8 +83,8 @@
     USE mo_util_string,         ONLY: tolower
     USE mo_util_sysinfo,        ONLY: check_file_exists
     USE mo_dictionary,          ONLY: t_dictionary
-    IMPLICIT NONE
 
+    IMPLICIT NONE
     PRIVATE
 
     ! handshake subroutines
@@ -1602,7 +1602,7 @@
       INTEGER                        :: nlev
 
       IF (PRESENT(opt_latbc_dict)) THEN
-        mapped_name = opt_latbc_dict%get(name,default=name)
+        mapped_name = opt_latbc_dict%get(name, default=name)
       ELSE
         mapped_name = name
       ENDIF
@@ -1632,7 +1632,7 @@
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: mapped_name
 
       IF (PRESENT(opt_latbc_dict)) THEN
-        mapped_name = opt_latbc_dict%get(name,default=name)
+        mapped_name = opt_latbc_dict%get(name, default=name)
       ELSE
         mapped_name = name
       ENDIF

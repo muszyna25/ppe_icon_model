@@ -349,6 +349,12 @@ CONTAINS
       &                   datatype_flt),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
+    CALL add_var(ocean_default_list, 'draft_old', p_ice%draftave_old ,&
+      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+      &          t_cf_var('draftave_old', 'm', 'avrg. water equiv. of ice and snow on grid area', &
+      &                   datatype_flt),&
+      &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+      &          ldims=(/nproma,alloc_cell_blocks/),in_group=groups("ice_diag"))
 
     ! thermodynamics, fast (winton scheme only -- not currently functional)
     CALL add_var(ocean_restart_list, 'T1', p_ice%T1 ,&

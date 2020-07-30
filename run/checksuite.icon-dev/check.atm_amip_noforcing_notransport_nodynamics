@@ -39,6 +39,7 @@ export RESTART_DATE='19790101T000800Z'
 # n = nproma test
 # m = mpi test
 # o = omp test
+# t = tolerance test
 #
 # default: MD='rnmo'
 #
@@ -50,6 +51,13 @@ export MD='rnmo'
 
 rundir=`pwd`
 cd checksuite.icon-dev
+
+# load python packages
+case $HOST in
+    *daint*)
+        export MD='rnmot'
+        source /project/c14/data-eniac/venv/probtest_daint/bin/activate
+esac
 
 ./icon-dev.checksuite
 STATUS=$?

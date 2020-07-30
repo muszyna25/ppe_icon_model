@@ -2956,7 +2956,7 @@ FTRACE_BEGIN('rttov_direct_ifc')
     ! call rttov
     !-----------
 #if defined(RTTOV12)
-#ifdef RTTOV_USE_OPENMP
+#if defined (RTTOV_USE_OPENMP) && !defined(RADSHARE)
     call rttov_parallel_direct (                            &
            rttov_errorstatus                               ,& ! --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate
@@ -3725,7 +3725,7 @@ FTRACE_BEGIN('rttov_k_ifc')
     enddo
 
 #if defined(RTTOV12)
-#ifdef RTTOV_USE_OPENMP
+#if defined (RTTOV_USE_OPENMP) && !defined(RADSHARE)
     call rttov_parallel_k(                                  &
            rttov_errorstatus                               ,& !  --> error flag
            chanprof(1:nchansprofs)                         ,& ! <-- channels and profiles to calculate

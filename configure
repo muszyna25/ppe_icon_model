@@ -719,7 +719,7 @@ enable_jsbach
 enable_dace
 enable_emvorado
 enable_coupling
-enable_psrad
+enable_concurrent_psrad
 enable_ecrad
 enable_rte_rrtmgp
 enable_rttov
@@ -737,6 +737,7 @@ enable_yaxt
 enable_claw
 enable_explicit_fpp
 enable_serialization
+enable_testbed
 enable_loop_exchange
 enable_intel_consistency
 enable_vectorized_lrtm
@@ -1424,7 +1425,9 @@ Model Features:
   --enable-emvorado       enable the radar forward operator EMVORADO
                           [default=no]
   --enable-coupling       enable the coupling [default=yes]
-  --enable-psrad          enable the radiation component PSRAD [default=yes]
+  --enable-concurrent-psrad
+                          enable the concurrent mode of the radiation
+                          component PSRAD [default=yes]
   --enable-ecrad          enable usage of the ECMWF radiation scheme (ECRAD)
                           [default=no]
   --enable-rte-rrtmgp     enable usage of the RTE+RRTMGP toolbox for radiation
@@ -1464,6 +1467,7 @@ Infrastructural Features:
                             perturb   enable READ & PERTURB mode
                             create    enable CREATE mode
                             no        disable serialization
+  --enable-testbed        enable ICON Testbed infrastructure [default=no]
 
 Optimization Features:
   --enable-loop-exchange  enable loop exchange [default=yes]
@@ -2390,13 +2394,13 @@ else
 fi
 
 
-# Check whether --enable-psrad was given.
-if test "${enable_psrad+set}" = set; then :
-  enableval=$enable_psrad; if test x"$enableval" != xno; then :
-  enable_psrad=yes
+# Check whether --enable-concurrent-psrad was given.
+if test "${enable_concurrent_psrad+set}" = set; then :
+  enableval=$enable_concurrent_psrad; if test x"$enableval" != xno; then :
+  enable_concurrent_psrad=yes
 fi
 else
-  enable_psrad=yes
+  enable_concurrent_psrad=yes
 fi
 
 
@@ -2579,6 +2583,16 @@ if test "${enable_serialization+set}" = set; then :
 esac
 else
   enable_serialization=no
+fi
+
+
+# Check whether --enable-testbed was given.
+if test "${enable_testbed+set}" = set; then :
+  enableval=$enable_testbed; if test x"$enableval" != xno; then :
+  enable_testbed=yes
+fi
+else
+  enable_testbed=no
 fi
 
 
@@ -3551,7 +3565,7 @@ else
   acx_cv_fc_compiler_vendor=intel
 elif $FC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=nag
-elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
+elif $FC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=portland
 elif $FC -V 2>&1 | grep '^Cray Fortran' >/dev/null 2>&1; then :
   acx_cv_fc_compiler_vendor=cray
@@ -4304,7 +4318,7 @@ else
   :
 fi
 
-as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__ ${FC_PP_DEF}__NO_ICON_TESTBED__"
+as_fn_append FCFLAGS " ${FC_PP_DEF}__ICON__"
 
 if test "x$enable_atmo" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_ATMO__"
@@ -4341,7 +4355,7 @@ if test "x$enable_coupling" = xyes; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}YAC_coupling"
 fi
 
-if test "x$enable_psrad" = xno; then :
+if test "x$enable_concurrent_psrad" = xno; then :
   as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_PS_RAD__"
 fi
 
@@ -4401,6 +4415,10 @@ if test "x$enable_serialization" != xno; then :
   *) :
      ;;
 esac
+fi
+
+if test "x$enable_testbed" = xno; then :
+  as_fn_append FCFLAGS " ${FC_PP_DEF}__NO_ICON_TESTBED__"
 fi
 
 if test "x$enable_loop_exchange" = xyes; then :
@@ -5174,7 +5192,7 @@ else
   acx_cv_c_compiler_vendor=intel
 elif $CC -V 2>&1 | grep '^NAG Fortran Compiler Release' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=nag
-elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Protland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
+elif $CC -V 2>/dev/null| grep '^Copyright.*\(The Portland Group\|NVIDIA CORPORATION\)' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=portland
 elif $CC -V 2>&1 | grep '^Cray C' >/dev/null 2>&1; then :
   acx_cv_c_compiler_vendor=cray
@@ -5707,6 +5725,66 @@ ${icon_usr_note}" "$LINENO" 5; }
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+fi
+
+if test -n "$MPI_LAUNCH"; then :
+  case "$MPI_LAUNCH" in #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    acx_prog_search_abspath=unknown
+   set dummy $MPI_LAUNCH; shift; acx_prog_exec=$1; shift; acx_prog_args="$@"
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the absolute path to $acx_prog_exec" >&5
+$as_echo_n "checking for the absolute path to $acx_prog_exec... " >&6; }
+   case $acx_prog_exec in #(
+  *[\\/]*) :
+    if as_fn_executable_p $acx_prog_exec; then :
+  acx_prog_search_abspath=$acx_prog_exec
+fi ;; #(
+  *) :
+    as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    if as_fn_executable_p "$as_dir/$acx_prog_exec"; then :
+  acx_prog_search_abspath="$as_dir/$acx_prog_exec"; break
+fi
+  done
+IFS=$as_save_IFS
+ ;;
+esac
+   case $acx_prog_search_abspath in #(
+  unknown) :
+     ;; #(
+  [\\/]* | ?:[\\/]*) :
+     ;; #(
+  *) :
+    asx_dir=`echo "$acx_prog_search_abspath" | sed 's%/[^/]*$%%' 2>/dev/null`
+      asx_file=`echo "$acx_prog_search_abspath" | sed 's%.*/%%' 2>/dev/null`
+      asx_dir=`cd "$asx_dir" >/dev/null 2>&1 && pwd 2>/dev/null`
+      acx_prog_search_abspath=unknown
+      case $asx_dir in #(
+  [\\/]* | ?:[\\/]*) :
+    if as_fn_executable_p "$asx_dir/$asx_file"; then :
+  acx_prog_search_abspath="$asx_dir/$asx_file"
+fi ;; #(
+  *) :
+     ;;
+esac ;;
+esac
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_prog_search_abspath" >&5
+$as_echo "$acx_prog_search_abspath" >&6; }
+   if test "x$acx_prog_search_abspath" = xunknown; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unable to find the absolute path to $MPI_LAUNCH: the bundled libraries might pick other MPI launcher commands for their tests" >&5
+$as_echo "$as_me: WARNING: unable to find the absolute path to $MPI_LAUNCH: the bundled libraries might pick other MPI launcher commands for their tests" >&2;}
+else
+  if test -n "$acx_prog_args"; then :
+  as_fn_append acx_prog_search_abspath " $acx_prog_args"
+fi
+      MPI_LAUNCH="$acx_prog_search_abspath"
+fi ;;
+esac
 fi
 
 if test "x$enable_openmp" = xyes; then :
@@ -6563,6 +6641,8 @@ fi
      ;; #(
   -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
      ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
   -enable-dependency-tracking|-enable-dependency-tracking=*|--enable-dependency-tracking|--enable-dependency-tracking=*|-disable-dependency-tracking|--disable-dependency-tracking) :
@@ -6773,6 +6853,8 @@ fi
      ;; #(
   -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
      ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
+     ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
   -enable-iso-c-interface|-enable-iso-c-interface=*|--enable-iso-c-interface|--enable-iso-c-interface=*|-disable-iso-c-interface|--disable-iso-c-interface) :
@@ -6911,6 +6993,8 @@ fi
   -enable-static|-enable-static=*|--enable-static|--enable-static=*|-disable-static|--disable-static) :
      ;; #(
   -enable-shared|-enable-shared=*|--enable-shared|--enable-shared=*|-disable-shared|--disable-shared) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -7086,13 +7170,15 @@ fi
            -prefix=*|--prefix=*|--prefi=*|--pref=*|--pre=*|--pr=*|--p=*| \
            --disable-option-checking) :
      ;; #(
-  BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*) :
+  BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*|MPI_LAUNCH=*) :
      ;; #(
   MTIME_CFLAGS=*|MTIME_CLIBS=*|NETCDF_CFLAGS=*|NETCDF_CLIBS=*) :
      ;; #(
   XML2_CFLAGS=*|XML2_CLIBS=*|MPI_CFLAGS=*|MPI_CLIBS=*) :
      ;; #(
   MPI_FCFLAGS=*|MPI_FCLIBS=*|FORTRAN_LAPACK_CLIBS=*) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -7124,7 +7210,7 @@ else
   acx_config_subdir_ignore_arg=no
 fi
    done
-   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
+   set dummy CFLAGS="$subdir_CFLAGS $ICON_YAC_CFLAGS" FCFLAGS="$subdir_FCFLAGS $ICON_YAC_FCFLAGS" MTIME_CFLAGS="$yac_MTIME_CFLAGS" MTIME_CLIBS= NETCDF_CFLAGS= NETCDF_CLIBS= XML2_CFLAGS= XML2_CLIBS= MPI_CFLAGS= MPI_CLIBS= MPI_FCFLAGS= MPI_FCLIBS= FORTRAN_LAPACK_CLIBS= MPI_LAUNCH="$MPI_LAUNCH" --disable-maintainer-mode --enable-silent-rules="$enable_silent_rules" --enable-lib-only --enable-xml --enable-netcdf --enable-mpi="$enable_mpi" --with-external-lapack=fortran --with-external-mtime --enable-mpi-checks="$enable_mpi_checks" acx_cv_c_lib_func_datetimeToString="$yac_MTIME_CLIBS" ; shift
       for acx_config_subdir_arg; do
         case $acx_config_subdir_arg in #(
   *\'*) :
@@ -7197,6 +7283,8 @@ fi
   BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*) :
      ;; #(
   XML2_CFLAGS=*|XML2_CLIBS=*) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -7287,6 +7375,8 @@ fi
            --disable-option-checking) :
      ;; #(
   BUILD_ENV=*|ICON_*FLAGS=*|CFLAGS=*|FCFLAGS=*) :
+     ;; #(
+  -enable-maintainer-mode|-enable-maintainer-mode=*|--enable-maintainer-mode|--enable-maintainer-mode=*|-disable-maintainer-mode|--disable-maintainer-mode) :
      ;; #(
   -enable-silent-rules|-enable-silent-rules=*|--enable-silent-rules|--enable-silent-rules=*|-disable-silent-rules|--disable-silent-rules) :
      ;; #(
@@ -7845,74 +7935,18 @@ else
   SB2PP=
 fi
 
-if test -n "$MPI_LAUNCH"; then :
-  case "$MPI_LAUNCH" in #(
-  [\\/]* | ?:[\\/]*) :
-     ;; #(
-  *) :
-    acx_prog_search_abspath=unknown
-   set dummy $MPI_LAUNCH; shift; acx_prog_exec=$1; shift; acx_prog_args="$@"
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for the absolute path to $acx_prog_exec" >&5
-$as_echo_n "checking for the absolute path to $acx_prog_exec... " >&6; }
-   case $acx_prog_exec in #(
-  *[\\/]*) :
-    if as_fn_executable_p $acx_prog_exec; then :
-  acx_prog_search_abspath=$acx_prog_exec
-fi ;; #(
-  *) :
-    as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    if as_fn_executable_p "$as_dir/$acx_prog_exec"; then :
-  acx_prog_search_abspath="$as_dir/$acx_prog_exec"; break
-fi
-  done
-IFS=$as_save_IFS
- ;;
-esac
-   case $acx_prog_search_abspath in #(
-  unknown) :
-     ;; #(
-  [\\/]* | ?:[\\/]*) :
-     ;; #(
-  *) :
-    asx_dir=`echo "$acx_prog_search_abspath" | sed 's%/[^/]*$%%' 2>/dev/null`
-      asx_file=`echo "$acx_prog_search_abspath" | sed 's%.*/%%' 2>/dev/null`
-      asx_dir=`cd "$asx_dir" >/dev/null 2>&1 && pwd 2>/dev/null`
-      acx_prog_search_abspath=unknown
-      case $asx_dir in #(
-  [\\/]* | ?:[\\/]*) :
-    if as_fn_executable_p "$asx_dir/$asx_file"; then :
-  acx_prog_search_abspath="$asx_dir/$asx_file"
-fi ;; #(
-  *) :
-     ;;
-esac ;;
-esac
-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_prog_search_abspath" >&5
-$as_echo "$acx_prog_search_abspath" >&6; }
-   if test "x$acx_prog_search_abspath" = xunknown; then :
-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "unable to find the absolute path to $acx_prog_exec
-See \`config.log' for more details
-${icon_usr_note}" "$LINENO" 5; }
-else
-  if test -n "$acx_prog_args"; then :
-  as_fn_append acx_prog_search_abspath " $acx_prog_args"
-fi
-      MPI_LAUNCH="$acx_prog_search_path"
-fi ;;
-esac
-fi
 
 #################################### OUTPUT ####################################
 
 ac_config_headers="$ac_config_headers config.h"
 
 ac_config_files="$ac_config_files Makefile depgen.c.config depgen.f90.config deplist.config icon.mk"
+
+
+ac_config_files="$ac_config_files run/collect.set-up.info"
+
+
+ac_config_commands="$ac_config_commands run/set-up.info"
 
 
 ac_config_commands="$ac_config_commands depfiles"
@@ -8751,6 +8785,8 @@ do
     "depgen.f90.config") CONFIG_FILES="$CONFIG_FILES depgen.f90.config" ;;
     "deplist.config") CONFIG_FILES="$CONFIG_FILES deplist.config" ;;
     "icon.mk") CONFIG_FILES="$CONFIG_FILES icon.mk" ;;
+    "run/collect.set-up.info") CONFIG_FILES="$CONFIG_FILES run/collect.set-up.info" ;;
+    "run/set-up.info") CONFIG_COMMANDS="$CONFIG_COMMANDS run/set-up.info" ;;
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -9313,6 +9349,9 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
+    "run/collect.set-up.info":F) chmod +x "$ac_file" ;;
+    "run/set-up.info":C) run/collect.set-up.info "$ac_file" 2>/dev/null ||    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: failed to create \"$ac_file\"" >&5
+$as_echo "$as_me: WARNING: failed to create \"$ac_file\"" >&2;} ;;
     "depfiles":C) ${MAKE-make} -f icon.mk dummy-depend >/dev/null 2>&5
    sleep 1
    touch icon.mk ;;

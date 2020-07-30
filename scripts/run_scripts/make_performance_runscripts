@@ -200,7 +200,7 @@ EOF
 # vtrace export varibales
   echo "export VT_MODE=STAT" >>  ${header_file}
   echo "export VT_VERBOSE=2" >>  ${header_file}
-  vtrace_path='$ICON_BASE_PATH/profile/$job_name'
+  vtrace_path='$basedir/profile/$job_name'
   echo "mkdir -p $vtrace_path" >>  ${header_file}
   echo "export VT_FILE_PREFIX=$vtrace_path/vtrace" >>  ${header_file}
 

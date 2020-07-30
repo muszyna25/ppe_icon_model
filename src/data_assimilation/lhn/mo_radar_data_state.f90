@@ -144,11 +144,10 @@ CONTAINS
     CALL p_bcast (cdi_filetype, p_io, p_comm_work)
 
     ! read the map file (internal -> GRIB2) into dictionary data structure:
-    CALL radar_varnames_dict%init(lcase_sensitive=.FALSE.)
+    CALL radar_varnames_dict%init(.FALSE.)
     IF (ANY(cdi_filetype(:) == FILETYPE_GRB2)) THEN
-      IF(radar_varnames_map_file /= ' ') THEN
-        CALL radar_varnames_dict%loadfile(TRIM(radar_varnames_map_file))
-      END IF
+      IF (radar_varnames_map_file /= ' ') &
+        & CALL radar_varnames_dict%loadfile(TRIM(radar_varnames_map_file))
     END IF
 
     !------------------------------------------------------------------

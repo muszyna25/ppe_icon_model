@@ -20,7 +20,9 @@
 !----------------------------
 
 MODULE mo_bgc_bcond
-USE mo_kind,               ONLY: wp
+
+USE mo_master_control,       ONLY: get_my_process_name
+  USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: max_char_length
@@ -165,7 +167,7 @@ CONTAINS
     CALL new_var_list( p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_bgc_list,            &
                                   & lrestart=.FALSE.,          &
-                                 & model_type='oce'  )
+                                 & model_type=TRIM(get_my_process_name()) )
 
     cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
       &                   'DUST', DATATYPE_FLT32)
