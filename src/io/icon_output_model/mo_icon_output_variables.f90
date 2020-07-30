@@ -54,7 +54,6 @@ MODULE mo_icon_output_variables
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               get_timelevel_string,     &
-    &                               default_var_list_settings,&
     &                               add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_groups,          ONLY: groups 
@@ -120,8 +119,7 @@ CONTAINS
     ! IMO the number of variable lists should be as small as possible
     ! default list: elements can be written to disk, but not to the restart file
     WRITE(listname,'(a)')  'output_default_list'
-    CALL new_var_list(output_default_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings(output_default_list,            &
+    CALL new_var_list(output_default_list, listname, patch_id=patch_2d%id, &
       & lrestart=.FALSE.,model_type=TRIM(model_name), loutput=.TRUE.)
 
     ! add an output variable

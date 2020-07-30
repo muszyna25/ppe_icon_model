@@ -48,7 +48,6 @@ MODULE mo_var_list
 
   PUBLIC :: print_var_list
   PUBLIC :: print_memory_use
-  PUBLIC :: default_var_list_settings ! set default settings for a whole list
   PUBLIC :: add_var                   ! create/allocate a new var_list list entry
   PUBLIC :: add_ref                   ! create/reference a new var_list list entry
   PUBLIC :: get_var_name              ! return plain variable name (without timelevel)
@@ -174,26 +173,6 @@ CONTAINS
     IF (PRESENT(compression_type)) this_list%p%compression_type =  compression_type
     IF (PRESENT(model_type))       this_list%p%model_type       = model_type
   END SUBROUTINE set_var_list
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Set default meta data of output var_list
-  !
-  SUBROUTINE default_var_list_settings (this_list, filename, loutput, &
-    & lrestart, linitial, post_suf, rest_suf, init_suf, output_type,  &
-    & restart_type, compression_type, model_type)
-    TYPE(t_var_list), INTENT(INOUT)        :: this_list        ! output var_list
-    LOGICAL,          INTENT(IN), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
-    CHARACTER(len=*), INTENT(IN), OPTIONAL :: filename         ! name of output file
-    INTEGER,          INTENT(IN), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
-    CHARACTER(len=*), INTENT(IN), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
-    INTEGER,          INTENT(IN), OPTIONAL :: compression_type ! compression type
-    CHARACTER(len=*), INTENT(IN), OPTIONAL :: model_type       ! output file associated
-
-    CALL set_var_list(this_list, output_type=output_type, restart_type=restart_type,    &
-      & post_suf=post_suf, rest_suf=rest_suf, init_suf=init_suf, loutput=loutput,       &
-      & lrestart=lrestart, linitial=linitial, filename=filename, model_type=model_type, &
-      & compression_type=compression_type)
-  END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
   !
   ! Get a copy of the dynamic metadata concerning a var_list element by index of the element

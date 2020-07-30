@@ -31,7 +31,6 @@ MODULE mo_ocean_hamocc_couple_state
   USE mo_var_groups,          ONLY: groups
   USE mo_var_list,            ONLY: add_var,                  &
     &                               get_timelevel_string,     &
-    &                               default_var_list_settings,&
     &                               add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
@@ -112,7 +111,6 @@ CONTAINS
 
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
-    CHARACTER(LEN=max_char_length) :: listname
     REAL(wp), ALLOCATABLE :: hor_diffusion_coeff_2D(:,:)
     INTEGER :: datatype_flt
     
@@ -130,11 +128,9 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
  
-    WRITE(listname,'(a)')  'hamocc_ocean_state_list'
-    CALL new_var_list(hamocc_ocean_state_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_ocean_state_list,             &
-      & lrestart=.FALSE.,loutput=.TRUE.,&
-      & model_type='hamocc' )
+    CALL new_var_list(hamocc_ocean_state_list, 'hamocc_ocean_state_list', &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,           &
+      & model_type='hamocc')
 
     ! transport state, ocean to hamocc
     CALL add_var(hamocc_ocean_state_list,'vn', ocean_transport_state%vn, &

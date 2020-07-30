@@ -30,7 +30,7 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
-  USE mo_var_list,           ONLY: default_var_list_settings, add_var
+  USE mo_var_list,           ONLY: add_var
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -162,10 +162,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_bgc_list,            &
-                                  & lrestart=.FALSE.,          &
-                                 & model_type=TRIM(get_my_process_name()) )
+    CALL new_var_list(p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id, &
+      &               lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
     IF (.not. lsediment_only) THEN
      cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
        &                   'DUST', DATATYPE_FLT32)
@@ -209,8 +207,6 @@ CONTAINS
        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
      CALL message('new_ext_data_bgc_list','add_var finished for particle fluxes')
     ENDIF
-
-
 
   END SUBROUTINE new_ext_data_bgc_list
   !-------------------------------------------------------------------------

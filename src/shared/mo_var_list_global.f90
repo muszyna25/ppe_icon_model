@@ -60,7 +60,7 @@ CONTAINS
   !
   SUBROUTINE new_var_list (this_list, vlname, output_type, restart_type,      &
        &                   post_suf, rest_suf, init_suf, loutput, lrestart, &
-       &                   linitial, patch_id, vlevel_type)
+       &                   linitial, patch_id, vlevel_type, model_type)
     TYPE(t_var_list), INTENT(OUT)        :: this_list    ! anchor
     CHARACTER(len=*), INTENT(IN)           :: vlname         ! name of output var_list
     INTEGER,          INTENT(IN), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
@@ -68,6 +68,7 @@ CONTAINS
     LOGICAL,          INTENT(IN), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
     INTEGER,          INTENT(IN), OPTIONAL :: patch_id     ! patch ID
     INTEGER,          INTENT(IN), OPTIONAL :: vlevel_type  ! 1/2/3 for model/pres./height levels
+    CHARACTER(*),     INTENT(IN), OPTIONAL :: model_type
     INTEGER :: i, ierr
     TYPE(t_var_list), ALLOCATABLE :: tmp(:)
 
@@ -98,7 +99,8 @@ CONTAINS
     CALL set_var_list(this_list, output_type=output_type,                &
       & restart_type=restart_type, post_suf=post_suf, rest_suf=rest_suf, &
       & init_suf=init_suf, loutput=loutput, lrestart=lrestart,           &
-      & linitial=linitial, patch_id=patch_id, vlevel_type=vlevel_type)
+      & linitial=linitial, patch_id=patch_id, vlevel_type=vlevel_type,   &
+      & model_type=model_type)
   END SUBROUTINE new_var_list
   !------------------------------------------------------------------------------------------------
   !
@@ -246,26 +248,6 @@ CONTAINS
     IF (PRESENT(compression_type)) this_list%p%compression_type =  compression_type
     IF (PRESENT(model_type))       this_list%p%model_type       = model_type
   END SUBROUTINE set_var_list
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Set default meta data of output var_list
-  !
-  SUBROUTINE default_var_list_settings (this_list, filename, loutput, &
-    & lrestart, linitial, post_suf, rest_suf, init_suf, output_type,  &
-    & restart_type, compression_type, model_type)
-    TYPE(t_var_list), INTENT(INOUT)        :: this_list        ! output var_list
-    LOGICAL,          INTENT(IN), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
-    CHARACTER(len=*), INTENT(IN), OPTIONAL :: filename         ! name of output file
-    INTEGER,          INTENT(IN), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
-    CHARACTER(len=*), INTENT(IN), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
-    INTEGER,          INTENT(IN), OPTIONAL :: compression_type ! compression type
-    CHARACTER(len=*), INTENT(IN), OPTIONAL :: model_type       ! output file associated
-
-    CALL set_var_list(this_list, output_type=output_type, restart_type=restart_type,    &
-      & post_suf=post_suf, rest_suf=rest_suf, init_suf=init_suf, loutput=loutput,       &
-      & lrestart=lrestart, linitial=linitial, filename=filename, model_type=model_type, &
-      & compression_type=compression_type)
-  END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
   !
   ! Delete an output var_list, nullify the associated pointer

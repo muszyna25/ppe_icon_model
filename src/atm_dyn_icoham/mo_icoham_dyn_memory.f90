@@ -36,7 +36,7 @@ MODULE mo_icoham_dyn_memory
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
@@ -307,10 +307,7 @@ CONTAINS
     ibits = DATATYPE_PACK16 !size of var in bits
 
     ! Register a variable list and apply default settings
-
-    CALL new_var_list( field_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( field_list,                &
-                                  & lrestart=store_in_restart  )
+    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
 
     ! Add variables to the list 
 
@@ -413,9 +410,7 @@ CONTAINS
     ibits = DATATYPE_PACK16 !size of var in bits
 
     ! Register a variable list and apply default settings
-
-    CALL new_var_list( field_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( field_list, lrestart=store_in_restart ) 
+    CALL new_var_list(field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
 
     !----------------------------
     ! Add variables to the list 

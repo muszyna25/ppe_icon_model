@@ -53,7 +53,7 @@ MODULE mo_ext_data_state
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
-  USE mo_var_list,           ONLY: add_var, add_ref, default_var_list_settings
+  USE mo_var_list,           ONLY: add_var, add_ref
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
     &                              OPERATOR(+)
@@ -310,10 +310,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_atm_list,            &
-                                  & lrestart=.FALSE.  )
-
+    CALL new_var_list(p_ext_atm_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! topography height at cell center
     !
@@ -1280,11 +1277,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=jg )
-    CALL default_var_list_settings( p_ext_atm_td_list,         &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput=.TRUE.  )
-
+    CALL new_var_list(p_ext_atm_td_list, TRIM(listname), patch_id=jg, &
+      &               lrestart=.FALSE., loutput=.TRUE.)
 
     !--------------------------------
     ! radiation parameters

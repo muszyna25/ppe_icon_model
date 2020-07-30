@@ -76,8 +76,7 @@ MODULE mo_nonhydro_state
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
     &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
   USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var, find_list_element, &
-    &                                get_timelevel_string, add_ref
+  USE mo_var_list,             ONLY: add_var, find_list_element, get_timelevel_string, add_ref
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list, add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
@@ -550,10 +549,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_prog_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_prog_list,               &
-                                  & lrestart=.TRUE.  )
-
+    CALL new_var_list(p_prog_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
 
     !------------------------------
     ! Ensure that all pointers have a defined association status
@@ -1540,11 +1536,8 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_tracer_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_tracer_list,             &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput =.FALSE.           )
-
+    CALL new_var_list(p_tracer_list, TRIM(listname), patch_id=p_patch%id, &
+      &               lrestart=.FALSE., loutput =.FALSE.)
 
     !
     ! add references to all tracer fields of the source list (prognostic state)
@@ -1776,9 +1769,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_diag_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_diag_list,               &
-                                  & lrestart=.TRUE.  )
+    CALL new_var_list(p_diag_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
 
     ! u           p_diag%u(nproma,nlev,nblks_c)
     !
@@ -3374,9 +3365,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ref_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ref_list,                &
-                                  & lrestart=.FALSE. )
+    CALL new_var_list(p_ref_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! vn_ref     p_ref%vn_ref(nproma,nlev,nblks_c)
     !
@@ -3593,9 +3582,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_metrics_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_metrics_list,            &
-                                  & lrestart=.FALSE. )
+    CALL new_var_list(p_metrics_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! geometric height at the vertical interface of cells
     ! z_ifc        p_metrics%z_ifc(nproma,nlevp1,nblks_c)

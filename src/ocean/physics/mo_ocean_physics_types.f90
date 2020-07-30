@@ -76,7 +76,7 @@ MODULE mo_ocean_physics_types
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var, default_var_list_settings, add_ref
+  USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_groups,          ONLY: groups
   USE mo_cf_convention
@@ -263,8 +263,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
-    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=patch_2D%id)
-    CALL default_var_list_settings( ocean_params_list, lrestart=.FALSE.,  model_type=TRIM(get_my_process_name()) )
+    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=patch_2D%id, &
+      & lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
 
     ! determine size of arrays
     alloc_cell_blocks = patch_2D%alloc_cell_blocks

@@ -61,7 +61,7 @@ MODULE mo_ocean_ext_data
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
-  USE mo_var_list,           ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list,           ONLY: add_var, add_ref
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -249,10 +249,8 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_ext_oce_list,            &
-                                  & lrestart=.FALSE.,          &
-                                 & model_type=TRIM(get_my_process_name()) )
+    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id, &
+      & lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
 
     ! bathymetric height at cell center
     !

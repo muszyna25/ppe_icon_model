@@ -38,7 +38,7 @@ MODULE mo_radar_data_state
 
   USE mo_radar_data_types,   ONLY: t_radar_fields,t_radar_td_fields, t_radar_ct_fields, t_lhn_diag
 
-  USE mo_var_list,           ONLY: default_var_list_settings, add_var
+  USE mo_var_list,           ONLY: add_var
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -294,10 +294,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_radar_ct_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_radar_ct_list,            &
-                                  & lrestart=.FALSE.  )
-
+    CALL new_var_list(p_radar_ct_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! radar blacklist at cell center
     !
@@ -366,11 +363,8 @@ CONTAINS
 
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_radar_td_list, TRIM(listname), patch_id=p_patch%id )
-    CALL default_var_list_settings( p_radar_td_list,         &
-                                  & lrestart=.FALSE.,          &
-                                  & loutput=.FALSE.  )
-
+    CALL new_var_list(p_radar_td_list, TRIM(listname), patch_id=p_patch%id, &
+      &               lrestart=.FALSE., loutput=.FALSE.)
 
     ! radobs       p_radar_td%obs(nproma,nblks_c,nobs_times)
     cf_desc    = t_cf_var('rad_precip', 'mm/h',   &

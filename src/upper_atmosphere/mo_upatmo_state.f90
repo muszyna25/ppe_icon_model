@@ -37,7 +37,7 @@ MODULE mo_upatmo_state
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list,             ONLY: add_var, add_ref
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, & 
     &                                GRID_UNSTRUCTURED
@@ -428,10 +428,8 @@ CONTAINS
       &      diag%effrsw   )
 
     ! Register the field list and apply default settings
-    CALL new_var_list(diag_list, listname, patch_id=jg)
-
     ! The fields in 'prm_upatmo_diag' are required for restart, in general
-    CALL default_var_list_settings(diag_list, lrestart=.TRUE.)
+    CALL new_var_list(diag_list, listname, patch_id=jg, lrestart=.TRUE.)
 
     ! Please note that apart from a few exceptions (e.g., ozone) 
     ! GRIB2 triplets (discipline, category, number) do net (yet) exist 
@@ -692,12 +690,11 @@ CONTAINS
       &      tend%ddt_qx_vdfmol      )
 
     ! Register the field list and apply default settings
-    CALL new_var_list(tend_list, listname, patch_id=jg)
-
     ! The tendencies will be written in the restart file as the case may be by default, 
     ! for the special way the total tendencies are computed in 
     ! 'mo_nwp_upatmo_interface: nwp_upatmo_interface' alone
-    CALL default_var_list_settings(tend_list, lrestart=.TRUE.)
+
+    CALL new_var_list(tend_list, listname, patch_id=jg, lrestart=.TRUE.)
 
     ! Please note that for most of the tendencies, which we allocate here, 
     ! either a GRIB2 triplet (discipline, category, number) does not (yet) exist 

@@ -26,7 +26,7 @@ MODULE mo_psrad_interface_memory
   USE mtime,                  ONLY: datetime
 
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, add_var
+  USE mo_var_list,            ONLY: add_var
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
@@ -317,9 +317,7 @@ CONTAINS
     shape3d_layer_interfaces = (/nproma,no_of_levels+1,alloc_cell_blocks/)
 
     ! Register a field list and apply default settings
-    CALL new_var_list( field_list, TRIM(listname), patch_id=jg )
-    CALL default_var_list_settings( field_list,                &
-                                  & lrestart=.FALSE.  )
+    CALL new_var_list( field_list,TRIM(listname), patch_id=jg, lrestart=.FALSE.)
 
     !----------------------
     ! const variables

@@ -32,7 +32,7 @@ MODULE mo_psrad_forcing_memory
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, add_var
+  USE mo_var_list,            ONLY: add_var
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
@@ -244,12 +244,10 @@ CONTAINS
     shape3d  = (/kproma, klev, kblks/)
     shape3d_layer_interfaces = (/kproma,klev+1,kblks/)
 
-
     ! Register a field list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
-    CALL default_var_list_settings( field_list,                &
-                                  & lrestart=.TRUE.  )
+    CALL new_var_list(field_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
+
     ! Auxiliary flux variables
     IF (lradforcing(2)) THEN
     cf_desc    = t_cf_var('emter_for', 'W m-2', 'thermal radiation flux', datatype_flt)

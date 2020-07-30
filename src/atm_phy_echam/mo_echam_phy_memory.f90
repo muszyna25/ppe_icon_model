@@ -54,8 +54,8 @@ MODULE mo_echam_phy_memory
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: default_var_list_settings, add_var, add_ref
-  USE mo_var_list_global,     ONLY:  new_var_list, delete_var_list
+  USE mo_var_list,            ONLY: add_var, add_ref
+  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_action,              ONLY: ACTION_RESET, new_action, actions
   USE mo_cf_convention,       ONLY: t_cf_var
@@ -793,9 +793,7 @@ CONTAINS
     !$ACC ENTER DATA COPYIN( field )
     ! Register a field list and apply default settings
 
-    CALL new_var_list( field_list, listname, patch_id=jg )
-    CALL default_var_list_settings( field_list,                &
-                                  & lrestart=.TRUE.  )
+    CALL new_var_list(field_list, listname, patch_id=jg ,lrestart=.TRUE.)
 
     !------------------------------
     ! Metrics
@@ -4323,8 +4321,7 @@ CONTAINS
 
     !$ACC ENTER DATA COPYIN( tend )
 
-    CALL new_var_list( tend_list, listname, patch_id=jg )
-    CALL default_var_list_settings( tend_list, lrestart=.FALSE. )
+    CALL new_var_list(tend_list, listname, patch_id=jg ,lrestart=.FALSE.)
 
     !------------------------------
     ! Temperature tendencies

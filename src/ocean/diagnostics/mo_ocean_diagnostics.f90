@@ -82,7 +82,7 @@ MODULE mo_ocean_diagnostics
     & verticallyIntegrated_field
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_linked_list,        ONLY: t_var_list
-  USE mo_var_list,           ONLY: add_var, default_var_list_settings, add_ref
+  USE mo_var_list,           ONLY: add_var, add_ref
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_var_groups,         ONLY: groups
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -187,10 +187,9 @@ CONTAINS
     owned_cells => patch_2d%cells%owned
     nblks_e = patch_2d%nblks_e
     !-----------------------------------------------------------------------
-    CALL new_var_list(horizontal_velocity_diagnostics, &
-      &               'horizontal_velocity_diagnostics', patch_id=patch_2d%id)
-    CALL default_var_list_settings( horizontal_velocity_diagnostics,            &
-      & lrestart=.FALSE.,model_type=TRIM(get_my_process_name()),loutput=.TRUE. )
+    CALL new_var_list(horizontal_velocity_diagnostics, 'horizontal_velocity_diagnostics', &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,                           &
+      & model_type=TRIM(get_my_process_name()))
     !-----------------------------------------------------------------------
     IF (diagnose_for_horizontalVelocity) THEN
       CALL add_var(horizontal_velocity_diagnostics, 'veloc_adv_horz_u', veloc_adv_horz_u, &

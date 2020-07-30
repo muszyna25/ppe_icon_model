@@ -55,7 +55,7 @@ MODULE mo_ocean_initialization
     & enable_sync_checks, disable_sync_checks
   
   USE mo_linked_list,         ONLY: t_var_list
-  USE mo_var_list,            ONLY: add_var, add_ref, default_var_list_settings
+  USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_cf_convention
 !  USE mo_grib2

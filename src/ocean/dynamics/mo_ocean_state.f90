@@ -65,8 +65,7 @@ MODULE mo_ocean_state
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
-  USE mo_var_list,            ONLY: add_var, add_ref, default_var_list_settings, &
-    &                               get_timelevel_string
+  USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string
   USE mo_var_groups,          ONLY: groups, MAX_GROUPS 
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -136,29 +135,22 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE construct_ocean_var_lists(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
+    CHARACTER(:), ALLOCATABLE :: model_name
 
-    CHARACTER(LEN=*), PARAMETER :: oce_rst_listname = 'ocean_restart_list', &
-      oce_dflt_listname = 'ocean_default_list'
-
-    CHARACTER(len=64) :: model_name
-
-    model_name=get_my_process_name()
+    model_name = TRIM(get_my_process_name())
 
     ! IMO the number of variable lists should be as small as possible
     !
     ! Restart list: everything belonging to that list will be written to the
     ! restart file and is ready for output
-    CALL new_var_list(ocean_restart_list, oce_rst_listname, &
-      &               patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_restart_list,             &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type=TRIM(model_name) )
+    CALL new_var_list(ocean_restart_list, 'ocean_restart_list', &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,  &
+      & model_type=model_name)
 
     ! default list: elements can be written to disk, but not to the restart file
-    CALL new_var_list(ocean_default_list, oce_dflt_listname, &
-      &               patch_id=patch_2d%id)
-    CALL default_var_list_settings( ocean_default_list,            &
-      & lrestart=.FALSE.,model_type=TRIM(model_name), loutput=.TRUE.)
+    CALL new_var_list(ocean_default_list, 'ocean_default_list', &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE., &
+      & model_type=model_name)
   END SUBROUTINE construct_ocean_var_lists
   !-------------------------------------------------------------------------
 

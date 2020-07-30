@@ -82,7 +82,7 @@ USE turb_data,              ONLY: ltkecon
 USE mo_initicon_config,     ONLY: icpl_da_sfcevap
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
-USE mo_var_list,            ONLY: default_var_list_settings, add_var, add_ref
+USE mo_var_list,            ONLY: add_var, add_ref
 USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
 USE mo_var_groups,          ONLY: groups, MAX_GROUPS
 USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM
@@ -339,10 +339,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
 
     ! Register a field list and apply default settings
 
-    CALL new_var_list( diag_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( diag_list,                 &
-                                  & lrestart=.TRUE.  )
-
+    CALL new_var_list(diag_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
    
     !------------------------------
     ! Meteorological quantities
@@ -4097,10 +4094,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     NULLIFY(phy_tend%ddt_temp_gscp, phy_tend%ddt_tracer_gscp)
 
-    CALL new_var_list( phy_tend_list, listname, patch_id=k_jg )
-    CALL default_var_list_settings( phy_tend_list,             &
-                                  & lrestart=.TRUE.  )
-
+    CALL new_var_list(phy_tend_list, TRIM(listname), patch_id=k_jg ,lrestart=.TRUE.)
     
     !------------------------------
     ! Temperature tendencies

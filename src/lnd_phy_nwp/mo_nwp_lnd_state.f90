@@ -65,8 +65,7 @@ MODULE mo_nwp_lnd_state
   USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref, &
-    &                                get_timelevel_string
+  USE mo_var_list,             ONLY: add_var, add_ref, get_timelevel_string
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
@@ -421,9 +420,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
-    CALL default_var_list_settings( prog_list,                 &
-                                  & lrestart=.TRUE.  )
+    CALL new_var_list(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 
@@ -1035,9 +1032,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
-    CALL default_var_list_settings( prog_list,                 &
-                                  & lrestart=.TRUE.  )
+    CALL new_var_list(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 
@@ -1322,9 +1317,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( diag_list, TRIM(listname), patch_id=p_jg )
-    CALL default_var_list_settings( diag_list,                 &
-                                  & lrestart=.TRUE.  )
+    CALL new_var_list(diag_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 

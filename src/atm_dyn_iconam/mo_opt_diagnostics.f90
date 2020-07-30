@@ -33,7 +33,7 @@ MODULE mo_opt_diagnostics
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
   USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
                                      t_nh_state_lists
-  USE mo_impl_constants,       ONLY: success, max_var_list_name_len,     &
+  USE mo_impl_constants,       ONLY: success,     &
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
     &                                VINTP_METHOD_LIN,                   &
@@ -52,7 +52,7 @@ MODULE mo_opt_diagnostics
     &                                TSTEP_CONSTANT
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var, add_ref
+  USE mo_var_list,             ONLY: add_var, add_ref
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
@@ -656,7 +656,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":construct_opt_diag"
     INTEGER                            :: jg, ist
-    CHARACTER(len=max_var_list_name_len) :: listname
+    CHARACTER(LEN=2) :: dom_str
 
     ! initialize data structure for optional diagnostics
     ALLOCATE(p_nh_opt_diag(n_dom), STAT=ist)
@@ -664,38 +664,30 @@ CONTAINS
       CALL finish (routine, 'Allocation of optional diagnostics failed')
 
     DO jg = 1, n_dom
+      WRITE(dom_str, "(i2.2)") jg
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list,    &
-        & lrestart=.FALSE. )
+      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list, &
+        & 'nh_state_opt_diag_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml, lrestart=.FALSE.)
 
       IF (.NOT. l_init_pz) CYCLE
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_z_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_z,    &
-        & lrestart=.FALSE. )
+      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list_z, &
+        & 'nh_state_opt_diag_z_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl, lrestart=.FALSE.)
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_p_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_p,    &
-        & lrestart=.FALSE. )
+      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list_p, &
+        & 'nh_state_opt_diag_p_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl, lrestart=.FALSE.)
 
-      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_i_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_il )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_i,    &
-        & lrestart=.FALSE. )
+      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list_i, &
+        & 'nh_state_opt_diag_i_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_il, lrestart=.FALSE.)
 
-      WRITE(listname,'(a,i2.2)') 'nh_accumulation_for_ProgAndDiag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, listname, &
-        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
-      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_acc_list,    &
-        & lrestart=.FALSE.,loutput=.TRUE. )
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, &
+        & 'nh_accumulation_for_ProgAndDiag_of_domain_'//dom_str, &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml,            &
+        & lrestart=.FALSE.,loutput=.TRUE.)
     ENDDO ! jg
 
     ! provisional construction of memory for a hardwired set of variables on domain 1

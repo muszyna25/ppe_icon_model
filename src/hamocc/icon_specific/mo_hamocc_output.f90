@@ -24,8 +24,7 @@
 
       USE mo_cdi_constants,      ONLY: grid_unstructured_cell, grid_cell
 
-      USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string, &
-    &                                   default_var_list_settings
+      USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string
       USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
 
       USE mo_grid_config,         ONLY: n_dom
@@ -1672,7 +1671,6 @@
     
     CALL message(TRIM(routine),'destruction of hamocc state finished')
     CALL close_bgcout 
-
    
   END SUBROUTINE 
 
@@ -1680,32 +1678,25 @@
     SUBROUTINE construct_hamocc_var_lists(patch_2d)
 
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
+    CHARACTER(:), ALLOCATABLE :: model_name
+
+    model_name = TRIM(get_my_process_name())
     
-    CHARACTER(LEN=max_char_length) :: listname
-    CHARACTER(len=64) :: model_name
+    CALL new_var_list(hamocc_restart_list, 'hamocc_restart_list',   &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,      &
+      & model_type=model_name)
 
-    model_name=get_my_process_name()
-    
-    WRITE(listname,'(a)')  'hamocc_restart_list'
-    CALL new_var_list(hamocc_restart_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_restart_list,             &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type=TRIM(model_name) )
+    CALL new_var_list(hamocc_default_list, 'hamocc_default_list',   &
+      & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,     &
+      & model_type=model_name)
 
-    WRITE(listname,'(a)')  'hamocc_default_list'
-    CALL new_var_list(hamocc_default_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_default_list,            &
-      & lrestart=.FALSE.,model_type=TRIM(model_name),loutput=.TRUE. )
+    CALL new_var_list(hamocc_tendency_list, 'hamocc_tendency_list', &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,      &
+      & model_type=model_name)
 
-    WRITE(listname,'(a)')  'hamocc_tendency_list'
-    CALL new_var_list(hamocc_tendency_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_tendency_list,            &
-      & lrestart=.TRUE.,model_type=TRIM(model_name),loutput=.TRUE. )
-
-    WRITE(listname,'(a)')  'hamocc_sediment_list'
-    CALL new_var_list(hamocc_sediment_list, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( hamocc_sediment_list,            &
-      & lrestart=.TRUE.,model_type=TRIM(model_name),loutput=.TRUE. )
+    CALL new_var_list(hamocc_sediment_list, 'hamocc_sediment_list', &
+      & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,      &
+      & model_type=model_name)
 
     END SUBROUTINE construct_hamocc_var_lists
 !================================================================================== 

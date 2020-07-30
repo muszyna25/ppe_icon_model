@@ -72,7 +72,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
   USE mo_var_list_global,        ONLY: new_var_list, delete_var_list
-  USE mo_var_list,               ONLY: print_var_list, default_var_list_settings, add_var
+  USE mo_var_list,               ONLY: print_var_list, add_var
   USE mo_linked_list
   USE mo_cdi
   use mo_cdi_constants
@@ -1633,7 +1633,6 @@ CONTAINS
   SUBROUTINE checkVarlistKeys(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
-    CHARACTER(LEN=max_char_length) :: listname
     TYPE(t_var_list)     :: varnameCheckList
     integer :: alloc_cell_blocks
 
@@ -1642,11 +1641,8 @@ CONTAINS
     REAL(wp), POINTER :: var2(:,:,:)
     REAL(wp), POINTER :: var3(:,:,:)
     
-    WRITE(listname,'(a)')  'varnameCheck_list'
-    CALL new_var_list(varnameCheckList, listname, patch_id=patch_2d%id)
-    CALL default_var_list_settings( varnameCheckList,  &
-      & lrestart=.TRUE.,loutput=.TRUE.,&
-      & model_type=TRIM(get_my_process_name()) )
+    CALL new_var_list(varnameCheckList, 'varnameCheck_list', patch_id=patch_2d%id, &
+      & lrestart=.TRUE., loutput=.TRUE., model_type=TRIM(get_my_process_name()))
 
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     call add_var(varnamechecklist,'h',var0,grid_unstructured_cell, za_depth_below_sea_half, &
