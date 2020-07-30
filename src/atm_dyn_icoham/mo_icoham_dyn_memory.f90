@@ -35,8 +35,7 @@ MODULE mo_icoham_dyn_memory
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_linked_list,         ONLY: t_var_list_ptr
-  USE mo_var_list,            ONLY: add_var, add_ref
+  USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var

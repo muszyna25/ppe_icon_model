@@ -29,7 +29,6 @@ MODULE mo_opt_diagnostics
 
   USE mo_kind,                 ONLY: wp
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_linked_list,          ONLY: t_var_list_ptr
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
   USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
                                      t_nh_state_lists
@@ -52,7 +51,7 @@ MODULE mo_opt_diagnostics
     &                                TSTEP_CONSTANT
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
-  USE mo_var_list,             ONLY: add_var, add_ref
+  USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr, t_list_element
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
@@ -70,7 +69,6 @@ MODULE mo_opt_diagnostics
   USE mo_util_dbg_prnt,        ONLY: dbg_print
   USE mo_lonlat_grid,          ONLY: t_lon_lat_grid, latlon_compute_area_weights
   USE mo_intp_lonlat_types,    ONLY: t_lon_lat_intp, t_lon_lat_list
-  USE mo_linked_list,          ONLY: t_list_element
 
   IMPLICIT NONE
 

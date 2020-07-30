@@ -28,7 +28,7 @@ MODULE mo_art_reaction_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
-  USE mo_linked_list,                   ONLY: t_var_list_ptr
+  USE mo_var_list,                      ONLY: t_var_list_ptr
   USE mo_run_config,                    ONLY: lart
   USE mtime,                            ONLY: datetime
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &

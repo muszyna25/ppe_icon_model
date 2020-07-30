@@ -28,9 +28,8 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_linked_list,        ONLY: t_var_list_ptr
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
-  USE mo_var_list,           ONLY: add_var
+  USE mo_var_list,           ONLY: add_var, t_var_list_ptr
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var

@@ -31,8 +31,7 @@ MODULE mo_psrad_forcing_memory
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_model_domain,        ONLY: t_patch
 
-  USE mo_linked_list,         ONLY: t_var_list_ptr
-  USE mo_var_list,            ONLY: add_var
+  USE mo_var_list,            ONLY: add_var, t_var_list_ptr
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var

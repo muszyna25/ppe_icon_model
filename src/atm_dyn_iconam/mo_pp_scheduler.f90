@@ -174,7 +174,8 @@ MODULE mo_pp_scheduler
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, get_var_name, get_var_timelevel,           &
-    &                                   find_list_element, get_timelevel_string
+    &                                   find_list_element, get_timelevel_string,            &
+    &                                   t_var_list_ptr, t_list_element
   USE mo_var_list_global,         ONLY: var_lists
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
@@ -197,7 +198,6 @@ MODULE mo_pp_scheduler
   USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
     &                                   GRID_UNSTRUCTURED,TSTEP_INSTANT, TSTEP_CONSTANT
   USE mo_zaxis_type,              ONLY: ZA_ALTITUDE, ZA_PRESSURE, ZA_ISENTROPIC, zaxisTypeList
-  USE mo_linked_list,             ONLY: t_var_list_ptr, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
     &                                   pp_task_intp_msl, pp_task_edge2cell,                & 

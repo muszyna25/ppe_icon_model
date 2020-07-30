@@ -27,7 +27,7 @@ MODULE mo_name_list_output_printvars
   USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS, vname_len
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_exception,                         ONLY: finish, message_text
-  USE mo_linked_list,                       ONLY: t_list_element
+  USE mo_var_list,                          ONLY: t_list_element
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_gribout_config,                    ONLY: t_gribout_config
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis

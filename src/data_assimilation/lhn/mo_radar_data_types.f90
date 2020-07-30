@@ -12,8 +12,8 @@
 
 MODULE mo_radar_data_types
   USE mo_kind,               ONLY: wp
-  USE mo_linked_list,          ONLY: t_var_list_ptr
-  USE mtime,                   ONLY: datetime
+  USE mo_var_list,           ONLY: t_var_list_ptr
+  USE mtime,                 ONLY: datetime
 
 IMPLICIT NONE
 

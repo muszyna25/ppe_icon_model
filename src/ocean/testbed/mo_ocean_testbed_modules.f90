@@ -72,8 +72,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
   USE mo_var_list_global,        ONLY: new_var_list, delete_var_list
-  USE mo_var_list,               ONLY: print_var_list, add_var
-  USE mo_linked_list,            ONLY: t_var_list_ptr
+  USE mo_var_list,               ONLY: print_var_list, add_var, t_var_list_ptr
   USE mo_cdi
   use mo_cdi_constants
   use mo_zaxis_type

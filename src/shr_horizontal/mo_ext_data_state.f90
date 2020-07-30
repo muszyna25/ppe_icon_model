@@ -48,12 +48,11 @@ MODULE mo_ext_data_state
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
     &                              t_external_atmos
-  USE mo_linked_list,        ONLY: t_var_list_ptr
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
-  USE mo_var_list,           ONLY: add_var, add_ref
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
     &                              OPERATOR(+)

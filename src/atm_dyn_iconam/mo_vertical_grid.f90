@@ -70,7 +70,7 @@ MODULE mo_vertical_grid
   USE mo_dynamics_config,      ONLY: ldeepatmo
   USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
   USE mo_echam_vdf_config,     ONLY: echam_vdf_config
-  USE mo_linked_list,          ONLY: t_var_list_ptr
+  USE mo_var_list,             ONLY: t_var_list_ptr
   USE mo_nonhydro_state,       ONLY: new_zd_metrics  
   IMPLICIT NONE
 

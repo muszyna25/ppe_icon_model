@@ -24,7 +24,8 @@
 
       USE mo_cdi_constants,      ONLY: grid_unstructured_cell, grid_cell
 
-      USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string
+      USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string, &
+    &                                   t_var_list_ptr
       USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
 
       USE mo_grid_config,         ONLY: n_dom
@@ -43,8 +44,6 @@
    &                                    GRID_LONLAT, GRID_UNSTRUCTURED
 
       USE mo_cf_convention
-
-      USE mo_linked_list,            ONLY: t_var_list_ptr
 
       USE mo_io_config,           ONLY: lnetcdf_flt64_output
 

@@ -231,10 +231,9 @@ MODULE mo_async_latbc
     USE mo_nonhydro_state,            ONLY: p_nh_state, p_nh_state_lists
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
-    USE mo_linked_list,               ONLY: t_list_element
     USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
     USE mo_var_list_global,           ONLY: var_lists, new_var_list, collect_group, varlistPacker
-    USE mo_var_list,                  ONLY: get_var_name
+    USE mo_var_list,                  ONLY: get_var_name, t_list_element
     USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary

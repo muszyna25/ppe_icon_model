@@ -9,16 +9,13 @@ MODULE mo_var_list_gpu
 
   USE mo_impl_constants,      ONLY: REAL_T, SINGLE_T, INT_T, BOOL_T,           &
     &                               VARNAME_LEN
-  USE mo_linked_list,         ONLY: t_var_list, t_list_element
   USE mo_var_metadata_types,  ONLY: t_var_metadata
-  USE mo_var_list,            ONLY: get_var_list
+  USE mo_var_list,            ONLY: get_var_list, t_var_list, t_list_element
 
   IMPLICIT NONE
-
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list_gpu'
-
   PRIVATE
 
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list_gpu'
 
   PUBLIC :: gpu_h2d_var_list
   PUBLIC :: gpu_d2h_var_list

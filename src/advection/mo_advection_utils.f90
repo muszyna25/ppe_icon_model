@@ -38,8 +38,8 @@ MODULE mo_advection_utils
   USE mo_fortran_tools,         ONLY: t_ptr_2d3d
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_grib2,                 ONLY: t_grib2_var
-  USE mo_var_list,              ONLY: add_ref, find_list_element
-  USE mo_linked_list,           ONLY: t_var_list_ptr, t_list_element
+  USE mo_var_list,              ONLY: add_ref, find_list_element, &
+    &                                 t_var_list_ptr, t_list_element
   USE mo_var_metadata_types,    ONLY: t_var_metadata,                    &
     &                                 t_vert_interp_meta,                &
     &                                 t_hor_interp_meta,                 &

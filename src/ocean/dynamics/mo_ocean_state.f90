@@ -63,10 +63,9 @@ MODULE mo_ocean_state
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
-  USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string
-  USE mo_var_groups,          ONLY: groups, MAX_GROUPS 
+  USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string, t_var_list_ptr
+  USE mo_var_groups,          ONLY: groups, MAX_GROUPS
   USE mo_cf_convention
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var

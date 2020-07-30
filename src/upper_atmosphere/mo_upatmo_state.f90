@@ -30,14 +30,13 @@ MODULE mo_upatmo_state
     &                                iUpatmoTracerId, iUpatmoPrcId,               &
     &                                iUpatmoExtdatStat
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_linked_list,          ONLY: t_var_list_ptr
   USE mo_upatmo_types,         ONLY: t_upatmo_diag, t_upatmo_tend, t_upatmo
   USE mo_upatmo_config,        ONLY: t_upatmo_config
   USE mo_upatmo_phy_config,    ONLY: t_upatmo_nwp_phy, t_upatmo_phy_config
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
-  USE mo_var_list,             ONLY: add_var, add_ref
+  USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, & 
     &                                GRID_UNSTRUCTURED

@@ -96,7 +96,7 @@ MODULE mo_nh_interface_nwp
 
   USE mo_art_washout_interface,   ONLY: art_washout_interface
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
-  USE mo_linked_list,             ONLY: t_var_list_ptr
+  USE mo_var_list,                ONLY: t_var_list_ptr
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config

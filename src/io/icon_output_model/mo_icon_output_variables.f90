@@ -51,10 +51,9 @@ MODULE mo_icon_output_variables
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var,                  &
     &                               get_timelevel_string,     &
-    &                               add_ref
+    &                               add_ref, t_var_list_ptr
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention

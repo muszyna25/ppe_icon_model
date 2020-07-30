@@ -76,13 +76,12 @@ USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, iqg, lart,
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_linked_list,         ONLY: t_var_list_ptr
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
 USE turb_data,              ONLY: ltkecon
 USE mo_initicon_config,     ONLY: icpl_da_sfcevap
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
-USE mo_var_list,            ONLY: add_var, add_ref
+USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
 USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
 USE mo_var_groups,          ONLY: groups, MAX_GROUPS
 USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM

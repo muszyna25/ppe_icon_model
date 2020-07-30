@@ -23,7 +23,7 @@ MODULE mo_ext_data_types
 
   USE mo_kind,               ONLY: wp
   USE mo_fortran_tools,      ONLY: t_ptr_2d3d, t_ptr_i2d3d 
-  USE mo_linked_list,        ONLY: t_var_list_ptr
+  USE mo_var_list,           ONLY: t_var_list_ptr
   USE mo_idx_list,           ONLY: t_idx_list_blocked
 
   IMPLICIT NONE

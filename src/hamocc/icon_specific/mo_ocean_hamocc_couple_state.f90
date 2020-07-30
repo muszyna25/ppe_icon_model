@@ -27,11 +27,10 @@ MODULE mo_ocean_hamocc_couple_state
     &  TracerHorizontalDiffusion_scaling
   USE mo_impl_constants,      ONLY: success, max_char_length, TLEV_NNEW
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_linked_list,         ONLY: t_var_list_ptr
-  USE mo_var_groups,          ONLY: groups
+  USE mo_var_groups,          ONLY: groups 
   USE mo_var_list,            ONLY: add_var,                  &
     &                               get_timelevel_string,     &
-    &                               add_ref
+    &                               add_ref, t_var_list_ptr
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &

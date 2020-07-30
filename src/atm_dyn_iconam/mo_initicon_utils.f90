@@ -64,8 +64,7 @@ MODULE mo_initicon_utils
   USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
-  USE mo_linked_list,         ONLY: t_list_element
-  USE mo_var_list,            ONLY: get_var_name
+  USE mo_var_list,            ONLY: get_var_name, t_list_element
   USE mo_var_list_global,     ONLY: var_lists
   USE mo_var_list_element,    ONLY: level_type_ml
   USE sfc_flake,              ONLY: flake_coldinit

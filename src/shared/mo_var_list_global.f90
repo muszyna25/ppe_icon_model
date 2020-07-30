@@ -11,9 +11,8 @@ MODULE mo_var_list_global
   USE mo_var_metadata_types,ONLY: t_var_metadata, VINTP_TYPE_LIST, &
     & var_metadata_fromBinary, var_metadata_toBinary
   USE mo_var_list_element, ONLY: level_type_ml
-  USE mo_var_list,         ONLY: find_list_element, print_var_list, get_var_name
-  USE mo_linked_list,      ONLY: t_var_list_ptr, t_list_element,        &
-       &                         delete_list, append_list_element
+  USE mo_var_list,         ONLY: find_list_element, print_var_list, delete_list, &
+    & get_var_name, t_var_list_ptr, t_list_element, append_list_element
   USE mo_exception,        ONLY: message, finish
   USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
     &                            tolower, difference, find_trailing_number

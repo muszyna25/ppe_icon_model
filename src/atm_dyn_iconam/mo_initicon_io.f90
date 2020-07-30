@@ -73,10 +73,9 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
-  USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list_element,    ONLY: t_var_list_element, level_type_ml
   USE mo_var_list_global,     ONLY: var_lists
-  USE mo_var_list,            ONLY: get_var_name
+  USE mo_var_list,            ONLY: get_var_name, t_list_element
   USE mo_var_groups,          ONLY: var_groups_dyn
 
   ! High level overview of how `mo_initicon` reads input data

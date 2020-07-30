@@ -31,12 +31,10 @@ MODULE mo_nwp_lnd_types
 
   USE mo_kind,                 ONLY: wp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d
-  USE mo_linked_list,          ONLY: t_var_list_ptr
-
+  USE mo_var_list,             ONLY: t_var_list_ptr
 
   IMPLICIT NONE
   PRIVATE
-
 
   !
   !variables
@@ -44,7 +42,6 @@ MODULE mo_nwp_lnd_types
   PUBLIC :: t_lnd_prog   !!  for prognostic variables
   PUBLIC :: t_wtr_prog   !!  for prognostic variables related to lake and sea ice models
   PUBLIC :: t_lnd_diag   !!  for diagnostic variables
-
 
   !
   ! prognostic variables state vector (land)

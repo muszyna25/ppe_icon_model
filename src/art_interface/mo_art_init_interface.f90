@@ -30,7 +30,7 @@ MODULE mo_art_init_interface
   USE mo_grid_config,                   ONLY: start_time
   USE mo_master_config,                 ONLY: isRestart
   USE mo_key_value_store,               ONLY: t_key_value_store
-  USE mo_linked_list,                   ONLY: t_var_list_ptr
+  USE mo_var_list,                      ONLY: t_var_list_ptr
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_state
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag

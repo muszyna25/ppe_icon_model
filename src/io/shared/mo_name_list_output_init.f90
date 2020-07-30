@@ -111,10 +111,9 @@ MODULE mo_name_list_output_init
   ! variable lists
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
-  USE mo_linked_list,                       ONLY: t_list_element
   USE mo_var_list_global,                   ONLY: collect_group, new_var_list, varlistPacker,     &
     &                                             total_number_of_variables, var_lists
-  USE mo_var_list,                          ONLY: get_var_timelevel, get_var_name
+  USE mo_var_list,                          ONLY: get_var_timelevel, get_var_name, t_list_element
   USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
     &                                             level_type_il

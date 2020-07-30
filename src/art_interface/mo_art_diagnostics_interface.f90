@@ -25,7 +25,7 @@ MODULE mo_art_diagnostics_interface
 
 ! ICON
   USE mo_kind,                          ONLY: wp
-  USE mo_linked_list,                   ONLY: t_var_list_ptr
+  USE mo_var_list,                      ONLY: t_var_list_ptr
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_diagInt

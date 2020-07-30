@@ -34,11 +34,9 @@ MODULE mo_radar_data_state
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_io, p_bcast, &
     &                              p_comm_work
-  USE mo_linked_list,        ONLY: t_var_list_ptr
-
   USE mo_radar_data_types,   ONLY: t_radar_fields,t_radar_td_fields, t_radar_ct_fields, t_lhn_diag
 
-  USE mo_var_list,           ONLY: add_var
+  USE mo_var_list,           ONLY: add_var, t_var_list_ptr
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var

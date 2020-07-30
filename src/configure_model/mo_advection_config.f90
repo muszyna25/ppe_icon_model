@@ -31,8 +31,8 @@ MODULE mo_advection_config
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_run_config,            ONLY: msg_level
   USE mo_expression,            ONLY: expression, parse_expression_string
-  USE mo_linked_list,           ONLY: t_var_list_ptr, t_list_element
-  USE mo_var_list,              ONLY: get_timelevel_string, find_list_element
+  USE mo_var_list,              ONLY: t_var_list_ptr, t_list_element, &
+    &                                 get_timelevel_string, find_list_element
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
   USE mo_util_table,            ONLY: t_table, initialize_table, add_table_column, &

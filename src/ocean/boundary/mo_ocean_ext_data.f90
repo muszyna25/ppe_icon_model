@@ -58,10 +58,9 @@ MODULE mo_ocean_ext_data
     &                              p_comm_work_test, p_comm_work
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_linked_list,        ONLY: t_var_list_ptr
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
-  USE mo_var_list,           ONLY: add_var, add_ref
+  USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var

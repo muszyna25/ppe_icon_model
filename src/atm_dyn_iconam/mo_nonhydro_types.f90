@@ -26,13 +26,10 @@ MODULE mo_nonhydro_types
 
   USE mo_kind,                 ONLY: wp, vp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
-  USE mo_linked_list,          ONLY: t_var_list_ptr
-
+  USE mo_var_list,             ONLY: t_var_list_ptr
 
   IMPLICIT NONE
-
   PRIVATE
-
 
   PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
   PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)

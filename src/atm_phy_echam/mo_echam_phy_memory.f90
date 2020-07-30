@@ -53,8 +53,7 @@ MODULE mo_echam_phy_memory
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, csfc
   USE mo_model_domain,        ONLY: t_patch
 
-  USE mo_linked_list,         ONLY: t_var_list_ptr
-  USE mo_var_list,            ONLY: add_var, add_ref
+  USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_action,              ONLY: ACTION_RESET, new_action, actions

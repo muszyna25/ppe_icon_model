@@ -42,7 +42,7 @@ MODULE mo_art_emission_interface
   USE mo_impl_constants,                ONLY: SUCCESS
   USE mo_lnd_nwp_config,                ONLY: dzsoil
   USE mo_exception,                     ONLY: finish, message
-  USE mo_linked_list,                   ONLY: t_var_list_ptr
+  USE mo_var_list,                      ONLY: t_var_list_ptr
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
