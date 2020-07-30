@@ -76,7 +76,7 @@ USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, iqg, lart,
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
-USE mo_linked_list,         ONLY: t_var_list
+USE mo_linked_list,         ONLY: t_var_list_ptr
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
 USE turb_data,              ONLY: ltkecon
 USE mo_initicon_config,     ONLY: icpl_da_sfcevap
@@ -150,8 +150,8 @@ PUBLIC :: prm_nwp_tend_list  !< variable lists
 !!--------------------------------------------------------------------------
 !!                          VARIABLE LISTS
 !!--------------------------------------------------------------------------
-  TYPE(t_var_list),ALLOCATABLE :: prm_nwp_diag_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),ALLOCATABLE :: prm_nwp_tend_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_nwp_diag_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_nwp_tend_list(:)  !< shape: (n_dom)
 
 !!-------------------------------------------------------------------------
 !! Parameters of various physics parameterizations that have to be 
@@ -284,7 +284,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CHARACTER(LEN=1)                :: csfc
     CHARACTER(LEN=2)                :: caer
 
-    TYPE(t_var_list)    ,INTENT(INOUT) :: diag_list
+    TYPE(t_var_list_ptr)    ,INTENT(INOUT) :: diag_list
     TYPE(t_nwp_phy_diag),INTENT(INOUT) :: diag
     TYPE(t_var_in_output), INTENT(IN)  :: var_in_output
 
@@ -4054,7 +4054,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list)    ,INTENT(INOUT) :: phy_tend_list
+    TYPE(t_var_list_ptr)    ,INTENT(INOUT) :: phy_tend_list
     TYPE(t_nwp_phy_tend),INTENT(INOUT) :: phy_tend
 
     ! Local variables

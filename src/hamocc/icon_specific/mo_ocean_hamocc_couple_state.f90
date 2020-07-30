@@ -27,7 +27,7 @@ MODULE mo_ocean_hamocc_couple_state
     &  TracerHorizontalDiffusion_scaling
   USE mo_impl_constants,      ONLY: success, max_char_length, TLEV_NNEW
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_groups,          ONLY: groups
   USE mo_var_list,            ONLY: add_var,                  &
     &                               get_timelevel_string,     &
@@ -99,7 +99,7 @@ MODULE mo_ocean_hamocc_couple_state
   !----------------------------------------------
   
   TYPE(t_hamocc_ocean_state), TARGET :: hamocc_ocean_state
-  TYPE(t_var_list)           :: hamocc_ocean_state_list
+  TYPE(t_var_list_ptr)           :: hamocc_ocean_state_list
   TYPE(t_ocean_transport_state), TARGET :: ocean_transport_state
   !-------------------------------------------------------------------------
 

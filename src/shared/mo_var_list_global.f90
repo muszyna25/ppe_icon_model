@@ -12,7 +12,7 @@ MODULE mo_var_list_global
     & var_metadata_fromBinary, var_metadata_toBinary
   USE mo_var_list_element, ONLY: level_type_ml
   USE mo_var_list,         ONLY: find_list_element, print_var_list, get_var_name
-  USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
+  USE mo_linked_list,      ONLY: t_var_list_ptr, t_list_element,        &
        &                         delete_list, append_list_element
   USE mo_exception,        ONLY: message, finish
   USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
@@ -45,7 +45,7 @@ MODULE mo_var_list_global
   PUBLIC :: print_group_details
   PUBLIC :: add_var_list_reference
 
-  TYPE(t_var_list), ALLOCATABLE, TARGET :: var_lists(:)  ! memory buffer array
+  TYPE(t_var_list_ptr), ALLOCATABLE, TARGET :: var_lists(:)  ! memory buffer array
   TYPE(t_key_value_store) :: var_lists_map
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list'
 
@@ -59,7 +59,7 @@ CONTAINS
        &                   post_suf, rest_suf, init_suf, loutput, lrestart, &
        &                   linitial, patch_id, vlevel_type, model_type,     &
        &                   filename, compression_type)
-    TYPE(t_var_list), INTENT(OUT)        :: this_list    ! anchor
+    TYPE(t_var_list_ptr), INTENT(OUT)        :: this_list    ! anchor
     CHARACTER(len=*), INTENT(IN)           :: vlname         ! name of output var_list
     INTEGER,          INTENT(IN), OPTIONAL :: output_type, restart_type   ! 'GRIB' or 'NetCDF'
     CHARACTER(len=*), INTENT(IN), OPTIONAL :: post_suf, rest_suf, init_suf ! suffix of output/restart/initial file
@@ -69,7 +69,7 @@ CONTAINS
     CHARACTER(*),     INTENT(IN), OPTIONAL :: model_type, filename
     INTEGER,          INTENT(IN), OPTIONAL :: compression_type
     INTEGER :: i, ierr
-    TYPE(t_var_list), ALLOCATABLE :: tmp(:)
+    TYPE(t_var_list_ptr), ALLOCATABLE :: tmp(:)
 
     CALL message('','')
     CALL message('','adding new var_list '//TRIM(vlname))
@@ -116,7 +116,7 @@ CONTAINS
   ! Get a reference to a memory buffer/output var_list
   !
   SUBROUTINE get_var_list (this_list, vlname)
-    TYPE(t_var_list), POINTER, INTENT(OUT) :: this_list ! pointer
+    TYPE(t_var_list_ptr), POINTER, INTENT(OUT) :: this_list ! pointer
     CHARACTER(len=*), INTENT(IN) :: vlname      ! name of output var_list
     INTEGER :: i, ierr
 
@@ -154,7 +154,7 @@ CONTAINS
   ! Delete an output var_list, nullify the associated pointer
   !
   SUBROUTINE delete_var_list(this_list)
-    TYPE(t_var_list), INTENT(INOUT) :: this_list
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     !
     IF (ASSOCIATED(this_list%p)) THEN
       CALL var_lists_map%remove(TRIM(this_list%p%name))
@@ -183,7 +183,7 @@ CONTAINS
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   !
   SUBROUTINE add_var_list_reference (to_var_list, vname, from_var_list, loutput, bit_precision, in_group)
-    TYPE(t_var_list), INTENT(inout)          :: to_var_list
+    TYPE(t_var_list_ptr), INTENT(inout)          :: to_var_list
     CHARACTER(len=*), INTENT(in)             :: vname, from_var_list
     LOGICAL,          INTENT(in),   OPTIONAL :: loutput, in_group(MAX_GROUPS)
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
@@ -309,7 +309,7 @@ CONTAINS
     CHARACTER(len=*),   INTENT(in) :: vname
     INTEGER, OPTIONAL              :: opt_patch_id, opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive
-    TYPE(t_var_list), POINTER, OPTIONAL :: opt_returnList
+    TYPE(t_var_list_ptr), POINTER, OPTIONAL :: opt_returnList
     TYPE(t_list_element), POINTER :: element
     INTEGER :: i, patch_id
 
@@ -343,7 +343,7 @@ CONTAINS
     INTEGER :: iv, nv, nelems, nelems_all, patch_id, restart_type, vlevel_type, n, ierrstat
     INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_list_element), POINTER   :: element, newElement
-    TYPE(t_var_list)                :: p_var_list
+    TYPE(t_var_list_ptr)                :: p_var_list
     CHARACTER(LEN=128)              :: var_list_name
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart

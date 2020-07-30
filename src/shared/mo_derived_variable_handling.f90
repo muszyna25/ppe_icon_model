@@ -29,7 +29,7 @@ MODULE mo_derived_variable_handling
   USE mo_var_list, ONLY: get_var_name, add_var, get_varname_with_timelevel
   USE mo_var_list_global, ONLY: find_element => find_var_global, new_var_list, &
     & total_number_of_variables, delete_var_list, print_all_var_lists
-  USE mo_linked_list, ONLY: t_var_list, t_list_element
+  USE mo_linked_list, ONLY: t_var_list_ptr, t_list_element
   USE mo_exception, ONLY: finish, message, message_text
   USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&
     & newDatetime, datetime, eventToString, divideDatetimeDifferenceInSeconds, &
@@ -304,7 +304,7 @@ CONTAINS
     CHARACTER(LEN=vname_len), INTENT(IN) :: varlist_element
     CHARACTER(LEN=vname_len) :: dest_element_name
     INTEGER, INTENT(IN) :: dom
-    TYPE(t_var_list), POINTER :: src_list
+    TYPE(t_var_list_ptr), POINTER :: src_list
     TYPE(vector) :: prognosticsList
     TYPE(map)    :: prognosticsPointerList
 
@@ -436,7 +436,7 @@ CONTAINS
   !! lrestart = .true.
   !!
   FUNCTION copy_var_to_list(list,name,source_element,patch_2d) RESULT(dest_element)
-    TYPE(t_var_list) :: list
+    TYPE(t_var_list_ptr) :: list
     CHARACTER(LEN=vname_len) :: name
     TYPE(t_list_element),POINTER :: source_element
     TYPE(t_patch),TARGET, INTENT(in)    :: patch_2d
@@ -546,7 +546,7 @@ CONTAINS
     CHARACTER(LEN=vname_len), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=vname_len) :: dest_element_name
     LOGICAL :: foundPrognostic
-    TYPE(t_var_list), POINTER :: src_list
+    TYPE(t_var_list_ptr), POINTER :: src_list
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mvstream"
 
 #ifdef DEBUG_MVSTREAM

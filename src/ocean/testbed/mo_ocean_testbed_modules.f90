@@ -73,7 +73,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_hydro_ocean_run
   USE mo_var_list_global,        ONLY: new_var_list, delete_var_list
   USE mo_var_list,               ONLY: print_var_list, add_var
-  USE mo_linked_list
+  USE mo_linked_list,            ONLY: t_var_list_ptr
   USE mo_cdi
   use mo_cdi_constants
   use mo_zaxis_type
@@ -1633,7 +1633,7 @@ CONTAINS
   SUBROUTINE checkVarlistKeys(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
     
-    TYPE(t_var_list)     :: varnameCheckList
+    TYPE(t_var_list_ptr)     :: varnameCheckList
     integer :: alloc_cell_blocks
 
     REAL(wp), POINTER :: var0(:,:,:)

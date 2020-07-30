@@ -1189,7 +1189,7 @@ MODULE mo_jsb_varlist_iface
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_impl_constants,     ONLY: VARNAME_LEN => vname_len
-  USE mo_linked_list,        ONLY: t_var_list, t_list_element
+  USE mo_linked_list,        ONLY: t_var_list_ptr, t_list_element, t_var_list => t_var_list_ptr
 
   USE mo_jsb_io_iface, ONLY: t_cf_var, t_grib2_var
 
@@ -1209,7 +1209,7 @@ CONTAINS
        &                       post_suf, rest_suf, init_suf, loutput, lrestart,  &
        &                       linitial, table)
     !
-    TYPE(t_var_list), POINTER, INTENT(inout) :: this_list    ! anchor
+    TYPE(t_var_list_ptr), POINTER, INTENT(inout) :: this_list    ! anchor
     CHARACTER(len=*), INTENT(in)             :: name         ! name of output var_list
     INTEGER,          INTENT(in)             :: patch_id     ! patch ID
     INTEGER,          INTENT(in), OPTIONAL   :: output_type  ! 'GRIB1', 'GRIB2' or 'NetCDF[12]'
@@ -1259,7 +1259,7 @@ CONTAINS
     in_groups, verbose, new_element                                                     &
     )
 
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
+    TYPE(t_var_list_ptr),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
     REAL(wp),             POINTER              :: ptr(:,:)            ! reference to field
     INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type
@@ -1334,7 +1334,7 @@ CONTAINS
     in_groups, verbose, new_element                                                     &
     )
 
-    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
+    TYPE(t_var_list_ptr),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
     REAL(wp),             POINTER              :: ptr(:,:,:)          ! reference to field
     INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type

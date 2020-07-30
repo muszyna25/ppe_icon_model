@@ -64,7 +64,7 @@ MODULE mo_nwp_lnd_state
     &                                itype_snowevap, groups_smi, zml_soil
   USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval
   USE mo_gribout_config,       ONLY: gribout_config
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_linked_list,          ONLY: t_var_list_ptr
   USE mo_var_list,             ONLY: add_var, add_ref, get_timelevel_string
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
   USE mo_var_groups,           ONLY: groups
@@ -345,7 +345,7 @@ MODULE mo_nwp_lnd_state
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(LEN=2)            :: csfc
 
-    TYPE(t_var_list),INTENT(INOUT) :: prog_list
+    TYPE(t_var_list_ptr),INTENT(INOUT) :: prog_list
     TYPE(t_lnd_prog),INTENT(INOUT) :: p_prog_lnd
 
     INTEGER, INTENT(IN) :: timelev
@@ -976,7 +976,7 @@ MODULE mo_nwp_lnd_state
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
 
-    TYPE(t_var_list),INTENT(INOUT) :: prog_list
+    TYPE(t_var_list_ptr),INTENT(INOUT) :: prog_list
     TYPE(t_wtr_prog),INTENT(INOUT) :: p_prog_wtr
 
     INTEGER, INTENT(IN) :: timelev
@@ -1233,7 +1233,7 @@ MODULE mo_nwp_lnd_state
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(LEN=2)            :: csfc
 
-    TYPE(t_var_list),INTENT(INOUT) :: diag_list
+    TYPE(t_var_list_ptr),INTENT(INOUT) :: diag_list
     TYPE(t_lnd_diag),INTENT(INOUT) :: p_diag_lnd
     LOGICAL,         INTENT(IN)    :: l_smi   !< Flag. TRUE if computation 
                                               !< of soil moisture index desired

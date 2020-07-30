@@ -23,7 +23,7 @@ MODULE mo_restart_var_data
   USE mo_io_units,           ONLY: nerr
 #endif
   USE mo_kind,               ONLY: dp, sp
-  USE mo_linked_list,        ONLY: t_list_element, t_var_list
+  USE mo_linked_list,        ONLY: t_list_element, t_var_list_ptr
   USE mo_util_string,        ONLY: int2string
   USE mo_var_list_global,    ONLY: var_lists
   USE mo_var_list,           ONLY: get_var_timelevel
@@ -114,7 +114,7 @@ CONTAINS
     END FUNCTION countRestartVariables
 
     LOGICAL FUNCTION wantVarlist(varlist)
-      TYPE(t_var_list), INTENT(IN) :: varlist
+      TYPE(t_var_list_ptr), INTENT(IN) :: varlist
   
       wantVarlist = varlist%p%lrestart &
         .AND. varlist%p%patch_id == patch_id &

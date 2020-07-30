@@ -34,7 +34,7 @@ MODULE mo_radar_data_state
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_mpi_workroot, p_io, p_bcast, &
     &                              p_comm_work
-  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_linked_list,        ONLY: t_var_list_ptr
 
   USE mo_radar_data_types,   ONLY: t_radar_fields,t_radar_td_fields, t_radar_ct_fields, t_lhn_diag
 
@@ -259,7 +259,7 @@ CONTAINS
     TYPE(t_radar_ct_fields), INTENT(INOUT) :: & !< current radar data structure
       &  p_radar_ct 
 
-    TYPE(t_var_list) :: p_radar_ct_list !< current radar data list
+    TYPE(t_var_list_ptr) :: p_radar_ct_list !< current radar data list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
@@ -333,7 +333,7 @@ CONTAINS
     TYPE(t_radar_td_fields), INTENT(INOUT) :: & !< current radar data structure
       &  p_radar_td 
 
-    TYPE(t_var_list) :: p_radar_td_list  !< current radar data list
+    TYPE(t_var_list_ptr) :: p_radar_td_list  !< current radar data list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname

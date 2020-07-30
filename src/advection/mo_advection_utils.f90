@@ -39,7 +39,7 @@ MODULE mo_advection_utils
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_var_list,              ONLY: add_ref, find_list_element
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element
+  USE mo_linked_list,           ONLY: t_var_list_ptr, t_list_element
   USE mo_var_metadata_types,    ONLY: t_var_metadata,                    &
     &                                 t_vert_interp_meta,                &
     &                                 t_hor_interp_meta,                 &
@@ -161,7 +161,7 @@ CONTAINS
     &        isteptype, tlev_source, vert_interp, hor_interp, in_group, post_op,   &
     &        tracer_info)
 
-    TYPE(t_var_list)    , INTENT(inout)        :: this_list
+    TYPE(t_var_list_ptr)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
     CHARACTER(len=*)    , INTENT(in)           :: tracer_name
     INTEGER             , INTENT(inout)        :: tracer_idx       ! index in 4D tracer container

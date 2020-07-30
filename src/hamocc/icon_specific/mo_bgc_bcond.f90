@@ -28,7 +28,7 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_linked_list,        ONLY: t_var_list_ptr
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
   USE mo_var_list,           ONLY: add_var
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
@@ -130,7 +130,7 @@ CONTAINS
     TYPE(t_hamocc_bcond), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_data_bgc 
 
-    TYPE(t_var_list) :: p_ext_bgc_list !< current external data list
+    TYPE(t_var_list_ptr) :: p_ext_bgc_list !< current external data list
 
     CHARACTER(len=*), INTENT(IN)  :: & !< list name
       &  listname

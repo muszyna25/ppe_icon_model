@@ -20,12 +20,12 @@ MODULE mo_linked_list
   IMPLICIT NONE
   PRIVATE
   !
-  PUBLIC :: t_var_list          ! anchor for a whole list
+  PUBLIC :: t_var_list_ptr          ! anchor for a whole list
   PUBLIC :: t_list_element
   PUBLIC :: delete_list         ! clean up the list
   PUBLIC :: append_list_element ! add an element to the list
 #ifdef HAVE_F95
-  PUBLIC :: t_var_list_intrinsic
+  PUBLIC :: t_var_list
 #endif
 
   !
@@ -36,7 +36,7 @@ MODULE mo_linked_list
     TYPE(t_list_element), POINTER :: next_list_element => NULL()
   END TYPE t_list_element
   !
-  TYPE t_var_list_intrinsic
+  TYPE t_var_list
     INTEGER                       :: key = 0            ! hash value of name   
     CHARACTER(len=128)            :: name = ''          ! stream name
     TYPE(t_list_element), POINTER :: first_list_element => NULL() ! reference to first
@@ -62,18 +62,18 @@ MODULE mo_linked_list
     ! Metadata for missing value masking
     LOGICAL                    :: lmiss = .FALSE.         ! flag: true, if variables should be initialized with missval
     LOGICAL                    :: lmask_boundary =.FALSE. ! flag: true, if interpolation zone should be masked *in output*
-  END TYPE t_var_list_intrinsic
+  END TYPE t_var_list
   !
-  TYPE t_var_list
-    TYPE(t_var_list_intrinsic), POINTER :: p => NULL()
-  END type t_var_list
+  TYPE t_var_list_ptr
+    TYPE(t_var_list), POINTER :: p => NULL()
+  END type t_var_list_ptr
   !
 CONTAINS
   !-----------------------------------------------------------------------------
   ! remove all elements of a linked list
   ! check if all elements are removed
   SUBROUTINE delete_list(this_list)
-    TYPE(t_var_list), INTENT(INOUT) :: this_list
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     TYPE(t_list_element), POINTER   :: this, next
 
     next => this_list%p%first_list_element
@@ -104,7 +104,7 @@ CONTAINS
   !-----------------------------------------------------------------------------
   ! add a list element to the linked list
   SUBROUTINE append_list_element(this_list, new_element)
-    TYPE(t_var_list),     INTENT(INOUT) :: this_list
+    TYPE(t_var_list_ptr),     INTENT(INOUT) :: this_list
     TYPE(t_list_element), POINTER, INTENT(OUT) :: new_element
     TYPE(t_list_element), POINTER :: cur_element
 

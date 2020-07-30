@@ -31,7 +31,7 @@ MODULE mo_nwp_lnd_types
 
   USE mo_kind,                 ONLY: wp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_linked_list,          ONLY: t_var_list_ptr
 
 
   IMPLICIT NONE
@@ -203,10 +203,10 @@ MODULE mo_nwp_lnd_types
   TYPE t_lnd_state
     TYPE(t_lnd_prog), ALLOCATABLE  :: prog_lnd(:)          ! number of time levels
     TYPE(t_wtr_prog), ALLOCATABLE  :: prog_wtr(:)          ! number of time levels
-    TYPE(t_var_list), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
-    TYPE(t_var_list), ALLOCATABLE  :: wtr_prog_nwp_list(:) ! number of time levels
+    TYPE(t_var_list_ptr), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
+    TYPE(t_var_list_ptr), ALLOCATABLE  :: wtr_prog_nwp_list(:) ! number of time levels
     TYPE(t_lnd_diag)               :: diag_lnd
-    TYPE(t_var_list)               :: lnd_diag_nwp_list
+    TYPE(t_var_list_ptr)               :: lnd_diag_nwp_list
   END TYPE t_lnd_state
  
 

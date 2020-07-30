@@ -30,7 +30,7 @@ MODULE mo_upatmo_state
     &                                iUpatmoTracerId, iUpatmoPrcId,               &
     &                                iUpatmoExtdatStat
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_linked_list,          ONLY: t_var_list_ptr
   USE mo_upatmo_types,         ONLY: t_upatmo_diag, t_upatmo_tend, t_upatmo
   USE mo_upatmo_config,        ONLY: t_upatmo_config
   USE mo_upatmo_phy_config,    ONLY: t_upatmo_nwp_phy, t_upatmo_phy_config
@@ -59,9 +59,9 @@ MODULE mo_upatmo_state
 
   TYPE(t_upatmo),   ALLOCATABLE, TARGET :: prm_upatmo(:)           ! Shape: (n_dom)
 
-  TYPE(t_var_list), ALLOCATABLE         :: prm_upatmo_diag_list(:) ! Shape: (n_dom)
+  TYPE(t_var_list_ptr), ALLOCATABLE         :: prm_upatmo_diag_list(:) ! Shape: (n_dom)
 
-  TYPE(t_var_list), ALLOCATABLE         :: prm_upatmo_tend_list(:) ! Shape: (n_dom)
+  TYPE(t_var_list_ptr), ALLOCATABLE         :: prm_upatmo_tend_list(:) ! Shape: (n_dom)
 
   ! Please note that we cannot use 'mo_impl_constants: TIMELEVEL_SUFFIX' 
   ! for the different time levels of the total tendencies, 
@@ -383,7 +383,7 @@ CONTAINS
     CHARACTER(LEN=*),       INTENT(IN)    :: listname
     CHARACTER(LEN=*),       INTENT(IN)    :: vname_prefix
     TYPE(t_upatmo_nwp_phy), INTENT(IN)    :: upatmo_nwp_phy_config
-    TYPE(t_var_list),       INTENT(INOUT) :: diag_list
+    TYPE(t_var_list_ptr),       INTENT(INOUT) :: diag_list
     TYPE(t_upatmo_diag),    INTENT(INOUT) :: diag
 
     ! Local variables 
@@ -614,7 +614,7 @@ CONTAINS
     CHARACTER(LEN=*),       INTENT(IN)    :: listname
     CHARACTER(LEN=*),       INTENT(IN)    :: vname_prefix
     TYPE(t_upatmo_nwp_phy), INTENT(IN)    :: upatmo_nwp_phy_config
-    TYPE(t_var_list),       INTENT(INOUT) :: tend_list
+    TYPE(t_var_list_ptr),       INTENT(INOUT) :: tend_list
     TYPE(t_upatmo_tend),    INTENT(INOUT) :: tend
     LOGICAL,                INTENT(IN)    :: lmessage
     TARGET :: upatmo_nwp_phy_config

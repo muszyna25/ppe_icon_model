@@ -30,7 +30,7 @@ MODULE mo_art_init_interface
   USE mo_grid_config,                   ONLY: start_time
   USE mo_master_config,                 ONLY: isRestart
   USE mo_key_value_store,               ONLY: t_key_value_store
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_linked_list,                   ONLY: t_var_list_ptr
   USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_state
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
@@ -383,7 +383,7 @@ SUBROUTINE art_init_one_dom(jg, p_prog_list, tracer, nest_level)
   IMPLICIT NONE
   INTEGER, INTENT(in) ::  &
     &  jg                   !< patch id
-  TYPE(t_var_list), INTENT(in) :: &
+  TYPE(t_var_list_ptr), INTENT(in) :: &
     &  p_prog_list          !< list of prognostic variables
   REAL(wp), POINTER :: &
     &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
@@ -433,7 +433,7 @@ SUBROUTINE art_init_atmo_tracers_nwp(jg, mtime_current, p_nh_state, ext_data, &
     &  p_prog               !< prognostic variables of ICON
   REAL(wp), POINTER :: &
     &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
-  TYPE(t_var_list), INTENT(in) :: &
+  TYPE(t_var_list_ptr), INTENT(in) :: &
     &  p_prog_list          !< list of prognostic variables
   INTEGER, INTENT(in) :: &
     &  nest_level           !< beginning with zero in global domain
@@ -468,7 +468,7 @@ SUBROUTINE art_init_atmo_tracers_echam(jg, mtime_current, p_nh_state, &
     &  p_prog               !< prognostic variables of ICON
   REAL(wp), POINTER  :: &
     &  tracer(:,:,:,:)      !< tracer values (ICON kg/kg, Aerosols ??, chemistry  mol/mol)
-  TYPE(t_var_list), INTENT(in) :: &
+  TYPE(t_var_list_ptr), INTENT(in) :: &
     &  p_prog_list          !< list of prognostic variables
   INTEGER, INTENT(in) :: &
     &  nest_level           !< beginning with zero in global domain

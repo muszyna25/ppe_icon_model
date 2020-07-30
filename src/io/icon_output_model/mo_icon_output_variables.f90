@@ -51,7 +51,7 @@ MODULE mo_icon_output_variables
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var,                  &
     &                               get_timelevel_string,     &
     &                               add_ref
@@ -94,7 +94,7 @@ MODULE mo_icon_output_variables
 
   ! variables
   TYPE(t_patch_3d), POINTER :: patch_3d => NULL()
-  TYPE(t_var_list)  :: output_default_list
+  TYPE(t_var_list_ptr)  :: output_default_list
   TYPE(t_output_collection) :: myOutputCollection
 
 CONTAINS

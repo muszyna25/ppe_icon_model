@@ -73,7 +73,7 @@ MODULE mo_ocean_diagnostics
   USE mo_exception,          ONLY: message, finish, message_text, warning
   USE mo_sea_ice_types,      ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_ocean_surface_types,ONLY: t_ocean_surface
-  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_linked_list,        ONLY: t_var_list_ptr
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
   USE mo_io_units,           ONLY: find_next_free_unit
@@ -81,7 +81,6 @@ MODULE mo_ocean_diagnostics
   USE mo_statistics,         ONLY: subset_sum, levels_horizontal_mean, total_mean, gather_sums, &
     & verticallyIntegrated_field
   USE mo_fortran_tools,      ONLY: assign_if_present
-  USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: add_var, add_ref
   USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
   USE mo_var_groups,         ONLY: groups
@@ -137,7 +136,7 @@ MODULE mo_ocean_diagnostics
   PRIVATE                           :: ocean_region_areas
 
 
-  TYPE(t_var_list) :: horizontal_velocity_diagnostics
+  TYPE(t_var_list_ptr) :: horizontal_velocity_diagnostics
   ! addtional diagnostics
   REAL(wp), POINTER :: veloc_adv_horz_u(:,:,:),  veloc_adv_horz_v(:,:,:), &
     & laplacian_horz_u(:,:,:), laplacian_horz_v(:,:,:), vn_u(:,:,:), vn_v(:,:,:), &

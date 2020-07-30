@@ -46,7 +46,7 @@ MODULE mo_ice_init_thermo
   USE mo_ocean_state,         ONLY: v_base, ocean_restart_list, ocean_default_list
   USE mo_var_list,            ONLY: add_var
   USE mo_var_groups,          ONLY: groups
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
@@ -451,7 +451,7 @@ CONTAINS
   SUBROUTINE construct_sea_ice_budgets(patch_3d,budgets, varlist)
     TYPE(t_patch_3d) :: patch_3d
     TYPE(t_sea_ice_budgets) :: budgets
-    TYPE(t_var_list)        :: varlist
+    TYPE(t_var_list_ptr)        :: varlist
 
     INTEGER :: alloc_cell_blocks
     TYPE(t_patch), POINTER :: patch

@@ -58,7 +58,7 @@ MODULE mo_ocean_ext_data
     &                              p_comm_work_test, p_comm_work
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_linked_list,        ONLY: t_var_list_ptr
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
   USE mo_var_list,           ONLY: add_var, add_ref
@@ -189,7 +189,7 @@ CONTAINS
     TYPE(t_external_ocean), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_oce 
 
-    TYPE(t_var_list) :: p_ext_oce_list !< current external data list
+    TYPE(t_var_list_ptr) :: p_ext_oce_list !< current external data list
 
     CHARACTER(len=*), INTENT(IN)  :: & !< list name
       &  listname

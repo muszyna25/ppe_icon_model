@@ -42,7 +42,7 @@ MODULE mo_art_emission_interface
   USE mo_impl_constants,                ONLY: SUCCESS
   USE mo_lnd_nwp_config,                ONLY: dzsoil
   USE mo_exception,                     ONLY: finish, message
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_linked_list,                   ONLY: t_var_list_ptr
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
@@ -110,7 +110,7 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
   !! Modification by Kristina Lundgren, KIT (2012-01-30)
   !! Rewritten by Daniel Rieger, KIT (2013-09-30)
-  TYPE(t_var_list), INTENT(inout) :: &
+  TYPE(t_var_list_ptr), INTENT(inout) :: &
     &  p_prog_list             !< list of prognostic variables
   TYPE(t_external_data), INTENT(in) ::  &
     &  ext_data                !< Atmosphere external data

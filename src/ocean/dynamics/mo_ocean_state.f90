@@ -63,7 +63,7 @@ MODULE mo_ocean_state
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string
   USE mo_var_groups,          ONLY: groups, MAX_GROUPS 
@@ -118,8 +118,8 @@ MODULE mo_ocean_state
   !----------------------------------------------------------------------------
 
   ! variables
-  TYPE(t_var_list)                              :: ocean_restart_list
-  TYPE(t_var_list)                              :: ocean_default_list
+  TYPE(t_var_list_ptr)                              :: ocean_restart_list
+  TYPE(t_var_list_ptr)                              :: ocean_default_list
   TYPE(t_hydro_ocean_base) ,TARGET :: v_base
   TYPE(t_oce_config)                            :: oce_config
   INTEGER, PARAMETER :: max_oce_tracer = 50

@@ -197,7 +197,7 @@ MODULE mo_pp_scheduler
   USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
     &                                   GRID_UNSTRUCTURED,TSTEP_INSTANT, TSTEP_CONSTANT
   USE mo_zaxis_type,              ONLY: ZA_ALTITUDE, ZA_PRESSURE, ZA_ISENTROPIC, zaxisTypeList
-  USE mo_linked_list,             ONLY: t_var_list, t_list_element
+  USE mo_linked_list,             ONLY: t_var_list_ptr, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
     &                                   pp_task_intp_msl, pp_task_edge2cell,                & 
@@ -330,7 +330,7 @@ CONTAINS
     TYPE(t_cf_var)                :: cf
     TYPE(t_grib2_var)             :: grib2
     TYPE(t_post_op_meta)          :: post_op
-    TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
+    TYPE(t_var_list_ptr), POINTER     :: dst_varlist     !< destination variable list
     TYPE (t_lon_lat_intp), POINTER:: ptr_int_lonlat
     CHARACTER(LEN=1)              :: prefix
 
@@ -474,7 +474,7 @@ CONTAINS
     LOGICAL                               :: found, l_horintp, lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
-    TYPE(t_var_list),          POINTER    :: p_opt_diag_list
+    TYPE(t_var_list_ptr),          POINTER    :: p_opt_diag_list
     REAL(wp), POINTER                     :: p_opt_field_r3d(:,:,:)
     INTEGER,  POINTER                     :: p_opt_field_i3d(:,:,:)
     TYPE(t_list_element),      POINTER    :: element, new_element
@@ -895,11 +895,11 @@ CONTAINS
   !
   SUBROUTINE copy_variable(name, src_varlist, dst_axis, shape3d, ptr, dst_varlist)
     CHARACTER(len=*),          INTENT(IN)    :: name        !< name of variable
-    TYPE(t_var_list),          INTENT(IN)    :: src_varlist !< source variable list
+    TYPE(t_var_list_ptr),          INTENT(IN)    :: src_varlist !< source variable list
     INTEGER,                   INTENT(IN)    :: dst_axis    !< destination axis
     INTEGER,                   INTENT(IN)    :: shape3d(3)  !< shape of variable field
     REAL(wp),         POINTER                :: ptr(:,:,:)  !< reference to field
-    TYPE(t_var_list), POINTER                :: dst_varlist !< destination variable list
+    TYPE(t_var_list_ptr), POINTER                :: dst_varlist !< destination variable list
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::copy_variable"
     TYPE(t_list_element), POINTER :: element
@@ -931,7 +931,7 @@ CONTAINS
     LOGICAL,          INTENT(IN)  :: l_init_prm_diag !< Flag. If .TRUE., then prm_diag data structure is available
     INTEGER,          INTENT(IN)  :: nlev            !< number of vertical levels
     INTEGER,          INTENT(IN)  :: dst_axis        !< destination axis
-    TYPE(t_var_list), POINTER     :: dst_varlist     !< destination variable list
+    TYPE(t_var_list_ptr), POINTER     :: dst_varlist     !< destination variable list
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::init_vn_vertical"
     TYPE(t_list_element), POINTER :: element_u, element_v, element, vn_element, new_element, new_element_2
@@ -1115,7 +1115,7 @@ CONTAINS
       &  l_uv_vertical_intp
     TYPE(t_job_queue),         POINTER :: task
     TYPE(t_nh_diag_pz),        POINTER :: p_diag_pz
-    TYPE(t_var_list),          POINTER :: p_opt_diag_list_p, p_opt_diag_list_z, &
+    TYPE(t_var_list_ptr),          POINTER :: p_opt_diag_list_p, p_opt_diag_list_z, &
       &                                   p_opt_diag_list_i, p_opt_diag_list
     REAL(wp),                  POINTER :: p_opt_field_r3d(:,:,:)
     TYPE(t_list_element),      POINTER :: element, new_element

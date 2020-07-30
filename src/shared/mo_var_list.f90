@@ -31,7 +31,7 @@ MODULE mo_var_list
     &                            set_var_metadata, set_var_metadata_dyn
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_var_list_element, ONLY: t_var_list_element
-  USE mo_linked_list, ONLY: t_var_list, t_list_element, append_list_element
+  USE mo_linked_list, ONLY: t_var_list_ptr, t_list_element, append_list_element
   USE mo_exception,        ONLY: message, finish, message_text
   USE mo_util_texthash,    ONLY: text_hash_c
   USE mo_util_string,      ONLY: toupper, tolower
@@ -141,7 +141,7 @@ CONTAINS
 
   SUBROUTINE inherit_var_list_metadata(this_info, this_list)
     TYPE(t_var_metadata), INTENT(out) :: this_info
-    TYPE(t_var_list), INTENT(in)      :: this_list
+    TYPE(t_var_list_ptr), INTENT(in)      :: this_list
     !
     this_info%grib2               = grib2_var(-1, -1, -1, -1, -1, -1)
     this_info%lrestart            = this_list%p%lrestart
@@ -173,7 +173,7 @@ CONTAINS
 
     INTEGER,                 INTENT(IN)           :: ndims                        ! used dimensions (1...5)
     INTEGER,                 INTENT(IN)           :: data_type
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
     INTEGER,                 INTENT(in)           :: vgrid                        ! vertical grid type used
@@ -375,7 +375,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -435,7 +435,7 @@ CONTAINS
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
     &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -496,7 +496,7 @@ CONTAINS
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
     &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -558,7 +558,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(dp),       POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -619,7 +619,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -679,7 +679,7 @@ CONTAINS
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
     &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -740,7 +740,7 @@ CONTAINS
     &   vert_interp, hor_interp, in_group, verbose, new_element,       &
     &   l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -802,7 +802,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     REAL(sp),       POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -863,7 +863,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     INTEGER,        POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -924,7 +924,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     INTEGER,        POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -985,7 +985,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     INTEGER,        POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -1046,7 +1046,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     INTEGER,        POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -1106,7 +1106,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:,:,:,:)                 ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -1167,7 +1167,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:,:,:)                   ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -1228,7 +1228,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:,:)                     ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -1289,7 +1289,7 @@ CONTAINS
     &   l_pp_scheduler_task, post_op, action_list, var_class,     &
     &   lopenacc)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list                    ! list
     CHARACTER(len=*),        INTENT(in)           :: name                         ! name of variable
     LOGICAL,        POINTER, INTENT(OUT)          :: ptr(:)                       ! reference to field
     INTEGER,                 INTENT(in)           :: hgrid                        ! horizontal grid type used
@@ -1356,7 +1356,7 @@ CONTAINS
        &                                 new_element, l_pp_scheduler_task, post_op, action_list, &
        &                                 opt_var_ref_pos, var_class)
     !
-    TYPE(t_var_list),        INTENT(inout)           :: this_list
+    TYPE(t_var_list_ptr),        INTENT(inout)           :: this_list
     CHARACTER(len=*),        INTENT(in)              :: target_name
     CHARACTER(len=*),        INTENT(in)              :: name
     REAL(dp), POINTER                                :: ptr(:,:,:)
@@ -1560,7 +1560,7 @@ CONTAINS
        &                                 post_op, action_list, opt_var_ref_pos, var_class,       &
        &                                 idx_tracer, idx_diag) 
 
-    TYPE(t_var_list),        INTENT(inout)        :: this_list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
     CHARACTER(len=*),        INTENT(in)           :: name
     REAL(dp), POINTER                             :: ptr(:,:)
@@ -1756,7 +1756,7 @@ CONTAINS
        &                                 new_element, l_pp_scheduler_task, post_op, action_list, &
        &                                 opt_var_ref_pos, var_class)
     !
-    TYPE(t_var_list),        INTENT(inout)           :: this_list
+    TYPE(t_var_list_ptr),        INTENT(inout)           :: this_list
     CHARACTER(len=*),        INTENT(in)              :: target_name
     CHARACTER(len=*),        INTENT(in)              :: name
     REAL(sp), POINTER                                :: ptr(:,:,:)
@@ -1959,7 +1959,7 @@ CONTAINS
        &                                 verbose, new_element, l_pp_scheduler_task,              &
        &                                 post_op, action_list, opt_var_ref_pos, var_class)
 
-    TYPE(t_var_list),        INTENT(inout)        :: this_list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
     CHARACTER(len=*),        INTENT(in)           :: name
     REAL(sp), POINTER                             :: ptr(:,:)
@@ -2157,7 +2157,7 @@ CONTAINS
        &                                 new_element, l_pp_scheduler_task, post_op, action_list, &
        &                                 opt_var_ref_pos, var_class)
     !
-    TYPE(t_var_list),        INTENT(inout)        :: this_list
+    TYPE(t_var_list_ptr),        INTENT(inout)        :: this_list
     CHARACTER(len=*),        INTENT(in)           :: target_name
     CHARACTER(len=*),        INTENT(in)           :: name
     INTEGER, POINTER                              :: ptr(:,:)
@@ -2345,7 +2345,7 @@ CONTAINS
   ! print current memory table
   !
   SUBROUTINE print_var_list (this_list, lshort)
-    TYPE(t_var_list),  INTENT(in) :: this_list ! list
+    TYPE(t_var_list_ptr),  INTENT(in) :: this_list ! list
     LOGICAL, OPTIONAL :: lshort
     !
     TYPE(t_list_element), POINTER :: this_list_element
@@ -2597,7 +2597,7 @@ CONTAINS
   ! A character string is used so it is straight forward only one find
   !
   FUNCTION find_list_element (this_list, name, opt_hgrid, opt_caseInsensitive) RESULT(element)
-    TYPE(t_var_list),   INTENT(in) :: this_list
+    TYPE(t_var_list_ptr),   INTENT(in) :: this_list
     CHARACTER(len=*),   INTENT(in) :: name
     INTEGER, OPTIONAL              :: opt_hgrid
     LOGICAL, OPTIONAL              :: opt_caseInsensitive

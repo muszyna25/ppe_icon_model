@@ -12,7 +12,7 @@
 
 MODULE mo_radar_data_types
   USE mo_kind,               ONLY: wp
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_linked_list,          ONLY: t_var_list_ptr
   USE mtime,                   ONLY: datetime
 
 IMPLICIT NONE
@@ -48,10 +48,10 @@ END TYPE t_radar_ct_fields
 TYPE t_radar_fields
 
   TYPE (t_radar_td_fields) :: radar_td
-  TYPE (t_var_list) :: radar_td_list
+  TYPE (t_var_list_ptr) :: radar_td_list
 
   TYPE (t_radar_ct_fields) :: radar_ct
-  TYPE (t_var_list) :: radar_ct_list
+  TYPE (t_var_list_ptr) :: radar_ct_list
 
 END TYPE t_radar_fields
 

@@ -75,7 +75,7 @@ MODULE mo_ocean_physics_types
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_groups,          ONLY: groups
@@ -104,7 +104,7 @@ MODULE mo_ocean_physics_types
   PUBLIC :: destruct_ho_params
 
   ! variables
-  TYPE (t_var_list) :: ocean_params_list
+  TYPE (t_var_list_ptr) :: ocean_params_list
 
   TYPE t_cvmix_params
     REAL(wp),POINTER ::            &
@@ -244,7 +244,7 @@ CONTAINS
 
     TYPE(t_patch),      INTENT(IN)    :: patch_2D
     TYPE (t_ho_params), INTENT(INOUT) :: params_oce
-    TYPE (t_var_list),  INTENT(INOUT) :: ocean_restart_list
+    TYPE (t_var_list_ptr),  INTENT(INOUT) :: ocean_restart_list
 
     ! Local variables
     INTEGER :: ist, i,jtrc

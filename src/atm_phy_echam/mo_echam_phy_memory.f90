@@ -53,7 +53,7 @@ MODULE mo_echam_phy_memory
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, csfc
   USE mo_model_domain,        ONLY: t_patch
 
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
@@ -647,8 +647,8 @@ MODULE mo_echam_phy_memory
   !!--------------------------------------------------------------------------
   !!                          VARIABLE LISTS
   !!--------------------------------------------------------------------------
-  TYPE(t_var_list),ALLOCATABLE :: prm_field_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_field_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
 
   REAL(dp), SAVE :: cdimissval
 
@@ -758,7 +758,7 @@ CONTAINS
 
     CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
 
-    TYPE(t_var_list),       INTENT(INOUT) :: field_list
+    TYPE(t_var_list_ptr),       INTENT(INOUT) :: field_list
     TYPE(t_echam_phy_field),INTENT(INOUT) :: field
 
     ! Local variables
@@ -4291,7 +4291,7 @@ CONTAINS
 
     CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
 
-    TYPE(t_var_list)      ,INTENT(INOUT) :: tend_list
+    TYPE(t_var_list_ptr)      ,INTENT(INOUT) :: tend_list
     TYPE(t_echam_phy_tend),INTENT(INOUT) :: tend
 
     ! Local variables

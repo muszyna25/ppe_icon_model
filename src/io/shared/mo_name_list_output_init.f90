@@ -111,7 +111,7 @@ MODULE mo_name_list_output_init
   ! variable lists
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
-  USE mo_linked_list,                       ONLY: t_var_list, t_list_element
+  USE mo_linked_list,                       ONLY: t_list_element
   USE mo_var_list_global,                   ONLY: collect_group, new_var_list, varlistPacker,     &
     &                                             total_number_of_variables, var_lists
   USE mo_var_list,                          ONLY: get_var_timelevel, get_var_name
@@ -1041,7 +1041,7 @@ CONTAINS
       this_i_lctype = i_lctype(print_patch_id)
 #endif
 
-      CALL print_var_list(var_lists, out_varnames_dict,   &
+      CALL print_var_list(out_varnames_dict,   &
         &                 print_patch_id, iequations,                 &
         &                 gribout_config(print_patch_id),             &
         &                 this_i_lctype)

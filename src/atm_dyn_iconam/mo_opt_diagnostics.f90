@@ -29,7 +29,7 @@ MODULE mo_opt_diagnostics
 
   USE mo_kind,                 ONLY: wp
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_linked_list,          ONLY: t_var_list_ptr
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
   USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
                                      t_nh_state_lists
@@ -233,7 +233,7 @@ MODULE mo_opt_diagnostics
     !
     ! The "opt_diag_list_*" lists contain all variables that have been
     ! interpolated onto p/z-levels
-    TYPE(t_var_list)   :: opt_diag_list,   opt_diag_list_p, &
+    TYPE(t_var_list_ptr)   :: opt_diag_list,   opt_diag_list_p, &
       &                   opt_diag_list_z, opt_diag_list_i, &
       &                   opt_acc_list
 
@@ -249,7 +249,7 @@ CONTAINS
   ! setup of accumulation variables
   SUBROUTINE construct_opt_acc(p_patch,list,p_acc)
     TYPE(t_patch),        INTENT(IN) :: p_patch
-    TYPE(t_var_list)                 :: list
+    TYPE(t_var_list_ptr)                 :: list
     TYPE(t_nh_acc)                   :: p_acc
 
     ! LOCAL ===================================================================

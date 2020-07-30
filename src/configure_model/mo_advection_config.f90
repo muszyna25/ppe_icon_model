@@ -31,7 +31,7 @@ MODULE mo_advection_config
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_run_config,            ONLY: msg_level
   USE mo_expression,            ONLY: expression, parse_expression_string
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element
+  USE mo_linked_list,           ONLY: t_var_list_ptr, t_list_element
   USE mo_var_list,              ONLY: get_timelevel_string, find_list_element
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
@@ -300,7 +300,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: itime_scheme
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
-    TYPE(t_var_list), OPTIONAL, INTENT(IN) :: tracer_list(:) ! tracer var_list
+    TYPE(t_var_list_ptr), OPTIONAL, INTENT(IN) :: tracer_list(:) ! tracer var_list
     INTEGER,          OPTIONAL, INTENT(IN) :: kstart_tracer(MAX_NTRACER) !< start index for (art-)tracer related processes
 
     !
@@ -774,7 +774,7 @@ CONTAINS
   !
   TYPE(t_trList) FUNCTION subListExtract (from_list, extraction_rule) RESULT(obj)
     !
-    TYPE(t_var_list), INTENT(IN) :: from_list         !< variable list (metadata)
+    TYPE(t_var_list_ptr), INTENT(IN) :: from_list         !< variable list (metadata)
     !
     INTERFACE
       INTEGER FUNCTION extraction_rule(info, tracer_info) RESULT(id)
@@ -956,7 +956,7 @@ CONTAINS
   !!
   SUBROUTINE init_passive_tracer (tracer_list, advection_config, ntl)
 
-    TYPE(t_var_list)        , INTENT(IN) :: tracer_list(:)
+    TYPE(t_var_list_ptr)        , INTENT(IN) :: tracer_list(:)
     TYPE(t_advection_config), INTENT(IN) :: advection_config ! config state
     INTEGER                 , INTENT(IN) :: ntl              ! time level
 
@@ -1008,7 +1008,7 @@ CONTAINS
 
   CONTAINS
     FUNCTION fget_var_list_element_r3d (this_list, name) RESULT(ptr)
-      TYPE(t_var_list), INTENT(in) :: this_list    ! list
+      TYPE(t_var_list_ptr), INTENT(in) :: this_list    ! list
       CHARACTER(len=*), INTENT(in) :: name         ! name of variable
       REAL(dp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
       TYPE(t_list_element), POINTER :: element
@@ -1037,7 +1037,7 @@ CONTAINS
   SUBROUTINE advection_print_setup (config_obj, var_list_tracer)
     !
     CLASS(t_advection_config)             :: config_obj        !< object for which the setup will be printed
-    TYPE(t_var_list)         , INTENT(IN) :: var_list_tracer   !< variable list (metadata)
+    TYPE(t_var_list_ptr)         , INTENT(IN) :: var_list_tracer   !< variable list (metadata)
 
     ! local variables
     TYPE(t_list_element), POINTER :: tracer_list_element

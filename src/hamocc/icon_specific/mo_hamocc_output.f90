@@ -44,7 +44,7 @@
 
       USE mo_cf_convention
 
-      USE mo_linked_list,            ONLY: t_var_list
+      USE mo_linked_list,            ONLY: t_var_list_ptr
 
       USE mo_io_config,           ONLY: lnetcdf_flt64_output
 
@@ -74,10 +74,10 @@
 
       PUBLIC
 
-      TYPE(t_var_list)                              :: hamocc_default_list ! for output
-      TYPE(t_var_list)                              :: hamocc_restart_list ! for hi, co3
-      TYPE(t_var_list)                              :: hamocc_tendency_list ! for NPP etc
-      TYPE(t_var_list)                              :: hamocc_sediment_list ! for sediment outout
+      TYPE(t_var_list_ptr)                              :: hamocc_default_list ! for output
+      TYPE(t_var_list_ptr)                              :: hamocc_restart_list ! for hi, co3
+      TYPE(t_var_list_ptr)                              :: hamocc_tendency_list ! for NPP etc
+      TYPE(t_var_list_ptr)                              :: hamocc_sediment_list ! for sediment outout
 
       CONTAINS
       

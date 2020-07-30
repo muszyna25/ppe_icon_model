@@ -35,7 +35,7 @@ MODULE mo_icoham_dyn_memory
   USE mo_parallel_config,     ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_cf_convention,       ONLY: t_cf_var
@@ -60,13 +60,13 @@ MODULE mo_icoham_dyn_memory
   !--------------------------------------------------------------------------
   !                          VARIABLE LISTS
   !--------------------------------------------------------------------------
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_list(:)      !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_phy_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_out_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_out_list(:)  !< shape: (n_dom)
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_icoham_dyn_memory'
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_diag_list(:)      !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_tend_phy_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_prog_out_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),PUBLIC,ALLOCATABLE :: hydro_diag_out_list(:)  !< shape: (n_dom)
+  CHARACTER(*), PARAMETER :: modname = 'mo_icoham_dyn_memory'
 
 CONTAINS
 
@@ -286,7 +286,7 @@ CONTAINS
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(len=VNAME_LEN) :: tracer_names(:)      !< tracer-specific name suffixes
 
-    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_var_list_ptr)      ,INTENT(INOUT) :: field_list
     TYPE(t_hydro_atm_prog),INTENT(INOUT) :: field
 
     ! Local variables
@@ -389,7 +389,7 @@ CONTAINS
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(len=VNAME_LEN) :: tracer_names(:)      !< tracer-specific name suffixes
 
-    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_var_list_ptr)      ,INTENT(INOUT) :: field_list
     TYPE(t_hydro_atm_diag),INTENT(INOUT) :: field
 
     ! Local variables

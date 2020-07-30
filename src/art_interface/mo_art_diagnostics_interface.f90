@@ -25,7 +25,7 @@ MODULE mo_art_diagnostics_interface
 
 ! ICON
   USE mo_kind,                          ONLY: wp
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_linked_list,                   ONLY: t_var_list_ptr
   USE mo_run_config,                    ONLY: lart
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_diagInt
@@ -61,9 +61,9 @@ SUBROUTINE art_diagnostics_interface_init(jg, this_list, p_prog_list)
 
   INTEGER,INTENT(in)             :: &
     &   jg                            !< patch id
-  TYPE(t_var_list),INTENT(INOUT) :: &
+  TYPE(t_var_list_ptr),INTENT(INOUT) :: &
     &   this_list                     !< current list: prognostic or phys. tend.  
-  TYPE(t_var_list),INTENT(IN)            :: &
+  TYPE(t_var_list_ptr),INTENT(IN)            :: &
     &   p_prog_list                   !< current prognostic state list (needed in diag-case when this_list=p_diag_list)
  
 #ifdef __ICON_ART

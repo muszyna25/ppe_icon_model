@@ -24,7 +24,7 @@
 MODULE mo_art_tracer_interface
   USE mo_kind,                          ONLY: wp, i8
   USE mo_exception,                     ONLY: message,finish
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_linked_list,                   ONLY: t_var_list_ptr
   USE mo_fortran_tools,                 ONLY: t_ptr_2d3d
   USE mo_advection_config,              ONLY: t_advection_config
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_tend
@@ -67,7 +67,7 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
   INTEGER,INTENT(in)             :: &
     &   jg,                         & !< patch id
     &   nblks_c                       !< patch block
-  TYPE(t_var_list),INTENT(INOUT) :: &
+  TYPE(t_var_list_ptr),INTENT(INOUT) :: &
     &   this_list                     !< current list: prognostic or phys. tend.  
   TYPE(t_ptr_2d3d),INTENT(inout),OPTIONAL         :: &
     &   ptr_arr(:)                    !< pointer to each element in list

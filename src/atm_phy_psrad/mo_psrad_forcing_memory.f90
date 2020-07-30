@@ -31,7 +31,7 @@ MODULE mo_psrad_forcing_memory
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_model_domain,        ONLY: t_patch
 
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
@@ -121,7 +121,7 @@ MODULE mo_psrad_forcing_memory
   !!--------------------------------------------------------------------------
   !!                          variable lists
   !!--------------------------------------------------------------------------
-  TYPE(t_var_list),ALLOCATABLE :: prm_psrad_forcing_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: prm_psrad_forcing_list(:)  !< shape: (n_dom)
 
 CONTAINS
 
@@ -218,7 +218,7 @@ CONTAINS
 
     CHARACTER(len=*)              ,INTENT(IN) :: listname, prefix
 
-    TYPE(t_var_list),     INTENT(INOUT)   :: field_list
+    TYPE(t_var_list_ptr),     INTENT(INOUT)   :: field_list
     TYPE(t_psrad_forcing),INTENT(INOUT)   :: field
 
     ! Local variables

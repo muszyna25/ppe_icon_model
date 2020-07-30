@@ -96,7 +96,7 @@ MODULE mo_nh_interface_nwp
 
   USE mo_art_washout_interface,   ONLY: art_washout_interface
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
-  USE mo_linked_list,             ONLY: t_var_list
+  USE mo_linked_list,             ONLY: t_var_list_ptr
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
@@ -180,7 +180,7 @@ CONTAINS
     TYPE(t_wtr_prog),           INTENT(inout) :: wtr_prog_now, wtr_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
-    TYPE(t_var_list), INTENT(inout) :: p_prog_list !current prognostic state list
+    TYPE(t_var_list_ptr), INTENT(inout) :: p_prog_list !current prognostic state list
 
     TYPE(t_upatmo), TARGET, INTENT(inout) :: prm_upatmo !<upper-atmosphere variables
 

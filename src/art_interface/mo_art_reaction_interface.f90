@@ -28,7 +28,7 @@ MODULE mo_art_reaction_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_linked_list,                   ONLY: t_var_list_ptr
   USE mo_run_config,                    ONLY: lart
   USE mtime,                            ONLY: datetime
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
@@ -86,7 +86,7 @@ SUBROUTINE art_reaction_interface(jg,current_date,p_dtime,p_prog_list,tracer)
     &  current_date                      !< current time and date
   REAL(wp), INTENT(IN)                :: &
     &  p_dtime                           !< time step
-  TYPE(t_var_list), INTENT(INOUT)     :: &
+  TYPE(t_var_list_ptr), INTENT(INOUT)     :: &
     &  p_prog_list                       !< current prognostic state list
   REAL(wp), INTENT(INOUT)           :: &
     &  tracer(:,:,:,:)                   !< tracer mixing ratios (kg/kg)

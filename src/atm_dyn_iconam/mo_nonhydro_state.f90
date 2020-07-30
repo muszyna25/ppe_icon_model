@@ -75,7 +75,7 @@ MODULE mo_nonhydro_state
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
     &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
-  USE mo_linked_list,          ONLY: t_var_list
+  USE mo_linked_list,          ONLY: t_var_list_ptr
   USE mo_var_list,             ONLY: add_var, find_list_element, get_timelevel_string, add_ref
   USE mo_var_list_global,      ONLY: new_var_list, delete_var_list, add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element
@@ -464,7 +464,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_prog),  INTENT(INOUT)   :: & !< current prognostic state
       &  p_prog 
 
-    TYPE(t_var_list), INTENT(INOUT)   :: p_prog_list !< current prognostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT)   :: p_prog_list !< current prognostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname, vname_prefix
@@ -1518,10 +1518,10 @@ MODULE mo_nonhydro_state
     TYPE(t_patch), INTENT(IN)         :: p_patch
 
     !> source list to be referenced
-    TYPE(t_var_list), INTENT(IN)      :: from_var_list
+    TYPE(t_var_list_ptr), INTENT(IN)      :: from_var_list
 
     !> new tracer list (containing all tracers)
-    TYPE(t_var_list), INTENT(INOUT)   :: p_tracer_list
+    TYPE(t_var_list_ptr), INTENT(INOUT)   :: p_tracer_list
 
     !> list name
     CHARACTER(len=*), INTENT(IN)      :: listname
@@ -1584,7 +1584,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_diag),  INTENT(INOUT)   :: &  !< diagnostic state
       &  p_diag 
 
-    TYPE(t_var_list), INTENT(INOUT)   :: &  !< diagnostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT)   :: &  !< diagnostic state list
       &  p_diag_list
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
@@ -3312,7 +3312,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_ref),  INTENT(INOUT)   :: &  !< reference state
       &  p_ref 
 
-    TYPE(t_var_list), INTENT(INOUT)   :: &  !< reference state list
+    TYPE(t_var_list_ptr), INTENT(INOUT)   :: &  !< reference state list
       &  p_ref_list
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
@@ -3410,7 +3410,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
       &  p_metrics 
 
-    TYPE(t_var_list), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
@@ -4602,7 +4602,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
          &  p_metrics
 
-    TYPE(t_var_list), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
     
     INTEGER, INTENT(INOUT) :: numpoints
 

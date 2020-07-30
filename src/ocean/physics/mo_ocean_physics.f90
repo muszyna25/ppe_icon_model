@@ -84,7 +84,7 @@ MODULE mo_ocean_physics
   USE mo_math_constants,      ONLY: dbl_eps, pi, rad2deg
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var, add_ref
   USE mo_var_list_global,     ONLY: new_var_list
 !  USE mo_cf_convention
@@ -127,7 +127,7 @@ MODULE mo_ocean_physics
   PUBLIC :: scale_horizontal_diffusion, copy2Dto3D
   
   ! variables
-  TYPE (t_var_list), PUBLIC :: ocean_params_list
+  TYPE (t_var_list_ptr), PUBLIC :: ocean_params_list
 
   CHARACTER(LEN=*), PARAMETER :: module_name = 'mo_ocean_physics'
 

@@ -27,11 +27,12 @@ MODULE mo_name_list_output_printvars
   USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS, vname_len
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_exception,                         ONLY: finish, message_text
-  USE mo_linked_list,                       ONLY: t_var_list, t_list_element
+  USE mo_linked_list,                       ONLY: t_list_element
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_gribout_config,                    ONLY: t_gribout_config
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_level_selection_types,             ONLY: t_level_selection
+  USE mo_var_list_global,                   ONLY: var_lists
   USE mo_var_list_element,                  ONLY: t_var_list_element, level_type_ml
   USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_util_sort,                         ONLY: quicksort
@@ -125,9 +126,8 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return container variable
   !
-  FUNCTION get_var_container(var_lists, print_patch_id, contained_elt)  RESULT(res)
+  FUNCTION get_var_container(print_patch_id, contained_elt)  RESULT(res)
     TYPE(t_list_element), POINTER :: res
-    TYPE(t_var_list),              INTENT(IN) :: var_lists(:)
     INTEGER,                       INTENT(IN) :: print_patch_id
     TYPE(t_list_element), POINTER, INTENT(IN) :: contained_elt
     ! local variables
@@ -243,11 +243,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Print list of all output variables (LaTeX table formatting).
   !
-  SUBROUTINE print_var_list(var_lists, out_varnames_dict,   &
+  SUBROUTINE print_var_list(out_varnames_dict,   &
     &                       print_patch_id, iequations, gribout_config, &
     &                       i_lctype)
-
-    TYPE(t_var_list),       INTENT(IN) :: var_lists(:)
     TYPE(t_dictionary),     INTENT(IN) :: out_varnames_dict
     INTEGER,                INTENT(IN) :: iequations
     TYPE(t_gribout_config), INTENT(IN) :: gribout_config
@@ -343,7 +341,7 @@ CONTAINS
         ! "reference" into another variable, then search for this
         ! source variable:
         IF ((LEN_TRIM(this_cf%long_name) == 0) .AND. info%lcontained) THEN
-          src_element => get_var_container(var_lists, print_patch_id, element)
+          src_element => get_var_container(print_patch_id, element)
           this_cf => src_element%field%info%cf
         END IF
 

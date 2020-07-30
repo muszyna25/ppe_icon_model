@@ -25,7 +25,7 @@ MODULE mo_psrad_interface_memory
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mtime,                  ONLY: datetime
 
-  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_linked_list,         ONLY: t_var_list_ptr
   USE mo_var_list,            ONLY: add_var
   USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
@@ -199,7 +199,7 @@ MODULE mo_psrad_interface_memory
   !!                          variable lists
   TYPE(t_psrad_interface),ALLOCATABLE,TARGET :: psrad_interface_memory(:)  !< shape: (n_dom)
 
-  TYPE(t_var_list),ALLOCATABLE :: psrad_interface_memory_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list_ptr),ALLOCATABLE :: psrad_interface_memory_list(:)  !< shape: (n_dom)
 
   TYPE(t_patch),POINTER  :: patches(:)
 
@@ -281,7 +281,7 @@ CONTAINS
   SUBROUTINE allocate_psrad_interface_memory(listname, prefix,  field_list, psrad_interface_fields, patch, no_of_levels)
 
     CHARACTER(len=*),      INTENT(IN)       :: listname, prefix
-    TYPE(t_var_list),      INTENT(INOUT)    :: field_list
+    TYPE(t_var_list_ptr),      INTENT(INOUT)    :: field_list
     TYPE(t_psrad_interface),INTENT(INOUT)   :: psrad_interface_fields
     TYPE(t_patch), TARGET                   :: patch
     INTEGER , INTENT(in)                    :: no_of_levels

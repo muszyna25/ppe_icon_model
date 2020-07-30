@@ -23,7 +23,7 @@
 MODULE mo_art_tools_interface
   USE mo_kind,                          ONLY: wp
   USE mo_run_config,                    ONLY: lart
-  USE mo_linked_list,                   ONLY: t_var_list
+  USE mo_linked_list,                   ONLY: t_var_list_ptr
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_toolInt
 #ifdef __ICON_ART
@@ -49,7 +49,7 @@ SUBROUTINE art_tools_interface(defcase, prog_list, tracer_now, tracer_new, rho)
   
   CHARACTER(len=*),INTENT(in)        :: & 
     &  defcase                            !< definition of case 
-  TYPE(t_var_list),TARGET,INTENT(in) :: &
+  TYPE(t_var_list_ptr),TARGET,INTENT(in) :: &
     &  prog_list                          !< prognostic state list
   REAL(wp),INTENT(in)                :: &
     &  tracer_now(:,:,:,:),             & !< tracer concentrations at timelevel nnow

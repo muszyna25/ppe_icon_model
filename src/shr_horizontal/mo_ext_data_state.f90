@@ -48,7 +48,7 @@ MODULE mo_ext_data_state
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
     &                              t_external_atmos
-  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_linked_list,        ONLY: t_var_list_ptr
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
@@ -189,7 +189,7 @@ CONTAINS
     TYPE(t_external_atmos), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm
 
-    TYPE(t_var_list)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
+    TYPE(t_var_list_ptr)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
 
     CHARACTER(len=*)      , INTENT(IN)   :: & !< list name
       &  listname
@@ -1216,7 +1216,7 @@ CONTAINS
     TYPE(t_external_atmos_td), INTENT(INOUT):: & !< current external data structure
       &  p_ext_atm_td
 
-    TYPE(t_var_list)         , INTENT(INOUT):: & !< current external data list
+    TYPE(t_var_list_ptr)         , INTENT(INOUT):: & !< current external data list
       &  p_ext_atm_td_list
 
     CHARACTER(len=*)         , INTENT(IN)   :: & !< list name
