@@ -40,7 +40,6 @@ MODULE mo_var_list_global
   PUBLIC :: collect_group
   PUBLIC :: var_lists                 ! vector of output var_lists
   PUBLIC :: nvar_lists                ! number of output var_lists defined so far
-  PUBLIC :: get_all_var_names         ! obtain a list of variables names
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
   PUBLIC :: find_var_global   ! find an element in the list
   PUBLIC :: varlistPacker
@@ -150,83 +149,6 @@ CONTAINS
     ENDDO ! i = 1,nvar_lists
   END FUNCTION total_number_of_variables
 
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Get a list of variable names matching a given criterion.
-  !
-  SUBROUTINE get_all_var_names (varlist, ivar, opt_vlevel_type,                          &
-    &                           opt_vert_intp_type,                                      &
-    &                           opt_hor_intp_type, opt_lcontainer,                       &
-    &                           opt_loutput, opt_patch_id)
-    CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
-    INTEGER,                  INTENT(OUT)   :: ivar
-    LOGICAL, OPTIONAL, INTENT(IN)  :: opt_vert_intp_type(SIZE(VINTP_TYPE_LIST))
-    INTEGER, OPTIONAL, INTENT(IN)  :: opt_vlevel_type, opt_patch_id,   &
-      &                               opt_hor_intp_type
-    LOGICAL, OPTIONAL, INTENT(IN)  :: opt_lcontainer, opt_loutput
-    ! local variables
-    INTEGER                       :: i, hor_intp_type_match
-    LOGICAL                       :: lcontainer, loutput_matters, loutput, &
-         vert_intp_type(SIZE(VINTP_TYPE_LIST)), hor_intp_matters
-    TYPE(t_list_element), POINTER :: element
-    TYPE(t_var_metadata), POINTER :: info
-
-    ! clear result
-    FORALL(i = 1:SIZE(varlist)) varlist(i) = ' '
-    ! default values for some criteria:
-    lcontainer = .FALSE.
-    loutput = .FALSE.
-    hor_intp_type_match = -1
-    vert_intp_type = .FALSE.
-    IF (PRESENT(opt_lcontainer)) lcontainer = opt_lcontainer
-    loutput_matters = PRESENT(opt_loutput)
-    IF (loutput_matters) loutput = opt_loutput
-    hor_intp_matters= PRESENT(opt_hor_intp_type)
-    IF (hor_intp_matters) hor_intp_type_match = opt_hor_intp_type
-    IF (PRESENT(opt_vert_intp_type)) vert_intp_type = opt_vert_intp_type
-    !- loop over variables
-    ivar = 0
-    ! Note that there may be several variables with different time
-    ! levels, we just add unconditionally all
-    LOOP_VARLISTS : DO i = 1,nvar_lists
-      IF (PRESENT(opt_patch_id)) THEN
-        IF (var_lists(i)%p%patch_id /= opt_patch_id) CYCLE LOOP_VARLISTS
-      END IF
-      IF (PRESENT(opt_vlevel_type)) THEN
-        IF(var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE LOOP_VARLISTS
-      END IF
-      IF (loutput_matters) THEN
-        ! Skip var_lists for which loutput .NEQV. opt_loutput
-        IF (opt_loutput .NEQV. var_lists(i)%p%loutput) CYCLE LOOP_VARLISTS
-      END IF
-      element => var_lists(i)%p%first_list_element
-      LOOPVAR : DO WHILE(ASSOCIATED(element))
-        info => element%field%info
-        ! Do not inspect element if it is a container
-        IF ((info%lcontainer .EQV. lcontainer) &
-             ! Do not inspect element if "loutput=.false."
-             .AND. ((.NOT. loutput_matters) .OR. (loutput .EQV. info%loutput)) &
-             ! Do not inspect element if it does not contain info for
-             ! horizontal interpolation
-             .AND. (.NOT. hor_intp_matters &
-             &      .OR. info%hor_interp%hor_intp_type == hor_intp_type_match) &
-             ) THEN
-          ! Do not inspect element if it does not contain matching info for
-          ! vertical interpolation
-          IF (ALL(.NOT. vert_intp_type(:) .OR. &
-               & info%vert_interp%vert_intp_type(:))) THEN
-            ivar = ivar+1
-            ! assign without time level suffix:
-            varlist(ivar) = get_var_name(element%field)
-          END IF
-        END IF
-        element => element%next_list_element
-      ENDDO LOOPVAR ! loop over vlist "i"
-    ENDDO LOOP_VARLISTS ! i = 1,nvar_lists
-
-    CALL remove_duplicates(varlist, ivar)
-
-  END SUBROUTINE get_all_var_names
   !------------------------------------------------------------------------------------------------
   !
   ! Delete an output var_list, nullify the associated pointer
