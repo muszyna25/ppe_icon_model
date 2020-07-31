@@ -32,6 +32,10 @@
     USE mtime,                     ONLY: datetime
     USE mo_util_dbg_prnt,          ONLY: dbg_print
     USE mo_master_control,         ONLY: my_process_is_hamocc
+
+    USE mo_hamocc_nml,             ONLY: l_bgc_check,io_stdo_bgc
+    USE mo_exception, ONLY: message
+    USE mo_hamocc_diagnostics,  ONLY: get_inventories
     
     ! only temporary solution
     USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
@@ -77,6 +81,10 @@
     CALL bgc_icon(patch_3d, hamocc_ocean_state)
     if(ltimer) call timer_stop(timer_bgc_tot)
 
+    CALL message('3. after bgc + fluxes and weathering', 'inventories', io_stdo_bgc)
+    CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, patch_3d, 0._wp, 0._wp)
+
+
     !------------------------------------------------------------------------
     ! transport tracers and diffuse them
     ! fill diffusion coefficients
@@ -104,6 +112,9 @@
     ENDIF
     
      stop_timer(timer_tracer_ab,1)
+    CALL message('4. after transport', 'inventories', io_stdo_bgc)
+    CALL get_inventories(hamocc_state, ocean_to_hamocc_state%h_new, hamocc_state%p_prog(nnew(1))%tracer, patch_3d, 0._wp, 0._wp)
+
      !------------------------------------------------------------------------
     
      CALL get_monitoring( hamocc_state, hamocc_state%p_prog(nnew(1))%tracer, ocean_to_hamocc_state%h_new, patch_3d)

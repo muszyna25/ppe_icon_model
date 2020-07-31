@@ -18,6 +18,8 @@
 
 SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
 
+  USE mo_kind,                ONLY: wp
+
   USE mo_model_domain,        ONLY: t_patch,t_patch_3D
 
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -107,8 +109,8 @@ SUBROUTINE BGC_ICON(p_patch_3D, hamocc_ocean_state)
  !----------------------------------------------------------------------
  
 IF(l_bgc_check)THEN
- call message('before loop','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d) 
+ call message('1. before bgc','inventories',io_stdo_bgc)
+ call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 0._wp, 0._wp) 
 ENDIF
 
 !DIR$ INLINE
@@ -290,8 +292,8 @@ CALL get_omz(hamocc_state,ocean_to_hamocc_state%h_old,p_patch_3d)
   ldtrunbgc = ldtrunbgc + 1
 
 IF(l_bgc_check)THEN
- call message('after loop','inventories',io_stdo_bgc)
- call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d) 
+ call message('2. after bgc','inventories',io_stdo_bgc)
+ call get_inventories(hamocc_state, ocean_to_hamocc_state%h_old, hamocc_state%p_prog(nold(1))%tracer, p_patch_3d, 1._wp, 1._wp) 
 ENDIF
   
 
