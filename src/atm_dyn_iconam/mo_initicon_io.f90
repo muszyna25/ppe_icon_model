@@ -73,10 +73,11 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
-  USE mo_var_list_element,    ONLY: t_var_list_element, level_type_ml
-  USE mo_var_list_global,     ONLY: var_lists
-  USE mo_var_list,            ONLY: get_var_name, t_list_element
+  USE mo_var_metadata_types,  ONLY: t_var_metadata
+  USE mo_var_list_register,   ONLY: vl_iter
+  USE mo_var_list,            ONLY: t_list_element
   USE mo_var_groups,          ONLY: var_groups_dyn
+  USE mo_var_metadata,        ONLY: get_var_name
 
   ! High level overview of how `mo_initicon` reads input data
   ! =========================================================
@@ -1659,29 +1660,26 @@ MODULE mo_initicon_io
     ! local variables
     INTEGER                           :: i, grp_id, idx
     TYPE(t_list_element), POINTER     :: element
-    TYPE(t_var_list_element), POINTER :: var_element
-    CHARACTER(LEN=vname_len)        :: name
+    TYPE(t_var_metadata), POINTER     :: info
+    CHARACTER(:), ALLOCATABLE :: name
     REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
 
     idx = 0
     grp_id = var_groups_dyn%group_id(grp_name)
 
     ! loop over all variable lists and variables
-    DO i = 1, SIZE(var_lists)
-      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
-      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
+    DO WHILE(vl_iter%next())
       ! do not inspect variable list if its domain does not match:
-      IF (var_lists(i)%p%patch_id /= jg)  CYCLE
-
-      element => var_lists(i)%p%first_list_element
+      IF (vl_iter%cur%p%patch_id /= jg)  CYCLE
+      element => vl_iter%cur%p%first_list_element
       LOOPVAR : DO WHILE (ASSOCIATED(element))
-        var_element => element%field
+        info => element%field%info
         ! Do not inspect element if it is a container
-        IF (.NOT. var_element%info%lcontainer .AND. var_element%info%in_group(grp_id)) THEN
+        IF (.NOT. info%lcontainer .AND. info%in_group(grp_id)) THEN
           idx = idx + 1
-          name = get_var_name(var_element)
+          name = get_var_name(info)
           IF ( PRESENT(atm_in) ) THEN
-            atm_in%tracer(idx)%var_element => var_element
+            atm_in%tracer(idx)%var_element => element%field
             ! allocate source array for vertical interpolation
             ALLOCATE(atm_in%tracer(idx)%field(nproma,nlev_in,nblks_c))
 !$OMP PARALLEL
@@ -1689,18 +1687,17 @@ MODULE mo_initicon_io
 !$OMP END PARALLEL
             ! request the first guess fields
             my_ptr3d => atm_in%tracer(idx)%field(:,:,:)
-            CALL fetch3d(params, TRIM(name), jg, my_ptr3d)
+            CALL fetch3d(params, name, jg, my_ptr3d)
           ENDIF
           IF ( PRESENT(tracer) ) THEN
             ! request the first guess fields
-            my_ptr3d => tracer(:,:,:,var_element%info%ncontained)
-            CALL fetch3d(params, TRIM(name), jg, my_ptr3d)
+            my_ptr3d => tracer(:,:,:,info%ncontained)
+            CALL fetch3d(params, name, jg, my_ptr3d)
           END IF
         END IF
         element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1, nvar_lists
-
   END SUBROUTINE fetch_tracer_fg
 
   !XXX: Cannot be moved into fetch_dwdana_atm() since it needs input from fetch_dwdana_sfc()

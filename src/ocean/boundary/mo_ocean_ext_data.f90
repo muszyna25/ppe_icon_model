@@ -61,7 +61,7 @@ MODULE mo_ocean_ext_data
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos,    &
     &                              t_external_atmos_td, t_external_ocean
   USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
-  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
+  USE mo_var_list_register,  ONLY: vl_register
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -248,7 +248,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id, &
+    CALL vl_register%new(p_ext_oce_list, TRIM(listname), patch_id=p_patch%id, &
       & lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
 
     ! bathymetric height at cell center
@@ -325,7 +325,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time oceanic elements
-      CALL delete_var_list( ext_data(jg)%oce_list )
+      CALL vl_register%delete(ext_data(jg)%oce_list)
     ENDDO
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &

@@ -993,7 +993,7 @@
           ! ------------------------------------------------------------
           ! skip constant variables
           ! ------------------------------------------------------------
-          IF (TRIM(tolower(latbc%buffer%internal_name(jm))) == TRIM(tolower(latbc%buffer%hhl_var))) THEN
+          IF (tolower(latbc%buffer%internal_name(jm)) == tolower(latbc%buffer%hhl_var)) THEN
             nlevs = latbc%buffer%nlev(jm)
             ! when skipping a variable: be sure to move the buffer
             ! offset position, too

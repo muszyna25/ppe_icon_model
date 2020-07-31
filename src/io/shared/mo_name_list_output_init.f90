@@ -44,7 +44,7 @@ MODULE mo_name_list_output_init
     &                                             dtime_cly360              => cly360
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,            &
     &                                             GRID_UNSTRUCTURED_EDGE, GRID_REGULAR_LONLAT, GRID_VERTEX,  &
-    &                                             GRID_EDGE, GRID_CELL
+    &                                             GRID_EDGE, GRID_CELL, LONLAT_PREFIX
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
   USE mo_master_control,                    ONLY: my_process_is_oceanic
@@ -111,9 +111,9 @@ MODULE mo_name_list_output_init
   ! variable lists
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
-  USE mo_var_list_global,                   ONLY: collect_group, new_var_list, varlistPacker,     &
-    &                                             total_number_of_variables, var_lists
-  USE mo_var_list,                          ONLY: get_var_timelevel, get_var_name, t_list_element
+  USE mo_var_list_register,                 ONLY: vl_register, vl_iter
+  USE mo_var_list,                          ONLY: t_list_element
+  USE mo_var_metadata,                      ONLY: get_var_timelevel, get_var_name
   USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
     &                                             level_type_il
@@ -876,7 +876,7 @@ CONTAINS
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
     TYPE (t_output_name_list), POINTER      :: p_onl
 
-    ntotal_vars = total_number_of_variables()
+    ntotal_vars = vl_register%n_var()
     ! temporary variables needed for variable group parsing
     ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
@@ -937,10 +937,10 @@ CONTAINS
           END IF
           ! loop over all variables and collects the variables names
           ! corresponding to the group "grp_name"
-          CALL collect_group(grp_name, grp_vars, ngrp_vars,                           &
-            &               loutputvars_only = .TRUE.,                                &
+          CALL vl_register%collect_group(grp_name, grp_vars, ngrp_vars, &
+            &               loutputvars_only = .TRUE., &
             &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
-            &               opt_vlevel_type  = i_typ,                                 &
+            &               opt_vlevel_type  = i_typ, &
             &               opt_dom_id       = p_onl%dom)
           CALL lowcase(grp_vars(1:ngrp_vars))
 
@@ -1370,14 +1370,12 @@ CONTAINS
     TYPE (t_output_file),      POINTER   :: p_of
     CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     INTEGER, POINTER                     :: pe_placement(:)
-    INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, nvl, &
-         vl_list(SIZE(var_lists)), j, log_patch_id
+    INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, j, log_patch_id
     CHARACTER(len=*), PARAMETER :: routine &
          = modname//"::output_name_lists_to_files"
     LOGICAL :: is_work
 
     is_work = my_process_is_work()
-
     p_onl => first_output_name_list
     ifile = 0
     LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
@@ -1447,26 +1445,11 @@ CONTAINS
           p_of%io_proc_id      = -1 ! undefined MPI rank
           p_of%pe_placement    = pe_placement(ifile_partition)
 
-          ! Select all var_lists which belong to current logical domain and i_typ
-          nvl = 0
-          DO j = 1, SIZE(var_lists)
-            IF (.NOT.ASSOCIATED(var_lists(j)%p)) CYCLE
-            IF (.NOT.var_lists(j)%p%loutput) CYCLE
-            ! patch_id in var_lists always corresponds to the LOGICAL domain
-            IF(var_lists(j)%p%patch_id /= log_patch_id) CYCLE
-
-            IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
-
-            nvl = nvl + 1
-            vl_list(nvl) = j
-
-          ENDDO
-
           IF ( is_work ) THEN ! avoid addidional io or restart processes
             CALL process_statistics_stream(p_onl,i_typ,sim_step_info, p_patch(log_patch_id))
           ENDIF
 
-          CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),varlist_ptr)
+          CALL add_varlist_to_output_file(p_of,varlist_ptr)
 
         END DO ! ifile_partition
 
@@ -1930,20 +1913,17 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE add_varlist_to_output_file(of, vl_list, varlist)
-
+  SUBROUTINE add_varlist_to_output_file(of, varlist)
     TYPE (t_output_file), INTENT(INOUT) :: of
-    INTEGER,              INTENT(IN)    :: vl_list(:)
     CHARACTER(LEN=*),     INTENT(IN)    :: varlist(:)
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
-    INTEGER                       :: ivar, nvars, i, iv, tl
-    LOGICAL                       :: found, inspect, is_stdio
-    TYPE(t_list_element), POINTER :: element
+    INTEGER                       :: ivar, nvars, iv, tl
+    LOGICAL                       :: found
+    TYPE(t_list_element), POINTER :: element, next
     TYPE(t_var_desc)              :: var_desc   !< variable descriptor
     TYPE(t_cf_var),       POINTER :: this_cf
 
-    is_stdio = my_process_is_stdio()
     ! Get the number of variables in varlist
     nvars = 0
     DO ivar = 1, SIZE(varlist)
@@ -1971,102 +1951,102 @@ CONTAINS
       ! Remark: The different time levels may appear in different lists
       ! or in the same list, the code will accept both
 
-      DO i = 1, SIZE(vl_list)
-
-        iv = vl_list(i)
-
-        element => var_lists(iv)%p%first_list_element
-        DO WHILE (ASSOCIATED(element))
+      DO WHILE(vl_iter%next())
+        IF (.NOT.vl_iter%cur%p%loutput) CYCLE
+        ! patch_id in var_lists always corresponds to the LOGICAL domain
+        IF(vl_iter%cur%p%patch_id /= of%log_patch_id) CYCLE
+        IF(vl_iter%cur%p%vlevel_type /= of%ilev_type) CYCLE
+        next => vl_iter%cur%p%first_list_element
+        DO WHILE (ASSOCIATED(next))
+          element => next
+          next => element%next_list_element
           ! Do not inspect element if output is disabled
-          inspect = element%field%info%loutput
-          IF (inspect) THEN
-            IF (of%name_list%remap==REMAP_REGULAR_LATLON) THEN
-              ! If lon-lat variable is requested, skip variable if it
-              ! does not correspond to the same lon-lat grid:
-              inspect =       (element%field%info%hgrid == GRID_REGULAR_LONLAT) &
-                &       .AND. (of%name_list%lonlat_id == element%field%info%hor_interp%lonlat_id)
-            ELSE
-              ! On the other hand: If no lon-lat interpolation is
-              ! requested for this output file, skip all variables of
-              ! this kind:
-              inspect = element%field%info%hgrid /= GRID_REGULAR_LONLAT
-            END IF ! (remap/=REMAP_REGULAR_LATLON)
-            IF (inspect) THEN
-              ! Do not inspect element if it is a container
-              inspect =         .NOT. element%field%info%lcontainer &
-                   &    .AND.   (tolower(varlist(ivar)) &
-                   &          == tolower(get_var_name(element%field)))
-            ENDIF
-          ENDIF
-          IF(inspect) THEN
+          IF (.NOT.element%field%info%loutput) CYCLE
+          IF (element%field%info%lcontainer) CYCLE
+          IF (of%name_list%remap .EQ. REMAP_REGULAR_LATLON) THEN
+            ! If lon-lat variable is requested, skip variable if it
+            ! does not correspond to the same lon-lat grid:
+            IF (element%field%info%hgrid .NE. GRID_REGULAR_LONLAT .OR. &
+              & of%name_list%lonlat_id .NE. element%field%info%hor_interp%lonlat_id) &
+              & CYCLE
+            IF (LONLAT_PREFIX//tolower(varlist(ivar)) /= &
+                tolower(get_var_name(element%field%info))) CYCLE
+          ELSE
+            ! On the other hand: If no lon-lat interpolation is
+            ! requested for this output file, skip all variables of
+            ! this kind:
+            IF (element%field%info%hgrid .EQ. GRID_REGULAR_LONLAT) CYCLE
+            IF (tolower(varlist(ivar)) /= &
+                tolower(get_var_name(element%field%info))) CYCLE
+          END IF ! (remap/=REMAP_REGULAR_LATLON)
             ! register variable
-            CALL registerOutputVariable(varlist(ivar))
-            ! register shortnames, which are used by mvstream and possibly by the users
-            IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
+          CALL registerOutputVariable(varlist(ivar))
+          ! register shortnames, which are used by mvstream and possibly by the users
+          IF ("" /= element%field%info%cf%short_name) CALL registerOutputVariable(element%field%info%cf%short_name)
 
-            ! get time level
-            tl = get_var_timelevel(element%field%info%name)
+          ! get time level
+          tl = get_var_timelevel(element%field%info%name)
 
-            ! Found it, add it to the variable list of output file
-            IF(tl == -1) THEN
-              ! Not time level dependent
-              IF (found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
-              var_desc%r_ptr    => element%field%r_ptr
-              var_desc%s_ptr    => element%field%s_ptr
-              var_desc%i_ptr    => element%field%i_ptr
-              var_desc%info     =  element%field%info
-              var_desc%info_ptr => element%field%info
+          ! Found it, add it to the variable list of output file
+          IF(tl == -1) THEN
+            ! Not time level dependent
+            IF (found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
+            var_desc%r_ptr    => element%field%r_ptr
+            var_desc%s_ptr    => element%field%s_ptr
+            var_desc%i_ptr    => element%field%i_ptr
+            var_desc%info     =  element%field%info
+            var_desc%info_ptr => element%field%info
+          ELSE
+            IF(found) THEN
+              ! We have already the info field, make some plausibility checks:
+              IF (ANY(var_desc%info%used_dimensions(:) /=  &
+                   &     element%field%info%used_dimensions(:))) THEN
+                CALL message(routine, "Var "//TRIM(element%field%info%name))
+                CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
+              END IF
+              ! There must not be a TL independent variable with the same name
+              IF (     ASSOCIATED(var_desc%r_ptr) &
+                & .OR. ASSOCIATED(var_desc%s_ptr) &
+                & .OR. ASSOCIATED(var_desc%i_ptr)) &
+                   CALL finish(routine, 'Duplicate var name: '&
+                   &                    //TRIM(varlist(ivar)))
+              ! Maybe some more members of info should be tested ...
             ELSE
-              IF(found) THEN
-                ! We have already the info field, make some plausibility checks:
-                IF (ANY(var_desc%info%used_dimensions(:) /=  &
-                     &     element%field%info%used_dimensions(:))) THEN
-                  CALL message(routine, "Var "//TRIM(element%field%info%name))
-                  CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
-                END IF
-                ! There must not be a TL independent variable with the same name
-                IF (     ASSOCIATED(var_desc%r_ptr) &
-                  & .OR. ASSOCIATED(var_desc%s_ptr) &
-                  & .OR. ASSOCIATED(var_desc%i_ptr)) &
-                     CALL finish(routine, 'Duplicate var name: '&
-                     &                    //TRIM(varlist(ivar)))
-                ! Maybe some more members of info should be tested ...
-              ELSE
-                ! Variable encountered the first time, set info field ...
-                var_desc%info = element%field%info
-                ! ... and set name without .TL# suffix
-                var_desc%info%name = TRIM(get_var_name(element%field))
-              ENDIF
-
-              IF (     ASSOCIATED(var_desc%tlev_rptr(tl)%p) &
-                & .OR. ASSOCIATED(var_desc%tlev_sptr(tl)%p) &
-                & .OR. ASSOCIATED(var_desc%tlev_iptr(tl)%p)) &
-                CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
-              var_desc%tlev_rptr(tl)%p => element%field%r_ptr
-              var_desc%tlev_sptr(tl)%p => element%field%s_ptr
-              var_desc%tlev_iptr(tl)%p => element%field%i_ptr
-              var_desc%info_ptr        => element%field%info
+              ! Variable encountered the first time, set info field ...
+              var_desc%info = element%field%info
+              ! ... and set name without .TL# suffix
+              var_desc%info%name = TRIM(get_var_name(element%field%info))
             ENDIF
 
-            found = .TRUE.
+            IF (     ASSOCIATED(var_desc%tlev_rptr(tl)%p) &
+              & .OR. ASSOCIATED(var_desc%tlev_sptr(tl)%p) &
+              & .OR. ASSOCIATED(var_desc%tlev_iptr(tl)%p)) &
+              CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
+            var_desc%tlev_rptr(tl)%p => element%field%r_ptr
+            var_desc%tlev_sptr(tl)%p => element%field%s_ptr
+            var_desc%tlev_iptr(tl)%p => element%field%i_ptr
+            var_desc%info_ptr        => element%field%info
+          ENDIF
+          IF (of%name_list%remap .EQ. REMAP_REGULAR_LATLON) THEN
+            var_desc%info%name = element%field%info%name(LEN(LONLAT_PREFIX)+1:)
+            IF (tl .NE. -1) &
+              & var_desc%info%name = TRIM(get_var_name(var_desc%info))
           END IF
-          element => element%next_list_element
+          found = .TRUE.
         ENDDO
-
       ENDDO ! i = 1, SIZE(vl_list)
 
       ! Check that at least one element with this name has been found
 
       IF (.NOT. found) THEN
 
-        IF (is_stdio) THEN
-          DO i = 1, SIZE(var_lists)
-            IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
+        IF (my_process_is_stdio()) THEN
+          DO WHILE(vl_iter%next())
             WRITE(message_text,'(3a, i2)') &
-                 'Variable list name: ',TRIM(var_lists(i)%p%name), &
-                 ' Patch: ',var_lists(i)%p%patch_id
+                 'Variable list name: ',TRIM(vl_iter%cur%p%name), &
+                 ' Patch: ',vl_iter%cur%p%patch_id
             CALL message('',message_text)
-            element => var_lists(i)%p%first_list_element
+            element => vl_iter%cur%p%first_list_element
             DO WHILE (ASSOCIATED(element))
               IF (element%field%info%post_op%lnew_cf) THEN
                 this_cf => element%field%info%post_op%new_cf
@@ -2978,9 +2958,9 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
     CALL p_get_bcast_role(bcast_root, p_comm_work_2_io, lIsSender, lIsReceiver)
-    IF(lIsSender) CALL varlistPacker(kPackOp, pmsg, .FALSE.)
+    IF(lIsSender) CALL vl_register%packer(kPackOp, pmsg, .FALSE.)
     CALL pmsg%bcast(bcast_root, p_comm_work_2_io)
-    IF(lIsReceiver) CALL varlistPacker(kUnpackOp, pmsg, .FALSE.)
+    IF(lIsReceiver) CALL vl_register%packer(kUnpackOp, pmsg, .FALSE.)
 
     ! var_groups_dyn is required in function 'group_id', which is called in
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
@@ -3096,13 +3076,13 @@ CONTAINS
   SUBROUTINE registerOutputVariable(name)
     CHARACTER(LEN=vname_len), INTENT(IN) :: name
 
-    CALL outputRegister%add(text_hash_c(tolower(TRIM(name))))
+    CALL outputRegister%add(text_hash_c(tolower(name)))
   END SUBROUTINE registerOutputVariable
 
   LOGICAL FUNCTION isRegistered(name)
     CHARACTER(LEN=*), INTENT(IN) :: name
 
-    isRegistered = outputRegister%includes(text_hash_c(tolower(TRIM(name))))
+    isRegistered = outputRegister%includes(text_hash_c(tolower(name)))
   END FUNCTION
 
 

@@ -33,6 +33,8 @@ MODULE mo_var_metadata
   USE mo_util_texthash,      ONLY: text_hash_c
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_tracer_metadata,    ONLY: create_tracer_metadata
+  USE mo_util_string,        ONLY: tolower
+  USE mo_impl_constants,     ONLY: TIMELEVEL_SUFFIX, MAX_TIME_LEVELS, vname_len
 
   IMPLICIT NONE
   PRIVATE
@@ -43,6 +45,10 @@ MODULE mo_var_metadata
   PUBLIC :: create_hor_interp_metadata, create_vert_interp_metadata
   PUBLIC :: post_op, vintp_types, vintp_type_id, set_var_metadata
   PUBLIC :: set_var_metadata_dyn
+  PUBLIC :: get_var_name ! return plain variable name (without timelevel)
+  PUBLIC :: get_var_timelevel ! return variable timelevel (or "-1")
+  PUBLIC :: get_timelevel_string ! return the default string with timelevel encoded
+  PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
 
 CONTAINS
   !------------------------------------------------------------------------------------------------
@@ -80,7 +86,7 @@ CONTAINS
     in_str_upper = toupper(in_str)
     n = SIZE(VINTP_TYPE_LIST)
     LOOP_VINTP_TYPES : DO ivintp_type=1,n
-      IF (in_str_upper == toupper(VINTP_TYPE_LIST(ivintp_type))) THEN
+      IF (in_str_upper == VINTP_TYPE_LIST(ivintp_type)) THEN
         vintp_type_id = ivintp_type
         EXIT LOOP_VINTP_TYPES
       END IF
@@ -222,6 +228,7 @@ CONTAINS
     IF (PRESENT(name)) THEN
       info%name      = name
       info%key = text_hash_c(TRIM(name))
+      info%key_notl = text_hash_c(tolower(strip_timelev(name)))
     END IF
     !IF (PRESENT(verbose))       lverbose             = verbose
     IF (PRESENT(data_type))     info%data_type       = data_type
@@ -294,5 +301,57 @@ CONTAINS
     ENDIF
   END SUBROUTINE set_var_metadata_dyn
 
+  !------------------------------------------------------------------------------------------------
+  !> @return Plain variable name (i.e. without TIMELEVEL_SUFFIX)
+  CHARACTER(LEN=vname_len) FUNCTION get_var_name(info)
+    TYPE(t_var_metadata), INTENT(IN) :: info
+
+    get_var_name = strip_timelev(info%name)
+  END FUNCTION get_var_name
+
+  CHARACTER(LEN=vname_len) FUNCTION strip_timelev(vname)
+    CHARACTER(*), INTENT(IN)   :: vname
+    INTEGER :: idx
+
+    idx = INDEX(vname,TIMELEVEL_SUFFIX)
+    IF (idx .EQ. 0) THEN
+      strip_timelev = vname
+    ELSE
+      strip_timelev = vname(1:idx-1)
+    END IF
+  END FUNCTION strip_timelev
+
+  !------------------------------------------------------------------------------------------------
+  ! construct varname  with timelevel
+  CHARACTER(LEN=vname_len) FUNCTION get_varname_with_timelevel(varname,timelevel)
+    CHARACTER(*), INTENT(IN) :: varname
+    INTEGER, INTENT(IN) :: timelevel
+
+    get_varname_with_timelevel = TRIM(varname)//get_timelevel_string(timelevel)
+  END FUNCTION get_varname_with_timelevel
+
+  !------------------------------------------------------------------------------------------------
+  ! construct string for timelevel encoding into variable names
+  CHARACTER(len=4) FUNCTION get_timelevel_string(timelevel)
+    INTEGER, INTENT(IN) :: timelevel
+
+    WRITE(get_timelevel_string,'("'//TIMELEVEL_SUFFIX//'",i1)') timelevel
+  END FUNCTION get_timelevel_string
+
+  !------------------------------------------------------------------------------------------------
+  !> @return time level (extracted from time level suffix) or "-1"
+  INTEGER FUNCTION get_var_timelevel(vname) RESULT(tl)
+    CHARACTER(*), INTENT(IN) :: vname
+    CHARACTER(*), PARAMETER :: routine = modname//':get_var_timelevel'
+
+    tl = INDEX(vname,TIMELEVEL_SUFFIX)
+    IF (tl .EQ. 0) THEN
+      tl = -1
+    ELSE
+      tl = ICHAR(vname(tl+3:tl+3)) - ICHAR('0')
+      IF (tl .LE. 0 .OR. tl .GT. MAX_TIME_LEVELS) &
+        & CALL finish(routine, 'Illegal time level in '//TRIM(vname))
+    END IF
+  END FUNCTION get_var_timelevel
 END MODULE mo_var_metadata
 

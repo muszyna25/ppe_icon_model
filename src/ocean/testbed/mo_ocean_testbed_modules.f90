@@ -70,7 +70,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
-  USE mo_var_list_global,        ONLY: new_var_list, delete_var_list
+  USE mo_var_list_register,      ONLY: vl_register
   USE mo_var_list,               ONLY: print_var_list, add_var, t_var_list_ptr
   USE mo_cdi
   use mo_cdi_constants
@@ -1639,7 +1639,7 @@ CONTAINS
     REAL(wp), POINTER :: var2(:,:,:)
     REAL(wp), POINTER :: var3(:,:,:)
     
-    CALL new_var_list(varnameCheckList, 'varnameCheck_list', patch_id=patch_2d%id, &
+    CALL vl_register%new(varnameCheckList, 'varnameCheck_list', patch_id=patch_2d%id, &
       & lrestart=.TRUE., loutput=.TRUE., model_type=TRIM(get_my_process_name()))
 
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -1670,6 +1670,6 @@ CONTAINS
 
 
     call print_var_list(varnameCheckList)
-    call delete_var_list(varnameCheckList)
+    call vl_register%delete(varnameCheckList)
   END SUBROUTINE checkVarlistKeys
 END MODULE mo_ocean_testbed_modules

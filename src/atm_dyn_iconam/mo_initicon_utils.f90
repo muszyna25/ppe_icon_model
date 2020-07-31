@@ -64,8 +64,9 @@ MODULE mo_initicon_utils
   USE sfc_seaice,             ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
-  USE mo_var_list,            ONLY: get_var_name, t_list_element
-  USE mo_var_list_global,     ONLY: var_lists
+  USE mo_var_metadata,        ONLY: get_var_name
+  USE mo_var_list,            ONLY: t_list_element
+  USE mo_var_list_register,   ONLY: vl_iter
   USE mo_var_list_element,    ONLY: level_type_ml
   USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
@@ -152,32 +153,19 @@ MODULE mo_initicon_utils
 
     lc_varname = tolower(varname)
     ! get metadata information for field to be read
-    info => NULL()
-    DO i = 1, SIZE(var_lists)
-      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
+    NULLIFY(info)
+    DO WHILE(vl_iter%next() .AND. .NOT.ASSOCIATED(info))
       ! loop only over model level variables
-      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
-
-      element => NULL()
-      DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT
-
-        ! Check for matching name (take care of suffix of
-        ! time-dependent variables):
-        IF (TRIM(lc_varname) == TRIM(tolower(get_var_name(element%field)))) THEN
-          info => element%field%info
-          EXIT
-        ENDIF
+      IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE 
+      element => vl_iter%cur%p%first_list_element
+      DO WHILE(ASSOCIATED(element) .AND. .NOT.ASSOCIATED(info))
+        ! Check for matching name (take care of suffix of time-dependent variables):
+        IF (TRIM(lc_varname) == tolower(get_var_name(element%field%info))) &
+          & info => element%field%info
+        element => element%next_list_element
       END DO
-
-      ! If info handle has been found, exit list loop
-      IF (ASSOCIATED(info)) EXIT
     ENDDO
+    CALL vl_iter%reset()
 
     IF (.NOT.ASSOCIATED(info)) THEN
       WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
@@ -199,8 +187,6 @@ MODULE mo_initicon_utils
     ENDIF
 
   END SUBROUTINE initicon_inverse_post_op
-
-
 
   !>
   !! SUBROUTINE init_aersosol

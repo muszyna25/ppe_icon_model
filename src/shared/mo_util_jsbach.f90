@@ -1183,7 +1183,7 @@ MODULE mo_jsb_varlist_iface
 
   USE mo_kind,               ONLY: wp, dp
   USE mo_exception,          ONLY: finish
-  USE mo_var_list_global, ONLY: new_var_list_icon => new_var_list, get_var_list
+  USE mo_var_list_register,  ONLY: vl_register
   USE mo_var_list, ONLY: add_var_icon => add_var, find_list_element, &
     & t_var_list_ptr, t_list_element, t_var_list => t_var_list_ptr
   USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
@@ -1204,6 +1204,19 @@ MODULE mo_jsb_varlist_iface
 
 CONTAINS
 
+  SUBROUTINE get_var_list(this_list, vlname)
+    TYPE(t_var_list_ptr), INTENT(OUT), POINTER :: this_list
+    CHARACTER(*), INTENT(IN) :: vlname
+    TYPE(t_var_list_ptr) :: tmp
+
+    NULLIFY(this_list)
+    CALL vl_register%get(tmp, vlname)
+    IF (ASSOCIATED(tmp%p)) THEN
+      ALLOCATE(this_list)
+      this_list%p => tmp%p
+    END IF
+  END SUBROUTINE get_var_list
+
   SUBROUTINE new_var_list (this_list, name, patch_id, output_type, restart_type, &
        &                       post_suf, rest_suf, init_suf, loutput, lrestart,  &
        &                       linitial, table)
@@ -1223,7 +1236,7 @@ CONTAINS
 
     IF (PRESENT(table)) CONTINUE ! Only here to avoid compiler warning about "table" not being used
 
-    CALL new_var_list_icon(this_list, name,                                    &
+    CALL vl_register%new(this_list, name,                                    &
                       output_type=output_type, restart_type=restart_type,      &
                       post_suf=post_suf, rest_suf=rest_suf, init_suf=init_suf, &
                       loutput=loutput, lrestart=lrestart, linitial=linitial,   &

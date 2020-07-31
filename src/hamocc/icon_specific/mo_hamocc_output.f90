@@ -24,9 +24,8 @@
 
       USE mo_cdi_constants,      ONLY: grid_unstructured_cell, grid_cell
 
-      USE mo_var_list,            ONLY: add_var, add_ref, get_timelevel_string, &
-    &                                   t_var_list_ptr
-      USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
+      USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
+      USE mo_var_list_register,   ONLY: vl_register
 
       USE mo_grid_config,         ONLY: n_dom
 
@@ -53,7 +52,7 @@
 
       USE mo_hamocc_nml,         ONLY: io_stdo_bgc
 
-      USE mo_var_metadata,       ONLY: post_op
+      USE mo_var_metadata,       ONLY: post_op, get_timelevel_string
 
       USE mo_var_groups, ONLY: groups
 
@@ -1663,10 +1662,10 @@
     CALL message(TRIM(routine), 'start to destruct hamocc state ')
     
     
-    CALL delete_var_list(hamocc_restart_list)
-    CALL delete_var_list(hamocc_default_list)
-    CALL delete_var_list(hamocc_tendency_list)
-    CALL delete_var_list(hamocc_sediment_list)
+    CALL vl_register%delete(hamocc_restart_list)
+    CALL vl_register%delete(hamocc_default_list)
+    CALL vl_register%delete(hamocc_tendency_list)
+    CALL vl_register%delete(hamocc_sediment_list)
     
     CALL message(TRIM(routine),'destruction of hamocc state finished')
     CALL close_bgcout 
@@ -1681,19 +1680,19 @@
 
     model_name = TRIM(get_my_process_name())
     
-    CALL new_var_list(hamocc_restart_list, 'hamocc_restart_list',   &
+    CALL vl_register%new(hamocc_restart_list, 'hamocc_restart_list',   &
       & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,      &
       & model_type=model_name)
 
-    CALL new_var_list(hamocc_default_list, 'hamocc_default_list',   &
+    CALL vl_register%new(hamocc_default_list, 'hamocc_default_list',   &
       & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,     &
       & model_type=model_name)
 
-    CALL new_var_list(hamocc_tendency_list, 'hamocc_tendency_list', &
+    CALL vl_register%new(hamocc_tendency_list, 'hamocc_tendency_list', &
       & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,      &
       & model_type=model_name)
 
-    CALL new_var_list(hamocc_sediment_list, 'hamocc_sediment_list', &
+    CALL vl_register%new(hamocc_sediment_list, 'hamocc_sediment_list', &
       & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,      &
       & model_type=model_name)
 

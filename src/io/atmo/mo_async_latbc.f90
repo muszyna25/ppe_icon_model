@@ -232,8 +232,9 @@ MODULE mo_async_latbc
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
-    USE mo_var_list_global,           ONLY: var_lists, new_var_list, collect_group, varlistPacker
-    USE mo_var_list,                  ONLY: get_var_name, t_list_element
+    USE mo_var_list_register,         ONLY: vl_register, vl_iter
+    USE mo_var_metadata,              ONLY: get_var_name
+    USE mo_var_list,                  ONLY: t_list_element
     USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary
@@ -809,8 +810,8 @@ MODULE mo_async_latbc
       ! loop over all variables and collects the variables names
       ! corresponding to the group "LATBC_PREFETCH_VARS"
 
-      CALL collect_group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, loutputvars_only=.FALSE., &
-        &                lremap_lonlat=.FALSE. )
+      CALL vl_register%collect_group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, &
+        &                            loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
 
       ! allocate the number of vertical levels and other fields with
       ! the same size as number of variables, reserve space for geop_ml_var
@@ -1040,7 +1041,7 @@ MODULE mo_async_latbc
          DO WHILE (ASSOCIATED(current_element))
 
            ! Plain variable name (i.e. without TIMELEVEL_SUFFIX)
-           current_name  = tolower(get_var_name(current_element%field))
+           current_name  = tolower(get_var_name(current_element%field%info))
            ! Index
            current_index = current_element%field%info%ncontained
 
@@ -1237,21 +1238,19 @@ MODULE mo_async_latbc
       TYPE(t_var_metadata_ptr), ALLOCATABLE, INTENT(out) :: var_data(:)
       INTEGER,             INTENT(IN) :: bcast_root
       CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
-      INTEGER                       :: i, i2, all_nvars
-      LOGICAL                       :: is_pref, lIsSender, lIsReceiver
+      INTEGER                       :: i2, all_nvars
+      LOGICAL                       :: lIsSender, lIsReceiver
       TYPE(t_list_element), POINTER :: element
       TYPE(t_packedMessage) :: pmsg
 
-      is_pref = my_process_is_pref()
       CALL p_get_bcast_role(bcast_root, p_comm_work_2_pref, lIsSender, lIsReceiver)
-      IF(lIsSender) CALL varlistPacker(kPackOp, pmsg, .FALSE.)
+      IF(lIsSender) CALL vl_register%packer(kPackOp, pmsg, .FALSE.)
       CALL pmsg%bcast(bcast_root, p_comm_work_2_pref)
-      IF(lIsReceiver) CALL varlistPacker(kUnpackOp, pmsg, .FALSE., all_nvars)
+      IF(lIsReceiver) CALL vl_register%packer(kUnpackOp, pmsg, .FALSE., all_nvars)
       ALLOCATE(var_data(all_nvars))
       i2 = 0
-      DO i = 1, SIZE(var_lists)
-        IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
-        element => var_lists(i)%p%first_list_element
+      DO WHILE(vl_iter%next())
+        element => vl_iter%cur%p%first_list_element
         DO WHILE (ASSOCIATED(element))
           i2 = i2 + 1
           var_data(i2)%p => element%field%info

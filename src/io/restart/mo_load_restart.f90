@@ -27,7 +27,7 @@ MODULE mo_load_restart
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
   USE mo_util_string,        ONLY: separator, toCharacter
-  USE mo_var_list_global,    ONLY: var_lists
+  USE mo_var_list_register,  ONLY: vl_iter
   USE mo_master_control,     ONLY: get_my_process_name
 
   IMPLICIT NONE
@@ -209,23 +209,22 @@ CONTAINS
   CONTAINS
 
     SUBROUTINE getModelTypes()
-      INTEGER :: i, lm
+      INTEGER :: lm
       LOGICAL :: skip
 
-      DO i = 1, SIZE(var_lists)
-        IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
-        IF (var_lists(i)%p%patch_id .NE. p_patch%id) CYCLE
-        lm = LEN_TRIM(var_lists(i)%p%model_type)
+      DO WHILE(vl_iter%next())
+        IF (vl_iter%cur%p%patch_id .NE. p_patch%id) CYCLE
+        lm = LEN_TRIM(vl_iter%cur%p%model_type)
         cur_mType => entry_mType
         skip = .FALSE.
         DO WHILE(ASSOCIATED(cur_mType%next))
-          skip = var_lists(i)%p%model_type(1:lm) == cur_mType%next%a
+          skip = vl_iter%cur%p%model_type(1:lm) == cur_mType%next%a
           IF (skip) EXIT
           cur_mType => cur_mType%next
         END DO
         IF (skip) CYCLE
         ALLOCATE(cur_mType%next)
-        cur_mType%next%a = var_lists(i)%p%model_type(1:lm)
+        cur_mType%next%a = vl_iter%cur%p%model_type(1:lm)
       END DO
     END SUBROUTINE getModelTypes
   END SUBROUTINE read_restart_files

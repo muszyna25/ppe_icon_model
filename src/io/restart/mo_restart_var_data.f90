@@ -24,10 +24,11 @@ MODULE mo_restart_var_data
 #endif
   USE mo_kind,               ONLY: dp, sp
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list_global,    ONLY: var_lists
-  USE mo_var_list,           ONLY: get_var_timelevel, t_list_element, t_var_list_ptr
+  USE mo_var_list_register,  ONLY: vl_iter
+  USE mo_var_list,           ONLY: t_list_element, t_var_list_ptr
   USE mo_var_list_element,   ONLY: t_p_var_list_element, t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_var_metadata,       ONLY: get_var_timelevel
 #ifndef __NO_ICON_ATMO__
   USE mo_ha_dyn_config, ONLY: ha_dyn_config
 #endif
@@ -57,60 +58,55 @@ CONTAINS
     INTEGER, INTENT(in) :: patch_id
     CHARACTER(LEN = *), INTENT(IN) :: modelType
     INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
-    INTEGER :: vc, iv, ierr, il, restartType
+    INTEGER :: n_var, n_vl, iv, il, ierr, restartType
     TYPE(t_list_element), POINTER :: element
+    TYPE(t_var_list_ptr), ALLOCATABLE :: reordered_vls(:)
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartVarData"
 
     restartType = -1
-    vc = countRestartVariables()
-#ifdef DEBUG
-    WRITE(nerr, "(a)") routine//': numvars = '//TRIM(int2string(vc))
-#endif
-    ! allocate the array of restart variables
-    ALLOCATE(var_data(vc), STAT = ierr)
-    IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    ! fill the array of restart variables
-    iv = 1
-    DO il = 1, SIZE(var_lists)
-      IF (.NOT.ASSOCIATED(var_lists(il)%p)) CYCLE
-      IF(wantVarlist(var_lists(il))) THEN
-        IF(restartType == -1) THEN
-          restartType = var_lists(il)%p%restart_type
-        ELSE IF(restartType /= var_lists(il)%p%restart_type) THEN
-          CALL finish(routine, "assertion failed: var_lists contains inconsistent restart_type values")
-        END IF
+    n_var = 0
+    n_vl = 0
+    DO WHILE(vl_iter%next())
+      n_vl = MAX(n_vl, vl_iter%cur%p%id)
+      IF (wantVarlist(vl_iter%cur)) THEN
         ! check, if the list has valid restart fields
-        element => var_lists(il)%p%first_list_element
+        element => vl_iter%cur%p%first_list_element
         DO WHILE (ASSOCIATED(element))
-          IF (element%field%info%lrestart) THEN
-            var_data(iv)%p => element%field
-            iv = iv + 1
-          END IF
+          n_var = n_var + MERGE(1, 0, element%field%info%lrestart)
           element => element%next_list_element
         END DO
       END IF
+    ENDDO
+#ifdef DEBUG
+    WRITE(nerr, "(a)") routine//': numvars = '//TRIM(int2string(n_var))
+#endif
+    ! allocate the array of restart variables
+    ALLOCATE(var_data(n_var), reordered_vls(n_vl), STAT = ierr)
+    IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    ! fill the array of restart variables
+    DO WHILE(vl_iter%next())
+      reordered_vls(vl_iter%cur%p%id)%p => vl_iter%cur%p 
     END DO
-    IF(iv /= vc + 1) &
-         CALL finish(routine, "assertion failed: wrong restart variable count")
+    iv = 0
+    DO il = 1, n_vl
+      IF (.NOT.ASSOCIATED(reordered_vls(il)%p)) CYCLE
+      IF(.NOT.wantVarlist(reordered_vls(il))) CYCLE
+      IF(restartType == -1) restartType = reordered_vls(il)%p%restart_type
+      IF(restartType /= reordered_vls(il)%p%restart_type) &
+        & CALL finish(routine, "var_lists contains inconsistent restart_type values")
+      ! check, if the list has valid restart fields
+      element => reordered_vls(il)%p%first_list_element
+      DO WHILE (ASSOCIATED(element))
+        IF (element%field%info%lrestart) THEN
+          iv = iv + 1
+          var_data(iv)%p => element%field
+        END IF
+        element => element%next_list_element
+      END DO
+    END DO
+    IF(iv /= n_var) CALL finish(routine, "inconsistent restart variable count")
     IF (PRESENT(out_restartType)) out_restartType = restartType
   CONTAINS
-
-    INTEGER FUNCTION countRestartVariables() RESULT(fld_cnt)
-      INTEGER :: i
-  
-      fld_cnt = 0
-      DO i = 1, SIZE(var_lists)
-        IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
-        IF (wantVarlist(var_lists(i))) THEN
-          ! check, if the list has valid restart fields
-          element => var_lists(i)%p%first_list_element
-          DO WHILE (ASSOCIATED(element))
-            fld_cnt = fld_cnt + MERGE(1, 0, element%field%info%lrestart)
-            element => element%next_list_element
-          END DO
-        END IF
-      ENDDO
-    END FUNCTION countRestartVariables
 
     LOGICAL FUNCTION wantVarlist(varlist)
       TYPE(t_var_list_ptr), INTENT(IN) :: varlist

@@ -76,7 +76,7 @@ MODULE mo_ocean_physics_types
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
   USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
-  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
+  USE mo_var_list_register,   ONLY: vl_register
   USE mo_var_groups,          ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
@@ -262,7 +262,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
-    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=patch_2D%id, &
+    CALL vl_register%new(ocean_params_list, 'ocean_params_list', patch_id=patch_2D%id, &
       & lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
 
     ! determine size of arrays
@@ -883,7 +883,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'destruct hydro ocean physics')
 
-    CALL delete_var_list(ocean_params_list)
+    CALL vl_register%delete(ocean_params_list)
 
     DEALLOCATE(params_oce%a_tracer_v_back,               &
       & params_oce%Tracer_HorizontalDiffusion_Reference, &

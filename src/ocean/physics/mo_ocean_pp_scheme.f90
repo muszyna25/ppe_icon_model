@@ -76,8 +76,6 @@ MODULE mo_ocean_pp_scheme
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_dynamics_config,     ONLY: nold!, nnew
   USE mo_run_config,          ONLY: dtime
-  USE mo_var_list,            ONLY: add_var, add_ref
-  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: datatype_pack16, DATATYPE_FLT32, DATATYPE_FLT64, filetype_nc2, &

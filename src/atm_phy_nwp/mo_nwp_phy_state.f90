@@ -82,7 +82,7 @@ USE mo_initicon_config,     ONLY: icpl_da_sfcevap
 USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
-USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
+USE mo_var_list_register,   ONLY: vl_register
 USE mo_var_groups,          ONLY: groups, MAX_GROUPS
 USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, POST_OP_LIN2DBZ, CLASS_SYNSAT, CLASS_CHEM
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
@@ -237,8 +237,8 @@ SUBROUTINE destruct_nwp_phy_state
   CALL message(routine, 'start to destruct 3D state vector')
 
   DO jg = 1,n_dom
-    CALL delete_var_list( prm_nwp_diag_list(jg) )
-    CALL delete_var_list( prm_nwp_tend_list (jg) )
+    CALL vl_register%delete(prm_nwp_diag_list(jg))
+    CALL vl_register%delete(prm_nwp_tend_list(jg))
 
     IF (ASSOCIATED(prm_diag(jg)%buffer_rttov))  DEALLOCATE(prm_diag(jg)%buffer_rttov)  
     IF (ALLOCATED(prm_diag(jg)%synsat_image))   DEALLOCATE(prm_diag(jg)%synsat_image)
@@ -338,7 +338,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
 
     ! Register a field list and apply default settings
 
-    CALL new_var_list(diag_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
+    CALL vl_register%new(diag_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
    
     !------------------------------
     ! Meteorological quantities
@@ -4093,7 +4093,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     NULLIFY(phy_tend%ddt_temp_gscp, phy_tend%ddt_tracer_gscp)
 
-    CALL new_var_list(phy_tend_list, TRIM(listname), patch_id=k_jg ,lrestart=.TRUE.)
+    CALL vl_register%new(phy_tend_list, TRIM(listname), patch_id=k_jg ,lrestart=.TRUE.)
     
     !------------------------------
     ! Temperature tendencies

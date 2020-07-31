@@ -63,7 +63,7 @@ MODULE mo_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
-  USE mo_var_list_global,    ONLY: var_lists
+  USE mo_var_list_register,  ONLY: vl_iter
   USE mo_var_list,           ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -187,18 +187,10 @@ CONTAINS
 
     ! loop over all variable lists and variables
     !
-    DO i = 1, SIZE(var_lists)
-      IF (.NOT.ASSOCIATED(var_lists(i)%p)) CYCLE
-      element => NULL()
+    DO WHILE(vl_iter%next())
+      element => vl_iter%cur%p%first_list_element
 
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
-
+      LOOPVAR : DO WHILE(ASSOCIATED(element))
         ! point to variable specific action list
         action_list => element%field%info%action_list
 
@@ -214,7 +206,7 @@ CONTAINS
             nvars = nvars + 1
             act_obj%var_element_ptr(nvars)%p => element%field
             act_obj%var_action_index(nvars) = iact
-            act_obj%var_element_ptr(nvars)%patch_id = var_lists(i)%p%patch_id
+            act_obj%var_element_ptr(nvars)%patch_id = vl_iter%cur%p%patch_id
 
 
             ! Create event for this specific field
@@ -231,7 +223,7 @@ CONTAINS
         ENDDO  LOOPACTION ! loop over variable-specific actions
 
         IF(ASSOCIATED(action_list)) action_list => NULL()
-
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
 

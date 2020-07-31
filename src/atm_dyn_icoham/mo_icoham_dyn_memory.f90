@@ -36,7 +36,7 @@ MODULE mo_icoham_dyn_memory
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
-  USE mo_var_list_global,     ONLY: new_var_list, delete_var_list
+  USE mo_var_list_register,   ONLY: vl_register
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64, GRID_UNSTRUCTURED
@@ -239,19 +239,19 @@ CONTAINS
 
       ! Prognostic variables
       DO jt = 1,ntimelevel
-        CALL delete_var_list( hydro_prog_list(jg,jt) )
+        CALL vl_register%delete(hydro_prog_list(jg,jt))
       END DO
 
       ! Diagnostic variables
-      CALL delete_var_list( hydro_diag_list(jg) )
+      CALL vl_register%delete(hydro_diag_list(jg))
 
       ! Tendencies
-      CALL delete_var_list( hydro_tend_dyn_list(jg) )
-      CALL delete_var_list( hydro_tend_phy_list(jg) )
+      CALL vl_register%delete(hydro_tend_dyn_list(jg))
+      CALL vl_register%delete(hydro_tend_phy_list(jg))
 
-      ! Memory used for organizing output
-      CALL delete_var_list( hydro_prog_out_list(jg) )
-      CALL delete_var_list( hydro_diag_out_list(jg) )
+      ! Memory used for orgnizing output
+      CALL vl_register%delete(hydro_prog_out_list(jg))
+      CALL vl_register%delete(hydro_diag_out_list(jg))
 
       DEALLOCATE( p_hydro_state(jg)%prog, STAT=istat )
       IF (istat/=SUCCESS) &
@@ -306,7 +306,8 @@ CONTAINS
     ibits = DATATYPE_PACK16 !size of var in bits
 
     ! Register a variable list and apply default settings
-    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
+
+    CALL vl_register%new(field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
 
     ! Add variables to the list 
 
@@ -409,7 +410,8 @@ CONTAINS
     ibits = DATATYPE_PACK16 !size of var in bits
 
     ! Register a variable list and apply default settings
-    CALL new_var_list(field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
+
+    CALL vl_register%new(field_list, TRIM(listname), patch_id=k_jg, lrestart=store_in_restart)
 
     !----------------------------
     ! Add variables to the list 

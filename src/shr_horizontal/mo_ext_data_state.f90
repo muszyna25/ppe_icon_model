@@ -51,7 +51,7 @@ MODULE mo_ext_data_state
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: post_op, create_hor_interp_metadata
-  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
+  USE mo_var_list_register,  ONLY: vl_register
   USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
@@ -309,7 +309,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list(p_ext_atm_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
+    CALL vl_register%new(p_ext_atm_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! topography height at cell center
     !
@@ -1276,7 +1276,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list(p_ext_atm_td_list, TRIM(listname), patch_id=jg, &
+    CALL vl_register%new(p_ext_atm_td_list, TRIM(listname), patch_id=jg, &
       &               lrestart=.FALSE., loutput=.TRUE.)
 
     !--------------------------------
@@ -1546,7 +1546,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_list )
+      CALL vl_register%delete(ext_data(jg)%atm_list)
       !
       ! destruct index lists
       CALL ext_data(jg)%atm%list_land  %finalize()
@@ -1559,7 +1559,7 @@ CONTAINS
     IF (iforcing > 1 ) THEN
       DO jg = 1,n_dom
         ! Delete list of time-dependent atmospheric elements
-        CALL delete_var_list( ext_data(jg)%atm_td_list )
+        CALL vl_register%delete(ext_data(jg)%atm_td_list)
       ENDDO
     END IF
 

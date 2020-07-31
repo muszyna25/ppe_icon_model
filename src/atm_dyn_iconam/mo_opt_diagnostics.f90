@@ -52,7 +52,7 @@ MODULE mo_opt_diagnostics
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
   USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr, t_list_element
-  USE mo_var_list_global,      ONLY: new_var_list, delete_var_list
+  USE mo_var_list_register,    ONLY: vl_register
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
   USE mo_name_list_output_config, ONLY: is_variable_in_output
@@ -664,25 +664,25 @@ CONTAINS
     DO jg = 1, n_dom
       WRITE(dom_str, "(i2.2)") jg
 
-      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list, &
+      CALL vl_register%new(p_nh_opt_diag(jg)%opt_diag_list, &
         & 'nh_state_opt_diag_of_domain_'//dom_str, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml, lrestart=.FALSE.)
 
       IF (.NOT. l_init_pz) CYCLE
 
-      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list_z, &
+      CALL vl_register%new(p_nh_opt_diag(jg)%opt_diag_list_z, &
         & 'nh_state_opt_diag_z_of_domain_'//dom_str, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl, lrestart=.FALSE.)
 
-      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list_p, &
+      CALL vl_register%new(p_nh_opt_diag(jg)%opt_diag_list_p, &
         & 'nh_state_opt_diag_p_of_domain_'//dom_str, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl, lrestart=.FALSE.)
 
-      CALL new_var_list(p_nh_opt_diag(jg)%opt_diag_list_i, &
+      CALL vl_register%new(p_nh_opt_diag(jg)%opt_diag_list_i, &
         & 'nh_state_opt_diag_i_of_domain_'//dom_str, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_il, lrestart=.FALSE.)
 
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, &
+      CALL vl_register%new(p_nh_opt_diag(jg)%opt_acc_list, &
         & 'nh_accumulation_for_ProgAndDiag_of_domain_'//dom_str, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml,            &
         & lrestart=.FALSE.,loutput=.TRUE.)
@@ -706,11 +706,11 @@ CONTAINS
     INTEGER :: jg, ist
 
     DO jg = 1, n_dom
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_z )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_p )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_i )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list   )
-      CALL delete_var_list( p_nh_opt_diag(jg)%opt_acc_list    )
+      CALL vl_register%delete(p_nh_opt_diag(jg)%opt_diag_list_z)
+      CALL vl_register%delete(p_nh_opt_diag(jg)%opt_diag_list_p)
+      CALL vl_register%delete(p_nh_opt_diag(jg)%opt_diag_list_i)
+      CALL vl_register%delete(p_nh_opt_diag(jg)%opt_diag_list  )
+      CALL vl_register%delete(p_nh_opt_diag(jg)%opt_acc_list   )
     ENDDO ! jg
 
     ! Delete optional diagnostics

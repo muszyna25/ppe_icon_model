@@ -30,7 +30,7 @@ USE mo_master_control,       ONLY: get_my_process_name
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_hamocc_types,       ONLY: t_hamocc_bcond
   USE mo_var_list,           ONLY: add_var, t_var_list_ptr
-  USE mo_var_list_global,    ONLY: new_var_list, delete_var_list
+  USE mo_var_list_register,  ONLY: vl_register
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -161,7 +161,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list(p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id, &
+    CALL vl_register%new(p_ext_bgc_list, TRIM(listname), patch_id=p_patch%id, &
       &               lrestart=.FALSE., model_type=TRIM(get_my_process_name()))
     IF (.not. lsediment_only) THEN
      cf_desc    = t_cf_var('Dust cell center', 'kg m-2 yr-1', &
@@ -231,7 +231,7 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time oceanic elements
-      CALL delete_var_list( ext_data(jg)%bgc_list )
+      CALL vl_register%delete(ext_data(jg)%bgc_list)
     ENDDO
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &

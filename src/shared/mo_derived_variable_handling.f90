@@ -10,32 +10,28 @@ MODULE mo_derived_variable_handling
   USE self_assert
 #ifdef DEBUG_MVSTREAM
   USE mo_util_dbg_prnt, ONLY: dbg_print
+  USE mtime_datetime, ONLY: datetimeToString
 #endif
 
-  USE mo_kind, ONLY: wp, sp
-  USE mo_model_domain, ONLY: t_patch
-  USE mo_io_config, ONLY: lnetcdf_flt64_output
-  USE mo_dynamics_config, ONLY: nnow, nnew, nold
-  USE mo_statistics, ONLY: add_fields, max_fields, min_fields, assign_fields, add_sqr_fields
-  USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW,    &
-    &                          TLEV_NNOW_RCF, TLEV_NNEW_RCF, REAL_T
-  USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
-                              & GRID_ZONAL
+  USE mo_kind,                ONLY: wp, sp
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_io_config,           ONLY: lnetcdf_flt64_output
+  USE mo_dynamics_config,     ONLY: nnow, nnew, nold
+  USE mo_statistics,          ONLY: add_fields, max_fields, min_fields, assign_fields, add_sqr_fields
+  USE mo_impl_constants,      ONLY: vname_len, SUCCESS, max_char_length, REAL_T
+  USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
+                              & GRID_ZONAL, GRID_UNSTRUCTURED_VERT
   USE mo_name_list_output_types, ONLY: t_output_name_list
-  USE mo_zaxis_type, ONLY:  ZA_OCEAN_SEDIMENT
-  USE mo_mpi, ONLY: my_process_is_stdio
-  USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
+  USE mo_zaxis_type,          ONLY:  ZA_OCEAN_SEDIMENT
+  USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_var_list_element,    ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
-  USE mo_var_list, ONLY: get_var_name, add_var, get_varname_with_timelevel,    &
-    & t_var_list_ptr, t_list_element
-  USE mo_var_list_global, ONLY: find_element => find_var_global, new_var_list, &
-    & total_number_of_variables, delete_var_list, print_all_var_lists
-  USE mo_exception, ONLY: finish, message, message_text
-  USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&
-    & newDatetime, datetime, eventToString, divideDatetimeDifferenceInSeconds, &
-    & divisionquotientTimespan
-  USE mo_util_string, ONLY: int2string
-  USE mtime_datetime, ONLY: datetimeToString
+  USE mo_var_list,            ONLY: add_var, t_var_list_ptr, t_list_element
+  USE mo_var_metadata,        ONLY: get_var_name, get_varname_with_timelevel
+  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_exception,           ONLY: finish
+  USE mtime,                  ONLY: newEvent, event, isCurrentEventActive, newDatetime, datetime
+  USE mo_util_string,         ONLY: int2string
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, TSTEP_CONSTANT
@@ -46,7 +42,6 @@ MODULE mo_derived_variable_handling
 #include "add_var_acc_macro.inc"
 
   IMPLICIT NONE
-
   PRIVATE
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
@@ -90,7 +85,6 @@ CONTAINS
   !! Create all needed lists and maps
   !!
   SUBROUTINE init_statistics_streams()
-    CHARACTER(LEN=max_char_length) :: listname
 
     ! main map for automatical mean value computation:
     ! key: eventString
@@ -136,13 +130,10 @@ CONTAINS
   SUBROUTINE var_print(this, label)
     CLASS(vector_ref) , INTENT(in) :: this
     CHARACTER(*), INTENT(in), OPTIONAL :: label
-
     TYPE(vector_iterator) :: my_iter
     CLASS(*), POINTER :: my_buffer
-    INTEGER :: i
 
     IF (PRESENT(label)) PRINT *, label
-
     my_iter = this%iter()
     DO WHILE(my_iter%next(my_buffer))
       SELECT TYPE(my_buffer)
@@ -298,50 +289,28 @@ CONTAINS
           & stderr=.true.)
   END SUBROUTINE
 
-  SUBROUTINE find_src_element(src_element, varlist_element, dest_element_name, &
+  SUBROUTINE find_src_element(src_element, vname, dest_element_name, &
           &  dom, src_list, prognosticsList, prognosticsPointerList)
     TYPE(t_list_element), POINTER :: src_element
-    CHARACTER(LEN=vname_len), INTENT(IN) :: varlist_element
+    CHARACTER(*), INTENT(IN) :: vname
     CHARACTER(LEN=vname_len) :: dest_element_name
     INTEGER, INTENT(IN) :: dom
-    TYPE(t_var_list_ptr), POINTER :: src_list
+    TYPE(t_var_list_ptr), INTENT(OUT) :: src_list
     TYPE(vector) :: prognosticsList
     TYPE(map)    :: prognosticsPointerList
 
     LOGICAL :: foundPrognostic
-    INTEGER :: timelevel, timelevels(3)
+    INTEGER :: timelevel, timelevels(3), igrid
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::find_src_element"
+    INTEGER, PARAMETER :: grids(5) = [GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
+      & GRID_UNSTRUCTURED_VERT, GRID_LONLAT, GRID_ZONAL]
 
     ! find existing source variable on all possible ICON grids with the identical name {{{
-    src_element => find_element ( TRIM(varlist_element), &
-        &                         opt_patch_id=dom, &
-        &                         opt_hgrid=GRID_UNSTRUCTURED_CELL, &
-        &                         opt_caseInsensitive=.true., &
-        &                         opt_returnList=src_list)
-    IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
-        &                               opt_patch_id=dom, &
-        &                               opt_hgrid=GRID_UNSTRUCTURED_EDGE, &
-        &                               opt_caseInsensitive=.true., &
-        &                               opt_returnList=src_list)
-    IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
-        &                               opt_patch_id=dom, &
-        &                               opt_hgrid=GRID_UNSTRUCTURED_VERT, &
-        &                               opt_caseInsensitive=.true., &
-        &                               opt_returnList=src_list)
-    IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
-        &                               opt_patch_id=dom, &
-        &                               opt_hgrid=GRID_LONLAT, &
-        &                               opt_caseInsensitive=.true., &
-        &                               opt_returnList=src_list)
-    IF (.NOT. ASSOCIATED(src_element) ) &
-        & src_element => find_element ( TRIM(varlist_element),&
-        &                               opt_patch_id=dom, &
-        &                               opt_hgrid=GRID_ZONAL, &
-        &                               opt_caseInsensitive=.true., &
-        &                               opt_returnList=src_list)
+    DO igrid = 1, 5
+      src_element => vl_register%find_var_all(vname, opt_patch_id=dom, &
+        & opt_hgrid=grids(igrid), opt_list=src_list, opt_cs=.FALSE., opt_output=.TRUE.)
+      IF (ASSOCIATED(src_element)) EXIT
+    END DO
     ! }}}
 
     ! if not found: maybe it is a prognostic variable, so it has the
@@ -354,21 +323,21 @@ CONTAINS
       DO timelevel=1,3
 
 #ifdef DEBUG_MVSTREAM
-          IF (my_process_is_stdio()) CALL print_error(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
+          if (my_process_is_stdio()) call print_error(get_varname_with_timelevel(vname,timelevels(timelevel)))
 #endif
-          src_element => find_element(get_varname_with_timelevel(varlist_element,timelevels(timelevel)),&
-              &                       opt_patch_id=dom, opt_returnList=src_list)
-          IF ( ASSOCIATED(src_element) ) THEN
+          src_element => vl_register%find_var_all(get_varname_with_timelevel(vname,timelevels(timelevel)),&
+              &                       opt_patch_id=dom, opt_list=src_list, opt_output=.TRUE.)
+          if ( ASSOCIATED(src_element) ) then
 #ifdef DEBUG_MVSTREAM
-            IF (my_process_is_stdio()) write(0,*)'found prognostic:',&
-                & TRIM(get_varname_with_timelevel(varlist_element,timelevels(timelevel)))
+            if (my_process_is_stdio()) write(0,*)'found prognostic:',&
+                & TRIM(get_varname_with_timelevel(vname,timelevels(timelevel)))
 #endif
             IF ( .NOT. foundPrognostic ) THEN
               ! save the name of the original output variable if a prognosting version was found
               CALL prognosticsList%add(dest_element_name)
               foundPrognostic = .true.
 #ifdef DEBUG_MVSTREAM
-              IF (my_process_is_stdio()) CALL print_error('prognosticsList%add():'//varlist_element)
+              if (my_process_is_stdio()) call print_error('prognosticsList%add():'//vname)
 #endif
             END IF
             ! save the the pointers for all time levels of a prognostic variable
@@ -378,10 +347,10 @@ CONTAINS
       END DO
     END IF
     ! in case nothing appropriate could be found, throw an error
-    IF (.NOT. ASSOCIATED (src_element)) THEN
-      CALL finish(routine,'Could not find source variable:'//TRIM(varlist_element))
+    IF (.not. ASSOCIATED (src_element)) THEN
+      call finish(routine,'Could not find source variable:'//TRIM(vname))
     END IF
-  END SUBROUTINE
+  END SUBROUTINE find_src_element
 
   SUBROUTINE setup_statistics_events_and_lists(statsMap, eventTag, statisticsVariablesForEvent, eventMap, eventsActivityMap,p_onl)
     TYPE(map) :: statsMap, eventMap, eventsActivityMap
@@ -537,16 +506,14 @@ CONTAINS
     !-----------------------------------------------------------------------------
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
-    INTEGER :: timelevel, timelevels(3)
-    TYPE(vector_ref) :: statisticVariables, prognosticVariables
+    type(vector_ref) :: statisticVariables, prognosticVariables
     CHARACTER(LEN=100) :: eventKey
-    TYPE(t_event_wrapper) :: event_wrapper
-    CLASS(*), pointer :: myBuffer
+    type(t_event_wrapper) :: event_wrapper
     TYPE(t_list_element), POINTER :: src_element, dest_element
     CHARACTER(LEN=vname_len), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=vname_len) :: dest_element_name
     LOGICAL :: foundPrognostic
-    TYPE(t_var_list_ptr), POINTER :: src_list
+    TYPE(t_var_list_ptr) :: src_list
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mvstream"
 
 #ifdef DEBUG_MVSTREAM
@@ -560,7 +527,7 @@ CONTAINS
 #endif
       CALL statStreamCrossCheck(p_onl)
 
-      ntotal_vars = total_number_of_variables()
+      ntotal_vars = vl_register%n_var()
       ! temporary variables needed for variable group parsing
       ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
@@ -610,13 +577,13 @@ CONTAINS
         ! names consist of original spot-value names PLUS event information (start + interval of output)
         ! TODO: unify with eventKey definition if possible
         dest_element_name = get_statistics_varname(varlist(i),p_onl)
-        dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
+        dest_element => vl_register%find_var_all(trim(dest_element_name),opt_patch_id=p_onl%dom)
 #ifdef DEBUG_MVSTREAM
         IF (my_process_is_stdio()) CALL print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
 #endif
         IF (.NOT. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
           ! find existing source variable on all possible ICON grids with the identical name
-          CALL find_src_element(src_element, varlist(i), dest_element_name, p_onl%dom, src_list, &
+          CALL find_src_element(src_element, TRIM(varlist(i)), dest_element_name, p_onl%dom, src_list, &
             & statisticPrognostics, statisticPrognosticPointers)
           ! avoid mean processing for instantaneous fields
           IF (TSTEP_CONSTANT .eq. src_element%field%info%isteptype) CYCLE
@@ -633,7 +600,8 @@ CONTAINS
           dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
           ! 2. update the nc-shortname to internal name of the source variable unless it is already set by the user
-          IF("" == dest_element%field%info%cf%short_name) dest_element%field%info%cf%short_name = get_var_name(src_element%field)
+          IF ("" == dest_element%field%info%cf%short_name) &
+            & dest_element%field%info%cf%short_name = get_var_name(src_element%field%info)
 
           ! Collect variable pointers for source and destination in the same list {{{
           CALL statisticVariables%add(src_element)
