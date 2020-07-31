@@ -226,6 +226,9 @@ MODULE mo_ocean_types
       & wS, &  !< product of salinity and w-velocity
       & wR, &  !< product of density and w-velocity
       & ww, &  !< square of w-velocity
+      & RR, &  !< square of density
+      & SS, &  !< square of salinity
+      & TT, &  !< square of temperature
       & uw, &  !< product of u-velocity and w-velocity
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity

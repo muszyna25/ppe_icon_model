@@ -1216,13 +1216,7 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
 
-    IF ( eddydiag ) THEN
-      CALL add_var(ocean_restart_list, 'w_prismcenter ', ocean_state_diag%w_prismcenter, grid_unstructured_cell, &
-        & za_depth_below_sea, &
-        & t_cf_var('w prism center','m/s','vertical velocity at prism center', DATATYPE_FLT32),&
-        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
-    ENDIF
+    
     
     ! somehow these are passed to the moc calculation
     ! tendency of snow
@@ -1280,6 +1274,12 @@ CONTAINS
     ENDIF ! diagnose_for_tendencies
 
       IF (eddydiag) THEN
+      CALL add_var(ocean_default_list, 'w_prismcenter ', ocean_state_diag%w_prismcenter,&
+      & grid_unstructured_cell, &
+      & za_depth_below_sea, &
+      & t_cf_var('w prism center','m/s','vertical velocity at prism center', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
        CALL add_var(ocean_default_list, 'sigma0', ocean_state_diag%sigma0,&
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
@@ -1397,6 +1397,27 @@ CONTAINS
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
        & t_cf_var('ww','m2s-2','square of vertical velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'RR', ocean_state_diag%rr,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('RR','kg2m-6','square of density', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'SS', ocean_state_diag%ss,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('SS','1e-6','square of salinity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'TT', ocean_state_diag%tt,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('TT','K2','square of temperature', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
 
