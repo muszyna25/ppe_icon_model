@@ -79,7 +79,8 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output_init,  ONLY: output_file
   USE mo_name_list_output_types, ONLY: t_output_file
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_ocean_check_salt,       ONLY: check_total_salt_content
+  USE mo_ocean_check_salt,       ONLY: check_total_salt_content, check_total_salt_content_zstar
+
   USE mo_master_config,          ONLY: isRestart
   USE mo_master_control,         ONLY: get_my_process_name
   USE mo_time_config,            ONLY: time_config, t_time_config
@@ -700,7 +701,13 @@ CONTAINS
         CALL datetimeToString(current_time, datestring)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(routine), message_text)
-              
+         
+!        IF (lcheck_salt_content) CALL check_total_salt_content_zstar(110, &
+!          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+!          & ocean_state(jg)%p_prog(nold(1))%stretch_c(:,:), &
+!          & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:), sea_ice, p_oce_sfc)
+
+     
         start_timer(timer_scalar_prod_veloc,2)
         CALL calc_scalar_product_veloc_3d( patch_3d,  &
           & ocean_state(jg)%p_prog(nold(1))%vn,         &
@@ -747,6 +754,12 @@ CONTAINS
             & ocean_state(jg)%p_aux%bc_tides_potential  + &
             & rho_ref * OceanReferenceDensity_inv * grav * sea_ice%draftave
         END IF
+
+!        IF (lcheck_salt_content) CALL check_total_salt_content_zstar(120, &
+!          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
+!          & ocean_state(jg)%p_prog(nold(1))%stretch_c(:,:), &
+!          & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:), sea_ice, p_oce_sfc)
+
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)
@@ -815,13 +828,13 @@ CONTAINS
         END IF
 
         !------------------------------------------------------------------------
+        
         CALL tracer_transport_zstar(patch_3d, ocean_state(jg), p_as, sea_ice, &
           & p_oce_sfc, p_phys_param, operators_coefficients, current_time, &
           & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e, ocean_state(jg)%p_prog(nnew(1))%stretch_c)
 
         !------------------------------------------------------------------------
-        !------------------------------------------------------------------------
-       
+        
         !! Store in temporary variables to assign to nold
         eta_c_new     = ocean_state(jg)%p_prog(nnew(1))%eta_c
         stretch_c_new = ocean_state(jg)%p_prog(nnew(1))%stretch_c
