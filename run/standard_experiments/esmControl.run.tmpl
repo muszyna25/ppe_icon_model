@@ -1,4 +1,14 @@
-#! /bin/ksh
+#! %{JOB.ksh|default('/bin/ksh')} #%# -*- mode: sh -*- vi: set ft=sh :
+#
+# %{EXP_ID}.%{JOB.id}
+#
+# %{mkexp_input}
+#
+# $Id$
+#
+# %{VERSIONS_|join('\n# ')}
+#
+#%from 'standard_experiments/format.tmpl' import format_files
 #=============================================================================
 
 # mistral cpu batch job parameters
@@ -60,10 +70,6 @@ no_of_nodes=${SLURM_JOB_NUM_NODES:=%{JOB.nodes}}
 mpi_procs_pernode=$((${SLURM_JOB_CPUS_PER_NODE%%\(*} / 2))
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
 #
-# blocking length
-# ---------------
-nproma=16
-#
 #=============================================================================
 
 # load local setting, if existing
@@ -97,20 +103,6 @@ export MXM_HANDLE_ERRORS="bt"
 export UCX_HANDLE_ERRORS="bt"
 export MALLOC_TRIM_THRESHOLD_="-1"
 
-# load module package
-# -------------------
-if [[ -a $MODULESHOME/init/ksh ]]
-then
-    . $MODULESHOME/init/ksh
-fi
-
-#=============================================================================
-# load modules
-module purge
-module load "%{use_load_modules}"
-module list
-#=============================================================================
-
 # directories with absolute paths
 # -------------------------------
 icon_data_rootFolder="/pool/data/ICON"
@@ -118,7 +110,7 @@ icon_data_rootFolder="/pool/data/ICON"
 # how to start the icon model
 # ---------------------------
 export START="srun --cpu-freq=HighM1 --kill-on-bad-exit=1 --nodes=${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=${mpi_procs_pernode} --cpus-per-task=$((2 * OMP_NUM_THREADS)) --propagate=STACK,CORE"
-export MODEL="%{BIN_DIR}/icon"
+export MODEL="%{BIN_DIR}/%{MODEL_EXE}"
 
 # how to submit the next job
 # --------------------------
@@ -148,9 +140,6 @@ atmos_refinement="%{ATMO_GRID_TYPE}"
 ocean_gridID="%{OCEAN_GRID_ID}"
 ocean_refinement="%{OCEAN_GRID_TYPE}"
 
-nproma_atm=24
-nproma_oce=48
-
 # use alternatively: full restart, init from (ocean) restart, init from climatology or false
 #  - set to false if ocean was already initialised
 initialiseOcean=%{JOB.init_ocean}
@@ -171,13 +160,8 @@ mpi_oce_nodes=%{JOB.ocean_nodes}
 # (1) Define the model time stepping
 # ----------------------------------
 
-# standard atmosphere timestep: 15 min, 8 substeps (r2b4 values)
-# atmospheric timesteps > 15 min are possible with a higher value in hdiff_smag_fac, see diffusion nml
-# tested: atmTimeStep="PT20M" / atm_substeps=15 with hdiff_smag_fac=0.15
-
 radTimeStep="%{ATMO_RADIATION_TIME_STEP}" # radiation time step
 atmTimeStep="%{ATMO_TIME_STEP}" # atmosphere time step
-atm_substeps=%{ATMO_DYNAMICS_SUBSTEPS} # atmosphere dynamics substeps
 oceTimeStep="%{OCEAN_TIME_STEP}" # ocean time step
 couplingTimeStep="%{COUPLER_TIME_STEP}" # coupling time step
 
@@ -197,8 +181,6 @@ unset OMPI_MCA_coll_fca_priority
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # MODEL_DIR                     = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
-# nproma                        = blocking length for array dimensioning and inner loop lengths
-#                                 -> deprecated. nproma_atm and nproma_ocn are used here.
 
 # overwrite the default setting with the new path and handle daint (CSCS)
 
@@ -218,6 +200,7 @@ atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
 atmo_grid_folder=/pool/data/ICON/grids/private/rene/mpim/${atmos_gridID}  # still some private path!
 atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
+atmo_land_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
 
 #--------------------------------------------------------------------------------------------------
@@ -239,13 +222,17 @@ checkpoint_interval="%{INTERVAL}"
 atm_file_interval="%{INTERVAL}T1S"
 oce_file_interval="%{INTERVAL}T1S"
 lnd_file_interval="%{INTERVAL}T1S"
+#%  if WITH_OBGC is set:
 hamocc_file_interval="%{INTERVAL}T1S"
-
+#%  endif
+#%#
 atm_output_interval="%{OUTPUT_INTERVAL}"
 oce_output_interval="%{OUTPUT_INTERVAL}"
 lnd_output_interval="%{OUTPUT_INTERVAL}"
+#%  if WITH_OBGC is set:
 hamocc_output_interval="%{OUTPUT_INTERVAL}"
-
+#%  endif
+#%#
 # Read and compute time control information
 
 start_date_file=$SCRIPT_DIR/$EXPNAME.date
@@ -299,9 +286,6 @@ output_oce_ice=yes
 output_atm_dbg=yes
 output_oce_dbg=yes
 
-# choose between none/basic/medium/full for land output
-output_lnd=%{JOB.output_lnd}
-
 # output switches for large atm/oce files - set to "yes" if needed for standard quickplots
 #  - yes writes much output and needs more computing time at least in high resolution
 output_atm_cgrid=no     # produces 1 atm file 
@@ -314,6 +298,7 @@ output_oce_def=yes      #  annual mean is sufficient
 atm_output_interval_3d="$atm_output_interval"
 atm_output_interval_2d="$atm_output_interval"
 oce_output_interval_def="%{SLOW_OUTPUT_INTERVAL}"  # annual mean output for deep ocean
+#%  if WITH_OBGC is set:
 
 # output switches for HAMOCC files
 output_hamocc_mon=yes
@@ -322,7 +307,8 @@ output_hamocc_EU=yes      # large
 output_hamocc_sed=yes     # large
 output_hamocc_2d=yes
 output_hamocc_3d=yes
-
+#%  endif
+#%#
 
 #--------------------------------------------------------------------------------------------------
 
@@ -333,14 +319,12 @@ output_hamocc_3d=yes
 run_jsbach=yes
 jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
 jsbach_with_lakes=yes
-jsbach_with_carbon=yes         # yes needs jsbach_pfts usecase
 
 # Some further processing for land configuration
 # ----------------------------------------------
 
 ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
 llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
-lcarbon=$([ "${jsbach_with_carbon:=yes}" == yes ] && echo .TRUE. || echo .FALSE. )
 
 if [[ $jsbach_usecase == *pfts* ]]
 then
@@ -413,6 +397,7 @@ oce_lag=1
 #
 # component names in coupling.xml must (!) match with modelname_list[*]
 #
+#% set coupling = namelists['coupling.xml']
 cat > coupling.xml << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
@@ -703,9 +688,9 @@ cat > coupling.xml << EOF
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
-            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+            <enforce_write_weight_file filename="%{coupling.runoff_weight_file|d('')}">%{'true' if coupling.runoff_weight_file|d('') else 'false'}</enforce_write_weight_file>
          </transient_couple>
-#%  if namelists['coupling.xml'].include_co2 is set:
+#%- if coupling.include_co2 is set:
          <transient_couple transient_id="12">
             <source component_ref="1" transient_grid_ref="12"/>
             <target transient_grid_ref="12"/>
@@ -745,7 +730,7 @@ cat > coupling.xml << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
-#%- endif
+#%  endif
 #%# ... include_co2 is set
       </couple>
    </couples>
@@ -772,7 +757,7 @@ cat > ${atm_namelist} << EOF
   coupled_mode     = .TRUE.
 /
 &parallel_nml
- nproma            = ${nproma_atm}
+ nproma            = %{ATMO_BLOCK_SIZE}
  num_io_procs      = ${mpi_atm_io_procs}
  num_prefetch_proc = 0
  pio_type          = 0
@@ -801,14 +786,7 @@ cat > ${atm_namelist} << EOF
  init_mode        = 2           ! 2: initialize from IFS analysis
  ifs2icon_filename= "ifs2icon.nc"
 /
-&nonhydrostatic_nml
- ndyn_substeps    = $atm_substeps ! dtime/dt_dyn
- damp_height      = 50000.      ! [m]
- rayleigh_coeff   = 0.1000      ! set to 0.1001 for rerun with little change
- vwind_offctr     = 0.2
- divdamp_fac      = 0.004
- exner_expol      = 0.6
-/
+%{format_namelist(namelists.NAMELIST_atm, 'nonhydrostatic_nml')}
 &interpol_nml
  rbf_scale_mode_ll = 1
 /
@@ -821,9 +799,7 @@ cat > ${atm_namelist} << EOF
  decay_exp        = 1.2
  flat_height      = 16000.      ! [m]
 /
-&diffusion_nml
- hdiff_smag_fac   = 0.15       ! default: 0.015  too high values are very diffusive! Upper limit should be 0.15
-/
+%{format_namelist(namelists.NAMELIST_atm, 'diffusion_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'transport_nml')}
 &echam_phy_nml
 !
@@ -850,62 +826,17 @@ cat > ${atm_namelist} << EOF
  echam_phy_config(1)%lmlo   = .FALSE.
  echam_phy_config(1)%llake  = ${llake}
 !
-! fix negative humidity
+! fix negative humidity (default=0, no correction)
  echam_phy_config(1)%iqneg_d2p = 0
  echam_phy_config(1)%iqneg_p2d = 0
 /
-&echam_rad_nml
-!
-! domain 1
-! --------
-!
- echam_rad_config(1)%isolrad    =  6
- echam_rad_config(1)%irad_h2o   =  1
- echam_rad_config(1)%irad_co2   =  %{namelists.NAMELIST_atm.echam_rad_nml['echam_rad_config(1)%irad_co2']}
- echam_rad_config(1)%irad_ch4   =  2
- echam_rad_config(1)%irad_n2o   =  2
- echam_rad_config(1)%irad_o3    =  2          ! constant annual cycle climatology
- echam_rad_config(1)%irad_o2    =  2
- echam_rad_config(1)%irad_cfc11 =  0
- echam_rad_config(1)%irad_cfc12 =  0
- echam_rad_config(1)%irad_aero  =  0
- echam_rad_config(1)%vmr_co2    = 284.317e-6  ! constant volume mixing ratio, default: 348.0e-6
- echam_rad_config(1)%vmr_ch4    = 808.249e-9  ! constant volume mixing ratio, default: 1650.0e-9
- echam_rad_config(1)%vmr_n2o    = 273.021e-9  ! constant volume mixing ratio, default: 306.0e-9
- echam_rad_config(1)%lyr_perp   =  .TRUE.
- echam_rad_config(1)%yr_perp    =  1850
-/
-&echam_gwd_nml
-/
-&echam_sso_nml
- echam_sso_config(1)%gkdrag     = 0.02      ! default: 0.05
- echam_sso_config(1)%gkwake     = 0.02      ! default: 0.05
-/
-&echam_vdf_nml
- echam_vdf_config(1)%pr0	= 0.8	    ! default: 1.0   ! lower values help to avoid negative humidities
-/
-&echam_cnv_nml
- echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
- echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1       (old default:  0.2)
- echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
-/
-&echam_cld_nml
- echam_cld_config(1)%csecfrl    = 0.5e-5     ! threshold for ice and water in clouds, default 5.e-6
- echam_cld_config(1)%ccraut     = 2.0       ! default: 2.0      (old default: 15.0)
- echam_cld_config(1)%ccsaut     = 2.0       ! default: 2.0      (old default: 95.0)
- echam_cld_config(1)%cauloc     = 1.0       ! default: 1.0      (old default: 10.0)
-/
-&echam_cov_nml
- echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.86      ! Critical relative humidity at toa, default 0.8
-/
+%{format_namelist(namelists.NAMELIST_atm, 'echam_rad_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'echam_sso_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'echam_vdf_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'echam_cnv_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'echam_cov_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'ccycle_nml')}
-&sea_ice_nml
- albs         = 0.865         ! Albedo of snow (not melting)
- albsm        = 0.65         ! Albedo of snow (melting)
- albi         = 0.6         ! Albedo of ice (not melting)
- albim        = 0.5         ! Albedo of ice (melting)
-/
+%{format_namelist(namelists.NAMELIST_atm, 'sea_ice_nml')}
 EOF
 
 # jsbach namelist
@@ -957,16 +888,8 @@ cat > ${lnd_namelist} << EOF
   bc_filename          = 'bc_land_phys.nc'
   ic_filename          = 'ic_land_soil.nc'
 /
-&jsb_carbon_nml
-  active               = ${lcarbon}
-  bc_filename          = 'bc_land_carbon.nc'
-  ic_filename          = 'ic_land_carbon.nc'
-  read_cpools          = .FALSE.
-/
-&jsb_fuel_nml
-  active               = ${lcarbon}
-  fuel_algorithm       = 1
-/
+%{format_namelist(namelists.NAMELIST_lnd, 'jsb_carbon_nml')}
+%{format_namelist(namelists.NAMELIST_lnd, 'jsb_fuel_nml')}
 &jsb_disturb_nml
   active               = .FALSE.
   ic_filename          = 'ic_land_soil.nc'
@@ -1076,15 +999,7 @@ cat >> ${atm_namelist} << EOF
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 ! lkeep_in_sync = .FALSE.
 /
-&dbg_index_nml
-  idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
-  idbg_val         = 0                        ! initialize one cell debug output
-  idbg_slev        = 1                        ! initialize start level for debug output
-  idbg_elev        = 2                        ! initialize end level for debug output
-  dbg_lat_in       =  30.0                    ! latitude location of one cell debug output
-  dbg_lon_in       = -30.0                    ! longitude location of one cell debug output
-  str_mod_tst      ='InterFaceOce'            ! define modules to print out in debug mode
-/
+%{format_namelist(namelists.NAMELIST_atm, 'dbg_index_nml')}
 EOF
 
 # Define output files
@@ -1258,105 +1173,20 @@ fi
 # jsbach output for running atm_amip experiment
 # for more jsbach output see exp.atm_amip_les
 #
-if [[ "$output_lnd" != "none" ]]; then
-  cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd_basic"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${lnd_output_interval}"
- file_interval    = "${lnd_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'group:jsb_all_basic','hd_water_error_box','hydro_discharge_ocean_box','hydro_discharge_box' 
-/
+cat >> ${atm_namelist} << EOF
+%{format_namelist(namelists.NAMELIST_atm, 'output_nml lnd_basic')}
+%{format_namelist(namelists.NAMELIST_atm, 'output_nml lnd_medium')}
+%{format_namelist(namelists.NAMELIST_atm, 'output_nml lnd_full')}
 EOF
-fi
-case "${output_lnd}" in
-  medium|full)
-    cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd_medium"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${lnd_output_interval}"
- file_interval    = "${lnd_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'group:jsb_all_medium'
-/
-EOF
-    ;;
-esac
-case "${output_lnd}" in
-  full)
-    cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd_full"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${lnd_output_interval}"
- file_interval    = "${lnd_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'group:jsb_all_full'
-/
-EOF
-    ;;
-esac
 
 #-----------------------------------------------------------------------------
 # III. OCEAN and SEA-ICE (and HAMOCC) 
 #-----------------------------------------------------------------------------
 
-ocean_vertical_levels=40
 ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
 ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 
-#-----------------------------------------------------------------------------
-# HAMOCC
-#
-
-# CAUTION: HAMOCC tracer transport does not include GMRedi transport, even if ocean does
-
-use_hamocc=yes
-
-
-if [  "x${use_hamocc}"  = "xyes" ]; then
-lhamocc=".TRUE."
-lbgcadv=".TRUE."
-nlev_eu=$ocean_vertical_levels
-# set nlev_eu to level belonging to approx 500m
-if [ "x$ocean_vertical_levels" = "x40" ];then
-nlev_eu=19
-fi
-if [ "x$ocean_vertical_levels" = "x64" ];then
-nlev_eu=26
-fi
-if [ "x$ocean_vertical_levels" = "x20" ];then
-nlev_eu=16
-fi
-else
-lhamocc=".FALSE."
-lbgcadv=".FALSE."
-fi
-l_init_bgc=".false." # Hamocc state variables are in restart
-if [[ "$initialiseOcean" == "fromRestart" ]] || [[ "$initialiseOcean" == "fromClimatology" ]]; then
-  l_init_bgc=".true." # initialize HAMOCC (HAMOCC state variables are not in restart)
-fi
 # ----------------------------------------------------------------------------
 #
 # ocean namelist
@@ -1368,7 +1198,7 @@ cat > ${oce_namelist} << EOF
   coupled_mode               = .TRUE.
 /
 &parallel_nml
- nproma                      = ${nproma_oce}
+ nproma                      = %{OCEAN_BLOCK_SIZE}
  num_io_procs                = ${mpi_oce_io_procs}
  num_prefetch_proc           = 0
  pio_type                    = 0
@@ -1412,44 +1242,14 @@ cat >> ${oce_namelist} << EOF
 EOF
 #
 if [[ "$output_oce_def" == "yes" ]]; then
-   #
    cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype                   = 5
-  output_filename            = "${EXPNAME}_oce_def"
-  filename_format            = "<output_filename>_<datetime2>"
-  output_start               = "${initial_date}"                ! start in ISO-format
-  output_end                 = "${final_date}"                  ! end in ISO-format
-  output_interval            = "${oce_output_interval_def}"     ! interval in ISO-format
-  file_interval              = "${oce_file_interval}"
-  mode                       = 1                                ! 1: forecast mode (relative t-axis)
-                                                                ! 2: climate mode (absolute t-axis)
-  include_last               = .FALSE.
-  output_grid                = .FALSE.
-  filename_format            = "<output_filename>_<datetime2>"
-  operation                  = "mean"
-  ml_varlist                 = 'group:oce_default', 'group:oce_essentials'
-/
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_def')}
 EOF
 fi
 
 if [[ "$output_oce_ice" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
-
-&output_nml
-  output_start     = "${initial_date}"                ! start date in ISO-format
-  output_end       = "${final_date}"                  ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  operation        = 'mean'                           ! mean over output interval
-  output_grid      = .TRUE.
-  output_filename  = "${EXPNAME}_oce_ice"
-  filename_format  = "<output_filename>_<datetime2>"
-  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
-  m_levels         = "1...3,9,23,30,34"               ! surface and some subsurface levels only
-  ml_varlist       =  'draftave','hi','hs','conc','to','so'
-/
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_ice')}
 EOF
 fi
 #
@@ -1499,7 +1299,6 @@ fi
 
 if [[ "$output_oce_dbg" == "yes" ]]; then
   cat >> ${oce_namelist} <<EOF
-
 &output_nml
   filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
   output_filename  = "${EXPNAME}_oce_dbg"
@@ -1523,11 +1322,10 @@ if [[ "$output_oce_dbg" == "yes" ]]; then
 /
 EOF
 fi
-
+#%  if WITH_OBGC is set:
 
 ## HAMMOCC output #####################################
-if [  "x${use_hamocc}"  = "xyes" ]; then
-#
+
 if [[ "$output_hamocc_mon" == "yes" ]]; then
 cat >> ${oce_namelist} << EOF
 &output_nml
@@ -1616,62 +1414,15 @@ fi
 #
 if [[ "$output_hamocc_2d" == "yes" ]]; then
 cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_2d_tendencies"
-  output_start     = "${initial_date}"                ! start in ISO-format
-  output_end       = "${final_date}"                  ! end in ISO-format
-  output_interval  = "${hamocc_output_interval}"
- !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  file_interval    = "${hamocc_file_interval}"
-  output_grid      = .TRUE.
-  operation        = 'mean'
-  ml_varlist       = '%{namelists.NAMELIST_oce["output_nml hamocc_2d_tendencies"].ml_varlist|join("', '")}'
-/
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml hamocc_2d_tendencies')}
 EOF
 fi
-fi
 ##############################################################
-
+#%  endif
+#%#       WITH_OBGC is set
 cat >> ${oce_namelist} << EOF
-&dbg_index_nml
-  idbg_mxmn                  = 1                                ! initialize MIN/MAX  debug output
-  idbg_val                   = 0                                ! initialize one cell debug output
-  idbg_slev                  = 1                                ! initialize start level for debug output
-  idbg_elev                  = 2                                ! initialize end level for debug output
-  dbg_lat_in                 = 30.0                             ! latitude location of one cell debug output
-  dbg_lon_in                 = -30.0                            ! longitude location of one cell debug output
-  str_mod_tst                ='oceanCouplng'                    ! define modules to print out in debug mode
-  !str_mod_tst                = 'all'                            ! define modules to print out in debug mode
-/
-&ocean_dynamics_nml
-! 40 unevenly spaced levels used by MPIOM/GR30
- n_zlev         =   ${ocean_vertical_levels}
- dzlev_m(1:40)  =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                    30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                   100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                   220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
-  l_edge_based                               = .FALSE.          ! edge- or cell-based mimetic discretization
-! l_partial_cells                            = .FALSE.          ! partial bottom cells=TRUE: local varying bottom depth
-  select_solver                              = 4       ! 1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart 
-                                                       ! 4=CG (default) 5=CGJ 6=BiCG 7=GMRES restart (legacy) 8=MINRES
-  use_absolute_solver_tolerance              = .TRUE.
-  solver_tolerance                           = 1.0E-13 ! this may further be reduced
-  solver_FirstGuess                          = 2       ! 0=start from zeros 1=last timestep smoothed 2=last timestep (default) 
-
-! solver_tolerance                           = 7.5E-14     ! old value
-! solver_max_iter_per_restart                = 19          ! old value
-! solver_max_restart_iterations              = 100         ! outer (restart solver)
-
-  fast_performance_level                     = 200         ! performance level 12: for cell-based; 5: default
-  use_continuity_correction                  = .TRUE.      ! height adjustment according to vertical velocity in dynamics
-  cfl_check                                  = .FALSE.
-  cfl_write                                  = .FALSE.
-
-  i_bc_veloc_top                             = 1
-  i_bc_veloc_bot                             = 1           ! 0: (def) bottom friction off, 1: on
-/
+%{format_namelist(namelists.NAMELIST_oce, 'dbg_index_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_dynamics_nml')}
 &ocean_tracer_transport_nml
   flux_calculation_horz                      = 5           ! 1=upwind, 2=central, 3=Lax-Friedrichs,
                                                            ! 4=Miura, 5=FCT with Zalesak limiter (default)
@@ -1683,99 +1434,13 @@ cat >> ${oce_namelist} << EOF
   fct_high_order_flux                        = 5           ! horizontal high order method: 1=upwind, 2=central, 3=lax_friedrichs, 4=miura_order1
   fct_limiter_horz                           = 100         ! zalesak
 /
-&ocean_horizontal_diffusion_nml
-  laplacian_form                             = 1           ! 1=curlcurl-graddiv
-  VelocityDiffusion_order                    = 1           ! 21=biharmonic+laplacian (for the laplacian leith)
-                                                           !
-!  BiharmonicViscosity_scaling                = 1
-!  BiharmonicViscosity_reference              = 1.0E15      ! [m2/s] constant horizontal viscosity coefficient for velocity
-!  BiharmonicViscosity_background             = 0.0         ! [m2/s] constant horizontal viscosity coefficient for velocity
-
-  HarmonicViscosity_scaling                  = 1
-  HarmonicViscosity_reference                = 1.0E+5      ! [m2/s] constant horizontal viscosity coefficient for velocity
-  HarmonicViscosity_background               = 0.0  
-
-  TracerHorizontalDiffusion_scaling          = 1
-  Temperature_HorizontalDiffusion_Background = 0.0
-  Temperature_HorizontalDiffusion_Reference  = 0
-  Salinity_HorizontalDiffusion_Background    = 0.0
-  Salinity_HorizontalDiffusion_Reference     = 0
-/
-&ocean_vertical_diffusion_nml
-  PPscheme_type                              = 4
-  velocity_VerticalDiffusion_background      = 5.0E-5      ! [m2/s]  vertical background viscosity coefficient for velocity
-  temperature_VerticalDiffusion_background   = 5.0E-5      ! [m2/s]  vertical background diffusion coefficient for temperature
-  salinity_VerticalDiffusion_background      = 5.0E-5      ! [m2/s]  vertical background diffusion coefficient for salinity
-  tracer_convection_MixingCoefficient        = 0.1         ! max vertical tracer diffusion for convection used in case of instability
-  convection_InstabilityThreshold            = -1.0E-6     ! used in update_ho_params - default=-5e-8
-  richardsonDiffusion_threshold              = 0.0         ! used in update_ho_params - default=+5e-8
-  tracer_RichardsonCoeff                     = 2.0E-3      ! factor for vertical diffusion coefficient in PP scheme
-  velocity_RichardsonCoeff                   = 2.0E-3      ! factor for vertical viscosity coefficient in PP scheme
-  bottom_drag_coeff                          = 3.0E-3      ! default=2.5E-3; active for i_bc_veloc_bot=1
-  use_wind_mixing                            = .TRUE.      ! TRUE: use wind mixing scheme in MPIOM-type pp-scheme
-  lambda_wind                                = 0.03
-  tracer_TopWindMixing                       = 1.0E-5
-  velocity_TopWindMixing                     = 1.0E-5
-/
-&ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration                       = 1           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
-  tapering_scheme                            = 1
-  GMRedi_usesRelativeMaxSlopes               = .FALSE.
-  S_max                                      = 1.0e-3      ! 1.0
-  S_d                                        = 1.0e-4      ! 5e-3 to 5e-4
-                                                           !
-  k_tracer_GM_kappa_parameter                = 800.0      !
-  k_tracer_isoneutral_parameter              = 800.0      ! value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
-  k_tracer_dianeutral_parameter              = 0.0         ! 1.0E-5  !
-                                                           !
-  switch_off_diagonal_vert_expl              = .TRUE.
-  gmredi_combined_diagnostic                 = .FALSE.
-! switch_on_redi_balance_diagnostic          = .FALSE.     ! not yet available in icon-aes-dyamond++
-  revert_vertical_recon_and_transposed       = .TRUE.
-  slope_calc_via_temperture_salinity         = .TRUE.
-  include_slope_squared_implicit             = .TRUE.      ! think of l_with_vert_tracer_diffusion
-  switch_on_tapering_horizontal_diffusion    = .TRUE.
-/
-&ocean_physics_nml
-  i_sea_ice                                  = 1           ! 0 = no sea ice; 1 = sea ice model on; default=1
-  lhamocc                                    = ${lhamocc}
-  lbgcadv                                    = ${lbgcadv}
-/                                           
-&sea_ice_nml
-  i_ice_therm                                = 1           ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-  i_ice_dyn                                  = 1           ! 1/0=switch on/off AWI ice dynamics
-! i_Qio_type                                 = 3           ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
-! use_constant_tfreez                        = .TRUE.      ! default: TRUE
-! use_no_flux_gradients                      = .FALSE.     ! default: TRUE
- leadclose_1                                = 0.8        ! default: 0.5 - value of MPIOM: 0.25
- leadclose_2n                               = 0.4       ! default: 0.0 - value of MPIOM: 2/3
-/
-EOF
-
-## HAMOCC namelist ########################################
-if [  "x${use_hamocc}"  = "xyes" ]; then
-cat >> ${oce_namelist} << EOF
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_horizontal_diffusion_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_vertical_diffusion_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_gentmcwilliamsredi_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_physics_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'sea_ice_nml')}
 %{format_namelist(namelists.NAMELIST_oce, 'hamocc_nml')}
-EOF
-fi
-############################################################
-
-cat >> ${oce_namelist} << EOF
-&ocean_forcing_nml
-  iforc_oce                                  = 14          ! ocean forcing: 14 from coupling via YAC
-  type_surfRelax_Temp                        = -1          ! -1: use net surface heat flux from atmosphere
-                                                           !  0: no relaxation used
-                                                           !  1: relaxation switched on for reading (init_oce_relax=1)
-                                                           !     or some testcases only
-  forcing_enable_freshwater                  = .TRUE.      ! enable/disable freshwater flux
-  forcing_windstress_u_type                  = 2           ! 0: zero wind stress, 1: read from file, 2: none
-  forcing_windstress_v_type                  = 2           ! 0: zero wind stress, 1: read from file, 2: none
-                                                           ! salt-change due to internal fluxes only
-  limit_seaice                               = .TRUE.      ! default: TRUE
-  seaice_limit                               = 0.8         ! hard limit set to 80% of upper layer for sea ice
-  limit_elevation                            = .FALSE.     ! true: adjust daily to zero, default=false: free surface
-! lswr_jerlov                                = .FALSE.     ! SW-penetration (Jerlov-radiation, default=T)
-/
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_forcing_nml')}
 EOF
 #
 if [[ "$initialiseOcean" == "fromRestart" ]] || [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
