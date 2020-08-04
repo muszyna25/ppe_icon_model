@@ -1021,6 +1021,8 @@ CONTAINS
     
     INTEGER  :: bt_lev
     REAL(wp) :: d_c 
+    
+    REAL(wp) :: extra_salt_in_col 
 
     REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
     
@@ -1084,84 +1086,12 @@ CONTAINS
 
       DO jc = i_startidx_c, i_endidx_c
         IF (p_patch_3D%p_patch_1D(1)%dolic_c(jc,jb) > 0) THEN
-          bt_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
-          d_c    = p_patch_3d%p_patch_1d(1)%depth_CellInterface(jc, bt_lev + 1, jb)
-
-          zunderice_old =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * &
-            &                      stretch_c(jc,jb) 
-
-          temp_eta     = eta_c(jc,jb)              
-
-          eta_c(jc,jb) = eta_c(jc,jb)               &
-            &           + p_oce_sfc%FrshFlux_VolumeTotal(jc, jb)*dtime &
-            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime
-
-          !! Only change the stretching parameter if it is above a certain threshold
-          !! This avoids divide by 0 
-          temp_stretch(jc, jb) = stretch_c(jc, jb)
-          min_h                = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)
-          
-          !! Update only if height is atleast dz
-          if ( d_c  .GT.  min_h ) &
-            & temp_stretch(jc, jb) = ( eta_c(jc, jb) + d_c)/( d_c )
- 
-          !! update zunderice
-          p_ice%zUnderIce(jc,jb)=p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-            & * temp_stretch(jc, jb) 
-
-          ! (5d) New salinity is calculated from conservation formula:
-          !      SSS_new * zUnderIce_new = ( SSS_old * zUnderIceOld + SaltFluxFromIce * dtime )
-          p_oce_sfc%sss(jc,jb)   = ( p_oce_sfc%sss(jc,jb) * zunderice_old + &
-             &          p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) / p_ice%zUnderIce(jc,jb)
-
-          DO jk = 2, bt_lev 
-            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-              & * stretch_c(jc, jb) 
-            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-              & * temp_stretch(jc, jb) 
-            
-            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = &
-              & ( p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)*dz_old)/dz_new
-
-          END DO
-
-
 !          bt_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
 !          d_c    = p_patch_3d%p_patch_1d(1)%depth_CellInterface(jc, bt_lev + 1, jb)
 !
+!          zunderice_old =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * &
+!            &                      stretch_c(jc,jb) 
 !
-!          !******  (Thermodynamic Eq. 2)  ******
-!          !! Calculate the new freeboard caused by changes in ice thermodynamics
-!          !!  zUnderIce = z_surf + h_old - (z_draft - z_snowfall)
-!          !  #slo# 2015-01: totalsnowfall is needed for correct salt update (in surface module)
-!          !                 since draft was increased by snowfall but water below ice is not affected by snowfall
-!          !                 snow to ice conversion does not effect draft
-!          p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * &
-!          &                      stretch_c(jc,jb) 
-!
-!
-!          !******  (Thermodynamic Eq. 3)  ******
-!          !! First, calculate internal salinity change caused by melting of snow and melt or growth of ice:
-!          !!   SSS_new * zUnderIce = SSS_old * zUnderIceArt
-!          !!   artificial freeboard zUnderIceArt is used for internal Salinity change only:
-!          !!   - melt/growth of ice and snow to ice conversion imply a reduced water flux compared to saltfree water
-!          !!   - reduced water flux is calculated in FrshFlux_TotalIce by the term  (1-Sice/SSS)
-!          !!   - respective zUnderIceArt for calculating salt change is derived from these fluxes
-!          !!     which are calculated in sea ice thermodynamics (upper_ocean_TS)
-!          !    - for i_sea_ice=0 it is FrshFlux_TotalIce=0 and no change here
-!          zUnderIceArt(jc,jb)= p_ice%zUnderIce(jc,jb) - p_oce_sfc%FrshFlux_TotalIce(jc,jb)*dtime
-!          sss_inter(jc,jb)   = p_oce_sfc%sss(jc,jb) * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
-!
-!              !******  (Thermodynamic Eq. 4)  ******
-!          !! Next, calculate salinity change caused by rain and runoff without snowfall by adding their freshwater to zUnderIce
-!          zUnderIceOld(jc,jb)    = p_ice%zUnderIce(jc,jb)
-!          p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
-!          p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
-!
-!          h_old_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * stretch_c(jc,jb)
-!
-!          !******  (Thermodynamic Eq. 5)  ******
-!          !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface
 !          temp_eta     = eta_c(jc,jb)              
 !
 !          eta_c(jc,jb) = eta_c(jc,jb)               &
@@ -1180,10 +1110,88 @@ CONTAINS
 !          !! update zunderice
 !          p_ice%zUnderIce(jc,jb)=p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
 !            & * temp_stretch(jc, jb) 
-!    
-!          h_new_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)*temp_stretch(jc, jb)
-!          p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
+!
+!          ! (5d) New salinity is calculated from conservation formula:
+!          !      SSS_new * zUnderIce_new = ( SSS_old * zUnderIceOld + SaltFluxFromIce * dtime )
+!          p_oce_sfc%sss(jc,jb)   = ( p_oce_sfc%sss(jc,jb) * zunderice_old + &
+!             &          p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) / p_ice%zUnderIce(jc,jb)
+!
+!!          DO jk = 2, bt_lev 
+!!            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
+!!              & * stretch_c(jc, jb) 
+!!            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
+!!              & * temp_stretch(jc, jb) 
+!!            
+!!            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = &
+!!              & ( p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)*dz_old)/dz_new
+!!
+!!          END DO
+!
+!          extra_salt_in_col = 0.0
+!          DO jk = 2, bt_lev 
+!            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+!              & * stretch_c(jc, jb) 
+!            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+!              & * temp_stretch(jc, jb) 
+!            
+!            extra_salt_in_col = extra_salt_in_col + &
+!              & p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) * (dz_new - dz_old)
+!
+!          END DO
+!          p_oce_sfc%sss(jc,jb) = ( p_oce_sfc%sss(jc,jb)*p_ice%zUnderIce(jc,jb) &
+!             & - extra_salt_in_col )/p_ice%zUnderIce(jc,jb)
+
+
+
+          bt_lev = p_patch_3d%p_patch_1d(1)%dolic_c(jc, jb)      
+          d_c    = p_patch_3d%p_patch_1d(1)%depth_CellInterface(jc, bt_lev + 1, jb)
+
+          zunderice_old =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * &
+            &                      stretch_c(jc,jb) 
+
+          h_old_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * stretch_c(jc,jb)
+
+          !******  (Thermodynamic Eq. 5)  ******
+          !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface
+          temp_eta     = eta_c(jc,jb)              
+
+          eta_c(jc,jb) = eta_c(jc,jb)               &
+            &           + p_oce_sfc%FrshFlux_VolumeTotal(jc, jb)*dtime &
+            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime
+
+          !! Only change the stretching parameter if it is above a certain threshold
+          !! This avoids divide by 0 
+          temp_stretch(jc, jb) = stretch_c(jc, jb)
+          min_h                = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)
           
+          !! Update only if height is atleast dz
+          if ( d_c  .GT.  min_h ) &
+            & temp_stretch(jc, jb) = ( eta_c(jc, jb) + d_c)/( d_c )
+ 
+          !! update zunderice
+          p_ice%zUnderIce(jc,jb)=p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
+            & * temp_stretch(jc, jb) 
+    
+          h_new_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)*temp_stretch(jc, jb)
+          p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
+          
+          p_oce_sfc%sss(jc,jb)   = ( p_oce_sfc%sss(jc,jb) * zunderice_old + &
+             &          p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) / p_ice%zUnderIce(jc,jb)
+
+          extra_salt_in_col = 0.0
+          DO jk = 2, bt_lev 
+            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * stretch_c(jc, jb) 
+            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * temp_stretch(jc, jb) 
+            
+            extra_salt_in_col = extra_salt_in_col + &
+              & p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) * (dz_new - dz_old)
+
+          END DO
+          p_oce_sfc%SSS(jc,jb) = ( p_oce_sfc%sss(jc,jb)*p_ice%zUnderIce(jc,jb) &
+             & - extra_salt_in_col )/p_ice%zUnderIce(jc,jb)
+
         ENDIF  !  dolic>0
       END DO
     END DO
