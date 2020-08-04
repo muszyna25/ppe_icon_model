@@ -43,12 +43,17 @@ MODULE mo_assimilation_config
 
   TYPE :: t_assimilation_config 
 
+    LOGICAL :: dace_coupling      !> Invoke DACE for model equivalents of observations
+    INTEGER :: dace_time_ctrl(3)  !> Steering parameters for DACE time control: start,end,step
+    INTEGER :: dace_debug         !> Debugging level for DACE interface
+
     ! Namelist variables for LHN
 
     LOGICAL                          ::           &
       llhn             ,& ! on/off switch for latent heat nudging (lhn)
       llhnverif        ,& ! on/off switch for verification against radar
       luse_rad         ,& ! read radar data
+      lvalid_data      ,& ! indicator if valid data were available at previous time step
       lhn_artif        ,& ! apply artificial Gaussian like profile
       lhn_filt         ,& ! vertical filtering of lhn t-increments
       lhn_relax        ,& ! horizontal filtering of lhn t-increments
@@ -155,6 +160,8 @@ MODULE mo_assimilation_config
           CALL message('configure_lhn: ',message_text)
           assimilation_config(jg)%llhn = lf_exist
           assimilation_config(jg)%llhnverif = lf_exist
+       ELSE
+          assimilation_config(jg)%lvalid_data = .TRUE.
        ENDIF
 
        IF (assimilation_config(jg)%lhn_black) THEN

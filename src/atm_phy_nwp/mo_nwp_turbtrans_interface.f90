@@ -391,7 +391,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  depth_lk=ext_data%atm%depth_lk(:,jb),                                     & !in
           &  h_ice=wtr_prog_new%h_ice(:,jb),                                           & !in
           &  sai=ext_data%atm%sai_t(:,jb,1),                                           & !in
-          &  gz0=prm_diag%gz0(:,jb),                                                   & !inout
+          &  gz0=prm_diag%gz0_t(:,jb,1),                                               & !inout
           &  t_g=lnd_prog_new%t_g(:,jb),                                               & !in
           &  qv_s=lnd_diag%qv_s(:,jb),                                                 & !in
           &  ps=p_diag%pres_sfc(:,jb),                                                 & !in
@@ -531,10 +531,11 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           !
           !MR: Hauptflaechengroessen nur fuer level nlev
 !$NEC ivdep
+          !$acc kernels default(present) if(lzacc)
+          !$acc loop
           DO ic = 1, i_count
             jc = ilist(ic)
 
-            !$acc kernels default(present) if(lzacc)
             z_ifc_t (ic,1:3)    = p_metrics%z_ifc   (jc,nlev-1:nlevp1,jb)
             u_t    (ic,1:2)     = p_diag%u          (jc,nlev-1:nlev  ,jb)
             v_t    (ic,1:2)     = p_diag%v          (jc,nlev-1:nlev  ,jb)
@@ -561,8 +562,9 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
             !should be dependent on location in future!
             l_hori(ic)=phy_params(jg)%mean_charlen
-            !$acc end kernels
+            
           ENDDO
+          !$acc end kernels
 
           nlevcm = 3
           nzprv  = 1

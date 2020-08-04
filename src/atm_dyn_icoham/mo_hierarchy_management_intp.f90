@@ -61,9 +61,7 @@ USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog,  &
 USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge, min_rledge_int, &
     &                             MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, &
-                                  grf_bdyintp_end_c, &
-                                  grf_fbk_start_c, grf_fbk_start_e,        &
+USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,        &
                                   grf_bdywidth_c, grf_bdywidth_e
 USE mo_communication,       ONLY: exchange_data
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, check_patch_array, &

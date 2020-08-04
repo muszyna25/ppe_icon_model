@@ -27,7 +27,6 @@ MODULE mo_surface_les
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level
   USE mo_loopindices,         ONLY: get_indices_c

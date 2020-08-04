@@ -18,12 +18,7 @@ MODULE mo_var_list
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_null_char, C_SIZE_T
 
   USE mo_kind,             ONLY: sp, wp, i8
-  USE mo_mpi,              ONLY: my_process_is_stdio
-  USE mo_cdi,              ONLY: CDI_DATATYPE_FLT64,                &
-       &                         CDI_DATATYPE_FLT32,                &
-       &                         CDI_DATATYPE_INT32,                &
-       &                         CDI_DATATYPE_INT8,                 &
-       &                         TSTEP_INSTANT,                     &
+  USE mo_cdi,              ONLY: TSTEP_INSTANT,                     &
        &                         CDI_UNDEFID
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
@@ -56,7 +51,7 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
     &                            BOOL_T, INT_T, SUCCESS,            &
-    &                            MAX_CHAR_LENGTH, VARNAME_LEN,      &
+    &                            VARNAME_LEN,                       &
     &                            TIMELEVEL_SUFFIX
   USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL,            &
     &                            GRID_REGULAR_LONLAT
@@ -68,9 +63,10 @@ MODULE mo_var_list
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_sort,        ONLY: quicksort
 #ifdef DEBUG_MVSTREAM
+  USE mo_mpi,              ONLY: my_process_is_stdio
   USE mo_util_string,      ONLY: int2string
-#endif
   USE self_assert,         ONLY: print_summary
+#endif
 
   IMPLICIT NONE
 

@@ -40,9 +40,8 @@ TYPE t_radar_ct_fields
 #ifdef _CRAYFTN
       , CONTIGUOUS             &
 #endif
-    & ::               &
-    & blacklist(:,:) ! ,& ! blacklist for DX radar data
-!    & radheight(:,:,:)    ! DX radar heights
+    & :: blacklist(:,:) ! blacklist for DX radar data
+
 
 END TYPE t_radar_ct_fields
 

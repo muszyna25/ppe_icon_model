@@ -1840,22 +1840,11 @@ MODULE mo_solve_nonhydro
             DO je = i_startidx, i_endidx
 #endif
               ! Average normal wind components in order to get nearly second-order accurate divergence
-#ifdef __SX__
-             ! Workaround for compiler optimization problem in order to simplify instruction scheduling
-              DO ic = 1, 4
-                zaux(ic) = p_nh%prog(nnew)%vn(iqidx(je,jb,ic),jk,iqblk(je,jb,ic))
-              END DO
-
-              z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb) &
-                + p_int%e_flx_avg(je,2,jb)*zaux(1) + p_int%e_flx_avg(je,3,jb)*zaux(2) &
-                + p_int%e_flx_avg(je,4,jb)*zaux(3) + p_int%e_flx_avg(je,5,jb)*zaux(4)
-#else
               z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)           &
                 + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
                 + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
                 + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
                 + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-#endif
             ENDDO
           ENDDO
 !$ACC END PARALLEL
@@ -2243,9 +2232,6 @@ MODULE mo_solve_nonhydro
       ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl, &
-#ifdef __SX__
-!$OMP   zaux, &
-#endif
 !$OMP   z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_flxdiv_mass,z_flxdiv_theta  ) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
@@ -2266,7 +2252,6 @@ MODULE mo_solve_nonhydro
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
 #endif
-#ifndef __SX__
               z_flxdiv_mass(jc,jk) =  &
                 p_nh%diag%mass_fl_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * p_int%geofac_div(jc,1,jb) + &
                 p_nh%diag%mass_fl_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * p_int%geofac_div(jc,2,jb) + &
@@ -2276,17 +2261,6 @@ MODULE mo_solve_nonhydro
                 z_theta_v_fl_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * p_int%geofac_div(jc,1,jb) + &
                 z_theta_v_fl_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * p_int%geofac_div(jc,2,jb) + &
                 z_theta_v_fl_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * p_int%geofac_div(jc,3,jb)
-#else
-              ! Workaround for compiler optimization problem
-              DO ic = 1, 3
-                zaux(ic)   = p_nh%diag%mass_fl_e(ieidx(jc,jb,ic),jk,ieblk(jc,jb,ic))
-                zaux(ic+3) = z_theta_v_fl_e(ieidx(jc,jb,ic),jk,ieblk(jc,jb,ic))
-              ENDDO
-              z_flxdiv_mass(jc,jk)  = p_int%geofac_div(jc,1,jb)*zaux(1) + p_int%geofac_div(jc,2,jb)*zaux(2) + &
-                                      p_int%geofac_div(jc,3,jb)*zaux(3)
-              z_flxdiv_theta(jc,jk) = p_int%geofac_div(jc,1,jb)*zaux(4) + p_int%geofac_div(jc,2,jb)*zaux(5) + &
-                                      p_int%geofac_div(jc,3,jb)*zaux(6)
-#endif
             END DO
           END DO
 !$ACC END PARALLEL

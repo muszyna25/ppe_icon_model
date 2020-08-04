@@ -547,8 +547,8 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'sso_stdh', p_ext_atm%sso_stdh, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-        &           isteptype=TSTEP_CONSTANT )
-
+        &           isteptype=TSTEP_CONSTANT , lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%sso_stdh)
 
       ! field derived from sso_stdh used for pat_len in turbulence scheme
       ! for the time being, it is the same as sso_stdh except for not being adjusted to orography smoothing
@@ -731,7 +731,9 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'tai_t', p_ext_atm%tai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,&
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%tai_t)
 
       ! ratio between current LAI and laimax
       !
@@ -741,8 +743,9 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'laifac_t', p_ext_atm%laifac_t,&
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
-
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,&
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%laifac_t)
 
       ! Evaporative area index (aggregated)
       !
@@ -761,7 +764,9 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'eai_t', p_ext_atm%eai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,&
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%eai_t)
 
 
       ! root depth of vegetation
@@ -781,7 +786,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 32, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rootdp_t', p_ext_atm%rootdp_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,  &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%rootdp_t)
 
 
       ! evergreen forest
@@ -820,7 +827,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'skinc_t', p_ext_atm%skinc_t,           &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,          &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%skinc_t)
 
 
       ! Minimal stomata resistence
@@ -838,7 +847,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 0, 16, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rsmin2d_t', p_ext_atm%rsmin2d_t,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,          &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%rsmin2d_t)
 
 
       ! NDVI yearly maximum
@@ -870,7 +881,9 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'idx_lst_lp_t', p_ext_atm%idx_lst_lp_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,            &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,          &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%idx_lst_lp_t)
 
       ! idx_lst_t        p_ext_atm%idx_lst_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('dynamic land tile point index list', '-', &
@@ -893,7 +906,9 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'snowtile_flag_t', p_ext_atm%snowtile_flag_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                  &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,                &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%snowtile_flag_t)
 
       ! not sure if these dimensions are supported by add_var...
       ALLOCATE(p_ext_atm%gp_count_t(nblks_c,ntiles_total), &
@@ -934,8 +949,9 @@ CONTAINS
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_frac_t', p_ext_atm%lc_frac_t, &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,      &
-        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE. )
-
+        &           grib2_desc, ldims=shape3d_ntw, loutput=.FALSE.,   &
+        &           lopenacc=.TRUE.)
+      __acc_attach(p_ext_atm%lc_frac_t)
 
       ! frac_t        p_ext_atm%frac_t(nproma,nblks_c,ntiles_total+ntiles_water)
       cf_desc    = t_cf_var('frac_t', '-', &
@@ -1022,7 +1038,9 @@ CONTAINS
       grib2_desc = grib2_var( 2, 3, 196, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp_t', p_ext_atm%soiltyp_t,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,        &
-        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE.,      &
+        &           lopenacc=.TRUE. )
+      __acc_attach(p_ext_atm%soiltyp_t)
 
 
       ! Climat. temperature

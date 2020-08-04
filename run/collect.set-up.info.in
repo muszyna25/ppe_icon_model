@@ -48,6 +48,7 @@ case "$use_host" in
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
   melian*) use_site=local.net ;;
   *mpimet.mpg.de) use_site=mpg.de ;;
+  xc*|rcnl*|oflws*) use_site=dwd.de ;;
 esac
 test -z "$use_site" && test x"$ICON_DOCKER" = x1 && use_site=docker
 test -n "$use_site" || use_site=`echo "$use_host" | sed 's/^[^.]*\\.//'`
@@ -114,6 +115,11 @@ case "$use_site" in
 
   dwd.de)
     case "$use_host" in
+      rcnl*)
+        use_load_profile='/usr/share/Modules/init/sh'
+        use_submit='qsub'
+        use_sync_submit='qsub'
+      ;;
       xc*)
         use_submit='qsub'
         use_sync_submit='qsub -Wblock=true'

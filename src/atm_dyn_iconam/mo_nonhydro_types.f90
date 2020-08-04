@@ -24,7 +24,7 @@
 !!
 MODULE mo_nonhydro_types
 
-  USE mo_kind,                 ONLY: wp, vp, vp2
+  USE mo_kind,                 ONLY: wp, vp
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
@@ -186,7 +186,7 @@ MODULE mo_nonhydro_types
     &  dwdy(:,:,:)          & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  => NULL()              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
-    REAL(vp2), POINTER      & ! single precision if "__MIXED_PRECISION_2" is defined
+    REAL(vp), POINTER       & ! single precision if "__MIXED_PRECISION" is defined
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS            &
 #endif
