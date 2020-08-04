@@ -53,7 +53,7 @@ fi
 # for automatic testing
 dir=`pwd -P`
 icon_path=${dir%%scripts/postprocessing/testcases}
-icon_path=${ICON_BASE_PATH}/
+icon_path=${basedir}/
 
 # Output frequency expressed as number of time slices per day.
 # (The value you give here must be ASCII representations of integer values,

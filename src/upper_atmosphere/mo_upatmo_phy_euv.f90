@@ -268,13 +268,14 @@ CONTAINS
     ! solar flux
     flux = euv_flux(this_datetime, solvar_type, solcyc_type, opt_error)
 
-    CALL get_orbit_times(this_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
     
     IF (orbit_type == iorbit%vsop87) THEN
       ! standard orbit model
+      CALL get_orbit_times(.TRUE.,this_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
       CALL orbit_vsop87(orbit_date, rasc_sun, decl_sun, dist_sun)
     ELSEIF (orbit_type == iorbit%kepler) THEN
       ! idealized Kepler orbit
+      CALL get_orbit_times(.FALSE.,this_datetime, lyr_perp, yr_perp, time_of_day, orbit_date)
       CALL orbit_kepler(cecc, cobld, clonp, orbit_date, rasc_sun, decl_sun, dist_sun)      
     ELSE
       ! invalid orbit type

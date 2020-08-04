@@ -26,12 +26,12 @@ MODULE mo_lnd_nwp_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom, SSTICE_ANA, max_nsoil
+  USE mo_impl_constants,      ONLY: SSTICE_ANA, max_nsoil
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_lnd_nwp_config,      ONLY: config_nlev_snow          => nlev_snow         , &

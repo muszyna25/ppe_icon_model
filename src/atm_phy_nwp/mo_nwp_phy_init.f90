@@ -64,8 +64,7 @@ MODULE mo_nwp_phy_init
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
   USE mo_psrad_setup    ,     ONLY: psrad_basic_setup
-  USE mo_echam_cld_config,  ONLY: echam_cld_config
-  USE mo_psrad_general,         ONLY: nbndsw
+  USE mo_echam_cop_config,    ONLY: echam_cop_config
 #ifdef __ECRAD
   USE mo_nwp_ecrad_init,      ONLY: setup_ecrad
   USE mo_ecrad,               ONLY: ecrad_conf
@@ -73,7 +72,7 @@ MODULE mo_nwp_phy_init
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
-  USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init
+  USE mo_2mom_mcrph_driver,   ONLY: two_moment_mcrph_init
   USE mo_art_clouds_interface,ONLY: art_clouds_interface_2mom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
@@ -121,8 +120,7 @@ MODULE mo_nwp_phy_init
     &                                  calculate_time_interpolation_weights
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop,   &
     &                               timer_init_nwp_phy, timer_phys_reff, timer_upatmo
-  USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                               bc_greenhouse_gases_file_read, ghg_co2mmr
+  USE mo_bc_greenhouse_gases, ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation
   USE mo_nwp_reff_interface,  ONLY: init_reff
   USE mo_upatmo_config,       ONLY: upatmo_config
   USE mo_upatmo_types,        ONLY: t_upatmo
@@ -675,7 +673,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       &                        tune_mu_rain   = atm_phy_nwp_config(1)%mu_rain,&
       &                   tune_rain_n0_factor = atm_phy_nwp_config(1)%rain_n0_factor)
 
-  CASE (4) !two moment micrphysics
+  CASE (4,7) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
     IF (jg == 1) CALL two_moment_mcrph_init(igscp=atm_phy_nwp_config(jg)%inwp_gscp, msg_level=msg_level )
@@ -790,8 +788,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         CALL setup_newcld_optics(cldopt_filename)
       CASE(3) ! PSRAD init
         CALL psrad_basic_setup(.false., nlev, 1.0_wp, 1.0_wp, &
-          & echam_cld_config(1)%cinhoml1 ,echam_cld_config(1)%cinhoml2, &
-          & echam_cld_config(1)%cinhoml3 ,echam_cld_config(1)%cinhomi)
+          & echam_cop_config(1)%cinhoml1 ,echam_cop_config(1)%cinhoml2, &
+          & echam_cop_config(1)%cinhoml3 ,echam_cop_config(1)%cinhomi)
       CASE(4)
 #ifdef __ECRAD
         ! Do ecrad initialization only once
@@ -1374,9 +1372,11 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
+#ifndef __PGI
+!FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
+!$OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
 !$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori,nzprv,zvariaux,zrhon) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1551,9 +1551,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
       ENDDO
 
     ENDDO  ! jb
-!$OMP END DO
-
-!$OMP END PARALLEL
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'Cosmo turbulence initialized')
 

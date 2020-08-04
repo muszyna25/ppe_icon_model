@@ -18,7 +18,8 @@ MODULE mo_run_nml
                          & config_ltransport      => ltransport,      &
                          & config_ntracer         => ntracer,         &
                          & config_lart            => lart,            &
-                         & config_ldass_lhn         => ldass_lhn,         &
+                         & config_ldass_lhn       => ldass_lhn,       &
+                         & config_luse_radarfwo   => luse_radarfwo,   &
                          & config_lvert_nest      => lvert_nest,      &
                          & config_nlev            => nlev,            &
                          & config_num_lev         => num_lev,         &
@@ -48,12 +49,12 @@ MODULE mo_run_nml
                                MAX_CHAR_LENGTH
   USE mo_io_units,       ONLY: nnml, nnml_output
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,            ONLY: my_process_is_stdio 
+  USE mo_mpi,            ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_util_string,    ONLY: one_of
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,   &
        &                            open_and_restore_namelist, close_tmpfile
   USE mtime,                  ONLY: max_timedelta_str_len
   
@@ -78,6 +79,8 @@ MODULE mo_run_nml
   INTEGER :: ntracer         ! number of advected tracers
   LOGICAL :: lart            ! switch for ICON-ART (Treatment of Aerosols and Trace Gases)
   LOGICAL :: ldass_lhn         ! switch for assimilation of radar data using latent heat nudging
+
+  LOGICAL :: luse_radarfwo(max_dom)  !< switch for radar forward operator EMVORADO
 
   LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
   INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
@@ -120,7 +123,8 @@ MODULE mo_run_nml
                      iforcing,     ltransport,      &
                      ntracer,                       &
                      lart,                          &
-                     ldass_lhn,                       &
+                     ldass_lhn,                     &
+                     luse_radarfwo,                 &
                      lvert_nest,                    &
                      num_lev,      nshift,          &
                      nsteps,       dtime,           &
@@ -160,6 +164,8 @@ CONTAINS
     ntracer         = 0
     lart            = .FALSE.
     ldass_lhn         = .FALSE.
+
+    luse_radarfwo(:) = .FALSE.
 
     lvert_nest = .FALSE. ! no vertical nesting
     num_lev(:) = 31    ! number of full levels for each domain
@@ -230,16 +236,8 @@ CONTAINS
       CALL finish( TRIM(routine),'wrong value for iforcing')
     END SELECT
 
-    ! If we choose to have NWP-forcing for the nonhydrostatic model, we want 
-    ! to avoid the necessity of setting ntracer explicitly. Thus, a sanity 
-    ! check for ntracer is triggered only, if iforcing /= INWP.
-    IF (iforcing /= INWP) THEN
-      IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
-      'wrong number of tracers. Valid range: 0<= ntracer <=20')
-
-      IF (ltransport .AND. ntracer<1) CALL finish(TRIM(routine), &
-      'Tracer transport is switched on, but number of advected tracers is smaller than 1')
-    ENDIF
+    IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
+      & 'wrong number of tracers. Valid range: 0 <= ntracer <= max_ntracer')
 
     IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
     IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
@@ -260,6 +258,8 @@ CONTAINS
     config_ntracer         = ntracer 
     config_lart            = lart
     config_ldass_lhn         = ldass_lhn
+
+    config_luse_radarfwo(:)   = luse_radarfwo(:)
 
     config_lvert_nest      = lvert_nest
     config_nlev            = num_lev(1)

@@ -33,11 +33,12 @@ MODULE mo_run_config
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
   PUBLIC :: ldass_lhn
+  PUBLIC :: luse_radarfwo
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2, ich4, in2o, io3
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
-  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
+  PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact, iqgl, iqhl
   PUBLIC :: iqtke
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
@@ -63,6 +64,8 @@ MODULE mo_run_config
 
     LOGICAL :: lart            !< switch for ICON-ART (Treatment of Aerosols and Trace Gases)
     LOGICAL :: ldass_lhn         !< switch for assimilation of radar data using latent heat nudging
+
+    LOGICAL :: luse_radarfwo(MAX_DOM)  !< switch for radar forward operator EMVORADO
 
     LOGICAL :: lvert_nest         !< switch for vertical nesting
     INTEGER :: num_lev  (MAX_DOM) !< number of full levels for each domain
@@ -105,40 +108,42 @@ MODULE mo_run_config
     ! Derived variables
     !
     ! Tracer indices of water species
-    INTEGER :: iqv        !< water vapor
-    INTEGER :: iqc        !< cloud water
-    INTEGER :: iqi        !< cloud ice
+    INTEGER :: iqv       = 0  !< water vapor
+    INTEGER :: iqc       = 0  !< cloud water
+    INTEGER :: iqi       = 0  !< cloud ice
     !CK>
-    INTEGER :: iqni       !< cloud ice number
-    INTEGER :: iqni_nuc   !< activated ice nuclei
-    INTEGER :: iqg        !< graupel
+    INTEGER :: iqni      = 0  !< cloud ice number
+    INTEGER :: iqni_nuc  = 0  !< activated ice nuclei
+    INTEGER :: iqg       = 0  !< graupel
     !CK<    
-    INTEGER :: iqr        !< rain water
-    INTEGER :: iqs        !< snow
-    INTEGER :: iqtvar     !< total water variance
-    INTEGER :: nqtendphy  !< number of water species for which physical tendencies are stored
-    INTEGER :: iqm_max    !< highest tracer index carrying a mass-related moisture variable
+    INTEGER :: iqr       = 0  !< rain water
+    INTEGER :: iqs       = 0  !< snow
+    INTEGER :: iqtvar    = 0  !< total water variance
+    INTEGER :: nqtendphy = 0  !< number of water species for which physical tendencies are stored
+    INTEGER :: iqm_max   = 0  !< highest tracer index carrying a mass-related moisture variable
   
     !For 2 moment microphysics
-    INTEGER :: iqh        !<hail
-    INTEGER :: iqnh       !<hail number
-    INTEGER :: iqnr       !<rain number
-    INTEGER :: iqns       !<snow number
-    INTEGER :: iqng       !<graupel number
-    INTEGER :: iqnc       !<cloud number
-    INTEGER :: inccn      !<ccn number
-    INTEGER :: ininpot    !<number of aerosol particles which are potential IN
-    INTEGER :: ininact    !<number of activated IN
+    INTEGER :: iqh       = 0  !<hail
+    INTEGER :: iqnh      = 0  !<hail number
+    INTEGER :: iqnr      = 0  !<rain number
+    INTEGER :: iqns      = 0  !<snow number
+    INTEGER :: iqng      = 0  !<graupel number
+    INTEGER :: iqnc      = 0  !<cloud number
+    INTEGER :: inccn     = 0  !<ccn number
+    INTEGER :: ininpot   = 0  !<number of aerosol particles which are potential IN
+    INTEGER :: ininact   = 0  !<number of activated IN
+    INTEGER :: iqgl      = 0  !<liquid on graupel
+    INTEGER :: iqhl      = 0  !<liquid on hail
 
     ! For TKE advection
-    INTEGER :: iqtke      !< turbulent kinetic energy
+    INTEGER :: iqtke     = 0  !< turbulent kinetic energy
 
     ! Tracer indices of other species
-    INTEGER :: iqt        !< start index of other tracers than hydrometeors
-    INTEGER :: ico2       !< CO2
-    INTEGER :: ich4       !< CH4
-    INTEGER :: in2o       !< N2O
-    INTEGER :: io3        !< O3
+    INTEGER :: iqt       = 0  !< start index of other tracers than hydrometeors
+    INTEGER :: ico2      = 0  !< CO2
+    INTEGER :: ich4      = 0  !< CH4
+    INTEGER :: in2o      = 0  !< N2O
+    INTEGER :: io3       = 0  !< O3
 
 
     INTEGER :: nlev               !< number of full levels for each domain

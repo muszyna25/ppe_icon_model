@@ -1,9 +1,9 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_b
-#PBS -l select=80:ompthreads=6
+#PBS -l select=20:ompthreads=4
 #PBS -l place=scatter
-#PBS -l walltime=01:30:00
+#PBS -l walltime=00:30:00
 #PBS -j oe
 #PBS -o LOG.exp.run_ICON_10_R3B7N8_oper_mfr.run.run.o
 # ----------------------------------------------------------------------
@@ -125,13 +125,13 @@ for iter in 1 2 ; do
 if [ $iter -eq 1 ] ; then
 
 restart="       .FALSE. "
-nsteps="          1080  "
-checkpoint="     86400. "
+nsteps="           135  "
+checkpoint="     10800. "
 
 else
 
 restart="        .TRUE. "
-nsteps="           360  "
+nsteps="            45  "
 checkpoint="    864000. "
 
 fi
@@ -385,6 +385,7 @@ cat > ${atmo_namelist} << EOF
  n_iter_smooth_topo   = 1,1
  heightdiff_threshold = 3000.
  hgtdiff_max_smooth_topo = 750.,750.,
+ read_nc_via_cdi      = .true.
 /
 &nwp_tuning_nml
  itune_albedo   = 1
@@ -1052,7 +1053,7 @@ EOF3
 # run the model!
 # ----------------------------------------------------------------------
 
-aprun  -n 960 -N 12 -j 2 -d 6 -m 3g icon
+aprun  -n 360 -N 18 -j 2 -d 4 -m 3g icon
 
 # ----------------------------------------------------------------------------
 done # iterations for restart testing

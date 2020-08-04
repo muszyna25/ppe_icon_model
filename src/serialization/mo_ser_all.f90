@@ -30,7 +30,7 @@ MODULE mo_ser_all
   USE mo_run_config,         ONLY: iforcing
   USE mo_impl_constants,     ONLY: inwp
   USE mo_ser_nml,            ONLY: ser_output_diag, ser_latbc_data, ser_dynamics, ser_diffusion, ser_step_advection, &
-                                   ser_physics, ser_nudging, ser_all_debug
+                                   ser_physics, ser_nudging, ser_all_debug, ser_surface
 
   IMPLICIT NONE
 
@@ -44,6 +44,7 @@ MODULE mo_ser_all
   INTEGER :: step_advection_cnt = 0
   INTEGER :: physics_cnt = 0
   INTEGER :: nudging_cnt = 0
+  INTEGER :: surface_cnt = 0
   INTEGER :: debug_cnt = 0
 
   CONTAINS
@@ -84,7 +85,7 @@ MODULE mo_ser_all
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: ser_name, listhashchar
     INTEGER :: listhash
 
-    #ifdef SERIALIZE
+#ifdef SERIALIZE
     listname = TRIM(name)
     ! Append domain index
     IF( PRESENT(domain) ) THEN
@@ -234,7 +235,7 @@ MODULE mo_ser_all
       END IF ! info%name /= 'tracer'
       element => element%next_list_element
     END DO for_all_list_elements
-    #endif
+#endif
 
   END SUBROUTINE ser_var_list
 
@@ -292,6 +293,11 @@ MODULE mo_ser_all
          IF(nudging_cnt > ser_nudging*2) THEN
              do_serialization = .FALSE.
          ENDIF
+      CASE("surface")
+         surface_cnt = surface_cnt + 1
+         IF(surface_cnt > ser_surface*2) THEN
+             do_serialization = .FALSE.
+         ENDIF
       CASE DEFAULT
          debug_cnt = debug_cnt + 1
          IF(debug_cnt > ser_all_debug) THEN
@@ -329,14 +335,14 @@ MODULE mo_ser_all
            id = 0
        ENDIF
 
-       #ifdef SERIALIZE
+#ifdef SERIALIZE
        CALL warning('SER:'//TRIM(savepoint_name),'Serialization is active!')
        
-       #if defined(_OPENACC)
+#if defined(_OPENACC)
        IF(lupdate_cpu) THEN
          CALL warning('GPU:'//TRIM(savepoint_name),'GPU HOST synchronization forced by serialization!')
        ENDIF
-       #endif
+#endif
        
        CALL datetimeToString(time_config%tc_current_date, date)
        CALL init('icon')
@@ -369,7 +375,7 @@ MODULE mo_ser_all
          CALL ser_var_list('nh_state_prog_of_domain_', lupdate_cpu, domain=jg, substr='_and_timelev_', timelev=nnew_rcf(jg)) !p_prog_rcf
        ENDIF
        
-       #endif
+#endif
 
     ENDIF !do_serialization
     

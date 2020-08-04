@@ -92,8 +92,6 @@ MODULE mo_nh_interface_nwp
                                         SYNC_C, SYNC_C1
   USE mo_mpi,                     ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,           ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
-  USE mo_icon_comm_lib,           ONLY: new_icon_comm_variable,                               &
-    &                                   icon_comm_sync_all, is_ready, until_sync
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
 
   USE mo_art_washout_interface,   ONLY: art_washout_interface
@@ -120,6 +118,7 @@ MODULE mo_nh_interface_nwp
   !$ser verbatim USE mo_ser_nh_interface_nwp, ONLY: serialize_nh_interface_nwp_input,&
   !$ser verbatim                                    serialize_nh_interface_nwp_output
   !$ser verbatim USE mo_ser_nml,              ONLY: ser_debug
+  !$ser verbatim USE mo_ser_all,              ONLY: serialize_all
 
   IMPLICIT NONE
 
@@ -181,7 +180,7 @@ CONTAINS
     TYPE(t_wtr_prog),           INTENT(inout) :: wtr_prog_now, wtr_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
-    TYPE(t_var_list), INTENT(in) :: p_prog_list !current prognostic state list
+    TYPE(t_var_list), INTENT(inout) :: p_prog_list !current prognostic state list
 
     TYPE(t_upatmo), TARGET, INTENT(inout) :: prm_upatmo !<upper-atmosphere variables
 
@@ -200,7 +199,7 @@ CONTAINS
     INTEGER :: jg,jgc            !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
-    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c, lvalid_data  !< switches for latent heat nudging
+    LOGICAL :: lcall_lhn, lcall_lhn_v, lapply_lhn, lcall_lhn_c  !< switches for latent heat nudging
     LOGICAL :: lcompute_tt_lheat                                !< TRUE: store temperature tendency
                                                                 ! due to grid scale microphysics 
                                                                 ! and satad for latent heat nudging
@@ -305,7 +304,7 @@ CONTAINS
 
     ! Check whether latent heat nudging is active
     !
-    IF (ldass_lhn .AND. .NOT. linit) THEN
+    IF (ldass_lhn .AND. assimilation_config(jg)%lvalid_data .AND. .NOT. linit) THEN
       !
       IF ( jg == jgc )  CALL assimilation_config(jg)%dass_g%reinitEvents()
       lcall_lhn   = assimilation_config(jg)%dass_lhn%isActive(mtime_datetime)
@@ -615,6 +614,13 @@ CONTAINS
     IF ( l_any_fastphys .AND. ( ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) &
                   & .OR. ( edmf_conf==2  .AND. iedmf==atm_phy_nwp_config(jg)%inwp_turb ) ) ) THEN
       IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
+#ifdef _OPENACC
+      IF(.not. linit) THEN
+        CALL message('mo_nh_interface_nwp', 'Host to device copy before nwp_surface. This needs to be removed once port is finished!')
+        CALL gpu_h2d_nh_nwp(pt_patch, prm_diag, ext_data)
+      ENDIF
+#endif
+      !$ser verbatim CALL serialize_all(nproma, 1, "surface", .TRUE., opt_lupdate_cpu=.FALSE.)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
        !! of the temperature at the lowest model level towards ground level,
@@ -627,8 +633,15 @@ CONTAINS
                              & prm_diag,                         & !>inout
                              & lnd_prog_now, lnd_prog_new,       & !>inout
                              & wtr_prog_now, wtr_prog_new,       & !>inout
-                             & lnd_diag                          ) !>input
-
+                             & lnd_diag,                         & !>input
+                             & lacc=(.not. linit)                ) !>in
+       !$ser verbatim CALL serialize_all(nproma, 1, "surface", .FALSE., opt_lupdate_cpu=.TRUE.)
+#ifdef _OPENACC
+    IF(.not. linit) THEN
+      CALL message('mo_nh_interface_nwp', 'Device to host copy after nwp_surface. This needs to be removed once port is finished!')
+      CALL gpu_d2h_nh_nwp(pt_patch, prm_diag)
+    ENDIF
+#endif
       IF (timers_level > 2) CALL timer_stop(timer_nwp_surface)
     END IF
 
@@ -725,16 +738,11 @@ CONTAINS
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
 
       IF (.NOT. linit) THEN
-        CALL art_reaction_interface(ext_data,              & !> in
-                &                   pt_patch,              & !> in
+        CALL art_reaction_interface(jg,                    & !> in
                 &                   mtime_datetime,        & !> in
                 &                   dt_phy_jg(itfastphy),  & !> in
-                &                   p_prog_list,           & !> in
-                &                   pt_prog,               & !> in
-                &                   p_metrics,             & !> in
-                &                   pt_diag,               & !> inout
-                &                   pt_prog_rcf%tracer,    & !>
-                &                   prm_diag = prm_diag)     !> optional
+                &                   p_prog_list,           & !> inout
+                &                   pt_prog_rcf%tracer)      !>
                 
       END IF
 
@@ -750,7 +758,7 @@ CONTAINS
     !!------------------------------------------------------------------
     !> Latent heat nudging (optional)
     !!------------------------------------------------------------------
-    IF (ldass_lhn .AND. .NOT. linit) THEN
+    IF (ldass_lhn .AND. assimilation_config(jg)%lvalid_data .AND. .NOT. linit) THEN
 
       IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'applying LHN')
       IF (timers_level > 1) CALL timer_start(timer_datass)
@@ -768,9 +776,10 @@ CONTAINS
                                & radar_data(jg),                   & 
                                & prm_nwp_tend,                     &
                                & mtime_datetime,                   &
-                               & lcall_lhn, lcall_lhn_v,lvalid_data)
+                               & lcall_lhn, lcall_lhn_v,           &
+                               & assimilation_config(jg)%lvalid_data)
 
-        IF (msg_level >= 7 .AND. .NOT.lvalid_data) THEN
+        IF (msg_level >= 7 .AND. .NOT. assimilation_config(jg)%lvalid_data) THEN
           CALL message('mo_nh_interface_nwp:','LHN turned off due to lack of valid data')
         ENDIF
       ELSE IF (msg_level >= 15) THEN
@@ -780,7 +789,7 @@ CONTAINS
 
 
       lcall_lhn_c = assimilation_config(jgc)%dass_lhn%isActive(mtime_datetime)
-      lapply_lhn  = (lcall_lhn .OR. lcall_lhn_c) .AND. lvalid_data
+      lapply_lhn  = (lcall_lhn .OR. lcall_lhn_c) .AND. assimilation_config(jg)%lvalid_data
 
       IF (lapply_lhn) THEN
 
@@ -1066,8 +1075,10 @@ CONTAINS
       !  (5) grid-scale cloud cover [1 or 0]
       !-------------------------------------------------------------------------
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
+#ifndef __GFORTRAN__
+! FIXME: libgomp seems to run in deadlock here
+!$OMP PARALLEL DO PRIVATE(i_startidx,i_endidx,qtvar) ICON_OMP_GUIDED_SCHEDULE
+#endif
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1113,10 +1124,9 @@ CONTAINS
 
 
       ENDDO
-
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
+#ifndef __GFORTRAN__
+!$OMP END PARALLEL DO
+#endif
       IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 
     ENDIF! cloud cover
@@ -1951,8 +1961,7 @@ CONTAINS
 
     IF (lart) THEN
       ! Call the ART diagnostics
-      CALL art_diagnostics_interface(pt_patch,               &
-        &                            pt_prog%rho,            &
+      CALL art_diagnostics_interface(pt_prog%rho,            &
         &                            pt_diag%pres,           &
         &                            pt_prog_now_rcf%tracer, &
         &                            p_metrics%ddqz_z_full,  &

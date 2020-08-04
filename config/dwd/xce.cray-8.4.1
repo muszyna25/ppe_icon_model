@@ -1,12 +1,13 @@
 #!/bin/bash
 
 set -eu
+unset CDPATH
 
-SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
-ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
+SCRIPT_DIR=$(cd "$(dirname "$0")">/dev/null; pwd)
+ICON_DIR=$(cd "${SCRIPT_DIR}/../..">/dev/null; pwd)
 
 # module command and path setup from  /etc/profile.local:
-MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles"
+MODULE_SETTINGS=". $MODULESHOME/init/bash && export MODULEPATH=${MODULEPATH}:/usr/local/pkg/modulefiles && module purge"
 
 
 MODULES='PrgEnv-cray cray-mpich cce/8.4.1 craype-haswell cray-netcdf cray-hdf5 eccodes aec'
@@ -137,13 +138,12 @@ for arg in "$@"; do
   esac
 done
 
-# Generate input file for runscript generation:
-./config.status --file=run/set-up.info
-
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
   echo "Copying runscript input files from the source directory..."
-  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
+  ln -sf -t run/ ${ICON_DIR}/run/standard_*
+  ln -sf set-up.info run/SETUP.config
   rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
   rsync -uavz ${ICON_DIR}/make_runscripts .
   ln -sf ${ICON_DIR}/data

@@ -30,7 +30,7 @@ MODULE mo_nwp_phy_nml
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: use_restart_namelists
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,    &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config,                        &
@@ -334,8 +334,8 @@ CONTAINS
 
     DO jg = 1, max_dom
 
-      IF ( ALL((/0,1,2,3,4,5,6,9/) /= inwp_gscp(jg)) ) THEN
-        CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,5 or 9.')
+      IF ( ALL((/0,1,2,3,4,5,6,7,9/) /= inwp_gscp(jg)) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,5,6,7 or 9.')
       END IF
       
       IF ( ALL((/0,1,2,3,4,5,6,7,9,100,101/) /= icalc_reff(jg)) ) THEN

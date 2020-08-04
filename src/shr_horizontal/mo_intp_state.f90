@@ -146,7 +146,7 @@ MODULE mo_intp_state
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ihs_ocean
-USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
+USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ltransport
@@ -154,7 +154,7 @@ USE mo_dynamics_config,     ONLY: iequations
 USE mo_interpol_config,     ONLY: i_cori_method, rbf_vec_dim_c, rbf_c2grad_dim, &
   &                               rbf_vec_dim_v, rbf_vec_dim_e, lsq_lin_set,    &
   &                               lsq_high_set
-USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
+USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp_rbf_coeffs,     ONLY: rbf_vec_index_cell, rbf_vec_index_edge,                &
   &                               rbf_vec_index_vertex, rbf_vec_compute_coeff_cell,      &
   &                               rbf_vec_compute_coeff_edge,                            &

@@ -60,7 +60,7 @@ MODULE mo_hierarchy_management
   USE mo_run_config,          ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer, iforcing, lforcing
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
-  USE mo_ha_prog_util,        ONLY: update_prog_state, diag_tend !, copy_prog_state
+  USE mo_ha_prog_util,        ONLY: update_prog_state !, diag_tend , copy_prog_state
   USE mo_ha_diag_util,        ONLY: update_pres !, update_diag_state, update_dyn_output
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_ha_leapfrog,         ONLY: step_leapfrog_expl, asselin, &
@@ -86,8 +86,8 @@ MODULE mo_hierarchy_management
     &                               min_rlcell_int, min_rledge_int, &
     &                               iheldsuarez, iecham, ildf_echam,& 
     &                               ildf_dry
-  USE mo_ha_dtp_interface,    ONLY: prepare_tracer, prepare_tracer_rk, &
-    &                               prepare_tracer_leapfrog!!$, prepare_echam_phy
+  USE mo_ha_dtp_interface,    ONLY: prepare_tracer, prepare_tracer_rk
+!!$    &                               prepare_tracer_leapfrog, prepare_echam_phy
   USE mo_held_suarez_interface, ONLY: held_suarez_interface
   USE mo_hierarchy_management_intp
   USE mo_mpi,                 ONLY: push_glob_comm, pop_glob_comm, proc_split

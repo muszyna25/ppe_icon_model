@@ -124,11 +124,8 @@ MODULE mo_output_event_handler
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_util_string,            ONLY: int2string
   USE mo_mpi,                    ONLY: p_int, p_real,                                       &
-    &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
-    &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
-    &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
-    &                                  p_wait, get_my_global_mpi_id,                        &
-    &                                  my_process_is_mpi_test, p_pe,                        &
+    &                                  get_my_global_mpi_id,                                &
+    &                                  p_pe,                                                &
     &                                  my_process_is_mpi_workroot,                          &
     &                                  process_mpi_all_comm,                                &
     &                                  p_comm_rank, p_comm_size,                            &
@@ -141,8 +138,7 @@ MODULE mo_output_event_handler
     &                                  newDatetime, OPERATOR(>=), OPERATOR(==),&
     &                                  OPERATOR(<), OPERATOR(<=), &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
-    &                                  deallocateTimedelta, newJulianDay, JulianDay,        &
-    &                                  deallocateJulianday,                                 &
+    &                                  deallocateTimedelta, JulianDay,                      &
     &                                  getJulianDayFromDatetime, getDatetimeFromJulianDay
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data,                  &
     &                                  t_event_step, t_output_event, t_par_output_event,    &

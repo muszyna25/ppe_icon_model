@@ -7,7 +7,7 @@
 !! headers of the routines.
 MODULE mo_util_file
 
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG, C_SIZE_T
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR, C_LONG
   USE mo_exception, ONLY: finish
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_kind, ONLY: i8

@@ -1,25 +1,25 @@
 [submodule "externals/mtime"]
-	path = externals/mtime
+        path = externals/mtime
 	url = git@gitlab.dkrz.de:icon-libraries/libmtime.git
-	branch = 1.0.8-patched
+        branch = 1.0.8-patched
 [submodule "externals/jsbach"]
-	path = externals/jsbach
+        path = externals/jsbach
 	url = git@gitlab.dkrz.de:jsbach/jsbach.git
-	branch = feature/claw
+	branch = develop
 [submodule "externals/yac"]
-	path = externals/yac
+        path = externals/yac
 	url = git@gitlab.dkrz.de:dkrz-sw/YAC.git
 	branch = release-1.5.4
 [submodule "externals/self"]
-	path = externals/self
+        path = externals/self
 	url = git@gitlab.dkrz.de:libself/libself.git
 	branch = libself-icon_v0.2-config
 [submodule "externals/tixi"]
-	path = externals/tixi
+        path = externals/tixi
 	url = git@gitlab.dkrz.de:icon-libraries/libtixi.git
 	branch = icon-new-config
 [submodule "externals/yaxt"]
-	path = externals/yaxt
+        path = externals/yaxt
 	url = git@gitlab.dkrz.de:dkrz-sw/yaxt.git
 	branch = release-0.7.0-patched
 [submodule "externals/rte-rrtmgp"]
@@ -27,8 +27,8 @@
 	url = git@gitlab.dkrz.de:icon-libraries/librte-rrtmgp.git
 	branch = icon
 [submodule "externals/cub"]
-	path = externals/cub
-	url = https://github.com/NVlabs/cub.git
+        path = externals/cub
+        url = https://github.com/NVlabs/cub.git
 [submodule "externals/omni-xmod-pool"]
 	path = externals/omni-xmod-pool
 	url = https://github.com/claw-project/omni-xmod-pool.git
@@ -43,4 +43,12 @@
 [submodule "externals/ecrad"]
 	path = externals/ecrad
 	url = git@gitlab.dkrz.de:dwd-sw/libecrad.git
+	branch = master
+[submodule "externals/dace_icon"]
+	path = externals/dace_icon
+	url = git@gitlab.dkrz.de:dwd-sw/dace-icon-interface.git
+	branch = master
+[submodule "externals/emvorado"]
+	path = externals/emvorado
+	url = git@gitlab.dkrz.de:dwd-sw/emvorado-for-icon.git
 	branch = master

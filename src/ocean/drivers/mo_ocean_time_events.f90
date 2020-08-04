@@ -43,7 +43,7 @@ MODULE mo_ocean_time_events
   PUBLIC :: isStartdate
   PUBLIC :: newNullDatetime
   
-  PUBLIC :: get_OceanCurrentTime_Pointer ! this will be removed, do not use  !
+  PUBLIC :: get_OceanCurrentTime_Pointer 
 
 !   PUBLIC :: set_OceanCurrentTime
   PUBLIC :: get_OceanCurrentTime
@@ -229,7 +229,8 @@ CONTAINS
   FUNCTION get_OceanCurrentTime_Pointer()
     TYPE(datetime), POINTER:: get_OceanCurrentTime_Pointer
 
-    get_OceanCurrentTime_Pointer => ocean_current_time
+    return_current_time = ocean_current_time
+    get_OceanCurrentTime_Pointer => return_current_time
 
   END FUNCTION get_OceanCurrentTime_Pointer
   !-------------------------------------------------------------------------

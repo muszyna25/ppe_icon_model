@@ -71,8 +71,8 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL,             &
   &                               GRID_CELL
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart, ldass_lhn
-USE mo_exception,           ONLY: message, finish
+USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, iqr, iqs, iqg, lart, ldass_lhn
+USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_linked_list,         ONLY: t_var_list
@@ -395,7 +395,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
 
     !For two moment microphysics
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (4,5,6)
+    CASE (4,5,6,7)
 
        ! &      diag%ice_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &
@@ -423,7 +423,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'rain_con_rate', diag%rain_con_rate,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,                                              &
-                & isteptype=TSTEP_INSTANT )
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE.)
+    __acc_attach(diag%rain_con_rate)
 
 
     ! &      diag%snow_con_rate(nproma,nblks_c)
@@ -433,7 +434,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'snow_con_rate', diag%snow_con_rate,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d,                                              &
-                & isteptype=TSTEP_INSTANT )
+                & isteptype=TSTEP_INSTANT, lopenacc=.TRUE.)
+    __acc_attach(diag%snow_con_rate)
 
     ! &      diag%rain_con_rate_3d(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('rain_con_rate_3d', 'kg m-2 s-1',                &
@@ -554,7 +556,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (4,5,6)
+    CASE (4,5,6,7)
 
        ! &      diag%ice_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp', 'kg m-2', 'gridscale ice', datatype_flt)
@@ -1145,6 +1147,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & t_cf_var(TRIM(vname_prefix)//'qv_dia', 'kg kg-1',                &
                 &          'total specific humidity (diagnostic)', datatype_flt),&
                 & grib2_var(0, 1, 211, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                & ref_idx=iqv,                                                     &
                 & ldims=shape3d,                                                   &
                 & vert_interp=create_vert_interp_metadata(                         &
                 &             vert_intp_type=vintp_types("P", "Z", "I"),           &
@@ -1160,6 +1163,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & t_cf_var(TRIM(vname_prefix)//'qc_dia', 'kg kg-1',                &
                 & 'total specific cloud water content (diagnostic)', datatype_flt),&
                 & grib2_var(0, 1, 212, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                & ref_idx=iqc,                                                     &
                 & ldims=shape3d,                                                   &
                 & vert_interp=create_vert_interp_metadata(                         &
                 &             vert_intp_type=vintp_types("P","Z","I"),             &
@@ -1176,6 +1180,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & t_cf_var(TRIM(vname_prefix)//'qi_dia', 'kg kg-1',                &
                 & 'total specific cloud ice content (diagnostic)', datatype_flt),&
                 & grib2_var(0, 1, 213, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                & ref_idx=iqi,                                                     &
                 & ldims=shape3d,                                                   &
                 & vert_interp=create_vert_interp_metadata(                         &
                 &             vert_intp_type=vintp_types("P","Z","I"),             &
@@ -1203,6 +1208,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       & t_cf_var('tqv_dia', 'kg m**-2',                           &
       & 'total column integrated water vapour (diagnostic)', datatype_flt),   &
       & grib2_var( 0, 1, 214, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+      & ref_idx=iqv,                                              &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
 
     !TQC_DIA
@@ -1212,6 +1218,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       & t_cf_var('tqc_dia', 'kg m**-2',                            &
       & 'total column integrated cloud water (diagnostic)', datatype_flt),    &
       & grib2_var( 0, 1, 215, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+      & ref_idx=iqc,                                               &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
 
     !TQI_DIA
@@ -1221,6 +1228,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       & t_cf_var('tqi_dia', 'kg m**-2',                            &
       & 'total column integrated cloud ice (diagnostic)', datatype_flt),      &
       & grib2_var(0, 1, 216, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+      & ref_idx=iqi,                                               &
       & ldims=shape2d, lrestart=.FALSE., in_group=groups("additional_precip_vars"))
 
 
@@ -1248,6 +1256,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & 'column integrated water vapour (diagnostic) avg',           &
                 & datatype_flt),                                               &
                 & grib2_var( 0, 1, 214, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & ref_idx=iqv,                                                 &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG,                                         & 
                 & hor_interp=create_hor_interp_metadata(                       &
@@ -1263,6 +1272,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & 'tci specific cloud water content (diagnostic) avg',         &
                 & datatype_flt),                                               &
                 & grib2_var(0, 1, 215, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+                & ref_idx=iqc,                                                 &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG,                                         &
                 & hor_interp=create_hor_interp_metadata(                       &
@@ -1278,6 +1288,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & 'tci specific cloud ice content (diagnostic) avg',           &
                 & datatype_flt),                                               &
                 & grib2_var(0, 1, 216, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+                & ref_idx=iqi,                                                 &
                 & ldims=shape2d, lrestart=.FALSE.,                             &
                 & isteptype=TSTEP_AVG,                                         & 
                 & hor_interp=create_hor_interp_metadata(                       &
@@ -1387,7 +1398,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'albdif_t', diag%albdif_t,                &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,       &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,       &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+      __acc_attach(diag%albdif_t)
 
       ! fill the seperate variables belonging to the container albdif_t
       ALLOCATE(diag%albdif_t_ptr(ntiles_total+ntiles_water))
@@ -1399,7 +1411,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('albdif_t_'//TRIM(csfc), '', '', datatype_flt),    &
            & grib2_var(0, 19, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-           & ldims=shape2d, lrestart=.TRUE.                                )
+           & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE.                  )
       ENDDO
 
       !        diag%albvisdif_t (nproma, nblks, ntiles_total+ntiles_water)
@@ -1422,7 +1434,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('albvisdif_t_'//TRIM(csfc), '', '', datatype_flt), &
            & grib2_var(0, 19, 222, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-           & ldims=shape2d, lrestart=.TRUE.                                )
+           & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE.                  )
       ENDDO
 
       !        diag%albnirdif_t (nproma, nblks, ntiles_total+ntiles_water)
@@ -1446,7 +1458,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('albnirdif_t_'//TRIM(csfc), '', '', datatype_flt), &
            & grib2_var(0, 19, 223, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-           & ldims=shape2d, lrestart=.TRUE.                                )
+           & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE.                  )
       ENDDO
 
 
@@ -1457,7 +1469,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'sob_s_t', diag%swflxsfc_t,                 &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE., &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+      __acc_attach(diag%swflxsfc_t)
 
       ! fill the seperate variables belonging to the container swflxsfc_t
       ALLOCATE(diag%swflxsfc_t_ptr(ntiles_total+ntiles_water))
@@ -1469,7 +1482,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('swflxsfc_t_'//TRIM(csfc), '', '', datatype_flt),  &
            & grib2_var(0, 4, 9, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-           & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,               &
+           & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE., &
            & in_group=groups("rad_vars"))
       ENDDO
 
@@ -1480,7 +1493,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
       CALL add_var( diag_list, 'thb_s_t', diag%lwflxsfc_t,                 &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
         & ldims=shape3dsubsw, lcontainer=.TRUE., lrestart=.FALSE.,         &
-        & loutput=.FALSE.)
+        & loutput=.FALSE., lopenacc=.TRUE.)
+      __acc_attach(diag%lwflxsfc_t)
 
       ! fill the seperate variables belonging to the container lwflxsfc_t
       ALLOCATE(diag%lwflxsfc_t_ptr(ntiles_total+ntiles_water))
@@ -1492,7 +1506,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('lwflxsfc_t_'//TRIM(csfc), '', '', datatype_flt),  &
            & grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-           & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,               &
+           & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE., &
            & in_group=groups("rad_vars"))
       ENDDO
     ENDIF
@@ -1607,7 +1621,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(0, 4, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'swflx_par_sfc', diag%swflx_par_sfc,           &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.TRUE., in_group=groups("rad_vars")         )
+      & ldims=shape2d, lrestart=.TRUE., in_group=groups("rad_vars"),        &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%swflx_par_sfc)
 
     ! &      diag%swflx_dn_sfc_diff(nproma,nblks_c)
     cf_desc    = t_cf_var('sodifd_s', 'W m-2', 'shortwave diffuse downward flux at surface', datatype_flt)
@@ -2015,7 +2031,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & 'aer_'//TRIM(caer), diag%aerosol_ptr(k)%p_2d,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
                 & cf_desc,                                                       &
-                & grib2_desc,                                                    &
+                & grib2_desc, ref_idx=k,                                         &
                 & ldims=shape2d, lrestart=lrestart, opt_var_ref_pos = 2,         &
                 & var_class=CLASS_CHEM,                                          &
                 & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in",            &
@@ -2025,7 +2041,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                 & 'aer_'//TRIM(caer), diag%aerosol_ptr(k)%p_2d,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
                 & cf_desc,                                                       &
-                & grib2_desc,                                                    &
+                & grib2_desc, ref_idx=k,                                         &
                 & ldims=shape2d, lrestart=lrestart, opt_var_ref_pos = 2,         &
                 & var_class=CLASS_CHEM                                           )
         ENDIF
@@ -2153,7 +2169,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'lhfl_s', diag%lhfl_s,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
-      & in_group=groups("pbl_vars"))
+      & in_group=groups("pbl_vars"), lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_s)
                 
     WRITE(name,'(A,A6)') TRIM(prefix),"lhfl_s"
     WRITE(long_name,'(A27,A4,A18)') "surface latent heat flux ", meaning, &
@@ -2177,7 +2194,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'lhfl_bs', diag%lhfl_bs,                     &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d, lrestart=.FALSE.,                                  &
-      & in_group=groups("pbl_vars"))
+      & in_group=groups("pbl_vars"), lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_bs)
 
     WRITE(name,'(A,A7)') TRIM(prefix),"lhfl_bs"
     WRITE(long_name,'(A27,A4,A18)') "latent heat flux from bare soil", meaning, &
@@ -2198,7 +2216,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(2, 0, 194, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lhfl_pl', diag%lhfl_pl,                     &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
-      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE. )
+      & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,               &
+      & lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_pl)
               
     WRITE(name,'(A,A7)') TRIM(prefix),"lhfl_pl"
     WRITE(long_name,'(A27,A4,A18)') "latent heat flux from plants", meaning, &
@@ -2321,7 +2341,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
         &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
 
 
-      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=2 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 6) THEN
+      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=2 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 7) THEN
         cf_desc      = t_cf_var('reff_qg', 'm',  'effective radius of graupel', datatype_flt)
         grib2_desc   = grib2_var(0, 254, 54, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_54 in DWD
         CALL add_var( diag_list, 'reff_qg', diag%reff_qg,                                 &
@@ -2337,7 +2357,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
           &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB)) 
       END IF
 
-      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=4 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 6) THEN
+      IF (atm_phy_nwp_config(k_jg)%inwp_gscp >=4 .AND. atm_phy_nwp_config(k_jg)%inwp_gscp <= 7) THEN
         cf_desc      = t_cf_var('reff_qh', 'm',  'effective radius of hail', datatype_flt)
         grib2_desc   = grib2_var(0, 254, 55, ibits, GRID_UNSTRUCTURED, GRID_CELL)    ! Corresponds to DUMMY_55 in DWD
         CALL add_var( diag_list, 'reff_qh', diag%reff_qh,                                 &
@@ -2639,7 +2659,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('shfl_s_t_'//TRIM(csfc), '', '', datatype_flt), &
          & grib2_var(0, 0, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%lhfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2661,7 +2681,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
          & t_cf_var('lhfl_s_t_'//TRIM(csfc), '', '', datatype_flt), &
          & grib2_var(0, 0, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL),  & 
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%lhfl_bs_t(nproma,nblks_c,ntiles_total)
@@ -2670,7 +2690,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(2, 0, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lhfl_bs_t', diag%lhfl_bs_t,                              &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubs,    &
-      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_bs_t)
 
     ! fill the separate variables belonging to the container lhfl_bs_t
     ALLOCATE(diag%lhfl_bs_t_ptr(ntiles_total))
@@ -2682,7 +2703,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
          & t_cf_var('lhfl_bs_t_'//TRIM(csfc), '', '', datatype_flt),&
          & grib2_var(2, 0, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL), & 
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%lhfl_pl_t(nproma,nlev_soil,nblks_c,ntiles_total)
@@ -2692,7 +2713,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     CALL add_var( diag_list, 'lhfl_pl_t', diag%lhfl_pl_t,                 &
       & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc, &
       & ldims=(/nproma,nlev_soil,kblks,ntiles_total/), lcontainer=.TRUE., &
-      & lrestart=.FALSE., loutput=.FALSE.)
+      & lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE.)
+    __acc_attach(diag%lhfl_pl_t)
 
     ! fill the separate variables belonging to the container lhfl_pl_t
     ALLOCATE(diag%lhfl_pl_t_ptr(ntiles_total))
@@ -2704,7 +2726,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,               & 
          & t_cf_var('lhfl_pl_t_'//TRIM(csfc), '', '', datatype_flt),&
          & grib2_var(2, 0, 194, ibits, GRID_UNSTRUCTURED, GRID_CELL), & 
-         & ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE.,        &
+         & ref_idx=jsfc, ldims=(/nproma,nlev_soil,kblks/), lrestart=.FALSE., &
          & loutput=.TRUE.)
     ENDDO
 
@@ -2727,7 +2749,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
          & t_cf_var('qhfl_s_t_'//TRIM(csfc), '', '', datatype_flt),   &
          & grib2_var(2, 0, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL),   & 
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%tcm_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2749,7 +2771,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        & 
          & t_cf_var('tcm_t_'//TRIM(csfc), '', '', datatype_flt),    &
          & grib2_var(0, 2, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL),  & 
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%tch_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2772,7 +2794,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('tch_t_'//TRIM(csfc), '', '', datatype_flt),    &
          & grib2_var(0, 0, 19, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%tfv_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2795,7 +2817,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('tfv_t_'//TRIM(csfc), '', '', datatype_flt),    &
          & grib2_var(0, 4, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%tvm_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2817,8 +2839,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('tvm_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-!        & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)  !nec. for rest. only if 'tvm' substitutes 'tcm'
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+!        & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)  !nec. for rest. only if 'tvm' substitutes 'tcm'
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%tvh_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2841,8 +2863,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('tvh_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-!        & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.) !nec. for rest. only if 'tvm' substitutes 'tcm'
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+!        & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.) !nec. for rest. only if 'tvm' substitutes 'tcm'
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
     ENDDO
 
     ! &      diag%tkr_t(nproma,nblks_c,ntiles_total+ntiles_water)
@@ -2864,8 +2886,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('tkr_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-!        & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.) !nec. for rest. only if 'imode_trancnf>=4'
-         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+!        & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.) !nec. for rest. only if 'imode_trancnf>=4'
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
     ENDDO
 
 
@@ -2890,7 +2912,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('gz0_t_'//TRIM(csfc), '', '', datatype_flt),    &
          & grib2_var(2, 0, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
 
@@ -2915,7 +2937,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
          & t_cf_var('tvs_s_t_'//TRIM(csfc), '', '', datatype_flt),     &
          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-         & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
     ENDDO
 
 
@@ -2941,7 +2963,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
          & t_cf_var('tkvm_s_t_'//TRIM(csfc), '', '', datatype_flt),     &
          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
     ENDDO
 
 
@@ -2966,7 +2988,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
          & t_cf_var('tkvh_s_t_'//TRIM(csfc), '', '', datatype_flt),     &
          & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.)
     ENDDO
 
 
@@ -2989,7 +3011,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M,                     &
          & t_cf_var('u_10m_t_'//TRIM(csfc), '', '', datatype_flt),  &
          & grib2_var(0, 2, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
 
@@ -3013,7 +3035,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M,                     &
          & t_cf_var('v_10m_t_'//TRIM(csfc), '', '', datatype_flt),  &
          & grib2_var(0, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
 
 
@@ -3036,8 +3058,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('umfl_s_t_'//TRIM(csfc), '', '', datatype_flt), &
          & grib2_var(0, 2, 17, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,            &
-         & isteptype=TSTEP_INSTANT)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE., &
+         & isteptype=TSTEP_INSTANT )
     ENDDO
     !EDMF requires lrestart=.TRUE. 
 
@@ -3060,8 +3082,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
          & t_cf_var('vmfl_s_t_'//TRIM(csfc), '', '', datatype_flt), &
          & grib2_var(0, 2, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-         & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,            &
-         & isteptype=TSTEP_INSTANT)
+         & ref_idx=jsfc, ldims=shape2d, lrestart=.TRUE., loutput=.TRUE., &
+         & isteptype=TSTEP_INSTANT )
     ENDDO
     !EDMF requires lrestart=.TRUE. 
 
@@ -3812,7 +3834,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
             CALL add_ref( diag_list, 'rttov_channels', TRIM(shortname),                  &
               &           diag%synsat_image(iimage)%p,                                   &
               &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
-              &           cf_desc, grib2_desc, ldims=shape2d_synsat,                     &
+              &           cf_desc, grib2_desc, ref_idx=iimage, ldims=shape2d_synsat,     &
               &           opt_var_ref_pos = 2, lrestart=.FALSE., loutput=.TRUE.,         &
               &           in_group=groups("RTTOV"), var_class=CLASS_SYNSAT )
           END DO
@@ -3871,7 +3893,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     IF (atm_phy_nwp_config(k_jg)%ldetrain_conv_prec) ntr_conv = ntr_conv + 2 ! plus qr and qs
 
     shape4d_conv = (/nproma, klev  , kblks, ntr_conv /)
-    shape4d_gscp = (/nproma, klev  , kblks, 5 /)
+    shape4d_gscp = (/nproma, klev  , kblks, 6 /)
 
     NULLIFY(phy_tend%ddt_temp_gscp, phy_tend%ddt_tracer_gscp)
 
@@ -3888,26 +3910,35 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     cf_desc    = t_cf_var('ddt_temp_radsw', 'K s-1', &
          &                            'short wave radiative temperature tendency', datatype_flt)
     grib2_desc = grib2_var(0, 4, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_radsw', phy_tend%ddt_temp_radsw,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
+    CALL add_var( phy_tend_list, 'ddt_temp_radsw', phy_tend%ddt_temp_radsw,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
                 & ldims=shape3d, in_group=groups("phys_tendencies") )
 
    ! &      phy_tend%ddt_temp_radlw(nproma,nlev,nblks)
     cf_desc    = t_cf_var('ddt_temp_radlw', 'K s-1', &
          &                            'long wave radiative temperature tendency', datatype_flt)
     grib2_desc = grib2_var(0, 5, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_radlw', phy_tend%ddt_temp_radlw,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
+    CALL add_var( phy_tend_list, 'ddt_temp_radlw', phy_tend%ddt_temp_radlw,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
                 & ldims=shape3d, in_group=groups("phys_tendencies") )
 
    ! &      phy_tend%ddt_temp_turb(nproma,nlev,nblks)
     cf_desc    = t_cf_var('ddt_temp_turb', 'K s-1', &
          &                            'turbulence temperature tendency', datatype_flt)
     grib2_desc = grib2_var(192, 162, 121, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_turb', phy_tend%ddt_temp_turb,        &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
-                & lopenacc=.TRUE.)
+    CALL add_var( phy_tend_list, 'ddt_temp_turb', phy_tend%ddt_temp_turb,         &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ldims=shape3d, lrestart=.FALSE.,                                &
+                & in_group=groups("phys_tendencies"), lopenacc=.TRUE. )
     __acc_attach(phy_tend%ddt_temp_turb)
 
     IF ( .NOT. atm_phy_nwp_config(k_jg)%is_les_phy ) THEN
@@ -3915,16 +3946,23 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_temp_drag', 'K s-1', &
            &                'sso + gwdrag temperature tendency', datatype_flt)
       grib2_desc = grib2_var(192, 162, 125, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_temp_drag', phy_tend%ddt_temp_drag,        &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
+      CALL add_var( phy_tend_list, 'ddt_temp_drag', phy_tend%ddt_temp_drag,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
+                  & vert_interp=create_vert_interp_metadata(                      &
+                  & vert_intp_type=vintp_types("P","Z","I"),                      &
+                  & vert_intp_method=VINTP_METHOD_LIN),                           &
                   & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"))
 
      ! &      phy_tend%ddt_temp_pconv(nproma,nlev,nblks)
       cf_desc    = t_cf_var('ddt_temp_pconv', 'K s-1', &
            &                            'convective temperature tendency', datatype_flt)
       grib2_desc = grib2_var(0, 0, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_temp_pconv', phy_tend%ddt_temp_pconv,        &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d )
+      CALL add_var( phy_tend_list, 'ddt_temp_pconv', phy_tend%ddt_temp_pconv,     &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
+                  & vert_interp=create_vert_interp_metadata(                      &
+                  & vert_intp_type=vintp_types("P","Z","I"),                      &
+                  & vert_intp_method=VINTP_METHOD_LIN),                           &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
     END IF
 
     IF (atm_phy_nwp_config(k_jg)%is_les_phy .OR. &
@@ -3933,10 +3971,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_temp_gscp', 'K s-1', &
            &                            'microphysical temperature tendency', datatype_flt)
       grib2_desc = grib2_var(192, 162, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_temp_gscp', phy_tend%ddt_temp_gscp,        &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
-                  & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
-                  & lopenacc=.TRUE.)
+      CALL add_var( phy_tend_list, 'ddt_temp_gscp', phy_tend%ddt_temp_gscp,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
+                  & vert_interp=create_vert_interp_metadata(                      &
+                  & vert_intp_type=vintp_types("P","Z","I"),                      &
+                  & vert_intp_method=VINTP_METHOD_LIN),                           &
+                  & ldims=shape3d, lrestart=.FALSE.,                              &
+                  & in_group=groups("phys_tendencies"), lopenacc=.TRUE. )
       __acc_attach(phy_tend%ddt_temp_gscp)
     END IF
 
@@ -3948,10 +3989,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     cf_desc    = t_cf_var('ddt_u_turb', 'm s-2', &
          &                            'turbulence tendency of zonal wind', datatype_flt)
     grib2_desc = grib2_var(192, 162, 119, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_u_turb', phy_tend%ddt_u_turb,          &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
-                & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
-                & lopenacc=.TRUE.)
+    CALL add_var( phy_tend_list, 'ddt_u_turb', phy_tend%ddt_u_turb,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ldims=shape3d, lrestart=.FALSE.,                                &
+                & in_group=groups("phys_tendencies"), lopenacc=.TRUE.)
     __acc_attach(phy_tend%ddt_u_turb)
 
     IF ( .NOT. atm_phy_nwp_config(k_jg)%is_les_phy ) THEN
@@ -3959,9 +4003,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
        cf_desc    = t_cf_var('ddt_u_sso', 'm s-2', &
             &                            'sso tendency of zonal wind', datatype_flt)
        grib2_desc = grib2_var(0, 2, 194, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( phy_tend_list, 'ddt_u_sso', phy_tend%ddt_u_sso,            &
-                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
-                   & ldims=shape3d, in_group=groups("phys_tendencies"), &
+       CALL add_var( phy_tend_list, 'ddt_u_sso', phy_tend%ddt_u_sso,              &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
+                   & vert_interp=create_vert_interp_metadata(                     &
+                   & vert_intp_type=vintp_types("P","Z","I"),                     &
+                   & vert_intp_method=VINTP_METHOD_LIN),                          &
+                   & ldims=shape3d, in_group=groups("phys_tendencies"),           &
                    & lopenacc=.TRUE. )
        __acc_attach(phy_tend%ddt_u_sso)
    
@@ -3969,16 +4016,23 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
        cf_desc    = t_cf_var('ddt_u_gwd', 'm s-2', &
             &                            'GWD tendency of zonal wind', datatype_flt)
        grib2_desc = grib2_var(192, 128, 220, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( phy_tend_list, 'ddt_u_gwd', phy_tend%ddt_u_gwd,            &
-                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
+       CALL add_var( phy_tend_list, 'ddt_u_gwd', phy_tend%ddt_u_gwd,              &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
+                   & vert_interp=create_vert_interp_metadata(                     &
+                   & vert_intp_type=vintp_types("P","Z","I"),                     &
+                   & vert_intp_method=VINTP_METHOD_LIN),                          &
                    & ldims=shape3d, in_group=groups("phys_tendencies") )
    
       ! &      phy_tend%ddt_u_pconv(nproma,nlev,nblks)
        cf_desc    = t_cf_var('ddt_u_pconv', 'm s-2', &
             &                            'convective tendency of zonal wind', datatype_flt)
        grib2_desc = grib2_var(0, 2, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( phy_tend_list, 'ddt_u_pconv', phy_tend%ddt_u_pconv,        &
-                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d)
+       CALL add_var( phy_tend_list, 'ddt_u_pconv', phy_tend%ddt_u_pconv,          &
+                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
+                   & vert_interp=create_vert_interp_metadata(                     &
+                   & vert_intp_type=vintp_types("P","Z","I"),                     &
+                   & vert_intp_method=VINTP_METHOD_LIN),                          &
+                   & ldims=shape3d, in_group=groups("phys_tendencies") )
     END IF
 
 
@@ -3990,10 +4044,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     cf_desc    = t_cf_var('ddt_v_turb', 'm s-2', &
          &                            'turbulence tendency of meridional wind', datatype_flt)
     grib2_desc = grib2_var(192, 162, 120, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_v_turb', phy_tend%ddt_v_turb,          &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
-                & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
-                & lopenacc=.TRUE.)
+    CALL add_var( phy_tend_list, 'ddt_v_turb', phy_tend%ddt_v_turb,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,      &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ldims=shape3d, lrestart=.FALSE.,                                &
+                & in_group=groups("phys_tendencies"), lopenacc=.TRUE.)
     __acc_attach(phy_tend%ddt_v_turb)
 
     IF ( .NOT. atm_phy_nwp_config(k_jg)%is_les_phy ) THEN
@@ -4001,8 +4058,11 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_v_sso', 'm s-2', &
            &                            'sso tendency of meridional wind', datatype_flt)
       grib2_desc = grib2_var(0, 2, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_v_sso', phy_tend%ddt_v_sso,            &
+      CALL add_var( phy_tend_list, 'ddt_v_sso', phy_tend%ddt_v_sso,               &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
+                  & vert_interp=create_vert_interp_metadata(                      &
+                  & vert_intp_type=vintp_types("P","Z","I"),                      &
+                  & vert_intp_method=VINTP_METHOD_LIN),                           &
                   & ldims=shape3d, in_group=groups("phys_tendencies"), &
                   & lopenacc=.TRUE. )
       __acc_attach(phy_tend%ddt_v_sso)
@@ -4011,16 +4071,23 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_v_gwd', 'm s-2', &
            &                            'GWD tendency of meridional wind', datatype_flt)
       grib2_desc = grib2_var(192, 128, 221, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_v_gwd', phy_tend%ddt_v_gwd,            &
+      CALL add_var( phy_tend_list, 'ddt_v_gwd', phy_tend%ddt_v_gwd,               &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
+                  & vert_interp=create_vert_interp_metadata(                      &
+                  & vert_intp_type=vintp_types("P","Z","I"),                      &
+                  & vert_intp_method=VINTP_METHOD_LIN),                           &
                   & ldims=shape3d, in_group=groups("phys_tendencies") )
   
       ! &      phy_tend%ddt_v_pconv(nproma,nlev,nblks)
       cf_desc    = t_cf_var('ddt_v_pconv', 'm s-2', &
            &                            'convective tendency of meridional wind', datatype_flt)
       grib2_desc = grib2_var(0, 2, 193, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_v_pconv', phy_tend%ddt_v_pconv,                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape3d )
+      CALL add_var( phy_tend_list, 'ddt_v_pconv', phy_tend%ddt_v_pconv,           &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
+                  & vert_interp=create_vert_interp_metadata(                      &
+                  & vert_intp_type=vintp_types("P","Z","I"),                      &
+                  & vert_intp_method=VINTP_METHOD_LIN),                           &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
   
     END IF
 
@@ -4034,10 +4101,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_w_turb', 'm s-2', &
            &                            'turbulence tendency of vertical wind', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_w_turb', phy_tend%ddt_w_turb,          &
+      CALL add_var( phy_tend_list, 'ddt_w_turb', phy_tend%ddt_w_turb,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
-                  & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies"), &
-                  & initval=0._wp)
+                  & vert_interp=create_vert_interp_metadata(                      &
+                  & vert_intp_type=vintp_types("P","Z","I"),                      &
+                  & vert_intp_method=VINTP_METHOD_LIN),                           &
+                  & ldims=shape3d, lrestart=.FALSE.,                              &
+                  & initval=0._wp, in_group=groups("phys_tendencies") )
     END IF
 
 
@@ -4053,7 +4123,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_tracer_turb', phy_tend%ddt_tracer_turb,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc, ldims=shape4d,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE.)
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE., lopenacc=.TRUE.)
     __acc_attach(phy_tend%ddt_tracer_turb)
 
     IF (lart) THEN
@@ -4064,29 +4134,42 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     ALLOCATE( phy_tend%tracer_turb_ptr(ktracer) )
 
     !qv
-    CALL add_ref( phy_tend_list, 'ddt_tracer_turb', &
-                & 'ddt_qv_turb', phy_tend%tracer_turb_ptr(1)%p_3d,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                & t_cf_var('ddt_qv_turb', 'kg kg**-1 s**-1',                     &
-                & 'turbulence tendency of specific humidity', datatype_flt),   &
-                & grib2_var(192, 162, 122, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                & ldims=shape3d, lrestart=.FALSE.)
+    CALL add_ref( phy_tend_list, 'ddt_tracer_turb',                               &
+                & 'ddt_qv_turb', phy_tend%tracer_turb_ptr(iqv)%p_3d,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                & t_cf_var('ddt_qv_turb', 'kg kg**-1 s**-1',                      &
+                & 'turbulence tendency of specific humidity', datatype_flt),      &
+                & grib2_var(192, 162, 122, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ref_idx=iqv, ldims=shape3d, lrestart=.FALSE.,                   &
+                & in_group=groups("phys_tendencies") )
     !qc
-    CALL add_ref( phy_tend_list, 'ddt_tracer_turb', &
-                & 'ddt_qc_turb', phy_tend%tracer_turb_ptr(2)%p_3d,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                & t_cf_var('ddt_qc_turb', 'kg kg**-1 s**-1',                     &
-                & 'turbulence tendency of specific cloud water', datatype_flt),&
-                & grib2_var(192, 162, 201, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                & ldims=shape3d, lrestart=.FALSE.)
+    CALL add_ref( phy_tend_list, 'ddt_tracer_turb',                               &
+                & 'ddt_qc_turb', phy_tend%tracer_turb_ptr(iqc)%p_3d,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                & t_cf_var('ddt_qc_turb', 'kg kg**-1 s**-1',                      &
+                & 'turbulence tendency of specific cloud water', datatype_flt),   &
+                & grib2_var(192, 162, 201, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ref_idx=iqc, ldims=shape3d, lrestart=.FALSE.,                   &
+                & in_group=groups("phys_tendencies") )
     !qi
-    CALL add_ref( phy_tend_list, 'ddt_tracer_turb', &
-                & 'ddt_qi_turb', phy_tend%tracer_turb_ptr(3)%p_3d,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-                & t_cf_var('ddt_qi_turb', 'kg kg**-1 s**-1',                     &
-                & 'turbulence tendency of specific cloud ice', datatype_flt),  &
-                & grib2_var(192, 162, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                & ldims=shape3d, lrestart=.FALSE.)
+    CALL add_ref( phy_tend_list, 'ddt_tracer_turb',                               &
+                & 'ddt_qi_turb', phy_tend%tracer_turb_ptr(iqi)%p_3d,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
+                & t_cf_var('ddt_qi_turb', 'kg kg**-1 s**-1',                      &
+                & 'turbulence tendency of specific cloud ice', datatype_flt),     &
+                & grib2_var(192, 162, 202, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ref_idx=iqi, ldims=shape3d, lrestart=.FALSE.,                   &
+                & in_group=groups("phys_tendencies") )
+
 
     ! art
     IF (lart) THEN
@@ -4116,47 +4199,62 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       ALLOCATE( phy_tend%tracer_conv_ptr(ktracer) )
 
       !qv
-      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                            &
-                  & 'ddt_qv_conv', phy_tend%tracer_conv_ptr(1)%p_3d,              &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                         &
-                  & t_cf_var('ddt_qv_conv', 'kg m-3 s-1',                         &
-                  & 'convective tendency of absolute humidity', datatype_flt),    &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-                  & ldims=shape3d)
+      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                                &
+                  & 'ddt_qv_conv', phy_tend%tracer_conv_ptr(iqv)%p_3d,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                  & t_cf_var('ddt_qv_conv', 'kg m-3 s-1',                             &
+                  & 'convective tendency of absolute humidity', datatype_flt),        &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & vert_interp=create_vert_interp_metadata(                          &
+                  & vert_intp_type=vintp_types("P","Z","I"),                          &
+                  & vert_intp_method=VINTP_METHOD_LIN),                               &
+                  & ref_idx=iqv, ldims=shape3d, in_group=groups("phys_tendencies") )
       !qc
       CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                                &
-                  & 'ddt_qc_conv', phy_tend%tracer_conv_ptr(2)%p_3d,                  &
+                  & 'ddt_qc_conv', phy_tend%tracer_conv_ptr(iqc)%p_3d,                &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
                   & t_cf_var('ddt_qc_conv', 'kg m-3 s-1',                             &
                   & 'convective tendency of cloud water mass density', datatype_flt), &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
-                  & ldims=shape3d)
+                  & vert_interp=create_vert_interp_metadata(                          &
+                  & vert_intp_type=vintp_types("P","Z","I"),                          &
+                  & vert_intp_method=VINTP_METHOD_LIN),                               &
+                  & ref_idx=iqc, ldims=shape3d, in_group=groups("phys_tendencies") )
       !qi
-      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                              &
-                  & 'ddt_qi_conv', phy_tend%tracer_conv_ptr(3)%p_3d,                &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
-                  & t_cf_var('ddt_qi_conv', 'kg m-3 s-1',                           &
-                  & 'convective tendency of cloud ice mass density', datatype_flt), &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-                  & ldims=shape3d)
+      CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                                &
+                  & 'ddt_qi_conv', phy_tend%tracer_conv_ptr(iqi)%p_3d,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                  & t_cf_var('ddt_qi_conv', 'kg m-3 s-1',                             &
+                  & 'convective tendency of cloud ice mass density', datatype_flt),   &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & vert_interp=create_vert_interp_metadata(                          &
+                  & vert_intp_type=vintp_types("P","Z","I"),                          &
+                  & vert_intp_method=VINTP_METHOD_LIN),                               &
+                  & ref_idx=iqi, ldims=shape3d, in_group=groups("phys_tendencies") )
 
       IF (atm_phy_nwp_config(k_jg)%ldetrain_conv_prec) THEN
         !qr
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                           &
-                  & 'ddt_qr_conv', phy_tend%tracer_conv_ptr(4)%p_3d,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                  & t_cf_var('ddt_qr_conv', 'kg m-3 s-1',                          &
-                  & 'convective tendency of rain mass density', datatype_flt),     &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & ldims=shape3d)
+        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                              &
+                  & 'ddt_qr_conv', phy_tend%tracer_conv_ptr(iqr)%p_3d,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                  & t_cf_var('ddt_qr_conv', 'kg m-3 s-1',                             &
+                  & 'convective tendency of rain mass density', datatype_flt),        &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & vert_interp=create_vert_interp_metadata(                          &
+                  & vert_intp_type=vintp_types("P","Z","I"),                          &
+                  & vert_intp_method=VINTP_METHOD_LIN),                               &
+                  & ref_idx=iqr, ldims=shape3d, in_group=groups("phys_tendencies") )
         !qs
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                           &
-                  & 'ddt_qs_conv', phy_tend%tracer_conv_ptr(5)%p_3d,               &
-                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                  & t_cf_var('ddt_qs_conv', 'kg m-3 s-1',                          &
-                  & 'convective tendency of snow mass density', datatype_flt),     &
-                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & ldims=shape3d)
+        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv',                              &
+                  & 'ddt_qs_conv', phy_tend%tracer_conv_ptr(iqs)%p_3d,                &
+                  & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+                  & t_cf_var('ddt_qs_conv', 'kg m-3 s-1',                             &
+                  & 'convective tendency of snow mass density', datatype_flt),        &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & vert_interp=create_vert_interp_metadata(                          &
+                  & vert_intp_type=vintp_types("P","Z","I"),                          &
+                  & vert_intp_method=VINTP_METHOD_LIN),                               &
+                  & ref_idx=iqs, ldims=shape3d, in_group=groups("phys_tendencies") )
       ENDIF
 
       ! art
@@ -4175,7 +4273,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       &  is_variable_in_output(first_output_name_list, var_name="ddt_qc_gscp") .OR.   &
       &  is_variable_in_output(first_output_name_list, var_name="ddt_qi_gscp") .OR.   &
       &  is_variable_in_output(first_output_name_list, var_name="ddt_qr_gscp") .OR.   &
-      &  is_variable_in_output(first_output_name_list, var_name="ddt_qs_gscp") ) THEN
+      &  is_variable_in_output(first_output_name_list, var_name="ddt_qs_gscp") .OR.   &
+      &  is_variable_in_output(first_output_name_list, var_name="ddt_qg_gscp") ) THEN
       cf_desc    = t_cf_var('ddt_tracer_gscp', 's-1', &
            &                            'microphysics tendency of tracers', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -4193,44 +4292,76 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
       !qv
       CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                  & 'ddt_qv_gscp', phy_tend%tracer_gscp_ptr(1)%p_3d,               &
+                  & 'ddt_qv_gscp', phy_tend%tracer_gscp_ptr(iqv)%p_3d,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                   & t_cf_var('ddt_qv_gscp', 'kg kg**-1 s**-1',                     &
                   & 'microphysics tendency of specific humidity', datatype_flt),   &
                   & grib2_var(192, 162, 204, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & ldims=shape3d)
+                  & vert_interp=create_vert_interp_metadata(                       &
+                  & vert_intp_type=vintp_types("P","Z","I"),                       &
+                  & vert_intp_method=VINTP_METHOD_LIN),                            &
+                  & ref_idx=iqv,                                                   &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
       !qc
       CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                  & 'ddt_qc_gscp', phy_tend%tracer_gscp_ptr(2)%p_3d,               &
+                  & 'ddt_qc_gscp', phy_tend%tracer_gscp_ptr(iqc)%p_3d,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                   & t_cf_var('ddt_qc_gscp', 'kg kg**-1 s**-1',                     &
                   & 'microphysics tendency of specific cloud water', datatype_flt),&
                   & grib2_var(192, 162, 205, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & ldims=shape3d)
+                  & vert_interp=create_vert_interp_metadata(                       &
+                  & vert_intp_type=vintp_types("P","Z","I"),                       &
+                  & vert_intp_method=VINTP_METHOD_LIN),                            &
+                  & ref_idx=iqc,                                                   &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
       !qi
       CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                  & 'ddt_qi_gscp', phy_tend%tracer_gscp_ptr(3)%p_3d,               &
+                  & 'ddt_qi_gscp', phy_tend%tracer_gscp_ptr(iqi)%p_3d,             &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
                   & t_cf_var('ddt_qi_gscp', 'kg kg**-1 s**-1',                     &
                   & 'microphysics tendency of specific cloud ice', datatype_flt),  &
                   & grib2_var(192, 162, 206, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                  & ldims=shape3d)
+                  & vert_interp=create_vert_interp_metadata(                       &
+                  & vert_intp_type=vintp_types("P","Z","I"),                       &
+                  & vert_intp_method=VINTP_METHOD_LIN),                            &
+                  & ref_idx=iqi,                                                   &
+                  & ldims=shape3d, in_group=groups("phys_tendencies") )
       !qr
       CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                & 'ddt_qr_gscp', phy_tend%tracer_gscp_ptr(4)%p_3d,                 &
+                & 'ddt_qr_gscp', phy_tend%tracer_gscp_ptr(iqr)%p_3d,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                 & t_cf_var('ddt_qr_gscp', 'kg kg**-1 s**-1',                       &
                 & 'microphysics tendency of rain', datatype_flt),                  &
                 & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-                & ldims=shape3d)
+                & vert_interp=create_vert_interp_metadata(                         &
+                & vert_intp_type=vintp_types("P","Z","I"),                         &
+                & vert_intp_method=VINTP_METHOD_LIN),                              &
+                & ref_idx=iqr,                                                     &
+                & ldims=shape3d, in_group=groups("phys_tendencies") )
       !qs
       CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
-                & 'ddt_qs_gscp', phy_tend%tracer_gscp_ptr(5)%p_3d,                 &
+                & 'ddt_qs_gscp', phy_tend%tracer_gscp_ptr(iqs)%p_3d,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
                 & t_cf_var('ddt_qs_gscp', 'kg kg**-1 s**-1',                       &
                 & 'microphysics tendency of snow', datatype_flt),                  &
                 & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
-                & ldims=shape3d)
+                & vert_interp=create_vert_interp_metadata(                         &
+                & vert_intp_type=vintp_types("P","Z","I"),                         &
+                & vert_intp_method=VINTP_METHOD_LIN),                              &
+                & ref_idx=iqs,                                                     &
+                & ldims=shape3d, in_group=groups("phys_tendencies") )
+      !qg
+      CALL add_ref( phy_tend_list, 'ddt_tracer_gscp',                              &
+                & 'ddt_qg_gscp', phy_tend%tracer_gscp_ptr(iqg)%p_3d,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                            &
+                & t_cf_var('ddt_qg_gscp', 'kg kg**-1 s**-1',                       &
+                & 'microphysics tendency of graupel', datatype_flt),               &
+                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+                & vert_interp=create_vert_interp_metadata(                         &
+                & vert_intp_type=vintp_types("P","Z","I"),                         &
+                & vert_intp_method=VINTP_METHOD_LIN),                              &
+                & ref_idx=iqg,                                                     &
+                & ldims=shape3d, in_group=groups("phys_tendencies") )
 
       ! art
       IF (lart) THEN
@@ -4252,9 +4383,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_tke', 'm s-2'          , &
            &                'tendency of turbulent velocity scale', datatype_flt)
       grib2_desc = grib2_var(0, 19, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_tke', phy_tend%ddt_tke,             &
-                  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
-                & ldims=shape3dkp1, lopenacc=.TRUE. )
+      CALL add_var( phy_tend_list, 'ddt_tke', phy_tend%ddt_tke,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ldims=shape3dkp1, lopenacc=.TRUE.,                              &
+                & in_group=groups("phys_tendencies") )
       __acc_attach(phy_tend%ddt_tke)
   
       IF (ltkecon) THEN
@@ -4267,9 +4402,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_tke_pconv', 'm**2 s**-3'          , &
            &                'TKE tendency due to sub-grid scale convection', datatype_flt)
       grib2_desc = grib2_var(0, 19, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_tke_pconv', phy_tend%ddt_tke_pconv,   &
-                  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
-                & ldims=shape3dkp1, lrestart=lrestart, lopenacc=.TRUE. )  
+      CALL add_var( phy_tend_list, 'ddt_tke_pconv', phy_tend%ddt_tke_pconv,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ldims=shape3dkp1, lrestart=lrestart, lopenacc=.TRUE.,           &
+                & in_group=groups("phys_tendencies") )  
       __acc_attach(phy_tend%ddt_tke_pconv)
 
 
@@ -4277,9 +4416,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_tke_hsh', 'm**2 s**-3'          , &
            &                'TKE tendency horizonzal shear production', datatype_flt)
       grib2_desc = grib2_var(0, 19, 221, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_tke_hsh', phy_tend%ddt_tke_hsh,   &
-                  GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,&
-                & ldims=shape3dkp1, lrestart=.FALSE., lopenacc=.TRUE.)  
+      CALL add_var( phy_tend_list, 'ddt_tke_hsh', phy_tend%ddt_tke_hsh,           &
+                & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc, &
+                & vert_interp=create_vert_interp_metadata(                        &
+                & vert_intp_type=vintp_types("P","Z","I"),                        &
+                & vert_intp_method=VINTP_METHOD_LIN),                             &
+                & ldims=shape3dkp1, lrestart=.FALSE., lopenacc=.TRUE.,            &
+                & in_group=groups("phys_tendencies") )  
       __acc_attach(phy_tend%ddt_tke_hsh)
     END IF
 

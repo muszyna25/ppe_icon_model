@@ -46,6 +46,10 @@
 ! NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 ! SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 !
+#if defined (__SX__) || defined (__NEC_VH__)
+#define __SXorVH__
+#endif
+
 MODULE ppm_distributed_array
   USE mo_kind, ONLY: i4, i8, sp, dp
   USE mo_mpi, ONLY: mp_i4_extent => p_int_i4_byte, &
@@ -57,7 +61,7 @@ MODULE ppm_distributed_array
        ppm_real_sp => p_real_sp, &
        ppm_int => p_int, &
        ppm_int_i8 => p_int_i8, &
-       ppm_bool => p_bool
+       ppm_bool => p_bool, p_pe
 #ifdef __BLOCK_GET__
   USE mo_mpi, ONLY: p_comm_work
 #endif
@@ -146,7 +150,7 @@ MODULE ppm_distributed_array
     TYPE(dm_array_cache_entry), ALLOCATABLE :: cache(:)
   END TYPE dist_mult_array
 
-#ifdef __SX__
+#ifdef __SXorVH__
   INTEGER :: old_dist = 0
 #endif
 #ifdef __BLOCK_GET__
@@ -807,7 +811,7 @@ CONTAINS
     INTEGER :: rank, ref_rank
 
     INTEGER :: comm_rank, comm_size, max_dist, dist
-#ifdef __SX__
+#ifdef __SXorVH__
     INTEGER :: start_dist
 
     ! load dist that was successful in last last call
@@ -820,7 +824,7 @@ CONTAINS
     ref_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
     DO dist = 0, max_dist
       IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
-#ifndef __SX__
+#ifndef __SXorVH__
            MOD(comm_rank + dist, comm_size)))) THEN
         rank = MOD(comm_rank + dist, comm_size)
 #else
@@ -829,9 +833,8 @@ CONTAINS
         rank = MODULO(comm_rank + old_dist, comm_size)
 #endif
         RETURN
-      ELSE IF (is_contained_in(coord, &
-           dm_array%local_chunks(1:ref_rank, sub_array, &
-#ifndef __SX__
+      ELSE IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
+#ifndef __SXorVH__
            MODULO(comm_rank - dist, comm_size)))) THEN
         rank = MODULO(comm_rank - dist, comm_size)
 #else
@@ -842,6 +845,22 @@ CONTAINS
         RETURN
       END IF
     END DO
+#ifdef __SXorVH__
+! For debugging: second try without search optimization if first try was unsuccessful
+    write(0,*) 'PROBLEM: repeated search in SR dist_mult_array_coord2rank because the first one was unsuccessful', &
+     'comm_rank = ',comm_rank, 'comm_size = ', comm_size, 'max_dist = ', max_dist, 'ref_rank = ', ref_rank, 'p_pe =', p_pe
+    DO dist = 0, max_dist
+      IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
+           MOD(comm_rank + dist, comm_size)))) THEN
+        rank = MOD(comm_rank + dist, comm_size)
+        RETURN
+      ELSE IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
+           MODULO(comm_rank - dist, comm_size)))) THEN
+        rank = MODULO(comm_rank - dist, comm_size)
+        RETURN
+      END IF
+    END DO
+#endif
     rank = -1
     CALL abort_ppm("invalid coordinate", &
          __FILE__, &

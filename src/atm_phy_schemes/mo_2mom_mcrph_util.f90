@@ -1,3 +1,4 @@
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
 !===============================================================================!
 !
 ! Two-moment bulk microphysics by Axel Seifert, Klaus Beheng and Uli Blahak
@@ -35,25 +36,15 @@
 
 MODULE mo_2mom_mcrph_util
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp,sp,dp
   USE mo_exception,          ONLY: finish, message, txt => message_text
-!  USE mo_math_constants,     ONLY: pi, pi4 => pi_4
   USE mo_physical_constants, ONLY: &
-!       & R_l   => rd,     & ! gas constant of dry air (luft)
-!       & R_d   => rv,     & ! gas constant of water vapor (dampf)
-!       & cp    => cpd,    & ! specific heat capacity of air at constant pressure
-!       & c_w   => clw,    & ! specific heat capacity of water
-!       & L_wd  => alv,    & ! specific heat of vaporization (wd: wasser->dampf)
-!       & L_ed  => als,    & ! specific heat of sublimation (ed: eis->dampf)
-!       & L_ew  => alf,    & ! specific heat of fusion (ew: eis->wasser)
-       & T_3   => tmelt,  & ! melting temperature of ice
-!       & rho_w => rhoh2o, & ! density of liquid water
-!       & nu_l  => con_m,  & ! kinematic viscosity of air
-!       & D_v   => dv0,    & ! diffusivity of water vapor in air at 0 C
-!       & K_t   => con0_h, & ! heat conductivity of air
-!       & N_avo => avo,    & ! Avogadro number [1/mol]
-!       & k_b   => ak,     & ! Boltzmann constant [J/K]
-       & grav               ! acceleration due to Earth's gravity
+       & T_3   => tmelt     ! melting temperature of ice
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_bcast, p_comm_work, p_io
+  USE netcdf,                ONLY: nf90_open, nf90_noerr, NF90_NOWRITE, NF90_GLOBAL, &
+       &                           nf90_inq_varid, nf90_inq_dimid, nf90_inquire_dimension, &
+       &                           nf90_get_var, nf90_close, nf90_get_att, nf90_strerror
+  USE mo_2mom_mcrph_types,   ONLY: particle
 
   IMPLICIT NONE
 
@@ -72,13 +63,25 @@ MODULE mo_2mom_mcrph_util
        & incgfct_lower_lookupcreate, & ! main
        & incgfct_lower_lookup,       & ! main
        & incgfct_upper_lookup,       & ! main
-       & init_dmin_wetgrowth,        & ! driver
        & init_dmin_wg_gr_ltab_equi,  & ! driver
        & ltabdminwgg,                & ! main
        & lookupt_4D,                 & !
-       & dmin_wg_gr_ltab_equi          ! main
+       & dmin_wg_gr_ltab_equi,       & ! main
+       & dmin_wetgrowth_fit_check,   &
+       & dmin_wetgrowth_fun,         &
+       & luse_dmin_wetgrowth_table,  &
+       & lprintout_comp_table_fit
 
-  CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_util'
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_2mom_mcrph_util'
+
+  ! Use look-up table for dmin_wetgrowth?
+  ! If .true., a lookup table file (netcdf or ascii format) is read from input directory.
+  ! If .false., an internal 4D-fit for a specific default graupel kind is used.
+  LOGICAL, PARAMETER :: luse_dmin_wetgrowth_table  = .true.
+  ! Do a test printout to stdout of the 4D-fit compared to the tabulated values?
+  ! If .true., the lookup table file to compare with is read from input directory
+  !  regardless of use_dmin_wetgrowth_table.
+  LOGICAL, PARAMETER :: lprintout_comp_table_fit   = .false.
 
   ! Following are two type declarations to hold the values
   ! of equidistand lookup tables. Up to now, such lookup tables are
@@ -195,7 +198,7 @@ CONTAINS
 
     tmp = x + 4.5_wp;
     p = stp * (1.0_wp + c1/x + c2/(x+1.0_wp) + c3/(x+2.0_wp) + c4/(x+3.0_wp) + c5/(x+4.0_wp) + c6/(x+5.0_wp))
-    gfct = p * EXP( (x-0.5_wp) * LOG(tmp) - tmp )
+    gfct = EXP( (x-0.5_wp) * LOG(tmp) - tmp + LOG(p) )
 
   END FUNCTION gfct
 
@@ -325,9 +328,9 @@ CONTAINS
 
     IF (ABS(del-1.).GE.EPS) THEN
       WRITE (txt,*) 'ERROR in GCF: a too large, ITMAX too small'
-      CALL message(routine,TRIM(txt))
+      CALL message(modname,TRIM(txt))
       gammcf = 0.0d0
-      CALL finish(TRIM(routine),'Error in gcf')
+      CALL finish(TRIM(modname),'Error in gcf')
       RETURN
     END IF
 
@@ -350,8 +353,8 @@ CONTAINS
     IF (x.LE.0.) THEN
       IF (x.LT.0.) THEN
         WRITE (txt,*) 'ERROR in GSER: x < 0'
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in gser')
+        CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in gser')
       END IF
       gamser=0.0d0
       RETURN
@@ -369,9 +372,9 @@ CONTAINS
 
     IF (ABS(del).GE.ABS(sum)*EPS) THEN
       WRITE (txt,*) 'ERROR in GSER: a too large, ITMAX too small' ;
-      CALL message(routine,TRIM(txt))
+      CALL message(modname,TRIM(txt))
       gamser = 0.0d0
-      CALL finish(TRIM(routine),'Error in gser')
+      CALL finish(TRIM(modname),'Error in gser')
       RETURN
     END IF
 
@@ -387,9 +390,9 @@ CONTAINS
 
     IF (x.LT.0.0d0 .OR. a .LE. 0.0d0) THEN
       WRITE (txt,*) 'ERROR in GAMMP: bad arguments'
-      CALL message(routine,TRIM(txt))
+      CALL message(modname,TRIM(txt))
       gammp = 0.0d0
-      CALL finish(TRIM(routine),'Error in gammp')
+      CALL finish(TRIM(modname),'Error in gammp')
       RETURN
     END IF
     IF (x .LT. a+1.) THEN
@@ -410,9 +413,9 @@ CONTAINS
 
     IF (x.LT.0.0d0 .OR. a .LE. 0.0d0) THEN
       WRITE (txt,*) 'ERROR in GAMMQ: bad arguments'
-      CALL message(routine,TRIM(txt))
+      CALL message(modname,TRIM(txt))
       gammq = 0.0d0
-      CALL finish(TRIM(routine),'Error in gammq')
+      CALL finish(TRIM(modname),'Error in gammq')
       RETURN
     END IF
 
@@ -518,23 +521,23 @@ CONTAINS
 
       ALLOCATE(ltable%x(nl), STAT=err)
       IF (err /= 0) THEN
-        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error x' ; CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error x' ; CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in incgfct_lower_lookupcreate!')
       END IF
       ALLOCATE(ltable%xhr(nlhr), STAT=err)
       IF (err /= 0) THEN
-        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error xhr' ; CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error xhr' ; CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in incgfct_lower_lookupcreate!')
       END IF
       ALLOCATE(ltable%igf(nl), STAT=err)
       IF (err /= 0) THEN
-        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igf' ; CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igf' ; CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in incgfct_lower_lookupcreate!')
       END IF
       ALLOCATE(ltable%igfhr(nlhr), STAT=err)
       IF (err /= 0) THEN
-        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igfhr' ; CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in incgfct_lower_lookupcreate!')
+        WRITE (txt,*) 'INCGFCT_LOWER_LOOKUPCREATE: Allocation error igfhr' ; CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in incgfct_lower_lookupcreate!')
       END IF
 
       !==================================================================
@@ -555,7 +558,7 @@ CONTAINS
 
       ! The last value is for x = infinity:
       ltable%x(ltable%n) = (ltable%n-1) * ltable%dx
-      ltable%igf(ltable%n) = gfct2(a)
+      ltable%igf(ltable%n) = gfct(a)
 
       !==================================================================
       ! high resolution part of the table (lowest 2 % of the X-values):
@@ -913,53 +916,66 @@ CONTAINS
   END FUNCTION incgfct_upper_lookup_parabolic
 
   !===========================================================================
+  ! OBSOLETE:
+  !===========================================================================
   ! Subroutinen fuer die Wet Growth Parametrisierung:
   ! Initialisierung: Einlesen der Lookup-table aus einer Textdatei.
   ! Diese Subroutine muss von der Interface-Routine des 2-M-Schemas
   ! aufgerufen werden.
   ! Eventuelle Verteilung der Table auf alle Knoten bei Parallelbetrieb
   ! muss ebenfalls von der Interface-Routine besorgt werden.
+  !===========================================================================
 
   SUBROUTINE init_dmin_wetgrowth(dateiname, unitnr)
     CHARACTER(len=*), INTENT(in) :: dateiname
     INTEGER, INTENT(in) :: unitnr
-    INTEGER :: error
+    INTEGER :: error, in_aux(4)
 
-    OPEN(unitnr, file=TRIM(dateiname), status='old', form='formatted', iostat=error)
-    IF (error /= 0) THEN
-      WRITE (txt,*) 'init_dmin_wetgrowth: lookup-table ' // TRIM(dateiname) // ' not found'
-      CALL message(routine,TRIM(txt))
-      CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-    END IF
+    IF (my_process_is_stdio()) THEN
 
-    READ (unitnr,*) anzp_wg, anzT_wg, anzi_wg, anzw_wg
+      OPEN(unitnr, file=TRIM(dateiname), status='old', form='formatted', iostat=error)
+      IF (error /= 0) THEN
+        WRITE (txt,*) 'init_dmin_wetgrowth: lookup-table ' // TRIM(dateiname) // ' not found'
+        CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
+      END IF
+
+      READ (unitnr,*) in_aux(1:4) ! anzp_wg, anzT_wg, anzi_wg, anzw_wg
+    ENDIF
+
+    CALL p_bcast(in_aux, p_io, p_comm_work)
+
+    anzp_wg = in_aux(1)
+    anzT_wg = in_aux(2)
+    anzi_wg = in_aux(3)
+    anzw_wg = in_aux(4)
 
     IF (ALLOCATED(pvec_wg_g)) THEN
 
       IF (anzp_wg /= SIZE(pvec_wg_g)) THEN
         WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading pvec from ' // TRIM(dateiname) // ': wrong size anzp'
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+        CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
       END IF
       IF (anzT_wg /= SIZE(Tvec_wg_g)) THEN
         WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading Tvec from ' // TRIM(dateiname) // ': wrong size anzT'
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+        CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
       END IF
       IF (anzi_wg /= SIZE(qivec_wg_g)) THEN
         WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading qivec from ' // TRIM(dateiname) // ': wrong size anzi'
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+        CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
       END IF
       IF (anzw_wg /= SIZE(qwvec_wg_g)) THEN
         WRITE (txt,*) 'init_dmin_wetgrowth: Error re-reading qwvec from ' // TRIM(dateiname) // ': wrong size anzw'
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
+        CALL message(modname,TRIM(txt))
+        CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
       END IF
 
     ELSE
 
-      CALL message(routine,'init_dmin_wetgrowth: Initializing non-equidistant lookup table for graupel wet growth diameter (2mom)')
+      CALL message(modname,'init_dmin_wetgrowth: Initializing non-equidistant lookup table for graupel wet growth diameter (2mom)')
 
       ALLOCATE(pvec_wg_g(anzp_wg))
       ALLOCATE(Tvec_wg_g(anzT_wg))
@@ -967,43 +983,53 @@ CONTAINS
       ALLOCATE(qivec_wg_g(anzi_wg))
       ALLOCATE(dmin_wg_g(anzp_wg,anzT_wg,anzw_wg,anzi_wg))
 
-      READ (unitnr,*,iostat=error) pvec_wg_g(1:anzp_wg)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading pvec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-      END IF
-      READ (unitnr,*,iostat=error) Tvec_wg_g(1:anzT_wg)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading Tvec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-      END IF
-      READ (unitnr,*,iostat=error) qwvec_wg_g(1:anzw_wg)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qwvec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-      END IF
-      READ (unitnr,*,iostat=error) qivec_wg_g(1:anzi_wg)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qivec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-      END IF
-      READ (unitnr,*,iostat=error) dmin_wg_g(1:anzp_wg,1:anzT_wg,1:anzw_wg,1:anzi_wg)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wetgrowth: Error reading dmin from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-      END IF
-      CLOSE(unitnr)
+      IF (my_process_is_stdio()) THEN
+        READ (unitnr,*,iostat=error) pvec_wg_g(1:anzp_wg)
+        IF (error /= 0) THEN
+          WRITE (txt,*) 'init_dmin_wetgrowth: Error reading pvec from ' // TRIM(dateiname)
+          CALL message(modname,TRIM(txt))
+          CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
+        END IF
+        READ (unitnr,*,iostat=error) Tvec_wg_g(1:anzT_wg)
+        IF (error /= 0) THEN
+          WRITE (txt,*) 'init_dmin_wetgrowth: Error reading Tvec from ' // TRIM(dateiname)
+          CALL message(modname,TRIM(txt))
+          CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
+        END IF
+        READ (unitnr,*,iostat=error) qwvec_wg_g(1:anzw_wg)
+        IF (error /= 0) THEN
+          WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qwvec from ' // TRIM(dateiname)
+          CALL message(modname,TRIM(txt))
+          CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
+        END IF
+        READ (unitnr,*,iostat=error) qivec_wg_g(1:anzi_wg)
+        IF (error /= 0) THEN
+          WRITE (txt,*) 'init_dmin_wetgrowth: Error reading qivec from ' // TRIM(dateiname)
+          CALL message(modname,TRIM(txt))
+          CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
+        END IF
+        READ (unitnr,*,iostat=error) dmin_wg_g(1:anzp_wg,1:anzT_wg,1:anzw_wg,1:anzi_wg)
+        IF (error /= 0) THEN
+          WRITE (txt,*) 'init_dmin_wetgrowth: Error reading dmin from ' // TRIM(dateiname)
+          CALL message(modname,TRIM(txt))
+          CALL finish(TRIM(modname),'Error in init_dmin_wetgrowth')
+        END IF
+        CLOSE(unitnr)
+       ENDIF
+      CALL p_bcast(pvec_wg_g, p_io, p_comm_work)
+      CALL p_bcast(Tvec_wg_g, p_io, p_comm_work)
+      CALL p_bcast(qwvec_wg_g, p_io, p_comm_work)
+      CALL p_bcast(qivec_wg_g, p_io, p_comm_work)
+      CALL p_bcast(dmin_wg_g, p_io, p_comm_work)
+
     END IF
 
     RETURN
   END SUBROUTINE init_dmin_wetgrowth
 
-  ! wet growth Grenzdurchmesser fuer graupelhail2test in m:
+  !===========================================================================
+  ! OBSOLETE: wet growth Grenzdurchmesser fuer graupelhail2test in m:
+  !===========================================================================
   FUNCTION dmin_wetgrowth_graupel(p_a,T_a,qw_a,qi_a)
 
     REAL(wp) :: dmin_wetgrowth_graupel
@@ -1109,7 +1135,7 @@ CONTAINS
 
     IF (.NOT.found_p .OR. .NOT.found_T .OR. .NOT.found_w .OR. .NOT. found_i) THEN
        WRITE (txt,*) 'dmin_wetgrowth_graupel: interpolation point not found in lookup table'
-       CALL message(routine,TRIM(txt))
+       CALL message(modname,TRIM(txt))
        dmin_wetgrowth_graupel = 999.99
     ELSE
 
@@ -1134,54 +1160,143 @@ CONTAINS
 
   !===========================================================================
   !
-  ! Subroutinen fuer die Wet Growth Parametrisierung mit aequidistantem table lookup
-  ! fuer eine bessere Vektorisierung.
+  ! Subroutine for setting up the wet growth diameter of a frozen hydrometeor
+  ! type as function of supercooled LWC qw, frozen content qi, pressure p and temperature T.
+  ! Is needed for the Parameterization of conversion from graupel to hail
+  ! via wet growth of graupel.
+  ! A corresponding 4D lookup table is read from an external file and is made
+  ! equidistant along all table dimensions for better vectorization of table lookup
+  ! (quadro-linear interpolation). Here, 3 of the dimensions (qw, qi, p) are already assumed
+  ! to be equidistant in the table file. Only T can be non-equidistant and is
+  ! made equidistant by linear interpolation.
   !
-  ! - Initialisierung: Einlesen der Lookup-table aus einer Textdatei.
-  !   Diese Subroutine muss von der Interface-Routine des 2-M-Schemas
-  !   aufgerufen werden.
-  !   Eventuelle Verteilung der Table auf alle Knoten bei Parallelbetrieb
-  !   muss ebenfalls von der Interface-Routine besorgt werden.
+  ! The file format can be either a NETCDF table file (.nc) or a classic ASCII table (.dat).
+  ! In case of NETCDF, the "hydrotypename" argument cross-checked with the
+  ! correspondig global attribute in the NETCDF file,
+  ! if it matches the hydrometeor type for which the table has been constructed.
   !
-  ! - Die eingelesene lookup table muss bereits in p, qw und qi aequidistant sein. Nur bzgl. T kann eine
-  !   nicht-aequidistanter grid-Vektor vorliegen.
-  !
-  ! Fuer die eigentliche Table wird das Struct lookupt_4D verwendet:
+  ! The subroutine reads the table on one node only (NEC: a dedicated VH node)
+  ! and distributes the table and the table vectors to all workers.
   !
   !===========================================================================
 
-  SUBROUTINE init_dmin_wg_gr_ltab_equi(dateiname, unitnr, ndT, ltab)
+  SUBROUTINE init_dmin_wg_gr_ltab_equi(filenamebase, parti, unitnr, ndT, ltab)
 
-    CHARACTER(len=*), INTENT(in) :: dateiname
-    INTEGER, INTENT(in) :: unitnr
+    CHARACTER(len=*),       INTENT(in)    :: filenamebase
+    ! To cross-check that the table matches the desired hydrometeor type:
+    CLASS(particle),        INTENT(in)    :: parti
+    ! File unit number for ASCII file reading:
+    INTEGER,                INTENT(in)    :: unitnr
     ! Desired number of elements for the fine equidistant grid vector for T:
-    INTEGER, INTENT(in) :: ndT
-    TYPE(lookupt_4D), INTENT(inout) :: ltab
+    INTEGER,                INTENT(in)    :: ndT
+    TYPE(lookupt_4D),       INTENT(inout) :: ltab
 
     ! grid spacings of the desired fine grid vectors:
-    REAL(wp) :: minT, maxT
-    INTEGER :: i, j, k, l, error, ii
+    REAL(wp)            :: minT, maxT
+    INTEGER             :: i, j, k, l, error, ii
 
     REAL(wp), ALLOCATABLE :: Tvec_wg_g_loc(:), dmin_wg_g_loc(:,:,:,:)
-    INTEGER :: anzT_wg_loc
-    INTEGER :: ju, jo
+    INTEGER             :: anzT_wg_loc
+    INTEGER             :: ju, jo, in_aux(4)
 
+    CHARACTER(len=140)  :: filename                  ! Full file name with .nc or .dat extension
+    INTEGER             :: status_netcdf             ! Retrun from netcdf functions
+    INTEGER             :: id_netcdf                 ! ID from file
+    INTEGER             :: dims_id(4)                ! Dimensions from netcf
+    INTEGER             :: p_id, T_id, qw_id, qi_id  ! Ids of variables in netcdf
+    INTEGER             :: dmin_id                   ! Id of table
+    LOGICAL             :: l_netcdf_format           ! True for netcdf, false for ascii
+
+    CHARACTER(len=100)  :: nc_hydrotype
+    REAL(wp)            :: nc_ageo, nc_bgeo, nc_avel, nc_bvel, dmin_fillval
+
+    CHARACTER(len=*), PARAMETER :: routine = TRIM(modname)//'::init_dmin_wg_gr_ltab_equi'
+
+    
     ! 1) Read the original lookup table from a file. This table may be made of a nonequidistant grid vector for T.
     !    The grid vectors for p, qw and qi have to be equidistant.
 
     IF (.NOT. ltab%is_initialized) THEN 
 
-      CALL message(routine,'init_dmin_wg_gr_ltab_equi: '// &
-                           'Initializing equidistant lookup table for graupel wet growth diameter (2mom)')
-     
-      OPEN(unitnr, file=TRIM(dateiname), status='old', form='formatted', iostat=error)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: lookup-table ' // TRIM(dateiname) // ' not found'
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
-      END IF
+      CALL message(routine,'Initializing equidistant lookup table for graupel wet growth diameter (2mom)')
 
-      READ (unitnr,*) ltab%n1, anzT_wg_loc, ltab%n3, ltab%n4
+      IF (my_process_is_stdio()) THEN
+     
+        ! Try to open netcdf first
+        filename = TRIM(filenamebase)//".nc"
+        status_netcdf = nf90_open(TRIM(ADJUSTL(filename)), NF90_NOWRITE, id_netcdf)
+
+        IF (status_netcdf == nf90_noerr) THEN 
+
+          CALL message(routine,'Table file '//TRIM(ADJUSTL(filename))// " opened")
+
+          ! Check hydrometeor type:
+          nc_hydrotype(:) = ' '
+          status_netcdf = nf90_get_att(id_netcdf, NF90_GLOBAL, 'hydrometeorType', nc_hydrotype)
+          IF (TRIM(nc_hydrotype) /= TRIM(parti%name)) THEN
+            CALL message(routine,'INFO: need table file for hydrometeor type '// &
+                 TRIM(parti%name)//' but file '//TRIM(filename) //' is for '//TRIM(nc_hydrotype))
+          END IF
+          status_netcdf = check_nc( nf90_get_att(id_netcdf, NF90_GLOBAL, 'a_geo', nc_ageo), 'a_geo')
+          IF ( ABS(nc_ageo - parti%a_geo) > 1e-3_wp ) THEN
+            txt(:) = ' '
+            WRITE(txt,'(a,es12.5,a,es12.5)') 'Error: wrong a_geo in table file: need a_geo=', parti%a_geo, &
+                 ' but file '//TRIM(filename) //' is for ', nc_ageo
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+          status_netcdf = check_nc( nf90_get_att(id_netcdf, NF90_GLOBAL, 'b_geo', nc_bgeo), 'b_geo')
+          IF ( ABS(nc_bgeo - parti%b_geo) > 1e-3_wp ) THEN
+            txt(:) = ' '
+            WRITE(txt,'(a,es12.5,a,es12.5)') 'Error: wrong b_geo in table file: need b_geo=', parti%b_geo, &
+                 ' but file '//TRIM(filename) //' is for ', nc_bgeo
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+          status_netcdf = check_nc( nf90_get_att(id_netcdf, NF90_GLOBAL, 'a_vel', nc_avel), 'a_vel')
+          IF ( ABS(nc_avel - parti%a_vel) > 1e-3_wp ) THEN
+            txt(:) = ' '
+            WRITE(txt,'(a,es12.5,a,es12.5)') 'Error: wrong a_vel in table file: need a_vel=', parti%a_vel, &
+                 ' but file '//TRIM(filename) //' is for ', nc_avel
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+          status_netcdf = check_nc( nf90_get_att(id_netcdf, NF90_GLOBAL, 'b_vel', nc_bvel), 'b_vel')
+          IF ( ABS(nc_bvel - parti%b_vel) > 1e-3_wp ) THEN
+            txt(:) = ' '
+            WRITE(txt,'(a,es12.5,a,es12.5)') 'Error: wrong b_vel in table file: need b_vel=', parti%b_vel, &
+                 ' but file '//TRIM(filename) //' is for ', nc_bvel
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+          
+          status_netcdf = check_nc( nf90_inq_dimid(id_netcdf, 'npres', dims_id(1)), 'npres')
+          status_netcdf = check_nc( nf90_inq_dimid(id_netcdf, 'ntemp', dims_id(2)), 'ntemp')
+          status_netcdf = check_nc( nf90_inq_dimid(id_netcdf, 'nqw'  , dims_id(3)), 'nqw'  )
+          status_netcdf = check_nc( nf90_inq_dimid(id_netcdf, 'nqi'  , dims_id(4)), 'nqi'  )
+          DO j=1,4
+            status_netcdf = check_nc( nf90_inquire_dimension(id_netcdf, dims_id(j), len=in_aux(j)), 'dimension')
+          END DO
+          l_netcdf_format = .true.
+
+        ! Try ascii format if no netcdf is available  
+        ELSE
+          
+          CALL message(routine,'Table file '//TRIM(ADJUSTL(filename))// ' not found. Trying ascii file.')   
+          filename = TRIM(filenamebase)//'.dat'
+          OPEN(unitnr, file=TRIM(filename), status='old', form='formatted', iostat=error)
+          IF (error /= 0) THEN
+            WRITE (txt,*) 'Error: table file ' // TRIM(filename) // ' not found.'
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+
+          READ (unitnr,*) in_aux(1:4) !  ltab%n1, anzT_wg_loc, ltab%n3, ltab%n4
+          l_netcdf_format = .false.
+        END IF
+      ENDIF
+
+      CALL p_bcast(in_aux, p_io, p_comm_work)
+
+      ltab%n1 = in_aux(1)
+      anzT_wg_loc = in_aux(2)
+      ltab%n3 = in_aux(3)
+      ltab%n4 = in_aux(4)
 
       NULLIFY ( ltab%x1 )
       NULLIFY ( ltab%x3 )
@@ -1193,48 +1308,89 @@ CONTAINS
       ALLOCATE( ltab%x4(ltab%n4) )
       ALLOCATE( dmin_wg_g_loc(ltab%n1,anzT_wg_loc,ltab%n3,ltab%n4) )
 
-      READ (unitnr,*,iostat=error) ltab%x1(1:ltab%n1)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading pvec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
-      END IF
-      READ (unitnr,*,iostat=error) Tvec_wg_g_loc(1:anzT_wg_loc)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_min_wg_gr_ltab_equi: Error reading Tvec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
-      END IF
-      READ (unitnr,*,iostat=error) ltab%x3(1:ltab%n3)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading qwvec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
-      END IF
-      READ (unitnr,*,iostat=error) ltab%x4(1:ltab%n4)
-      IF (error /= 0) THEN
-        WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading qivec from ' // TRIM(dateiname)
-        CALL message(routine,TRIM(txt))
-        CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
-      END IF
+      IF (my_process_is_stdio()) THEN
 
-      DO l=1, ltab%n4
-        DO k=1, ltab%n3
-          DO j=1, anzT_wg_loc
-            DO i=1,ltab%n1
-              READ (unitnr,*,iostat=error) dmin_wg_g_loc(i,j,k,l)
-              IF (error /= 0) THEN
-                WRITE (txt,*) l,k,j,i
-                WRITE (txt,*) 'init_dmin_wg_gr_ltab_equi: Error reading dmin from ' // TRIM(dateiname)
-                CALL message(routine,TRIM(txt))
-                CALL finish(TRIM(routine),'Error in init_dmin_wg_gr_ltab_equi')
-              END IF
+        IF ( l_netcdf_format ) THEN
+
+          status_netcdf = check_nc( nf90_inq_varid(id_netcdf, 'p'                    , p_id   ), 'p' )
+          status_netcdf = check_nc( nf90_inq_varid(id_netcdf, 'T'                    , T_id   ), 'T' )
+          status_netcdf = check_nc( nf90_inq_varid(id_netcdf, 'qw'                   , qw_id  ), 'qw')
+          status_netcdf = check_nc( nf90_inq_varid(id_netcdf, 'qi'                   , qi_id  ), 'qi')
+          status_netcdf = check_nc( nf90_inq_varid(id_netcdf, 'Dmin_wetgrowth_table' , dmin_id), 'Dmin_wetgrowth_table')
+  
+          ! The precision in the nc table file is dp, but we can safely feed wp precision
+          ! to the 3rd argument to nf90_get_var(), because type conversion is done
+          ! internally in netcdf-lib as needed:
+          status_netcdf = check_nc( nf90_get_var(id_netcdf, p_id   , ltab%x1      , start=(/1/))      , 'p' )
+          status_netcdf = check_nc( nf90_get_var(id_netcdf, T_id   , Tvec_wg_g_loc, start=(/1/))      , 'T' )
+          status_netcdf = check_nc( nf90_get_var(id_netcdf, qw_id  , ltab%x3      , start=(/1/))      , 'qw')
+          status_netcdf = check_nc( nf90_get_var(id_netcdf, qi_id  , ltab%x4      , start=(/1/))      , 'qi')
+          status_netcdf = check_nc( nf90_get_var(id_netcdf, dmin_id, dmin_wg_g_loc, start=(/1,1,1,1/)), 'Dmin_wetgrowth_table')
+          status_netcdf = check_nc( nf90_get_att(id_netcdf, dmin_id, '_FillValue',  dmin_fillval)     , 'Dmin:_FillValue')
+          status_netcdf = check_nc( nf90_close(id_netcdf), 'closing file')
+
+          WHERE( ABS(dmin_wg_g_loc-dmin_fillval) < 1e-6_wp)
+            dmin_wg_g_loc = 999.99
+          END WHERE
+
+          ! Unit conversion from netcdf file
+          ltab%x1 = ltab%x1 * 100.0_wp           ! Conversion from hPa to Pa
+          Tvec_wg_g_loc = Tvec_wg_g_loc + T_3    ! Conversion from deg C to K
+          ltab%x3 = ltab%x3 * 0.001_wp           ! Conversion from g/m^3 to kg/m^3
+          ltab%x4 = ltab%x4 * 0.001_wp           ! Conversion from g/m^3 to kg/m^3
+          dmin_wg_g_loc = dmin_wg_g_loc*0.001_wp ! Conversion from mm to m
+
+        ELSE
+          
+          READ (unitnr,*,iostat=error) ltab%x1(1:ltab%n1)
+          IF (error /= 0) THEN
+            txt(:) = ' '
+            WRITE (txt,*) 'Error reading pvec from ' // TRIM(filename)
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+          READ (unitnr,*,iostat=error) Tvec_wg_g_loc(1:anzT_wg_loc)
+          IF (error /= 0) THEN
+            txt(:) = ' '
+            WRITE (txt,*) 'Error reading Tvec from ' // TRIM(filename)
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+          READ (unitnr,*,iostat=error) ltab%x3(1:ltab%n3)
+          IF (error /= 0) THEN
+            txt(:) = ' '
+            WRITE (txt,*) 'Error reading qwvec from ' // TRIM(filename)
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+          READ (unitnr,*,iostat=error) ltab%x4(1:ltab%n4)
+          IF (error /= 0) THEN
+            txt(:) = ' '
+            WRITE (txt,*) 'Error reading qivec from ' // TRIM(filename)
+            CALL finish(TRIM(routine),TRIM(txt))
+          END IF
+
+          DO l=1, ltab%n4
+            DO k=1, ltab%n3
+              DO j=1, anzT_wg_loc
+                DO i=1,ltab%n1
+                  READ (unitnr,*,iostat=error) dmin_wg_g_loc(i,j,k,l)
+                  IF (error /= 0) THEN
+                    WRITE (txt,'(a,4(1x,i4))') 'Error reading dmin from '//TRIM(filename)//' at position',i,j,k,l
+                    CALL finish(TRIM(routine),TRIM(txt))
+                  END IF
+                END DO
+              END DO
             END DO
           END DO
-        END DO
-      END DO
 
-      CLOSE(unitnr)
+          CLOSE(unitnr)
+        ENDIF
+
+      ENDIF
+
+      CALL p_bcast(ltab%x1      , p_io, p_comm_work)
+      CALL p_bcast(Tvec_wg_g_loc, p_io, p_comm_work)
+      CALL p_bcast(ltab%x3      , p_io, p_comm_work)
+      CALL p_bcast(ltab%x4      , p_io, p_comm_work)
+      CALL p_bcast(dmin_wg_g_loc, p_io, p_comm_work)
 
       ! 2) Generate equidistant table vectors and construct the
       !    equidistant Dmin-lookuptable by linear oversampling:
@@ -1291,7 +1447,26 @@ CONTAINS
 
     END IF
 
-    RETURN
+    IF (lprintout_comp_table_fit .AND. my_process_is_stdio()) THEN
+      CALL dmin_wetgrowth_fun_check(parti)
+    END IF
+
+  CONTAINS
+
+    FUNCTION check_nc ( istat, rinfo ) RESULT (ostat)
+      INTEGER, INTENT(in)          :: istat
+      CHARACTER(len=*), INTENT(in) :: rinfo
+      INTEGER                      :: ostat
+      
+      ostat = istat
+      IF (istat /= NF90_NOERR) THEN
+        WRITE (txt,'(a)') 'Error reading '//TRIM(filename)//': '// &
+             & TRIM(rinfo)//': '//TRIM(NF90_strerror(istat))
+        CALL finish(TRIM(routine),TRIM(txt))
+      END IF
+
+    END FUNCTION check_nc
+
   END SUBROUTINE init_dmin_wg_gr_ltab_equi
 
   ! wet growth Grenzdurchmesser in m
@@ -1335,6 +1510,113 @@ CONTAINS
 
     RETURN
   END FUNCTION dmin_wg_gr_ltab_equi
+
+  !*******************************************************************************
+  ! 4D rational function to approximate the dmin_wetgrowth_table                 *
+  ! for dmin_graupelhail2test4_wetgrowth_lookup.dat                              *
+  !*******************************************************************************
+
+  REAL(wp) ELEMENTAL FUNCTION dmin_wetgrowth_fun(pres,Tk,lwc,iwc) result(dmin)
+    implicit none
+    
+    real(wp), intent(IN)               :: lwc,iwc,Tk,pres
+
+    real(wp), parameter, dimension(0:12) :: &
+         & a = (/ -2.33480700e+01, -4.27065283e+01, -8.24313122e-01, -1.13320431e+03, &
+         &         1.69568678e+01, -1.15100315e+00, -1.89611461e-01, -3.42732844e+00, &
+         &        -2.16286180e+01,  1.45545961e+01, -4.55024573e-01, -1.40540857e-02, &
+         &        -4.15266452e-01 /)
+    real(wp), parameter, dimension(0:8)  :: &
+         & b = (/ 4.20962118e+02,  5.41644773e-02,  2.52002794e+00,                   &
+         &       -1.20674620e+00,  8.50123638e-01, -6.93148367e-02,  2.50286359e+00,  &
+         &        6.79791825e-02,  8.44801073e+00 /)
+    real(wp), parameter, dimension(0:5)  :: &
+         & c = (/ -2.24270084e-03, -6.80963043e-05, -1.14260514e-07, -2.43983379e-03, &
+         &        -5.24851050e-05,  4.76633146e-07 /)
+
+    real(wp) :: qw,qi,T,p,p1,p2,q1,q2,pp
+
+    p  = pres * 1e-2  ! pressure in hPa
+    T  = Tk - T_3     ! Celsius temperature
+    qw = lwc * 1e3    ! liquid water in g/m3
+    qi = iwc * 1e3    ! ice water in g/m3
+    
+    p1 = a(0)+a(1)*qw+a(2)*qi+a(3)*T+a(4)*qw*qw+a(5)*qw*qi+a(6)*qi*qi+a(7)*qi*T+a(8)*T*T+a(9)*qw*T &
+         &   +a(10)*qw*qw*qw+a(11)*qi*qi*qi+a(12)*T*T*T
+    q1 = 1.00+b(0)*qw+b(1)*qi+b(2)*T+b(3)*qw*qw+b(4)*qw*qi+b(5)*qi*qi+b(6)*qi*T+b(7)*T*T+b(8)*qw*T
+
+    pp  = p - 700.0  ! change to pressure deviation from reference pressure of 700 hPa
+
+    p2 = 1.0 + c(0)*pp + c(1)*pp*T + c(2)*pp*pp 
+    q2 = 1.0 + c(3)*pp + c(4)*pp*T + c(5)*pp*pp  
+
+    dmin = p1/q1 * p2/q2 * 1e-3    ! Dmin in m
+
+!   some limit values (Dmin in meters)
+    if (dmin.gt.0.9) then
+       dmin = 0.9
+    elseif (dmin.lt.0.and.qi/qw.gt.1) then
+       dmin = 1.
+    elseif (dmin.lt.0) then
+       dmin = -999.
+    end if
+
+    return
+  end function dmin_wetgrowth_fun
+
+  !*******************************************************************************
+  ! initial check of the 4D rational functions of the dmin_wetgrowth_table       *
+  !*******************************************************************************
+
+  SUBROUTINE dmin_wetgrowth_fun_check(parti)
+    implicit none
+    CLASS(particle) :: parti
+
+    integer  :: i,j,k,m
+    real(wp) :: qw,qi,T,p
+    real(wp) :: qliq(6) = (/0.2e-3,0.5e-3,1e-3,2e-3,5e-3,10e-3/)
+    real(wp) :: qice(6) = (/0.2e-3,0.5e-3,1e-3,2e-3,5e-3,10e-3/)
+    real(wp) :: pp(3) = (/300e2,700e2,1000e2/)
+    real(wp) :: tt(3) = (/-30.,-20.,-10./)
+
+    WRITE(*,*)    
+    WRITE(*,*) 'Dmin_wetgrowth comparison of table and 4d-fit:'
+    WRITE(*,'(A,L6)') ' dmin_wetgrowth_fit_check = ',dmin_wetgrowth_fit_check(parti)
+    WRITE(*,'(9a20)') 'Tc [Celsius]','Tk [K]','p [hPa]','qw','qi','dmin_table','dmin_fit'
+
+    DO m=1,size(pp)
+      p = pp(m)
+      DO k=1,size(tt)
+        T = T_3 + tt(k)
+        DO j=1,size(qice)
+          qi = qice(j)
+          DO i=1,size(qliq)
+            qw = qliq(i)
+            WRITE (*,'(5f20.3,2f20.3)') T-T_3, T, p*1e-2, qw*1e3, qi*1e3,         &
+                 & dmin_wg_gr_ltab_equi(p,T,qw,qi,ltabdminwgg)*1e3, &
+                 & dmin_wetgrowth_fun(p,T,qw,qi)*1e3
+          END DO
+        END DO
+      END DO
+    END DO
+    
+  END SUBROUTINE dmin_wetgrowth_fun_check
+
+  LOGICAL FUNCTION dmin_wetgrowth_fit_check(p)
+    CLASS(particle) :: p
+    REAL(wp), PARAMETER :: dmin_fit_a_geo = 1.42d-01
+    REAL(wp), PARAMETER :: dmin_fit_b_geo = 0.314
+    REAL(wp), PARAMETER :: dmin_fit_a_vel = 86.89371
+    REAL(wp), PARAMETER :: dmin_fit_b_vel = 0.268325
+    
+    IF (p%a_geo.ne.dmin_fit_a_geo .or. p%b_geo.ne.dmin_fit_b_geo &
+           & .or. p%a_vel.ne.dmin_fit_a_vel .or. p%b_vel.ne.dmin_fit_b_vel) THEN
+      dmin_wetgrowth_fit_check = .false.
+    ELSE
+      dmin_wetgrowth_fit_check = .true.
+    END IF
+
+  END FUNCTION dmin_wetgrowth_fit_check
 
   !*******************************************************************************
   ! 2D rational functions to evaluate bulk approximations                        *
@@ -1408,7 +1690,7 @@ CONTAINS
     REAL(wp), PARAMETER :: &
          c_unit = 4.1840d2      ! for transforming units
 
-    ! transform [cal cm-1 s-1 Â°C-1] into [W m-1 K-1]
+    ! transform [cal cm-1 s-1 C-1] into [W m-1 K-1]
     ka_rasmussen = c_unit * (5.69 + 0.017*(Ta-T_3))*1.d-5
     RETURN
   END FUNCTION ka_Rasmussen

@@ -23,14 +23,14 @@ USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, timer_
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
 USE mo_load_restart,         ONLY: read_restart_files
-USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
+USE mo_key_value_store,      ONLY: t_key_value_store
+USE mo_restart_nml_and_att,  ONLY: getAttributesForRestarting
 USE mo_io_config,            ONLY: configure_io, init_var_in_output, var_in_output
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
-USE mo_assimilation_config,  ONLY: configure_lhn
-USE mo_lnd_nwp_config,       ONLY: groups_smi
+USE mo_assimilation_config,  ONLY: configure_lhn, assimilation_config
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
   &                                ldynamics,            &
@@ -120,13 +120,15 @@ USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lh
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
-USE mo_mpi,                 ONLY: my_process_is_stdio
+USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
 USE mo_var_list,            ONLY: print_group_details
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
 USE mo_nwp_reff_interface,  ONLY: reff_calc_dom
 USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
+
+USE mo_icon2dace,           ONLY: init_dace, finish_dace
 
 !-------------------------------------------------------------------------
 #ifdef HAVE_CDI_PIO
@@ -135,8 +137,6 @@ USE mo_random_util,         ONLY: add_random_noise_global, add_random_noise
   USE mo_cdi,                 ONLY: namespaceGetActive, namespaceSetActive
   USE mo_cdi_pio_interface,         ONLY: nml_io_cdi_pio_namespace
 #endif
-
-!$ser verbatim USE mo_ser_debug, ONLY: serialize_debug_output, ser_debug_on
 
 IMPLICIT NONE
 PRIVATE
@@ -148,12 +148,12 @@ PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 CONTAINS
 
   !---------------------------------------------------------------------
-  SUBROUTINE atmo_nonhydrostatic
+  SUBROUTINE atmo_nonhydrostatic(latbc)
     TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
 
 !!$    CHARACTER(*), PARAMETER :: routine = "atmo_nonhydrostatic"
 
-    CALL construct_atmo_nonhydrostatic(latbc)
+!   CALL construct_atmo_nonhydrostatic(latbc)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -183,12 +183,12 @@ CONTAINS
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     IF (iforcing == iecham) THEN
-      CALL init_echam_phy_params       ( p_patch(1:) )
+      CALL init_echam_phy_params( p_patch(1:) )
       CALL construct_echam_phy_state   ( p_patch(1:), ntracer )
       CALL construct_psrad_forcing_list( p_patch(1:) )
     END IF
@@ -253,8 +253,6 @@ CONTAINS
 
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
-
-
     ! Now allocate memory for the states
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
       &                     l_pres_msl=var_in_output(:)%pres_msl, l_omega=var_in_output(:)%omega)
@@ -262,6 +260,10 @@ CONTAINS
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
+    ! Initialize DACE routines
+    IF (assimilation_config(1)% dace_coupling) then
+      CALL init_dace (comm=p_comm_work_only, p_io=0, ldetached=.NOT.my_process_is_work_only())
+    END IF
 
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), var_in_output)
@@ -413,14 +415,6 @@ CONTAINS
         !
       END IF ! ltestcase
 
-      !$ser verbatim ser_debug_on = .TRUE.
-      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 0, .TRUE.,&
-      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
-      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
-      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
-      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
-      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
-      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
       IF(pinit_seed > 0) THEN
         DO jg=1,n_dom
           CALL add_random_noise(p_patch(jg)%cells%all, nproma, p_patch(jg)%nlev, &
@@ -446,14 +440,6 @@ CONTAINS
           CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnew(jg)))
         ENDDO
       ENDIF
-      !$ser verbatim ser_debug_on = .TRUE.
-      !$ser verbatim CALL serialize_debug_output(nproma, p_patch(1)%nlev, 0, 1, .TRUE.,&
-      !$ser verbatim                             r3d1=p_nh_state(1)%prog(nnow(1))%w,&
-      !$ser verbatim                             r3d2=p_nh_state(1)%prog(nnow(1))%vn,&
-      !$ser verbatim                             r3d3=p_nh_state(1)%prog(nnow(1))%theta_v,&
-      !$ser verbatim                             r3d4=p_nh_state(1)%prog(nnow(1))%exner,&
-      !$ser verbatim                             r3d5=p_nh_state(1)%prog(nnow(1))%rho,&
-      !$ser verbatim                             r3d6=p_nh_state(1)%prog(nnow(1))%tracer(:,:,:,1))
 
       !
       ! Initialize tracers fields jt=iqt to jt=ntracer, which are not available in the analysis file,
@@ -617,11 +603,9 @@ CONTAINS
       sim_step_info%dtime      = dtime
       jstep0 = 0
 
-      restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes)) THEN
-        ! get start counter for time loop from restart file:
-        jstep0 = restartAttributes%getInteger("jstep")
-      END IF
+      CALL getAttributesForRestarting(restartAttributes)
+      ! get start counter for time loop from restart file:
+      IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
       sim_step_info%jstep0    = jstep0
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info)
@@ -836,10 +820,14 @@ CONTAINS
       ! deallocate ext_data array
       DEALLOCATE(radar_data, STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish(TRIM(routine), 'deallocation of radar_data')
+        CALL finish(TRIM(routine), 'deallocation of radar_data for LHN')
       ENDIF
       CALL destruct_lhn (lhn_fields)
     ENDIF
+
+    IF (assimilation_config(1)% dace_coupling .AND. my_process_is_work_only()) then
+       CALL finish_dace ()
+    END IF
  
     CALL message(TRIM(routine),'clean-up finished')
 

@@ -5,7 +5,7 @@
 #
 #PBS -q xc_norm_b
 #PBS -j oe
-#PBS -l select=22:ompthreads=4
+#PBS -l select=12:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=00:30:00
 #PBS -m n
@@ -35,7 +35,7 @@
 
 module load
 
-set -x
+set -ex
 
 
 export OMP_SCHEDULE="static"
@@ -162,7 +162,6 @@ EXP3="restart"
 for iter in 1 2 3 ; do
 
 
-
 if [ $iter -eq 1 ] ; then
 
 echo "##############################################################"
@@ -176,6 +175,7 @@ num_restart_procs="0"
 iterate_iau=".TRUE."
 restart_interval="P1D"
 checkpoint_interval="P1D"
+restart_write_mode=""
 
 elif [ $iter -eq 2 ] ; then
 
@@ -190,6 +190,7 @@ num_restart_procs="2"
 iterate_iau=".FALSE."
 restart_interval="P1D"
 checkpoint_interval="PT7H"
+restart_write_mode="dedicated procs multifile"
 
 else
 
@@ -200,10 +201,11 @@ echo "#############################################################"
 
 # restart run
 lrestart=".TRUE."
-num_restart_procs="2"
+num_restart_procs="1"
 iterate_iau=".FALSE."
 restart_interval="P1D"
 checkpoint_interval="P1D"
+restart_write_mode="dedicated procs multifile"
 
 fi
 
@@ -271,7 +273,7 @@ cat > ${atmo_namelist} << EOF
  l_test_openmp			= .FALSE.
  l_log_checks			= .FALSE.
  num_restart_procs              = $num_restart_procs
- num_io_procs			= 2
+ num_io_procs			= 1
  itype_comm			= 1
  iorder_sendrecv		= 3
 /
@@ -309,6 +311,8 @@ cat > ${atmo_namelist} << EOF
  itype_pres_msl                 = 5              ! New extrapolation method to circumvent Ninjo problem with surface inversions
  itype_rh                       = 1              ! RH w.r.t. water
  dt_diag                        = 3600.          ! interval for totint
+ restart_write_mode             = "${restart_write_mode}"
+ nrestart_streams               = 4
 /
 &run_nml
  num_lev			= 90,60
@@ -502,7 +506,7 @@ cat > ${atmo_namelist} << EOF
 /
 
 
-! OUTPUT: ICON native grid, isentropic levels, all domains: FG (tiled) to be re-read by ICON
+! OUTPUT: ICON native grid, model levels, all domains: FG (tiled) to be re-read by ICON
 &output_nml
  filetype                     =  4                         ! output format: 2=GRIB2, 4=NETCDFv2
  dom                          = -1                         ! write all domains
@@ -514,6 +518,23 @@ cat > ${atmo_namelist} << EOF
  output_filename              = "${EXP}${iter}_winds"           ! file name base
  ml_varlist                   = 'vn','w','t_g','w_so','t_so','tot_prec'
  output_grid                  = .TRUE.
+/
+
+! OUTPUT: lat-lon grid, model levels, all domains
+&output_nml
+ filetype                     =  2                         ! output format: 2=GRIB2, 4=NETCDFv2
+ dom                          = -1                         ! write all domains
+ mode                         =  1                         ! 1: forecast
+ output_time_unit             =  1                         ! 1: seconds
+ output_bounds                =  0., 360000., 10800.   ! start, end, increment
+ steps_per_file               =  1
+ include_last                 = .TRUE.
+ output_filename              = "${EXP}${iter}_ll"           ! file name base
+ ml_varlist                   = 'u','v','temp'
+ output_grid                  = .false.
+ remap                        = 1
+ reg_lon_def                  = 0.,0.5,359.501
+ reg_lat_def                  = -90.,0.5,90.
 /
 &meteogram_output_nml
  lmeteogram_enabled= .FALSE.,.FALSE.  !.TRUE.
@@ -540,7 +561,7 @@ cp -p $MODEL ./icon.exe
 # -d  4   : Number of threads Threads/MPI Task
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 3g   : 3G memory
-aprun  -n 396 -N 18 -j 2 -d 4 -m 3g icon.exe
+aprun  -n 216 -N 18 -j 2 -d 4 -m 3g icon.exe
 
 
 
@@ -551,7 +572,7 @@ done # model run iterations
 # now start with the tests
 
 # absolute path to cdo
-CDODIR="/e/uhome/dreinert/bin"
+CDODIR="/hpc/rhome/software/cdo/lc/1.8.0/bin"
 
 
 EXIT_STATUS=0
@@ -577,32 +598,54 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
  echo "=> Compare experiments: $EXP1 $EXP2"
 
  ${CDODIR}/cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} > ${DIFF_FILE_DOM01}
+ cdo_exitstat_DOM01=$(echo $?)
  ${CDODIR}/cdo diffn ${FILE1_DOM02} ${FILE2_DOM02} > ${DIFF_FILE_DOM02}
+ cdo_exitstat_DOM02=$(echo $?)
 
- if [ -s ${DIFF_FILE_DOM01} ]; then
-   echo " DOM01: file 1 and file 2 differ"
-   echo " - file 1: ${FILE1_DOM01}"
-   echo " - file 2: ${FILE2_DOM01}"
-   cat ${DIFF_FILE_DOM01}
-   rm  ${DIFF_FILE_DOM01}
+
+ # DOM01 IAU
+ if [[ ${cdo_exitstat_DOM01} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM01} ]; then
+      echo " DOM01: file 1 and file 2 differ"
+      echo " - file 1: ${FILE1_DOM01}"
+      echo " - file 2: ${FILE2_DOM01}"
+      cat ${DIFF_FILE_DOM01}
+      rm  ${DIFF_FILE_DOM01}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_IAU=1
+   else
+     echo "DOM01: EXP $EXP1 and EXP $EXP2 are identical"
+   fi
+ else
+   echo "DOM01: cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_IAU=1
- else
-   echo "DOM01: EXP $EXP1 and EXP $EXP2 are identical"
  fi
- if [ -s ${DIFF_FILE_DOM02} ]; then
-   echo " DOM02: file 1 and file 2 differ"
-   echo " - file 1: ${FILE1_DOM02}"
-   echo " - file 2: ${FILE2_DOM02}"
-   cat ${DIFF_FILE_DOM02}
-   rm  ${DIFF_FILE_DOM02}
+ #
+ # DOM02 IAU
+ if [[ ${cdo_exitstat_DOM02} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM02} ]; then
+      echo " DOM02: file 1 and file 2 differ"
+      echo " - file 1: ${FILE1_DOM02}"
+      echo " - file 2: ${FILE2_DOM02}"
+      cat ${DIFF_FILE_DOM02}
+      rm  ${DIFF_FILE_DOM02}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_IAU=1
+   else
+     echo "DOM02: EXP $EXP1 and EXP $EXP2 are identical"
+   fi
+ else
+   echo "DOM02: cdo diffn ${FILE1_DOM02} ${FILE2_DOM02} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_IAU=1
- else
-   echo "DOM02: EXP $EXP1 and EXP $EXP2 are identical"
  fi
+
+
 
 
  echo "=================================================================="
@@ -610,32 +653,52 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
  echo "=> Compare experiments:" $EXP2 $EXP3
 
  ${CDODIR}/cdo diffn ${FILE2_DOM01} ${FILE3_DOM01} > ${DIFF_FILE_DOM01}
+ cdo_exitstat_DOM01=$(echo $?)
  ${CDODIR}/cdo diffn ${FILE2_DOM02} ${FILE3_DOM02} > ${DIFF_FILE_DOM02}
+ cdo_exitstat_DOM02=$(echo $?)
 
- if [ -s ${DIFF_FILE_DOM01} ]; then
-   echo " DOM01: file 2 and file 3 differ"
-   echo " - file 1: ${FILE2_DOM01}"
-   echo " - file 2: ${FILE3_DOM01}"
-   cat ${DIFF_FILE_DOM01}
-   rm  ${DIFF_FILE_DOM01}
+ # DOM01 RESTART
+ if [[ ${cdo_exitstat_DOM01} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM01} ]; then
+      echo " DOM01: file 2 and file 3 differ"
+      echo " - file 2: ${FILE2_DOM01}"
+      echo " - file 3: ${FILE3_DOM01}"
+      cat ${DIFF_FILE_DOM01}
+      rm  ${DIFF_FILE_DOM01}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_RESTART=1
+   else
+     echo "DOM01: EXP $EXP2 and EXP $EXP3 are identical"
+   fi
+ else
+   echo "DOM01: cdo diffn ${FILE2_DOM01} ${FILE3_DOM01} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_RESTART=1
- else
-   echo "DOM01: EXP $EXP2 and EXP $EXP3 are identical"
  fi
- if [ -s ${DIFF_FILE_DOM02} ]; then
-   echo " DOM02: file 2 and file 3 differ"
-   echo " - file 1: ${FILE2_DOM02}"
-   echo " - file 2: ${FILE3_DOM02}"
-   cat ${DIFF_FILE_DOM02}
-   rm  ${DIFF_FILE_DOM02}
+ #
+ # DOM02 RESTART
+ if [[ ${cdo_exitstat_DOM02} -eq 0 ]]; then
+   if [ -s ${DIFF_FILE_DOM02} ]; then
+      echo " DOM02: file 2 and file 3 differ"
+      echo " - file 2: ${FILE2_DOM02}"
+      echo " - file 3: ${FILE3_DOM02}"
+      cat ${DIFF_FILE_DOM02}
+      rm  ${DIFF_FILE_DOM02}
+      #
+      EXIT_STATUS=$(($EXIT_STATUS + 1))
+      DIFF_STATUS_RESTART=1
+   else
+     echo "DOM02: EXP $EXP2 and EXP $EXP3 are identical"
+   fi
+ else
+   echo "DOM02: cdo diffn ${FILE2_DOM02} ${FILE3_DOM02} failed"
    #
    EXIT_STATUS=$(($EXIT_STATUS + 1))
    DIFF_STATUS_RESTART=1
- else
-   echo "DOM02: EXP $EXP2 and EXP $EXP3 are identical"
  fi
+
 
 #
 #-----------------------------------------------------------------------------
@@ -646,7 +709,7 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
    echo " "
  else
    echo " "
-   echo "IAU test FAILED:"
+   echo "IAU test FAILED"
    echo " "
  fi
  if [ $DIFF_STATUS_RESTART == 0 ]; then
@@ -655,7 +718,7 @@ DIFF_FILE_DOM02="NWP_winds_diff_DOM02.out"
    echo " "
  else
    echo " "
-   echo "Restart test FAILED:"
+   echo "Restart test FAILED"
    echo " "
  fi
 

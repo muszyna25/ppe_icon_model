@@ -1,3 +1,4 @@
+#ifdef _OPENMP
 !-----------------------------------------------
 ! define default omp parameters
 #define ICON_OMP_PARALLEL $omp parallel
@@ -30,4 +31,4 @@
 
 
 !-----------------------------------------------
-
+#endif

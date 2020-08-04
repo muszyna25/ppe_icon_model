@@ -73,7 +73,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, num_prefetch_proc, proc0_offloading
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
-    &                                    output_mode, lart, ldass_lhn
+    &                                    output_mode, lart, luse_radarfwo, ldass_lhn
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_timer,                    ONLY: ltimer, timers_level, timer_start, timer_stop,   &
@@ -127,7 +127,11 @@ MODULE mo_nh_stepping
   USE mo_nh_diffusion,             ONLY: diffusion
   USE mo_memory_log,               ONLY: memory_log_add
   USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, &
-    &                                    p_comm_work, my_process_is_mpi_workroot, p_pe, p_io
+       &                                 p_comm_work, my_process_is_mpi_workroot,   &
+       &                                 my_process_is_mpi_test, my_process_is_work_only
+#ifdef HAVE_RADARFWO
+  USE mo_emvorado_interface,       ONLY: emvorado_radarfwo
+#endif
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
 #endif
@@ -140,17 +144,23 @@ MODULE mo_nh_stepping
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_master_config,            ONLY: isRestart, getModelBaseDir
-  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,      ONLY: getAttributesForRestarting
+  USE mo_key_value_store,          ONLY: t_key_value_store
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output, istime4name_list_output_dom
   USE mo_name_list_output_init,    ONLY: output_file
   USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,                 ONLY: t_simulation_status
+
   USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
+  USE mo_art_init_interface,       ONLY: art_init_atmo_tracers_nwp,   &
+                                     &   art_init_atmo_tracers_echam, &
+                                     &   art_update_atmo_phy
+  
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sst_and_seaice
   USE mo_reader_sst_sic,           ONLY: t_sst_sic_reader
@@ -228,6 +238,7 @@ MODULE mo_nh_stepping
     &                                    upatmoRestartAttributesDeallocate
 
   USE mo_atmo_psrad_interface,     ONLY: finalize_atmo_radation
+  use mo_icon2dace,                ONLY: mec_Event, init_dace_op, run_dace_op, dace_op_init
   USE mo_extpar_config,            ONLY: generate_td_filename
   USE mo_nudging_config,           ONLY: nudging_config, l_global_nudging
   USE mo_nudging,                  ONLY: nudging_interface  
@@ -292,7 +303,6 @@ MODULE mo_nh_stepping
   LOGICAL                              :: is_mpi_workroot
   LOGICAL                              :: l_exist
   is_mpi_workroot = my_process_is_mpi_workroot()
-
 
 
 !!$  INTEGER omp_get_num_threads
@@ -417,6 +427,20 @@ MODULE mo_nh_stepping
            & phy_params(jg), mtime_current         ,&
            & prm_upatmo(jg)                         )
 
+
+      IF (lart) THEN
+        CALL art_init_atmo_tracers_nwp(                     &
+               &  jg,                                       &
+               &  mtime_current,                            &
+               &  p_nh_state(jg),                           &
+               &  ext_data(jg),                             &
+               &  prm_diag(jg),                             &
+               &  p_nh_state(jg)%prog(nnow(jg)),            &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+      END IF
+
+
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
@@ -429,6 +453,15 @@ MODULE mo_nh_stepping
       CALL aggr_landvars
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
       CALL init_slowphysics (mtime_current, 1, dtime)
+
+#ifdef HAVE_RADARFWO
+      IF ( .NOT.my_process_is_mpi_test() .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
+           mtime_current >= time_config%tc_exp_startdate ) THEN
+        ! Radar forward operator EMVORADO: radar simulation in the first timestep for each
+        !  radar-active model domain:
+        CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, luse_radarfwo(1:n_dom), 0, nsteps)
+      END IF
+#endif
 
       DO jg = 1, n_dom
 
@@ -492,6 +525,18 @@ MODULE mo_nh_stepping
     IF (.NOT.isRestart()) THEN
       CALL init_slowphysics (mtime_current, 1, dtime)
     END IF
+
+    IF (lart) THEN
+      DO jg = 1, n_dom
+        CALL art_init_atmo_tracers_echam(                   &
+               &  jg,                                       &
+               &  mtime_current,                            &
+               &  p_nh_state(jg),                           &
+               &  p_nh_state(jg)%prog(nnow(jg)),            &
+               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+      ENDDO
+    END IF
   END SELECT ! iforcing
 
   !------------------------------------------------------------------
@@ -507,10 +552,9 @@ MODULE mo_nh_stepping
 
       IF (var_in_output(jg)%dbz .OR. var_in_output(jg)%dbz850 .OR. var_in_output(jg)%dbzcmax) THEN 
 
-        CALL compute_field_dbz3D_lin (jg, p_patch(jg), p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
-             &                        p_nh_state(jg)%prog(nnow_rcf(jg)),                                      &
-             &                        p_nh_state(jg)%diag, prm_diag(jg)%dbz3d_lin )
-
+        CALL compute_field_dbz3D_lin (jg, p_patch(jg),                                                  &
+             &                        p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%prog(nnow_rcf(jg)), &
+             &                        p_nh_state(jg)%diag, prm_diag(jg), prm_diag(jg)%dbz3d_lin )
 
       END IF
         
@@ -537,6 +581,26 @@ MODULE mo_nh_stepping
 
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
+    END IF
+
+    !-----------------------------------------------
+    ! Pass "initialized analysis" or "analysis" when
+    ! time step 0 cannot be reached in time stepping
+    !-----------------------------------------------
+    IF (assimilation_config(1)% dace_coupling) THEN
+       IF (.NOT. ASSOCIATED (mec_Event)) &
+            CALL finish ("perform_nh_stepping","MEC not configured")
+       IF (timeshift%dt_shift == 0._wp .and. &
+            is_event_active(mec_Event, mtime_current, proc0_offloading)) THEN
+          IF (iforcing == inwp) &
+               CALL aggr_landvars
+          IF (.NOT. dace_op_init) THEN
+             CALL message('perform_nh_stepping','calling init_dace_op before run_dace_op')
+             IF (my_process_is_work_only()) CALL init_dace_op ()
+          END IF
+          CALL message('perform_nh_stepping','calling run_dace_op')
+          IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+       END IF
     END IF
 
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
@@ -637,7 +701,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
   TYPE(t_datetime_ptr)                 :: datetime_current(max_dom) 
-  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+  TYPE(t_key_value_store), POINTER :: restartAttributes
   CLASS(t_RestartDescriptor), POINTER  :: restartDescriptor
 
   CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)   :: td_string
@@ -656,13 +720,15 @@ MODULE mo_nh_stepping
                                                           ! lower boundary conditions in NWP mode
   TYPE(datetime)                      :: ref_datetime     ! reference datetime for computing 
                                                           ! climatological SST increments
-  TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file 
+  TYPE(datetime)                      :: latbc_read_datetime  ! validity time of next lbc input file
+
 !!$  INTEGER omp_get_num_threads
+
 
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
-  
+
   ! calculate elapsed simulation time in seconds
   sim_time = getElapsedSimTimeInSeconds(mtime_current) 
 
@@ -696,11 +762,9 @@ MODULE mo_nh_stepping
 
   jstep0 = 0
 
-  restartAttributes => getAttributesForRestarting()
-  IF (isRestart()) THEN
-    ! get start counter for time loop from restart file:
-    jstep0 = restartAttributes%getInteger("jstep")
-  END IF
+  CALL getAttributesForRestarting(restartAttributes)
+  ! get start counter for time loop from restart file:
+  IF (isRestart()) CALL restartAttributes%get("jstep", jstep0)
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
   IF  (.NOT. ltestcase .AND. msg_level >= 13) THEN
@@ -1019,7 +1083,26 @@ MODULE mo_nh_stepping
     !
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, model_time_step, 1, latbc)
 
+
+    ! --------------------------------------------------------------------------------
+    !
+    ! Radar forward operator EMVORADO: radar simulation in each timestep for each
+    !  radar-active model domain
+    !
+
+#ifdef HAVE_RADARFWO    
+    IF (.NOT.my_process_is_mpi_test() .AND. iforcing == inwp .AND. ANY(luse_radarfwo(1:n_dom)) .AND. &
+         ( jstep >= 0 .AND. (.NOT.iterate_iau .OR. iau_iter == 2) ) ) THEN
+      CALL emvorado_radarfwo (mtime_current, nnow(1:n_dom), nnow_rcf(1:n_dom), n_dom, &
+                              luse_radarfwo(1:n_dom), jstep, nsteps+jstep0)
+    END IF
+#endif
+
+    ! --------------------------------------------------------------------------------
+    !
     ! Compute diagnostics for output if necessary
+    !
+
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
     
       CALL diag_for_output_dyn ()
@@ -1105,18 +1188,17 @@ MODULE mo_nh_stepping
          DO jg = 1, n_dom
             IF (.NOT. p_patch(jg)%ldom_active) CYCLE
             ! Call the ART diagnostics
-            CALL art_diagnostics_interface(p_patch(jg),                              &
-                 &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
-                 &                            p_nh_state(jg)%diag%pres,                 &
-                 &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-                 &                            p_nh_state(jg)%metrics%ddqz_z_full,       &
-                 &                            p_nh_state(jg)%metrics%z_mc, jg)
+            CALL art_diagnostics_interface(p_nh_state(jg)%prog(nnew(jg))%rho,        &
+                 &                         p_nh_state(jg)%diag%pres,                 &
+                 &                         p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+                 &                         p_nh_state(jg)%metrics%ddqz_z_full,       &
+                 &                         p_nh_state(jg)%metrics%z_mc, jg)
             ! Call the ART unit conversion 
             CALL art_tools_interface('unit_conversion',                            & !< in
-                 &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
-                 &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
-                 &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
-                 &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
+                 &                   p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
+                 &                   p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
+                 &                   p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
+                 &                   p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
          END DO
          !
       END IF ! lart .AND. ntracer>0
@@ -1264,6 +1346,29 @@ MODULE mo_nh_stepping
       END IF
     END IF
 
+    !--------------------------------------------------------------------
+    ! Pass forecast state at selected steps to DACE observation operators
+    !--------------------------------------------------------------------
+    IF (assimilation_config(1)% dace_coupling) then
+       IF (.NOT. ASSOCIATED (mec_Event)) &
+            CALL finish ("perform_nh_timeloop","MEC not configured")
+       IF (is_event_active(mec_Event, mtime_current, proc0_offloading, plus_slack=model_time_step)) THEN
+          IF (iforcing == inwp) CALL aggr_landvars
+          sim_time = getElapsedSimTimeInSeconds(mtime_current)
+          IF (sim_time > 0._wp .OR. iau_iter == 1) THEN
+             IF (.NOT. dace_op_init) THEN
+                CALL message('perform_nh_timeloop','calling init_dace_op before run_dace_op')
+                IF (my_process_is_work_only()) CALL init_dace_op ()
+             END IF
+             IF (sim_time == 0._wp) THEN
+                CALL message('perform_nh_timeloop','calling run_dace_op for sim_time=0')
+             ELSE
+                CALL message('perform_nh_timeloop','calling run_dace_op')
+             END IF
+             IF (my_process_is_work_only()) CALL run_dace_op (mtime_current)
+          END IF
+       END IF
+    END IF
 
     IF (mtime_current >= time_config%tc_stopdate) THEN
       ! this needs to be done before writing the restart, but after anything esle that uses/outputs radation fluxes
@@ -1744,6 +1849,20 @@ MODULE mo_nh_stepping
         CALL main_tracer_beforeadv
 #endif
 
+        IF (lart) THEN
+          ! Update time dependent variables needed for ART
+          IF (iforcing == inwp) THEN
+            CALL art_update_atmo_phy(jg,                            &
+                        &            datetime_local(jg)%ptr,        &
+                        &            p_nh_state(jg)%prog(nnew(jg)), &
+                        &            prm_diag(jg))
+          ELSE IF (iforcing == iecham) THEN
+            CALL art_update_atmo_phy(jg,                            &
+                         &           datetime_local(jg)%ptr,        &
+                         &           p_nh_state(jg)%prog(nnew(jg)))
+          END IF
+        END IF
+
         ! 5. tracer advection
         !-----------------------
         IF ( ltransport) THEN
@@ -1752,16 +1871,13 @@ MODULE mo_nh_stepping
 #ifdef _OPENACC
             CALL finish (routine, 'art_emission_interface: OpenACC version currently not implemented')
 #endif
+
             CALL art_emission_interface(                       &
               &      ext_data(jg),                             &!in
               &      p_patch(jg),                              &!in
               &      dt_loc,                                   &!in
-              &      p_nh_state(jg),                           &!in
-              &      prm_diag(jg),                             &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
-              &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
               &      datetime_local(jg)%ptr,                   &!in
-              &      nnow(jg),                                 &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF
 
@@ -1816,9 +1932,7 @@ MODULE mo_nh_stepping
                &      dt_loc,                                 &!in
                &      p_nh_state(jg)%prog(n_new_rcf),         &!in
                &      p_nh_state(jg)%metrics,                 &!in
-               &      p_nh_state(jg)%prog(nnew(jg))%rho,      &!in
                &      p_nh_state(jg)%diag,                    &!in
-               &      prm_diag(jg),                           &!in
                &      p_nh_state(jg)%prog(n_new_rcf)%tracer,  &!inout
                &      .TRUE.)                                  !print CFL number
           ENDIF ! lart
@@ -3203,7 +3317,7 @@ MODULE mo_nh_stepping
     INTEGER                              :: jg
     INTEGER                              :: ist
     CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     !-----------------------------------------------------------------------
 
@@ -3231,15 +3345,15 @@ MODULE mo_nh_stepping
     ENDIF
     !
     ! initialize
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
     IF (ASSOCIATED(restartAttributes)) THEN
       !
       ! Get attributes from restart file
       DO jg = 1,n_dom
         WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-        ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
+        CALL restartAttributes%get(attname, ndyn_substeps_var(jg))
         WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-        jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
+        CALL restartAttributes%get(attname, jstep_adv(jg)%marchuk_order)
       ENDDO
       linit_dyn(:)      = .FALSE.
     ELSE
