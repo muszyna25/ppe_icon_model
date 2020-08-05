@@ -134,9 +134,11 @@ CONTAINS
       iqsd = nqtendphy
     ENDIF
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,jt,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
+#ifndef __PGI
+!FIXME: PGI + OpenMP produce deadlock in this loop... check correctness of parallel code
+!$OMP PARALLEL DO PRIVATE(jb,jc,jk,jt,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
 !$OMP            z_dtdt,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950,wfac,z_ddspeed), ICON_OMP_GUIDED_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -380,8 +382,6 @@ CONTAINS
       ENDIF !inwp_conv
 
     ENDDO  ! jb
-!$OMP END DO
-!$OMP END PARALLEL      
 
   END SUBROUTINE nwp_convection
 

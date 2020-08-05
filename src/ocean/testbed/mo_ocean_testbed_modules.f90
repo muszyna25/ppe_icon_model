@@ -41,7 +41,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_hamocc_types,           ONLY: t_hamocc_state
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting
+  USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
@@ -767,7 +768,7 @@ CONTAINS
     CHARACTER(len=MAX_MTIME_ERROR_STR_LEN):: errstring
 
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     TYPE(datetime), POINTER               :: current_date
     !------------------------------------------------------------------
     patch_2D      => patch_3d%p_patch_2d(1)
@@ -778,11 +779,9 @@ CONTAINS
     jg = n_dom
 
     jstep0 = 0
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
-      ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
-    END IF
+    CALL getAttributesForRestarting(restartAttributes)
+    ! get start counter for time loop from restart file:
+    IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
@@ -1328,7 +1327,7 @@ CONTAINS
 
     TYPE(t_patch), POINTER          :: p_patch
     TYPE(t_subset_range), POINTER   :: owned_cells
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
     CHARACTER(LEN = *), PARAMETER   :: routine = 'mo_ocean_testbed_modules:test_sea_ice'
 
@@ -1384,11 +1383,9 @@ CONTAINS
     !------------------------------------------------------------------
     jstep0 = 0
 
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
-      ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
-    END IF
+    CALL getAttributesForRestarting(restartAttributes)
+    ! get start counter for time loop from restart file:
+    IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(p_os(jg))

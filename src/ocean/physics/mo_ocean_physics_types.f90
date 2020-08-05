@@ -45,8 +45,8 @@ MODULE mo_ocean_physics_types
     & GM_only,Redi_only,                                      &
     & laplacian_form,                                         &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & OceanReferenceDensity,                                  &
-    & vert_mix_type, vmix_pp, vmix_tke, vmix_kpp,             &
+    & OceanReferenceDensity,    &
+    & vert_mix_type, vmix_pp, vmix_tke, vmix_kpp, vmix_idemix_tke,      &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
     & velocity_TopWindMixing, TracerHorizontalDiffusion_scaling, &
     &  Temperature_HorizontalDiffusion_Background,            &
@@ -126,7 +126,17 @@ MODULE mo_ocean_physics_types
       & tke_Ttot(:,:,:)           ,& ! tke tend by tot
       & tke_Lmix(:,:,:)           ,& ! tke mixing length
       & tke_Pr(:,:,:)             ,& ! tke Prandtl number
-      & iwe(:,:,:)                ,& ! turbulent kinetic energy
+      & iwe(:,:,:)                ,& ! internal wave energy
+      & iwe_Ttot(:,:,:)           ,& ! iwe tend by tot
+      & iwe_Tdif(:,:,:)           ,& ! iwe tend by dif
+      & iwe_Thdi(:,:,:)           ,& ! iwe tend by hdi
+      & iwe_Tdis(:,:,:)           ,& ! iwe tend by dis
+      & iwe_Tsur(:,:,:)           ,& ! iwe tend by sur
+      & iwe_Tbot(:,:,:)           ,& ! iwe tend by bot
+      & iwe_alpha_c(:,:,:)        ,& ! iwe dissip coef
+      & iwe_c0(:,:,:)             ,& ! vertical group velocity
+      & iwe_v0(:,:,:)             ,& ! horizontal group velocity
+      ! end by_nils
       ! by_ogut 
       ! KPP - 2d
       & OBLdepth(:,:)              ,& ! Depth (positive) of OBL (m)
@@ -163,7 +173,6 @@ MODULE mo_ocean_physics_types
       & nl_trans_tend_salt(:,:,:)  ,& ! non-local salt transport tendency
       & nonLocalTransHeat(:,:,:)   ,& ! non-local heat transport: G(sigma) * cs2
       & nonLocalTransScalar(:,:,:)    ! non-local scalar transport: G(sigma) * cs2 
-
   END TYPE t_cvmix_params
 
 
@@ -328,7 +337,8 @@ CONTAINS
 
     ! start by_nils
     ! --- cvmix dummy variables
-  IF (vert_mix_type .eq. vmix_tke) THEN
+    !IF (vert_mix_type .EQ. vmix_tke) THEN
+    IF (vert_mix_type .EQ. vmix_tke .or. vert_mix_type .EQ.  vmix_idemix_tke) THEN
     CALL add_var(ocean_params_list, 'cvmix_dummy_1', params_oce%cvmix_params%cvmix_dummy_1, &
        & grid_unstructured_cell, za_depth_below_sea_half, &
        & t_cf_var('cvmix_dummy_1', '', 'cvmix_dummy_1', datatype_flt),&
@@ -427,14 +437,80 @@ CONTAINS
        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
        & in_group=groups("oce_cvmix_tke"))
+    ENDIF
 
     ! --- IWE variables
-    CALL add_var(ocean_params_list, 'iwe', params_oce%cvmix_params%iwe, &
+    IF (vert_mix_type .EQ. vmix_idemix_tke) THEN
+      CALL add_var(ocean_restart_list, 'iwe', params_oce%cvmix_params%iwe, &
+         & grid_unstructured_cell, za_depth_below_sea_half, &
+         & t_cf_var('iwe', 'm2 s-2', 'internal wave energy', datatype_flt),&
+         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+         & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+         & lrestart_cont=.TRUE., in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_Ttot', params_oce%cvmix_params%iwe_Ttot, &
        & grid_unstructured_cell, za_depth_below_sea_half, &
-       & t_cf_var('iwe', 'm2 s-2', 'internal wave energy', datatype_flt),&
+       & t_cf_var('iwe_Ttot', 'm2 s-3', 'IWE tend tot', datatype_flt),&
        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
-       & lrestart=.FALSE.,in_group=groups("oce_cvmix_iwe"))
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_Tdif', params_oce%cvmix_params%iwe_Tdif, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_Tdif', 'm2 s-3', 'IWE tend dif', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_Thdi', params_oce%cvmix_params%iwe_Thdi, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_Thdi', 'm2 s-3', 'IWE tend hdi', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_Tdis', params_oce%cvmix_params%iwe_Tdis, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_Tdis', 'm2 s-3', 'IWE tend dis', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_Tsur', params_oce%cvmix_params%iwe_Tsur, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_Tsur', 'm2 s-3', 'IWE tend sur', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_Tbot', params_oce%cvmix_params%iwe_Tbot, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_Tbot', 'm2 s-3', 'IWE tend bot', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_alpha_c', params_oce%cvmix_params%iwe_alpha_c, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_alpha_c', 's m-2', 'IWE dissip coef', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_c0', params_oce%cvmix_params%iwe_c0, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_c0', 'm2 s-3', 'IWE ver group vel', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
+    CALL add_var(ocean_params_list, 'iwe_v0', params_oce%cvmix_params%iwe_v0, &
+       & grid_unstructured_cell, za_depth_below_sea_half, &
+       & t_cf_var('iwe_v0', 'm2 s-3', 'IWE hor group vel', datatype_flt),&
+       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+       & in_group=groups("oce_cvmix_iwe"))
+
     ! end by_nils
     ENDIF
 

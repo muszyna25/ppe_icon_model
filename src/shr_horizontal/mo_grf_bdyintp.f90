@@ -657,10 +657,13 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 !$ACC UPDATE DEVICE (p_in(jn)%fld),  IF ( use_acc )
   ENDDO
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE (jb,nlen,nshift,jk,jc,jn,elev,limfac1,limfac2,limfac, &
+
+#ifndef __PGI
+! FIXME: PGI runs into deadlock on loop exit (?), if OMP-parallelized
+!$OMP PARALLEL DO PRIVATE (jb,nlen,nshift,jk,jc,jn,elev,limfac1,limfac2,limfac, &
 !$OMP   min_expval,max_expval,relaxed_minval,relaxed_maxval, grad_x, grad_y, &
 !$OMP   val_ctr, maxval_neighb, minval_neighb) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = 1, nblks_bdyintp
 
       nlen = MERGE(nproma_bdyintp, npromz_bdyintp, jb /= nblks_bdyintp)
@@ -817,8 +820,6 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
       ENDDO ! fields
     ENDDO ! blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
 ! -------------------------------------
 !$ACC UPDATE HOST (h_aux),  IF ( use_acc )

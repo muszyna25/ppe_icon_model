@@ -72,60 +72,50 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_grid_config, ONLY: n_dom
   USE mo_mpi, ONLY: work_mpi_barrier
   USE mo_statistics, ONLY: global_minmaxmean, print_value_location
-  USE mo_ocean_solve, ONLY: t_ocean_solve, ocean_solve_ptr
-  USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen, lhs_agen_ptr
-  USE mo_ocean_solve_transfer, ONLY: t_transfer, transfer_ptr
-  USE mo_ocean_solve_trivial_transfer, ONLY: t_trivial_transfer, trivial_transfer_ptr
-  USE mo_ocean_solve_subset_transfer, ONLY: t_subset_transfer, subset_transfer_ptr
-  USE mo_ocean_solve_aux, ONLY: t_destructible, t_ocean_solve_parm, solve_gmres, solve_cg, solve_mres, &
-   & ocean_solve_clear, solve_precon_none, solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
+  USE mo_ocean_solve, ONLY: t_ocean_solve
+  USE mo_ocean_solve_trivial_transfer, ONLY: t_trivial_transfer
+  USE mo_ocean_solve_subset_transfer, ONLY: t_subset_transfer
+  USE mo_ocean_solve_aux, ONLY: t_ocean_solve_parm, solve_gmres, solve_cg, solve_mres, &
+   & solve_precon_none, solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
    & solve_trans_scatter, solve_trans_compact, solve_cell, solve_edge, solve_invalid
-  USE mo_primal_flip_flop_lhs, ONLY: t_primal_flip_flop_lhs, lhs_primal_flip_flop_ptr
-  USE mo_surface_height_lhs, ONLY: t_surface_height_lhs, lhs_surface_height_ptr
+  USE mo_primal_flip_flop_lhs, ONLY: t_primal_flip_flop_lhs
+  USE mo_surface_height_lhs, ONLY: t_surface_height_lhs
 
   IMPLICIT NONE
-  
   PRIVATE  
   !
   PUBLIC :: solve_free_sfc_ab_mimetic
   PUBLIC :: calc_normal_velocity_ab_mimetic
   PUBLIC :: calc_vert_velocity_mim_bottomup
-  PUBLIC :: invert_mass_matrix
-  PUBLIC :: clear_ocean_ab_timestepping_mimetic
+  PUBLIC :: invert_mass_matrix, clear_ocean_ab_timestepping_mimetic
   !
 ! solver object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver => NULL()
+  TYPE(t_ocean_solve) :: free_sfc_solver
 ! solver object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver_comp => NULL()
+  TYPE(t_ocean_solve) :: free_sfc_solver_comp
 ! left-hand-side object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver_lhs => NULL()
+  TYPE(t_surface_height_lhs), TARGET :: free_sfc_solver_lhs
 ! communication infrastructure object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver_trans => NULL()
-  CLASS(t_destructible), POINTER :: free_sfc_solver_comp_trans => NULL()
+  TYPE(t_subset_transfer), TARGET :: free_sfc_solver_trans_sub
+  TYPE(t_trivial_transfer), TARGET :: free_sfc_solver_trans_triv
 !  solver object (inversion of mass matrix)
-  CLASS(t_destructible), POINTER :: inv_mm_solver => NULL()
+  TYPE(t_ocean_solve) :: inv_mm_solver
 ! left-hand-side object (inversion of mass matrix)
-  CLASS(t_destructible), POINTER :: inv_mm_solver_lhs => NULL()
+  TYPE(t_primal_flip_flop_lhs), TARGET :: inv_mm_solver_lhs
 ! communication infrastructure object (inversion of mass matrix)
-  CLASS(t_destructible), POINTER :: inv_mm_solver_trans => NULL()
-  CHARACTER(LEN=12)  :: str_module = 'oceSTEPmimet' ! Output of module for 1 line debug
+  TYPE(t_trivial_transfer), TARGET :: inv_mm_solver_trans
+  CHARACTER(*), PARAMETER :: str_module = 'oceSTEPmimet' ! Output of module for 1 line debug
   INTEGER :: idt_src = 1                            ! Level of detail for 1 line debug
   REAL(wp), PARAMETER ::  min_top_height = 0.05_wp  ! we have to have at least 5cm water on topLevel of sea cells
   INTEGER, SAVE :: istep = 0
 
 CONTAINS
 
-! destruct and free all solver-related objects
   SUBROUTINE clear_ocean_ab_timestepping_mimetic()
 
-    CALL ocean_solve_clear(free_sfc_solver_lhs)
-    CALL ocean_solve_clear(free_sfc_solver_trans)
-    CALL ocean_solve_clear(free_sfc_solver)
-    CALL ocean_solve_clear(free_sfc_solver_comp)
-    CALL ocean_solve_clear(free_sfc_solver_comp_trans)
-    CALL ocean_solve_clear(inv_mm_solver_lhs)
-    CALL ocean_solve_clear(inv_mm_solver_trans)
-    CALL ocean_solve_clear(inv_mm_solver)
+    CALL free_sfc_solver_trans_triv%destruct()
+    CALL free_sfc_solver_trans_sub%destruct()
+    CALL inv_mm_solver_trans%destruct()
   END SUBROUTINE clear_ocean_ab_timestepping_mimetic
 
   SUBROUTINE init_free_sfc_ab_mimetic(patch_3d, ocean_state, op_coeffs, solverCoeff_sp)
@@ -134,42 +124,12 @@ CONTAINS
     TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
     TYPE(t_solverCoeff_singlePrecision), INTENT(in), TARGET :: solverCoeff_sp
     TYPE(t_patch), POINTER :: patch_2D
-    TYPE(t_surface_height_lhs), POINTER :: lhs_sh
-    TYPE(t_trivial_transfer), POINTER :: trans_triv
-    TYPE(t_subset_transfer), POINTER :: trans_subs
-    TYPE(t_ocean_solve), POINTER :: solve, solve_comp
-    CLASS(t_lhs_agen), POINTER :: lhs
-    CLASS(t_transfer), POINTER :: trans
     TYPE(t_ocean_solve_parm) :: par, par_sp
     INTEGER :: trans_mode, sol_type
     CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_ab_timestepping_mimetic:init_free_sfc_ab_mimetic'
 
-    IF (ASSOCIATED(free_sfc_solver)) RETURN
+    IF (free_sfc_solver%is_init) RETURN
     patch_2D => patch_3d%p_patch_2d(1)
-    NULLIFY(trans_triv)
-! allocate lhs object
-    ALLOCATE(t_surface_height_lhs :: free_sfc_solver_lhs)
-! init lhs object
-    lhs_sh => lhs_surface_height_ptr(free_sfc_solver_lhs)
-    CALL lhs_sh%construct(patch_3d, ocean_state%p_diag%thick_e, &
-      & op_coeffs, solverCoeff_sp)
-    lhs => lhs_agen_ptr(free_sfc_solver_lhs)
-! allocate and init communication infrastructure object 
-    SELECT CASE(select_transfer)
-! all ocean workers are involved in solving (input is just copied to internal
-! arrays)
-    CASE(0)
-      ALLOCATE(t_trivial_transfer :: free_sfc_solver_trans)
-      trans_triv => trivial_transfer_ptr(free_sfc_solver_trans)
-      CALL trans_triv%construct(solve_cell, patch_2D)
-! solve only on a subset of workers
-    CASE DEFAULT
-      trans_mode = MERGE(solve_trans_compact, solve_trans_scatter, select_transfer .GT. 0)
-      ALLOCATE(t_subset_transfer :: free_sfc_solver_trans)
-      trans_subs => subset_transfer_ptr(free_sfc_solver_trans)
-      CALL trans_subs%construct(solve_cell, patch_2D, ABS(select_transfer), trans_mode)
-    END SELECT
-    trans => transfer_ptr(free_sfc_solver_trans)
 !prepare init of solver
     CALL par%init(solve_precon_none, 1, 800, patch_2d%cells%in_domain%end_block, &
       & patch_2D%alloc_cell_blocks, nproma, patch_2d%cells%in_domain%end_index, &
@@ -210,35 +170,34 @@ CONTAINS
     CASE DEFAULT
       CALL finish(method_name, "Unknown solver")
     END SELECT ! solver
+! init lhs object
+    CALL free_sfc_solver_lhs%construct(patch_3d, ocean_state%p_diag%thick_e, &
+      & op_coeffs, solverCoeff_sp)
+! allocate and init communication infrastructure object 
+    SELECT CASE(select_transfer)
+    CASE(0) ! all ocean workers are involved in solving (input is just copied to internal arrays)
+      CALL free_sfc_solver_trans_triv%construct(solve_cell, patch_2D) ! solve only on a subset of workers
+      CALL free_sfc_solver%construct(sol_type, par, par_sp, free_sfc_solver_lhs, free_sfc_solver_trans_triv)
+    CASE DEFAULT ! solve only on a subset of workers
+      trans_mode = MERGE(solve_trans_compact, solve_trans_scatter, select_transfer .GT. 0)
+      CALL free_sfc_solver_trans_sub%construct(solve_cell, patch_2D, ABS(select_transfer), trans_mode)
+      CALL free_sfc_solver%construct(sol_type, par, par_sp, free_sfc_solver_lhs, free_sfc_solver_trans_sub)
+    END SELECT
 ! alloc and init solver object
-    ALLOCATE(t_ocean_solve :: free_sfc_solver)
-    solve => ocean_solve_ptr(free_sfc_solver)
-    CALL solve%construct(sol_type, par, par_sp, lhs, trans)
     IF (l_solver_compare) THEN
-      IF (ASSOCIATED(trans_triv)) THEN
-        NULLIFY(free_sfc_solver_comp_trans)
-      ELSE
-        ALLOCATE(t_trivial_transfer :: free_sfc_solver_comp_trans)
-        trans_triv => trivial_transfer_ptr(free_sfc_solver_comp_trans)
-        CALL trans_triv%construct(solve_cell, patch_2D)
-        trans => transfer_ptr(free_sfc_solver_comp_trans)
-      END IF
+      CALL free_sfc_solver_trans_triv%construct(solve_cell, patch_2D)
       par%tol = solver_tolerance_comp
       par_sp%nidx = -1
-      ALLOCATE(t_ocean_solve :: free_sfc_solver_comp)
-      solve_comp => ocean_solve_ptr(free_sfc_solver_comp)
-      CALL solve_comp%construct(solve_legacy_gmres, par, par_sp, lhs, trans)
+      CALL free_sfc_solver_comp%construct(solve_legacy_gmres, par, par_sp, &
+        & free_sfc_solver_lhs, free_sfc_solver_trans_triv)
     END IF
   END SUBROUTINE init_free_sfc_ab_mimetic
 
   !-------------------------------------------------------------------------
-  !>
   !! !  Solves the free surface equation.
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
-  !!
-!<Optimize:inUse>
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_as, p_oce_sfc, &
     & p_phys_param, timestep, op_coeffs, solverCoeff_sp, ret_status)
     TYPE(t_patch_3d ),POINTER, INTENT(in) :: patch_3d
@@ -256,7 +215,6 @@ CONTAINS
     CHARACTER(LEN=max_char_length) :: string
     TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
-    TYPE(t_ocean_solve), POINTER :: solve, solve_comp
     CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic'
 
     l_is_compare_step = .false.
@@ -264,10 +222,8 @@ CONTAINS
     owned_cells => patch_2D%cells%owned
     owned_edges => patch_2D%edges%owned
 ! init sfc solver related objects, if necessary
-    IF (.NOT.ASSOCIATED(free_sfc_solver)) &
+    IF (.NOT.free_sfc_solver%is_init) &
       & CALL init_free_sfc_ab_mimetic(patch_3d, ocean_state, op_coeffs, solverCoeff_sp)
-    solve => ocean_solve_ptr(free_sfc_solver)
-    IF (l_solver_compare) solve_comp => ocean_solve_ptr(free_sfc_solver_comp)
 ! decide on how often solver is called (max), only relevant if GMRES-restart-alikes are chosen
     ret_status = 0
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -290,18 +246,18 @@ CONTAINS
 ! decide on guess to use in solver
       SELECT CASE (solver_FirstGuess)
       CASE (1)
-        CALL smooth_onCells(patch_3d, ocean_state%p_prog(nold(1))%h, solve%x_loc_wp, &
+        CALL smooth_onCells(patch_3d, ocean_state%p_prog(nold(1))%h, free_sfc_solver%x_loc_wp, &
           & (/ 0.5_wp, 0.5_wp /), .false., -999999.0_wp)
       CASE (2)
         !!ICON_OMP PARALLEL WORKSHARE
-        solve%x_loc_wp(:,:) = ocean_state%p_prog(nold(1))%h(:,:)
+        free_sfc_solver%x_loc_wp(:,:) = ocean_state%p_prog(nold(1))%h(:,:)
         !!ICON_OMP END PARALLEL WORKSHARE
       CASE default
         !!ICON_OMP PARALLEL WORKSHARE
-        solve%x_loc_wp(:,:) = 0.0_wp
+        free_sfc_solver%x_loc_wp(:,:) = 0.0_wp
         !!ICON_OMP END PARALLEL WORKSHARE
       END SELECT
-      solve%b_loc_wp => ocean_state%p_aux%p_rhs_sfc_eq
+      free_sfc_solver%b_loc_wp => ocean_state%p_aux%p_rhs_sfc_eq
       IF (l_solver_compare) THEN
         IF (istep .EQ. 0) l_is_compare_step = .true.
         istep = istep + 1
@@ -309,27 +265,27 @@ CONTAINS
       END IF
       IF (l_is_compare_step) THEN
         !!ICON_OMP PARALLEL WORKSHARE
-        solve_comp%x_loc_wp(:,:) = solve%x_loc_wp(:,:)
+        free_sfc_solver_comp%x_loc_wp(:,:) = free_sfc_solver%x_loc_wp(:,:)
         !!ICON_OMP END PARALLEL WORKSHARE
-        solve_comp%b_loc_wp => solve%b_loc_wp
+        free_sfc_solver_comp%b_loc_wp => free_sfc_solver%b_loc_wp
       END IF
-      CALL dbg_print('bef ocean_solve('//TRIM(solve%sol_type_name)//'): h-old',ocean_state%p_prog(nold(1))%h(:,:) , &
+      CALL dbg_print('bef ocean_solve('//TRIM(free_sfc_solver%sol_type_name)//'): h-old',ocean_state%p_prog(nold(1))%h(:,:) , &
         & str_module,idt_src,in_subset=owned_cells)
 ! call solver
-      CALL solve%solve(n_it, n_it_sp)
-      rn = MERGE(solve%res_loc_wp(1), 0._wp, n_it .NE. 0)
+      CALL free_sfc_solver%solve(n_it, n_it_sp)
+      rn = MERGE(free_sfc_solver%res_loc_wp(1), 0._wp, n_it .NE. 0)
       ! output of sum of iterations every timestep
       IF (idbg_mxmn >= 0) THEN
         IF (n_it_sp .NE. -2) THEN
           WRITE(string,'(2(a,i4),2(a,e28.20),a)') &
             & 'SUM of ocean_solve iteration(sp,wp) = (', &
             & n_it_sp - 1, ', ', n_it - 1, ') , residual = (', &
-            & solve%res_loc_wp(1), ', ', rn, ')'
+            & free_sfc_solver%res_loc_wp(1), ', ', rn, ')'
         ELSE
           WRITE(string,'(a,i4,a,e28.20)') &
             &'SUM of ocean_solve iteration =', n_it - 1, ', residual =', rn
         END IF
-        CALL message('ocean_solve('//TRIM(solve%sol_type_name)//'): surface height',TRIM(string))
+        CALL message('ocean_solve('//TRIM(free_sfc_solver%sol_type_name)//'): surface height',TRIM(string))
       ENDIF
       IF (rn > solver_tolerance) THEN
         ret_status = 2
@@ -337,27 +293,26 @@ CONTAINS
         RETURN
       ENDIF
       !!ICON_OMP PARALLEL WORKSHARE
-      ocean_state%p_prog(nnew(1))%h(:,:) = solve%x_loc_wp(:,:)
+      ocean_state%p_prog(nnew(1))%h(:,:) = free_sfc_solver%x_loc_wp(:,:)
       !!ICON_OMP END PARALLEL WORKSHARE
 
       IF (l_is_compare_step) THEN
-        CALL solve_comp%solve(n_it, n_it_sp)
-        rn = MERGE(solve_comp%res_loc_wp(1), 0._wp, n_it .NE. 0)
+        CALL free_sfc_solver_comp%solve(n_it, n_it_sp)
+        rn = MERGE(free_sfc_solver_comp%res_loc_wp(1), 0._wp, n_it .NE. 0)
         WRITE(string,'(a,i4,a,e28.20)') &
           & 'SUM of ocean_solve iteration =', n_it-1,', residual =', rn
-        CALL message('ocean_solve('//TRIM(solve_comp%sol_type_name)//'): surface height',TRIM(string))
-        solve_comp%x_loc_wp(:,:) = solve%x_loc_wp(:,:) - solve_comp%x_loc_wp(:,:)
-        minmaxmean(:) = global_minmaxmean(values=solve_comp%x_loc_wp(:,:), in_subset=owned_cells)
+        CALL message('ocean_solve('//TRIM(free_sfc_solver_comp%sol_type_name)//'): surface height',TRIM(string))
+        free_sfc_solver_comp%x_loc_wp(:,:) = free_sfc_solver%x_loc_wp(:,:) - free_sfc_solver_comp%x_loc_wp(:,:)
+        minmaxmean(:) = global_minmaxmean(values=free_sfc_solver_comp%x_loc_wp(:,:), in_subset=owned_cells)
         WRITE(string,"(a,3(e12.3,'  '))") "comparison of solutions: (min/max/mean)", minmaxmean(:)
-        CALL message('ocean_solve('//TRIM(solve_comp%sol_type_name)//'): surface height',TRIM(string))
-        solve_comp%x_loc_wp(:,:) = solve_comp%x_loc_wp(:,:) * solve_comp%x_loc_wp(:,:)
-        minmaxmean(:) = global_minmaxmean(values=solve_comp%x_loc_wp(:,:), in_subset=owned_cells)
+        CALL message('ocean_solve('//TRIM(free_sfc_solver_comp%sol_type_name)//'): surface height',TRIM(string))
+        free_sfc_solver_comp%x_loc_wp(:,:) = free_sfc_solver_comp%x_loc_wp(:,:) * free_sfc_solver_comp%x_loc_wp(:,:)
+        minmaxmean(:) = global_minmaxmean(values=free_sfc_solver_comp%x_loc_wp(:,:), in_subset=owned_cells)
         WRITE(string,"(a,3(e12.3,'  '))") "comparison of solutions (squared): (min/max/mean)", SQRT(minmaxmean(:))
-        CALL message('ocean_solve('//TRIM(solve_comp%sol_type_name)//'): surface height',TRIM(string))
+        CALL message('ocean_solve('//TRIM(free_sfc_solver_comp%sol_type_name)//'): surface height',TRIM(string))
       END IF
 
-      IF (createSolverMatrix) &
-        CALL solve%dump_matrix(timestep)
+      IF (createSolverMatrix) CALL free_sfc_solver%dump_matrix(timestep)
 !        CALL createSolverMatrix_onTheFly(solve%lhs, ocean_state%p_aux%p_rhs_sfc_eq, timestep)
 
       !-------- end of solver ---------------
@@ -436,9 +391,13 @@ CONTAINS
     IF ( iswm_oce /= 1 ) THEN
       ! calculate density from EOS using temperature and salinity at timelevel n
       start_detail_timer(timer_extra2,4)
-      CALL calculate_density( patch_3d,                         &
-       & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
-       & ocean_state%p_diag%rho(:,:,:) )
+      
+      !------------------------------------------------------------------------
+      ! this is calculated before the dynamics
+!       CALL calculate_density( patch_3d,                         &
+!        & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+!        & ocean_state%p_diag%rho(:,:,:) )
+      !------------------------------------------------------------------------
 
 !       IF(.NOT.l_partial_cells)THEN      
 !         ! calculate hydrostatic pressure from density at timelevel nc
@@ -1236,51 +1195,36 @@ CONTAINS
     INTEGER :: jk, n_it, n_it_sp
     REAL(wp) :: rn
     CHARACTER(LEN=max_char_length) :: string
-    TYPE(t_primal_flip_flop_lhs), POINTER :: lhs_pff
-    TYPE(t_trivial_transfer), POINTER :: trans_triv
-    CLASS(t_lhs_agen), POINTER :: lhs
-    CLASS(t_transfer), POINTER :: trans
-    TYPE(t_ocean_solve), POINTER :: solve
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_ocean_solve_parm) :: par, par_sp
 
 ! allocate + init solver related objects at first call of invert_mass_matrix() (GMRES is chosen)
-    IF (.NOT. ASSOCIATED(inv_mm_solver)) THEN
-      ALLOCATE(t_primal_flip_flop_lhs :: inv_mm_solver_lhs)
-      lhs => lhs_agen_ptr(inv_mm_solver_lhs)
-      lhs_pff => lhs_primal_flip_flop_ptr(inv_mm_solver_lhs)
-      CALL lhs_pff%construct(patch_3d, op_coeffs, solve_invalid) ! bogus-init to make solve%construct happy
-      ALLOCATE(t_trivial_transfer :: inv_mm_solver_trans)
-      trans_triv => trivial_transfer_ptr(inv_mm_solver_trans)
-      trans => transfer_ptr(inv_mm_solver_trans)
+    IF (.NOT.inv_mm_solver%is_init) THEN
+      CALL inv_mm_solver_lhs%construct(patch_3d, op_coeffs, solve_invalid) ! bogus-init to make solve%construct happy
       patch_2d => patch_3d%p_patch_2d(1)
-      CALL trans_triv%construct(solve_edge, patch_2d)
+      CALL inv_mm_solver_trans%construct(solve_edge, patch_2d)
       CALL par%init(solve_precon_none, solver_max_restart_iterations, &
         & solver_max_iter_per_restart, patch_2d%cells%in_domain%end_block, &
         & SIZE(rhs_e,3), SIZE(rhs_e,1), patch_2d%edges%in_domain%end_index, &
         & MassMatrix_solver_tolerance, .true.)
       par_sp%nidx = -1
-      ALLOCATE(t_ocean_solve :: inv_mm_solver)
-      solve => ocean_solve_ptr(inv_mm_solver)
-      CALL solve%construct(solve_gmres, par, par_sp, lhs, trans)
-    ELSE
-      lhs_pff => lhs_primal_flip_flop_ptr(inv_mm_solver_lhs)
-      solve => ocean_solve_ptr(inv_mm_solver)
+      CALL inv_mm_solver%construct(solve_gmres, par, par_sp, &
+        & inv_mm_solver_lhs, inv_mm_solver_trans)
     END IF
     DO jk=1, n_zlev
 ! re-initialize lhs for each level...
-      CALL lhs_pff%construct(patch_3d, op_coeffs, jk)
+      CALL inv_mm_solver_lhs%construct(patch_3d, op_coeffs, jk)
 ! fill rhs and guess->solution arrays
 !!$OMP PARALLEL WORKSHARE
-      solve%x_loc_wp(:,:) = 0._wp
+      inv_mm_solver%x_loc_wp(:,:) = 0._wp
 !!$OMP END PARALLEL WORKSHARE
-      solve%b_loc_wp => rhs_e(:,jk,:)
+      inv_mm_solver%b_loc_wp => rhs_e(:,jk,:)
 ! call solver
-      CALL solve%solve(n_it, n_it_sp)
-      rn = MERGE((solve%res_loc_wp(1)), 0._wp, n_it .GT. 0)
+      CALL inv_mm_solver%solve(n_it, n_it_sp)
+      rn = MERGE((inv_mm_solver%res_loc_wp(1)), 0._wp, n_it .GT. 0)
 ! copy solution into result array
 !!$OMP PARALLEL WORKSHARE
-      inv_flip_flop_e(:,jk,:) = solve%x_loc_wp(:,:)
+      inv_flip_flop_e(:,jk,:) = inv_mm_solver%x_loc_wp(:,:)
 !!$OMP END PARALLEL WORKSHARE
       IF (idbg_mxmn >= 1) THEN
         WRITE(string,'(a,i4,a,e28.20)') &

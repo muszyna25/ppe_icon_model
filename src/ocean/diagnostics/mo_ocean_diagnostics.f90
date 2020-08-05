@@ -846,17 +846,19 @@ CONTAINS
            isRegistered('vT') .OR. isRegistered('vS') .OR. isRegistered('vR') .OR. &
            isRegistered('wT') .OR. isRegistered('wS') .OR. isRegistered('wR') .OR. &
            isRegistered('uu') .OR. isRegistered('uv') .OR. isRegistered('uw') .OR. &
+           isRegistered('RR') .OR. isRegistered('SS') .OR. isRegistered('TT') .OR. &
            isRegistered('vv') .OR. isRegistered('ww') .OR. isRegistered('vw') .OR. &
            isRegistered('sigma0') .OR. isRegistered('hflR') .OR. isRegistered('fwR') .OR. &
            isRegistered('tauxU') .OR. isRegistered('tauyV') ) &
           ) THEN
 
-        CALL calc_eddydiag(patch_3d, p_diag%u, p_diag%v, p_diag%w_prismcenter  &
+        CALL calc_eddydiag(patch_3d, p_diag%u, p_diag%v, p_diag%w, p_diag%w_prismcenter  &
                ,tracers(:,:,:,1), tracers(:,:,:,2),p_diag%rhopot &
                ,p_diag%uT, p_diag%uS, p_diag%uR, p_diag%uu    &
                ,p_diag%vT, p_diag%vS, p_diag%vR, p_diag%vv    &
                ,p_diag%wT, p_diag%wS, p_diag%wR, p_diag%ww    &
-               ,p_diag%uv, p_diag%uw, p_diag%vw, p_diag%sigma0 &
+               ,p_diag%uv, p_diag%uw, p_diag%vw               &
+               ,p_diag%RR, p_diag%SS, p_diag%TT, p_diag%sigma0 &
                ,p_diag%hflR, p_diag%fwR, p_diag%tauxU, p_diag%tauyV &
                ,p_oce_sfc%topbc_windstress_u, p_oce_sfc%topbc_windstress_v &
                ,p_oce_sfc%heatflux_total, p_oce_sfc%frshflux_volumetotal )
@@ -2238,10 +2240,10 @@ END SUBROUTINE diag_heat_salt_tendency
   END SUBROUTINE calc_heat_content
 
   
-  SUBROUTINE calc_eddydiag(patch_3d,u,v,w,T,S,R &
+  SUBROUTINE calc_eddydiag(patch_3d,u,v,w,w_prismcenter,T,S,R &
                ,uT, uS, uR, uu    &
                ,vT, vS, vR, vv    &
-               ,wT, wS, wR, ww, uv, uw, vw, sigma0   &
+               ,wT, wS, wR, ww, uv, uw, vw, rr, ss, tt, sigma0   &
                ,hflr, fwr, tauxu, tauyv & 
                , topbc_windstress_u, topbc_windstress_v &
                ,heatflux_total, frshflux_volumetotal)
@@ -2250,7 +2252,8 @@ END SUBROUTINE diag_heat_salt_tendency
 
     REAL(wp), INTENT(IN)   :: u(:,:,:) !< zonal velocity at cell center
     REAL(wp), INTENT(IN)   :: v(:,:,:) !< meridional velocity at cell center
-    REAL(wp), INTENT(IN)   :: w(:,:,:) !< vertical velocity at cell center
+    REAL(wp), INTENT(IN)   :: w(:,:,:) !< vertical velocity at cell interface
+    REAL(wp), INTENT(INOUT):: w_prismcenter(:,:,:) !< vertical velocity at cell center
     REAL(wp), INTENT(IN)   :: T(:,:,:) !< temerature
     REAL(wp), INTENT(IN)   :: S(:,:,:) !< salinity
     REAL(wp), INTENT(IN)   :: R(:,:,:) !< density
@@ -2271,6 +2274,9 @@ END SUBROUTINE diag_heat_salt_tendency
     REAL(wp), INTENT(INOUT)  :: uR(:,:,:) !< product of density and u-velocity
     REAL(wp), INTENT(INOUT)  :: uu(:,:,:) !< square of u-velocity
 
+    REAL(wp), INTENT(INOUT)  :: RR(:,:,:) !< square of density
+    REAL(wp), INTENT(INOUT)  :: SS(:,:,:) !< square of salinity
+    REAL(wp), INTENT(INOUT)  :: TT(:,:,:) !< square of temperature
     REAL(wp), INTENT(INOUT)  :: vT(:,:,:) !< product of temperature and v-velocity
     REAL(wp), INTENT(INOUT)  :: vS(:,:,:) !< product of salinity and v-velocity
     REAL(wp), INTENT(INOUT)  :: vR(:,:,:) !< product of density and v-velocity  
@@ -2305,6 +2311,7 @@ END SUBROUTINE diag_heat_salt_tendency
         DO level=1,subset%vertical_levels(cell,blk)
 
 
+          w_prismcenter(cell,level,blk) = 0.5*(w(cell,level,blk) + w(cell,level+1,blk))
           sigma0(cell,level,blk) = R(cell,level,blk) -1000.0_wp
           uT(cell,level,blk) = T(cell,level,blk) * u(cell,level,blk)
           uS(cell,level,blk) = S(cell,level,blk) * u(cell,level,blk)
@@ -2316,14 +2323,18 @@ END SUBROUTINE diag_heat_salt_tendency
           vR(cell,level,blk) = sigma0(cell,level,blk) * v(cell,level,blk)
           vv(cell,level,blk) = v(cell,level,blk) * v(cell,level,blk)
 
-          wT(cell,level,blk) = T(cell,level,blk) * w(cell,level,blk)
-          wS(cell,level,blk) = S(cell,level,blk) * w(cell,level,blk)
-          wR(cell,level,blk) = sigma0(cell,level,blk) * w(cell,level,blk)
-          ww(cell,level,blk) = w(cell,level,blk) * w(cell,level,blk)
+          wT(cell,level,blk) = T(cell,level,blk) * w_prismcenter(cell,level,blk)
+          wS(cell,level,blk) = S(cell,level,blk) * w_prismcenter(cell,level,blk)
+          wR(cell,level,blk) = sigma0(cell,level,blk) * w_prismcenter(cell,level,blk)
+          ww(cell,level,blk) = w_prismcenter(cell,level,blk) * w_prismcenter(cell,level,blk)
 
           uv(cell,level,blk) = u(cell,level,blk) * v(cell,level,blk)
-          uw(cell,level,blk) = u(cell,level,blk) * w(cell,level,blk)
-          vw(cell,level,blk) = v(cell,level,blk) * w(cell,level,blk)
+          uw(cell,level,blk) = u(cell,level,blk) * w_prismcenter(cell,level,blk)
+          vw(cell,level,blk) = v(cell,level,blk) * w_prismcenter(cell,level,blk)
+
+          RR(cell,level,blk) = sigma0(cell,level,blk) * sigma0(cell,level,blk)
+          SS(cell,level,blk) = S(cell,level,blk) * S(cell,level,blk)
+          TT(cell,level,blk) = T(cell,level,blk) * T(cell,level,blk)
 
 
         END DO ! level

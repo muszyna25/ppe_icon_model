@@ -34,8 +34,8 @@ icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/mch"
 
 # horizontal grid(s)
 #
-grids_folder=${icon_data_poolFolder}/grids/ch_lowres
-latbc_path=${icon_data_poolFolder}/input/ch_lowres
+grids_folder=${icon_data_poolFolder}/grids/ch_r04b09
+latbc_path=${icon_data_poolFolder}/input/ch_r04b09
 #
 # regional domain over switzerland
 
@@ -44,7 +44,7 @@ atmo_dyn_grids="'${dynamics_grid_filename}',"
 radiation_grid_filename=grid.parent.nc
 atmo_rad_grids="'${radiation_grid_filename}',"
 
-extpar_filename="grid.extpar.sst.nc"
+extpar_filename="extpar.nc"
 add_required_file "${grids_folder}/${extpar_filename}" ./
 
 # files needed for radiation
