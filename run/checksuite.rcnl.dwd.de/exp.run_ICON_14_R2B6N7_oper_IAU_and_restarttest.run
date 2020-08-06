@@ -40,7 +40,7 @@
 date
 source ${NMPI_ROOT}/bin/necmpivars.sh
 
-set -x
+set -ex
 . /etc/profile
 
 # OpenMP settings
@@ -144,7 +144,6 @@ ln -sf ${ICONDIR}/data/rrtmg_lw.nc .
 # the namelist filename
 atmo_namelist=NAMELIST_${EXP}
 
-integer cymdg
 
 cymdg=2018100100
 
