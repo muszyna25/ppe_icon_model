@@ -272,7 +272,7 @@ MODULE mo_solve_nonhydro
     REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
 #endif
 #ifdef __SX__
-      REAL(wp) :: zaux(6), z_rho_tavg_m1_v(nproma), z_theta_tavg_m1_v(nproma)
+      REAL(wp) :: z_rho_tavg_m1_v(nproma), z_theta_tavg_m1_v(nproma)
       REAL(vp) :: z_theta_v_pr_mc_m1_v(nproma)
 #endif
     !-------------------------------------------------------------------
@@ -1717,11 +1717,7 @@ MODULE mo_solve_nonhydro
 
       i_startblk = p_patch%edges%start_block(rl_start)
       i_endblk   = p_patch%edges%end_block(rl_end)
-#ifdef __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg,zaux) ICON_OMP_DEFAULT_SCHEDULE
-#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_vn_avg) ICON_OMP_DEFAULT_SCHEDULE
-#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1741,7 +1737,6 @@ MODULE mo_solve_nonhydro
 !$NEC vovertake
             DO je = i_startidx, i_endidx
 #endif
-#ifndef __SX__
               ! Average normal wind components in order to get nearly second-order accurate divergence
               z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)           &
                 + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
@@ -1769,26 +1764,6 @@ MODULE mo_solve_nonhydro
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
                 + p_int%rbf_vec_coeff_e(4,je,jb)                       &
                 * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-#else
-             ! Workaround for compiler optimization problem in order to simplify instruction scheduling
-              DO ic = 1, 4
-                zaux(ic) = p_nh%prog(nnew)%vn(iqidx(je,jb,ic),jk,iqblk(je,jb,ic))
-              END DO
-
-              ! Average normal wind components in order to get nearly second-order accurate divergence
-              z_vn_avg(je,jk) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb) &
-                + p_int%e_flx_avg(je,2,jb)*zaux(1) + p_int%e_flx_avg(je,3,jb)*zaux(2) &
-                + p_int%e_flx_avg(je,4,jb)*zaux(3) + p_int%e_flx_avg(je,5,jb)*zaux(4)
-
-              ! Compute gradient of divergence of vn for divergence damping
-              z_graddiv_vn(je,jk,jb) = p_int%geofac_grdiv(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb) &
-                + p_int%geofac_grdiv(je,2,jb)*zaux(1) + p_int%geofac_grdiv(je,3,jb)*zaux(2)     &
-                + p_int%geofac_grdiv(je,4,jb)*zaux(3) + p_int%geofac_grdiv(je,5,jb)*zaux(4)
-
-              ! RBF reconstruction of tangential wind component
-              p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)*zaux(1) + p_int%rbf_vec_coeff_e(2,je,jb)*zaux(2) &
-                                     + p_int%rbf_vec_coeff_e(3,je,jb)*zaux(3) + p_int%rbf_vec_coeff_e(4,je,jb)*zaux(4)
-#endif
             ENDDO
           ENDDO
 !$ACC END PARALLEL
