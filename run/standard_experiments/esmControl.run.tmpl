@@ -964,10 +964,10 @@ add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_lan
 add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
 add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
 #
-# - HD model input by Tom Riddick (test version)
+# - HD model input by Tom Riddick
 #
-datadir=/pool/data/ICON/grids/private/Stephan/mpim/${atmos_gridID}/land
-add_link_file $datadir/hdpara_icon_${atmos_gridID}_G_250719_1545.nc     ./bc_land_hd.nc
+datadir=/work/mh0727/m300732/input/hd       # FIXME move hdpara file to pool directory and adapt path
+add_link_file $datadir/hdpara_r2b3_0030_0036_no_sinks_half_frac_lnd_adjusted.nc     ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
 #
@@ -1183,9 +1183,10 @@ EOF
 # III. OCEAN and SEA-ICE (and HAMOCC) 
 #-----------------------------------------------------------------------------
 
-ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
+ocean_grid_name="icon_grid_${ocean_gridID}_${ocean_refinement}_O"
+ocean_grid=${ocean_grid_name}.nc
 ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
-ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
+ocean_data_InputFolder="/pool/data/ICON/oes/input/r0004/${ocean_grid_name}"
 
 # ----------------------------------------------------------------------------
 #
@@ -1490,19 +1491,19 @@ EOF
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
- # restart file is spun up for 1500 years after starting from levitus (500 years since last tuning parameter change):
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0354_restart_oce_25000101T000000Z.nc restart_ocean_DOM01.nc 
- fi
+ # spun-up for 500 (200+300) years
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0613_restart_oce_13000101T000000Z.nc    restart_ocean_DOM01.nc
+fi
 
 if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
- # for a restart file containing Hamocc, interpolated from a cmip6 control run to the icon grid.
- # Ocean restart is from a long tuning run, which arrived at a good state.
- add_link_file /work/mh0727/m300732/input/0014/ocean/restart/ler0203_restart_oce_4601_w_hamocc_from_cmip6.nc restart_ocean_DOM01.nc 
+ #FIXME: add restart file with spun-up Hamocc
+ # Restart file like above + 1 year with Hamocc (initialized from basin averages)
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0614_restart_oce_10010101T000000Z.nc    restart_ocean_DOM01.nc
  fi
 
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
   # for initializing from Levitus:
-  add_link_file ${ocean_data_InputFolder}/initial_condition/r0001/ts_phc3.0_annual_icon_grid_0014_R02B04_O_L40.nc initial_state.nc
+  add_link_file ${ocean_data_InputFolder}/R2B4L40_initial_state.nc initial_state.nc
 fi
 
 #
@@ -1513,13 +1514,10 @@ add_required_file ${ocean_grid_folder}/${ocean_grid} ./
 ## HAMOCC forcing files
 #
 if [  "x${use_hamocc}"  = "xyes" ]; then
-  # this is still a private path
-  # very preliminary!
-  datadir=/work/mh0727/m300732/input/0014/ocean/hamocc/
-  add_link_file $datadir/MAHOWALDDUST_icon_grid_0014_R02B04_O.nc           dust.nc  # iron deposition
-  add_link_file $datadir/ndepo_clim_icon_grid_0014_R02B04_O.nc             nitrogen.nc  # nitrate deposition
-  # caution: nitrate deposition file was not remapped from the original data file, but from 
-  # file used for other runs. Could be very outdated.
+  # FIXME: this is still a private path
+  datadir=/work/mh0727/m300732/input/0036/ocean/hamocc/
+  add_link_file $datadir/MAHOWALDDUST_icon_grid_0036_R02B04_O_remapbil1.nc           dust.nc  # iron deposition
+  add_link_file $datadir/ndepo_1-0_gr_185001-185012-clim_icon_grid_0036_R02B04_O.nc  nitrogen.nc  # nitrate deposition
 fi
 #
 #-----------------------------------------------------------------------------
