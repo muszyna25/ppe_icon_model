@@ -160,8 +160,6 @@ mpi_oce_nodes=%{JOB.ocean_nodes}
 # (1) Define the model time stepping
 # ----------------------------------
 
-radTimeStep="%{ATMO_RADIATION_TIME_STEP}" # radiation time step
-atmTimeStep="%{ATMO_TIME_STEP}" # atmosphere time step
 oceTimeStep="%{OCEAN_TIME_STEP}" # ocean time step
 couplingTimeStep="%{COUPLER_TIME_STEP}" # coupling time step
 
@@ -256,7 +254,7 @@ eval $(python -c "
 import mtime
 mtime.setCalendar(mtime.CALENDAR_TYPE.%{calendar_mtime})
 next_date = mtime.DateTime('$start_date') + mtime.TimeDelta('$restart_interval')
-end_date = next_date + mtime.TimeDelta('-$atmTimeStep')
+end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 
 print('end_date=' + str(end_date))
 print('next_date=' + str(next_date))
@@ -317,21 +315,11 @@ output_hamocc_3d=yes
 
 # JSBACH settings
 run_jsbach=yes
-jsbach_usecase=jsbach_pfts    # jsbach_lite or jsbach_pfts
-jsbach_with_lakes=yes
 
 # Some further processing for land configuration
 # ----------------------------------------------
 
 ljsbach=$([ "${run_jsbach:=no}" == yes ]          && echo .TRUE. || echo .FALSE. )
-llake=$([ "${jsbach_with_lakes:=yes}" == yes ]    && echo .TRUE. || echo .FALSE. )
-
-if [[ $jsbach_usecase == *pfts* ]]
-then
-  pft_file_tag="11pfts_"
-else
-  pft_file_tag=""
-fi
 
 #-------------------------------------------------------------------------------
 
@@ -483,7 +471,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="1"/>
             <target transient_grid_ref="1"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -503,7 +491,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="2"/>
             <target transient_grid_ref="2"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -523,7 +511,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="3"/>
             <target transient_grid_ref="3"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -542,7 +530,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="4"/>
             <target transient_grid_ref="4"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -561,7 +549,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="5"/>
             <target transient_grid_ref="5"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -581,7 +569,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="6"/>
             <timestep>
                <source>${oceTimeStep}</source>
-               <target>${atmTimeStep}</target>
+               <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
@@ -600,7 +588,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="7"/>
             <timestep>
                <source>${oceTimeStep}</source>
-               <target>${atmTimeStep}</target>
+               <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
@@ -619,7 +607,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="8"/>
             <timestep>
                <source>${oceTimeStep}</source>
-               <target>${atmTimeStep}</target>
+               <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
@@ -638,7 +626,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="9"/>
             <timestep>
                <source>${oceTimeStep}</source>
-               <target>${atmTimeStep}</target>
+               <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
@@ -656,7 +644,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="10"/>
             <target transient_grid_ref="10"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -676,7 +664,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="11"/>
             <target transient_grid_ref="11"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -695,7 +683,7 @@ cat > coupling.xml << EOF
             <source component_ref="1" transient_grid_ref="12"/>
             <target transient_grid_ref="12"/>
             <timestep>
-               <source>${atmTimeStep}</source>
+               <source>%{ATMO_TIME_STEP}</source>
                <target>${oceTimeStep}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
@@ -716,7 +704,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="13"/>
             <timestep>
                <source>${oceTimeStep}</source>
-               <target>${atmTimeStep}</target>
+               <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
                <target_timelag>${atm_lag}</target_timelag>
@@ -737,12 +725,6 @@ cat > coupling.xml << EOF
    <created date="16-04-2019 15:49" tool="YAC-CouplingGUI v.1.5"/>
 </coupling>
 EOF
-
-#
-# xsd and xml files for yac
-# -------------------------
-#
-add_required_file ${MODEL_DIR}/externals/yac/input/coupling.xsd  ./coupling.xsd
 
 #-----------------------------------------------------------------------------
 # II. ATMOSPHERE and LAND
@@ -765,19 +747,7 @@ cat > ${atm_namelist} << EOF
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grid}"
 /
-&run_nml
- num_lev          = 47          ! number of full levels
- modelTimeStep    = "${atmTimeStep}"
- ltestcase        = .FALSE.     ! run testcase
- ldynamics        = .TRUE.      ! dynamics
- ltransport       = .TRUE.      ! transport
- iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
- output           = 'nml'
- msg_level        = 12          ! level of details report during integration 
- restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
- activate_sync_timers = .TRUE.
- profiling_output = 1           ! aggregated: 1; detailed: 2; in files: 3
-/
+%{format_namelist(namelists.NAMELIST_atm, 'run_nml')}
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
  itype_lwemiss    = 0
@@ -801,35 +771,7 @@ cat > ${atm_namelist} << EOF
 /
 %{format_namelist(namelists.NAMELIST_atm, 'diffusion_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'transport_nml')}
-&echam_phy_nml
-!
-! domain 1
-! --------
-!
-! atmospheric phyiscs (""=never)
- echam_phy_config(1)%dt_rad = "${radTimeStep}"
- echam_phy_config(1)%dt_vdf = "${atmTimeStep}"
- echam_phy_config(1)%dt_cnv = "${atmTimeStep}"
- echam_phy_config(1)%dt_cld = "${atmTimeStep}"
- echam_phy_config(1)%dt_gwd = "${atmTimeStep}"
- echam_phy_config(1)%dt_sso = "${atmTimeStep}"
-!
-! atmospheric chemistry (""=never)
- echam_phy_config(1)%dt_mox = "${atmTimeStep}"
- echam_phy_config(1)%dt_car = ""
- echam_phy_config(1)%dt_art = ""
-!
-! surface (.TRUE. or .FALSE.)
- echam_phy_config(1)%ljsb   = ${ljsbach}
- echam_phy_config(1)%lamip  = .FALSE.
- echam_phy_config(1)%lice   = .TRUE.
- echam_phy_config(1)%lmlo   = .FALSE.
- echam_phy_config(1)%llake  = ${llake}
-!
-! fix negative humidity (default=0, no correction)
- echam_phy_config(1)%iqneg_d2p = 0
- echam_phy_config(1)%iqneg_p2d = 0
-/
+%{format_namelist(namelists.NAMELIST_atm, 'echam_phy_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'echam_rad_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'echam_sso_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'echam_vdf_nml')}
@@ -843,12 +785,7 @@ EOF
 # ---------------
 
 cat > ${lnd_namelist} << EOF
-&jsb_model_nml
-  usecase              = "${jsbach_usecase}"
-  use_lakes            = ${llake}
-  fract_filename       = "bc_land_frac.nc"
-  output_tiles         = ${output_tiles}     ! List of tiles to output
-/
+%{format_namelist(namelists.NAMELIST_lnd, 'jsb_model_nml')}
 &jsb_seb_nml
   bc_filename          = 'bc_land_phys.nc'
   ic_filename          = 'ic_land_soil.nc'
@@ -913,65 +850,6 @@ EOF
 # Define the atmosphere and land input
 # ------------------------------------
 
-# model files
-#
-add_link_file ${MODEL_DIR}/data/lsdata.nc                                 ./
-add_link_file ${MODEL_DIR}/data/ECHAM6_CldOptProps.nc                     ./
-
-# dictionary file for output variable names
-#
-dict_file="dict.${EXPNAME}"
-add_required_file ${MODEL_DIR}/run/dict.iconam.mpim                       ./${dict_file}
-
-# initial conditions
-#
-# - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${atmo_data_InputFolder}/initial_condition/r0002
-add_link_file ${datadir}/ifs2icon_1979010100_${atmos_refinement}_G.nc   ./ifs2icon.nc
-#
-# - land: source?, date+time?
-datadir=${atmo_data_InputFolder}/land/r0003
-add_link_file ${datadir}/ic_land_soil_1992.nc                           ./ic_land_soil.nc
-
-# boundary conditions
-#
-# - ozone
-# -- for irad_o3=8
-#
-datadir=${atmo_data_InputFolder}/ozone/r0002
-#
-add_link_file ${datadir}/bc_ozone_picontrol.nc                          ./bc_ozone.nc
-#
-# - sst and sic
-#
-datadir=${atmo_data_InputFolder}/sst_and_seaice/r0002
-#
-add_link_file ${datadir}/bc_sic_1979_2016.nc                            ./bc_sic.nc
-add_link_file ${datadir}/bc_sst_1979_2016.nc                            ./bc_sst.nc
-#
-# - ssi and tsi
-#
-datadir=${icon_data_poolFolder}/independent/solar_radiation/3.2
-#
-add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc          ./bc_solar_irradiance_sw_b14.nc
-#
-# - land parameters
-#
-datadir=${atmo_data_InputFolder}/land/r0003
-#
-add_link_file ${datadir}/bc_land_frac_${pft_file_tag}1992.nc            ./bc_land_frac.nc
-add_link_file ${datadir}/bc_land_phys_1992.nc                           ./bc_land_phys.nc
-add_link_file ${datadir}/bc_land_soil_1992.nc                           ./bc_land_soil.nc
-add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_land_sso.nc
-#
-# - HD model input by Tom Riddick
-#
-datadir=/work/mh0727/m300732/input/hd       # FIXME move hdpara file to pool directory and adapt path
-add_link_file $datadir/hdpara_r2b3_0030_0036_no_sinks_half_frac_lnd_adjusted.nc     ./bc_land_hd.nc
-#
-# - lctlib file for JSBACH
-#
-add_link_file ${MODEL_DIR}/externals/jsbach/data/lctlib_nlct21.def        ./lctlib_nlct21.def
 #
 # - HD mask for interpolation of runoff
 #
@@ -1660,6 +1538,9 @@ for gridfile in ${all_grids}; do
   fi
 done
 #-----------------------------------------------------------------------------
+
+%{format_files(files, 'yr', 'y0', 'yN')}
+
 # print_required_files
 copy_required_files
 link_required_files
