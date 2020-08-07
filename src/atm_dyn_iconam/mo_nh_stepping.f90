@@ -266,7 +266,8 @@ MODULE mo_nh_stepping
 
   PUBLIC :: perform_nh_stepping
 
-  TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
+  TYPE(t_sst_sic_reader), TARGET :: sst_reader
+  TYPE(t_sst_sic_reader), TARGET :: sic_reader
   TYPE(t_time_intp)      :: sst_intp
   TYPE(t_time_intp)      :: sic_intp
   REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
@@ -349,6 +350,8 @@ MODULE mo_nh_stepping
       ENDDO
     END IF
 
+    ! Does this really work for nested setups, or does it rather require domain specific 
+    ! objects like sst/sic_reader(jg), sst/sic_intp(jg)?
     IF (sstice_mode == SSTICE_INST) THEN
       DO jg = 1, n_dom
         month = mtime_current%date%month
@@ -376,16 +379,16 @@ MODULE mo_nh_stepping
 
         ENDIF
 
-        CALL sst_sic_reader%init(p_patch(jg), sst_td_filename)
-        CALL sst_intp%init(sst_sic_reader, mtime_current, "SST")
+        CALL sst_reader%init(p_patch(jg), sst_td_filename)
+        CALL sst_intp%init(sst_reader, mtime_current, "SST")
         CALL sst_intp%intp(mtime_current, sst_dat)
 
         WHERE (sst_dat(:,1,:,1) > 0.0_wp)
           p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
         END WHERE
 
-        CALL sst_sic_reader%init(p_patch(jg), ci_td_filename)
-        CALL sic_intp%init(sst_sic_reader, mtime_current, "SIC")
+        CALL sic_reader%init(p_patch(jg), ci_td_filename)
+        CALL sic_intp%init(sic_reader, mtime_current, "SIC")
         CALL sic_intp%intp(mtime_current, sic_dat)
 
         WHERE (sic_dat(:,1,:,1) < frsi_min)
@@ -3301,7 +3304,8 @@ MODULE mo_nh_stepping
       &    'deallocation for linit_dyn failed' )
   ENDIF
 
-  CALL sst_sic_reader%deinit 
+  CALL sst_reader%deinit 
+  CALL sic_reader%deinit 
 
   END SUBROUTINE deallocate_nh_stepping
   !-------------------------------------------------------------------------
