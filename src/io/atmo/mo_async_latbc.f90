@@ -1234,29 +1234,34 @@ MODULE mo_async_latbc
     !  This routine has to be called by all PEs (work and prefetch)
     !
 #ifndef NOMPI
-    SUBROUTINE replicate_data_on_pref_proc(var_data, bcast_root)
+    SUBROUTINE replicate_data_on_pref_proc(var_data, bc_root)
       TYPE(t_var_metadata_ptr), ALLOCATABLE, INTENT(out) :: var_data(:)
-      INTEGER,             INTENT(IN) :: bcast_root
-      CHARACTER(len=*), PARAMETER   :: routine = modname//"::replicate_data_on_pref_proc"
-      INTEGER                       :: i2, all_nvars
-      LOGICAL                       :: lIsSender, lIsReceiver
+      INTEGER, INTENT(IN) :: bc_root
+      INTEGER :: i, nvar
+      LOGICAL :: send, recv
       TYPE(t_list_element), POINTER :: element
       TYPE(t_packedMessage) :: pmsg
 
-      CALL p_get_bcast_role(bcast_root, p_comm_work_2_pref, lIsSender, lIsReceiver)
-      IF(lIsSender) CALL vl_register%packer(kPackOp, pmsg, .FALSE.)
-      CALL pmsg%bcast(bcast_root, p_comm_work_2_pref)
-      IF(lIsReceiver) CALL vl_register%packer(kUnpackOp, pmsg, .FALSE., all_nvars)
-      ALLOCATE(var_data(all_nvars))
-      i2 = 0
+      CALL p_get_bcast_role(bc_root, p_comm_work_2_pref, send, recv)
+      IF (send) CALL vl_register%packer(kPackOp, pmsg, .FALSE., nvar)
+      CALL pmsg%bcast(bc_root, p_comm_work_2_pref)
+      IF (recv) THEN
+        CALL vl_register%packer(kUnpackOp, pmsg, .FALSE., nvar)
+      ELSE
+        CALL p_bcast(nvar, 0, comm=p_comm_work)
+      END IF
+      ALLOCATE(var_data(nvar))
+      i = 0
       DO WHILE(vl_iter%next())
         element => vl_iter%cur%p%first_list_element
         DO WHILE (ASSOCIATED(element))
-          i2 = i2 + 1
-          var_data(i2)%p => element%field%info
+          i = i + 1
+          var_data(i)%p => element%field%info
           element => element%next_list_element
         END DO
       END DO
+      IF (i .NE. nvar) &
+        & CALL finish(modname//"::replicate_data_on_pref_proc", "inconsistent var counts")
     END SUBROUTINE replicate_data_on_pref_proc
 
 
