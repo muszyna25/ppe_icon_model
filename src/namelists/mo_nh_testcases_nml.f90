@@ -68,7 +68,8 @@ MODULE mo_nh_testcases_nml
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale, tpe_mu,      & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y,      &
-    &       tracer_inidist_list, zp_ape, ztmc_ape
+    &       tracer_inidist_list, zp_ape, ztmc_ape, is_dry_cbl, isrfc_type,   &
+    &       shflx, lhflx, ufric
 
   PUBLIC :: dcmip_bw
   PUBLIC :: is_toy_chem, toy_chem
@@ -111,6 +112,12 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 
+
+  LOGICAL  :: is_dry_cbl             ! switch for dry convective boundary layer simulations
+  INTEGER  :: isrfc_type             ! 0:No effect, 1:fixed surface  heat fluxes
+  REAL(wp) :: shflx                  ! Kinematic sensible heat flux at surface (K m/s) for isrfc_type=1
+  REAL(wp) :: lhflx                  ! Kinematic latent heat flux at surface (m/s) for isrfc_type=1
+  REAL(wp) :: ufric
 
   !Linear profiles of variables for LES testcases
   REAL(wp) :: u_cbl(2)   !u_cbl(1) = constant, u_cbl(2) = gradient
@@ -185,7 +192,8 @@ MODULE mo_nh_testcases_nml
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
                             bubctr_y, is_toy_chem, toy_chem, dcmip_bw,       &
-                            tracer_inidist_list, lahade
+                            tracer_inidist_list, lahade, is_dry_cbl,         &
+                            isrfc_type, shflx, lhflx, ufric
 
   ! Non-namelist-variables
   LOGICAL :: ltestcase_update  ! Is current testcase subject to update during integration?
@@ -253,6 +261,11 @@ MODULE mo_nh_testcases_nml
     ztmc_ape               = 25.006_wp
     sol_const              = 1361.371_wp ! [W/m2] default value for amip
     zenithang              = 38._wp ! value used for Popke et al. exps with no diurn cycle
+    is_dry_cbl             = .FALSE.
+    isrfc_type             = 0
+    shflx                  = 0.1_wp
+    lhflx                  = 0.0_wp
+    ufric                  = 0.45_wp
     ! assuming that default is on triangles the next switch is set
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
