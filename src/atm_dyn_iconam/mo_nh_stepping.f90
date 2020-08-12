@@ -3145,20 +3145,39 @@ MODULE mo_nh_stepping
   !> Auxiliary routine to encapsulate initialization of exner_pr variable
   !!
   SUBROUTINE init_exner_pr(jg, nnow)
-
-    INTEGER, INTENT(IN) :: jg   ! domain ID
-    INTEGER, INTENT(IN) :: nnow ! time step indicator
-
-
+    INTEGER, INTENT(IN) :: jg, nnow ! domain ID / time step indicator
 #ifndef _OPENACC
-!$OMP PARALLEL
+    INTEGER :: i,j,k,ie,je,ke
 #endif
-    CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
-         p_nh_state(jg)%diag%exner_pr)
-#ifndef _OPENACC
+! HB: every OMP-thread creates full-sized implicit arrays to hold intermediate results
+! of expression in argument of copy()
+!    CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
+!         p_nh_state(jg)%diag%exner_pr)
+#ifdef _OPENACC
+    CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp),
+    &         p_nh_state(jg)%diag%exner_pr)
+#else
+   ie = SIZE(p_nh_state(jg)%diag%exner_pr, 1)
+   je = SIZE(p_nh_state(jg)%diag%exner_pr, 2)
+   ke = SIZE(p_nh_state(jg)%diag%exner_pr, 3)
+!$OMP PARALLEL
+#if (defined(_CRAYFTN))
+!$OMP DO PRIVATE(i,j,k)
+#else
+!$OMP DO COLLAPSE(3) PRIVATE(i,j,k)
+#endif
+   DO k = 1, ke
+     DO j = 1, je
+       DO i = 1, ie
+         p_nh_state(jg)%diag%exner_pr(i,j,k) = &
+           & p_nh_state(jg)%prog(nnow)%exner(i,j,k) - &
+           & REAL(p_nh_state(jg)%metrics%exner_ref_mc(i,j,k), wp)
+       END DO
+     END DO
+   END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #endif
-
   END SUBROUTINE init_exner_pr
 
   !-------------------------------------------------------------------------
