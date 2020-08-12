@@ -156,7 +156,7 @@ CONTAINS
     LOGICAL, INTENT(IN)          ::   &             !< physics package time control (switches)
          &                          lcall_phy_jg(:) !< for domain jg
     LOGICAL, INTENT(IN)          :: linit           !< .TRUE. if initialization call (this switch is currently used
-                                                    !  to call turbtran in addition to the slow-physics routines
+                                                    !  to call turbtran in addition to the slow-physics routines)
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics

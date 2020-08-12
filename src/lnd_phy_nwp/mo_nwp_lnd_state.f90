@@ -1123,7 +1123,8 @@ MODULE mo_nwp_lnd_state
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_snow_lk'//suffix, p_prog_wtr%t_snow_lk,  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,     &
-           & tlev_source=TLEV_NNOW_RCF)
+           & tlev_source=TLEV_NNOW_RCF, lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%t_snow_lk)
 
 
       ! p_prog_wtr%h_snow_lk(nproma,nblks_c)
@@ -1131,34 +1132,41 @@ MODULE mo_nwp_lnd_state
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'h_snow_lk'//suffix, p_prog_wtr%h_snow_lk,  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,     &
-           & tlev_source=TLEV_NNOW_RCF)
+           & tlev_source=TLEV_NNOW_RCF, lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%h_snow_lk)
 
 
       ! p_prog_wtr%t_mnw_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_mnw_lk', 'K', 'mean temperature of the water column', datatype_flt)
       grib2_desc = grib2_var(1, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
       &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
-      CALL add_var( prog_list, vname_prefix//'t_mnw_lk'//suffix, p_prog_wtr%t_mnw_lk,                               &
-           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana") )
+      CALL add_var( prog_list, vname_prefix//'t_mnw_lk'//suffix, p_prog_wtr%t_mnw_lk,                                 &
+           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF,   &
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana"), &
+           & lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%t_mnw_lk)
 
 
       ! p_prog_wtr%t_wml_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_wml_lk', 'K', 'mixed-layer temperature', datatype_flt)
       grib2_desc = grib2_var(1, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
         &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
-      CALL add_var( prog_list, vname_prefix//'t_wml_lk'//suffix, p_prog_wtr%t_wml_lk,                             &
-           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana") )
+      CALL add_var( prog_list, vname_prefix//'t_wml_lk'//suffix, p_prog_wtr%t_wml_lk,                                 &
+           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF,     &
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana"), &
+           & lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%t_wml_lk)
 
 
       ! p_prog_wtr%h_ml_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('h_ml_lk', 'm', 'mixed-layer thickness', datatype_flt)
       grib2_desc = grib2_var(1, 2, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
         &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
-      CALL add_var( prog_list, vname_prefix//'h_ml_lk'//suffix, p_prog_wtr%h_ml_lk,                               &
-           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana") )
+      CALL add_var( prog_list, vname_prefix//'h_ml_lk'//suffix, p_prog_wtr%h_ml_lk,                                   &
+           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF,     &
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana"), &
+           & lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%h_ml_lk)
 
 
       ! p_prog_wtr%t_bot_lk(nproma,nblks_c)
@@ -1167,7 +1175,9 @@ MODULE mo_nwp_lnd_state
       grib2_desc = grib2_var(1, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_bot_lk'//suffix, p_prog_wtr%t_bot_lk,                                    &
            & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM_HALF, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana") )
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana"),    &
+           & lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%t_bot_lk)
 
 
       ! p_prog_wtr%c_t_lk(nproma,nblks_c)
@@ -1175,9 +1185,11 @@ MODULE mo_nwp_lnd_state
         &          datatype_flt)
       grib2_desc = grib2_var(1, 2, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
         &           + t_grib2_int_key("typeOfSecondFixedSurface", 162)
-      CALL add_var( prog_list, vname_prefix//'c_t_lk'//suffix, p_prog_wtr%c_t_lk,                                 &
-           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
-           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana") )
+      CALL add_var( prog_list, vname_prefix//'c_t_lk'//suffix, p_prog_wtr%c_t_lk,                                     &
+           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF,     &
+           & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in","mode_iniana"), &
+           & lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%c_t_lk)
 
 
       ! p_prog_wtr%t_b1_lk(nproma,nblks_c)
@@ -1187,7 +1199,8 @@ MODULE mo_nwp_lnd_state
       grib2_desc = grib2_var(1, 2, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_b1_lk'//suffix, p_prog_wtr%t_b1_lk, &
            & GRID_UNSTRUCTURED_CELL, ZA_SEDIMENT_BOTTOM_TW_HALF, cf_desc,           &
-           & grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF)
+           & grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%t_b1_lk)
 
 
       ! p_prog_wtr%h_b1_lk(nproma,nblks_c)
@@ -1195,8 +1208,10 @@ MODULE mo_nwp_lnd_state
         &          'thickness of the upper layer of the sediments', datatype_flt)
       grib2_desc = grib2_var(1, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
       &           + t_grib2_int_key("typeOfSecondFixedSurface", 165)
-      CALL add_var( prog_list, vname_prefix//'h_b1_lk'//suffix, p_prog_wtr%h_b1_lk,                                 &
-           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF)
+      CALL add_var( prog_list, vname_prefix//'h_b1_lk'//suffix, p_prog_wtr%h_b1_lk,      &
+           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, &
+           & tlev_source=TLEV_NNOW_RCF, lopenacc=.TRUE. )   
+      __acc_attach(p_prog_wtr%h_b1_lk)
 
     ENDIF  ! llake
 
@@ -1338,7 +1353,8 @@ MODULE mo_nwp_lnd_state
            & initval=0._wp,                                                    &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_ana_in",&
            &                 "mode_iau_old_ana_in","mode_combined_in",         &
-           &                 "mode_iniana") )
+           &                 "mode_iniana"), lopenacc=.TRUE. )      
+    __acc_attach(p_diag_lnd%fr_seaice)
 
 
 
