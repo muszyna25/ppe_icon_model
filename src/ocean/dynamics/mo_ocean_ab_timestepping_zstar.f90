@@ -129,10 +129,9 @@ MODULE mo_ocean_ab_timestepping_zstar
 ! left-hand-side object (free ocean surface)
 ! communication infrastructure object (free ocean surface)
   TYPE(t_trivial_transfer), TARGET :: free_sfc_solver_trans_triv
-  TYPE(t_surface_height_lhs), TARGET :: free_sfc_solver_lhs
   TYPE(t_subset_transfer), TARGET :: free_sfc_solver_trans_sub
     
-  TYPE(t_surface_height_lhs_zstar), TARGET :: lhs_sh 
+  TYPE(t_surface_height_lhs_zstar), TARGET :: lhs_zstar
 !
  
   !-------------------------------------------------------------------------
@@ -402,10 +401,8 @@ CONTAINS
     IF (free_sfc_solver%is_init) RETURN
     patch_2D => patch_3d%p_patch_2d(1)
     
-    CALL lhs_sh%construct(patch_3d, ocean_state%p_diag%thick_e, &
+    CALL lhs_zstar%construct(patch_3d, ocean_state%p_diag%thick_e, &
       & op_coeffs, solverCoeff_sp, str_e)
-    CALL free_sfc_solver_lhs%construct(patch_3d, ocean_state%p_diag%thick_e, &
-      & op_coeffs, solverCoeff_sp)
 
 !prepare init of solver
     CALL par%init(solve_precon_none, 1, 800, patch_2d%cells%in_domain%end_block, &
@@ -452,11 +449,11 @@ CONTAINS
     SELECT CASE(select_transfer)
     CASE(0) ! all ocean workers are involved in solving (input is just copied to internal arrays)
       CALL free_sfc_solver_trans_triv%construct(solve_cell, patch_2D) ! solve only on a subset of workers
-      CALL free_sfc_solver%construct(sol_type, par, par_sp, free_sfc_solver_lhs, free_sfc_solver_trans_triv)
+      CALL free_sfc_solver%construct(sol_type, par, par_sp, lhs_zstar, free_sfc_solver_trans_triv)
     CASE DEFAULT ! solve only on a subset of workers
       trans_mode = MERGE(solve_trans_compact, solve_trans_scatter, select_transfer .GT. 0)
       CALL free_sfc_solver_trans_sub%construct(solve_cell, patch_2D, ABS(select_transfer), trans_mode)
-      CALL free_sfc_solver%construct(sol_type, par, par_sp, free_sfc_solver_lhs, free_sfc_solver_trans_sub)
+      CALL free_sfc_solver%construct(sol_type, par, par_sp, lhs_zstar, free_sfc_solver_trans_sub)
     END SELECT
 
   END SUBROUTINE init_free_sfc
@@ -1046,7 +1043,7 @@ CONTAINS
       CALL fill_rhs4surface_eq_zstar(patch_3d, ocean_state(1), operators_coefficients, stretch_e, eta_c)
 
       !! Update stretching co-efficient for LHS
-      CALL lhs_sh%update(stretch_e)
+      CALL lhs_zstar%update(stretch_e)
 
       ! Solve surface equation with solver
 
