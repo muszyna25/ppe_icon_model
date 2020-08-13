@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -eu
+unset CDPATH
 
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
@@ -31,12 +32,7 @@ FCFLAGS='-g -O -Mrecursive -Mallocatable=03 -acc=verystrict -ta=nvidia:cc60 -Min
 
 LDFLAGS="-L${GCC_PATH}/snos/lib64 -L${XML2_ROOT}/lib"
 
-# ICON executable will be linked to /opt/cray/pe/lib64/libmpichf90_pgi.so.3,
-# which depends on libomptarget.so but doesn't have an RPATH to it. For this
-# reason, it becomes impossible to run the executable without setting
-# LD_LIBRARY_PATH in advance (e.g. by loading an environment module). To solve
-# this issue, we overlink to libomptarget.so so that it can be found through
-# RPATH entries of the executable, which are injected by the compiler.
+# We need to overlink to libomptarget.so (see config/cscs/README.md):
 LIBS="-lomptarget -Wl,--as-needed ${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${STDCPP_LIBS}"
 
 CLAW='/project/d56/install/daint/claw/v2.0.1/pgi/bin/clawfc'
@@ -80,13 +76,12 @@ for arg in "$@"; do
   esac
 done
 
-# Generate input file for runscript generation:
-./config.status --file=run/set-up.info
-
 # Copy runscript-related files when building out-of-source:
 if test $(pwd) != $(cd "${ICON_DIR}"; pwd); then
   echo "Copying runscript input files from the source directory..."
-  rsync -uavz ${ICON_DIR}/run . --exclude='*in' --exclude='.*'
+  rsync -uavz ${ICON_DIR}/run . --exclude='*.in' --exclude='.*' --exclude='standard_*'
+  ln -sf -t run/ ${ICON_DIR}/run/standard_*
+  ln -sf set-up.info run/SETUP.config
   rsync -uavz ${ICON_DIR}/externals . --exclude='.git' --exclude='*.f90' --exclude='*.F90' --exclude='*.c' --exclude='*.h' --exclude='*.Po' --exclude='tests' --exclude='rrtmgp*.nc' --exclude='*.mod' --exclude='*.o'
   rsync -uavz ${ICON_DIR}/make_runscripts .
   ln -sf ${ICON_DIR}/data

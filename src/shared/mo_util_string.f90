@@ -23,6 +23,9 @@ MODULE mo_util_string
   ! Note: This file must not use mo_exception:finish() to avoid a circular dependency.
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
   USE mo_util_sort,      ONLY: quicksort
+#ifdef __SX__
+  USE mo_util_sort,      ONLY: radixsort
+#endif
   IMPLICIT NONE
   !
   PRIVATE
@@ -125,11 +128,14 @@ CONTAINS
     CHARACTER(len=LEN_TRIM(uppercase)) :: tolower
     !
     INTEGER, PARAMETER :: idel = ICHAR('a')-ICHAR('A')
-    INTEGER :: i
+    INTEGER, PARAMETER :: ia = ICHAR('A')
+    INTEGER, PARAMETER :: iz = ICHAR('Z')
+    INTEGER :: i, ic
     !
     DO i = 1, LEN_TRIM(uppercase)
-      IF (ICHAR(uppercase(i:i)) >= ICHAR('A') .AND. ICHAR(uppercase(i:i)) <= ICHAR('Z')) THEN
-        tolower(i:i) = CHAR( ICHAR(uppercase(i:i)) + idel )
+      ic = ICHAR(uppercase(i:i))
+      IF (ic >= ia .AND. ic <= iz) THEN
+        tolower(i:i) = CHAR(ic + idel)
       ELSE
         tolower(i:i) = uppercase(i:i)
       ENDIF
@@ -145,11 +151,14 @@ CONTAINS
     CHARACTER(len=LEN_TRIM(lowercase)) :: toupper
     !
     INTEGER, PARAMETER :: idel = ICHAR('A')-ICHAR('a')
-    INTEGER :: i
+    INTEGER, PARAMETER :: ia = ICHAR('a')
+    INTEGER, PARAMETER :: iz = ICHAR('z')
+    INTEGER :: i, ic
     !
     DO i = 1, LEN_TRIM(lowercase)
-      IF (ICHAR(lowercase(i:i)) >= ICHAR('a') .AND. ICHAR(lowercase(i:i)) <= ICHAR('z')) THEN
-        toupper(i:i) = CHAR( ICHAR(lowercase(i:i)) + idel )
+      ic = ICHAR(lowercase(i:i))
+      IF (ic >= ia .AND. ic <= iz) THEN
+        toupper(i:i) = CHAR(ic + idel)
       ELSE
         toupper(i:i) = lowercase(i:i)
       ENDIF
@@ -722,7 +731,11 @@ CONTAINS
     N = SIZE(idx_list)
     list(:) = idx_list(:)
     ! sort the list
+#ifdef __SX__
+    CALL radixsort(list)
+#else
     CALL quicksort(list)
+#endif
     ! find out, how many direct successors follow:
     j        = 1
     nnext(:) = 0

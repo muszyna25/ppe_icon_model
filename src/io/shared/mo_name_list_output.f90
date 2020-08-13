@@ -94,7 +94,6 @@ MODULE mo_name_list_output
   USE mo_exception,                 ONLY: finish, message, message_text
   USE mo_util_string,               ONLY: t_keyword_list, associate_keyword, with_keywords,         &
   &                                       int2string
-  USE mo_dictionary,                ONLY: dict_finalize
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_output, ltimer,      &
     &                                     print_timer
   USE mo_level_selection_types,     ONLY: t_level_selection
@@ -114,13 +113,13 @@ MODULE mo_name_list_output
        num_io_procs, io_proc_chunk_size, nproma, pio_type
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
-  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
+  USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC, POST_OP_LIN2DBZ
   USE mo_reorder_info,              ONLY: t_reorder_info
   USE mo_name_list_output_types,    ONLY: t_output_file, icell, iedge, ivert, &
     &                                     msg_io_start, msg_io_done, &
     &                                     msg_io_meteogram_flush, &
     &                                     msg_io_shutdown, all_events, &
-    &                                     t_var_desc
+    &                                     t_var_desc, t_output_name_list
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
   USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
@@ -194,6 +193,7 @@ MODULE mo_name_list_output
   PUBLIC :: write_name_list_output
   PUBLIC :: close_name_list_output
   PUBLIC :: istime4name_list_output
+  PUBLIC :: istime4name_list_output_dom
   PUBLIC :: name_list_io_main_proc
   PUBLIC :: write_ready_files_cdipio
 
@@ -358,7 +358,11 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
     IF (use_async_name_list_io .AND. my_process_is_work()) THEN
       !-- compute PEs (senders):
+#if defined (__SX__) || defined (__NEC_VH__)
+      CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
+#else
       CALL compute_final_wait_for_async_io
+#endif
       CALL compute_shutdown_async_io()
 
     ELSE IF (.NOT. my_process_is_mpi_test()) THEN
@@ -412,8 +416,8 @@ CONTAINS
     DEALLOCATE(output_file)
 
     ! destroy variable name dictionaries:
-    CALL dict_finalize(varnames_dict)
-    CALL dict_finalize(out_varnames_dict)
+    CALL varnames_dict%finalize()
+    CALL out_varnames_dict%finalize()
 
   END SUBROUTINE close_name_list_output
 
@@ -968,7 +972,7 @@ CONTAINS
 
       ipost_op_type = info%post_op%ipost_op_type
       post_op_apply &
-           = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
+        = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc .OR. ipost_op_type == post_op_lin2dbz
       IF ( post_op_apply ) THEN
 #ifdef _OPENACC
         CALL finish(routine,'perform_post_op not supported on GPUs')
@@ -2497,6 +2501,39 @@ CONTAINS
   END FUNCTION istime4name_list_output
 
 
+ !------------------------------------------------------------------------------------------------
+  !> Returns if it is time for output of a particular variable at a particular output step on a particular domain
+  !  Please note:
+  !  This function returns .TRUE. whenever the variable is due for output in any name list
+  !  at the simulation step @p jstep for the domain @p jg.
+  !
+  FUNCTION istime4name_list_output_dom(jg, jstep)
+    LOGICAL                      :: istime4name_list_output_dom
+    INTEGER, INTENT(IN)          :: jg         !< domain index
+    INTEGER, INTENT(IN)          :: jstep      !< simulation time step
+    ! local variables
+    INTEGER :: i
+    LOGICAL :: ret
+    TYPE(t_output_name_list), POINTER :: p_onl      !< output name list
+
+    ret = .FALSE.
+    IF (ALLOCATED(output_file)) THEN
+       ! note: there may be cases where no output namelist has been
+       ! defined. thus we must check if "output_file" has been
+       ! allocated.
+       DO i = 1, SIZE(output_file)
+         p_onl => output_file(i)%name_list
+         ret = ret .OR. &
+           ( is_output_step(output_file(i)%out_event, jstep) .AND. &
+             ( p_onl%dom == jg .OR. p_onl%dom == -1 )              &
+           )
+         IF (ret) EXIT
+       END DO
+    END IF
+    istime4name_list_output_dom = ret
+  END FUNCTION istime4name_list_output_dom
+
+
   !------------------------------------------------------------------------------------------------
   !------------------------------------------------------------------------------------------------
   ! The following routines are only needed for asynchronous IO
@@ -2694,16 +2731,13 @@ CONTAINS
   !  @note This subroutine is called by asynchronous I/O PEs only.
   !
 #ifndef NOMPI
-#ifdef __INTEL_COMPILER
-#define __MPI3_OSC
-#endif
   SUBROUTINE io_proc_write_name_list(of, is_first_write)
 
 #ifdef __SUNPRO_F95
     INCLUDE "mpif.h"
 #else
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
-#ifdef __MPI3_OSC
+#ifndef NO_MPI_RGET
     USE mpi, ONLY: MPI_STATUS_IGNORE, MPI_STATUSES_IGNORE, MPI_REQUEST_NULL
 #endif
 #endif
@@ -2720,6 +2754,7 @@ CONTAINS
     INTEGER                        :: voff(0:num_work_procs-1), nv_off_np(0:num_work_procs)
     REAL(sp), ALLOCATABLE          :: var1_sp(:), var3_sp(:)
     REAL(dp), ALLOCATABLE          :: var1_dp(:), var3_dp(:)
+
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_var_metadata)          :: updated_info
     TYPE(t_reorder_info) , POINTER :: p_ri
@@ -2727,12 +2762,11 @@ CONTAINS
     INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
-      &                               this_chunk_nlevs, ilev
-#ifdef __MPI3_OSC
+      &                               this_chunk_nlevs, ilev, chunk_size
+#ifndef NO_MPI_RGET
     INTEGER, PARAMETER             :: req_pool_size = 16
     INTEGER                        :: mver_mpi, sver_mpi, &
       &                               req_pool(req_pool_size), req_next, req_rampup
-    LOGICAL                        :: have_LOCKALL
 #endif
 
     !-- for timing
@@ -2746,14 +2780,6 @@ CONTAINS
       WRITE (0, '(a,i0,a)') '#################### I/O PE ',p_pe,' starting I/O at '//ctime
     END IF
     CALL interval_start(TRIM(get_current_filename(of%out_event)))
-#ifdef __MPI3_OSC
-    CALL MPI_Get_version(mver_mpi, sver_mpi, mpierr)
-    IF ( mver_mpi .GT. 3) THEN
-      have_LOCKALL = .true.
-    ELSE
-      have_LOCKALL = .false.
-    ENDIF
-#endif
 
     t_get   = 0.d0
     t_write = 0.d0
@@ -2789,15 +2815,15 @@ CONTAINS
 
     ! if no valid io_proc_chunk_size has been set by the parallel name list
     IF (io_proc_chunk_size <= 0) THEN
-      io_proc_chunk_size = nlev_max
+      chunk_size = nlev_max
     ELSE
-      io_proc_chunk_size = MIN(nlev_max, io_proc_chunk_size)
+      chunk_size = MIN(nlev_max, io_proc_chunk_size)
     END IF
 
     IF (use_dp_mpi2io) THEN
-      ALLOCATE(var1_dp(nval*io_proc_chunk_size), STAT=ierrstat)
+      ALLOCATE(var1_dp(nval*chunk_size), STAT=ierrstat)
     ELSE
-      ALLOCATE(var1_sp(nval*io_proc_chunk_size), STAT=ierrstat)
+      ALLOCATE(var1_sp(nval*chunk_size), STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -2807,18 +2833,17 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     CALL MPI_Win_lock(MPI_LOCK_SHARED, 0, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
-    CALL MPI_Get(bufr_metainfo, SIZE(bufr_metainfo), p_int, 0, &
-      &          0_MPI_ADDRESS_KIND, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
-    CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
 
+    CALL MPI_Get(bufr_metainfo, SIZE(bufr_metainfo), p_int, 0, &
+      &      0_MPI_ADDRESS_KIND, SIZE(bufr_metainfo), p_int, of%mem_win%mpi_win_metainfo, mpierr)
+    CALL MPI_Win_unlock(0, of%mem_win%mpi_win_metainfo, mpierr)
     ! Go over all name list variables for this output file
 
     ioff(:) = 0_MPI_ADDRESS_KIND
 
-#ifdef __MPI3_OSC
-    IF (have_LOCKALL) THEN
-      CALL MPI_Win_lock_all(MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
-    ENDIF
+#ifndef NO_MPI_RGET
+    req_pool(:) = MPI_REQUEST_NULL
+    CALL MPI_Win_lock_all(MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
 #endif
 
     DO iv = 1, of%num_vars
@@ -2904,6 +2929,7 @@ CONTAINS
 
       t_0 = p_mpi_wtime() ! performance measurement
       have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+
       IF (use_dp_mpi2io .OR. have_GRIB) THEN
         ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
       ELSE
@@ -2913,22 +2939,21 @@ CONTAINS
       t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
 
       ! no. of chunks of levels (each of size "io_proc_chunk_size"):
-      nchunks = (nlevs-1)/io_proc_chunk_size + 1
+      nchunks = (nlevs-1)/chunk_size + 1
+
       ! loop over all chunks (of levels)
       DO ichunk=1,nchunks
 
-        chunk_start       = (ichunk-1)*io_proc_chunk_size + 1
-        chunk_end         = MIN(chunk_start+io_proc_chunk_size-1, nlevs)
+        chunk_start       = (ichunk-1)*chunk_size + 1
+        chunk_end         = MIN(chunk_start+chunk_size-1, nlevs)
         this_chunk_nlevs  = (chunk_end - chunk_start + 1)
 
         ! Retrieve part of variable from every worker PE using MPI_Get
         nv_off  = 0
-#ifdef __MPI3_OSC
-        IF (have_LOCKALL) THEN
-          t_0 = p_mpi_wtime()
-          req_next = 0
-          req_rampup = 1
-        ENDIF
+#ifndef NO_MPI_RGET
+        t_0 = p_mpi_wtime()
+        req_next = 0
+        req_rampup = 1
 #endif
         DO np = 0, num_work_procs-1
 
@@ -2937,46 +2962,42 @@ CONTAINS
           ! Number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
 
-#ifdef __MPI3_OSC
-          IF (.NOT.have_LOCKALL) THEN
-#endif
-            t_0 = p_mpi_wtime()
-            CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
-              &               of%mem_win%mpi_win, mpierr)
+#if defined NO_MPI_RGET
+          t_0 = p_mpi_wtime()
+          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
+            &               of%mem_win%mpi_win, mpierr)
 
-            IF (use_dp_mpi2io) THEN
-              CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-                &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
-            ELSE
-              CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-                &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
-            ENDIF
-
-            CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
-            t_get  = t_get  + p_mpi_wtime() - t_0
-#ifdef __MPI3_OSC
+          IF (use_dp_mpi2io) THEN
+            CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+              &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
           ELSE
-            !handle request pool
-            IF (req_rampup .eq. 1) THEN
-              req_next = req_next + 1
-              IF (req_next .GT. req_pool_size) THEN
-                req_rampup = 0
-              ELSE
-                req_pool(req_next) = MPI_REQUEST_NULL
-              ENDIF
-            ENDIF
-            IF (req_rampup .eq. 0) THEN
-              CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
+            CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+              &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
+          ENDIF
+
+          CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
+          t_get  = t_get  + p_mpi_wtime() - t_0
+#else
+          !handle request pool
+          IF (req_rampup .EQ. 1) THEN
+            req_next = req_next + 1
+            IF (req_next .GT. req_pool_size) THEN
+              req_rampup = 0
+            ELSE
               req_pool(req_next) = MPI_REQUEST_NULL
             ENDIF
-            !issue get
-            IF (use_dp_mpi2io) THEN
-              CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-                &          nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
-            ELSE
-              CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-                &          nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
-            ENDIF
+          ENDIF
+          IF (req_rampup .EQ. 0) THEN
+            CALL MPI_Waitany(req_pool_size, req_pool, req_next, MPI_STATUS_IGNORE, mpierr)
+            req_pool(req_next) = MPI_REQUEST_NULL
+          ENDIF
+          !issue get
+          IF (use_dp_mpi2io) THEN
+            CALL MPI_Rget(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+              &          nval, p_real_dp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
+          ELSE
+            CALL MPI_Rget(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+              &          nval, p_real_sp, of%mem_win%mpi_win, req_pool(req_next), mpierr)
           ENDIF
 #endif
           mb_get = mb_get + nval
@@ -2988,11 +3009,9 @@ CONTAINS
           ioff(np) = ioff(np) + INT(nval,i8)
 
         ENDDO
-#ifdef __MPI3_OSC
-        IF (have_LOCKALL) THEN
-          CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
-          t_get  = t_get  + p_mpi_wtime() - t_0
-        ENDIF
+#ifndef NO_MPI_RGET
+        CALL MPI_Waitall(req_pool_size, req_pool, MPI_STATUSES_IGNORE, mpierr)
+        t_get  = t_get  + p_mpi_wtime() - t_0
 #endif
 
         ! compute the total offset for each PE
@@ -3009,7 +3028,7 @@ CONTAINS
           t_0 = p_mpi_wtime() ! performance measurement
 
           IF (use_dp_mpi2io) THEN
-            var3_dp(:) = 0._wp
+            IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_dp(:) = 0._wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
@@ -3019,6 +3038,7 @@ CONTAINS
               src_start = voff(np)+1
               src_end   = voff(np)+p_ri%pe_own(np)
               voff(np)  = src_end
+
               var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
                 var1_dp(src_start:src_end)
             ENDDO
@@ -3027,7 +3047,7 @@ CONTAINS
           ELSE
 
             IF (have_GRIB) THEN
-              var3_dp(:) = 0._wp
+              IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_dp(:) = 0._wp
 
               ! ECMWF GRIB-API/CDI has only a double precision interface at the
               ! date of coding this
@@ -3039,13 +3059,14 @@ CONTAINS
                 src_start = voff(np)+1
                 src_end   = voff(np)+p_ri%pe_own(np)
                 voff(np)  = src_end
+
                 var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
                   REAL(var1_sp(src_start:src_end), dp)
               ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
             ELSE
-              var3_sp(:) = 0._sp
+              IF (nv_off_np(num_work_procs) < p_ri%n_glb) var3_sp(:) = 0._sp
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
               DO np = 0, num_work_procs-1
@@ -3054,6 +3075,7 @@ CONTAINS
                 src_start = voff(np)+1
                 src_end   = voff(np)+p_ri%pe_own(np)
                 voff(np)  = src_end
+
                 var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
                   var1_sp(src_start:src_end)
               ENDDO
@@ -3087,10 +3109,8 @@ CONTAINS
 
     ENDDO ! Loop over output variables
 
-#ifdef __MPI3_OSC
-    IF (have_LOCKALL) THEN
-      CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
-    ENDIF
+#if ! defined NO_MPI_RGET
+    CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
 #endif
     IF (use_dp_mpi2io) THEN
       DEALLOCATE(var1_dp, STAT=ierrstat)
@@ -3098,7 +3118,6 @@ CONTAINS
       DEALLOCATE(var1_sp, STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
     !
     !-- timing report
     !
@@ -3116,7 +3135,11 @@ CONTAINS
     ENDIF
     mb_wr  = mb_wr*4*1.d-6 ! 4 byte since dp output is implicitly converted to sp
     ! writing this message causes a runtime error on the NEC because formatted output to stdio/stderr is limited to 132 chars
+#ifdef __NEC_VH__
+    IF (msg_level >= 8) THEN ! monitoring mode for the migration phase
+#else
     IF (msg_level >= 12) THEN
+#endif
       WRITE (0,'(10(a,f10.3))') &  ! remark: CALL message does not work here because it writes only on PE0
            & ' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
            & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
@@ -3280,7 +3303,11 @@ CONTAINS
       OUTFILE_LOOP : DO i=1,SIZE(output_file)
         io_proc_id = output_file(i)%io_proc_id
         ! Skip this output file if it is not due for output!
+#if defined (__SX__) || defined (__NEC_VH__)
+        IF ((is_output_step(output_file(i)%out_event, jstep) .OR. jstep == WAIT_UNTIL_FINISHED) &
+#else
         IF (is_output_step(output_file(i)%out_event, jstep) &
+#endif
           & .AND. ALL(wait_list(1:nwait_list) /= io_proc_id)) THEN
           nwait_list = nwait_list + 1
           wait_list(nwait_list) = io_proc_id

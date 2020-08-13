@@ -319,7 +319,7 @@ MODULE mo_hdiff
         IF (diffusion_config(k_jg)%lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
 
            CALL nabla2_scalar( pt_new%temp, pt_patch, pt_int, z_cell_val, &
-                               opt_rlstart=3, opt_rlend=min_rlcell )
+             slev=1, elev=UBOUND(pt_new%temp,2), rl_start=3, rl_end=min_rlcell )
 
         ELSE IF (diffusion_config(k_jg)%lhdiff_temp .AND. ltheta_dyn) THEN
 
@@ -345,7 +345,7 @@ MODULE mo_hdiff
 !$OMP END PARALLEL
 
            CALL nabla2_scalar( aux_cell, pt_patch, pt_int, z_cell_val, &
-                               opt_rlstart=3, opt_rlend=min_rlcell )
+                               slev=1, elev=UBOUND(aux_cell,2), rl_start=3, rl_end=min_rlcell )
 
         ENDIF
 
@@ -370,8 +370,9 @@ MODULE mo_hdiff
         IF (diffusion_config(k_jg)%lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
 
            CALL nabla4_scalar( pt_new%temp, pt_patch, pt_int, z_cell_val, &
-                               opt_nabla2=z_nabla2_c, opt_rlstart=4,     &
-                               opt_rlend=min_rlcell )
+                               slev=1, elev=UBOUND(pt_new%temp,2),        &
+                               rl_start=4, rl_end=min_rlcell,             &
+                               p_nabla2=z_nabla2_c )
 
         ELSE IF (diffusion_config(k_jg)%lhdiff_temp .AND. ltheta_dyn) THEN
 
@@ -397,8 +398,9 @@ MODULE mo_hdiff
 !$OMP END PARALLEL
 
            CALL nabla4_scalar( aux_cell, pt_patch, pt_int, z_cell_val, &
-                               opt_nabla2=z_nabla2_c, opt_rlstart=4,     &
-                               opt_rlend=min_rlcell )
+                               slev=1, elev=UBOUND(aux_cell,2),        &
+                               rl_start=4, rl_end=min_rlcell,          &
+                               p_nabla2=z_nabla2_c )
         ENDIF
      END SELECT
 

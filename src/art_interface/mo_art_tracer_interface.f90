@@ -33,7 +33,6 @@ MODULE mo_art_tracer_interface
   USE mo_impl_constants,                ONLY: iecham
   USE mo_radiation_config,              ONLY: irad_o3
   USE mo_echam_rad_config,              ONLY: echam_rad_config
-  USE mo_art_config,                    ONLY: art_config
   USE mtime,                            ONLY: MAX_TIMEDELTA_STR_LEN,                            &
                                           &   timedelta, newTimedelta, deallocateTimedelta,     &
                                           &   getTotalMilliSecondsTimeDelta, getPTStringFromMS
@@ -43,6 +42,7 @@ MODULE mo_art_tracer_interface
 #ifdef __ICON_ART
   USE mo_art_tracer,                    ONLY: art_tracer
   USE mo_art_init,                      ONLY: art_init
+  USE mo_art_diag_state,                ONLY: art_create_diagnostics
 #endif
 
   IMPLICIT NONE
@@ -104,43 +104,47 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix, &
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art_tracInt)
 
-    IF (.NOT. PRESENT(advconf)) THEN
-            CALL finish('mo_art_tracer_interface:art_tracer_interface',  &
-       &      'advconf not present at defcase'//TRIM(defcase))
-    ENDIF
-    IF (.NOT. PRESENT(ptr_arr)) THEN
-            CALL finish('mo_art_tracer_interface:art_tracer_interface',  &
-       &      'ptr_arr not present at defcase'//TRIM(defcase))
-    ENDIF
-    
-    CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
-      
-    IF (TRIM(defcase) .EQ. 'prog') THEN 
-      CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,p_prog=p_prog,timelev=timelev,  &
-        & ldims=ldims, tlev_source=tlev_source)
-    ELSE
-      CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend=phy_tend,              &
-        & ldims=ldims, tlev_source=tlev_source)
-    ENDIF
-    
-    IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN
-      ! set timedelta according to nest level
-      dtime_ms = getTotalMilliSecondsTimeDelta(time_config%tc_dt_model,  &
-        &                                      time_config%tc_exp_refdate)
-      dtime_real = REAL(dtime_ms, wp) / 1000._wp         ! in seconds
-      dtime_real = dtime_real / 2._wp**nest_level
-      dtime_ms   = NINT(dtime_real*1000, i8)
-      CALL getPTStringFromMS(dtime_ms, dtime_string)
-      dt_model => newTimedelta(TRIM(dtime_string))
+    IF (TRIM(defcase) .NE. 'diag') THEN
 
-      IF ( iforcing == iecham) THEN
-        irad_o3 = echam_rad_config(jg)%irad_o3
-      END IF
+      IF (.NOT. PRESENT(advconf)) THEN
+              CALL finish('mo_art_tracer_interface:art_tracer_interface',  &
+         &      'advconf not present at defcase'//TRIM(defcase))
+      ENDIF
+      IF (.NOT. PRESENT(ptr_arr)) THEN
+              CALL finish('mo_art_tracer_interface:art_tracer_interface',  &
+         &      'ptr_arr not present at defcase'//TRIM(defcase))
+      ENDIF
+    
+      CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
+        
+      IF (TRIM(defcase) .EQ. 'prog') THEN 
+        CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,           & 
+          &             p_prog=p_prog,timelev=timelev, ldims=ldims, tlev_source=tlev_source)
+      ELSE
+        CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,    &
+          &             phy_tend=phy_tend, ldims=ldims, tlev_source=tlev_source)
+      ENDIF
 
-      CALL art_init(jg, dt_model, time_config%tc_exp_refdate, &
-        &           this_list,tracer=p_prog%tracer)
-      CALL deallocateTimedelta(dt_model)
-    ENDIF
+      IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
+        ! set timedelta according to nest level
+        dtime_ms = getTotalMilliSecondsTimeDelta(time_config%tc_dt_model,  &
+          &                                      time_config%tc_exp_refdate)
+        dtime_real = REAL(dtime_ms, wp) / 1000._wp         ! in seconds
+        dtime_real = dtime_real / 2._wp**nest_level
+        dtime_ms   = NINT(dtime_real*1000, i8)
+        CALL getPTStringFromMS(dtime_ms, dtime_string)
+        dt_model => newTimedelta(TRIM(dtime_string))
+
+        IF ( iforcing == iecham) THEN
+          irad_o3 = echam_rad_config(jg)%irad_o3
+        END IF
+
+        CALL art_init(jg, dt_model, time_config%tc_exp_refdate, &
+          &           this_list,tracer=p_prog%tracer)
+        CALL deallocateTimedelta(dt_model)
+      ENDIF
+
+    END IF
 
     IF (timers_level > 3) CALL timer_stop(timer_art_tracInt)
   ENDIF ! lart

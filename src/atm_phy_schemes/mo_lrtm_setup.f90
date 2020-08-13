@@ -73,6 +73,7 @@ contains
     real(wp) :: tfn                    !
 
     real(wp), parameter :: expeps = 1.e-20_wp   ! Smallest value for exponential table
+    real(wp), parameter :: maxexp = ABS(LOG(expeps))
 
     ! GZ, 2013-12-04: Turn off vectorization and inlining for the Cray compiler. It generates incorrect code otherwise.
 #ifdef _CRAYFTN
@@ -118,8 +119,11 @@ contains
     do itr = 1, ntbl-1
       tfn = REAL(itr,wp) / REAL(ntbl,wp)
       tau_tbl(itr) = bpade * tfn / (1._wp - tfn)
-      exp_tbl(itr) = exp(-tau_tbl(itr))
-      if (exp_tbl(itr) .le. expeps) exp_tbl(itr) = expeps
+      if (tau_tbl(itr) > maxexp) then
+        exp_tbl(itr) = expeps
+      else
+        exp_tbl(itr) = exp(-tau_tbl(itr))
+      end if
       if (tau_tbl(itr) .lt. 0.06_wp) then
         tfn_tbl(itr) = tau_tbl(itr)/6._wp
       else

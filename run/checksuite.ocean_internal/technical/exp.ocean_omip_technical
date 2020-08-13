@@ -5,10 +5,10 @@
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T00:00:00Z"
-checkpoint_interval="P01D"
+  end_date="2001-01-02T00:00:00Z"
+checkpoint_interval="PT12H"
 restart_interval="P25Y"
-output_interval="PT06H"
+output_interval="PT12H"
 file_interval=${output_interval}
 # restart=".true."
 #-----------------------------------------------------------------------------
@@ -45,7 +45,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600               ! model timestep in seconds
+ dtime       = 300               ! model timestep in seconds
  output      = 'nml'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  profiling_output = 3
@@ -142,7 +142,9 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 600 !  40
 /
 &ocean_vertical_diffusion_nml
-  vert_mix_type                            = 2 ! 1=PP, 2=TKE, 3=KPP
+  vert_mix_type                            = 4  ! 1: PP; 2: TKE; 3: KPP; 4 TKE+IDEMIX
+  only_tke                                 = .false. ! .true. for TKE; .false. for TKE+IDEMIX
+  l_use_idemix_forcing                     = .false. ! .false. should only be used for debugging
   PPscheme_type                            = 4
   velocity_VerticalDiffusion_background    =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   Temperature_VerticalDiffusion_background =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
@@ -186,8 +188,8 @@ cat > ${ocean_namelist} << EOF
   limit_elevation                 = .TRUE.
   !atm_pressure_included_in_ocedyn = .TRUE.   ! use atm. pressure in the ocean dynamics
   !atm_pressure_included_in_icedyn = .TRUE.   ! use atm. pressure in the ice dynamics
-  use_tides                       = .TRUE.
-  tides_mod                       =  1        ! 1 Default 2 MPIOM 
+  use_tides                       = .true.
+  use_tides_SAL                   = .true.
   tide_startdate                  = '2001-01-01 00:00'
   !lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
   !jerlov_atten                    = 0.08      ! jerlov water type IB
@@ -221,4 +223,5 @@ EOF
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_ocean_files
+
 #-----------------------------------------------------------------------------

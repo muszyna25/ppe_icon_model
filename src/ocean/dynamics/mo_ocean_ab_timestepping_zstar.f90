@@ -72,17 +72,17 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_grid_config, ONLY: n_dom
   USE mo_mpi, ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_statistics, ONLY: global_minmaxmean, print_value_location
-  USE mo_ocean_solve, ONLY: t_ocean_solve, ocean_solve_ptr
-  USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen, lhs_agen_ptr
-  USE mo_ocean_solve_transfer, ONLY: t_transfer, transfer_ptr
-  USE mo_ocean_solve_trivial_transfer, ONLY: t_trivial_transfer, trivial_transfer_ptr
-  USE mo_ocean_solve_subset_transfer, ONLY: t_subset_transfer, subset_transfer_ptr
-  USE mo_ocean_solve_aux, ONLY: t_destructible, t_ocean_solve_parm, solve_gmres, solve_cg, solve_mres, &
-   & ocean_solve_clear, solve_precon_none, solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
+  USE mo_ocean_solve, ONLY: t_ocean_solve
+  USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen
+  USE mo_ocean_solve_transfer, ONLY: t_transfer
+  USE mo_ocean_solve_trivial_transfer, ONLY: t_trivial_transfer
+  USE mo_ocean_solve_subset_transfer, ONLY: t_subset_transfer
+  USE mo_ocean_solve_aux, ONLY: t_ocean_solve_parm, solve_gmres, solve_cg, solve_mres, &
+   & solve_precon_none, solve_precon_jac, solve_bcgs, solve_legacy_gmres, &
    & solve_trans_scatter, solve_trans_compact, solve_cell, solve_edge, solve_invalid
-  USE mo_primal_flip_flop_lhs, ONLY: t_primal_flip_flop_lhs, lhs_primal_flip_flop_ptr
-  USE mo_surface_height_lhs, ONLY: t_surface_height_lhs, lhs_surface_height_ptr
-  USE mo_surface_height_lhs_zstar, ONLY: t_surface_height_lhs_zstar, lhs_surface_height_zstar_ptr
+  USE mo_primal_flip_flop_lhs, ONLY: t_primal_flip_flop_lhs
+  USE mo_surface_height_lhs, ONLY: t_surface_height_lhs
+  USE mo_surface_height_lhs_zstar, ONLY: t_surface_height_lhs_zstar
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_sea_ice_types,          ONLY: t_atmos_fluxes, t_sea_ice
   USE mo_name_list_output_init,  ONLY: isRegistered
@@ -105,7 +105,6 @@ MODULE mo_ocean_ab_timestepping_zstar
   USE mo_swr_absorption,     ONLY: dynamic_swr_absorption
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_master_config,          ONLY: isRestart
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
@@ -124,16 +123,16 @@ MODULE mo_ocean_ab_timestepping_zstar
   LOGICAL :: eliminate_upper_diag = .true.
 
 ! solver object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver => NULL()
+  TYPE(t_ocean_solve) :: free_sfc_solver
 ! solver object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver_comp => NULL()
+  TYPE(t_ocean_solve) :: free_sfc_solver_comp
 ! left-hand-side object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver_lhs => NULL()
 ! communication infrastructure object (free ocean surface)
-  CLASS(t_destructible), POINTER :: free_sfc_solver_trans => NULL()
-  CLASS(t_destructible), POINTER :: free_sfc_solver_comp_trans => NULL()
+  TYPE(t_trivial_transfer), TARGET :: free_sfc_solver_trans_triv
+  TYPE(t_surface_height_lhs), TARGET :: free_sfc_solver_lhs
+  TYPE(t_subset_transfer), TARGET :: free_sfc_solver_trans_sub
     
-  TYPE(t_surface_height_lhs_zstar), POINTER :: lhs_sh => NULL()
+  TYPE(t_surface_height_lhs_zstar), TARGET :: lhs_sh 
 !
  
   !-------------------------------------------------------------------------
@@ -384,20 +383,12 @@ CONTAINS
 
    
   !! Init variables related to surface height elliptic solver
-  SUBROUTINE init_free_sfc(patch_3d, ocean_state, op_coeffs, solverCoeff_sp, str_e, free_sfc_solver, &
-      & free_sfc_solver_comp, free_sfc_solver_lhs, free_sfc_solver_trans, free_sfc_solver_comp_trans&
-      &, lhs_sh)
+  SUBROUTINE init_free_sfc(patch_3d, ocean_state, op_coeffs, solverCoeff_sp, str_e )
     TYPE(t_patch_3d ),POINTER, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: ocean_state
     TYPE(t_operator_coeff), INTENT(IN), TARGET :: op_coeffs
     TYPE(t_solverCoeff_singlePrecision), INTENT(in), TARGET :: solverCoeff_sp
     REAL(wp), INTENT(IN), CONTIGUOUS :: str_e(:,:)
-    CLASS(t_destructible), POINTER, INTENT(INOUT) :: free_sfc_solver 
-    CLASS(t_destructible), POINTER, INTENT(INOUT) :: free_sfc_solver_comp 
-    CLASS(t_destructible), POINTER, INTENT(INOUT) :: free_sfc_solver_lhs 
-    CLASS(t_destructible), POINTER, INTENT(INOUT) :: free_sfc_solver_trans
-    CLASS(t_destructible), POINTER, INTENT(INOUT) :: free_sfc_solver_comp_trans
-    TYPE(t_surface_height_lhs_zstar), POINTER , INTENT(INOUT):: lhs_sh
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_trivial_transfer), POINTER :: trans_triv
     TYPE(t_subset_transfer), POINTER :: trans_subs
@@ -408,34 +399,14 @@ CONTAINS
     INTEGER :: trans_mode, sol_type
     CHARACTER(len=*), PARAMETER :: method_name='mo_ocean_ab_timestepping_mimetic:init_free_sfc_ab_mimetic'
 
-!
-    IF (ASSOCIATED(free_sfc_solver)) RETURN
+    IF (free_sfc_solver%is_init) RETURN
     patch_2D => patch_3d%p_patch_2d(1)
-    NULLIFY(trans_triv)
-! allocate lhs object
-    ALLOCATE(t_surface_height_lhs_zstar :: free_sfc_solver_lhs)
-! init lhs object
-    lhs_sh => lhs_surface_height_zstar_ptr(free_sfc_solver_lhs)
-
+    
     CALL lhs_sh%construct(patch_3d, ocean_state%p_diag%thick_e, &
       & op_coeffs, solverCoeff_sp, str_e)
-    lhs => lhs_agen_ptr(free_sfc_solver_lhs)
-! allocate and init communication infrastructure object 
-    SELECT CASE(select_transfer)
-! all ocean workers are involved in solving (input is just copied to internal
-! arrays)
-    CASE(0)
-      ALLOCATE(t_trivial_transfer :: free_sfc_solver_trans)
-      trans_triv => trivial_transfer_ptr(free_sfc_solver_trans)
-      CALL trans_triv%construct(solve_cell, patch_2D)
-! solve only on a subset of workers
-    CASE DEFAULT
-      trans_mode = MERGE(solve_trans_compact, solve_trans_scatter, select_transfer .GT. 0)
-      ALLOCATE(t_subset_transfer :: free_sfc_solver_trans)
-      trans_subs => subset_transfer_ptr(free_sfc_solver_trans)
-      CALL trans_subs%construct(solve_cell, patch_2D, ABS(select_transfer), trans_mode)
-    END SELECT
-    trans => transfer_ptr(free_sfc_solver_trans)
+    CALL free_sfc_solver_lhs%construct(patch_3d, ocean_state%p_diag%thick_e, &
+      & op_coeffs, solverCoeff_sp)
+
 !prepare init of solver
     CALL par%init(solve_precon_none, 1, 800, patch_2d%cells%in_domain%end_block, &
       & patch_2D%alloc_cell_blocks, nproma, patch_2d%cells%in_domain%end_index, &
@@ -476,25 +447,18 @@ CONTAINS
     CASE DEFAULT
       CALL finish(method_name, "Unknown solver")
     END SELECT ! solver
-! alloc and init solver object
-    ALLOCATE(t_ocean_solve :: free_sfc_solver)
-    solve => ocean_solve_ptr(free_sfc_solver)
-    CALL solve%construct(sol_type, par, par_sp, lhs, trans)
-    IF (l_solver_compare) THEN
-      IF (ASSOCIATED(trans_triv)) THEN
-        NULLIFY(free_sfc_solver_comp_trans)
-      ELSE
-        ALLOCATE(t_trivial_transfer :: free_sfc_solver_comp_trans)
-        trans_triv => trivial_transfer_ptr(free_sfc_solver_comp_trans)
-        CALL trans_triv%construct(solve_cell, patch_2D)
-        trans => transfer_ptr(free_sfc_solver_comp_trans)
-      END IF
-      par%tol = solver_tolerance_comp
-      par_sp%nidx = -1
-      ALLOCATE(t_ocean_solve :: free_sfc_solver_comp)
-      solve_comp => ocean_solve_ptr(free_sfc_solver_comp)
-      CALL solve_comp%construct(solve_legacy_gmres, par, par_sp, lhs, trans)
-    END IF
+! init lhs object
+! allocate and init communication infrastructure object 
+    SELECT CASE(select_transfer)
+    CASE(0) ! all ocean workers are involved in solving (input is just copied to internal arrays)
+      CALL free_sfc_solver_trans_triv%construct(solve_cell, patch_2D) ! solve only on a subset of workers
+      CALL free_sfc_solver%construct(sol_type, par, par_sp, free_sfc_solver_lhs, free_sfc_solver_trans_triv)
+    CASE DEFAULT ! solve only on a subset of workers
+      trans_mode = MERGE(solve_trans_compact, solve_trans_scatter, select_transfer .GT. 0)
+      CALL free_sfc_solver_trans_sub%construct(solve_cell, patch_2D, ABS(select_transfer), trans_mode)
+      CALL free_sfc_solver%construct(sol_type, par, par_sp, free_sfc_solver_lhs, free_sfc_solver_trans_sub)
+    END SELECT
+
   END SUBROUTINE init_free_sfc
 
 
@@ -1040,9 +1004,6 @@ CONTAINS
     
       TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
     
-      TYPE(t_surface_height_lhs_zstar), POINTER :: lhs_sh => NULL()
-      TYPE(t_ocean_solve), POINTER :: solve, solve_comp
-    
       INTEGER :: n_it, n_it_sp, ret_status
     
       CHARACTER(LEN=max_char_length) :: string
@@ -1067,12 +1028,8 @@ CONTAINS
       !! multiplying the Beta*Gamma term with (H+eta)/H
       !! The height goes in using map_edges2edges_viacell_2D 
       !! init sfc solver related objects, if necessary
-      IF (.NOT.ASSOCIATED(free_sfc_solver)) &
-        CALL init_free_sfc(patch_3d, ocean_state(1), operators_coefficients, solverCoeff_sp, stretch_e, &
-        & free_sfc_solver, free_sfc_solver_comp, free_sfc_solver_lhs, free_sfc_solver_trans, &
-        & free_sfc_solver_comp_trans, lhs_sh)
-      solve => ocean_solve_ptr(free_sfc_solver)
-      IF (l_solver_compare) solve_comp => ocean_solve_ptr(free_sfc_solver_comp)
+      IF (.NOT.free_sfc_solver%is_init) &
+        CALL init_free_sfc(patch_3d, ocean_state(1), operators_coefficients, solverCoeff_sp, stretch_e)  
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       CALL dbg_print('test    : h var'   ,ocean_state(1)%p_prog(nold(1))%h ,str_module, 2, in_subset=owned_cells)
@@ -1094,14 +1051,14 @@ CONTAINS
       ! Solve surface equation with solver
 
       !!ICON_OMP PARALLEL WORKSHARE
-      solve%x_loc_wp(:,:) = eta_c(:,:)
+      free_sfc_solver%x_loc_wp(:,:) = eta_c(:, :)
       !!ICON_OMP END PARALLEL WORKSHARE
 
-      solve%b_loc_wp => ocean_state(1)%p_aux%p_rhs_sfc_eq
+      free_sfc_solver%b_loc_wp => ocean_state(1)%p_aux%p_rhs_sfc_eq
   
       ! call solver
-      CALL solve%solve(n_it, n_it_sp)
-      rn = MERGE(solve%res_loc_wp(1), 0._wp, n_it .NE. 0)
+      CALL free_sfc_solver%solve(n_it, n_it_sp)
+      rn = MERGE(free_sfc_solver%res_loc_wp(1), 0._wp, n_it .NE. 0)
       
       ! output of sum of iterations every timestep
       IF (idbg_mxmn >= 0) THEN
@@ -1109,12 +1066,12 @@ CONTAINS
           WRITE(string,'(2(a,i4),2(a,e28.20),a)') &
             & 'SUM of ocean_solve iteration(sp,wp) = (', &
             & n_it_sp - 1, ', ', n_it - 1, ') , residual = (', &
-            & solve%res_loc_wp(1), ', ', rn, ')'
+            & free_sfc_solver%res_loc_wp(1), ', ', rn, ')'
         ELSE
           WRITE(string,'(a,i4,a,e28.20)') &
             &'SUM of ocean_solve iteration =', n_it - 1, ', residual =', rn
         END IF
-        CALL message('ocean_solve('//TRIM(solve%sol_type_name)//'): surface height',TRIM(string))
+        CALL message('ocean_solve('//TRIM(free_sfc_solver%sol_type_name)//'): surface height',TRIM(string))
       ENDIF
  
       IF (rn > solver_tolerance) THEN
@@ -1123,11 +1080,11 @@ CONTAINS
         RETURN
       ENDIF
       !!ICON_OMP PARALLEL WORKSHARE
-      eta_c_new(:,:) = solve%x_loc_wp(:,:)
+      eta_c_new(:,:) = free_sfc_solver%x_loc_wp(:,:)
       !!ICON_OMP END PARALLEL WORKSHARE
  
       IF (createSolverMatrix) &
-        CALL solve%dump_matrix(timestep)
+        CALL free_sfc_solver%dump_matrix(timestep)
   
       !-------- end of solver ---------------
       !---------------------------------------------------------------------

@@ -46,6 +46,7 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_RHO       =  2  !< multiply by rho to get densities instead
   INTEGER, PARAMETER, PUBLIC   :: POST_OP_LUC       =  3  !< convert landuse classes from internal values 
                                                           !< to GRIB2 values (table 4.243) and vice versa. 
+  INTEGER, PARAMETER, PUBLIC   :: POST_OP_LIN2DBZ   =  4  !< convert linear values to dbz: dbzval = 10*log10(val)
 
   ! list of available variable classes
   INTEGER, PARAMETER, PUBLIC :: CLASS_DEFAULT       = 0
@@ -197,12 +198,18 @@ MODULE mo_var_metadata_types
     INTEGER                    :: idx_diag            !< index of tracer in diagnostics container
     LOGICAL                    :: lopenacc       ! Variable exists on GPU
 
+  CONTAINS
+    PROCEDURE :: finalize => t_var_metadata_finalize   !< destructor
   END TYPE t_var_metadata
+
 
   ! The type t_var_metadata_dynamic is (in contrast to t_var_metadata) not transfered to the output PE.
   ! This allows for dynamical objects inside t_var_metadata_dynamic like pointers or allocatables.
   TYPE t_var_metadata_dynamic
     CLASS(t_tracer_meta), POINTER       :: tracer      ! Tracer-specific metadata
+
+  CONTAINS
+    PROCEDURE :: finalize => t_var_metadata_dynamic_finalize   !< destructor
   END TYPE t_var_metadata_dynamic
 
 
@@ -216,5 +223,21 @@ MODULE mo_var_metadata_types
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
   PUBLIC :: t_post_op_meta
+
+
+CONTAINS
+
+  SUBROUTINE t_var_metadata_finalize(this)
+    CLASS(t_var_metadata), INTENT(INOUT) :: this
+    ! nothing to be done (yet)
+  END SUBROUTINE t_var_metadata_finalize
+
+
+  SUBROUTINE t_var_metadata_dynamic_finalize(this)
+    CLASS(t_var_metadata_dynamic), INTENT(INOUT) :: this
+    IF (ASSOCIATED(this%tracer)) THEN
+      DEALLOCATE(this%tracer)
+    END IF
+  END SUBROUTINE t_var_metadata_dynamic_finalize
 
 END MODULE mo_var_metadata_types

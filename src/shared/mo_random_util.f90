@@ -29,7 +29,7 @@ MODULE mo_random_util
   IMPLICIT NONE
   PRIVATE
  
-  PUBLIC :: add_random_noise_global
+  PUBLIC :: add_random_noise_global, add_random_noise
 
 CONTAINS
 
@@ -153,5 +153,41 @@ CONTAINS
  !   CALL finish(method_name, " global_vertical_seed")
 
   END SUBROUTINE add_random_noise_global
+
+  SUBROUTINE add_random_noise( &
+    subset, nproma, nlev, nblk, &
+    amplitude, seed_in, &
+    field)
+
+    TYPE(t_subset_range), INTENT(IN) :: subset
+    REAL(wp), INTENT(IN) :: amplitude
+    INTEGER, INTENT(IN) :: nproma, nlev, nblk, seed_in
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    REAL(wp) :: noise(nproma, nlev, nblk)
+    INTEGER :: seed_size, start_idx, end_idx, i, jl, jk, jb
+    INTEGER, ALLOCATABLE :: seed(:)
+
+    CALL RANDOM_SEED(SIZE = seed_size)
+    ALLOCATE(seed(seed_size))
+
+    DO i=1,seed_size
+        seed(i) = seed_in + i
+    ENDDO
+
+    CALL RANDOM_SEED(PUT = seed)
+    CALL RANDOM_NUMBER(noise)
+
+    DO jb=subset%start_block,subset%end_block
+      CALL get_index_range( subset, jb, start_idx, end_idx)
+      DO jk=1,nlev
+        DO jl=start_idx,end_idx
+          field(jl,jk,jb) = field(jl,jk,jb) * ((noise(jl,jk,jb) * 2._wp - 1._wp) * amplitude + 1._wp)
+        ENDDO !jk
+      ENDDO !jl
+    ENDDO !jb
+
+  END SUBROUTINE add_random_noise
+
 
 END MODULE mo_random_util

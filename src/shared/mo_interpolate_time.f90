@@ -94,15 +94,15 @@ CONTAINS
 
     timeSinceDataStart =  local_time - this%times(1)%ptr
 
-    IF (time_config%tc_exp_startdate < this%times(1)%ptr) THEN
-      CALL datetimetostring(time_config%tc_exp_startdate, date_str1)
+    IF (time_config%tc_startdate < this%times(1)%ptr) THEN
+      CALL datetimetostring(time_config%tc_startdate, date_str1)
       CALL datetimetostring(this%times(1)%ptr, date_str2)
-      CALL finish(routine, "Start of simulation ("//TRIM(date_str1)//") before start of data ("//TRIM(date_str2)//")")
+      CALL finish(routine, "Start of this run ("//TRIM(date_str1)//") before start of data ("//TRIM(date_str2)//")")
     ENDIF
-    IF (time_config%tc_exp_stopdate > this%times(ntimes)%ptr) THEN
-      CALL datetimetostring(time_config%tc_exp_stopdate, date_str1)
+    IF (time_config%tc_stopdate > this%times(ntimes)%ptr) THEN
+      CALL datetimetostring(time_config%tc_stopdate, date_str1)
       CALL datetimetostring(this%times(ntimes)%ptr, date_str2)
-      CALL finish(routine, "End of simulation ("//TRIM(date_str1)//") after end of data ("//TRIM(date_str2)//")")
+      CALL finish(routine, "End of this run ("//TRIM(date_str1)//") after end of data ("//TRIM(date_str2)//")")
     ENDIF
 
     if (my_process_is_mpi_workroot()) THEN

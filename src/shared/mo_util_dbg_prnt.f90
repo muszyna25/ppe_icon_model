@@ -373,13 +373,7 @@ CONTAINS
 
     start_detail_timer(timer_dbg_prnt,10)    
     
-#ifdef __SX__
-    ! valid g-format without offset of decimal point
-    981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
-    982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
-    992 FORMAT(a,a12,':',a27,'  :',i3, 3g26.18)
-#else
-    
+
     ! ! valid g-format without offset of decimal point
     ! 981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g20.12))
     ! 982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g20.12))
@@ -388,11 +382,9 @@ CONTAINS
     ! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
     ! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
     ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
-    ! ! g-format with first digit > zero, not valid for SX-compiler
     981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
     982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
     992 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18, 1pg26.18)
-#endif
     
     ! check print output level inDetail_level (1-5) with namelist given value (idbg_val)
     ! for output at given index
@@ -502,7 +494,7 @@ CONTAINS
       
       ! idbg_mxmn<4: one level output only (slev), independent of elev_val
       elev_mxmn = elev
-      IF (idbg_mxmn < 4 .AND. inDetail_level > 0) elev_mxmn = slev
+    !  IF (idbg_mxmn < 4 .AND. inDetail_level > 0) elev_mxmn = slev
       
       ! print out maximum and minimum value
       ! ctrn=minval(p_array(:, slev:elev_mxmn, :))
@@ -572,23 +564,15 @@ CONTAINS
       RETURN
     ENDIF
     
-#ifdef __SX__
-    ! valid g-format without offset of decimal point
-    981 FORMAT(a,a12,':',a27,' C:',i3,  g26.18,3(a,i0,a,  g12.5))
-    982 FORMAT(a,a12,':',a27,'  :',i3,   26x,  3(a,i0,a,  g12.5))
-    992 FORMAT(a,a12,':',a27,'  :',i3, 3g26.18)
-#else
-    
+
     ! ! valid e-format with first digit > zero
     ! 981 FORMAT(a,a12,':',a27,' C:',i3, 1pe26.18,3(a,i0,a,1pe20.12))
     ! 982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pe20.12))
     ! 991 FORMAT(a,a12,':',a27,'  :',i3,1p2e26.18)
     
-    ! ! g-format with first digit > zero, not valid for SX-compiler
     981 FORMAT(a,a12,':',a27,' C:',i3, 1pg26.18,3(a,i0,a,1pg20.12))
     982 FORMAT(a,a12,':',a27,'  :',i3,    26x,  3(a,i0,a,1pg20.12))
     992 FORMAT(a,a12,':',a27,'  :',i3, 1pg26.18, 1pg26.18, 1pg26.18)
-#endif
     
     strout=TRIM(description)
     strmod=TRIM(place)
@@ -654,7 +638,6 @@ CONTAINS
     CHARACTER(LEN=*),      INTENT(in) :: place    ! defined string for source of current array
     INTEGER,               INTENT(in) :: inDetail_level    ! source level from module for print output
 
-    ! g-format with first digit > zero, not valid for SX-compiler
     992 FORMAT(a,a12,':',a27,'  :', 1pg26.18, 1pg26.18, 1pg26.18)
 
     IF (idbg_mxmn >= inDetail_level) THEN
@@ -676,7 +659,6 @@ CONTAINS
     INTEGER,               INTENT(in) :: detail_level    
 
 
-    ! g-format with first digit > zero, not valid for SX-compiler
 !     992 FORMAT(a,a27,'  :', 1pg26.18)
 !     993 FORMAT(a,a27,'  :', 1pg26.18, ", ", 1pg26.18, ", ", 1pg26.18)
 !     994 FORMAT(a,a27,'  :', 1pg26.18, ", ", 1pg26.18, ", ", 1pg26.18)

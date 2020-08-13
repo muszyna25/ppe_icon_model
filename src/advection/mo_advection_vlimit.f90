@@ -407,64 +407,122 @@ CONTAINS
 !$ACC      IF( i_am_accel_node .AND. acc_on )
 !$ACC UPDATE DEVICE( p_cc, p_face ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 
+     ! GZ: unfortunately, the case selection needs to be done outside the loop because the NEC compiler
+     ! otherwise always executes the full code for the selective limiter (factor of 4 slower)
+     IF (lselective_limit) THEN
 !$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
-    !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
-    DO jk = slev, elev
+      !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
+      DO jk = slev, elev
 
-      DO jc = i_startidx, i_endidx
+        DO jc = i_startidx, i_endidx
 
-        ! index of bottom half level
-        ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
+          ! index of bottom half level
+          ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
 
-        z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
-        z_a6i     = 6._wp * (p_cc(jc,jk)                      &
-          &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
+          z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
+          z_a6i     = 6._wp * (p_cc(jc,jk)                      &
+            &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
 
-        ! main criterion upon which it is decided whether an undershoot 
-        ! is spurious and whether the limiter is activated. 
-        is_main_crit = ABS(z_delta) < -1._wp*z_a6i
+          ! main criterion upon which it is decided whether an undershoot 
+          ! is spurious and whether the limiter is activated. 
+          is_main_crit = ABS(z_delta) < -1._wp*z_a6i
 
 
-        ! detect spurious undershoots
-        !
-        DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,              & 
-          &                           slev,MIN(elev+1,UBOUND(p_face,2)),lselective_limit) ) THEN
-
+          ! detect spurious undershoots
           !
-          ! parabola must be modified to remove local undershoots
-          !
+          DETECT:IF (isExtremumSpurious(jc,jk,is_main_crit,z_a6i,p_cc(jc,jk),p_face,              & 
+            &                           slev,MIN(elev+1,UBOUND(p_face,2)),lselective_limit) ) THEN
 
-          ! if cell average presents a local minimum, replace parabola 
-          ! by piecewise constant function
-          IF (p_cc(jc,jk) < MIN(p_face(jc,jk),p_face(jc,ikp1)) ) THEN
-            p_face_up(jc,jk)  = p_cc(jc,jk)
-            p_face_low(jc,jk) = p_cc(jc,jk)
-
-          ELSE
             !
-            ! monotonize parabola by modifying one of the edge values
-            IF (p_face(jc,jk) > p_face(jc,ikp1)) THEN
-              p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
-              p_face_low(jc,jk) = p_face(jc,ikp1)
+            ! parabola must be modified to remove local undershoots
+            !
+
+            ! if cell average presents a local minimum, replace parabola 
+            ! by piecewise constant function
+            IF (p_cc(jc,jk) < MIN(p_face(jc,jk),p_face(jc,ikp1)) ) THEN
+              p_face_up(jc,jk)  = p_cc(jc,jk)
+              p_face_low(jc,jk) = p_cc(jc,jk)
 
             ELSE
-              p_face_up(jc,jk)  = p_face(jc,jk)
-              p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
+              !
+              ! monotonize parabola by modifying one of the edge values
+              IF (p_face(jc,jk) > p_face(jc,ikp1)) THEN
+                p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
+                p_face_low(jc,jk) = p_face(jc,ikp1)
 
+              ELSE
+                p_face_up(jc,jk)  = p_face(jc,jk)
+                p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
+
+             ENDIF
+              !
             ENDIF
             !
-          ENDIF
-          !
-        ELSE
-          p_face_up(jc,jk)  = p_face(jc,jk)
-          p_face_low(jc,jk) = p_face(jc,ikp1)
-        ENDIF DETECT
+          ELSE
+            p_face_up(jc,jk)  = p_face(jc,jk)
+            p_face_low(jc,jk) = p_face(jc,ikp1)
+          ENDIF DETECT
+
+        END DO
 
       END DO
-
-    END DO
 !$ACC END PARALLEL
+     ELSE
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+    !$ACC LOOP GANG VECTOR PRIVATE(ikp1, z_delta, z_a6i, is_main_crit) COLLAPSE(2)
+      DO jk = slev, elev
 
+        DO jc = i_startidx, i_endidx
+
+          ! index of bottom half level
+          ikp1 = jk+1 ! WS: put inside inner loop to collapse both loops
+
+          z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
+          z_a6i     = 6._wp * (p_cc(jc,jk)                      &
+            &       - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
+
+          ! main criterion upon which it is decided whether an undershoot 
+          ! is spurious and whether the limiter is activated. 
+          is_main_crit = ABS(z_delta) < -1._wp*z_a6i
+
+          ! detect spurious undershoots
+          !
+          IF (is_main_crit) THEN
+            !
+            ! parabola must be modified to remove local undershoots
+            !
+
+            ! if cell average presents a local minimum, replace parabola 
+            ! by piecewise constant function
+            IF (p_cc(jc,jk) < MIN(p_face(jc,jk),p_face(jc,ikp1)) ) THEN
+              p_face_up(jc,jk)  = p_cc(jc,jk)
+              p_face_low(jc,jk) = p_cc(jc,jk)
+
+            ELSE
+              !
+              ! monotonize parabola by modifying one of the edge values
+              IF (p_face(jc,jk) > p_face(jc,ikp1)) THEN
+                p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
+                p_face_low(jc,jk) = p_face(jc,ikp1)
+
+              ELSE
+                p_face_up(jc,jk)  = p_face(jc,jk)
+                p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
+
+             ENDIF
+              !
+            ENDIF
+            !
+          ELSE
+            p_face_up(jc,jk)  = p_face(jc,jk)
+            p_face_low(jc,jk) = p_face(jc,ikp1)
+          ENDIF
+
+        END DO
+
+      END DO
+!$ACC END PARALLEL
+    ENDIF
 !$ACC UPDATE HOST( p_face_up, p_face_low ), WAIT(1) IF( acc_validate .AND. i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 
@@ -591,7 +649,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( slope ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikm1, ikp1, p_cc_min, p_cc_max) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
@@ -658,7 +716,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( slope ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikm1, ikp1, p_cc_min) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
@@ -722,7 +780,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikp1, p_cc_min, p_cc_max) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
@@ -785,7 +843,7 @@ CONTAINS
 
 !$ACC DATA PCOPYIN( p_cc ), PCOPYOUT( p_face ), IF( i_am_accel_node .AND. acc_on )
 
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR PRIVATE(ikp1, p_cc_min) COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx

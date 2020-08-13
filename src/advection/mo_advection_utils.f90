@@ -241,6 +241,7 @@ CONTAINS
     ! create new table entry reference including additional tracer metadata
     CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
        &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
+       &          ref_idx=tracer_idx,                                            &
        &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
        &          isteptype=isteptype, tlev_source=tlev_source,                  &
        &          vert_interp=vert_interp, hor_interp=hor_interp,                &

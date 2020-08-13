@@ -642,7 +642,7 @@ DO jk=klev-1,ktdia+2,-1
     DO jl=kidia,kfdia
       zqold(jl)=0.0_JPRB
     ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm  
         jl=jlx(jll)
         zdmfde(jl)=MIN(zdmfde(jl),0.75_JPRB*pmfu(jl,jk+1))
@@ -724,8 +724,7 @@ DO jk=klev-1,ktdia+2,-1
     IF (lphylin) THEN
 
 !DIR$ IVDEP
-!OCL NOVREC
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -743,8 +742,7 @@ DO jk=klev-1,ktdia+2,-1
     ELSE
 
 !DIR$ IVDEP
-!OCL NOVREC
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
       DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -760,7 +758,8 @@ DO jk=klev-1,ktdia+2,-1
 
     ENDIF
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
+!$NEC sparse
     DO jll=1,jlm  
       jl=jlx(jll)
       IF(pqu(jl,jk) /= zqold(jl)) THEN
@@ -861,7 +860,7 @@ DO jk=klev-1,ktdia+2,-1
 
     ENDDO !jll
 
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm
       jl=jlx(jll)
 !     ELSEIF(LLFLAG(JL).AND.KTYPE(JL)==2.AND.PQU(JL,JK) == ZQOLD(JL)) THEN
@@ -953,7 +952,7 @@ DO jk=klev-1,ktdia+2,-1
       ENDDO
 
     ENDIF
-!CDIR NODEP,VOVERTAKE,VOB
+!$NEC ivdep
     DO jll=1,jlm  
       jl=jlx(jll)
       pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
@@ -968,7 +967,7 @@ ENDDO
 
 !     5.           FINAL CALCULATIONS 
 !                  ------------------
-
+!$NEC sparse
 DO jl=kidia,kfdia
   IF(kctop(jl) == -1) ldcum(jl)=.FALSE.
   kcbot(jl)=MAX(kcbot(jl),kctop(jl))

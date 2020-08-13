@@ -149,13 +149,13 @@ CONTAINS
       ! CALL sync_patch_array(SYNC_C, patch, prog%temp)
       IF (p_test_run) znabla_c(:,:,:) = 0.0_wp
       CALL nabla2_scalar( prog%temp, patch, pint, znabla_c,   &
-                          opt_slev=ik2s,  opt_elev=ik2e,      &
-                          opt_rlstart=3, opt_rlend=min_rlcell )
+                          slev=ik2s,  elev=ik2e,      &
+                          rl_start=3, rl_end=min_rlcell )
 
       CALL nabla4_scalar( prog%temp, patch, pint, znabla_c,   &
-                          opt_nabla2=znabla2_c,               &
-                          opt_slev=ik4s,  opt_elev=ik4e,      &
-                          opt_rlstart=4, opt_rlend=min_rlcell )
+                          slev=ik4s,  elev=ik4e,              &
+                          rl_start=4, rl_end=min_rlcell,      &
+                          p_nabla2=znabla2_c  )
 
 !       write(0,*) "start sync znabla_c"
 !       CALL sync_patch_array(SYNC_C, patch, znabla_c)
@@ -183,13 +183,13 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
       CALL nabla2_scalar( ztmp_c, patch, pint, znabla_c,      &
-                          opt_slev=ik2s,  opt_elev=ik2e,      &
-                          opt_rlstart=3, opt_rlend=min_rlcell )
+                          slev=ik2s,  elev=ik2e,      &
+                          rl_start=3, rl_end=min_rlcell )
 
       CALL nabla4_scalar( ztmp_c, patch, pint, znabla_c,      &
-                          opt_nabla2=znabla2_c,               &
-                          opt_slev=ik4s,  opt_elev=ik4e,      &
-                          opt_rlstart=4, opt_rlend=min_rlcell )
+                          slev=ik4s,  elev=ik4e,              &
+                          rl_start=4, rl_end=min_rlcell,      &
+                          p_nabla2=znabla2_c )
     ENDIF
 
 !$OMP PARALLEL PRIVATE(jbs,jbe,is,ie)

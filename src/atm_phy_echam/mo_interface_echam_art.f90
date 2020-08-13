@@ -77,16 +77,11 @@ CONTAINS
        !
        IF ( is_active ) THEN
           !
-          CALL art_reaction_interface(ext_data(jg),                                 & !> in
-               &                      patch      ,                                  & !> in
+          CALL art_reaction_interface(jg,                                           & !> in
                &                      datetime_old,                                 & !> in
                &                      pdtime,                                       & !> in
                &                      p_nh_state_lists(jg)%prog_list(nnew_rcf(jg)), & !> in
-               &                      p_nh_state(jg)%prog(nnew(jg)),                &
-               &                      p_nh_state(jg)%metrics,                       & !> in
-               &                      p_nh_state(jg)%diag,                          & !> inout
-               &                      field%qtrc,                                   &
-               &                      tend = tend )
+               &                      field%qtrc)
           !
        END IF
        !

@@ -71,7 +71,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_sync,              ONLY: sync_c, sync_e, sync_patch_array
   USE mo_fortran_tools,     ONLY: assign_if_present
   
-  USE mo_read_interface,    ONLY: read_2D_1Time, read_3D_1Time, on_cells, t_stream_id, &
+  USE mo_read_interface,    ONLY: read_2D_1time, read_3D_1time, on_cells, on_edges, t_stream_id, &
     & read_netcdf_broadcast_method, openInputFile, closeFile
   
   IMPLICIT NONE
@@ -79,6 +79,7 @@ MODULE mo_ocean_initial_conditions
 
   PUBLIC :: apply_initial_conditions, init_ocean_bathymetry !,&
   PUBLIC :: tracer_ConstantSurface, varyTracerVerticallyExponentially
+  PUBLIC :: init_cell_2D_variable_fromFile, init_cell_3D_variable_fromFile
 !   & SST_LinearMeridional, increaseTracerLevelsLinearly
   
   REAL(wp) :: sphere_radius, u0
@@ -197,7 +198,9 @@ CONTAINS
     ENDDO
     
     CALL sync_patch_array(sync_c, patch_2D, variable)
-  
+
+    WRITE(message_text,*) "miss value=", missValue, has_missValue
+    CALL message(TRIM(method_name),TRIM(message_text))
 
   END SUBROUTINE init_cell_3D_variable_fromFile
   !-------------------------------------------------------------------------
@@ -236,6 +239,7 @@ CONTAINS
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
+        ! FIXME: to complicated, better use land sea mask
         DO level = patch_3d%p_patch_1d(1)%dolic_c(idx,block) + 1, 1
 !          IF ( variable(idx,block) /=  0.0_wp) THEN
 !            CALL warning(method_name, "non-zero variable on land")
@@ -253,6 +257,52 @@ CONTAINS
   END SUBROUTINE init_cell_2D_variable_fromFile
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE init_edge_3D_variable_fromFile(patch_3d, variable, name, has_missValue, missValue)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), INTENT(inout) :: variable(:,:,:)
+    CHARACTER(LEN=*) :: name
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
+
+    TYPE(t_patch),POINTER  :: patch_2d
+    TYPE(t_stream_id) :: stream_id
+    INTEGER :: block, idx, start_edge_index, end_edge_index, level
+    TYPE(t_subset_range), POINTER :: all_edges
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_edge_3D_variable_fromFile '
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_edges => patch_2d%edges%ALL
+
+
+    CALL message (TRIM(method_name), TRIM(name)//"...")
+    ! read temperature
+    stream_id = openInputFile(initialState_InputFileName, patch_2d)
+
+    CALL read_3D_1time( stream_id=stream_id, location=on_edges, &
+      & variable_name=name, fill_array=variable,               &
+      & has_missValue=has_missValue, missValue=missValue)
+
+    CALL closeFile(stream_id)
+    ! write(0,*) variable
+!     CALL work_mpi_barrier()
+    DO block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, block, start_edge_index, end_edge_index)
+      DO idx = start_edge_index, end_edge_index
+        DO level = patch_3d%p_patch_1d(1)%dolic_e(idx,block) + 1, n_zlev
+!           IF ( variable(idx,level,block) /=  0.0_wp) THEN
+!             CALL warning(method_name, "non-zero variable on land")
+            variable(idx,level,block) = 0.0_wp
+!           ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+    
+    CALL sync_patch_array(sync_e, patch_2D, variable)
+  
+  END SUBROUTINE init_edge_3D_variable_fromFile
+  !-------------------------------------------------------------------------
+  
 
   !-------------------------------------------------------------------------------
 !<Optimize:inUse>
@@ -747,7 +797,7 @@ CONTAINS
   !-------------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------------
-  SUBROUTINE init_ocean_velocity_fromFile(patch_3d, normal_velocity)
+  SUBROUTINE init_ocean_velocity_uv_fromFile(patch_3d, normal_velocity)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: normal_velocity(:,:,:)
 
@@ -765,7 +815,7 @@ CONTAINS
     LOGICAL  :: has_missValue
     REAL(wp) :: missValue
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_velocity_fromFile'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_velocity_uv_fromFile'
     !-------------------------------------------------------------------------
 
     ! CALL message(TRIM(method_name), ' ')
@@ -842,7 +892,30 @@ CONTAINS
     DEALLOCATE(cellVelocity_cc)
     DEALLOCATE(u, v)
  
-  END SUBROUTINE init_ocean_velocity_fromFile
+  END SUBROUTINE init_ocean_velocity_uv_fromFile
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE init_ocean_velocity_vn_fromFile(patch_3d, normal_velocity)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: normal_velocity(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    LOGICAL  :: has_missValue
+    REAL(wp) :: missValue
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':init_ocean_velocity_vn_fromFile'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    !-------------------------------------------------------------------------
+    CALL message(TRIM(method_name), ': init from file')
+    CALL init_edge_3D_variable_fromFile(patch_3d, variable=normal_velocity, name="vn", &
+      & has_missValue=has_missValue, missValue=missValue)
+    
+!     CALL sync_patch_array(sync_e, patch_2D, normal_velocity) done in the file read
+
+  END SUBROUTINE init_ocean_velocity_vn_fromFile
   !-------------------------------------------------------------------------------
 
         
@@ -864,7 +937,11 @@ CONTAINS
       RETURN
  
     CASE (001)
-      CALL init_ocean_velocity_fromFile(patch_3d, normal_velocity)
+      CALL init_ocean_velocity_uv_fromFile(patch_3d, normal_velocity)
+
+    CASE (002)
+      CALL init_ocean_velocity_vn_fromFile(patch_3d, normal_velocity)
+        
         
     !------------------------------
     CASE (200)

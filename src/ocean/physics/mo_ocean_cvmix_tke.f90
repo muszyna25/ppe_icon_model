@@ -29,6 +29,7 @@ MODULE mo_ocean_cvmix_tke
     & PPscheme_ICON_Edge_type,                   &
     & PPscheme_ICON_Edge_vnPredict_type,         &
     & use_wind_mixing,                                        &
+    & vert_mix_type, vmix_pp, vmix_tke, vmix_idemix_tke,      & ! by_nils
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
@@ -70,7 +71,7 @@ MODULE mo_ocean_cvmix_tke
     &  tke_surf_min,                &
     &  only_tke,                    &
     &  use_ubound_dirichlet,        &
-    &  use_lbound_dirichlet!,        &
+    &  use_lbound_dirichlet
 
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -186,7 +187,6 @@ CONTAINS
   SUBROUTINE calc_tke(patch_3d, ocean_state, params_oce, atmos_fluxes)
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_patch), POINTER :: patch_2D
-    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
     TYPE(t_hydro_ocean_state), TARGET     :: ocean_state
     TYPE(t_atmos_fluxes)                  :: atmos_fluxes
     !REAL(wp),          INTENT(in)         :: fu10   (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! t_atmos_for_ocean%fu10
@@ -194,6 +194,7 @@ CONTAINS
     !REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
 
     ! pointer for convenience 
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells
     REAL(wp), POINTER :: dz(:,:,:)
     REAL(wp), POINTER :: dzi(:,:,:)
     REAL(wp), POINTER :: dzw(:,:,:)
@@ -241,7 +242,7 @@ CONTAINS
     !REAL(wp) :: cvmix_dummy_3(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: tke_iw_alpha_c(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: tke_iwe(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp) :: tke_iw_forcing(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: tke_iwe_forcing(nproma, n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: forc_tke_surf_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: forc_rho_surf_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: bottom_fric_2D(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -269,7 +270,7 @@ CONTAINS
     tke_Av = 0.0
     tke_iw_alpha_c = 0.0
     tke_iwe = 0.0
-    tke_iw_forcing = 0.0
+    tke_iwe_forcing = 0.0
     forc_rho_surf_2D = 0.0
     bottom_fric_2D = 0.0
 
@@ -289,16 +290,25 @@ CONTAINS
     ! renaming stuff
     patch_2D   => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
-    all_cells  => patch_2D%cells%ALL
+    all_cells  => patch_2D%cells%ALL    
+    
     levels = n_zlev
 
-    !salinity(1:levels) = sal_ref
-    rho_up(:)=0.0_wp    
-    rho_down(:)=0.0_wp
+    ! special settings if IDEMIX is used together with TKE
+    if ( vert_mix_type==vmix_idemix_tke ) then
+      ! use iwe dissipation as forcing for tke 
+      tke_iwe_forcing(:,:,:) = -1.0_wp * params_oce%cvmix_params%iwe_Tdis(:,:,:)
+    endif
 
     !write(*,*) "TKE before:"
     !write(*,*) tke(8,:,10)
+!ICON_OMP_PARALLEL PRIVATE(rho_up, rho_down)
 
+    rho_up(:)=0.0_wp    
+    rho_down(:)=0.0_wp
+
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, pressure, &
+!ICON_OMP  tau_abs, Nsqr, Ssqr, tstep_count) 
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
       DO jc = start_index, end_index
@@ -334,7 +344,6 @@ CONTAINS
             &              - ocean_state%p_diag%p_vn(jc,jk,  blockNo)%x ) &
             &            * dzi(jc,jk,blockNo) )**2)
         ENDDO
-
 
       !if (jc==8 .and. blockNo==10) then
       !  write(*,*) 'jc = ', jc, 'blockNo = ', blockNo, 'tstep_count = ', tstep_count
@@ -379,7 +388,7 @@ CONTAINS
                              bottom_fric  = bottom_fric_2D(jc,blockNo),    &
                              old_kappaM   = Av_old(jc,:,blockNo),         & ! in
                              old_KappaH   = kv_old(jc,:,blockNo),         & ! in
-                             iw_diss      = tke_iw_forcing(jc,:,blockNo),  & 
+                             iw_diss      = tke_iwe_forcing(jc,:,blockNo),  & 
                              forc_rho_surf= forc_rho_surf_2D(jc,blockNo),  &
                              rho_ref      = OceanReferenceDensity,           &
                              grav         = grav,                      &
@@ -407,11 +416,15 @@ CONTAINS
     !end if
       ENDDO
     ENDDO
+!ICON_OMP_END_DO
 
     if (.true.) then
     ! interpolate vert. visosity from cell center to edges
-    params_oce%a_veloc_v = 0.0
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, levels, cell_1_idx, cell_1_block, cell_2_idx, cell_2_block, &
+!ICON_OMP jk) 
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      params_oce%a_veloc_v(:,:,blockNo) = 0.0
+
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       DO je = start_index, end_index
         levels       = patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
@@ -429,8 +442,10 @@ CONTAINS
     end if
 
     if (.true.) then
+    
     ! write tke vert. diffusivity to vert tracer diffusivities
-    DO blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc) 
+   DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
       DO jc = start_index, end_index
         ! FIXME: nils: make loop over all tracer
@@ -438,7 +453,9 @@ CONTAINS
         params_oce%a_tracer_v(jc,:,blockNo,2) = tke_kv(jc,:,blockNo)
       ENDDO
     ENDDO
+!ICON_OMP_END_DO
     end if
+!ICON_OMP_END_PARALLEL
 
     !write(*,*) "Stopping..."
     !stop

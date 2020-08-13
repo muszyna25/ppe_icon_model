@@ -1389,7 +1389,9 @@ CONTAINS
     tree_depth   =  0  ! maximum tree depth
     free_node(:) = UNASSOCIATED
     icount       =  0
-    new_idx(:)   = cell_indices(:,permutation(1))
+
+    IF (p_patch%n_patch_cells > 0) &   ! needed to skip processes not owning any cells
+      new_idx(:)   = cell_indices(:,permutation(1))
 
     ! Short description of parallel processing:
 
@@ -1525,7 +1527,12 @@ CONTAINS
     ! set default value ("failure notice")
     min_dist(:,:)  = MAX_RANGE
 
-    IF (p_patch%n_patch_cells == 0) RETURN;
+    IF (p_patch%n_patch_cells == 0) THEN
+      ! ensure that processes without cells are involved in global communication 
+      radius = 0._gk
+      radius = p_max(radius, comm=p_comm_work)
+      RETURN
+    END IF
 
     cells => p_patch%cells
     verts => p_patch%verts
@@ -1606,16 +1613,19 @@ CONTAINS
     IF (p_patch%n_patch_cells == 0) in(:)%owner = -1;
     in(:)%glb_index = -1
 
-    DO j=1,total_dim
-      ! convert global index into local idx/block pair:
-      jb = (j-1)/iv_nproma + 1
-      jc = j - (jb-1)*iv_nproma
+    !NEC_RP: prevent processes without cells from accessing non initialized arrays
+    IF (p_patch%n_patch_cells > 0) THEN
+      DO j=1,total_dim
+        ! convert global index into local idx/block pair:
+        jb = (j-1)/iv_nproma + 1
+        jc = j - (jb-1)*iv_nproma
 
-      IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
-        gidx = idx_1d(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
-        in(j)%glb_index = p_patch%cells%decomp_info%glb_index(gidx)
-      END IF
-    END DO
+        IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
+          gidx = idx_1d(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+          in(j)%glb_index = p_patch%cells%decomp_info%glb_index(gidx)
+        END IF
+      END DO
+    ENDIF
 
     ! call user-defined parallel reduction operation
     CALL mpi_reduce_mindistance_pts(in, total_dim, p_comm_work)

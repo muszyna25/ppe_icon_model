@@ -144,14 +144,8 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 
-#ifdef __LOOP_EXCHANGE
     DO je = nshift+1, nshift+nlen
       DO jk = 1, nlev_c
-#else
-!CDIR NOLOOPCHG
-    DO jk = 1, nlev_c
-      DO je = nshift+1, nshift+nlen
-#endif
 
         ! child edge 1
         vn_aux(jk,je,1) = p_grf%coeff_bdyintp_e12(1,je) * &
@@ -354,16 +348,9 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(3)
 
-#ifdef __LOOP_EXCHANGE
     DO jv = nshift+1, nshift+nlen
       DO jn = 1, nfields
         DO jk = 1, nlev_c
-#else
-    DO jn = 1, nfields
-!CDIR UNROLL=6
-      DO jk = 1, nlev_c
-        DO jv = nshift+1, nshift+nlen
-#endif
 
           u_vert(jk,jv,jn) =  &
             p_grf%coeff_rbf_v(1,1,jv)*p_in(jn)%fld(ividx(1,jv),jk+js,ivblk(1,jv)) + &
@@ -400,17 +387,10 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(3), PRIVATE(dvn_tang)
 
-#ifdef __LOOP_EXCHANGE
     DO je = nshift+1, nshift+nlen
       DO jn = 1, nfields
 !DIR$ IVDEP
         DO jk = 1, nlev_c
-#else
-    DO jn = 1, nfields
-!CDIR UNROLL=6
-      DO jk = 1, nlev_c
-        DO je = nshift+1, nshift+nlen
-#endif
 
           ! child edges 1 and 2
           dvn_tang = u_vert(jk,ievidx(2,je),jn) * p_grf%prim_norm(2,1,je) + &
@@ -677,10 +657,13 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 !$ACC UPDATE DEVICE (p_in(jn)%fld),  IF ( use_acc )
   ENDDO
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE (jb,nlen,nshift,jk,jc,jn,elev,limfac1,limfac2,limfac, &
+
+#ifndef __PGI
+! FIXME: PGI runs into deadlock on loop exit (?), if OMP-parallelized
+!$OMP PARALLEL DO PRIVATE (jb,nlen,nshift,jk,jc,jn,elev,limfac1,limfac2,limfac, &
 !$OMP   min_expval,max_expval,relaxed_minval,relaxed_maxval, grad_x, grad_y, &
 !$OMP   val_ctr, maxval_neighb, minval_neighb) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = 1, nblks_bdyintp
 
       nlen = MERGE(nproma_bdyintp, npromz_bdyintp, jb /= nblks_bdyintp)
@@ -692,14 +675,8 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
 
-#ifdef __LOOP_EXCHANGE
         DO jc = nshift+1, nshift+nlen
           DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-        DO jk = 1, elev
-          DO jc = nshift+1, nshift+nlen
-#endif
 
             val_ctr(jk,jc) = p_in(jn)%fld(iidx(1,jc),jk+js,iblk(1,jc))
             grad_x(jk,jc) =  &
@@ -753,14 +730,9 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 !$ACC PARALLEL IF( use_acc )
 !$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(min_expval,max_expval,relaxed_minval,relaxed_maxval,limfac,limfac1,limfac2)
 
-#ifdef __LOOP_EXCHANGE
         DO jc = nshift+1, nshift+nlen
           DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-        DO jk = 1, elev
-          DO jc = nshift+1, nshift+nlen
-#endif
+
             min_expval = MIN(grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc) + &
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(1,2,jc),  &
                              grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(2,1,jc) + &
@@ -803,14 +775,9 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 !$ACC PARALLEL IF( use_acc )
         IF (l_limit_nneg(jn)) THEN
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-#ifdef __LOOP_EXCHANGE
+
           DO jc = nshift+1, nshift+nlen
             DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-          DO jk = 1, elev
-            DO jc = nshift+1, nshift+nlen
-#endif
 
               h_aux(jk,jc,1,jn) = MAX(0._wp, val_ctr(jk,jc) + &
                 grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc)  + &
@@ -829,14 +796,9 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
           ENDDO
         ELSE
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-#ifdef __LOOP_EXCHANGE
+
           DO jc = nshift+1, nshift+nlen
             DO jk = 1, elev
-#else
-!CDIR NOLOOPCHG
-          DO jk = 1, elev
-            DO jc = nshift+1, nshift+nlen
-#endif
 
               h_aux(jk,jc,1,jn) = val_ctr(jk,jc)           + &
                 grad_x(jk,jc)*p_grf%dist_pc2cc_bdy(1,1,jc) + &
@@ -858,8 +820,6 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
       ENDDO ! fields
     ENDDO ! blocks
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
 ! -------------------------------------
 !$ACC UPDATE HOST (h_aux),  IF ( use_acc )

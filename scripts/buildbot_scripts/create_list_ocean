@@ -18,6 +18,9 @@ listname=ocean
 $addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
   checksuite.ocean_internal/technical/exp.ocean_omip_zstar_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_zstar_technical \
    --without-configureflags without-mpi enable-mixed --runflags "cpu_time=00:30:00"  --list $listname
+$addexp checksuite.ocean_internal/hamocc/exp.test_concurrent_hamocc_omip_10days checksuite.ocean_internal/technical/exp.test_multioutput_model_40km \
+--machines mistral --without-configureflags without-mpi enable-mixed --runflags "cpu_time=00:30:00 no_of_nodes=2 queue=compute" --list $listname
+
 
 # add omip binary-identical test on mistral
 $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days \

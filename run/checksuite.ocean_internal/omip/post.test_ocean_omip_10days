@@ -10,7 +10,7 @@ maskName="wet_c"
 oType="eps"
 # ================================================================================
 # technical stuff
-basePath=${ICON_BASE_PATH}
+basePath=${basedir}
 dataPath="${baseBath}../experiments/${EXPNAME}/"
 scriptPath="${icon_data_poolFolder}/tools"
 nclCaller="nclsh"

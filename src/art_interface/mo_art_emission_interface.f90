@@ -39,30 +39,25 @@ MODULE mo_art_emission_interface
 
   USE mo_kind,                          ONLY: wp
   USE mo_model_domain,                  ONLY: t_patch
-  USE mo_impl_constants,                ONLY: min_rlcell_int,dzsoil
-  USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
-  USE mo_loopindices,                   ONLY: get_indices_c
-  USE mo_parallel_config,               ONLY: nproma
+  USE mo_lnd_nwp_config,                ONLY: dzsoil
   USE mo_exception,                     ONLY: finish
   USE mo_nonhydro_state,                ONLY: p_nh_state_lists
   USE mo_nonhydro_types,                ONLY: t_nh_state
-  USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
-  USE mo_run_config,                    ONLY: lart,ntracer,iforcing
-  USE mo_time_config,                   ONLY: time_config
-  USE mo_impl_constants,                ONLY: iecham, inwp
-  USE mo_echam_phy_memory,              ONLY: prm_field
+  USE mo_run_config,                    ONLY: lart,ntracer
   USE mtime,                            ONLY: datetime
-  USE mo_util_mtime,                    ONLY: getElapsedSimTimeInSeconds
   USE mo_timer,                         ONLY: timers_level, timer_start, timer_stop,   &
                                           &   timer_art, timer_art_emissInt
+
 #ifdef __ICON_ART
+  ! ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_pollen, t_fields_volc
-  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_data,                      ONLY: p_art_data, t_art_atmo
+  USE mo_art_wrapper_routines,        ONLY: art_get_indices_c
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
@@ -74,19 +69,19 @@ MODULE mo_art_emission_interface
                                           &   art_seas_emiss_monahan,       &
                                           &   art_seas_emiss_smith
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
-  USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
   USE mo_art_emission_pollen,           ONLY: art_emiss_pollen
   USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
-  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers,  &
-                                          &   art_init_emission_struct,     &
-                                          &   art_read_emissions
+  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
   USE mo_art_prescribed_state,          ONLY: art_prescribe_tracers
-  USE omp_lib 
+  USE omp_lib
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
-  USE mo_art_diagnostics,               ONLY: art_save_aerosol_emission
 
+  USE mo_art_passive_emission,          ONLY: art_emiss_passive
+  USE mo_art_chem_deposition,           ONLY: art_CO2_deposition
+
+  USE mo_art_diagnostics,               ONLY: art_save_aerosol_emission
 #endif
 
   IMPLICIT NONE
@@ -99,7 +94,9 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,current_date,nnow,tracer)
+  SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,&
+       &                            p_diag_lnd,&
+       &                            current_date,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -113,103 +110,63 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  dtime                   !< Time step (advection)
   TYPE(t_nh_state),INTENT(in)       :: &
     &  p_nh_state              !< State variables (prognostic, diagnostic, metrics)
-  TYPE(t_nwp_phy_diag), INTENT(in)  :: &
-    &  prm_diag                !< List of diagnostic fields (physics)
   TYPE(t_lnd_diag), INTENT(in)      :: &
     &  p_diag_lnd              !< List of diagnostic fields (land)
-  REAL(wp), INTENT(inout) :: &
-    &  rho(:,:,:)              !< Density of air [kg/m3]
   TYPE(datetime), INTENT(in), POINTER :: &
     &  current_date            !< Date and time information
-  INTEGER, INTENT(in)               :: &
-    &  nnow                    !< Time level
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
   INTEGER                 :: &
     &  jg, jb, ijsp, jk, jc, & !< Patch id, counter for block loop, jsp loop, vertical loop
-    &  i_startblk, i_endblk, & !< Start and end of block loop
-    &  istart, iend,         & !< Start and end of nproma loop
-    &  i_rlstart, i_rlend,   & !< Relaxation start and end
-    &  i_nchdom,             & !< Number of child domains
-    &  nlev                    !< Number of levels (equals index of lowest full level)
+    &  istart, iend            !< Start and end of nproma loop
   REAL(wp),ALLOCATABLE    :: &
-    &  emiss_rate(:,:),      & !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
-    &  dz_3d(:,:,:),         & !< Height of model layer (3dimensional)
-    &  dz(:,:)                 !< Height of model layer
-  REAL(wp), POINTER :: &
-    &  land_sea(:,:),  &
-    &  u_10m(:,:),     &
-    &  v_10m(:,:)
+    &  emiss_rate(:,:)         !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
-  REAL(wp)                :: &
-    &  p_sim_time              !< elapsed simulation time on this grid level
-
-  ! calculate elapsed simulation time in seconds (local time for
-  ! this domain!)
-  p_sim_time = getElapsedSimTimeInSeconds(current_date)
+  TYPE(t_art_atmo), POINTER :: &
+    &  art_atmo                !< pointer to ART atmo fields
 
 
   ! --- Get the loop indizes
-  i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
-  nlev       = p_patch%nlev
-  i_rlstart  = grf_bdywidth_c+1
-  i_rlend    = min_rlcell_int
-  i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-  i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
   IF (lart) THEN
     IF (timers_level > 3) CALL timer_start(timer_art)
     IF (timers_level > 3) CALL timer_start(timer_art_emissInt)
 
+    art_atmo => p_art_data(jg)%atmo
 
     IF (art_config(jg)%lart_pntSrc) THEN
       ! Point sources
-      CALL art_emission_pntSrc(jg, p_art_data(jg)%pntSrc, current_date, dtime, rho,        &
-        &                      p_patch%cells%area, p_nh_state%metrics%ddqz_z_full, tracer)
+      CALL art_emission_pntSrc(jg, p_art_data(jg)%pntSrc, current_date, dtime, art_atmo%rho,  &
+        &                      art_atmo%cell_area, art_atmo%dz, tracer)
     ENDIF
 
-    ALLOCATE(emiss_rate(nproma,nlev))
-    ALLOCATE(dz(nproma,nlev))
-    ALLOCATE(dz_3d(nproma,nlev,p_patch%nblks_c))
+    ! TODO: this is a very expensive way of handling temporary arrays!
+    ALLOCATE(emiss_rate(art_atmo%nproma,art_atmo%nlev))
 
-    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
+    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem   &
         .OR. art_config(jg)%lart_passive) THEN
 
       CALL art_prescribe_tracers(tracer, p_art_data(jg)%prescr_list,     &
-               &                 p_patch, current_date, p_nh_state%diag, &
-               &                 p_nh_state%metrics%z_mc,                &
-               &                 i_startblk, i_endblk, i_rlstart, i_rlend)
+               &                 p_patch, current_date)
 
       IF (p_art_data(jg)%emiss%is_init) THEN
-        IF (iforcing == inwp) THEN
-          CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
-                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  current_date,prm_diag%swflx_par_sfc(:,:))
-        ELSE IF (iforcing == iecham) THEN
-          CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
-                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                      &  current_date)
-        ENDIF
+        CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,   &
+                                    &  dtime,                                   &
+                                    &  current_date)
       ENDIF
     ENDIF
 
     IF (art_config(jg)%lart_aerosol) THEN
-!$omp parallel do default (shared) private(jb, istart, iend, dz)
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &                istart, iend, i_rlstart, i_rlend)
-        CALL art_air_properties(p_nh_state%diag%pres(:,:,jb),p_nh_state%diag%temp(:,:,jb), &
-          &                     istart,iend,1,nlev,jb,p_art_data(jg))
-        ! Get model layer heights
-        DO jk = 1, nlev
-          DO jc = istart, iend
-            dz(jc,jk) = p_nh_state%metrics%ddqz_z_full(jc,jk,jb)
-          ENDDO
-        ENDDO
+!$omp parallel do default (shared) private(jb, istart, iend)
+      DO jb = art_atmo%i_startblk, art_atmo%i_endblk
+        CALL art_get_indices_c(jg, jb, istart, iend)
+
+        CALL art_air_properties(art_atmo%pres(:,:,jb),art_atmo%temp(:,:,jb), &
+          &                     istart,iend,1,art_atmo%nlev,jb,p_art_data(jg))
 
         ! ----------------------------------
         ! --- Preparations for emission routines
@@ -218,10 +175,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           CASE(0)
             ! Nothing to do, no dust emissions
           CASE(1)
-            CALL art_prepare_emission_dust(p_nh_state%diag%u(:,nlev,jb),p_nh_state%diag%v(:,nlev,jb),           &
-              &          rho(:,nlev,jb),prm_diag%tcm(:,jb),p_diag_lnd%w_so(:,1,jb),p_diag_lnd%w_so_ice(:,1,jb), &
-              &          dzsoil(1),p_diag_lnd%h_snow(:,jb),jb,istart,iend,p_art_data(jg)%ext%soil_prop,         &
-              &          p_art_data(jg)%diag%ustar_threshold(:,jb),p_art_data(jg)%diag%ustar(:,jb))
+            CALL art_prepare_emission_dust(art_atmo%u(:,art_atmo%nlev,jb),  &
+              &          art_atmo%v(:,art_atmo%nlev,jb), art_atmo%rho(:,art_atmo%nlev,jb), &
+              &          art_atmo%tcm(:,jb),p_diag_lnd%w_so(:,1,jb),p_diag_lnd%w_so_ice(:,1,jb), &
+              &          dzsoil(1),p_diag_lnd%h_snow(:,jb),jb,istart,iend,                       &
+              &          p_art_data(jg)%ext%soil_prop, p_art_data(jg)%diag%ustar_threshold(:,jb),&
+              &          p_art_data(jg)%diag%ustar(:,jb))
           CASE(2)
             ! not available yet
           CASE default
@@ -234,7 +193,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           CASE(1)
             ! No preparations necessary
           CASE(2)
-            CALL art_prepare_emission_volc(current_date,jb,nlev,p_nh_state%metrics%z_ifc(:,:,jb),  &
+            CALL art_prepare_emission_volc(current_date,jb,art_atmo%nlev,art_atmo%z_ifc(:,:,jb),  &
               &                            p_art_data(jg)%dict_tracer, p_art_data(jg)%ext%volc_data)
           CASE default
             CALL finish('mo_art_emission_interface:art_emission_interface', &
@@ -255,116 +214,115 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           SELECT TYPE (fields=>this_mode%fields)
             TYPE is (t_fields_2mom)
               ! Now the according emission routine has to be found
-!$omp parallel do default (shared) private (jb, istart, iend, emiss_rate, dz)
-              DO jb = i_startblk, i_endblk
-                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                  &                istart, iend, i_rlstart, i_rlend)
+!$omp parallel do default (shared) private (jb, istart, iend, emiss_rate)
+              DO jb = art_atmo%i_startblk, art_atmo%i_endblk
+                CALL art_get_indices_c(jg, jb,  istart, iend)
 
                 emiss_rate(:,:) = 0._wp
 
-                ! Get model layer heights
-                DO jk = 1, nlev
-                  DO jc = istart, iend
-                    dz(jc,jk) = p_nh_state%metrics%ddqz_z_full(jc,jk,jb)
-                  ENDDO
-                ENDDO
-
                 SELECT CASE(TRIM(fields%name))
                   CASE ('seasa')
-                    CALL art_seas_emiss_martensson(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                        &
-                      &             dz(:,nlev), p_diag_lnd%t_s(:,jb),                                                 &
-                      &             ext_data%atm%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), &
-                      &             istart,iend,emiss_rate(:,nlev))
+                    CALL art_seas_emiss_martensson(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),  &
+                      &             art_atmo%dz(:,art_atmo%nlev,jb), p_diag_lnd%t_s(:,jb),      &
+                      &             art_atmo%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),          &
+                      &             ext_data%atm%fr_lake(:,jb), istart,iend,                    &
+                      &             emiss_rate(:,art_atmo%nlev))
                   CASE ('seasb')
-                    CALL art_seas_emiss_monahan(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                           &
-                      &             dz(:,nlev), ext_data%atm%fr_land(:,jb),                                           &
-                      &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:,nlev))
+                    CALL art_seas_emiss_monahan(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),    &
+                      &             art_atmo%dz(:,art_atmo%nlev,jb), art_atmo%fr_land(:,jb),   &
+                      &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),     &
+                      &             istart,iend,emiss_rate(:,art_atmo%nlev))
                   CASE ('seasc')
-                    CALL art_seas_emiss_smith(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                             &
-                      &             dz(:,nlev), ext_data%atm%fr_land(:,jb),                                           &
-                      &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:,nlev))
+                    CALL art_seas_emiss_smith(art_atmo%u_10m(:,jb), art_atmo%v_10m(:,jb),      &
+                      &             art_atmo%dz(:,art_atmo%nlev,jb), art_atmo%fr_land(:,jb),   &
+                      &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),     &
+                      &             istart,iend,emiss_rate(:,art_atmo%nlev))
                   CASE ('dusta')
-                    CALL art_emission_dust(dz(:,nlev),                                                 &
+                    CALL art_emission_dust(art_atmo%dz(:,art_atmo%nlev,jb),                            &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass),      &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
-                      &             jb,istart,iend,'dusta',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
+                      &             jb,istart,iend,'dusta',p_art_data(jg)%ext%soil_prop,               &
+                      &             emiss_rate(:,art_atmo%nlev))
                   CASE ('dustb')
-                    CALL art_emission_dust(dz(:,nlev),                                                 &
+                    CALL art_emission_dust(art_atmo%dz(:,art_atmo%nlev,jb),                            &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass),      &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
-                      &             jb,istart,iend,'dustb',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
+                      &             jb,istart,iend,'dustb',p_art_data(jg)%ext%soil_prop,               &
+                      &             emiss_rate(:,art_atmo%nlev))
                   CASE ('dustc')
-                    CALL art_emission_dust(dz(:,nlev),                                                 &
+                    CALL art_emission_dust(art_atmo%dz(:,art_atmo%nlev,jb),                            &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass),      &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                       &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
-                      &             jb,istart,iend,'dustc',p_art_data(jg)%ext%soil_prop,emiss_rate(:,nlev))
+                      &             jb,istart,iend,'dustc',p_art_data(jg)%ext%soil_prop,               &
+                      &             emiss_rate(:,art_atmo%nlev))
                   CASE ('asha')
-                    CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
-                      &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
+                    CALL art_calculate_emission_volc( jb, art_atmo%dz(:,:,jb),      &
+                      &             art_atmo%cell_area(:,jb), art_atmo%nlev,        &
+                      &             p_art_data(jg)%ext%volc_data,                   &
                       &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                   CASE ('ashb')
-                    CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
-                      &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
+                    CALL art_calculate_emission_volc( jb, art_atmo%dz(:,:,jb),      &
+                      &             art_atmo%cell_area(:,jb), art_atmo%nlev,        &
+                      &             p_art_data(jg)%ext%volc_data,                   &
                       &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                   CASE ('ashc')
-                    CALL art_calculate_emission_volc( jb, p_nh_state%metrics%ddqz_z_full(:,:,jb),      &
-                      &             p_patch%cells%area(:,jb), nlev, p_art_data(jg)%ext%volc_data,      &
+                    CALL art_calculate_emission_volc( jb, art_atmo%dz(:,:,jb),      &
+                      &             art_atmo%cell_area(:,jb), art_atmo%nlev,        &
+                      &             p_art_data(jg)%ext%volc_data,                   &
                       &             fields%itr3(1), emiss_rate(:,:) ) !< itr3(1) assumes only 1 mass component of mode
                 END SELECT
 
                 ! Update mass mixing ratios
                 DO ijsp = 1, fields%ntr-1
-                  CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  emiss_rate(:,:),      &
-                    &                         dtime, istart, iend, nlev, opt_rho = rho(:,:,jb))
+                  CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  emiss_rate(:,:), &
+                    &                         dtime, istart, iend, art_atmo%nlev,                 &
+                    &                         opt_rho = art_atmo%rho(:,:,jb))
                   ! DIAGNOSTIC: emiss / acc_emiss of art-tracer
-                  CALL art_save_aerosol_emission(p_nh_state_lists(jg)%diag_list, p_art_data(jg),               &
-                       & emiss_rate(:,:), p_nh_state%metrics%ddqz_z_full(:,:,:), dtime, fields%itr3(ijsp), jb, &
-                       & istart, iend, 1, nlev)
+                  CALL art_save_aerosol_emission(p_nh_state_lists(jg)%diag_list, p_art_data(jg),  &
+                       & emiss_rate(:,:), art_atmo%dz(:,:,:), dtime, fields%itr3(ijsp), jb,       &
+                       & istart, iend, 1, art_atmo%nlev)
                 ENDDO
                 ! Update mass-specific number
-                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), emiss_rate(:,:), dtime,        &
-                  &                         istart, iend, nlev, opt_rho = rho(:,:,jb),                 &
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), emiss_rate(:,:), dtime,   &
+                  &                         istart, iend, art_atmo%nlev,                          &
+                  &                         opt_rho = art_atmo%rho(:,:,jb),                       &
                   &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
                 ! DIAGNOSTIC: emiss / acc_emiss of art-tracer
-                CALL art_save_aerosol_emission(p_nh_state_lists(jg)%diag_list, p_art_data(jg),         &
-                     & emiss_rate(:,:), p_nh_state%metrics%ddqz_z_full(:,:,:), dtime, fields%itr0, jb, &
-                     & istart, iend, 1, nlev, opt_fac=(fields%info%mode_fac * fields%info%factnum))
+                CALL art_save_aerosol_emission(p_nh_state_lists(jg)%diag_list, p_art_data(jg),    &
+                     & emiss_rate(:,:), art_atmo%dz(:,:,:), dtime, fields%itr0, jb,               &
+                     & istart, iend, 1, art_atmo%nlev,                                            &
+                     & opt_fac=(fields%info%mode_fac * fields%info%factnum))
               ENDDO !jb
 !$omp end parallel do
             TYPE is (t_fields_pollen)
-              DO jb = i_startblk, i_endblk
-                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                  &                istart, iend, i_rlstart, i_rlend)
-
-                DO jc = istart, iend
-                  dz(jc,nlev) = p_nh_state%metrics%ddqz_z_full(jc,nlev,jb)
-                ENDDO
+              DO jb = art_atmo%i_startblk, art_atmo%i_endblk
+                CALL art_get_indices_c(jg, jb, istart, iend)
 
                 SELECT CASE(TRIM(fields%name))
                   CASE('pollbetu') ! Betula --> birch
-                    CALL art_emiss_pollen(dtime,current_date,                             &
-                      &                   rho(:,nlev,jb),                                 &
-                      &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1),  & !< 1=pollbetu
-                      &                   tracer(:,nlev,jb,:),                            &
-                      &                   p_art_data(jg)%dict_tracer,                     &
-                      &                   p_nh_state%diag%temp(:,nlev,jb),                &
-                      &                   p_nh_state%diag%pres_sfc(:,jb),                 &
-                      &                   p_nh_state%prog(nnow)%tke(:,nlev,jb),           &
-                      &                   prm_diag%rain_gsp_rate(:,jb),                   &
-                      &                   prm_diag%rain_con_rate(:,jb),                   &
-                      &                   prm_diag%rh_2m(:,jb),                           &
-                      &                   dz(:,nlev),                                     &
-                      &                   ext_data%atm%llsm_atm_c(:,jb),                  &
-                      &                   jb, istart, iend )
+                      CALL art_emiss_pollen(dtime,current_date,                               &
+                           &                   art_atmo%rho(:,art_atmo%nlev,jb),              &
+                           &                   p_art_data(jg)%ext%pollen_prop%pollen_type(1), & !< 1=pollbetu
+                           &                   tracer(:,art_atmo%nlev,jb,:),                  &
+                           &                   p_art_data(jg)%dict_tracer,                    &
+                           &                   art_atmo%temp(:,art_atmo%nlev,jb),             &
+                           &                   art_atmo%pres_sfc(:,jb),                       &
+                           &                   art_atmo%tke(:,art_atmo%nlev,jb),              &
+                           &                   art_atmo%rain_gsp_rate(:,jb),                  &
+                           &                   art_atmo%rain_con_rate(:,jb),                  &
+                           &                   art_atmo%rh_2m(:,jb),                          &
+                           &                   art_atmo%dz(:,art_atmo%nlev,jb),               &
+                           &                   art_atmo%llsm(:,jb),                           &
+                           &                   jb, istart, iend )
                   CASE DEFAULT
                     CALL finish('mo_art_emission_interface:art_emission_interface', &
                       &         'ART: Pollen emissions for '//TRIM(fields%name)//' not yet implemented')
@@ -385,7 +343,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
       ! volcano emissions
       IF (art_config(jg)%iart_volcano == 1) THEN
-        CALL art_organize_emission_volc(p_patch, current_date, dtime,rho,p_art_data(jg)%dict_tracer, &
+        CALL art_organize_emission_volc(p_patch, current_date, dtime,art_atmo%rho,  &
+          &                             p_art_data(jg)%dict_tracer,                 &
           &                             p_art_data(jg)%ext%volc_data,tracer)
       ENDIF
 
@@ -395,86 +354,63 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ! ----------------------------------
     ! --- emissions of chemical tracer
     ! ----------------------------------
-  
+
     IF ((art_config(jg)%lart_chem) .OR. (art_config(jg)%lart_passive)) THEN
-      ! Get model layer heights
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &                istart, iend, i_rlstart, i_rlend)
-        DO jk = 1, nlev
-          DO jc = istart, iend
-            dz_3d(jc,jk,jb) = p_nh_state%metrics%z_ifc(jc,jk,jb) - p_nh_state%metrics%z_ifc(jc,jk+1,jb)
-          ENDDO
+
+
+      IF (art_config(jg)%lart_passive) THEN
+        DO jb = art_atmo%i_startblk, art_atmo%i_endblk
+          CALL art_get_indices_c(jg, jb, istart, iend)
+
+          CALL art_emiss_passive(current_date, tracer, jg, jb,istart,iend)
         ENDDO
-      END DO
+      END IF
 
-      IF (iforcing == iecham) THEN
-        land_sea => prm_field(jg)%lsmask
-        u_10m => prm_field(jg)%uas
-        v_10m => prm_field(jg)%vas
-      ELSE IF (iforcing == inwp) THEN
-        land_sea => ext_data%atm%fr_land
-        u_10m => prm_diag%u_10m
-        v_10m => prm_diag%v_10m
-      ELSE
-         CALL finish('mo_art_emission_interface:art_emission_interface', &
-              &         'ART: no land sea mask for this iforcing available')
-      ENDIF
 
-        
+      IF (p_art_data(jg)%chem%iTRCO2 /= 0) THEN
+        ! Please note that the molar weight of CO2 should be taken from the
+        ! storage in the future
+        CALL art_CO2_deposition(jg,tracer(:,:,:,p_art_data(jg)%chem%iTRCO2), 44.e-3_wp, dtime,  &
+                   &            p_art_data(jg)%atmo)
+      END IF
+     
+
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-              &                istart, iend, i_rlstart, i_rlend)
+          DO jb = art_atmo%i_startblk, art_atmo%i_endblk
+            CALL art_get_indices_c(jg, jb, istart, iend)
+
             CALL art_emiss_chemtracer(current_date,                   &
               &                       dtime,                          &
               &                       tracer,                         &
-              &                       p_nh_state%diag%pres,           &
-              &                       p_nh_state%diag%temp,           &
-              &                       land_sea,                       &
-              &                       p_patch,                        &
-              &                       p_art_data(jg)%dict_tracer,     &
-              &                       jb,istart,iend,nlev,nproma,     &
-              &                       u_10m, v_10m, dz_3d(:,:,jb))
+              &                       jg,                             &
+              &                       jb,istart,iend)
           ENDDO
         CASE(1)
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-              &                istart, iend, i_rlstart, i_rlend)
+          DO jb = art_atmo%i_startblk, art_atmo%i_endblk
+            CALL art_get_indices_c(jg, jb, istart, iend)
+
             CALL art_emiss_chemtracer(current_date,                   &
               &                       dtime,                          &
               &                       tracer,                         &
-              &                       p_nh_state%diag%pres,           &
-              &                       p_nh_state%diag%temp,           &
-              &                       land_sea,                       &
-              &                       p_patch,                        &
-              &                       p_art_data(jg)%dict_tracer,     &
-              &                       jb,istart,iend,nlev,nproma,     &
-              &                       u_10m, v_10m, dz_3d(:,:,jb))
+              &                       jg,                             &
+              &                       jb,istart,iend)
           ENDDO
         CASE(2)
-          DO jb = i_startblk, i_endblk
-            CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-              &                istart, iend, i_rlstart, i_rlend)
+          DO jb = art_atmo%i_startblk, art_atmo%i_endblk
+            CALL art_get_indices_c(jg, jb, istart, iend)
+
             CALL art_emiss_gasphase(current_date,                   &
               &                     dtime,                          &
               &                     tracer,                         &
-              &                     p_nh_state%diag%pres,           &
-              &                     p_nh_state%diag%temp,           &
-              &                     land_sea,                       &
-              &                     p_patch,                        &
-              &                     jb,istart,iend,nlev,nproma,     &
-              &                     u_10m, v_10m, dz_3d(:,:,jb))
+              &                     jg,                             &
+              &                     jb,istart,iend)
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &
                &      'ART: Unknown iart_chem_mechanism')
       END SELECT !iart_chem_mechanism
     ENDIF !lart_chem
-    
-    DEALLOCATE(dz)
-    DEALLOCATE(dz_3d)
 
     CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=tracer(:,:,:,:))
 
@@ -489,5 +425,3 @@ END SUBROUTINE art_emission_interface
 !!-------------------------------------------------------------------------
 !!
 END MODULE mo_art_emission_interface
-
-

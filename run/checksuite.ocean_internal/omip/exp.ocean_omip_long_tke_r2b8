@@ -211,7 +211,8 @@ dzlev_m(1:128) = 11.0,   9.0,     8.0,   8.0,     8.0,    8.0,    8.0,    8.0,  
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
-  vert_mix_type                            = 2  ! 1: PP; 2: TKE
+  vert_mix_type                            = 2  ! 1: PP; 2: TKE; 3: KPP; 4 TKE+IDEMIX
+  only_tke                                 = .true. ! .true. for TKE; .false. for TKE+IDEMIX
   PPscheme_type                            = 0
   !velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   !Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
@@ -335,5 +336,10 @@ EOF
 add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128.nc initial_state.nc
 add_link_file $ocean_data_InputFolder/omip_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_L128-daily.nc ocean-flux.nc
 add_link_file $ocean_data_InputFolder/ts_phc3.0_annual_icon_OceanOnly_Global_IcosSymmetric_0010km_rotatedZ37d_modified_srtm30_1min_surf.nc ocean-relax.nc
+
+# IDEMIX forcing fields
+# (WARNING: file names need to be set to R2B8)
+add_link_file /home/mpim/m300602/work/proj_vmix/icon/idemix_forcing/fourier_smooth_2005_cfsr_inert_OceanOnly_Global_IcosSymmetric_0039km_rotatedZ37d_BlackSea_Greenland_modified_srtm30_1min.nc idemix_surface_forcing.nc
+add_link_file /home/mpim/m300602/work/proj_vmix/icon/idemix_forcing/tidal_energy_gx1v6_20090205_OceanOnly_Global_IcosSymmetric_0039km_rotatedZ37d_BlackSea_Greenland_modified_srtm30_1min.nc idemix_bottom_forcing.nc
 
 #-----------------------------------------------------------------------------

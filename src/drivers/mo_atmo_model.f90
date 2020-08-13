@@ -52,7 +52,8 @@ MODULE mo_atmo_model
     &                                   ishallow_water, inwp
   USE mo_zaxis_type,              ONLY: zaxisTypeList, t_zaxisTypeList
   USE mo_load_restart,            ONLY: read_restart_header
-  USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_key_value_store,         ONLY: t_key_value_store
+  USE mo_restart_nml_and_att,     ONLY: getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -83,7 +84,7 @@ MODULE mo_atmo_model
 
   ! time stepping
   USE mo_atmo_hydrostatic,        ONLY: atmo_hydrostatic
-  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic
+  USE mo_atmo_nonhydrostatic,     ONLY: atmo_nonhydrostatic, construct_atmo_nonhydrostatic
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
@@ -139,6 +140,7 @@ MODULE mo_atmo_model
   USE mtime,                      ONLY: datetimeToString, OPERATOR(<), OPERATOR(+)
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
+  USE mo_async_latbc_types,       ONLY: t_latbc_data
   ! ART
   USE mo_art_init_interface,      ONLY: art_init_interface
 
@@ -164,6 +166,8 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
+    TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
+
 #ifndef NOMPI
 #if defined(__SX__)
     INTEGER  :: maxrss
@@ -175,12 +179,20 @@ CONTAINS
     ! construct the atmo model
     CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
 
+    SELECT CASE(iequations)
+
+    CASE(inh_atmosphere)
+      CALL construct_atmo_nonhydrostatic(latbc)
+
+    END SELECT
+
     !---------------------------------------------------------------------
     ! construct the coupler
     !
     IF ( is_coupled_run() ) THEN
       CALL construct_atmo_coupler(p_patch)
     ENDIF
+
 
     !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
@@ -190,7 +202,7 @@ CONTAINS
       CALL atmo_hydrostatic
 
     CASE(inh_atmosphere)
-      CALL atmo_nonhydrostatic
+      CALL atmo_nonhydrostatic(latbc)
 
     CASE DEFAULT
       CALL finish(routine, 'unknown choice for iequations.')
@@ -237,7 +249,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
     INTEGER                 :: jg, jgp, jstep0, error_status, dedicatedRestartProcs
     TYPE(t_sim_step_info)   :: sim_step_info  
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
     CALL lonlat_grids%init()
@@ -299,7 +311,7 @@ CONTAINS
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
-    IF (timers_level > 3) CALL timer_start(timer_model_init)
+    IF (timers_level > 1) CALL timer_start(timer_model_init)
 
     !-------------------------------------------------------------------
     ! initialize dynamic list of vertical axes
@@ -324,7 +336,7 @@ CONTAINS
     !-------------------------------------------------------------------
 
     ! This won't RETURN on dedicated restart PEs, starting their main loop instead.
-    CALL detachRestartProcs()
+    CALL detachRestartProcs(timers_level > 1)
 
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
     ! This routine will never return
@@ -351,7 +363,7 @@ CONTAINS
         IF (my_process_is_io()) THEN
           ! Stop timer which is already started but would not be stopped
           ! since xxx_io_main_proc never returns
-          IF (timers_level > 3) CALL timer_stop(timer_model_init)
+          IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
           ! compute sim_start, sim_end
           CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
@@ -361,11 +373,9 @@ CONTAINS
           sim_step_info%dtime      = dtime
           jstep0 = 0
 
-          restartAttributes => getAttributesForRestarting()
-          IF (ASSOCIATED(restartAttributes)) THEN
-            ! get start counter for time loop from restart file:
-            jstep0 = restartAttributes%getInteger("jstep")
-          END IF
+          CALL getAttributesForRestarting(restartAttributes)
+          ! get start counter for time loop from restart file:
+          IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
         END IF
@@ -414,16 +424,16 @@ CONTAINS
     ! 4. Import patches, perform domain decomposition
     !-------------------------------------------------------------------
 
-    IF (timers_level > 5) CALL timer_start(timer_domain_decomp)
+    IF (timers_level > 4) CALL timer_start(timer_domain_decomp)
     CALL build_decomposition(num_lev, nshift, is_ocean_decomposition = .false.)
-    IF (timers_level > 5) CALL timer_stop(timer_domain_decomp)
+    IF (timers_level > 4) CALL timer_stop(timer_domain_decomp)
 
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
-    IF (timers_level > 5) CALL timer_start(timer_compute_coeffs)
+    IF (timers_level > 4) CALL timer_start(timer_compute_coeffs)
     CALL configure_interpolation( n_dom, p_patch(1:)%level, &
                                   p_patch(1:)%geometry_info )
 
@@ -501,7 +511,7 @@ CONTAINS
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
       CALL create_grf_index_lists(p_patch, p_grf_state, p_int_state)
     ENDIF
-    IF (timers_level > 5) CALL timer_stop(timer_compute_coeffs)
+    IF (timers_level > 4) CALL timer_stop(timer_compute_coeffs)
 
    !---------------------------------------------------------------------
    ! Prepare dynamics and land
@@ -523,9 +533,9 @@ CONTAINS
 
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
-    IF (timers_level > 5) CALL timer_start(timer_ext_data)
+    IF (timers_level > 4) CALL timer_start(timer_ext_data)
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
-    IF (timers_level > 5) CALL timer_stop(timer_ext_data)
+    IF (timers_level > 4) CALL timer_stop(timer_ext_data)
 
    !---------------------------------------------------------------------
    ! Import vertical grid/ define vertical coordinate
@@ -583,7 +593,7 @@ CONTAINS
 
     !------------------------------------------------------------------
 
-    IF (timers_level > 3) CALL timer_stop(timer_model_init)
+    IF (timers_level > 1) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_model
 
