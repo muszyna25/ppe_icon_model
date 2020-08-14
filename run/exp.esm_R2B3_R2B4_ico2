@@ -1454,6 +1454,7 @@ cat >> ${oce_namelist} << EOF
   output_end       = "${end_date}"
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
+  mode             = 1
   output_grid      = .false.
   operation       = 'mean'
   ml_varlist       =  'group:HAMOCC_MONI'
@@ -1471,6 +1472,7 @@ cat >> ${oce_namelist} << EOF
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
+  mode             = 1
   output_grid      = .TRUE.
   operation       = 'mean'
   ml_varlist       =  'group:HAMOCC_BASE'
@@ -1489,7 +1491,8 @@ cat >> ${oce_namelist} << EOF
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  mode             = 1
+  operation        = 'mean'
   ml_varlist       =  'group:HAMOCC_SED'
 /
 EOF
@@ -1506,7 +1509,8 @@ cat >> ${oce_namelist} << EOF
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation        = 'mean'
+  mode             = 1
   ml_varlist       =  'HAMOCC_BACFRA','HAMOCC_SRED','HAMOCC_REMIN','HAMOCC_DENIT','HAMOCC_delsil','HAMOCC_delcar','HAMOCC_aou'
 /
 EOF
@@ -1522,11 +1526,11 @@ cat >> ${oce_namelist} << EOF
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
   file_interval    = "${hamocc_file_interval}"
-  !mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   output_grid      = .TRUE.
-  operation       = 'mean'
+  operation        = 'mean'
   ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
-  m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
+  m_levels         ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
 /
 EOF
 fi
@@ -1540,11 +1544,11 @@ cat >> ${oce_namelist} << EOF
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${hamocc_output_interval}"
- !mode             =  2                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  mode             =  1                             ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   file_interval    = "${hamocc_file_interval}"
   output_grid      = .TRUE.
-  operation       = 'mean'
-  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min', 'co2mr'
+  operation        = 'mean'
+  ml_varlist       =  'HAMOCC_co2flux','HAMOCC_orginp','HAMOCC_dmsflux','HAMOCC_silinp','HAMOCC_calinp','HAMOCC_o2flux','HAMOCC_n2flux','HAMOCC_n2oflux','HAMOCC_nfix_diag','HAMOCC_coex90','HAMOCC_calex90','HAMOCC_opex90','HAMOCC_coex1000','HAMOCC_opex1000','HAMOCC_calex1000','HAMOCC_coex2000','HAMOCC_opex2000','HAMOCC_calex2000','HAMOCC_o2min','HAMOCC_zo2min'
 /
 EOF
 fi
