@@ -621,7 +621,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       CONTIGUOUS :: msg, limits, recv_src
 #endif
-      INTEGER :: nmsg, i, sz, sz_psum, msg_rank, jls, jl, jle
+      INTEGER :: nmsg, i, sz, msg_rank, jls, jl, jle
       nmsg = SIZE(msg)
       DO i = 1, nmsg
         msg_rank = msg(i)%rank
