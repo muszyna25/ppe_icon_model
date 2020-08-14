@@ -384,8 +384,6 @@ CONTAINS
 
 
     ! --- Store information about vertical levels.
-! GZ: this loop is incorrectly vectorized without the novector directive!
-!$NEC novector
     DO jg = 1, n_dom
 
       patch_pre(jg)%nlev   = num_lev(jg)

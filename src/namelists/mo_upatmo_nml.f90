@@ -32,7 +32,7 @@ MODULE mo_upatmo_nml
   USE mo_nml_annotate,            ONLY: temp_defaults, temp_settings
   USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom
   USE mo_util_string,             ONLY: int2string
-  USE mo_upatmo_impl_const,       ONLY: iUpatmoStat, isolvar, isolvardat, iorbit, icycle, &
+  USE mo_upatmo_impl_const,       ONLY: isolvar, isolvardat, iorbit, icycle,              &
     &                                   iUpatmoPrcMode, iUpatmoPrcId, iUpatmoGasMode,     & 
     &                                   iUpatmoGrpId, iUpatmoGasId, iUpatmoExtdatId,      &
     &                                   iThermdynCoupling

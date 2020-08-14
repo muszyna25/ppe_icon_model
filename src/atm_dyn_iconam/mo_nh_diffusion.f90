@@ -26,7 +26,13 @@
 
 MODULE mo_nh_diffusion
 
+#ifdef __SX__
+! for strange reasons, this routine is faster without mixed precision on the NEC
+#undef __MIXED_PRECISION
+  USE mo_kind,                ONLY: wp, vp => wp
+#else 
   USE mo_kind,                ONLY: wp, vp
+#endif
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area, lfeedback

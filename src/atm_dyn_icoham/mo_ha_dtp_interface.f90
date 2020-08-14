@@ -27,8 +27,7 @@ MODULE mo_ha_dtp_interface
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_intp_data_strc,     ONLY: t_int_state
-  USE mo_intp,               ONLY: verts2edges_scalar,       &
-                                   edges2cells_scalar, verts2cells_scalar
+  USE mo_intp,               ONLY: verts2cells_scalar
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_ha_dynamics,        ONLY: continuity
@@ -39,9 +38,9 @@ MODULE mo_ha_dtp_interface
                                    update_tempv_geopot
   USE mo_math_divrot,        ONLY: rot_vertex
   USE mo_physical_constants, ONLY: rd_o_cpd, p0ref
-  USE mo_sync,               ONLY: SYNC_E,SYNC_C, SYNC_V, sync_patch_array
+  USE mo_sync,               ONLY: SYNC_V, sync_patch_array
   USE mo_impl_constants,     ONLY: SUCCESS, TWO_TL_SI
-  USE mo_timer,              ONLY: ltimer, timers_level, timer_start, timer_stop, &
+  USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy, timer_prep_phy, timer_prep_tracer_leapfrog, timer_prep_tracer, &
     & timer_prep_tracer_RK
   USE mo_exception,          ONLY: finish

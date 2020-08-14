@@ -758,14 +758,14 @@ CONTAINS
 #else
     vn_aux_lev = 0._wp
     w_aux_lev  = 0._wp
-!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk) REDUCTION(max:vn_aux_lev) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = istartblk_e, iendblk_e
       DO jk = 1, patch%nlev
         vn_aux_lev(jk) = MAX(vn_aux_lev(jk),vn_aux(jb,jk))
       ENDDO
     ENDDO
 !$OMP END DO
-!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk) REDUCTION(max:w_aux_lev) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = istartblk_c, iendblk_c
       DO jk = 1, patch%nlev
         w_aux_lev(jk) = MAX(w_aux_lev(jk),w_aux(jb,jk))

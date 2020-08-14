@@ -149,8 +149,7 @@ MODULE mo_intp_rbf_coeffs
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, message_text, finish
-USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rlcell, grf_bdywidth_c
-USE mo_impl_constants_grf,  ONLY: grf_ovlparea_start_c, grf_fbk_start_c
+USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
 USE mo_grid_config,         ONLY: l_limited_area
 USE mo_dynamics_config,     ONLY: iequations

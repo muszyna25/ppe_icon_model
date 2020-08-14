@@ -60,11 +60,7 @@ MODULE mo_kind
   INTEGER, PARAMETER :: vp = wp
 #endif
 
-#ifdef __MIXED_PRECISION_2
-  INTEGER, PARAMETER :: vp2 = sp
-#else
-  INTEGER, PARAMETER :: vp2 = wp
-#endif
+
   !
   ! Integer section
   ! ---------------
@@ -86,7 +82,7 @@ MODULE mo_kind
   !
   INTEGER, PARAMETER :: wi = i4                       !< selected working precission
   !
-  PUBLIC :: sp, dp, wp, vp, vp2, i1, i2, i4, i8
+  PUBLIC :: sp, dp, wp, vp, i1, i2, i4, i8
   !
   !--------------------------------------------------------------------
 

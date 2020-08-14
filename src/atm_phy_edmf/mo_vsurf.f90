@@ -51,7 +51,7 @@ USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&
       & RCPD     ,RETV     ,RVTMP2                            !yomcst (& yos_cst)
 USE mo_edmf_param   ,ONLY : &
 !dmk  & RWCAP    ,RWPWP    ,RQWEVAP  ,&                       ! (& yos_soil)
-      & RWCAPM   ,RWPWPM   ,RQWEVAPM ,RWRESTM  ,&             ! (&  ---    )
+      & RWCAPM   ,RWPWPM   ,RQWEVAPM ,          &             ! (&  ---    )
       & RTF1     ,RTF2     ,RTF3     ,RTF4     ,&             ! (&  ---    )
 !dmk  & LEVGEN   ,&                                           !yoephy (& yos_soil)
       & LEOCSA   ,&                                           !yoephy (& yos_exc)

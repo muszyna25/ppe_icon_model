@@ -22,7 +22,7 @@ MODULE mo_upatmo_phy_setup
   USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH, min_rlcell
   USE mo_physical_constants,   ONLY: amd, grav
   USE mo_upatmo_impl_const,    ONLY: iUpatmoStat, idamtr, iUpatmoPrcStat, &
-    &                                iUpatmoGasStat, iUpatmoTendId,       &
+    &                                iUpatmoGasStat,                      &
     &                                iUpatmoGrpId,  iUpatmoExtdatStat
   USE mo_master_config,        ONLY: isRestart
   USE mo_upatmo_config,        ONLY: upatmo_config, upatmo_phy_config

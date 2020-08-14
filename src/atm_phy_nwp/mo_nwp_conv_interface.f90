@@ -135,7 +135,7 @@ CONTAINS
     ENDIF
 
 #ifndef __PGI
-!FIXME: PGI + OpenMP produce deadlock in this loop... check correctness of parallel code
+!FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
 !$OMP PARALLEL DO PRIVATE(jb,jc,jk,jt,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
 !$OMP            z_dtdt,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950,wfac,z_ddspeed), ICON_OMP_GUIDED_SCHEDULE
 #endif

@@ -287,6 +287,13 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
 
   IF (ltimer) CALL timer_start(timer_synsat)
 
+  ! Skip empty patches which may occur with processor splitting or vector-host offloading
+  ! This needs to be done after the timer call in order to avoid timer inconsistencies
+  IF (p_patch(jg)%n_patch_cells == 0) THEN
+    IF (ltimer) CALL timer_stop(timer_synsat)
+    RETURN
+  ENDIF
+
   nlev_rg = p_patch(jgp)%nlev
 
   p_gcp        => p_patch_local_parent(jg)%cells
@@ -1068,7 +1075,7 @@ SUBROUTINE downscale_rttov_output(jg, jgp, nimg, rg_satimg, satimg, l_enabled)
     CALL p_barrier(p_comm_work)
     WRITE (0,*) "Execute interpolation from reduced grid to full grid"
   END IF
-  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 1, 1, &
+  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), 0, 1, 1, &
     &                         rg_satimg, satimg, overshoot_fac=1.0_wp,opt_l_enabled=l_enabled)
   IF (dbg_level > 2) THEN
     CALL p_barrier(p_comm_work)

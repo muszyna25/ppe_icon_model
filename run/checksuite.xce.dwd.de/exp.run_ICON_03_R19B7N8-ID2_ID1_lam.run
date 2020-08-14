@@ -1,7 +1,7 @@
 #! /bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_b
-#PBS -l select=25:ompthreads=6
+#PBS -l select=15:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
 #PBS -j oe
@@ -86,7 +86,8 @@ ln -sf $LBCDIR lbcdir
 cp $ICONDIR/data/ECHAM6_CldOptProps.nc .
 cp $ICONDIR/data/rrtmg_lw.nc .
 
-
+# lookup table for 2-mom microphysics
+cp $ICONDIR/data/dmin_wetgrowth_lookup.nc .
 
 
 
@@ -212,7 +213,7 @@ cat > ${atmo_namelist} << EOF
  ml_varlist = 'u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', 
 'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi','tqr','tqs','tqg', 'group:land_vars', 'freshsnow', 'albdif',
 't_2m','td_2m','rh_2m','pres_sfc','u_10m','v_10m','gust10','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S', 'ASHFL_S', 'ASOB_S', 'ASOB_T',
- 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M', 'sdi2', 'lpi', 'lpi_max',
+ 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M', 'sdi2', 'lpi', 'lpi_max', 'dbz_ctmax',
 'ceiling', 'hbas_sc', 'htop_sc', 'twater', 'q_sedim',  'TCOND_MAX', 'TCOND10_MAX', 'UH_MAX', 'VORW_CTMAX', 'W_CTMAX',
 ! output_grid                  =  .TRUE.
  stream_partitions_ml = 2
@@ -232,7 +233,6 @@ cat > ${atmo_namelist} << EOF
  filename_format              = '<output_filename>_<ddhhmmss>c'                   ! file name base
  ml_varlist='z_ifc','topography_c','fr_land','DEPTH_LK', 'FR_LAKE', 'LAI', 'PLCOV', 'ROOTDP', 'SOILTYP',
 ! output_grid                  =  .TRUE.
- stream_partitions_ml = 2
  remap = 1
  north_pole  = -170.,40.
  reg_lon_def = -7.5,0.02,5.5
@@ -250,7 +250,7 @@ cat > ${atmo_namelist} << EOF
  ml_varlist = 'u', 'v', 'w', 'temp', 'pres', 'pres_msl', 'qv', 'qc', 'qi', 'qr', 'qs', 'qg', 
 'group:precip_vars','clcl','clcm','clch', 'group:additional_precip_vars','tqv','tqc','tqi','tqr','tqs','tqg', 'group:land_vars', 'freshsnow', 'albdif',
 't_2m','td_2m','rh_2m','pres_sfc','u_10m','v_10m','gust10','ASODIFD_S','ASODIFU_S','ASODIRD_S','ALHFL_S', 'ASHFL_S', 'ASOB_S', 'ASOB_T',
- 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M', 'sdi2', 'lpi', 'lpi_max',
+ 'ATHB_S', 'ATHB_T', 'TMAX_2M', 'TMIN_2M', 'sdi2', 'lpi', 'lpi_max', 'dbz_ctmax',
 'ceiling', 'hbas_sc', 'htop_sc', 'twater', 'q_sedim',  'TCOND_MAX', 'TCOND10_MAX', 'UH_MAX', 'VORW_CTMAX', 'W_CTMAX',
 ! output_grid                  =  .TRUE.
  stream_partitions_ml = 2
@@ -270,7 +270,6 @@ cat > ${atmo_namelist} << EOF
  filename_format              = '<output_filename>_<ddhhmmss>c'                   ! file name base
  ml_varlist = 'z_ifc','topography_c','fr_land','DEPTH_LK', 'FR_LAKE', 'LAI', 'PLCOV', 'ROOTDP', 'SOILTYP',
 ! output_grid                  =  .TRUE.
- stream_partitions_ml = 2
  remap = 1
  north_pole  = -170.,40.
  reg_lon_def = -7.5,0.02,5.5
@@ -279,7 +278,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev        = 65
  lvert_nest     = .false.
- nsteps         = 270
+ nsteps         = 190
  dtime          = 20.     ! timestep in seconds
  ldynamics      = .TRUE.       ! dynamics
  ltransport     = .true.
@@ -293,7 +292,7 @@ cat > ${atmo_namelist} << EOF
  output         = "nml" ! "nml"
 /
 &nwp_phy_nml
-inwp_gscp       = 2,2,
+inwp_gscp       = 4,4,
 inwp_convection = 1,0
 lshallowconv_only = .true.
 inwp_radiation  = 1
@@ -309,7 +308,7 @@ efdt_min_raylfric = 7200.
 itype_z0         = 2
 icapdcycl        = 3
 icpl_aero_conv   = 1
-icpl_aero_gscp   = 1
+icpl_aero_gscp   = 0
 dt_rad    = 720.
 dt_conv   = 120.,
 dt_sso    = 120.,
@@ -488,6 +487,6 @@ EOF2
 # run the model!
 # ----------------------------------------------------------------------
  cp -p $MODEL icon.exe
- aprun  -n 300 -N 12 -j 2 -d 6 -m 3g icon.exe
+ aprun  -n 270 -N 18 -j 2 -d 4 -m 3g icon.exe
 
 

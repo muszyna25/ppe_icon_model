@@ -173,6 +173,8 @@
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
+!NEC$ options "-finline-max-function-size=1000 -finline-max-depth=3"
+
 MODULE sfc_flake
 
 !===================================================================================================
@@ -874,6 +876,7 @@ CONTAINS
 
     ! Loop over grid boxes with lakes
     !
+!$NEC ivdep
     DO ic=1, nflkgb
       ! Take index from the lake index list
       jc = idx_lst_fp(ic)
@@ -1421,7 +1424,7 @@ CONTAINS
 
       I_atm_flk = qsolnet(iflk)  ! net surface solar radiation flux from ICON 
                                  ! with due regard fr the surface albedo
-!CDIR NEXPAND      
+
       CALL flake_radflux (  depth_w, albedo_water, albedo_ice, albedo_snow,         &
                             opticpar_water, opticpar_ice, opticpar_snow,            &
                             h_snow_p_flk, h_ice_p_flk, h_ML_p_flk, I_snow_flk,      &
@@ -1471,7 +1474,6 @@ CONTAINS
       !---------------------------------------------------------------------------------------------
       !  Advance FLake variables one time step forward 
       !---------------------------------------------------------------------------------------------
-!CDIR NEXPAND      
       CALL flake_driver ( depth_w, depth_bs, T_bs, par_Coriolis,         &
                           opticpar_water%extincoef_optic(1),             &
                           del_time, T_sfc_p, T_sfc_n, izdebug,           &    

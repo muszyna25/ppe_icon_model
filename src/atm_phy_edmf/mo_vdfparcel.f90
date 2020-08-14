@@ -152,7 +152,7 @@ SUBROUTINE VDFPARCEL (KIDIA   , KFDIA   , KLON    , KLEV    , KDRAFT  , &
 USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook   , &
                & RG       , RD       , RLSTT    , RCPD      , RLVTT   , & !yomcst
-               & RETV     , RTBERCU  , RTICECU                 ! -
+               & RETV             ! -
 USE mo_edmf_param   ,ONLY : &
                 & FOEALFA                                                 !fcttre.f
 
