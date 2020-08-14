@@ -571,7 +571,7 @@ CONTAINS
       INTEGER, INTENT(out) :: nself, nremote, ranks(nmsg), counts(nmsg), &
            starts(nmsg)
       LOGICAL, INTENT(in) :: is_inter
-      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum
+      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum, i
       nidx_remote = 0
       nidx_local = 0
       sz_accum = 1
