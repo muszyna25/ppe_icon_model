@@ -514,7 +514,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: recv_msg, send_msg
 #endif
-    INTEGER :: np_recv, np_send, n_send, n_recv, i, comm_rank, &
+    INTEGER :: np_recv, np_send, n_send, n_recv, comm_rank, &
          n_pnts_recv, n_pnts_send, comm_size
     LOGICAL :: is_inter
     CHARACTER(len=*), PARAMETER :: routine &
