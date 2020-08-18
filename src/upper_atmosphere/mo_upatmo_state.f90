@@ -577,12 +577,13 @@ CONTAINS
         &           ldims=shape4d,                                              &
         &           lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.        )   
 
+      var_name_ref(1:vn_pfx_len) = vname_prefix(1:vn_pfx_len)
       DO jgas = 1, ngas
         
         ! &      diag%gas(nproma,nlev,nblks_c,ngas)
         !------------------------------------------
-        var_name_ref = vname_prefix(1:vn_pfx_len)//TRIM(upatmo_nwp_phy_config%gas( jgas )%name)
-        var_dscrptn  = TRIM(upatmo_nwp_phy_config%gas( jgas )%longname)
+        var_name_ref(vn_pfx_len+1:) = upatmo_nwp_phy_config%gas(jgas)%name
+        var_dscrptn  = upatmo_nwp_phy_config%gas( jgas )%longname
         var_unit     = TRIM(upatmo_nwp_phy_config%gas( jgas )%unit)
         cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
         grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
