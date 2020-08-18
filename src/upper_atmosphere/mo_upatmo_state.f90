@@ -48,7 +48,6 @@ MODULE mo_upatmo_state
   USE mo_var_groups,           ONLY: groups
   USE mo_upatmo_extdat_state,  ONLY: construct_upatmo_extdat_nwp, &
     &                                destruct_upatmo_extdat_nwp
-  USE mo_util_string,          ONLY: int2string
 
   IMPLICIT NONE
   
@@ -214,7 +213,6 @@ CONTAINS
     INTEGER  :: jg, jst, istat
     INTEGER  :: nstate
     LOGICAL  :: lmessage
-    CHARACTER(LEN=2) :: cjg
     CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo_state'
 
@@ -637,7 +635,7 @@ CONTAINS
 
     CHARACTER(len=2) :: cjst
     CHARACTER(len=9) :: ctrc
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, &
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: &
       & var_name_prefix, var_name, var_dscrptn, var_unit, var_name_ref
 
     CHARACTER(LEN = :), ALLOCATABLE :: prc_name_vdfmol, &
@@ -742,8 +740,6 @@ CONTAINS
     ! The tendencies from the single processes can be selected for output
     loutput = .TRUE.
 
-    cjg = TRIM(int2string(jg))
-
     ! Maximum length of process short names
     nprcname = MAXVAL(LEN_TRIM(upatmo_nwp_phy_config%prc( : )%name))
 
@@ -778,7 +774,7 @@ CONTAINS
       ! &      tend%ddt_temp_srbc(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       ! Construc variable name
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_srbc)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_srbc
       cf_desc    = t_cf_var(var_name, var_unit,                                             &
         &                   'temperature tendency due to absorbtion by O2 in SRB and SRC',  &
         &                   datatype_flt)
@@ -794,7 +790,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_nlte(nproma,nlev,nblks_c) 
       !--------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_nlte)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_nlte
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to Non-LTE heating',      &
         &                   datatype_flt)
@@ -810,7 +806,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_euv(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_euv)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_euv
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to EUV heating',          &
         &                   datatype_flt)
@@ -826,7 +822,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_no(nproma,nlev,nblks_c) 
       !---------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_no)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_no
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to NO heating at NIR',    &
         &                   datatype_flt)
@@ -842,7 +838,7 @@ CONTAINS
 
       ! &  tend%ddt_temp_chemheat(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_chemheat)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_chemheat
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to chemical heating',     &
         &                   datatype_flt)
@@ -887,7 +883,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_vdfmol(nproma,nlev,nblks_c) 
       !-------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//TRIM(prc_name_vdfmol)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to molecular diffusion',  &
         &                   datatype_flt)
@@ -903,7 +899,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_fric(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_fric)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//TRIM(prc_name_fric)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to frictional heating',   &
         &                   datatype_flt)
@@ -919,7 +915,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_joule(nproma,nlev,nblks_c) 
       !------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_joule)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//TRIM(prc_name_joule)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to Joule heating',        &
         &                   datatype_flt)
@@ -942,7 +938,7 @@ CONTAINS
 
       ! &      tend%ddt_u_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_vdfmol)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'u-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
@@ -958,7 +954,7 @@ CONTAINS
 
       ! &      tend%ddt_u_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_iondrag)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_iondrag)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'u-wind tendency due to ion drag',                  &
         &                   datatype_flt)
@@ -981,7 +977,7 @@ CONTAINS
 
       ! &      tend%ddt_v_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_vdfmol)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'v-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
@@ -997,7 +993,7 @@ CONTAINS
 
       ! &      tend%ddt_v_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = TRIM(var_name_prefix)//TRIM(prc_name_iondrag)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_iondrag)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'v-wind tendency due to ion drag',                  &
         &                   datatype_flt)
@@ -1018,7 +1014,9 @@ CONTAINS
       ! Currently only specific humidity
       ALLOCATE(tend%ddt_qx_vdfmol_ptr( ntrc ), STAT=istat)
       IF (istat/=SUCCESS) THEN
-        CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt_qx_vdfmol_ptr failed')
+        WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', jg, &
+             ')%ddt_qx_vdfmol_ptr failed'
+        CALL finish(routine, message_text)
       ENDIF
 
       var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_q'
@@ -1026,7 +1024,7 @@ CONTAINS
 
       ! &     tend%ddt_qx_vdfmol(nproma,nlev,nblks_c,ntrc) 
       !---------------------------------------------------
-      var_name   = TRIM(var_name_prefix)//'x_'//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+5)//'x_'//TRIM(prc_name_vdfmol)
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'tendencies of mass mixing ratio of tracers '//     &
         &                   'due to molecular diffusion',                       &
@@ -1041,7 +1039,7 @@ CONTAINS
 
       ! &      tend%ddt_qv_vdfmol(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name_ref = TRIM(var_name_prefix)//'v_'//TRIM(prc_name_vdfmol)
+      var_name_ref = var_name_prefix(1:vn_pfx_len+5)//'v_'//TRIM(prc_name_vdfmol)
       cf_desc    = t_cf_var(var_name_ref, var_unit,                                   &
         &                   'tendency of specific humidity '//                        &
         &                   'due to molecular diffusion',                             &
@@ -1076,12 +1074,16 @@ CONTAINS
 
     ALLOCATE(tend%ddt%info( ntnd_2 ), STAT=istat)
     IF (istat/=SUCCESS) THEN
-      CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%info failed')
+      WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', jg, &
+           ')%ddt%info failed'
+      CALL finish(routine, message_text)
     ENDIF
     
     ALLOCATE(tend%ddt%state( ntnd_2 ), STAT=istat)
     IF (istat/=SUCCESS) THEN
-      CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%state failed')
+      WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', jg, &
+           ')%ddt%state failed'
+      CALL finish(routine, message_text)
     ENDIF
 
     ! Name and number of states
@@ -1186,7 +1188,9 @@ CONTAINS
 
         ALLOCATE(tend%ddt%temp( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%temp failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%temp failed'
+          CALL finish(routine, message_text)
         ENDIF
         
         ! Loop over states
@@ -1226,7 +1230,9 @@ CONTAINS
 
         ALLOCATE(tend%ddt%exner( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%exner failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%exner failed'
+          CALL finish(routine, message_text)
         ENDIF
 
         DO jst = 1, nstate
@@ -1262,7 +1268,9 @@ CONTAINS
 
         ALLOCATE(tend%ddt%vn( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%vn failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%vn failed'
+          CALL finish(routine, message_text)
         ENDIF
 
         DO jst = 1, nstate
@@ -1298,7 +1306,9 @@ CONTAINS
 
         ALLOCATE(tend%ddt%qx( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%qx failed')
+          WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+               jg, ')%ddt%qx failed'
+          CALL finish(routine, message_text)
         ENDIF
 
         DO jst = 1, nstate
@@ -1307,8 +1317,9 @@ CONTAINS
 
           ALLOCATE(tend%ddt%qx( jst )%tot_ptr( ntrc ), STAT=istat)
           IF (istat/=SUCCESS) THEN
-            CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg) &
-              & //')%dqx%dt('//cjst//')%tot_ptr failed')
+            WRITE (message_text, '(a,i0,a,i0,a)') 'Allocation of prm_upatmo_tend(', &
+                 jg, ')%dqx%dt(', jst, ')%tot_ptr failed'
+            CALL finish (routine, message_text)
           ENDIF
 
           NULLIFY(tend%ddt%qx( jst )%tot)
