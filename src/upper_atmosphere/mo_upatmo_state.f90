@@ -633,7 +633,7 @@ CONTAINS
 
     CHARACTER(len=2) :: cjst
     CHARACTER(len=9) :: ctrc
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, cstartlev, cendlev, &
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, &
       & var_name_prefix, var_name, var_dscrptn, var_unit, var_name_ref
 
     CHARACTER(LEN = :), ALLOCATABLE :: prc_name_vdfmol, &
@@ -1158,10 +1158,12 @@ CONTAINS
       IF (lmessage) THEN
         DO jtnd = 1, ntnd_2
           IF (ltend( jtnd )) THEN
-            cstartlev = TRIM(int2string(tend%ddt%info( jtnd )%istartlev))
-            cendlev   = TRIM(int2string(tend%ddt%info( jtnd )%iendlev))
-            CALL message (routine, 'Start level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cstartlev))
-            CALL message (routine, 'End level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cendlev))
+            WRITE (message_text, '(3a,i0)') 'Start level of ', &
+                 TRIM(tend%ddt%info( jtnd )%longname), ': ', tend%ddt%info( jtnd )%istartlev
+            CALL message (routine, message_text)
+            WRITE (message_text, '(3a,i0)') 'End level of ', &
+                 TRIM(tend%ddt%info( jtnd )%longname), ': ', tend%ddt%info( jtnd )%iendlev
+            CALL message (routine, message_text)
           ENDIF  !IF (ltend( jtnd )
         ENDDO  !jtnd
       ENDIF  !IF (lmessage)
