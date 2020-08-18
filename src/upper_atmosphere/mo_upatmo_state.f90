@@ -95,21 +95,21 @@ CONTAINS
     INTEGER  :: jg, istat, nblks_c, nblks_e, nlev
     LOGICAL  :: lmessage
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: listname, vname_prefix
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':construct_upatmo_state'
 
     !---------------------------------------------------------
 
     IF (.NOT. ANY(upatmo_config( : )%l_status( iUpatmoStat%configured ))) THEN
-      CALL finish (TRIM(routine), 'Information required is not yet available')
+      CALL finish (routine, 'Information required is not yet available')
     ELSEIF (ALLOCATED(prm_upatmo)) THEN
-      CALL finish (TRIM(routine), 'prm_upatmo is already allocated')
+      CALL finish (routine, 'prm_upatmo is already allocated')
     ELSEIF (.NOT. PRESENT(vct_a)) THEN 
-      CALL finish(TRIM(routine), 'vct_a has to be present')
+      CALL finish(routine, 'vct_a has to be present')
     ENDIF
 
     lmessage = ANY(upatmo_config( : )%l_status( iUpatmoStat%message ))
-    IF (lmessage) CALL message (TRIM(routine), 'Construction of upatmo state started')    
+    IF (lmessage) CALL message (routine, 'Construction of upatmo state started')
 
     !------------------------------------
     !     Upper-atmosphere physics
@@ -125,18 +125,18 @@ CONTAINS
     ! * Tendencies from upper-atmosphere physics parameterizations
     ! * External data
     ALLOCATE(prm_upatmo( n_dom ), STAT=istat)
-    IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prm_upatmo failed')
+    IF(istat/=SUCCESS) CALL finish (routine, 'Allocation of prm_upatmo failed')
 
     ! Any upper-atmosphere physics switched on?
     IF (ANY(upatmo_config( : )%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled ))) THEN
 
       ! List for diagnostic fields
       ALLOCATE(prm_upatmo_diag_list( n_dom ), STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prm_upatmo_diag_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Allocation of prm_upatmo_diag_list failed')
       
       ! List for tendencies
       ALLOCATE(prm_upatmo_tend_list( n_dom ), STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Allocation of prm_upatmo_tend_list failed')
 
       DO jg = 1, n_dom
 
@@ -194,7 +194,7 @@ CONTAINS
 
     ENDIF !Any upper-atmosphere physics switched on?
 
-    IF (lmessage) CALL message (TRIM(routine), 'Upatmo state construction completed')
+    IF (lmessage) CALL message (routine, 'Upatmo state construction completed')
 
   END SUBROUTINE construct_upatmo_state
 
@@ -215,14 +215,14 @@ CONTAINS
     INTEGER  :: nstate
     LOGICAL  :: lmessage
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo_state'
 
     !---------------------------------------------------------
 
     lmessage = ANY(upatmo_config( : )%l_status( iUpatmoStat%message ))
 
-    IF (lmessage) CALL message (TRIM(routine), 'Destruction of upatmo state started')
+    IF (lmessage) CALL message (routine, 'Destruction of upatmo state started')
 
     !------------------------------------
     !     Upper-atmosphere physics
@@ -258,7 +258,7 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%diag%gas_ptr)) THEN
             DEALLOCATE(prm_upatmo( jg )%diag%gas_ptr, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%diag%gas_ptr failed')
             ENDIF
           ENDIF
@@ -267,7 +267,7 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt_qx_vdfmol_ptr)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt_qx_vdfmol_ptr, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt_qx_vdfmol_ptr failed')
             ENDIF
           ENDIF
@@ -276,7 +276,7 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%temp)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%temp, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%temp failed')
             ENDIF
           ENDIF
@@ -285,7 +285,7 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%exner)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%exner, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%exner failed')
             ENDIF
           ENDIF
@@ -294,7 +294,7 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%vn)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%vn, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%vn failed')
             ENDIF
           ENDIF
@@ -307,8 +307,8 @@ CONTAINS
               IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%qx( jst )%tot_ptr)) THEN
                 DEALLOCATE(prm_upatmo( jg )%tend%ddt%qx( jst )%tot_ptr, STAT=istat)
                 IF(istat/=SUCCESS) THEN
-                  CALL finish (TRIM(routine),                                 & 
-                    & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%qx(' & 
+                  CALL finish (routine,                                 &
+                    & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%qx(' &
                     & //TRIM(int2string(jst))//')%tot_ptr failed')
                 ENDIF
               ENDIF
@@ -316,7 +316,7 @@ CONTAINS
             ! prm_upatmo%tend%ddt%qx
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%qx, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%qx failed')
             ENDIF
           ENDIF
@@ -325,7 +325,7 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%info)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%info, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%info failed')
             ENDIF
           ENDIF
@@ -334,7 +334,7 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%state)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%state, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (TRIM(routine), & 
+              CALL finish (routine, &
                 & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%state failed')
             ENDIF
           ENDIF
@@ -351,17 +351,17 @@ CONTAINS
       ENDDO  !jg
 
       DEALLOCATE(prm_upatmo_diag_list, STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation prm_upatmo_diag_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Deallocation prm_upatmo_diag_list failed')
       
       DEALLOCATE(prm_upatmo_tend_list, STAT=istat)
-      IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation prm_upatmo_tend_list failed')
+      IF(istat/=SUCCESS) CALL finish (routine, 'Deallocation prm_upatmo_tend_list failed')
 
     ENDIF !Any upper-atmosphere physics switched on?
 
     DEALLOCATE(prm_upatmo, STAT=istat)
-    IF(istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation prm_upatmo failed')
+    IF(istat/=SUCCESS) CALL finish (routine, 'Deallocation prm_upatmo failed')
 
-    IF (lmessage) CALL message (TRIM(routine), 'Upatmo state destruction completed')
+    IF (lmessage) CALL message (routine, 'Upatmo state destruction completed')
 
   END SUBROUTINE destruct_upatmo_state
 
@@ -395,7 +395,7 @@ CONTAINS
       & var_unit, var_dscrptn, var_name_ref
 
     INTEGER, PARAMETER :: ngas = iUpatmoGasId%nitem
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':new_upatmo_diag_list'
 
     !---------------------------------------------------------
@@ -554,7 +554,7 @@ CONTAINS
 
       ALLOCATE( diag%gas_ptr( ngas ), STAT=istat )
       IF (istat/=SUCCESS) THEN
-        CALL finish (TRIM(routine), 'Allocation of prm_upatmo_diag('//TRIM(cjg)//')%gas_ptr failed')
+        CALL finish (routine, 'Allocation of prm_upatmo_diag('//TRIM(cjg)//')%gas_ptr failed')
       ENDIF
 
       ! &      diag%gas(nproma,nlev,nblks_c,ngas)
@@ -642,7 +642,7 @@ CONTAINS
     INTEGER, PARAMETER :: ngrp   = iUpatmoGrpId%nitem
     INTEGER, PARAMETER :: ntnd   = iUpatmoTendId%nitem    ! (Excludes Exner pressure)
     INTEGER, PARAMETER :: ntnd_2 = iUpatmoTendId%nitem_2  ! (Includes Exner pressure)
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':new_upatmo_tend_list'
 
     !---------------------------------------------------------
@@ -743,7 +743,7 @@ CONTAINS
 
       ALLOCATE(CHARACTER(LEN=nprcname) :: prc_name_srbc, prc_name_nlte, prc_name_euv, &
         & prc_name_no, prc_name_chemheat, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prc_name failed')
+      IF (istat/=SUCCESS) CALL finish (routine, 'Allocation of prc_name failed')
 
       prc_name_srbc     = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%srbc )%name)
       prc_name_nlte     = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%nlte )%name)
@@ -843,7 +843,7 @@ CONTAINS
         &           loutput=loutput                                             ) 
 
       DEALLOCATE(prc_name_srbc, prc_name_nlte, prc_name_euv, prc_name_no, prc_name_chemheat, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation of prc_name failed')
+      IF (istat/=SUCCESS) CALL finish (routine, 'Deallocation of prc_name failed')
 
     ENDIF !RAD-group switched on?
 
@@ -857,7 +857,7 @@ CONTAINS
 
       ALLOCATE(CHARACTER(LEN=nprcname) :: prc_name_vdfmol, prc_name_fric, &
         & prc_name_iondrag, prc_name_joule, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Allocation of prc_name failed')
+      IF (istat/=SUCCESS) CALL finish (routine, 'Allocation of prc_name failed')
 
       prc_name_vdfmol  = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%vdfmol )%name)
       prc_name_fric    = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%fric )%name)
@@ -1004,7 +1004,7 @@ CONTAINS
       ! Currently only specific humidity
       ALLOCATE(tend%ddt_qx_vdfmol_ptr( ntrc ), STAT=istat)
       IF (istat/=SUCCESS) THEN
-        CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt_qx_vdfmol_ptr failed')
+        CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt_qx_vdfmol_ptr failed')
       ENDIF
 
       var_name_prefix = TRIM(vname_prefix)//'ddt_q'
@@ -1044,7 +1044,7 @@ CONTAINS
         &           loutput=loutput, lrestart=.TRUE., opt_var_ref_pos=4, ref_idx=jtrc )
 
       DEALLOCATE(prc_name_vdfmol, prc_name_fric, prc_name_iondrag, prc_name_joule, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (TRIM(routine), 'Deallocation of prc_name failed')
+      IF (istat/=SUCCESS) CALL finish (routine, 'Deallocation of prc_name failed')
 
     ENDIF !IMF-group switched on?
 
@@ -1062,12 +1062,12 @@ CONTAINS
 
     ALLOCATE(tend%ddt%info( ntnd_2 ), STAT=istat)
     IF (istat/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%info failed')
+      CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%info failed')
     ENDIF
     
     ALLOCATE(tend%ddt%state( ntnd_2 ), STAT=istat)
     IF (istat/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%state failed')
+      CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%state failed')
     ENDIF
 
     ! Name and number of states
@@ -1152,8 +1152,8 @@ CONTAINS
           IF (ltend( jtnd )) THEN
             cstartlev = TRIM(int2string(tend%ddt%info( jtnd )%istartlev))
             cendlev   = TRIM(int2string(tend%ddt%info( jtnd )%iendlev))
-            CALL message (TRIM(routine), 'Start level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cstartlev))
-            CALL message (TRIM(routine), 'End level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cendlev))
+            CALL message (routine, 'Start level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cstartlev))
+            CALL message (routine, 'End level of '//TRIM(tend%ddt%info( jtnd )%longname)//': '//TRIM(cendlev))
           ENDIF  !IF (ltend( jtnd )
         ENDDO  !jtnd
       ENDIF  !IF (lmessage)
@@ -1170,7 +1170,7 @@ CONTAINS
 
         ALLOCATE(tend%ddt%temp( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%temp failed')
+          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%temp failed')
         ENDIF
         
         ! Loop over states
@@ -1210,7 +1210,7 @@ CONTAINS
 
         ALLOCATE(tend%ddt%exner( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%exner failed')
+          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%exner failed')
         ENDIF
 
         DO jst = 1, nstate
@@ -1246,7 +1246,7 @@ CONTAINS
 
         ALLOCATE(tend%ddt%vn( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%vn failed')
+          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%vn failed')
         ENDIF
 
         DO jst = 1, nstate
@@ -1282,7 +1282,7 @@ CONTAINS
 
         ALLOCATE(tend%ddt%qx( nstate ), STAT=istat)
         IF (istat/=SUCCESS) THEN
-          CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%qx failed')
+          CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt%qx failed')
         ENDIF
 
         DO jst = 1, nstate
@@ -1291,7 +1291,7 @@ CONTAINS
           
           ALLOCATE(tend%ddt%qx( jst )%tot_ptr( ntrc ), STAT=istat)
           IF (istat/=SUCCESS) THEN
-            CALL finish (TRIM(routine), 'Allocation of prm_upatmo_tend('//TRIM(cjg) &
+            CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg) &
               & //')%dqx%dt('//TRIM(cjst)//')%tot_ptr failed')
           ENDIF
 
