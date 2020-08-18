@@ -214,7 +214,7 @@ CONTAINS
     INTEGER  :: jg, jst, istat
     INTEGER  :: nstate
     LOGICAL  :: lmessage
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg
+    CHARACTER(LEN=2) :: cjg
     CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo_state'
 
@@ -236,7 +236,7 @@ CONTAINS
         ! Physics switched on on domain?
         IF (upatmo_config( jg )%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
 
-          cjg = TRIM(int2string(jg))
+          WRITE (cjg, '(i0)') jg
 
           CALL delete_var_list( prm_upatmo_diag_list( jg ) )
           
@@ -625,7 +625,9 @@ CONTAINS
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, cjst, ctrc, cstartlev, cendlev, &
+    CHARACTER(len=2) :: cjst
+    CHARACTER(len=9) :: ctrc
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, cstartlev, cendlev, &
       & var_name_prefix, var_name, var_dscrptn, var_unit, var_name_ref
 
     CHARACTER(LEN = :), ALLOCATABLE :: prc_name_vdfmol, &
@@ -1175,17 +1177,17 @@ CONTAINS
         
         ! Loop over states
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           NULLIFY(tend%ddt%temp( jst )%tot)
 
           ! &      tend%ddt%temp(jst)%tot(nproma,nlev,nblks_c)
           !---------------------------------------------------
           ! Construct variable name for output
-          var_name = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
+          var_name = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           ! Variable description
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           ! Variable unit
           var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
           cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
@@ -1214,15 +1216,15 @@ CONTAINS
         ENDIF
 
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           NULLIFY(tend%ddt%exner( jst )%tot)
 
           ! &      tend%ddt%exner(jst)%tot(nproma,nlev,nblks_c)
           !----------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
+          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
           cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1250,15 +1252,15 @@ CONTAINS
         ENDIF
 
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           NULLIFY(tend%ddt%vn( jst )%tot)    
           
           ! &      tend%ddt%vn(jst)%tot(nproma,nlev,nblks_e)
           !-------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
+          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
           cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
@@ -1286,21 +1288,21 @@ CONTAINS
         ENDIF
 
         DO jst = 1, nstate
-          
-          cjst = TRIM(int2string(jst, '(i2.2)'))
-          
+
+          WRITE (cjst, '(i2.2)') jst
+
           ALLOCATE(tend%ddt%qx( jst )%tot_ptr( ntrc ), STAT=istat)
           IF (istat/=SUCCESS) THEN
             CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg) &
-              & //')%dqx%dt('//TRIM(cjst)//')%tot_ptr failed')
+              & //')%dqx%dt('//cjst//')%tot_ptr failed')
           ENDIF
 
           NULLIFY(tend%ddt%qx( jst )%tot)
 
           ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c,ntrc)
           !-----------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
-          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//TRIM(cjst)
+          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
           cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1314,14 +1316,14 @@ CONTAINS
             IF (jtrc == iUpatmoTracerId%qv) THEN
               ctrc = 'v'
             ELSE
-              ctrc = TRIM(int2string(jtrc))
+              WRITE (ctrc, '(i0)') jtrc
             ENDIF
 
             ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c)
             !------------------------------------------------
-            var_name_ref = TRIM(vname_prefix)//'ddt_q'//TRIM(ctrc)//TRIM(STATELEVEL_SUFFIX)//TRIM(cjst)
+            var_name_ref = TRIM(vname_prefix)//'ddt_q'//TRIM(ctrc)//TRIM(STATELEVEL_SUFFIX)//cjst
             var_dscrptn  = 'accumulative tendency of tracer q'//TRIM(ctrc) &
-              & //' of time level with index '//TRIM(cjst)
+              & //' of time level with index '//cjst
             cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
             grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
             CALL add_ref( tend_list, var_name, var_name_ref,                                &
