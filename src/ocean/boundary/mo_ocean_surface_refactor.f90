@@ -77,6 +77,8 @@ MODULE mo_ocean_surface_refactor
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_ocean_check_salt,       ONLY: check_total_salt_content_zstar
 
+  USE mo_mpi, ONLY: get_my_mpi_work_id
+
   IMPLICIT NONE
   
   PRIVATE
@@ -1016,7 +1018,7 @@ CONTAINS
     REAL(wp) :: h_old_test, h_new_test
     REAL(wp) :: dz_new, dz_old 
     
-    REAL(wp) :: temp_eta, min_h
+    REAL(wp) :: temp_eta, min_h, st2, st1
     REAL(wp) :: temp_stretch(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     
     INTEGER  :: bt_lev
@@ -1048,8 +1050,8 @@ CONTAINS
     !    - total freshwater volume forcing
     p_oce_sfc%FrshFlux_VolumeTotal(:,:) = p_oce_sfc%FrshFlux_Runoff    (:,:) &
       &                                 + p_oce_sfc%FrshFlux_VolumeIce (:,:) &
-      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:) &
-      &                                 + p_oce_sfc%FrshFlux_Relax     (:,:)
+      &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:) !&
+!      &                                 + p_oce_sfc%FrshFlux_Relax     (:,:)
     ! provide total salinity forcing flux for diagnostics only
     p_oce_sfc%FrshFlux_TotalSalt(:,:)   = p_oce_sfc%FrshFlux_Runoff    (:,:) &
       &                                 + p_oce_sfc%FrshFlux_TotalIce  (:,:) &
@@ -1154,15 +1156,33 @@ CONTAINS
           !******  (Thermodynamic Eq. 5)  ******
           !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface
           temp_eta     = eta_c(jc,jb)              
+          
+          min_h   = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)
+
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !! Add a height correction since this originally assumed only the
+          !! the top layer changes. So we calculate the difference due
+          !! to fresh water relaxation for top layer and then calculate
+          !! the required stretching for the whole column
+          st1     = 1.0_wp
+          st2     = 1.0_wp
+          !! Update only if height is atleast dz
+          if ( d_c  .GT.  min_h ) THEN
+            st2 = ( zunderice_old + p_oce_sfc%FrshFlux_Relax(jc,jb)*dtime ) / &
+              & p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)
+            st1 = ( zunderice_old  ) / &
+              & p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)
+          END IF
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
           eta_c(jc,jb) = eta_c(jc,jb)               &
             &           + p_oce_sfc%FrshFlux_VolumeTotal(jc, jb)*dtime &
-            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime
+            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime &
+            &           + d_c*(st2 - st1) 
 
           !! Only change the stretching parameter if it is above a certain threshold
           !! This avoids divide by 0 
           temp_stretch(jc, jb) = stretch_c(jc, jb)
-          min_h                = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)
           
           !! Update only if height is atleast dz
           if ( d_c  .GT.  min_h ) &
@@ -1171,7 +1191,7 @@ CONTAINS
           !! update zunderice
           p_ice%zUnderIce(jc,jb)=p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
             & * temp_stretch(jc, jb) 
-    
+
           h_new_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)*temp_stretch(jc, jb)
           p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
           
