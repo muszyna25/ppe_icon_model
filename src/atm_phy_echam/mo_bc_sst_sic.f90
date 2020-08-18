@@ -18,6 +18,7 @@
 !!
 !! TODO: ctfreez in echam = 271.38, this is 271.45 K
 !
+#include "icon_contiguous_defines.h"
 MODULE mo_bc_sst_sic
   
   USE mo_kind,               ONLY: dp, i8
@@ -42,8 +43,8 @@ MODULE mo_bc_sst_sic
   PRIVATE
 
   TYPE t_ext_sea
-    REAL(dp), POINTER :: sst(:,:,:) => NULL()
-    REAL(dp), POINTER :: sic(:,:,:) => NULL()
+    REAL(dp), CONTIGUOUS_POINTER :: sst(:,:,:) => NULL()
+    REAL(dp), CONTIGUOUS_POINTER :: sic(:,:,:) => NULL()
   END TYPE t_ext_sea
 
   TYPE(t_ext_sea), ALLOCATABLE, TARGET :: ext_sea(:)
@@ -111,7 +112,7 @@ CONTAINS
   SUBROUTINE read_sst_sic_data(p_patch, dst, fn, y)
 !TODO: switch to reading via mo_read_netcdf_distributed?
     TYPE(t_patch), INTENT(in) :: p_patch
-    REAL(dp), INTENT(INOUT), POINTER :: dst(:,:,:)
+    REAL(dp), CONTIGUOUS_ARGUMENT(INOUT) :: dst(:,:,0:)
     CHARACTER(len=*), INTENT(IN) :: fn
     INTEGER(i8), INTENT(in) :: y
     REAL(dp), ALLOCATABLE :: zin(:)
@@ -202,6 +203,7 @@ CONTAINS
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: ztsw(SIZE(tsw,1),SIZE(tsw,2))
+    REAL(dp), CONTIGUOUS_POINTER :: sst(:,:,:), sic(:,:,:)
 
     INTEGER  :: jc, jb, jg
 #ifdef _OPENACC
@@ -216,7 +218,9 @@ CONTAINS
 
     jg = p_patch%id
 
-    !$ACC DATA PRESENT( tsw, seaice, siced, mask, ext_sea(jg)%sst, ext_sea(jg)%sic, p_patch%cells%center ) &
+    sst => ext_sea(jg)%sst
+    sic => ext_sea(jg)%sic
+    !$ACC DATA PRESENT( tsw, seaice, siced, mask, sst, sic, p_patch%cells%center ) &
     !$ACC       CREATE( zts, zic, ztsw )                                                            &
     !$ACC           IF( lzopenacc )
 
@@ -225,8 +229,8 @@ CONTAINS
     DO jb = 1, SIZE(zts,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(zts,1)
-        zts(jc,jb) = tiw%weight1 * ext_sea(jg)%sst(jc,jb,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sst(jc,jb,tiw%month2_index)
-        zic(jc,jb) = tiw%weight1 * ext_sea(jg)%sic(jc,jb,tiw%month1_index) + tiw%weight2 * ext_sea(jg)%sic(jc,jb,tiw%month2_index)
+        zts(jc,jb) = tiw%weight1 * sst(jc,jb,tiw%month1_index) + tiw%weight2 * sst(jc,jb,tiw%month2_index)
+        zic(jc,jb) = tiw%weight1 * sic(jc,jb,tiw%month1_index) + tiw%weight2 * sic(jc,jb,tiw%month2_index)
       END DO
     END DO
     !$ACC END PARALLEL
