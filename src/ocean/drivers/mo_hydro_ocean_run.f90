@@ -835,6 +835,12 @@ CONTAINS
 
         !------------------------------------------------------------------------
         
+!        IF (lcheck_salt_content) CALL check_total_salt_content_zstar(130, &
+!          & ocean_state(jg)%p_prog(nnew(1))%tracer(:,:,:,2), patch_2d, &
+!          & ocean_state(jg)%p_prog(nnew(1))%stretch_c(:,:), &
+!          & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:), sea_ice, p_oce_sfc)
+
+
         !! Store in temporary variables to assign to nold
         eta_c_new     = ocean_state(jg)%p_prog(nnew(1))%eta_c
         stretch_c_new = ocean_state(jg)%p_prog(nnew(1))%stretch_c
