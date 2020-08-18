@@ -23,7 +23,7 @@
 MODULE mo_upatmo_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, finish
+  USE mo_exception,            ONLY: message, message_text, finish
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VINTP_METHOD_LIN
   USE mo_upatmo_impl_const,    ONLY: iUpatmoStat, iUpatmoPrcStat, iUpatmoGasStat, &
     &                                iUpatmoTendId, iUpatmoGrpId, iUpatmoGasId,   &
@@ -236,8 +236,6 @@ CONTAINS
         ! Physics switched on on domain?
         IF (upatmo_config( jg )%nwp_phy%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
 
-          WRITE (cjg, '(i0)') jg
-
           CALL delete_var_list( prm_upatmo_diag_list( jg ) )
           
           CALL delete_var_list( prm_upatmo_tend_list( jg ) )     
@@ -258,8 +256,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%diag%gas_ptr)) THEN
             DEALLOCATE(prm_upatmo( jg )%diag%gas_ptr, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%diag%gas_ptr failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%diag%gas_ptr failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -267,8 +266,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt_qx_vdfmol_ptr)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt_qx_vdfmol_ptr, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt_qx_vdfmol_ptr failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt_qx_vdfmol_ptr failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -276,8 +276,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%temp)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%temp, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%temp failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%temp failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -285,8 +286,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%exner)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%exner, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%exner failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%exner failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -294,8 +296,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%vn)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%vn, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%vn failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%vn failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -307,17 +310,18 @@ CONTAINS
               IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%qx( jst )%tot_ptr)) THEN
                 DEALLOCATE(prm_upatmo( jg )%tend%ddt%qx( jst )%tot_ptr, STAT=istat)
                 IF(istat/=SUCCESS) THEN
-                  CALL finish (routine,                                 &
-                    & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%qx(' &
-                    & //TRIM(int2string(jst))//')%tot_ptr failed')
+                  WRITE (message_text, '(a,i0,a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                       ')%tend%ddt%qx(', jst, ')%tot_ptr failed'
+                  CALL finish (routine, message_text)
                 ENDIF
               ENDIF
             ENDDO  !jst
             ! prm_upatmo%tend%ddt%qx
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%qx, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%qx failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%qx failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -325,8 +329,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%info)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%info, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%info failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%info failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
@@ -334,8 +339,9 @@ CONTAINS
           IF (ALLOCATED(prm_upatmo( jg )%tend%ddt%state)) THEN
             DEALLOCATE(prm_upatmo( jg )%tend%ddt%state, STAT=istat)
             IF(istat/=SUCCESS) THEN
-              CALL finish (routine, &
-                & 'Deallocation prm_upatmo('//TRIM(cjg)//')%tend%ddt%state failed')
+              WRITE (message_text, '(a,i0,a)') 'Deallocation prm_upatmo(', jg, &
+                   ')%tend%ddt%state failed'
+              CALL finish(routine, message_text)
             ENDIF
           ENDIF
 
