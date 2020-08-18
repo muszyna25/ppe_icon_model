@@ -698,7 +698,7 @@ CONTAINS
       CALL update_surface_relaxation_zstar(p_patch_3D, p_os, p_ice, p_oce_sfc, trac_no, stretch_c)
 
       !  apply restoring to surface salinity directly
-!      CALL apply_surface_relaxation(p_patch_3D, p_os, p_oce_sfc, trac_no)
+      CALL apply_surface_relaxation(p_patch_3D, p_os, p_oce_sfc, trac_no)
 
     ENDIF
 
@@ -1232,7 +1232,7 @@ CONTAINS
     CALL dbg_print('UpdSfc: ice%totalsnowf', p_ice%totalsnowfall,            str_module, 4, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceIni',   zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceArt',   zUnderIceArt,                   str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: zUnderIceOld',   zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: ice_draft',      p_ice%draftave,                 str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIce   ',   p_ice%zUnderIce,                str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: sss_inter   ',   sss_inter,                      str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST,                  str_module, 2, in_subset=p_patch%cells%owned)
