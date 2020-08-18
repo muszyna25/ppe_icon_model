@@ -60,39 +60,44 @@ CONTAINS
     INTEGER(i8),   INTENT(IN) :: year
     TYPE(t_patch), INTENT(IN) :: p_patch
     INTEGER :: jg
-    CHARACTER(LEN=:), ALLOCATABLE :: fn
-    CHARACTER(LEN=8) :: dstr
+    CHARACTER(len=16) :: fn
 
     jg = p_patch%id
-    dstr = ''
-    IF (n_dom > 1) WRITE(dstr, '(a,i2.2)') '_DOM', jg
     IF (.NOT. ALLOCATED (ext_sea)) THEN 
       ALLOCATE (ext_sea(n_dom))
       !$ACC ENTER DATA PCREATE(ext_sea)
     ENDIF
     !$ACC ENTER DATA PCREATE(ext_sea(jg))
 
-    fn = 'bc_sst' // TRIM(dstr) // '.nc'
+    IF (n_dom > 1) THEN
+      WRITE(fn, '(a,i2.2)') 'bc_sst_DOM', jg, '.nc'
+    ELSE
+      fn = 'bc_sst.nc'
+    END IF
     IF (my_process_is_mpi_workroot()) THEN
-      WRITE(message_text,'(a,i4)') 'Read SST from ' // fn // ' for ', year
+      WRITE(message_text,'(3a,i0)') 'Read SST from ', TRIM(fn), ' for ', year
       CALL message('',message_text)
     ENDIF
     IF (.NOT.ASSOCIATED(ext_sea(jg)%sst)) THEN
       ALLOCATE (ext_sea(jg)%sst(nproma, p_patch%nblks_c, 0:13))
       !$ACC ENTER DATA PCREATE( ext_sea(jg)%sst)
     ENDIF
-    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sst, fn, year)
+    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sst, TRIM(fn), year)
 
-    fn = 'bc_sic' // TRIM(dstr) // '.nc'
+    IF (n_dom > 1) THEN
+      WRITE(fn, '(a,i2.2)') 'bc_sic_DOM', jg, '.nc'
+    ELSE
+      fn = 'bc_sic.nc'
+    END IF
     IF (my_process_is_mpi_workroot()) THEN
-      WRITE(message_text,'(a,i4)') 'Read sea ice from ' // fn // ' for ', year
+      WRITE(message_text,'(3a,i0)') 'Read sea ice from ',TRIM(fn),' for ',year
       CALL message('',message_text)
     ENDIF
     IF (.NOT.ASSOCIATED(ext_sea(jg)%sic)) THEN
       ALLOCATE (ext_sea(jg)%sic(nproma, p_patch%nblks_c, 0:13))
       !$ACC ENTER DATA PCREATE( ext_sea(jg)%sic)
     ENDIF
-    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sic, fn, year)
+    CALL read_sst_sic_data(p_patch, ext_sea(jg)%sic, TRIM(fn), year)
     
     IF (jg==n_dom) current_year = year
 
