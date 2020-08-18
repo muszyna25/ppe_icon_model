@@ -393,12 +393,13 @@ CONTAINS
     INTEGER  :: datatype_flt
     INTEGER  :: istat
     INTEGER  :: jgas
+    INTEGER  :: vn_pfx_len
 
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cjg, var_name, &
-      & var_unit, var_dscrptn, var_name_ref
+    CHARACTER(len=LEN(vname_prefix)+10) :: var_name
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: var_unit, var_dscrptn, var_name_ref
 
     INTEGER, PARAMETER :: ngas = iUpatmoGasId%nitem
     CHARACTER(LEN=*), PARAMETER ::  &
@@ -445,8 +446,6 @@ CONTAINS
     !          Allocate fields
     !------------------------------------
 
-    cjg = TRIM(int2string(jg))
-
     !------------------------------------
     !          General fields
     !   (practically always required)
@@ -455,7 +454,8 @@ CONTAINS
     ! &      diag%mdry(nproma,nlev,nblks_c) 
     !--------------------------------------
     ! Construct variable name
-    var_name   = TRIM(vname_prefix)//'mdry'
+    vn_pfx_len = LEN_TRIM(vname_prefix)
+    var_name   = vname_prefix(1:vn_pfx_len)//'mdry'
     cf_desc    = t_cf_var(var_name, 'kg m-2', 'mass of dry air', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, var_name, diag%mdry,                             &
@@ -468,7 +468,7 @@ CONTAINS
     
     ! &      diag%amd(nproma,nlev,nblks_c) 
     !-------------------------------------
-    var_name   = TRIM(vname_prefix)//'amd'
+    var_name   = vname_prefix(1:vn_pfx_len)//'amd'
     cf_desc    = t_cf_var(var_name, 'g mol-1', 'molar mass of dry air', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, var_name, diag%amd,                              &
@@ -481,7 +481,7 @@ CONTAINS
     
     ! &      diag%cpair(nproma,nlev,nblks_c) 
     !---------------------------------------
-    var_name   = TRIM(vname_prefix)//'cpair'
+    var_name   = vname_prefix(1:vn_pfx_len)//'cpair'
     cf_desc    = t_cf_var(var_name, 'J K-1 kg-1',                               &
       &                   'heat capacity of (moist) air at constant pressure',  &
       &                   datatype_flt                                      )
@@ -496,7 +496,7 @@ CONTAINS
     
     ! &      diag%grav(nproma,nlev,nblks_c) 
     !--------------------------------------
-    var_name   = TRIM(vname_prefix)//'grav'
+    var_name   = vname_prefix(1:vn_pfx_len)//'grav'
     cf_desc    = t_cf_var(var_name, 'm s-2',                                  &
       &                   'gravitational acceleration of Earth',              &
       &                   datatype_flt                                        )
@@ -520,7 +520,7 @@ CONTAINS
 
       ! &      diag%sclrlw(nproma,nlev,nblks_c) 
       !----------------------------------------
-      var_name   = TRIM(vname_prefix)//'sclrlw'
+      var_name   = vname_prefix(1:vn_pfx_len)//'sclrlw'
       cf_desc    = t_cf_var(var_name, '1',                                          &
         &                   'scaling factor for long-wave radiation heating rate',  &
         &                   datatype_flt                                            )
@@ -535,7 +535,7 @@ CONTAINS
 
       ! &      diag%effrsw(nproma,nlev,nblks_c) 
       !----------------------------------------
-      var_name   = TRIM(vname_prefix)//'effrsw'
+      var_name   = vname_prefix(1:vn_pfx_len)//'effrsw'
       cf_desc    = t_cf_var(var_name, '1',                                              &
         &                   'efficiency factor for short-wave radiation heating rate',  &
         &                   datatype_flt                                                )
@@ -560,16 +560,18 @@ CONTAINS
 
       ALLOCATE( diag%gas_ptr( ngas ), STAT=istat )
       IF (istat/=SUCCESS) THEN
-        CALL finish (routine, 'Allocation of prm_upatmo_diag('//TRIM(cjg)//')%gas_ptr failed')
+        WRITE (message_text, '(a,i0,a)') 'Allocation of prm_upatmo_diag(', jg, &
+             ')%gas_ptr failed'
+        CALL finish(routine, message_text)
       ENDIF
 
       ! &      diag%gas(nproma,nlev,nblks_c,ngas)
       !------------------------------------------
-      var_name   = TRIM(vname_prefix)//'rad_gases'
+      var_name   = vname_prefix(1:vn_pfx_len)//'rad_gases'
       cf_desc    = t_cf_var(var_name, ' ',                                      &
         &                   'radiatively active gases', datatype_flt            )
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( diag_list, TRIM(vname_prefix)//'rad_gases',                 & 
+      CALL add_var( diag_list, var_name,                                        &
         &           diag%gas,                                                   &
         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,  &
         &           ldims=shape4d,                                              &
@@ -579,7 +581,7 @@ CONTAINS
         
         ! &      diag%gas(nproma,nlev,nblks_c,ngas)
         !------------------------------------------
-        var_name_ref = TRIM(vname_prefix)//TRIM(upatmo_nwp_phy_config%gas( jgas )%name)
+        var_name_ref = vname_prefix(1:vn_pfx_len)//TRIM(upatmo_nwp_phy_config%gas( jgas )%name)
         var_dscrptn  = TRIM(upatmo_nwp_phy_config%gas( jgas )%longname)
         var_unit     = TRIM(upatmo_nwp_phy_config%gas( jgas )%unit)
         cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
@@ -625,6 +627,7 @@ CONTAINS
     INTEGER :: jtrc, jtnd, jst, jgrp, nstate, nprcname
     INTEGER :: istartlev, iendlev
     INTEGER :: istat
+    INTEGER :: vn_pfx_len
 
     LOGICAL :: loutput, ltend( iUpatmoTendId%nitem_2 )
 
@@ -743,6 +746,8 @@ CONTAINS
     ! Maximum length of process short names
     nprcname = MAXVAL(LEN_TRIM(upatmo_nwp_phy_config%prc( : )%name))
 
+    ! actual useful length of vname_prefix
+    vn_pfx_len = LEN_TRIM(vname_prefix)
     !------------------------------------
     !  Radiation and chemical heating
     !------------------------------------
@@ -764,7 +769,7 @@ CONTAINS
       !------------------------------------
 
       ! Prefix of variable name
-      var_name_prefix = TRIM(vname_prefix)//'ddt_temp_'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_temp_'
 
       ! Unit
       var_unit = 'K s-1'
@@ -876,7 +881,7 @@ CONTAINS
       !      Temperature tendencies
       !------------------------------------
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_temp_'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_temp_'
       var_unit        = 'K s-1'
 
       ! &      tend%ddt_temp_vdfmol(nproma,nlev,nblks_c) 
@@ -931,7 +936,7 @@ CONTAINS
       !         U-wind tendencies
       !------------------------------------
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_u_'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_u_'
       var_unit        = 'm s-2'
 
       ! &      tend%ddt_u_vdfmol(nproma,nlev,nblks_c) 
@@ -970,7 +975,7 @@ CONTAINS
       !         V-wind tendencies
       !------------------------------------
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_v_'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_v_'
       var_unit        = 'm s-2'
 
       ! &      tend%ddt_v_vdfmol(nproma,nlev,nblks_c) 
@@ -1015,7 +1020,7 @@ CONTAINS
         CALL finish (routine, 'Allocation of prm_upatmo_tend('//TRIM(cjg)//')%ddt_qx_vdfmol_ptr failed')
       ENDIF
 
-      var_name_prefix = TRIM(vname_prefix)//'ddt_q'
+      var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_q'
       var_unit        = 'kg kg-1 s-1'
 
       ! &     tend%ddt_qx_vdfmol(nproma,nlev,nblks_c,ntrc) 
@@ -1193,7 +1198,7 @@ CONTAINS
           ! &      tend%ddt%temp(jst)%tot(nproma,nlev,nblks_c)
           !---------------------------------------------------
           ! Construct variable name for output
-          var_name = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           ! Variable description
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           ! Variable unit
@@ -1231,7 +1236,7 @@ CONTAINS
 
           ! &      tend%ddt%exner(jst)%tot(nproma,nlev,nblks_c)
           !----------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
           cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
@@ -1267,7 +1272,7 @@ CONTAINS
           
           ! &      tend%ddt%vn(jst)%tot(nproma,nlev,nblks_e)
           !-------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
           cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
@@ -1309,7 +1314,7 @@ CONTAINS
 
           ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c,ntrc)
           !-----------------------------------------------------
-          var_name   = TRIM(vname_prefix)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
           cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
@@ -1329,7 +1334,7 @@ CONTAINS
 
             ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c)
             !------------------------------------------------
-            var_name_ref = TRIM(vname_prefix)//'ddt_q'//TRIM(ctrc)//TRIM(STATELEVEL_SUFFIX)//cjst
+            var_name_ref = vname_prefix(1:vn_pfx_len)//'ddt_q'//TRIM(ctrc)//TRIM(STATELEVEL_SUFFIX)//cjst
             var_dscrptn  = 'accumulative tendency of tracer q'//TRIM(ctrc) &
               & //' of time level with index '//cjst
             cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
