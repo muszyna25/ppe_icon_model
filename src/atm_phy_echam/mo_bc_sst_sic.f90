@@ -32,7 +32,7 @@ MODULE mo_bc_sst_sic
   USE mo_grid_config,        ONLY: n_dom
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, streamClose, &
     & vlistInqTaxis, streamInqTimestep, taxisInqVdate, streamReadVarSlice
   USE mo_util_cdi,           ONLY: cdiGetStringError
@@ -47,7 +47,7 @@ MODULE mo_bc_sst_sic
     REAL(dp), CONTIGUOUS_POINTER :: sic(:,:,:) => NULL()
   END TYPE t_ext_sea
 
-  TYPE(t_ext_sea), ALLOCATABLE, TARGET :: ext_sea(:)
+  TYPE(t_ext_sea), TARGET :: ext_sea(max_dom)
 
   PUBLIC :: read_bc_sst_sic
   PUBLIC :: bc_sst_sic_time_interpolation
@@ -64,11 +64,6 @@ CONTAINS
     CHARACTER(len=16) :: fn
 
     jg = p_patch%id
-    IF (.NOT. ALLOCATED (ext_sea)) THEN 
-      ALLOCATE (ext_sea(n_dom))
-      !$ACC ENTER DATA PCREATE(ext_sea)
-    ENDIF
-    !$ACC ENTER DATA PCREATE(ext_sea(jg))
 
     IF (n_dom > 1) THEN
       WRITE(fn, '(a,i2.2)') 'bc_sst_DOM', jg, '.nc'
