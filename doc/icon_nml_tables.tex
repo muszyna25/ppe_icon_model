@@ -6956,15 +6956,16 @@ as well as the time step are used to compute "nsteps".
 
 %\hline
 \textbf{lvadv\_tracer}&
-L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
-& &       & & FALSE: do not compute vertical tracer advection &
+L& .TRUE.& & Main switch for vertical tracer transport. \\ 
+             TRUE/FALSE : compute/do not compute vertical tracer advection. \\ 
+             If vertical advection is switched off, the tracer mass fraction $q$ is kept constant. & 
 \tabularnewline
 
 %\hline
 \textbf{ihadv\_tracer}&
 I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & & & 0: no horiz. transport (note that the specific tracer quantity $q$ is kept constant and not tracer mass $\rho q$) & \tabularnewline
+& & & & 0: no horiz.\ transport. The tracer mass fraction $q$ is kept constant. & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: Miura (2nd order, linear reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
@@ -6984,8 +6985,7 @@ For NWP runs, substepping is generally applied above $z=22\,\mathrm{km}$ (see no
 \textbf{ivadv\_tracer}&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport \\
-           (note that tracer mass $\rho q$ instead of the mass fraction $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
+& & & & 0: no vert.\ transport. The tracer mass fraction $q$ is kept constant. & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 2: Parabolic Spline Method (PSM): allows for $\mathrm{CFL}>1$& \tabularnewline
 & & & & 3: Piecewise parabolic method (PPM): allows for $\mathrm{CFL}>1$ & \tabularnewline
@@ -7029,13 +7029,6 @@ I&
 &  & & & 0: no TKE advection & \tabularnewline
 &  & & & 1: vertical advection only & \tabularnewline
 &  & & & 2: vertical and horizontal advection &\tabularnewline
-
-
-%\hline
-lstrang &
-L& .FALSE.& & Time splitting method & \tabularnewline
-& & & & FALSE: first order Godunov splitting & \tabularnewline
-& & & & TRUE: second order Strang splitting & \tabularnewline
 
 %\hline
 tracer\_names&

@@ -72,7 +72,8 @@ MODULE mo_advection_vflux
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, lvert_nest, timers_level, iqtke
-  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup, t_trList 
+  USE mo_advection_config,    ONLY: t_advection_config, advection_config,     &
+    &                               lcompute, lcleanup, t_trList 
   USE mo_advection_vlimit,    ONLY: v_limit_parabola_mo, v_limit_parabola_sm, &
    &                                vflx_limiter_pd,                          &
    &                                v_limit_slope_mo, v_limit_slope_sm,       &
@@ -85,7 +86,7 @@ MODULE mo_advection_vflux
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
   USE mo_mpi,                 ONLY: i_am_accel_node, my_process_is_work
 #endif
-  USE mo_timer,               ONLY: timer_adv_vert, timer_start, timer_stop
+  USE mo_timer,               ONLY: timer_adv_vflx, timer_start, timer_stop
 
 
   IMPLICIT NONE
@@ -144,10 +145,7 @@ CONTAINS
   ! see below
   !
   SUBROUTINE vert_upwind_flux( p_patch, p_cc, p_mflx_contra_v,                &
-    &                      p_dtime, p_cellhgt_mc_now,                         &
-    &                      p_cellmass_now, p_ivadv_tracer,                    &
-    &                      p_itype_vlimit, p_ivlimit_selective,               &
-    &                      p_iubc_adv, p_iadv_slev,                           &
+    &                      p_dtime, p_cellhgt_mc_now, p_cellmass_now,         &
     &                      lprint_cfl, p_upflux, opt_topflx_tra, opt_q_int,   &
     &                      opt_rlstart, opt_rlend  )
 
@@ -173,23 +171,6 @@ CONTAINS
       &  p_cellmass_now(:,:,:)      !< at time step n [kg/m**2]
                                     !< dim: (nproma,nlev,nblks_c)
 
-    INTEGER, INTENT(IN) ::   &      !< parameter to select numerical
-      &  p_ivadv_tracer(:)          !< scheme for vertical transport
-                                    !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::   &      !< parameter to select the limiter
-      &  p_itype_vlimit(:)          !< for vertical transport
-                                    !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::   &      !< avoids limiting of smooth extrema
-      &  p_ivlimit_selective(:)     !< if activated
-
-    INTEGER, INTENT(IN) ::   &      !< vertical start level for transport
-      &  p_iadv_slev(:)             !< dim: (ntracer)
-
-    INTEGER, INTENT(IN) ::   &      !< selects upper boundary condition
-      &  p_iubc_adv
-
     LOGICAL, INTENT(IN) ::   &      !< determines if vertical CFL number shall be printed
       &  lprint_cfl                 !< in routine upwind_vflux_ppm
 
@@ -214,11 +195,12 @@ CONTAINS
       &  trAdvect
 
     INTEGER :: jt, nt                  !< tracer index and loop index
-    INTEGER :: jg                      !< patch ID
     INTEGER :: jc, jb                  !< cell and block loop index
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart_c, i_rlend_c
     INTEGER :: iadv_min_slev           !< scheme specific minimum slev
+
+    TYPE(t_advection_config), POINTER :: advconf
 
     REAL(wp) :: z_mflx_contra_v(nproma) !< auxiliary variable for computing vertical nest interface quantities
 
@@ -227,17 +209,17 @@ CONTAINS
 #endif
     !-----------------------------------------------------------------------
 
-    IF (timers_level > 2) CALL timer_start(timer_adv_vert)
+    IF (timers_level > 2) CALL timer_start(timer_adv_vflx)
 
-    ! get patch ID
-    jg = p_patch%id
+    ! pointer to advection_config(p_patch%id) to save some paperwork
+    advconf => advection_config(p_patch%id)
 
-    trAdvect => advection_config(jg)%trAdvect
+    trAdvect => advconf%trAdvect
 
     !
     ! Loop over different tracers
     !
-    ! Note (DR): Since we define p_ivadv_tracer as a 1D array of dimension
+    ! Note (DR): Since we define ivadv_tracer as a 1D array of dimension
     ! ntracer, we can select different flux calculation methods for
     ! different tracers. We may also decide not to advect special
     ! tracers. Furthermore, options regarding the desired limiter can be passed 
@@ -247,55 +229,59 @@ CONTAINS
 
       jt = trAdvect%list(nt)
 
-      IF (.NOT. PRESENT(opt_rlend) .OR. (jt == iqtke .AND. advection_config(jg)%iadv_tke == 1)) THEN
+      IF (.NOT. PRESENT(opt_rlend) .OR. (jt == iqtke .AND. advconf%iadv_tke == 1)) THEN
         i_rlend_c = min_rlcell_int
       ELSE
         i_rlend_c = opt_rlend
       ENDIF
 
       ! Select desired flux calculation method
-      SELECT  CASE( p_ivadv_tracer(jt) )
+      SELECT  CASE( advconf%ivadv_tracer(jt) )
 
       CASE( iup_v )
         ! CALL first order upwind
         !$ACC WAIT
-        CALL upwind_vflux_up( p_patch, p_cc(:,:,:,jt), p_iubc_adv,   &! in
-          &                   p_mflx_contra_v, p_upflux(:,:,:,jt),   &! in,out
-          &                   opt_topflx_tra=opt_topflx_tra(:,:,jt), &! in
-          &                   opt_slev=p_iadv_slev(jt),              &! in
-          &                   opt_rlstart=opt_rlstart,               &! in
-          &                   opt_rlend=i_rlend_c                    )! in
+        CALL upwind_vflux_up(                                &
+          &         p_patch        = p_patch,                & !in
+          &         p_cc           = p_cc(:,:,:,jt),         & !in
+          &         p_iubc_adv     = advconf%iubc_adv,       & !in
+          &         p_mflx_contra_v= p_mflx_contra_v(:,:,:), & !in 
+          &         p_upflux       = p_upflux(:,:,:,jt),     & !out
+          &         opt_topflx_tra = opt_topflx_tra(:,:,jt), & !in
+          &         opt_slev       = advconf%iadv_slev(jt),  & !in
+          &         opt_rlstart    = opt_rlstart,            & !in
+          &         opt_rlend      = i_rlend_c               ) !in
 
 
       CASE( ippm_v, ipsm_v )
 
-        iadv_min_slev = advection_config(jg)%ppm_v%iadv_min_slev
+        iadv_min_slev = advconf%ppm_v%iadv_min_slev
 
         ! CALL third order PPM/PSM (unrestricted timestep-version) (i.e. CFL>1)
 #ifdef _OPENACC
-        CALL upwind_vflux_ppm4gpu(                                            &
+        CALL upwind_vflux_ppm4gpu(                                       &
 #else
-        CALL upwind_vflux_ppm(                                                &
+        CALL upwind_vflux_ppm(                                           &
 #endif
-          &                    p_patch             = p_patch,                 &! in
-          &                    p_cc                = p_cc(:,:,:,jt),          &! in
-          &                    p_iubc_adv          = p_iubc_adv,              &! in
-          &                    p_mflx_contra_v     = p_mflx_contra_v(:,:,:),  &! in
-          &                    p_dtime             = p_dtime,                 &! in
-          &                    ld_compute          = lcompute%ppm_v(jt),      &! in
-          &                    ld_cleanup          = lcleanup%ppm_v(jt),      &! in
-          &                    p_itype_vlimit      = p_itype_vlimit(jt),      &! in
-          &                    p_ivlimit_selective = p_ivlimit_selective(jt), &! in
-          &                    p_cellhgt_mc_now    = p_cellhgt_mc_now(:,:,:), &! in
-          &                    p_cellmass_now      = p_cellmass_now(:,:,:),   &! in
-          &                    lprint_cfl          = lprint_cfl,              &! in
-          &                    ivadv_tracer        = p_ivadv_tracer(jt),      &! in
-          &                    p_upflux            = p_upflux(:,:,:,jt),      &! out
-          &                    opt_topflx_tra      = opt_topflx_tra(:,:,jt),  &! in
-          &                    opt_slev            = p_iadv_slev(jt),         &! in
-          &                    opt_ti_slev         = iadv_min_slev,           &! in
-          &                    opt_rlstart         = opt_rlstart,             &! in
-          &                    opt_rlend           = i_rlend_c                )! in
+          &         p_patch             = p_patch,                       & !in
+          &         p_cc                = p_cc(:,:,:,jt),                & !in
+          &         p_iubc_adv          = advconf%iubc_adv,              & !in
+          &         p_mflx_contra_v     = p_mflx_contra_v(:,:,:),        & !in
+          &         p_dtime             = p_dtime,                       & !in
+          &         ld_compute          = lcompute%ppm_v(jt),            & !in
+          &         ld_cleanup          = lcleanup%ppm_v(jt),            & !in
+          &         p_itype_vlimit      = advconf%itype_vlimit(jt),      & !in
+          &         p_ivlimit_selective = advconf%ivlimit_selective(jt), & !in
+          &         p_cellhgt_mc_now    = p_cellhgt_mc_now(:,:,:),       & !in
+          &         p_cellmass_now      = p_cellmass_now(:,:,:),         & !in
+          &         lprint_cfl          = lprint_cfl,                    & !in
+          &         ivadv_tracer        = advconf%ivadv_tracer(jt),      & !in
+          &         p_upflux            = p_upflux(:,:,:,jt),            & !out
+          &         opt_topflx_tra      = opt_topflx_tra(:,:,jt),        & !in
+          &         opt_slev            = advconf%iadv_slev(jt),         & !in
+          &         opt_ti_slev         = iadv_min_slev,                 & !in
+          &         opt_rlstart         = opt_rlstart,                   & !in
+          &         opt_rlend           = i_rlend_c                      ) !in
 
       END SELECT
 
@@ -344,7 +330,7 @@ CONTAINS
 
     ENDIF
 
-    IF (timers_level > 2) CALL timer_stop(timer_adv_vert)
+    IF (timers_level > 2) CALL timer_stop(timer_adv_vflx)
 
   END SUBROUTINE vert_upwind_flux
 
