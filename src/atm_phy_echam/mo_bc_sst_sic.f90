@@ -221,6 +221,8 @@ CONTAINS
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
+!$omp parallel private(jb,jc)
+!$omp do
     DO jb = 1, SIZE(zts,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(zts,1)
@@ -228,32 +230,26 @@ CONTAINS
         zic(jc,jb) = tiw%weight1 * sic(jc,jb,tiw%month1_index) + tiw%weight2 * sic(jc,jb,tiw%month2_index)
       END DO
     END DO
+!$omp end do nowait
     !$ACC END PARALLEL
 
     !TODO: missing siced needs to be added
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
+!$omp do
     DO jb = 1, SIZE(tsw,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(tsw,1)
-        seaice(jc,jb) = 0._dp
+        ! assuming input data is in percent
+        seaice(jc,jb) = zic(jc,jb) * MERGE(0.01_dp, 0.0_dp, mask(jc,jb))
       END DO
     END DO
+!$omp end do nowait
     !$ACC END PARALLEL
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
-    DO jb = 1, SIZE(tsw,2)
-      !$ACC LOOP GANG VECTOR
-      DO jc = 1, SIZE(tsw,1)
-        IF (mask(jc,jb)) THEN
-          seaice(jc,jb) = zic(jc,jb)*0.01_dp               ! assuming input data is in percent
-        END IF
-      END DO
-    END DO
-    !$ACC END PARALLEL
-    !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
-    !$ACC LOOP SEQ
+!$omp do
     DO jb = 1, SIZE(tsw,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(tsw,1)
@@ -263,21 +259,25 @@ CONTAINS
         ztsw(jc,jb) = MERGE(tf_salt, MAX(zts(jc,jb), tf_salt), seaice(jc,jb) > 0.0_dp) 
       END DO
     END DO
+!$omp end do nowait
     !$ACC END PARALLEL
 
     IF (l_init) THEN
       !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
       !$ACC LOOP SEQ
+!$omp do
       DO jb = 1, SIZE(tsw,2)
         !$ACC LOOP GANG VECTOR
         DO jc = 1, SIZE(tsw,1)
           tsw(jc,jb) = ztsw(jc,jb)
         END DO
       END DO
+!$omp end do nowait
       !$ACC END PARALLEL
     ELSE
       !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
       !$ACC LOOP SEQ
+!$omp do
       DO jb = 1, SIZE(tsw,2)
         !$ACC LOOP GANG VECTOR
         DO jc = 1, SIZE(tsw,1)
@@ -286,11 +286,13 @@ CONTAINS
           END IF
         END DO
       END DO
+!$omp end do nowait
       !$ACC END PARALLEL
     END IF
 
     !$ACC PARALLEL DEFAULT(PRESENT) IF( lzopenacc )
     !$ACC LOOP SEQ
+!$omp do
     DO jb = 1, SIZE(tsw,2)
       !$ACC LOOP GANG VECTOR
       DO jc = 1, SIZE(tsw,1)
@@ -301,6 +303,8 @@ CONTAINS
         END IF
       END DO
     END DO
+!$omp end do nowait
+!$omp end parallel
     !$ACC END PARALLEL
 
     !CALL message('','Interpolated sea surface temperature and sea ice cover.')
