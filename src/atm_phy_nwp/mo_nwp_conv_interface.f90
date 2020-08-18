@@ -145,17 +145,6 @@ CONTAINS
                          i_startidx, i_endidx, rl_start, rl_end)
 
 
-      !-------------------------------------------------------------------------
-      !> Calculate vertical velocity in p-system
-      !-------------------------------------------------------------------------
-      !
-      DO jk = kstart_moist(jg),nlev
-        DO jc = i_startidx,i_endidx
-          z_omega_p(jc,jk)= -0.5_wp*(p_prog%w(jc,jk,jb)+p_prog%w(jc,jk+1,jb)) &
-                            *p_prog%rho(jc,jk,jb)*grav
-        ENDDO
-      ENDDO
-
       IF( atm_phy_nwp_config(jg)%inwp_convection == 1 ) THEN
 
         !>
@@ -189,6 +178,9 @@ CONTAINS
 
         DO jk = kstart_moist(jg),nlev
           DO jc = i_startidx,i_endidx
+            ! vertical velocity in p-system
+            z_omega_p(jc,jk)= -0.5_wp*(p_prog%w(jc,jk,jb)+p_prog%w(jc,jk+1,jb)) &
+                            * p_prog%rho(jc,jk,jb)*grav
             ! moisture convergence
             z_dtdqv(jc,jk) =                                                                 &
               p_diag%ddt_tracer_adv(jc,jk,jb,iqv) + prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv)
