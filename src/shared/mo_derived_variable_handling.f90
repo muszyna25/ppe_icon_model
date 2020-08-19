@@ -250,8 +250,7 @@ CONTAINS
     CHARACTER(LEN=vname_len), INTENT(in) :: in_varlist(:)
 
     output_varlist_length = 0
-    DO
-      IF (in_varlist(output_varlist_length+1) == ' ') EXIT
+    DO WHILE (in_varlist(output_varlist_length+1) /= ' ')
       output_varlist_length = output_varlist_length + 1
     END DO
   END FUNCTION output_varlist_length
@@ -265,8 +264,7 @@ CONTAINS
 
     ! count variables {{{
     output_variables = 0
-    DO
-      IF (in_varlist(output_variables+1) == ' ') EXIT
+    DO WHILE (in_varlist(output_variables+1) /= ' ')
       output_variables = output_variables + 1
     END DO
 
@@ -579,8 +577,7 @@ CONTAINS
 
       ! count variables {{{
       output_variables = 0
-      DO
-        IF (in_varlist(output_variables+1) == ' ') EXIT
+      DO WHILE (in_varlist(output_variables+1) /= ' ')
         output_variables = output_variables + 1
       END DO
 
