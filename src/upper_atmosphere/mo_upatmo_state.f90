@@ -1201,8 +1201,8 @@ CONTAINS
           ! Variable description
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           ! Variable unit
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, &
+               var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, var_name, tend%ddt%temp( jst )%tot,              &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,  &
@@ -1239,8 +1239,7 @@ CONTAINS
           !----------------------------------------------------
           var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, var_name, tend%ddt%exner( jst )%tot,             &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,  &
@@ -1277,8 +1276,7 @@ CONTAINS
           !-------------------------------------------------
           var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
           CALL add_var( tend_list, var_name, tend%ddt%vn( jst )%tot,                &
             &           GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,  &
@@ -1322,8 +1320,8 @@ CONTAINS
           !-----------------------------------------------------
           var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
-          var_unit   = TRIM(tend%ddt%info( jtnd )%unit)
-          cf_desc    = t_cf_var(var_name, var_unit, var_dscrptn, datatype_flt)
+          cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, &
+               var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           CALL add_var( tend_list, var_name, tend%ddt%qx( jst )%tot,                  &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,    &
@@ -1343,7 +1341,8 @@ CONTAINS
             var_name_ref = vname_prefix(1:vn_pfx_len)//'ddt_q'//TRIM(ctrc)//TRIM(STATELEVEL_SUFFIX)//cjst
             var_dscrptn  = 'accumulative tendency of tracer q'//TRIM(ctrc) &
               & //' of time level with index '//cjst
-            cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
+            cf_desc    = t_cf_var(var_name_ref, tend%ddt%info( jtnd )%unit, &
+                 var_dscrptn, datatype_flt)
             grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
             CALL add_ref( tend_list, var_name, var_name_ref,                                &
               &           tend%ddt%qx( jst )%tot_ptr( jtrc )%p_3d,                          &
