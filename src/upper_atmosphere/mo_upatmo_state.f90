@@ -638,8 +638,11 @@ CONTAINS
     CHARACTER(len=2) :: cjst
     CHARACTER(len=9) :: ctrc
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: &
-      & var_name_prefix, var_name, var_dscrptn, var_unit, var_name_ref
+      & var_name_prefix, var_name, var_dscrptn, var_name_ref
 
+    CHARACTER(len=*), PARAMETER :: unit_m_over_s2 = 'm s-2', &
+         unit_k_over_s = 'K s-1', &
+         unit_kg_over_kg_s = 'kg kg-1 s-1'
     CHARACTER(LEN = :), POINTER :: prc_name_vdfmol, &
       &                            prc_name_fric, &
       &                            prc_name_iondrag, &
@@ -768,14 +771,11 @@ CONTAINS
       ! Prefix of variable name
       var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_temp_'
 
-      ! Unit
-      var_unit = 'K s-1'
-
       ! &      tend%ddt_temp_srbc(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       ! Construc variable name
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_srbc
-      cf_desc    = t_cf_var(var_name, var_unit,                                             &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                             &
         &                   'temperature tendency due to absorbtion by O2 in SRB and SRC',  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -791,7 +791,7 @@ CONTAINS
       ! &      tend%ddt_temp_nlte(nproma,nlev,nblks_c) 
       !--------------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_nlte
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to Non-LTE heating',      &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -807,7 +807,7 @@ CONTAINS
       ! &      tend%ddt_temp_euv(nproma,nlev,nblks_c) 
       !----------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_euv
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to EUV heating',          &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -823,7 +823,7 @@ CONTAINS
       ! &      tend%ddt_temp_no(nproma,nlev,nblks_c) 
       !---------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_no
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to NO heating at NIR',    &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -839,7 +839,7 @@ CONTAINS
       ! &  tend%ddt_temp_chemheat(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_chemheat
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to chemical heating',     &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -876,12 +876,11 @@ CONTAINS
       !------------------------------------
 
       var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_temp_'
-      var_unit        = 'K s-1'
 
       ! &      tend%ddt_temp_vdfmol(nproma,nlev,nblks_c) 
       !-------------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_vdfmol
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to molecular diffusion',  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -897,7 +896,7 @@ CONTAINS
       ! &      tend%ddt_temp_fric(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_fric
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to frictional heating',   &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -913,7 +912,7 @@ CONTAINS
       ! &      tend%ddt_temp_joule(nproma,nlev,nblks_c) 
       !------------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_joule
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_k_over_s,                                 &
         &                   'temperature tendency due to Joule heating',        &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -931,12 +930,11 @@ CONTAINS
       !------------------------------------
 
       var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_u_'
-      var_unit        = 'm s-2'
 
       ! &      tend%ddt_u_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_vdfmol
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'u-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -952,7 +950,7 @@ CONTAINS
       ! &      tend%ddt_u_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_iondrag
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'u-wind tendency due to ion drag',                  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -970,12 +968,11 @@ CONTAINS
       !------------------------------------
 
       var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_v_'
-      var_unit        = 'm s-2'
 
       ! &      tend%ddt_v_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_vdfmol
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'v-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -991,7 +988,7 @@ CONTAINS
       ! &      tend%ddt_v_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_iondrag
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_m_over_s2,                                 &
         &                   'v-wind tendency due to ion drag',                  &
         &                   datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1017,12 +1014,11 @@ CONTAINS
       ENDIF
 
       var_name_prefix = vname_prefix(1:vn_pfx_len)//'ddt_q'
-      var_unit        = 'kg kg-1 s-1'
 
       ! &     tend%ddt_qx_vdfmol(nproma,nlev,nblks_c,ntrc) 
       !---------------------------------------------------
       var_name   = var_name_prefix(1:vn_pfx_len+5)//'x_'//prc_name_vdfmol
-      cf_desc    = t_cf_var(var_name, var_unit,                                 &
+      cf_desc    = t_cf_var(var_name, unit_kg_over_kg_s,                                 &
         &                   'tendencies of mass mixing ratio of tracers '//     &
         &                   'due to molecular diffusion',                       &
         &                   datatype_flt)
@@ -1037,7 +1033,7 @@ CONTAINS
       ! &      tend%ddt_qv_vdfmol(nproma,nlev,nblks_c) 
       !-----------------------------------------------
       var_name_ref = var_name_prefix(1:vn_pfx_len+5)//'v_'//prc_name_vdfmol
-      cf_desc    = t_cf_var(var_name_ref, var_unit,                                   &
+      cf_desc    = t_cf_var(var_name_ref, unit_kg_over_kg_s,                                   &
         &                   'tendency of specific humidity '//                        &
         &                   'due to molecular diffusion',                             &
         &                   datatype_flt)
