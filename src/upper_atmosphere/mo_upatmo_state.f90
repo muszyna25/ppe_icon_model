@@ -66,7 +66,7 @@ MODULE mo_upatmo_state
   ! Please note that we cannot use 'mo_impl_constants: TIMELEVEL_SUFFIX' 
   ! for the different time levels of the total tendencies, 
   ! because of its use in 'mo_var_list'
-  CHARACTER(LEN=3), PARAMETER :: STATELEVEL_SUFFIX = '.SL'
+  CHARACTER(LEN=*), PARAMETER :: STATELEVEL_SUFFIX = '.SL'
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_upatmo_state'
   
@@ -398,7 +398,7 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     CHARACTER(len=LEN(vname_prefix)+10) :: var_name
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: var_dscrptn, var_name_ref
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: var_name_ref
 
     INTEGER, PARAMETER :: ngas = iUpatmoGasId%nitem
     CHARACTER(LEN=*), PARAMETER ::  &
@@ -1193,7 +1193,7 @@ CONTAINS
           ! &      tend%ddt%temp(jst)%tot(nproma,nlev,nblks_c)
           !---------------------------------------------------
           ! Construct variable name for output
-          var_name = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
           ! Variable description
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           ! Variable unit
@@ -1233,7 +1233,7 @@ CONTAINS
 
           ! &      tend%ddt%exner(jst)%tot(nproma,nlev,nblks_c)
           !----------------------------------------------------
-          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1270,7 +1270,7 @@ CONTAINS
           
           ! &      tend%ddt%vn(jst)%tot(nproma,nlev,nblks_e)
           !-------------------------------------------------
-          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, var_dscrptn, datatype_flt)
           grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
@@ -1314,7 +1314,7 @@ CONTAINS
 
           ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c,ntrc)
           !-----------------------------------------------------
-          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//TRIM(STATELEVEL_SUFFIX)//cjst
+          var_name   = vname_prefix(1:vn_pfx_len)//TRIM(tend%ddt%info( jtnd )%name)//STATELEVEL_SUFFIX//cjst
           var_dscrptn = TRIM(tend%ddt%info( jtnd )%longname)//' of time level with index '//cjst
           cf_desc    = t_cf_var(var_name, tend%ddt%info( jtnd )%unit, &
                var_dscrptn, datatype_flt)
@@ -1334,7 +1334,7 @@ CONTAINS
 
             ! &     tend%ddt%qx(jst)%tot(nproma,nlev,nblks_c)
             !------------------------------------------------
-            var_name_ref = vname_prefix(1:vn_pfx_len)//'ddt_q'//TRIM(ctrc)//TRIM(STATELEVEL_SUFFIX)//cjst
+            var_name_ref = vname_prefix(1:vn_pfx_len)//'ddt_q'//TRIM(ctrc)//STATELEVEL_SUFFIX//cjst
             var_dscrptn  = 'accumulative tendency of tracer q'//TRIM(ctrc) &
               & //' of time level with index '//cjst
             cf_desc    = t_cf_var(var_name_ref, tend%ddt%info( jtnd )%unit, &
