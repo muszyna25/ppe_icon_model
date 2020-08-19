@@ -619,15 +619,16 @@ CONTAINS
     TYPE(t_var_list),       INTENT(INOUT) :: tend_list
     TYPE(t_upatmo_tend),    INTENT(INOUT) :: tend
     LOGICAL,                INTENT(IN)    :: lmessage
+    TARGET :: upatmo_nwp_phy_config
 
     ! Local variables 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape4d_c(4)
     INTEGER :: ibits
     INTEGER :: datatype_flt
-    INTEGER :: jtrc, jtnd, jst, jgrp, nstate, nprcname
+    INTEGER :: jtrc, jtnd, jst, jgrp, nstate
     INTEGER :: istartlev, iendlev
     INTEGER :: istat
-    INTEGER :: vn_pfx_len
+    INTEGER :: vn_pfx_len, tlen
 
     LOGICAL :: loutput, ltend( iUpatmoTendId%nitem_2 )
 
@@ -639,15 +640,15 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: &
       & var_name_prefix, var_name, var_dscrptn, var_unit, var_name_ref
 
-    CHARACTER(LEN = :), ALLOCATABLE :: prc_name_vdfmol, &
-      &                                prc_name_fric, &
-      &                                prc_name_iondrag, &
-      &                                prc_name_joule, &
-      &                                prc_name_srbc, &
-      &                                prc_name_nlte, &
-      &                                prc_name_euv, &
-      &                                prc_name_no, &
-      &                                prc_name_chemheat
+    CHARACTER(LEN = :), POINTER :: prc_name_vdfmol, &
+      &                            prc_name_fric, &
+      &                            prc_name_iondrag, &
+      &                            prc_name_joule, &
+      &                            prc_name_srbc, &
+      &                            prc_name_nlte, &
+      &                            prc_name_euv, &
+      &                            prc_name_no, &
+      &                            prc_name_chemheat
 
     INTEGER, PARAMETER :: ntrc   = iUpatmoTracerId%nitem
     INTEGER, PARAMETER :: ngrp   = iUpatmoGrpId%nitem
@@ -741,9 +742,6 @@ CONTAINS
     ! The tendencies from the single processes can be selected for output
     loutput = .TRUE.
 
-    ! Maximum length of process short names
-    nprcname = MAXVAL(LEN_TRIM(upatmo_nwp_phy_config%prc( : )%name))
-
     ! actual useful length of vname_prefix
     vn_pfx_len = LEN_TRIM(vname_prefix)
     !------------------------------------
@@ -752,15 +750,16 @@ CONTAINS
 
     IF (upatmo_nwp_phy_config%grp( iUpatmoGrpId%rad )%l_stat( iUpatmoPrcStat%enabled )) THEN
 
-      ALLOCATE(CHARACTER(LEN=nprcname) :: prc_name_srbc, prc_name_nlte, prc_name_euv, &
-        & prc_name_no, prc_name_chemheat, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (routine, 'Allocation of prc_name failed')
-
-      prc_name_srbc     = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%srbc )%name)
-      prc_name_nlte     = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%nlte )%name)
-      prc_name_euv      = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%euv )%name)
-      prc_name_no       = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%no )%name)
-      prc_name_chemheat = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%chemheat )%name)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%srbc )%name)
+      prc_name_srbc     => upatmo_nwp_phy_config%prc( iUpatmoPrcId%srbc )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%nlte )%name)
+      prc_name_nlte     => upatmo_nwp_phy_config%prc( iUpatmoPrcId%nlte )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%euv )%name)
+      prc_name_euv      => upatmo_nwp_phy_config%prc( iUpatmoPrcId%euv )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%no )%name)
+      prc_name_no       => upatmo_nwp_phy_config%prc( iUpatmoPrcId%no )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%chemheat )%name)
+      prc_name_chemheat => upatmo_nwp_phy_config%prc( iUpatmoPrcId%chemheat )%name(1:tlen)
 
       !------------------------------------
       !      Temperature tendencies
@@ -853,9 +852,6 @@ CONTAINS
         &           in_group=groups("upatmo_tendencies"),                       &
         &           loutput=loutput                                             ) 
 
-      DEALLOCATE(prc_name_srbc, prc_name_nlte, prc_name_euv, prc_name_no, prc_name_chemheat, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (routine, 'Deallocation of prc_name failed')
-
     ENDIF !RAD-group switched on?
 
     !------------------------------------
@@ -866,14 +862,14 @@ CONTAINS
 
     IF (upatmo_nwp_phy_config%grp( iUpatmoGrpId%imf )%l_stat( iUpatmoPrcStat%enabled )) THEN
 
-      ALLOCATE(CHARACTER(LEN=nprcname) :: prc_name_vdfmol, prc_name_fric, &
-        & prc_name_iondrag, prc_name_joule, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (routine, 'Allocation of prc_name failed')
-
-      prc_name_vdfmol  = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%vdfmol )%name)
-      prc_name_fric    = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%fric )%name)
-      prc_name_iondrag = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%iondrag )%name)
-      prc_name_joule   = TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%joule )%name)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%vdfmol )%name)
+      prc_name_vdfmol  => upatmo_nwp_phy_config%prc( iUpatmoPrcId%vdfmol )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%fric )%name)
+      prc_name_fric    => upatmo_nwp_phy_config%prc( iUpatmoPrcId%fric )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%iondrag )%name)
+      prc_name_iondrag => upatmo_nwp_phy_config%prc( iUpatmoPrcId%iondrag )%name(1:tlen)
+      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc( iUpatmoPrcId%joule )%name)
+      prc_name_joule   => upatmo_nwp_phy_config%prc( iUpatmoPrcId%joule )%name(1:tlen)
 
       !------------------------------------
       !      Temperature tendencies
@@ -884,7 +880,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_vdfmol(nproma,nlev,nblks_c) 
       !-------------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+9)//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_vdfmol
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to molecular diffusion',  &
         &                   datatype_flt)
@@ -900,7 +896,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_fric(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+9)//TRIM(prc_name_fric)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_fric
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to frictional heating',   &
         &                   datatype_flt)
@@ -916,7 +912,7 @@ CONTAINS
 
       ! &      tend%ddt_temp_joule(nproma,nlev,nblks_c) 
       !------------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+9)//TRIM(prc_name_joule)
+      var_name   = var_name_prefix(1:vn_pfx_len+9)//prc_name_joule
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'temperature tendency due to Joule heating',        &
         &                   datatype_flt)
@@ -939,7 +935,7 @@ CONTAINS
 
       ! &      tend%ddt_u_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_vdfmol
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'u-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
@@ -955,7 +951,7 @@ CONTAINS
 
       ! &      tend%ddt_u_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_iondrag)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_iondrag
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'u-wind tendency due to ion drag',                  &
         &                   datatype_flt)
@@ -978,7 +974,7 @@ CONTAINS
 
       ! &      tend%ddt_v_vdfmol(nproma,nlev,nblks_c) 
       !----------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_vdfmol
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'v-wind tendency due to molecular diffusion',       &
         &                   datatype_flt)
@@ -994,7 +990,7 @@ CONTAINS
 
       ! &      tend%ddt_v_iondrag(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+6)//TRIM(prc_name_iondrag)
+      var_name   = var_name_prefix(1:vn_pfx_len+6)//prc_name_iondrag
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'v-wind tendency due to ion drag',                  &
         &                   datatype_flt)
@@ -1025,7 +1021,7 @@ CONTAINS
 
       ! &     tend%ddt_qx_vdfmol(nproma,nlev,nblks_c,ntrc) 
       !---------------------------------------------------
-      var_name   = var_name_prefix(1:vn_pfx_len+5)//'x_'//TRIM(prc_name_vdfmol)
+      var_name   = var_name_prefix(1:vn_pfx_len+5)//'x_'//prc_name_vdfmol
       cf_desc    = t_cf_var(var_name, var_unit,                                 &
         &                   'tendencies of mass mixing ratio of tracers '//     &
         &                   'due to molecular diffusion',                       &
@@ -1040,7 +1036,7 @@ CONTAINS
 
       ! &      tend%ddt_qv_vdfmol(nproma,nlev,nblks_c) 
       !-----------------------------------------------
-      var_name_ref = var_name_prefix(1:vn_pfx_len+5)//'v_'//TRIM(prc_name_vdfmol)
+      var_name_ref = var_name_prefix(1:vn_pfx_len+5)//'v_'//prc_name_vdfmol
       cf_desc    = t_cf_var(var_name_ref, var_unit,                                   &
         &                   'tendency of specific humidity '//                        &
         &                   'due to molecular diffusion',                             &
@@ -1055,9 +1051,6 @@ CONTAINS
         &                       vert_intp_method=VINTP_METHOD_LIN),                   &
         &           in_group=groups("upatmo_tendencies"),                             &
         &           loutput=loutput, lrestart=.TRUE., opt_var_ref_pos=4, ref_idx=jtrc )
-
-      DEALLOCATE(prc_name_vdfmol, prc_name_fric, prc_name_iondrag, prc_name_joule, STAT=istat)
-      IF (istat/=SUCCESS) CALL finish (routine, 'Deallocation of prc_name failed')
 
     ENDIF !IMF-group switched on?
 
