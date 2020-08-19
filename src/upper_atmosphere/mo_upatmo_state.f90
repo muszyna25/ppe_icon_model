@@ -398,7 +398,7 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     CHARACTER(len=LEN(vname_prefix)+10) :: var_name
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: var_unit, var_dscrptn, var_name_ref
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: var_dscrptn, var_name_ref
 
     INTEGER, PARAMETER :: ngas = iUpatmoGasId%nitem
     CHARACTER(LEN=*), PARAMETER ::  &
