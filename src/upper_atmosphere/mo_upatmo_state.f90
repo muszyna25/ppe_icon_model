@@ -93,7 +93,7 @@ CONTAINS
     ! Local variables 
     INTEGER  :: jg, istat, nblks_c, nblks_e, nlev
     LOGICAL  :: lmessage
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: listname, vname_prefix
+    CHARACTER(LEN=80) :: listname
     CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':construct_upatmo_state'
 
@@ -150,22 +150,23 @@ CONTAINS
           nlev   = p_patch( jg )%nlev
           
           ! Prefix for variable names
-          vname_prefix = TRIM(upatmo_config( jg )%nwp_phy%vname_prefix)
-          
+
           WRITE(listname,'(a,i2.2)') 'prm_upatmo_diag_of_domain_', jg
-          
+
           ! Allocate diagnostic upper-atmosphere fields
-          CALL new_upatmo_diag_list( jg, nlev, nblks_c, nproma, listname, vname_prefix, & 
+          CALL new_upatmo_diag_list( jg, nlev, nblks_c, nproma, listname,               &
+            &                        upatmo_config( jg )%nwp_phy%vname_prefix,          &
             &                        upatmo_config( jg )%nwp_phy,                       &
             &                        prm_upatmo_diag_list( jg ), prm_upatmo( jg )%diag  )
           
           WRITE(listname,'(a,i2.2)') 'prm_upatmo_tend_of_domain_', jg
           
           ! Allocate tendencies from upper-atmosphere physics parameterizations
-          CALL new_upatmo_tend_list( jg, nlev, nblks_c, nblks_e, nproma, listname, vname_prefix, &
-            &                        upatmo_config( jg )%nwp_phy,                                &
-            &                        prm_upatmo_tend_list( jg ), prm_upatmo( jg )%tend,          &
-            &                        lmessage                                                    )
+          CALL new_upatmo_tend_list( jg, nlev, nblks_c, nblks_e, nproma, listname,      &
+            &                        upatmo_config( jg )%nwp_phy%vname_prefix,          &
+            &                        upatmo_config( jg )%nwp_phy,                       &
+            &                        prm_upatmo_tend_list( jg ), prm_upatmo( jg )%tend, &
+            &                        lmessage                                           )
           
         ENDIF  !Physics switched on on domain?
 
@@ -581,9 +582,9 @@ CONTAINS
         ! &      diag%gas(nproma,nlev,nblks_c,ngas)
         !------------------------------------------
         var_name_ref(vn_pfx_len+1:) = upatmo_nwp_phy_config%gas(jgas)%name
-        var_dscrptn  = upatmo_nwp_phy_config%gas( jgas )%longname
-        var_unit     = TRIM(upatmo_nwp_phy_config%gas( jgas )%unit)
-        cf_desc    = t_cf_var(var_name_ref, var_unit, var_dscrptn, datatype_flt)
+        cf_desc    = t_cf_var(var_name_ref, &
+             upatmo_nwp_phy_config%gas(jgas)%unit, &
+             upatmo_nwp_phy_config%gas(jgas)%longname, datatype_flt)
         grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_ref( diag_list, var_name, var_name_ref,                          & 
           &           diag%gas_ptr( jgas )%p_3d,                                  &
