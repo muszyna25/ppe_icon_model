@@ -161,10 +161,9 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
 !<Optimize:inUse>
-  SUBROUTINE construct_oce_diagnostics( patch_3D, ocean_state, datestring )
+  SUBROUTINE construct_oce_diagnostics( patch_3D, ocean_state )
     TYPE(t_patch_3d),TARGET, INTENT(inout) :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET      :: ocean_state
-    CHARACTER(LEN=32)                      :: datestring
 
     !local variable
     INTEGER :: i,ist

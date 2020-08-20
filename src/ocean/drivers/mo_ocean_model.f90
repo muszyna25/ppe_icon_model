@@ -39,7 +39,6 @@ MODULE mo_ocean_model
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
        &                            timer_model_init
   USE mo_memory_log,              ONLY: memory_log_terminate
-  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
   USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
@@ -126,7 +125,7 @@ MODULE mo_ocean_model
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,            ONLY: restartWritingParameters, write_initial_state
   USE mo_restart, ONLY: detachRestartProcs
-  USE mo_ocean_time_events,    ONLY: init_ocean_time_events, getCurrentDate_to_String
+  USE mo_ocean_time_events,    ONLY: init_ocean_time_events
   USE mo_icon_output_tools,    ONLY: init_io_processes, prepare_output
   !-------------------------------------------------------------
   ! For the coupling
@@ -525,7 +524,6 @@ MODULE mo_ocean_model
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout), TARGET :: solverCoeff_sp
 
     ! local variables
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: datestring
     INTEGER, PARAMETER :: kice = 1
     CHARACTER(LEN=*), PARAMETER :: &
       & method_name = 'mo_ocean_model:construct_ocean_states'
@@ -581,8 +579,7 @@ MODULE mo_ocean_model
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
-    datestring = getCurrentDate_to_String()
-    CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
+    CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1))
 
     !------------------------------------------------------------------
     CALL message (TRIM(method_name),'end')
