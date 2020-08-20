@@ -64,7 +64,7 @@ CONTAINS
 
     CHARACTER(len=max_datetime_str_len)      :: date_str1, date_str2
 
-    TYPE(timedelta), POINTER :: timeSinceDataStart
+    TYPE(timedelta) :: timeSinceDataStart
 
 
     CHARACTER(*), PARAMETER :: routine = &
@@ -88,8 +88,6 @@ CONTAINS
         this%tidx = i
       ENDIF
     ENDDO
-
-    timeSinceDataStart => newTimeDelta("PT0S")
 
     timeSinceDataStart =  local_time - this%times(1)%ptr
 
@@ -116,9 +114,6 @@ CONTAINS
     this%dataold => this%dataa
     CALL reader%get_one_timelev(this%tidx+1, this%var_name, this%datab)
     this%datanew => this%datab
-
-    ! Cleanup
-    CALL deallocateTimedelta(timeSinceDataStart)
 
   END SUBROUTINE time_intp_init
 
