@@ -7743,6 +7743,7 @@ fi
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CLAW preprocessor command" >&5
 $as_echo_n "checking for CLAW preprocessor command... " >&6; }
    icon_claw_result=unknown
+   CLAW=${CLAW-'clawfc'}
    as_dir=conftest.dir; as_fn_mkdir_p
    cd conftest.dir
    cat > conftest.$ac_ext <<_ACEOF

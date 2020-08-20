@@ -1629,6 +1629,7 @@ dnl Check for CLAW:
    AC_LANG_ASSERT([Fortran])
    AC_MSG_CHECKING([for CLAW preprocessor command])
    icon_claw_result=unknown
+   CLAW=${CLAW-'clawfc'}
    AS_MKDIR_P([conftest.dir])
    cd conftest.dir
    AC_LANG_CONFTEST([AC_LANG_SOURCE(
