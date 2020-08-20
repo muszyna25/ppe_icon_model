@@ -273,8 +273,8 @@ CONTAINS
   ! via seconds... should be solved by mtime, could be done without
   ! conversion to a prespecified time unit.
   SUBROUTINE mtime_divide_timedelta (dividend, divisor, quotient)
-    TYPE(timedelta), POINTER, INTENT(in   ) :: dividend
-    TYPE(timedelta), POINTER, INTENT(in   ) :: divisor
+    TYPE(timedelta),          INTENT(in   ) :: dividend
+    TYPE(timedelta),          INTENT(in   ) :: divisor
     REAL(wp),                 INTENT(  out) :: quotient
     INTEGER(i8)                             :: dd, ds
 
@@ -286,7 +286,7 @@ CONTAINS
   END SUBROUTINE mtime_divide_timedelta
 
   SUBROUTINE mtime_timedelta_to_seconds (mtime_dt, seconds_dt)
-    TYPE(timedelta), POINTER, INTENT(in   ) :: mtime_dt
+    TYPE(timedelta),          INTENT(in   ) :: mtime_dt
     INTEGER(i8),              INTENT(  out) :: seconds_dt
     CHARACTER(*),                 PARAMETER :: routine = &
       & modname//"::mtime_timedelta_to_seconds"
