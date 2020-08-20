@@ -6,7 +6,7 @@ unset CDPATH
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='gcc/6.4.0 nag/6.2'
+MODULES='gcc/6.4.0 nag/7.0'
 
 SW_ROOT='/mnt/lustre01/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64'
 
