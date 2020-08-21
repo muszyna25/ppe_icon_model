@@ -20,7 +20,7 @@ MODULE mo_upatmo_flowevent_utils
 
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message
-  USE mo_impl_constants,        ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,        ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom_dig10
   USE mo_upatmo_impl_const,     ONLY: iUpatmoStat
   USE mo_upatmo_types,          ONLY: t_upatmo
   USE mo_restart_nml_and_att,   ONLY: getAttributesForRestarting
@@ -147,8 +147,8 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set) :: tendStateSet
     INTEGER :: i, istat, nsize
     LOGICAL :: lmessage
-    CHARACTER(LEN=2) :: domStr
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=max_dom_dig10) :: domStr
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':upatmoRestartAttributesPrepare'
 
     !----------------------------------------------
@@ -156,9 +156,9 @@ CONTAINS !......................................................................
     ! Message output desired?
     lmessage = upatmo_config(jg)%l_status(iUpatmoStat%message)
 
-    domStr = TRIM(int2string(jg))
+    WRITE (domStr, '(i0)') jg
 
-    IF (lmessage) CALL message(TRIM(routine), &
+    IF (lmessage) CALL message(routine, &
       & 'Start preparation of metadata for restart file on domain '//domStr)
 
     ! If the current simulation is a multi-domain application, 
@@ -179,7 +179,7 @@ CONTAINS !......................................................................
 
       ! Get info about state of accumulative tendencies
       nsize = SIZE(prm_upatmo%tend%ddt%state)
-      IF (nsize < 1) CALL finish(TRIM(routine), 'SIZE(prm_upatmo%tend%ddt%state) < 1')
+      IF (nsize < 1) CALL finish(routine, 'SIZE(prm_upatmo%tend%ddt%state) < 1')
       ALLOCATE( upatmoRestartAttributes%tendStateSet_i_old(nsize),             &
         &       upatmoRestartAttributes%tendStateSet_i_new(nsize),             &
         &       upatmoRestartAttributes%tendStateSet_n_swap(nsize),            &
@@ -194,7 +194,7 @@ CONTAINS !......................................................................
         &       upatmoRestartAttributes%tendStateSet_l_finish_on_error(nsize), &
         &       upatmoRestartAttributes%tendStateSet_l_initialized(nsize),     &
         &       STAT=istat                                                     )
-      IF(istat /= SUCCESS) CALL finish(TRIM(routine), &
+      IF(istat /= SUCCESS) CALL finish(routine, &
         & 'Allocation of upatmoRestartAttributes%tendStateSet... failed')
       
       DO i = 1, nsize
@@ -216,7 +216,7 @@ CONTAINS !......................................................................
 
     ENDIF  !IF (jg <= domRestartLimit)
 
-    IF (lmessage) CALL message(TRIM(routine), &
+    IF (lmessage) CALL message(routine, &
       & 'Finish preparation of metadata for restart file on domain '//domStr)
 
   END SUBROUTINE upatmoRestartAttributesPrepare
@@ -341,13 +341,15 @@ CONTAINS !......................................................................
     TYPE(t_key_value_store),    INTENT(INOUT) :: restartAttributes
 
     ! Local variables
-    CHARACTER(LEN=2) :: domStr
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: keyStr
+    CHARACTER(LEN=max_dom_dig10) :: domStr
+    CHARACTER(LEN=LEN(domstr)&
+         + MAX(LEN(keyStrElapsedTimeSuffix), LEN(keyStrTendStateSetSuffix))) ::&
+         keyStr
 
     !----------------------------------------------
 
-    domStr = int2string(jg, "(i2.2)")
-    
+    WRITE (domStr, '(i2.2)') jg
+
     ! elapsedTimePhy:
     keyStr = domStr//keyStrElapsedTimeSuffix
     CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%elapsedTimePhy, keyStrElapsedTimePhy//keyStr)
@@ -433,7 +435,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), TARGET :: tendStateSet
     INTEGER :: i
     LOGICAL :: lmessage
-    CHARACTER(LEN=2) :: domStr, iStr
+    CHARACTER(LEN=max_dom_dig10) :: domStr, iStr
     CHARACTER(:), ALLOCATABLE :: keyStr
     CHARACTER(*), PARAMETER :: routine = modname//':upatmoRestartAttributesGet'
 
@@ -502,7 +504,7 @@ CONTAINS !......................................................................
     ! In case of jg > domRestartLimit the initial values of prm_upatmo%tend%ddt%state(i), 
     ! set in src/upper_atmosphere/mo_upatmo_state: new_upatmo_tend_list, remain.
     
-    IF (lmessage) CALL message(TRIM(routine), &
+    IF (lmessage) CALL message(routine, &
       & 'Finish to get metadata from restart file on domain '//domStr)
     
   END SUBROUTINE upatmoRestartAttributesGet
