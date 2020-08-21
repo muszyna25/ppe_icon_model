@@ -356,31 +356,57 @@ CONTAINS !......................................................................
     IF (jg <= domRestartLimit) THEN
       keyStr = domStr//keyStrTendStateSetSuffix
       ! i_old:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_i_old, keyStrTendStateSet_i_old//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_i_old, &
+           keyStrTendStateSet_i_old//keyStr)
       ! i_new:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_i_new, keyStrTendStateSet_i_new//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_i_new, &
+           keyStrTendStateSet_i_new//keyStr)
       ! n_swap:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_swap, keyStrTendStateSet_n_swap//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_n_swap, &
+           keyStrTendStateSet_n_swap//keyStr)
       ! n_state:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_state, keyStrTendStateSet_n_state//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_n_state, &
+           keyStrTendStateSet_n_state//keyStr)
       ! n_statep1:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_n_statep1, keyStrTendStateSet_n_statep1//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_n_statep1, &
+           keyStrTendStateSet_n_statep1//keyStr)
       ! l_swapped:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_swapped, keyStrTendStateSet_l_swapped//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_swapped, &
+           keyStrTendStateSet_l_swapped//keyStr)
       ! l_updated:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_updated, keyStrTendStateSet_l_updated//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_updated, &
+           keyStrTendStateSet_l_updated//keyStr)
       ! l_locked:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_locked, keyStrTendStateSet_l_locked//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_locked, &
+           keyStrTendStateSet_l_locked//keyStr)
       ! l_locking:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_locking, keyStrTendStateSet_l_locking//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_locking, &
+           keyStrTendStateSet_l_locking//keyStr)
       ! l_unlockable:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_unlockable, keyStrTendStateSet_l_unlockable//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_unlockable, &
+           keyStrTendStateSet_l_unlockable//keyStr)
       ! l_final:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_final, keyStrTendStateSet_l_final//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_final, &
+           keyStrTendStateSet_l_final//keyStr)
       ! l_finish_on_error:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_finish_on_error, keyStrTendStateSet_l_finish_on_error//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_finish_on_error, &
+           keyStrTendStateSet_l_finish_on_error//keyStr)
       ! l_initialized:
-      CALL setRestartAttributes(restartAttributes, upatmoRestartAttributes%tendStateSet_l_initialized, keyStrTendStateSet_l_initialized//keyStr)
+      CALL setRestartAttributes(restartAttributes, &
+           upatmoRestartAttributes%tendStateSet_l_initialized, &
+           keyStrTendStateSet_l_initialized//keyStr)
     ENDIF
 
   END SUBROUTINE upatmoRestartAttributesSet

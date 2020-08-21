@@ -170,7 +170,8 @@ CONTAINS
           END DO
         ELSE
           DO ilev=chunk_start, chunk_end
-            CALL streamWriteVarSliceF(file_handle, me%varData(iv)%p%info%cdiVarID, ilev - 1, buffer_sp(:, ilev - chunk_start + 1), 0)
+            CALL streamWriteVarSliceF(file_handle, me%varData(iv)%p%info%cdiVarID, ilev - 1, &
+                 buffer_sp(:, ilev - chunk_start + 1), 0)
             bytesWrite = bytesWrite + pointCount*p_real_sp_byte
           END DO
         END IF
