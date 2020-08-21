@@ -295,7 +295,7 @@ CONTAINS
    CHARACTER(*), INTENT(IN), TARGET :: scalar
    TYPE(c_ptr) :: cptr
 
-   cptr = C_LOC(scalar)
+   cptr = C_LOC(scalar(1:1))
    CALL me%packBlock(cptr, LEN(scalar), 7)
   END SUBROUTINE PackedMessage_packCharacterScalar
 
@@ -405,7 +405,7 @@ CONTAINS
     CHARACTER(*) , INTENT(OUT), TARGET :: scalar
     TYPE(c_ptr) :: cptr
 
-    cptr = C_LOC(scalar)
+    cptr = C_LOC(scalar(1:1))
     CALL me%unpackBlock(cptr, LEN(scalar), 7)
   END SUBROUTINE PackedMessage_unpackCharacterScalar
 
