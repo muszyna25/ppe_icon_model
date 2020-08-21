@@ -66,7 +66,7 @@ CONTAINS
     &                                  lmessage           )  !in
 
     ! In/out variables
-    TYPE(datetime),           POINTER, INTENT(IN)    :: mtime_datetime     ! Date/time information
+    TYPE(datetime),                    INTENT(IN)    :: mtime_datetime     ! Date/time information
     TYPE(t_patch),            TARGET,  INTENT(IN)    :: p_patch            ! Grid/patch info
     TYPE(t_upatmo_extdat),    TARGET,  INTENT(INOUT) :: prm_upatmo_extdat  ! Upper-atmosphere external data
     TYPE(t_upatmo_tend),      TARGET,  INTENT(INOUT) :: prm_upatmo_tend    ! Upper-atmosphere physics tendencies
@@ -95,7 +95,7 @@ CONTAINS
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: dom_str
 
-    TYPE(datetime), POINTER            :: mtime_hour
+    TYPE(datetime) :: mtime_hour
     TYPE(t_time_interpolation_weights) :: time_intrpl
 
     CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -169,12 +169,11 @@ CONTAINS
     ! For interpolation in time
     !---------------------------
 
-    mtime_hour => newDatetime(mtime_datetime)
+    mtime_hour = mtime_datetime
     mtime_hour%time%minute = 0
     mtime_hour%time%second = 0
     mtime_hour%time%ms     = 0     
     time_intrpl = calculate_time_interpolation_weights(mtime_hour)
-    CALL deallocateDatetime(mtime_hour)
     
     !---------------------------------------------------------------------
     !                        Update external data:
