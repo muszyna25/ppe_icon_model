@@ -98,7 +98,7 @@ CONTAINS
     TYPE(datetime) :: mtime_hour
     TYPE(t_time_interpolation_weights) :: time_intrpl
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':update_upatmo_extdat_nwp'
     
     !--------------------------------------------------------------
@@ -158,7 +158,7 @@ CONTAINS
 
     IF (lmessage) WRITE (dom_str, '(i0)') jg
 
-    IF (lmessage) CALL message(TRIM(routine), &
+    IF (lmessage) CALL message(routine, &
       & 'Start update of external data on domain '//dom_str)
 
     !---------------------------------------------------------------------
@@ -215,7 +215,7 @@ CONTAINS
       ALLOCATE( ext_intrpl_time( nlat_ext, nlev_ext ), &
         &       ext_intrpl_lev( nlat_ext, nlev ),      &
         &       STAT=istat                             )
-      IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation of ext_intrpl_time/lev failed.')
+      IF(istat /= SUCCESS) CALL finish(routine, 'Allocation of ext_intrpl_time/lev failed.')
 
       ! Currently, the value of 'nlev_ext' is not very large, 
       ! so we might not yet profit from parallelizing the vertical loop
@@ -245,7 +245,7 @@ CONTAINS
       ENDDO  !jlev
 
       DEALLOCATE(ext_intrpl_time, STAT=istat)
-      IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of ext_intrpl_time failed.')
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_time failed.')
 
       !--------------------------
       ! Horizontal interpolation
@@ -296,7 +296,7 @@ CONTAINS
       !----------
 
       DEALLOCATE(ext_intrpl_lev, STAT=istat)
-      IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of ext_intrpl_lev failed.')
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_lev failed.')
 
       NULLIFY( ilev1, ilev2, wgt_lev1, wgt_lev2, ilat1, ilat2, wgt_lat1, wgt_lat2, &
         &      ext_data_time1, ext_data_time2, intrpl_rslt                         )
@@ -338,7 +338,7 @@ CONTAINS
         !-----------------------
 
         ALLOCATE(ext_intrpl_time( nlat_ext, nlev_ext ), STAT=istat)
-        IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation of ext_intrpl_time failed.')
+        IF(istat /= SUCCESS) CALL finish(routine, 'Allocation of ext_intrpl_time failed.')
 
         DO jlev = istartlev, iendlev, isteplev
           DO jlat = istartlat, iendlat, isteplat
@@ -378,7 +378,7 @@ CONTAINS
         !----------
 
         DEALLOCATE(ext_intrpl_time, STAT=istat)
-        IF(istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of ext_intrpl_time failed.')
+        IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_time failed.')
 
         NULLIFY(ilat1, ilat2, wgt_lat1, wgt_lat2, ext_data_time1, ext_data_time2, intrpl_rslt)
         
@@ -386,7 +386,7 @@ CONTAINS
 
     ENDIF  !Update of external gas data due?
 
-    IF (lmessage) CALL message(TRIM(routine), &
+    IF (lmessage) CALL message(routine, &
       & 'Finish update of external data on domain '//dom_str)
 
   END SUBROUTINE update_upatmo_extdat_nwp

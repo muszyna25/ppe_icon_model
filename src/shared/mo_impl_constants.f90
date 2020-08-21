@@ -265,7 +265,7 @@ MODULE mo_impl_constants
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10
   ! maximum number of decimal digits to print domain id, roughly(log10(max_dom))
-  INTEGER, PARAMETER :: max_dom_decimal_dig = 2
+  INTEGER, PARAMETER :: max_dom_dig10 = 2
   ! Maximum allowed number of physical model domains
   INTEGER, PARAMETER :: max_phys_dom = 30
 
