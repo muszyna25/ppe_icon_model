@@ -2561,8 +2561,7 @@ MODULE mo_nh_stepping
     LOGICAL                  :: lsave_mflx
     LOGICAL                  :: lprep_adv         !.TRUE.: do computations for preparing tracer advection in solve_nh
     LOGICAL                  :: llast             !.TRUE.: this is the last substep
-    TYPE(timeDelta), POINTER :: time_diff
-
+    TYPE(timeDelta) :: time_diff
     !-------------------------------------------------------------------------
 
     ! get domain ID
@@ -2625,12 +2624,10 @@ MODULE mo_nh_stepping
 #ifdef _OPENACC
         CALL finish (routine, 'IAU: OpenACC version currently not implemented')
 #endif
-        time_diff  => newTimedelta("PT0S")
         time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
         cur_time = REAL(getTotalSecondsTimedelta(time_diff, mtime_current)                  &
              &         -getTotalSecondsTimedelta(timeshift%mtime_shift, mtime_current),wp)  &
              &    +(REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
-        CALL deallocateTimedelta(time_diff)
         IF (iau_iter == 1) THEN
           CALL compute_iau_wgt(cur_time, dt_dyn, 0.5_wp*dt_iau, lclean_mflx)
         ELSE
