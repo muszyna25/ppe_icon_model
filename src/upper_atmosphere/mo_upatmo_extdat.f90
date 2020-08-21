@@ -28,7 +28,7 @@ MODULE mo_upatmo_extdat
   USE mo_kind,                   ONLY: wp
   USE mo_exception,              ONLY: finish, message
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_CHAR_LENGTH, &
-    &                                  min_rlcell_int
+    &                                  min_rlcell_int, max_dom_dig10
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
   USE mo_upatmo_impl_const,      ONLY: iUpatmoExtdatId, iUpatmoPrcId
   USE mo_model_domain,           ONLY: t_patch
@@ -93,7 +93,7 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx
     INTEGER  :: istat
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: dom_str
+    CHARACTER(LEN=max_dom_dig10) :: dom_str
 
     TYPE(datetime) :: mtime_hour
     TYPE(t_time_interpolation_weights) :: time_intrpl
@@ -156,10 +156,10 @@ CONTAINS
     ! Number of vertical levels
     nlev = p_patch%nlev
 
-    dom_str = TRIM(int2string(jg))
+    IF (lmessage) WRITE (dom_str, '(i0)') jg
 
     IF (lmessage) CALL message(TRIM(routine), &
-      & 'Start update of external data on domain '//TRIM(dom_str))
+      & 'Start update of external data on domain '//dom_str)
 
     !---------------------------------------------------------------------
     !                            Preparation
@@ -387,7 +387,7 @@ CONTAINS
     ENDIF  !Update of external gas data due?
 
     IF (lmessage) CALL message(TRIM(routine), &
-      & 'Finish update of external data on domain '//TRIM(dom_str))
+      & 'Finish update of external data on domain '//dom_str)
 
   END SUBROUTINE update_upatmo_extdat_nwp
 
