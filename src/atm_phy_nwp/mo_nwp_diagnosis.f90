@@ -1068,7 +1068,7 @@ CONTAINS
 
     ! time difference since last call of ww_diagnostics
     time_diff => newTimedelta("PT0S")
-    time_diff =  getTimeDeltaFromDateTime(mtime_current, ww_datetime(jg)%ptr)
+    time_diff =  getTimeDeltaFromDateTime(mtime_current, ww_datetime(jg))
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE
@@ -1252,10 +1252,7 @@ CONTAINS
 !$OMP END DO
 
 !$OMP END PARALLEL  
-    IF (ASSOCIATED(ww_datetime(jg)%ptr)) THEN 
-      CALL deallocateDatetime(ww_datetime(jg)%ptr)
-    END IF
-    ww_datetime(jg)%ptr => newDateTime(time_config%tc_current_date)
+    ww_datetime(jg) = time_config%tc_current_date
 
     ! compute modified cloud parameters for TV presentation
     CALL calcmod( pt_patch, pt_diag, prm_diag )
