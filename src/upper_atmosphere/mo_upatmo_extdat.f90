@@ -370,7 +370,7 @@ CONTAINS
             ENDDO  !jc
           ENDDO  !jlev
         ENDDO  !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL      
         
         !----------
