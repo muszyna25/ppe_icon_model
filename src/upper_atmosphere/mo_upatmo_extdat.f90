@@ -313,6 +313,12 @@ CONTAINS
       ! Number of gases, whose concentrations are provided as external data
       ngas_ext = prm_upatmo_extdat%ngas
 
+      IF (ngas_ext > 0) THEN
+        nlat_ext  = prm_upatmo_extdat%gas(1)%nlat
+        nlev_ext  = prm_upatmo_extdat%gas(1)%nlev
+        ALLOCATE(ext_intrpl_time( nlat_ext, nlev_ext ), STAT=istat)
+        IF(istat /= SUCCESS) CALL finish(routine, 'Allocation of ext_intrpl_time failed.')
+      END IF
       ! Loop over these gases
       DO jgas = 1, ngas_ext
 
@@ -337,15 +343,22 @@ CONTAINS
         ! Interpolation in time
         !-----------------------
 
-        ALLOCATE(ext_intrpl_time( nlat_ext, nlev_ext ), STAT=istat)
-        IF(istat /= SUCCESS) CALL finish(routine, 'Allocation of ext_intrpl_time failed.')
+        IF (nlat_ext /= SIZE(ext_intrpl_time, 1) &
+          & .OR. nlev_ext /= SIZE(ext_intrpl_time, 2)) THEN
+          DEALLOCATE(ext_intrpl_time, STAT=istat)
+          IF(istat == SUCCESS) ALLOCATE(ext_intrpl_time( nlat_ext, nlev_ext ), STAT=istat)
+          IF(istat /= SUCCESS) CALL finish(routine, 'Reallocation of ext_intrpl_time failed.')
+        END IF
 
+!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
+!$OMP DO PRIVATE(JLEV, JLAT)
         DO jlev = istartlev, iendlev, isteplev
           DO jlat = istartlat, iendlat, isteplat
             ext_intrpl_time(jlat,jlev) = time_intrpl%weight1 * ext_data_time1(jlat,jlev) &
               &                        + time_intrpl%weight2 * ext_data_time2(jlat,jlev)
           ENDDO  !jlat
         ENDDO  !jlev
+!$OMP END DO
 
         !--------------------------
         ! Horizontal interpolation
@@ -357,7 +370,6 @@ CONTAINS
         i_startblk = p_patch%cells%start_block(rl_start)
         i_endblk   = p_patch%cells%end_block(rl_end)
         
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb, jlev, jc, i_startidx, i_endidx) ICON_OMP_GUIDED_SCHEDULE
         DO jb = i_startblk, i_endblk
           
@@ -377,12 +389,13 @@ CONTAINS
         ! Clean-up
         !----------
 
-        DEALLOCATE(ext_intrpl_time, STAT=istat)
-        IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_time failed.')
 
         NULLIFY(ilat1, ilat2, wgt_lat1, wgt_lat2, ext_data_time1, ext_data_time2, intrpl_rslt)
         
       ENDDO  !jgas
+
+      DEALLOCATE(ext_intrpl_time, STAT=istat)
+      IF(istat /= SUCCESS) CALL finish(routine, 'Deallocation of ext_intrpl_time failed.')
 
     ENDIF  !Update of external gas data due?
 
