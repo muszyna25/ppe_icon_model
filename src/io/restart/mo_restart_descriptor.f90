@@ -206,10 +206,10 @@ CONTAINS
           CALL rAttribs%put(prefix(1:25), desc%opt_t_elapsed_phy(j))
         END DO
       END IF
-      IF (ALLOCATED(desc%opt_ndyn_substeps)) &
-        & CALL rAttribs%put('ndyn_substeps_DOM'//domStr, desc%opt_ndyn_substeps)
-      IF (ALLOCATED(desc%opt_jstep_adv_marchuk_order)) &
-        & CALL rAttribs%put('jstep_adv_marchuk_order_DOM'//domStr, desc%opt_jstep_adv_marchuk_order)
+      IF (desc%opt_ndyn_substeps%present) &
+        & CALL rAttribs%put('ndyn_substeps_DOM'//domStr, desc%opt_ndyn_substeps%v)
+      IF (desc%opt_jstep_adv_marchuk_order%present) &
+        & CALL rAttribs%put('jstep_adv_marchuk_order_DOM'//domStr, desc%opt_jstep_adv_marchuk_order%v)
       CALL upatmoRestartAttributesSet(desc%id, desc%opt_upatmo_restart_atts, rAttribs)
     END DO
   END SUBROUTINE restartDescriptor_defineRestartAttributes
