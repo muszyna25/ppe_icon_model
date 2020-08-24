@@ -325,7 +325,7 @@ CONTAINS
   LOGICAL FUNCTION phyProcBase_doInit (phyProc, mtime_current)
 
     CLASS(t_phyProcBase)   , INTENT(INOUT) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN)    :: mtime_current  !< current_datetime
 
   !-----------------------------------------------------------------
 
@@ -357,7 +357,7 @@ CONTAINS
   LOGICAL FUNCTION phyProcBase_isActive (phyProc, mtime_current, lasync)
 
     CLASS(t_phyProcBase)   , INTENT(INOUT) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN)    :: mtime_current  !< current_datetime
     LOGICAL, INTENT(IN), OPTIONAL          :: lasync         !< if present, broadcast is done in calling routine
 
     ! local
@@ -452,15 +452,13 @@ CONTAINS
     CLASS(t_phyProcBase)   , INTENT(IN) :: phyProc    !< passed-object dummy argument
 
     ! local
-    TYPE(datetime), TARGET  :: lastActive
-    TYPE(datetime), POINTER :: lastActive_ptr
+    TYPE(datetime) :: lastActive
     INTEGER :: ierr
   !-----------------------------------------------------------------
 
     lastActive = phyProc%getLastActive()
-    lastActive_ptr =>lastActive
 
-    CALL datetimeToString(lastActive_ptr, phyProcBase_getLastActivePTString, ierr)
+    CALL datetimeToString(lastActive, phyProcBase_getLastActivePTString, ierr)
 
   END FUNCTION phyProcBase_getLastActivePTString
 
@@ -478,7 +476,7 @@ CONTAINS
   TYPE(timedelta) FUNCTION phyProcBase_getElapsedTime (phyProc, mtime_current)
 
     CLASS(t_phyProcBase)   , INTENT(IN) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN) :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN) :: mtime_current  !< current_datetime
 
   !-----------------------------------------------------------------
 
@@ -498,19 +496,16 @@ CONTAINS
   CHARACTER(len=MAX_TIMEDELTA_STR_LEN) FUNCTION phyProcBase_getElapsedTimePTString (phyProc, mtime_current)
 
     CLASS(t_phyProcBase)   , INTENT(IN) :: phyProc        !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN) :: mtime_current  !< current_datetime
+    TYPE(datetime)         , INTENT(IN) :: mtime_current  !< current_datetime
 
     ! local
     TYPE(timedelta), TARGET  :: elapsedTime
-    TYPE(timedelta), POINTER :: elapsedTime_ptr
     INTEGER :: ierr
   !-----------------------------------------------------------------
 
     elapsedTime = phyProc%getElapsedTime(mtime_current)
 
-    elapsedTime_ptr =>elapsedTime
-
-    CALL timedeltaToString(elapsedTime_ptr, phyProcBase_getElapsedTimePTString, ierr)
+    CALL timedeltaToString(elapsedTime, phyProcBase_getElapsedTimePTString, ierr)
 
   END FUNCTION phyProcBase_getElapsedTimePTString
 
@@ -992,7 +987,7 @@ CONTAINS
   SUBROUTINE phyProcGroup_printStatus (phyProcGrp, mtime_current)
     !
     CLASS(t_phyProcGroup)  , INTENT(INOUT) :: phyProcGrp    !< passed-object dummy argument
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current !< current_datetime
+    TYPE(datetime)         , INTENT(IN)    :: mtime_current !< current_datetime
 
     ! local variables
     INTEGER         :: iev             ! loop counter
@@ -1112,7 +1107,7 @@ CONTAINS
   SUBROUTINE mtime_ctrl_physics ( phyProcs, mtime_current, isInit, lcall_phy )
 
     TYPE(t_phyProcGroup)    , INTENT(INOUT):: phyProcs       !< physics group
-    TYPE(datetime), POINTER , INTENT(IN)   :: mtime_current  !< current_datetime
+    TYPE(datetime)          , INTENT(IN)   :: mtime_current  !< current_datetime
     LOGICAL                 , INTENT(IN)   :: isInit         !< if TRUE, special settings 
                                                              !  for lcall_phy which are adjusted 
                                                              !  for the physics initialization phase
