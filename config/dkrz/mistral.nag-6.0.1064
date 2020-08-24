@@ -6,9 +6,9 @@ unset CDPATH
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='gcc/6.4.0 nag/6.2'
+MODULES='gcc/4.9.2 nag/6.0.1064'
 
-SW_ROOT='/mnt/lustre01/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64'
+SW_ROOT='/sw/rhel6-x64'
 
 # We avoid using MPI wrappers for two reasons:
 #   1) mpicc calls system gcc instead of the one provided with the module
@@ -16,30 +16,30 @@ SW_ROOT='/mnt/lustre01/work/k20200/sw/spack/opt/spack/linux-rhel6-x86_64'
 #   2) we want to make sure that NAG passes the list of libraries in the same
 #      order it receives it (see comments on '--as-needed' linker flag below).
 # Therefore, we specify the required flags explicitly:
-MPICH_ROOT="${SW_ROOT}/nag-6.2/mpich-3.2.1-zxw7jhgz7qk4kim5jtziybfzigtiauxj"
-MPICH_LIBS='-lmpifort -lmpi'
+MPICH_ROOT="${SW_ROOT}/mpi/mvapich2-1.9b-static-nag60"
+MPICH_LIBS='-lmpichf90 -lmpich -lopa -lmpl -libmad -lrdmacm -libumad -libverbs -lhwloc -lxml2 -lnuma -lrt -lutil -lpthread -lm -ldl'
 
-HDF5_ROOT="${SW_ROOT}/gcc-8.3.0-works/hdf5-1.10.5-boeqhsmt5gmvsi4xzz43xufy42ligbhc"
+HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.14-threadsafe-gcc48"
 HDF5_LIBS='-lhdf5'
 
-NETCDF_ROOT="${SW_ROOT}/gcc-8.3.0-works/netcdf-4.7.0-eftv5u36ogb5awbb27hffiiv5rib4kqj"
+NETCDF_ROOT="${SW_ROOT}/netcdf/netcdf_c-4.3.2-gcc48"
 NETCDF_LIBS='-lnetcdf'
 
-NETCDFF_ROOT="${SW_ROOT}/nag-6.2/netcdf-fortran-4.4.4-2n3j56hyspbfqrv34ayg4brybtptkfid"
+NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.2-static-nag60"
 NETCDFF_LIBS='-lnetcdff'
 
-ECCODES_ROOT="${SW_ROOT}/nag-6.2/eccodes-2.5.0-givay23bqhgzreuk5um2wtjsumebwbt4"
+ECCODES_ROOT="${SW_ROOT}/eccodes/eccodes-2.6.0-gcc49"
 ECCODES_LIBS='-leccodes'
 
-BLAS_LAPACK_ROOT="${SW_ROOT}/nag-6.2/netlib-lapack-3.8.0-gzreja7qdcv5zozdpjvtucml5dh64bya"
-BLAS_LAPACK_LIBS='-llapack -lblas'
+BLAS_LAPACK_ROOT="${SW_ROOT}/numerics/atlas_lapack-3.11.33-gcc48"
+BLAS_LAPACK_LIBS='-llapack -lf77blas -lcblas -latlas'
 
 XML2_ROOT='/usr'
 XML2_LIBS='-lxml2'
 
 ################################################################################
 
-BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${MPICH_ROOT}/lib:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib:${BLAS_LAPACK_ROOT}/lib64:\${LD_LIBRARY_PATH}\";"
+BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switcher\"; switch_for_module ${MODULES}; export LD_LIBRARY_PATH=\"${MPICH_ROOT}/lib:${HDF5_ROOT}/lib:${NETCDF_ROOT}/lib:${NETCDFF_ROOT}/lib:${ECCODES_ROOT}/lib:${BLAS_LAPACK_ROOT}/lib:\${LD_LIBRARY_PATH}\";"
 
 # We need the absolute path to 'gcc':
 set +eu
@@ -48,17 +48,18 @@ set -eu
 GCC_PATH=$(which gcc)
 
 CC='gcc'
-CFLAGS='-g -march=native'
+CFLAGS='-std=gnu99 -g -march=native'
 ICON_CFLAGS='-O3'
 ICON_BUNDLED_CFLAGS='-O2'
 CPPFLAGS="-I${MPICH_ROOT}/include -I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${ECCODES_ROOT}/include -I${XML2_ROOT}/include/libxml2"
 
 FC='nagfor'
-FCFLAGS="-I${MPICH_ROOT}/include -I${NETCDFF_ROOT}/include -kind=byte -colour -f2008 -Wc=${GCC_PATH} -w=uep -O0 -Wc,-g -float-store -nan -gline -g"
+FCFLAGS="-I${MPICH_ROOT}/include -I${NETCDFF_ROOT}/include -kind=sequential -colour -f2008 -Wc=${GCC_PATH} -w=uep -O0 -Wc,-g -float-store -nan -gline -g"
 ICON_FCFLAGS='-Wc,-pipe -Wc,-fsanitize=null -Wc,--param,max-vartrack-size=200000000 -Wc,-mno-fma -C=all -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_irecv,mpi_isend,mpi_pack,mpi_recv,mpi_reduce,mpi_rget,mpi_scatter,mpi_scatterv,mpi_send,mpi_sendrecv,mpi_unpack,mpi_win_create,nf_def_var,nf_get_att_double,nf_get_att_int,nf_get_vara_int,nf_put_att_double,nf_put_att_int,nf_put_vara_double,nf_put_vara_int'
 ICON_BUNDLED_FCFLAGS='-wmismatch=xt_slice_c_loc'
 
-LDFLAGS="-L${MPICH_ROOT}/lib -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib -L${BLAS_LAPACK_ROOT}/lib64"
+LDFLAGS="-L${MPICH_ROOT}/lib -L${HDF5_ROOT}/lib -L${NETCDF_ROOT}/lib -L${NETCDFF_ROOT}/lib -L${ECCODES_ROOT}/lib -L${BLAS_LAPACK_ROOT}/lib"
+#LDFLAGS=$(echo "$LDFLAGS" | sed -e 's/-L\([^ ]*\)/-L\1 -Wl,-Wl,,-rpath,,\1/g')
 LIBS="${XML2_LIBS} ${BLAS_LAPACK_LIBS} ${ECCODES_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS} ${HDF5_LIBS} ${MPICH_LIBS} -lubsan"
 
 # In order to avoid redundant dependencies on the libraries (e.g. -lgrib_api is
@@ -78,7 +79,7 @@ LIBS=$(echo "${LIBS}" | sed 's/\([ ]\|^\)-l/\1-Wl,-l/g')
 
 MPI_LAUNCH="${MPICH_ROOT}/bin/mpirun"
 
-EXTRA_CONFIG_ARGS=''
+EXTRA_CONFIG_ARGS='acx_cv_fc_line_length_unlimited=-132 --disable-mpi-pack-external --disable-mpi-rget'
 
 ################################################################################
 
