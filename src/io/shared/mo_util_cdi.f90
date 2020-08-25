@@ -114,10 +114,7 @@ MODULE mo_util_cdi
 
   CONTAINS
     PROCEDURE :: findVarId => inputParametersFindVarId  !< determine the ID of an named variable
-    PROCEDURE :: findVarDatatype => inputParametersFindVarDatatype  !< determine the type with which this variable is stored on disk
-    PROCEDURE :: lookupDatatype => inputParametersLookupDatatype    !< determine datatype based on the variable ID
 
-    GENERIC :: getDatatype => findVarDatatype, lookupDatatype
   END TYPE
 
 CONTAINS
@@ -351,32 +348,6 @@ CONTAINS
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
   END SUBROUTINE inputParametersFindVarId
-
-  !---------------------------------------------------------------------------------------------------------------------------------
-  !> Lookup the datatype of a variable given its cdi varId
-  !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersLookupDatatype(me, varId) RESULT(resultVar)
-    IMPLICIT NONE
-    CLASS(t_inputParameters), INTENT(IN) :: me
-    INTEGER, INTENT(IN) :: varId
-
-    resultVar = me%variableDatatype(varId+1)
-  END FUNCTION inputParametersLookupDatatype
-
-  !---------------------------------------------------------------------------------------------------------------------------------
-  !> Find a variable and determine its datatype
-  !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersFindVarDatatype(me, name, tileinfo) RESULT(resultVar)
-    IMPLICIT NONE
-    CLASS(t_inputParameters), INTENT(IN) :: me
-    CHARACTER(len=*),         INTENT(IN) :: name
-    TYPE(t_tileinfo_grb2),    INTENT(IN) :: tileinfo
-    ! local variables
-    INTEGER :: varID, tile_index
-    CALL me%findVarId(name, tileinfo, varID, tile_index)
-    resultVar = me%lookupDatatype(varID)
-  END FUNCTION inputParametersFindVarDatatype
-
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Destroys a t_inputParameters object
@@ -719,7 +690,7 @@ CONTAINS
       END IF
     END IF
 
-    SELECT CASE(parameters%lookupDatatype(varId))
+    SELECT CASE(parameters%variableDatatype(varId+1))
         CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
@@ -1004,7 +975,7 @@ CONTAINS
       IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!"//&
       & " Grid size = "//trim(int2string(gridInqSize(gridId)))//" (expected "//trim(int2string(parameters%glb_arr_len))//")")
     END IF
-    SELECT CASE(parameters%lookupDatatype(varId))
+    SELECT CASE(parameters%variableDatatype(varId+1))
         CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out)
@@ -1122,7 +1093,7 @@ CONTAINS
         IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
-      SELECT CASE(parameters%lookupDatatype(varId))
+      SELECT CASE(parameters%variableDatatype(varId+1))
         CASE(CDI_DATATYPE_PACK23:CDI_DATATYPE_PACK32, CDI_DATATYPE_FLT64, CDI_DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out(:,:,jt))
