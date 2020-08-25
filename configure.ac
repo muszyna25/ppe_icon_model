@@ -447,6 +447,9 @@ ACX_COMPILER_CROSS_CHECK_DELAY
 
 dnl Override the default flags set by AC_PROG_FC:
 FCFLAGS=${FCFLAGS-}
+m4_pushdef([AC_LANG(Fortran)],
+  m4_bpatsubst(m4_dquote(m4_defn([AC_LANG(Fortran)])),
+    [FCFLAGS],[FCFLAGS $ICON_FCFLAGS]))dnl
 AC_PROG_FC
 AC_LANG([Fortran])
 
