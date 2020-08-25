@@ -15,9 +15,6 @@
 #include <handle_mpi_error.inc>
 #include <icon_contiguous_defines.h>
 #include <omp_definitions.inc>
-#ifdef NAGFOR
-#define CONTIGUOUS_POINTER POINTER
-#endif
 MODULE mo_async_restart_comm_data
 ! There is no point in pretending this module is usable if NOMPI is defined.
 #ifndef NOMPI
