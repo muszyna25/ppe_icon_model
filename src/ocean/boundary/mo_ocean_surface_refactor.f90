@@ -1012,6 +1012,7 @@ CONTAINS
     ! by construction, is stored in p_oce_sfc%cellThicknessUnderIce
     zUnderIceIni(:,:) = p_oce_sfc%cellThicknessUnderIce (:,:)
 
+
     !!  Provide total ocean forcing:
     !    - total heat fluxes are aggregated for ice/ocean in ice thermodynamics
     !    - total internal salt flux p_oce_sfc%FrshFlux_TotalIce is calculated in sea ice model
@@ -1068,7 +1069,7 @@ CONTAINS
           !                 since draft was increased by snowfall but water below ice is not affected by snowfall
           !                 snow to ice conversion does not effect draft
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * &
-          &                      stretch_c(jc,jb) 
+          &                      stretch_c(jc,jb) - p_ice%draftave(jc,jb) + p_ice%totalsnowfall(jc,jb)
 
 
           !******  (Thermodynamic Eq. 3)  ******
@@ -1096,8 +1097,8 @@ CONTAINS
           temp_eta     = eta_c(jc,jb)              
 
           eta_c(jc,jb) = eta_c(jc,jb)               &
-            &           + p_oce_sfc%FrshFlux_VolumeTotal(jc, jb)*dtime &
-            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime
+            &           + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime &
+            &           + p_ice%totalsnowfall(jc,jb)
 
           !! Only change the stretching parameter if it is above a certain threshold
           !! This avoids divide by 0 
@@ -1109,8 +1110,8 @@ CONTAINS
             & temp_stretch(jc, jb) = ( eta_c(jc, jb) + d_c)/( d_c )
  
           !! update zunderice
-          p_ice%zUnderIce(jc,jb)=p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)&
-            & * temp_stretch(jc, jb) 
+          p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * temp_stretch(jc, jb) &
+            &                    - p_ice%draftave(jc,jb)
     
           h_new_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)*temp_stretch(jc, jb)
           p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
@@ -1119,25 +1120,8 @@ CONTAINS
       END DO
     END DO
           
-
-          
     !! set correct cell thickness under ice
     p_oce_sfc%cellThicknessUnderIce   (:,:) = p_ice%zUnderIce(:,:)
-
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('UpdSfc: oce_sfc%HFTot ', p_oce_sfc%HeatFlux_Total,       str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: oce_sfc%TotIce', p_oce_sfc%FrshFlux_TotalIce,    str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: ice%totalsnowf', p_ice%totalsnowfall,            str_module, 4, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: zUnderIceIni',   zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: zUnderIceArt',   zUnderIceArt,                   str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: zUnderIceOld',   zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: zUnderIce   ',   p_ice%zUnderIce,                str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: sss_inter   ',   sss_inter,                      str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST,                  str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS,                  str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: h-old+fwfVol',p_os%p_prog(nold(1))%h,         str_module, 2, in_subset=p_patch%cells%owned)
-    !---------------------------------------------------------------------
 
 
   END SUBROUTINE apply_surface_fluxes_zstar
