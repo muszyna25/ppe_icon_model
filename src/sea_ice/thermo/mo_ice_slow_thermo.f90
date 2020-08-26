@@ -534,15 +534,15 @@ CONTAINS
         ! limit sea ice thickness to seaice_limit of surface layer depth, without elevation
             z_smax = seaice_limit * prism_thick_flat
             IF (vert_cor_type .eq. 1) THEN
-!              z_smax = z_smax*p_os%p_prog(nold(1))%stretch_c(jc, jb)
+              z_smax = z_smax*p_os%p_prog(nold(1))%stretch_c(jc, jb)
             END IF
             IF ( v_base%lsm_c(jc,1,jb) <= sea_boundary  .AND.  p_ice%hi(jc,k,jb) > z_smax ) THEN
                 ! Tracer flux due to removal
                 p_oce_sfc%FrshFlux_TotalIce (jc,jb) = p_oce_sfc%FrshFlux_TotalIce (jc,jb)                      &
                       & + (1._wp-sice/sss(jc,jb))*(p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
           
-!                p_oce_sfc%FrshFlux_IceSalt(jc,jb) = p_oce_sfc%FrshFlux_IceSalt(jc,jb) &
-!                  & + sice * (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)
+                p_oce_sfc%FrshFlux_IceSalt(jc,jb) = p_oce_sfc%FrshFlux_IceSalt(jc,jb) &
+                  & + sice * (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)
                 ! Heat flux due to removal
                 !  #slo# 2015-02: - this heat did not come from the ocean, but from atmosphere, heating ocean is wrong
                 !                 - check if conc must enter here as well, check energy for coupling
