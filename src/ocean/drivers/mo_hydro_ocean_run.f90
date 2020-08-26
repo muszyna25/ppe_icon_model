@@ -749,11 +749,11 @@ CONTAINS
         ELSE
           ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
         ENDIF 
-        IF (ice_flux_type .EQ. 1) THEN 
-          ocean_state(jg)%p_aux%bc_total_top_potential = &
-            & ocean_state(jg)%p_aux%bc_tides_potential  + &
-            & rho_ref * OceanReferenceDensity_inv * grav * sea_ice%draftave
-        END IF
+!        IF (ice_flux_type .EQ. 1) THEN 
+!          ocean_state(jg)%p_aux%bc_total_top_potential = &
+!            & ocean_state(jg)%p_aux%bc_tides_potential  + &
+!            & rho_ref * OceanReferenceDensity_inv * grav * sea_ice%draftave
+!        END IF
 
 !        IF (lcheck_salt_content) CALL check_total_salt_content_zstar(120, &
 !          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
