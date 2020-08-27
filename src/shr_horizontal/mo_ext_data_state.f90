@@ -496,7 +496,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 'fetch_lk', p_ext_atm%fetch_lk, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%fetch_lk)
 
 
         ! dp_bs_lk     p_ext_atm%dp_bs_lk(nproma,nblks_c)
@@ -506,7 +507,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 'dp_bs_lk', p_ext_atm%dp_bs_lk, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%dp_bs_lk)
 
 
         ! t_bs_lk     p_ext_atm%t_bs_lk(nproma,nblks_c)
@@ -517,7 +519,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 't_bs_lk', p_ext_atm%t_bs_lk,   &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%t_bs_lk)
 
 
         ! gamso_lk     p_ext_atm%gamso_lk(nproma,nblks_c)
@@ -528,7 +531,8 @@ CONTAINS
         CALL add_var( p_ext_atm_list, 'gamso_lk', p_ext_atm%gamso_lk, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
           &           grib2_desc, ldims=shape2d_c, loutput=.TRUE.,    &
-          &           isteptype=TSTEP_CONSTANT )
+          &           isteptype=TSTEP_CONSTANT, lopenacc=.TRUE. )
+          __acc_attach(p_ext_atm%gamso_lk)
 
       ENDIF
 

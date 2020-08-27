@@ -266,7 +266,8 @@ MODULE mo_nh_stepping
 
   PUBLIC :: perform_nh_stepping
 
-  TYPE(t_sst_sic_reader), TARGET :: sst_sic_reader
+  TYPE(t_sst_sic_reader), TARGET :: sst_reader
+  TYPE(t_sst_sic_reader), TARGET :: sic_reader
   TYPE(t_time_intp)      :: sst_intp
   TYPE(t_time_intp)      :: sic_intp
   REAL(wp), ALLOCATABLE  :: sst_dat(:,:,:,:)
@@ -324,14 +325,15 @@ MODULE mo_nh_stepping
     
     
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
-  ! airmass_new required by initial physics call (init_slowphysics)
+  ! airmass_new required by initial physics call (i.e. by radheat in init_slowphysics)
   ! airmass_now not needed, since ddt_temp_dyn is not computed during the
   ! initial slow physics call.
   DO jg=1, n_dom
-    CALL compute_airmass(p_patch(jg),                  &
-      &                  p_nh_state(jg)%metrics,       &
-      &                  p_nh_state(jg)%prog(nnow(jg)),&
-      &                  p_nh_state(jg)%diag, itlev = 2)
+    CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+      &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+      &                  rho       = p_nh_state(jg)%prog(nnow(jg))%rho, & !in
+      &                  airmass   = p_nh_state(jg)%diag%airmass_new    ) !inout
+
     
     ! initialize exner_pr if the model domain is active
     IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_pr(jg, nnow(jg))
@@ -349,6 +351,8 @@ MODULE mo_nh_stepping
       ENDDO
     END IF
 
+    ! Does this really work for nested setups, or does it rather require domain specific 
+    ! objects like sst/sic_reader(jg), sst/sic_intp(jg)?
     IF (sstice_mode == SSTICE_INST) THEN
       DO jg = 1, n_dom
         month = mtime_current%date%month
@@ -376,16 +380,16 @@ MODULE mo_nh_stepping
 
         ENDIF
 
-        CALL sst_sic_reader%init(p_patch(jg), sst_td_filename)
-        CALL sst_intp%init(sst_sic_reader, mtime_current, "SST")
+        CALL sst_reader%init(p_patch(jg), sst_td_filename)
+        CALL sst_intp%init(sst_reader, mtime_current, "SST")
         CALL sst_intp%intp(mtime_current, sst_dat)
 
         WHERE (sst_dat(:,1,:,1) > 0.0_wp)
           p_lnd_state(jg)%diag_lnd%t_seasfc(:,:) = sst_dat(:,1,:,1)
         END WHERE
 
-        CALL sst_sic_reader%init(p_patch(jg), ci_td_filename)
-        CALL sic_intp%init(sst_sic_reader, mtime_current, "SIC")
+        CALL sic_reader%init(p_patch(jg), ci_td_filename)
+        CALL sic_intp%init(sic_reader, mtime_current, "SIC")
         CALL sic_intp%intp(mtime_current, sic_dat)
 
         WHERE (sic_dat(:,1,:,1) < frsi_min)
@@ -1752,36 +1756,40 @@ MODULE mo_nh_stepping
           &         prep_adv(jg)%mass_flx_ic,                             &! inout
           &         prep_adv(jg)%topflx_tra                               )! out
 
-        CALL compute_airmass(p_patch(jg),                   &
-          &                  p_nh_state(jg)%metrics,        &
-          &                  p_nh_state(jg)%prog(nnow(jg)), &
-          &                  p_nh_state(jg)%diag, itlev = 1)
+        ! airmass_now
+        CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+          &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+          &                  rho       = p_nh_state(jg)%prog(nnow(jg))%rho, & !in
+          &                  airmass   = p_nh_state(jg)%diag%airmass_now    ) !inout
         
-        
-        ! Update air mass in layer.  Air mass is needed by both the transport and physics.
-        CALL compute_airmass(p_patch(jg),                   &
-          &                  p_nh_state(jg)%metrics,        &
-          &                  p_nh_state(jg)%prog(nnew(jg)), &
-          &                  p_nh_state(jg)%diag, itlev = 2)
+        ! airmass_new
+        CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+          &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+          &                  rho       = p_nh_state(jg)%prog(nnew(jg))%rho, & !in
+          &                  airmass   = p_nh_state(jg)%diag%airmass_new    ) !inout
 
-
-        CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,       & !in
-          &        jstep_adv(jg)%marchuk_order,                          & !in
-          &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
-          &        prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-          &        prep_adv(jg)%mass_flx_ic,                             & !in
-          &        p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
-          &        p_nh_state(jg)%diag%airmass_new,                      & !in
-          &        p_nh_state(jg)%diag%airmass_now,                      & !in
-          &        p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
-          &        p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
-          &        p_nh_state(jg)%diag%hfl_tracer,                       & !out
-          &        p_nh_state(jg)%diag%vfl_tracer,                       & !out
-          &        opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
-          &        opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
-          &        opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
-          &        opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
-          &        opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+        CALL step_advection(                                                 &
+          &       p_patch           = p_patch(jg),                           & !in 
+          &       p_int_state       = p_int_state(jg),                       & !in
+          &       p_dtime           = dt_loc,                                & !in
+          &       k_step            = jstep_adv(jg)%marchuk_order,           & !in
+          &       p_tracer_now      = p_nh_state(jg)%prog(n_now_rcf)%tracer, & !in
+          &       p_mflx_contra_h   = prep_adv(jg)%mass_flx_me,              & !in
+          &       p_vn_contra_traj  = prep_adv(jg)%vn_traj,                  & !in
+          &       p_mflx_contra_v   = prep_adv(jg)%mass_flx_ic,              & !in
+          &       p_cellhgt_mc_now  = p_nh_state(jg)%metrics%ddqz_z_full,    & !in
+          &       p_rhodz_new       = p_nh_state(jg)%diag%airmass_new,       & !in
+          &       p_rhodz_now       = p_nh_state(jg)%diag%airmass_now,       & !in
+          &       p_grf_tend_tracer = p_nh_state(jg)%diag%grf_tend_tracer,   & !in
+          &       p_tracer_new      = p_nh_state(jg)%prog(n_new_rcf)%tracer, & !inout
+          &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,        & !out
+          &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,        & !out
+          &       rho_incr          = p_nh_state(jg)%diag%rho_incr,          & !in
+          &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,               & !optin
+          &       opt_q_int         = p_nh_state(jg)%diag%q_int,             & !optout
+          &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,    & !optout
+          &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc,  & !optin
+          &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc   ) !optin
 
 #ifdef MESSY
         CALL main_tracer_afteradv
@@ -1888,23 +1896,28 @@ MODULE mo_nh_stepping
           ENDIF
 
           !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE.)
-          CALL step_advection( p_patch(jg), p_int_state(jg), dt_loc,         & !in
-            &          jstep_adv(jg)%marchuk_order,                          & !in
-            &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
-            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
-            &          prep_adv(jg)%mass_flx_ic,                             & !in
-            &          p_nh_state(jg)%metrics%ddqz_z_full,                   & !in
-            &          p_nh_state(jg)%diag%airmass_new,                      & !in
-            &          p_nh_state(jg)%diag%airmass_now,                      & !in
-            &          p_nh_state(jg)%diag%grf_tend_tracer,                  & !in
-            &          p_nh_state(jg)%prog(n_new_rcf)%tracer,                & !inout
-            &          p_nh_state(jg)%diag%hfl_tracer,                       & !out
-            &          p_nh_state(jg)%diag%vfl_tracer,                       & !out
-            &          opt_topflx_tra=prep_adv(jg)%topflx_tra,               & !in
-            &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
-            &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv,& !out
-            &          opt_deepatmo_t1mc=p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
-            &          opt_deepatmo_t2mc=p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
+          CALL step_advection(                                                &
+            &       p_patch           = p_patch(jg),                          & !in
+            &       p_int_state       = p_int_state(jg),                      & !in
+            &       p_dtime           = dt_loc,                               & !in
+            &       k_step            = jstep_adv(jg)%marchuk_order,          & !in
+            &       p_tracer_now      = p_nh_state(jg)%prog(n_now_rcf)%tracer,& !in
+            &       p_mflx_contra_h   = prep_adv(jg)%mass_flx_me,             & !in
+            &       p_vn_contra_traj  = prep_adv(jg)%vn_traj,                 & !in
+            &       p_mflx_contra_v   = prep_adv(jg)%mass_flx_ic,             & !in
+            &       p_cellhgt_mc_now  = p_nh_state(jg)%metrics%ddqz_z_full,   & !in
+            &       p_rhodz_new       = p_nh_state(jg)%diag%airmass_new,      & !in
+            &       p_rhodz_now       = p_nh_state(jg)%diag%airmass_now,      & !in
+            &       p_grf_tend_tracer = p_nh_state(jg)%diag%grf_tend_tracer,  & !in
+            &       p_tracer_new      = p_nh_state(jg)%prog(n_new_rcf)%tracer,& !inout
+            &       p_mflx_tracer_h   = p_nh_state(jg)%diag%hfl_tracer,       & !out
+            &       p_mflx_tracer_v   = p_nh_state(jg)%diag%vfl_tracer,       & !out
+            &       rho_incr          = p_nh_state(jg)%diag%rho_incr,         & !in
+            &       opt_topflx_tra    = prep_adv(jg)%topflx_tra,              & !in
+            &       opt_q_int         = p_nh_state(jg)%diag%q_int,            & !out
+            &       opt_ddt_tracer_adv= p_nh_state(jg)%diag%ddt_tracer_adv,   & !out
+            &       opt_deepatmo_t1mc = p_nh_state(jg)%metrics%deepatmo_t1mc, & !optin
+            &       opt_deepatmo_t2mc = p_nh_state(jg)%metrics%deepatmo_t2mc  ) !optin
           !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .FALSE., opt_lupdate_cpu=.TRUE.)
 
           IF (iprog_aero >= 1) THEN
@@ -2455,10 +2468,11 @@ MODULE mo_nh_stepping
               IF (iprog_aero >= 1) CALL setup_aerosol_advection(p_patch(jgc))
             ENDIF
 
-            CALL compute_airmass(p_patch(jgc),                   &
-              &                  p_nh_state(jgc)%metrics,        &
-              &                  p_nh_state(jgc)%prog(nnow(jgc)),&
-              &                  p_nh_state(jgc)%diag, itlev = 2 )
+            ! init airmass_new (diagnose airmass from \rho(now)). airmass_now not needed
+            CALL compute_airmass(p_patch   = p_patch(jgc),                        & !in
+              &                  p_metrics = p_nh_state(jgc)%metrics,             & !in
+              &                  rho       = p_nh_state(jgc)%prog(nnow(jgc))%rho, & !in
+              &                  airmass   = p_nh_state(jgc)%diag%airmass_new     ) !inout
 
             IF ( lredgrid_phys(jgc) ) THEN
               CALL interpol_rrg_grf(jg, jgc, jn, nnow_rcf(jg))
@@ -2532,6 +2546,7 @@ MODULE mo_nh_stepping
     LOGICAL                  :: lprep_adv         !.TRUE.: do computations for preparing tracer advection in solve_nh
     LOGICAL                  :: llast             !.TRUE.: this is the last substep
     TYPE(timeDelta), POINTER :: time_diff
+
     !-------------------------------------------------------------------------
 
     ! get domain ID
@@ -2545,12 +2560,12 @@ MODULE mo_nh_stepping
     ELSE
       lprep_adv = .FALSE.
     ENDIF
-    
-    ! compute airmass \rho*\Delta z [kg m-2] for nnow
-    CALL compute_airmass(p_patch,                   &
-      &                  p_nh_state%metrics,        &
-      &                  p_nh_state%prog(nnow(jg)), &
-      &                  p_nh_state%diag, itlev = 1)
+
+    ! airmass_now
+    CALL compute_airmass(p_patch   = p_patch,                       & !in
+      &                  p_metrics = p_nh_state%metrics,            & !in
+      &                  rho       = p_nh_state%prog(nnow(jg))%rho, & !in
+      &                  airmass   = p_nh_state%diag%airmass_now    ) !inout
 
 
 
@@ -2657,11 +2672,12 @@ MODULE mo_nh_stepping
 
     END DO SUBSTEPS
 
-    ! compute airmass \rho*\Delta z [kg m-2] for nnew
-    CALL compute_airmass(p_patch,                   &
-      &                  p_nh_state%metrics,        &
-      &                  p_nh_state%prog(nnew(jg)), &
-      &                  p_nh_state%diag, itlev = 2)
+    ! airmass_new
+    CALL compute_airmass(p_patch   = p_patch,                       & !in
+      &                  p_metrics = p_nh_state%metrics,            & !in
+      &                  rho       = p_nh_state%prog(nnew(jg))%rho, & !in
+      &                  airmass   = p_nh_state%diag%airmass_new    ) !inout
+
 
   END SUBROUTINE perform_dyn_substepping
 
@@ -3163,10 +3179,11 @@ MODULE mo_nh_stepping
       CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(nnow(jg))%vn,p_patch(jg),p_int_state(jg),&
                                  p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
 
-      CALL compute_airmass(p_patch(jg),                  &
-        &                  p_nh_state(jg)%metrics,       &
-        &                  p_nh_state(jg)%prog(nnow(jg)),&
-        &                  p_nh_state(jg)%diag, itlev = 2)
+      ! init airmass_new (diagnose airmass from \rho(now)). airmass_now not needed
+      CALL compute_airmass(p_patch   = p_patch(jg),                       & !in
+        &                  p_metrics = p_nh_state(jg)%metrics,            & !in
+        &                  rho       = p_nh_state(jg)%prog(nnow(jg))%rho, & !in
+        &                  airmass   = p_nh_state(jg)%diag%airmass_new    ) !inout
 
       CALL init_exner_pr(jg, nnow(jg))
 
@@ -3301,7 +3318,8 @@ MODULE mo_nh_stepping
       &    'deallocation for linit_dyn failed' )
   ENDIF
 
-  CALL sst_sic_reader%deinit 
+  CALL sst_reader%deinit 
+  CALL sic_reader%deinit 
 
   END SUBROUTINE deallocate_nh_stepping
   !-------------------------------------------------------------------------

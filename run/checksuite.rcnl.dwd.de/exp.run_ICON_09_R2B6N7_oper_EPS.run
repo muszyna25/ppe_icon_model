@@ -19,7 +19,7 @@
 date
 source ${NMPI_ROOT}/bin/necmpivars.sh
 
-set -x
+set -ex
 . /etc/profile
 
 # OpenMP settings
@@ -92,7 +92,6 @@ ln -sf $GRIDDIR/icon_grid_0028_R02B07_N02-grfinfo.nc iconR2B07_DOM02-grfinfo.nc
 ln -sf $EXTPDIR/icon_extpar_0024_R02B06_G_20161124_tiles.nc extpar_iconR2B06_DOM01.nc
 ln -sf $EXTPDIR/icon_extpar_0028_R02B07_N02_20161124_tiles.nc extpar_iconR2B07_DOM02.nc
 
-integer cymdg cymdgm3
 
 cymdg=2017041500
 cymdgm3=$(datconv -Cy -d -3 ${cymdg})
@@ -850,7 +849,7 @@ export NMPI_EXPORT="GFORTRAN_UNBUFFERED_PRECONNECTED"
 #          But when you worry you make it double ..."
 # ----------------------------------------------------------------------
 
-refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09"
+refdir="/hpc/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/e5558d2b"
 
 bash << EOFSCRIPT
 

@@ -346,12 +346,14 @@ CONTAINS
     SELECT CASE ( unit_string(:idx1-1) )
     CASE ("seconds")
       timedelta_string = "PT01S"
+    CASE ("minutes")
+      timedelta_string = "PT01M"
     CASE ("hours")
       timedelta_string = "PT01H"
     CASE ("days")
       timedelta_string = "PT01D"
     CASE default
-      CALL finish(modname, "Unknown time increment: "//unit_string(:idx1+1))
+      CALL finish(modname, "Unknown time increment: "//unit_string(:idx1-1))
     END SELECT
 
     starttime     => newdatetime(TRIM(iso8601_string), errno)

@@ -66,9 +66,13 @@ MODULE mo_timer
 
   PUBLIC :: timer_div, timer_grad, timer_gmres
   PUBLIC :: timer_corio, timer_intp
+  PUBLIC :: timer_nh_hdiffusion
+
+  ! tracer transport (atmosphere)
   PUBLIC :: timer_transport
   PUBLIC :: timer_back_traj
-  PUBLIC :: timer_nh_hdiffusion
+  PUBLIC :: timer_adv_horz, timer_adv_vert
+  PUBLIC :: timer_adv_hflx, timer_adv_vflx
 
   PUBLIC :: timer_update_prog_phy
   PUBLIC :: timer_diagnose_pres_temp
@@ -148,8 +152,8 @@ MODULE mo_timer
   PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   PUBLIC :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
-  PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
-  PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
+  PUBLIC :: timer_dif_horz, timer_hflx_lim
+  PUBLIC :: timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   PUBLIC :: timer_dbg_prnt
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
@@ -313,7 +317,10 @@ MODULE mo_timer
   INTEGER :: timer_corio
   INTEGER :: timer_intp
 
-  INTEGER :: timer_transport    ! tracer transport
+  ! tracer transport (atmosphere)
+  INTEGER :: timer_transport
+  INTEGER :: timer_adv_horz, timer_adv_vert
+  INTEGER :: timer_adv_hflx, timer_adv_vflx
   INTEGER :: timer_back_traj
 
   ! Timer ID's for forcings and testcases
@@ -358,8 +365,8 @@ MODULE mo_timer
   INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc
   INTEGER :: timer_upd_phys, timer_upd_flx, timer_calc_moc
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
-  INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
-  INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim, timer_adpo_vert
+  INTEGER :: timer_dif_horz, timer_hflx_lim
+  INTEGER :: timer_dif_vert, timer_ppm_slim, timer_adpo_vert
   INTEGER :: timer_dbg_prnt
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
@@ -606,13 +613,19 @@ CONTAINS
     timer_nh_hdiffusion= new_timer("nh_hdiff")
 
     timer_physics   = new_timer("physics")
-    timer_transport = new_timer("transport")
-    timer_back_traj = new_timer("back_traj")
     timer_dyn_theta = new_timer("dyn_theta")
     timer_dyn_temp  = new_timer("dyn_temp")
 
     timer_held_suarez_intr = new_timer("held_suarez_intr")
 
+    ! tracer transport (atmosphere)
+    timer_transport = new_timer("transport")
+    timer_back_traj = new_timer("back_traj")
+    timer_adv_horz  = new_timer("adv_horiz")
+    timer_adv_vert  = new_timer("adv_vert")
+    timer_adv_hflx  = new_timer("adv_hflx")
+    timer_adv_vflx  = new_timer("adv_vflx")
+ 
     ! dynamics timers
     timer_RK_tend = new_timer("RK_tend")
     timer_RK_update = new_timer("RK_update")
@@ -746,10 +759,8 @@ CONTAINS
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
     timer_tracer_ab     = new_timer("tracer_ab")
-    timer_adv_horz      = new_timer("adv_horiz")
     timer_dif_horz      = new_timer("dif_horiz")
     timer_hflx_lim      = new_timer("hflx_lim")
-    timer_adv_vert      = new_timer("adv_vert")
     timer_dif_vert      = new_timer("dif_vert")
     timer_ppm_slim      = new_timer("ppm_slim")
     timer_adpo_vert     = new_timer("adpo_vert")

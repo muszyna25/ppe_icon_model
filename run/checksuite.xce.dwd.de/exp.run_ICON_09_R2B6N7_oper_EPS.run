@@ -821,7 +821,7 @@ aprun  -n 216 -N 18 -j 2 -d 4 -m 3g icon
 #          But when you worry you make it double ..."
 # ----------------------------------------------------------------------
 
-refdir="/lustre2/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09"
+refdir="/lustre2/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/e5558d2b"
 
 bash << EOFSCRIPT
 
