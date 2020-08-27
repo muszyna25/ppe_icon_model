@@ -284,7 +284,7 @@ CONTAINS
       IF (me%in_use >= 0) CALL finish(routine, 'buffer already initialized')
       me%in_use = 0
 #ifdef NO_MPI_RGET
-      this%next_activate = 1
+      me%next_activate = 1
 #endif
       DO i = 1, max_inflight
 #ifndef NO_MPI_RGET
