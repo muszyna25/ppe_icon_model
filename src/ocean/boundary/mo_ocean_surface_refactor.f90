@@ -1069,7 +1069,7 @@ CONTAINS
           !                 since draft was increased by snowfall but water below ice is not affected by snowfall
           !                 snow to ice conversion does not effect draft
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * &
-          &                      stretch_c(jc,jb) - p_ice%draftave(jc,jb) + p_ice%totalsnowfall(jc,jb)
+          &                      stretch_c(jc,jb) 
 
 
           !******  (Thermodynamic Eq. 3)  ******
@@ -1098,7 +1098,7 @@ CONTAINS
 
           eta_c(jc,jb) = eta_c(jc,jb)               &
             &           + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime &
-            &           + p_ice%totalsnowfall(jc,jb)
+            &           + p_oce_sfc%FrshFlux_TotalIce(jc, jb)*dtime  
 
           !! Only change the stretching parameter if it is above a certain threshold
           !! This avoids divide by 0 
@@ -1110,8 +1110,7 @@ CONTAINS
             & temp_stretch(jc, jb) = ( eta_c(jc, jb) + d_c)/( d_c )
  
           !! update zunderice
-          p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * temp_stretch(jc, jb) &
-            &                    - p_ice%draftave(jc,jb)
+          p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * temp_stretch(jc, jb) 
     
           h_new_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)*temp_stretch(jc, jb)
           p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
