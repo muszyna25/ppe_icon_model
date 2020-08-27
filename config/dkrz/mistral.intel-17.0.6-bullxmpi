@@ -6,17 +6,17 @@ unset CDPATH
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='gcc/6.4.0 intel/17.0.6 openmpi/2.0.2p1_hpcx-intel14'
+MODULES='gcc/6.4.0 intel/17.0.6 mxm/3.4.3082 bullxmpi_mlx/bullxmpi_mlx-1.2.9.2'
 
 SW_ROOT='/sw/rhel6-x64'
 
-HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.18-parallel-openmpi2-intel14"
+HDF5_ROOT="${SW_ROOT}/hdf5/hdf5-1.8.16-parallel-bullxmpi-intel14"
 HDF5_LIBS='-lhdf5'
 
-NETCDF_ROOT="${SW_ROOT}/netcdf/netcdf_c-4.4.0-parallel-openmpi2-intel14"
+NETCDF_ROOT="${SW_ROOT}/netcdf/netcdf_c-4.4.0-parallel-bullxmpi-intel14"
 NETCDF_LIBS='-lnetcdf'
 
-NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.3-parallel-openmpi2-intel14"
+NETCDFF_ROOT="${SW_ROOT}/netcdf/netcdf_fortran-4.4.3-parallel-bullxmpi-intel14"
 NETCDFF_LIBS='-lnetcdff'
 
 GRIBAPI_ROOT="${SW_ROOT}/grib_api/grib_api-1.15.0-gcc48"
@@ -35,7 +35,9 @@ BUILD_ENV=". /sw/rhel6-x64/etc/profile.mistral; . \"${SCRIPT_DIR}/module_switche
 
 CC='mpicc'
 CFLAGS='-gdwarf-4 -O3 -qno-opt-dynamic-align -ftz -march=native -g'
-CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include -I${XML2_ROOT}/include/libxml2"
+CPPFLAGS="-I${HDF5_ROOT}/include -I${NETCDF_ROOT}/include -I${GRIBAPI_ROOT}/include"
+ICON_YAC_CFLAGS="-I${XML2_ROOT}/include/libxml2"
+
 
 FC='mpif90'
 FCFLAGS="-I${NETCDFF_ROOT}/include -gdwarf-4 -g -march=native -pc64 -fp-model source"
@@ -48,7 +50,9 @@ LIBS="-Wl,--as-needed ${XML2_LIBS} ${GRIBAPI_LIBS} ${NETCDFF_LIBS} ${NETCDF_LIBS
 MPI_LAUNCH='mpiexec'
 
 EXTRA_CONFIG_ARGS='--enable-intel-consistency --enable-vectorized-lrtm --enable-parallel-netcdf'
-
+extrasub='/^test -n \"\$_collected_set_up_info\" && exec >>\"\$_collected_set_up_info\"/a \
+use_load_modules+=\" mxm/3.4.3082 bullxmpi_mlx/bullxmpi_mlx-1.2.9.2\"
+'
 ################################################################################
 
 "${ICON_DIR}/configure" \
@@ -64,7 +68,9 @@ ICON_OCEAN_FCFLAGS="${ICON_OCEAN_FCFLAGS}" \
 LDFLAGS="${LDFLAGS}" \
 LIBS="${LIBS}" \
 MPI_LAUNCH="${MPI_LAUNCH}" \
+ICON_YAC_CFLAGS="$ICON_YAC_CFLAGS" \
 ${EXTRA_CONFIG_ARGS} \
+extrasub="$extrasub" \
 "$@"
 
 for arg in "$@"; do
