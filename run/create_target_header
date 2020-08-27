@@ -133,26 +133,17 @@ fi
 EOF
     fi
 
-    case "$use_target" in
-      fh2*)
-if [[ "x$use_load_profile" != "x" ]]; then
-  if [[ "x$use_load_modules" != "x" ]]; then
+if [[ "x$use_load_profile" != "x" && "x$use_load_modules" != "x" ]]; then
     profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
 cat >> $output_script << EOF
 #=============================================================================
 # load modules
 loadmodule="$use_load_modules"
-. /opt/lmod/lmod/init/ksh
 module load \$loadmodule
 module list
 #=============================================================================
 EOF
 fi
-fi
-;;
- *)
-;;
-esac
 
 
     cat >> $output_script << EOF
