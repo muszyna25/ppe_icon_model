@@ -222,9 +222,10 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   INTEGER :: nblks_c, nblks_e, nblks_v, nincr
   INTEGER :: ist,ie
   INTEGER :: idummy
-  LOGICAL :: lsdi  = .FALSE. ,&
-             llpi  = .FALSE. ,&
-             llpim = .FALSE.
+  LOGICAL :: lsdi         = .FALSE. ,&
+             llpi         = .FALSE. ,&
+             llpim        = .FALSE. ,&
+             lparcelfreq2 = .FALSE.
 
 !-----------------------------------------------------------------------
 
@@ -616,11 +617,12 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
     ! GZ: offloading 'is_variable_in_output' to vector hosts requires separate calls in order to
     !     avoid an MPI deadlock in p_bcast
-                    lsdi  = is_variable_in_output( first_output_name_list, var_name="sdi2")
-    IF (.NOT. lsdi) llpi  = is_variable_in_output( first_output_name_list, var_name="lpi" )
-    IF (.NOT. llpi) llpim = is_variable_in_output( first_output_name_list, var_name="lpi_max" )
+                     lsdi         = is_variable_in_output( first_output_name_list, var_name="sdi2"        )
+    IF (.NOT. lsdi)  llpi         = is_variable_in_output( first_output_name_list, var_name="lpi"         )
+    IF (.NOT. llpi)  llpim        = is_variable_in_output( first_output_name_list, var_name="lpi_max"     )
+    IF (.NOT. llpim) lparcelfreq2 = is_variable_in_output( first_output_name_list, var_name="parcelfreq2" )
 
-    ptr_int%cell_environ%is_used = lsdi .OR. llpi .OR. llpim
+    ptr_int%cell_environ%is_used = lsdi .OR. llpi .OR. llpim .OR. lparcelfreq2
 
     IF ( ptr_int%cell_environ%is_used ) THEN
       !

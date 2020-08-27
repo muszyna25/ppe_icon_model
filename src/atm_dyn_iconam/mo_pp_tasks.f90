@@ -33,6 +33,8 @@ MODULE mo_pp_tasks
     & TASK_COMPUTE_HBAS_SC, TASK_COMPUTE_HTOP_SC,                     &
     & TASK_COMPUTE_TWATER, TASK_COMPUTE_Q_SEDIM,                      &
     & TASK_COMPUTE_DBZCMAX, TASK_COMPUTE_DBZ850,                      &
+    & TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V,                         &
+    & TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2,                    &
     & TASK_INTP_VER_ZLEV,                                             &
     & TASK_INTP_VER_ILEV,                                             &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
@@ -83,9 +85,15 @@ MODULE mo_pp_tasks
     &                                   compute_field_dbz850,                    &
     &                                   compute_field_dbzcmax,                   &
     &                                   compute_field_smi
-  USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
+  USE mo_diag_atmo_air_flow,      ONLY: compute_field_vor => hor_comps_of_rel_vorticity
+  USE mo_diag_atmo_air_parcel,    ONLY: compute_field_bvf2 => sqr_of_Brunt_Vaisala_freq, &
+    &                                   compute_field_parcelfreq2 => sqr_of_parcel_freq
+  USE mo_io_config,               ONLY: itype_pres_msl, itype_rh, var_in_output, &
+    &                                   bvf2_mode, parcelfreq2_mode
   USE mo_grid_config,             ONLY: l_limited_area, n_dom_start
   USE mo_interpol_config,         ONLY: support_baryctr_intp
+  USE mo_nonhydrostatic_config,   ONLY: kstart_moist
+  USE mo_run_config,              ONLY: timers_level, msg_level, debug_check_level
 #ifdef _OPENACC
   USE mo_mpi,                   ONLY: i_am_accel_node
 #endif
@@ -1237,9 +1245,10 @@ CONTAINS
   !  @todo Change order of processing: First, interpolate input fields
   !        onto z-levels, then compute rel_hum.
   !
-  SUBROUTINE pp_task_compute_field(ptr_task)
+  SUBROUTINE pp_task_compute_field(ptr_task, opt_simulation_status)
 
     TYPE(t_job_queue), POINTER :: ptr_task
+    TYPE(t_simulation_status), OPTIONAL, INTENT(IN) :: opt_simulation_status
     ! local variables
     INTEGER                            :: jg, out_var_idx
     TYPE (t_var_list_element), POINTER :: out_var
@@ -1297,6 +1306,38 @@ CONTAINS
       CALL compute_field_pv(p_patch, p_int_state(jg),                  &
         &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &  
         &   out_var%r_ptr(:,:,:,out_var_idx,1))
+
+    CASE (TASK_COMPUTE_VOR_U)
+      CALL compute_field_vor(p_patch, p_int_state(jg),             &
+        &   ptr_task%data_input%p_nh_state%metrics, p_prog,        &
+        &   var_in_output(jg)%vor_u .AND. var_in_output(jg)%vor_v, &
+        &   opt_vor_u = out_var%r_ptr(:,:,:,out_var_idx,1),        &
+        &   opt_timer = timers_level > 4,                          &
+        &   opt_verbose = msg_level > 14)
+
+    CASE (TASK_COMPUTE_VOR_V)
+      CALL compute_field_vor(p_patch, p_int_state(jg),             &
+        &   ptr_task%data_input%p_nh_state%metrics, p_prog,        &
+        &   var_in_output(jg)%vor_u .AND. var_in_output(jg)%vor_v, &
+        &   opt_vor_v = out_var%r_ptr(:,:,:,out_var_idx,1),        &
+        &   opt_timer = timers_level > 4,                          &
+        &   opt_verbose = msg_level > 14)
+
+    CASE (TASK_COMPUTE_BVF2)
+      CALL compute_field_bvf2(p_patch, ptr_task%data_input%p_nh_state%metrics, &
+        &   p_prog, p_prog_rcf, p_diag, out_var%r_ptr(:,:,:,out_var_idx,1),    &
+        &   bvf2_mode, opt_kstart_moist = kstart_moist(jg),                    &
+        &   opt_timer = timers_level > 4,                                      &
+        &   opt_verbose = msg_level > 14)
+
+    CASE (TASK_COMPUTE_PARCELFREQ2)
+      CALL compute_field_parcelfreq2(p_patch, p_int_state(jg),      &
+        &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag, &  
+        &   out_var%r_ptr(:,:,:,out_var_idx,1), parcelfreq2_mode,   &
+        &   opt_lastcall = opt_simulation_status%status_flags(3),   &
+        &   opt_timer = timers_level > 4,                           &
+        &   opt_verbose = msg_level > 14,                           &
+        &   opt_minute = debug_check_level > 0)
 
     CASE (TASK_COMPUTE_SDI2)
       IF ( jg >= n_dom_start+1 ) THEN

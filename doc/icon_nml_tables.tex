@@ -3129,6 +3129,31 @@ Set to \texttt{.TRUE.}, if interpolation zone should be masked in triangular out
 \tabularnewline
 
 %\hline
+bvf2\_mode&
+I&  1& &
+Computation mode for square of Brunt-Vaisala frequency:\\
+1: standard, $N^2 = (g / \theta_v) \partial \theta_v / \partial z$ \\
+2: hydrostatic, $N^2 = (g / T_v)(\partial T_v / \partial z + g / c_p)$ \\
+3: dk1982, standard computation is extended by considering water vapor saturation effects 
+(after Durran \& Klemp, 1982, ``On the effects of moisture on the Brunt-Vaisala frequency''). 
+&
+\tabularnewline
+
+%\hline
+parcelfreq2\_mode&
+I&  11& &
+Computation mode for square of general air parcel oscillation frequency${}^\ast$:\\
+11: standard + unrestricted oscillation \\
+12: standard + vertical oscillation \\
+21: hydrostatic + unrestricted oscillation \\
+12: hydorstatic + vertical oscillation \\
+Please not: the computation of parcelfreq2 is extremely expensive (runtime and memory), 
+use with care! \\
+(${}^\ast$ See Ertel, Jaw \& Li, 1941, ``Tensorielle Theorie der Stabilit{\"a}t''.)
+&
+\tabularnewline
+
+%\hline
 \end{longtab}
 
 
@@ -3179,6 +3204,218 @@ Allowed settings for \texttt{restart\_write\_mode} are:\\[1em]
   Fallback mode. \\ If \texttt{num\_restart\_proc == 0} (\texttt{parallel\_nml}),
   then this behaves like \texttt{''sync''}, otherwise like \texttt{''async''}.
 }\\[1em]
+
+% -------------------------------------------------------------
+\subsubsection{Some notes on the output of optional diagnostics:}\label{subsec:optdiagnostics}
+% -------------------------------------------------------------
+
+$\blacksquare$ \emph{How can I switch on the output of one of the available diagnostics?} \\
+
+Let us assume that you would like to output \emph{potential vorticity} 
+(see table of available diagnostics below) on model levels. 
+Simply add the following element to the desired output namelist (see \ref{nml:output}) in your run script: \\
+\texttt{\&output\_nml}\\
+\texttt{\ldots}\\
+\texttt{ml\_varlist = \ldots, 'pv'} \\
+\texttt{\ldots}\\
+\texttt{/}\\
+%
+Please note that the output of some diagnostics is restricted to the NWP mode 
+(\texttt{iforcing = inwp = 3}, see column ``Scope'' in the table \ref{tab:optionaldiagnostics} below).\\
+
+$\blacksquare$ \emph{Which optional diagnostics are currently available for output?} \\
+
+Here is a table of the available diagnostics and some additional information on them.
+
+\renewcommand*{\arraystretch}{1.2}
+\begin{longtable}
+{|>{\raggedright}p{0.08\textwidth}  % Short name
+|>{\raggedright}p{0.28\textwidth}   % Long name
+|>{\raggedright}p{0.07\textwidth}   % Unit
+|>{\raggedright}p{0.1\textwidth}    % Scope
+|>{\raggedright}p{0.04\textwidth}   % Shape
+|>{\raggedright}p{0.15\textwidth}   % Specifications in io_nml
+|>{\raggedright}p{0.13\textwidth}|} % Place of computation in source code
+\caption{Optional diagnostics (last update Aug. 2020)}\label{tab:optionaldiagnostics}\\
+\hline
+\textbf{Short name}${}^\ast$ & \textbf{Long name} & \textbf{Unit} & \textbf{Scope} & \textbf{Shape} & 
+\textbf{Specifications}\\\textbf{in io\_nml} & \textbf{Place of computation} \\ \textbf{in source code}${}^{\ast\ast}$
+\tabularnewline
+\hline
+\endhead
+
+rh & relative humidity & \% & iforcing = inwp = 3 & 3d & itype\_rh & [1]
+\tabularnewline
+%
+
+pv & potential vorticity & K m2 kg-1 s-1 & iforcing = inwp & 3d & - & [2]
+\tabularnewline
+%
+
+sdi2 & supercell detection index (SDI2) & s-1 & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+lpi & lightning potential index (LPI) & J kg-1 & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+lpi\_max & lightning potential index, maximum during prescribed time interval & J kg-1 & iforcing = inwp & 2d &
+celltracks\_interval \\ dt\_lpi & [2]
+\tabularnewline
+%
+
+ceiling & ceiling height & m & iforcing = inwp & 2d & - &  [2]
+\tabularnewline
+%
+
+hbas\_sc & cloud base above msl, shallow convection & m & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+htop\_sc & cloud top above msl, shallow convection & m & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+twater & total column-integrated water & kg m-2 & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+q\_sedim & specific content of precipitation particles & kg kg-1 & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+tcond\_max & total column-integrated condensate, maximum during prescribed time interval & 
+kg m-2 & iforcing = inwp & 2d & celltracks\_interval \\ dt\_celltracks & [2]
+\tabularnewline
+%
+
+tcond10\_max & total column-integrated condensate above z(T=-10 degC), 
+maximum during prescribed time interval & kg m-2 & iforcing = inwp & 2d & 
+celltracks\_interval \\ dt\_celltracks & [2]
+\tabularnewline
+%
+
+uh\_max & updraft helicity, maximum during prescribed time interval & 
+m2 s-2 & iforcing = inwp & 2d & celltracks\_interval \\ dt\_celltracks & [2]
+\tabularnewline
+%
+
+vorw\_ctmax & maximum rotation amplitude during prescribed time interval & 
+s-1 & iforcing = inwp & 2d & celltracks\_interval \\ dt\_celltracks & [2]
+\tabularnewline
+%
+
+w\_ctmax & maximum updraft track during prescribed time interval & 
+m s-1 & iforcing = inwp & 2d & celltracks\_interval \\ dt\_celltracks & [2]
+\tabularnewline
+%
+
+dbz & radar reflectivity & dBZ & iforcing = inwp & 3d & - & [2]
+\tabularnewline
+%
+
+dbz\_cmax & column maximum reflectivity & dBZ & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+dbz\_850 & reflectivity in approx. 850 hPa & dBZ & iforcing = inwp & 2d & - & [2]
+\tabularnewline
+%
+
+dbz\_ctmax & column and time maximum reflectivity during prescribed time interval & 
+dBZ & iforcing = inwp & 2d & celltracks\_interval \\ dt\_radar\_dbz & [2]
+\tabularnewline
+%
+
+echotop & minimum pressure of exceeding radar reflectivity threshold during prescribed time interval & 
+Pa & iforcing = inwp & 3d & celltracks\_interval \\ echotop\_meta & [2]
+\tabularnewline
+%
+
+echotopinm & maximum height of exceeding radar reflectivity threshold during prescribed time interval & 
+m & iforcing = inwp & 3d & celltracks\_interval \\ echotop\_meta & [2]
+\tabularnewline
+%
+
+pres\_msl & mean sea level pressure & Pa & - & 2d & itype\_pres\_msl & [3]
+\tabularnewline
+%
+
+omega & vertical (pressure) velocity & Pa s-1 & - & 3d & - & [2]
+\tabularnewline
+%
+
+vor\_u & zonal component of relative vorticity & s-1 & - & 3d & - & [4]
+\tabularnewline
+%
+
+vor\_v & meridional component of relative vorticity & s-1 & - & 3d & - & [4]
+\tabularnewline
+%
+
+bvf2 & square of Brunt-Vaisala frequency & s-2 & - & 3d & bvf2\_mode & [5]
+\tabularnewline
+%
+
+parcelfreq2 & square of air parcel oscillation frequency & s-2 & - & 3d & 
+parcelfreq2\_mode & [5]
+\tabularnewline
+%
+
+\hline
+\end{longtable}
+\renewcommand*{\arraystretch}{1.}
+%
+\begin{itemize}
+\setlength\itemsep{-0.3em}
+\item[*]  To be used in output\_nml.
+\item[**] The keys, {[1]}, {[2]}, etc., are itemized under the following point.
+\end{itemize}
+%
+
+$\blacksquare$ \emph{Where can I find more about the computation of the diagnostics in the source code?} \\
+
+\emph{As for the ICON model component of the non-hydrostatic atmosphere:}\\
+
+Each optional diagnostic has its own switch in the source code of ICON 
+which is set to \texttt{.TRUE.} if the diagnostic is found in one of the \texttt{output\_nml} in your run script. 
+This configuration can be found in the module: \\
+\texttt{/src/configure\_model/mo\_io\_config}. \\
+
+Further information on the metadata of the diagnostics can be found 
+in their allocation area. 
+For the diagnostics that are meant for the NWP mode of ICON 
+(\texttt{iforcing = inwp = 3}, see column ``Scope'' in table \ref{tab:optionaldiagnostics} above), 
+the allocation takes place in:\\
+\texttt{/src/atm\_phy\_nwp/mo\_nwp\_phy\_state}.\\
+Optional diagnostics with unrestricted scope are allocated in:\\
+\texttt{/src/atm\_dyn\_iconam/mo\_nonhydro\_state}.\\
+
+The job control of the computation and output of most of the optional diagnostics 
+is organized by the post-processing scheduler:\\
+\texttt{/src/atm\_dyn\_iconam/mo\_pp\_scheduler}, \\
+\texttt{/src/atm\_dyn\_iconam/mo\_pp\_tasks}, \\
+and integrated into the main time loop in:\\
+\texttt{/src/atm\_dyn\_iconam/mo\_nh\_stepping}.\\
+The job control of a small portion of the diagnostics 
+is organized in: \\
+\texttt{/src/atm\_phy\_nwp/mo\_nwp\_diagnosis}.\\
+
+Finally, the computation of the individual diagnostics can be found 
+in the following modules 
+(the assignment of the keys, {[1]}, {[2]}, etc., to the respective diagnostic 
+is found in the column ``Place of computation in source code'' of table \ref{tab:optionaldiagnostics} above):
+%
+\begin{itemize}
+\setlength\itemsep{-0.3em}
+\item[{[1]}] \texttt{/src/atm\_phy\_nwp/mo\_util\_phys}
+\item[{[2]}] \texttt{/src/atm\_phy\_nwp/mo\_opt\_nwp\_diagnostics}
+\item[{[3]}] \texttt{/src/atm\_phy\_nwp/mo\_nh\_diagnose\_pmsl} 
+\item[{[4]}] \texttt{/src/diagnostics/atmosphere/mo\_diag\_atmo\_air\_flow} 
+\item[{[5]}] \texttt{/src/diagnostics/atmosphere/mo\_diag\_atmo\_air\_parcel}
+\end{itemize}
+%
 
 Defined and used in: \verb+src/namelists/mo_io_nml.f90+
 
@@ -5316,7 +5553,7 @@ Defined and used in: \verb+src/namelists/mo_nwp_tuning_nml.f90+
 %------------------------------------------------------------------------------
 % output_nml:
 %------------------------------------------------------------------------------
-\subsection{output\_nml (relevant if run\_nml/output='nml')}
+\subsection{output\_nml (relevant if run\_nml/output='nml')}\label{nml:output}
 
 Please note: There may be several instances of
 output\_nml in the namelist file, every one defining a list of variables with
