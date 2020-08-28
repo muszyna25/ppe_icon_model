@@ -2829,6 +2829,14 @@ CONTAINS
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
+    have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+    IF (use_dp_mpi2io .OR. have_GRIB) THEN
+      ALLOCATE(var3_dp(nval), STAT=ierrstat)
+    ELSE
+      ALLOCATE(var3_sp(nval), STAT=ierrstat)
+    ENDIF
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
     ! retrieve info object from PE#0 (via a separate MPI memory
     ! window)
     ALLOCATE(bufr_metainfo(metainfo_get_size(), of%num_vars), STAT=ierrstat)
@@ -2867,7 +2875,7 @@ CONTAINS
       ! only. A missing value might be set by the user (info%lmiss) or
       ! automatically on nest boundary regions.
       !
-      IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
+      IF (have_grib) THEN
         IF ( info%lmiss .OR.                                            &
           &  ( info%lmask_boundary    .AND. &
           &    config_lmask_boundary  .AND. &
@@ -2933,14 +2941,7 @@ CONTAINS
       ! get it back into the global storage order
 
       t_0 = p_mpi_wtime() ! performance measurement
-      have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
 
-      IF (use_dp_mpi2io .OR. have_GRIB) THEN
-        ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
-      ELSE
-        ALLOCATE(var3_sp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
-      ENDIF
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
 
       ! no. of chunks of levels (each of size "io_proc_chunk_size"):
@@ -3067,29 +3068,27 @@ CONTAINS
 
           IF (use_dp_mpi2io .OR. have_GRIB) THEN
             CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, ilev-1, var3_dp, nmiss)
-            mb_wr = mb_wr + REAL(SIZE(var3_dp),dp)
           ELSE
             CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, ilev-1, var3_sp, nmiss)
-            mb_wr = mb_wr + REAL(SIZE(var3_sp),dp)
           ENDIF
+          mb_wr = mb_wr + REAL(p_ri%n_glb, dp)
           t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement
 
         ENDDO ! ilev
 
       ENDDO ! chunk loop
 
-      IF (use_dp_mpi2io .OR. have_GRIB) THEN
-        DEALLOCATE(var3_dp, STAT=ierrstat)
-      ELSE
-        DEALLOCATE(var3_sp, STAT=ierrstat)
-      ENDIF
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-
     ENDDO ! Loop over output variables
 
 #if ! defined NO_MPI_RGET
     CALL MPI_Win_unlock_all(of%mem_win%mpi_win, mpierr)
 #endif
+    IF (use_dp_mpi2io .OR. have_GRIB) THEN
+      DEALLOCATE(var3_dp, STAT=ierrstat)
+    ELSE
+      DEALLOCATE(var3_sp, STAT=ierrstat)
+    ENDIF
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     IF (use_dp_mpi2io) THEN
       DEALLOCATE(var1_dp, STAT=ierrstat)
     ELSE
