@@ -197,7 +197,6 @@ icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/rene/mpim"
 atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
 
 atmo_grid_folder=/pool/data/ICON/grids/private/rene/mpim/${atmos_gridID}  # still some private path!
-atmo_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}
 atmo_land_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}
 atmo_dyn_grid=${atm_grid_name}.nc
 
@@ -678,7 +677,7 @@ cat > coupling.xml << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="%{coupling.runoff_weight_file|d('')}">%{'true' if coupling.runoff_weight_file|d('') else 'false'}</enforce_write_weight_file>
          </transient_couple>
-#%- if coupling.include_co2 is set:
+#%  if coupling.include_co2 is set:
          <transient_couple transient_id="12">
             <source component_ref="1" transient_grid_ref="12"/>
             <target transient_grid_ref="12"/>
@@ -718,8 +717,8 @@ cat > coupling.xml << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
-#%  endif
-#%# ... include_co2 is set
+#%#  /////include_co2 is set
+#%- endif
       </couple>
    </couples>
    <created date="16-04-2019 15:49" tool="YAC-CouplingGUI v.1.5"/>
@@ -776,6 +775,7 @@ cat > ${atm_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_atm, 'echam_sso_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'echam_vdf_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'echam_cnv_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'echam_cld_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'echam_cov_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'ccycle_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'sea_ice_nml')}
@@ -869,8 +869,8 @@ add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./
 # -------------------------------
 cat >> ${atm_namelist} << EOF
 &io_nml
-  output_nml_dict  = "${dict_file}"
-  netcdf_dict      = "${dict_file}"
+  output_nml_dict  = "dict.txt"
+  netcdf_dict      = "dict.txt"
   itype_pres_msl   = 4
   restart_file_type= 5
 ! restart_write_mode = "joint procs multifile"  ! not necessary/useful in default r2b4 setup
@@ -1291,7 +1291,7 @@ cat >> ${oce_namelist} << EOF
   output_grid      = .TRUE.
   operation       = 'mean'
   ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
-  m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
+  m_levels          ='1...%{OBGC_EUPHOTIC_LEVELS}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
 /
 EOF
 fi
@@ -1302,8 +1302,8 @@ cat >> ${oce_namelist} << EOF
 EOF
 fi
 ##############################################################
+#%#  /////WITH_OBGC is set
 #%  endif
-#%#       WITH_OBGC is set
 cat >> ${oce_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_oce, 'dbg_index_nml')}
 %{format_namelist(namelists.NAMELIST_oce, 'ocean_dynamics_nml')}
@@ -1323,7 +1323,9 @@ cat >> ${oce_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_oce, 'ocean_gentmcwilliamsredi_nml')}
 %{format_namelist(namelists.NAMELIST_oce, 'ocean_physics_nml')}
 %{format_namelist(namelists.NAMELIST_oce, 'sea_ice_nml')}
+#%  if WITH_OBGC is set:
 %{format_namelist(namelists.NAMELIST_oce, 'hamocc_nml')}
+#%  endif
 %{format_namelist(namelists.NAMELIST_oce, 'ocean_forcing_nml')}
 EOF
 #
@@ -1393,15 +1395,15 @@ fi
 # Ocean grid
 #
 add_required_file ${ocean_grid_folder}/${ocean_grid} ./
+#%  if WITH_OBGC is set:
 #
 ## HAMOCC forcing files
 #
-if [  "x${use_hamocc}"  = "xyes" ]; then
-  # FIXME: this is still a private path
-  datadir=/work/mh0727/m300732/input/0036/ocean/hamocc/
-  add_link_file $datadir/MAHOWALDDUST_icon_grid_0036_R02B04_O_remapbil1.nc           dust.nc  # iron deposition
-  add_link_file $datadir/ndepo_1-0_gr_185001-185012-clim_icon_grid_0036_R02B04_O.nc  nitrogen.nc  # nitrate deposition
-fi
+# FIXME: this is still a private path
+datadir=/work/mh0727/m300732/input/0036/ocean/hamocc/
+add_link_file $datadir/MAHOWALDDUST_icon_grid_0036_R02B04_O_remapbil1.nc           dust.nc  # iron deposition
+add_link_file $datadir/ndepo_1-0_gr_185001-185012-clim_icon_grid_0036_R02B04_O.nc  nitrogen.nc  # nitrate deposition
+#%  endif
 #
 #-----------------------------------------------------------------------------
 
@@ -1743,8 +1745,8 @@ echo "============================"
 echo "Script run successfully: $finish_status"
 echo "============================"
 
+#%  if WITH_OBGC is set:
 #-----------------------------------------------------------------------------
-if [[ "x$use_hamocc" = "xyes" ]]; then
 # store HAMOCC log file
 strg="$(ls -rt ${EXPNAME}_hamocc_EU*.nc* | tail -1 )"
 prefx="${EXPNAME}_hamocc_EU_tendencies"
@@ -1752,7 +1754,7 @@ foo=${strg##${prefx}}
 foo=${foo%%.*}
 bgcout_file="bgcout_${foo}"
 mv bgcout $bgcout_file
-fi
+#%  endif
 #-----------------------------------------------------------------------------
 namelist_list=""
 #-----------------------------------------------------------------------------
