@@ -16,6 +16,9 @@ moddir:= mod
 # Relative path to the directory with the resulting executables:
 bindir:= bin
 
+# Relative path to the directory with the resulting archives
+libdir:= lib
+
 # Paths to the installation directories:
 prefix:= @prefix@
 exec_prefix:= @exec_prefix@
@@ -129,6 +132,7 @@ exec_files+= $(ICON_exec_file)
 @JSBACH_ENABLED@JSBACH_exec_file:= $(bindir)/jsb4_driver@EXEEXT@
 @JSBACH_ENABLED@JSBACH_prog_obj_file:= $(call get_obj_names,$(JSBACH_subdir)/drivers/jsb4_driver.f90)
 @JSBACH_ENABLED@exec_files+= $(JSBACH_exec_file)
+@JSBACH_ENABLED@JSBACH_list = $(call get_prereq_objs,$(JSBACH_prog_obj_file))
 
 ################################ UTILITY FILES #################################
 
@@ -136,11 +140,15 @@ exec_files+= $(ICON_exec_file)
 dep_files:= $(addsuffix .d,$(f90_files) $(c_files) $(cu_files)) c_binding.d extra_f90.d
 
 # Stamp files of the building subdirectories:
-dir_files:= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files) $(exec_files))) $(moddir)/))
+dir_files:= $(filter-out ./.dirstamp,$(addsuffix .dirstamp,$(sort $(dir $(dep_files) $(pp_files) $(exec_files))) $(moddir)/ $(libdir)/))
 
 ########################### BUILDING TOOLS AND FLAGS ###########################
 
 # Compilers and utilities:
+SHELL= @SHELL@
+AR = @AR@
+ARFLAGS = @ARFLAGS@
+RANLIB = @RANLIB@
 CC= @CC@
 FC= @FC@
 NVCC= @NVCC@
@@ -181,6 +189,8 @@ LIBS= @LIBS@
 V= @DEFAULT_VERBOSITY@
 ifeq ($(V),0)
 silent_CC=      @echo "  CC      " $@;
+silent_AR=	@echo "  AR      " $@;
+silent_RANLIB=	@echo "  RANLIB  " $@;
 silent_DEPGEN=  @echo "  DEPGEN  " $@;
 silent_DSL4JSB= @echo "  DSL4JSB " $@;
 silent_FC=      @echo "  FC      " $@;
@@ -195,6 +205,7 @@ endif
 
 # Files included with the pp #include "filename.interface" statements:
 incf_files+= $(filter %.interface,$(all_files))
+
 # Disable built-in suffix rules:
 .SUFFIXES:
 # Delete partially updated files:
@@ -293,11 +304,16 @@ check: all
 # to its prerequisite objects.
 get_prereq_objs= $(filter %.@OBJEXT@,$(shell $(DEPLIST) @deplist.config -t $(1) -f $(dep_files)))
 
+$(libdir)/libicon.a: $(call get_prereq_objs,$(ICON_prog_obj_file)) $(JSBACH_list) | $(dir_files)
+	$(silent_AR)$(AR) $(ARFLAGS) $@ $?
+	$(silent_RANLIB)$(RANLIB) $@
+
 # ICON executable dependencies:
-$(ICON_exec_file): $(call get_prereq_objs,$(ICON_prog_obj_file)) $(BUNDLED_LIBFILES)
+$(ICON_exec_file): $(ICON_prog_obj_file) $(libdir)/libicon.a $(BUNDLED_LIBFILES)
 
 # JSBACH executable dependencies:
-@JSBACH_ENABLED@$(JSBACH_exec_file): $(call get_prereq_objs,$(JSBACH_prog_obj_file)) $(BUNDLED_LIBFILES)
+@JSBACH_ENABLED@$(JSBACH_exec_file): $(JSBACH_prog_obj_file) \
+@JSBACH_ENABLED@	$(libdir)/libicon.a $(BUNDLED_LIBFILES)
 
 # Common linking rule for the executables:
 $(exec_files): | $(dir_files)

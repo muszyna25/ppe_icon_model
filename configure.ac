@@ -724,6 +724,15 @@ else
   NVCFLAGS=
 fi
 
+########################## LIBRARY CREATION PROGRAMS AND FLAGS #################
+
+AC_CHECK_PROGS([AR],[xiar ar],[false],,)
+AS_VAR_IF([AR],[false],
+  [AC_MSG_FAILURE([an archiver is needed to build ICON.])])
+AC_ARG_VAR([ARFLAGS],[option arguments/commands to pass to the archiver])
+AS_VAR_SET_IF([ARFLAGS],,[ARFLAGS=cr])
+AC_PROG_RANLIB
+
 ################################ LIBRARY CHECKS ################################
 
 dnl One of the topological orderings of the ICON dependency graph
