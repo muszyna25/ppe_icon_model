@@ -990,8 +990,8 @@ CONTAINS
     REAL(wp) :: temp_eta, min_h
     REAL(wp) :: temp_stretch(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     
-    INTEGER  :: bt_lev
-    REAL(wp) :: d_c 
+    INTEGER  :: bt_lev, jk
+    REAL(wp) :: d_c, dz_old, dz_new 
 
     REAL(wp)  :: heatflux_surface_layer ! heatflux into the surface layer
     
@@ -1087,6 +1087,17 @@ CONTAINS
     
           p_oce_sfc%sss(jc,jb)   = ( sss_inter(jc,jb) * zunderice_old + &
              &          p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) / p_ice%zUnderIce(jc,jb)
+
+          DO jk = 2, bt_lev 
+            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * stretch_c(jc, jb) 
+            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * temp_stretch(jc, jb) 
+
+            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = & 
+              & ( p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) * dz_old ) / dz_new
+
+          END DO
 
           h_new_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)*temp_stretch(jc, jb)
           p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
