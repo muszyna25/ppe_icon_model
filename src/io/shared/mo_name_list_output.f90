@@ -3047,7 +3047,7 @@ CONTAINS
               var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
                 var1_dp(src_start:src_end)
             ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
           ELSE IF (have_GRIB) THEN
             ! ECMWF GRIB-API/CDI has only a double precision interface at the
             ! date of coding this
@@ -3061,7 +3061,7 @@ CONTAINS
               var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
                 REAL(var1_sp(src_start:src_end), dp)
             ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
           ELSE
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
             DO np = 0, num_work_procs-1
@@ -3073,7 +3073,7 @@ CONTAINS
               var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
                 var1_sp(src_start:src_end)
             ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
           ENDIF
 !$OMP END PARALLEL
           t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
