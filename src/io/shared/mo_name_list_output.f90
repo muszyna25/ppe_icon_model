@@ -3006,7 +3006,7 @@ CONTAINS
           nv_off = nv_off + nval
 
           ! Update the offset in the memory window on compute PEs
-          ioff(np) = ioff(np) + INT(nval,i8)
+          ioff(np) = ioff(np) + INT(nval, mpi_address_kind)
 
         ENDDO
 #ifndef NO_MPI_RGET
