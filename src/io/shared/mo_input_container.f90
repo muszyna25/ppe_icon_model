@@ -409,8 +409,8 @@ CONTAINS
     SUBROUTINE InputContainer_readField_omp(me, variableName, level, tile, timer, jg, iterator, statistics, iread)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: variableName
-        REAL(dp), VALUE :: level
-        INTEGER, VALUE :: tile, jg
+        REAL(dp), INTENT(IN) :: level
+        INTEGER, INTENT(IN) :: tile, jg
         REAL(dp), INTENT(INOUT) :: timer(:)
         TYPE(t_CdiIterator), VALUE :: iterator
         TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
