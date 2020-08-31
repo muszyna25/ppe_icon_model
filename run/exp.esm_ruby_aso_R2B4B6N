@@ -783,6 +783,7 @@ cat > ${lnd_namelist} << EOF
   bc_filename          = 'bc_land_soil.nc'
   ic_filename          = 'ic_land_soil.nc'
   bc_sso_filename      = 'bc_land_sso.nc'
+  snow_depth_max       = 10.                 ! limit of snow accumulation over land (default: -1, no limit)
 /
 &jsb_assimi_nml
   active               = .TRUE.              ! Use FALSE for jsbach_lite, TRUE for jsbach_pfts
