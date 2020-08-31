@@ -46,10 +46,15 @@ set -ex
 #
 #=============================================================================
 
-MODEL_DIR=%{MODEL_DIR}
-SCRIPT_DIR=%{SCRIPT_DIR}
-BUILD_DIR=%{BUILD_DIR}
-
+#% do VARIABLES_.add('MODEL_DIR')
+#% do VARIABLES_.add('SCRIPT_DIR')
+#% do VARIABLES_.add('BUILD_DIR')
+#% for var in VARIABLES_:
+#%   if context(var):
+%{var}=%{context(var)}
+#%   endif
+#% endfor
+#%#
 # Make sure that 'add_run_routines' picks up the right base directory
 cd $BUILD_DIR/run
 . ./add_run_routines
@@ -139,10 +144,6 @@ atmos_refinement="%{ATMO_GRID_TYPE}"
 
 ocean_gridID="%{OCEAN_GRID_ID}"
 ocean_refinement="%{OCEAN_GRID_TYPE}"
-
-# use alternatively: full restart, init from (ocean) restart, init from climatology or false
-#  - set to false if ocean was already initialised
-initialiseOcean=%{JOB.init_ocean}
 
 read_restart_namelists=".false."
 
@@ -1327,38 +1328,8 @@ cat >> ${oce_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_oce, 'hamocc_nml')}
 #%  endif
 %{format_namelist(namelists.NAMELIST_oce, 'ocean_forcing_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'ocean_initialconditions_nml')}
 EOF
-#
-if [[ "$initialiseOcean" == "fromRestart" ]] || [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
-  #
-  cat >> ${oce_namelist} << EOF
-&ocean_initialConditions_nml
-  initial_salinity_type                      = 0                ! 0: none, 1: read S from initial_state.nc
-  initial_temperature_type                   = 0                ! 0: none, 1: read T from initial_state.nc
-  initialize_fromRestart                     = .TRUE.
-/
-EOF
-#
-else
-#
-  if [[ "$initialiseOcean" == "fromClimatology" ]]; then
-    cat >> ${oce_namelist} << EOF
-&ocean_initialConditions_nml
-  initial_salinity_type                      = 1                ! 0: none, 1: read S from initial_state.nc
-  initial_temperature_type                   = 1                ! 0: none, 1: read T from initial_state.nc
-  initialize_fromRestart                     = .FALSE.
-/
-EOF
-  else
-    cat >> ${oce_namelist} << EOF
-&ocean_initialConditions_nml
-  initial_salinity_type                      = 0                ! 0: none, 1: read S from initial_state.nc
-  initial_temperature_type                   = 0                ! 0: none, 1: read T from initial_state.nc
-  initialize_fromRestart                     = .FALSE.
-/
-EOF
-  fi
-fi
 #
 cat >> ${oce_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_oce, 'ocean_diagnostics_nml')}
@@ -1371,30 +1342,6 @@ cat >> ${oce_namelist} << EOF
 /
 EOF
 
-#-----------------------------------------------------------------------------
-#
-# Ocean initialisation input
-#
-if [[ "$initialiseOcean" == "fromRestart" ]]; then
- # spun-up for 500 (200+300) years
- add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0613_restart_oce_13000101T000000Z.nc    restart_ocean_DOM01.nc
-fi
-
-if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
- #FIXME: add restart file with spun-up Hamocc
- # Restart file like above + 1 year with Hamocc (initialized from basin averages)
- add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0614_restart_oce_10010101T000000Z.nc    restart_ocean_DOM01.nc
- fi
-
-if [[ "$initialiseOcean" == "fromClimatology" ]]; then
-  # for initializing from Levitus:
-  add_link_file ${ocean_data_InputFolder}/R2B4L40_initial_state.nc initial_state.nc
-fi
-
-#
-# Ocean grid
-#
-add_required_file ${ocean_grid_folder}/${ocean_grid} ./
 #%  if WITH_OBGC is set:
 #
 ## HAMOCC forcing files
