@@ -175,8 +175,7 @@ CONTAINS
 
         ! Try to find a preexisting DomainData object.
         resultVar => listEntry%domainData
-        DO
-            IF(.NOT.ASSOCIATED(resultVar)) EXIT
+        DO WHILE (ASSOCIATED(resultVar))
             IF(resultVar%jg == jg) RETURN
             resultVar => resultVar%next
         END DO
@@ -1308,8 +1307,7 @@ CONTAINS
         DO i = 1, me%variableCount
             currentEntry => me%list(i)
             domainData => currentEntry%domainData
-            DO
-                IF(.NOT.ASSOCIATED(domainData)) EXIT
+            DO WHILE (ASSOCIATED(domainData))
                 IF(ASSOCIATED(domainData%container)) THEN
                     CALL domainData%container%destruct()
                     DEALLOCATE(domainData%container)
