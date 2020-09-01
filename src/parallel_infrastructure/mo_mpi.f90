@@ -203,7 +203,7 @@ MODULE mo_mpi
   ! Comment: Please use basic WRITE to nerr for messaging in the whole
   !          MPI package to achieve proper output.
 
-  USE ISO_C_BINDING, ONLY: C_CHAR
+  USE ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR
   ! actual method (MPI-2)
 #ifndef NOMPI
 #if !defined (__SUNPRO_F95)
@@ -6892,7 +6892,9 @@ CONTAINS
   END SUBROUTINE p_send_packed_2d
 
   SUBROUTINE p_bcast_packed (t_buffer, p_source, p_count, comm)
-    CHARACTER, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER,   INTENT(in)    :: p_count
     INTEGER, OPTIONAL, INTENT(in) :: comm
@@ -7142,8 +7144,9 @@ CONTAINS
   ! bcast implementation
 
   SUBROUTINE p_bcast_real (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7195,8 +7198,9 @@ CONTAINS
   !> wrapper for MPI_Bcast
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE p_bcast_real_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7245,8 +7249,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_single
 
   SUBROUTINE p_bcast_real_1d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7298,8 +7303,9 @@ CONTAINS
   !> wrapper for MPI_Bcast
   !---------------------------------------------------------------------------------------------------------------------------------
   SUBROUTINE p_bcast_real_1d_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer(:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 #ifndef NOMPI
@@ -7348,8 +7354,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_1d_single
 
   SUBROUTINE p_bcast_real_2d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7400,8 +7407,9 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_real_2d_single (t_buffer, p_source, comm)
-
-    REAL (sp), INTENT(inout) :: t_buffer(:,:) ! SINGLE PRECISION
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(sp) :: t_buffer(:,:) ! SINGLE PRECISION
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7452,8 +7460,9 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_real_3d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL (dp) :: t_buffer(:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7503,8 +7512,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_3d
 
   SUBROUTINE p_bcast_real_4d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7554,8 +7564,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_4d
 
   SUBROUTINE p_bcast_real_5d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7605,8 +7616,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_5d
 
   SUBROUTINE p_bcast_real_7d (t_buffer, p_source, comm)
-
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    REAL(dp) :: t_buffer(:,:,:,:,:,:,:)
     INTEGER,   INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7656,8 +7668,9 @@ CONTAINS
   END SUBROUTINE p_bcast_real_7d
 
   SUBROUTINE p_bcast_int_i4 (t_buffer, p_source, comm)
-
-    INTEGER (i4), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i4) :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7707,8 +7720,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i4
 
   SUBROUTINE p_bcast_int_i8 (t_buffer, p_source, comm)
-
-    INTEGER (i8), INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i8) :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7758,8 +7772,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i8
 
   SUBROUTINE p_bcast_int_1d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7809,8 +7824,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_1d
 
   SUBROUTINE p_bcast_int_i8_1d (t_buffer, p_source, comm)
-
-    INTEGER(i8), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER(i8) :: t_buffer(:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7860,8 +7876,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_i8_1d
 
   SUBROUTINE p_bcast_int_2d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7911,8 +7928,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_2d
 
   SUBROUTINE p_bcast_int_3d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -7962,8 +7980,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_3d
 
   SUBROUTINE p_bcast_int_4d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER :: t_buffer(:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8013,8 +8032,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_4d
 
   SUBROUTINE p_bcast_int_7d (t_buffer, p_source, comm)
-
-    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    INTEGER                :: t_buffer(:,:,:,:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8064,8 +8084,9 @@ CONTAINS
   END SUBROUTINE p_bcast_int_7d
 
   SUBROUTINE p_bcast_bool (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8115,8 +8136,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool
 
   SUBROUTINE p_bcast_bool_1d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:)
     INTEGER, INTENT(in) :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8166,8 +8188,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_1d
 
   SUBROUTINE p_bcast_bool_2d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8217,8 +8240,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_2d
 
   SUBROUTINE p_bcast_bool_3d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8268,8 +8292,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_3d
 
   SUBROUTINE p_bcast_bool_4d (t_buffer, p_source, comm)
-
-    LOGICAL, INTENT(inout) :: t_buffer(:,:,:,:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    LOGICAL :: t_buffer(:,:,:,:)
     INTEGER, INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8319,8 +8344,9 @@ CONTAINS
   END SUBROUTINE p_bcast_bool_4d
 
   SUBROUTINE p_bcast_char (t_buffer, p_source, comm)
-
-    CHARACTER(len=*),  INTENT(inout) :: t_buffer
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER(len=*) :: t_buffer
     INTEGER,           INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
@@ -8370,8 +8396,9 @@ CONTAINS
   END SUBROUTINE p_bcast_char
 
   SUBROUTINE p_bcast_char_1d(t_buffer, p_source, comm)
-
-    CHARACTER (*), INTENT(inout) :: t_buffer(:)
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
+    CHARACTER(*) :: t_buffer(:)
     INTEGER,       INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
     INTEGER                      :: lexlength, flength
@@ -8423,7 +8450,7 @@ CONTAINS
   END SUBROUTINE p_bcast_char_1d
 
   SUBROUTINE p_bcast_char_2d(t_buffer, p_source, comm)
-    CHARACTER(*),  INTENT(inout) :: t_buffer(:,:)
+    CHARACTER(*) :: t_buffer(:,:)
     INTEGER,       INTENT(in)    :: p_source
     INTEGER, OPTIONAL, INTENT(in) :: comm
     INTEGER :: lexlength, flength
@@ -8466,11 +8493,10 @@ CONTAINS
 
 
   SUBROUTINE p_bcast_cchar (t_buffer, buflen, p_source, p_comm)
-
-    USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_SIGNED_CHAR
-
+    ! intentionally without argument intent, because p_source determines if
+    ! t_buffer is read or written
     INTEGER,           INTENT(IN)    :: buflen
-    INTEGER(C_SIGNED_CHAR), INTENT(INOUT) :: t_buffer(buflen)
+    INTEGER(C_SIGNED_CHAR)                :: t_buffer(buflen)
 
     INTEGER,           INTENT(IN)    :: p_source
     INTEGER,           INTENT(IN)    :: p_comm
@@ -8546,7 +8572,7 @@ CONTAINS
 !DR Test
   SUBROUTINE p_bcast_datetime (mtime_datetime, p_source, comm)
 
-    TYPE(datetime), TARGET  , INTENT(inout) :: mtime_datetime
+    TYPE(datetime), TARGET                  :: mtime_datetime
     INTEGER                 , INTENT(in)    :: p_source
     INTEGER       , OPTIONAL, INTENT(in)    :: comm
     !
