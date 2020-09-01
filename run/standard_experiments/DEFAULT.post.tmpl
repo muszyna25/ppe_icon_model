@@ -71,7 +71,10 @@ ocean_shift_list = ['-shifttime,-{0}{1}'.format(value, name)
 
 # Define required output
 
-tags = ['atm_2d_ml', 'atm_3d_ml', 'atm_dbg_ml', 'atm_mon', 'hamocc', 'hamocc_2d_tendencies', 'hamocc_3d_tendencies', 'hamocc_EU_tendencies', 'hamocc_monitor', 'hamocc_sediment', 'lnd_basic_ml', 'oce_dbg oce_def', 'oce_ice', 'oce_moc', 'oce_mon']
+tags = ['atm_2d_ml', 'atm_3d_ml', 'atm_dbg_ml', 'atm_mon', 'lnd_basic_ml', 'oce_dbg oce_def', 'oce_ice', 'oce_moc', 'oce_mon']
+#%  if WITH_OBGC is set:
+tags.extend(['hamocc', 'hamocc_2d_tendencies', 'hamocc_3d_tendencies', 'hamocc_EU_tendencies', 'hamocc_monitor', 'hamocc_sediment']) 
+#%  endif
 
 # Set-up template variables
 
@@ -101,7 +104,11 @@ logging.info('post processing started '
 
 post_dir = os.path.join('%{WORK_DIR}',
                         'post_{start_date}-{end_date}'.format(**template_dict))
+data_dir = '%{DATA_DIR}'
+
 if not os.path.isdir(post_dir): os.makedirs(post_dir)
+if not os.path.isdir(data_dir): os.makedirs(data_dir)
+
 os.chdir(post_dir)
 
 logging.info('working directory is {0}'.format(post_dir))
