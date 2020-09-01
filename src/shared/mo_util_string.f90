@@ -18,7 +18,7 @@
 
 ! String conversion utilities
 MODULE mo_util_string
-
+  USE mo_exception, ONLY: finish
   USE ISO_C_BINDING,     ONLY: C_INT8_T, C_CHAR
   ! Note: This file must not use mo_exception:finish() to avoid a circular dependency.
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
@@ -58,6 +58,7 @@ MODULE mo_util_string
   !functions to handle character arrays as strings
   PUBLIC :: toCharArray     ! convert a fortran string to a character array of kind = c_char
   PUBLIC :: toCharacter     ! convert a character array of kind = c_char back to a fortran string
+  PUBLIC :: c2f_char        ! convert a character array of kind = c_char back to a fortran string
   PUBLIC :: charArray_dup   ! make a copy of a character array
   PUBLIC :: charArray_equal ! compare two character arrays for equality
   PUBLIC :: charArray_toLower   ! canonicalize to lower case
@@ -876,6 +877,21 @@ CONTAINS
         resultVar(i:i) = charArray(i)
     END DO
   END FUNCTION toCharacter
+
+  SUBROUTINE c2f_char(c, s)
+    CHARACTER(LEN=:), INTENT(out), ALLOCATABLE :: c
+    CHARACTER(KIND = C_CHAR), INTENT(in) :: s(:)
+    INTEGER :: i, ierror, slen
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modName//":toCharacter"
+
+    slen = SIZE(s, 1) !XXX: This may not be merged into the next line, because that triggers a bug in gfortran
+    ALLOCATE(CHARACTER(LEN = slen) :: c, STAT = ierror)
+    IF (ierror /= 0) CALL finish(routine, "memory allocation error")
+    DO i = 1, slen
+      c(i:i) = s(i)
+    END DO
+  END SUBROUTINE c2f_char
 
   FUNCTION charArray_dup(charArray) RESULT(resultVar)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
