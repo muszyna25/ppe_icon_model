@@ -45,7 +45,9 @@ MODULE mo_input_request_list
                     & p_pe, p_isEqual, p_mpi_wtime
     USE mo_run_config, ONLY: msg_level
     USE mo_time_config, ONLY: time_config
-    USE mo_util_string, ONLY: real2string, int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, tolower, &
+    USE mo_util_string, ONLY: real2string, int2string, &
+         toCharArray, toCharacter, c2f_char, &
+         charArray_equal, charArray_toLower, tolower, &
                             & charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_util_uuid_types, ONLY: t_uuid, uuid_string_length
@@ -241,15 +243,15 @@ CONTAINS
 
     FUNCTION InputRequestList_findTranslatedName(me, fieldName) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(IN) :: me
-        CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: fieldName(:)
+        CHARACTER(*), INTENT(INOUT) :: fieldName
         TYPE(t_ListEntry), POINTER :: resultVar
 
         INTEGER :: i
 
-        CALL charArray_toLower(fieldName)
+        fieldname = toLower(fieldName)
         resultVar => NULL()
         DO i = 1, me%variableCount
-          IF(charArray_equal(fieldName, me%list(i)%translatedVarName)) THEN
+          IF(fieldName == me%list(i)%translatedVarName) THEN
             resultVar => me%list(i)
             RETURN
           END IF
@@ -342,7 +344,7 @@ CONTAINS
         TYPE(t_patch), INTENT(IN) :: p_patch
         REAL(dp), INTENT(OUT) :: level
         INTEGER, INTENT(OUT) :: tileId
-        CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(INOUT) :: variableName
+        CHARACTER(:), ALLOCATABLE, INTENT(out) :: variableName
         LOGICAL, INTENT(IN) :: lIsFg
 
         INTEGER(KIND = C_INT) :: error, gridId, gridType, tileIndex, tileAttribute
@@ -361,10 +363,12 @@ CONTAINS
         CHARACTER(KIND = C_CHAR), POINTER :: instName(:)  ! institute name
         INTEGER :: instId                                 ! institute ID
         INTEGER :: generatingCenter, generatingSubCenter
+        CHARACTER(KIND=C_CHAR), POINTER :: variableName_(:)
 
         resultVar = .TRUE.
-        variableName => cdiIterator_inqVariableName(iterator)
-
+        variableName_ => cdiIterator_inqVariableName(iterator)
+        CALL c2f_char(variableName, variableName_)
+        DEALLOCATE(variableName_)
         metadata => MetadataCache_create()
         CALL cdiIterator_inqParamParts(iterator, metadata%param%discipline, metadata%param%category, metadata%param%number)
 
@@ -530,7 +534,6 @@ CONTAINS
         ELSE
             !The record was not valid.
             DEALLOCATE(variableName)
-            variableName => NULL()
             CALL metadata%destruct()
             DEALLOCATE(metadata)
         END IF
@@ -571,29 +574,27 @@ CONTAINS
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
         REAL(dp), INTENT(in) :: level
         INTEGER, INTENT(in) :: tileId
-        CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(IN) :: variableName
+        CHARACTER(*), INTENT(IN) :: variableName
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_sendFieldMetadata"
         REAL(dp) :: message(3)
         CHARACTER(:), POINTER :: tempName
         INTEGER :: error
 
-        message(1) = REAL(SIZE(variableName, 1), dp)
+        message(1) = REAL(LEN(variableName), dp)
         message(2) = level
         message(3) = REAL(tileId, dp)
         CALL p_bcast(message, process_mpi_root_id, p_comm_work)
 
-        tempName => toCharacter(variableName)
-        IF(debugModule) print*, 'Reading field for variable "'//tempName//'"'
-        CALL p_bcast(tempName, process_mpi_root_id, p_comm_work)
-        DEALLOCATE(tempName)
+        IF(debugModule) print*, 'Reading field for variable "'//variableName//'"'
+        CALL p_bcast(variableName, process_mpi_root_id, p_comm_work)
     END SUBROUTINE InputRequestList_sendFieldMetadata
 
     LOGICAL FUNCTION InputRequestList_receiveFieldMetadata(me, level, tileId, variableName) RESULT(resultVar)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
         REAL(dp), INTENT(INOUT) :: level
         INTEGER, INTENT(INOUT) :: tileId
-        CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(INOUT) :: variableName
+        CHARACTER(:), ALLOCATABLE, INTENT(out) :: variableName
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_receiveFieldMetadata"
         REAL(dp) :: message(3)
@@ -607,13 +608,10 @@ CONTAINS
         level = message(2)
         tileId = INT(message(3))
         resultVar = message(1) /= 0.0_dp
-        variableName => NULL()
-        IF(resultVar) THEN
-            ALLOCATE(CHARACTER(LEN = INT(message(1))) :: tempName, STAT = error)
-            IF(error /= SUCCESS) CALL finish(routine, "error allocating memory")
-            CALL p_bcast(tempName, process_mpi_root_id, p_comm_work)
-            variableName => toCharArray(tempName)
-            DEALLOCATE(tempName)
+        IF (resultVar) THEN
+          ALLOCATE(CHARACTER(LEN = INT(message(1))) :: variableName, STAT = error)
+          IF(error /= SUCCESS) CALL finish(routine, "error allocating memory")
+          CALL p_bcast(variableName, process_mpi_root_id, p_comm_work)
         END IF
     END FUNCTION InputRequestList_receiveFieldMetadata
 
@@ -629,7 +627,7 @@ CONTAINS
         TYPE(t_patch), INTENT(IN) :: p_patch
         REAL(dp), INTENT(OUT) :: level
         INTEGER, INTENT(OUT) :: tileId
-        CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER, INTENT(INOUT) :: variableName
+        CHARACTER(:), ALLOCATABLE, INTENT(OUT) :: variableName
         INTEGER, INTENT(INOUT) :: ignoredRecords
         LOGICAL, INTENT(IN) :: lIsFg
 
@@ -672,18 +670,16 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_readFile"
         TYPE(t_CdiIterator) :: iterator
         REAL(dp) :: level
-        CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER :: vtime, variableName
-        CHARACTER(LEN = :), POINTER :: fortranName
+        CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER :: vtime
+        CHARACTER(len = :), ALLOCATABLE :: variableName, variableName_prev
         INTEGER :: i, tileId, recordsRead, recordsIgnored
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
         REAL(dp) :: timer(5), savetime
         LOGICAL  :: ret, l_exist
 
-        CHARACTER(LEN = :), POINTER :: fortranName_prev
         INTEGER :: iread
         iread = 0
-        NULLIFY(fortranName_prev)
 
         recordsRead = 0
         recordsIgnored = 0
@@ -721,10 +717,9 @@ CONTAINS
                ret = me%nextField(iterator, p_patch, level, tileId, variableName, recordsIgnored, lIsFg)
                timer(2) = timer(2) + p_mpi_wtime() - savetime
                IF (.NOT. ret) EXIT
-               fortranName => toCharacter(variableName)
-               IF (ASSOCIATED(fortranName_prev)) THEN
-               IF (fortranName /= fortranName_prev) THEN
-                  CALL domainData%container%readField_omp(fortranName_prev, level, tileId, timer, &
+               IF (ALLOCATED(variableName_prev)) THEN
+               IF (variableName /= variableName_prev) THEN
+                  CALL domainData%container%readField_omp(variableName_prev, level, tileId, timer, &
                        p_patch%id, iterator, domainData%statistics, -1)
                   iread = 0
                END IF
@@ -735,22 +730,15 @@ CONTAINS
                IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, &
                  "Assertion failed: Processes have different input request lists!")
                domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
-               fortranName => toCharacter(variableName)
                iread = iread + 1
-               CALL domainData%container%readField_omp(fortranName, level, tileId, timer, &
+               CALL domainData%container%readField_omp(variableName, level, tileId, timer, &
                   p_patch%id, iterator, domainData%statistics, iread)
-               DEALLOCATE(variableName)
-               IF (ASSOCIATED(fortranName_prev)) THEN
-                  DEALLOCATE(fortranName_prev)
-                  NULLIFY(fortranName_prev)
-               END IF
-               fortranName_prev => fortranName
+               CALL MOVE_ALLOC(variableName, variableName_prev)
            END DO
-           IF (ASSOCIATED(fortranName_prev)) THEN
-              CALL domainData%container%readField_omp(fortranName_prev, level, tileId, timer, &
+           IF (ALLOCATED(variableName_prev)) THEN
+              CALL domainData%container%readField_omp(variableName_prev, level, tileId, timer, &
                 p_patch%id, iterator, domainData%statistics, -2)
-              DEALLOCATE(fortranName_prev)
-              NULLIFY(fortranName_prev)
+              DEALLOCATE(variableName_prev)
            END IF
            CALL me%sendStopMessage()
         ELSE
@@ -765,10 +753,7 @@ CONTAINS
             listEntry => me%findTranslatedName(variableName)
             IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, "Assertion failed: Processes have different input request lists!")
             domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
-            fortranName => toCharacter(variableName)
-            CALL domainData%container%readField(fortranName, level, tileId, timer, p_patch%id, iterator, domainData%statistics)
-            DEALLOCATE(fortranName)
-            DEALLOCATE(variableName)
+            CALL domainData%container%readField(variableName, level, tileId, timer, p_patch%id, iterator, domainData%statistics)
           END DO
         END IF
 
