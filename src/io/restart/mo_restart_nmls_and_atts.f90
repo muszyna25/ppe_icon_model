@@ -116,7 +116,7 @@ CONTAINS
 
   SUBROUTINE restartAttributeList_read(vlistId, root_pe, comm)
     INTEGER, INTENT(IN) :: vlistId, root_pe, comm
-    CHARACTER(*), PARAMETER :: routine = modname//":restartAttributeList_make"
+    CHARACTER(*), PARAMETER :: routine = modname//":restartAttributeList_read"
 
     IF (.NOT.isRestart() .AND. .NOT.ocean_initFromRestart_OVERRIDE) &
       & CALL finish(routine, "not a restart run")

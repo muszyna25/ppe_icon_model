@@ -218,7 +218,7 @@ CONTAINS
     CLASS(t_restartDescriptor), INTENT(INOUT), TARGET :: me
     TYPE(t_restart_args), INTENT(IN) :: rArgs
     LOGICAL, INTENT(in) :: isSync
-    CHARACTER(*), PARAMETER :: routine = modname//":restartPatchData_writeFile"
+    CHARACTER(*), PARAMETER :: routine = modname//":restartDescriptor_writeFiles"
     CHARACTER(:), ALLOCATABLE :: fname
     TYPE(t_CdiIds) :: cdiIds
     CLASS(t_RestartPatchData), POINTER :: pData
