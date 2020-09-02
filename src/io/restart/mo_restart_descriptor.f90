@@ -161,13 +161,11 @@ CONTAINS
   END SUBROUTINE restartDescriptor_updatePatch
 
   SUBROUTINE restartDescriptor_defineRestartAttributes(me, rAttribs, rArgs)
-    CLASS(t_RestartDescriptor), TARGET, INTENT(IN) :: me
+    CLASS(t_RestartDescriptor), INTENT(IN) :: me
     TYPE(t_key_value_store), ALLOCATABLE, INTENT(OUT) :: rAttribs
-    TYPE(t_restart_args), TARGET, INTENT(IN) :: rArgs
-    CLASS(t_restart_patch_description), POINTER :: desc
+    TYPE(t_restart_args), INTENT(IN) :: rArgs
     INTEGER :: jg, j
-    CHARACTER(LEN=2) :: domStr
-    CHARACTER(LEN=25) :: prefix
+    CHARACTER(LEN=15) :: prefix
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
 
     ! first the attributes that are independent of the domain
@@ -191,28 +189,37 @@ CONTAINS
     END IF
     ! now the stuff that depends on the domain
     DO jg = 1, me%patchData(1)%description%opt_ndom
-      desc => me%patchData(jg)%description
-      IF (desc%id .NE. jg) & ! CALL finish("Kil Kill" , "the killer of death")
-        & CALL finish(modname//":defineRestartAttributes", "mismatch of DOM-ID")
-      WRITE(domStr, '(i2.2)') desc%id
-      CALL rAttribs%put('nold_DOM'//domStr, desc%nold)
-      CALL rAttribs%put('nnow_DOM'//domStr, desc%nnow)
-      CALL rAttribs%put('nnew_DOM'//domStr, desc%nnew)
-      CALL rAttribs%put('nnow_rcf_DOM'//domStr, desc%nnow_rcf)
-      CALL rAttribs%put('nnew_rcf_DOM'//domStr, desc%nnew_rcf)
-      IF (ALLOCATED(desc%opt_t_elapsed_phy)) THEN
-        DO j = 1, SIZE(desc%opt_t_elapsed_phy)
-          WRITE (prefix, '(2(a,i2.2))') 't_elapsed_phy_DOM', jg, '_PHY', j
-          CALL rAttribs%put(prefix(1:25), desc%opt_t_elapsed_phy(j))
-        END DO
-      END IF
-      IF (desc%opt_ndyn_substeps%present) &
-        & CALL rAttribs%put('ndyn_substeps_DOM'//domStr, desc%opt_ndyn_substeps%v)
-      IF (desc%opt_jstep_adv_marchuk_order%present) &
-        & CALL rAttribs%put('jstep_adv_marchuk_order_DOM'//domStr, desc%opt_jstep_adv_marchuk_order%v)
-      CALL upatmoRestartAttributesSet(desc%id, desc%opt_upatmo_restart_atts, rAttribs)
+      CALL put_dom_rstrt_attr(rattribs, me%patchData(jg)%description, jg)
     END DO
   END SUBROUTINE restartDescriptor_defineRestartAttributes
+
+  SUBROUTINE put_dom_rstrt_attr(rattribs, desc, jg)
+    TYPE(t_key_value_store), INTENT(INOUT) :: rAttribs
+    CLASS(t_restart_patch_description), INTENT(in) :: desc
+    INTEGER, INTENT(in) :: jg
+    CHARACTER(LEN=2) :: domStr
+    CHARACTER(LEN=25) :: prefix
+    INTEGER :: j
+    IF (desc%id .NE. jg) &
+      CALL finish(modname//":defineRestartAttributes", "mismatch of DOM-ID")
+    WRITE(domStr, '(i2.2)') desc%id
+    CALL rAttribs%put('nold_DOM'//domStr, desc%nold)
+    CALL rAttribs%put('nnow_DOM'//domStr, desc%nnow)
+    CALL rAttribs%put('nnew_DOM'//domStr, desc%nnew)
+    CALL rAttribs%put('nnow_rcf_DOM'//domStr, desc%nnow_rcf)
+    CALL rAttribs%put('nnew_rcf_DOM'//domStr, desc%nnew_rcf)
+    IF (ALLOCATED(desc%opt_t_elapsed_phy)) THEN
+      DO j = 1, SIZE(desc%opt_t_elapsed_phy)
+        WRITE (prefix, '(2(a,i2.2))') 't_elapsed_phy_DOM', jg, '_PHY', j
+        CALL rAttribs%put(prefix(1:25), desc%opt_t_elapsed_phy(j))
+      END DO
+    END IF
+    IF (desc%opt_ndyn_substeps%present) &
+      & CALL rAttribs%put('ndyn_substeps_DOM'//domStr, desc%opt_ndyn_substeps%v)
+    IF (desc%opt_jstep_adv_marchuk_order%present) &
+      & CALL rAttribs%put('jstep_adv_marchuk_order_DOM'//domStr, desc%opt_jstep_adv_marchuk_order%v)
+    CALL upatmoRestartAttributesSet(desc%id, desc%opt_upatmo_restart_atts, rAttribs)
+  END SUBROUTINE put_dom_rstrt_attr
 
   SUBROUTINE restartDescriptor_writeFiles(me, rArgs, isSync)
     CLASS(t_restartDescriptor), INTENT(INOUT), TARGET :: me
