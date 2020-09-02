@@ -401,7 +401,7 @@ CONTAINS
       INTEGER :: metaFile, grid, zaxis, var, vlist, n_dom_active
       CHARACTER(:), ALLOCATABLE :: mafname
       CHARACTER(*), PARAMETER :: routine = modname//":writeAttributeFile"
-      TYPE(t_key_value_store), POINTER :: rAttribs
+      TYPE(t_key_value_store), ALLOCATABLE :: rAttribs
 
       CALL me%defineRestartAttributes(rAttribs, restartArgs)
       CALL rAttribs%put('multifile_file_count', n_rstreams*restartProcCount())

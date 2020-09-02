@@ -223,7 +223,7 @@ CONTAINS
   END SUBROUTINE restartAttributeList_write_to_cdi
 
   SUBROUTINE restartAttributeList_make(ptr)
-    TYPE(t_key_value_store), POINTER, INTENT(OUT) :: ptr
+    TYPE(t_key_value_store), ALLOCATABLE, INTENT(OUT) :: ptr
 
     ALLOCATE(ptr)
     CALL gNamelistStore%output(copy=ptr)

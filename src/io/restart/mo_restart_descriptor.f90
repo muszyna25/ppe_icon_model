@@ -162,7 +162,7 @@ CONTAINS
 
   SUBROUTINE restartDescriptor_defineRestartAttributes(me, rAttribs, rArgs)
     CLASS(t_RestartDescriptor), TARGET, INTENT(IN) :: me
-    TYPE(t_key_value_store), POINTER, INTENT(INOUT) :: rAttribs
+    TYPE(t_key_value_store), ALLOCATABLE, INTENT(OUT) :: rAttribs
     TYPE(t_restart_args), TARGET, INTENT(IN) :: rArgs
     CLASS(t_restart_patch_description), POINTER :: desc
     INTEGER :: jg, j
@@ -225,9 +225,8 @@ CONTAINS
     TYPE(t_restart_patch_description), POINTER :: desc
     LOGICAL :: lIsWriteProcess
     INTEGER :: jg
-    TYPE(t_key_value_store), POINTER :: rAttribs
+    TYPE(t_key_value_store), ALLOCATABLE :: rAttribs
 
-    NULLIFY(rAttribs)
     CALL cdiIds%init()
     DO jg = 1, SIZE(me%patchData, 1)
       pData => me%patchData(jg)
@@ -240,7 +239,7 @@ CONTAINS
         IF (.NOT.desc%l_dom_active) CYCLE
         IF (p_pe_work .NE. MOD(desc%id-1, process_mpi_restart_size)) CYCLE
       END IF
-      IF (lIsWriteProcess .AND. .NOT.ASSOCIATED(rAttribs)) &
+      IF (lIsWriteProcess .AND. .NOT.ALLOCATED(rAttribs)) &
         & CALL me%defineRestartAttributes(rAttribs, rArgs)
       CALL desc%updateVGrids()
       IF (lIsWriteProcess) CALL restartfile_open()
@@ -267,7 +266,7 @@ CONTAINS
         CALL cdiIds%closeAndDestroyIds()
       END IF
     END DO
-    IF (ASSOCIATED(rAttribs)) THEN
+    IF (ALLOCATED(rAttribs)) THEN
       CALL rAttribs%destruct()
       DEALLOCATE(rAttribs)
     END IF
