@@ -175,7 +175,7 @@ CONTAINS
 
     ! consistency check
     zero_dt => newTimedelta("PT0S") ! mtime object for zero
-    IF (dtime1 <= zero_dt) CALL finish(TRIM(routine),'"dtime" must be positive')
+    IF (dtime1 <= zero_dt) CALL finish(routine,'"dtime" must be positive')
 
     CALL deallocateTimedelta( zero_dt )
 
