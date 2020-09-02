@@ -1737,7 +1737,6 @@ MODULE mo_nh_stepping
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
-            &                         datetime_local(jg)%ptr,      &  !in
             &                         p_patch(jg),                 &  !in 
             &                         p_nh_state(jg),              &  !inout
             &                         p_int_state(jg),             &  !in
@@ -2160,7 +2159,6 @@ MODULE mo_nh_stepping
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
-            &                         datetime_local(jg)%ptr,      &  !in
             &                         p_patch(jg),                 &  !in 
             &                         p_nh_state(jg),              &  !inout
             &                         p_int_state(jg),             &  !in
