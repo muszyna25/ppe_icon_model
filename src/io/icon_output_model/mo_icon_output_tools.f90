@@ -91,7 +91,6 @@ MODULE mo_icon_output_tools
     USE mo_time_config,         ONLY: time_config
 
     TYPE(t_sim_step_info)   :: sim_step_info
-    INTEGER                 :: jstep0
     TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: &
       & method_name = 'mo_ocean_model:init_io_processes'
@@ -130,15 +129,14 @@ MODULE mo_icon_output_tools
 !        CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
 !
 !        sim_step_info%dtime      = dtime
-!        jstep0 = 0
+!        sim_step_info%jstep0    = jstep0
 !
 !        CALL getAttributesForRestarting(restartAttributes)
 !        IF (restartAttributes%is_init) THEN
 !
 !          ! get start counter for time loop from restart file:
-!          jstep0 = restartAttributes%getInteger("jstep")
+!          restartAttributes%get("jstep", sim_step_info%jstep0)
 !        END IF
-!        sim_step_info%jstep0    = jstep0
 !!         CALL name_list_io_main_proc(sim_step_info, isample=1)
 !!pa
 !        write(0,*)"Before name_list_io_main_proc"
@@ -167,13 +165,12 @@ MODULE mo_icon_output_tools
         sim_step_info%restart_time = time_config%tc_stopdate
 
         sim_step_info%dtime      = dtime
-        jstep0 = 0
+        sim_step_info%jstep0 = 0
 
         CALL getAttributesForRestarting(restartAttributes)
         ! get start counter for time loop from restart file:
         IF (restartAttributes%is_init) &
-          CALL restartAttributes%get("jstep", jstep0)
-        sim_step_info%jstep0    = jstep0
+          CALL restartAttributes%get("jstep", sim_step_info%jstep0)
         CALL init_statistics_streams
       ENDIF
 
@@ -225,7 +222,6 @@ MODULE mo_icon_output_tools
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:prepare_output"
 
     TYPE(t_sim_step_info)               :: sim_step_info
-    INTEGER                             :: jstep0
     TYPE(t_key_value_store), POINTER :: restartAttributes
 
     !------------------------------------------------------------------
@@ -244,14 +240,12 @@ MODULE mo_icon_output_tools
       sim_step_info%restart_time = time_config%tc_stopdate
 
       sim_step_info%dtime      = dtime
-      jstep0 = 0
+      sim_step_info%jstep0 = 0
 
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
       IF (restartAttributes%is_init) &
-        CALL restartAttributes%get("jstep", jstep0)
-
-      sim_step_info%jstep0    = jstep0
+        CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
       CALL create_mipz_level_selections(output_file)

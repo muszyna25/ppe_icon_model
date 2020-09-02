@@ -181,7 +181,6 @@ CONTAINS
     INTEGER :: jg, jt, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
-    INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
     TYPE(t_key_value_store), POINTER :: restartAttributes
@@ -608,13 +607,12 @@ CONTAINS
       sim_step_info%restart_time = time_config%tc_stopdate
 
       sim_step_info%dtime      = dtime
-      jstep0 = 0
+      sim_step_info%jstep0 = 0
 
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
       IF (restartAttributes%is_init) &
-        CALL restartAttributes%get("jstep", jstep0)
-      sim_step_info%jstep0    = jstep0
+           CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info)
 
