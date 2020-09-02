@@ -3377,7 +3377,7 @@ MODULE mo_nh_stepping
     !
     ! initialize
     CALL getAttributesForRestarting(restartAttributes)
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       !
       ! Get attributes from restart file
       DO jg = 1,n_dom

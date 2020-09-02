@@ -89,7 +89,7 @@ CONTAINS
     ! Set time level indices
 
     CALL getAttributesForRestarting(restartAttributes)
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!

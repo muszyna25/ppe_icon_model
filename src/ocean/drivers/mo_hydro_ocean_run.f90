@@ -260,7 +260,7 @@ CONTAINS
 
     CALL getAttributesForRestarting(restartAttributes)
     ! get start counter for time loop from restart file:
-    IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+    IF (restartAttributes%is_init) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))

@@ -208,7 +208,7 @@ MODULE mo_hamocc_model
     current_time => newNullDatetime()
     jstep0 = 0
     CALL getAttributesForRestarting(restartAttributes)
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       ! get start counter for time loop from restart file:
       CALL restartAttributes%get("jstep", jstep0)
     END IF

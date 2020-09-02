@@ -612,7 +612,8 @@ CONTAINS
 
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
-      IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+      IF (restartAttributes%is_init) &
+        CALL restartAttributes%get("jstep", jstep0)
       sim_step_info%jstep0    = jstep0
       CALL init_statistics_streams
       CALL init_name_list_output(sim_step_info)

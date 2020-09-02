@@ -408,7 +408,8 @@ CONTAINS
 
           CALL getAttributesForRestarting(restartAttributes)
           ! get start counter for time loop from restart file:
-          IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+          IF (restartAttributes%is_init) &
+            CALL restartAttributes%get("jstep", jstep0)
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
         END IF

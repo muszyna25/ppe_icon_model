@@ -653,7 +653,7 @@ CONTAINS
       ELSE
         CALL message('','Read restart file meta data ...')
         CALL getAttributesForRestarting(restartAttributes)
-        IF (ASSOCIATED(restartAttributes)) THEN
+        IF (restartAttributes%is_init) THEN
           CALL restartAttributes%get('tc_startdate', start_datetime_string)
         ELSE
           CALL finish(routine, "Could not retrieve tc_startdate from restart file!")

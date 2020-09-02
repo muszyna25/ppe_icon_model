@@ -87,7 +87,7 @@ MODULE mo_ps_radiation_model
 !       jstep0 = 0
 ! 
 !       restartAttributes => getAttributesForRestarting()
-!       IF (ASSOCIATED(restartAttributes)) THEN
+!       IF (restartAttributes%is_init) THEN
 ! 
 !         ! get start counter for time loop from restart file:
 !         jstep0 = restartAttributes%getInteger("jstep")

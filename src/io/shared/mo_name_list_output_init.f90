@@ -1831,7 +1831,7 @@ CONTAINS
     END IF
 
     CALL getAttributesForRestarting(restartAttributes)
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       ! Restart case: Get starting index of ouput from restart file
       !               (if there is such an attribute available).
       WRITE(attname,'(a,i2.2)') 'output_jfile_',i

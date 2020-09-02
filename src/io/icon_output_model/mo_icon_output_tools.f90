@@ -132,8 +132,8 @@ MODULE mo_icon_output_tools
 !        sim_step_info%dtime      = dtime
 !        jstep0 = 0
 !
-!        restartAttributes => getAttributesForRestarting()
-!        IF (ASSOCIATED(restartAttributes)) THEN
+!        CALL getAttributesForRestarting(restartAttributes)
+!        IF (restartAttributes%is_init) THEN
 !
 !          ! get start counter for time loop from restart file:
 !          jstep0 = restartAttributes%getInteger("jstep")
@@ -171,7 +171,8 @@ MODULE mo_icon_output_tools
 
         CALL getAttributesForRestarting(restartAttributes)
         ! get start counter for time loop from restart file:
-        IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+        IF (restartAttributes%is_init) &
+          CALL restartAttributes%get("jstep", jstep0)
         sim_step_info%jstep0    = jstep0
         CALL init_statistics_streams
       ENDIF
@@ -247,7 +248,8 @@ MODULE mo_icon_output_tools
 
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
-      IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
+      IF (restartAttributes%is_init) &
+        CALL restartAttributes%get("jstep", jstep0)
 
       sim_step_info%jstep0    = jstep0
       CALL init_statistics_streams

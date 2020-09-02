@@ -148,7 +148,7 @@ CONTAINS
       jstep0 = 0
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
-      IF (ASSOCIATED(restartAttributes)) THEN
+      IF (restartAttributes%is_init) THEN
         CALL restartAttributes%get("jstep", jstep0, opt_err=opt_err)
         jstep0 = MERGE(jstep0, 0, opt_err .EQ. 0)
       END IF

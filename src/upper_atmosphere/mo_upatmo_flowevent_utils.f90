@@ -462,7 +462,7 @@ CONTAINS !......................................................................
 
     ! If src/configure_model/mo_master_config: isRestart() => .FALSE., 
     ! restartAttributes should point to NULL()
-    IF (ASSOCIATED(restartAttributes) .AND. jg <= domRestartLimit) THEN
+    IF (restartAttributes%is_init .AND. jg <= domRestartLimit) THEN
       
       DO i = 1, SIZE(prm_upatmo%tend%ddt%state)
         iStr = int2string(i, '(i2.2)')
@@ -498,8 +498,6 @@ CONTAINS !......................................................................
       ENDDO
       
     ENDIF
-
-    restartAttributes => NULL()
 
     ! In case of jg > domRestartLimit the initial values of prm_upatmo%tend%ddt%state(i), 
     ! set in src/upper_atmosphere/mo_upatmo_state: new_upatmo_tend_list, remain.

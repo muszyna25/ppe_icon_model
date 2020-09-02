@@ -834,7 +834,7 @@ CONTAINS
  
     CALL getAttributesForRestarting(restartAttributes)
 
-    IF (ASSOCIATED(restartAttributes)) THEN
+    IF (restartAttributes%is_init) THEN
       DO iproc=1,UBOUND(phyProcGrp%proc,1)
         IF (.NOT. ASSOCIATED(phyProcGrp%proc(iproc)%p)) CYCLE
         IF (.NOT. phyProcGrp%proc(iproc)%p%is_enabled) CYCLE
