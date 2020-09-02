@@ -57,6 +57,8 @@ MODULE mo_real_timer
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
+  ! imporant necessary variables for intra-communicator usage
+  USE mo_mpi,             ONLY: p_comm_work_only, p_pe_work_only
 
   IMPLICIT NONE
 
@@ -518,13 +520,6 @@ CONTAINS
       it = -1 ! report of all timers
     ENDIF
 
-    IF (PRESENT(short)) THEN
-      IF (short) THEN
-        CALL timer_report_short(it)
-        RETURN
-      ENDIF
-    ENDIF
-
     SELECT CASE(profiling_output)
     CASE(TIMER_MODE_WRITE_FILES, TIMER_MODE_DETAILED)
       CALL timer_report_full(it)
@@ -541,104 +536,6 @@ CONTAINS
   END SUBROUTINE timer_report
 
   !---
-
-  SUBROUTINE timer_report_short(itimer)
-    INTEGER, INTENT(in) :: itimer
-
-    INTEGER, PARAMETER :: i_sum = 1, i_min = 2, i_max = 3
-
-    REAL(dp), ALLOCATABLE :: sbuf(:,:), sbuf_raw(:,:), rbuf(:,:,:), res(:,:)
-    REAL(dp) :: q, avg, alpha, e, t
-    INTEGER  :: itpos(timer_top), comm
-    INTEGER  :: ip, iit, it, it1, it2, n, thread_id
-
-    CHARACTER(len=12) :: min_str, avg_str, max_str, sum_str, e_str
-
-    IF (itimer > 0) THEN
-      it1 = itimer
-      it2 = itimer
-    ELSE
-      it1 = 1
-      it2 = timer_top
-    ENDIF
-
-!$omp parallel private(t,n,thread_id)
-    n = 1
-    thread_id = 0
-!$  n = omp_get_num_threads()
-!$  thread_id = omp_get_thread_num()
-!$omp master
-    ALLOCATE(sbuf_raw(timer_top,0:n-1), sbuf(timer_top,3), &
-         rbuf(timer_top,3,num_test_procs+num_work_procs), res(timer_top,3))
-!$omp end master
-!$omp barrier
-    DO it = it1, it2
-      t = rt(it)%tot
-      sbuf_raw(it,thread_id) = t
-    ENDDO
-!$omp barrier
-!$omp do
-    DO it = it1, it2
-      sbuf(it,i_sum) = SUM(sbuf_raw(it,:))
-      sbuf(it,i_min) = MINVAL(sbuf_raw(it,:))
-      sbuf(it,i_max) = MAXVAL(sbuf_raw(it,:))
-    ENDDO
-!$omp end do nowait
-!$omp end parallel
-
-    comm = MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run)
-    CALL p_gather(sbuf, rbuf, p_io, comm=comm)
-
-    n = n*(num_test_procs+num_work_procs)
-    q = 1.0_dp/REAL(n,dp)
-    res(:,:) = rbuf(:,:,1)
-    DO ip = 2, num_test_procs+num_work_procs
-      DO it = it1, it2
-        res(i_sum,it) = res(i_sum,it)+rbuf(i_sum,it,ip)
-        res(i_min,it) = MIN(res(i_min,it),rbuf(i_min,it,ip))
-        res(i_max,it) = MAX(res(i_max,it),rbuf(i_max,it,ip))
-      ENDDO
-    ENDDO
-
-
-    IF (my_process_is_stdio()) THEN
-
-      CALL message ('',separator,all_print=.TRUE.)
-
-      WRITE (message_text,'(A,I6,A)') ' Timer report ( tasknum * threadnum = ',n,')'
-      CALL message ('',message_text,all_print=.TRUE.)
-
-      WRITE (message_text,'(A,4A10,1X,A6)') ' label                       :  ', &
-           't_min',   't_avg',   't_max',   't_sum', 'lbe[%]'
-
-      CALL message ('',message_text,all_print=.TRUE.)
-      CALL message ('',separator,all_print=.TRUE.)
-
-      CALL mrgrnk(res(i_sum,:),itpos)
-
-      DO iit = it2, it1, -1
-        it = itpos(iit)
-        IF (rt(it)%stat == rt_undef_stat) CYCLE
-        IF (res(i_sum,it) <= 0.0_dp) CYCLE
-        avg = res(i_sum,it)*q
-        alpha = ABS(res(i_max,it)-avg)/avg; !abs() to avoid -zero irritation
-        e = 1.0_dp/(1.0_dp+alpha)
-        sum_str = time_sec_str(res(i_sum,it))
-        min_str = time_sec_str(res(i_min,it))
-        max_str = time_sec_str(res(i_max,it))
-        avg_str = time_sec_str(avg)
-        WRITE (e_str,'(f6.2)') 100.0_dp*e
-        WRITE (message_text,'(a,4a10,1x,a6)') ' '//srt(it)%text(1:27)//' :  ', &
-             min_str, avg_str, max_str, sum_str, e_str
-        CALL message ('',message_text,all_print=.TRUE.)
-      ENDDO
-      CALL message ('',separator,all_print=.TRUE.)
-
-    ENDIF
-
-  END SUBROUTINE timer_report_short
-
-  ! --
 
   ! Generalized and more flexible version of timer_report_short():
   ! It can be called among certain MPI communicators, not only on the workers, and
@@ -991,11 +888,11 @@ CONTAINS
 
     !-- start the table output
 
-    IF (p_pe_work == 0) THEN
+    IF (p_pe_work_only == 0) THEN
       CALL message ('','',all_print=.TRUE.)
       IF (p_n_work > 1) THEN
         !-- build list of global ranks within this work communicator
-        CALL get_mpi_comm_world_ranks(p_comm_work, ranks, nranks)
+        CALL get_mpi_comm_world_ranks(p_comm_work_only, ranks, nranks)
         CALL sort_and_compress_list(ranks, ranklist_str)
         WRITE (message_text,'(a,a)') 'Timer report, ranks ', TRIM(ranklist_str(1:MAX_CHAR_LENGTH-23))
       ELSE
@@ -1027,7 +924,7 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF (p_pe_work == 0) THEN
+    IF (p_pe_work_only == 0) THEN
       !-- print the table
       IF (tmr%inconsistent_timers) &
            CALL message('', 'timer hierarchy inconsistencies detected, &
@@ -1050,12 +947,7 @@ CONTAINS
          tmr%rank_min(timer_top), tmr%rank_max(timer_top))
 !$omp parallel
 !$omp master
-  !NEC hybrid mode: set default values for minimum for process 0 to exclude it from statistics
-  IF (p_pe_work < proc0_shift) THEN
-    tmr%val_min    = huge(tmr%val_min) 
-  ELSE
     tmr%val_min    = rt(1:timer_top)%min
-  END IF
     tmr%val_max    = rt(1:timer_top)%max
     tmr%val_tot    = rt(1:timer_top)%tot
     tmr%val_call_n = REAL(MAX(1,rt(1:timer_top)%call_n), dp)
@@ -1063,34 +955,29 @@ CONTAINS
 !$omp barrier
 !$omp sections
 !$omp section
-  !NEC hybrid mode: set default values for minimum for process 0 to exclude it from statistics
-  IF (p_pe_work < proc0_shift) THEN
-    tmr%val_tot_min = huge(tmr%val_tot_min)
-  ELSE
     tmr%val_tot_min = tmr%val_tot
-  ENDIF
 !$omp section
     tmr%val_tot_max = tmr%val_tot
 !$omp section
-    tmr%rank_min       = p_pe_work
+    tmr%rank_min       = p_pe_work_only
 !$omp section
-    tmr%rank_max       = p_pe_work
+    tmr%rank_max       = p_pe_work_only
 !$omp section
-    tmr%tot_rank_min   = p_pe_work
+    tmr%tot_rank_min   = p_pe_work_only
 !$omp section
-    tmr%tot_rank_max   = p_pe_work
+    tmr%tot_rank_max   = p_pe_work_only
 !$omp end sections
 !$omp end parallel
     ! Note: The following operations are MPI-collective!
     tmr%val_min = p_min(tmr%val_min, proc_id=tmr%rank_min, &
-         comm=p_comm_work, root=0)
+         comm=p_comm_work_only, root=0)
     tmr%val_max = p_max(tmr%val_max, proc_id=tmr%rank_max, &
-         comm=p_comm_work, root=0)
+         comm=p_comm_work_only, root=0)
     tmr%val_tot_min = p_min(tmr%val_tot_min, proc_id=tmr%tot_rank_min, &
-         comm=p_comm_work, root=0)
+         comm=p_comm_work_only, root=0)
     tmr%val_tot_max = p_max(tmr%val_tot_max, proc_id=tmr%tot_rank_max, &
-         comm=p_comm_work, root=0)
-    tmr%val_tot = p_sum(tmr%val_tot, comm=p_comm_work, root=0)
+         comm=p_comm_work_only, root=0)
+    tmr%val_tot = p_sum(tmr%val_tot, comm=p_comm_work_only, root=0)
     tmr%val_call_n = p_sum(tmr%val_call_n, comm=p_comm_work, root=0)
 
     tmr%inconsistent_timers = .FALSE.
@@ -1127,19 +1014,19 @@ CONTAINS
     END DO
 
 #ifndef NOMPI
-    ntasks = p_comm_size(p_comm_work)
+    ntasks = p_comm_size(p_comm_work_only)
 #else
     ntasks = 1
 #endif
     ALLOCATE(tcounts(0:ntasks-1))
-    CALL p_allgather(n, tcounts, comm=p_comm_work)
+    CALL p_allgather(n, tcounts, comm=p_comm_work_only)
     consistent_sub_timer_counts = ALL(tcounts(1:) == tcounts(0))
     consistent_timer_lists = .FALSE.
     consistent_sub_timer_counts &
-         = p_allreduce(consistent_sub_timer_counts, mpi_land, p_comm_work)
+         = p_allreduce(consistent_sub_timer_counts, mpi_land, p_comm_work_only)
     IF (consistent_sub_timer_counts) THEN
       ALLOCATE(tmrlists(n, 0:ntasks-1))
-      CALL p_allgather(subtimer_list(1:n), tmrlists, comm=p_comm_work)
+      CALL p_allgather(subtimer_list(1:n), tmrlists, comm=p_comm_work_only)
       consistent_timer_lists = .TRUE.
       DO i = 1, n
         consistent_timer_lists = consistent_timer_lists .AND. &
@@ -1182,7 +1069,7 @@ CONTAINS
     ! OpenMP: We take the values of the master thread
 
 
-    IF ((p_pe_work == 0) .AND. ( tmr%val_call_n(it) > 1.e-6_dp )) THEN
+    IF ((p_pe_work_only == 0) .AND. ( tmr%val_call_n(it) > 1.e-6_dp )) THEN
       val_avg = tmr%val_tot(it)/tmr%val_call_n(it)
       min_str = time_str(tmr%val_min(it))
       avg_str = time_str(val_avg)
