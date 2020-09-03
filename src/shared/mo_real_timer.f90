@@ -978,7 +978,7 @@ CONTAINS
     tmr%val_tot_max = p_max(tmr%val_tot_max, proc_id=tmr%tot_rank_max, &
          comm=p_comm_work_only, root=0)
     tmr%val_tot = p_sum(tmr%val_tot, comm=p_comm_work_only, root=0)
-    tmr%val_call_n = p_sum(tmr%val_call_n, comm=p_comm_work, root=0)
+    tmr%val_call_n = p_sum(tmr%val_call_n, comm=p_comm_work_only, root=0)
 
     tmr%inconsistent_timers = .FALSE.
   END SUBROUTINE get_timer_reductions
@@ -1067,8 +1067,6 @@ CONTAINS
     CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str
 
     ! OpenMP: We take the values of the master thread
-
-
     IF ((p_pe_work_only == 0) .AND. ( tmr%val_call_n(it) > 1.e-6_dp )) THEN
       val_avg = tmr%val_tot(it)/tmr%val_call_n(it)
       min_str = time_str(tmr%val_min(it))

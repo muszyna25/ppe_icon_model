@@ -1562,22 +1562,19 @@ CONTAINS
     p_pe_work_only   = p_pe_work
 
     IF (PRESENT(num_dio_procs)) THEN
-      IF (my_mpi_function == work_mpi_process .AND. num_dio_procs > 0) THEN
-         ! set first process of p_comm_work_only
-         p_workonly_pe0 = p_work_pe0 + num_dio_procs
-        IF (p_pe > p_work_pe0 + num_dio_procs - 1) THEN
-          ! give color to real work processes
-          my_color = 1
-          ! shift p_pe_work_only id in order to start with 0
-          p_pe_work_only = p_pe_work - num_dio_procs
-        ELSE
-          ! give color to detached stdio-PEs
-          my_color = 2
-          ! information on p_pe_work_only and p_workonly_pe0 fits to the one already set above (resetting just for better readability)
-          p_pe_work_only = p_pe_work
-        END IF
-        CALL mpi_comm_split(p_comm_work, my_color, p_pe, p_comm_work_only, p_error)
-      ENDIF
+       IF (my_mpi_function == work_mpi_process .AND. num_dio_procs > 0) THEN
+          ! set first process of p_comm_work_only
+          p_workonly_pe0 = p_work_pe0 + num_dio_procs
+          IF (p_pe > p_work_pe0 + num_dio_procs - 1) THEN
+             ! give color to real work processes
+             my_color = 1
+          ELSE
+             ! give color to detached stdio-PEs
+             my_color = 2
+          END IF
+          CALL MPI_COMM_SPLIT(p_comm_work, my_color, p_pe, p_comm_work_only, p_error)
+          CALL MPI_COMM_RANK (p_comm_work_only, p_pe_work_only, p_error)
+       ENDIF
     ENDIF
 
     ! Create p_comm_work_io, the communicator spanning work group and I/O PEs
