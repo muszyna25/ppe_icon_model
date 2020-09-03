@@ -1060,7 +1060,6 @@
       TYPE(datetime), POINTER :: &
         &  mtime_vdate_loc         !< LatBC file validity date as mtime object
       INTEGER                 :: &
-        &  errno,                & !< Error number
         &  vlistID, taxisID,     & !< CDI identifiers for variables list and time axis
         &  idate, iyear,         & !< Integer value of validity date: total date and year
         &  imonth, iday,         & !< Integer value of validity date: month and day
@@ -1078,7 +1077,7 @@
       itime   = taxisInqVTime(taxisID)
       CALL cdiDecodeDate(idate, iyear, imonth, iday)
       CALL cdiDecodeTime(itime, ihour, iminute, isecond)
-      mtime_vdate_loc => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
+      mtime_vdate_loc => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0)
       IF (msg_level >= 10) THEN
         CALL datetimeToString(latbc_read_datetime, dstringA)
         WRITE (message_text, '(5 A)')  TRIM(routine), ":: reading boundary data from file ",         &
@@ -1094,10 +1093,11 @@
         CALL finish(TRIM(routine), TRIM(message_text))
       END IF
 
-      IF (PRESENT(mtime_vdate)) mtime_vdate => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
-
-      CALL deallocateDatetime(mtime_vdate_loc)
-
+      IF (PRESENT(mtime_vdate)) THEN
+        mtime_vdate => mtime_vdate_loc
+      ELSE
+        CALL deallocateDatetime(mtime_vdate_loc)
+      END IF
     END SUBROUTINE check_validity_date_and_print_filename
 
     !-------------------------------------------------------------------------
