@@ -336,53 +336,86 @@ CONTAINS
   !! Report the value of a logical, integer or real variable
   !! Convenience routine interfaced by print_value(mstring, value)
   !!
-  SUBROUTINE print_lvalue (mstring, lvalue)
+  SUBROUTINE print_lvalue (mstring, lvalue, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
-    LOGICAL, intent(in)            :: lvalue
+    LOGICAL, INTENT(in)            :: lvalue
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
-    IF (lvalue) THEN
-      WRITE(message_text,'(a60,1x,": ",a)') mstring,'TRUE'
+    IF (PRESENT(routine)) THEN
+      rtn => routine
     ELSE
-      WRITE(message_text,'(a60,1x,": ",a)') mstring,'FALSE'
+      dummy = ' '
+      rtn => dummy(1:0)
     END IF
-    CALL message('', message_text, level=em_param)
+    WRITE(message_text,'(a60,1x,": ",a)') mstring, &
+         MERGE('TRUE ', 'FALSE', lvalue)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_lvalue
   !-------------
   !>
   !!
-  SUBROUTINE print_ivalue (mstring, ivalue)
+  SUBROUTINE print_ivalue(mstring, ivalue, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
     INTEGER, intent(in)            :: ivalue
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
+    IF (PRESENT(routine)) THEN
+      rtn => routine
+    ELSE
+      dummy = ' '
+      rtn => dummy(1:0)
+    END IF
     WRITE(message_text,'(a60,1x,":",i10)') mstring, ivalue
-    CALL message('', message_text, level=em_param)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_ivalue
   !-------------
   !>
   !!
-  SUBROUTINE print_i8value (mstring, i8value)
+  SUBROUTINE print_i8value (mstring, i8value, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
     INTEGER(i8), intent(in)        :: i8value
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
+    IF (PRESENT(routine)) THEN
+      rtn => routine
+    ELSE
+      dummy = ' '
+      rtn => dummy(1:0)
+    END IF
     WRITE(message_text,'(a60,1x,":",i10)') mstring, i8value
-    CALL message('', message_text, level=em_param)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_i8value
   !-------------
   !>
   !!
-  SUBROUTINE print_rvalue (mstring, rvalue)
+  SUBROUTINE print_rvalue (mstring, rvalue, routine)
 
     CHARACTER(len=*), intent(in)   :: mstring
     REAL(wp), intent(in)           :: rvalue
+    CHARACTER(len=*), TARGET, OPTIONAL, INTENT(in) :: routine
+    CHARACTER(len=:), POINTER :: rtn
+    CHARACTER(len=1), TARGET :: dummy
 
+    IF (PRESENT(routine)) THEN
+      rtn => routine
+    ELSE
+      dummy = ' '
+      rtn => dummy(1:0)
+    END IF
     WRITE(message_text,'(a60,1x,":",g12.5)') mstring, rvalue
-    CALL message('', message_text, level=em_param)
+    CALL message(rtn, message_text, level=em_param)
 
   END SUBROUTINE print_rvalue
   !-------------
