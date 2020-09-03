@@ -49,7 +49,7 @@ set -ex
 #% do VARIABLES_.add('MODEL_DIR')
 #% do VARIABLES_.add('SCRIPT_DIR')
 #% do VARIABLES_.add('BUILD_DIR')
-#% for var in VARIABLES_:
+#% for var in VARIABLES_|sort:
 #%   if context(var):
 %{var}=%{context(var)}
 #%   endif
