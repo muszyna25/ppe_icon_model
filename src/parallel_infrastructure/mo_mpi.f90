@@ -2488,11 +2488,7 @@ CONTAINS
 #endif
 
 
-    IF (global_mpi_size > 1) THEN
-      is_global_mpi_parallel = .TRUE.
-    ELSE
-      global_mpi_size = 1 ! just in case we got wrong size
-    ENDIF
+    is_global_mpi_parallel = global_mpi_size > 1
 
 #ifdef _OPENMP
     ! The number of threads, if varying, will be defined via
