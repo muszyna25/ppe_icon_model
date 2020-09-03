@@ -1078,14 +1078,7 @@ cat > ${oce_namelist} << EOF
 &coupling_mode_nml
   coupled_mode               = .TRUE.
 /
-&parallel_nml
- nproma                      = %{OCEAN_BLOCK_SIZE}
- num_io_procs                = ${mpi_oce_io_procs}
- num_prefetch_proc           = 0
- pio_type                    = 0
- p_test_run                  = .FALSE.
- l_fast_sum                  = .TRUE.
-/
+%{format_namelist(namelists.NAMELIST_oce, 'parallel_nml')}
 &grid_nml
  dynamics_grid_filename      = "${ocean_grid}"
  use_dummy_cell_closure      = .TRUE.
