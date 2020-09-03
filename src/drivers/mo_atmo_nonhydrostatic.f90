@@ -231,23 +231,13 @@ CONTAINS
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------
 
-    ALLOCATE (p_nh_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-    ENDIF
-
-    ALLOCATE (p_nh_state_lists(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_nh_state_lists failed')
-    ENDIF
-
     ! Note(GZ): Land state now needs to be allocated even if physics is turned
     ! off because ground temperature is included in feedback since r8133
     ! However, setting inwp_surface = 0 effects that only a few 2D fields are allocated
-    ALLOCATE (p_lnd_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-    ENDIF
+    ALLOCATE(p_nh_state(n_dom), p_nh_state_lists(n_dom), p_lnd_state(n_dom), &
+         stat=ist)
+    IF (ist /= success) CALL finish(routine, &
+      &                             'allocation for state failed')
 
     IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
@@ -292,16 +282,11 @@ CONTAINS
 
     ENDDO
 
-   IF (ldass_lhn) THEN 
-     ALLOCATE (radar_data(n_dom), STAT=ist)
-     IF (ist /= SUCCESS) THEN
-          CALL finish(TRIM(routine),'allocation for radar_data failed')
-     ENDIF
-     ALLOCATE (lhn_fields(n_dom), STAT=ist)
-     IF (ist /= SUCCESS) THEN
-          CALL finish(TRIM(routine),'allocation for lhn_fields failed')
-     ENDIF
-     CALL message(TRIM(routine),'configure_lhn')
+   IF (ldass_lhn) THEN
+     ALLOCATE (radar_data(n_dom), lhn_fields(n_dom), STAT=ist)
+     IF (ist /= SUCCESS) &
+       CALL finish(routine,'allocation for radar_data and lhn_fields failed')
+     CALL message(routine,'configure_lhn')
      DO jg =1,n_dom
        CALL configure_lhn(jg)
      ENDDO 
@@ -747,14 +732,8 @@ CONTAINS
     ! Delete state variables
 
     CALL destruct_nh_state( p_nh_state, p_nh_state_lists )
-    DEALLOCATE (p_nh_state, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
-    ENDIF
-    DEALLOCATE (p_nh_state_lists, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for p_nh_state_lists failed')
-    ENDIF
+    DEALLOCATE (p_nh_state, p_nh_state_lists, STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(routine,'deallocation for state failed')
 
     IF (iforcing == inwp) THEN
       DO jg = 1, n_dom
