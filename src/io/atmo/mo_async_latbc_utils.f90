@@ -1098,7 +1098,7 @@
       mtime_vdate_loc => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0)
       IF (msg_level >= 10) THEN
         CALL datetimeToString(latbc_read_datetime, dstringA)
-        WRITE (message_text, '(5 A)')  TRIM(routine), ":: reading boundary data from file ",         &
+        WRITE (message_text, '(5 A)')  routine, ":: reading boundary data from file ",         &
           &                            TRIM(latbc_full_filename), " for date: ", TRIM(dstringA)
         WRITE (0,*) TRIM(message_text)
       END IF
@@ -1108,7 +1108,7 @@
         WRITE (message_text, '(6 A)')  "File validity date ", TRIM(dstringB)," of file ",            &
           &                            TRIM(latbc_full_filename), " does not match requested date ", &
           &                            TRIM(dstringA)
-        CALL finish(TRIM(routine), TRIM(message_text))
+        CALL finish(routine, message_text)
       END IF
 
       IF (PRESENT(mtime_vdate)) THEN
