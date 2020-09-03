@@ -222,13 +222,11 @@ CONTAINS
     sim_time = getElapsedSimTimeInSeconds(time_config%tc_current_date) 
 
     DO jg=1, n_dom
-      IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
-        p_patch(jg)%ldom_active = .FALSE. ! domain not active
-      ELSE
-        p_patch(jg)%ldom_active = .TRUE.
-      ENDIF
+      p_patch(jg)%ldom_active &
+           =        (jg <= 1 .OR. start_time(jg) <= sim_time) &
+           &  .AND. end_time(jg) > sim_time
     ENDDO
-    
+
     !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------
