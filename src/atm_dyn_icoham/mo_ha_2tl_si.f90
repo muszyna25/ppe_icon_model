@@ -119,7 +119,7 @@ MODULE mo_ha_2tl_si
 !----------------------------------------------------------
 ! 1. Calculate right-hand side of the increment equations
 !----------------------------------------------------------
- IF (ltheta_dyn) CALL finish(TRIM(routine),'theta dyn. not implimented')
+ IF (ltheta_dyn) CALL finish(routine, 'theta dyn. not implimented')
 
    CALL tend_expl( si_expl_scheme, p_dtime,                &! in
                    p_now, p_patch, p_int_state,            &! in
@@ -220,7 +220,7 @@ MODULE mo_ha_2tl_si
    IF (msg_level >= 1) THEN
      WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                    ', residual = ', ABS(z_residual(niter))
-     CALL message(TRIM(routine),TRIM(string))
+     CALL message(routine, string)
    ENDIF
 
 !---------------------------------------------------------
@@ -275,8 +275,7 @@ MODULE mo_ha_2tl_si
                         p_dvn, p_dtemp, p_dps )                   ! out
   !! Arguments
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_ha_2tl_si:tend_expl'
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_ha_2tl_si:tend_expl'
 
   INTEGER ,INTENT(IN) :: si_expl_scheme 
   REAL(wp),INTENT(IN) :: p_dtime
@@ -331,7 +330,7 @@ MODULE mo_ha_2tl_si
   ENDIF
 
   WRITE(string,'(a,i2)') 'si slow comp =',ischeme
-  CALL message(TRIM(routine),TRIM(string))
+  CALL message(routine, TRIM(string))
 
   SELECT CASE(ischeme)
   CASE(EULER_FORWARD)
