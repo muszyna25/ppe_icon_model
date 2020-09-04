@@ -52,7 +52,7 @@ MODULE mo_advection_traj
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
-  USE mo_impl_constants,      ONLY: min_rledge_int, SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: min_rledge_int, SUCCESS
   USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_back_traj
   USE mo_advection_utils,     ONLY: t_list2D
 !!$  USE mo_math_constants,      ONLY: dbl_eps
@@ -101,6 +101,8 @@ MODULE mo_advection_traj
     
   END TYPE t_back_traj
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_advection_traj'
+
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -123,18 +125,17 @@ CONTAINS
     ! local
     INTEGER :: ist
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_traj: construct'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':construct'
 
     ALLOCATE(obj%cell_idx(nproma,nlev,nblks), &
       &      obj%cell_blk(nproma,nlev,nblks), STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'allocation for cell_idx and cell_blk failed' )
+      CALL finish(routine, 'allocation for cell_idx and cell_blk failed' )
     ENDIF
 
     ALLOCATE(obj%distv_bary(nproma,nlev,nblks,ncoord), STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
+      CALL finish(routine, 'allocation for distv_bary failed' )
     ENDIF
 
 !$ACC ENTER DATA CREATE( obj ), IF ( i_am_accel_node .AND. acc_on )
@@ -159,8 +160,7 @@ CONTAINS
     ! local
     INTEGER :: ist
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_traj: destruct'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':destruct'
 
     IF (ASSOCIATED(obj%cell_idx)) THEN
 
@@ -169,12 +169,12 @@ CONTAINS
 
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
+        CALL finish(routine, 'deallocation for cell_idx and cell_blk failed' )
       ENDIF
 
       DEALLOCATE(obj%distv_bary, STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
+        CALL finish(routine, 'deallocation for distv_bary failed' )
       ENDIF
     ENDIF
 
