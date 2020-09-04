@@ -239,7 +239,7 @@ CONTAINS
     ! Count the number of names given in tracer_names(:) before the first
     ! default name '...' is found.
     CALL message(' ',' ')
-    CALL message(TRIM(routine),'Evaluate the number of names in transport_nml/tracer_names')
+    CALL message(routine,'Evaluate the number of names in transport_nml/tracer_names')
     nname=0
     DO
       IF (TRIM(ADJUSTL(tracer_names(nname+1))) /= '...') THEN
@@ -259,14 +259,14 @@ CONTAINS
     !
     ! Stop if ntracer has been set to non-zero but less than the number of tracer names
     IF (0<ntracer .AND. ntracer<nname) THEN
-      CALL finish(TRIM(routine),'Found inconsistent setup: 0 < run_nml/ntracer < ' //&
+      CALL finish(routine,'Found inconsistent setup: 0 < run_nml/ntracer < ' //&
            &      'number of names in transport_nml/tracer_names')
     END IF
     !
     ! If ntracer has been set and ntracer > nname, then fill in default names 'q<no>'
     ! for tracers with indices nname+1 to ntracer.
     IF (nname<ntracer) THEN
-      CALL message(TRIM(routine),'Setting default names for tracers without names.')
+      CALL message(routine,'Setting default names for tracers without names.')
       CALL print_value('number of tracers without names',ntracer-nname)
       DO it=nname+1,ntracer
         WRITE(tname,'(i3)') it
@@ -280,14 +280,14 @@ CONTAINS
     !
     IF ( ANY(ihadv_tracer(1:max_ntracer) > FFSL_HYB_MCYCL) .OR.       &
       &  ANY(ihadv_tracer(1:max_ntracer) < 0) )    THEN
-      CALL finish( TRIM(routine),                                     &
+      CALL finish(routine,                                              &
         &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,5,'//&
         &  '20,22,32,42 or 52 ')
     ENDIF
 
     IF ( ANY(ivadv_tracer(1:max_ntracer) > ippm_v) .OR.               &
       &  ANY(ivadv_tracer(1:max_ntracer) < 0) ) THEN
-      CALL finish( TRIM(routine),                                     &
+      CALL finish(routine,                                     &
         &  'incorrect settings for ivadv_tracer. Must be 0,1,2, or 3 ')
     ENDIF
 
@@ -307,24 +307,24 @@ CONTAINS
     !
     IF ( ANY(itype_vlimit(1:max_ntracer) < inol_v ) .OR.              &
       &  ANY(itype_vlimit(1:max_ntracer) > ifluxl_vpd)) THEN
-      CALL finish( TRIM(routine),                                     &
+      CALL finish(routine,                                     &
         &  'incorrect settings for itype_vlimit. Permissible choices [0,..,3]')
     ENDIF
     IF ( ANY(itype_hlimit(1:max_ntracer) < inol ) .OR.                &
       &  ANY(itype_hlimit(1:max_ntracer) > ifluxl_sm)) THEN
-      CALL finish( TRIM(routine),                                     &
+      CALL finish(routine,                                     &
         &  'incorrect settings for itype_hlimit. Permissible choices [0,..,4]')
     ENDIF
     IF ( ANY(ivlimit_selective(1:max_ntracer) < 0 ) .OR.              &
       &  ANY(ivlimit_selective(1:max_ntracer) > 1 )) THEN
-      CALL finish( TRIM(routine),                                     &
+      CALL finish(routine,                                     &
         &  'incorrect settings for ivlimit_selective. Permissible values 0 or 1')
     ENDIF
 
     ! FCT multiplicative spreading - sanity check
     ! 
     IF ( (beta_fct < 1.0_wp) .OR. (beta_fct >= 2.0_wp) ) THEN
-      CALL finish( TRIM(routine),                                     & 
+      CALL finish(routine,                                     & 
         & 'permissible range of values for beta_fct:  [1,2[ ')
     ENDIF
 
@@ -332,7 +332,7 @@ CONTAINS
     ! TKE advection - sanity check
     !
     IF ( ALL((/0,1,2/) /= iadv_tke) ) THEN
-      CALL finish( TRIM(routine),                                     &
+      CALL finish(routine,                                     &
         &  'incorrect settings for iadv_tke. Must be 0, 1 or 2')
     ENDIF
 

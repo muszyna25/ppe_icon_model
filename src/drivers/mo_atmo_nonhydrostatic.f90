@@ -339,7 +339,7 @@ CONTAINS
         END IF
       END DO
       !
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
+      CALL message(routine,'normal exit from read_restart_files')
       !
       IF (timers_level > 4) CALL timer_stop(timer_read_restart)
       !
@@ -443,8 +443,9 @@ CONTAINS
 !$OMP PARALLEL
             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),echam_rad_config(jg)% vmr_co2*amco2/amd)
 !$OMP END PARALLEL
-            CALL print_value(TRIM(routine)//': CO2 tracer initialized with constant vmr', &
-              &              echam_rad_config(jg)% vmr_co2*amco2/amd)
+            CALL print_value('CO2 tracer initialized with constant vmr', &
+              &              echam_rad_config(jg)% vmr_co2*amco2/amd,    &
+              &              routine=routine)
           END IF
           !
           ! O3 tracer
@@ -456,12 +457,12 @@ CONTAINS
                 &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
               CALL sync_patch_array ( sync_c,p_patch(jg)                                   ,&
                 &                     p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3)  )
-              CALL message(TRIM(routine),'o3 tracer is initialized by the Cariolle lin. o3 scheme')
+              CALL message(routine,'o3 tracer is initialized by the Cariolle lin. o3 scheme')
             ELSE
 !$OMP PARALLEL
               CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,io3),0.0_wp)
 !$OMP END PARALLEL
-              CALL message(TRIM(routine),'o3 tracer is initialized to zero, check setup')
+              CALL message(routine,'o3 tracer is initialized to zero, check setup')
             END IF
           END IF
           !
@@ -714,7 +715,7 @@ CONTAINS
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
 
-    CALL message(TRIM(routine),'start to clean up')
+    CALL message(routine,'start to clean up')
 
 #ifdef MESSY
     CALL messy_free_memory
@@ -803,7 +804,7 @@ CONTAINS
       ! deallocate ext_data array
       DEALLOCATE(radar_data, STAT=ist)
       IF (ist /= SUCCESS) THEN
-        CALL finish(TRIM(routine), 'deallocation of radar_data for LHN')
+        CALL finish(routine, 'deallocation of radar_data for LHN')
       ENDIF
       CALL destruct_lhn (lhn_fields)
     ENDIF
@@ -812,7 +813,7 @@ CONTAINS
        CALL finish_dace ()
     END IF
  
-    CALL message(TRIM(routine),'clean-up finished')
+    CALL message(routine,'clean-up finished')
 
   END SUBROUTINE destruct_atmo_nonhydrostatic
   !---------------------------------------------------------------------
