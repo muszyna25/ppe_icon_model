@@ -1248,7 +1248,7 @@ cat > ${oce_namelist} << EOF
  num_prefetch_proc           = 0
  pio_type                    = 0
  p_test_run                  = .FALSE.
- l_fast_sum                  = .TRUE.
+ l_fast_sum                  = .FALSE.
 /
 &grid_nml
  dynamics_grid_filename      = "${ocean_grid}"
