@@ -75,7 +75,7 @@ MODULE mo_hierarchy_management
   USE mo_df_test,             ONLY: get_df_velocity, get_departure_points,   &
     &                               prep_departure_points_err
   USE mo_ha_testcases,        ONLY: ctest_name,rotate_axis_deg
-  USE mo_impl_constants,      ONLY: success, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: success
   USE mo_expensive_functions, ONLY: convert_t2theta_lin, convert_theta2t_lin
 !!$  USE mo_interface_icoham_echam, ONLY: interface_icoham_echam
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -121,6 +121,8 @@ MODULE mo_hierarchy_management
 
   PUBLIC :: process_grid, interpolate_diagnostics
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_hierarchy_management'
+
 CONTAINS
 
 
@@ -142,8 +144,7 @@ CONTAINS
                                    & nsteps,                         &
                                    & mtime_current )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_hierarchy_management:process_grid'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':process_grid'
 
     TYPE(t_patch),TARGET, INTENT(INOUT)        :: p_patch(n_dom)
     TYPE(t_hydro_atm),  TARGET,INTENT(INOUT)   :: p_hydro_state(n_dom)
@@ -209,9 +210,9 @@ CONTAINS
       ! information on global time step, grid index and local time step
       WRITE (message_text,'(a,i6,a,i2,a,i2)')                  &
         & '.        step :',nstep_global,'  grid :',jg,' substep :',ns
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
       CALL datetimeToString(mtime_current, dstring)
-      CALL message(TRIM(routine),TRIM(dstring))
+      CALL message(routine, dstring)
 
       iret = util_cputime(tu, ts)
       t_0 = tu+ts
@@ -347,10 +348,10 @@ CONTAINS
         ! Special treatment for 3 time level schemes
         !==========================================================================
 
-        CALL message(TRIM(routine),' special treatment for 3 time level schemes')
+        CALL message(routine, 'special treatment for 3 time level schemes')
 
         WRITE(message_text,'(a,i10)') 'TIME STEP n: ', nstep_global
-        CALL message(TRIM(routine),message_text)
+        CALL message(routine, message_text)
 
         CALL leapfrog_startup( ha_dyn_config%ileapfrog_startup,            &
           &                    p_patch, p_int_state, ext_data, jg, dt_loc, &
@@ -910,7 +911,7 @@ CONTAINS
           ! before entering finer grid.
 
         CASE DEFAULT
-          CALL message(TRIM(routine),'wrong itime_scheme')
+          CALL message(routine, 'wrong itime_scheme')
         END SELECT !( itime_scheme )
 
         !======================
@@ -1140,7 +1141,7 @@ CONTAINS
       t_tot = t_tot + t_1 - t_0
 
       WRITE(message_text,'(''Total time patch '',i2,'': '',f10.3)') jg, t_tot
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
 
       ! update here "grid_datetime" for next time step in this loop
       grid_datetime = grid_datetime + mtime_step
