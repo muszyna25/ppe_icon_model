@@ -128,15 +128,9 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = modname//':construct'
 
     ALLOCATE(obj%cell_idx(nproma,nlev,nblks), &
-      &      obj%cell_blk(nproma,nlev,nblks), STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(routine, 'allocation for cell_idx and cell_blk failed' )
-    ENDIF
-
-    ALLOCATE(obj%distv_bary(nproma,nlev,nblks,ncoord), STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(routine, 'allocation for distv_bary failed' )
-    ENDIF
+      &      obj%cell_blk(nproma,nlev,nblks), &
+      &      obj%distv_bary(nproma,nlev,nblks,ncoord), STAT=ist)
+    IF (ist /= SUCCESS) CALL finish(routine, 'allocation failed')
 
 !$ACC ENTER DATA CREATE( obj ), IF ( i_am_accel_node .AND. acc_on )
 !$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF ( i_am_accel_node .AND. acc_on )
@@ -167,15 +161,9 @@ CONTAINS
 !$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF ( i_am_accel_node .AND. acc_on )
 !$ACC EXIT DATA DELETE( obj ), IF ( i_am_accel_node .AND. acc_on )
 
-      DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
-      IF (ist /= SUCCESS) THEN
-        CALL finish(routine, 'deallocation for cell_idx and cell_blk failed' )
-      ENDIF
+      DEALLOCATE(obj%cell_idx, obj%cell_blk, obj%distv_bary, STAT=ist)
+      IF (ist /= SUCCESS) CALL finish(routine, 'deallocation failed')
 
-      DEALLOCATE(obj%distv_bary, STAT=ist)
-      IF (ist /= SUCCESS) THEN
-        CALL finish(routine, 'deallocation for distv_bary failed' )
-      ENDIF
     ENDIF
 
   END SUBROUTINE destruct
