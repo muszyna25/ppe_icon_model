@@ -43,6 +43,7 @@
 
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_contiguous_defines.h"
 !----------------------------
 MODULE mo_advection_traj
 
@@ -84,15 +85,15 @@ MODULE mo_advection_traj
   TYPE t_back_traj
     ! line indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_idx(:,:,:) => NULL()
+    INTEGER, CONTIGUOUS_POINTER :: cell_idx(:,:,:) => NULL()
     !
     ! block indices of cell centers in which the calculated barycenters are located
     ! dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER , POINTER :: cell_blk(:,:,:) => NULL()
+    INTEGER, CONTIGUOUS_POINTER :: cell_blk(:,:,:) => NULL()
     !
     ! distance vectors cell center --> barycenter of advected area (geographical coordinates)
     ! dim: (nproma,nlev,p_patch%nblks_e,2)
-    REAL(vp), POINTER :: distv_bary(:,:,:,:) => NULL()
+    REAL(vp), CONTIGUOUS_POINTER :: distv_bary(:,:,:,:) => NULL()
 
   CONTAINS
     !
@@ -232,8 +233,8 @@ CONTAINS
     INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
 ! These convenience pointers are needed to avoid PGI trying to copy derived type instance btraj back from device to host
-    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
-    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+    INTEGER, CONTIGUOUS_POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), CONTIGUOUS_POINTER :: p_distv_bary(:,:,:,:)
     LOGICAL :: lvn_pos
 
     !-------------------------------------------------------------------------
@@ -875,11 +876,12 @@ CONTAINS
     INTEGER :: slev, elev        !< vertical start and end level
     INTEGER :: zcell             !< determines whether the barycenter is located
     !< in cell 1 or 2
-    INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
-         & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
+    !> pointer for line and block indices of edge
+    !! midpoints for quadrilateral cell
+    INTEGER, CONTIGUOUS_POINTER :: iidx(:,:,:), iblk(:,:,:)
 ! These convenience pointers are needed to avoid PGI trying to copy derived type instance btraj back from device to host
-    INTEGER, POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
-    REAL(vp), POINTER :: p_distv_bary(:,:,:,:)
+    INTEGER, CONTIGUOUS_POINTER  :: p_cell_idx(:,:,:), p_cell_blk(:,:,:)
+    REAL(vp), CONTIGUOUS_POINTER :: p_distv_bary(:,:,:,:)
 
     !DR    REAL(wp) :: z_vabs_orig, z_vabs_new
 
