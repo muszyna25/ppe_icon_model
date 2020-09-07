@@ -955,7 +955,7 @@ CONTAINS
     INTEGER, OPTIONAL,          INTENT(IN) :: opt_dst     ! (optional:) WRITE destination
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_prefix  ! (optional:) line prefix
 
-    INTEGER :: dst, max_ll, ccnt, i, len_i
+    INTEGER :: dst, max_ll, ccnt, i, len_i, len_pfx
     CHARACTER(len=:), ALLOCATABLE :: prefix
 
     dst = 0
@@ -969,6 +969,7 @@ CONTAINS
       ALLOCATE(CHARACTER(1) :: prefix)
       prefix = " "
     END IF
+    len_pfx = LEN(prefix)
 
     ccnt = max_ll
     DO i=1,SIZE(list)
@@ -977,9 +978,9 @@ CONTAINS
       IF (ccnt + len_i + 2 > max_ll) THEN
         IF (i>1)  WRITE (dst,"(a)") " "
         WRITE (dst,"(a)", advance='no') prefix
-        ccnt = LEN(prefix)
+        ccnt = len_pfx
       END IF
-      WRITE (dst,"(a)", advance='no') TRIM(list(i))
+      WRITE (dst,"(a)", advance='no') list(i)(1:len_i)
       IF (i < SIZE(list))  WRITE (dst,"(a)", advance='no') ", "
       ccnt = ccnt + len_i + 2
     END DO
