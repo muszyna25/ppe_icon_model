@@ -48,6 +48,7 @@ MODULE mo_var_list
     &                            pretty_print_string_list, tolower, &
     &                            difference, find_trailing_number
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
+    &                            max_var_list_name_len,             &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
     &                            BOOL_T, INT_T, SUCCESS,            &
@@ -4357,7 +4358,7 @@ CONTAINS
     TYPE(t_list_element), POINTER   :: element, newElement
     TYPE(t_var_metadata)            :: info
     TYPE(t_var_list)                :: p_var_list
-    CHARACTER(LEN=128)              :: var_list_name
+    CHARACTER(LEN=max_var_list_name_len) :: var_list_name
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart
 

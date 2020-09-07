@@ -522,8 +522,10 @@ MODULE mo_impl_constants
   !  MODEL OUTPUT  !
   !----------------!
 
-  ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256 
+  !> maximum string length for variable names
+  INTEGER, PARAMETER :: VARNAME_LEN = 256
+  !> maximum string length for variable list names
+  INTEGER, PARAMETER :: max_var_list_name_len = 128
 
   INTEGER, PARAMETER :: &
     max_var_lists  = 256, & ! max number of output var_lists
