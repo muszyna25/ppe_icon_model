@@ -196,15 +196,9 @@ CONTAINS
     ! loop over all variable lists and variables
     !
     DO i = 1,nvar_lists
-      element => NULL()
+      element => var_lists(i)%p%first_list_element
 
-      LOOPVAR : DO
-        IF(.NOT.ASSOCIATED(element)) THEN
-          element => var_lists(i)%p%first_list_element
-        ELSE
-          element => element%next_list_element
-        ENDIF
-        IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
+      LOOPVAR : DO WHILE (ASSOCIATED(element))
 
         ! point to variable specific action list
         action_list => element%field%info%action_list
@@ -239,6 +233,7 @@ CONTAINS
 
         IF(ASSOCIATED(action_list)) action_list => NULL()
 
+        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
 
