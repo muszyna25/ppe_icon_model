@@ -3342,7 +3342,7 @@ MODULE mo_nh_stepping
 
     INTEGER                              :: jg
     INTEGER                              :: ist
-    CHARACTER(len=64)                    :: attname   ! attribute name
+    CHARACTER(len=32)       :: attname   ! attribute name
     TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(len=*), PARAMETER :: routine = modname//': perform_nh_stepping'
 
