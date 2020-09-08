@@ -379,11 +379,7 @@ MODULE mo_initicon_io
         !
         ! Check if normal velocity component (VN) is provided as input
         !
-        IF (nf_inq_varid(ncid, 'VN', varid) == nf_noerr) THEN
-          lread_vn = .TRUE.
-        ELSE
-          lread_vn = .FALSE.
-        ENDIF
+        lread_vn = nf_inq_varid(ncid, 'VN', varid) == nf_noerr
 
 
         IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN

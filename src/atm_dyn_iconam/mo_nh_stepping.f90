@@ -928,11 +928,7 @@ MODULE mo_nh_stepping
       CALL read_latbc_data_sync(p_patch(1), p_nh_state(1), ext_data(1), p_int_state(1), mtime_current)
     ENDIF
 
-    IF (msg_level > 2) THEN
-      lprint_timestep = .TRUE.
-    ELSE
-      lprint_timestep = MOD(jstep,25) == 0
-    ENDIF
+    lprint_timestep = msg_level > 2 .OR. MOD(jstep,25) == 0
 
     ! always print the first and the last time step
     lprint_timestep = lprint_timestep .OR. (jstep == jstep0+1) .OR. (jstep == jstep0+nsteps)
