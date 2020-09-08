@@ -119,9 +119,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   ! local variables for turbdiff
 
   INTEGER :: ierrstat
-  CHARACTER (LEN=25) :: eroutine=''
-  CHARACTER (LEN=80) :: errormsg=''
-
+  CHARACTER (LEN=25) :: eroutine
+  CHARACTER (LEN=80) :: errormsg
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
   INTEGER  :: lc_class                              !< land-cover class
 
