@@ -601,15 +601,16 @@ CONTAINS !......................................................................
     CHARACTER(LEN=*),             INTENT(IN)    :: key
 
     ! Local variables
-    INTEGER :: i
+    INTEGER :: i, l
     CHARACTER(*), PARAMETER :: routine = modname//':setRestartAttributes_I1D'
 
     !----------------------------------------------
 
-    IF (LEN_TRIM(key) == 0) CALL finish(routine, 'Invalid key')
+    l = LEN_TRIM(key)
+    IF (l == 0) CALL finish(routine, 'Invalid key')
     IF (ALLOCATED(attribute)) THEN
       DO i = 1, SIZE(attribute)
-        CALL restartAttributes%put(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
+        CALL restartAttributes%put(key(1:l)//TRIM(int2string(i, '(i2.2)')), attribute(i))
       ENDDO
     ENDIF
 
@@ -631,15 +632,16 @@ CONTAINS !......................................................................
     CHARACTER(LEN=*),             INTENT(IN)    :: key
 
     ! Local variables
-    INTEGER :: i
+    INTEGER :: i, l
     CHARACTER(*), PARAMETER :: routine = modname//':setRestartAttributes_L1D'
 
     !----------------------------------------------
 
-    IF (LEN_TRIM(key) == 0) CALL finish(routine, 'Invalid key')
+    l = LEN_TRIM(key)
+    IF (l == 0) CALL finish(routine, 'Invalid key')
     IF (ALLOCATED(attribute)) THEN
       DO i = 1, SIZE(attribute)
-        CALL restartAttributes%put(TRIM(key)//TRIM(int2string(i, '(i2.2)')), attribute(i))
+        CALL restartAttributes%put(key(1:l)//TRIM(int2string(i, '(i2.2)')), attribute(i))
       ENDDO
     ENDIF
 
