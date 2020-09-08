@@ -992,24 +992,29 @@ CONTAINS
   !> find position of numeric suffix in the character string "str",
   !  return "-1" if no such suffix is found.
   !
-  RECURSIVE FUNCTION find_trailing_number(str) RESULT(pos)
+  FUNCTION find_trailing_number(str, tlen) RESULT(pos)
     INTEGER                      :: pos
+    INTEGER, OPTIONAL, INTENT(IN) :: tlen
     CHARACTER(LEN=*), INTENT(IN) :: str  !< input string
-    INTEGER :: len
+    INTEGER :: l
 
-    pos   = -1
-    len   = LEN_TRIM(str)
-    IF (len == 0) RETURN
-
-    IF (is_number(str(len:len))) THEN
-      IF (len > 1)   pos = find_trailing_number(str(1:(len-1)))
-      IF (pos == -1) pos = len
+    pos = -1
+    IF (PRESENT(tlen)) THEN
+      l = tlen
+    ELSE
+      l = LEN_TRIM(str)
     END IF
-
+    IF (l > 0) THEN
+      DO WHILE (is_number(str(l:l)))
+        pos = l
+        l = l - 1
+        IF (l <= 1) EXIT
+      END DO
+    END IF
   CONTAINS
     LOGICAL FUNCTION is_number(char)
       CHARACTER, INTENT(IN) :: char
-      is_number = (IACHAR(char) - IACHAR('0')) <= 9
+      is_number = IACHAR(char) >= IACHAR('0') .AND. IACHAR(char) <= IACHAR('9')
     END FUNCTION is_number
   END FUNCTION find_trailing_number
 
