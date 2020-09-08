@@ -150,12 +150,10 @@ CONTAINS
   SUBROUTINE action_collect_vars(act_obj, actionTyp)
     CLASS(t_action_obj)         :: act_obj
     INTEGER      , INTENT(IN)   :: actionTyp
-    ! local variables
     INTEGER :: i, iact, iv, nv
     TYPE(t_var), POINTER :: element
     TYPE(t_var_action), POINTER :: action_list
     TYPE(t_vl_register_iter) :: vl_iter
-    CHARACTER(LEN=2)                    :: str_actionTyp
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
   !-------------------------------------------------------------------------
@@ -179,14 +177,14 @@ CONTAINS
             act_obj%var_action_index(nv) = iact
             act_obj%var_element_ptr(nv)%patch_id = vl_iter%cur%p%patch_id
             ! Create event for this specific field
-            write(str_actionTyp,'(i2)') actionTyp
-            event_name = 'act_TYP'//TRIM(str_actionTyp)//'_'//TRIM(action_list%action(iact)%intvl)
-            act_obj%var_element_ptr(nv)%mevent => newEvent(TRIM(event_name), &
-              & TRIM(action_list%action(iact)%ref), TRIM(action_list%action(iact)%start), &
-              & TRIM(action_list%action(iact)%end), TRIM(action_list%action(iact)%intvl))
+            WRITE(event_name,'(a,i2,2a)') 'act_TYP', actionTyp, &
+                 '_', TRIM(action_list%action(iact)%intvl)
+            act_obj%var_element_ptr(nv)%mevent => newEvent(event_name, &
+              & action_list%action(iact)%ref, action_list%action(iact)%start, &
+              & action_list%action(iact)%end, action_list%action(iact)%intvl)
           END IF
         ENDDO  LOOPACTION ! loop over variable-specific actions
-        IF(ASSOCIATED(action_list)) action_list => NULL()
+        IF (ASSOCIATED(action_list)) action_list => NULL()
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
     ! set nvars
@@ -194,7 +192,7 @@ CONTAINS
     IF (msg_level >= 11) THEN
       ! remove duplicate variable names
       DO i=1,act_obj%nvars
-        varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
+        varlist(i) = act_obj%var_element_ptr(i)%p%info%name
       ENDDO
       CALL remove_duplicates(varlist,nv)
       WRITE(message_text,'(a)') 'Variables assigned to action '//TRIM(ACTION_NAMES(act_obj%actionTyp))//':'
@@ -480,8 +478,8 @@ CONTAINS
     DO iact = 1,var_info%action_list%n_actions
       IF (var_info%action_list%action(iact)%actionTyp /= actionTyp ) CYCLE  ! skip all non-matching action types
 
-      start_date => newDatetime(TRIM(var_info%action_list%action(iact)%start))
-      end_date   => newDatetime(TRIM(var_info%action_list%action(iact)%end))
+      start_date => newDatetime(var_info%action_list%action(iact)%start)
+      end_date   => newDatetime(var_info%action_list%action(iact)%end)
 
       IF ((cur_date >= start_date) .AND. (cur_date <= end_date)) THEN
         actionId = iact   ! found active action
