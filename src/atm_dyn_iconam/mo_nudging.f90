@@ -1305,7 +1305,7 @@ CONTAINS !..................................................................
         pres_msl(jc,jb) = pres_sfc * EXP( prt * ( 1.0_wp - prtal * ( 0.5_wp - one_third * prtal ) ) )
       ENDDO  !jc
     ENDDO  !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
   END SUBROUTINE diag_pmsl

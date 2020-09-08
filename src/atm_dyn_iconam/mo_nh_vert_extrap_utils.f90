@@ -1967,7 +1967,7 @@ CONTAINS  !.....................................................................
         max_val_block(jb)   = ABS(state(max_loc_block(1,jb),max_loc_block(2,jb),jb))
       ENDIF
     ENDDO  !jb
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Next, we search for the max among all blocks
