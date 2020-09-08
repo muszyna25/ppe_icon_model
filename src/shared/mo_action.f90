@@ -46,7 +46,7 @@ MODULE mo_action
   USE mo_kind,               ONLY: wp, i8
   USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_comm_work, p_bcast
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: vname_len
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
     &                              isCurrentEventActive, deallocateDatetime,         &
     &                              MAX_DATETIME_STR_LEN,                             &
@@ -585,8 +585,7 @@ CONTAINS
     CLASS (t_reset_obj)  :: act_obj
     INTEGER, INTENT(IN) :: ivar    ! element number
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_action:reset_kernel'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_action:reset_kernel'
     !-------------------------------------------------------------------
 
     ! re-set field to its pre-defined reset-value
