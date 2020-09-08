@@ -113,8 +113,7 @@ MODULE mo_nh_stepping
                                          limarea_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback, lhn_feedback
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH,                          &
-    &                                    inoforcing, iheldsuarez, inwp, iecham,             &
+  USE mo_impl_constants,           ONLY: SUCCESS, inoforcing, iheldsuarez, inwp, iecham,    &
     &                                    MODE_IAU, MODE_IAU_OLD, SSTICE_CLIM,               &
     &                                    SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY, SSTICE_INST, &
     &                                    max_dom, min_rlcell, min_rlvert
@@ -294,7 +293,7 @@ MODULE mo_nh_stepping
 
   TYPE(t_simulation_status)            :: simulation_status
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+  CHARACTER(len=*), PARAMETER ::  &
     &  routine = modname//':perform_nh_stepping'
   CHARACTER(filename_max) :: sst_td_file !< file name for reading in
   CHARACTER(filename_max) :: ci_td_file
@@ -755,7 +754,7 @@ MODULE mo_nh_stepping
   IF (timeshift%dt_shift < 0._wp  .AND. .NOT. isRestart()) THEN
     jstep_shift = NINT(timeshift%dt_shift/dtime)
     WRITE(message_text,'(a,i6,a)') 'Model start shifted backwards by ', ABS(jstep_shift),' time steps'
-    CALL message(TRIM(routine),message_text)
+    CALL message(routine, message_text)
     atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
   ELSE
     jstep_shift = 0
@@ -895,7 +894,7 @@ MODULE mo_nh_stepping
       IF (p_patch(jg)%ldom_active .AND. (sim_time >= end_time(jg))) THEN
         p_patch(jg)%ldom_active = .FALSE.
         WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jg,' stopped at time ',sim_time
-        CALL message('perform_nh_timeloop', TRIM(message_text))
+        CALL message('perform_nh_timeloop', message_text)
       ENDIF
     ENDDO
 
@@ -1548,7 +1547,7 @@ MODULE mo_nh_stepping
   RECURSIVE SUBROUTINE integrate_nh (datetime_local, jg, nstep_global,   &
     &                                iau_iter, dt_loc, mtime_dt_loc, num_steps, latbc )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':integrate_nh'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':integrate_nh'
 
     TYPE(t_datetime_ptr)    :: datetime_local(:)     !< current datetime in mtime format (for each patch)
 
@@ -1893,7 +1892,7 @@ MODULE mo_nh_stepping
 
           IF (msg_level >= 13) THEN
             WRITE(message_text,'(a,i2)') 'call advection  DOM:',jg
-            CALL message('integrate_nh', TRIM(message_text))
+            CALL message('integrate_nh', message_text)
           ENDIF
 
           !$ser verbatim CALL serialize_all(nproma, jg, "step_advection", .TRUE., opt_lupdate_cpu=.TRUE.)
@@ -2500,7 +2499,7 @@ MODULE mo_nh_stepping
             CALL init_slowphysics (datetime_local(jgc)%ptr, jgc, dt_sub)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',sim_time
-            CALL message('integrate_nh', TRIM(message_text))
+            CALL message('integrate_nh', message_text)
 
           ENDIF
         ENDDO
@@ -2545,7 +2544,7 @@ MODULE mo_nh_stepping
 
     TYPE(datetime)      ,INTENT(IN)    :: mtime_current
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':perform_dyn_substepping'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':perform_dyn_substepping'
 
     ! local variables
     INTEGER                  :: jg                ! domain ID
@@ -2708,7 +2707,7 @@ MODULE mo_nh_stepping
   !!
   RECURSIVE SUBROUTINE init_slowphysics (mtime_current, jg, dt_loc)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':init_slowphysics'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':init_slowphysics'
 
     TYPE(datetime), POINTER :: mtime_current
     INTEGER , INTENT(IN)    :: jg           !< current grid level
@@ -2741,7 +2740,7 @@ MODULE mo_nh_stepping
 
     IF (msg_level >= 7) THEN
       WRITE(message_text,'(a,i2)') 'initial call of (slow) physics, domain ', jg
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
 
     IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
@@ -2890,7 +2889,7 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE diag_for_output_dyn ()
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
      &  routine = 'mo_nh_stepping:diag_for_output_dyn'
 
     ! Local variables
@@ -3347,8 +3346,9 @@ MODULE mo_nh_stepping
 
     INTEGER                              :: jg
     INTEGER                              :: ist
-    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+    CHARACTER(len=64)                    :: attname   ! attribute name
     TYPE(t_key_value_store), POINTER :: restartAttributes
+    CHARACTER(len=*), PARAMETER :: routine = modname//': perform_nh_stepping'
 
     !-----------------------------------------------------------------------
 
@@ -3357,22 +3357,19 @@ MODULE mo_nh_stepping
     !
     ALLOCATE(prep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',           &
-        &      'allocation for prep_adv failed' )
+      CALL finish(routine, 'allocation for prep_adv failed')
     ENDIF
 
     ALLOCATE(jstep_adv(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',           &
-        &      'allocation for jstep_adv failed' )
+      CALL finish(routine, 'allocation for jstep_adv failed' )
     ENDIF
 
 
     ! allocate flow control variables for transport and slow physics calls
     ALLOCATE(linit_dyn(n_dom), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ( modname//': perform_nh_stepping',           &
-        &      'allocation for flow control variables failed' )
+      CALL finish(routine, 'allocation for flow control variables failed')
     ENDIF
     !
     ! initialize
@@ -3400,7 +3397,7 @@ MODULE mo_nh_stepping
         &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,MAX(1,ntracer)),     &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
-        CALL finish ( modname//': perform_nh_stepping',           &
+        CALL finish(routine,                                             &
           &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
           &      'topflx_tra failed' )
       ENDIF

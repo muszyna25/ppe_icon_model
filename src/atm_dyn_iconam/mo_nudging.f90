@@ -41,7 +41,7 @@ MODULE mo_nudging
 
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message, message_text
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, SUCCESS, &
+  USE mo_impl_constants,        ONLY: SUCCESS, &
     &                                 min_rlcell, min_rledge,   &
     &                                 min_rlcell_int
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -137,7 +137,7 @@ CONTAINS !..................................................................
     REAL(wp) :: tsrat, wfac_old, wfac_new
     INTEGER  :: jg
     LOGICAL  :: l_thermdyn, l_hydrostatic, l_qv, l_message
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = modname//":nudging_interface"
     
     !----------------------------------------
@@ -189,7 +189,7 @@ CONTAINS !..................................................................
       IF (nudging_config%ltimer) CALL timer_start(timer_global_nudging)
 
       l_message = nudging_config%lmessage
-      IF(l_message) CALL message(TRIM(routine), 'Start global nudging.')
+      IF(l_message) CALL message(routine, 'Start global nudging.')
 
       !---------------------------------------------------------------
       !                        Preparation
@@ -320,7 +320,7 @@ CONTAINS !..................................................................
       p_latbc_old => NULL()
       p_latbc_new => NULL()
 
-      IF(l_message) CALL message(TRIM(routine), 'End of global nudging.')
+      IF(l_message) CALL message(routine, 'End of global nudging.')
       
       IF (nudging_config%ltimer) CALL timer_stop(timer_global_nudging)
 
@@ -378,7 +378,7 @@ CONTAINS !..................................................................
     REAL(wp), PARAMETER :: rd_o_p0ref  = rd / p0ref
     REAL(wp), PARAMETER :: rrd         = 1._wp / rd
     REAL(wp), PARAMETER :: eps_qc      = 1.e-10_wp
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = modname//":global_nudging"
 
     !----------------------------------------
@@ -915,7 +915,8 @@ CONTAINS !..................................................................
           & 'Mean_sea_level_pressure_correlation_(1)', 'Noise_by_<|div|>_(s-1)',    &
           & 'Noise_by_<|dPS/dt|>_(Pa_s-1)'
         IF (l_message) THEN
-          WRITE(message_text,'(a)') 'ASCII file '//TRIM(nudging_config%diag_kit%filename)//' successfully opened.'
+          WRITE(message_text,'(3a)') 'ASCII file ', TRIM(nudging_config%diag_kit%filename), &
+               ' successfully opened.'
           CALL message(routine, message_text)
         ENDIF
       ENDIF  !IF (l_stdio_process ...)
@@ -1204,8 +1205,9 @@ CONTAINS !..................................................................
         ! which would open the file again
         nudging_config%diag_kit%lfileclosed = .TRUE.
         IF (l_message) THEN
-          WRITE(message_text,'(a)') 'ASCII file '//TRIM(nudging_config%diag_kit%filename)//' successfully closed.'
-          CALL message(TRIM(routine), message_text)
+          WRITE(message_text,'(3a)') 'ASCII file ', TRIM(nudging_config%diag_kit%filename), &
+               ' successfully closed.'
+          CALL message(routine, message_text)
         ENDIF
       ENDIF  !IF (l_close_file ...)
       ! If the file has been closed, this subroutine should not be called any more. 
@@ -1253,7 +1255,7 @@ CONTAINS !..................................................................
     REAL(wp), PARAMETER :: grav_o_rd = grav / rd
     REAL(wp), PARAMETER :: t_low     = 255.0_wp
     REAL(wp), PARAMETER :: t_high    = 290.5_wp
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = modname//":diag_pmsl"
 
     !----------------------------------------

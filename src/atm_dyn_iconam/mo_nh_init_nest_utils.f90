@@ -35,7 +35,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, tmelt
   USE sfc_terra_data,           ONLY: crhosminf, cporv, cadp, csalb, ist_seawtr
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, &
-    &                                 MAX_CHAR_LENGTH, inwp, nclass_aero, ALB_SI_MISSVAL
+    &                                 inwp, nclass_aero, ALB_SI_MISSVAL
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -96,7 +96,7 @@ MODULE mo_nh_init_nest_utils
   !!
   SUBROUTINE initialize_nest(jg, jgc)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'initialize_nest'
 
 
@@ -158,7 +158,7 @@ MODULE mo_nh_init_nest_utils
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') 'Nest initialization, domain ',jg,' =>',jgc
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine,message_text)
     ENDIF
 
     l_parallel = my_process_is_mpi_parallel()

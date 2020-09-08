@@ -271,7 +271,7 @@ CONTAINS  !.....................................................................
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx 
     INTEGER :: rl_start, rl_end    
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_state_initialize'
 
     !----------------------------------------------
@@ -293,16 +293,17 @@ CONTAINS  !.....................................................................
     ! Some checks
     IF (.NOT. upatmo_config(jg)%l_status(iUpatmoStat%configured)) THEN
       ! Upper-atmosphere info should be available
-      CALL finish(TRIM(routine), "Check calling sequence: upatmo_config is not configured.")
+      CALL finish(routine, "Check calling sequence: upatmo_config is not configured.")
     ELSEIF (jg == n_dom_start) THEN  
       ! This subroutine is only meant for 'jg>=1'
-      CALL finish(TRIM(routine), "Dom "//TRIM(int2string(jg))//" is not supported.")
+      WRITE (message_text, '(a,i0,a)') "Dom ", jg, " is not supported."
+      CALL finish(routine, message_text)
     ENDIF
 
     ! Print some info                
     IF (msg_level >= imsg_thr%high) THEN
       WRITE(message_text,'(a,i4)') 'Start extrapolation to upper atmosphere in domain: ', jg
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
     
     ! Initialize extrapolation data types
@@ -324,7 +325,7 @@ CONTAINS  !.....................................................................
       CALL expolstate%right%construct(cnstr) 
       expolstate%linitialized = .TRUE.
     ELSE
-      CALL finish(TRIM(routine), 'Attempt to initialize while already/still initialized')
+      CALL finish(routine, 'Attempt to initialize while already/still initialized')
     ENDIF
 
     ! Is the limited-area mode active?
@@ -414,7 +415,7 @@ CONTAINS  !.....................................................................
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: sanity_check_msg
 
     REAL(wp), PARAMETER :: ngrav_o_cpd = -grav / cpd
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_state_temp'
 
     !----------------------------------------------
@@ -473,9 +474,9 @@ CONTAINS  !.....................................................................
         &                 opt_message = sanity_check_msg )  !optout
 
       IF (.NOT. lpassed) THEN
-        WRITE(message_text,'(a)') 'Extrapolated temperature is not positive-definite. '// &
-          & TRIM(sanity_check_msg)//' A smaller value for expol_blending_scale might help.'
-        CALL finish(TRIM(routine), TRIM(message_text))
+        WRITE(message_text,'(3a)') 'Extrapolated temperature is not positive-definite. ', &
+          & TRIM(sanity_check_msg), ' A smaller value for expol_blending_scale might help.'
+        CALL finish(routine, message_text)
       ENDIF
 
       ! 2nd Is vertical temperature gradient greater than 
@@ -483,7 +484,7 @@ CONTAINS  !.....................................................................
       ! (=> Prevent the extrapolated state from being convectively unstable)
       IF (nexpollev > 1) THEN
         ALLOCATE( dtempdzgpot(nproma, nexpollev-1, nblks_c), STAT=istat )
-        IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation of dtempdzgpot failed')
+        IF (istat /= SUCCESS) CALL finish(routine, 'Allocation of dtempdzgpot failed')
         ! Prognostic domain only
         rl_start   = grf_bdywidth_c + 1
         rl_end     = min_rlcell_int
@@ -513,12 +514,12 @@ CONTAINS  !.....................................................................
           &                 opt_elev    = nexpollev-1,     &  !optin
           &                 opt_message = sanity_check_msg )  !optout        
         IF (.NOT. lpassed) THEN
-          WRITE(message_text,'(a)') 'Extrapolated state is convectively unstable. '// &
-            & TRIM(sanity_check_msg)//' A smaller value for expol_blending_scale might help.'
-          CALL finish(TRIM(routine), TRIM(message_text))
+          WRITE(message_text,'(3a)') 'Extrapolated state is convectively unstable. ', &
+            & TRIM(sanity_check_msg), ' A smaller value for expol_blending_scale might help.'
+          CALL finish(routine, message_text)
         ENDIF
         DEALLOCATE( dtempdzgpot, STAT=istat )
-        IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of dtempdzgpot failed')    
+        IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation of dtempdzgpot failed')
       ENDIF  !IF (nexpollev > 1)
 
     ENDIF  !IF (lexpol_sanitycheck)
@@ -555,7 +556,7 @@ CONTAINS  !.....................................................................
 
     INTEGER :: jg
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_state_qx'
 
     !----------------------------------------------
@@ -644,7 +645,7 @@ CONTAINS  !.....................................................................
     REAL(wp) :: exner, fac1, fac2, fac3, a, b, c
 
     REAL(wp), PARAMETER :: cpd_o_rd  = 1._wp / rd_o_cpd
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_state_pres'
 
     !----------------------------------------------
@@ -678,7 +679,7 @@ CONTAINS  !.....................................................................
     ! Some rudimentary consistency check
     IF ( slev < 1    .OR. &
       &  elev > nlev .OR. & 
-      &  slev > elev      ) CALL finish(TRIM(routine), 'Invalid optional input levels')
+      &  slev > elev      ) CALL finish(routine, 'Invalid optional input levels')
 
     ! If 'elev < nlev' the integration can include 'elev' itself 
     ! (see start index of jk-loop below)
@@ -789,7 +790,7 @@ CONTAINS  !.....................................................................
     LOGICAL  :: lpassed
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: sanity_check_msg
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_state_w'
 
     !----------------------------------------------
@@ -849,9 +850,9 @@ CONTAINS  !.....................................................................
         &                 opt_elev    = nexpollev,        &  !optin
         &                 opt_message = sanity_check_msg  )  !optout
       IF (.NOT. lpassed) THEN
-        WRITE(message_text,'(a)') 'Extrapolated vertical wind violates the CFL-criterion. '// &
-          & TRIM(sanity_check_msg)//' A smaller value for expol_blending_scale might help.'
-        CALL finish(TRIM(routine), TRIM(message_text))
+        WRITE(message_text,'(3a)') 'Extrapolated vertical wind violates the CFL-criterion. ', &
+          & TRIM(sanity_check_msg), ' A smaller value for expol_blending_scale might help.'
+        CALL finish(routine, message_text)
       ENDIF
       
     ENDIF  !IF (upatmo_exp_config(jg)%lexpol_sanitycheck .AND. nexpollev > 1)
@@ -912,7 +913,7 @@ CONTAINS  !.....................................................................
     LOGICAL :: lpassed
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: sanity_check_msg
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_state_vn'
 
     !----------------------------------------------
@@ -991,7 +992,7 @@ CONTAINS  !.....................................................................
       &       z_dexner_v   (nproma, nexpollev, p_patch%nblks_v), & 
       &       z_dexnerdt_e (nproma, nexpollev, p_patch%nblks_e), &
       &       STAT=istat                                          )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation failed')    
+    IF (istat /= SUCCESS) CALL finish(routine, 'Allocation failed')
 
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
@@ -1142,7 +1143,7 @@ CONTAINS  !.....................................................................
     ! (This violates to some extent the geostrophic balance, but stability 
     ! shall take precedence over that)
     ALLOCATE( z_decayfac_zgpot(nexpollev), STAT=istat )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation failed')    
+    IF (istat /= SUCCESS) CALL finish(routine, 'Allocation failed')
     DO jk = 1, nexpollev 
       ! Geopotential height difference 
       ! (Note: due to the way 'nexpollev' has been determined, 'zgpot_start - zgpot_mc(nexpollev)' 
@@ -1169,7 +1170,7 @@ CONTAINS  !.....................................................................
       &         z_dexnerdt_e,     &
       &         z_decayfac_zgpot, &
       &         STAT=istat        )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Dellocation failed')  
+    IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation failed')
 
     deepatmo_gradh => NULL()
     
@@ -1190,9 +1191,9 @@ CONTAINS  !.....................................................................
         &                 opt_elev    = nexpollev,        &  !optin
         &                 opt_message = sanity_check_msg  )  !optout
       IF (.NOT. lpassed) THEN
-        WRITE(message_text,'(a)') 'Extrapolated horizontal wind violates the CFL-criterion. '// &
-          & TRIM(sanity_check_msg)//' A smaller value for expol_blending_scale might help.'
-        CALL finish(TRIM(routine), TRIM(message_text))
+        WRITE(message_text,'(3a)') 'Extrapolated horizontal wind violates the CFL-criterion. ', &
+          & TRIM(sanity_check_msg), ' A smaller value for expol_blending_scale might help.'
+        CALL finish(routine, message_text)
       ENDIF
 
     ENDIF  !IF (upatmo_exp_config(jg)%lexpol_sanitycheck)
@@ -1216,7 +1217,7 @@ CONTAINS  !.....................................................................
 
     ! Local variables
     INTEGER :: jg
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_state_finalize'
 
     !----------------------------------------------
@@ -1241,7 +1242,7 @@ CONTAINS  !.....................................................................
     ! Write some info to screen                  
     IF (msg_level >= imsg_thr%high) THEN
       WRITE(message_text,'(a,i4)') 'Finished extrapolation to upper atmosphere in domain: ', jg
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
     ENDIF
 
     IF (expolstate%ltimer) CALL timer_stop(timer_expol)
@@ -1274,7 +1275,7 @@ CONTAINS  !.....................................................................
 
     INTEGER :: jg, jk, nshift, nexpollev
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':init_expol_metrics'
 
     !----------------------------------------------
@@ -1406,7 +1407,7 @@ CONTAINS  !.....................................................................
     REAL(wp), PARAMETER :: grav_o_cpd = grav / cpd
     REAL(wp), PARAMETER :: z_eps      = 1.0e-10_wp
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':init_clim_state'
 
     !----------------------------------------------
@@ -1435,7 +1436,7 @@ CONTAINS  !.....................................................................
 
     ! Allocate auxiliary fields for matrix inversion
     ! Check if 'nclim' is large enough
-    IF (nclim < 3) CALL finish ( TRIM(routine), 'nclim >= 3 required')
+    IF (nclim < 3) CALL finish(routine, 'nclim >= 3 required')
     ALLOCATE( z_mtr_A1(2:nclim-1),    & 
       &       z_mtr_B1(2:nclim-1),    &
       &       z_mtr_C1(2:nclim-1),    &
@@ -1445,7 +1446,7 @@ CONTAINS  !.....................................................................
       &       z_dinvtemp_dz(1:nclim), &
       &       z_spln(1:4, 1:nclim),   &
       &       STAT=istat              )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation failed')
+    IF (istat /= SUCCESS) CALL finish(routine, 'Allocation failed')
 
     ! Initialize matrix elements
     DO jclim=2, nclim-1
@@ -1495,7 +1496,7 @@ CONTAINS  !.....................................................................
       &         z_mtr_a2,  &
       &         z_mtr_b2,  &
       &         STAT=istat )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Dellocation failed')    
+    IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation failed')
 
     ! Compute the four spline coefficients for the polynomial representing 1/temp 
     ! for the nclim-1 intervals between the sampling points of the climatology
@@ -1557,7 +1558,7 @@ CONTAINS  !.....................................................................
     ! (Because we do not use a "physically motivated" value for H_B, 
     ! but "misuse" this parameter to get a steady transition between the two climatologies, 
     ! it is not guaranteed that H_B fits the requirements of the Bates-formula)
-    IF (z_invhb <= 0._wp) CALL finish(TRIM(routine), 'Scale height of Bates climatology is negative') 
+    IF (z_invhb <= 0._wp) CALL finish(routine, 'Scale height of Bates climatology is negative')
 
     ! Now, we can compute the climatological temperature values on grid levels:
     istart            = 1 
@@ -1600,7 +1601,7 @@ CONTAINS  !.....................................................................
           &         z_spln(3,kclim) * z_zgpot_rel**2 + z_spln(4,kclim) * z_zgpot_rel**3
         z_temp    = 1._wp / z_invtemp
       CASE DEFAULT 
-        CALL finish(TRIM(routine), "Grid level not in climatologies")
+        CALL finish(routine, "Grid level not in climatologies")
       END SELECT
       ! Hand over
       expolclim%temp(jk) = z_temp
@@ -1620,33 +1621,33 @@ CONTAINS  !.....................................................................
     ! Some rudimentary sanity check
     z_temp_min = MINVAL(expolclim%temp(:))
     z_temp_max = MAXVAL(expolclim%temp(:))
-    IF (z_temp_min <= 0._wp) CALL finish(TRIM(routine), 'Temperature lower than 0') 
-    IF (z_temp_max >= z_temp_infty) CALL finish(TRIM(routine), 'Temperature higher than T_infty') 
+    IF (z_temp_min <= 0._wp) CALL finish(routine, 'Temperature lower than 0')
+    IF (z_temp_max >= z_temp_infty) CALL finish(routine, 'Temperature higher than T_infty')
     IF (z_dtempdzgpot_min < -grav_o_cpd) THEN
       WRITE(message_text,'(a,F14.10,a,F14.10,a)') 'Min. temperature gradient: ', z_dtempdzgpot_min, &
         & 'K/m < negative dry adiabatic lapse rate: ', -grav_o_cpd, 'K/m'
-      CALL finish(TRIM(routine), TRIM(message_text)) 
+      CALL finish(routine, message_text)
     ENDIF
 
     ! Print some info                
     IF (msg_level >= imsg_thr%high) THEN
       WRITE(message_text,'(a)') 'Temperature profile on grid levels from Fleming & Bates climatologies:'
-      CALL message(TRIM(routine), TRIM(message_text))
+      CALL message(routine, message_text)
       WRITE(message_text,'(a,F14.4)') 'Min. temperature: T_min (K) = ', z_temp_min
-      CALL message(TRIM(routine), TRIM(message_text))      
+      CALL message(routine, message_text)
       WRITE(message_text,'(a,F14.4)') 'Max. temperature: T_max (K) = ', z_temp_max
-      CALL message(TRIM(routine), TRIM(message_text))   
+      CALL message(routine, message_text)
       WRITE(message_text,'(a,F14.10)') 'Min. temperature gradient: dT/dzgpot_min (K/m) = ', z_dtempdzgpot_min
-      CALL message(TRIM(routine), TRIM(message_text))      
+      CALL message(routine, message_text)
       WRITE(message_text,'(a,F14.10)') 'Negative dry adiabatic lapse rate: -grav/cpd (K/m) = ', -grav_o_cpd
-      CALL message(TRIM(routine), TRIM(message_text))      
+      CALL message(routine, message_text)
     ENDIF  !IF (msg_level >= imsg_thr%high)
 
     ! Deallocate what has not yet been deallocated
     DEALLOCATE( z_dinvtemp_dz, & 
       &         z_spln,        &
       &         STAT=istat     )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Dellocation failed')    
+    IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation failed')
 
   END SUBROUTINE init_clim_state
 
@@ -1667,7 +1668,7 @@ CONTAINS  !.....................................................................
     ! Local variables
     INTEGER :: jb, jc, jk, nlen  ! (jc is habitual placeholder for jc, je, jv)
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':copy_state'
 
     !----------------------------------------------
@@ -1714,7 +1715,7 @@ CONTAINS  !.....................................................................
     ! Local variables
     INTEGER :: jb, jc, jk, nlen  ! (jc is habitual placeholder for jc, je, jv)
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':blend_states'
 
     !----------------------------------------------
@@ -1757,7 +1758,7 @@ CONTAINS  !.....................................................................
     ! Local variables
     INTEGER :: jb, jc, jk, nlen  ! (jc is habitual placeholder for jc, je, jv)
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':multiply_state'
 
     !----------------------------------------------
@@ -1838,16 +1839,15 @@ CONTAINS  !.....................................................................
     INTEGER, PARAMETER :: IMAXJK    = 4
     !-----------------------------------
     INTEGER, PARAMETER :: KEYLEN = 10
-    CHARACTER(LEN=KEYLEN), PARAMETER :: key_cell  = 'cell'
-    CHARACTER(LEN=KEYLEN), PARAMETER :: key_edge  = 'edge'
+    CHARACTER(LEN=*), PARAMETER :: key_cell  = 'cell'
+    CHARACTER(LEN=*), PARAMETER :: key_edge  = 'edge'
     !-----------------------------------
-    CHARACTER(LEN=KEYLEN), PARAMETER :: key_lower = 'lower'
-    CHARACTER(LEN=KEYLEN), PARAMETER :: key_upper = 'upper'
+    CHARACTER(LEN=*), PARAMETER :: key_lower = 'lower'
+    CHARACTER(LEN=*), PARAMETER :: key_upper = 'upper'
     !-----------------------------------
-    CHARACTER(LEN=KEYLEN), PARAMETER :: key_abs   = 'abs'
+    CHARACTER(LEN=*), PARAMETER :: key_abs   = 'abs'
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
-      &       routine = modname//':sanity_check'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':sanity_check'
 
     !----------------------------------------------
 
@@ -1868,38 +1868,38 @@ CONTAINS  !.....................................................................
 
     ! Mandatory keys:
     ! state defined in cells or on edges?
-    IF (INDEX(TRIM(keys), TRIM(key_cell)) > 0) THEN 
+    IF (INDEX(keys, key_cell) > 0) THEN
       igrid      = ICELL
       ! We use the oportunity, to set already the loop boundaries
       rl_start   = grf_bdywidth_c + 1
       rl_end     = min_rlcell_int
       i_startblk = p_patch%cells%start_block(rl_start) 
       i_endblk   = p_patch%cells%end_block(rl_end)  
-    ELSEIF (INDEX(TRIM(keys), TRIM(key_edge)) > 0) THEN 
+    ELSEIF (INDEX(keys, key_edge) > 0) THEN
       igrid      = IEDGE
       rl_start   = grf_bdywidth_e + 1
       rl_end     = min_rledge_int
       i_startblk = p_patch%edges%start_block(rl_start) 
       i_endblk   = p_patch%edges%end_block(rl_end)  
     ELSE
-      CALL finish(TRIM(routine), 'Invalid or missing grid identifier in keys') 
+      CALL finish(routine, 'Invalid or missing grid identifier in keys')
     ENDIF
     ! Lower or upper bound?
-    IF (INDEX(TRIM(keys), TRIM(key_lower)) > 0) THEN 
+    IF (INDEX(keys, key_lower) > 0) THEN
       ! Check for state > bound <=> -state < -bound 
       ! (i.e. if state < bound <=> -state > -bound -> sanity check not passed)
       ibound    = ILOWER
       bound_eff = -bound
-    ELSEIF (INDEX(TRIM(keys), TRIM(key_upper)) > 0) THEN 
+    ELSEIF (INDEX(keys, key_upper) > 0) THEN
       ! Check for state < bound
       ibound    = IUPPER
       bound_eff = bound
     ELSE
-      CALL finish(TRIM(routine), 'Invalid or missing bound identifier in keys') 
+      CALL finish(routine, 'Invalid or missing bound identifier in keys')
     ENDIF
 
     ! Optional keys:
-    IF (INDEX(TRIM(keys), TRIM(key_abs)) > 0) THEN 
+    IF (INDEX(keys, key_abs) > 0) THEN
       ! Check for +-|state| < +-bound
       istate = IABS
     ELSE
@@ -1923,7 +1923,7 @@ CONTAINS  !.....................................................................
     ALLOCATE( max_loc_block(2,i_startblk:i_endblk), &
       &       max_val_block(i_startblk:i_endblk),   &
       &       STAT=istat                            )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation of max_loc_block and max_val_block failed')
+    IF (istat /= SUCCESS) CALL finish(routine, 'Allocation of max_loc_block and max_val_block failed')
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -2038,7 +2038,7 @@ CONTAINS  !.....................................................................
     DEALLOCATE( max_loc_block, &
       &         max_val_block, &
       &         STAT=istat     )
-    IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation of max_loc_block and max_val_block failed')
+    IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation of max_loc_block and max_val_block failed')
 
   END SUBROUTINE sanity_check
 
@@ -2062,7 +2062,7 @@ CONTAINS  !.....................................................................
 
     ! Local variables
     INTEGER :: istat
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_clim_state_construct'
 
     !----------------------------------------------
@@ -2070,13 +2070,13 @@ CONTAINS  !.....................................................................
     IF (.NOT. clim_state%linitialized) THEN 
       ALLOCATE( clim_state%temp(cnstr%nlev), &
         &       STAT=istat                   )
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation failed')
+      IF (istat /= SUCCESS) CALL finish(routine, 'Allocation failed')
 !$OMP PARALLEL 
       CALL init( clim_state%temp(:) )
 !$OMP END PARALLEL
       clim_state%linitialized = .TRUE.
     ELSE
-      CALL finish(TRIM(routine), 'Attempt to initialize while already/still initialized')
+      CALL finish(routine, 'Attempt to initialize while already/still initialized')
     ENDIF
   END SUBROUTINE t_clim_state_construct
 
@@ -2090,7 +2090,7 @@ CONTAINS  !.....................................................................
 
     ! Local variables
     INTEGER :: istat
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_metrics_construct'
 
     !----------------------------------------------
@@ -2101,7 +2101,7 @@ CONTAINS  !.....................................................................
         &       expol_metrics%wfac_blnd_mc (cnstr%nblnd, cnstr%nlev), &
         &       expol_metrics%wfac_blnd_ifc(cnstr%nblnd, cnstr%nlev), &
         &       STAT=istat                                            )  
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation failed')
+      IF (istat /= SUCCESS) CALL finish(routine, 'Allocation failed')
 !$OMP PARALLEL 
       CALL init( expol_metrics%zgpot_mc(:)        )
       CALL init( expol_metrics%zgpot_ifc(:)       )
@@ -2110,7 +2110,7 @@ CONTAINS  !.....................................................................
 !$OMP END PARALLEL
       expol_metrics%linitialized = .TRUE.
     ELSE
-      CALL finish(TRIM(routine), 'Attempt to initialize while already/still initialized')
+      CALL finish(routine, 'Attempt to initialize while already/still initialized')
     ENDIF
   END SUBROUTINE t_expol_metrics_construct
 
@@ -2124,7 +2124,7 @@ CONTAINS  !.....................................................................
 
     ! Local variables
     INTEGER :: istat
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_blending_state_construct'
 
     !----------------------------------------------
@@ -2138,7 +2138,7 @@ CONTAINS  !.....................................................................
         &       expol_blending_state%qr  (nproma, cnstr%nlev, cnstr%nblks_c),  &
         &       expol_blending_state%qs  (nproma, cnstr%nlev, cnstr%nblks_c),  &
         &       STAT=istat                                                     )  
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Allocation failed')
+      IF (istat /= SUCCESS) CALL finish(routine, 'Allocation failed')
 !$OMP PARALLEL 
       CALL init( expol_blending_state%temp(:,:,:) )
       CALL init( expol_blending_state%vn(:,:,:)   )
@@ -2150,7 +2150,7 @@ CONTAINS  !.....................................................................
 !$OMP END PARALLEL
       expol_blending_state%linitialized = .TRUE.
     ELSE
-      CALL finish(TRIM(routine), 'Attempt to initialize while already/still initialized')
+      CALL finish(routine, 'Attempt to initialize while already/still initialized')
     ENDIF
   END SUBROUTINE t_expol_blending_state_construct
 
@@ -2168,7 +2168,7 @@ CONTAINS  !.....................................................................
 
     ! Local variables
     INTEGER :: istat
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_clim_state_finalize'
 
     !----------------------------------------------
@@ -2176,7 +2176,7 @@ CONTAINS  !.....................................................................
     IF (clim_state%linitialized) THEN
       DEALLOCATE( clim_state%temp, &
         &         STAT=istat       )
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation failed')   
+      IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation failed')
       clim_state%linitialized = .FALSE.
     ENDIF
   END SUBROUTINE t_clim_state_finalize
@@ -2188,7 +2188,7 @@ CONTAINS  !.....................................................................
 
     ! Local variables
     INTEGER :: istat
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       &       routine = modname//':t_expol_metrics_finalize'
 
     !----------------------------------------------
@@ -2199,7 +2199,7 @@ CONTAINS  !.....................................................................
         &         expol_metrics%wfac_blnd_mc,  &
         &         expol_metrics%wfac_blnd_ifc, &
         &         STAT=istat                   )
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation failed')   
+      IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation failed')
       expol_metrics%linitialized = .FALSE.
     ENDIF
   END SUBROUTINE t_expol_metrics_finalize
@@ -2211,7 +2211,7 @@ CONTAINS  !.....................................................................
 
     ! Local variables
     INTEGER :: istat
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       &       routine = modname//':t_expol_blending_state_finalize'
 
     !----------------------------------------------
@@ -2225,7 +2225,7 @@ CONTAINS  !.....................................................................
         &         expol_blending_state%qr,   &
         &         expol_blending_state%qs,   &
         &         STAT=istat                 )
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), 'Deallocation failed')   
+      IF (istat /= SUCCESS) CALL finish(routine, 'Deallocation failed')
       expol_blending_state%linitialized = .FALSE.
     ENDIF
   END SUBROUTINE t_expol_blending_state_finalize

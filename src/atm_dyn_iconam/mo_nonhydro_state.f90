@@ -33,7 +33,7 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN,            &
+  USE mo_impl_constants,       ONLY: SUCCESS, varname_len, max_var_list_name_len,    &
     &                                INWP, IECHAM,                                   &
     &                                VINTP_METHOD_VN,                                &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,             &
@@ -166,7 +166,8 @@ MODULE mo_nonhydro_state
 
     LOGICAL  :: l_extra_timelev
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
+    CHARACTER(len=max_var_list_name_len) :: listname
+    CHARACTER(len=varname_len) :: varname_prefix
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//'::construct_nh_state'
@@ -471,7 +472,7 @@ MODULE mo_nonhydro_state
     INTEGER           :: ipassive        ! loop counter
     INTEGER           :: dummy_idx
 
-    CHARACTER(len=VNAME_LEN)      :: tracer_name
+    CHARACTER(len=varname_len)      :: tracer_name
     TYPE(t_list_element), POINTER :: target_element
     INTEGER                       :: tracer_idx
 
@@ -2892,9 +2893,9 @@ MODULE mo_nonhydro_state
                   & resetval=0._wp,                                              &
                   & action_list=actions(new_action(ACTION_RESET,                 &
                   &             TRIM(iso8601_interval_avg_fg),                   &
-                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg),  &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),    &
-                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg))),&
+                  &             opt_start=iso8601_start_timedelta_avg_fg,  &
+                  &             opt_end  =iso8601_end_timedelta_avg_fg,    &
+                  &             opt_ref  =iso8601_start_timedelta_avg_fg)),&
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%u_avg)
 
@@ -2910,9 +2911,9 @@ MODULE mo_nonhydro_state
                   & resetval=0._wp,                                              &
                   & action_list=actions(new_action(ACTION_RESET,                 &
                   &             TRIM(iso8601_interval_avg_fg),                   &
-                  &             opt_start=TRIM(iso8601_start_timedelta_avg_fg),  &
-                  &             opt_end  =TRIM(iso8601_end_timedelta_avg_fg),    &
-                  &             opt_ref  =TRIM(iso8601_start_timedelta_avg_fg))),&
+                  &             opt_start=iso8601_start_timedelta_avg_fg,  &
+                  &             opt_end  =iso8601_end_timedelta_avg_fg,    &
+                  &             opt_ref  =iso8601_start_timedelta_avg_fg)),&
                   & lopenacc = .TRUE. )
       __acc_attach(p_diag%v_avg)
 
@@ -4384,7 +4385,7 @@ MODULE mo_nonhydro_state
       ! this happens early in the program sequence, 
       ! so to be on a somewhat safer side, we check, if the upper atmosphere 
       ! has been configured
-      CALL finish(TRIM(routine), 'upper/deep atmosphere: information required is not yet available')
+      CALL finish(routine, 'upper/deep atmosphere: information required is not yet available')
     ELSEIF (ldeepatmo .AND. (.NOT. upatmo_dyn_config(jg)%lconstgrav)) THEN
       ! gravitational acceleration varies vertically, 
       ! so the following fields are required

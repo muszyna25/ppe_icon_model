@@ -35,7 +35,7 @@
 MODULE mo_echam_phy_memory
 
   USE mo_kind,                ONLY: dp, wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,  & 
+  USE mo_impl_constants,      ONLY: SUCCESS, varname_len,      &
     &                               VINTP_METHOD_PRES,         &
     &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
@@ -766,7 +766,7 @@ CONTAINS
 
     ! Local variables
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: trcname, varname
+    CHARACTER(len=varname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
 
     TYPE(t_cf_var)    ::    cf_desc
@@ -4301,7 +4301,7 @@ CONTAINS
 
     ! Local variables
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: trcname, varname
+    CHARACTER(len=varname_len) :: trcname, varname
     LOGICAL :: contvar_is_in_output
 
     TYPE(t_cf_var)    ::    cf_desc
@@ -4862,7 +4862,7 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_cld'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
@@ -4887,7 +4887,7 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_cld'
           SELECT CASE (trcname)
           CASE ('hus')
@@ -4920,7 +4920,7 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mig'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
@@ -4945,7 +4945,7 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mig'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
@@ -4983,7 +4983,7 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_cnv'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
@@ -5008,7 +5008,7 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_cnv'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
@@ -5042,7 +5042,7 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_vdf'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
@@ -5067,7 +5067,7 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_vdf'
           ! GRIB2 code triplet for vdf tendencies
           SELECT CASE (trcname)
@@ -5105,7 +5105,7 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mox'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
@@ -5130,7 +5130,7 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mox'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
@@ -5157,7 +5157,7 @@ CONTAINS
        !
        contvar_is_in_output = .FALSE.
        DO jtrc = 1,ktracer
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_car'
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
@@ -5182,7 +5182,7 @@ CONTAINS
        !
        DO jtrc = 1,ktracer
           !
-          trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
+          trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_car'
           !
           IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
@@ -5237,7 +5237,7 @@ CONTAINS
 
     DO jtrc = 1,ktracer
       trcname = TRIM(advection_config(jg)%tracer_names(jtrc))
-      varname = prefix//'q'//TRIM(trcname)
+      varname = prefix//'q'//trcname
       SELECT CASE (trcname)
       CASE ('hus')
         grib2_tmp = grib2_var(0, 1,  200, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -5301,7 +5301,7 @@ CONTAINS
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
-      varname = prefix//'m'//TRIM(trcname)
+      varname = prefix//'m'//trcname
       CALL add_ref( tend_list, prefix//'mtrc_phy',                                        &
                   & TRIM(varname)//'_phy', tend%mtrc_phy_ptr(jtrc)%p,                     &
                   & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &

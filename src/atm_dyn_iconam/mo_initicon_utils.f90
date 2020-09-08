@@ -37,7 +37,7 @@ MODULE mo_initicon_utils
   USE mo_initicon_config,     ONLY: init_mode, l_sst_in, qcana_mode, qiana_mode, qrsgana_mode, &
     &                               ana_varnames_map_file, lread_vn,      &
     &                               lvert_remap_fg, aerosol_fg_present
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
+  USE mo_impl_constants,      ONLY: MODE_DWDANA, MODE_IAU,             &
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMO, MODE_ICONVREMAP, MODIS,                 &
     &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
@@ -1897,7 +1897,7 @@ MODULE mo_initicon_utils
     TYPE(t_pi_atm_in),        INTENT(INOUT) :: atm_in
     TYPE(t_init_state_const), INTENT(INOUT) :: const
     ! Local variables: loop control and dimensions
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_atm'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':allocate_extana_atm'
 
 
     IF (nlev_in == 0) THEN
@@ -1964,7 +1964,7 @@ MODULE mo_initicon_utils
     INTEGER,                INTENT(IN)    :: nlevsoil_in    ! number of soil levels
                                                             ! of external analysis data
     ! Local variables: loop control and dimensions
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':allocate_extana_sfc'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':allocate_extana_sfc'
 
     IF (nlevsoil_in == 0) THEN
       CALL finish(routine, "Number of input soil levels <nlevsoil_in> not yet initialized.")
@@ -3122,27 +3122,27 @@ MODULE mo_initicon_utils
 
     IF (lqnx_init(iqnc)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnc )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qnc() from qc, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnc() from qc, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqni)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qni )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qni() from qi, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qni() from qi, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqnr)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnr )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qnr() from qr, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnr() from qr, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqns)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qns )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qns() from qs, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qns() from qs, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqng)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qng )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qng() from qg, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qng() from qg, '//TRIM(ncmaxstr))
     END IF
     IF (lqnx_init(iqnh)) THEN
       ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnh )
-      CALL message(TRIM(caller)//':', 'init_qnx_from_qx_twomom: set_qnh() from qh, '//TRIM(ncmaxstr))
+      CALL message(caller, 'init_qnx_from_qx_twomom: set_qnh() from qh, '//TRIM(ncmaxstr))
     END IF
 
   END SUBROUTINE init_qnx_from_qx_twomom
@@ -3267,18 +3267,18 @@ MODULE mo_initicon_utils
     IF (qcana_mode > 0 .AND. lqnxinc_init(iqnc)) THEN
       IF (lqx_avail(iqc) .AND. lqxinc_avail(iqc)) THEN
         ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnc_inc )
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() from qc and qcinc, '//TRIM(ncmaxstr))
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() from qc and qcinc, '//TRIM(ncmaxstr))
       ELSE
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() failed '// &
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnc_inc() failed '// &
                                    'due to missing qc (FG) and/or qcinc (ANA)')        
       END IF
     END IF
     IF (qiana_mode > 0 .AND. lqnxinc_init(iqni)) THEN
       IF (lqx_avail(iqi) .AND. lqxinc_avail(iqi)) THEN
         ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qni_inc )
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() from qi and qiinc, '//TRIM(ncmaxstr))
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() from qi and qiinc, '//TRIM(ncmaxstr))
       ELSE
-        CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() failed '// &
+        CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qni_inc() failed '// &
                                    'due to missing qi (FG) and/or qiinc (ANA)')        
       END IF
     END IF
@@ -3286,36 +3286,36 @@ MODULE mo_initicon_utils
       IF (lqnxinc_init(iqnr)) THEN
         IF (lqx_avail(iqr) .AND. lqxinc_avail(iqr)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnr_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() from qr and qrinc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() from qr and qrinc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnr_inc() failed '// &
                                      'due to missing qr (FG) and/or qrinc (ANA)')
         END IF
       END IF
       IF (lqnxinc_init(iqns)) THEN
         IF (lqx_avail(iqs) .AND. lqxinc_avail(iqs)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qns_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() from qs and qsinc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() from qs and qsinc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qns_inc() failed '// &
                                      'due to missing qs (FG) and/or qsinc (ANA)')        
         END IF
       END IF
       IF (lqnxinc_init(iqng)) THEN
         IF (lqx_avail(iqg) .AND. lqxinc_avail(iqg)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qng_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() from qg and qginc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() from qg and qginc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qng_inc() failed '// &
                                      'due to missing qg (FG) and/or qginc (ANA)')        
         END IF
       END IF
       IF (lqnxinc_init(iqnh)) THEN
         IF (lqx_avail(iqh) .AND. lqxinc_avail(iqh)) THEN
           ncmaxstr = get_diag_stat_str_3d ( p_patch, my_qnh_inc )
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() from qh and qhinc, '//TRIM(ncmaxstr))
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() from qh and qhinc, '//TRIM(ncmaxstr))
         ELSE
-          CALL message(TRIM(caller), 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() failed '// &
+          CALL message(caller, 'init_qnxinc_from_qxinc_twomom for IAU: set_qnh_inc() failed '// &
                                      'due to missing qh (FG) and/or qhinc (ANA)')        
         END IF
       END IF

@@ -42,7 +42,7 @@ MODULE mo_nh_nest_utilities
   USE mo_nwp_phy_state,       ONLY: prm_diag
   USE mo_nonhydrostatic_config,ONLY: ndyn_substeps_var
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
-  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH, min_rlcell, min_rledge
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, min_rledge
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
     grf_bdyintp_end_c,                         &
@@ -69,6 +69,7 @@ MODULE mo_nh_nest_utilities
     prep_bdy_nudging, nest_boundary_nudging, save_progvars,                     &
     prep_rho_bdy_nudging, density_boundary_nudging, limarea_bdy_nudging
 
+  CHARACTER(len=*), PARAMETER :: modname = 'mo_nh_nest_utilities'
 CONTAINS
 
   !>
@@ -655,8 +656,8 @@ CONTAINS
   SUBROUTINE boundary_interpolation (jg,jgc,ntp_dyn,ntc_dyn,ntp_tr,ntc_tr, &
     mass_flx_p,mass_flx_c)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_nest_utilities:boundary_interpolation'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = modname//':boundary_interpolation'
 
 
     INTEGER, INTENT(IN)     :: jg, jgc      ! domain ID of parent and child grid
@@ -709,7 +710,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '========= Interpolate:',jg,' =>',jgc
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
     !$  num_threads_omp = omp_get_max_threads()
@@ -994,8 +995,7 @@ CONTAINS
   !! Developed  by Guenther Zaengl, DWD, 2010-06-18
   SUBROUTINE prep_bdy_nudging(jgp, jg)
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_nest_utilities:prep_bdy_nudging'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':prep_bdy_nudging'
 
 
     INTEGER, INTENT(IN) :: jg   ! child grid level
@@ -1040,7 +1040,7 @@ CONTAINS
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i2,a,i2)') '1-way nesting: == Boundary nudging:',jg
-      CALL message(TRIM(routine),message_text)
+      CALL message(routine, message_text)
     ENDIF
 
     l_parallel = my_process_is_mpi_parallel()

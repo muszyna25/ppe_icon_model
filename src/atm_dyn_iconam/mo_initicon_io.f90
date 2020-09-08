@@ -45,7 +45,7 @@ MODULE mo_initicon_io
     &                               qnxana_2mom_mode
   USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_nh_init_utils,       ONLY: convert_omega2w, compute_input_pressure_and_height
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom, MODE_ICONVREMAP,          &
+  USE mo_impl_constants,      ONLY: max_dom, MODE_ICONVREMAP,          &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMO, iss, iorg, ibc, iso4, idu, SUCCESS,     &
     &                               VARNAME_LEN
@@ -260,8 +260,7 @@ MODULE mo_initicon_io
 
     CHARACTER(LEN=10) :: psvar
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-      routine = 'mo_nh_initicon:read_extana_atm'
+    CHARACTER(len=*), PARAMETER :: routine = modname//':read_extana_atm'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
     LOGICAL :: lread_process
@@ -318,7 +317,7 @@ MODULE mo_initicon_io
 
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
+          CALL finish(routine,'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
         ENDIF
 
         !
@@ -341,7 +340,7 @@ MODULE mo_initicon_io
         ! check the number of cells
         !
         IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
+          CALL finish(routine,&
           & 'Number of patch cells and cells in IFS2ICON file do not match.')
         ENDIF
 
@@ -350,7 +349,7 @@ MODULE mo_initicon_io
         !
         IF(nlev_in /= 0)  THEN
           IF (nlev_in /= no_levels) THEN
-            CALL finish(TRIM(ROUTINE), 'nlev_in has already been defined differently!')
+            CALL finish(routine, 'nlev_in has already been defined differently!')
           END IF
         ELSE
           nlev_in = no_levels
@@ -364,7 +363,7 @@ MODULE mo_initicon_io
           lread_qr = .true.
         ELSE
           lread_qr = .false.
-          CALL message(TRIM(routine),'Rain water (QR) not available in input data')
+          CALL message(routine, 'Rain water (QR) not available in input data')
         ENDIF
 
         !
@@ -374,7 +373,7 @@ MODULE mo_initicon_io
           lread_qs = .true.
         ELSE
           lread_qs = .false.
-          CALL message(TRIM(routine),'Snow water (QS) not available in input data')
+          CALL message(routine, 'Snow water (QS) not available in input data')
         ENDIF
 
         !
@@ -406,7 +405,7 @@ MODULE mo_initicon_io
           IF (nf_inq_varid(ncid, TRIM(psvar), varid) == nf_noerr) THEN
             CALL nf(nf_inq_varndims(ncid,varid,psvar_ndims), routine)
           ELSE
-            CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' is missing')
+            CALL finish(routine, 'surface pressure var '//TRIM(psvar)//' is missing')
           ENDIF
 
           !
@@ -417,14 +416,14 @@ MODULE mo_initicon_io
           ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
             geop_ml_var = 'GEOP_ML'
           ELSE
-            CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
+            CALL finish(routine,'Could not find model-level sfc geopotential')
           ENDIF
 
           ! Find out the dimension of geop_ml_var for reading purpose
           IF (nf_inq_varid(ncid, TRIM(geop_ml_var), varid) == nf_noerr) THEN
             CALL nf(nf_inq_varndims(ncid,varid,geopvar_ndims), routine)
           ELSE
-            CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' is missing')
+            CALL finish(routine,'surface geopotential var '//TRIM(geop_ml_var)//' is missing')
           ENDIF
 
         ENDIF
@@ -461,17 +460,18 @@ MODULE mo_initicon_io
 
       IF (msg_level >= 10) THEN
         IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
-          WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
-          CALL message(TRIM(routine), TRIM(message_text))
-          WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
-          CALL message(TRIM(routine), TRIM(message_text))
+          WRITE(message_text,'(2a)') 'surface pressure variable: ', TRIM(psvar)
+          CALL message(routine, message_text)
+          WRITE(message_text,'(2a)') 'Model-level surface geopotential: ', &
+               TRIM(geop_ml_var)
+          CALL message(routine, message_text)
         ENDIF
         IF (.NOT. lread_vn) THEN
           WRITE(message_text,'(a)') 'No direct input of vn! vn derived from (u,v).'
-          CALL message(TRIM(routine), TRIM(message_text))
+          CALL message(routine, message_text)
         ELSE
           WRITE(message_text,'(a)') 'Direct input of vn!'
-          CALL message(TRIM(routine), TRIM(message_text))
+          CALL message(routine, message_text)
         ENDIF
       ENDIF
 
@@ -544,7 +544,7 @@ MODULE mo_initicon_io
           CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(psvar), &
             &                     fill_array=psfc)
         ELSE
-          CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
+          CALL finish(routine,'surface pressure var '//TRIM(psvar)//' dimension mismatch')
         END IF
         
         IF (geopvar_ndims==2)THEN
@@ -554,7 +554,7 @@ MODULE mo_initicon_io
           CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_ml_var), &
             &                     fill_array=phi_sfc)
         ELSE
-          CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
+          CALL finish(routine,'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
         END IF
 
         CALL initicon(jg)%const%vct%construct(ncid, p_io, p_comm_work)
@@ -589,7 +589,7 @@ MODULE mo_initicon_io
 
       ELSE
 
-        CALL finish(TRIM(routine),'Incorrect init_mode')
+        CALL finish(routine,'Incorrect init_mode')
 
       ENDIF ! init_mode = MODE_COSMO
 
@@ -649,7 +649,7 @@ MODULE mo_initicon_io
 
     CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = 'mo_nh_initicon:read_extana_sfc'
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
@@ -705,7 +705,7 @@ MODULE mo_initicon_io
       IF(lread_process) THEN
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
+          CALL finish(routine,'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
         ENDIF
 
         !
@@ -728,7 +728,7 @@ MODULE mo_initicon_io
         ! check the number of cells and vertical levels
         !
         IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
+          CALL finish(routine,&
           & 'Number of patch cells and cells in IFS2ICON file do not match.')
         ENDIF
 
@@ -742,7 +742,7 @@ MODULE mo_initicon_io
           WRITE (message_text,'(a,a)')                            &
             &  'surface-level surface geopotential is missing. ', &
             &  'use model-level surface geopotential, instead.'
-          CALL message(TRIM(routine),TRIM(message_text))
+          CALL message(routine, message_text)
 
           ! use model level geopotential instead
           geop_sfc_var = geop_ml_var
@@ -751,7 +751,7 @@ MODULE mo_initicon_io
         IF (nf_inq_varid(ncid, TRIM(geop_sfc_var), varid) == nf_noerr) THEN
           CALL nf(nf_inq_varndims(ncid,varid,geop_sfc_var_ndims), routine)
         ELSE
-          CALL finish(TRIM(ROUTINE),'surface geopotential variable '//TRIM(geop_sfc_var)//' is missing')
+          CALL finish(routine,'surface geopotential variable '//TRIM(geop_sfc_var)//' is missing')
         ENDIF
 
         ! Check, if the snow albedo ALB_SNOW is available.
@@ -767,7 +767,7 @@ MODULE mo_initicon_io
           WRITE (message_text,'(a,a)')                            &
             &  'snow albedo is missing. ', &
             &  'use snow density value, instead.'
-          CALL message(TRIM(routine),TRIM(message_text))
+          CALL message(routine, message_text)
 
           alb_snow_var = 'RHO_SNOW'
         ENDIF
@@ -780,7 +780,7 @@ MODULE mo_initicon_io
           WRITE (message_text,'(a,a)')                            &
             &  'sea surface temperature not available. ', &
             &  'initialize with skin temperature, instead.'
-          CALL message(TRIM(routine),TRIM(message_text))
+          CALL message(routine, message_text)
           l_sst_in = .FALSE.
         ENDIF
 
@@ -813,7 +813,7 @@ MODULE mo_initicon_io
         CALL read_2d_1time(stream_id, on_cells, TRIM(geop_sfc_var), &
           &                     fill_array=initicon(jg)%sfc_in%phi)
       ELSE
-        CALL finish(TRIM(routine),"geop_sfc_var: Dimension mismatch")
+        CALL finish(routine,"geop_sfc_var: Dimension mismatch")
       ENDIF
 
       CALL read_2d_1time(stream_id, on_cells, 'SKT', &
@@ -929,7 +929,7 @@ MODULE mo_initicon_io
     ! Error handler and summary table entry
     CALL params%inputInstructions(jg)%ptr%handleError(lfound, TRIM(varName), params%routine, params%isFg)
     IF (.NOT. lfound) THEN
-      CALL message(TRIM(caller), 'Variable '//TRIM(varName)//' not found in '//TRIM(context))
+      CALL message(caller, 'Variable '//TRIM(varName)//' not found in '//TRIM(context))
     END IF
     
   END SUBROUTINE fetch3d_with_status
@@ -1149,55 +1149,55 @@ MODULE mo_initicon_io
             CALL fetch3d(params, 'qv', jg, my_ptr3d)
 
             my_ptr3d => prognosticFields%tracer(:,:,:,iqc)
-            CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qc', jg, my_ptr3d, &
+            CALL fetch3d_with_status(routine, 'dwdfg file', params, 'qc', jg, my_ptr3d, &
                  atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqc))
 
             my_ptr3d => prognosticFields%tracer(:,:,:,iqi)
-            CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qi', jg, my_ptr3d, &
+            CALL fetch3d_with_status(routine, 'dwdfg file', params, 'qi', jg, my_ptr3d, &
                  atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqi))
 
             IF ( iqr /= 0 ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqr)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qr', jg, my_ptr3d, &
+              CALL fetch3d_with_status(routine, 'dwdfg file', params, 'qr', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqr))
             END IF
 
             IF ( iqs /= 0 ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqs)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qs', jg, my_ptr3d, &
+              CALL fetch3d_with_status(routine, 'dwdfg file', params, 'qs', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqs))
             END IF
 
             IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqg)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qg', jg, my_ptr3d, &
+              CALL fetch3d_with_status(routine, 'dwdfg file', params, 'qg', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqg))
             END IF
 
             IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqh)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qh', jg, my_ptr3d, &
+              CALL fetch3d_with_status(routine, 'dwdfg file', params, 'qh', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqh))
               my_ptr3d => prognosticFields%tracer(:,:,:,iqnc)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qnc', jg, my_ptr3d, &
+              CALL fetch3d_with_status (routine, 'dwdfg file', params, 'qnc', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqnc))
               my_ptr3d => prognosticFields%tracer(:,:,:,iqni)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qni', jg, my_ptr3d, &
+              CALL fetch3d_with_status (routine, 'dwdfg file', params, 'qni', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqni))
               my_ptr3d => prognosticFields%tracer(:,:,:,iqnr)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qnr', jg, my_ptr3d, &
+              CALL fetch3d_with_status (routine, 'dwdfg file', params, 'qnr', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqnr))
               my_ptr3d => prognosticFields%tracer(:,:,:,iqns)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qns', jg, my_ptr3d, &
+              CALL fetch3d_with_status (routine, 'dwdfg file', params, 'qns', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqns))
               my_ptr3d => prognosticFields%tracer(:,:,:,iqng)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qng', jg, my_ptr3d, &
+              CALL fetch3d_with_status (routine, 'dwdfg file', params, 'qng', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqng))
               my_ptr3d => prognosticFields%tracer(:,:,:,iqnh)
-              CALL fetch3d_with_status (TRIM(routine), 'dwdfg file', params, 'qnh', jg, my_ptr3d, &
+              CALL fetch3d_with_status (routine, 'dwdfg file', params, 'qnh', jg, my_ptr3d, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_fg(iqnh))
               ! If any of the number conc. qnx could not be read from fg, this will diagnose them from qx:
-              CALL init_qnx_from_qx_twomom (TRIM(routine), p_patch(jg), prognosticFields, &
+              CALL init_qnx_from_qx_twomom (routine, p_patch(jg), prognosticFields, &
                                             .NOT. atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:) )
             END IF
 
@@ -1350,7 +1350,7 @@ MODULE mo_initicon_io
             IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
               CALL fetch3d(params, 'qg', jg, initicon(jg)%atm_in%qg, lfound_qg)
               IF (.NOT. lfound_qg) THEN
-                CALL message(TRIM(routine),'Graupel (QG) not available in input data')
+                CALL message(routine,'Graupel (QG) not available in input data')
                 initicon(jg)%atm_in%qg(:,:,:) = 0._wp
               END IF
             ELSE
@@ -1492,7 +1492,7 @@ MODULE mo_initicon_io
 
             IF (init_mode == MODE_IAU .AND. qcana_mode > 0) THEN
               lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceFg
-              CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qc', jg, my_ptr%qc, &
+              CALL fetch3d_with_status (routine, 'dwdana file', params, 'qc', jg, my_ptr%qc, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqc))
               IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qc') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qc', kInputSourceBoth)
@@ -1501,7 +1501,7 @@ MODULE mo_initicon_io
 
             IF (init_mode == MODE_IAU .AND. qiana_mode > 0) THEN
               lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceFg
-              CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qi', jg, my_ptr%qi, &
+              CALL fetch3d_with_status (routine, 'dwdana file', params, 'qi', jg, my_ptr%qi, &
                    atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqi))
               IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qi') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qi', kInputSourceBoth)
@@ -1511,7 +1511,7 @@ MODULE mo_initicon_io
             IF (init_mode == MODE_IAU .AND. qrsgana_mode > 0) THEN
               IF ( iqr /= 0 ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qr') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qr', jg, my_ptr%qr, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qr', jg, my_ptr%qr, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqr))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qr') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qr', kInputSourceBoth)
@@ -1519,7 +1519,7 @@ MODULE mo_initicon_io
               END IF
               IF ( iqs /= 0 ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qs') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qs', jg, my_ptr%qs, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qs', jg, my_ptr%qs, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqs))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qs') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qs', kInputSourceBoth)
@@ -1527,7 +1527,7 @@ MODULE mo_initicon_io
               END IF
               IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qg') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qg', jg, my_ptr%qg, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qg', jg, my_ptr%qg, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqg))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qg') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qg', kInputSourceBoth)
@@ -1537,7 +1537,7 @@ MODULE mo_initicon_io
               IF ( atm_phy_nwp_config(jg)%l2moment ) THEN
 
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qh') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qh', jg, my_ptr%qh, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qh', jg, my_ptr%qh, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqh))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qh') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qh', kInputSourceBoth)
@@ -1551,49 +1551,49 @@ MODULE mo_initicon_io
               IF (qnxana_2mom_mode > 0) THEN
 
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qnc') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnc', jg, my_ptr%qnc, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qnc', jg, my_ptr%qnc, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnc))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qnc') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qnc', kInputSourceBoth)
                 END IF
                 
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qni') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qni', jg, my_ptr%qni, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qni', jg, my_ptr%qni, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqni))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qni') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qni', kInputSourceBoth)
                 END IF
                 
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qnr') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnr', jg, my_ptr%qnr, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qnr', jg, my_ptr%qnr, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnr))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qnr') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qnr', kInputSourceBoth)
                 END IF
                 
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qns') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qns', jg, my_ptr%qns, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qns', jg, my_ptr%qns, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqns))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qns') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qns', kInputSourceBoth)
                 END IF
                 
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qng') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qng', jg, my_ptr%qng, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qng', jg, my_ptr%qng, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqng))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qng') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qng', kInputSourceBoth)
                 END IF
                 
                 lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qnh') == kInputSourceFg
-                CALL fetch3d_with_status (TRIM(routine), 'dwdana file', params, 'qnh', jg, my_ptr%qnh, &
+                CALL fetch3d_with_status (routine, 'dwdana file', params, 'qnh', jg, my_ptr%qnh, &
                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(iqnh))
                 IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qnh') == kInputSourceAna) THEN
                   CALL inputInstructions(jg)%ptr%setSource('qnh', kInputSourceBoth)
                 END IF
 
                 ! QNX increments which were not available from dwdana file are diagnosed based on the QX from fg and ana increments:
-                CALL init_qnxinc_from_qxinc_twomom ( TRIM(routine), p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                CALL init_qnxinc_from_qxinc_twomom ( routine, p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                                      initicon(jg), &
                                                      atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:), &
                                                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:), &
@@ -1601,7 +1601,7 @@ MODULE mo_initicon_io
               ELSE
 
                 ! QNX increments not read from dwdana file, but diagnosed based on the QX from fg and ana increments:
-                CALL init_qnxinc_from_qxinc_twomom ( TRIM(routine), p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                CALL init_qnxinc_from_qxinc_twomom ( routine, p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                                      initicon(jg), &
                                                      atm_phy_nwp_config(jg)%lhydrom_read_from_fg(:), &
                                                      atm_phy_nwp_config(jg)%lhydrom_read_from_ana(:), &

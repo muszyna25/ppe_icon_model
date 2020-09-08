@@ -30,7 +30,6 @@ MODULE mo_echam_phy_init
     &                                t_stream_id, on_cells
   USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
     &                                timer_prep_echam_phy
-  USE mo_impl_constants,       ONLY: max_char_length
 
   ! model configuration
   USE mo_impl_constants,       ONLY: min_rlcell_int, grf_bdywidth_c
@@ -582,9 +581,9 @@ CONTAINS
     LOGICAL :: lany
     TYPE(t_stream_id) :: stream_id
 
-    CHARACTER(len=max_char_length) :: land_frac_fn
-    CHARACTER(len=max_char_length) :: land_phys_fn
-    CHARACTER(len=max_char_length) :: land_sso_fn
+    CHARACTER(len=26+2+3) :: land_frac_fn
+    CHARACTER(len=26+2+3) :: land_phys_fn
+    CHARACTER(len=25+2+3) :: land_sso_fn
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
     CHARACTER(len=*), PARAMETER :: routine = modname//':init_echam_phy_external'

@@ -33,7 +33,7 @@ MODULE mo_opt_diagnostics
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
   USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog,      &
                                      t_nh_state_lists
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
+  USE mo_impl_constants,       ONLY: success, max_var_list_name_len,     &
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  &
     &                                VINTP_METHOD_LIN,                   &
@@ -555,7 +555,7 @@ CONTAINS
     INTEGER :: jt
 
     !WRITE(message_text,'(a,i2)') '(pre ): numberOfAccumulations:',acc%numberOfAccumulations
-    !CALL message('update_opt_nh_acc', TRIM(message_text))
+    !CALL message('update_opt_nh_acc', message_text)
     IF (acc%l_ua_m)    CALL add_fields(acc%u       , nh_diag%u       , subset, levels=levels)
     IF (acc%l_va_m)    CALL add_fields(acc%v       , nh_diag%v       , subset, levels=levels)
     IF (acc%l_wa_m)    CALL add_fields(acc%w       , nh_prog%w       , subset, levels=levels+1)
@@ -583,7 +583,7 @@ CONTAINS
 
     acc%numberOfAccumulations = acc%numberOfAccumulations + 1
     !WRITE(message_text,'(a,i2)') '(post): numberOfAccumulations:',acc%numberOfAccumulations
-    !CALL message('update_opt_nh_acc', TRIM(message_text))
+    !CALL message('update_opt_nh_acc', message_text)
 
   END SUBROUTINE update_opt_acc
 
@@ -655,20 +655,19 @@ CONTAINS
     LOGICAL,              INTENT(IN)   :: l_init_pz
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  &
-      &  TRIM("mo_opt_diagnostics:construct_opt_diag")
+    CHARACTER(*), PARAMETER :: routine = modname//":construct_opt_diag"
     INTEGER                            :: jg, ist
-    CHARACTER(len=MAX_CHAR_LENGTH)     :: listname
+    CHARACTER(len=max_var_list_name_len) :: listname
 
     ! initialize data structure for optional diagnostics
     ALLOCATE(p_nh_opt_diag(n_dom), STAT=ist)
     IF (ist /= SUCCESS) &
-      CALL finish (TRIM(routine), 'Allocation of optional diagnostics failed')
+      CALL finish (routine, 'Allocation of optional diagnostics failed')
 
     DO jg = 1, n_dom
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list,    &
         & lrestart=.FALSE. )
@@ -676,25 +675,25 @@ CONTAINS
       IF (.NOT. l_init_pz) CYCLE
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_z_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_z,    &
         & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_p_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_p,    &
         & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_i_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_i, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_il )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_i,    &
         & lrestart=.FALSE. )
 
       WRITE(listname,'(a,i2.2)') 'nh_accumulation_for_ProgAndDiag_of_domain_',jg
-      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, TRIM(listname), &
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_acc_list, listname, &
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_acc_list,    &
         & lrestart=.FALSE.,loutput=.TRUE. )
@@ -714,8 +713,7 @@ CONTAINS
   !
   SUBROUTINE destruct_opt_diag()
     ! local variables
-    CHARACTER(*), PARAMETER :: routine =  &
-      &  TRIM("mo_opt_diagnostics:destruct_opt_diag")
+    CHARACTER(*), PARAMETER :: routine = modname//":destruct_opt_diag"
     INTEGER :: jg, ist
 
     DO jg = 1, n_dom
@@ -729,7 +727,7 @@ CONTAINS
     ! Delete optional diagnostics
     DEALLOCATE(p_nh_opt_diag, STAT=ist)
     IF (ist /= SUCCESS) &
-      CALL finish(TRIM(routine),'Deallocation for optional diagnostics failed.')
+      CALL finish(routine,'Deallocation for optional diagnostics failed.')
 
   END SUBROUTINE destruct_opt_diag
 
@@ -744,7 +742,7 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nlev
     TYPE(t_vcoeff_lin),        INTENT(INOUT) :: vcoeff_lin
 
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_lin_allocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_lin_allocate"
     INTEGER :: ierrstat
 
     ! real(wp)
@@ -787,7 +785,7 @@ CONTAINS
     INTEGER,                   INTENT(IN)    :: nlev
     TYPE(t_vcoeff_cub),        INTENT(INOUT) :: vcoeff_cub
 
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_cub_allocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_cub_allocate"
     INTEGER :: ierrstat
 
     ! real(wp)
@@ -821,7 +819,7 @@ CONTAINS
     INTEGER,                           INTENT(IN)    :: nlev
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff
 
-!!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_allocate")
+!!$    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_allocate"
 
 !$ACC ENTER DATA CREATE( vcoeff )
 
@@ -849,8 +847,7 @@ CONTAINS
   SUBROUTINE vcoeff_lin_deallocate(vcoeff_lin)
     TYPE(t_vcoeff_lin), INTENT(INOUT) :: vcoeff_lin
 
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_opt_diagnostics:vcoeff_lin_deallocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_lin_deallocate"
     INTEGER :: ierrstat
 
 !$ACC EXIT DATA DELETE( vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin, vcoeff_lin%bot_idx_lin, &
@@ -878,8 +875,7 @@ CONTAINS
   SUBROUTINE vcoeff_cub_deallocate(vcoeff_cub)
     TYPE(t_vcoeff_cub), INTENT(INOUT) :: vcoeff_cub
 
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_opt_diagnostics:vcoeff_cub_deallocate")
+    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_cub_deallocate"
     INTEGER :: ierrstat
 
 !$ACC EXIT DATA DELETE( vcoeff_cub%coef1, vcoeff_cub%coef2, vcoeff_cub%coef3, &
@@ -904,8 +900,7 @@ CONTAINS
   SUBROUTINE vcoeff_deallocate(vcoeff)
     TYPE(t_vcoeff), INTENT(INOUT) :: vcoeff
 
-!!$    CHARACTER(*), PARAMETER :: routine = &
-!!$      &  TRIM("mo_opt_diagnostics:vcoeff_deallocate")
+!!$    CHARACTER(*), PARAMETER :: routine = modname//":vcoeff_deallocate"
 
     ! deallocate coefficient tables:
     IF (vcoeff%l_allocated) THEN

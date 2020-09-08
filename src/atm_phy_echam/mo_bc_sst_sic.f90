@@ -115,18 +115,19 @@ CONTAINS
     INTEGER :: vlID, taxID, tsID, ts_idx, strID, nmiss, vd, vy, vm, ts_found
     LOGICAL :: found_last_ts, lexist
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_bc_sst_sic:read_sst_sic_data'
 
     IF (my_process_is_mpi_workroot()) THEN
       INQUIRE (file=fn, exist=lexist)
       IF (.NOT.lexist) THEN
         WRITE (message_text, '(3a)') 'Could not open file ', fn, ': run terminated.'
-        CALL finish ('mo_bc_sst_sic:read_sst_sic_data', message_text)
+        CALL finish(routine, message_text)
       ENDIF
       strID = streamOpenRead(fn)
       IF ( strID < 0 ) THEN
         CALL cdiGetStringError(strID, cdiErrorText)
         WRITE (message_text, '(4a)') 'Could not open file ', fn, ': ', cdiErrorText
-        CALL finish('mo_bc_sst_sic:read_sst_sic_data', message_text)
+        CALL finish(routine, message_text)
       END IF
       vlID = streamInqVlist(strID)
       taxID = vlistInqTaxis(vlID)
