@@ -966,7 +966,6 @@ CONTAINS
     IF (PRESENT(opt_prefix)) THEN
       prefix = opt_prefix
     ELSE
-      ALLOCATE(CHARACTER(1) :: prefix)
       prefix = " "
     END IF
     len_pfx = LEN(prefix)
