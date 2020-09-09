@@ -34,8 +34,9 @@ MODULE mo_phy_events
     &                                    getEventLastDateTime, getEventFirstDateTime,       &
     &                                    getEventInterval, getTotalSecondsTimedelta,        &
     &                                    getTriggerNextEventAtDateTime, deallocateEvent,    &
-    &                                    deallocateTimedelta, deallocateDatetime
+    &                                    deallocateDatetime
 !!$                                   getTriggeredPreviousEventAtDateTime
+  USE mo_util_mtime,               ONLY: mtime_timedelta_from_fseconds
   USE mo_util_table,               ONLY: t_table, initialize_table, add_table_column, &
     &                                    set_table_entry, print_table, finalize_table
   USE mo_run_config,               ONLY: msg_level
@@ -826,8 +827,7 @@ CONTAINS
     ! local
     INTEGER                               :: iproc               ! loop conter
     REAL(wp)                              :: elapsedTime
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: elapsedTime_str
-    TYPE(timedelta), POINTER              :: mtime_elapsedTime   ! elapsed time in mtime format
+    TYPE(timedelta)                       :: mtime_elapsedTime   ! elapsed time in mtime format
     TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(len=MAX_CHAR_LENGTH)        :: attname             ! attribute name
     CHARACTER(LEN=*), PARAMETER           :: routine = modname//":phyProcGroup_deserialize"
@@ -849,13 +849,10 @@ CONTAINS
 
         ! Note that elapsedTime is multiplied by -1, since we only have a 
         ! '+' operator available.
-        CALL getPTStringFromSeconds((-1._wp)*elapsedTime, elapsedTime_str)
-        mtime_elapsedTime => newTimedelta(elapsedTime_str)
+        CALL mtime_timedelta_from_fseconds(-elapsedTime, mtime_current, &
+          &                                mtime_elapsedTime)
         phyProcGrp%proc(iproc)%p%lastActive = mtime_current + mtime_elapsedTime
         !
-        IF (ASSOCIATED(mtime_elapsedTime)) THEN
-          CALL deallocateTimedelta(mtime_elapsedTime)
-        END IF
       ENDDO
     ENDIF  ! associated
 
