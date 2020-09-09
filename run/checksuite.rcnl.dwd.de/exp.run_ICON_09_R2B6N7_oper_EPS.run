@@ -869,7 +869,7 @@ do
 
 # run Python script for comparison of GRIB2 meta-data and values:
 $ICONDIR/run/checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.check.py \
---datafile=\$this_file --reffile=$refdir/\$this_file --g=true
+--datafile=\$this_file --reffile=$refdir/\$this_file -g
 
 done
 

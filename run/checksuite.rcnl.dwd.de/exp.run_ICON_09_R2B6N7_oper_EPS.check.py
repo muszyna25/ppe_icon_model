@@ -14,9 +14,7 @@ COMPARE TEST DATA TO REFERENCE FILE
 # --------------------------------------------------------------------------------
 # > define a list of checks and their conditions for execution,
 #   where the conditions may combine several metadata.
-#   'glob' indicates a global input data set, for which stricter checks are applied than for regional domains
-async def run_checks(test_data, reference, glob):
-  if (glob):
+async def run_checks_glb(test_data, reference):
     await asyncio.gather(
         # relative difference of average:
         check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "PMSL"),    \
@@ -43,7 +41,8 @@ async def run_checks(test_data, reference, glob):
         # GRIB2 meta-data checks:
         check_grb_metadata(test_data, reference, True),                                                  \
     )
-  else:
+
+async def run_checks_loc(test_data, reference):
     await asyncio.gather(
         # relative difference of average:
         check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "PMSL"),    \
@@ -147,7 +146,7 @@ grb_metadata = eccodes.codes_get        # alias
 
 # --------------------------------------------------------------------------------
 # > read all GRIB2 records in data file; call check functions.
-async def read_grib_record(test_data, reference, glob):
+async def read_grib_record(test_data, reference, check_fct):
 
     while True:
         test_data.grb = eccodes.codes_grib_new_from_file(test_data.pfile)
@@ -156,7 +155,7 @@ async def read_grib_record(test_data, reference, glob):
             break
         else:
             test_data.processed_records.append(grb_metadata(test_data.grb,"shortName"))
-            await run_checks(test_data, reference, glob)
+            await check_fct(test_data, reference)
             eccodes.codes_release(test_data.grb)
     return False
 
@@ -205,9 +204,9 @@ async def read_reference_record(grb_tst, reference):
 def main():
     # parse command-line options
     parser = argparse.ArgumentParser()
-    parser.add_argument("--datafile",  help="GRIB2 file containing test data.")
-    parser.add_argument("--reffile",   help="GRIB2 file containing reference data.")
-    parser.add_argument("--g",         help="indicates if dataset is global.")
+    parser.add_argument("--datafile",                               help="GRIB2 file containing test data.")
+    parser.add_argument("--reffile",                                help="GRIB2 file containing reference data.")
+    parser.add_argument("--global_data", "-g", action="store_true", help="indicates if dataset is global.")
 
     args = parser.parse_args()
 
@@ -229,7 +228,12 @@ def main():
     test_data.processed_records = []
 
     try:
-        asyncio.run(read_grib_record(test_data, reference, args.g))
+        if (args.global_data):
+            print("perform global checks.")
+            asyncio.run(read_grib_record(test_data, reference, run_checks_glb))
+        else:
+            print("perform local checks.")
+            asyncio.run(read_grib_record(test_data, reference, run_checks_loc))
     except Exception as e:
         print("\nERROR!\n")
         print("checked data records so far: {}".format(list(dict.fromkeys(test_data.processed_records))))
