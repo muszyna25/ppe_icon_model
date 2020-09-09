@@ -118,9 +118,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
   ! local variables for turbdiff
 
-  INTEGER :: ierrstat
-  CHARACTER (LEN=25) :: eroutine
-  CHARACTER (LEN=80) :: errormsg
   INTEGER  :: nlev, nlevp1, nlevcm                  !< number of full, half and canopy levels
   INTEGER  :: lc_class                              !< land-cover class
 
@@ -205,7 +202,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,jk,ic,ilist,i_startidx,i_endidx,i_count,ierrstat,errormsg,eroutine,   &
+!$OMP DO PRIVATE(jb,jt,jc,jk,ic,ilist,i_startidx,i_endidx,i_count,   &
 !$OMP nzprv,lc_class,z_tvs,z0_mod,gz0_t,tcm_t,tch_t,tfm_t,tfh_t,tfv_t,tvm_t,tvh_t,tkr_t,l_hori, &
 !$OMP t_g_t,qv_s_t,t_2m_t,qv_2m_t,td_2m_t,rh_2m_t,u_10m_t,v_10m_t,tvs_t,pres_sfc_t,u_t,v_t,     &
 !$OMP temp_t,pres_t,qv_t,qc_t,tkvm_t,tkvh_t,z_ifc_t,rcld_t,sai_t,fr_land_t,depth_lk_t,h_ice_t,  &
@@ -346,7 +343,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 !< COSMO turbulence scheme by M. Raschendorfer
 !-------------------------------------------------------------------------
  
-      ierrstat = 0
 
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
@@ -423,7 +419,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &  qvfl_s=prm_diag%qhfl_s_t(:,jb,1),                                         & !out
           &  umfl_s=prm_diag%umfl_s_t(:,jb,1),                                         & !out
           &  vmfl_s=prm_diag%vmfl_s_t(:,jb,1),                                         & !out
-          &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine,                 & !inout
           &  lacc=lzacc                                                                 ) !in
 
         !$acc kernels default(present) if(lzacc)
@@ -622,7 +617,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  qvfl_s=qhfl_s_t(:,jt),                                       & !out
             &  umfl_s=umfl_s_t(:,jt),                                       & !out
             &  vmfl_s=vmfl_s_t(:,jt),                                       & !out
-            &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine,    & !inout
             &  lacc=lzacc                                                   ) !in
 
           ! Decision as to "ice" vs. "no ice" is made on the basis of h_ice_t(:).

@@ -1463,8 +1463,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
        &  u_10m=prm_diag%u_10m(:,jb),                                         &
        &  v_10m=prm_diag%v_10m(:,jb),                                         &
        &  shfl_s=prm_diag%shfl_s(:,jb),                                       &
-       &  qvfl_s=prm_diag%qhfl_s(:,jb),                                       &
-       &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine )
+       &  qvfl_s=prm_diag%qhfl_s(:,jb))
 
 
       prm_diag%lhfl_s(i_startidx:i_endidx,jb) = &
@@ -1521,8 +1520,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
           &  vt_sso=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb),wp),          &
           &  shfl_s=prm_diag%shfl_s(:,jb),                            &
           &  qvfl_s=prm_diag%qhfl_s(:,jb),                            &
-          &  zvari=zvariaux,                                          & !out
-          &  ierrstat=ierrstat, yerrormsg=errormsg, yroutine=eroutine )
+          &  zvari=zvariaux                                           & !out
+          &  )
 
       END IF
 
