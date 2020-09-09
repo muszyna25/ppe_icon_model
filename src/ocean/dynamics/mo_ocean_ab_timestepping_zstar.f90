@@ -766,11 +766,18 @@ CONTAINS
           & + dtime*ocean_state%p_aux%bc_top_vn(je,blockNo)                                  &
           & /(stretch_e(je, blockNo) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,1,blockNo) )
         bottom_level = patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-        ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                                  &
-          & = ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                            &
-          & - dtime*ocean_state%p_aux%bc_bot_vn(je,blockNo)                                  &
-          & /( stretch_e(je, blockNo) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,bottom_level,blockNo) )
-     ENDIF
+        !! Using a stable version for boundary modification
+        ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)           &
+            & = ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)/    &
+            & ( 1.0_wp + dtime* v_params%bottom_drag_coeff*             &
+            & abs(ocean_state%p_diag%vn_pred(je,bottom_level,blockNo))  &
+            & /( stretch_e(je, blockNo) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,bottom_level,blockNo) ) )
+
+!        ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                                  &
+!          & = ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)                            &
+!          & - dtime*ocean_state%p_aux%bc_bot_vn(je,blockNo)                                  &
+!          & /( stretch_e(je, blockNo) * patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,bottom_level,blockNo) )
+      ENDIF
     END DO
   END SUBROUTINE calculate_explicit_vn_pred_3D_onBlock_zstar
 
