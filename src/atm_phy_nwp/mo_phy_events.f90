@@ -306,10 +306,7 @@ CONTAINS
     ! dummy initialization
     lastActive_ptr => newDatetime("1111-01-01T00:00:00.000")
     phyProc%lastActive = lastActive_ptr
-
-    IF (ASSOCIATED(lastActive_ptr)) THEN
-      CALL deallocateDatetime(lastActive_ptr)
-    END IF
+    CALL deallocateDatetime(lastActive_ptr)
 
   END SUBROUTINE phyProcBase_reinitEvent
 
