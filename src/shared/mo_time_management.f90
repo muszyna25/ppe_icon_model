@@ -643,7 +643,7 @@ CONTAINS
           &int2string(restart_calendar)//' /= '//int2string(dtime_calendar))
         start_datetime_string = exp_start_datetime_string
 
-      ELSE IF (TRIM(restart_ini_datetime_string) /= TRIM(ini_datetime_string)) THEN
+      ELSE IF (restart_ini_datetime_string /= ini_datetime_string) THEN
 
         CALL message('','Restart ini date is not matching, fallback to experiment start date: '//&
         &TRIM(restart_ini_datetime_string)//' /= '//TRIM(ini_datetime_string))
@@ -699,11 +699,11 @@ CONTAINS
       ! transform timeshift to mtime-format
       !
       CALL getPTStringFromSeconds(timeshift%dt_shift, dt_shift_string)
-      timeshift%mtime_shift => newTimedelta(TRIM(dt_shift_string))
+      timeshift%mtime_shift => newTimedelta(dt_shift_string)
       WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(dt_shift_string)
       !
       CALL getPTStringFromSeconds(ABS(timeshift%dt_shift), dt_shift_string)
-      timeshift%mtime_absshift => newTimedelta(TRIM(dt_shift_string))
+      timeshift%mtime_absshift => newTimedelta(dt_shift_string)
       CALL message('',message_text)
 #endif
     ENDIF
