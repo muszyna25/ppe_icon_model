@@ -28,7 +28,7 @@ MODULE mo_exception
 
   USE mo_io_units, ONLY: nerr, nlog, filename_max
   USE mo_mpi,      ONLY: run_is_global_mpi_parallel, abort_mpi, my_process_is_stdio, &
-    & get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0, proc_split, comm_lev
+    & get_my_global_mpi_id, p_pe_work, get_glob_proc0, proc_split, comm_lev
   USE mo_kind,     ONLY: wp, i8
   USE mo_impl_constants,  ONLY: MAX_CHAR_LENGTH
   
@@ -212,10 +212,10 @@ CONTAINS
     LOGICAL,           INTENT(in), OPTIONAL :: adjust_right
 
     INTEGER :: iout
-    INTEGER :: ilevel
+    INTEGER :: ilevel, glob_proc0
     LOGICAL :: lprint
     LOGICAL :: ladjust
-    LOGICAL :: lactive
+    LOGICAL :: lactive, is_proc_split_root
 
     CHARACTER(len=8) :: prefix
 
@@ -258,36 +258,34 @@ CONTAINS
     END SELECT
 
     IF (.NOT. ladjust) THEN
-      message_text = TRIM(ADJUSTL(text))
+      message_text = ADJUSTL(text)
     ELSE
-      message_text = TRIM(text)
+      message_text = text
     ENDIF
     IF (name /= '')  THEN
-      message_text = TRIM(name) // ': ' // TRIM(message_text)
+      message_text = TRIM(name) // ': ' // message_text
     ENDIF
     IF (ilevel > em_none) THEN
-      message_text = prefix // ' ' // TRIM(message_text)
+      message_text = prefix // ' ' // message_text
     ENDIF
+
+    IF (proc_split) THEN
+      glob_proc0 = get_glob_proc0()
+      is_proc_split_root = p_pe_work == glob_proc0
+    ELSE
+      is_proc_split_root = .FALSE.
+    END IF
 
     IF (run_is_global_mpi_parallel() .AND. &
       & (l_debug .OR. ilevel == em_warn .OR. ilevel == em_error)) THEN
       WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', get_my_global_mpi_id(), ' ', &
         & TRIM(message_text)
       lprint = .TRUE.
+    ELSE IF ( proc_split .AND. comm_lev > 0 .AND. is_proc_split_root ) THEN
+      WRITE(write_text,*) 'PROC_SPLIT: PE ', glob_proc0, ' ', &
+        & TRIM(message_text)
     ELSE
-
-      IF ( proc_split ) THEN
-        IF ( (comm_lev>0)  .AND.   &
-        & (get_my_mpi_work_id() == get_glob_proc0()) ) THEN
-        WRITE(write_text,*) 'PROC_SPLIT: PE ', get_glob_proc0(), ' ', &
-          & TRIM(message_text)
-        ELSE
-          write_text = message_text
-        ENDIF
-      ELSE
-        write_text = message_text
-      END IF
-
+      write_text = message_text
     END IF
 
     ! conditions under which this process actually prints out a message:
@@ -296,9 +294,7 @@ CONTAINS
     ! - or: this process is stdio process
     lactive = lactive .OR. my_process_is_stdio()
     ! - or: this process is root process in processor splitting
-    IF (proc_split) &
-     &lactive = lactive .OR. &
-       &       (proc_split .AND. (get_my_mpi_work_id() == get_glob_proc0()))
+    lactive = lactive .OR. is_proc_split_root
 
     IF (lactive) THEN
       IF (msg_timestamp) THEN
