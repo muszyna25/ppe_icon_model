@@ -179,9 +179,9 @@ CONTAINS
     TYPE(datetime), OPTIONAL, INTENT(IN) :: anchor_datetime   ! anchor date
     !
     ! local
-    TYPE(timedelta), POINTER :: time_diff => NULL()
-    TYPE(datetime)           :: anchor                        ! anchor date for 
-                                                              ! timeDelta computation
+    TYPE(timedelta) :: time_diff
+    TYPE(datetime)  :: anchor                        ! anchor date for
+                                                     ! timeDelta computation
     !---------------------------------------------------------
 
     If (PRESENT(anchor_datetime)) THEN
@@ -191,11 +191,8 @@ CONTAINS
       anchor = time_config%tc_exp_startdate
     ENDIF
 
-    time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(datetime_current, anchor)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, datetime_current)*1.e-3_wp
-
-    CALL deallocateTimedelta(time_diff)
 
   END FUNCTION getElapsedSimTimeInSeconds
 
