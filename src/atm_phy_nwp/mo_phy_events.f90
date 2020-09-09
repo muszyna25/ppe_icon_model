@@ -21,7 +21,8 @@
 MODULE mo_phy_events
 
   USE mo_kind,                     ONLY: wp
-  USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH, SUCCESS
+  USE mo_impl_constants,           ONLY: max_char_length, SUCCESS, &
+    &                                    max_var_list_name_len
   USE mo_exception,                ONLY: finish, message, message_text
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimedelta, &
     &                                    datetimeToString, timedeltaToString, &
@@ -246,8 +247,8 @@ CONTAINS
     eventRefDate   => startDate  ! should this be set to the model start date
     eventInterval  => dt
     !
-    phyProc%ev_ptr => newEvent(TRIM(phyProc%name), eventRefDate, eventStartDate, &
-      &                        eventEndDate, eventInterval, errno=ierr)
+    phyProc%ev_ptr => newEvent(phyProc%name, eventRefDate, eventStartDate, &
+      &                        eventEndDate, eventInterval)
 
     ! dummy initialization
     lastActive_ptr => newDatetime("1111-01-01T00:00:00.000")
@@ -298,7 +299,7 @@ CONTAINS
     eventRefDate   => phyProc%startDate  ! should this be set to the model start date
     eventInterval  => phyProc%dt
     !
-    phyProc%ev_ptr => newEvent(TRIM(phyProc%name), eventRefDate, eventStartDate, &
+    phyProc%ev_ptr => newEvent(phyProc%name, eventRefDate, eventStartDate, &
       &                        eventEndDate, eventInterval, errno=ierr)
 
     ! dummy initialization
