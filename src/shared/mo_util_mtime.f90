@@ -11,14 +11,14 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_util_mtime
 
-  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
-  USE mo_kind,                     ONLY: wp, i8
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t, c_char
+  USE mo_kind,                     ONLY: dp, wp, i8
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mtime,                       ONLY: datetime, newDatetime, timedelta, newTimeDelta,   &
-    &                                    OPERATOR(-), OPERATOR(+), event,                  &
-    &                                    juliandelta, newJulianDelta,                      &
-    &                                    timeDeltaToJulianDelta, deallocateJulianDelta,    &
+    &                                    OPERATOR(-), OPERATOR(+), event,      &
+    &                                    juliandelta,                          &
+    &                                    timeDeltaToJulianDelta,               &
     &                                    deallocateTimeDelta, deallocateDatetime,          &
     &                                    getTimeDeltaFromDateTime,                         &
     &                                    getTotalMillisecondsTimedelta,                    &
@@ -42,6 +42,7 @@ MODULE mo_util_mtime
   PUBLIC :: is_event_active
   PUBLIC :: mtime_convert_netcdf_units
   PUBLIC :: mtime_divide_timedelta
+  PUBLIC :: mtime_timedelta_from_fseconds
 
   TYPE t_datetime_ptr
     TYPE(datetime), POINTER :: ptr => NULL()
@@ -306,6 +307,27 @@ CONTAINS
       &          +         INT(mtime_dt%second)
 
   END SUBROUTINE mtime_timedelta_to_seconds
+
+  ! convert (fractional) seconds into an mtime timedelta object
+  SUBROUTINE mtime_timedelta_from_fseconds(dt, base_dt, td)
+    REAL(dp), INTENT(in) :: dt
+    TYPE(datetime), INTENT(in) :: base_dt
+    TYPE(timedelta), INTENT(out) :: td
+    INTERFACE
+      SUBROUTINE julianDeltaToTimeDelta(jd, base_dt, td) BIND(c, name='julianDeltaToTimeDelta')
+        IMPORT :: juliandelta, datetime, timedelta
+        TYPE(juliandelta), INTENT(in) :: jd
+        TYPE(datetime), INTENT(in) :: base_dt
+        TYPE(timedelta), INTENT(out) :: td
+      END SUBROUTINE julianDeltaToTimeDelta
+    END INTERFACE
+    TYPE(juliandelta) :: jdelta
+
+    jdelta%sign = MERGE(c_char_'+', c_char_'-', dt >= 0.0_dp)
+    jdelta%ms = INT(ABS(MOD(dt, 86400._dp)) * 1000._dp, c_int64_t)
+    jdelta%day = INT(dt/86400._dp, c_int64_t)
+    CALL juliandeltatotimedelta(jdelta, base_dt, td)
+  END SUBROUTINE mtime_timedelta_from_fseconds
 
   ! the expected input looks similar to this "seconds since 2013-04-24T00:00:00"
 
