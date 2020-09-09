@@ -864,7 +864,16 @@ export ECCODES_DEFINITION_PATH="\$ECCODES_DIR/definitions.edzw:\$ECCODES_DIR/def
 . "/hpc/rwork0/routfor/test/icon/Checksuite_data/checksuite_rcnl_miniconda3/etc/profile.d/conda.sh"
 conda activate pyn_env
 
-for this_file in igfrf02000000ML.grb iefff02000000MLv01.grb
+for this_file in igfrf02000000ML.grb 
+do
+
+# run Python script for comparison of GRIB2 meta-data and values:
+$ICONDIR/run/checksuite.rcnl.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.check.py \
+--datafile=\$this_file --reffile=$refdir/\$this_file --g=true
+
+done
+
+for this_file in iefff02000000MLv01.grb
 do
 
 # run Python script for comparison of GRIB2 meta-data and values:

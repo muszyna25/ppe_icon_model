@@ -1215,16 +1215,18 @@ CONTAINS
       ENDIF
 
       ! Add layer-wise diagnostic if the maximum CFL value is close to the stability limit
-      IF (msg_level >= 13 .AND. max_cfl_tot > (nlist_max-1)) THEN
-        DO jk = slevp1_ti, nlev
-          max_cfl_lay_tot(jk) = MAXVAL(max_cfl_lay(jk,i_startblk:i_endblk))
-        ENDDO
+      IF (msg_level >= 13) THEN
+        IF (max_cfl_tot > (nlist_max-1)) THEN
+          DO jk = slevp1_ti, nlev
+            max_cfl_lay_tot(jk) = MAXVAL(max_cfl_lay(jk,i_startblk:i_endblk))
+          ENDDO
 
-        max_cfl_lay_tot(slevp1_ti:nlev) = global_max(max_cfl_lay_tot(slevp1_ti:nlev), iroot=process_mpi_stdio_id)
-        DO jk = slevp1_ti,nlev
-          WRITE(message_text,'(a,i4,a,e16.8)') 'maximum vertical CFL in layer', jk,' =', max_cfl_lay_tot(jk)
-          CALL message(TRIM(routine),message_text)
-        ENDDO
+          max_cfl_lay_tot(slevp1_ti:nlev) = global_max(max_cfl_lay_tot(slevp1_ti:nlev), iroot=process_mpi_stdio_id)
+          DO jk = slevp1_ti,nlev
+            WRITE(message_text,'(a,i4,a,e16.8)') 'maximum vertical CFL in layer', jk,' =', max_cfl_lay_tot(jk)
+            CALL message(TRIM(routine),message_text)
+          ENDDO
+        ENDIF
       ENDIF
 
     END IF

@@ -14,30 +14,59 @@ COMPARE TEST DATA TO REFERENCE FILE
 # --------------------------------------------------------------------------------
 # > define a list of checks and their conditions for execution,
 #   where the conditions may combine several metadata.
-async def run_checks(test_data, reference):
+#   'glob' indicates a global input data set, for which stricter checks are applied than for regional domains
+async def run_checks(test_data, reference, glob):
+  if (glob):
     await asyncio.gather(
         # relative difference of average:
         check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "PMSL"),    \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
-        check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
-        check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
+        check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
+        check_rel_avg(test_data, reference, 0.005,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
+        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
+        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ASOB_S"),   \
+        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ASOB_T"),   \
+        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
+        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ATHB_T"),   \
+        check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
+        check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
+        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
+        # GRIB2 meta-data checks:
+        check_grb_metadata(test_data, reference, True),                                                  \
+    )
+  else:
+    await asyncio.gather(
+        # relative difference of average:
+        check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "PMSL"),    \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
+        check_rel_avg(test_data, reference, 0.0004, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
+        check_rel_avg(test_data, reference, 0.0015, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
+        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
         check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
+        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
+        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
+        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_S"),   \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_T"),   \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ATHB_T"),   \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
-        check_rel_avg(test_data, reference, 0.004, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
-        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
-        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
+        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
+        check_rel_avg(test_data, reference, 0.003, grb_metadata(test_data.grb, "shortName") == "RAIN_GSP"), \
+        check_rel_avg(test_data, reference, 0.003, grb_metadata(test_data.grb, "shortName") == "RAIN_CON"), \
         # GRIB2 meta-data checks:
         check_grb_metadata(test_data, reference, True),                                                  \
     )
@@ -118,7 +147,7 @@ grb_metadata = eccodes.codes_get        # alias
 
 # --------------------------------------------------------------------------------
 # > read all GRIB2 records in data file; call check functions.
-async def read_grib_record(test_data, reference):
+async def read_grib_record(test_data, reference, glob):
 
     while True:
         test_data.grb = eccodes.codes_grib_new_from_file(test_data.pfile)
@@ -127,7 +156,7 @@ async def read_grib_record(test_data, reference):
             break
         else:
             test_data.processed_records.append(grb_metadata(test_data.grb,"shortName"))
-            await run_checks(test_data, reference)
+            await run_checks(test_data, reference, glob)
             eccodes.codes_release(test_data.grb)
     return False
 
@@ -178,6 +207,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--datafile",  help="GRIB2 file containing test data.")
     parser.add_argument("--reffile",   help="GRIB2 file containing reference data.")
+    parser.add_argument("--g",         help="indicates if dataset is global.")
+
     args = parser.parse_args()
 
     print("test data file : {} \nreference file : {}\n\n".format(args.datafile, args.reffile))
@@ -198,7 +229,7 @@ def main():
     test_data.processed_records = []
 
     try:
-        asyncio.run(read_grib_record(test_data, reference))
+        asyncio.run(read_grib_record(test_data, reference, args.g))
     except Exception as e:
         print("\nERROR!\n")
         print("checked data records so far: {}".format(list(dict.fromkeys(test_data.processed_records))))
