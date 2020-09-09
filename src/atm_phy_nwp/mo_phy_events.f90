@@ -818,7 +818,8 @@ CONTAINS
   !!
   SUBROUTINE phyProcGroup_deserialize (phyProcGrp, mtime_current, optAttnamePrefix)
     CLASS(t_phyProcGroup)         , INTENT(INOUT):: phyProcGrp     !< passed-object dummy argument
-    TYPE(datetime), POINTER       , INTENT(IN)   :: mtime_current  !< current_datetime
+    !> current_datetime
+    TYPE(datetime)                , INTENT(IN)   :: mtime_current
     CHARACTER(LEN=*), OPTIONAL    , INTENT(IN)   :: optAttnamePrefix !< optional prefix in attribute name
 
     ! local
