@@ -368,7 +368,7 @@ CONTAINS
           
           press_grad(je,jk,jb)=press_grad(je,jk,jb) + &
             & z_grav_rho_inv*(phy(ic2,jk,ib2)-phy(ic1,jk,ib1))*grad_coeff(je,jk,jb)* &
-            & 0.5_wp*( rho(ic2,jk,ib2) + rho(ic1,jk,ib1) )
+            & 0.5_wp*( ( rho(ic2,jk,ib2) + rho(ic1,jk,ib1) ) - OceanReferenceDensity )
         END DO
       END DO
     END DO
