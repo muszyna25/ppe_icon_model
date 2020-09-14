@@ -84,7 +84,6 @@ MODULE mo_cumaster
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
   USE mo_cuparameters , ONLY :                                   &
-    & rtwat                                                     ,&
     & lmfdd    ,lmfdudv            ,lmfit                       ,&
     & rmflic  ,rmflia  ,rmflmax, rmfsoluv, rmfdef               ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
@@ -842,12 +841,12 @@ DO jk=ktdia,klev
   DO jl=kidia,kfdia
     llo1=ldcum(jl).AND.ktype(jl) == 1
     IF(llo1.AND.jk <= kcbot(jl).AND.jk > kctop(jl)) THEN
-      ZDZ=(PGEOH(JL,JK-1)-PGEOH(JL,JK))
+      ZDZ=(PGEO(JL,JK-1)-PGEO(JL,JK))
       zheat(jl)=zheat(jl) +&
        & (  (pten(jl,jk-1)-pten(jl,jk) + zdz*zorcpd)/ztenh(jl,jk)&
        & +  retv*(pqen(jl,jk-1)-pqen(jl,jk))  ) *&
        & (rg*(pmfu(jl,jk)+pmfd(jl,jk)))
-      zdz=(paph(JL,JK)-paph(JL,JK-1))
+      zdz=(pap(JL,JK)-pap(JL,JK-1))
       zcape(jl)=zcape(jl) +&
        & ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk)&
        & +retv*(pqu(jl,jk)-zqenh(jl,jk))&

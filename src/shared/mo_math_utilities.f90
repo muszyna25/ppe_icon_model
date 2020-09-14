@@ -137,9 +137,6 @@ MODULE mo_math_utilities
 !   PUBLIC :: sphere_cell_mean_char_length
   PUBLIC :: ccw
   PUBLIC :: line_intersect
-#ifdef __SX__
-  PUBLIC :: line_intersect_s
-#endif
   PUBLIC :: lintersect
   PUBLIC :: tdma_solver
   PUBLIC :: tdma_solver_vec
@@ -2182,16 +2179,49 @@ CONTAINS
   !-----------------------------------------------------------------------
   !>
   !! Description:
-  !!  Gamma-function from Numerical Recipes (F77)
+  !!       Gamma function from Numerical Recipes (F77),
+  !!       reformulated to enable inlining and vectorisation.
   !! Method:
   !!
-  FUNCTION gamma_fct(x)
+  FUNCTION gamma_fct(x) RESULT(g)
 
     USE mo_kind, ONLY: wp
 
     IMPLICIT NONE
 
-    REAL (wp):: gamma_fct
+    REAL(wp) :: g
+    REAL(wp), INTENT(IN) :: x
+
+    REAL(wp) :: tmp, p
+
+    REAL(wp), PARAMETER :: c1 =  76.18009173_wp
+    REAL(wp), PARAMETER :: c2 = -86.50532033_wp
+    REAL(wp), PARAMETER :: c3 =  24.01409822_wp
+    REAL(wp), PARAMETER :: c4 = -1.231739516_wp
+    REAL(wp), PARAMETER :: c5 =  0.120858003e-2_wp
+    REAL(wp), PARAMETER :: c6 = -0.536382e-5_wp
+    REAL(wp), PARAMETER :: stp = 2.50662827465_wp
+
+    tmp = x + 4.5_wp;
+    p = stp * (1.0_wp + c1/x + c2/(x+1.0_wp) + c3/(x+2.0_wp) + c4/(x+3.0_wp) + c5/(x+4.0_wp) + c6/(x+5.0_wp))
+    g = EXP( (x-0.5_wp) * LOG(tmp) - tmp + LOG(p) )
+
+  END FUNCTION gamma_fct
+  !-------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Description:
+  !!  Original Gamma-function from Numerical Recipes (F77), left in the code for reference
+  !! Method:
+  !!
+  FUNCTION gamma_fct_orig(x) RESULT(g)
+
+    USE mo_kind, ONLY: wp
+
+    IMPLICIT NONE
+
+    REAL (wp):: g
 
     REAL (wp):: cof(6) = (/76.18009173_wp, -86.50532033_wp, &
       & 24.01409822_wp, -1.231739516_wp, &
@@ -2212,9 +2242,9 @@ CONTAINS
     gamma = tmp + LOG(stp*ser)
     gamma = EXP(gamma)
 
-    gamma_fct = gamma
+    g = gamma
 
-  END FUNCTION gamma_fct
+  END FUNCTION gamma_fct_orig
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -2371,31 +2401,6 @@ CONTAINS
 
   END FUNCTION line_intersect
 
-#ifdef __SX__
-!NEC_RP: Use subroutine as workaround because of compiler problem
-
-  SUBROUTINE line_intersect_s( line1, line2, intersect)
-
-    TYPE(t_line), INTENT(in)  :: line1
-    TYPE(t_line), INTENT(in)  :: line2
-    REAL(wp),     INTENT(out) :: intersect(2)    ! coordinates of intersection point
-
-    REAL(wp) :: m1, m2          !< slopes
-
-    !-----------------------------------------------------------------------
-
-    ! determine slopes of the two lines
-    m1 = (line1%p2%lat - line1%p1%lat)/(line1%p2%lon - line1%p1%lon)
-    m2 = (line2%p2%lat - line2%p1%lat)/(line2%p2%lon - line2%p1%lon)
-
-    intersect(1) = (line2%p1%lat - line1%p1%lat + m1*line1%p1%lon - m2*line2%p1%lon) &
-      & / (m1 - m2)
-
-    intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
-
-  END SUBROUTINE line_intersect_s
-
-#endif
 
   !-------------------------------------------------------------------------
 

@@ -122,8 +122,7 @@ MODULE mo_name_list_output
     &                                     t_var_desc, t_output_name_list
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
-  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
-    &                                     idx_1d
+  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
   USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
@@ -131,7 +130,7 @@ MODULE mo_name_list_output
     &                                     my_process_is_mpi_workroot, my_process_is_work,           &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-    &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
+    &                                     num_work_procs, p_pe, p_pe_work,                          &
     &                                     p_max, p_comm_work_2_io, mpi_request_null
 #ifdef _OPENACC
   USE mo_mpi,                       ONLY: i_am_accel_node
@@ -139,8 +138,7 @@ MODULE mo_name_list_output
 #endif
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
-    &                                     timedelta, newTimedelta, deallocateTimedelta,             &
-    &                                     MAX_DATETIME_STR_LEN
+    &                                     timedelta, MAX_DATETIME_STR_LEN
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &

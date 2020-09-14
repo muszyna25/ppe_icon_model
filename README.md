@@ -1202,3 +1202,18 @@ following command:
 ```console
 $ git submodule update --init
 ```
+
+<a name="faq-4" href="#faq-4">4. **I get an error from the runscript about a
+missing file _"ERROR : ...pool/data/ICON... does not exist."_. How do I resolve
+the issue?**</a>
+
+Most probably, you are running ICON on an unknown (unsupported) system. In that
+case, the runscript expects input data in your home directory
+`$HOME/pool/data/ICON`. You need to request the required input files from ICON
+developers and put it to the aformentioned folder. You can also save the data to
+a different directory and override the default path by setting the environment
+variable `icon_data_rootFolder` before generating the runscripts, for example:
+```console
+$ export icon_data_rootFolder='/path/to/ICON/data'
+$ ./make_runscripts -s atm_amip_test
+```

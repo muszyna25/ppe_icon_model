@@ -1,3 +1,4 @@
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=1000"
 !!==============================================================================
 !!
 !! Two-moment mixed-phase bulk microphysics
@@ -7,9 +8,15 @@
 !!
 !!==============================================================================
 !!
+!! - uses intrinsic gamma function. In gfortran you may want to compile with
+!!   the option -fall-intrinsics
 !!
 !! @par Revision History
+!! Ported into UCLA-LES from COSMO by Axel Seifert (2011-07-20)
 !! Ported into ICON from UCLA-LES by Anurag Dipankar (2013-12-15)
+!! Ported back into COSMO from ICON by Axel Seifert (2016-01-11)
+!! Ported back into ICON from COSMO by Alberto de Lozar (2019-01-11)
+!!
 !!
 !!==============================================================================
 !!
@@ -23,7 +30,7 @@
 !!
 !!==============================================================================
 
-MODULE mo_mcrph_sb
+MODULE mo_2mom_mcrph_driver
 
 !------------------------------------------------------------------------------
 !>
@@ -40,23 +47,28 @@ MODULE mo_mcrph_sb
 ! Declarations:
 !
 ! Modules used:
-
 !------------------------------------------------------------------------------
 ! Microphysical constants and variables
 !------------------------------------------------------------------------------
 
 USE mo_kind,                 ONLY: wp
 USE mo_math_constants,       ONLY: pi
-USE mo_vertical_coord_table, ONLY: vct_a
 USE mo_math_utilities,       ONLY: gamma_fct  
 USE mo_physical_constants,   ONLY: &
-    rhoh2o,        & ! density of liquid water
-    alv,           & ! latent heat of vaporization
-    als,           & ! latent heat of sublimation
-    cpdr  => rcpd, & ! (spec. heat of dry air at constant press)^-1
-    cvdr  => rcvd    ! (spec. heat of dry air at const vol)^-1
+    rhoh2o,           & ! density of liquid water
+    alv,              & ! latent heat of vaporization
+    als,              & ! latent heat of sublimation
+    cpdr  => rcpd,    & ! (spec. heat of dry air at constant press)^-1
+    cvdr  => rcvd,    & ! (spec. heat of dry air at const vol)^-1
+    rho_ice => rhoice   ! density of pure ice
 
 USE mo_exception,            ONLY: finish, message, message_text
+USE mo_run_config,           ONLY: ldass_lhn
+
+USE mo_timer,                ONLY:                                                              & 
+                              timers_level, timer_start, timer_stop, timer_phys_2mom_dmin_init, &
+                              timer_phys_2mom_prepost, timer_phys_2mom_proc, timer_phys_2mom_sedi
+
 
 USE mo_reff_types,           ONLY: t_reff_calc
 
@@ -71,43 +83,47 @@ USE mo_2mom_mcrph_main,      ONLY:                                &
 USE mo_2mom_mcrph_processes,  ONLY:                                &
      &                         sedi_vel_rain, sedi_vel_sphere,     &
      &                         sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf, &
-     &                         particle_meanmass, &
-     &                         q_crit, rho_ice
+     &                         particle_meanmass, sedi_vel_lwf,&
+     &                         q_crit
 
 USE mo_2mom_mcrph_util, ONLY:                            &
      &                       gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
      &                       ltabdminwgg,                &
-     &                       init_dmin_wetgrowth,        &
-     &                       init_dmin_wg_gr_ltab_equi
+     &                       init_dmin_wg_gr_ltab_equi,  &
+     &                       dmin_wetgrowth_fit_check, luse_dmin_wetgrowth_table, lprintout_comp_table_fit
 
 USE mo_2mom_prepare, ONLY: prepare_twomoment, post_twomoment
 
 !==============================================================================
 
-IMPLICIT NONE
-PUBLIC
+  IMPLICIT NONE
+  PUBLIC
 
-CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_driver'
-INTEGER,          PARAMETER :: dbg_level = 25                   ! level for debug prints
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_driver'
+  INTEGER,          PARAMETER :: dbg_level = 25                   ! level for debug prints
 
-  ! .. exponents for simple height dependency of terminal fall velocity
+  ! .. exponents for simple density of terminal fall velocity
   REAL(wp), PARAMETER :: rho_vel    = 0.4e0_wp    !..exponent for density correction
-  REAL(wp), PARAMETER :: rho_vel_c  = 0.2e0_wp    !..for cloud droplets
-  REAL(wp), PARAMETER :: rho0    = 1.225_wp     !..Norm-Luftdichte
+  REAL(wp), PARAMETER :: rho_vel_c  = 0.2e0_wp    !..for cloud droplets (in exact terms, this would be the ratio of dyn. visc. as function of T)
+  REAL(wp), PARAMETER :: rho0       = 1.225_wp    !..reference air density
 
-INTEGER :: cloud_type, ccn_type
+  INTEGER :: cloud_type, ccn_type
 
-INTEGER, PARAMETER :: cloud_type_default_gscp4 = 2103, ccn_type_gscp4 = 1
-INTEGER, PARAMETER :: cloud_type_default_gscp5 = 2603, ccn_type_gscp5 = 8
+! UB: These settings should be converted into namelist parameters in the future!
 
-! AS: For gscp=4 use 2103 with ccn_type = 1 (HDCP2 IN and CCN schemes)
-!     For gscp=5 use 2603 with ccn_type = 8 (PDA ice nucleation and Segal&Khain CCN activation)
+  INTEGER, PARAMETER :: i2mom_solver = 0  ! (0) explicit (1) semi-implicit solver
+  
+  INTEGER, PARAMETER :: cloud_type_default_gscp4 = 2103, ccn_type_gscp4 = 8 ! UB set from 1 to 8
+  INTEGER, PARAMETER :: cloud_type_default_gscp5 = 2603, ccn_type_gscp5 = 8
 
-! AS: Runs without hail, e.g, 1503 are buggy and give a segmentation fault.
-!     So far I was not able to identify the problem, needs more detailed debugging.
-
+  ! AS: For gscp=4 use 2103 with ccn_type = 1 (HDCP2 IN and CCN schemes)
+  !     For gscp=5 use 2603 with ccn_type = 8 (PDA ice nucleation and Segal&Khain CCN activation)
+  
+  ! AS: Runs without hail, e.g, 1503 are buggy and give a segmentation fault.
+  !     So far I was not able to identify the problem, needs more detailed debugging.
+  
 CONTAINS
-
+  
   !==============================================================================
   !
   ! Two-moment mixed-phase bulk microphysics
@@ -124,6 +140,7 @@ CONTAINS
                        ks,                & ! in: start index vertical , optional
                        dt,                & ! in: time step
                        dz,                & ! in: vertical layer thickness
+                       hhl,               & ! in: height of half levels
                        rho,               & ! in: density
                        pres,              & ! in: pressure
                        qv,                & ! inout: specific humidity
@@ -143,13 +160,13 @@ CONTAINS
                        prec_s,            & ! inout: precip rate snow
                        prec_g,            & ! inout: precip rate graupel
                        prec_h,            & ! inout: precip rate hail
+                       qrsflux,           & ! inout: 3D total precipitation rate
                        dtemp,             & ! inout: opt. temp increment
                        msg_level,         & ! in: msg_level
                        l_cv          )      ! in: switch for cv/cp
 
-
     ! Declare variables in argument list
-
+    
     INTEGER,            INTENT (IN)  :: isize, ke    ! grid sizes
     INTEGER,  OPTIONAL, INTENT (IN)  :: is, ie, ks   ! start/end indices
 
@@ -157,6 +174,8 @@ CONTAINS
 
     ! Dynamical core variables
     REAL(wp), DIMENSION(:,:), INTENT(IN), TARGET :: dz, rho, pres, w
+
+    REAL(wp), DIMENSION(:,:), INTENT(IN), TARGET :: hhl
 
     REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET :: tk
 
@@ -171,9 +190,10 @@ CONTAINS
          &               nccn, ninpot
 
     ! Precip rates, vertical profiles
-    REAL(wp), DIMENSION(:), INTENT (INOUT)  :: &
+    REAL(wp), DIMENSION(:), INTENT (INOUT) :: &
          &               prec_r, prec_i, prec_s, prec_g, prec_h
-
+    REAL(wp), DIMENSION(:,:), INTENT (INOUT) :: qrsflux
+    
     REAL(wp), OPTIONAL, INTENT (INOUT)  :: dtemp(:,:)
 
     INTEGER,  INTENT (IN)             :: msg_level
@@ -208,8 +228,6 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_driver'
 
-    LOGICAL, PARAMETER :: explicit_solver = .true.  ! explicit or semi-implicit solver
-
     ! These structures include the pointers to the model arrays (which are automatic arrays
     ! of this driver subroutine). These structures live only for one time step and are
     ! different for the OpenMP threads. In contrast, the types like rain_coeffs, ice_coeffs,
@@ -219,6 +237,7 @@ CONTAINS
     TYPE(atmosphere)           :: atmo
 
     ! These are the fundamental hydrometeor particle variables for the two-moment scheme
+    ! as they are used in the various options of the scheme
     TYPE(particle), target          :: cloud_hyd, rain_hyd
     TYPE(particle_frozen), target   :: ice_frz, snow_frz, graupel_frz, hail_frz
     TYPE(particle_lwf), target      :: graupel_lwf, hail_lwf
@@ -229,7 +248,11 @@ CONTAINS
 
     INTEGER :: ik_slice(4)
 
-    IF (PRESENT(nccn)) THEN
+    lprogccn  = PRESENT(nccn)
+    lprogin   = PRESENT(ninpot)
+    lprogmelt = PRESENT(qgl)
+
+    IF (lprogccn) THEN
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
     ELSE
        cloud_type = cloud_type_default_gscp4 + 10 * ccn_type
@@ -240,11 +263,11 @@ CONTAINS
     ice   => ice_frz
     snow  => snow_frz
 
-    IF (PRESENT(qgl)) THEN
-       graupel => graupel_lwf   ! gscp=4,5,6
-       hail => hail_lwf
+    IF (lprogmelt) THEN
+       graupel => graupel_lwf   ! with prognostic melting 
+       hail => hail_lwf         ! of graupel and hail
     ELSE
-       graupel => graupel_frz   ! gscp=7
+       graupel => graupel_frz   ! simple melting
        hail => hail_frz
     END IF
 
@@ -254,27 +277,28 @@ CONTAINS
     ELSE
       its = 1
     END IF
-
     IF (PRESENT(ie)) THEN
       ite = ie
     ELSE
       ite = isize
     END IF
-
     IF (PRESENT(ks)) THEN
       kts = ks
     ELSE
       kts = 1
     END IF
     kte = ke
+    
+    IF (timers_level > 10) CALL timer_start(timer_phys_2mom_prepost) 
 
     ! inverse of vertical layer thickness
     rdz(its:ite,kts:kte) = 1._wp / dz(its:ite,kts:kte)
 
-    lprogccn  = PRESENT(nccn)
-    lprogin   = PRESENT(ninpot)
-    lprogmelt = PRESENT(qgl)
-
+    ! Initialize qrsflux for LHN:
+    IF (ldass_lhn) THEN
+      qrsflux(:,:) = 0.0_wp
+    END IF
+    
     IF (clipping) THEN
        WHERE(qr(its:ite,kts:kte) < 0.0_wp) qr(its:ite,kts:kte) = 0.0_wp
        WHERE(qi(its:ite,kts:kte) < 0.0_wp) qi(its:ite,kts:kte) = 0.0_wp
@@ -286,7 +310,7 @@ CONTAINS
           WHERE(qhl(its:ite,kts:kte) < 0.0_wp) qhl(its:ite,kts:kte) = 0.0_wp
        END IF
     END IF
-
+    
     ! indices as used in two-moment scheme
     ik_slice(1) = its
     ik_slice(2) = ite
@@ -300,7 +324,7 @@ CONTAINS
         z_heat_cap_r = cpdr
       ENDIF
     ELSE
-       z_heat_cap_r = cpdr
+      z_heat_cap_r = cpdr
     ENDIF
 
     IF (msg_level>dbg_level) CALL message(TRIM(routine),'')
@@ -311,8 +335,7 @@ CONTAINS
        CALL message(TRIM(routine),TRIM(message_text))
     END IF
 
-    ! time step for two-moment microphysics is the same as all other fast physics
-    IF (msg_level>dbg_level) CALL message(TRIM(routine), "prepare variable for 2mom")
+    IF (msg_level>dbg_level) CALL message(TRIM(routine), "prepare variables for 2mom")
 
     DO kk = kts, kte
        DO ii = its, ite
@@ -321,7 +344,7 @@ CONTAINS
           rho_r(ii,kk) = 1.0 / rho(ii,kk)
 
           ! ... height dependency of terminal fall velocities
-          hlp = log(rho(ii,kk)/rho0)
+          hlp = LOG(MAX(rho(ii,kk),1e-6_wp)/rho0)
           rhocorr(ii,kk) = exp(-rho_vel*hlp)
           rhocld(ii,kk)  = exp(-rho_vel_c*hlp)
 
@@ -336,14 +359,15 @@ CONTAINS
     !     to avoid local allocates within the OpenMP-loop, and keep everything on stack)
 
     CALL prepare_twomoment(atmo, cloud, rain, ice, snow, graupel, hail, &
-         rho, rhocorr, rhocld, pres, w, tk, &
+         rho, rhocorr, rhocld, pres, w, tk, hhl, &
          nccn, ninpot, ninact, &
          qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, qgl, qhl, &
          lprogccn, lprogin, lprogmelt, its, ite, kts, kte)
+    IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_prepost)    
 
     IF (msg_level>dbg_level) CALL message(TRIM(routine)," calling clouds_twomoment")
 
-    IF (explicit_solver) then
+    IF (i2mom_solver.eq.0) then
 
        ! ... save old variables for latent heat calculation
        q_vap_old(its:ite,kts:kte) = qv(its:ite,kts:kte)
@@ -355,12 +379,13 @@ CONTAINS
           q_liq_old(its:ite,kts:kte) = qc(its:ite,kts:kte) + qr(its:ite,kts:kte)
        end if
 
+       IF (timers_level > 10) CALL timer_start(timer_phys_2mom_proc) 
        ! .. this subroutine calculates all the microphysical sources and sinks
        CALL clouds_twomoment(ik_slice, dt, lprogin, &
             atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
+       IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_proc) 
 
        IF (lprogccn) THEN
-          !WHERE(qc > 0.0_wp)  cloud%n = 5000e6_wp
           WHERE(qc(its:ite,kts:kte) == 0.0_wp) cloud%n(its:ite,kts:kte) = 0.0_wp
        END IF
 
@@ -390,8 +415,13 @@ CONTAINS
           ENDDO
        ENDDO
 
+       IF (timers_level > 10) CALL timer_start(timer_phys_2mom_sedi) 
+
+       IF (msg_level>dbg_level) CALL message(TRIM(routine)," calling sedimentation")
+
        ! .. if we solve explicitly, then sedimentation is done here after microphysics
        CALL sedimentation_explicit()
+       IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_sedi) 
 
     ELSE
 
@@ -404,6 +434,8 @@ CONTAINS
        END IF
     END IF
 
+    IF (timers_level > 10) CALL timer_start(timer_phys_2mom_prepost)    
+    
     ! .. check for negative values
     IF (debug) CALL check_clouds()
 
@@ -432,7 +464,7 @@ CONTAINS
 
     IF (lprogccn) THEN
       DO kk=kts,kte
-        zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
+        zf = 0.5_wp*(hhl(ii,kk)+hhl(ii,kk+1))
         DO ii=its,ite
           !..reset nccn for cloud-free grid points to background profile
           IF (qc(ii,kk) .LE. q_crit) THEN
@@ -459,7 +491,7 @@ CONTAINS
     IF (lprogin) THEN
       DO kk=kts,kte
         DO ii=its,ite
-          zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
+          zf = 0.5_wp*(hhl(ii,kk)+hhl(ii,kk+1))
           !..relaxation of potential IN number density to background profile
           IF(zf > in_coeffs%z0) THEN
             in_bgrd = in_coeffs%N0*EXP((in_coeffs%z0 - zf)*(1._wp/in_coeffs%z1e))
@@ -473,15 +505,19 @@ CONTAINS
 
     IF (lprogccn) &
       WHERE(nccn(its:ite,kts:kte) < 35.0_wp) nccn(its:ite,kts:kte) = 35e6_wp
-
+   
     WHERE(qc(its:ite,kts:kte) < 1.0e-12_wp) qnc(its:ite,kts:kte) = 0.0_wp
-    WHERE(qr(its:ite,kts:kte) > 0.02_wp) qr(its:ite,kts:kte) = 0.02_wp
-    WHERE(qi(its:ite,kts:kte) > 0.02_wp) qi(its:ite,kts:kte) = 0.02_wp
-    WHERE(qs(its:ite,kts:kte) > 0.02_wp) qs(its:ite,kts:kte) = 0.02_wp
-    WHERE(qg(its:ite,kts:kte) > 0.02_wp) qg(its:ite,kts:kte) = 0.02_wp
-    WHERE(qh(its:ite,kts:kte) > 0.02_wp) qh(its:ite,kts:kte) = 0.02_wp
+
+!   AS: Clip large values?? Why is that necessary? Who put that in?  
+!    WHERE(qr(its:ite,kts:kte) > 0.02_wp) qr(its:ite,kts:kte) = 0.02_wp
+!    WHERE(qi(its:ite,kts:kte) > 0.02_wp) qi(its:ite,kts:kte) = 0.02_wp
+!    WHERE(qs(its:ite,kts:kte) > 0.02_wp) qs(its:ite,kts:kte) = 0.02_wp
+!    WHERE(qg(its:ite,kts:kte) > 0.02_wp) qg(its:ite,kts:kte) = 0.02_wp
+!    WHERE(qh(its:ite,kts:kte) > 0.02_wp) qh(its:ite,kts:kte) = 0.02_wp
 
     IF (msg_level>dbg_level) CALL message(TRIM(routine), "two moment mcrph ends!")
+
+    IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_prepost) 
 
     RETURN
     !
@@ -495,19 +531,24 @@ CONTAINS
       ! approach is used in the COSMO microphysics, e.g, hydci_pp
       ! (see COSMO documentation for details)
       !
-
+      
       ! a few 1d arrays, maybe we can reduce this later or we keep them ...
       real(wp), dimension(isize) :: &
-           & qr_flux_now,qr_flux_new,qr_sum,qr_flux_sum,vr_sedq_new,vr_sedq_now,qr_impl,qr_star,xr_now, &
-           & nr_flux_now,nr_flux_new,nr_sum,nr_flux_sum,vr_sedn_new,vr_sedn_now,nr_impl,nr_star,xr_new, &
-           & qs_flux_now,qs_flux_new,qs_sum,qs_flux_sum,vs_sedq_new,vs_sedq_now,qs_impl,qs_star,xs_now, &
-           & ns_flux_now,ns_flux_new,ns_sum,ns_flux_sum,vs_sedn_new,vs_sedn_now,ns_impl,ns_star,xs_new, &
-           & qg_flux_now,qg_flux_new,qg_sum,qg_flux_sum,vg_sedq_new,vg_sedq_now,qg_impl,qg_star,xg_now, &
-           & ng_flux_now,ng_flux_new,ng_sum,ng_flux_sum,vg_sedn_new,vg_sedn_now,ng_impl,ng_star,xg_new, &
-           & qh_flux_now,qh_flux_new,qh_sum,qh_flux_sum,vh_sedq_new,vh_sedq_now,qh_impl,qh_star,xh_now, &
-           & nh_flux_now,nh_flux_new,nh_sum,nh_flux_sum,vh_sedn_new,vh_sedn_now,nh_impl,nh_star,xh_new, &
-           & qi_flux_now,qi_flux_new,qi_sum,qi_flux_sum,vi_sedq_new,vi_sedq_now,qi_impl,qi_star,xi_now, &
-           & ni_flux_now,ni_flux_new,ni_sum,ni_flux_sum,vi_sedn_new,vi_sedn_now,ni_impl,ni_star,xi_new
+           & qr_flux_now,qr_flux_new,qr_sum,vr_sedq_new,vr_sedq_now,qr_impl,xr_now, &
+           & nr_flux_now,nr_flux_new,nr_sum,vr_sedn_new,vr_sedn_now,nr_impl,        &
+           & qs_flux_now,qs_flux_new,qs_sum,vs_sedq_new,vs_sedq_now,qs_impl,xs_now, &
+           & ns_flux_now,ns_flux_new,ns_sum,vs_sedn_new,vs_sedn_now,ns_impl,        &
+           & qg_flux_now,qg_flux_new,qg_sum,vg_sedq_new,vg_sedq_now,qg_impl,xg_now, &
+           & ng_flux_now,ng_flux_new,ng_sum,vg_sedn_new,vg_sedn_now,ng_impl,        &
+           & qh_flux_now,qh_flux_new,qh_sum,vh_sedq_new,vh_sedq_now,qh_impl,xh_now, &
+           & nh_flux_now,nh_flux_new,nh_sum,vh_sedn_new,vh_sedn_now,nh_impl,        &
+           & qi_flux_now,qi_flux_new,qi_sum,vi_sedq_new,vi_sedq_now,qi_impl,xi_now, &
+           & ni_flux_now,ni_flux_new,ni_sum,vi_sedn_new,vi_sedn_now,ni_impl         
+
+      ! for lwf variables
+      real(wp), dimension(isize) :: &
+           & lh_flux_now,lh_flux_new,lh_sum,vh_sedl_new,vh_sedl_now,lh_impl, &
+           & lg_flux_now,lg_flux_new,lg_sum,vg_sedl_new,vg_sedl_now,lg_impl
 
       REAL(wp), DIMENSION(isize,ke) :: rdzdt
       INTEGER :: i, ii, k, kk
@@ -519,23 +560,33 @@ CONTAINS
 
       if (.not.lmicro_impl) then
 
-         ! ... save old variables for latent heat calculation
-         q_vap_old(its:ite,kts:kte) = qv(its:ite,kts:kte)
-         q_liq_old(its:ite,kts:kte) = qc(its:ite,kts:kte) + qr(its:ite,kts:kte)
+        ! ... save old variables for latent heat calculation
+        if (lprogmelt) then
+          q_vap_old(its:ite,kts:kte) = qv(its:ite,kts:kte)
+          q_liq_old(its:ite,kts:kte) = qc(its:ite,kts:kte) + qgl(its:ite,kts:kte) &
+               &                     + qr(its:ite,kts:kte) + qhl(its:ite,kts:kte)
+        else
+          q_vap_old(its:ite,kts:kte) = qv(its:ite,kts:kte)
+          q_liq_old(its:ite,kts:kte) = qc(its:ite,kts:kte) + qr(its:ite,kts:kte)
+        end if
 
-         ! .. this subroutine calculates all the microphysical sources and sinks
-         CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
-              ice, snow, graupel, hail, ninact, nccn, ninpot)
+        ! .. this subroutine calculates all the microphysical sources and sinks
+        CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
+             ice, snow, graupel, hail, ninact, nccn, ninpot)
 
-         DO kk=kts,kte
-            DO ii = its, ite
-               ! .. latent heat term for temperature equation
-               q_vap_new = qv(ii,kk)
-               q_liq_new = qr(ii,kk) + qc(ii,kk)
-               tk(ii,kk) = tk(ii,kk) - convice * rho_r(ii,kk) * (q_vap_new - q_vap_old(ii,kk))  &
-                    &                + convliq * rho_r(ii,kk) * (q_liq_new - q_liq_old(ii,kk))
-            ENDDO
-         ENDDO
+        DO kk=kts,kte
+          DO ii = its, ite
+            ! .. latent heat term for temperature equation
+            q_vap_new = qv(ii,kk)
+            if (lprogmelt) then
+              q_liq_new = qr(ii,kk) + qc(ii,kk) + qgl(ii,kk) + qhl(ii,kk) 
+            else
+              q_liq_new = qr(ii,kk) + qc(ii,kk)
+            end if
+            tk(ii,kk) = tk(ii,kk) - convice * rho_r(ii,kk) * (q_vap_new - q_vap_old(ii,kk))  &
+                 &                + convliq * rho_r(ii,kk) * (q_liq_new - q_liq_old(ii,kk))
+          ENDDO
+        ENDDO
 
       end if
 
@@ -550,6 +601,10 @@ CONTAINS
       WHERE(qns(its:ite,kts:kte) < 0.0_wp) qns(its:ite,kts:kte) = 0.0_wp
       WHERE(qng(its:ite,kts:kte) < 0.0_wp) qng(its:ite,kts:kte) = 0.0_wp
       WHERE(qnh(its:ite,kts:kte) < 0.0_wp) qnh(its:ite,kts:kte) = 0.0_wp
+      if (lprogmelt) then
+        WHERE(qgl(its:ite,kts:kte) < 0.0_wp) qgl(its:ite,kts:kte) = 0.0_wp
+        WHERE(qhl(its:ite,kts:kte) < 0.0_wp) qhl(its:ite,kts:kte) = 0.0_wp
+      end if
 
       rdzdt(its:ite,kts:kte) = 0.5_wp * rdz(its:ite,kts:kte) * dt
 
@@ -578,16 +633,34 @@ CONTAINS
       qh_flux_new(:) = 0.0_wp
       nh_flux_new(:) = 0.0_wp
 
+      if (lprogmelt) then
+        lg_flux_now(:) = 0.0_wp
+        lg_flux_new(:) = 0.0_wp        
+        lh_flux_now(:) = 0.0_wp
+        lh_flux_new(:) = 0.0_wp        
+      end if
+      
       convice = z_heat_cap_r * als
       convliq = z_heat_cap_r * (alv-als)
 
       do i=its,ite
-         vr_sedn_new(i) = rain%vsedi_min
-         vi_sedn_new(i) = ice%vsedi_min
-         vs_sedn_new(i) = snow%vsedi_min
-         vg_sedn_new(i) = graupel%vsedi_min
-         vh_sedn_new(i) = hail%vsedi_min
+        vr_sedn_new(i) = rain%vsedi_min
+        vi_sedn_new(i) = ice%vsedi_min
+        vs_sedn_new(i) = snow%vsedi_min
+        vg_sedn_new(i) = graupel%vsedi_min
+        vh_sedn_new(i) = hail%vsedi_min
+        vr_sedq_new(i) = rain%vsedi_min
+        vi_sedq_new(i) = ice%vsedi_min
+        vs_sedq_new(i) = snow%vsedi_min
+        vg_sedq_new(i) = graupel%vsedi_min
+        vh_sedq_new(i) = hail%vsedi_min
       end do
+      if (lprogmelt) then
+        do i=its,ite
+          vg_sedl_new(i) = graupel%vsedi_min
+          vh_sedl_new(i) = hail%vsedi_min
+        end do
+      end if
 
       ! here we simply assume that there is no cloud or precip in the uppermost level
       ! i.e. we start from kts+1 going down in physical space
@@ -596,245 +669,119 @@ CONTAINS
       DO k=kts+1,kte
 
         do i=its,ite
-           xr_now(i) = particle_meanmass(rain, qr(i,k),qnr(i,k))
-           xi_now(i) = particle_meanmass(ice, qi(i,k),qni(i,k))
-           xs_now(i) = particle_meanmass(snow, qs(i,k),qns(i,k))
-           xg_now(i) = particle_meanmass(graupel, qg(i,k),qng(i,k))
-           xh_now(i) = particle_meanmass(hail, qh(i,k),qnh(i,k))
+          xr_now(i) = particle_meanmass(rain, qr(i,k),qnr(i,k))
+          xi_now(i) = particle_meanmass(ice, qi(i,k),qni(i,k))
+          xs_now(i) = particle_meanmass(snow, qs(i,k),qns(i,k))
+          xg_now(i) = particle_meanmass(graupel, qg(i,k),qng(i,k))
+          xh_now(i) = particle_meanmass(hail, qh(i,k),qnh(i,k))
         end do
 
         call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
         call sedi_vel_sphere(ice,ice_coeffs,qi(:,k),xi_now,vi_sedn_now,vi_sedq_now,its,ite)
         call sedi_vel_sphere(snow,snow_coeffs,qs(:,k),xs_now,vs_sedn_now,vs_sedq_now,its,ite)
-        call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_now,vg_sedn_now,vg_sedq_now,its,ite)
-        call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_now,vh_sedn_now,vh_sedq_now,its,ite)
+        if (lprogmelt) then
+          call sedi_vel_lwf(graupel_lwf,graupel_coeffs,  &
+               & qg(:,k),qgl(:,k),xg_now,vg_sedn_now,vg_sedq_now,vg_sedl_now,its,ite)
+          call sedi_vel_lwf(hail_lwf,hail_coeffs,        &
+               & qh(:,k),qhl(:,k),xh_now,vh_sedn_now,vh_sedq_now,vh_sedl_now,its,ite)
+        else
+          call sedi_vel_sphere(graupel,graupel_coeffs,qg(:,k),xg_now,vg_sedn_now,vg_sedq_now,its,ite)
+          call sedi_vel_sphere(hail,hail_coeffs,qh(:,k),xh_now,vh_sedn_now,vh_sedq_now,its,ite)
+        end if
 
-        do i=its,ite
-
-           ! .... rain ....
-           vr_sedn_new(i) = 0.5 * (vr_sedn_now(i) + vr_sedn_new(i))
-           vr_sedq_new(i) = 0.5 * (vr_sedq_now(i) + vr_sedq_new(i))
-
-           ! qflux_new, nflux_new are the updated flux values from the level above
-           ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
-           ! In COSMO-Docu  {...} =  flux_(k-1),new + flux_(k-1),start
-           nr_flux_sum(i) = nr_flux_new(i) + nr_flux_now(i)
-           qr_flux_sum(i) = qr_flux_new(i) + qr_flux_now(i)
-
-           ! qflux_now, nflux_now are here overwritten with the current level
-           nr_flux_now(i) = min(vr_sedn_now(i) * qnr(i,k), nr_flux_sum(i))  ! this is then passed to the level below
-           qr_flux_now(i) = min(vr_sedq_now(i) * qr(i,k),  qr_flux_sum(i))  ! (loop dependency)
-           nr_flux_now(i) = max(nr_flux_now(i),0.0_wp) ! maybe not necessary
-           qr_flux_now(i) = max(qr_flux_now(i),0.0_wp) ! maybe not necessary
-
-           nr_sum(i) = qnr(i,k) + rdzdt(i,k) * (nr_flux_sum(i) - nr_flux_now(i))
-           qr_sum(i) = qr(i,k)  + rdzdt(i,k) * (qr_flux_sum(i) - qr_flux_now(i))
-
-           nr_impl(i) = 1.0_wp/(1.0_wp + vr_sedn_new(i) * rdzdt(i,k))
-           qr_impl(i) = 1.0_wp/(1.0_wp + vr_sedq_new(i) * rdzdt(i,k))
-
-           nr_star(i) = nr_impl(i) * nr_sum(i)  ! intermediate values for calculating
-           qr_star(i) = qr_impl(i) * qr_sum(i)  ! sources and sinks
-
-           qnr(i,k) = nr_star(i)                ! overwrite array with intermediate
-           qr(i,k)  = qr_star(i)                ! values to do micro processes on this level
-
-           nr_sum(i) = nr_sum(i) - nr_star(i)   ! final time integration starts from sum-values
-           qr_sum(i) = qr_sum(i) - qr_star(i)   ! but source/sinks work on star-values
-
-           ! .... ice ....
-           vi_sedn_new(i) = 0.5 * (vi_sedn_now(i) + vi_sedn_new(i))
-           vi_sedq_new(i) = 0.5 * (vi_sedq_now(i) + vi_sedq_new(i))
-
-           ! qflux_new, nflux_new are the updated flux values from the level above
-           ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
-           ! In COSMO-Docu  {...} =  flux_(k-1),new + flux_(k-1),start
-           ni_flux_sum(i) = ni_flux_new(i) + ni_flux_now(i)
-           qi_flux_sum(i) = qi_flux_new(i) + qi_flux_now(i)
-
-           ! qflux_now, nflux_now are here overwritten with the current level
-           ni_flux_now(i) = min(vi_sedn_now(i) * qni(i,k), ni_flux_sum(i))  ! this is then passed to the level below
-           qi_flux_now(i) = min(vi_sedq_now(i) * qi(i,k),  qi_flux_sum(i))  ! (loop dependency)
-           ni_flux_now(i) = max(ni_flux_now(i),0.0_wp)
-           qi_flux_now(i) = max(qi_flux_now(i),0.0_wp)
-
-           ni_sum(i) = qni(i,k) + rdzdt(i,k) * (ni_flux_sum(i) - ni_flux_now(i))
-           qi_sum(i) = qi(i,k)  + rdzdt(i,k) * (qi_flux_sum(i) - qi_flux_now(i))
-
-           ni_impl(i) = 1.0_wp/(1.0_wp + vi_sedn_new(i) * rdzdt(i,k))
-           qi_impl(i) = 1.0_wp/(1.0_wp + vi_sedq_new(i) * rdzdt(i,k))
-
-           ni_star(i) = ni_impl(i) * ni_sum(i)  ! intermediate values for calculating
-           qi_star(i) = qi_impl(i) * qi_sum(i)  ! sources and sinks
-
-           qni(i,k) = ni_star(i)                ! overwrite array with intermediate
-           qi(i,k)  = qi_star(i)                ! values to do micro processes on this level
-
-           ni_sum(i) = ni_sum(i) - ni_star(i)   ! final time integration starts from sum-values
-           qi_sum(i) = qi_sum(i) - qi_star(i)   ! but source/sinks work on star-values
-
-           ! .... snow ....
-           vs_sedn_new(i) = 0.5 * (vs_sedn_now(i) + vs_sedn_new(i))
-           vs_sedq_new(i) = 0.5 * (vs_sedq_now(i) + vs_sedq_new(i))
-
-           ! qflux_new, nflux_new are the updated flux values from the level above
-           ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
-           ! In COSMO-Docu  {...} =  flux_(k-1),new + flux_(k-1),start
-           ns_flux_sum(i) = ns_flux_new(i) + ns_flux_now(i)
-           qs_flux_sum(i) = qs_flux_new(i) + qs_flux_now(i)
-
-           ! qflux_now, nflux_now are here overwritten with the current level
-           ns_flux_now(i) = min(vs_sedn_now(i) * qns(i,k), ns_flux_sum(i))  ! this is then passed to the level below
-           qs_flux_now(i) = min(vs_sedq_now(i) * qs(i,k),  qs_flux_sum(i))  ! (loop dependency)
-           ns_flux_now(i) = max(ns_flux_now(i),0.0_wp)
-           qs_flux_now(i) = max(qs_flux_now(i),0.0_wp)
-
-           ns_sum(i) = qns(i,k) + rdzdt(i,k) * (ns_flux_sum(i) - ns_flux_now(i))
-           qs_sum(i) = qs(i,k)  + rdzdt(i,k) * (qs_flux_sum(i) - qs_flux_now(i))
-
-           ns_impl(i) = 1.0_wp/(1.0_wp + vs_sedn_new(i) * rdzdt(i,k))
-           qs_impl(i) = 1.0_wp/(1.0_wp + vs_sedq_new(i) * rdzdt(i,k))
-
-           ns_star(i) = ns_impl(i) * ns_sum(i)  ! intermediate values for calculating
-           qs_star(i) = qs_impl(i) * qs_sum(i)  ! sources and sinks
-
-           qns(i,k) = ns_star(i)                ! overwrite array with intermediate
-           qs(i,k)  = qs_star(i)                ! values to do micro processes on this level
-
-           ns_sum(i) = ns_sum(i) - ns_star(i)   ! final time integration starts from sum-values
-           qs_sum(i) = qs_sum(i) - qs_star(i)   ! but source/sinks work on star-values
-
-           ! .... graupel ....
-           vg_sedn_new(i) = 0.5 * (vg_sedn_now(i) + vg_sedn_new(i))
-           vg_sedq_new(i) = 0.5 * (vg_sedq_now(i) + vg_sedq_new(i))
-
-           ! qflux_new, nflux_new are the updated flux values from the level above
-           ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
-           ! In COSMO-Docu  {...} =  flux_(k-1),new + flux_(k-1),start
-           ng_flux_sum(i) = ng_flux_new(i) + ng_flux_now(i)
-           qg_flux_sum(i) = qg_flux_new(i) + qg_flux_now(i)
-
-           ! qflux_now, nflux_now are here overwritten with the current level
-           ng_flux_now(i) = min(vg_sedn_now(i) * qng(i,k), ng_flux_sum(i))  ! this is then passed to the level below
-           qg_flux_now(i) = min(vg_sedq_now(i) * qg(i,k),  qg_flux_sum(i))  ! (loop dependency)
-           ng_flux_now(i) = max(ng_flux_now(i),0.0_wp)
-           qg_flux_now(i) = max(qg_flux_now(i),0.0_wp)
-
-           ng_sum(i) = qng(i,k) + rdzdt(i,k) * (ng_flux_sum(i) - ng_flux_now(i))
-           qg_sum(i) = qg(i,k)  + rdzdt(i,k) * (qg_flux_sum(i) - qg_flux_now(i))
-
-           ng_impl(i) = 1.0_wp/(1.0_wp + vg_sedn_new(i) * rdzdt(i,k))
-           qg_impl(i) = 1.0_wp/(1.0_wp + vg_sedq_new(i) * rdzdt(i,k))
-
-           ng_star(i) = ng_impl(i) * ng_sum(i)  ! intermediate values for calculating
-           qg_star(i) = qg_impl(i) * qg_sum(i)  ! sources and sinks
-
-           qng(i,k) = ng_star(i)                ! overwrite array with intermediate
-           qg(i,k)  = qg_star(i)                ! values to do micro processes on this level
-
-           ng_sum(i) = ng_sum(i) - ng_star(i)   ! final time integration starts from sum-values
-           qg_sum(i) = qg_sum(i) - qg_star(i)   ! but source/sinks work on star-values
-
-           ! .... hail ....
-           vh_sedn_new(i) = 0.5 * (vh_sedn_now(i) + vh_sedn_new(i))
-           vh_sedq_new(i) = 0.5 * (vh_sedq_now(i) + vh_sedq_new(i))
-
-           ! qflux_new, nflux_new are the updated flux values from the level above
-           ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
-           ! In COSMO-Docu  {...} =  flux_(k-1),new + flux_(k-1),start
-           nh_flux_sum(i) = nh_flux_new(i) + nh_flux_now(i)
-           qh_flux_sum(i) = qh_flux_new(i) + qh_flux_now(i)
-
-           ! qflux_now, nflux_now are here overwritten with the current level
-           nh_flux_now(i) = min(vh_sedn_now(i) * qnh(i,k), nh_flux_sum(i))  ! this is then passed to the level below
-           qh_flux_now(i) = min(vh_sedq_now(i) * qh(i,k),  qh_flux_sum(i))  ! (loop dependency)
-           nh_flux_now(i) = max(nh_flux_now(i),0.0_wp)
-           qh_flux_now(i) = max(qh_flux_now(i),0.0_wp)
-
-           nh_sum(i) = qnh(i,k) + rdzdt(i,k) * (nh_flux_sum(i) - nh_flux_now(i))
-           qh_sum(i) = qh(i,k)  + rdzdt(i,k) * (qh_flux_sum(i) - qh_flux_now(i))
-
-           nh_impl(i) = 1.0_wp/(1.0_wp + vh_sedn_new(i) * rdzdt(i,k))
-           qh_impl(i) = 1.0_wp/(1.0_wp + vh_sedq_new(i) * rdzdt(i,k))
-
-           nh_star(i) = nh_impl(i) * nh_sum(i)  ! intermediate values for calculating
-           qh_star(i) = qh_impl(i) * qh_sum(i)  ! sources and sinks
-
-           qnh(i,k) = nh_star(i)                ! overwrite array with intermediate
-           qh(i,k)  = qh_star(i)                ! values to do micro processes on this level
-
-           nh_sum(i) = nh_sum(i) - nh_star(i)   ! final time integration starts from sum-values
-           qh_sum(i) = qh_sum(i) - qh_star(i)   ! but source/sinks work on star-values
-
-        end do
-
+        call implicit_core(qr(:,k), qr_sum,qr_impl,vr_sedq_new,vr_sedq_now,qr_flux_new,qr_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qnr(:,k),nr_sum,nr_impl,vr_sedn_new,vr_sedn_now,nr_flux_new,nr_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qi(:,k), qi_sum,qi_impl,vi_sedq_new,vi_sedq_now,qi_flux_new,qi_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qni(:,k),ni_sum,ni_impl,vi_sedn_new,vi_sedn_now,ni_flux_new,ni_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qs(:,k), qs_sum,qs_impl,vs_sedq_new,vs_sedq_now,qs_flux_new,qs_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qns(:,k),ns_sum,ns_impl,vs_sedn_new,vs_sedn_now,ns_flux_new,ns_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qg(:,k), qg_sum,qg_impl,vg_sedq_new,vg_sedq_now,qg_flux_new,qg_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qng(:,k),ng_sum,ng_impl,vg_sedn_new,vg_sedn_now,ng_flux_new,ng_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qh(:,k), qh_sum,qh_impl,vh_sedq_new,vh_sedq_now,qh_flux_new,qh_flux_now,rdzdt(:,k),its,ite)
+        call implicit_core(qnh(:,k),nh_sum,nh_impl,vh_sedn_new,vh_sedn_now,nh_flux_new,nh_flux_now,rdzdt(:,k),its,ite)
+        
+        if (lprogmelt) then
+          call implicit_core(qgl(:,k),lg_sum,lg_impl,vg_sedl_new,vg_sedl_now,lg_flux_new,lg_flux_now,rdzdt(:,k),its,ite)
+          call implicit_core(qhl(:,k),lh_sum,lh_impl,vh_sedl_new,vh_sedl_now,lh_flux_new,lh_flux_now,rdzdt(:,k),its,ite)
+        end if
+        
         ! do microphysics on this k-level only (using the star-values)
         IF (lmicro_impl) THEN
 
-           ! .. save old variables for latent heat calculation
-           DO ii = its, ite
-              q_vap_old(ii,k) = qv(ii,k)
+          ! .. save old variables for latent heat calculation
+          DO ii = its, ite
+            q_vap_old(ii,k) = qv(ii,k)
+            if (lprogmelt) then
+              q_liq_old(ii,k) = qr(ii,k) + qc(ii,k) + qgl(ii,k) + qhl(ii,k) 
+            else
               q_liq_old(ii,k) = qc(ii,k) + qr(ii,k)
-           END DO
+            end if
+          END DO
 
-           ik_slice(3) = k
-           ik_slice(4) = k
-           CALL clouds_twomoment(ik_slice, dt, lprogin, &
-                atmo, cloud, rain, ice, snow, graupel, hail, &
-                ninact, nccn, ninpot)
+          ik_slice(3) = k
+          ik_slice(4) = k
+          CALL clouds_twomoment(ik_slice, dt, lprogin, &
+               atmo, cloud, rain, ice, snow, graupel, hail, &
+               ninact, nccn, ninpot)
 
-           ! .. latent heat term for temperature equation
-           DO ii = its, ite
-              q_vap_new  = qv(ii,k)
-              q_liq_new  = qr(ii,k) + qc(ii,k)
-              tk(ii,k)   = tk(ii,k) - convice * rho_r(ii,k) * (q_vap_new - q_vap_old(ii,k))  &
-                    &               + convliq * rho_r(ii,k) * (q_liq_new - q_liq_old(ii,k))
-           ENDDO
+          ! .. latent heat term for temperature equation
+          DO ii = its, ite
+            q_vap_new  = qv(ii,k)
+            if (lprogmelt) then
+              q_liq_new = qr(ii,k) + qc(ii,k) + qgl(ii,k) + qhl(ii,k) 
+            else
+              q_liq_new = qr(ii,k) + qc(ii,k)
+            end if
+            tk(ii,k)   = tk(ii,k) - convice * rho_r(ii,k) * (q_vap_new - q_vap_old(ii,k))  &
+                 &                + convliq * rho_r(ii,k) * (q_liq_new - q_liq_old(ii,k))
+          END DO
 
         END IF
 
-        do i=its,ite
+        call implicit_time(qr(:,k), qr_sum,qr_impl,vr_sedq_new,vr_sedq_now,qr_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qnr(:,k),nr_sum,nr_impl,vr_sedn_new,vr_sedn_now,nr_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qi(:,k), qi_sum,qi_impl,vi_sedq_new,vi_sedq_now,qi_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qni(:,k),ni_sum,ni_impl,vi_sedn_new,vi_sedn_now,ni_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qs(:,k), qs_sum,qs_impl,vs_sedq_new,vs_sedq_now,qs_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qns(:,k),ns_sum,ns_impl,vs_sedn_new,vs_sedn_now,ns_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qg(:,k), qg_sum,qg_impl,vg_sedq_new,vg_sedq_now,qg_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qng(:,k),ng_sum,ng_impl,vg_sedn_new,vg_sedn_now,ng_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qh(:,k), qh_sum,qh_impl,vh_sedq_new,vh_sedq_now,qh_flux_new,rdzdt(:,k),its,ite)
+        call implicit_time(qnh(:,k),nh_sum,nh_impl,vh_sedn_new,vh_sedn_now,nh_flux_new,rdzdt(:,k),its,ite)
+        
+        if (lprogmelt) then
+          call implicit_time(qgl(:,k),lg_sum,lg_impl,vg_sedl_new,vg_sedl_now,lg_flux_new,rdzdt(:,k),its,ite)
+          call implicit_time(qhl(:,k),lh_sum,lh_impl,vh_sedl_new,vh_sedl_now,lh_flux_new,rdzdt(:,k),its,ite)
+        end if
 
-           ! time integration
-           qnr(i,k) = max( 0.0_wp, nr_impl(i)*(nr_sum(i) + qnr(i,k)))
-           qni(i,k) = max( 0.0_wp, ni_impl(i)*(ni_sum(i) + qni(i,k)))
-           qns(i,k) = max( 0.0_wp, ns_impl(i)*(ns_sum(i) + qns(i,k)))
-           qng(i,k) = max( 0.0_wp, ng_impl(i)*(ng_sum(i) + qng(i,k)))
-           qnh(i,k) = max( 0.0_wp, nh_impl(i)*(nh_sum(i) + qnh(i,k)))
-           qr(i,k)  = max( 0.0_wp, qr_impl(i)*(qr_sum(i) + qr(i,k)))
-           qi(i,k)  = max( 0.0_wp, qi_impl(i)*(qi_sum(i) + qi(i,k)))
-           qs(i,k)  = max( 0.0_wp, qs_impl(i)*(qs_sum(i) + qs(i,k)))
-           qg(i,k)  = max( 0.0_wp, qg_impl(i)*(qg_sum(i) + qg(i,k)))
-           qh(i,k)  = max( 0.0_wp, qh_impl(i)*(qh_sum(i) + qh(i,k)))
+        IF (ldass_lhn) THEN
+          IF (lprogmelt) THEN
+            qrsflux(:,k) = qr_flux_new + qi_flux_new + qs_flux_new + qg_flux_new + qh_flux_new + &
+                           lg_flux_new + lh_flux_new
+          ELSE
+            qrsflux(:,k) = qr_flux_new + qi_flux_new + qs_flux_new + qg_flux_new + qh_flux_new
+          END IF
+        END IF
+        
+      END DO
+      
+      prec_r(:) = qr_flux_new
+      prec_i(:) = qi_flux_new
+      prec_s(:) = qs_flux_new
+      IF (lprogmelt) THEN
+        ! implicit solver for LWF-scheme still has some issues
+        prec_g(:) = MAX( qg_flux_new + lg_flux_new, 0.0_wp )
+        prec_h(:) = MAX( qh_flux_new + lh_flux_new, 0.0_wp )
+      ELSE
+        prec_g(:) = qg_flux_new
+        prec_h(:) = qh_flux_new
+      END IF
 
-           ! prepare for next level
-           nr_flux_new(i) = qnr(i,k) * vr_sedn_new(i)     ! flux_(k),new
-           ni_flux_new(i) = qni(i,k) * vi_sedn_new(i)     ! for next level (loop dependency)
-           ns_flux_new(i) = qns(i,k) * vs_sedn_new(i)     !
-           ng_flux_new(i) = qng(i,k) * vg_sedn_new(i)     !
-           nh_flux_new(i) = qnh(i,k) * vh_sedn_new(i)     !
-           qr_flux_new(i) = qr(i,k)  * vr_sedq_new(i)     !
-           qi_flux_new(i) = qi(i,k)  * vi_sedq_new(i)     !
-           qs_flux_new(i) = qs(i,k)  * vs_sedq_new(i)     !
-           qg_flux_new(i) = qg(i,k)  * vg_sedq_new(i)     !
-           qh_flux_new(i) = qh(i,k)  * vh_sedq_new(i)     !
-
-           vr_sedn_new(i) = vr_sedn_now(i)
-           vi_sedn_new(i) = vi_sedn_now(i)
-           vs_sedn_new(i) = vs_sedn_now(i)
-           vg_sedn_new(i) = vg_sedn_now(i)
-           vh_sedn_new(i) = vh_sedn_now(i)
-           vr_sedq_new(i) = vr_sedq_now(i)
-           vi_sedq_new(i) = vi_sedq_now(i)
-           vs_sedq_new(i) = vs_sedq_now(i)
-           vg_sedq_new(i) = vg_sedq_now(i)
-           vh_sedq_new(i) = vh_sedq_now(i)
-
-        end do
-
-     END DO
-
-   END SUBROUTINE clouds_twomoment_implicit
+      IF (ldass_lhn) THEN
+        qrsflux(:,kte) = qr_flux_new + qi_flux_new + qs_flux_new + qg_flux_new + qh_flux_new
+      END IF
+      
+    END SUBROUTINE clouds_twomoment_implicit
    
    !
    ! sedimentation for explicit solver, i.e., sedimentation is done with an explicit
@@ -842,8 +789,9 @@ CONTAINS
    !
    SUBROUTINE sedimentation_explicit()
      ! D.Rieger: the parameter lfullyexplicit needs to be set false, otherwise the nproma/mpi tests of buildbot are not passed
-     logical, parameter :: lfullyexplicit = .false.
+     LOGICAL, PARAMETER :: lfullyexplicit = .FALSE.
      REAL(wp) :: cmax, rdzmaxdt
+     REAL(wp) :: prec3D_tmp(isize,ke)
 
      cmax = 0.0_wp
 
@@ -860,18 +808,29 @@ CONTAINS
      prec_g(:) = 0.0_wp
      prec_h(:) = 0.0_wp
 
-     DO ii=1,ntsedi       
-       CALL sedi_icon_rain (rain,rain_coeffs,qr,qnr,prec_r,qc,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
-     END DO
-          
-     IF (ANY(qi(its:ite,kts:kte)>0._wp)) &
-          call sedi_icon_sphere (ice,ice_coeffs,qi,qni,prec_i,rhocorr,rdz,dt,its,ite,kts,kte)
+     IF (ANY(qr(its:ite,kts:kte)>0._wp)) THEN
+       IF (ldass_lhn) prec3D_tmp(:,:) = 0.0_wp
+       DO ii=1,ntsedi       
+         CALL sedi_icon_rain (rain,rain_coeffs,qr,qnr,prec_r,prec3D_tmp,qc,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
+       END DO
+       IF (ldass_lhn) qrsflux(:,:) = qrsflux(:,:) + prec3D_tmp(:,:)
+     END IF
      
-     IF (ANY(qs(its:ite,kts:kte)>0._wp)) &
-          call sedi_icon_sphere (snow,snow_coeffs,qs,qns,prec_s,rhocorr,rdz,dt,its,ite,kts,kte)
+     IF (ANY(qi(its:ite,kts:kte)>0._wp)) THEN
+       IF (ldass_lhn) prec3D_tmp(:,:) = 0.0_wp
+       CALL sedi_icon_sphere (ice,ice_coeffs,qi,qni,prec_i,prec3D_tmp,rhocorr,rdz,dt,its,ite,kts,kte)
+       IF (ldass_lhn) qrsflux(:,:) = qrsflux(:,:) + prec3D_tmp(:,:)
+     END IF
+     
+     IF (ANY(qs(its:ite,kts:kte)>0._wp)) THEN
+       IF (ldass_lhn) prec3D_tmp(:,:) = 0.0_wp
+       CALL sedi_icon_sphere (snow,snow_coeffs,qs,qns,prec_s,prec3D_tmp,rhocorr,rdz,dt,its,ite,kts,kte)
+       IF (ldass_lhn) qrsflux(:,:) = qrsflux(:,:) + prec3D_tmp(:,:)
+     END IF
      
      IF (ANY(qg(its:ite,kts:kte)>0._wp)) THEN
-       if (lfullyexplicit) then
+       IF (ldass_lhn) prec3D_tmp(:,:) = 0.0_wp
+       IF (lfullyexplicit) THEN
          ntsedi = ceiling(graupel%vsedi_max*rdzmaxdt)
        else
          ntsedi = 1
@@ -879,17 +838,19 @@ CONTAINS
        IF (lprogmelt) THEN
          DO ii=1,ntsedi
            call sedi_icon_sphere_lwf(graupel_lwf,graupel_coeffs,qg,qng,qgl,&
-                &                    prec_g,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
+                &                    prec_g,prec3D_tmp,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
          END DO
        ELSE
          DO ii=1,ntsedi
-           call sedi_icon_sphere (graupel,graupel_coeffs,qg,qng,prec_g,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
+           CALL sedi_icon_sphere (graupel,graupel_coeffs,qg,qng,prec_g,prec3D_tmp,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
          END DO
        END IF
+       IF (ldass_lhn) qrsflux(:,:) = qrsflux(:,:) + prec3D_tmp(:,:)
      END IF
 
      IF (ANY(qh(its:ite,kts:kte)>0._wp)) THEN
-       if (lfullyexplicit) then
+       IF (ldass_lhn) prec3D_tmp(:,:) = 0.0_wp
+       IF (lfullyexplicit) THEN
          ntsedi = ceiling(hail%vsedi_max*rdzmaxdt)
        else
          ntsedi = 1
@@ -897,13 +858,14 @@ CONTAINS
        IF (lprogmelt) THEN
          DO ii=1,ntsedi
            call sedi_icon_sphere_lwf(hail_lwf,hail_coeffs,qh,qnh,qhl,&
-                &                    prec_h,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
+                &                    prec_h,prec3D_tmp,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
          END DO
        ELSE
          DO ii=1,ntsedi
-           call sedi_icon_sphere (hail,hail_coeffs,qh,qnh,prec_h,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
+           call sedi_icon_sphere (hail,hail_coeffs,qh,qnh,prec_h,prec3D_tmp,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
          END DO
        END IF
+       IF (ldass_lhn) qrsflux(:,:) = qrsflux(:,:) + prec3D_tmp(:,:)
      END IF
      
      IF (msg_level > 100)THEN
@@ -953,9 +915,9 @@ CONTAINS
       IF (MINVAL(hail%q(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%q < 0')
       ENDIF
-!      IF (MINVAL(cloud%n) < meps) THEN
-!         CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%n < 0')
-!      ENDIF
+      IF (MINVAL(cloud%n) < meps) THEN
+         CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%n < 0')
+      ENDIF
       IF (MINVAL(rain%n(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, rain%n < 0')
       ENDIF
@@ -975,7 +937,65 @@ CONTAINS
 
   END SUBROUTINE two_moment_mcrph
 
-!===========================================================================================
+  SUBROUTINE implicit_core(q_val,q_sum,q_impl,vsed_new,vsed_now,flux_new,flux_now,rdzdt,its,ite)
+
+    REAL(wp), DIMENSION(:), INTENT(INOUT) :: &
+         &    q_val,q_sum,q_impl,vsed_new,vsed_now,flux_new,flux_now,rdzdt
+    INTEGER :: its,ite
+
+    REAL(wp) :: q_star, flux_sum
+    INTEGER  :: i
+    
+    do i=its,ite
+
+      ! new on r.h.s. is new value from level above
+      vsed_new(i) = 0.5 * (vsed_now(i) + vsed_new(i))
+
+      ! qflux_new, nflux_new are the updated flux values from the level above
+      ! qflux_now, nflux_now are here the old (current time step) flux values from the level above
+      ! In COSMO-Docu  {...} =  flux_(k-1),new + flux_(k-1),start
+      flux_sum = flux_new(i) + flux_now(i)
+
+      ! qflux_now, nflux_now are here overwritten with the current level
+      flux_now(i) = min(vsed_now(i) * q_val(i),  flux_sum)    ! (loop dependency)
+      flux_now(i) = max(flux_now(i),0.0_wp)                   ! maybe not necessary
+
+      ! time integrated value without implicit weight
+      q_sum(i)  = q_val(i)  + rdzdt(i) * (flux_sum - flux_now(i))      
+
+      ! implicit weight
+      q_impl(i) = 1.0_wp/(1.0_wp + vsed_new(i) * rdzdt(i))
+
+      ! prepare for source term calculation
+      q_star    = q_impl(i) * q_sum(i)       
+      q_val(i)  = q_star                     ! source/sinks work on star-values
+      q_sum(i)  = q_sum(i) - q_star           
+    end do
+    
+  end SUBROUTINE implicit_core
+  
+  SUBROUTINE implicit_time(q_val,q_sum,q_impl,vsed_new,vsed_now,flux_new,rdzdt,its,ite)
+
+    INTEGER  :: its,ite
+    REAL(wp), DIMENSION(:), INTENT(INOUT) :: &
+         &    q_val,q_sum,q_impl,vsed_new,vsed_now,flux_new,rdzdt
+
+    INTEGER  :: i
+    
+    do i=its,ite
+
+      ! time integration
+      q_val(i) =   max( 0.0_wp, q_impl(i)*(q_sum(i) + q_val(i)))    
+
+      ! prepare for next level
+      flux_new(i) = q_val(i) * vsed_new(i)     ! flux_(k),new
+      vsed_new(i) = vsed_now(i)
+
+    end do
+    
+  end SUBROUTINE implicit_time
+
+  !===========================================================================================
 
   SUBROUTINE two_moment_mcrph_init(igscp,N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
 
@@ -991,15 +1011,12 @@ CONTAINS
 
     INTEGER        :: unitnr
 
-    IF (msg_level>5) CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme")
-
-    unitnr = 11
-    CALL init_dmin_wetgrowth('dmin_wetgrowth_lookup.dat', unitnr)
-
-    CALL init_dmin_wg_gr_ltab_equi('dmin_wetgrowth_lookup.dat', unitnr, 61, ltabdminwgg)
-
-    IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth")
-
+    IF (msg_level>5) THEN
+      CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme") 
+      WRITE(message_text,'(A,I5)')   "   inwp_gscp    = ",igscp ; CALL message(TRIM(routine),TRIM(message_text))
+      WRITE(message_text,'(A,I5)')   "   i2mom_solver = ",i2mom_solver ; CALL message(TRIM(routine),TRIM(message_text))
+    END IF
+    
     IF (PRESENT(N_cn0)) THEN
        ccn_type   = ccn_type_gscp5
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
@@ -1015,69 +1032,87 @@ CONTAINS
        CALL init_2mom_scheme_once(cloud,rain,ice,snow,graupel,hail,cloud_type)
     END IF
 
-    IF (present(N_cn0)) THEN
-
-       !..parameters for CCN and IN are set here. The 3D fields are then
-       !  initialized in mo_nwp_phy_init.
-
-       !..parameters for exponential decrease of N_ccn with height
-       !  z0:  up to this height (m) constant unchanged value
-       !  z1e: height interval at which N_ccn decreases by factor 1/e above z0_nccn
-
-       ccn_coeffs%z0  = 4000.0d0
-       ccn_coeffs%z1e = 2000.0d0
-
-       ! characteristics of different kinds of CN
-       ! (copied from COSMO 5.0 Segal & Khain nucleation subroutine)
-       SELECT CASE(ccn_type)
-       CASE(6)
-          !... maritime case
-          ccn_coeffs%Ncn0 = 100.0d06   ! CN concentration at ground
-          ccn_coeffs%Nmin =  35.0d06
-          ccn_coeffs%lsigs = 0.4d0      ! log(sigma_s)
-          ccn_coeffs%R2    = 0.03d0     ! in mum
-          ccn_coeffs%etas  = 0.9        ! soluble fraction
-       CASE(7)
-          !... intermediate case
-          ccn_coeffs%Ncn0 = 500.0d06
-          ccn_coeffs%Nmin =  35.0d06
-          ccn_coeffs%lsigs = 0.4d0
-          ccn_coeffs%R2    = 0.03d0       ! in mum
-          ccn_coeffs%etas  = 0.8          ! soluble fraction
-       CASE(8)
-          !... continental case
-          ccn_coeffs%Ncn0 = 1700.0d06
-          ccn_coeffs%Nmin =   35.0d06
-          ccn_coeffs%lsigs = 0.2d0
-          ccn_coeffs%R2    = 0.03d0       ! in mum
-          ccn_coeffs%etas  = 0.7          ! soluble fraction
-       CASE(9)
-          !... "polluted" continental
-          ccn_coeffs%Ncn0 = 3200.0d06
-          ccn_coeffs%Nmin =   35.0d06
-          ccn_coeffs%lsigs = 0.2d0
-          ccn_coeffs%R2    = 0.03d0       ! in mum
-          ccn_coeffs%etas  = 0.7          ! soluble fraction
-       CASE(1)
-          !... dummy values
-          ccn_coeffs%Ncn0 =  200.0d06
-          ccn_coeffs%Nmin =   10.0d06
-          ccn_coeffs%lsigs = 0.0
-          ccn_coeffs%R2    = 0.0
-          ccn_coeffs%etas  = 0.0
-       CASE DEFAULT
-          CALL finish(TRIM(routine),'Error in two_moment_mcrph_init: Invalid value for ccn_type')
-       END SELECT
-
-       z0_nccn  = ccn_coeffs%z0
-       z1e_nccn = ccn_coeffs%z1e
-       N_cn0    = ccn_coeffs%Ncn0
-
-       WRITE(message_text,'(A)') "  CN properties:" ; CALL message(TRIM(routine),TRIM(message_text))
-       WRITE(message_text,'(A,D10.3)') "    Ncn0 = ",ccn_coeffs%Ncn0 ; CALL message(TRIM(routine),TRIM(message_text))
-       WRITE(message_text,'(A,D10.3)') "    z0   = ",ccn_coeffs%z0  ; CALL message(TRIM(routine),TRIM(message_text))
-       WRITE(message_text,'(A,D10.3)') "    z1e  = ",ccn_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
+    IF (timers_level > 10) CALL timer_start(timer_phys_2mom_dmin_init) 
+    IF (luse_dmin_wetgrowth_table .OR. lprintout_comp_table_fit) THEN
+      unitnr = 11
+      CALL init_dmin_wg_gr_ltab_equi('dmin_wetgrowth_lookup', graupel, &
+           unitnr, 61, ltabdminwgg)
     END IF
+    IF (.NOT. luse_dmin_wetgrowth_table) THEN
+      ! check whether 4d-fit is consistent with graupel parameters
+      IF (dmin_wetgrowth_fit_check(graupel)) THEN 
+        CALL message (TRIM(routine), " Using 4d-fit for dmin_wetgrowth for "//TRIM(graupel%name))
+      ELSE
+        CALL finish(TRIM(routine),&
+             & 'Error: luse_dmin_wetgrowth_table=.false., so 4D-fit should be used, '// &
+             & 'but graupel parameters inconsistent with 4d-fit') 
+      END IF
+    END IF
+
+    IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth for "//TRIM(graupel%name))
+    !..parameters for CCN and IN are set here. The 3D fields for prognostic CCN are then
+    !  initialized in mo_nwp_phy_init.
+    IF (timers_level > 10) CALL timer_stop(timer_phys_2mom_dmin_init) 
+   
+    !..parameters for exponential decrease of N_ccn with height
+    !  z0:  up to this height (m) constant unchanged value
+    !  z1e: height interval at which N_ccn decreases by factor 1/e above z0_nccn
+    
+    ccn_coeffs%z0  = 4000.0d0
+    ccn_coeffs%z1e = 2000.0d0
+
+    ! characteristics of different kinds of CN
+    ! (copied from COSMO 5.0 Segal & Khain nucleation subroutine)
+    SELECT CASE(ccn_type)
+    CASE(6)
+      !... maritime case
+      ccn_coeffs%Ncn0 = 100.0d06   ! CN concentration at ground
+      ccn_coeffs%Nmin =  35.0d06
+      ccn_coeffs%lsigs = 0.4d0      ! log(sigma_s)
+      ccn_coeffs%R2    = 0.03d0     ! in mum
+      ccn_coeffs%etas  = 0.9        ! soluble fraction
+    CASE(7)
+      !... intermediate case
+      ccn_coeffs%Ncn0 = 500.0d06
+      ccn_coeffs%Nmin =  35.0d06
+      ccn_coeffs%lsigs = 0.4d0
+      ccn_coeffs%R2    = 0.03d0       ! in mum
+      ccn_coeffs%etas  = 0.8          ! soluble fraction
+    CASE(8)
+      !... continental case
+      ccn_coeffs%Ncn0 = 1700.0d06
+      ccn_coeffs%Nmin =   35.0d06
+      ccn_coeffs%lsigs = 0.2d0
+      ccn_coeffs%R2    = 0.03d0       ! in mum
+      ccn_coeffs%etas  = 0.7          ! soluble fraction
+    CASE(9)
+      !... "polluted" continental
+      ccn_coeffs%Ncn0 = 3200.0d06
+      ccn_coeffs%Nmin =   35.0d06
+      ccn_coeffs%lsigs = 0.2d0
+      ccn_coeffs%R2    = 0.03d0       ! in mum
+      ccn_coeffs%etas  = 0.7          ! soluble fraction
+     CASE(1)
+       !... dummy values
+       ccn_coeffs%Ncn0  =  200.0d06
+       ccn_coeffs%Nmin  =   10.0d06
+       ccn_coeffs%lsigs = 0.0
+       ccn_coeffs%R2    = 0.0
+       ccn_coeffs%etas  = 0.0
+    CASE DEFAULT
+       CALL finish(TRIM(routine),'Error in two_moment_mcrph_init: Invalid value for ccn_type')
+    END SELECT
+
+    IF (PRESENT(N_cn0)) THEN
+      z0_nccn  = ccn_coeffs%z0
+      z1e_nccn = ccn_coeffs%z1e
+      N_cn0    = ccn_coeffs%Ncn0
+    END IF
+    
+    WRITE(message_text,'(A)') "  CN properties:" ; CALL message(TRIM(routine),TRIM(message_text))
+    WRITE(message_text,'(A,D10.3)') "    Ncn0 = ",ccn_coeffs%Ncn0 ; CALL message(TRIM(routine),TRIM(message_text))
+    WRITE(message_text,'(A,D10.3)') "    z0   = ",ccn_coeffs%z0  ; CALL message(TRIM(routine),TRIM(message_text))
+    WRITE(message_text,'(A,D10.3)') "    z1e  = ",ccn_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
 
     IF (present(N_in0)) THEN
 
@@ -1093,10 +1128,11 @@ CONTAINS
        WRITE(message_text,'(A,D10.3)') "    Ncn0 = ",in_coeffs%N0  ; CALL message(TRIM(routine),TRIM(message_text))
        WRITE(message_text,'(A,D10.3)') "    z0   = ",in_coeffs%z0  ; CALL message(TRIM(routine),TRIM(message_text))
        WRITE(message_text,'(A,D10.3)') "    z1e  = ",in_coeffs%z1e ; CALL message(TRIM(routine),TRIM(message_text))
-    END IF
-
+     END IF
+     
+    IF (msg_level>5) CALL message (TRIM(routine), " finished two_moment_mcrph_init successfully")
+    
   END SUBROUTINE two_moment_mcrph_init
-
 
 
   ! Subroutine that provides coefficients for the effective radius calculations
@@ -1119,16 +1155,13 @@ CONTAINS
     REAL(wp)                         :: a_geo, b_geo, mu, nu
     REAL(wp)                         :: bf, bf2 
     LOGICAL                          :: monodisperse
-    
-    
+        
     ! Check input return_fct
     IF (.NOT. return_fct) THEN
       WRITE (message_text,*) 'Reff: Function two_mom_provide_reff_coefficients entered with previous error'
       CALL message('',message_text)
       RETURN
     END IF
-
-
 
     ! We need to reinitiate the particles because they are deleted after every micro call
     cloud => cloud_hyd
@@ -1144,8 +1177,7 @@ CONTAINS
     END IF
     ! .. set the particle types, but no calculations
     CALL init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
-
-    
+   
     SELECT CASE ( reff_calc%hydrometeor )    ! Select Hydrometeor
     CASE (0)                                 ! Cloud water
       current_hyd => cloud
@@ -1180,7 +1212,6 @@ CONTAINS
       monodisperse  = .false.
     END SELECT
 
-
     IF ( reff_calc%dsd_type == 2) THEN       ! Overwrite mu and nu coefficients
       mu            = reff_calc%mu
       nu            = reff_calc%nu
@@ -1197,14 +1228,11 @@ CONTAINS
         bf =  gamma_fct( (3.0_wp * b_geo + nu + 1.0_wp)/ mu) / gamma_fct( (2.0_wp * b_geo + nu + 1.0_wp)/ mu) * &
           & ( gamma_fct( (nu + 1.0_wp)/ mu) / gamma_fct( (nu + 2.0_wp)/ mu) )**b_geo
 
-        reff_calc%reff_coeff(1) = reff_calc%reff_coeff(1)*bf
-        
-      END IF
-       
+        reff_calc%reff_coeff(1) = reff_calc%reff_coeff(1)*bf        
+      END IF      
 
     CASE (1)                                 ! Fu Random Hexagonal needles:  Dge = 1/(c1 * x**[c2] + c3 * x**[c4])
                                              ! Parameterization based on Fu, 1996; Fu et al., 1998; Fu ,2007
-
       ! First calculate monodisperse
       reff_calc%reff_coeff(1)   = SQRT( 3.0_wp *SQRT(3.0_wp) * rho_ice * a_geo / 8.0_wp )
       reff_calc%reff_coeff(2)   = (b_geo - 1.0_wp)/2.0_wp 
@@ -1310,4 +1338,4 @@ CONTAINS
 
   END FUNCTION set_qnh
 
-END MODULE mo_mcrph_sb
+END MODULE mo_2mom_mcrph_driver

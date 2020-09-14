@@ -35,9 +35,6 @@ MODULE mo_advection_geometry
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_math_types,          ONLY: t_line, t_geographical_coordinates
   USE mo_math_utilities,      ONLY: lintersect, line_intersect
-#ifdef __SX__
-  USE mo_math_utilities,      ONLY: line_intersect_s ! Workaround for compiler optimization bug
-#endif
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_fortran_tools,       ONLY: copy
 
@@ -254,6 +251,7 @@ CONTAINS
       icnt_vn0 = 0
 
       DO jk = slev, elev
+!NEC$ ivdep
          DO je = i_startidx, i_endidx
 
           lvn_pos = p_vn(je,jk,jb) >= 0._wp
@@ -440,13 +438,9 @@ CONTAINS
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_line(je,jk), tri_line1(je,jk), ps1)
-        CALL line_intersect_s(fl_line(je,jk), tri_line2(je,jk), ps2)
-#else
         ps1(1:2) = line_intersect(fl_line(je,jk), tri_line1(je,jk))
         ps2(1:2) = line_intersect(fl_line(je,jk), tri_line2(je,jk))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 S1
@@ -510,11 +504,8 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line1
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_line(je,jk), tri_line1(je,jk), ps1)
-#else
         ps1(1:2) = line_intersect(fl_line(je,jk), tri_line1(je,jk))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 D2 S1
@@ -570,11 +561,8 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line2
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_line(je,jk), tri_line2(je,jk), ps2)
-#else
         ps2(1:2) = line_intersect(fl_line(je,jk), tri_line2(je,jk))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 D1
@@ -630,11 +618,8 @@ CONTAINS
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_e2(je,jk), tri_line1(je,jk), pi1)
-#else
         pi1(1:2) = line_intersect(fl_e2(je,jk), tri_line1(je,jk))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I1 A1 (degenerated)
@@ -689,11 +674,8 @@ CONTAINS
         lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
-#ifdef __SX__
-        CALL line_intersect_s(fl_e1(je,jk), tri_line2(je,jk), pi2)
-#else
         pi2(1:2) = line_intersect(fl_e1(je,jk), tri_line2(je,jk))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I2 A1 (degenerated)
@@ -787,7 +769,7 @@ CONTAINS
 
 
       DO jk = slev, elev
-
+!$NEC IVDEP
          DO je = i_startidx, i_endidx
 
            lvn_pos = p_vn(je,jk,jb) >= 0._wp
@@ -1037,6 +1019,7 @@ CONTAINS
       ! get arrival and departure points. Note that the indices of the departure
       ! points have to be switched so that departure point 1 belongs to arrival
       ! point one and departure point 2 to arrival point 2.
+!NEC$ ivdep
       DO ie = 1, falist%len(jb)
 
         je = falist%eidx(ie,jb)
@@ -1262,13 +1245,9 @@ CONTAINS
         ! Compute intersection point of fl_line with tri_line1
         ! Compute intersection point of fl_line with tri_line2
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_line(ie), tri_line1(ie), ps1)
-        CALL line_intersect_s(fl_line(ie), tri_line2(ie), ps2)
-#else
         ps1(1:2) = line_intersect(fl_line(ie), tri_line1(ie))
         ps2(1:2) = line_intersect(fl_line(ie), tri_line2(ie))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 S1
@@ -1325,11 +1304,8 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line1
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_line(ie), tri_line1(ie), ps1)
-#else
         ps1(1:2) = line_intersect(fl_line(ie), tri_line1(ie))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 D2 S1
@@ -1382,11 +1358,8 @@ CONTAINS
 
         ! Compute intersection point of fl_line with tri_line2
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_line(ie), tri_line2(ie), ps2)
-#else
         ps2(1:2) = line_intersect(fl_line(ie), tri_line2(ie))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 S2 D1
@@ -1439,11 +1412,8 @@ CONTAINS
 
         ! Compute intersection point of fl_e2 with tri_line1
         !
-#ifdef __SX__
-        CALL line_intersect_s(fl_e2(ie), tri_line1(ie), pi1)
-#else
         pi1(1:2) = line_intersect(fl_e2(ie), tri_line1(ie))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I1 A1 (degenerated)
@@ -1491,11 +1461,8 @@ CONTAINS
         lvn_sys_pos = (p_vn(je,jk,jb) * p_patch%edges%tangent_orientation(je,jb)) >= 0._wp
 
         ! Compute intersection point of fl_e1 with tri_line2
-#ifdef __SX__
-        CALL line_intersect_s(fl_e1(ie), tri_line2(ie), pi2)
-#else
         pi2(1:2) = line_intersect(fl_e1(ie), tri_line2(ie))
-#endif
+
         ! store corners of flux area patches (counterclockwise)
         ! patch 0
         ! vn > 0: A1 A2 I2 A1 (degenerated)

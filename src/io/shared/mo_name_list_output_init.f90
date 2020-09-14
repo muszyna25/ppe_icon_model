@@ -90,6 +90,7 @@ MODULE mo_name_list_output_init
   USE mo_lnd_nwp_config,                    ONLY: ntiles_lnd, ntiles_water, ntiles_total, tile_list, &
     &                                             isub_water, isub_lake, isub_seaice, lsnowtile
   USE mo_nwp_sfc_tiles,                     ONLY: setup_tile_list
+  USE mo_meteogram_config,                  ONLY: meteogram_output_config
 #endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, &
@@ -384,9 +385,24 @@ CONTAINS
       CALL position_nml ('output_nml', lrewind=lrewind, status=istat)
       IF(istat /= POSITIONED) THEN
 
-        ! if no "output_nml" has been found at all, we disable this
-        ! mode (i.e. the user's namelist settings were inconsistent).
-        IF (.NOT.ASSOCIATED(first_output_name_list)) output_mode%l_nml = .FALSE.
+        ! if no "output_nml" has been found at all, we still cannot
+        ! disable this mode: There might be meteograms which have to
+        ! be handled by the output PEs.  If meteograms are disabled,
+        ! too, then the user's namelist settings were inconsistent.
+        !
+        IF (.NOT. ASSOCIATED(first_output_name_list)) THEN
+#ifndef __NO_ICON_ATMO__
+          IF (.NOT. ANY(meteogram_output_config(:)%lenabled)) THEN
+            CALL message(routine, "No output definition found; disabling output.")
+            output_mode%l_nml = .FALSE.
+          ELSE
+            CALL message(routine, "No output definition found; meteogram output only.")
+          END IF
+#else
+          CALL message(routine, "No output definition found; disabling output.")
+          output_mode%l_nml = .FALSE.
+#endif
+        END IF
 
         CALL close_nml
         RETURN
@@ -629,34 +645,29 @@ CONTAINS
 
         ! -- translate variables names according to variable name
         !    dictionary:
-        DO i=1,max_var_ml
-          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), &
-            &                            default=p_onl%ml_varlist(i))
-        END DO
-        DO i=1,max_var_pl
-          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), &
-            &                            default=p_onl%pl_varlist(i))
-        END DO
-        DO i=1,max_var_hl
-          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), &
-            &                            default=p_onl%hl_varlist(i))
-        END DO
-        DO i=1,max_var_il
-          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), &
-            &                            default=p_onl%il_varlist(i))
-        END DO
-
         ! allow case-insensitive variable names:
         DO i=1,max_var_ml
+          IF (' ' == p_onl%ml_varlist(i)) EXIT ! since read from nml-file array is filled bottom to top...
+          p_onl%ml_varlist(i) = varnames_dict%get(p_onl%ml_varlist(i), &
+            &                            default=p_onl%ml_varlist(i))
           p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
         END DO
         DO i=1,max_var_pl
+          IF (' ' == p_onl%pl_varlist(i)) EXIT
+          p_onl%pl_varlist(i) = varnames_dict%get(p_onl%pl_varlist(i), &
+            &                            default=p_onl%pl_varlist(i))
           p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
         END DO
         DO i=1,max_var_hl
+          IF (' ' == p_onl%hl_varlist(i)) EXIT
+          p_onl%hl_varlist(i) = varnames_dict%get(p_onl%hl_varlist(i), &
+            &                            default=p_onl%hl_varlist(i))
           p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
         END DO
         DO i=1,max_var_il
+          IF (' ' == p_onl%il_varlist(i)) EXIT
+          p_onl%il_varlist(i) = varnames_dict%get(p_onl%il_varlist(i), &
+            &                            default=p_onl%il_varlist(i))
           p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
         END DO
 
@@ -1709,37 +1720,39 @@ CONTAINS
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
 
-    CALL print_output_event(all_events)                                       ! screen output
-    IF (dom_sim_step_info_jstep0 > 0) THEN
+    IF (ASSOCIATED(all_events)) THEN
+      CALL print_output_event(all_events)                                       ! screen output
+      IF (dom_sim_step_info_jstep0 > 0) THEN
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-      IF ( is_coupled_run() ) THEN
-        comp_name = get_my_process_name()
-        WRITE (osched_fname, '(3a,i0,a)') "output_schedule_", &
-          TRIM(comp_name), "_steps_", dom_sim_step_info_jstep0, "+.txt"
-      ELSE
-        WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
-          dom_sim_step_info_jstep0, "+.txt"
-      ENDIF
+        IF ( is_coupled_run() ) THEN
+          comp_name = get_my_process_name()
+          WRITE (osched_fname, '(3a,i0,a)') "output_schedule_", &
+            TRIM(comp_name), "_steps_", dom_sim_step_info_jstep0, "+.txt"
+        ELSE
+          WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
+            dom_sim_step_info_jstep0, "+.txt"
+        ENDIF
 #else
         WRITE (osched_fname, '(a,i0,a)') "output_schedule_steps_", &
           dom_sim_step_info_jstep0, "+.txt"
 #endif
-    ELSE
-#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
-      IF ( is_coupled_run() ) THEN
-        comp_name = TRIM(get_my_process_name())
-        WRITE (osched_fname, '(3a)') "output_schedule_", &
-          &                          TRIM(comp_name), ".txt"
       ELSE
+#if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
+        IF ( is_coupled_run() ) THEN
+          comp_name = TRIM(get_my_process_name())
+          WRITE (osched_fname, '(3a)') "output_schedule_", &
+            &                          TRIM(comp_name), ".txt"
+        ELSE
+          osched_fname = "output_schedule.txt"
+        ENDIF
+#else
         osched_fname = "output_schedule.txt"
-      ENDIF
-#else
-      osched_fname = "output_schedule.txt"
 #endif
+      END IF
+      CALL print_output_event(all_events, &
+        ! ASCII file output:
+        & opt_filename=TRIM(osched_fname))
     END IF
-    CALL print_output_event(all_events, &
-         ! ASCII file output:
-         & opt_filename=TRIM(osched_fname))
   END SUBROUTINE print_output_event_table
 
   ! called by all CDI-PIO async ranks after the initialization of

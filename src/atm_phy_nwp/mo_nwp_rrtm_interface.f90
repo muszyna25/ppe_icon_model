@@ -1057,8 +1057,8 @@ CONTAINS
 
       ENDIF ! msg_level >= 16
 
-#if (!defined(__GFORTRAN__) && !defined(__PGI))
-!FIXME: PGI + OpenMP or GCC + OpenMP produce deadlock in this loop... check correctness of parallel code
+#if !defined(__PGI)
+!FIXME: PGI + OpenMP produce deadlock in this loop. Compiler bug suspected
 !ICON_OMP PARALLEL DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac) ICON_OMP_GUIDED_SCHEDULE
 #endif
       DO jb = i_startblk, i_endblk

@@ -321,7 +321,7 @@ CONTAINS
       CASE (2)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
         atm_phy_nwp_config(jg)%l2moment = .FALSE.
-      CASE (4,5,6)
+      CASE (4,5,6,7)
         atm_phy_nwp_config(jg)%lhave_graupel = .TRUE.
         atm_phy_nwp_config(jg)%l2moment = .TRUE.
       CASE DEFAULT
@@ -688,14 +688,15 @@ CONTAINS
 
 
       ! 3d radiative flux output: only allocate and write variable if at least one is requested as output
-      atm_phy_nwp_config(jg)%l_3d_rad_fluxes = is_variable_in_output(first_output_name_list, var_name="lwflx_dn") & 
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn") & 
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up") & 
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn_clr") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn_clr") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up_clr") &
-                                          .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up_clr")
+      atm_phy_nwp_config(jg)%l_3d_rad_fluxes = is_variable_in_output(first_output_name_list, var_name="group:all")    &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up")     &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_dn_clr") &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_dn_clr") &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="lwflx_up_clr") &
+        &                                 .OR. is_variable_in_output(first_output_name_list, var_name="swflx_up_clr")
  
     ENDDO  ! jg
 

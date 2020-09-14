@@ -1914,6 +1914,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
+!NEC$ ivdep
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -1939,6 +1940,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jk = slev, elev
 
       !$ACC LOOP VECTOR PRIVATE( z_qt_times_d )
+!NEC$ ivdep
       DO jc = i_startidx, i_endidx
 
         ! calculate matrix vector product Q^T d (transposed of Q times LHS)

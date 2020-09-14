@@ -3,7 +3,7 @@
 MY_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${MY_DIR}/../.."; pwd)
 
-${ICON_DIR}/config/dwd/xce.cray
+${ICON_DIR}/config/dwd/xce.cray-8.7.11_oper
 
 MAKE_PROCS=8
 make -j ${MAKE_PROCS}
