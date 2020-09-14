@@ -28,7 +28,6 @@ MODULE mo_echam_wmo_config
   USE mo_impl_constants       ,ONLY: max_dom
   USE mo_grid_config          ,ONLY: n_dom
   USE mo_vertical_coord_table ,ONLY: vct_a
-  USE mo_echam_phy_config     ,ONLY: echam_phy_config
 
   IMPLICIT NONE
   PRIVATE

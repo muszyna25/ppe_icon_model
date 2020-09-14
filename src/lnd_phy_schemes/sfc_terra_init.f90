@@ -86,7 +86,6 @@ USE data_runcontrol , ONLY :   &
 
 #ifdef __ICON__
   USE mo_kind,               ONLY: wp
-  USE mo_run_config,         ONLY: msg_level
   USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperature
     &                              rho_w => rhoh2o, & ! density of liquid water (kg/m^3)
     &                              lh_f  => alf   , & ! latent heat of fusion

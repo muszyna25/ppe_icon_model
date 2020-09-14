@@ -202,6 +202,38 @@ EOF
 }
 
 #=============================================================================
+set_run_target_default()
+{
+    # Default configuration for unknown systems
+
+    icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
+
+    set_default use_nproma 48
+    set_default use_nodes 1
+
+    if [[ "$use_mpi" == "yes" ]]
+    then
+	set_default use_mpi_procs_pernode 2
+    fi
+    if [[ "$use_openmp" == "yes" ]]
+    then
+	set_default use_openmp_threads 2
+    else
+	set_default use_openmp_threads 1
+    fi
+
+    start_header
+}
+
+#=============================================================================
+set_run_target_()
+{
+  echo "!! THIS IS A FALLBACK SETUP !!"
+  echo "!! YOUR HOST/SITE IS unknown TO THE SCRIPTING ENGINE !!"
+  set_run_target_default
+}
+
+#=============================================================================
 set_run_target_bullx_cpu()
 {
     # mistral.dkrz.de
@@ -569,37 +601,6 @@ set_run_target_mpipc()
 	set_default use_mpi_procs_pernode 2
     fi
     if [[ $use_openmp == "yes" ]]
-    then
-	set_default use_openmp_threads 2
-    else
-	set_default use_openmp_threads 1
-    fi
-
-    start_header
-}
-
-#=============================================================================
-set_run_target_()
-{
-  echo "!! THIS IS A FALLBACK SETUP !!"
-  echo "!! YOUR HOST/SITE IS unknown TO THE SCRIPTING ENGINE !!"
-  set_run_target_mpipc
-}
-
-#=============================================================================
-set_run_target_mpimac()
-{
-    # some Macs at MPIM
-    icon_data_rootFolder=${icon_data_rootFolder:=~/pool/data/ICON}
-
-    set_default use_nproma 48
-    use_nodes=1
-  
-    if [[ "$use_mpi" == "yes" ]]
-    then
-	set_default use_mpi_procs_pernode 2
-    fi
-    if [[ "$use_openmp" == "yes" ]]
     then
 	set_default use_openmp_threads 2
     else
@@ -1386,21 +1387,6 @@ if [[ -n \${PBS_O_WORKDIR} ]]
 fi
 #-----------------------------------------------------------------------------
 EOF
-
-    start_header
-}
-
-#=============================================================================
-set_run_target_default()
-{
-    set_default use_nproma 8
-    set_default use_nodes 1
-    set_default use_mpi_procs_pernode 2
-  
-    if [[ $use_openmp == "yes" ]]
-    then
-	set_default use_openmp_threads 2
-    fi
 
     start_header
 }

@@ -165,7 +165,7 @@ MODULE mo_pp_scheduler
     &                                   TASK_COMPUTE_CEILING,                               &
     &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
-    &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
+    &                                   UNDEF_TIMELEVEL, ALL_TIMELEVELS,                    &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB,    &
     &                                   STR_HINTP_TYPE
@@ -797,20 +797,26 @@ CONTAINS
                 &           missval=info%missval%ival, var_class=info%var_class,  &
                 &           tlev_source=info%tlev_source )
             END IF
+            ! SINGLE PRECISION FLOAT fields
+            IF (ASSOCIATED(element%field%s_ptr)) THEN
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
+                &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
+                &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           tracer_info=info_dyn%tracer,                          &
+                &           loutput=.TRUE., new_element=new_element,              &
+                &           isteptype=info%isteptype,                             &
+                &           hor_interp=create_hor_interp_metadata(                &
+                &               hor_intp_type=HINTP_TYPE_NONE ),                  &
+                &           vert_interp=info%vert_interp,                         &
+                &           post_op=info%post_op,                                 &
+                &           lmiss=info%lmiss,                                     &
+                &           missval=REAL(info%missval%sval,wp),                   &
+                &           var_class=info%var_class,                             &
+                &           tlev_source=info%tlev_source )
+            END IF
             ! LOGICAL fields
             IF (ASSOCIATED(element%field%l_ptr)) THEN
               CALL finish(routine, "Regular-grid output of LOGICAL field "//TRIM(info%name)//" unsupported!")
-            END IF
-            ! SINGLE PRECISION FLOAT fields
-            IF (ASSOCIATED(element%field%s_ptr)) THEN
-              IF (my_process_is_stdio()) THEN
-                WRITE (0,*) "!!! Regular-grid output of single precision "//TRIM(info%name)//" unsupported!"
-                WRITE (0,*) "!!!  You may recompile the model with to partial single precision support"
-                WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION_2."
-                WRITE (0,*) "!!!  You may recompile the model with to double precision support"
-                WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION."
-              END IF
-              CALL finish(routine, "Regular-output of single precision "//TRIM(info%name)//" unsupported!")
             END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
@@ -1448,10 +1454,6 @@ CONTAINS
               ! time-dependent variables):
               IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
-              ! throw error message, if this variable is not a REAL field:
-              IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
-                CALL finish(routine, TRIM(info%name)//": i/p/z interpolation implemented for REAL fields only.")
-              END IF
 
               ! Found it, add it to the variable list of optional
               ! diagnostics

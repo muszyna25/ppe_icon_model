@@ -253,7 +253,7 @@ cat > ${atmo_namelist} << EOF
  cwimax_ml                   =                      5.e-4         ! scaling parameter for max. interception storage
  c_soil                      =                       1.25         ! surface area density of the evaporative soil surface
  c_soil_urb                  =                        0.5         ! same for urban areas
- lseaice                     =                      .TRUE.        ! .TRUE. for use of sea-ice model
+ lseaice                     =                      .FALSE.       ! .TRUE. for use of sea-ice model
  llake                       =                      .TRUE.        ! .TRUE. for use of lake model
  itype_snowevap              =                          2         ! Snow evap. in vegetated areas with add. variables for snow age and max. snow height
  itype_trvg                  =                          3         ! BATS scheme with add. prog. var. for integrated plant transpiration since sunrise

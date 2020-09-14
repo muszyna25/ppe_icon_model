@@ -62,8 +62,10 @@ USE mo_mpi,                 ONLY: my_process_is_mpi_parallel
 USE mo_communication,       ONLY: exchange_data
 USE mo_sync,                ONLY: global_sum_array
 
-USE mo_grf_intp_data_strc
-USE mo_gridref_config
+USE mo_grf_intp_data_strc,  ONLY: t_gridref_single_state, t_gridref_state, &
+  &                               p_grf_state_local_parent
+USE mo_gridref_config,      ONLY: grf_idw_exp_e12, grf_idw_exp_e34, rbf_vec_kern_grf_e, &
+  &                               grf_velfbk, rbf_scale_grf_e
 
 IMPLICIT NONE
 
@@ -105,21 +107,15 @@ END SUBROUTINE grf_intp_coeffs_setpatch
 !! @par Revision History
 !! Developed  by Guenther. Zaengl, DWD, 2009-12-16
 !!
-SUBROUTINE compute_pc2cc_distances(p_grf)
+SUBROUTINE compute_pc2cc_distances()
 !
-! patch and gridref state
-
-TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf  (n_dom_start:)
-
 ! local variables
-
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 TYPE(t_patch),      POINTER :: p_pc => NULL()
 TYPE(t_grid_cells), POINTER :: p_cp => NULL()
 TYPE(t_grid_cells), POINTER :: p_cc => NULL()
 
 TYPE(t_gridref_single_state), POINTER :: p_grfs
-
 
 INTEGER :: jb, jc, jg, jcd, jgc, i_startblk, i_endblk, &
            i_startidx, i_endidx, ici1, icb1, ici2, icb2, ici3, icb3, ici4, icb4
@@ -234,21 +230,15 @@ END SUBROUTINE compute_pc2cc_distances
 !! @par Revision History
 !! Developed  by Guenther. Zaengl, DWD, 2010-03-11
 !!
-SUBROUTINE compute_pe2ce_distances( p_grf)
+SUBROUTINE compute_pe2ce_distances( )
 !
-! patch and gridref state
-
-TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf  (n_dom_start:)
-
 ! local variables
-
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 TYPE(t_patch),      POINTER :: p_pc => NULL()
 TYPE(t_grid_edges), POINTER :: p_ep => NULL()
 TYPE(t_grid_edges), POINTER :: p_ec => NULL()
 
 TYPE(t_gridref_single_state), POINTER :: p_grfs
-
 
 INTEGER :: jb, je, jg, jcd, jgc, i_startblk, i_endblk, &
            i_startidx, i_endidx, ici1, icb1, ici2, icb2
@@ -411,10 +401,7 @@ END SUBROUTINE gridref_info
 !! Moved from hierarchy_management to grf_interpolation (2009-03-12)
 !! Add feedback weight computation for edge-based variables (2009-03-19)
 !!
-SUBROUTINE init_fbk_wgt( p_grf)
-
-
-TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf  (n_dom_start:)
+SUBROUTINE init_fbk_wgt( )
 
 ! local variables
 
@@ -759,12 +746,8 @@ END SUBROUTINE init_fbk_wgt
 !! Developed and tested  by G. Zaengl (June 2008)
 !! Rewritten for vectorization by G. Zaengl (May 2010)
 !!
-SUBROUTINE grf_index( ptr_grf_state)
+SUBROUTINE grf_index()
 !
-
-TYPE(t_gridref_state), TARGET, INTENT(inout) ::  &
-  &  ptr_grf_state(n_dom_start:) ! State type for grid refinement coefficients
-
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 TYPE(t_patch),      POINTER :: p_pc => NULL()
 
@@ -1150,11 +1133,8 @@ END SUBROUTINE grf_index
 !! @par Revision History
 !! Developed and tested by Guenther Zaengl (May 2008)
 !!
-SUBROUTINE rbf_compute_coeff_grf_e (ptr_grf_state)
+SUBROUTINE rbf_compute_coeff_grf_e ()
 !
-
-TYPE(t_gridref_state), TARGET, INTENT(inout) :: ptr_grf_state(n_dom_start:)
-
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 TYPE(t_patch),      POINTER :: p_pc => NULL()
 
@@ -1480,11 +1460,8 @@ END SUBROUTINE rbf_compute_coeff_grf_e
 !! @par Revision History
 !! Developed and tested  by Guenther Zaengl (May 2008)
 !!
-SUBROUTINE idw_compute_coeff_grf_e ( ptr_grf_state)
+SUBROUTINE idw_compute_coeff_grf_e ()
 !
-
-TYPE(t_gridref_state), TARGET, INTENT(inout) :: ptr_grf_state(n_dom_start:)
-
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 TYPE(t_patch),      POINTER :: p_pc => NULL()
 

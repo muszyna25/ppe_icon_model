@@ -53,7 +53,7 @@ MODULE mo_ha_diag_util
   USE mo_vertical_coord_table, ONLY: delpr, nplev, nplvp1
    
   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, &
-     & icon_comm_sync, icon_comm_sync_all, is_ready, &
+     & icon_comm_sync_all, is_ready, &
      & until_sync
 
   IMPLICIT NONE

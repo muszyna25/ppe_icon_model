@@ -68,7 +68,7 @@ PRIVATE
 !subroutines
 PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array, omp_global_sum_array,                     &
-          global_sum_array2, global_sum_array3,                       &
+          global_sum_array2, global_sum_array3, global_sum,           &
           sync_patch_array_mult, global_min, global_max,              &
           sync_patch_array_4de1, decomposition_statistics,            &
           enable_sync_checks, disable_sync_checks,                    &
@@ -113,6 +113,13 @@ END INTERFACE
 INTERFACE global_max
   MODULE PROCEDURE global_max_0d
   MODULE PROCEDURE global_max_1d
+END INTERFACE
+
+INTERFACE global_sum
+  MODULE PROCEDURE global_sum_0d
+  MODULE PROCEDURE global_sum_0di
+  MODULE PROCEDURE global_sum_1d
+  MODULE PROCEDURE global_sum_1di
 END INTERFACE
 
 INTERFACE global_sum_array
@@ -1074,6 +1081,97 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap, opt_varnam
 
 END SUBROUTINE sync_idx
 
+! Routines for global summation of scalar quantities or arrays of scalar quantities
+! Unlike the subsequent global_sum_array routines, no summation is made over the array elements
+!
+FUNCTION global_sum_0d (z_in, opt_iroot) RESULT (global_sum)
+
+  REAL(wp),          INTENT(in) :: z_in
+  INTEGER, OPTIONAL,INTENT(IN)  :: opt_iroot
+  REAL(wp)                      :: global_sum
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  global_sum = p_sum(z_in, comm=p_comm_glob, root=opt_iroot)
+
+
+END FUNCTION global_sum_0d
+
+! integer variant of global_sum_0d
+!
+FUNCTION global_sum_0di (z_in, opt_iroot) RESULT (global_sum)
+
+  INTEGER,          INTENT(in) :: z_in
+  INTEGER, OPTIONAL,INTENT(IN) :: opt_iroot
+  INTEGER                      :: global_sum
+ 
+  INTEGER :: p_comm_glob, i_in(1), i_out(1)
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  i_in(1)    = z_in
+  i_out      = p_sum(i_in, comm=p_comm_glob, root=opt_iroot)
+  global_sum = i_out(1)
+
+END FUNCTION global_sum_0di
+
+! Variant for 1D arrays
+!
+FUNCTION global_sum_1d (zfield, opt_iroot) RESULT (global_sum)
+
+  REAL(wp),          INTENT(in) :: zfield(:)
+  INTEGER, OPTIONAL,INTENT(IN)  :: opt_iroot
+  REAL(wp)                      :: global_sum(SIZE(zfield))
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  global_sum = p_sum(zfield, comm=p_comm_glob, root=opt_iroot)
+
+
+END FUNCTION global_sum_1d
+
+
+! integer variant of global_sum_1d
+!
+FUNCTION global_sum_1di (zfield, opt_iroot) RESULT (global_sum)
+
+  INTEGER,          INTENT(in) :: zfield(:)
+  INTEGER, OPTIONAL,INTENT(IN) :: opt_iroot
+  INTEGER                      :: global_sum(SIZE(zfield))
+ 
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  global_sum = p_sum(zfield, comm=p_comm_glob, root=opt_iroot)
+
+
+END FUNCTION global_sum_1di
+
 !-------------------------------------------------------------------------
 !>
 !! Calculates the global sum of an integer scalar.
@@ -1169,9 +1267,10 @@ END FUNCTION global_sum_array_0d
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
+FUNCTION global_sum_array_1d (zfield, opt_iroot) RESULT (global_sum)
 
   REAL(wp),          INTENT(in) :: zfield(:)
+  INTEGER,  INTENT(IN),OPTIONAL :: opt_iroot
   REAL(wp)                      :: global_sum
   REAL(wp)                      :: sum_on_testpe(1)
 
@@ -1185,7 +1284,7 @@ FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
   ENDIF
 
   IF(l_fast_sum) THEN
-    global_sum = simple_sum(zfield, SIZE(zfield), p_comm_glob)
+    global_sum = simple_sum(zfield, SIZE(zfield), p_comm_glob, opt_iroot)
   ELSE
     global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
   ENDIF
@@ -1201,6 +1300,7 @@ FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
 
 
 END FUNCTION global_sum_array_1d
+
 
 !-------------------------------------------------------------------------
 !>

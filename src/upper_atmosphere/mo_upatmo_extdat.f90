@@ -39,7 +39,6 @@ MODULE mo_upatmo_extdat
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
   USE mo_util_string,            ONLY: int2string
-  USE mo_upatmo_utils,           ONLY: isInInterval
 
   IMPLICIT NONE
 

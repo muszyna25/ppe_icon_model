@@ -45,7 +45,7 @@ MODULE mo_hdiff
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
+  USE mo_grid_config,         ONLY: grid_sphere_radius
 !  USE mo_diffusion_nml,       ONLY: k2, k4
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config

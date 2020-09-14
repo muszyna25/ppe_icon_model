@@ -5,7 +5,7 @@ MODULE mo_interpolate_time
   USE mo_parallel_config,   ONLY: nproma
   USE mo_util_mtime,        ONLY: t_datetime_ptr, mtime_divide_timedelta
   USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: finish
+  USE mo_exception,         ONLY: message, message_text, finish
   USE mo_reader_abstract,   ONLY: t_abstract_reader
   USE mo_impl_constants,    ONLY: MAX_CHAR_LENGTH
   USE mtime,             ONLY: newdatetime, datetime, deallocateDatetime, &
@@ -59,7 +59,6 @@ CONTAINS
     CHARACTER(*),                     INTENT(in   ) :: var_name
     INTEGER,                OPTIONAL, INTENT(in   ) :: int_mode
 
-    INTEGER :: errno
     INTEGER :: ntimes
     INTEGER :: i
 
@@ -105,9 +104,13 @@ CONTAINS
       CALL finish(routine, "End of this run ("//TRIM(date_str1)//") after end of data ("//TRIM(date_str2)//")")
     ENDIF
 
-    if (my_process_is_mpi_workroot()) THEN
-      print *, routine//":  loading data, tidx", this%tidx, "and", this%tidx+1
-    ENDIF
+    ! log message
+    CALL datetimetostring(this%times(this%tidx)%ptr, date_str1)
+    CALL datetimetostring(this%times(this%tidx+1)%ptr, date_str2)
+    WRITE(message_text,'(a,i3,a,i3,a)') " loading data, tidx", this%tidx,   " ("//TRIM(date_str1)//") and", &
+      &                                                        this%tidx+1, " ("//TRIM(date_str2)//")"
+    CALL message(TRIM(routine),message_text)
+
 
     CALL reader%get_one_timelev(this%tidx,   this%var_name, this%dataa)
     this%dataold => this%dataa
@@ -129,6 +132,7 @@ CONTAINS
     REAL(wp)                 :: weight
     INTEGER                  :: jc,jk,jb,jw
     INTEGER                  :: nlen, nblks, npromz
+    CHARACTER(len=max_datetime_str_len) :: date_str
 
     CHARACTER(*), PARAMETER :: routine = &
       & modname//"::time_intp_intp"
@@ -139,9 +143,10 @@ CONTAINS
     IF (local_time > this%times(this%tidx+1)%ptr) THEN
       this%tidx    = this%tidx + 1
 
-      IF (my_process_is_mpi_workroot()) THEN
-        print *, routine//": loading new data, with tidx:", this%tidx
-      ENDIF
+      ! log message
+      CALL datetimetostring(this%times(this%tidx+1)%ptr, date_str)
+      WRITE(message_text,'(a,i3,a)') "loading new data, with tidx:", this%tidx+1, " ("//TRIM(date_str)//")"
+      CALL message(TRIM(routine),message_text)
 
       ! FORTRAN!?!1! this should look like:
       ! DEALLOCATE(this%dataold)
