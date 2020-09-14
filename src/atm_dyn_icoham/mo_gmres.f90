@@ -44,16 +44,12 @@ MODULE mo_gmres
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
-  USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
-    & activate_sync_timers
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
-  USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array, &
-    &  sync_e, sync_c, sync_v, sync_patch_array
-  USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_mpi,                 ONLY: get_my_global_mpi_id, p_barrier, p_sum, &
-    & get_my_mpi_work_communicator
+  USE mo_sync,                ONLY: omp_global_sum_array
+  USE mo_grid_subset,         ONLY: t_subset_range
 
   IMPLICIT NONE
 

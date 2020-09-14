@@ -173,6 +173,8 @@
 
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
+!NEC$ options "-finline-max-function-size=1000 -finline-max-depth=3"
+
 MODULE sfc_flake
 
 !===================================================================================================
@@ -874,6 +876,7 @@ CONTAINS
 
     ! Loop over grid boxes with lakes
     !
+!$NEC ivdep
     DO ic=1, nflkgb
       ! Take index from the lake index list
       jc = idx_lst_fp(ic)
@@ -992,8 +995,8 @@ CONTAINS
                      &  opt_dtmnwlkdt, opt_dtwmllkdt, opt_dtbotlkdt, & 
                      &  opt_dctlkdt, opt_dhmllkdt,                   & 
                      &  opt_dtb1lkdt, opt_dhb1lkdt,                  & 
-                     &  opt_dtsfclkdt                                &
-                     &  )
+                     &  opt_dtsfclkdt,                               &
+                     &  lacc)
 
     IMPLICIT NONE
 
@@ -1115,6 +1118,9 @@ CONTAINS
                         &  opt_dtsfclkdt        !< time tendency of 
                                                 !< lake surface temperature [K s^{-1}]
 
+    LOGICAL, INTENT(IN), OPTIONAL :: &
+                        &  lacc                 !< openACC flag
+
     ! Local variables and arrays
 
     INTEGER ::                   &
@@ -1145,6 +1151,9 @@ CONTAINS
       &  opticpar_water        , & !< optical characteristics of water
       &  opticpar_ice          , & !< optical characteristics of ice
       &  opticpar_snow             !< optical characteristics of snow 
+
+    LOGICAL ::                   &
+      &  lzacc                     !< openACC flag
 
 !===================================================================================================
 
@@ -1276,6 +1285,12 @@ CONTAINS
     !  Start calculations
     !-----------------------------------------------------------------------------------------------
 
+    IF(PRESENT(lacc)) THEN
+      lzacc = lacc
+    ELSE
+      lzacc = .FALSE.
+    ENDIF
+
 !_cdm>
 ! A debugging key "izdebug" is actually not required,
 ! see "idbg" in subroutine "flake_driver".
@@ -1348,36 +1363,25 @@ CONTAINS
     albedo_ice   = 0._wp
     albedo_snow  = albedo_ice     ! snow is not considered explicitly
 
-    !$noacc data                                                                                          &
-    !$noacc present(coriolispar,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,qmom,qsen,qlat)               &
-    !$noacc present(qlwrnet,qsolnet,t_snow_p,h_snow_p,t_ice_p,h_ice_p,t_mnw_lk_p,t_wml_lk_p)              &
-    !$noacc present(t_bot_lk_p,c_t_lk_p,h_ml_lk_p,t_b1_lk_p,h_b1_lk_p,t_scf_lk_p,t_snow_n,h_snow_n)       &
-    !$noacc present(t_ice_n,h_ice_n,t_mnw_lk_n,t_wml_lk_n,t_bot_lk_n,c_t_lk_n,h_ml_lk_n,t_b1_lk_n)        &
-    !$noacc present(h_b1_lk_n,t_scf_lk_n,opt_dtsnowdt,opt_dhsnowdt,opt_dticedt,opt_dhicedt,opt_dtmnwlkdt) &
-    !$noacc present(opt_dtwmllkdt,opt_dtbotlkdt,opt_dctlkdt,opt_dhmllkdt,opt_dtb1lkdt,opt_dhb1lkdt)       &
-    !$noacc present(opt_dtsfclkdt)                                                                        &
-    !Local arrays                                                                                       !
-    !$noacc create(dtsnowdt,dhsnowdt,dticedt,dhicedt,dtmnwlkdt,dtwmllkdt,dtbotlkdt)                       &
-    !$noacc create(dctlkdt,dhmllkdt,dtb1lkdt,dhb1lkdt,dtsfclkdt)                                          &
-    !$noacc copyin(opticpar_water, opticpar_ice, opticpar_snow, del_time,izdebug)
+    !$acc data &
+    !$acc create (dctlkdt, dhb1lkdt, dhicedt, dhmllkdt, dhsnowdt, dtb1lkdt, dtbotlkdt) &
+    !$acc create (dticedt, dtmnwlkdt, dtsfclkdt, dtsnowdt, dtwmllkdt) &
+    !$acc copyin (albedo_ice, albedo_snow, albedo_water, del_time, opticpar_ice, opticpar_snow) &
+    !$acc copyin (opticpar_water, r_dtime) if (lzacc)
 
-
+    !$acc parallel default (present) if (lzacc)
+    !$acc loop gang vector &
+    !$acc private (c_i_flk, c_tt_flk, c_q_flk, c_t_n_flk, c_t_p_flk, depth_w, fetch, h_b1_n_flk, h_b1_p_flk) &
+    !$acc private (h_ice_n_flk, h_ice_p_flk, h_ml_n_flk, h_ml_p_flk, h_snow_n_flk, h_snow_p_flk, i_atm_flk) &
+    !$acc private (i_bot_flk, i_h_flk, i_ice_flk,  i_intm_0_h_flk, i_intm_h_d_flk, i_snow_flk, i_w_flk) &
+    !$acc private (par_coriolis, phi_i_pr0_flk, phi_i_pr1_flk, phi_t_pr0_flk, q_bot_flk, q_ice_flk) &
+    !$acc private (q_snow_flk, q_star_flk, q_w_flk, t_b1_n_flk, t_b1_p_flk, t_bot_n_flk, t_bot_p_flk, t_bs) &
+    !$acc private (t_ice_n_flk, t_ice_p_flk, t_mnw_n_flk, t_mnw_p_flk, t_sfc_n, t_sfc_p, t_snow_n_flk) &
+    !$acc private (t_snow_p_flk, t_wml_n_flk, t_wml_p_flk, u_star_w_flk, w_star_sfc_flk, depth_bs, dmsnowdt_flk)
+    
     !-----------------------------------------------------------------------------------------------
     !  DO loop over grid boxes with lakes
     !-----------------------------------------------------------------------------------------------
- 
-    !$noacc parallel
-    !$noacc loop gang vector              &
-    !$noacc private (I_snow_flk, I_bot_flk, I_ice_flk, I_w_flk, I_h_flk)  &
-    !$noacc private (I_intm_0_h_flk, I_intm_h_D_flk, T_snow_n_flk, T_ice_n_flk)     &
-    !$noacc private (T_mnw_n_flk, T_wML_n_flk, T_B1_n_flk, T_bot_n_flk, C_T_n_flk)  &
-    !$noacc private (h_snow_n_flk, h_ice_n_flk, h_ML_n_flk, h_B1_n_flk, T_sfc_n)    &
-    !$noacc private (Q_star_flk, w_star_sfc_flk, Q_bot_flk, H_B1_p_flk, q_ice_flk)  &
-    !$noacc private (q_snow_flk, u_star_w_flk)                                      &
-    !$noacc private (dmsnowdt_flk,t_sfc_p,h_ml_p_flk, h_ice_p_flk, h_snow_p_flk)    &
-    !$noacc private (c_t_p_flk,t_b1_p_flk,t_bot_p_flk,t_wml_p_flk,t_mnw_p_flk)      &
-    !$noacc private (t_ice_p_flk, t_snow_p_flk,par_coriolis,t_bs,depth_bs,depth_w)  &
-    !$noacc private (q_w_flk)
 
     GridBoxesWithLakes: DO iflk=1, nflkgb
 
@@ -1421,7 +1425,7 @@ CONTAINS
 
       I_atm_flk = qsolnet(iflk)  ! net surface solar radiation flux from ICON 
                                  ! with due regard fr the surface albedo
-!CDIR NEXPAND      
+
       CALL flake_radflux (  depth_w, albedo_water, albedo_ice, albedo_snow,         &
                             opticpar_water, opticpar_ice, opticpar_snow,            &
                             h_snow_p_flk, h_ice_p_flk, h_ML_p_flk, I_snow_flk,      &
@@ -1471,7 +1475,6 @@ CONTAINS
       !---------------------------------------------------------------------------------------------
       !  Advance FLake variables one time step forward 
       !---------------------------------------------------------------------------------------------
-!CDIR NEXPAND      
       CALL flake_driver ( depth_w, depth_bs, T_bs, par_Coriolis,         &
                           opticpar_water%extincoef_optic(1),             &
                           del_time, T_sfc_p, T_sfc_n, izdebug,           &    
@@ -1556,139 +1559,140 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
 
     END DO GridBoxesWithLakes
-    !$noacc end parallel
-
+    !$acc end parallel
 
     !-----------------------------------------------------------------------------------------------
     !  Store time tendencies of FLake variables (optional)
     !-----------------------------------------------------------------------------------------------
 
     IF (PRESENT(opt_dtsnowdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dtsnowdt(1:nflkgb) = dtsnowdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dtsnowdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dtsnowdt(nflkgb+1:)= 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhsnowdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dhsnowdt(1:nflkgb) = dhsnowdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dhsnowdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dhsnowdt(nflkgb+1:)= 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dticedt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dticedt(1:nflkgb) = dticedt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dticedt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dticedt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhicedt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dhicedt(1:nflkgb) = dhicedt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dhicedt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dhicedt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtmnwlkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dtmnwlkdt(1:nflkgb) = dtmnwlkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dtmnwlkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dtmnwlkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtwmllkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dtwmllkdt(1:nflkgb) = dtwmllkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dtwmllkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dtwmllkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtbotlkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dtbotlkdt(1:nflkgb) = dtbotlkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dtbotlkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dtbotlkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dctlkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dctlkdt(1:nflkgb) = dctlkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dctlkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dctlkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhmllkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dhmllkdt(1:nflkgb) = dhmllkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dhmllkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dhmllkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtb1lkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dtb1lkdt(1:nflkgb) = dtb1lkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dtb1lkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dtb1lkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dhb1lkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dhb1lkdt(1:nflkgb) = dhb1lkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dhb1lkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dhb1lkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
     IF (PRESENT(opt_dtsfclkdt)) THEN
-      !$noacc kernels
+      !$acc kernels if (lzacc)
       opt_dtsfclkdt(1:nflkgb) = dtsfclkdt(1:nflkgb)
-      !$noacc end kernels
+      !$acc end kernels
       IF (nflkgb < SIZE(opt_dtsfclkdt)) THEN
-        !$noacc kernels
+        !$acc kernels if (lzacc)
         opt_dtsfclkdt(nflkgb+1:) = 0._wp
-        !$noacc end kernels
+        !$acc end kernels
       ENDIF
     ENDIF
 
-  !$noacc end data
+  
 
     !-----------------------------------------------------------------------------------------------
     !  End calculations
     !===============================================================================================
+
+    !$acc end data
 
 END SUBROUTINE flake_interface
 
@@ -1884,7 +1888,7 @@ REAL (KIND = wp),     INTENT(OUT)  :: &
 ! We rely on Cray inlining the subroutine, otherwise compilation fails with
 ! derived types (that contain only scalars)
 #ifndef CRAY_FIX_SEQ
-!$noacc routine seq
+!$acc routine seq
 #endif
 
 !==============================================================================
@@ -2159,7 +2163,7 @@ REAL (KIND = wp)     :: &
 ! We rely on Cray inlining the subroutine, otherwise compilation fails with
 ! derived types (that contain only scalars)
 #ifndef CRAY_FIX_SEQ
-!$noacc routine seq
+!$acc routine seq
 #endif
 
 !==============================================================================
@@ -3032,7 +3036,7 @@ REAL (KIND = wp)    , INTENT(IN) :: &
 !------------------------------------------------------------------------------
 
 #ifndef CRAY_FIX_SEQ
-!$noacc routine seq
+!$acc routine seq
 #endif
 
 ! Buoyancy parameter [m s^{-2} K^{-1}]
@@ -3069,7 +3073,7 @@ REAL (KIND = wp)    , INTENT(IN) :: &
 !------------------------------------------------------------------------------
 
 #ifndef CRAY_FIX_SEQ
-!$noacc routine seq
+!$acc routine seq
 #endif
 
 ! Snow density [kg m^{-3}]
@@ -3110,7 +3114,7 @@ REAL (KIND = wp)    , INTENT(IN) :: &
 !------------------------------------------------------------------------------
 
 #ifndef CRAY_FIX_SEQ
-!$noacc routine seq
+!$acc routine seq
 #endif
 
 ! Snow heat conductivity [J m^{-1} s^{-1} K^{-1} = kg m s^{-3} K^{-1}]

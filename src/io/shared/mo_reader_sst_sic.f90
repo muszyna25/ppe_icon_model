@@ -10,10 +10,9 @@ MODULE mo_reader_sst_sic
   USE mo_read_interface,          ONLY: nf
   USE mtime,                      ONLY: newdatetime, datetime, deallocateDatetime, &
        &                                OPERATOR(*), OPERATOR(+), &
-       &                                datetimetostring, max_datetime_str_len, timedelta,  &
-       &                                newTimeDelta, deallocateTimedelta
+       &                                timedelta, deallocateTimedelta
   USE mo_mpi,                     ONLY: my_process_is_stdio, my_process_is_mpi_workroot, &
-       &                                process_mpi_root_id, p_comm_work, p_bcast, p_pe_work
+       &                                process_mpi_root_id, p_comm_work, p_bcast
   USE mo_read_netcdf_distributed, ONLY: distrib_nf_open, distrib_read, distrib_nf_close, &
        &                                idx_lvl_blk
 

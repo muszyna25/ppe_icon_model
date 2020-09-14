@@ -962,8 +962,6 @@ CONTAINS
   !!
   SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, dt_fbk, prm_diag)
 
-!FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
-
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
 
@@ -1177,7 +1175,7 @@ CONTAINS
 
     ! 1. Feedback of child-domain variables to the parent grid
 #ifndef __PGI
-!FIXME: PGI + OpenMP produce error in this routine... check correctness of parallel code
+!FIXME: PGI + OpenMP produce error in this routine. Compiler bug suspected
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 #endif
     ! Compute perturbation theta_v

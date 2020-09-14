@@ -183,7 +183,7 @@ MODULE mo_multifile_restart
   USE mo_io_config,                    ONLY: restartWritingParameters
   USE mo_kind,                         ONLY: dp, i8
   USE mtime,                           ONLY: datetime
-  USE mo_mpi,                          ONLY: my_process_is_work, my_process_is_restart,        &
+  USE mo_mpi,                          ONLY: my_process_is_work, my_process_is_restart,                 &
     &                                        p_comm_work_2_restart, p_comm_work, p_comm_rank,           &
     &                                        p_mpi_wtime, p_comm_work_restart, num_work_procs,          &
     &                                        my_process_is_mpi_workroot, p_reduce, mpi_sum, p_barrier
@@ -198,6 +198,7 @@ MODULE mo_multifile_restart
     &                                        timers_level, timer_write_restart_setup,                    &
     &                                        timer_write_restart_wait
   USE mo_util_string,                  ONLY: int2string, real2string
+  USE mo_restart_nml_and_att,          ONLY: restartAttributeList_write_to_cdi
 
   IMPLICIT NONE
 
@@ -415,7 +416,7 @@ CONTAINS
       grid = gridCreate(GRID_GENERIC, 1)
       zaxis = zaxisCreate(ZAXIS_GENERIC, 1)
       var = vlistDefVar(vlist, grid, zaxis, TSTEP_CONSTANT)
-      CALL rAttribs%output(vlistID=vlist)
+      CALL restartAttributeList_write_to_cdi(rAttribs, vlist)
       CALL streamDefVlist(metaFile, vlist)
       CALL streamDefRecord(metaFile, var, 0)
       CALL streamClose(metaFile)

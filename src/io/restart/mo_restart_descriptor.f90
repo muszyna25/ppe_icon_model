@@ -20,7 +20,8 @@ MODULE mo_restart_descriptor
   USE mo_mpi, ONLY: my_process_is_work, p_bcast, p_comm_work_2_restart, &
     & p_get_bcast_role, p_pe_work, my_process_is_mpi_test, process_mpi_restart_size
   USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
-  USE mo_restart_nml_and_att,       ONLY: restartAttributeList_make, bcastNamelistStore
+  USE mo_restart_nml_and_att,       ONLY: restartAttributeList_make, bcastNamelistStore, &
+    & restartAttributeList_write_to_cdi
   USE mo_key_value_store,           ONLY: t_key_value_store
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util, ONLY: t_restart_args, create_restart_file_link, &
@@ -189,8 +190,10 @@ CONTAINS
       END DO
     END IF
     ! now the stuff that depends on the domain
-    DO jg = 1, SIZE(me%patchData)
+    DO jg = 1, me%patchData(1)%description%opt_ndom
       desc => me%patchData(jg)%description
+      IF (desc%id .NE. jg) & ! CALL finish("Kil Kill" , "the killer of death")
+        & CALL finish(modname//":defineRestartAttributes", "mismatch of DOM-ID")
       WRITE(domStr, '(i2.2)') desc%id
       CALL rAttribs%put('nold_DOM'//domStr, desc%nold)
       CALL rAttribs%put('nnow_DOM'//domStr, desc%nnow)
@@ -291,7 +294,7 @@ CONTAINS
         & desc%n_patch_verts_g, desc%n_patch_edges_g, desc%cell_type, &
         & desc%v_grid_defs(1:desc%v_grid_count), desc%opt_pvct)
       ! set global attributes
-      CALL rAttribs%output(vlistID=cdiIds%vlist)
+      CALL restartAttributeList_write_to_cdi(rAttribs, cdiIds%vlist)
 #ifdef DEBUG
       WRITE (nerr, '(2(a,i6))' )routine//' p_pe=',p_pe,' open netCDF file with ID=',cdiIds%fHndl
 #endif

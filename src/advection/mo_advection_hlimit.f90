@@ -640,12 +640,11 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional async OpenACC
      &  opt_acc_async
 
-#ifndef __INTEL_COMPILER
+#if defined(__INTEL_COMPILER) || defined(__SX__)
+    REAL(wp) :: z_mflx1,  z_mflx2, z_mflx3
+#else
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
       &  z_mflx(nproma,slev:elev,3) !< [kg m^-3]
-
-#else
-     REAL(wp) :: z_mflx1,  z_mflx2, z_mflx3
 #endif
     ! remark: single precision would be sufficient for r_m, but SP-sync is not yet available
     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
@@ -736,7 +735,7 @@ CONTAINS
     !    z_mflx < 0: inward
     !
 
-#ifdef __INTEL_COMPILER
+#if defined (__INTEL_COMPILER) || defined (__SX__)
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,p_m, &
 !$OMP            z_mflx1,z_mflx2,z_mflx3) ICON_OMP_DEFAULT_SCHEDULE
 #else
@@ -759,7 +758,23 @@ CONTAINS
         DO jc = i_startidx, i_endidx
 #endif
 
-#ifndef __INTEL_COMPILER
+#if defined (__SX__)
+          z_mflx1 = ptr_int%geofac_div(jc,1,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+          z_mflx2 = ptr_int%geofac_div(jc,2,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+          z_mflx3 = ptr_int%geofac_div(jc,3,jb) * p_dtime &
+            &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+          ! Sum of all outgoing fluxes out of cell jc
+          p_m =  MAX(0._wp,z_mflx1) + MAX(0._wp,z_mflx2) + MAX(0._wp,z_mflx3)
+
+          ! fraction which must multiply all fluxes out of cell jc to guarantee no undershoot
+          ! Nominator: maximum allowable decrease of \rho q
+          r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*p_rhodz_now(jc,jk,jb)) / (p_m + dbl_eps) )
+
+#elif !defined (__INTEL_COMPILER)
+
           z_mflx(jc,jk,1) = ptr_int%geofac_div(jc,1,jb) * p_dtime &
             &                * p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 

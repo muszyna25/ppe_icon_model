@@ -192,6 +192,10 @@ CONTAINS
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
 
+      ! It may happen that an MPI patch contains only nest boundary points
+      ! In this case, no action is needed
+      IF (i_startidx > i_endidx) CYCLE
+
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
 
       cosmu0mask(:) = .FALSE.
@@ -360,7 +364,7 @@ CONTAINS
     INTEGER                  :: &
       &  nblks_par_c,           & !< nblks for reduced grid (parent domain)
       &  nblks_lp_c,            & !< nblks for reduced grid (local parent)
-      &  jb, jc,                & !< loop indices
+      &  jb, jc, jk,            & !< loop indices
       &  jg,                    & !< domain id
       &  nlev,                  & !< number of full levels
       &  nlev_rg, nlev_rgp1,    & !< number of full and half levels at reduced grid
@@ -613,6 +617,47 @@ CONTAINS
       ! It may happen that an MPI patch contains only nest boundary points
       ! In this case, no action is needed
       IF (i_startidx > i_endidx) CYCLE
+
+      ! GZ, 2020-05-08: provisional workaround for indexing error hidden somewhere in ecRad:
+      ! Start indices larger than 1 lead to erroneous access of array elements and break processor invariance.
+      ! This problem was already present in ecRad version 1.3 prior to changes/optimizations implemented at DWD
+      !
+      IF (i_startidx > 1) THEN
+        DO jc = 1, i_startidx-1
+          zrg_cosmu0(jc,jb)    = zrg_cosmu0(i_startidx,jb)
+          zrg_tsfc(jc,jb)      = zrg_tsfc(i_startidx,jb)
+          zrg_albvisdif(jc,jb) = zrg_albvisdif(i_startidx,jb)
+          zrg_albnirdif(jc,jb) = zrg_albnirdif(i_startidx,jb)
+          zrg_albvisdir(jc,jb) = zrg_albvisdir(i_startidx,jb)
+          zrg_albnirdir(jc,jb) = zrg_albnirdir(i_startidx,jb)
+          zrg_fr_land(jc,jb)   = zrg_fr_land(i_startidx,jb)
+          zrg_fr_glac(jc,jb)   = zrg_fr_glac(i_startidx,jb)
+          zrg_emis_rad(jc,jb)  = zrg_emis_rad(i_startidx,jb)
+          zrg_tsfc(jc,jb)      = zrg_tsfc(i_startidx,jb)
+          zrg_pres_ifc(jc,nlev_rgp1,jb) = zrg_pres_ifc(i_startidx,nlev_rgp1,jb)
+        ENDDO
+        DO jk = 1,nlev_rg
+          DO jc = 1, i_startidx-1
+            zrg_temp(jc,jk,jb)        = zrg_temp(i_startidx,jk,jb)
+            zrg_pres(jc,jk,jb)        = zrg_pres(i_startidx,jk,jb)
+            zrg_pres_ifc(jc,jk,jb)    = zrg_pres_ifc(i_startidx,jk,jb)
+            zrg_o3(jc,jk,jb)          = zrg_o3(i_startidx,jk,jb)
+            zrg_tot_cld(jc,jk,jb,iqv) = zrg_tot_cld(i_startidx,jk,jb,iqv)
+            zrg_tot_cld(jc,jk,jb,iqc) = zrg_tot_cld(i_startidx,jk,jb,iqc)
+            zrg_tot_cld(jc,jk,jb,iqi) = zrg_tot_cld(i_startidx,jk,jb,iqi)
+            zrg_clc(jc,jk,jb)         = zrg_clc(i_startidx,jk,jb)
+            zrg_acdnc(jc,jk,jb)       = zrg_acdnc(i_startidx,jk,jb)
+            zrg_aeq1(jc,jk,jb)        = zrg_aeq1(i_startidx,jk,jb)
+            zrg_aeq2(jc,jk,jb)        = zrg_aeq2(i_startidx,jk,jb)
+            zrg_aeq3(jc,jk,jb)        = zrg_aeq3(i_startidx,jk,jb)
+            zrg_aeq4(jc,jk,jb)        = zrg_aeq4(i_startidx,jk,jb)
+            zrg_aeq5(jc,jk,jb)        = zrg_aeq5(i_startidx,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+      i_startidx = 1
+      !
+      ! end of workaround
 
       cosmu0mask(:) = .FALSE.
       DO jc = i_startidx, i_endidx

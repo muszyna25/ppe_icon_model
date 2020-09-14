@@ -20,7 +20,7 @@
 !!
 MODULE mo_fortran_tools
 
-  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4, vp2
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
   USE mo_impl_constants,          ONLY: SUCCESS
   USE mo_impl_constants,          ONLY: VARNAME_LEN
@@ -29,15 +29,13 @@ MODULE mo_fortran_tools
   USE openacc
 #endif
   USE iso_c_binding,              ONLY: c_ptr, c_f_pointer, c_loc, c_null_ptr
-  USE mo_util_stride,             ONLY: util_c_loc, util_stride_1d, &
-                                      & util_stride_2d
+  USE mo_util_stride,             ONLY: util_stride_1d, util_stride_2d
 
   IMPLICIT NONE
 
   PUBLIC :: assign_if_present
-  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_2d3d_vp2
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
-  PUBLIC :: t_alloc_character
   PUBLIC :: t_ptr_1d
   PUBLIC :: t_ptr_1d_int
   PUBLIC :: t_ptr_1d_ptr_1d
@@ -56,10 +54,6 @@ MODULE mo_fortran_tools
   PUBLIC :: insert_dimension
 
   PRIVATE
-
-  TYPE t_alloc_character
-    CHARACTER(:), ALLOCATABLE :: a
-  END TYPE t_alloc_character
 
   TYPE t_ptr_1d
     REAL(wp),POINTER :: p(:)  ! pointer to 1D (spatial) array
@@ -102,12 +96,6 @@ MODULE mo_fortran_tools
     REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
     REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d_vp
-
-  TYPE t_ptr_2d3d_vp2
-    REAL(vp2),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
-    REAL(vp2),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
-  END TYPE t_ptr_2d3d_vp2
-
 
   TYPE t_ptr_i2d3d
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array
@@ -1736,14 +1724,12 @@ CONTAINS
     LOGICAL, POINTER, INTENT(out) :: ptr_out(:,:,:)
     LOGICAL, TARGET, INTENT(in) :: ptr_in
     INTEGER :: out_shape(out_rank), i
-    TYPE(c_ptr) :: cptr
     out_shape(1:out_rank-1) = in_shape
-    CALL util_c_loc(C_LOC(ptr_in), cptr)
     DO i = out_rank, new_dim_rank+1, -1
       out_shape(i) = out_shape(i-1)
     END DO
     out_shape(new_dim_rank) = 1
-    CALL C_F_POINTER(cptr, ptr_out, out_shape)
+    CALL C_F_POINTER(C_LOC(ptr_in), ptr_out, out_shape)
   END SUBROUTINE insert_dimension_l_3_2_s
 
   ! insert dimension of size 1 (so that total array size remains the

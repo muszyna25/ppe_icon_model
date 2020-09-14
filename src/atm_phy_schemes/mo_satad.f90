@@ -790,7 +790,7 @@ ELEMENTAL  FUNCTION dqsatdT (zqsat, temp)
 END FUNCTION dqsatdT
 
 ELEMENTAL  FUNCTION dqsatdT_ice (zqsat, temp)
-
+!$ACC ROUTINE SEQ
     !-------------------------------------------------------------------------------
     !>
     !! Description:

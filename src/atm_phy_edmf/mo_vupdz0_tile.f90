@@ -54,11 +54,9 @@ USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,&           !yomcst  (& yos_exc)
       & RG       ,RD       ,RCPD     ,RETV               ,& !yomcst  (& yos_cst)   
       & RCHAR                                               !"EQUIVALENT" CHARNOCK PARAMETER
 USE mo_edmf_param   ,ONLY : &
-      & RVZ0M    ,RVZ0H    ,&                               !yos_veg
-      & LEFLAKE  ,RH_ICE_MIN_FLK     ,&                     !yoephy  (& yos_flake)
-      & LSCMEC   ,LROUGH   ,REXTZ0M  ,REXTZ0H  ,&           !yomct0  (& yos_exc)
-      & PSIHU    ,PSIHS                                     !fcsvdfs.h
-USE mo_lnd_nwp_config,ONLY: isub_water, isub_lake, isub_seaice, llake
+      & RH_ICE_MIN_FLK     ,&                               !yoephy  (& yos_flake)
+      & LSCMEC   ,LROUGH   ,REXTZ0M  ,REXTZ0H               !yomct0  (& yos_exc)
+USE mo_lnd_nwp_config,ONLY: isub_water, isub_lake, isub_seaice
 
 
 !! #ifdef DOC

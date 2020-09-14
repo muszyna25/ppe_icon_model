@@ -45,7 +45,7 @@ MODULE mo_reff_main
   USE mo_exception,            ONLY: message, message_text
 
   USE mo_reff_types,           ONLY: t_reff_calc
-  USE mo_mcrph_sb,             ONLY: two_mom_reff_coefficients 
+  USE mo_2mom_mcrph_driver,    ONLY: two_mom_reff_coefficients 
   USE gscp_data,               ONLY: one_mom_reff_coefficients,                   &
                                    & one_mom_calculate_ncn,                       &
                                    & cloud_num

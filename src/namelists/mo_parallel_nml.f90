@@ -39,6 +39,7 @@ MODULE mo_parallel_nml
     & config_l_test_openmp       => l_test_openmp,       &
     & config_num_restart_procs   => num_restart_procs,   &
     & config_num_io_procs        => num_io_procs,        &
+    & config_num_io_procs_radar        => num_io_procs_radar,        &
     & config_pio_type            => pio_type,            &
     & config_num_prefetch_proc   => num_prefetch_proc,   &
     & config_proc0_shift         => proc0_shift,         &
@@ -139,6 +140,7 @@ MODULE mo_parallel_nml
     ! Type of parallel I/O
     INTEGER :: pio_type
     INTEGER :: num_io_procs
+    INTEGER :: num_io_procs_radar
 
     ! Number of restart PEs (0 means, worker 0 writes restart (to be backward compatible)
     INTEGER :: num_restart_procs
@@ -197,6 +199,7 @@ MODULE mo_parallel_nml
       & p_test_run, num_test_pe, l_test_openmp,       &
       & num_restart_procs, proc0_shift,         &
       & num_io_procs,      pio_type,            &
+      & num_io_procs_radar, &
       & itype_comm,        iorder_sendrecv,     &
       & nproma,                                 &
       & use_icon_comm, &
@@ -266,6 +269,7 @@ MODULE mo_parallel_nml
     ! Type of parallel I/O
     pio_type = 1
     num_io_procs = 0
+    num_io_procs_radar = 0
 
     ! Number of restart output PEs; if 0, worker 0 does the work
     num_restart_procs = 0
@@ -366,6 +370,7 @@ MODULE mo_parallel_nml
     config_l_test_openmp       = l_test_openmp
     config_num_restart_procs   = num_restart_procs
     config_num_io_procs        = num_io_procs
+    config_num_io_procs_radar  = num_io_procs_radar
     config_pio_type            = pio_type
     config_num_prefetch_proc   = num_prefetch_proc
     config_proc0_shift         = proc0_shift

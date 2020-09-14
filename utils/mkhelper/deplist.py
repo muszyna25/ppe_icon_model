@@ -182,8 +182,12 @@ def build_graph(makefiles, inc_oo=False):
     return result
 
 
+# the escape sequence [93m produces a yellow warning. This is hardly visible on bright displays.
+# Changed to bright red [91m
+# original was: sys.stderr.write("%s%s: WARNING: %s%s\n" % ('\033[93m' if colour else '',
+
 def warn(msg, colour=False):
-    sys.stderr.write("%s%s: WARNING: %s%s\n" % ('\033[93m' if colour else '',
+    sys.stderr.write("%s%s: WARNING: %s%s\n" % ('\033[91m' if colour else '',
                                                 os.path.basename(__file__),
                                                 msg,
                                                 '\033[0m' if colour else ''))

@@ -126,7 +126,7 @@ USE mo_kind         ,ONLY : JPRB=>wp ,JPIM=>i4
 USE mo_cuparameters ,ONLY : lhook    ,dr_hook  ,vrec     ,&
                 & RG       ,RD       ,RCPD     ,RETV     ,&           !yomcst
                 & RKAP     ,RVDIFTS  ,REPDU2   ,RLAM     ,&           !yoevdf
-                & phihu    ,phimu    ,phims    ,phihs                 !fcvdfs.h
+                & phihu    ,phimu                                     !fcvdfs.h
 USE mo_edmf_param   ,ONLY : &
                 & N_VMASS  ,&                                         !yomjfh
                 & REPUST                                              !yos_exc

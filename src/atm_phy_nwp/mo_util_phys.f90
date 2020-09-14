@@ -34,7 +34,7 @@ MODULE mo_util_phys
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, iqg, iqni, ininact, &
        &                              iqm_max, nqtendphy, lart, &
-       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh, msg_level
+       &                              iqh, iqnc, iqnr, iqns, iqng, iqnh
   USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c
@@ -754,11 +754,8 @@ CONTAINS
 
     ! additional clipping for qr, qs, ... up to iqm_max
     ! (very small negative values may occur during the transport process (order 10E-15))
-    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
-      iq_start = iqg  ! qr, qs already clipped above
-    ELSE
-      iq_start = iqr
-    ENDIF 
+    iq_start = MAXVAL(ptr_conv_list(:)) + 1  ! all others have already been clipped above
+    !
     DO jt=iq_start, iqm_max  ! qr,qs,etc. 
       DO jk = kstart_moist(jg), kend
         DO jc = i_startidx, i_endidx
