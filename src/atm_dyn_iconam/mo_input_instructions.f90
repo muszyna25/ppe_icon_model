@@ -14,7 +14,7 @@
 
 MODULE mo_input_instructions
 
-    USE mo_exception,          ONLY: message, finish
+    USE mo_exception,          ONLY: message, finish, message_text
     USE mo_impl_constants,     ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, &
       &                              MODE_COMBINED, MODE_COSMO, max_ntracer
     USE mo_initicon_config,    ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr,    &
@@ -23,7 +23,7 @@ MODULE mo_input_instructions
     USE mo_input_request_list, ONLY: t_InputRequestList
     USE mo_lnd_nwp_config,     ONLY: lsnowtile
     USE mo_model_domain,       ONLY: t_patch
-    USE mo_util_string,        ONLY: difference, add_to_list, int2string, one_of
+    USE mo_util_string,        ONLY: difference, add_to_list, one_of
     USE mo_util_table,         ONLY: t_table, initialize_table, add_table_column, set_table_entry,  &
       &                              print_table, finalize_table
     USE mo_var_list,           ONLY: collect_group
@@ -273,7 +273,6 @@ CONTAINS
         CHARACTER(LEN=VARNAME_LEN), DIMENSION(200) :: anaAtmGroup
         INTEGER :: anaAtmGroupSize, jg
         LOGICAL :: lRemoveSnowfrac
-        CHARACTER(LEN = 256) :: message_text
 
         ! get the raw DATA
         CALL collectGroupFg(fgGroup, fgGroupSize, init_mode)
@@ -318,7 +317,7 @@ CONTAINS
                 ELSE
                     WRITE(message_text,'(a,l1,a,l1,a)') 'Combination lp2cintp_incr=',lp2cintp_incr(jg), &
                     &                       ' and lp2cintp_sfcana=',lp2cintp_sfcana(jg),' not allowed'
-                    CALL finish(routine, TRIM(message_text))
+                    CALL finish(routine, message_text)
                 ENDIF
 
                 ! when vertical remapping of the FG-fields is applied, z_ifc is required 
@@ -390,7 +389,6 @@ CONTAINS
 
         ! the corresponding sizes of the lists above
         INTEGER :: ngrp_vars_fg, ngrp_vars_optfg, ngrp_vars_ana
-        CHARACTER(LEN = 256) :: message_text
         !
         !-------------------------------------------------------------------------
 
@@ -408,7 +406,7 @@ CONTAINS
             ! mark optional first guess fields in the instruction list. 
             IF (one_of(TRIM(grp_vars_fg(ivar)), grp_vars_optfg)/=-1) THEN
                 WRITE(message_text,'(a,a,a,i2)') 'Declare ',TRIM(grp_vars_fg(ivar)),' as OPTIONAL for DOM ', p_patch%id
-                CALL message(routine, TRIM(message_text))                
+                CALL message(routine, message_text)
                 curInstruction%lOptionalFg=.TRUE.
             ENDIF
         END DO
@@ -440,7 +438,7 @@ CONTAINS
                 WRITE(message_text,'(a,a,a,i2)') 'Transform ',TRIM(ana_varnames_dict%get( &
                  &                                initicon_config(p_patch%id)%fg_checklist(ivar), linverse=.TRUE.)), &
                  &                               ' into a mandatory first guess field for DOM', p_patch%id
-                CALL message(routine, TRIM(message_text))
+                CALL message(routine, message_text)
             ENDIF
         ENDDO
 
@@ -831,13 +829,13 @@ CONTAINS
 
         IF(me%nInstructions == 0) THEN
             ! Don't print empty tables, just give a message that there are no input instructions.
-            WRITE(0, *) "no input results available for domain "//TRIM(int2string(jg))
+            WRITE(0, '(a,i0)') "no input results available for domain ", jg
             RETURN
         END IF
 
         ! Print the title of the list.
         WRITE(0,*) ""
-        WRITE(0,*) "input results for domain "//TRIM(int2string(jg))//":"
+        WRITE(0, '(a,i0,a)') "input results for domain ", jg, ":"
 
         CALL initialize_table(table)
         CALL add_table_column(table, variableCol)
