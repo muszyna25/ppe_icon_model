@@ -19,7 +19,7 @@ MODULE mo_ser_common
   SUBROUTINE init(suffix)
     IMPLICIT NONE
     CHARACTER(LEN=*), INTENT(IN) :: suffix
-    REAL(KIND=8) :: rprecision
+    REAL(KIND=wp) :: rprecision
     rprecision = 10.0**(-PRECISION(1.0))
 
     !$ser verbatim    IF (linitialize) THEN
@@ -29,14 +29,14 @@ MODULE mo_ser_common
     !$ser&     prefix='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
-    !$ser&     rperturb=1.0e-5_8
+    !$ser&     rperturb=1.0e-5_wp
 #else
     !$ser init directory='./ser_data' &
     !$ser&     prefix='current_'//TRIM(suffix) &
     !$ser&     prefix_ref='reference_'//TRIM(suffix) &
     !$ser&     mpi_rank=get_my_mpi_work_id() &
     !$ser&     rprecision=rprecision &
-    !$ser&     rperturb=1.0e-5_8
+    !$ser&     rperturb=1.0e-5_wp
 #endif
 
     !$ser verbatim     linitialize = .FALSE.
