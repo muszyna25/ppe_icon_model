@@ -330,7 +330,9 @@ CONTAINS
 
       DO jc = start_index, end_index
 
-        pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*&
+        !! Note that reference density needs to be negated
+        !! from doi:10.1016/j.ocemod.2003.09.003 page 273
+        pressure_hyd(jc,1,jb) = ( rho(jc,1,jb) - OceanReferenceDensity ) *z_grav_rho_inv*&
          &stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb) &
          & + bc_total_top_potential(jc,jb)
 
@@ -339,8 +341,9 @@ CONTAINS
 
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
-          pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
-            &*z_grav_rho_inv*stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+          pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + &
+            & ( 0.5_wp*( rho(jc,jk,jb) + rho(jc,jk-1,jb) ) - OceanReferenceDensity )* & 
+            & z_grav_rho_inv*stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
 
           phy(jc,jk,jb) = phy(jc,jk-1,jb) - &
             & stretch_c(jc, jb)*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
@@ -368,7 +371,9 @@ CONTAINS
           
           press_grad(je,jk,jb)=press_grad(je,jk,jb) + &
             & z_grav_rho_inv*(phy(ic2,jk,ib2)-phy(ic1,jk,ib1))*grad_coeff(je,jk,jb)* &
-            & 0.5_wp*( ( rho(ic2,jk,ib2) + rho(ic1,jk,ib1) ) - OceanReferenceDensity )
+            !! Note that reference density needs to be negated
+            !! from doi:10.1016/j.ocemod.2003.09.003 page 273
+            & ( 0.5_wp*( rho(ic2,jk,ib2) + rho(ic1,jk,ib1) ) - OceanReferenceDensity )
         END DO
       END DO
     END DO

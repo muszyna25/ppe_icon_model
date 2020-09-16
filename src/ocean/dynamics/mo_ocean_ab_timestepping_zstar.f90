@@ -1134,6 +1134,10 @@ CONTAINS
       eta_c_new(:,:) = solve%x_loc_wp(:,:)
       !!ICON_OMP END PARALLEL WORKSHARE
  
+      minmaxmean(:) = global_minmaxmean(values=eta_c_new, in_subset=owned_cells)
+      IF ( abs(minmaxmean(1) > 1000 ) ) &
+            CALL finish("Surface height too large!!")
+
       IF (createSolverMatrix) &
         CALL solve%dump_matrix(timestep)
   
