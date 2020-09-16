@@ -540,6 +540,10 @@ CONTAINS
                 ! Tracer flux due to removal
                 p_oce_sfc%FrshFlux_TotalIce (jc,jb) = p_oce_sfc%FrshFlux_TotalIce (jc,jb)                      &
                       & + (1._wp-sice/sss(jc,jb))*(p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)  ! Ice
+                    
+                p_oce_sfc%FrshFlux_IceSalt(jc,jb) = p_oce_sfc%FrshFlux_IceSalt(jc,jb) &
+                  & + sice * (p_ice%hi(jc,k,jb)-z_smax)*p_ice%conc(jc,k,jb)*rhoi/(rho_ref*dtime)
+
                 ! Heat flux due to removal
                 !  #slo# 2015-02: - this heat did not come from the ocean, but from atmosphere, heating ocean is wrong
                 !                 - check if conc must enter here as well, check energy for coupling
