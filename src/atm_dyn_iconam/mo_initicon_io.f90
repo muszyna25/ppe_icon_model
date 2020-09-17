@@ -76,6 +76,7 @@ MODULE mo_initicon_io
   USE mo_var_metadata_types,  ONLY: t_var_metadata
   USE mo_var_list_register,   ONLY: vl_iter
   USE mo_var_list,            ONLY: t_list_element
+  USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_var_groups,          ONLY: var_groups_dyn
   USE mo_var_metadata,        ONLY: get_var_name
 
@@ -1669,6 +1670,7 @@ MODULE mo_initicon_io
 
     ! loop over all variable lists and variables
     DO WHILE(vl_iter%next())
+      IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE
       ! do not inspect variable list if its domain does not match:
       IF (vl_iter%cur%p%patch_id /= jg)  CYCLE
       element => vl_iter%cur%p%first_list_element
