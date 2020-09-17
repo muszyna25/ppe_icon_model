@@ -386,7 +386,7 @@ CONTAINS
 #endif
     IF (ANY([PRESENT(initval_r), PRESENT(initval_s), PRESENT(initval_i), PRESENT(initval_l)])) THEN
       ivals = initval
-    ELSE IF (ANY([PRESENT(missval_r), PRESENT(missval_s), PRESENT(missval_i), PRESENT(missval_l)])) THEN
+    ELSE IF (PRESENT(lmiss)) THEN
       ivals = missval
     END IF
     SELECT CASE(data_type)
