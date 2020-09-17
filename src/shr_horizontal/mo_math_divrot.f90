@@ -219,9 +219,12 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   LOGICAL, INTENT(IN), OPTIONAL ::  &   !< optional async OpenACC
     &  opt_acc_async 
-
+#ifdef __LOOP_EXCHANGE
   REAL(wp)  ::   &               !< weights * difference of scalars i j
     &  z_d(3,nproma,ptr_patch%nlev)
+#else
+  REAL(wp)  :: z_d(3)
+#endif
   REAL(wp)  ::   &               !< matrix product of transposed Q matrix and d
     &  z_qt_times_d(2)
 
@@ -288,15 +291,11 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+#ifdef __LOOP_EXCHANGE
 !$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-#ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
-#else
-    DO jk = slev, elev
-      DO jc = i_startidx, i_endidx
-#endif
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
         ! runtime is now avoided. Instead, the multiplication with
@@ -337,6 +336,45 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
         ! constant
         p_coeff(1,jc,jk,jb) = p_cc(jc,jk,jb)
+
+#else
+!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE( z_d, z_qt_times_d )
+!$NEC outerloop_unroll(4)
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+        ! note that the multiplication with lsq_weights_c(jc,js,jb) at
+        ! runtime is now avoided. Instead, the multiplication with
+        ! lsq_weights_c(jc,js,jb) has been shifted into the transposed
+        ! Q-matrix.
+        z_d(1) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
+        z_d(2) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
+        z_d(3) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
+
+        ! matrix multiplication Q^T d (partitioned into 2 dot products)
+        z_qt_times_d(1) = ptr_int_lsq%lsq_qtmat_c(jc,1,1,jb) * z_d(1)  &
+          &             + ptr_int_lsq%lsq_qtmat_c(jc,1,2,jb) * z_d(2)  &
+          &             + ptr_int_lsq%lsq_qtmat_c(jc,1,3,jb) * z_d(3)
+        z_qt_times_d(2) = ptr_int_lsq%lsq_qtmat_c(jc,2,1,jb) * z_d(1)  &
+          &             + ptr_int_lsq%lsq_qtmat_c(jc,2,2,jb) * z_d(2)  &
+          &             + ptr_int_lsq%lsq_qtmat_c(jc,2,3,jb) * z_d(3)
+
+
+        ! Solve linear system by backward substitution
+        ! Gradient in zonal and meridional direction
+        !
+        ! meridional
+        p_coeff(3,jc,jk,jb) = ptr_int_lsq%lsq_rmat_rdiag_c(jc,2,jb) * z_qt_times_d(2)
+
+        ! zonal
+        p_coeff(2,jc,jk,jb) = ptr_int_lsq%lsq_rmat_rdiag_c(jc,1,jb)                  &
+          & * (z_qt_times_d(1) - ptr_int_lsq%lsq_rmat_utri_c(jc,1,jb)                &
+          & * p_coeff(3,jc,jk,jb))
+
+        ! constant
+        p_coeff(1,jc,jk,jb) = p_cc(jc,jk,jb)
+
+#endif
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
@@ -431,10 +469,12 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
 
   LOGICAL, INTENT(IN), OPTIONAL ::  &   !< optional async OpenACC
     &  opt_acc_async 
-
+#ifdef __LOOP_EXCHANGE
   REAL(wp)  ::   &               !< weights * difference of scalars i j
     &  z_b(3,nproma,ptr_patch%nlev)
-
+#else
+  REAL(wp)  ::  z_b(3)
+#endif
   INTEGER, POINTER ::   &            !< Pointer to line and block indices of
     &  iidx(:,:,:), iblk(:,:,:)      !< required stencil
   INTEGER :: slev, elev              !< vertical start and end level
@@ -491,15 +531,12 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+#ifdef __LOOP_EXCHANGE
 !$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-#ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
-#else
-    DO jk = slev, elev
-      DO jc = i_startidx, i_endidx
-#endif
+
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
         ! runtime is now avoided. Instead, the weights have been shifted 
@@ -530,6 +567,31 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff,      &
         p_coeff(1,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(1,jc,jk)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2,jc,jk)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3,jc,jk)
+
+#else
+!$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG VECTOR COLLAPSE(2) PRIVATE(z_b)
+!$NEC outerloop_unroll(4)
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+
+        ! note that the multiplication with lsq_weights_c(jc,js,jb) at
+        ! runtime is now avoided. Instead, the weights have been shifted 
+        ! into the pseudoinverse.
+        z_b(1) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
+        z_b(2) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
+        z_b(3) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
+
+        ! meridional
+        p_coeff(2,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(1)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,2,jb) * z_b(2)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,3,jb) * z_b(3)
+
+        ! zonal
+        p_coeff(1,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(1)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3)
+#endif
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
@@ -705,6 +767,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC PARALLEL DEFAULT (NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
     DO jk = slev, elev
+!$NEC ivdep
       DO jc = i_startidx, i_endidx
 
         ! meridional
@@ -919,6 +982,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
 #else
     !$ACC LOOP GANG
+!$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
@@ -953,13 +1017,11 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! (intrinsic function matmul not applied, due to massive
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is applied
-!CDIR BEGIN EXPAND=9
         z_qt_times_d(1) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,1,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(2) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,2,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(3) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,3,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(4) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,4,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(5) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,5,1:9,jb),z_d(1:9,jc,jk))
-!CDIR END
 
         !
         ! Solve linear system Rx=Q^T d by back substitution
@@ -1148,6 +1210,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
 #else
     !$ACC LOOP GANG
+!$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
@@ -1176,12 +1239,12 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jk = slev, elev
 
       !$ACC LOOP VECTOR
+!$NEC ivdep
       DO jc = i_startidx, i_endidx
 
         ! (intrinsic function matmul not applied, due to massive
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is used.
-!CDIR BEGIN EXPAND=9
         p_coeff(6,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
           &                               z_b(1:9,jc,jk))
         p_coeff(5,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
@@ -1192,8 +1255,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
           &                               z_b(1:9,jc,jk))
         p_coeff(2,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-!CDIR END
-
 
         ! At the end, the coefficient c0 is derived from the linear constraint
         !
@@ -1376,6 +1437,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
 #else
     !$ACC LOOP GANG
+!$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
@@ -1409,7 +1471,6 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! (intrinsic function matmul not applied, due to massive
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is applied
-!CDIR BEGIN EXPAND=9
         z_qt_times_d(1) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,1,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(2) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,2,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(3) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,3,1:9,jb),z_d(1:9,jc,jk))
@@ -1417,7 +1478,6 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         z_qt_times_d(5) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,5,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(6) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,6,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(7) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,7,1:9,jb),z_d(1:9,jc,jk))
-!CDIR END
 
         !
         ! Solve linear system Rx=Q^T d by back substitution
@@ -1622,6 +1682,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
 #else
     !$ACC LOOP GANG
+!$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
@@ -1650,12 +1711,12 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     DO jk = slev, elev
 
       !$ACC LOOP VECTOR
+!$NEC ivdep
       DO jc = i_startidx, i_endidx
 
         ! (intrinsic function matmul not applied, due to massive
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is used.
-!CDIR BEGIN EXPAND=9
         p_coeff(8,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
           &                               z_b(1:9,jc,jk))
         p_coeff(7,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
@@ -1670,11 +1731,9 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
           &                               z_b(1:9,jc,jk))
         p_coeff(2,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-!CDIR END
 
         ! At the end, the coefficient c0 is derived from the linear constraint
         !
-!CDIR EXPAND=7
         p_coeff(1,jc,jk,jb) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(2:8,jc,jk,jb), &
           &                   ptr_int_lsq%lsq_moments(jc,jb,1:7))
 
@@ -1852,6 +1911,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
 #else
     !$ACC LOOP GANG
+!$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
@@ -1885,7 +1945,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! (intrinsic function matmul not applied, due to massive
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is applied
-!CDIR BEGIN EXPAND=9
 !TODO:  these should be nine scalars, since they should reside in registers
         z_qt_times_d(1) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,1,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(2) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,2,1:9,jb),z_d(1:9,jc,jk))
@@ -1896,7 +1955,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         z_qt_times_d(7) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,7,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(8) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,8,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(9) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,9,1:9,jb),z_d(1:9,jc,jk))
-!CDIR END
 
 
         !
@@ -1906,59 +1964,59 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         p_coeff(9,jc,jk,jb)  = ptr_rrdiag(jc,8,jb)                                         &
           &                  * ( z_qt_times_d(8) - ptr_rutri(jc,1,jb)*p_coeff(10,jc,jk,jb) )
         p_coeff(8,jc,jk,jb)  = ptr_rrdiag(jc,7,jb)                                         &
-          &                  * ( z_qt_times_d(7) - ptr_rutri(jc,2,jb)*p_coeff(9,jc,jk,jb)  &
-          &                  - ptr_rutri(jc,3,jb) * p_coeff(10,jc,jk,jb) )
+          &                  * ( z_qt_times_d(7) - (ptr_rutri(jc,2,jb)*p_coeff(9,jc,jk,jb) &
+          &                  + ptr_rutri(jc,3,jb) * p_coeff(10,jc,jk,jb)) )
         p_coeff(7,jc,jk,jb)  = ptr_rrdiag(jc,6,jb)                                         &
-          &                  * ( z_qt_times_d(6) - ptr_rutri(jc,4,jb)*p_coeff(8,jc,jk,jb)  &
-          &                  - ptr_rutri(jc,5,jb) * p_coeff(9,jc,jk,jb)                    &
-          &                  - ptr_rutri(jc,6,jb) * p_coeff(10,jc,jk,jb) )
+          &                  * ( z_qt_times_d(6) - (ptr_rutri(jc,4,jb)*p_coeff(8,jc,jk,jb) &
+          &                  + ptr_rutri(jc,5,jb) * p_coeff(9,jc,jk,jb)                    &
+          &                  + ptr_rutri(jc,6,jb) * p_coeff(10,jc,jk,jb)) )
         p_coeff(6,jc,jk,jb)  = ptr_rrdiag(jc,5,jb)                                         &
-          &                  * ( z_qt_times_d(5) - ptr_rutri(jc,7,jb)*p_coeff(7,jc,jk,jb)  &
-          &                  - ptr_rutri(jc,8,jb) * p_coeff(8,jc,jk,jb)                    &
-          &                  - ptr_rutri(jc,9,jb) * p_coeff(9,jc,jk,jb)                    &
-          &                  - ptr_rutri(jc,10,jb)* p_coeff(10,jc,jk,jb) )
+          &                  * ( z_qt_times_d(5) - (ptr_rutri(jc,7,jb)*p_coeff(7,jc,jk,jb) &
+          &                  + ptr_rutri(jc,8,jb) * p_coeff(8,jc,jk,jb)                    &
+          &                  + ptr_rutri(jc,9,jb) * p_coeff(9,jc,jk,jb)                    &
+          &                  + ptr_rutri(jc,10,jb)* p_coeff(10,jc,jk,jb)) )
         p_coeff(5,jc,jk,jb)  = ptr_rrdiag(jc,4,jb)                                         &
-          &                  * ( z_qt_times_d(4) - ptr_rutri(jc,11,jb)*p_coeff(6,jc,jk,jb) &
-          &                  - ptr_rutri(jc,12,jb) * p_coeff(7,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,13,jb) * p_coeff(8,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,14,jb) * p_coeff(9,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,15,jb) * p_coeff(10,jc,jk,jb) )
+          &                  * ( z_qt_times_d(4) - (ptr_rutri(jc,11,jb)*p_coeff(6,jc,jk,jb)&
+          &                  + ptr_rutri(jc,12,jb) * p_coeff(7,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,13,jb) * p_coeff(8,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,14,jb) * p_coeff(9,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,15,jb) * p_coeff(10,jc,jk,jb)) )
         p_coeff(4,jc,jk,jb)  = ptr_rrdiag(jc,3,jb)                                         &
-          &                  * ( z_qt_times_d(3) - ptr_rutri(jc,16,jb)*p_coeff(5,jc,jk,jb) &
-          &                  - ptr_rutri(jc,17,jb) * p_coeff(6,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,18,jb) * p_coeff(7,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,19,jb) * p_coeff(8,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,20,jb) * p_coeff(9,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,21,jb) * p_coeff(10,jc,jk,jb) )
+          &                  * ( z_qt_times_d(3) - (ptr_rutri(jc,16,jb)*p_coeff(5,jc,jk,jb)&
+          &                  + ptr_rutri(jc,17,jb) * p_coeff(6,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,18,jb) * p_coeff(7,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,19,jb) * p_coeff(8,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,20,jb) * p_coeff(9,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,21,jb) * p_coeff(10,jc,jk,jb)) )
         p_coeff(3,jc,jk,jb)  = ptr_rrdiag(jc,2,jb)                                         &
-          &                  * ( z_qt_times_d(2) - ptr_rutri(jc,22,jb)*p_coeff(4,jc,jk,jb) &
-          &                  - ptr_rutri(jc,23,jb) * p_coeff(5,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,24,jb) * p_coeff(6,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,25,jb) * p_coeff(7,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,26,jb) * p_coeff(8,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,27,jb) * p_coeff(9,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,28,jb) * p_coeff(10,jc,jk,jb) )
+          &                  * ( z_qt_times_d(2) - (ptr_rutri(jc,22,jb)*p_coeff(4,jc,jk,jb)&
+          &                  + ptr_rutri(jc,23,jb) * p_coeff(5,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,24,jb) * p_coeff(6,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,25,jb) * p_coeff(7,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,26,jb) * p_coeff(8,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,27,jb) * p_coeff(9,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,28,jb) * p_coeff(10,jc,jk,jb)) )
         p_coeff(2,jc,jk,jb)  = ptr_rrdiag(jc,1,jb)                                         &
-          &                  * ( z_qt_times_d(1) - ptr_rutri(jc,29,jb)*p_coeff(3,jc,jk,jb) &
-          &                  - ptr_rutri(jc,30,jb) * p_coeff(4,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,31,jb) * p_coeff(5,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,32,jb) * p_coeff(6,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,33,jb) * p_coeff(7,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,34,jb) * p_coeff(8,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,35,jb) * p_coeff(9,jc,jk,jb)                   &
-          &                  - ptr_rutri(jc,36,jb) * p_coeff(10,jc,jk,jb) )
+          &                  * ( z_qt_times_d(1) - (ptr_rutri(jc,29,jb)*p_coeff(3,jc,jk,jb)&
+          &                  + ptr_rutri(jc,30,jb) * p_coeff(4,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,31,jb) * p_coeff(5,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,32,jb) * p_coeff(6,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,33,jb) * p_coeff(7,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,34,jb) * p_coeff(8,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,35,jb) * p_coeff(9,jc,jk,jb)                   &
+          &                  + ptr_rutri(jc,36,jb) * p_coeff(10,jc,jk,jb)) )
 
 
-        p_coeff(1,jc,jk,jb)  = p_cc(jc,jk,jb)                                              &
-          &                  - p_coeff(2,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,1)     &
-          &                  - p_coeff(3,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,2)     &
-          &                  - p_coeff(4,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,3)     &
-          &                  - p_coeff(5,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,4)     &
-          &                  - p_coeff(6,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,5)     &
-          &                  - p_coeff(7,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,6)     &
-          &                  - p_coeff(8,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,7)     &
-          &                  - p_coeff(9,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,8)     &
-          &                  - p_coeff(10,jc,jk,jb) * ptr_int_lsq%lsq_moments(jc,jb,9)
+        p_coeff(1,jc,jk,jb)  = p_cc(jc,jk,jb) - (                                          &
+          &                    p_coeff(2,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,1)     &
+          &                  + p_coeff(3,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,2)     &
+          &                  + p_coeff(4,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,3)     &
+          &                  + p_coeff(5,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,4)     &
+          &                  + p_coeff(6,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,5)     &
+          &                  + p_coeff(7,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,6)     &
+          &                  + p_coeff(8,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,7)     &
+          &                  + p_coeff(9,jc,jk,jb)  * ptr_int_lsq%lsq_moments(jc,jb,8)     &
+          &                  + p_coeff(10,jc,jk,jb) * ptr_int_lsq%lsq_moments(jc,jb,9))
 
       END DO ! end loop over cells
 
@@ -2052,15 +2110,10 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
                                   !< constant coefficient for zonal and meridional
                                   !< direction
 
-#ifndef __SX__
+
   REAL(wp)  ::           &        !< difference of scalars i j
     &  z_b(lsq_high_set%dim_c,nproma,ptr_patch%nlev)
-#else
-  REAL(wp)  ::           &
-    &  z_b1, z_b2, z_b3, z_b4, z_b5, z_b6, z_b7, z_b8, z_b9, &
-    &  zdp(nproma,ptr_patch%nlev)
-  INTEGER :: jj
-#endif
+
 
   INTEGER, POINTER  ::   &        !< Pointer to line and block indices of
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
@@ -2114,12 +2167,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP BARRIER
   ENDIF
 
-#ifndef __SX__
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
-#else
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b1,z_b2,z_b3,z_b4,z_b5,z_b6,z_b7,z_b8,z_b9, &
-!$OMP            zdp), ICON_OMP_RUNTIME_SCHEDULE
-#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2130,7 +2178,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
 
 !$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-#ifndef __SX__
 #ifdef __LOOP_EXCHANGE
     !$ACC LOOP GANG
     DO jc = i_startidx, i_endidx
@@ -2138,6 +2185,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
 #else
     !$ACC LOOP GANG
+!$NEC outerloop_unroll(4)
     DO jk = slev, elev
       !$ACC LOOP VECTOR
       DO jc = i_startidx, i_endidx
@@ -2167,12 +2215,12 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !$ACC LOOP GANG
     DO jk = slev, elev
       !$ACC LOOP VECTOR
+!$NEC ivdep
       DO jc = i_startidx, i_endidx
 
         ! (intrinsic function matmul not applied, due to massive
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is applied
-!CDIR BEGIN EXPAND=9
 
         p_coeff(10,jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,9,1:9,jb), &
           &                               z_b(1:9,jc,jk))
@@ -2193,10 +2241,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         p_coeff(2, jc,jk,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
           &                               z_b(1:9,jc,jk))
 
-!CDIR END
 
-
-!CDIR BEGIN EXPAND=9
         p_coeff(1,jc,jk,jb)  = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(2:10,jc,jk,jb), &
           &                    ptr_int_lsq%lsq_moments(jc,jb,1:9))
 
@@ -2206,72 +2251,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 !$ACC END PARALLEL
 
-#else
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-    DO jj = 2, 10
-      !$ACC LOOP GANG
-      DO jk = slev, elev
-        !$ACC LOOP VECTOR PRIVATE(z_b1,z_b2,z_b3,z_b4,z_b5,z_b6,z_b7,z_b8,z_b9)
-!CDIR NODEP
-        DO jc = i_startidx, i_endidx
-
-          z_b1 = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
-          z_b2 = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
-          z_b3 = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
-          z_b4 = p_cc(iidx(jc,jb,4),jk,iblk(jc,jb,4)) - p_cc(jc,jk,jb)
-          z_b5 = p_cc(iidx(jc,jb,5),jk,iblk(jc,jb,5)) - p_cc(jc,jk,jb)
-          z_b6 = p_cc(iidx(jc,jb,6),jk,iblk(jc,jb,6)) - p_cc(jc,jk,jb)
-          z_b7 = p_cc(iidx(jc,jb,7),jk,iblk(jc,jb,7)) - p_cc(jc,jk,jb)
-          z_b8 = p_cc(iidx(jc,jb,8),jk,iblk(jc,jb,8)) - p_cc(jc,jk,jb)
-          z_b9 = p_cc(iidx(jc,jb,9),jk,iblk(jc,jb,9)) - p_cc(jc,jk,jb)
-
-          !
-          ! 2. compute cell based coefficients for cubic reconstruction
-          !    calculate matrix vector product PINV(A) * b
-          !
-          ! (intrinsic function matmul not applied, due to massive
-          ! performance penalty on the NEC. Instead the intrinsic dot product
-          ! function is applied
-
-          p_coeff(jj,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,jj-1,1,jb) * z_b1 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,2,jb) * z_b2 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,3,jb) * z_b3 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,4,jb) * z_b4 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,5,jb) * z_b5 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,6,jb) * z_b6 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,7,jb) * z_b7 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,8,jb) * z_b8 &
-                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,9,jb) * z_b9
-
-        END DO ! end loop over cells
-      END DO ! end loop over vertical levels
-    END DO ! jj
-!$ACC END PARALLEL
-
-
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
-    zdp=0._wp
-    DO jj = 2, 10
-      !$ACC LOOP GANG
-      DO jk = slev, elev
-        !$ACC LOOP VECTOR
-        DO jc = i_startidx, i_endidx
-          zdp(jc,jk) = zdp(jc,jk) + &
-                       p_coeff(jj,jc,jk,jb) * ptr_int_lsq%lsq_moments(jc,jb,jj-1)
-        END DO ! end loop over cells
-      END DO ! end loop over vertical levels
-    END DO ! jj
-
-    !$ACC LOOP GANG
-    DO jk = slev, elev
-      !$ACC LOOP VECTOR
-      DO jc = i_startidx, i_endidx
-        p_coeff(1,jc,jk,jb)  = p_cc(jc,jk,jb) - zdp(jc,jk)
-      END DO ! end loop over cells
-    END DO ! end loop over vertical levels
-!$ACC END PARALLEL
-#endif
 
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT

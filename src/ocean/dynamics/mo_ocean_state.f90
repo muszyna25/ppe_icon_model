@@ -38,8 +38,9 @@ MODULE mo_ocean_state
     &                               GMRedi_configuration,GMRedi_combined,                         &
     &                               GM_only,Redi_only, type_3dimrelax_salt, type_3dimrelax_temp,  &
     &                               GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,          &
-    &                               REDI_INDIVIDUAL_DIAGNOSTIC, eddydiag, vert_cor_type,          &
-    &                               diagnose_for_tendencies, diagnose_for_heat_content, lhamocc
+    &                               REDI_INDIVIDUAL_DIAGNOSTIC, eddydiag,                         &
+    &                               diagnose_for_tendencies, diagnose_for_heat_content, lhamocc,  &
+    &                               use_tides_SAL, vert_cor_type
   USE mo_run_config,          ONLY: test_mode
   USE mo_ocean_types,         ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
     &                               t_hydro_ocean_aux , t_oce_config,   &
@@ -341,6 +342,7 @@ CONTAINS
         ALLOCATE(checkpoint(i)%albnirdir(nproma,1,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%albnirdif(nproma,1,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%Wind_Speed_10m(nproma,alloc_cell_blocks),stat=status)
+        ALLOCATE(checkpoint(i)%CO2_Mixing_Ratio(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_Total(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_Shortwave(nproma,alloc_cell_blocks),stat=status)
         ALLOCATE(checkpoint(i)%HeatFlux_LongWave(nproma,alloc_cell_blocks),stat=status)
@@ -715,6 +717,7 @@ CONTAINS
             & DATATYPE_FLT64, &
             & TRIM(oce_config%tracer_shortnames(jtrc))), &
             & grib2_var(255, 255, oce_config%tracer_codes(jtrc), DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+            & ref_idx=jtrc, &
             & ldims=(/nproma,n_zlev,alloc_cell_blocks/), tlev_source=TLEV_NNEW, &
             & in_group=groups("oce_default", "oce_essentials","oce_prog"))
         END DO
@@ -1306,6 +1309,12 @@ CONTAINS
     ENDIF ! diagnose_for_tendencies
 
       IF (eddydiag) THEN
+      CALL add_var(ocean_default_list, 'w_prismcenter ', ocean_state_diag%w_prismcenter,&
+      & grid_unstructured_cell, &
+      & za_depth_below_sea, &
+      & t_cf_var('w prism center','m/s','vertical velocity at prism center', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
        CALL add_var(ocean_default_list, 'sigma0', ocean_state_diag%sigma0,&
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
@@ -1423,6 +1432,27 @@ CONTAINS
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
        & t_cf_var('ww','m2s-2','square of vertical velocity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'RR', ocean_state_diag%rr,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('RR','kg2m-6','square of density', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'SS', ocean_state_diag%ss,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('SS','1e-6','square of salinity', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
+
+       CALL add_var(ocean_default_list, 'TT', ocean_state_diag%tt,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('TT','K2','square of temperature', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_eddy"))
 
@@ -2026,6 +2056,7 @@ CONTAINS
 !           & oce_tracer_units(jtrc), &
 !           & oce_tracer_longnames(jtrc), DATATYPE_FLT64), &
 !           & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!           & ref_idx=jtrc, &
 !           & ldims=(/nproma,n_zlev,alloc_cell_blocks/))
 !       END DO
 !
@@ -2392,11 +2423,28 @@ CONTAINS
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
     ocean_state_aux%bc_tides_potential = 0.0_wp
+    
+!     this is used by default in the calculation of the total potential 
+!    IF (use_tides_SAL) THEN
+!      CALL add_var(ocean_default_list,'bc_tides_load',ocean_state_aux%bc_tides_load, grid_unstructured_cell,&
+!        & za_surface, t_cf_var('bc_tides_load','','', datatype_flt),&
+!        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+!        & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+!      ocean_state_aux%bc_tides_load = 0.0_wp
+!    ENDIF
+    
     CALL add_var(ocean_default_list,'bc_total_top_potential',ocean_state_aux%bc_total_top_potential, grid_unstructured_cell,&
       & za_surface, t_cf_var('bc_total_top_potential','','', datatype_flt),&
       & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
     ocean_state_aux%bc_total_top_potential = 0.0_wp
+
+    CALL add_var(ocean_default_list,'bc_SAL_potential',ocean_state_aux%bc_SAL_potential, &
+      & grid_unstructured_cell,&
+      & za_surface, t_cf_var('bc_SAL_potential','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_aux"),lrestart_cont=.FALSE., lrestart=.FALSE.)
+    ocean_state_aux%bc_SAL_potential = 0.0_wp
         
     CALL add_var(ocean_default_list,'bc_bot_tracer',ocean_state_aux%bc_bot_tracer,grid_unstructured_cell,&
       & za_surface, t_cf_var('bc_bot_tracer','','', datatype_flt),&

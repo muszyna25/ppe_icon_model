@@ -258,7 +258,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
     DO jc = nshift+1, nshift+nlen
       DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
     DO jn = 1, nfields
       DO jc = nshift+1, nshift+nlen
 #endif
@@ -315,7 +315,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
     DO jc = nshift+1, nshift+nlen
       DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
     DO jn = 1, nfields
       DO jc = nshift+1, nshift+nlen
 #endif
@@ -371,7 +371,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
       DO jc = nshift+1, nshift+nlen
         DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
       DO jn = 1, nfields
         DO jc = nshift+1, nshift+nlen
 #endif
@@ -396,7 +396,7 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
       DO jc = nshift+1, nshift+nlen
         DO jn = 1, nfields
 #else
-!CDIR NOLOOPCHG
+!$NEC novector
       DO jn = 1, nfields
         DO jc = nshift+1, nshift+nlen
 #endif

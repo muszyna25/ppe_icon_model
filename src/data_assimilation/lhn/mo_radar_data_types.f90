@@ -27,7 +27,8 @@ TYPE t_radar_td_fields
 #endif
     & ::               &
     & obs(:,:,:)      ,& ! observations on model grid at six observation time levels
-    & spqual(:,:,:)      ! spatial quality function on model grid at two observation time levels
+    & spqual(:,:,:)   ,& ! spatial quality function on model grid at two observation time levels
+    & radheight(:,:,:)   ! DX radar heights
 
   TYPE(datetime),POINTER ::  obs_date(:) ! reference date of observations
 
@@ -40,9 +41,8 @@ TYPE t_radar_ct_fields
       , CONTIGUOUS             &
 #endif
     & ::               &
-    & blacklist(:,:)  ,& ! blacklist for DX radar data
-    & brightband(:,:) ,& ! bright band mask field
-    & dxheight(:,:,:)    ! DX radar heights
+    & blacklist(:,:) ! ,& ! blacklist for DX radar data
+!    & radheight(:,:,:)    ! DX radar heights
 
 END TYPE t_radar_ct_fields
 
@@ -63,11 +63,12 @@ TYPE t_lhn_diag
 !      , CONTIGUOUS             &
 !#endif
     & ::                    &
-    & ttend_lhn(:,:,:)       ,& ! temperature increment due to LHN
-    & qvtend_lhn(:,:,:)      ,& ! moisture increment due to LHN
-    & pr_obs_sum(:,:)       ,& ! cumulated precipitation (hourly)
-    & pr_mod_sum(:,:)       ,& ! cumulated precipitation (hourly)
-    & pr_ref_sum(:,:)          ! cumulated precipitation (hourly)
+    & ttend_lhn(:,:,:)     ,& ! temperature increment due to LHN
+    & qvtend_lhn(:,:,:)    ,& ! moisture increment due to LHN
+    & brightband(:,:)      ,& ! bright band mask field
+    & pr_obs_sum(:,:)      ,& ! cumulated precipitation (hourly)
+    & pr_mod_sum(:,:)      ,& ! cumulated precipitation (hourly)
+    & pr_ref_sum(:,:)         ! cumulated precipitation (hourly)
 
 END TYPE t_lhn_diag
 

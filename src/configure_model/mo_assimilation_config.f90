@@ -63,7 +63,6 @@ MODULE mo_assimilation_config
       lhn_qrs          ,& ! calculate the integrated precipitation flux
       lhn_logscale     ,& ! apply logarithmic scaling factors
       lhn_wweight      ,& ! apply a weighting with respect to the mean horizontal wind
-      lhn_height       ,& ! use height infos for radar data
       lhn_bright       ,& ! apply bright band detection
       lhn_diag         ,& ! produce more detailed diagnostic output during lhn
       lhn_artif_only      ! apply only artificial temperature profile instead of applying modelled tt_lheat profile
@@ -82,6 +81,7 @@ MODULE mo_assimilation_config
       lhn_dt_obs        ,& ! time step of input data in minutes
       abs_lhn_lim       ,& ! absolute limit for lhn t-increments (used if lhn_limit lhn_limitp)
       fac_lhn_artif     ,& ! factor when artificial profile will applied
+      fac_lhn_artif_tune ,& ! factor when artificial profile will applied
       fac_lhn_up        ,& ! limiting factor for upscaling of model heating profile
       fac_lhn_down      ,& ! limiting factor for downscaling model heating profile
       thres_lhn         ,& ! threshold of rain rates to be consinderd within lhn approach
@@ -167,18 +167,17 @@ MODULE mo_assimilation_config
              assimilation_config(jg)%lhn_black = lb_exist
           ENDIF
        ENDIF
-       IF (assimilation_config(jg)%lhn_height) THEN
+       IF (assimilation_config(jg)%lhn_bright) THEN
           filepath=assimilation_config(jg)%radar_in(1:LEN_TRIM(assimilation_config(jg)%radar_in))&
                   &//assimilation_config(jg)%height_file(1:LEN_TRIM(assimilation_config(jg)%height_file))
           INQUIRE(file=filepath,EXIST=lh_exist)
           IF (.not. lh_exist) THEN
-             WRITE (message_text,'(3a)') "radar height file",TRIM(filepath)," not found, lhn_height set to false!"
+             WRITE (message_text,'(3a)') "radar height file",TRIM(filepath)," not found, lhn_bright set to false!"
              CALL message('configure_lhn: ',message_text)
-             assimilation_config(jg)%lhn_height = lh_exist
+             assimilation_config(jg)%lhn_bright = lh_exist
           ENDIF
        ENDIF
    
-       assimilation_config(jg)%lhn_bright = (assimilation_config(jg)%lhn_height .AND. assimilation_config(jg)%lhn_bright)
     ENDIF
 
     IF (assimilation_config(jg)%lhn_logscale) THEN

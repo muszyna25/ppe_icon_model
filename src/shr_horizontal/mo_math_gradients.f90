@@ -243,7 +243,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !  loop through all patch edges (and blocks)
 !
 
-IF (timers_level > 5) CALL timer_start(timer_grad)
+IF (timers_level > 10) CALL timer_start(timer_grad)
 
 !$ACC DATA PCOPYIN( psi_c ) PCOPYOUT( grad_norm_psi_e )                    &
 !$ACC      PRESENT( ptr_patch%edges%inv_dual_edge_length, iidx, iblk ) IF( i_am_accel_node .AND. acc_on )
@@ -291,7 +291,7 @@ IF (timers_level > 5) CALL timer_start(timer_grad)
 !$ACC UPDATE HOST( grad_norm_psi_e ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 !$ACC END DATA
 
-IF (timers_level > 5) CALL timer_stop(timer_grad)
+IF (timers_level > 10) CALL timer_stop(timer_grad)
 
 
 END SUBROUTINE grad_fd_norm
@@ -1174,6 +1174,7 @@ SUBROUTINE grad_green_gauss_cell_dycore(p_ccpr, ptr_patch, ptr_int, p_grad,     
 #else
 
       !$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$NEC outerloop_unroll(8)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif

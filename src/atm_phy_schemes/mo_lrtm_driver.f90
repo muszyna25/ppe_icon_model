@@ -209,14 +209,16 @@ CONTAINS
     ENDDO
 
     DO jk = 1, klev
+!$NEC ivdep
       DO jl = 1, kproma  ! loop over columns
         IF (cldfr(jl,jk) .GE. cldmin .AND. tauctot(jl,jk) .GE. cldmin) THEN
           ncbands(jl) = 16
-!CDIR EXPAND=nbndlw
+!$NEC unroll(nbndlw) 
           DO ib = 1,nbndlw
             taucloud(jl,jk,ib) = taucld(jl,jk,ib)
           END DO
         ELSE
+!$NEC unroll(nbndlw) 
           taucloud(jl,jk,:) = 0.0_wp
         END IF
       END DO
@@ -361,7 +363,7 @@ CONTAINS
     DO jk = 1, klev
       summol(:) = 0.0_wp
       DO jl = 1, kproma
-!CDIR EXPAND=nmol
+!$NEC unroll(nmol) 
         DO imol = 2, nmol
           summol(jl) = summol(jl) + wkl_2d(jl,imol,jk)
         ENDDO

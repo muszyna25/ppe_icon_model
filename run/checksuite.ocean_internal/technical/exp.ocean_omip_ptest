@@ -6,7 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-04T00:00:00Z"
+  end_date="2001-01-01T12:00:00Z"
 checkpoint_interval="P25Y"
 restart_interval="P25Y"
 output_interval="P01D"
@@ -26,7 +26,7 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
-icon_data_rootFolder=/pool/data/ICON
+#icon_data_rootFolder=/pool/data/ICON
 
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -49,7 +49,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600               ! model timestep in seconds
+ dtime       = 600               ! model timestep in seconds
  output      = 'none'              ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  profiling_output     = 2
@@ -172,8 +172,8 @@ cat > ${ocean_namelist} << EOF
   limit_elevation                 = .TRUE.
   !atm_pressure_included_in_ocedyn = .TRUE.   ! use atm. pressure in the ocean dynamics
   !atm_pressure_included_in_icedyn = .TRUE.   ! use atm. pressure in the ice dynamics
-  use_tides                       = .TRUE.
-  tides_mod                       =  1        ! 1 Default 2 MPIOM 
+  use_tides                       = .true.
+  use_tides_SAL                   = .true.
   tide_startdate                  = '2001-01-01 00:00'
   !lswr_jerlov                     = .TRUE.    ! use jerlov water types for sw absorption
   !jerlov_atten                    = 0.08      ! jerlov water type IB

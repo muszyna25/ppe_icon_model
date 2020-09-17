@@ -36,8 +36,8 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_rg_interface,     ONLY: nwp_rg_radiation,               &
     &                                nwp_rg_radiation_reduced
 #ifdef __ECRAD
-  USE mo_nwp_ecRad_interface,  ONLY: nwp_ecRad_radiation,            &
-    &                                nwp_ecRad_radiation_reduced
+  USE mo_nwp_ecrad_interface,  ONLY: nwp_ecrad_radiation,            &
+    &                                nwp_ecrad_radiation_reduced
   USE mo_ecrad,                ONLY: ecrad_conf
 #endif
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis

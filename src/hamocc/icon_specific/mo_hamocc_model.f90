@@ -26,7 +26,7 @@ MODULE mo_hamocc_model
   USE mo_memory_log,              ONLY: memory_log_terminate
   USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
-    &                                 create_vertical_axes, output_file
+    &                                 output_file
   USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
@@ -88,7 +88,8 @@ MODULE mo_hamocc_model
   USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
-  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
+  USE mo_key_value_store,      ONLY: t_key_value_store
+  USE mo_restart_nml_and_att,  ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_ocean_patch_setup,    ONLY: complete_ocean_patch
   USE mo_icon_comm_interface,  ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_output_event_types,   ONLY: t_sim_step_info
@@ -115,6 +116,7 @@ MODULE mo_hamocc_model
   USE mo_ocean_hamocc_interface, ONLY: hamocc_to_ocean_init, hamocc_to_ocean_end, hamocc_to_ocean_interface
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_ocean_math_operators,   ONLY: update_height_hamocc
+  USE mo_icon_output_tools,      ONLY: init_io_processes, prepare_output
   
   IMPLICIT NONE
 
@@ -198,15 +200,15 @@ MODULE mo_hamocc_model
     TYPE(datetime), POINTER        :: current_time     => NULL()
     CHARACTER(LEN=32)              :: datestring
     INTEGER :: jstep,  jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CHARACTER(*), PARAMETER :: method_name = "mo_hamocc_model:hamocc_timestep"
     
     current_time => newNullDatetime()
     jstep0 = 0
-    restartAttributes => getAttributesForRestarting()
+    CALL getAttributesForRestarting(restartAttributes)
     IF (ASSOCIATED(restartAttributes)) THEN
       ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
+      CALL restartAttributes%get("jstep", jstep0)
     END IF
     
     jstep = jstep0
@@ -497,112 +499,6 @@ MODULE mo_hamocc_model
     IF (ltimer) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_hamocc_model
-  !--------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE init_io_processes()
-    USE mo_time_config,         ONLY: time_config
-
-    TYPE(t_sim_step_info)   :: sim_step_info
-    INTEGER                 :: jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-    CHARACTER(LEN=*), PARAMETER :: &
-      & method_name = 'mo_hamocc_model:init_io_processes'
-    
-    IF (process_mpi_io_size < 1) THEN
-      IF (output_mode%l_nml) THEN
-        ! -----------------------------------------
-        ! non-asynchronous I/O (performed by PE #0)
-        ! -----------------------------------------
-        CALL message(method_name,'synchronous namelist I/O scheme is enabled.')
-      ENDIF
-      ! nothing to do
-      RETURN
-    ENDIF
-
-    ! Decide whether async vlist or name_list IO is to be used,
-    ! only one of both may be enabled!
-
-    IF (output_mode%l_nml) THEN
-      ! -----------------------------------------
-      ! asynchronous I/O
-      ! -----------------------------------------
-      !
-      use_async_name_list_io = .TRUE.
-      CALL message(method_name,'asynchronous namelist I/O scheme is enabled.')
-      ! consistency check
-      IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-
-        ! compute sim_start, sim_end
-        CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-        CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-        CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-        CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
-
-        sim_step_info%dtime      = dtime
-        jstep0 = 0
-
-        restartAttributes => getAttributesForRestarting()
-        IF (ASSOCIATED(restartAttributes)) THEN
-
-          ! get start counter for time loop from restart file:
-          jstep0 = restartAttributes%getInteger("jstep")
-        END IF
-        sim_step_info%jstep0    = jstep0
-!         CALL name_list_io_main_proc(sim_step_info, isample=1)
-        CALL name_list_io_main_proc(sim_step_info)
-      END IF
-    ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
-      ! Shut down MPI
-      CALL stop_mpi
-      STOP
-    ENDIF
-    
-  END SUBROUTINE init_io_processes
-  !-------------------------------------------------------------------
-
-  !--------------------------------------------------------------------------
-  SUBROUTINE prepare_output()
-    USE mo_time_config,         ONLY: time_config
-
-    CHARACTER(*), PARAMETER :: method_name = "mo_hamocc_model:prepare_output"
-
-    TYPE(t_sim_step_info)               :: sim_step_info
-    INTEGER                             :: jstep0
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-
-    !------------------------------------------------------------------
-    ! Initialize output file if necessary;
-    ! Write out initial conditions.
-    !------------------------------------------------------------------
-
-    IF (output_mode%l_nml) THEN
-!       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
-!       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
-      CALL parse_variable_groups()
-      ! compute sim_start, sim_end
-      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
-
-      sim_step_info%dtime      = dtime
-      jstep0 = 0
-
-      restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes)) THEN
-
-        ! get start counter for time loop from restart file:
-        jstep0 = restartAttributes%getInteger("jstep")
-      END IF
-      sim_step_info%jstep0    = jstep0
-      CALL init_statistics_streams
-      CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
-      CALL create_mipz_level_selections(output_file)
-      CALL create_vertical_axes(output_file)
-    ENDIF
-  
-  END SUBROUTINE prepare_output
   !--------------------------------------------------------------------------
 
 END MODULE mo_hamocc_model

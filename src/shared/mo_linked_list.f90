@@ -31,7 +31,6 @@ MODULE mo_linked_list
   PUBLIC :: delete_list         ! clean up the list
   !
   PUBLIC :: append_list_element ! add an element to the list
-  PUBLIC :: delete_list_element ! remove one element from the list
   !
 #ifdef HAVE_F95
   PUBLIC :: t_var_list_intrinsic
@@ -187,6 +186,9 @@ CONTAINS
           DEALLOCATE (this%field%l_ptr)
         ENDIF
         this%field%info%allocated = .FALSE.
+
+        CALL this%field%info%finalize()
+        CALL this%field%info_dyn%finalize()
       ENDIF
       this_list%p%list_elements = this_list%p%list_elements-1
       DEALLOCATE (this)
@@ -249,60 +251,5 @@ CONTAINS
     !
     this_list%p%nvars = this_list%p%nvars + 1
   END SUBROUTINE append_list_element
-  !-----------------------------------------------------------------------------
-  SUBROUTINE delete_list_element (this_list, delete_this_list_element)
-    !
-    TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: delete_this_list_element
-    !
-    TYPE(t_list_element), POINTER :: current_list_element
-    !
-    IF (ASSOCIATED(delete_this_list_element, this_list%p%first_list_element)) THEN
-      this_list%p%first_list_element => delete_this_list_element%next_list_element
-    ELSE
-      current_list_element => this_list%p%first_list_element
-      DO WHILE ((ASSOCIATED(current_list_element)) &
-           &           .AND. (.NOT. ASSOCIATED(current_list_element%next_list_element, &
-           &           delete_this_list_element)))
-        current_list_element => current_list_element%next_list_element
-      ENDDO
-      IF (.NOT. ASSOCIATED(current_list_element)) THEN
-        CALL message('', 'Cannot find element to be deleted ...')
-        RETURN
-      ENDIF
-      current_list_element%next_list_element &
-           &          => current_list_element%next_list_element%next_list_element
-    ENDIF
-    !
-    IF (delete_this_list_element%field%info%allocated) THEN
-      IF (ASSOCIATED(delete_this_list_element%field%r_ptr)) THEN
-        this_list%p%memory_used = this_list%p%memory_used                          &
-             &                   -INT(delete_this_list_element%field%var_base_size &
-             &                   *SIZE(delete_this_list_element%field%r_ptr),i8)
-        DEALLOCATE (delete_this_list_element%field%r_ptr)
-      ELSE IF (ASSOCIATED(delete_this_list_element%field%s_ptr)) THEN
-        this_list%p%memory_used = this_list%p%memory_used                          &
-             &                   -INT(delete_this_list_element%field%var_base_size &
-             &                   *SIZE(delete_this_list_element%field%s_ptr),i8)
-        DEALLOCATE (delete_this_list_element%field%s_ptr)
-      ELSE IF (ASSOCIATED(delete_this_list_element%field%i_ptr)) THEN
-        this_list%p%memory_used = this_list%p%memory_used                          &
-             &                   -INT(delete_this_list_element%field%var_base_size &
-             &                   *SIZE(delete_this_list_element%field%i_ptr),i8)
-        DEALLOCATE (delete_this_list_element%field%i_ptr)
-      ELSE IF (ASSOCIATED(delete_this_list_element%field%l_ptr)) THEN
-        this_list%p%memory_used = this_list%p%memory_used                          &
-             &                   -INT(delete_this_list_element%field%var_base_size &
-             &                   *SIZE(delete_this_list_element%field%l_ptr),i8)
-        DEALLOCATE (delete_this_list_element%field%l_ptr)
-      ENDIF
-      delete_this_list_element%field%info%allocated = .FALSE.
-    ENDIF
-    !
-    this_list%p%list_elements = this_list%p%list_elements-1
-    DEALLOCATE (delete_this_list_element)
-    !
-    this_list%p%nvars = this_list%p%nvars - 1
-  END SUBROUTINE delete_list_element
-  !-----------------------------------------------------------------------------
+
 END MODULE mo_linked_list

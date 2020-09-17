@@ -33,7 +33,7 @@ PROGRAM icon
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
     &                               atmo_process, ocean_process, ps_radiation_process,  &
-    &                               hamocc_process
+    &                               hamocc_process, icon_output_process
 #ifndef __NO_ICON_TESTBED__
   USE mo_master_control,      ONLY: testbed_process
 #endif
@@ -47,7 +47,7 @@ PROGRAM icon
 
 #ifndef __NO_ICON_OCEAN__
   USE mo_ocean_model,         ONLY: ocean_model
-  USE mo_hamocc_model,        ONLY: hamocc_model  
+  USE mo_hamocc_model,        ONLY: hamocc_model
 #endif
 
 #ifndef __NO_ICON_TESTBED__
@@ -61,6 +61,11 @@ PROGRAM icon
 #ifndef __NO_ICON_PS_RAD__
   USE mo_ps_radiation_model, ONLY: ps_radiation_model
 #endif
+
+#ifndef __NO_ICON_OUTPUT_MODEL__
+  USE mo_icon_output_model, ONLY: icon_output_driver
+#endif
+
 
   USE mo_cdi,                 ONLY: gribapiLibraryVersion
   USE mo_cf_convention          ! We need all ?
@@ -264,6 +269,10 @@ PROGRAM icon
     CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
 #endif
 
+#ifndef __NO_ICON_OUTPUT_MODEL__
+  CASE (icon_output_process)
+    CALL icon_output_driver(my_namelist_filename, TRIM(master_namelist_filename))
+#endif
 
   CASE default
     CALL finish("icon","my_process_component is unknown")

@@ -76,6 +76,11 @@
 # define HASH_LITTLE_ENDIAN 0
 # define HASH_BIG_ENDIAN 1
 
+#elif defined(__NEC__)
+
+# define HASH_LITTLE_ENDIAN 1
+# define HASH_BIG_ENDIAN 0
+
 #else
 
 #error "Couldn't determine endianess."

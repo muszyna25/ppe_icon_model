@@ -193,7 +193,8 @@ cat > ${ocean_namelist} << EOF
   Salinity_HorizontalDiffusion_Reference     = 0 !  40
 /
 &ocean_vertical_diffusion_nml
-  vert_mix_type                            = 2  ! 1: PP; 2: TKE
+  vert_mix_type                            = 2  ! 1: PP; 2: TKE; 3: KPP; 4 TKE+IDEMIX
+  only_tke                                 = .true. ! .true. for TKE; .false. for TKE+IDEMIX
   PPscheme_type                            = 0
   !velocity_VerticalDiffusion_background    =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   !Temperature_VerticalDiffusion_background =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
@@ -327,5 +328,9 @@ EOF
 add_link_file $ocean_data_InputFolder/omipInitialState-AnnualAverage-OceanOnly_Icos_0158km_etopo40-40levels.nc initial_state.nc
 add_link_file $ocean_data_InputFolder/omipForcing-mpiomDaily-OceanOnly_Icos_0158km_etopo40.nc ocean-flux.nc
 add_link_file $ocean_data_InputFolder/omipRelaxSurface-OceanOnly_Icos_0158km_etopo40.nc ocean-relax.nc
+
+# IDEMIX forcing fields
+#add_link_file /home/mpim/m300602/work/proj_vmix/icon/idemix_forcing/fourier_smooth_2005_cfsr_inert_OceanOnly_Icos_0158km_etopo40.nc idemix_surface_forcing.nc
+#add_link_file /home/mpim/m300602/work/proj_vmix/icon/idemix_forcing/tidal_energy_gx1v6_20090205_OceanOnly_Icos_0158km_etopo40.nc idemix_bottom_forcing.nc
 
 #-----------------------------------------------------------------------------

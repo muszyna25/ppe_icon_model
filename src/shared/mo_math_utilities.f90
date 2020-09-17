@@ -137,6 +137,9 @@ MODULE mo_math_utilities
 !   PUBLIC :: sphere_cell_mean_char_length
   PUBLIC :: ccw
   PUBLIC :: line_intersect
+#ifdef __SX__
+  PUBLIC :: line_intersect_s
+#endif
   PUBLIC :: lintersect
   PUBLIC :: tdma_solver
   PUBLIC :: tdma_solver_vec
@@ -2367,6 +2370,33 @@ CONTAINS
     intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
 
   END FUNCTION line_intersect
+
+#ifdef __SX__
+!NEC_RP: Use subroutine as workaround because of compiler problem
+
+  SUBROUTINE line_intersect_s( line1, line2, intersect)
+
+    TYPE(t_line), INTENT(in)  :: line1
+    TYPE(t_line), INTENT(in)  :: line2
+    REAL(wp),     INTENT(out) :: intersect(2)    ! coordinates of intersection point
+
+    REAL(wp) :: m1, m2          !< slopes
+
+    !-----------------------------------------------------------------------
+
+    ! determine slopes of the two lines
+    m1 = (line1%p2%lat - line1%p1%lat)/(line1%p2%lon - line1%p1%lon)
+    m2 = (line2%p2%lat - line2%p1%lat)/(line2%p2%lon - line2%p1%lon)
+
+    intersect(1) = (line2%p1%lat - line1%p1%lat + m1*line1%p1%lon - m2*line2%p1%lon) &
+      & / (m1 - m2)
+
+    intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
+
+  END SUBROUTINE line_intersect_s
+
+#endif
+
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -2439,7 +2469,7 @@ CONTAINS
 !$ACC PCOPYOUT( varout ), IF( i_am_accel_node .AND. acc_on )
 
     ! initialize c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG VECTOR
     DO jc=startidx, endidx
       cp(jc,slev) = c(jc,slev)/b(jc,slev)
@@ -2447,7 +2477,7 @@ CONTAINS
     ENDDO
 !$ACC END PARALLEL
     ! solve for vectors c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
     DO i = slev+1,elev
 !$ACC LOOP GANG VECTOR PRIVATE( m )
@@ -2459,11 +2489,11 @@ CONTAINS
     ENDDO
 !$ACC END PARALLEL
     ! initialize varout
-!$ACC KERNELS IF( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
     varout(startidx:endidx,elev) = dp(startidx:endidx,elev)
 !$ACC END KERNELS
     ! solve for varout from the vectors c-prime and d-prime
-!$ACC PARALLEL IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL DEFAULT(NONE) ASYNC(1) IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP SEQ
     DO i = elev-1, slev, -1
 !$ACC LOOP GANG VECTOR
@@ -2488,7 +2518,7 @@ CONTAINS
   !!
   SUBROUTINE set_zlev(zlev_i, zlev_m, n_zlev, dzlev_m)
     INTEGER , INTENT(IN)    :: n_zlev
-    REAL(wp), INTENT(INOUT) :: zlev_i(n_zlev+1), zlev_m(n_zlev)
+    REAL(wp), INTENT(INOUT) :: zlev_i(:), zlev_m(:)
     REAL(wp), INTENT(IN)    :: dzlev_m(:)  ! namelist input of layer thickness
 
     INTEGER :: jk

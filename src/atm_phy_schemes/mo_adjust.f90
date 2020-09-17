@@ -394,7 +394,7 @@ MODULE mo_adjust
        IF (kcall == 1 ) THEN
 
 !DIR$ IVDEP
-!OCL NOVREC
+!$NEC sparse
          DO jl=kidia,kfdia
            IF(ldflag(jl)) THEN
              zqp    =1.0_JPRB/psp(jl)

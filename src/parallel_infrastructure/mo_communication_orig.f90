@@ -169,6 +169,7 @@ END TYPE t_comm_pattern_orig
 TYPE t_p_comm_pattern_orig
    TYPE(t_comm_pattern_orig), POINTER :: p
 END TYPE t_p_comm_pattern_orig
+  PUBLIC :: t_p_comm_pattern_orig
 
 TYPE, EXTENDS(t_comm_pattern_collection) :: t_comm_pattern_collection_orig
 
@@ -199,13 +200,6 @@ END TYPE t_comm_pattern_collection_orig
 !
 
 CHARACTER(*), PARAMETER :: modname = "mo_communication_orig"
-
-  PUBLIC :: exchange_data_noblk
-  INTERFACE exchange_data_noblk
-    MODULE PROCEDURE exchange_data_r1d_2d
-    MODULE PROCEDURE exchange_data_s1d_2d
-    MODULE PROCEDURE exchange_data_i1d_2d
-  END INTERFACE exchange_data_noblk
 
 !-------------------------------------------------------------------------
 
@@ -932,7 +926,6 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Modified by Guenther Zaengl for vectorization
   !!
-  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
@@ -1021,7 +1014,7 @@ CONTAINS
 !$ACC END PARALLEL
     ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k = 1, ndim2
@@ -1116,7 +1109,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
             recv(recv_dst_idx(i),k,recv_dst_blk(i)) = &
@@ -1150,7 +1143,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
             recv(recv_dst_idx(i),k,recv_dst_blk(i)) = recv_buf(k,recv_src(i))
@@ -1189,7 +1182,6 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Modified by Guenther Zaengl for vectorization
   !!
-  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
@@ -1278,7 +1270,7 @@ CONTAINS
 !$ACC END PARALLEL
     ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k = 1, ndim2
@@ -1373,7 +1365,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
             recv(recv_dst_idx(i),k,recv_dst_blk(i)) = &
@@ -1407,7 +1399,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
             recv(recv_dst_idx(i),k,recv_dst_blk(i)) = recv_buf(k,recv_src(i))
@@ -1633,7 +1625,6 @@ CONTAINS
   END SUBROUTINE exchange_data_s3d_seq
 
 
-  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
@@ -1719,7 +1710,7 @@ CONTAINS
 !$ACC END PARALLEL
     ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k = 1, ndim2
@@ -1814,7 +1805,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
             recv(recv_dst_idx(i),k,recv_dst_blk(i)) = &
@@ -1848,7 +1839,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2
           DO i = 1, p_pat%n_pnts
             recv(recv_dst_idx(i),k,recv_dst_blk(i)) = recv_buf(k,recv_src(i))
@@ -1876,7 +1867,6 @@ CONTAINS
   END SUBROUTINE exchange_data_i3d
 
 
-  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_l3d(p_pat, recv, send)
@@ -1961,7 +1951,7 @@ CONTAINS
 !$ACC END PARALLEL
     ELSE
 #if defined( __SX__ ) || defined( _OPENACC )
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
       DO k = 1, ndim2
@@ -2054,7 +2044,7 @@ CONTAINS
 #if defined( __SX__ ) || defined( _OPENACC )
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
       DO k = 1, ndim2
         DO i = 1, p_pat%n_pnts
           recv(recv_dst_idx(i),k,recv_dst_blk(i)) = recv_buf(k,recv_src(i))
@@ -2196,7 +2186,7 @@ CONTAINS
           send_ptr => send(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
           DO k = 1, ndim2(n)
             DO i = 1, n_send
               send_buf(k+noffset(n),i) = &
@@ -2211,7 +2201,7 @@ CONTAINS
           recv_ptr => recv(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
           DO k = 1, ndim2(n)
             DO i = 1, n_send
               send_buf(k+noffset(n),i) = &
@@ -2311,7 +2301,7 @@ CONTAINS
         recv_ptr => recv(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF (use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2(n)
           DO i = 1, n_pnts
             recv_ptr(recv_dst_idx(i),k+kshift(n),recv_dst_blk(i)) =  &
@@ -2496,6 +2486,7 @@ CONTAINS
           send_fld_dp => send_dp(n)%p   ! Refactoring for OpenACC
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$NEC outerloop_unroll(4)
           DO k = 1, ndim2_dp(n)
             DO i = 1, n_send
               send_buf_dp(k+noffset_dp(n),i) = &
@@ -2508,6 +2499,7 @@ CONTAINS
           send_fld_sp => send_sp(n)%p   ! Refactoring for OpenACC
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
+!$NEC outerloop_unroll(4)
           DO k = 1, ndim2_sp(n)
             DO i = 1, n_send
               send_buf_sp(k+noffset_sp(n),i) = &
@@ -2522,7 +2514,7 @@ CONTAINS
           recv_fld_dp => recv_dp(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
           DO k = 1, ndim2_dp(n)
             DO i = 1, n_send
               send_buf_dp(k+noffset_dp(n),i) = &
@@ -2535,7 +2527,7 @@ CONTAINS
           recv_fld_sp => recv_sp(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
           DO k = 1, ndim2_sp(n)
             DO i = 1, n_send
               send_buf_sp(k+noffset_sp(n),i) = &
@@ -2653,7 +2645,7 @@ CONTAINS
         recv_fld_dp => recv_dp(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2)
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2_dp(n)
           DO i = 1, n_pnts
             recv_fld_dp(recv_dst_idx(i),k+kshift_dp(n),recv_dst_blk(i)) =  &
@@ -2666,7 +2658,7 @@ CONTAINS
         recv_fld_sp => recv_sp(n)%p
 !$ACC PARALLEL DEFAULT(PRESENT) IF(use_gpu)
 !$ACC LOOP GANG VECTOR COLLAPSE(2) 
-!CDIR UNROLL=6
+!$NEC outerloop_unroll(4)
         DO k = 1, ndim2_sp(n)
           DO i = 1, n_pnts
             recv_fld_sp(recv_dst_idx(i),k+kshift_sp(n),recv_dst_blk(i)) =  &
@@ -2793,6 +2785,29 @@ CONTAINS
       ENDDO
     ENDIF
 
+#ifdef __SX__
+    IF ( lsend ) THEN
+      DO k = 1, ndim2
+        koffset = (k-1)*nfields
+!$NEC novector
+        DO n = 1, nfields
+          DO i = 1, n_send
+            send_buf(n+koffset,i) = send(n,send_src_idx(i),k,send_src_blk(i))
+          ENDDO
+        ENDDO
+      ENDDO
+    ELSE
+      DO k = 1, ndim2
+        koffset = (k-1)*nfields
+!$NEC novector
+        DO n = 1, nfields
+          DO i = 1, n_send
+            send_buf(n+koffset,i) = recv(n,send_src_idx(i),k,send_src_blk(i))
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDIF
+#else
 #if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
 !$OMP PARALLEL DO PRIVATE(jb,jl,koffset,k,n)
 #endif
@@ -2823,6 +2838,7 @@ CONTAINS
     ENDDO
 #if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
 !$OMP END PARALLEL DO
+#endif
 #endif
 
 #ifndef __USE_G2G
@@ -2884,6 +2900,17 @@ CONTAINS
     ENDIF
 
     ! Fill in receive buffer
+#ifdef __SX__
+    DO k = 1, ndim2
+      koffset = (k-1)*nfields
+!$NEC novector
+      DO n = 1, nfields
+        DO i = 1, n_pnts
+          recv(n,recv_dst_idx(i),k,recv_dst_blk(i)) = recv_buf(n+koffset,recv_src(i))
+        ENDDO
+      ENDDO
+    ENDDO
+#else
 #if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
 !$OMP PARALLEL DO PRIVATE(jb,jl,ik,koffset,k,n)
 #else
@@ -2906,6 +2933,7 @@ CONTAINS
 !$OMP END PARALLEL DO
 #else
 !$ACC END PARALLEL
+#endif
 #endif
 
 !$ACC END DATA
@@ -3242,7 +3270,7 @@ CONTAINS
       DO n = 1, nfields
 !$ACC LOOP VECTOR
         DO np = 1, npats
-!CDIR UNROLL=6
+!$NEC novector
           DO k = 1, ndim2(n)
             DO i = 1, n_send(np)
               send_buf(k+noffset(n),i+ioffset_s(np)) =                &
@@ -3295,7 +3323,6 @@ CONTAINS
             ise = p_pat(n)%p%send_limits(pid+1) + ioffset_s(n)
             isum1 = ise - iss + 1
             IF (isum1 > 0) THEN
-!CDIR COLLAPSE
 !$ACC KERNELS DEFAULT(PRESENT) IF (use_gpu)
 !
 !  TODO:  Makes sure this is set up correctly
@@ -3329,7 +3356,6 @@ CONTAINS
             ise = p_pat(n)%p%send_limits(pid+1) + ioffset_s(n)
             isum1 = ise - iss + 1
             IF (isum1 > 0) THEN
-!CDIR COLLAPSE
 !$ACC KERNELS DEFAULT(PRESENT) IF (use_gpu)
               auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
 !$ACC END KERNELS
@@ -3478,7 +3504,7 @@ CONTAINS
       DO n = 1, nfields
         DO np = 1, npats
 !$ACC LOOP VECTOR
-!CDIR UNROLL=6
+!$NEC novector
           DO k = 1, ndim2(n)
             DO i = 1, n_pnts(np)
               recv(n)%fld(p_recv_dst_idx(np)%p(i),k, &
@@ -3548,7 +3574,6 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, l_recv_exists)
@@ -3606,7 +3631,6 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_s2d(p_pat, recv, send, add, l_recv_exists)
@@ -3810,7 +3834,6 @@ CONTAINS
   END SUBROUTINE exchange_data_s2d_seq
 
 
-  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, l_recv_exists)
@@ -3936,7 +3959,6 @@ CONTAINS
   END SUBROUTINE exchange_data_i2d_seq
 
 
-  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE exchange_data_l2d(p_pat, recv, send, l_recv_exists)
@@ -4069,178 +4091,6 @@ CONTAINS
 
     pelist_recv = comm_pat%pelist_recv
   END SUBROUTINE get_pelist_recv
-
-  !================================================================================================
-  !
-  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
-  ! output as a blocked (nproma,nblks) 2D array.
-  !
-  SUBROUTINE exchange_data_r1d_2d(p_pat, recv, send)
-
-    TYPE(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
-    REAL(dp), INTENT(INOUT), TARGET          :: recv(:,:)
-    REAL(dp), INTENT(IN)                     :: send(:)
-
-    REAL(dp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
-
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
-
-    !-----------------------------------------------------------------------
-
-    ! Set up irecv's for receive buffers
-    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
-
-      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
-      irs    = p_pat%recv_startidx(np)
-      icount = p_pat%recv_count(np)
-      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
-
-    ENDDO
-
-    ! Set up send buffer
-!$OMP PARALLEL DO PRIVATE(il)
-    DO i = 1, p_pat%n_send
-      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
-      send_buf(i) = send(il)
-    ENDDO
-!$OMP END PARALLEL DO
-
-    ! Send our data
-    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
-
-      pid    = p_pat%pelist_send(np) ! ID of sender PE
-      iss    = p_pat%send_startidx(np)
-      icount = p_pat%send_count(np)
-      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
-
-    ENDDO
-
-    CALL p_wait
-
-    ! Fill in receive buffer
-!$OMP PARALLEL DO
-    DO i = 1, p_pat%n_pnts
-      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
-    ENDDO
-!$OMP END PARALLEL DO
-
-  END SUBROUTINE exchange_data_r1d_2d
-
-  !================================================================================================
-  !
-  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
-  ! output as a blocked (nproma,nblks) 2D array.
-  !
-  SUBROUTINE exchange_data_s1d_2d(p_pat, recv, send)
-
-    TYPE(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
-    REAL(sp), INTENT(INOUT), TARGET          :: recv(:,:)
-    REAL(sp), INTENT(IN)                     :: send(:)
-
-    REAL(sp) :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
-
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
-
-    !-----------------------------------------------------------------------
-
-    ! Set up irecv's for receive buffers
-    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
-
-      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
-      irs    = p_pat%recv_startidx(np)
-      icount = p_pat%recv_count(np)
-      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
-
-    ENDDO
-
-
-    ! Set up send buffer
-!$OMP PARALLEL DO PRIVATE(il)
-    DO i = 1, p_pat%n_send
-      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
-      send_buf(i) = send(il)
-    ENDDO
-!$OMP END PARALLEL DO
-
-
-    ! Send our data
-    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
-
-      pid    = p_pat%pelist_send(np) ! ID of sender PE
-      iss    = p_pat%send_startidx(np)
-      icount = p_pat%send_count(np)
-      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
-
-    ENDDO
-
-    CALL p_wait
-
-    ! Fill in receive buffer
-!$OMP PARALLEL DO
-    DO i = 1, p_pat%n_pnts
-      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
-    ENDDO
-!$OMP END PARALLEL DO
-
-  END SUBROUTINE exchange_data_s1d_2d
-
-  !================================================================================================
-  !
-  ! Variant of exchange routine that expects input as a 1D unblocked vector and provides
-  ! output as a blocked (nproma,nblks) 2D array.
-  !
-  SUBROUTINE exchange_data_i1d_2d(p_pat, recv, send)
-
-    TYPE(t_comm_pattern_orig), INTENT(IN), TARGET :: p_pat
-    INTEGER, INTENT(INOUT), TARGET          :: recv(:,:)
-    INTEGER, INTENT(IN)                     :: send(:)
-
-    INTEGER :: send_buf(p_pat%n_send), recv_buf(p_pat%n_recv)
-
-    INTEGER :: i, il, k, np, irs, iss, pid, icount
-
-    !-----------------------------------------------------------------------
-
-    ! Set up irecv's for receive buffers
-    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
-
-      pid    = p_pat%pelist_recv(np) ! ID of receiver PE
-      irs    = p_pat%recv_startidx(np)
-      icount = p_pat%recv_count(np)
-      CALL p_irecv(recv_buf(irs), pid, 1, p_count=icount, comm=p_comm_work)
-
-    ENDDO
-
-
-    ! Set up send buffer
-!$OMP PARALLEL DO PRIVATE(il)
-    DO i = 1, p_pat%n_send
-      il = (p_pat%send_src_blk(i)-1)*nproma + p_pat%send_src_idx(i)
-      send_buf(i) = send(il)
-    ENDDO
-!$OMP END PARALLEL DO
-
-
-    ! Send our data
-    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
-
-      pid    = p_pat%pelist_send(np) ! ID of sender PE
-      iss    = p_pat%send_startidx(np)
-      icount = p_pat%send_count(np)
-      CALL p_isend(send_buf(iss), pid, 1, p_count=icount, comm=p_comm_work)
-
-    ENDDO
-
-    CALL p_wait
-
-    ! Fill in receive buffer
-!$OMP PARALLEL DO
-    DO i = 1, p_pat%n_pnts
-      recv(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = recv_buf(p_pat%recv_src(i))
-    ENDDO
-!$OMP END PARALLEL DO
-
-  END SUBROUTINE exchange_data_i1d_2d
 
 END MODULE mo_communication_orig
 !

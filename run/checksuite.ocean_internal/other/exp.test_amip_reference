@@ -11,7 +11,7 @@ start_date="1979-01-01T00:00:00Z"
 builbot_amip_reference_path=/pool/data/ICON/buildbot_data/oes/reference_amip
 if [[ x$BB_SYSTEM != x ]]; then
 . ${thisdir}/postFunx.sh
-  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
+  dataPath="${basedir}/experiments/${EXPNAME}/"
   cd ${dataPath}
   slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
   refDir=${builbot_amip_reference_path}/${slave}/${EXPNAME}

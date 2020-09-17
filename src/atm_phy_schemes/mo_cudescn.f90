@@ -521,10 +521,14 @@ CONTAINS
       zdmfen     (jl)  =0.0_JPRB
       zdmfde     (jl)  =0.0_JPRB
       zcond      (jl)  =0.0_JPRB
-      pmfdde_rate(jl,:)=0.0_JPRB
-      pkined     (jl,:)=0.0_JPRB
+      pvbuo      (jl)  =0.0_JPRB
     ENDDO
-    pvbuo        (:)=0.0_JPRB
+    DO jk=1,klev
+      DO jl=kidia,kfdia
+        pmfdde_rate(jl,jk)=0.0_JPRB
+        pkined     (jl,jk)=0.0_JPRB
+      ENDDO
+    ENDDO
 
     DO jk=ktdia+2,klev
       is=0

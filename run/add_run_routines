@@ -145,33 +145,3 @@ get_2digits()
 }
 
 #-----------------------------------------------------------------------------
-export F_NORCW=65535
-ulimit -s unlimited
-#-----------------------------------------------------------------------------
-# absolute paths of directories
-calldir=$(pwd)
-thisdir=$(pwd)
-basedir=${thisdir%/*}                   # determine base directory
-MODEL_BASE_PATH=$basedir
-ICON_BASE_PATH=$basedir
-export ICON_BASE_PATH
-RUNSCRIPT_NAME=`basename $0`
-ICON_RUN_PATH=$ICON_BASE_PATH/run
-#-----------------------------------------------------------------------------
-. ${thisdir}/../run/set-up.info
-
-#-----------------------------------------------------------------------------
-# set default data paths
-# can be overwritten by the experiment, or by the add_required_ocean_files,
-# add_required_atmo_files, etc
-# icon_data_RootFolder=/pool/data/ICON/buildbot
-
-#-----------------------------------------------------------------------------
-second=1                                 # [s] 1 second
-minute=60                                # [s] 1 minute
-hour=3600                                # [s] 1 hour
-day=86400                                # [s] 1 day
-month=2592000                            # [s] 30 days
-year360=31104000                         # [s] 360 days
-year=31556900                            # [s] 1 earth year 
-#-----------------------------------------------------------------------------

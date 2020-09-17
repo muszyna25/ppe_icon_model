@@ -134,7 +134,7 @@ MODULE mo_icon_interpolation_vector
   USE mo_kind,                ONLY: wp, vp
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_run_config,          ONLY: ltimer
+  USE mo_run_config,          ONLY: timers_level
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
@@ -229,7 +229,7 @@ i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-IF (ltimer) CALL timer_start(timer_intp)
+IF (timers_level > 10) CALL timer_start(timer_intp)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -270,7 +270,7 @@ ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-IF (ltimer) CALL timer_stop(timer_intp)
+IF (timers_level > 10) CALL timer_stop(timer_intp)
 
 
 END SUBROUTINE edges2cells_vector

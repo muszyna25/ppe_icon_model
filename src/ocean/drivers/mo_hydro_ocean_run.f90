@@ -35,11 +35,11 @@ MODULE mo_hydro_ocean_run
     &  i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     &  cfl_write, surface_module, run_mode, RUN_FORWARD, RUN_ADJOINT, &
     &  lswr_jerlov, &
-    &  Cartesian_Mixing, GMRedi_configuration, use_tides, tides_mod, OceanReferenceDensity_inv, &
+    &  Cartesian_Mixing, GMRedi_configuration, OceanReferenceDensity_inv, &
     &  atm_pressure_included_in_ocedyn, &
     &  vert_mix_type,vmix_kpp, lcheck_salt_content, &
     &  use_draftave_for_transport_h, &
-    & vert_cor_type, ice_flux_type
+    & vert_cor_type, use_tides, surface_flux_type
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
@@ -66,7 +66,8 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_tracer_dev,       ONLY: advect_ocean_tracers_dev
   USE mo_ocean_nudging,          ONLY: nudge_ocean_tracers
   USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting
+  USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_ocean_surface_refactor, ONLY: update_ocean_surface_refactor, update_ocean_surface_refactor_zstar
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface, t_atmos_for_ocean
   USE mo_ice_fem_interface,      ONLY: ice_fem_init_vel_restart, ice_fem_update_vel_restart
@@ -74,7 +75,8 @@ MODULE mo_hydro_ocean_run
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_ocean_physics,          ONLY: update_ho_params
   USE mo_ocean_physics_types,    ONLY: t_ho_params  
-  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
+  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density, &
+    & calculate_density_zstar
   USE mo_name_list_output,       ONLY: write_name_list_output
   USE mo_name_list_output_init,  ONLY: output_file
   USE mo_name_list_output_types, ONLY: t_output_file
@@ -94,8 +96,8 @@ MODULE mo_hydro_ocean_run
   USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
+  USE mo_hamocc_nml,             ONLY: l_cpl_co2
   USE mo_ocean_time_events,      ONLY: ocean_time_nextStep, isCheckpoint, isEndOfThisRun, newNullDatetime
-  USE mo_ocean_tides,            ONLY: tide, tide_mpi    
   USE mo_ocean_ab_timestepping_mimetic, ONLY: clear_ocean_ab_timestepping_mimetic
   USE mo_ocean_ab_timestepping_zstar,  ONLY: calc_vert_velocity_bottomup_zstar, calc_normal_velocity_ab_zstar, &
     & solve_free_surface_eq_zstar, update_zstar_variables
@@ -106,7 +108,9 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_ocean_tracer_diffusion, ONLY: tracer_vertdiff_eliminate_upper_diag => eliminate_upper_diag
   USE mo_physical_constants,        ONLY: rho_ref, grav 
-
+  USE mo_ocean_pressure_bc_conditions,  ONLY: create_pressure_bc_conditions
+  
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -147,6 +151,10 @@ CONTAINS
         p_as%pao = p_oce_sfc%sea_level_pressure
     ENDIF
 
+    IF (is_restart .AND. is_coupled_run() .AND. l_cpl_co2 ) THEN
+        ! Initialize CO" Mixing Ration from restart file when run in coupled mode with HAMOCC
+        p_as%co2 = p_oce_sfc%CO2_Mixing_Ratio
+    ENDIF
     IF (is_restart .AND. (i_ice_dyn == 1)) THEN
         ! Initialize u_ice, v_ice with sea_ice vals read from the restart file
         CALL ice_fem_init_vel_restart(patch_3d%p_patch_2D(1), sea_ice)
@@ -246,7 +254,7 @@ CONTAINS
     REAL(wp) :: stretch_e(nproma, patch_3d%p_patch_2d(1)%nblks_e)           !! 
 
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_key_value_store), POINTER :: restartAttributes
     CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
     CHARACTER(LEN = *), PARAMETER :: routine = 'mo_hydro_ocean_run:perform_ho_stepping'
 
@@ -275,11 +283,9 @@ CONTAINS
     !------------------------------------------------------------------
     jstep0 = 0
 
-    restartAttributes => getAttributesForRestarting()
-    IF (ASSOCIATED(restartAttributes)) THEN
-      ! get start counter for time loop from restart file:
-      jstep0 = restartAttributes%getInteger("jstep")
-    END IF
+    CALL getAttributesForRestarting(restartAttributes)
+    ! get start counter for time loop from restart file:
+    IF (ASSOCIATED(restartAttributes)) CALL restartAttributes%get("jstep", jstep0)
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
@@ -415,20 +421,16 @@ CONTAINS
         CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
         stop_detail_timer(timer_extra22,4)
         
-        !------------------------------------------------------------------------
-        ! compute tidal potential
-        IF (use_tides) THEN
-          IF(tides_mod.eq.1) CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
-          IF(tides_mod.eq.2) CALL tide_mpi(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
-        ENDIF
-        ! total top potential
-        IF (atm_pressure_included_in_ocedyn) THEN
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential  &
-            & + p_as%pao * OceanReferenceDensity_inv
-        ELSE
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
-        ENDIF 
+        !--------------------------------------------------------------------------
+        ! calculate in situ density here, as it may be used fotr the tides load
+        CALL calculate_density( patch_3d,                         &
+          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,:),      &
+          & ocean_state(jg)%p_diag%rho(:,:,:) )
 
+        !--------------------------------------------------------------------------
+        CALL create_pressure_bc_conditions(patch_3d,ocean_state(jg), p_as, current_time)
+        !------------------------------------------------------------------------
+       
   !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
   !       CALL calc_scalar_product_veloc_3d( patch_3d,  &
   !         & ocean_state(jg)%p_prog(nold(1))%vn,         &
@@ -615,6 +617,9 @@ CONTAINS
           p_oce_sfc%HeatFlux_Sensible      = p_atm_f%HeatFlux_Sensible
           p_oce_sfc%HeatFlux_Latent        = p_atm_f%HeatFlux_Latent
           p_oce_sfc%FrshFlux_Runoff        = p_atm_f%FrshFlux_Runoff
+          IF ( l_cpl_co2 ) THEN
+            p_oce_sfc%CO2_Mixing_Ratio     = p_as%co2
+          ENDIF
 
         ENDIF
 
@@ -736,30 +741,22 @@ CONTAINS
           & ocean_state(jg)%p_prog(nold(1))%stretch_c, stretch_e)
 
         !------------------------------------------------------------------------
-        ! compute tidal potential
-        ! FIXME zstar: Not modified for zstar
-        IF (use_tides) THEN
-          CALL tide(patch_3d,current_time,ocean_state(jg)%p_aux%bc_tides_potential)
-        ENDIF
-        ! total top potential
-        ! FIXME zstar: Does this make sense for zstar 
-        IF (atm_pressure_included_in_ocedyn) THEN
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential  &
-            & + p_as%pao * OceanReferenceDensity_inv
-        ELSE
-          ocean_state(jg)%p_aux%bc_total_top_potential = ocean_state(jg)%p_aux%bc_tides_potential
-        ENDIF 
-        IF (ice_flux_type .EQ. 1) THEN 
+        ! calculate in situ density here, as it may be used fotr the tides load
+        CALL calculate_density_zstar( patch_3d,                         &
+          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,:),      &
+          & ocean_state(jg)%p_prog(nold(1))%eta_c, &
+          & ocean_state(jg)%p_prog(nold(1))%stretch_c, &
+          & ocean_state(jg)%p_diag%rho(:,:,:) )
+
+        !--------------------------------------------------------------------------
+        CALL create_pressure_bc_conditions(patch_3d,ocean_state(jg), p_as, current_time)
+        !------------------------------------------------------------------------
+
+        IF (surface_flux_type .EQ. 2) THEN 
           ocean_state(jg)%p_aux%bc_total_top_potential = &
             & ocean_state(jg)%p_aux%bc_tides_potential  + &
             & rho_ref * OceanReferenceDensity_inv * grav * sea_ice%draftave
         END IF
-
-!        IF (lcheck_salt_content) CALL check_total_salt_content_zstar(120, &
-!          & ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
-!          & ocean_state(jg)%p_prog(nold(1))%stretch_c(:,:), &
-!          & patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:), sea_ice, p_oce_sfc)
-
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)

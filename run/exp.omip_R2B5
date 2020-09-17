@@ -34,22 +34,11 @@ ocean_refinement="R02B05"
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
-
-icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
+icon_data_poolFolder="${icon_data_rootFolder:-/pool/data/ICON}/grids/private/rene/mpim"
 
 ocean_vertical_levels=40
 ocean_grid="icon_grid_${ocean_gridID}_${ocean_refinement}_O.nc"
-ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
+ocean_grid_folder="${icon_data_rootFolder:-/pool/data/ICON}/grids/public/mpim/${ocean_gridID}"
 ocean_data_InputFolder="${icon_data_poolFolder}/${ocean_gridID}/ocean"
 #-----------------------------------------------------------------------------
 # Input files (initial conditions, OMIP forcing, HAMOCC forcing)

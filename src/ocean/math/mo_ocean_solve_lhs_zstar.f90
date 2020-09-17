@@ -6,7 +6,6 @@
     USE mo_kind, ONLY: wp
     USE mo_exception, ONLY: finish
     USE mo_ocean_solve_lhs_type, ONLY: t_lhs_agen
-    USE mo_ocean_solve_aux, ONLY: t_destructible
     USE mo_ocean_types, ONLY: t_solverCoeff_singlePrecision, t_operator_coeff
     USE mo_grid_subset, ONLY: t_subset_range, get_index_range
     USE mo_ocean_nml, ONLY: select_lhs, select_lhs_matrix, ab_gam, ab_beta, &
@@ -29,7 +28,7 @@
     
       PRIVATE
     
-      PUBLIC :: t_surface_height_lhs_zstar, lhs_surface_height_zstar_ptr
+      PUBLIC :: t_surface_height_lhs_zstar
     
       TYPE, EXTENDS(t_lhs_agen) :: t_surface_height_lhs_zstar
         PRIVATE
@@ -58,21 +57,6 @@
     
     CONTAINS
     
-    ! returns pointer to t_primal_flip_flop_lhs object, if provided a matching
-    ! object of corresponding abstract type
-      FUNCTION lhs_surface_height_zstar_ptr(this) RESULT(this_ptr)
-        CLASS(t_destructible), INTENT(IN), TARGET :: this
-        CLASS(t_surface_height_lhs_zstar), POINTER :: this_ptr
-    
-        SELECT TYPE (this)
-        CLASS IS (t_surface_height_lhs_zstar)
-          this_ptr => this
-        CLASS DEFAULT
-          NULLIFY(this_ptr)
-          CALL finish("surface_height_lhs_ptr", "not correct type!")
-        END SELECT
-      END FUNCTION lhs_surface_height_zstar_ptr
-    
     !init generator object
       SUBROUTINE lhs_surface_height_construct(this, patch_3d, thick_e, &
           & op_coeffs_wp, op_coeffs_sp, str_e)
@@ -94,7 +78,8 @@
         IF (this%patch_2d%cells%max_connectivity .NE. 3 .AND. .NOT.l_lhs_direct) &
           & CALL finish("t_surface_height_lhs::lhs_surface_height_construct", &
           &  "internal matrix implementation only works with triangular grids!")
-        ALLOCATE(this%is_init(1))
+    
+        this%is_init = .true.
         
         IF (.NOT.ALLOCATED(this%stretch_e)) &
             & ALLOCATE(this%stretch_e(nproma, this%patch_2d%nblks_e))
@@ -110,7 +95,6 @@
         NULLIFY(this%patch_3d, this%patch_2d, this%thickness_e_wp)
         NULLIFY(this%op_coeffs_wp, this%op_coeffs_sp)
         IF (ALLOCATED(this%z_e_wp)) DEALLOCATE(this%z_e_wp, this%z_grad_h_wp)
-        IF (ALLOCATED(this%is_init)) DEALLOCATE(this%is_init)
         IF (ALLOCATED(this%stretch_e)) DEALLOCATE(this%stretch_e)
       END SUBROUTINE lhs_surface_height_destruct
     

@@ -30,7 +30,7 @@ MODULE mo_nwp_phy_nml
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: use_restart_namelists
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,    &
+  USE mo_restart_nml_and_att, ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config,                        &
@@ -77,11 +77,13 @@ MODULE mo_nwp_phy_nml
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
   LOGICAL  :: latm_above_top(max_dom) !! use extra layer above model top for radiation (reduced grid only)
+  LOGICAL  :: lupatmo_phy(max_dom)    !! switch on/off upper-atmosphere physics in domains
   ! parameter for cloud microphysics
   real(wp) :: mu_rain            !! shape parameter in gamma distribution for rain
   real(wp) :: rain_n0_factor     !! tuning factor for intercept parameter of raindrop size distribution
   real(wp) :: mu_snow            !! ...for snow
 
+  INTEGER  :: icalc_reff(max_dom) !! type of effective radius calculation
 
   !> NetCDF file containing longwave absorption coefficients and other data
   !> for RRTMG_LW k-distribution model ('rrtmg_lw.nc')
@@ -101,7 +103,8 @@ MODULE mo_nwp_phy_nml
     &                    mu_snow, icapdcycl, icpl_aero_conv,         &
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
     &                    iprog_aero, lshallowconv_only,              &
-    &                    ldetrain_conv_prec, rain_n0_factor
+    &                    ldetrain_conv_prec, rain_n0_factor,         &
+    &                    icalc_reff, lupatmo_phy
 
  
 CONTAINS
@@ -134,6 +137,7 @@ CONTAINS
          &  routine = 'mo_nwp_phy_nml:read_nwp_phy_namelist'
     INTEGER  :: param_def
     REAL(wp) :: dt_conv_def, dt_rad_def, dt_sso_def, dt_gwd_def
+    INTEGER  :: icalc_reff_def
 
     !-----------------------
     ! 1a. default settings for domain-specific parmeters; will be rest to dummy values afterwards
@@ -144,6 +148,8 @@ CONTAINS
     dt_rad_def  = 1800._wp
     dt_sso_def  = 1200._wp
     dt_gwd_def  = 1200._wp
+
+    icalc_reff_def = 0 ! Default is no calculation of effectives radius
 
     inwp_gscp(:)       = param_def
     inwp_satad(:)      = param_def
@@ -184,6 +190,9 @@ CONTAINS
 
     latm_above_top(:)  = .FALSE.  ! no extra layer above model top for radiation computation
 
+    lupatmo_phy(:)     = .TRUE.   ! switch on upper-atmosphere physics
+    lupatmo_phy(1)     = .FALSE.  ! switch off upper-atmosphere physics on dom 1 (please, do not touch this)
+
     ! CAPE correction to improve diurnal cycle of convection (moved from mo_cuparameters)
     icapdcycl = 0  ! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
                    ! 1=    CAPE - surface buoyancy flux (intermediate testing option)
@@ -206,6 +215,13 @@ CONTAINS
     ! coupling between ozone and the tropopause
     icpl_o3_tp = 1      ! 0 = none
                         ! 1 = take climatological values from 100/350 hPa above/below the tropopause in the extratropics
+
+    
+    ! Calculation of effective radius
+    icalc_reff(:)  =  icalc_reff_def ! 0      = no calculation (current default)
+                       ! 1,..,7 = corresponding to the microphysics scheme 1,....,7 (same terminology as inwp_gscp)
+                       ! 11     = corresponding to the microphysics scheme  inwp_gscp(jg)
+                       ! 12     = RRTM parameterization
 
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()
@@ -247,6 +263,8 @@ CONTAINS
       dt_sso  (:) = -999._wp
       dt_gwd  (:) = -999._wp
 
+      icalc_reff(:)      = -1
+
       READ (nnml, nwp_phy_nml)   ! overwrite default settings
 
       ! Restore default values for global domain where nothing at all has been specified
@@ -268,6 +286,8 @@ CONTAINS
       IF (dt_gwd  (1) < 0._wp) dt_gwd  (1) = dt_gwd_def
       IF (dt_rad  (1) < 0._wp) dt_rad  (1) = dt_rad_def
 
+      ! Extra calculation
+      IF (icalc_reff(1)      < 0) icalc_reff(1)      = icalc_reff_def  ! Default no calculation of effective radius
       
       ! Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
 
@@ -289,6 +309,12 @@ CONTAINS
         IF (dt_sso  (jg) < 0._wp) dt_sso  (jg) = dt_sso  (jg-1)
         IF (dt_gwd  (jg) < 0._wp) dt_gwd  (jg) = dt_gwd  (jg-1)
         IF (dt_rad  (jg) < 0._wp) dt_rad  (jg) = dt_rad  (jg-1)
+        
+        ! Extra calculations
+        IF (icalc_reff(jg)      < 0) icalc_reff(jg)       = icalc_reff(jg-1)
+
+        ! Upper-atmosphere physics
+        IF (lupatmo_phy(jg)) lupatmo_phy(jg) = lupatmo_phy(jg-1)
 
       ENDDO
 
@@ -312,6 +338,11 @@ CONTAINS
         CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 0,1,2,3,4,5 or 9.')
       END IF
       
+      IF ( ALL((/0,1,2,3,4,5,6,7,9,100,101/) /= icalc_reff(jg)) ) THEN
+        CALL finish( TRIM(routine), 'Incorrect setting for icalc_reff. Must be 0,1,2,3,4,5, 6,7,9, 100 or 101.')
+      END IF
+
+
 #ifndef __ICON_ART
     IF (inwp_gscp(jg) == 6) THEN
       CALL finish( TRIM(routine),'inwp_gscp == 6, but ICON was compiled without -D__ICON_ART')
@@ -369,10 +400,13 @@ CONTAINS
       atm_phy_nwp_config(jg)%ustart_raylfric = ustart_raylfric 
       atm_phy_nwp_config(jg)%efdt_min_raylfric = efdt_min_raylfric
       atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
+      atm_phy_nwp_config(jg)%lupatmo_phy     = lupatmo_phy(jg)
       atm_phy_nwp_config(jg)%mu_rain         = mu_rain
       atm_phy_nwp_config(jg)%rain_n0_factor  = rain_n0_factor
       atm_phy_nwp_config(jg)%mu_snow         = mu_snow
       atm_phy_nwp_config(jg)%icpl_aero_gscp  = icpl_aero_gscp
+      atm_phy_nwp_config(jg)%icalc_reff      = icalc_reff (jg)
+      
     ENDDO
 
     config_lrtm_filename   = TRIM(lrtm_filename)

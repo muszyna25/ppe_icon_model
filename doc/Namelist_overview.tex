@@ -1,4 +1,4 @@
-\documentclass[10pt,a4paper,landscape,DIV=32]{scrartcl}
+\documentclass[10pt,a4paper,landscape,DIV=18]{scrartcl}
 
 \usepackage[english,ngerman]{babel}
 \usepackage[T1]{fontenc}
@@ -7,6 +7,8 @@
 \usepackage[colorlinks=true,bookmarks=true,linkcolor=blue,citecolor=blue]{hyperref}
 \usepackage{longtable}
 \usepackage{amsmath,amssymb}
+\usepackage{lastpage}
+
 \DeclareMathOperator{\atan}{atan}
 
 \providecommand{\tabularnewline}{\\}
@@ -32,6 +34,8 @@ Parameter& Type& Default& Unit& Description & Scope
 \hline
 \end{longtable}
 }
+
+\renewcommand\pagemark{{\usekomafont{pagenumber}\thepage\ / \pageref{LastPage}}}
 
 % ------------------------------------------------------
 % new environment for documentation of namelist changes

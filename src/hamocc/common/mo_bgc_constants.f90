@@ -15,6 +15,7 @@ MODULE mo_bgc_constants
 
 
    REAL(wp), PARAMETER :: tmelt = 273.15_wp        ! melting temperature of ice/snow
+   !$acc declare copyin(tmelt)
    
    ! Conversion factors
    REAL(wp), PARAMETER:: kilo = 1.e3_wp

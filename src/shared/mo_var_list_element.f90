@@ -49,8 +49,14 @@ MODULE mo_var_list_element
     INTEGER                      :: var_base_size      ! generic size in bytes of variable used
     TYPE(t_var_metadata)         :: info               ! meta data for this entry
     TYPE(t_var_metadata_dynamic) :: info_dyn           ! dynamic meta data for this entry (see type description)
-  END type t_var_list_element
+  END TYPE t_var_list_element
 
   PUBLIC :: t_var_list_element
+
+  TYPE t_p_var_list_element
+    TYPE(t_var_list_element), POINTER :: p
+  END TYPE t_p_var_list_element
+
+  PUBLIC :: t_p_var_list_element
 
 END MODULE mo_var_list_element

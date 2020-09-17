@@ -1544,6 +1544,11 @@ CONTAINS
             !  write(0,*)'XXXX flat_sfc_c',jk,jc,jb,&
             !    &patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,jk,jb),patch_3D%p_patch_1D(1)%del_zlev_m(jk)
             
+            patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc, jk, jb) = &
+              & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc, jk, jb)
+            patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc, jk, jb)= &
+              & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc, jk, jb) 
+
             ! bottom and column thickness for solver and output
             ! bottom cell thickness at jk=dolic
             patch_3d%bottom_thick_c(jc,jb) = patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb)
@@ -1598,7 +1603,7 @@ CONTAINS
             patch_3D%p_patch_1D(1)%prism_thick_e(je, jk, jb) = &
               MIN(patch_3D%p_patch_1D(1)%prism_thick_c(cell1_idx, jk, cell1_blk), &
                 & patch_3D%p_patch_1D(1)%prism_thick_c(cell2_idx, jk, cell2_blk))
-            
+
 !            ! Partial cell ends at real bathymetry below upper boundary
 !            ! zlev_i(dolic) at most one dry cell as neighbor is allowed,
 !            ! therefore bathymetry can be much deeper than corrected dolic
@@ -1617,7 +1622,9 @@ CONTAINS
 !              MIN(patch_3D%p_patch_1D(1)%prism_thick_c(cell1_idx, jk, cell1_blk), &
 !                patch_3D%p_patch_1D(1)%prism_thick_c(cell2_idx, jk, cell2_blk))            
 !            ENDIF
+
 !            !  this is necessary update for flat surface array but leads to abort in height equation
+
             patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) =      &
               & patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,jb)
             patch_3d%p_patch_1d(1)%inv_prism_thick_e(je,jk,jb)      = &

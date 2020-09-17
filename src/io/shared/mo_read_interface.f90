@@ -48,13 +48,14 @@ MODULE mo_read_interface
     &                                   netcdf_read_1D_extdim_time, &
     &                                   netcdf_read_1D_extdim_extdim_time, &
     &                                   t_p_scatterPattern, &
-    &                                   netcdf_get_missValue
+    &                                   netcdf_get_missValue, &
+    &                                   netcdf_read_inq_varexists
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
     &                                   var_data_2d_wp, var_data_2d_int, &
     &                                   var_data_3d_wp, var_data_3d_int, &
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
-    &                                   idx_blk_time
+    &                                   idx_blk_time, distrib_nf_inq_varexists
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma, p_test_run
   USE mo_model_domain, ONLY: t_patch
@@ -235,7 +236,37 @@ MODULE mo_read_interface
     MODULE PROCEDURE read_dist_REAL_3D_extdim
   END INTERFACE read_3D_extdim
 
+  INTERFACE read_inq_varexists
+    MODULE PROCEDURE inq_varexists_bcast
+    MODULE PROCEDURE inq_varexists_dist
+  END INTERFACE read_inq_varexists
+
 CONTAINS
+
+  FUNCTION inq_varexists_bcast(file_id, variable_name) result(ret)
+    INTEGER,           INTENT(INOUT) :: file_id
+    CHARACTER(LEN=*),  INTENT(IN   ) :: variable_name
+    LOGICAL                          :: ret
+    ret = netcdf_read_inq_varexists(file_id, variable_name)
+  END FUNCTION inq_varexists_bcast
+
+  FUNCTION inq_varexists_dist(stream_id, variable_name) result(ret)
+    TYPE(t_stream_id), INTENT(INOUT) :: stream_id
+    CHARACTER(LEN=*),  INTENT(IN   ) :: variable_name
+    LOGICAL                          :: ret
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:inq_varexists'
+
+    SELECT CASE(stream_id%input_method)
+    CASE (read_netcdf_broadcast_method)
+      ret = netcdf_read_inq_varexists(stream_id%file_id, variable_name)
+    CASE (read_netcdf_distribute_method)
+      ret = distrib_nf_inq_varexists(stream_id%file_id, variable_name)
+    CASE default
+      CALL finish(method_name, "unknown input_method")
+    END SELECT
+  END FUNCTION inq_varexists_dist
+
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE read_bcast_REAL_1D(file_id, variable_name, fill_array, &

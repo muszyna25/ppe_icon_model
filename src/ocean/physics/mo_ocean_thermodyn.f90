@@ -22,6 +22,7 @@
 !! headers of the routines.
 !!
 !----------------------------
+#include "iconfor_dsl_definitions.inc"
 #include "omp_definitions.inc"
 !----------------------------
 MODULE mo_ocean_thermodyn
@@ -201,15 +202,106 @@ CONTAINS
     !! Initial version by Peter Korn, MPI-M (2014)
     !!
   !<Optimize:inUse>
-  SUBROUTINE calc_internal_press_grad(patch_3d, rho, pressure_hyd, bc_total_top_potential, grad_coeff, press_grad)
+  SUBROUTINE calc_internal_press_grad(patch_3d, rho, pressure_hyd, bc_total_top_potential, &
+    & grad_coeff, press_grad )
     !
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(in)                 :: rho          (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
     REAL(wp), INTENT(inout)              :: pressure_hyd (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: bc_total_top_potential(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
-    !REAL(wp), INTENT(in), TARGET      :: prism_thick_e(1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
+    !REAL(wp), INTENT(in), TARGET        :: prism_thick_e(1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp), INTENT(in)                 :: grad_coeff(:,:,:)
     REAL(wp), INTENT(inout)              :: press_grad    (nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)  !< hydrostatic pressure gradient
+
+    ! local variables:
+    INTEGER :: je, jk, jb, jc, ic1,ic2,ib1,ib2
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
+    REAL(wp) :: z_full_c1, z_box_c1, z_full_c2, z_box_c2
+    REAL(wp) :: z_grav_rho_inv
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
+    REAL(wp), POINTER :: prism_thick_c(:,:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+    REAL(wp) :: prism_center_dist !distance between prism centers without surface elevation
+ !   REAL(wp)  :: pressure_load (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+
+     !-----------------------------------------------------------------------
+    z_grav_rho_inv = OceanReferenceDensity_inv * grav
+    patch_2D        => patch_3d%p_patch_2d(1)
+    edges_in_domain => patch_2D%edges%in_domain
+    all_cells       => patch_2D%cells%ALL
+!    prism_thick_c   => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c
+    prism_thick_c   => patch_3D%p_patch_1d(1)%prism_thick_c
+
+    iidx => patch_3D%p_patch_2D(1)%edges%cell_idx
+    iblk => patch_3D%p_patch_2D(1)%edges%cell_blk
+    !-------------------------------------------------------------------------
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_index, end_index)
+
+!      pressure_hyd(:,:, jb) = 0.0_wp
+      DO jc = start_index, end_index
+
+       pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb) &
+         & + bc_total_top_potential(jc,jb) 
+         
+       DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+         pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
+           &*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO
+ 
+  
+!ICON_OMP_DO PRIVATE(start_index, end_index, je, ic1, ib1, ic2, ib2, jk) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, start_index, end_index)
+
+      DO je = start_index, end_index
+
+        ic1=patch_2D%edges%cell_idx(je,jb,1)
+        ib1=patch_2D%edges%cell_blk(je,jb,1)
+        ic2=patch_2D%edges%cell_idx(je,jb,2)
+        ib2=patch_2D%edges%cell_blk(je,jb,2)
+
+        DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+          press_grad(je,jk,jb)=(pressure_hyd(ic2,jk,ib2)-pressure_hyd(ic1,jk,ib1))*grad_coeff(je,jk,jb)
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_DO NOWAIT
+!ICON_OMP_END_PARALLEL
+
+
+    CALL dbg_print('pressure_hyd', pressure_hyd , "" ,3, patch_2D%cells%in_domain)
+    CALL dbg_print('bc_top_potential', bc_total_top_potential, "" ,3, patch_2D%cells%in_domain)
+    CALL dbg_print('pressure_grad', press_grad , "" ,3, patch_2D%edges%in_domain)
+
+  END SUBROUTINE calc_internal_press_grad
+  !-------------------------------------------------------------------------
+
+    
+  !-------------------------------------------------------------------------
+  ! the bc_total_top_potential is not added, but rather only used to diagnose the elated gradient
+  SUBROUTINE diagnose_top_press_grad(patch_3d, rho, pressure_hyd, bc_total_top_potential, &
+    & grad_coeff, press_grad )
+    !
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), INTENT(in)                 :: rho          (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
+    REAL(wp), INTENT(inout)              :: pressure_hyd (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(in)                 :: bc_total_top_potential(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< density
+    !REAL(wp), INTENT(in), TARGET        :: prism_thick_e(1:nproma,1:n_zlev, patch_3d%p_patch_2d(1)%nblks_e)
+    REAL(wp), INTENT(in)                 :: grad_coeff(:,:,:)
+    REAL(wp), INTENT(inout)              :: press_grad    (nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)  !< hydrostatic pressure gradient
+
+    REAL(wp) :: top_press_grad(nproma, patch_3d%p_patch_2d(1)%nblks_e)
 
     ! local variables:
     !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -221,20 +313,23 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
-    REAL(wp), POINTER :: prism_thick_e(:,:,:)
+    REAL(wp), POINTER :: prism_thick_c(:,:,:)
     TYPE(t_subset_range), POINTER :: all_cells
     REAL(wp) :: prism_center_dist !distance between prism centers without surface elevation
-    !-----------------------------------------------------------------------
+    REAL(wp) :: sum_weight, distrubute_bot_potential
+ !   REAL(wp)  :: pressure_load (nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+
+     !-----------------------------------------------------------------------
     z_grav_rho_inv = OceanReferenceDensity_inv * grav
     patch_2D        => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
     all_cells       => patch_2D%cells%ALL
-    prism_thick_e   => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e
+!    prism_thick_c   => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c
+    prism_thick_c   => patch_3D%p_patch_1d(1)%prism_thick_c
 
     iidx => patch_3D%p_patch_2D(1)%edges%cell_idx
     iblk => patch_3D%p_patch_2D(1)%edges%cell_blk
 
-    pressure_hyd (1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     !-------------------------------------------------------------------------
 
 !ICON_OMP_PARALLEL
@@ -242,21 +337,23 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_index, end_index)
 
+!      pressure_hyd(:,:, jb) = 0.0_wp
       DO jc = start_index, end_index
 
-        pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb) &
-          & + bc_total_top_potential(jc,jb)
-          
-        DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+       pressure_hyd(jc,1,jb) = rho(jc,1,jb)*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,1,jb) ! &
+     !    & + bc_total_top_potential(jc,jb) 
+         
+       DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
-          pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
-            &*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
+         pressure_hyd(jc,jk,jb) = pressure_hyd(jc,jk-1,jb) + 0.5_wp*(rho(jc,jk,jb)+rho(jc,jk-1,jb))&
+           &*z_grav_rho_inv*patch_3D%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb)
 
         END DO
       END DO
     END DO
 !ICON_OMP_END_DO
-
+ 
+  
 !ICON_OMP_DO PRIVATE(start_index, end_index, je, ic1, ib1, ic2, ib2, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_index, end_index)
@@ -268,6 +365,10 @@ CONTAINS
           ic2=patch_2D%edges%cell_idx(je,jb,2)
           ib2=patch_2D%edges%cell_blk(je,jb,2)
 
+        IF (patch_3d%p_patch_1d(1)%dolic_e(je,jb) > 0) &
+          top_press_grad(je,jb) = (bc_total_top_potential(ic1,ib2) - bc_total_top_potential(ic1,ib1)) &
+            &  * grad_coeff(je,1,jb)
+
         DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je,jb)
 
           press_grad(je,jk,jb)=(pressure_hyd(ic2,jk,ib2)-pressure_hyd(ic1,jk,ib1))*grad_coeff(je,jk,jb)
@@ -277,8 +378,15 @@ CONTAINS
     END DO
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
-    
-    END SUBROUTINE calc_internal_press_grad
+
+
+      CALL dbg_print('pressure_hyd', pressure_hyd , "" ,1, patch_2D%cells%in_domain)
+      CALL dbg_print('bc_top_potential', bc_total_top_potential, "" ,1, patch_2D%cells%in_domain)
+
+      CALL dbg_print('pressure_grad', press_grad , "" ,1, patch_2D%edges%in_domain)
+      CALL dbg_print('top_press_grad', top_press_grad , "" ,1, patch_2D%edges%in_domain)
+
+    END SUBROUTINE diagnose_top_press_grad
     !-------------------------------------------------------------------------
 
     

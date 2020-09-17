@@ -230,6 +230,9 @@ MODULE mo_ocean_types
       & wS, &  !< product of salinity and w-velocity
       & wR, &  !< product of density and w-velocity
       & ww, &  !< square of w-velocity
+      & RR, &  !< square of density
+      & SS, &  !< square of salinity
+      & TT, &  !< square of temperature
       & uw, &  !< product of u-velocity and w-velocity
       & vw, &  !< product of v-velocity and w-velocity
       & uv, &  !< product of u-velocity and v-velocity
@@ -394,8 +397,10 @@ MODULE mo_ocean_types
       & bc_top_w        ,& ! vertical velocity boundary condition at surface
       & bc_bot_w        ,&   ! vertical velocity boundary condition at bottom
       & bc_tides_potential, &
-      & bc_total_top_potential
-      
+      & bc_tides_load,   &
+      & bc_total_top_potential, &
+      & bc_SAL_potential
+            
     onCells_2D_tracers :: &
       & bc_top_tracer,    &
       & bc_bot_tracer 
@@ -538,6 +543,7 @@ MODULE mo_ocean_types
     onCells_2D :: Wind_Speed_10m, HeatFlux_Total, HeatFlux_Shortwave, HeatFlux_LongWave 
     onCells_2D :: HeatFlux_Sensible,HeatFlux_Latent,concSum,Tfw,heatOceW,newice
     onCells_2D :: FrshFlux_Precipitation, FrshFlux_Evaporation, FrshFlux_SnowFall, FrshFlux_Runoff
+    onCells_2D :: CO2_Mixing_Ratio
 
     onCells_2D :: zUnderIce,albvisdirw, albvisdifw, albnirdirw, albnirdifw,draftave
     onCells_2D :: SaltFlux_Relax, FrshFlux_Relax, HeatFlux_Relax, TempFlux_Relax 

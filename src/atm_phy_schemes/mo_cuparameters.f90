@@ -80,7 +80,9 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rmv
   REAL(KIND=jprb) :: rmo3
   REAL(KIND=jprb) :: rd
+  !$acc declare copyin(rd)
   REAL(KIND=jprb) :: rv
+  !$acc declare copyin(rv)
   REAL(KIND=jprb) :: rcpd
   REAL(KIND=jprb) :: rcpv
   REAL(KIND=jprb) :: rcvd
