@@ -183,6 +183,7 @@ CONTAINS
             CALL print_value('half level pressure (+) = ', zpres(k2_klev_max+1))
   
           END IF ! k2_pres_max search
+          diffusion_config(jg)%k2_klev_max = k2_klev_max  ! Update
         END IF   ! k2_pres_max >0
 
         ! If the user didn't specifiy a pressure value, then use the 
@@ -192,6 +193,10 @@ CONTAINS
         ik2e = k2_klev_max
         ik4s = k2_klev_max +1
         ik4e = nlev
+        diffusion_config(jg)%ik2s = ik2s
+        diffusion_config(jg)%ik2e = ik2e
+        diffusion_config(jg)%ik4s = ik4s
+        diffusion_config(jg)%ik4e = ik4e
 
         ! Inform the user about the configuration
 
