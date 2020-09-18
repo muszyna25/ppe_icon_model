@@ -85,7 +85,7 @@ MODULE mo_var_list
     INTEGER                       :: nvars = 0
     ! Metadata for missing value masking
     LOGICAL                    :: lmiss = .FALSE.         ! flag: true, if variables should be initialized with missval
-    LOGICAL                    :: lmask_boundary =.FALSE. ! flag: true, if interpolation zone should be masked *in output*
+    LOGICAL                    :: lmask_boundary = .TRUE. ! flag: true, if interpolation zone should be masked *in output*
   END TYPE t_var_list
   !
   TYPE t_var_list_ptr
