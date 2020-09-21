@@ -994,7 +994,7 @@ MODULE mo_nh_init_nest_utils
 
     ! Indices
     INTEGER :: jb, jc, jk, jk1, i_chidx, i_startblk, i_endblk, &
-               i_startidx, i_endidx
+               i_startidx, i_endidx, var_src
 
     INTEGER :: num_lndvars
 
@@ -1171,11 +1171,9 @@ MODULE mo_nh_init_nest_utils
     ! set information about input source for interpolated fields
     !
     ! w_so (full field: fg, increment: ana(intp))
-    IF (inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceBoth) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('w_so', kInputSourceFgAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('w_so', inputInstructions(jg)%ptr%sourceOfVar('w_so'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('w_so')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('w_so', var_src)
     !
     ! sst
     ! Branching is necessary here, as sst can either be read via the field t_seasfc of t_so(0)
@@ -1183,44 +1181,34 @@ MODULE mo_nh_init_nest_utils
       ! since we cannot distinguish between t_so which is read from fg and 
       ! t_so(0)==sst which is read/interpolated from ana, we set
       ! full field: fg, ana(intp), increment: none
-      IF (inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceBoth) THEN
-        CALL inputInstructions(jgc)%ptr%setSource('t_so', kInputSourceFgAnaI)
-      ELSE
-        CALL inputInstructions(jgc)%ptr%setSource('t_so', inputInstructions(jg)%ptr%sourceOfVar('t_so'))
-      ENDIF
+      var_src = inputInstructions(jg)%ptr%sourceOfVar('t_so')
+      var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+      CALL inputInstructions(jgc)%ptr%setSource('t_so', var_src)
     ELSE
       ! full field: ana(intp), increment: none
       CALL inputInstructions(jgc)%ptr%setSource('t_seasfc', kInputSourceAnaI)
     ENDIF
     !
     ! fr_seaice (full field: ana(intp), increment: none)
-    IF (inputInstructions(jg)%ptr%sourceOfVar('fr_seaice') == kInputSourceAna) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', kInputSourceAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', inputInstructions(jg)%ptr%sourceOfVar('fr_seaice'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('fr_seaice')
+    var_src = MERGE(kInputSourceAnaI, var_src, var_src == kInputSourceAna)
+    CALL inputInstructions(jgc)%ptr%setSource('fr_seaice', var_src)
     !
     ! h_snow (full field: fg, increment: ana(intp))
-    IF (inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceBoth) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('h_snow', kInputSourceFgAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('h_snow', inputInstructions(jg)%ptr%sourceOfVar('h_snow'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('h_snow')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('h_snow', var_src)
     !
     ! freshsnow (full field: fg, increment: ana(intp))
-    IF (inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceBoth) THEN
-      CALL inputInstructions(jgc)%ptr%setSource('freshsnow', kInputSourceFgAnaI)
-    ELSE
-      CALL inputInstructions(jgc)%ptr%setSource('freshsnow', inputInstructions(jg)%ptr%sourceOfVar('freshsnow'))
-    ENDIF
+    var_src = inputInstructions(jg)%ptr%sourceOfVar('freshsnow')
+    var_src = MERGE(kInputSourceFgAnaI, var_src, var_src == kInputSourceBoth)
+    CALL inputInstructions(jgc)%ptr%setSource('freshsnow', var_src)
     !
     ! t_2m (full field: none, increment: ana(intp))
     IF (itype_vegetation_cycle == 3) THEN
-      IF (inputInstructions(jg)%ptr%sourceOfVar('t_2m') == kInputSourceAna) THEN
-        CALL inputInstructions(jgc)%ptr%setSource('t_2m', kInputSourceAnaI)
-      ELSE
-        CALL inputInstructions(jgc)%ptr%setSource('t_2m', inputInstructions(jg)%ptr%sourceOfVar('t_2m'))
-      ENDIF
+      var_src = inputInstructions(jg)%ptr%sourceOfVar('t_2m')
+      var_src = MERGE(kInputSourceAnaI, var_src, var_src == kInputSourceAna)
+      CALL inputInstructions(jgc)%ptr%setSource('t_2m', var_src)
     ENDIF
 
 
