@@ -102,7 +102,7 @@ CONTAINS
     CALL remove_duplicates(var_name, nvars)
   END SUBROUTINE vlr_group
 
-  ! Find named list element accross all knows variable lists
+  ! Find named list element accross all known variable lists
   FUNCTION vlr_find(vname, opt_patch_id, opt_hgrid, opt_list, opt_cs, opt_output) RESULT(element)
     CHARACTER(*), INTENT(in) :: vname
     INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id, opt_hgrid
