@@ -524,8 +524,8 @@ CONTAINS
             ll_vargrid(nvars_ll) = p_onl%lonlat_id
             ll_varlevs(nvars_ll) = ilev_type
             ! return a special flag, if var name matches "u" or "v":
-            IF ((TRIM(ll_varlist(nvars_ll)) == "u") .OR. &
-              & (TRIM(ll_varlist(nvars_ll)) == "v")) THEN
+            IF (ll_varlist(nvars_ll) == "u" &
+              & .OR. ll_varlist(nvars_ll) == "v") THEN
               ! check if this lon-lat grid has not yet been
               ! registered (because we may specify "u" AND "v"):
               DO j=1,n_uv_hrz_intp
@@ -791,9 +791,8 @@ CONTAINS
           nvars=nvars+1
           var_names(nvars) = nml_varlist(ivar)
           ! return a special flag, if var name matches "u" or "v":
-          l_uv_vertical_intp = l_uv_vertical_intp .OR. &
-            &                  (TRIM(var_names(nvars)) == "u") .OR. &
-            &                  (TRIM(var_names(nvars)) == "v")
+          l_uv_vertical_intp = l_uv_vertical_intp &
+            & .OR. var_names(nvars) == "u" .OR. var_names(nvars) == "v"
         END DO
       END IF
       p_onl => p_onl%next

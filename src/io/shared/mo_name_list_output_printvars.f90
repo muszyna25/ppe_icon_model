@@ -103,7 +103,7 @@ CONTAINS
         suffix_str = "*"
       END IF
     END IF
-    get_var_basename = TRIM(var%info%name(1:endidx))//suffix_str
+    get_var_basename = var%info%name(1:endidx)//suffix_str
 
   CONTAINS
     LOGICAL FUNCTION is_number(char)
