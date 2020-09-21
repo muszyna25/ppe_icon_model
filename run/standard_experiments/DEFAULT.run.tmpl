@@ -1064,11 +1064,6 @@ EOF
 # III. OCEAN and SEA-ICE (and HAMOCC) 
 #-----------------------------------------------------------------------------
 
-ocean_grid_name="icon_grid_${ocean_gridID}_${ocean_refinement}_O"
-ocean_grid=${ocean_grid_name}.nc
-ocean_grid_folder="/pool/data/ICON/grids/public/mpim/${ocean_gridID}"
-ocean_data_InputFolder="/pool/data/ICON/oes/input/r0004/${ocean_grid_name}"
-
 # ----------------------------------------------------------------------------
 #
 # ocean namelist
@@ -1080,11 +1075,7 @@ cat > ${oce_namelist} << EOF
   coupled_mode               = .TRUE.
 /
 %{format_namelist(namelists.NAMELIST_oce, 'parallel_nml')}
-&grid_nml
- dynamics_grid_filename      = "${ocean_grid}"
- use_dummy_cell_closure      = .TRUE.
- use_duplicated_connectivity = .FALSE.
-/
+%{format_namelist(namelists.NAMELIST_oce, 'grid_nml')}
 &dynamics_nml
  iequations                  = -1                               ! -1: hydrost. ocean model
 /
