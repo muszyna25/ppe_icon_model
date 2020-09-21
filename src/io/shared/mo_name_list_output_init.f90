@@ -1530,7 +1530,6 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: proc_list_str !< string (unoccupied I/O ranks)
     INTEGER :: remaining_io_procs(process_mpi_io_size) !< non-placed I/O ranks
     LOGICAL :: occupied_pes(process_mpi_io_size) !< explicitly placed I/O ranks
-    LOGICAL :: is_mpi_test
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::assign_output_task"
     ! ------------------------------------------------------
     ! Set ID of process doing I/O
@@ -1539,7 +1538,6 @@ CONTAINS
     ! --- First, set those MPI ranks which were explicitly specified
     !     by the user:
     !
-    is_mpi_test = my_process_is_mpi_test()
     nfiles = SIZE(io_proc_id)
     occupied_pes(:) = .FALSE.
     is_stdio = my_process_is_stdio()
