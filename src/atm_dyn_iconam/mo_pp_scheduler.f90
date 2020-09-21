@@ -494,7 +494,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_lonlat"
     INTEGER                               :: &
       &  jg, ndom, ierrstat, ivar, i, j, nvars_ll, &
-      &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp, ngrids
+      &  nblks_lonlat, ilev_type, max_var, ilev, n_uv_hrz_intp
     LOGICAL                               :: found, l_horintp, lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
@@ -511,15 +511,11 @@ CONTAINS
     TYPE(t_var_metadata_dynamic),POINTER  :: info_dyn
     INTEGER                               :: var_shape(5)
     TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
-    INTEGER, ALLOCATABLE                  :: uv_hrz_intp_grid(:), &
-      &                                      uv_hrz_intp_levs(:)
+    INTEGER :: uv_hrz_intp_grid(4*lonlat_grids%ngrids), &
+         uv_hrz_intp_levs(4*lonlat_grids%ngrids)
     CHARACTER(LEN=1)                      :: prefix
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
-
-    ngrids = 4*lonlat_grids%ngrids
-    ALLOCATE(uv_hrz_intp_grid(ngrids), uv_hrz_intp_levs(ngrids), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
     ! and DWD0123 for hybrid parallelization)
@@ -831,8 +827,6 @@ CONTAINS
       task%activity%i_timelevel      = ALL_TIMELEVELS
     END IF
 
-    DEALLOCATE(uv_hrz_intp_grid, uv_hrz_intp_levs, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     IF (dbg_level > 5)  CALL message(routine, "Done")
     
   END SUBROUTINE pp_scheduler_init_lonlat
