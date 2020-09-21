@@ -697,7 +697,7 @@ CONTAINS
   !------------------------------------------------------------------------------
   SUBROUTINE insert_group(varlist, vname_len, n, group_name, group_list, result_list)
     INTEGER,                        INTENT(IN)    :: vname_len, n
-    CHARACTER(LEN=vname_len),       INTENT(INOUT) :: result_list(n)
+    CHARACTER(LEN=vname_len),       INTENT(OUT)   :: result_list(n)
     CHARACTER(LEN=*),               INTENT(IN)    :: varlist(:), group_list(:)
     CHARACTER(LEN=*),               INTENT(IN)    :: group_name
     ! local variables
