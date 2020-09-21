@@ -4054,7 +4054,7 @@ CONTAINS
           IF (field%info%vert_interp%vert_intp_type(ivintp_type)) THEN
             WRITE (message_text,'(a)')  &
               &  'Vertical interpolation                      : '//  &
-              &  toupper(TRIM(VINTP_TYPE_LIST(ivintp_type)))
+              &  toupper(VINTP_TYPE_LIST(ivintp_type))
             CALL message('', message_text)
           END IF
         END DO LOOP_VINTP_TYPES
