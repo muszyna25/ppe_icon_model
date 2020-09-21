@@ -474,7 +474,7 @@ CONTAINS
     ! namelist) into a string. The naming scheme is then compatible
     ! with concurrent namelist settings of the calendar (mtime):
     calendar1 = calendar_index2string(time_nml_icalendar)
-    calendar2 = TRIM(master_nml_calendar)
+    calendar2 = master_nml_calendar
     tlen1 = LEN_TRIM(calendar1)
     tlen2 = LEN_TRIM(calendar2)
     IF (tlen2 /= 0) THEN
