@@ -3306,7 +3306,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE replicate_coordinate_data_on_io_procs
-#endif !.NOT. NOMPI
+#endif
 
   SUBROUTINE registerOutputVariable(name)
     CHARACTER(LEN=VARNAME_LEN), INTENT(IN) :: name
