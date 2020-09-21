@@ -140,8 +140,8 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-start_date=${start_date:="1000-01-01T00:00:00Z"}
-    end_date=${end_date:="1010-01-01T00:00:00Z"}
+start_date=${start_date:="2000-01-01T00:00:00Z"}
+    end_date=${end_date:="2010-01-01T00:00:00Z"}
 
 # restart/checkpoint/output intervals
 # -----------------
@@ -638,8 +638,8 @@ cat > ${atm_namelist} << EOF
 /
 &nonhydrostatic_nml
  ndyn_substeps    = $atm_substeps ! dtime/dt_dyn
- damp_height      = 50000.      ! [m]
- rayleigh_coeff   = 0.1000      ! set to 0.1001 for rerun with little change
+ damp_height      = 25000.      ! [m]
+ rayleigh_coeff   = 0.5000      ! set to 0.1001 for rerun with little change
  vwind_offctr     = 0.2
  divdamp_fac      = 0.004
  exner_expol      = 0.6
@@ -657,7 +657,7 @@ cat > ${atm_namelist} << EOF
  flat_height      = 16000.      ! [m]
 /
 &diffusion_nml
- hdiff_smag_fac   = 0.015       ! default: 0.015  higher values will increase diffusion
+ hdiff_smag_fac   = 0.05       ! default: 0.015  higher values will increase diffusion
 /
 &transport_nml
  tracer_names     = 'hus','clw','cli'
@@ -717,6 +717,7 @@ cat > ${atm_namelist} << EOF
  echam_rad_config(1)%yr_perp    =  1850
 /
 &echam_gwd_nml
+ echam_gwd_config(1)%emiss_lev	=  20       ! default: 10
 /
 &echam_sso_nml
  echam_sso_config(1)%gkdrag     = 0.005      ! default: 0.05
@@ -726,10 +727,10 @@ cat > ${atm_namelist} << EOF
 &echam_vdf_nml
  echam_vdf_config(1)%c_n        = 1.0
  echam_vdf_config(1)%fsl        = 0.5
- echam_vdf_config(1)%pr0	= 0.7	    ! default: 1.0   ! lower values help to avoid negative humidities
+ echam_vdf_config(1)%pr0	= 0.8	    ! default: 1.0   ! lower values help to avoid negative humidities
 /
 &echam_cnv_nml
- echam_cnv_config(1)%entrpen    = 0.0003    ! default: 0.0003    (old default:  0.0002)
+ echam_cnv_config(1)%entrpen    = 0.00025    ! default: 0.0003    (old default:  0.0002)
  echam_cnv_config(1)%cmfctop    = 0.1       ! default: 0.1       (old default:  0.2)
  echam_cnv_config(1)%entrscv    = 0.0003    ! default: 0.0003    (old default:  0.003)
 /
@@ -741,9 +742,10 @@ cat > ${atm_namelist} << EOF
 /
 &echam_cov_nml
  echam_cov_config(1)%crs        = 0.968     ! Critical relative humidity at surface, default 0.968
- echam_cov_config(1)%crt        = 0.9      ! Critical relative humidity at toa, default 0.8
+ echam_cov_config(1)%crt        = 0.93      ! Critical relative humidity at toa, default 0.8
 /
 &sea_ice_nml
+ hci_layer    = 0.2
  albs         = 0.865         ! Albedo of snow (not melting)
  albsm        = 0.7         ! Albedo of snow (melting)
  albi         = 0.75         ! Albedo of ice (not melting)
@@ -893,7 +895,8 @@ add_link_file ${datadir}/bc_land_sso_1992.nc                            ./bc_lan
 #
 # - HD model input by Tom Riddick
 #
-datadir=/work/mh0727/m300732/input/hd       # FIXME move hdpara file to pool directory and adapt path
+# FIXME: still a private path
+datadir=/work/mh0727/m300732/input/hd
 add_link_file $datadir/hdpara_r2b3_0030_0036_no_sinks_half_frac_lnd_adjusted.nc     ./bc_land_hd.nc
 #
 # - lctlib file for JSBACH
@@ -1596,7 +1599,7 @@ cat >> ${oce_namelist} << EOF
   GMRedi_configuration                       = 1           ! 0=cartesian diffusion; 1=GM-Redi: bolus advection + isopycnal diffusion
   tapering_scheme                            = 1
   GMRedi_usesRelativeMaxSlopes               = .FALSE.
-  S_max                                      = 1.0e-5      ! 1.0
+  S_max                                      = 3.0e-5      ! 1.0
   S_d                                        = 1.0e-4      ! 5e-3 to 5e-4
                                                            !
   k_tracer_GM_kappa_parameter                = 800.0      !
@@ -1622,8 +1625,8 @@ cat >> ${oce_namelist} << EOF
 ! i_Qio_type                                 = 3           ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez                        = .TRUE.      ! default: TRUE
 ! use_no_flux_gradients                      = .FALSE.     ! default: TRUE
- leadclose_1                                = 0.25        ! default: 0.5 - value of MPIOM: 0.25
- leadclose_2n                               = 0.666       ! default: 0.0 - value of MPIOM: 2/3
+ leadclose_1                                = 0.5        ! default: 0.5 - value of MPIOM: 0.25
+ leadclose_2n                               = 0.0       ! default: 0.0 - value of MPIOM: 2/3
 /
 EOF
 
@@ -1634,9 +1637,9 @@ cat >> ${oce_namelist} << EOF
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
 l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
 l_bgc_check                       = .FALSE.   ! mass check at every time step
-deltacalc                         = 0.0        ! CaCO3 weathering rate [kmol/s] 
-deltaorg                          = 0.0        ! OC weathering rate [kmol/s]
-deltasil                          = 0.0        ! Si(OH)4 weathering rate [kmol/s]
+deltacalc                         = 386.6        ! CaCO3 weathering rate [kmol/s] 
+deltaorg                          = 16.8        ! OC weathering rate [kmol/s]
+deltasil                          = 1166.2        ! Si(OH)4 weathering rate [kmol/s]
 atm_co2                           = 284.3      ! atmospheric CO2 (default 278)
 atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
 atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
@@ -1729,14 +1732,15 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # Ocean initialisation input
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
- # spun-up for 500 (200+300) years
- add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0613_restart_oce_13000101T000000Z.nc    restart_ocean_DOM01.nc
+ # FIXME: still a private path
+ # spun-up for 1400 years
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0656_restart_oce_24000101T000000Z.nc    restart_ocean_DOM01.nc
 fi
 
 if [[ "$initialiseOcean" == "fromRestartwithHamocc" ]]; then
- #FIXME: add restart file with spun-up Hamocc
- # Restart file like above + 1 year with Hamocc (initialized from basin averages)
- add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0614_restart_oce_10010101T000000Z.nc    restart_ocean_DOM01.nc
+ # FIXME: still a private path
+ # 900 years of physical spin-up + 350 years spinup with Hamocc
+ add_link_file /work/mh0727/m300732/input/0036/ocean/restart/ler0651_restart_oce_13500101T000000Z.nc    restart_ocean_DOM01.nc
  fi
 
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then
@@ -1752,7 +1756,7 @@ add_required_file ${ocean_grid_folder}/${ocean_grid} ./
 ## HAMOCC forcing files
 #
 if [  "x${use_hamocc}"  = "xyes" ]; then
-  # FIXME: this is still a private path
+  # FIXME: still a private path
   datadir=/work/mh0727/m300732/input/0036/ocean/hamocc/
   add_link_file $datadir/MAHOWALDDUST_icon_grid_0036_R02B04_O_remapbil1.nc           dust.nc  # iron deposition
   add_link_file $datadir/ndepo_1-0_gr_185001-185012-clim_icon_grid_0036_R02B04_O.nc  nitrogen.nc  # nitrate deposition
