@@ -711,11 +711,7 @@ CONTAINS
         IF(.NOT.instruction%lReadFg) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
             &are no read instructions for it")
 
-        IF(lSuccess) THEN
-            instruction%statusFg = kStateRead
-        ELSE
-            instruction%statusFg = kStateFailedFetch
-        END IF
+        instruction%statusFg = MERGE(kStateRead, kStateFailedFetch, lsuccess)
     END SUBROUTINE readInstructionList_optionalReadResultFg
 
     SUBROUTINE readInstructionList_optionalReadResultAna(me, lSuccess, varName, caller)
@@ -732,11 +728,7 @@ CONTAINS
         IF(.NOT.instruction%lReadAna) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
             &are no read instructions for it")
 
-        IF(lSuccess) THEN
-            instruction%statusAna = kStateRead
-        ELSE
-            instruction%statusAna = kStateFailedFetch
-        END IF
+        instruction%statusAna = MERGE(kStateRead, kStateFailedFetch, lSuccess)
     END SUBROUTINE readInstructionList_optionalReadResultAna
 
 

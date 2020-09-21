@@ -1366,11 +1366,7 @@ MODULE mo_initicon_io
 !$OMP DO PRIVATE (jk,jc,jb,i_endidx,tempv,exner) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = 1,p_patch(jg)%nblks_c
 
-                IF (jb /= p_patch(jg)%nblks_c) THEN
-                    i_endidx = nproma
-                ELSE
-                    i_endidx = p_patch(jg)%npromz_c
-                END IF
+                i_endidx = MERGE(nproma, p_patch(jg)%npromz_c, jb /= p_patch(jg)%nblks_c)
 
                 DO jk = 1, initicon(jg)%atm_in%nlev
 
@@ -2207,12 +2203,8 @@ MODULE mo_initicon_io
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jt,i_endidx)
           DO jb = 1, p_patch(jg)%nblks_c
-            IF (jb == p_patch(jg)%nblks_c) THEN
-              i_endidx = p_patch(jg)%npromz_c
-            ELSE
-              i_endidx = nproma
-            END IF
-
+            i_endidx = MERGE(nproma, p_patch(jg)%npromz_c, &
+              &              jb /= p_patch(jg)%nblks_c)
             DO jt = 2, ntiles_total
               DO jc = 1, i_endidx
                 lnd_diag%freshsnow_t(jc,jb,jt) = lnd_diag%freshsnow_t(jc,jb,1)
