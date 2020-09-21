@@ -428,7 +428,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_lonlat"
     INTEGER :: iv, jg, ndom, ierrstat, ivar, i, j, nvars_ll, nblks_lonlat, &
       & ilev_type, max_var, ilev, n_uv_hrz_intp, var_shape(5)
-    LOGICAL                               :: found, l_horintp, lvar_present
+    LOGICAL                               :: l_horintp, lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
     TYPE(t_var_list_ptr),          POINTER    :: p_opt_diag_list
@@ -474,8 +474,7 @@ CONTAINS
     uv_hrz_intp_grid(:) = -1
     uv_hrz_intp_levs(:) = -1
 
-    NML_LOOP : DO
-      IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP
+    NML_LOOP : DO WHILE (ASSOCIATED(p_onl))
 
       ! do the same for the three level types: model levels (ml),
       ! height levels (hl), pressure levels (pl) and isentropic levels (il):
@@ -505,7 +504,7 @@ CONTAINS
         ! - lon-lat interpolation is requested
         IF (p_onl%remap == 1) THEN
 
-          DO ivar=1,max_var
+          ivar_loop: DO ivar=1,max_var
             IF (varlist(ivar) == ' ')             CYCLE
             IF (is_grid_info_var(varlist(ivar)))  CYCLE
             ! check, if have not yet registered this variable:
@@ -529,20 +528,17 @@ CONTAINS
               & (TRIM(ll_varlist(nvars_ll)) == "v")) THEN
               ! check if this lon-lat grid has not yet been
               ! registered (because we may specify "u" AND "v"):
-              found = .FALSE.
               DO j=1,n_uv_hrz_intp
                 IF ((uv_hrz_intp_grid(n_uv_hrz_intp) == p_onl%lonlat_id) .AND. &
                   & (uv_hrz_intp_levs(n_uv_hrz_intp) == ilev_type)) THEN
-                  found = .TRUE.
+                  CYCLE ivar_loop
                 END IF
               END DO
-              IF (.NOT. found) THEN
-                n_uv_hrz_intp = n_uv_hrz_intp + 1
-                uv_hrz_intp_grid(n_uv_hrz_intp) = p_onl%lonlat_id
-                uv_hrz_intp_levs(n_uv_hrz_intp) = ilev_type
-              END IF
+              n_uv_hrz_intp = n_uv_hrz_intp + 1
+              uv_hrz_intp_grid(n_uv_hrz_intp) = p_onl%lonlat_id
+              uv_hrz_intp_levs(n_uv_hrz_intp) = ilev_type
             END IF
-          END DO
+          END DO ivar_loop
 
         END IF
       END DO
@@ -563,7 +559,7 @@ CONTAINS
       IF (dbg_level > 8) &
         CALL message(routine, "horizontal interpolation: "&
         &     //"Looking for input var '"//TRIM(ll_varlist(ivar))//"'")
-      found = .FALSE.
+      vname = ll_varlist(ivar)
       !- loop over model level variables
       ! Note that there may be several variables with different time levels,
       ! we just add unconditionally all
@@ -723,7 +719,6 @@ CONTAINS
           ! Flag. Denotes that at least one interpolation task has
           ! been created.
           l_horintp = .TRUE.
-          found     = .TRUE.
         ENDDO VAR_LOOP ! loop over vlist "i"
       ENDDO LIST_LOOP ! i = 1, SIZE(var_lists)
     END DO ! ivar
