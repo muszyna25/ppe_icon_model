@@ -1399,7 +1399,7 @@ MODULE mo_initicon_io
                   ENDIF
                 END DO
               END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
               ! cleanup
