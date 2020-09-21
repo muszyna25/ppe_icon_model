@@ -2227,12 +2227,7 @@ CONTAINS
       CALL MOVE_ALLOC(tmp, p_of%var_desc)
       ! Nullify pointers in p_of%var_desc
       DO ivar=new_num_vars,new_max_vars
-        NULLIFY(p_of%var_desc(ivar)%r_ptr, p_of%var_desc(ivar)%i_ptr)
-        DO i = 1, max_time_levels
-          NULLIFY(p_of%var_desc(ivar)%tlev_rptr(i)%p, &
-            &     p_of%var_desc(ivar)%tlev_sptr(i)%p, &
-            &     p_of%var_desc(ivar)%tlev_iptr(i)%p)
-        ENDDO
+        CALL nullify_var_desc_ptr(p_of%var_desc(ivar))
       END DO
       p_of%max_vars = new_max_vars
     END IF
