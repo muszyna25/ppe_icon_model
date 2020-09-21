@@ -4335,7 +4335,7 @@ CONTAINS
 
   !-----------------------------------------------------------------------------
   !
-  ! Find named list element accross all knows variable lists
+  ! Find named list element accross all known variable lists
   !
   FUNCTION find_element_from_all (name, opt_patch_id, opt_hgrid, opt_caseInsensitive,opt_returnList) RESULT(element)
     CHARACTER(len=*),   INTENT(in) :: name
