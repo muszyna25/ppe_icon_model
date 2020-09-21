@@ -163,7 +163,7 @@ MODULE mo_initicon_utils
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) &
-        & CALL message(routine, 'Inverse Post_op for: '//TRIM(varname))
+        & CALL message(routine, 'Inverse Post_op for: ' // varname)
       IF (PRESENT(optvar_out2D)) THEN
         CALL perform_post_op(info%post_op, optvar_out2D, opt_inverse=.TRUE.)
       ELSE IF (PRESENT(optvar_out3D)) THEN
