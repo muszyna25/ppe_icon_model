@@ -2389,7 +2389,7 @@ CONTAINS
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(i)
     INTEGER :: num_cblk, n
     LOGICAL :: prev_is_set, current_is_set
-    INTEGER(i8) :: pos, apos, bmask
+    INTEGER(i8) :: apos, bmask
 
     num_cblk = 0
     prev_is_set = .FALSE.
