@@ -1242,8 +1242,7 @@ MODULE mo_initicon_io
                   &  CALL fetch_tracer_fg('tracer_fg_in', params, jg,     &
                   &                        atm_in  = initicon(jg)%atm_in, &
                   &                        nblks_c = p_patch(jg)%nblks_c, &
-                  &                        nlev_in = p_patch(jg)%nlev,    &
-                  &                        nlev    = p_patch(jg)%nlev)
+                  &                        nlev_in = p_patch(jg)%nlev)
 
             ELSE
 
@@ -1340,8 +1339,7 @@ MODULE mo_initicon_io
             CALL fetch_tracer_fg('tracer_fg_in', params, jg,       &
               &                   atm_in  = initicon(jg)%atm_in,   &
               &                   nblks_c = p_patch(jg)%nblks_c,   &
-              &                   nlev_in = SIZE(levelValues,1)-1, &
-              &                   nlev    = p_patch(jg)%nlev)
+              &                   nlev_in = SIZE(levelValues,1)-1)
 
             IF ( atm_phy_nwp_config(jg)%lhave_graupel ) THEN
               CALL fetch3d(params, 'qg', jg, initicon(jg)%atm_in%qg, lfound_qg)
@@ -1654,17 +1652,14 @@ MODULE mo_initicon_io
   !>
   !! Fetch additional tracers in the first guess from the request list
   !! Lopp over all ICON vars and collect info similar to collect_group
-  SUBROUTINE fetch_tracer_fg(grp_name, params, jg, tracer, atm_in, &
-    &                        nblks_c, nlev_in, nlev)
+  SUBROUTINE fetch_tracer_fg(grp_name, params, jg, tracer, atm_in, nblks_c, nlev_in)
     CHARACTER(LEN=*),    INTENT(IN)    :: grp_name
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     INTEGER,             INTENT(IN)    :: jg
 
     REAL(wp), POINTER,   INTENT(INOUT), OPTIONAL :: tracer(:,:,:,:)
     TYPE(t_pi_atm_in),   INTENT(INOUT), OPTIONAL :: atm_in
-    INTEGER,             INTENT(IN), OPTIONAL    :: nblks_c
-    INTEGER,             INTENT(IN), OPTIONAL    :: nlev_in
-    INTEGER,             INTENT(IN), OPTIONAL    :: nlev
+    INTEGER,             INTENT(IN), OPTIONAL    :: nlev_in, nblks_c
 
     ! local variables
     INTEGER                           :: i, grp_id, idx
