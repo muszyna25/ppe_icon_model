@@ -30,7 +30,8 @@ MODULE mo_util_string
   !
   PRIVATE
   !
-  PUBLIC :: tolower              ! Conversion   : 'ABCXYZ' -> 'abcxyz'   
+  PUBLIC :: tolower              ! Conversion   : 'ABCXYZ' -> 'abcxyz'
+  PUBLIC :: lowcase              ! like to tolower, but in place
   PUBLIC :: toupper              ! Conversion   : 'abcxyz' -> 'ABCXYZ'
   PUBLIC :: separator            ! Format string: (/"-----...-----"/)
   PUBLIC :: int2string           ! returns integer n as a string
@@ -148,6 +149,23 @@ CONTAINS
     ENDDO
     !
   END FUNCTION tolower
+  !------------------------------------------------------------------------------------------------
+  !
+  !> convert string to lower case in-place, i.e. destructively
+  !!
+  ELEMENTAL SUBROUTINE lowcase(s)
+    CHARACTER(len=*), INTENT(inout) :: s
+    INTEGER, PARAMETER :: idel = ICHAR('a')-ICHAR('A')
+    INTEGER, PARAMETER :: ia = ICHAR('A')
+    INTEGER, PARAMETER :: iz = ICHAR('Z')
+    INTEGER :: i, ic, n
+    !
+    n = LEN_TRIM(s)
+    DO i = 1, n
+      ic = ICHAR(s(i:i))
+      s(i:i) = CHAR(ic + MERGE(idel, 0, ic >= ia .AND. ic <= iz))
+    ENDDO
+  END SUBROUTINE lowcase
   !------------------------------------------------------------------------------------------------
   !
   ! Conversion: Lowercase -> Uppercase
