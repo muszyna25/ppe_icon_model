@@ -737,16 +737,14 @@ CONTAINS
 
         IF(me%sourceOverride /= kInputSourceUnset) THEN
             resultVar = me%sourceOverride
+        ELSE IF (me%statusAna == kStateRead) THEN
+          resultVar = kInputSourceAna
+        ELSE IF (me%statusFg == kStateRead) THEN
+          resultVar = kInputSourceFg
+        ELSE IF (me%statusFg == kStateFailedOptFetch) THEN
+          resultVar = kInputSourceCold
         ELSE
-            IF(me%statusAna == kStateRead) THEN
-                resultVar = kInputSourceAna
-            ELSE IF(me%statusFg == kStateRead) THEN
-                resultVar = kInputSourceFg
-            ELSE IF(me%statusFg == kStateFailedOptFetch) THEN
-                resultVar = kInputSourceCold
-            ELSE
-                resultVar = kInputSourceNone
-            END IF
+          resultVar = kInputSourceNone
         END IF
     END FUNCTION readInstruction_source
 
