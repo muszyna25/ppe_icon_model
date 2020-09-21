@@ -934,7 +934,7 @@ CONTAINS
             grp_name = varnames_dict%get(grp_name, grp_name)
 
             tlen = len_trim(grp_name)
-            grp_name(tlen+1:tlen+3) ="_t"
+            grp_name(tlen+1:tlen+2) ="_t"
             tlen = tlen + 2
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
