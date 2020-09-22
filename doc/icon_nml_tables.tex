@@ -2982,28 +2982,28 @@ iforcing=3
 %\hline
 celltracks\_interval&
 R(n\_dom)& 3600. & s&
-Interval over which celltrack variables are maximized (lpi\_max, uh\_max, vorw\_ctmax, w\_ctmax, tcond\_max, tcond10\_mx, dbz\_ctmax) &
+Interval over which celltrack variables are maximized (lpi\_max, uh\_max, vorw\_ctmax, w\_ctmax, tcond\_max, tcond10\_max, dbz\_ctmax) &
 iforcing=3
 \tabularnewline
 
 %\hline
 dt\_celltracks&
 R(n\_dom)& 120. & s&
-Frequency at which celltrack variables except lpi (lpi, uh, vorw, w\_ct, tcond, tcond10) are calculated &
+Interval at which celltrack variables except lpi (uh, vorw, w\_ct, tcond, tcond10) are calculated to determine uh\_max, vorw\_ctmax, w\_ctmax, tcond\_max, tcond10\_max and dbz\_ctmax  &
 iforcing=3
 \tabularnewline
 
 %\hline
 dt\_lpi&
 R(n\_dom)& 180. & s&
-Frequency at which lpi is calculated for celltracks &
+Interval at which lpi is calculated for determining lpi\_max &
 iforcing=3
 \tabularnewline
 
 %\hline
 dt\_radar\_dbz&
 R(n\_dom)& 120. & s&
-Frequency at radar reflectivity is calculated for celltracks&
+Interval at which radar reflectivity is calculated for determining dbz\_ctmax &
 iforcing=3
 \tabularnewline
 
@@ -3023,31 +3023,31 @@ iforcing=3
 
 %\hline
 echotop\_meta \\[2\baselineskip]
-contains:\\[\baselineskip]
-echotop\_meta(1:n\_dom)\%time\_interval\\[\baselineskip]
-echotop\_meta(1:n\_dom)\%dbzthresh &
-TYPE(n\_dom) \\[4\baselineskip]
+\squeezeme{The type contains:}\\[\baselineskip]
+\squeezeme{echotop\_meta(1:n\_dom)\%time\_interval}\\[\baselineskip]
+\squeezeme{echotop\_meta(1:n\_dom)\%dbzthresh}   &
+\squeezeme{TYPE(n\_dom)} \\[4\baselineskip]
 R(1)\\[\baselineskip]
-R(max\_echotop)\\[2\baselineskip]
-max\_echotop=10 &
+\squeezeme{R(max\_echotop)}\\[2\baselineskip]
+\squeezeme{max\_echotop=10}                      &
 \,\\[4\baselineskip]
-3600.0\\[2\baselineskip]
-(/18.0,25.0,35.0/)&
+3600.0\\[1\baselineskip]
+\squeezeme{(/18.0,25.0,35.0/)}                   &
 \,\\[4\baselineskip]
 s\\[\baselineskip]
-dBZ
-&
-Derived type to define properties of radar reflectivity echotops for each domain. Two types of echotops are available: minimum pressure ('echotop') and maximum height ('echotopinm') during
-a certain time interval where a given reflectivity threshold is exeeded. Takes effect
-if 'echotop' and/or 'echotopinm' is/are present in the \texttt{ml\_varlist} of any domain-specific namelist \texttt{output\_nml}. \\
-The derived type contains the echotop properties which are given to the left in the first column:\\
-\textbf{time\_interval:} time interval [s] over which echotops are calculated;\\
-\textbf{dbzthresh:} list of reflectivity thresholds [dBZ] for which echotops shall be computed.\\
+dBZ                                              &
+Derived type to define properties of radar reflectivity echotops for each domain.
+Two types of echotops are available: minimum pressure ('echotop') and maximum height ('echotopinm') during
+a given time interval where a given reflectivity threshold is exeeded. Takes effect
+if 'echotop' and/or 'echotopinm' is/are present in the \texttt{ml\_varlist} of any domain-specific namelist \texttt{output\_nml}.\par
+The derived type contains the echotop properties which are listed to the left, along with their defaults and units:\par
+\textbf{time\_interval:} time interval [s] over which echotops are calculated\\
+\textbf{dbzthresh:} list of reflectivity thresholds [dBZ] for which echotops shall be computed\par
 You have to specify properties for each domain separately, e.g.\\
-echotop\_meta(1)\%time\_interval=3600.0,\\
-echotop\_meta(1)\%dbzthresh=19.0,25.0,35.0,46.0\\ 
-echotop\_meta(2)\%time\_interval=1800.0\\
-echotop\_meta(2)\%dbzthresh=27.0,36.0\\ 
+\squeezeme{echotop\_meta(1)\%time\_interval=3600.0}\\
+\squeezeme{echotop\_meta(1)\%dbzthresh=19.0,25.0,35.0,46.0}\\ 
+\squeezeme{echotop\_meta(2)\%time\_interval=1800.0}\\
+\squeezeme{echotop\_meta(2)\%dbzthresh=27.0,36.0}\\ 
 &
 iforcing=3
 \tabularnewline
@@ -6002,7 +6002,23 @@ I & 0& &
 Number of I/O processors (running exclusively for doing I/O)&
 \tabularnewline
 
-%\hline 
+%\hline
+\textbf{num\_io\_procs\_radar}&
+I & 0 & &
+Number of dedicated I/O processors for the efficient radar forward operator EMVORADO.
+Choosing more I/O processors than the total number of simulated radar stations of all domains
+is not advisable, because one station is handled by one I/O processor. However, less
+I/O processors can be chosen, in which case one processor handles several stations.\par
+I/O tasks actually include much more than plain output for each station and
+can be very time consuming. More details can be found in the \textcolor{red}{EMVORADO User's Guide} available from
+the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ Documentation $\rightarrow$ EMVORADO) or from the
+emvorado submodule \verb+./externals/emvorado/DOC/TEX/emvorado_userguide.pdf+.\par
+If \texttt{num\_io\_procs\_radar}=0, a subset of the worker processors (=number of radar stations)
+are doing the I/O tasks, which may slow down the model considerably.
+& luse\_radarfwo(<idom>) =.TRUE., iequations=3,  iforcing=3
+\tabularnewline
+
+% \hline 
 \textbf{num\_restart\_procs} &
 I & 0& &
 Number of restart processors (running exclusively for doing restart)&
@@ -6697,6 +6713,20 @@ If this flag is set to \texttt{.TRUE.} we give only warnings for non-matching UU
 &
 \tabularnewline
 
+\hline
+luse\_radarfwo&
+L(max\_ dom) & .FALSE.& &
+For each domain, switch to activate the efficient volume scan radar forward operator EMVORADO.
+The EMVORADO code is provided as a submodule named \verb+emvorado+, which is part of the ICON distribution.
+ICON itself contains only some ICON specific interface modules.\par
+\verb+./configure+ (respectively the call to a configure wrapper script) needs the option \verb+--enable-emvorado+.\par
+EMVORADO needs its own namelist(s) for each radar-active model domain in a separate
+namelist input file \verb+RADARSIM_PARAMS+. More details can be found in the \textcolor{red}{EMVORADO User's Guide} available from
+the COSMO web page (\mbox{www.cosmo-model.org} $\rightarrow$ Documentation $\rightarrow$ EMVORADO) or from the
+submodule \verb+./externals/emvorado/DOC/TEX/emvorado_userguide.pdf+.
+& iequations=3,  iforcing=3
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_run_nml.f90+
@@ -6935,15 +6965,16 @@ as well as the time step are used to compute "nsteps".
 
 %\hline
 \textbf{lvadv\_tracer}&
-L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
-& &       & & FALSE: do not compute vertical tracer advection &
+L& .TRUE.& & Main switch for vertical tracer transport. \\ 
+             TRUE/FALSE : compute/do not compute vertical tracer advection. \\ 
+             If vertical advection is switched off, the tracer mass fraction $q$ is kept constant. & 
 \tabularnewline
 
 %\hline
 \textbf{ihadv\_tracer}&
 I(ntracer)&
 2& & Tracer specific method to compute horizontal advection:& \tabularnewline
-& & & & 0: no horiz. transport (note that the specific tracer quantity $q$ is kept constant and not tracer mass $\rho q$) & \tabularnewline
+& & & & 0: no horiz.\ transport. The tracer mass fraction $q$ is kept constant. & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: Miura (2nd order, linear reconstr.)&  \tabularnewline
 & & & & 3: Miura3 (quadr. or cubic reconstr.)& lsq\_high\_ord $\in$ [2,3] \tabularnewline
@@ -6963,8 +6994,7 @@ For NWP runs, substepping is generally applied above $z=22\,\mathrm{km}$ (see no
 \textbf{ivadv\_tracer}&
 I(ntracer)&
 3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
-& & & & 0: no vert. transport \\
-           (note that tracer mass $\rho q$ instead of the mass fraction $q$ is kept constant. This differs from the behaviour in horizontal direction!) & \tabularnewline
+& & & & 0: no vert.\ transport. The tracer mass fraction $q$ is kept constant. & \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 2: Parabolic Spline Method (PSM): allows for $\mathrm{CFL}>1$& \tabularnewline
 & & & & 3: Piecewise parabolic method (PPM): allows for $\mathrm{CFL}>1$ & \tabularnewline
@@ -7008,13 +7038,6 @@ I&
 &  & & & 0: no TKE advection & \tabularnewline
 &  & & & 1: vertical advection only & \tabularnewline
 &  & & & 2: vertical and horizontal advection &\tabularnewline
-
-
-%\hline
-lstrang &
-L& .FALSE.& & Time splitting method & \tabularnewline
-& & & & FALSE: first order Godunov splitting & \tabularnewline
-& & & & TRUE: second order Strang splitting & \tabularnewline
 
 %\hline
 tracer\_names&
@@ -9157,11 +9180,8 @@ This affects most local arrays in the dynamical core routines (solve\_nonhydro a
 arrays in the tracer transport routines, the metrics coefficients,
 arrays used for storing tendencies or differenced fields (gradients, divergence etc.), reference atmosphere fields,
 and interpolation coefficients. Prognostic variables and intermediate variables affecting the accuracy of mass conservation
-are still treated in double precision. To activate the mixed-precision option, the cpp flags '-D\_\_MIXED\_PRECISION' and  
-'-D\_\_MIXED\_PRECISION\_2' need to be specified in the configuration settings used for generating the Makefile.
-The latter flag is used for physics tendencies.
-Note that interpolation to a latitude-longitude grid is not supported for single-precision variables; if you desire to output
-physics tendency fields on a regular grid for diagnostic purposes, do not set '-D\_\_MIXED\_PRECISION\_2'.
+are still treated in double precision. To activate the mixed-precision option, run the configure script with the 
+'-\,-enable-mixed-precision' flag.
 
 
 

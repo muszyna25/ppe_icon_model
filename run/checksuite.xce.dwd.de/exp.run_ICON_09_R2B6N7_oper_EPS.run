@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ksh
 #-----------------------------------------------------------------------------
 #PBS -q xc_norm_b
 #PBS -l select=12:ompthreads=4
@@ -15,7 +15,8 @@
 # ----------------------------------------------------------------------
 #
 
-set -x
+#set -x
+set -e
 
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"
@@ -24,7 +25,6 @@ export MPICH_RMA_OVER_DMAPP=1
 export RLIMIT_CORE=0
 export ATP_MAX_CORES=0
 
-module load grib_api
 module load craype-hugepages2M
 
 # ----------------------------------------------------------------------
@@ -165,7 +165,7 @@ cat > ${atmo_namelist} << EOF
  p_test_run      = .false.
  l_test_openmp   = .true.
  l_log_checks    = .true.
- num_io_procs    =  5
+ num_io_procs    =  4
  num_restart_procs = 0
  restart_chunk_size = 10
  itype_comm      =  1
@@ -399,7 +399,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'igfff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss>c'
  stream_partitions_ml = 1
- pe_placement_ml      = 0
+ pe_placement_ml      = 1
  ml_varlist           = 'HHL', 'HSURF', 'FR_LAND', '-grid:VLAT', '-grid:VLON'
  output_grid          = .true.
 /
@@ -497,10 +497,10 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  include_last         = .true.
  output_filename      = 'igfrf'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss><levtype>'
- stream_partitions_ml = 2
- pe_placement_ml      = 3,4
+ stream_partitions_ml = 1
+ pe_placement_ml      = 3
  stream_partitions_pl = 1
- pe_placement_pl      = 0
+ pe_placement_pl      = 2
  ml_varlist           = 'ALB_RAD', 'ALHFL_S', 'APAB_S', 'ASHFL_S', 'ASOB_S',
                         'ASOB_T', 'ASWDIFD_S', 'ASWDIFU_S', 'ASWDIR_S', 'ATHB_S',
                         'ATHB_T', 'AUMFL_S', 'AVMFL_S', 'CAPE_ML', 'CIN_ML',
@@ -543,7 +543,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'igfff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss>vmx'
  stream_partitions_ml = 1
- pe_placement_ml      = 1
+ pe_placement_ml      = 0
  ml_varlist           = 'VMAX_10M',
  output_grid          = .false.
 /
@@ -563,7 +563,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'iefff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss>c'
  stream_partitions_ml = 1
- pe_placement_ml      = 0
+ pe_placement_ml      = 1
  ml_varlist           = 'HHL', 'HSURF', 'FR_LAND', '-grid:VLAT', '-grid:VLON'
  output_grid          = .true.
 /
@@ -610,7 +610,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'iefff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss><levtype>'
  stream_partitions_ml = 1
- pe_placement_ml      = 2
+ pe_placement_ml      = 0
  ml_varlist           = 'QV',        'QC',        'QI',        'QR',        'QS',
                         'U',         'V',         'T',         'P',
                         'T_SO',
@@ -667,15 +667,15 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  filename_format      = '<output_filename><ddhhmmss><levtype>v01'
  stream_partitions_ml = 1
  pe_placement_ml      = 2
- ml_varlist           = 'W',         'TKE',
+ ml_varlist           = 'W_SO',         'T',
                         'ASWDIFD_S','ASWDIR_S', 'CLCT', 'CLCH', 'CLCM', 'CLCL',
                         'PMSL', 'PS',
                         'TOT_PREC', 'RAIN_CON', 'RAIN_GSP',  'SNOW_CON', 'SNOW_GSP',
                         'T_2M',     'TD_2M',    'RELHUM_2M', 'U_10M', 'V_10M',
                         'H_ICE',     'FR_ICE',  'H_SNOW', 'FRESHSNW',
-                        'CAPE_CON', 'TQV', 'TQC', 'TQI'
-                        'TMIN_2M',   'TMAX_2M',
-                        'ASOB_S',    'ASWDIFD_S', 'ASWDIFU_S', 'ASWDIR_S'
+                        'CAPE_CON', 'TQV', 'TQC_DIA', 'TQI_DIA',
+                        'TMIN_2M',   'TMAX_2M', 'T_G', 'ATHB_S',  'ATHB_T',
+                        'ASOB_S',  'ASOB_T',  'ASWDIFD_S', 'ASWDIFU_S', 'ASWDIR_S'
  stream_partitions_pl = 1
  pe_placement_pl      = 2
  pl_varlist           = 'T',         'U',         'V',
@@ -722,7 +722,7 @@ lsynsat=.false. ! .false.,.true., ! requires RTTOV library - left out for this t
  output_filename      = 'iefff'                      ! file name base
  filename_format      = '<output_filename><ddhhmmss>vmx'
  stream_partitions_ml = 1
- pe_placement_ml      = 2
+ pe_placement_ml      = 0
  ml_varlist           = 'VMAX_10M',
  output_grid          = .false.
 /
@@ -811,26 +811,36 @@ EOF3
 # ----------------------------------------------------------------------
 # run the model!
 # ----------------------------------------------------------------------
- aprun  -n 216 -N 18 -j 2 -d 4 -m 3g icon
+aprun  -n 216 -N 18 -j 2 -d 4 -m 3g icon
 
 
 
 # ----------------------------------------------------------------------
-# EPILOGUE: Compare the GRIB2 meta-data to a given reference
+# EPILOGUE: Compare the output to a given reference
+#     "... in every code we have some trouble
+#          But when you worry you make it double ..."
 # ----------------------------------------------------------------------
 
-echo " "
-echo " "
-echo "----------------------------------------------------------"
-echo "EPILOGUE: Compare the GRIB2 meta-data to a given reference"
-echo "----------------------------------------------------------"
-echo " "
+refdir="/lustre2/rwork0/routfor/test/icon/Checksuite_data/ref_data_exp09/e5558d2b"
 
-# note: 
-# - by filtering out "localCreationDate" we omit differences due to the current date
-# - we restrict ourselves to "key=value" lines (doing so we also skip the "values" part)
-# - we also filter differences which originate from constant field data: message length, bitsPerValue
-this_file=igfff00000000MLv01
-grib_dump -OtaH  $this_file.grb | grep  "=" | \
-grep -v -E "localCreationDate|ieeefloat referenceValue|signed binaryScaleFactor|length=|totalLength|bitsPerValue|section7Length|data.packedValues" > $this_file.grib_dump
-diff $this_file.grib_dump $DATAROOT/$this_file.grib_dump.reference
+bash << EOFSCRIPT
+
+set -e
+
+module load eccodes
+ECCODES_DIR=/hpc/rhome/software/eccodes/definitions/release/\$ECCODES_VERSION
+export ECCODES_DEFINITION_PATH="\$ECCODES_DIR/definitions.edzw:\$ECCODES_DIR/definitions"
+
+. "/lustre2/rwork0/routfor/test/icon/Checksuite_data/checksuite_miniconda3/etc/profile.d/conda.sh"
+conda activate pyn_env
+
+for this_file in igfrf02000000ML.grb iefff02000000MLv01.grb
+do
+
+# run Python script for comparison of GRIB2 meta-data and values:
+$ICONDIR/run/checksuite.xce.dwd.de/exp.run_ICON_09_R2B6N7_oper_EPS.check.py \
+--datafile=\$this_file --reffile=$refdir/\$this_file
+
+done
+
+EOFSCRIPT

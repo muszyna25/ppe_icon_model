@@ -366,19 +366,19 @@ function tolerance_check
     EXP=${EXPERIMENT} BUILDER=${REF_BUILDER} MACHINE=${BB_SYSTEM} bash probtest/wrapper/${CONFIG_WRAPPER}
 
     # generate the aggregated "single-column" stats file
-    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file stats.log stats \
+    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file stats-${EXPERIMENT}.log stats \
         --model-output-dir experiments/${EXP_BASE} \
         --stats-file-name ${EXPERIMENT}.csv
     # validate the generated stats against the reference
-    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file check.log check \
+    PROBTEST_CONFIG=${EXPERIMENT}.cfg python probtest/probtest.py --log-file check-${EXPERIMENT}.log check \
         --input-file-cur ${EXPERIMENT}.csv \
         --input-file-ref icon-test-references/${REF_BUILDER}/reference/${EXPERIMENT}.csv \
         --tolerance-file-name icon-test-references/${REF_BUILDER}/tolerance/${EXPERIMENT}.csv
 
     # get the relevant success check
-    fail=$(grep RESULT check.log | grep 'FAIL' | wc -l)
-    crash=$(grep RESULT check.log | grep 'CRASH' | wc -l)
-    finished=$(grep RESULT check.log | wc -l)
+    fail=$(grep RESULT check-${EXPERIMENT}.log | grep 'FAIL' | wc -l)
+    crash=$(grep RESULT check-${EXPERIMENT}.log | grep 'CRASH' | wc -l)
+    finished=$(grep RESULT check-${EXPERIMENT}.log | wc -l)
     if [[ $(($fail+$crash)) -gt 0 || $((finished)) -lt 1 ]] ; then
        echo "testsuite did not complete successfully"
        TOL_STATUS=1

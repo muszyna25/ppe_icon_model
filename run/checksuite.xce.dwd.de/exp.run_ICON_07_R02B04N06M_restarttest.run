@@ -1,9 +1,9 @@
 #! /bin/ksh
 # ----------------------------------------------------------------------------
 #PBS -q xc_norm_h
-#PBS -l select=8:ompthreads=4
+#PBS -l select=4:ompthreads=2
 #PBS -l place=scatter
-#PBS -l walltime=01:00:00
+#PBS -l walltime=00:30:00
 #PBS -j oe
 #PBS -W umask=022
 #PBS -o LOG.exp.run_ICON_07_R02B04N06M_restarttest.run.run.o
@@ -110,15 +110,24 @@ done
 # ============================================================================
 #                        LOOP: MODEL IS EXECUTED TWO TIMES
 # ============================================================================
-for iter in 1 2 ; do
+for iter in 1 2 3 ; do
 
 
 if [ $iter -eq 1 ] ; then
 
 restart="       .FALSE.  "
+nsteps="           100   "
+checkpoint="   4320000.0 "
+nrest_procs="        0   "
+patch_weight=" 0., 0.33, 0., 0.67, 0."
+
+elif [ $iter -eq 2 ] ; then
+
+restart="       .FALSE.  "
 nsteps="            50   "
 checkpoint="     57600.0 "
 nrest_procs="        1   "
+patch_weight=" 0., 0.4, 0., 0.6, 0."
 
 else
 
@@ -126,6 +135,7 @@ restart="        .TRUE.  "
 nsteps="            60   "
 checkpoint="   4320000.0 "
 nrest_procs="        0   "
+patch_weight="       0.  "
 
 fi
 
@@ -225,7 +235,7 @@ cat > NAMELIST_NWP << EOF
  lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
  ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
- patch_weight                =      0., 0.33, 0., 0.67, 0.        ! perform processor splitting
+ patch_weight                =      ${patch_weight}               ! perform processor splitting
 /
 
 ! gridref_nml: grid refinement and nesting -----------------------------------
@@ -297,7 +307,7 @@ cat > NAMELIST_NWP << EOF
  steps_per_file              =                          2         ! number of output steps in one output file
  mode                        =                          1         ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
  include_last                =                      .TRUE.        ! flag whether to include the last time step
- output_filename             =                       'NWP'        ! file name base
+ output_filename             =                "NWP${iter}"        ! file name base
  output_grid                 =                      .TRUE.        ! flag whether grid information is added to output.
  !
  ml_varlist                  =  'u', 'v', 'w', 'temp', 'pres','topography_c', 'pres_msl', 
@@ -354,9 +364,81 @@ EOF
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 3g   : 3G memory/task
 
-aprun  -n 96 -N 12 -j 2 -d 4 icon
+aprun  -n 96 -N 24 -j 2 -d 2 icon
 
 
 # ----------------------------------------------------------------------------
 done # iterations for restart testing
 # ----------------------------------------------------------------------------
+
+
+
+# now start with the tests
+
+# absolute path to cdo
+CDODIR="/e/uhome/dreinert/bin"
+
+# EXP names
+EXP1="reference"
+EXP2="restart"
+
+
+EXIT_STATUS=0
+DIFF_STATUS_RESTART=0
+
+# EXP1 output filenames
+FILE1_DOM01="NWP1_DOM01_ML_0004.nc"
+FILE1_DOM02="NWP1_DOM02_ML_0004.nc"
+# EXP2 output filenames
+FILE2_DOM01="NWP3_DOM01_ML_0004.nc"
+FILE2_DOM02="NWP3_DOM02_ML_0004.nc"
+
+DIFF_FILE_DOM01="NWP_diff_DOM01.out"
+DIFF_FILE_DOM02="NWP_diff_DOM02.out"
+
+
+ echo "=================================================================="
+ echo "Check restart and different patch weights"
+ echo "=> Compare experiments: $EXP1 $EXP2"
+
+ ${CDODIR}/cdo diffn ${FILE1_DOM01} ${FILE2_DOM01} > ${DIFF_FILE_DOM01}
+ ${CDODIR}/cdo diffn ${FILE1_DOM02} ${FILE2_DOM02} > ${DIFF_FILE_DOM02}
+
+ if [ -s ${DIFF_FILE_DOM01} ]; then
+   echo " DOM01: file 1 and file 2 differ"
+   echo " - file 1: ${FILE1_DOM01}"
+   echo " - file 2: ${FILE2_DOM01}"
+   cat ${DIFF_FILE_DOM01}
+   rm  ${DIFF_FILE_DOM01}
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_RESTART=1
+ else
+   echo "DOM01: EXP $EXP1 and EXP $EXP2 are identical"
+ fi
+ if [ -s ${DIFF_FILE_DOM02} ]; then
+   echo " DOM02: file 1 and file 2 differ"
+   echo " - file 1: ${FILE1_DOM02}"
+   echo " - file 2: ${FILE2_DOM02}"
+   cat ${DIFF_FILE_DOM02}
+   rm  ${DIFF_FILE_DOM02}
+   #
+   EXIT_STATUS=$(($EXIT_STATUS + 1))
+   DIFF_STATUS_RESTART=1
+ else
+   echo "DOM02: EXP $EXP1 and EXP $EXP2 are identical"
+ fi
+ if [ $DIFF_STATUS_RESTART == 0 ]; then
+   echo " "
+   echo "Restart test SUCESSFUL"
+   echo " "
+ else
+   echo " "
+   echo "Restart test FAILED:"
+   echo " "
+ fi
+
+echo 'EXIT_STATUS: '$EXIT_STATUS
+exit $EXIT_STATUS
+#
+#-----------------------------------------------------------------------------

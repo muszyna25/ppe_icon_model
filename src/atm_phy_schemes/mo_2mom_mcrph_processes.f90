@@ -1,3 +1,4 @@
+!NEC$ options "-finline-max-depth=3 -finline-max-function-size=2000"
 !===============================================================================!
 !
 ! Two-moment bulk microphysics by Axel Seifert, Klaus Beheng and Uli Blahak
@@ -73,18 +74,18 @@
 ! - Introduce logicals llqi_crit=(qi>q_crit), and llqi_zero = (qi>0.0), etc.
 !   which are calculated once in the driver
 !===============================================================================!
-! Re-write of sedimenation schemes 03/2019 by UB:
+! Re-write of sedimentation schemes 03/2019 by UB:
 ! - Technical re-write of sedi_icon_core() overtaken from COSMO src_twomom_sb.f90:
 !   - sedi_icon_core() vectorized version, in principle reproducible on the CRAY
-!     but only used #ifdef __NECSX__
+!     but only used #if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__)
 !   - scalar version sedi_icon_core() for scalar architectures
 !   - sedi_icon_core_lwf() including liquid water fraction
 ! - New internal switches "lboxtracking=.true.", activating the new explicit
 !   boxtracking sedimentation method from COSMO src_twomom_f90
 !   (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
 !   instead of sedi_icon_core() et al.:
-!   - sedi_icon_box_core() (vectorized version #ifdef __NECSX__)
-!   - sedi_icon_box_core_lwf()
+!   - sedi_icon_box_core() (vectorized version #if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__))
+!   - sedi_icon_box_core_lwf() (vectorized version #if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__))
 !===============================================================================!
 !!
 !! @par Copyright and License
@@ -124,9 +125,10 @@ MODULE mo_2mom_mcrph_processes
        & e_es  => sat_pres_ice       ! saturation pressure over ice
   USE mo_2mom_mcrph_types, ONLY: &
        & particle, particle_frozen, particle_lwf, atmosphere, &
-       & particle_sphere, particle_rain_coeffs, particle_cloud_coeffs, aerosol_ccn, aerosol_in, &
+       & particle_sphere, particle_rain_coeffs, particle_cloud_coeffs, aerosol_ccn, &
        & particle_ice_coeffs, particle_snow_coeffs, particle_graupel_coeffs, &
-       & particle_coeffs, collection_coeffs, rain_riming_coeffs, dep_imm_coeffs
+       & particle_coeffs, collection_coeffs, rain_riming_coeffs, dep_imm_coeffs, &
+       & lookupt_4D
   USE mo_2mom_mcrph_util, ONLY: &
        & gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
        & rat2do3,                    &  ! rational function for lwf-melting scheme
@@ -136,11 +138,12 @@ MODULE mo_2mom_mcrph_processes
        & lh_evap_RH87,               &  ! used in lwf melting scheme
        & lh_melt_RH87,               &  ! used in lwf melting scheme
        & gamlookuptable,             &  ! For look-up table of incomplete Gamma function
-       & nlookup, nlookuphr_dummy,   &  !   array size of table
        & incgfct_lower_lookup,       &  !   interpolation in table, lower incomplete Gamma function
        & incgfct_upper_lookup,       &  !   interpolation in talbe, upper incomplete Gamma function
        & dmin_wg_gr_ltab_equi,       &  ! For look-up table of wet growth diameter
-       & ltabdminwgg
+       & dmin_wetgrowth_fun,         &  ! For 4d functional fit of wet growth diameter
+       & ltabdminwgg,                &
+       & luse_dmin_wetgrowth_table
 
   IMPLICIT NONE
 
@@ -154,7 +157,7 @@ MODULE mo_2mom_mcrph_processes
   ! Physical parameters and coefficients which occur only in the two-moment scheme
 
   ! ... some physical parameters not found in ICON
-  REAL(wp), PARAMETER :: T_f     = 233.0_wp     !..Bei T < T_f kein Fl.wasser
+  REAL(wp), PARAMETER :: T_f     = 233.0_wp     !..below this temperature there is no liquid water
 
   ! .. some cloud physics parameters
   REAL(wp), PARAMETER :: N_sc = 0.710_wp        !..Schmidt-Zahl (PK, S.541)
@@ -179,10 +182,10 @@ MODULE mo_2mom_mcrph_processes
 
   ! .. Phillips et al. ice nucleation scheme, see ice_nucleation_homhet() for more details
   REAL(wp) ::                         &
-       &    na_dust    = 162.e3_wp,   & ! initial number density of dust [1/m³], Phillips08 value 162e3
-       &    na_soot    =  15.e6_wp,   & ! initial number density of soot [1/m³], Phillips08 value 15e6
-       &    na_orga    = 177.e6_wp,   & ! initial number density of organics [1/m3], Phillips08 value 177e6
-       &    ni_het_max = 500.0e3_wp,  & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3
+       &    na_dust    = 160.e4_wp,   & ! initial number density of dust [1/m], Phillips08 value 162e3 (never used, reset later)
+       &    na_soot    =  25.e6_wp,   & ! initial number density of soot [1/m], Phillips08 value 15e6 (never used, reset later)
+       &    na_orga    =  30.e6_wp,   & ! initial number density of organics [1/m3], Phillips08 value 177e6 (never used, reset later)
+       &    ni_het_max = 100.0e3_wp,  & ! max number of IN between 1-10 per liter, i.e. 1d3-10d3
        &    ni_hom_max = 5000.0e3_wp    ! number of liquid aerosols between 100-5000 per liter
 
   INTEGER, PARAMETER ::               & ! Look-up table for Phillips et al. nucleation
@@ -198,8 +201,8 @@ MODULE mo_2mom_mcrph_processes
 
   INCLUDE 'phillips_nucleation_2010.incf'
 
-  ! .. LWF melting scheme
-  REAL(wp) ::  &            ! .. Coefficients for rational approximation functions
+  ! .. LWF melting scheme: coefficients for rational approximation functions
+  REAL(wp) ::  &           
        &      adstarh(10), bdstarh(9), amelth(10), bmelth(9), aviwch(10), bviwch(9),  &
        &      avlwch(10),  bvlwch(9),  avnumh(10), bvnumh(9), convqh(4),  convnh(4),  &   
        &      adstarg(10), bdstarg(9), ameltg(10), bmeltg(9), aviwcg(10), bviwcg(9),  &
@@ -208,6 +211,9 @@ MODULE mo_2mom_mcrph_processes
   !..Include file with coefficients for lwf melting scheme
   INCLUDE 'hailcoeffs.incf'
   INCLUDE 'grplcoeffs.incf'
+
+  !..Tables for 4D Segal-Khain activation
+  TYPE(lookupt_4D) :: otab, tab
 
   ! Size thresholds for partioning of freezing rain in the hail scheme:
   ! Raindrops smaller than D_rainfrz_ig freeze into cloud ice,
@@ -233,7 +239,8 @@ MODULE mo_2mom_mcrph_processes
        &    D_crit_r  = 100.0e-6_wp, & ! D-threshold for ice_rain_riming and snow_rain_riming
        &    q_crit_fr = 1.000e-6_wp, & ! q-threshold for rain_freeze
        &    q_crit_c  = 1.000e-6_wp, & ! q-threshold for cloud water
-       &    q_crit    = 1.000e-7_wp, & ! q-threshold elsewhere 1e-4 g/m3 = 0.1 mg/m3
+!!!       &    q_crit    = 1.000e-7_wp, & ! q-threshold elsewhere 1e-7 kg/m3 = 1e-4 g/m3 = 0.1 mg/m3
+       &    q_crit    = 1.000e-9_wp, & ! q-threshold elsewhere 1e-7 kg/m3 = 1e-4 g/m3 = 0.1 mg/m3
        &    D_conv_sg = 200.0e-6_wp, & ! D-threshold for conversion of snow to graupel
        &    D_conv_ig = 200.0e-6_wp, & ! D-threshold for conversion of ice to graupel
        &    x_conv    = 0.100e-9_wp, & ! minimum mass of conversion due to riming
@@ -244,11 +251,9 @@ MODULE mo_2mom_mcrph_processes
        &    T_nuc     = 268.15_wp, & ! lower temperature threshold for ice nucleation, -5 C
        &    T_freeze  = 273.15_wp    ! lower temperature threshold for raindrop freezing
 
-  ! choice of mu-D relation for rain, default is mu_Dm_rain_typ = 1
-  INTEGER, PARAMETER     :: mu_Dm_rain_typ = 1     ! see init_twomoment() for possible choices
 
   ! Parameter for evaporation of rain, determines change of n_rain during evaporation
-  REAL(wp) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
+  REAL(wp) :: rain_gfak   ! this is set in init_twomoment
 
   ! debug switches
   LOGICAL, PARAMETER     :: isdebug = .false.   ! use only when really desperate
@@ -269,8 +274,9 @@ MODULE mo_2mom_mcrph_processes
   ! Functions
   PUBLIC :: particle_meanmass
   PUBLIC :: particle_assign, particle_frozen_assign, particle_lwf_assign
+  PUBLIC :: rain_mue_dm_relation
   ! Process Routines
-  PUBLIC :: sedi_vel_rain, sedi_vel_sphere, init_2mom_sedi_vel
+  PUBLIC :: sedi_vel_rain, sedi_vel_sphere, sedi_vel_lwf, init_2mom_sedi_vel
   PUBLIC :: autoconversionSB, accretionSB, rain_selfcollectionSB
   PUBLIC :: autoconversionKB, accretionKB
   PUBLIC :: autoconversionKK, accretionKK
@@ -290,10 +296,9 @@ MODULE mo_2mom_mcrph_processes
   PUBLIC :: particle_cloud_riming, particle_rain_riming
   PUBLIC :: graupel_hail_conv_wet_gamlook
   PUBLIC :: ice_riming, snow_riming
-  PUBLIC :: ccn_activation_sk, ccn_activation_hdcp2
+  PUBLIC :: ccn_activation_sk, ccn_activation_hdcp2, ccn_activation_sk_4d
   PUBLIC :: sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf
   PUBLIC :: moment_gamma
-  PUBLIC :: rho_ice
 
 CONTAINS
   
@@ -304,7 +309,7 @@ CONTAINS
   !*******************************************************************************
 
   subroutine particle_assign(that,this)
-    TYPE(particle), INTENT(in)    :: this
+    CLASS(particle), INTENT(in)   :: this
     TYPE(particle), INTENT(inout) :: that
 
     that%name = this%name    
@@ -404,7 +409,7 @@ CONTAINS
     real(wp), intent(in) :: D_m
     real(wp)             :: dnorm
 
-    dnorm = min(max((log10(D_m*this%lwf_cnorm1)+this%lwf_cnorm2)*this%lwf_cnorm3,0._wp),1._wp)
+    dnorm = min(max((log10(D_m*this%lwf_cnorm1)+this%lwf_cnorm2)*this%lwf_cnorm3,0.0_wp),1.0_wp)
     return
   end function particle_normdiameter
 
@@ -415,7 +420,7 @@ CONTAINS
     real(wp)                    :: lwf
     real(wp), parameter         :: eps = 1e-20_wp
 
-    lwf = max(min(this%l(i,j)/(this%q(i,j)+eps),1._wp),0._wp)
+    lwf = max(min(this%l(i,j)/(this%q(i,j)+eps),1.0_wp),0.0_wp)
     return
   end function particle_lwf_idx
 
@@ -443,7 +448,7 @@ CONTAINS
   END FUNCTION rain_mue_dm_relation
 
   !*******************************************************************************
-  ! (2) More functions working on particle class, these are not CLASS procedures)
+  ! (2) More functions working on particle class, these are not CLASS procedures
   !*******************************************************************************
 
   ! bulk ventilation coefficient, Eq. (88) of SB2006
@@ -658,6 +663,62 @@ CONTAINS
     end do
   end subroutine sedi_vel_sphere
 
+  ! bulk sedimentation velocities
+  subroutine sedi_vel_lwf(this,thisCoeffs,q,ql,x,vn,vq,vl,its,ite)
+    TYPE(particle_lwf), intent(in)     :: this
+    CLASS(particle_sphere), intent(in) :: thisCoeffs
+    integer,  intent(in)  :: its,ite
+    real(wp), intent(in)  :: q(:),x(:),ql(:)
+    real(wp), intent(out) :: vn(:),vq(:),vl(:)
+
+    REAL(wp), DIMENSION(10) :: avq, avl, avn
+    REAL(wp), DIMENSION(9)  :: bvq, bvl, bvn
+    REAL(wp), PARAMETER     :: eps = 1e-20_wp
+
+    integer  :: i
+    real(wp) :: lam,v_n,v_q,v_l,D_p,D_n,lwf
+
+    if (this%name .eq. 'hail_vivek') then
+      avq = aviwch
+      bvq = bviwch
+      avl = avlwch
+      bvl = bvlwch
+      avn = avnumh
+      bvn = bvnumh
+    elseif (this%name .eq. 'graupel_vivek') then
+      avq = aviwcg
+      bvq = bviwcg
+      avl = avlwcg
+      bvl = bvlwcg
+      avn = avnumg
+      bvn = bvnumg
+    end if
+
+    do i=its,ite
+      if (q(i).gt.q_crit) then
+        lwf = ql(i)/(q(i)+eps)
+        D_p = particle_diameter(this,x(i))
+        D_n = particle_normdiameter(this,D_p)
+        v_n = rat2do3(D_n,lwf,avn,bvn)
+        v_q = rat2do3(D_n,lwf,avq,bvq)
+        v_l = rat2do3(D_n,lwf,avl,bvl)
+        v_n = MAX(v_n,this%vsedi_min)
+        v_q = MAX(v_q,this%vsedi_min)
+        v_l = MAX(v_l,this%vsedi_min)
+        v_n = MIN(v_n,this%vsedi_max)
+        v_q = MIN(v_q,this%vsedi_max)
+        v_l = MIN(v_l,this%vsedi_max)
+        vn(i) = v_n
+        vq(i) = v_q
+        vl(i) = v_l
+      else
+        vn(i) = 0.0_wp
+        vq(i) = 0.0_wp
+      end if
+    end do
+     
+  end subroutine sedi_vel_lwf
+
   ! initialize coefficients for bulk sedimentation velocity
   subroutine init_2mom_sedi_vel(this,thisCoeffs)
     CLASS(particle), INTENT(in) :: this
@@ -738,10 +799,9 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    TYPE(particle_cloud_coeffs), INTENT(in) :: cloud_coeffs
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
+    TYPE(particle_cloud_coeffs), INTENT(in) :: cloud_coeffs
     CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
@@ -798,8 +858,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     CLASS(particle), INTENT(inout)  :: cloud, rain
     ! start and end indices for 2D slices
@@ -851,8 +910,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     CLASS(particle) , INTENT(inout) :: rain
     ! start and end indices for 2D slices
@@ -901,8 +959,7 @@ CONTAINS
   SUBROUTINE autoconversionKB(ik_slice, dt, cloud, rain)
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
@@ -947,8 +1004,7 @@ CONTAINS
   SUBROUTINE accretionKB(ik_slice, dt, cloud, rain)
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     CLASS(particle), INTENT(inout)   :: cloud, rain
 
@@ -989,8 +1045,7 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
@@ -1033,8 +1088,7 @@ CONTAINS
   SUBROUTINE accretionKK(ik_slice, dt, cloud, rain)
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
@@ -1075,13 +1129,11 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    
-    REAL(wp), INTENT(in) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
-    TYPE(particle_rain_coeffs), INTENT(in) :: rain_coeffs
-
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
+    
+    REAL(wp), INTENT(in) :: rain_gfak   ! this is set in init_twomoment
+    TYPE(particle_rain_coeffs), INTENT(in) :: rain_coeffs
 
     ! 2mom variables
     TYPE(atmosphere), INTENT(inout) :: atmo
@@ -1192,8 +1244,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     TYPE(atmosphere), INTENT(inout) :: atmo
     CLASS(particle), INTENT(inout) :: prtcl
@@ -1254,8 +1305,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     REAL(wp), INTENT(in) :: qnc_const
     TYPE(particle_cloud_coeffs), INTENT(in) :: cloud_coeffs
@@ -1265,6 +1315,8 @@ CONTAINS
     INTEGER :: istart, iend, kstart, kend
     INTEGER            :: i, k
     REAL(wp)           :: fr_q,fr_n,T_a,q_c,x_c,n_c,j_hom,T_c
+
+    REAL(wp), PARAMETER :: log_10 = LOG(10.0_wp)
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -1290,11 +1342,13 @@ CONTAINS
                    !..Hom. freezing based on Jeffrey und Austin (1997), see also Cotton und Field (2001)
                    !  (note that log in Cotton and Field is log10, not ln)
                    IF (T_c > -30.0_wp) THEN
-                      j_hom = 1.0e6_wp/rho_w &
-                           &  * 10**(-7.63-2.996*(T_c+30.0))           !..J in 1/(kg s)
+!                      j_hom = 1.0e6_wp/rho_w * 10**(-7.63-2.996*(T_c+30.0))           !..J in 1/(kg s)
+                      j_hom = 1.0e6_wp/rho_w * EXP((-7.63_wp-2.996_wp*(T_c+30.0_wp))*log_10)
                    ELSE
+!                      j_hom = 1.0e6_wp/rho_w &
+!                           &  * 10**(-243.4-14.75*T_c-0.307*T_c**2-0.00287*T_c**3-0.0000102*T_c**4)
                       j_hom = 1.0e6_wp/rho_w &
-                           &  * 10**(-243.4-14.75*T_c-0.307*T_c**2-0.00287*T_c**3-0.0000102*T_c**4)
+                           &  * EXP((-243.4_wp-14.75_wp*T_c-0.307_wp*T_c**2-0.00287_wp*T_c**3-0.0000102_wp*T_c**4)*log_10)
                    ENDIF
 
                    fr_n  = j_hom * q_c *  dt
@@ -1486,7 +1540,6 @@ CONTAINS
            use_prog_in, n_inact, ndiag_mask, nuc_n_a, n_inpot)
     END IF
 
-
     IF (use_prog_in) THEN
       DO k = kstart, kend
         DO i = istart, iend
@@ -1514,7 +1567,8 @@ CONTAINS
             n_i = ice%n(i,k)
             q_i = ice%q(i,k)
             x_i = particle_meanmass(ice, q_i,n_i)
-            r_i = (x_i/(4./3.*pi*rho_ice))**(1./3.)
+!            r_i = (x_i/(4./3.*pi*rho_ice))**(1./3.)
+            r_i = EXP( (1./3.)*LOG(x_i/(4./3.*pi*rho_ice)) )
 
             v_th  = SQRT( 8.*k_b*T_a/(pi*ma_w) )
             flux  = alpha_d * v_th/4.
@@ -1580,7 +1634,7 @@ CONTAINS
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(atmosphere), INTENT(inout) :: atmo
-    CLASS(particle), INTENT(inout) :: ice, cloud
+    CLASS(particle), INTENT(in) :: ice, cloud
     LOGICAL, INTENT(in) :: use_prog_in
     REAL(wp), INTENT(inout), DIMENSION(:,:) :: n_inact
     REAL(wp), INTENT(out) :: &
@@ -1666,17 +1720,16 @@ CONTAINS
                  &      + (xt - AINT(xt)) * (xs - ssr) &
                  &        * afrac_orga(tt+1, ss+1)
           END IF
-
-          ! only for Phillips scheme we have to sum up the three modes
-          ndiag = infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
+          
+          ! sum up the three modes
           IF (use_prog_in) THEN
-            ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
-            ndiag  = n_inpot(i,k) * ndiag
+            ! n_inpot replaces na_dust, na_soot and na_orga are assumed to be constant
+            ndiag  = n_inpot(i,k) * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
             ndiag_dust = n_inpot(i,k) * infrac(1)
             ndiag_all = ndiag
           ELSE
             ! all aerosol species are diagnostic
-            ndiag = na_dust * ndiag
+            ndiag = na_dust * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
           END IF
           ndiag = MIN(ndiag,ni_het_max)
 
@@ -1990,8 +2043,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in)  :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     ! coefficients and tables
     TYPE(gamlookuptable), INTENT(in) :: rain_ltable1, rain_ltable2, rain_ltable3
@@ -2006,7 +2058,8 @@ CONTAINS
     INTEGER             :: i,k
     REAL(wp)            :: fr_q,fr_n,T_a,q_r,x_r,n_r,j_het,               &
          &                 fr_q_i,fr_n_i,fr_q_g,fr_n_g,fr_q_h,fr_n_h,n_0, &
-         &                 lam,xmax_ice,xmax_gr,fr_q_tmp,fr_n_tmp
+         &                 lam,xmax_ice,xmax_gr,fr_q_tmp,fr_n_tmp,        &
+         &                 lam_rnm1, lam_rnm2, lam_rnm3
 
     REAL(wp), PARAMETER :: a_HET = 6.5d-1      ! Data of Barklie and Gokhale (PK S.350)
     REAL(wp), PARAMETER :: b_HET = 2.0d+2      !         Barklie and Gokhale (PK S.350)
@@ -2024,6 +2077,7 @@ CONTAINS
     kend   = ik_slice(4)
 
     DO k = kstart,kend
+!NEC$ ivdep
        DO i = istart,iend
 
           T_a = atmo%T(i,k)
@@ -2059,12 +2113,14 @@ CONTAINS
                    ! oder dem Graupel oder Hagel. Hierzu erfolgt eine partielle Integration des Spektrums von 0
                    ! bis zu einer ersten Trennmasse xmax_ice (--> Eis), von dort bis zu xmax_gr (--> Graupel)
                    ! und von xmax_gr bis unendlich (--> Hagel).
-                   lam = exp( log( rain_g1/rain_g2*x_r) * (-rain%mu) )
-                   n_0 = rain%mu * n_r * lam**(rain_nm1) / rain_g1
-                   fr_n_i = n_0/(rain%mu*lam**(rain_nm1)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable1)
-                   fr_q_i = n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable2)
-                   fr_n_g = n_0/(rain%mu*lam**(rain_nm1)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable1)
-                   fr_q_g = n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable2)
+                   lam = EXP( LOG( rain_g1/rain_g2*x_r ) * (-rain%mu) )
+                   lam_rnm1 = EXP(rain_nm1*LOG(lam))  ! lam**rain_nm1
+                   lam_rnm2 = EXP(rain_nm2*LOG(lam))  ! lam**rain_nm2
+                   n_0 = rain%mu * n_r * lam_rnm1 / rain_g1
+                   fr_n_i = n_0/(rain%mu*lam_rnm1) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable1)
+                   fr_q_i = n_0/(rain%mu*lam_rnm2) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable2)
+                   fr_n_g = n_0/(rain%mu*lam_rnm1) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable1)
+                   fr_q_g = n_0/(rain%mu*lam_rnm2) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable2)
 
                    fr_n_h = fr_n - fr_n_g
                    fr_q_h = fr_q - fr_q_g
@@ -2085,12 +2141,16 @@ CONTAINS
                       fr_n  = j_het * q_r
                       fr_q  = j_het * q_r * x_r * rain_coeffs%c_z
 
-                      lam = ( rain_g1 / rain_g2 * x_r)**(-rain%mu)
-                      n_0 = rain%mu * n_r * lam**(rain_nm1) / rain_g1
-                      fr_n_i = j_het * n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable2)
-                      fr_q_i = j_het * n_0/(rain%mu*lam**(rain_nm3)) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable3)
-                      fr_n_g = j_het * n_0/(rain%mu*lam**(rain_nm2)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable2)
-                      fr_q_g = j_het * n_0/(rain%mu*lam**(rain_nm3)) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable3)
+!                      lam = ( rain_g1 / rain_g2 * x_r)**(-rain%mu)
+                      lam = EXP( LOG( rain_g1/rain_g2*x_r ) * (-rain%mu) )
+                      lam_rnm1 = EXP(rain_nm1*LOG(lam))  ! lam**rain_nm1
+                      lam_rnm2 = EXP(rain_nm2*LOG(lam))  ! lam**rain_nm2
+                      lam_rnm3 = EXP(rain_nm3*LOG(lam))  ! lam**rain_nm3
+                      n_0 = rain%mu * n_r * lam_rnm1 / rain_g1
+                      fr_n_i = j_het * n_0/(rain%mu*lam_rnm2) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable2)
+                      fr_q_i = j_het * n_0/(rain%mu*lam_rnm3) * incgfct_lower_lookup(lam*xmax_ice,rain_ltable3)
+                      fr_n_g = j_het * n_0/(rain%mu*lam_rnm2) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable2)
+                      fr_q_g = j_het * n_0/(rain%mu*lam_rnm3) * incgfct_lower_lookup(lam*xmax_gr, rain_ltable3)
 
                       fr_n_h = fr_n - fr_n_g
                       fr_q_h = fr_q - fr_q_g
@@ -2130,10 +2190,11 @@ CONTAINS
              !end if
 
              ! mit Hagelklasse, gefrierender Regen wird Eis, Graupel oder Hagel
-             snow%q(i,k) = snow%q(i,k)  + fr_q_i
-             snow%n(i,k) = snow%n(i,k)  + fr_n_i   ! put this into snow
-             !ice%q(i,k) = ice%q(i,k)  + fr_q_i    ! ... or into ice?
-             !ice%n(i,k) = ice%n(i,k)  + fr_n_i
+!!$ UB            snow%q(i,k) = snow%q(i,k)  + fr_q_i
+!!$ UB            snow%n(i,k) = snow%n(i,k)  + fr_n_i   ! put this into snow
+             ice%q(i,k) = ice%q(i,k)  + fr_q_i    ! ... or into ice? --> UB: original idea was to put it into ice
+             ice%n(i,k) = ice%n(i,k)  + fr_n_i
+
              graupel%q(i,k) = graupel%q(i,k)  + fr_q_g
              graupel%n(i,k) = graupel%n(i,k)  + fr_n_g
              hail%q(i,k) = hail%q(i,k)  + fr_q_h
@@ -2253,14 +2314,12 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
+    INTEGER,  INTENT(in) :: ik_slice(4)
+    REAL(wp), INTENT(in) :: dt    
     TYPE(particle_ice_coeffs), INTENT(in) :: ice_coeffs
 
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-
     ! 2mom variables
-    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(atmosphere),       INTENT(inout) :: atmo
     CLASS(particle_frozen), INTENT(inout) :: ice, snow
 
     ! start and end indices for 2D slices
@@ -2301,10 +2360,10 @@ CONTAINS
              v_i = ice%a_vel * x_i**ice%b_vel * ice%rho_v(i,k)
 
              self_n = pi4 * e_coll * ice_coeffs%sc_delta_n * n_i * n_i * D_i * D_i &
-                  & * sqrt( ice_coeffs%sc_theta_n * v_i * v_i + 2.0*ice%s_vel**2 ) * dt
+                  & * SQRT( ice_coeffs%sc_theta_n * v_i * v_i + 2.0*ice%s_vel**2 ) * dt
 
              self_q = pi4 * e_coll * ice_coeffs%sc_delta_q * n_i * q_i * D_i * D_i &
-                  & * sqrt( ice_coeffs%sc_theta_q * v_i * v_i + 2.0*ice%s_vel**2 ) * dt
+                  & * SQRT( ice_coeffs%sc_theta_q * v_i * v_i + 2.0*ice%s_vel**2 ) * dt
 
              self_q = MIN(self_q,q_i)
              self_n = MIN(MIN(self_n,self_q/x_conv_ii),n_i)
@@ -2361,9 +2420,7 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     
     TYPE(particle_snow_coeffs), INTENT(in) :: snow_coeffs
@@ -2420,9 +2477,8 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in)  :: dt
+    INTEGER,  INTENT(in) :: ik_slice(4)
+    REAL(wp), INTENT(in) :: dt
     CLASS(particle_sphere), INTENT(in) :: snow_coeffs
     TYPE(atmosphere), INTENT(inout) :: atmo
     CLASS(particle), INTENT(inout) :: rain, snow
@@ -2503,9 +2559,7 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
 
     ! 2mom variables and coefficients
@@ -2663,9 +2717,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     TYPE(particle_graupel_coeffs), INTENT(in) :: graupel_coeffs
     TYPE(atmosphere), INTENT(inout)           :: atmo
@@ -2768,9 +2820,7 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
 
     TYPE(collection_coeffs), INTENT(in)   :: coeffs
@@ -2851,6 +2901,7 @@ CONTAINS
             mult_n = C_mult * mult_1 * mult_2 * rime_q
             mult_q = mult_n * ice%x_min
             mult_q = MIN(rime_q,mult_q)
+            mult_n = mult_q / ice%x_min
 
             ice%n(i,k)   = ice%n(i,k)   + mult_n
             ice%q(i,k)   = ice%q(i,k)   + mult_q
@@ -2883,8 +2934,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     TYPE(collection_coeffs), INTENT(in) :: coeffs
     TYPE(atmosphere), INTENT(inout) :: atmo
@@ -2985,8 +3035,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     CLASS(particle_sphere), INTENT(in) :: graupel_coeffs
     TYPE(atmosphere), INTENT(inout)    :: atmo
@@ -3072,8 +3121,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     TYPE(particle_sphere), INTENT(in) :: hail_coeffs
     TYPE(atmosphere), INTENT(inout)   :: atmo
@@ -3145,9 +3193,7 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
 
     ! 2mom variables
@@ -3198,6 +3244,8 @@ CONTAINS
       cnvn = convng
       D_lim = 1.e-2_wp
       lwf_lim = 0.6_wp
+    else
+      CALL finish(TRIM(routine),'Error unknown particle name in LWF melting')
     end if
 
     cmlt1 = ptype%lwf_cmelt1
@@ -3236,7 +3284,10 @@ CONTAINS
           D_star = 1.e-2_wp * rat2do3(D_n,lwf,adst,bdst)  ! 1e-2 for conversion from cm to m
 
           melt = rat2do3(D_n,lwf,amlt,bmlt)
-          qmlt = gta(i,k) * melt * cmlt1 * exp( cmlt2*log(qliq+qice) )
+          !! UB: exp(log()) crashes for very small values of qice!
+          !! Either include a "security-eps" or revert to original power-function 
+          !! qmlt = gta(i,k) * melt * cmlt1 * exp( cmlt2*log(qliq+qice) )
+          qmlt = gta(i,k) * melt * cmlt1 * (qliq+qice)**cmlt2
           qmlt = max( min(qmlt,max_qmlt), 0.0_wp)
 
           if (qmlt.eq.max_qmlt) then
@@ -3333,9 +3384,7 @@ CONTAINS
         delta_T = T_a - T_3
         delta_q = rh_a * e_sw/T_a - e_ws_T3_o_T3
 
-        IF (delta_q < 0.0_wp) THEN
-          delta_q = 0.0_wp
-        END IF
+        IF (delta_q < 0.0_wp) delta_q = 0.0_wp
         
         IF  (delta_T > 0.0_wp .OR. delta_q > 0.0_wp) THEN
 
@@ -3345,13 +3394,13 @@ CONTAINS
           Le  = lh_evap_RH87(T_a)         !..latent heat of evaporation
           Lm  = lh_melt_RH87(T_a)         !..latent heat of melting
 
-          nu = eta/rho_a                 !..kinematic viscosity   
-          Sc = (nu/Dv)**(1._wp/3._wp)    !..Schmidt number
-          kt = ka / (rho_a*cp)           !..diffusivity of air    
-          Pr = (nu/kt)**(1._wp/3._wp)    !..Prandtl number    
+          nu  = eta/rho_a                 !..kinematic viscosity   
+          Sc  = (nu/Dv)**(1._wp/3._wp)    !..Schmidt number
+          kt  = ka / (rho_a*cp)           !..diffusivity of air    
+          Pr  = (nu/kt)**(1._wp/3._wp)    !..Prandtl number    
 
           !.thermodynamic, i.e. environmental, function for melting
-          gta(i,k) = 2._wp*pi/Lm * ( Pr*ka*delta_T + Sc*Le*Dv*delta_q/R_d )
+          gta(i,k) = 2.0_wp*pi/Lm * ( Pr*ka*delta_T + Sc*Le*Dv*delta_q/R_d )
 
         ELSE
           gta(i,k) = 0.0_wp
@@ -3402,6 +3451,7 @@ CONTAINS
     kend   = ik_slice(4)
 
     DO k = kstart,kend
+!NEC$ ivdep
        DO i = istart,iend
 
           q_c = cloud%q(i,k)
@@ -3424,7 +3474,12 @@ CONTAINS
             !.. Umgebungsgehalt Eispartikel (vernachl. werden Graupel und Hagel wg. geringer Kollisionseff.)
             !.. koennte problematisch sein, weil in konvekt. Wolken viel mehr Graupel und Hagel enthalten ist!!!
             qi_a = ice%q(i,k) + snow%q(i,k)
-            d_trenn = dmin_wg_gr_ltab_equi(p_a,T_a,qw_a,qi_a,ltabdminwgg)
+
+            if (luse_dmin_wetgrowth_table) then
+              d_trenn = dmin_wg_gr_ltab_equi(p_a,T_a,qw_a,qi_a,ltabdminwgg)
+            else
+              d_trenn = dmin_wetgrowth_fun(p_a,T_a,qw_a,qi_a)
+            end if
 
             IF (d_trenn > 0.0_wp .AND. d_trenn < 10.0_wp * D_g) THEN
 
@@ -3465,8 +3520,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     ! parameters
     TYPE(collection_coeffs), INTENT(in)  :: icr_coeffs
@@ -3517,9 +3571,7 @@ CONTAINS
           IF (dep_rate_ice(i,k) > 0.0_wp &
                & .and. dep_rate_ice(i,k) .ge. rime_rate_qc(i,k)+rime_rate_qr(i,k)) THEN
 
-            !
             ! 1) Depositional growth is stronger than riming growth, therefore ice stays ice
-            !
 
             !.. ice_cloud_riming
 
@@ -3572,10 +3624,8 @@ CONTAINS
 
          ELSE
 
-            !
             !.. 2) Depositional growth negative or smaller than riming growth, therefore ice is
             !      allowed to convert to graupel and / or hail
-            !
 
             !.. ice_cloud_riming
             IF (rime_rate_qc(i,k) > 0.0_wp) THEN
@@ -3688,8 +3738,7 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
+    INTEGER,  INTENT(in) :: ik_slice(4)
     REAL(wp), INTENT(in) :: dt
     ! parameters
     TYPE(collection_coeffs), INTENT(in) :: scr_coeffs  ! snow cloud riming
@@ -3737,9 +3786,7 @@ CONTAINS
           IF (dep_rate_snow(i,k) > 0.0_wp &
                & .AND. dep_rate_snow(i,k) .ge. rime_rate_qc(i,k) + rime_rate_qr(i,k)) THEN
 
-            !
             ! 1) Depositional growth is stronger than riming growth, therefore snow stays snow:
-            !
 
             !.. time integration of snow_cloud_riming
 
@@ -3764,6 +3811,7 @@ CONTAINS
                 mult_n = C_mult * mult_1 * mult_2 * rime_q
                 mult_q = mult_n * ice%x_min
                 mult_q = MIN(rime_q,mult_q)
+                mult_n = mult_q / ice%x_min
 
                 ice%n(i,k)  = ice%n(i,k)  + mult_n
                 ice%q(i,k)  = ice%q(i,k)  + mult_q
@@ -3795,6 +3843,7 @@ CONTAINS
                 mult_n = C_mult * mult_1 * mult_2 * rime_q
                 mult_q = mult_n * ice%x_min
                 mult_q = MIN(rime_q,mult_q)
+                mult_n = mult_q / ice%x_min
 
                 ice%n(i,k)  = ice%n(i,k)  + mult_n
                 ice%q(i,k)  = ice%q(i,k)  + mult_q
@@ -3804,10 +3853,8 @@ CONTAINS
 
           ELSE
 
-            !
             !.. 2) Depositional growth is negative or smaller than riming growth, therefore snow is
             !      allowed to convert to graupel and / or hail:
-            !
 
             !.. time integration of snow_cloud_riming
 
@@ -3837,6 +3884,7 @@ CONTAINS
                 mult_n = C_mult * mult_1 * mult_2 * rime_q
                 mult_q = mult_n * ice%x_min
                 mult_q = MIN(rime_q,mult_q)
+                mult_n = mult_q / ice%x_min
 
                 ice%n(i,k)  = ice%n(i,k)  + mult_n
                 ice%q(i,k)  = ice%q(i,k)  + mult_q
@@ -3846,6 +3894,7 @@ CONTAINS
               !.. conversion of snow to graupel, depends on alpha_spacefilling
 
               IF (D_s > D_conv_sg) THEN
+                 q_s = snow%q(i,k)  
                  conv_q = (rime_q - mult_q) / ( const5 * (pi6*rho_ice*d_s**3/x_s - 1.0) )
                  conv_q = MIN(q_s,conv_q)
                  x_s    = particle_meanmass(snow, q_s,n_s)
@@ -3892,6 +3941,7 @@ CONTAINS
                 mult_n = C_mult * mult_1 * mult_2 * rime_qr
                 mult_q = mult_n * ice%x_min
                 mult_q = MIN(rime_qr,mult_q)
+                mult_n = mult_q / ice%x_min
               ENDIF
 
               IF (T_a >= T_3) THEN
@@ -4014,12 +4064,13 @@ CONTAINS
 
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-
+    INTEGER,  INTENT(in) :: ik_slice(4)
+    REAL(wp), INTENT(in) :: dt
+    
     ! 2mom variables
     CLASS(particle_frozen), INTENT(in)   :: ptype
     TYPE(particle), INTENT(in)           :: rain
-    REAL(wp), INTENT(in)                 :: dt
+
     TYPE(rain_riming_coeffs), INTENT(in) :: coeffs
     REAL(wp), INTENT(out)                :: rime_rate_qa(:,:), rime_rate_qb(:,:), &
          &                                  rime_rate_nb(:,:)
@@ -4110,19 +4161,19 @@ CONTAINS
     TYPE(aerosol_ccn),INTENT(in)    :: ccn_coeffs
 
     ! 2mom variables
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    CLASS(particle), INTENT(inout)  :: cloud
-    REAL(wp), DIMENSION(:,:)        :: n_cn
+    TYPE(atmosphere), INTENT(inout)     :: atmo
+    CLASS(particle), INTENT(inout)      :: cloud
+    REAL(wp), DIMENSION(:,:), OPTIONAL  :: n_cn
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
 
     ! local variables
-    INTEGER             :: i,k,nuc_typ
-    REAL(wp)            :: n_c,q_c
-    REAL(wp)            :: nuc_n, nuc_q
-    REAL(wp), PARAMETER :: eps  = 1.0e-20_wp
-
+    INTEGER            :: i,k,nuc_typ
+    REAL(wp)           :: n_c,q_c
+    REAL(wp)           :: nuc_n, nuc_q, zf
+    REAL, PARAMETER    :: eps = 1e-10_wp
+    
     ! for activation tables
     INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
     INTEGER            :: i_lsigs, i_R2
@@ -4196,14 +4247,23 @@ CONTAINS
 
           if (q_c > eps .and. wcb > 0.0_wp) then
 
-             ! hard upper limit for number conc that
+             ! hard upper limit for number cnc that
              ! eliminates also unrealistic high value
              ! that would come from the dynamical core
 
              cloud%n(i,k) = MIN(cloud%n(i,k),ccn_coeffs%Ncn0)
 
-             Ncn = n_cn(i,k) ! number of CN from prognostic variable
-
+             IF (PRESENT(n_cn)) THEN
+               Ncn = n_cn(i,k) ! number of CN from prognostic variable
+             ELSE
+               zf = 0.5_wp*(atmo%zh(i,k)+atmo%zh(i,k+1))             
+               IF(zf > ccn_coeffs%z0) THEN
+                 Ncn = ccn_coeffs%Ncn0 * EXP((ccn_coeffs%z0 - zf)/ccn_coeffs%z1e)
+               ELSE
+                 Ncn = ccn_coeffs%Ncn0
+               END IF
+             END IF
+             
              ! min value for vertical velocity (instead of Nmin of older code)
              wcb = max(wcb,0.2_wp)
 
@@ -4211,7 +4271,7 @@ CONTAINS
 
              ! If Ncn is outside the range of the lookup table values, resulting
              ! NCCN are clipped to the margin values. For the case of these margin values
-             ! beeing larger than Ncn, limit NCCN by Ncn:
+             ! being larger than Ncn, limit NCCN by Ncn:
              tab_Ndrop_i = MIN(ip_ndrop_ncn(tab_Ndrop,tab_Ncn,Ncn), Ncn)
 
              ! interpol. with respect to wcb = ip_ndrop_wcb
@@ -4222,10 +4282,13 @@ CONTAINS
              nuc_q = MIN(nuc_n * cloud%x_min, atmo%qv(i,k))
              nuc_n = nuc_q / cloud%x_min
 
-             n_cn(i,k)    = n_cn(i,k)    - MIN(Ncn,nuc_n)
              cloud%n(i,k) = cloud%n(i,k) + nuc_n
              cloud%q(i,k) = cloud%q(i,k) + nuc_q
              atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
+
+             if (present(n_cn)) then
+               n_cn(i,k)    = n_cn(i,k)    - MIN(Ncn,nuc_n)
+             end if
 
           END IF
 
@@ -4474,13 +4537,14 @@ CONTAINS
     ! Locale Variablen
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
+
     INTEGER            :: i,k,nuc_typ
     REAL(wp)           :: n_c,q_c
     REAL(wp)           :: nuc_n,nuc_q
     REAL(wp)           :: wcb,pres
-    REAL(wp), PARAMETER :: eps = 1e-20_wp
-
     REAL(wp)           :: acoeff,bcoeff,ccoeff,dcoeff
+    REAL(wp), PARAMETER:: eps = 1e-20_wp
+
     ! Data from HDCP2_CCN_params.txt for 20130417
     REAL(wp), PARAMETER :: &
          a_ccn(4) = (/  183230691.161_wp, 0.10147358938_wp, &
@@ -4540,17 +4604,434 @@ CONTAINS
 
   END SUBROUTINE ccn_activation_hdcp2
 
+  SUBROUTINE ccn_activation_sk_4d(ik_slice, ccn_coeffs, atmo, cloud, n_cn)
+    !*******************************************************************************
+    !       Calculation of cloud droplet nucleation                                *
+    !       using the look-up tables by Segal and Khain 2006 (JGR, vol.11)         *
+    !                                                                              *
+    !       Difference to Heikes routine cloud_nucleation_SK()                     *
+    !       Equidistant lookup table is used to enable better vectorization        *
+    !       properties.                                                            *
+    !*******************************************************************************
+
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in), OPTIONAL :: ik_slice(4)
+    
+    ! parameters
+    TYPE(aerosol_ccn),INTENT(in), OPTIONAL    :: ccn_coeffs
+    
+    ! 2mom variables
+    TYPE(atmosphere), INTENT(inout), OPTIONAL :: atmo
+    CLASS(particle),  INTENT(inout), OPTIONAL :: cloud
+    REAL(wp), DIMENSION(:,:), OPTIONAL        :: n_cn
+
+    ! local variables
+    REAL, PARAMETER    :: nuc_eps = 1e-20_wp
+
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
+
+    ! grid sizes of the original table:
+    INTEGER, PARAMETER   :: n_r2 = 3, n_lsigs = 5, n_ncn = 8 , n_wcb = 4
+
+    ! desired grid sizes of the new equidistant table:
+    INTEGER, PARAMETER   :: nr2  = 3, nlsigs  = 5, nncn  = 129, nwcb  = 11
+
+    ! more local variables
+    REAL(wp)             :: n_c, q_c
+    REAL(wp)             :: nuc_n, nuc_q
+    REAL(wp)             :: ncn, n_cn0, lsigs, nccn, r2, wcb
+    REAL(wp)             :: r2_loc, lsigs_loc, ncn_loc, wcb_loc
+    REAL(wp)             :: z0_nccn, z1e_nccn, zf
+    INTEGER              :: i, k, kp1_fl
+    INTEGER              :: iu, ju, ku, lu
+    REAL(wp)             :: hilf1(2,2,2,2), hilf2(2,2,2), hilf3(2,2), hilf4(2)
+
+    LOGICAL, PARAMETER   :: lincloud_nuc = .TRUE.
+
+    ! call from init_2mom_scheme_once without arguments for initialization of tables
+    IF (.NOT.PRESENT(ik_slice)) THEN
+      CALL get_otab()     ! original look-up-table from Segal and Khain      
+      CALL equi_table()   ! construct the new equidistant table tab:
+      RETURN
+    END IF
+
+    IF(isdebug) THEN
+       WRITE(txt,*) "cloud_activation_sk_4d'"
+       CALL message(routine, TRIM(txt))
+    ENDIF
+
+    !..parameter for exponential decrease of N_ccn with height:
+    !  1) up to this height (m) constant unchanged value:
+    !  2)  height interval at which N_ccn decreses by factor 1/e above z0_nccn:
+
+    z0_nccn  = ccn_coeffs%z0
+    z1e_nccn = ccn_coeffs%z1e
+
+    !..values for aerosol properties
+    r2    = ccn_coeffs%R2
+    lsigs = ccn_coeffs%lsigs
+    
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
+    DO k = kstart,kend
+      kp1_fl = MIN(k+1,SIZE(atmo%rho,dim=2))
+!NEC$ ivdep
+      DO i = istart,iend
+
+        ! hard upper limit for number conc that
+        ! eliminates also unrealistic high value
+        ! that would come from the dynamical core
+        
+        cloud%n(i,k) = MIN(cloud%n(i,k),ccn_coeffs%Ncn0)
+
+!!$ UB: determine wcb as in old COSMO version:
+        ! determine vertical velocity for Segal&Khain nucleation parameterization:
+        IF (lincloud_nuc) THEN
+          ! ... incloud nucleation is allowed, look for height layers where qc (mass specific) increases with height and w is positive:
+          !      (at the lowest model level, nucleation happens without the gradient check)
+          IF ( cloud%q(i,k) > nuc_eps .AND. &
+               ( k == kp1_fl .OR. cloud%q(i,k)/atmo%rho(i,k) > cloud%q(i,kp1_fl)/atmo%rho(i,kp1_fl) ) .AND. &
+               atmo%w(i,k+1) > 0.0_wp ) THEN
+            wcb = atmo%w(i,k+1)  ! take w of the lower cell face
+          ELSE
+            wcb = 0.0_wp ! set w for nucleation to 0.0, so that no new nucleation will take place below
+          END IF
+! We still miss the nucleation in fog situations during radiative cooling. This
+! would require the inclusion of -cp/g*dT/dt|_diabatic in the effective
+! nucleation velocity and allowing incloud nucleation everywhere, not only if qc
+! increases with height.
+        ELSE
+          ! ... nucleation is allowed only in the model layer above cloud base:
+          !      (the lowest model level always counts as cloud base if qc > nuc_eps and w > 0)
+          IF ( (k == kp1_fl .OR. cloud%q(i,kp1_fl) <= nuc_eps) .AND. cloud%q(i,k) > nuc_eps .AND. atmo%w(i,k+1) > 0.0_wp) THEN
+            wcb = atmo%w(i,k+1)    ! take w of the lower cell face
+          ELSE
+            wcb = 0.0_wp ! set w for nucleation to 0.0, so that no new nucleation will take place below
+          END IF
+        END IF
+
+! previous formulation without the new lincloud_nuc mechanism:
+!        IF (cloud%q(i,k) > eps .and. atmo%w(i,k) > 0.0_wp) THEN
+! new formulation:
+        IF ( wcb > 0.0_wp ) THEN
+          
+          nuc_q = 0.0_wp
+          nuc_n = 0.0_wp
+          n_c   = cloud%n(i,k)
+          q_c   = cloud%q(i,k)
+          wcb   = MAX(wcb, 0.1_wp)  ! enforce a minimal updraft for nucleation
+ 
+          IF (PRESENT(n_cn)) THEN
+            Ncn = n_cn(i,k) ! number of CN from prognostic variable
+          ELSE
+            zf = 0.5_wp*(atmo%zh(i,k)+atmo%zh(i,k+1))             
+            IF(zf > ccn_coeffs%z0) THEN
+              Ncn = ccn_coeffs%Ncn0 * MIN(EXP((ccn_coeffs%z0 - zf)/ccn_coeffs%z1e),1.0_wp)
+            ELSE
+              Ncn = ccn_coeffs%Ncn0
+            END IF
+          END IF
+
+          ! Interpolation of the look-up tables with respect to all 4 parameters:
+          ! (clip values outside range to the marginal values)
+          r2_loc    = MIN(MAX(r2,     tab%x1(1)), tab%x1(tab%n1))
+          iu = MIN(FLOOR((r2_loc -    tab%x1(1)) * tab%odx1 ) + 1, tab%n1-1)
+          lsigs_loc = MIN(MAX(lsigs,  tab%x2(1)), tab%x2(tab%n2))
+          ju = MIN(FLOOR((lsigs_loc - tab%x2(1)) * tab%odx2 ) + 1, tab%n2-1)
+          ncn_loc   = MIN(MAX(ncn,    tab%x3(1)), tab%x3(tab%n3))
+          ku = MIN(FLOOR((ncn_loc -   tab%x3(1)) * tab%odx3 ) + 1, tab%n3-1)
+          wcb_loc   = MIN(MAX(wcb,    tab%x4(1)), tab%x4(tab%n4))
+          lu = MIN(FLOOR((wcb_loc -   tab%x4(1)) * tab%odx4 ) + 1, tab%n4-1)
+
+          hilf1 = tab%ltable( iu:iu+1, ju:ju+1, ku:ku+1, lu:lu+1)
+          hilf2 = hilf1(1,:,:,:) + (hilf1(2,:,:,:) - hilf1(1,:,:,:)) * tab%odx1 * ( r2_loc    - tab%x1(iu) )
+          hilf3 = hilf2(1,:,:)   + (hilf2(2,:,:)   - hilf2(1,:,:)  ) * tab%odx2 * ( lsigs_loc - tab%x2(ju) )
+          hilf4 = hilf3(1,:)     + (hilf3(2,:)     - hilf3(1,:)    ) * tab%odx3 * ( ncn_loc   - tab%x3(ku) )
+          nccn  = hilf4(1)       + (hilf4(2)       - hilf4(1)      ) * tab%odx4 * ( wcb_loc   - tab%x4(lu) )
+
+          ! If n_cn is outside the range of the lookup table values, resulting 
+          ! NCCN are clipped to the margin values. For the case of these margin values
+          ! beeing larger than n_cn (which happens sometimes, unfortunately), limit NCCN by n_cn:
+          nccn = MIN(nccn, ccn_coeffs%Ncn0)
+
+          nuc_n = ccn_coeffs%etas * nccn - n_c
+
+          nuc_n = MAX(nuc_n,0.0d0)
+
+          nuc_q = MIN(nuc_n * cloud%x_min,atmo%qv(i,k))
+          nuc_n = nuc_q / cloud%x_min
+
+          cloud%n(i,k) = cloud%n(i,k) + nuc_n
+          cloud%q(i,k) = cloud%q(i,k) + nuc_q
+          atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
+
+          IF (PRESENT(n_cn)) THEN
+            n_cn(i,k)    = n_cn(i,k)    - MIN(Ncn,nuc_n)
+          END IF
+
+        END IF
+      END DO
+    END DO
+
+  CONTAINS
+
+    SUBROUTINE get_otab()
+      IMPLICIT NONE
+      
+      otab%n1 = n_r2
+      otab%n2 = n_lsigs
+      otab%n3 = n_ncn + 1
+      otab%n4 = n_wcb + 1
+
+      ALLOCATE( otab%x1(otab%n1) )
+      ALLOCATE( otab%x2(otab%n2) )
+      ALLOCATE( otab%x3(otab%n3) )
+      ALLOCATE( otab%x4(otab%n4) )
+      ALLOCATE( otab%ltable(otab%n1,otab%n2,otab%n3,otab%n4) )
+ 
+      ! original (non-)equidistant table vectors:
+      ! r2:
+      otab%x1  = (/0.02d0, 0.03d0, 0.04d0/)     ! in 10^(-6) m
+      ! lsigs:
+      otab%x2  = (/0.1d0, 0.2d0, 0.3d0, 0.4d0, 0.5d0/)
+      ! n_cn: (UB: um 0.0 m**-3 ergaenzt zur linearen Interpolation zw. 0.0 und 50e6 m**-3)
+      otab%x3  = (/0.0d6, 50.d06, 100.d06, 200.d06, 400.d06, 800.d06, 1600.d06, 3200.d06, 6400.d06/) ! in m**-3
+      ! wcb: (UB: um 0.0 m/s ergaenzt zur linearen Interpolation zw. 0.0 und 0.5 m/s)
+      otab%x4  = (/0.0d0, 0.5d0, 1.0d0, 2.5d0, 5.0d0/)
+
+      ! look up table for NCCN activated at given R2, lsigs, Ncn and wcb:
+
+      ! Ncn              50       100       200       400       800       1600      3200      6400
+      ! table4a (R2=0.02mum, wcb=0.5m/s) (for Ncn=3200  and Ncn=6400 "extrapolated")
+      otab%ltable(1,1,2:otab%n3,2) =  (/  42.2d06,  70.2d06, 112.2d06, 173.1d06, 263.7d06, 397.5d06, 397.5d06, 397.5d06/)
+      otab%ltable(1,2,2:otab%n3,2) =  (/  35.5d06,  60.1d06, 100.0d06, 163.9d06, 264.5d06, 418.4d06, 418.4d06, 418.4d06/)
+      otab%ltable(1,3,2:otab%n3,2) =  (/  32.6d06,  56.3d06,  96.7d06, 163.9d06, 272.0d06, 438.5d06, 438.5d06, 438.5d06/)
+      otab%ltable(1,4,2:otab%n3,2) =  (/  30.9d06,  54.4d06,  94.6d06, 162.4d06, 271.9d06, 433.5d06, 433.5d06, 433.5d06/)
+      otab%ltable(1,5,2:otab%n3,2) =  (/  29.4d06,  51.9d06,  89.9d06, 150.6d06, 236.5d06, 364.4d06, 364.4d06, 364.4d06/)
+      ! table4b (R2=0.02mum, wcb=1.0m/s) (for Ncn=50 "interpolted" and Ncn=6400 extrapolated)
+      otab%ltable(1,1,2:otab%n3,3) =  (/  45.3d06,  91.5d06, 158.7d06, 264.4d06, 423.1d06, 672.5d06, 397.5d06, 397.5d06/)
+      otab%ltable(1,2,2:otab%n3,3) =  (/  38.5d06,  77.1d06, 133.0d06, 224.9d06, 376.5d06, 615.7d06, 418.4d06, 418.4d06/)
+      otab%ltable(1,3,2:otab%n3,3) =  (/  35.0d06,  70.0d06, 122.5d06, 212.0d06, 362.1d06, 605.3d06, 438.5d06, 438.5d06/)
+      otab%ltable(1,4,2:otab%n3,3) =  (/  32.4d06,  65.8d06, 116.4d06, 204.0d06, 350.6d06, 584.4d06, 433.5d06, 433.5d06/)
+      otab%ltable(1,5,2:otab%n3,3) =  (/  31.2d06,  62.3d06, 110.1d06, 191.3d06, 320.6d06, 501.3d06, 364.4d06, 364.4d06/)
+      ! table4c (R2=0.02mum, wcb=2.5m/s) (for Ncn=50 and Ncn=100 "interpolated")
+      otab%ltable(1,1,2:otab%n3,4) =  (/  50.3d06, 100.5d06, 201.1d06, 373.1d06, 664.7d06,1132.8d06,1876.8d06,2973.7d06/)
+      otab%ltable(1,2,2:otab%n3,4) =  (/  44.1d06,  88.1d06, 176.2d06, 314.0d06, 546.9d06, 941.4d06,1579.2d06,2542.2d06/)
+      otab%ltable(1,3,2:otab%n3,4) =  (/  39.7d06,  79.5d06, 158.9d06, 283.4d06, 498.9d06, 865.9d06,1462.6d06,2355.8d06/)
+      otab%ltable(1,4,2:otab%n3,4) =  (/  37.0d06,  74.0d06, 148.0d06, 264.6d06, 468.3d06, 813.3d06,1371.3d06,2137.2d06/)
+      otab%ltable(1,5,2:otab%n3,4) =  (/  34.7d06,  69.4d06, 138.8d06, 246.9d06, 432.9d06, 737.8d06,1176.7d06,1733.0d06/)
+      ! table4d (R2=0.02mum, wcb=5.0m/s) (for Ncn=50,100,200 "interpolated")
+      otab%ltable(1,1,2:otab%n3,5) =  (/  51.5d06, 103.1d06, 206.1d06, 412.2d06, 788.1d06,1453.1d06,2585.1d06,4382.5d06/)
+      otab%ltable(1,2,2:otab%n3,5) =  (/  46.6d06,  93.2d06, 186.3d06, 372.6d06, 657.2d06,1202.8d06,2098.0d06,3556.9d06/)
+      otab%ltable(1,3,2:otab%n3,5) =  (/  70.0d06,  70.0d06, 168.8d06, 337.6d06, 606.7d06,1078.5d06,1889.0d06,3206.9d06/)
+      otab%ltable(1,4,2:otab%n3,5) =  (/  42.2d06,  84.4d06, 166.4d06, 312.7d06, 562.2d06,1000.3d06,1741.1d06,2910.1d06/)
+      otab%ltable(1,5,2:otab%n3,5) =  (/  36.5d06,  72.9d06, 145.8d06, 291.6d06, 521.0d06, 961.1d06,1551.1d06,2444.6d06/)
+      ! table5a (R2=0.03mum, wcb=0.5m/s)  (for Ncn=3200  and Ncn=6400 "extrapolated")
+      otab%ltable(2,1,2:otab%n3,2) =  (/  50.0d06,  95.8d06, 176.2d06, 321.6d06, 562.3d06, 835.5d06, 835.5d06, 835.5d06/)
+      otab%ltable(2,2,2:otab%n3,2) =  (/  44.7d06,  81.4d06, 144.5d06, 251.5d06, 422.7d06, 677.8d06, 677.8d06, 677.8d06/)
+      otab%ltable(2,3,2:otab%n3,2) =  (/  40.2d06,  72.8d06, 129.3d06, 225.9d06, 379.9d06, 606.5d06, 606.5d06, 606.5d06/)
+      otab%ltable(2,4,2:otab%n3,2) =  (/  37.2d06,  67.1d06, 119.5d06, 206.7d06, 340.5d06, 549.4d06, 549.4d06, 549.4d06/)
+      otab%ltable(2,5,2:otab%n3,2) =  (/  33.6d06,  59.0d06,  99.4d06, 150.3d06, 251.8d06, 466.0d06, 466.0d06, 466.0d06/)
+      ! table5b (R2=0.03mum, wcb=1.0m/s) (Ncn=50 "interpolated", Ncn=6400 "extrapolated)
+      otab%ltable(2,1,2:otab%n3,3) =  (/  50.7d06, 101.4d06, 197.6d06, 357.2d06, 686.6d06,1186.4d06,1892.2d06,1892.2d06/)
+      otab%ltable(2,2,2:otab%n3,3) =  (/  46.6d06,  93.3d06, 172.2d06, 312.1d06, 550.7d06, 931.6d06,1476.6d06,1476.6d06/)
+      otab%ltable(2,3,2:otab%n3,3) =  (/  42.2d06,  84.4d06, 154.0d06, 276.3d06, 485.6d06, 811.2d06,1271.7d06,1271.7d06/)
+      otab%ltable(2,4,2:otab%n3,3) =  (/  39.0d06,  77.9d06, 141.2d06, 251.8d06, 436.7d06, 708.7d06,1117.7d06,1117.7d06/)
+      otab%ltable(2,5,2:otab%n3,3) =  (/  35.0d06,  70.1d06, 123.9d06, 210.2d06, 329.9d06, 511.9d06, 933.4d06, 933.4d06/)
+      ! table5c (R2=0.03mum, wcb=2.5m/s) (for Ncn=50 and Ncn=100 "interpolated")
+      otab%ltable(2,1,2:otab%n3,4) =  (/  51.5d06, 103.0d06, 205.9d06, 406.3d06, 796.4d06,1524.0d06,2781.4d06,4609.3d06/)
+      otab%ltable(2,2,2:otab%n3,4) =  (/  49.6d06,  99.1d06, 198.2d06, 375.5d06, 698.3d06,1264.1d06,2202.8d06,3503.6d06/)
+      otab%ltable(2,3,2:otab%n3,4) =  (/  45.8d06,  91.6d06, 183.2d06, 339.5d06, 618.9d06,1105.2d06,1881.8d06,2930.9d06/)
+      otab%ltable(2,4,2:otab%n3,4) =  (/  42.3d06,  84.7d06, 169.3d06, 310.3d06, 559.5d06, 981.7d06,1611.6d06,2455.6d06/)
+      otab%ltable(2,5,2:otab%n3,4) =  (/  38.2d06,  76.4d06, 152.8d06, 237.3d06, 473.3d06, 773.1d06,1167.9d06,1935.0d06/)
+      ! table5d (R2=0.03mum, wcb=5.0m/s) (for Ncn=50,100,200 "interpolated")
+      otab%ltable(2,1,2:otab%n3,5) =  (/  51.9d06, 103.8d06, 207.6d06, 415.1d06, 819.6d06,1616.4d06,3148.2d06,5787.9d06/)
+      otab%ltable(2,2,2:otab%n3,5) =  (/  50.7d06, 101.5d06, 203.0d06, 405.9d06, 777.0d06,1463.8d06,2682.6d06,4683.0d06/)
+      otab%ltable(2,3,2:otab%n3,5) =  (/  47.4d06,  94.9d06, 189.7d06, 379.4d06, 708.7d06,1301.3d06,2334.3d06,3951.8d06/)
+      otab%ltable(2,4,2:otab%n3,5) =  (/  44.0d06,  88.1d06, 176.2d06, 352.3d06, 647.8d06,1173.0d06,2049.7d06,3315.6d06/)
+      otab%ltable(2,5,2:otab%n3,5) =  (/  39.7d06,  79.4d06, 158.8d06, 317.6d06, 569.5d06, 988.5d06,1615.6d06,2430.3d06/)
+      ! table6a (R2=0.04mum, wcb=0.5m/s) (for Ncn=3200  and Ncn=6400 "extrapolated")
+      otab%ltable(3,1,2:otab%n3,2) =  (/  50.6d06, 100.3d06, 196.5d06, 374.7d06, 677.3d06,1138.9d06,1138.9d06,1138.9d06/)
+      otab%ltable(3,2,2:otab%n3,2) =  (/  48.4d06,  91.9d06, 170.6d06, 306.9d06, 529.2d06, 862.4d06, 862.4d06, 862.4d06/)
+      otab%ltable(3,3,2:otab%n3,2) =  (/  44.4d06,  82.5d06, 150.3d06, 266.4d06, 448.0d06, 740.7d06, 740.7d06, 740.7d06/)
+      otab%ltable(3,4,2:otab%n3,2) =  (/  40.9d06,  75.0d06, 134.7d06, 231.9d06, 382.1d06, 657.6d06, 657.6d06, 657.6d06/)
+      otab%ltable(3,5,2:otab%n3,2) =  (/  34.7d06,  59.3d06,  93.5d06, 156.8d06, 301.9d06, 603.8d06, 603.8d06, 603.8d06/)
+      ! table6b (R2=0.04mum, wcb=1.0m/s) (Ncn=50 "interpolated", Ncn=6400 "extrapolated)
+      otab%ltable(3,1,2:otab%n3,3) =  (/  50.9d06, 101.7d06, 201.8d06, 398.8d06, 773.7d06,1420.8d06,2411.8d06,2411.8d06/)
+      otab%ltable(3,2,2:otab%n3,3) =  (/  49.4d06,  98.9d06, 189.7d06, 356.2d06, 649.5d06,1117.9d06,1805.2d06,1805.2d06/)
+      otab%ltable(3,3,2:otab%n3,3) =  (/  45.6d06,  91.8d06, 171.5d06, 314.9d06, 559.0d06, 932.8d06,1501.6d06,1501.6d06/)
+      otab%ltable(3,4,2:otab%n3,3) =  (/  42.4d06,  84.7d06, 155.8d06, 280.5d06, 481.9d06, 779.0d06,1321.9d06,1321.9d06/)
+      otab%ltable(3,5,2:otab%n3,3) =  (/  36.1d06,  72.1d06, 124.4d06, 198.4d06, 319.1d06, 603.8d06,1207.6d06,1207.6d06/)
+      ! table6c (R2=0.04mum, wcb=2.5m/s) (for Ncn=50 and Ncn=100 "interpolated")
+      otab%ltable(3,1,2:otab%n3,4) =  (/  51.4d06, 102.8d06, 205.7d06, 406.9d06, 807.6d06,1597.5d06,3072.2d06,5393.9d06/)
+      otab%ltable(3,2,2:otab%n3,4) =  (/  50.8d06, 101.8d06, 203.6d06, 396.0d06, 760.4d06,1422.1d06,2517.4d06,4062.8d06/)
+      otab%ltable(3,3,2:otab%n3,4) =  (/  48.2d06,  96.4d06, 193.8d06, 367.3d06, 684.0d06,1238.3d06,2087.3d06,3287.1d06/)
+      otab%ltable(3,4,2:otab%n3,4) =  (/  45.2d06,  90.4d06, 180.8d06, 335.7d06, 611.2d06,1066.3d06,1713.4d06,2780.3d06/)
+      otab%ltable(3,5,2:otab%n3,4) =  (/  38.9d06,  77.8d06, 155.5d06, 273.7d06, 455.2d06, 702.2d06,1230.7d06,2453.7d06/)
+      ! table6d (R2=0.04mum, wcb=5.0m/s) (for Ncn=50,100,200 "interpolated")
+      otab%ltable(3,1,2:otab%n3,5) =  (/  53.1d06, 106.2d06, 212.3d06, 414.6d06, 818.3d06,1622.2d06,3216.8d06,6243.9d06/)
+      otab%ltable(3,2,2:otab%n3,5) =  (/  51.6d06, 103.2d06, 206.3d06, 412.5d06, 805.3d06,1557.4d06,2940.4d06,5210.1d06/)
+      otab%ltable(3,3,2:otab%n3,5) =  (/  49.6d06,  99.2d06, 198.4d06, 396.7d06, 755.5d06,1414.5d06,2565.3d06,4288.1d06/)
+      otab%ltable(3,4,2:otab%n3,5) =  (/  46.5d06,  93.0d06, 186.0d06, 371.9d06, 692.9d06,1262.0d06,2188.3d06,3461.2d06/)
+      otab%ltable(3,5,2:otab%n3,5) =  (/  39.9d06,  79.9d06, 159.7d06, 319.4d06, 561.7d06, 953.9d06,1493.9d06,2464.7d06/)
+
+      ! Additional values for wcb = 0.0 m/s, which are used for linear interpolation between
+      ! wcb = 0.0 and 0.5 m/s. Values of 0.0 are reasonable here, because if no
+      ! updraft is present, no new nucleation will take place:
+      otab%ltable(:,:,:,1) = 0.0d0
+      ! Additional values for n_cn = 0.0 m**-3, which are used for linear interpolation between
+      ! n_cn = 0.0 and 50 m**-3. Values of 0.0 are reasonable, because if no aerosol
+      ! particles are present, no nucleation will take place:
+      otab%ltable(:,:,1,:) = 0.0d0
+
+      !!! otab%dx1 ... otab%odx4 remain empty because this is a non-equidistant table.
+
+      RETURN
+    END SUBROUTINE get_otab
+    
+    SUBROUTINE equi_table()
+      IMPLICIT NONE
+
+      INTEGER :: i, j, k, l, ii, iu, ju,ku, lu
+      INTEGER, ALLOCATABLE, DIMENSION(:) :: iuv, juv, kuv, luv
+      DOUBLE PRECISION :: odx1, odx2, odx3, odx4
+      DOUBLE PRECISION :: hilf1(2,2,2,2), hilf2(2,2,2), hilf3(2,2), hilf4(2)
+
+      tab%n1 = nr2
+      tab%n2 = nlsigs
+      tab%n3 = nncn
+      tab%n4 = nwcb
+
+      ALLOCATE( tab%x1(tab%n1) )
+      ALLOCATE( tab%x2(tab%n2) )
+      ALLOCATE( tab%x3(tab%n3) )
+      ALLOCATE( tab%x4(tab%n4) )
+      ALLOCATE( tab%ltable(tab%n1,tab%n2,tab%n3,tab%n4) )
+
+      !===========================================================
+      ! construct equidistant table:
+      !===========================================================
+
+      ! grid distances (also inverse):
+      tab%dx1  = (otab%x1(otab%n1) - otab%x1(1)) / (tab%n1 - 1.0d0)  ! dr2
+      tab%odx1 = 1.0d0 / tab%dx1
+      tab%dx2  = (otab%x2(otab%n2) - otab%x2(1)) / (tab%n2 - 1.0d0)  ! dlsigs
+      tab%odx2 = 1.0d0 / tab%dx2
+      tab%dx3  = (otab%x3(otab%n3) - otab%x3(1)) / (tab%n3 - 1.0d0)  ! dncn
+      tab%odx3 = 1.0d0 / tab%dx3
+      tab%dx4  = (otab%x4(otab%n4) - otab%x4(1)) / (tab%n4 - 1.0d0)  ! dwcb
+      tab%odx4 = 1.0d0 / tab%dx4
+
+      ! grid vectors:
+      DO i=1, tab%n1
+        tab%x1(i) = otab%x1(1) + (i-1) * tab%dx1
+      END DO
+      DO i=1, tab%n2
+        tab%x2(i) = otab%x2(1) + (i-1) * tab%dx2
+      END DO
+      DO i=1, tab%n3
+        tab%x3(i) = otab%x3(1) + (i-1) * tab%dx3
+      END DO
+      DO i=1, tab%n4
+        tab%x4(i) = otab%x4(1) + (i-1) * tab%dx4
+      END DO
+      
+      ! Tetra-linear interpolation of the new equidistant lookuptable from
+      ! the original non-equidistant table:
+
+      ALLOCATE(iuv(tab%n1))
+      ALLOCATE(juv(tab%n2))
+      ALLOCATE(kuv(tab%n3))
+      ALLOCATE(luv(tab%n4))
+
+      DO l=1, tab%n1
+        iuv(l) = 1
+        DO ii=1, otab%n1 - 1
+          IF (tab%x1(l) >= otab%x1(ii) .AND. tab%x1(l) <= otab%x1(ii+1)) THEN
+            iuv(l) = ii
+            EXIT
+          END IF
+        END DO
+      END DO
+
+      DO l=1, tab%n2
+        juv(l) = 1
+        DO ii=1, otab%n2 - 1
+          IF (tab%x2(l) >= otab%x2(ii) .AND. tab%x2(l) <= otab%x2(ii+1)) THEN
+            juv(l) = ii
+            EXIT
+          END IF
+        END DO
+      END DO
+
+      DO l=1, tab%n3
+        kuv(l) = 1
+        DO ii=1, otab%n3 - 1
+          IF (tab%x3(l) >= otab%x3(ii) .AND. tab%x3(l) <= otab%x3(ii+1)) THEN
+            kuv(l) = ii
+            EXIT
+          END IF
+        END DO
+      END DO
+
+      DO l=1, tab%n4
+        luv(l) = 1
+        DO ii=1, otab%n4 - 1
+          IF (tab%x4(l) >= otab%x4(ii) .AND. tab%x4(l) <= otab%x4(ii+1)) THEN
+            luv(l) = ii
+            EXIT
+          END IF
+        END DO
+      END DO
+
+      ! Tetra-linear interpolation:
+      DO i=1, tab%n1
+        iu = iuv(i)
+        odx1 = 1.0d0 / ( otab%x1(iu+1) - otab%x1(iu) )
+        DO j=1, tab%n2
+          ju = juv(j)
+          odx2 = 1.0d0 / ( otab%x2(ju+1) - otab%x2(ju) )
+          DO l=1, tab%n4
+            lu = luv(l)
+            odx4 = 1.0d0 / ( otab%x4(lu+1) - otab%x4(lu) )
+!NEC$ ivdep
+            DO k=1, tab%n3
+              ku = kuv(k)
+              odx3 = 1.0d0 / ( otab%x3(ku+1) - otab%x3(ku) )
+              hilf1 = otab%ltable( iu:iu+1, ju:ju+1, ku:ku+1, lu:lu+1)
+              hilf2 = hilf1(1,1:2,1:2,1:2) + (hilf1(2,1:2,1:2,1:2) - hilf1(1,1:2,1:2,1:2)) * odx1 * ( tab%x1(i) - otab%x1(iu) )
+              hilf3 = hilf2(1,1:2,1:2)     + (hilf2(2,1:2,1:2)     - hilf2(1,1:2,1:2)  )   * odx2 * ( tab%x2(j) - otab%x2(ju) )
+              hilf4 = hilf3(1,1:2)         + (hilf3(2,1:2)         - hilf3(1,1:2)    )     * odx3 * ( tab%x3(k) - otab%x3(ku) )
+              tab%ltable(i,j,k,l) = hilf4(1) +  ( hilf4(2) - hilf4(1) ) * odx4 * ( tab%x4(l) - otab%x4(lu) )
+            END DO
+          END DO
+        END DO
+      END DO
+
+      ! clean up memory:
+      DEALLOCATE(iuv,juv,kuv,luv)
+
+      RETURN
+    END SUBROUTINE equi_table
+    
+  END SUBROUTINE ccn_activation_sk_4d
+
   !*******************************************************************************
   ! Sedimentation subroutines for ICON
   !*******************************************************************************
 
-  SUBROUTINE sedi_icon_rain (rain,rain_coeffs,qp,np,precrate,qc,rhocorr,adz,dt, &
-      &                  its,ite,kts,kte,cmax) !
+  SUBROUTINE sedi_icon_rain (rain,rain_coeffs,qp,np,precrate,precrate3D,qc,rhocorr,adz,dt, &
+      &                      its,ite,kts,kte,cmax) !
 
     CLASS(particle), INTENT(in)             :: rain
     TYPE(particle_rain_coeffs), INTENT(in)  :: rain_coeffs
     INTEGER,  INTENT(IN)                    :: its,ite,kts,kte
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np,precrate3D
     REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,qc,rhocorr
     REAL(wp), DIMENSION(:),   INTENT(INOUT) :: precrate
     REAL(wp), INTENT(IN)                    :: dt
@@ -4598,21 +5079,21 @@ CONTAINS
 
     IF (lboxtracking) THEN
       CALL sedi_icon_box_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-                              np, qp, precrate, cmax)
+                              np, qp, precrate, precrate3D, cmax)
     ELSE
       CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-                          np, qp, precrate, cmax)
+                          np, qp, precrate, precrate3D, cmax)
     END IF
 
   END SUBROUTINE sedi_icon_rain
 
-  SUBROUTINE sedi_icon_sphere (ptype,pcoeffs,qp,np,precrate,rhocorr,adz,dt, &
+  SUBROUTINE sedi_icon_sphere (ptype,pcoeffs,qp,np,precrate,precrate3D,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
 
     CLASS(particle), INTENT(in)             :: ptype
     CLASS(particle_sphere), INTENT(in)      :: pcoeffs
     INTEGER, INTENT(IN)                     :: its,ite,kts,kte
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np,precrate3D
     REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,rhocorr
     REAL(wp), DIMENSION(:),   INTENT(INOUT) :: precrate
     REAL(wp), INTENT(IN)                    :: dt
@@ -4657,10 +5138,10 @@ CONTAINS
 
     IF (lboxtracking) THEN
       CALL sedi_icon_box_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-                              np, qp, precrate, cmax)
+                              np, qp, precrate, precrate3D, cmax)
     ELSE
       CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-                          np, qp, precrate, cmax)
+                          np, qp, precrate, precrate3D, cmax)
     END IF
 
     DO k=kts,kte
@@ -4672,13 +5153,13 @@ CONTAINS
 
   END SUBROUTINE sedi_icon_sphere
 
-  SUBROUTINE sedi_icon_sphere_lwf (ptype,pcoeffs,qp,np,ql,precrate,rhocorr,adz,dt, &
+  SUBROUTINE sedi_icon_sphere_lwf (ptype,pcoeffs,qp,np,ql,precrate,precrate3D,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
 
     TYPE(particle_lwf), INTENT(in)          :: ptype
     CLASS(particle_sphere), INTENT(in)      :: pcoeffs
     INTEGER, INTENT(IN)                     :: its,ite,kts,kte
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np,ql
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np,ql,precrate3D
     REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,rhocorr
     REAL(wp), DIMENSION(:),   INTENT(INOUT) :: precrate
     REAL(wp), INTENT(IN)                    :: dt
@@ -4760,10 +5241,12 @@ CONTAINS
 
     IF (lboxtracking) THEN
       CALL sedi_icon_box_core_lwf (v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
-           &                       its, ite, kts, kte, np, qp, ql, precrate, cmax)
+           &                       its, ite, kts, kte, np, qp, ql, precrate, precrate3D, cmax)
     ELSE
+
       CALL sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
-           &                  its, ite, kts, kte, np, qp, ql, precrate, cmax)
+           &                  its, ite, kts, kte, np, qp, ql, precrate, precrate3D, cmax)
+
     END IF
 
     DO k=kts,kte
@@ -4775,10 +5258,14 @@ CONTAINS
 
   END SUBROUTINE sedi_icon_sphere_lwf
 
-#ifdef __BUGGY__
-!!$ UB: replaced below by code-rewrite from COSMO src_twomom_sb.f90
+  ! UB: This is according to the actual version from the COSMO code, a more efficient and
+  !     simplified re-write of the above non-reproducible sedi_icon_core:
+
+#if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__)
+  
+  ! Vectorized version for NEC SX
   SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-       np, qp, precrate, cmax)
+                            np, qp, precrate, precrate3D, cmax)
 
     REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
     REAL(wp), INTENT(in) :: dt
@@ -4786,137 +5273,14 @@ CONTAINS
     REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
     REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp
-
-    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss
-    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
-    LOGICAL,  DIMENSION(its:ite) :: cflag
-    INTEGER :: i, k, kk, k_c, k_p
-    REAL(wp) :: cmax_temp
-
-    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
-    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
-
-    IF (PRESENT(cmax)) THEN
-      cmax_temp = cmax
-    ELSE
-      cmax_temp = 0.0_wp
-    END IF
-    DO k = kts,kte
-
-      DO i = its,ite
-!!$ UB: this is the upward flanking speed. TO BE DISCUSSED!
-!!$        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
-!!$        v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
-!!$ UB: should be replaced by the mass point fallspeed, which is imho the best estimate
-!!$     in the sense of a low order explicit scheme. BUT TO BE DISCUSSED!
-        v_nv(i) = v_n_sedi(i,k)  
-        v_qv(i) = v_q_sedi(i,k)
-
-        ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
-        c_nv(i) = -v_nv(i) * adz(i,k) * dt
-        c_qv(i) = -v_qv(i) * adz(i,k) * dt
-        cmax_temp = MAX(cmax_temp, c_qv(i))
-      END DO
-
-      kk = k
-      s_nv = 0._wp
-      DO i = its,ite
-        IF (c_nv(i) <= 1._wp) THEN
-          s_nv(i) = v_nv(i) * np(i,k)
-        END IF
-      END DO
-      IF (ANY(c_nv > 1._wp)) THEN
-        cflag = .FALSE.
-        DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
-          DO i = its,ite
-            IF (c_nv(i) > 1._wp) THEN
-              cflag(i) = .TRUE.
-              s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
-              c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
-            END IF
-          END DO
-          kk  = kk - 1
-        ENDDO
-        DO i = its,ite
-          IF (cflag(i)) THEN
-            s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)*MIN(c_nv(i),1.0_wp)
-            s_nv(i) = -s_nv(i) / dt
-          END IF
-        END DO
-      ENDIF
-
-      kk = k
-      s_qv = 0.0
-      DO i = its,ite
-        IF (c_qv(i) <= 1._wp) THEN
-          s_qv(i) = v_qv(i) * qp(i,k)
-        END IF
-      END DO
-      IF (ANY(c_qv > 1._wp)) THEN
-        cflag = .FALSE.
-        DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
-          DO i = its,ite
-            IF (c_qv(i) > 1._wp) THEN
-              cflag(i) = .TRUE.
-              s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
-              c_qv(i) = (c_qv(i) - 1) * adz(i,kk-1)/adz(i,kk)
-            END IF
-          END DO
-          kk  = kk - 1
-        ENDDO
-        DO i = its,ite
-          IF (cflag(i)) THEN
-            s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)*MIN(c_qv(i),1.0_wp)
-            s_qv(i) = -s_qv(i) / dt
-          END IF
-        END DO
-      ENDIF
-
-      ! Flux-limiter to avoid negative values
-      k_c = IAND(k, 1)
-      k_p = 1-IAND(k, 1)
-      DO i = its,ite
-        n_fluss(i,k_c) = MAX(s_nv(i),n_fluss(i,k_p)-np(i,k)/(adz(i,k)*dt))
-        q_fluss(i,k_c) = MAX(s_qv(i),q_fluss(i,k_p)-qp(i,k)/(adz(i,k)*dt))
-      END DO
-
-      DO i = its,ite
-        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
-        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
-      ENDDO
-
-    END DO
-    IF (PRESENT(cmax)) cmax = cmax_temp
-
-    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
-
-  END SUBROUTINE sedi_icon_core
-
-#else
-
-#ifdef __NECSX__
-!!$ Vectorized version for NEC SX
-!!$ UB: This is according to the actual version from the COSMO code, a more efficient and
-!!$     simplified re-write of the above non-reproducible sedi_icon_core:
-  SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-                            np, qp, precrate, cmax)
-
-    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
-    REAL(wp), INTENT(in) :: dt
-    INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
-    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
-    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,precrate3D
 
     REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss
     REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
     INTEGER :: i, k, kk, k_c, k_p
-    REAL(wp) :: cmax_temp, odt
+    REAL(wp) :: cmax_temp, odt, cmax_j
 
-!CDIR COLLAPSE
     dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
 
     odt = 1.0_wp / dt
@@ -4932,32 +5296,28 @@ CONTAINS
 
     DO k = kts, kte
 
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+      
       DO i = its,ite
-!!$ UB: not so good, because this is the upward interfacial speed, not
-!!$     so representative of the flux going through the lower interface:
-!!$        v_nv(i) = 0.5_wp * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
-!!$        v_qv(i) = 0.5_wp * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
-!!$ UB: speed at the level center, probably better in the sense of a low-order explicit scheme:
         v_nv(i) = v_n_sedi(i,k)
         v_qv(i) = v_q_sedi(i,k)
 
         ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
         c_nv(i) = -v_nv(i) * adz(i,k) * dt
         c_qv(i) = -v_qv(i) * adz(i,k) * dt
-        cmax_temp = MAX(cmax_temp, c_qv(i))
       END DO
+      cmax_j = MAXVAL( c_qv(its:ite) )
+      cmax_temp = MAX(cmax_temp, cmax_j)
 
       kk = k
-!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
       DO i = its, ite
         s_nv(i) = np(i,k) * dz(i,k) * MIN(c_nv(i),1.0_wp)
       END DO
       DO
         IF (kk <= kts) EXIT
-!CDIR COLLAPSE
         IF (MAXVAL(c_nv) <= 1.0_wp) EXIT
         kk  = kk - 1
-!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
         DO i = its, ite
           IF (c_nv(i) > 1.0_wp) THEN
             c_nv(i) = (c_nv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
@@ -4967,16 +5327,13 @@ CONTAINS
       END DO
 
       kk = k
-!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
       DO i = its, ite
         s_qv(i) = qp(i,k) * dz(i,k) * MIN(c_qv(i),1.0_wp)
       END DO
       DO 
         IF (kk <= kts) EXIT
-!CDIR COLLAPSE
         IF (MAXVAL(c_qv) <= 1.0_wp) EXIT
         kk  = kk - 1
-!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
         DO i = its, ite
           IF (c_qv(i) > 1.0_wp) THEN
             c_qv(i) = (c_qv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
@@ -4986,8 +5343,6 @@ CONTAINS
       END DO
 
       ! Flux-limiter to avoid negative values
-      k_c = IAND(k, 1)
-      k_p = 1-IAND(k, 1)
       DO i = its,ite
         s_nv(i) = -s_nv(i) * odt
         s_qv(i) = -s_qv(i) * odt
@@ -4998,20 +5353,22 @@ CONTAINS
       DO i = its,ite
         np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
         qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        precrate3D(i,k) = - q_fluss(i,k_c) ! precipitation rate at lower level boundary        
       ENDDO
 
     END DO
+
     IF (PRESENT(cmax)) cmax = cmax_temp
 
-    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! precipitation rate at ground
 
   END SUBROUTINE sedi_icon_core
 
 #else
 
-!!$ UB: scalar version for non-vector-architectures
+  ! UB: scalar version for non-vector-architectures:
   SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-                            np, qp, precrate, cmax)
+                            np, qp, precrate, precrate3D, cmax)
 
     INTEGER, INTENT(IN) :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
@@ -5019,7 +5376,7 @@ CONTAINS
     REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
     REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,precrate3D
 
     REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss
     REAL(wp)                          :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
@@ -5041,13 +5398,12 @@ CONTAINS
     END IF
 
     DO k = kts, kte
+
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+
       DO i = its,ite
 
-!!$ UB: not so good (?), because this is the upward interfacial speed, not
-!!$     so representative of the flux going through the lower interface. TO BE DISCUSSED!
-!!$        v_nv(i) = 0.5_wp * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
-!!$        v_qv(i) = 0.5_wp * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
-!!$ UB: speed at the level center, probably better in the sense of a low-order explicit scheme:
         v_nv = v_n_sedi(i,k)
         v_qv = v_q_sedi(i,k)
 
@@ -5075,29 +5431,149 @@ CONTAINS
         s_qv = -s_qv * odt;
 
         ! Flux-limiter to avoid negative values
-        k_c = IAND(k, 1)
-        k_p = 1-IAND(k, 1)
         n_fluss(i,k_c) = MAX(s_nv,n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
         q_fluss(i,k_c) = MAX(s_qv,q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
 
         np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
         qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
 
+        precrate3D(i,k) = - q_fluss(i,k_c) ! precipitation rate at lower level boundary
+
       ENDDO
     END DO
 
     IF (PRESENT(cmax)) cmax = cmax_temp
 
-    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! precipitation rate at ground
 
   END SUBROUTINE sedi_icon_core
 #endif
 
-!!$ UB: This is the new explicit and more stable boxtracking sedimentation method
-!!$  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
-!!$ Up to now there is no vectorized version for the NEC SX!
+  ! UB: This is the new explicit and more stable boxtracking sedimentation method
+  !  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+
+#if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__)
+
+  ! Vectorized version for the NEC:
   SUBROUTINE sedi_icon_box_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
-                                np, qp, precrate, cmax)
+                                np, qp, precrate, precrate3D, cmax)
+
+    INTEGER,  INTENT(IN)                               :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN)               :: adz
+    REAL(wp), INTENT(in)                               :: dt
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL                  :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)              :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT)            :: np,qp,precrate3D
+
+    INTEGER                                :: i, k, kk, k_c, k_p
+    REAL(wp), DIMENSION(its:ite, 0:1)      :: q_fluss, n_fluss
+    REAL(wp), DIMENSION(its:ite)           :: v_nv, v_qv, c_qv, dz_loc
+    REAL(wp), DIMENSION(its:ite,kts:kte)   :: s_nv, s_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte+1) :: dz
+    REAL(wp)                               :: cmax_temp, cmax_j, odt
+
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+    ! .. dummy value for level kte+1, does not have an effect but is needed
+    !    to prevent an array bound violation below:
+    dz(its:ite,kte+1) = dz(its:ite,kte)
+
+    odt = 1.0_wp / dt
+
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    s_nv(:,:) = 0.0_wp
+    s_qv(:,:) = 0.0_wp
+
+    DO k = kts, kte
+      
+      DO i = its,ite
+
+        v_nv(i) = v_n_sedi(i,k)
+        v_qv(i) = v_q_sedi(i,k)
+
+        ! Formulated under the assumption that v_nv, v_qv always negative:
+        c_qv(i) = -v_qv(i) * adz(i,k) * dt
+      END DO
+      cmax_j = MAXVAL( c_qv(its:ite) )
+      cmax_temp = MAX(cmax_temp, cmax_j)
+
+      kk = 0              ! Loop index for the flux aggregation in the next boxes below the k'th box
+      dz_loc(:) = 0.0_wp  ! Distance from the k'th lower cell face to the k+kk'th
+                          !   lower cell face for downward processing starting from k
+      DO
+        IF ( k+kk > kte ) EXIT 
+        IF ( ALL( dz_loc(:) >= -v_nv(:)*dt ) ) EXIT
+        DO i = its, ite
+          IF ( dz_loc(i) < -v_nv(i)*dt ) THEN
+            s_nv(i,k+kk) = s_nv(i,k+kk) + np(i,k) * MIN(dz(i,k),-dz_loc(i)-v_nv(i)*dt)
+            dz_loc(i) = dz_loc(i) + dz(i,k+kk+1)
+          END IF
+        END DO
+        kk = kk + 1
+      END DO
+
+      ! .. The same for the time-averaged mass density flux:
+
+      kk = 0
+      dz_loc(:) = 0.0_wp
+      DO
+        IF ( k+kk > kte ) EXIT 
+        IF ( ALL( dz_loc(:) >= -v_qv(:)*dt ) ) EXIT
+        DO i = its, ite
+          IF ( dz_loc(i) < -v_qv(i)*dt ) THEN
+            s_qv(i,k+kk) = s_qv(i,k+kk) + qp(i,k) * MIN(dz(i,k),-dz_loc(i)-v_qv(i)*dt)
+            dz_loc(i) = dz_loc(i) + dz(i,k+kk+1)
+          END IF
+        END DO
+        kk = kk + 1
+      END DO
+      
+    END DO
+
+    ! .. Divide the time-aggregated flux by dt to get the time-averaged
+    !    flux and give a negative sign because fluxes are directed downward:
+    s_nv(:,:) = -s_nv(:,:) * odt
+    s_qv(:,:) = -s_qv(:,:) * odt
+
+    DO k = kts, kte
+
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+
+      DO i = its,ite
+
+        ! .. Flux-limiter to avoid negative values:
+        n_fluss(i,k_c) = MAX(s_nv(i,k),n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c) = MAX(s_qv(i,k),q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+
+        ! .. Update of nx and qx due to sedimenation flux divergences:
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+
+        precrate3D(i,k) = - q_fluss(i,k_c) ! precipitation rate at lower level boundary
+
+      ENDDO
+    END DO
+
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! precipitation rate at ground
+
+  END SUBROUTINE sedi_icon_box_core
+
+#else
+
+  ! UB: scalar version for non-vector-architectures:
+  SUBROUTINE sedi_icon_box_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+                                np, qp, precrate, precrate3D, cmax)
 
     INTEGER, INTENT(IN)                          :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(IN)         :: adz
@@ -5105,16 +5581,15 @@ CONTAINS
     REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL            :: cmax
     REAL(wp), DIMENSION(:), INTENT(INOUT)        :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT)      :: np,qp
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT)      :: np,qp,precrate3D
 
-    REAL(wp), DIMENSION(its:ite, 0:1)       :: q_fluss, n_fluss
-    REAL(wp)                                :: v_nv, v_qv, c_qv
-    REAL(wp), DIMENSION(its:ite,kts:kte)    :: s_nv, s_qv
-    REAL(wp), DIMENSION(its:ite,kts:kte+1)  :: dz
-    INTEGER :: i, k, kk, k_c, k_p
-    REAL(wp) :: cmax_temp, odt, dz_loc
+    INTEGER                                :: i, k, kk, k_c, k_p
+    REAL(wp), DIMENSION(its:ite, 0:1)      :: q_fluss, n_fluss
+    REAL(wp)                               :: v_nv, v_qv, c_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte)   :: s_nv, s_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte+1) :: dz
+    REAL(wp)                               :: cmax_temp, odt, dz_loc
 
-!CDIR COLLAPSE
     dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
     ! .. dummy value for level kte+1, does not have an effect but is needed
     !    to prevent an array bound violation below:
@@ -5138,11 +5613,6 @@ CONTAINS
     DO k = kts, kte
       DO i = its,ite
 
-!!$ UB: not so good (?), because this is the upward interfacial speed, not
-!!$     so representative of the flux going through the lower interface. TO BE DISCUSSED!
-!!$        v_nv(i) = 0.5_wp * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
-!!$        v_qv(i) = 0.5_wp * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
-!!$ UB: speed at the level center, probably better in the sense of a low-order explicit scheme:
         v_nv = v_n_sedi(i,k)
         v_qv = v_q_sedi(i,k)
 
@@ -5194,181 +5664,38 @@ CONTAINS
         np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
         qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
 
+        precrate3D(i,k) = - q_fluss(i,k_c) ! precipitation rate at lower level boundary
+
       ENDDO
     END DO
 
     IF (PRESENT(cmax)) cmax = cmax_temp
 
-    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! precipitation rate at ground
 
   END SUBROUTINE sedi_icon_box_core
 #endif
 
-#ifdef __BUGGY__
-  SUBROUTINE sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
-    &                           its, ite, kts, kte, np, qp, ql, precrate, cmax)
+#if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__)
 
-    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
-    REAL(wp), INTENT(in) :: dt
-    INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
-    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
-    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
-
-    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
-    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
-    LOGICAL,  DIMENSION(its:ite) :: cflag
-    INTEGER :: i, k, kk, k_c, k_p
-    REAL(wp) :: cmax_temp
-
-    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
-    ql_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
-    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
-
-    IF (PRESENT(cmax)) THEN
-      cmax_temp = cmax
-    ELSE
-      cmax_temp = 0.0_wp
-    END IF
-    DO k = kts,kte
-
-      DO i = its,ite
-        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
-        v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
-        v_ql(i) = 0.5 * (v_ql_sedi(i,k-1)+v_ql_sedi(i,k))
-        ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
-        c_nv(i) = -v_nv(i) * adz(i,k) * dt
-        c_qv(i) = -v_qv(i) * adz(i,k) * dt
-        c_ql(i) = -v_ql(i) * adz(i,k) * dt
-        cmax_temp = MAX(cmax_temp, c_qv(i))
-      END DO
-
-      kk = k
-      s_nv = 0._wp
-      DO i = its,ite
-        IF (c_nv(i) <= 1._wp) THEN
-          s_nv(i) = v_nv(i) * np(i,k)
-        END IF
-      END DO
-      IF (ANY(c_nv > 1._wp)) THEN
-        cflag = .FALSE.
-        DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
-          DO i = its,ite
-            IF (c_nv(i) > 1._wp) THEN
-              cflag(i) = .TRUE.
-              s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
-              c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
-            END IF
-          END DO
-          kk  = kk - 1
-        ENDDO
-        DO i = its,ite
-          IF (cflag(i)) THEN
-            s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)*MIN(c_nv(i),1.0_wp)
-            s_nv(i) = -s_nv(i) / dt
-          END IF
-        END DO
-      ENDIF
-
-      kk = k
-      s_qv = 0.0
-      DO i = its,ite
-        IF (c_qv(i) <= 1._wp) THEN
-          s_qv(i) = v_qv(i) * qp(i,k)
-        END IF
-      END DO
-      IF (ANY(c_qv > 1._wp)) THEN
-        cflag = .FALSE.
-        DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
-          DO i = its,ite
-            IF (c_qv(i) > 1._wp) THEN
-              cflag(i) = .TRUE.
-              s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
-              c_qv(i) = (c_qv(i) - 1) * adz(i,kk-1)/adz(i,kk)
-            END IF
-          END DO
-          kk  = kk - 1
-        ENDDO
-        DO i = its,ite
-          IF (cflag(i)) THEN
-            s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)*MIN(c_qv(i),1.0_wp)
-            s_qv(i) = -s_qv(i) / dt
-          END IF
-        END DO
-      ENDIF
-
-      kk = k
-      s_ql = 0.0
-      DO i = its,ite
-        IF (c_ql(i) <= 1._wp) THEN
-          s_ql(i) = v_ql(i) * qp(i,k)
-        END IF
-      END DO
-      IF (ANY(c_ql > 1._wp)) THEN
-        cflag = .FALSE.
-        DO WHILE (ANY(c_ql > 1._wp) .AND. kk > 2)
-          DO i = its,ite
-            IF (c_ql(i) > 1._wp) THEN
-              cflag(i) = .TRUE.
-              s_ql(i) = s_ql(i) + ql(i,kk)/adz(i,kk)
-              c_ql(i) = (c_ql(i) - 1) * adz(i,kk-1)/adz(i,kk)
-            END IF
-          END DO
-          kk  = kk - 1
-        ENDDO
-        DO i = its,ite
-          IF (cflag(i)) THEN
-            s_ql(i) = s_ql(i) + ql(i,kk)/adz(i,kk)*MIN(c_ql(i),1.0_wp)
-            s_ql(i) = -s_ql(i) / dt
-          END IF
-        END DO
-      ENDIF
-
-      ! Flux-limiter to avoid negative values
-      k_c = IAND(k, 1)
-      k_p = 1-IAND(k, 1)
-      DO i = its,ite
-        n_fluss(i,k_c)  = MAX(s_nv(i),n_fluss(i,k_p)-np(i,k)/(adz(i,k)*dt))
-        q_fluss(i,k_c)  = MAX(s_qv(i),q_fluss(i,k_p)-qp(i,k)/(adz(i,k)*dt))
-        ql_fluss(i,k_c) = MAX(s_ql(i),ql_fluss(i,k_p)-ql(i,k)/(adz(i,k)*dt))
-      END DO
-
-      DO i = its,ite
-        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
-        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
-        ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
-      ENDDO
-
-    END DO
-    IF (PRESENT(cmax)) cmax = cmax_temp
-
-    precrate(its:ite) = - (q_fluss(its:ite,IAND(kte,1))+ql_fluss(its:ite,IAND(kte,1))) ! Regenrate
-
-  END SUBROUTINE sedi_icon_core_lwf
-
-#else
-
-#ifdef __NECSX__
-!!$ Vectorized version for NEC SX
+  ! Vectorized version for NEC:
   SUBROUTINE sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, its, ite, kts, kte, &
-                                np, qp, ql, precrate, cmax)
+                                np, qp, ql, precrate, precrate3D, cmax)
 
-    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
-    REAL(wp), INTENT(in) :: dt
-    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    INTEGER, INTENT(IN)                                :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN)               :: adz
+    REAL(wp), INTENT(in)                               :: dt
     REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
-    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
-    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
+    REAL(wp), INTENT(INOUT), OPTIONAL                  :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)              :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT)            :: np,qp,ql,precrate3D
 
-    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
-    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
+    INTEGER                              :: i, k, kk, k_c, k_p
+    REAL(wp), DIMENSION(its:ite, 0:1)    :: q_fluss, n_fluss, ql_fluss
+    REAL(wp), DIMENSION(its:ite)         :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
     REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
-    INTEGER :: i, k, kk, k_c, k_p
-    REAL(wp) :: cmax_temp, odt
+    REAL(wp)                             :: cmax_temp, odt, cmax_j
 
-!CDIR COLLAPSE
     dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
 
     odt = 1.0_wp / dt
@@ -5393,20 +5720,18 @@ CONTAINS
         c_nv(i) = -v_nv(i) * adz(i,k) * dt
         c_qv(i) = -v_qv(i) * adz(i,k) * dt
         c_ql(i) = -v_ql(i) * adz(i,k) * dt
-        cmax_temp = MAX(cmax_temp, c_qv(i))
       END DO
+      cmax_j = MAXVAL( c_qv(its:ite) )
+      cmax_temp = MAX(cmax_temp, cmax_j)
 
       kk = k
-!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
       DO i = its, ite
         s_nv(i) = np(i,k) * dz(i,k) * MIN(c_nv(i),1.0_wp)
       END DO
       DO
         IF (kk <= kts) EXIT
-!CDIR COLLAPSE
         IF (MAXVAL(c_nv) <= 1.0_wp) EXIT
         kk  = kk - 1
-!CDIR ON_ADB(adz,dz,np,s_nv,c_nv)
         DO i = its, ite
           IF (c_nv(i) > 1.0_wp) THEN
             c_nv(i) = (c_nv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
@@ -5416,16 +5741,13 @@ CONTAINS
       END DO
 
       kk = k
-!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
       DO i = its, ite
         s_qv(i) = qp(i,k) * dz(i,k) * MIN(c_qv(i),1.0_wp)
       END DO
       DO 
         IF (kk <= kts) EXIT
-!CDIR COLLAPSE
         IF (MAXVAL(c_qv) <= 1.0_wp) EXIT
         kk  = kk - 1
-!CDIR ON_ADB(adz,dz,qp,s_qv,s_nv,c_qv)
         DO i = its, ite
           IF (c_qv(i) > 1.0_wp) THEN
             c_qv(i) = (c_qv(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
@@ -5435,16 +5757,13 @@ CONTAINS
       END DO
 
       kk = k
-!CDIR ON_ADB(adz,dz,ql,s_qv,s_nv,c_qv)
       DO i = its, ite
         s_ql(i) = ql(i,k) * dz(i,k) * MIN(c_ql(i),1.0_wp)
       END DO
       DO 
         IF (kk <= kts) EXIT
-!CDIR COLLAPSE
         IF (MAXVAL(c_ql) <= 1.0_wp) EXIT
         kk  = kk - 1
-!CDIR ON_ADB(adz,dz,ql,s_qv,s_nv,c_qv)
         DO i = its, ite
           IF (c_ql(i) > 1.0_wp) THEN
             c_ql(i) = (c_ql(i) - 1.0_wp) * adz(i,kk) * dz(i,kk+1)
@@ -5456,33 +5775,41 @@ CONTAINS
       ! Flux-limiter to avoid negative values
       k_c = IAND(k, 1)
       k_p = 1-IAND(k, 1)
+      
       DO i = its,ite
+
         s_nv(i) = -s_nv(i) * odt
         s_qv(i) = -s_qv(i) * odt
         s_ql(i) = -s_ql(i) * odt
-        n_fluss(i,k_c) = MAX(s_nv(i),n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
-        q_fluss(i,k_c) = MAX(s_qv(i),q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+        n_fluss(i,k_c)  = MAX(s_nv(i),n_fluss (i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c)  = MAX(s_qv(i),q_fluss (i,k_p)-qp(i,k) * dz(i,k)*odt)
         ql_fluss(i,k_c) = MAX(s_ql(i),ql_fluss(i,k_p)-ql(i,k) * dz(i,k)*odt)
+
       END DO
 
       DO i = its,ite
-        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
-        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c)  - n_fluss (i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c)  - q_fluss (i,k_p) )*adz(i,k)*dt
         ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+        
+        precrate3D(i,k) = - q_fluss(i,k_c) - ql_fluss(i,k_c) ! precipitation rate at lower level boundary
+
       ENDDO
 
     END DO
+
     IF (PRESENT(cmax)) cmax = cmax_temp
 
-    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) - ql_fluss(its:ite,IAND(kte, 1)) 
 
   END SUBROUTINE sedi_icon_core_lwf
 
 #else
 
-!!$ UB: scalar version for non-vector-architectures
+  ! UB: scalar version for non-vector-architectures:
   SUBROUTINE sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, its, ite, kts, kte, &
-                                np, qp, ql, precrate, cmax)
+                                np, qp, ql, precrate, precrate3D, cmax)
 
     INTEGER, INTENT(IN) :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
@@ -5490,7 +5817,7 @@ CONTAINS
     REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
     REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql,precrate3D
 
     REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
     REAL(wp)                          :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
@@ -5554,54 +5881,197 @@ CONTAINS
         ! Flux-limiter to avoid negative values
         k_c = IAND(k, 1)
         k_p = 1-IAND(k, 1)
-        n_fluss(i,k_c) = MAX(s_nv,n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
-        q_fluss(i,k_c) = MAX(s_qv,q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+        n_fluss(i,k_c)  = MAX(s_nv,n_fluss (i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c)  = MAX(s_qv,q_fluss (i,k_p)-qp(i,k) * dz(i,k)*odt)
         ql_fluss(i,k_c) = MAX(s_ql,ql_fluss(i,k_p)-ql(i,k) * dz(i,k)*odt)
 
-        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
-        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        np(i,k) = np(i,k) + ( n_fluss (i,k_c) - n_fluss (i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss (i,k_c) - q_fluss (i,k_p) )*adz(i,k)*dt
         ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+        
+        precrate3D(i,k) = - q_fluss(i,k_c) - ql_fluss(i,k_c) ! precipitation rate at lower level boundary
 
       ENDDO
     END DO
 
     IF (PRESENT(cmax)) cmax = cmax_temp
 
-    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) - ql_fluss(its:ite,IAND(kte, 1))
 
   END SUBROUTINE sedi_icon_core_lwf
 #endif
 
-!!$ UB: This is the new explicit and more stable boxtracking sedimentation method
-!!$  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
-!!$ Up to now there is no vectorized version for the NEC SX!
+
+  ! UB: This is the new explicit and more stable boxtracking sedimentation method
+  !  (http://www.cosmo-model.org/content/model/documentation/core/docu_sedi_twomom.pdf)
+
+#if defined (__SX__) || defined (__NEC_VH__) || defined (__NECSX__)
+
+  ! Vectorized version for NEC:
   SUBROUTINE sedi_icon_box_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, its, ite, kts, kte, &
-                                    np, qp, ql, precrate, cmax)
+                                    np, qp, ql, precrate, precrate3D, cmax)
 
-    INTEGER, INTENT(IN) :: its,ite,kts,kte
-    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
-    REAL(wp), INTENT(in) :: dt
+    INTEGER,  INTENT(IN)                               :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN)               :: adz
+    REAL(wp), INTENT(in)                               :: dt
     REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
-    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
-    REAL(wp), DIMENSION(:), INTENT(INOUT)   :: precrate
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: np,qp,ql
+    REAL(wp), INTENT(INOUT), OPTIONAL                  :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)              :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT)            :: np,qp,ql,precrate3D
 
-    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
-    REAL(wp)                          :: v_nv, v_qv, v_ql, c_qv
-    REAL(wp), DIMENSION(its:ite,kts:kte) :: s_nv, s_qv, s_ql
-    REAL(wp), DIMENSION(its:ite,kts:kte) :: dz
-    INTEGER :: i, k, kk, k_c, k_p
-    REAL(wp) :: cmax_temp, odt, dz_loc
+    INTEGER                                :: i, k, kk, k_c, k_p
+    REAL(wp), DIMENSION(its:ite, 0:1)      :: q_fluss, n_fluss, ql_fluss
+    REAL(wp), DIMENSION(its:ite)           :: v_nv, v_qv, v_ql, c_qv, dz_loc
+    REAL(wp), DIMENSION(its:ite,kts:kte)   :: s_nv, s_qv, s_ql
+    REAL(wp), DIMENSION(its:ite,kts:kte+1) :: dz
+    REAL(wp)                               :: cmax_temp, cmax_j, odt
 
-!CDIR COLLAPSE
+    dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
+    ! .. dummy value for level kte+1, does not have an effect but is needed
+    !    to prevent an array bound violation below:
+    dz(its:ite,kte+1) = dz(its:ite,kte)
+
+    odt = 1.0_wp / dt
+
+    ! .. Upper boundary condition on fluxes:
+    q_fluss(:, 1-IAND(kts, 1))   = 0.0_wp
+    ql_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))   = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+
+    s_nv(:,:) = 0.0_wp
+    s_qv(:,:) = 0.0_wp
+    s_ql(:,:) = 0.0_wp
+
+    DO k = kts, kte
+
+      DO i = its,ite
+
+        v_nv(i) = v_n_sedi(i,k)
+        v_qv(i) = v_q_sedi(i,k)
+        v_ql(i) = v_ql_sedi(i,k)
+
+        ! Formulated under the assumption that v_nv, v_qv always negative:
+        c_qv(i) = -v_qv(i) * adz(i,k) * dt
+      END DO
+      cmax_j = MAXVAL( c_qv(its:ite) )
+      cmax_temp = MAX(cmax_temp, cmax_j)
+
+      kk = 0              ! Loop index for the flux aggregation in the next boxes below the k'th box
+      dz_loc(:) = 0.0_wp  ! Distance from the k'th lower cell face to the k+kk'th
+                          !   lower cell face for downward processing starting from k
+      DO
+        IF ( k+kk > kte ) EXIT 
+        IF ( ALL( dz_loc(:) >= -v_nv(:)*dt ) ) EXIT
+        DO i = its, ite
+          IF ( dz_loc(i) < -v_nv(i)*dt ) THEN
+            s_nv(i,k+kk) = s_nv(i,k+kk) + np(i,k) * MIN(dz(i,k),-dz_loc(i)-v_nv(i)*dt)
+            dz_loc(i) = dz_loc(i) + dz(i,k+kk+1)
+          END IF
+        END DO
+        kk = kk + 1
+      END DO
+
+      ! .. The same for the mass density flux:
+      kk = 0
+      dz_loc(:) = 0.0_wp
+      DO
+        IF ( k+kk > kte ) EXIT 
+        IF ( ALL( dz_loc(:) >= -v_qv(:)*dt ) ) EXIT
+        DO i = its, ite
+          IF ( dz_loc(i) < -v_qv(i)*dt ) THEN
+            s_qv(i,k+kk) = s_qv(i,k+kk) + qp(i,k) * MIN(dz(i,k),-dz_loc(i)-v_qv(i)*dt)
+            dz_loc(i) = dz_loc(i) + dz(i,k+kk+1)
+          END IF
+        END DO
+        kk = kk + 1
+      END DO
+      
+      ! .. The same for the liquid partial mass density flux:
+      kk = 0
+      dz_loc(:) = 0.0_wp
+      DO
+        IF ( k+kk > kte ) EXIT 
+        IF ( ALL( dz_loc(:) >= -v_ql(:)*dt ) ) EXIT
+        DO i = its, ite
+          IF ( dz_loc(i) < -v_ql(i)*dt ) THEN
+            s_ql(i,k+kk) = s_ql(i,k+kk) + ql(i,k) * MIN(dz(i,k),-dz_loc(i)-v_ql(i)*dt)
+            dz_loc(i) = dz_loc(i) + dz(i,k+kk+1)
+          END IF
+        END DO
+        kk = kk + 1
+      END DO
+      
+    END DO
+
+    ! .. Divide the time-aggregated flux by dt to get the time-averaged
+    !    flux and give a negative sign because fluxes are directed downward:
+    s_nv(:,:) = -s_nv(:,:) * odt
+    s_qv(:,:) = -s_qv(:,:) * odt
+    s_ql(:,:) = -s_ql(:,:) * odt
+
+    DO k = kts, kte
+
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+
+      DO i = its,ite
+
+        ! .. Flux-limiter to avoid negative values:
+        n_fluss(i,k_c)  = MAX(s_nv(i,k),n_fluss (i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c)  = MAX(s_qv(i,k),q_fluss (i,k_p)-qp(i,k) * dz(i,k)*odt)
+        ql_fluss(i,k_c) = MAX(s_ql(i,k),ql_fluss(i,k_p)-ql(i,k) * dz(i,k)*odt)
+
+        ! .. Update of nx and qx due to sedimenation flux divergences:
+        np(i,k) = np(i,k) + ( n_fluss (i,k_c) - n_fluss (i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss (i,k_c) - q_fluss (i,k_p) )*adz(i,k)*dt
+        ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+
+        precrate3D(i,k) = - q_fluss(i,k_c) - ql_fluss(i,k_c) ! precipitation rate at lower level boundary
+
+      ENDDO
+    END DO
+
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) - ql_fluss(its:ite,IAND(kte, 1))
+
+  END SUBROUTINE sedi_icon_box_core_lwf
+
+#else
+
+  ! UB: scalar version for non-vector-architectures:
+  SUBROUTINE sedi_icon_box_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, its, ite, kts, kte, &
+                                    np, qp, ql, precrate, precrate3D, cmax)
+
+    INTEGER, INTENT(IN)                                :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(IN)               :: adz
+    REAL(wp), INTENT(in)                               :: dt
+    REAL(wp), DIMENSION(its:ite,kts-1:kte), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL                  :: cmax
+    REAL(wp), DIMENSION(:), INTENT(INOUT)              :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT)            :: np,qp,ql,precrate3D
+
+    INTEGER                                :: i, k, kk, k_c, k_p
+    REAL(wp), DIMENSION(its:ite, 0:1)      :: q_fluss, n_fluss, ql_fluss
+    REAL(wp)                               :: v_nv, v_qv, v_ql, c_qv
+    REAL(wp), DIMENSION(its:ite,kts:kte)   :: s_nv, s_qv, s_ql
+    REAL(wp), DIMENSION(its:ite,kts:kte+1) :: dz
+    REAL(wp)                               :: cmax_temp, odt, dz_loc
+
     dz(its:ite,kts:kte) = 1.0_wp / adz(its:ite,kts:kte)
 
     odt = 1.0_wp / dt
 
     ! .. Upper boundary condition on fluxes:
-    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    q_fluss(:, 1-IAND(kts, 1))   = 0.0_wp
     ql_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
-    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))   = 0.0_wp
 
     IF (PRESENT(cmax)) THEN
       cmax_temp = cmax
@@ -5669,24 +6139,25 @@ CONTAINS
       DO i = its,ite
 
         ! .. Flux-limiter to avoid negative values:
-        n_fluss(i,k_c) = MAX(s_nv(i,k),n_fluss(i,k_p)-np(i,k) * dz(i,k)*odt)
-        q_fluss(i,k_c) = MAX(s_qv(i,k),q_fluss(i,k_p)-qp(i,k) * dz(i,k)*odt)
+        n_fluss(i,k_c)  = MAX(s_nv(i,k),n_fluss (i,k_p)-np(i,k) * dz(i,k)*odt)
+        q_fluss(i,k_c)  = MAX(s_qv(i,k),q_fluss (i,k_p)-qp(i,k) * dz(i,k)*odt)
         ql_fluss(i,k_c) = MAX(s_ql(i,k),ql_fluss(i,k_p)-ql(i,k) * dz(i,k)*odt)
 
         ! .. Update of nx and qx due to sedimenation flux divergences:
-        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
-        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        np(i,k) = np(i,k) + ( n_fluss (i,k_c) - n_fluss (i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss (i,k_c) - q_fluss (i,k_p) )*adz(i,k)*dt
         ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+
+        precrate3D(i,k) = - q_fluss(i,k_c) - ql_fluss(i,k_c) ! precipitation rate at lower level boundary
 
       ENDDO
     END DO
 
     IF (PRESENT(cmax)) cmax = cmax_temp
 
-    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) - ql_fluss(its:ite,IAND(kte, 1))
 
   END SUBROUTINE sedi_icon_box_core_lwf
-
 #endif
 
 END MODULE mo_2mom_mcrph_processes

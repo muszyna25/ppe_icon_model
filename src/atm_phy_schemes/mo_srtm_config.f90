@@ -10,12 +10,21 @@
 #endif
   MODULE mo_srtm_config
 
-    USE mo_kind,                ONLY: wp
-    USE mo_srtm_kgb_routines,   ONLY: srtm_kgb16, srtm_kgb17, srtm_kgb18, &
-                                  &   srtm_kgb19, srtm_kgb20, srtm_kgb21, &
-                                  &   srtm_kgb22, srtm_kgb23, srtm_kgb24, &
-                                  &   srtm_kgb25, srtm_kgb26, srtm_kgb27, &
-                                  &   srtm_kgb28, srtm_kgb29
+    USE mo_kind,         ONLY: wp
+    USE mo_srtm_kgb16,   ONLY: srtm_kgb16
+    USE mo_srtm_kgb17,   ONLY: srtm_kgb17
+    USE mo_srtm_kgb18,   ONLY: srtm_kgb18
+    USE mo_srtm_kgb19,   ONLY: srtm_kgb19
+    USE mo_srtm_kgb20,   ONLY: srtm_kgb20
+    USE mo_srtm_kgb21,   ONLY: srtm_kgb21
+    USE mo_srtm_kgb22,   ONLY: srtm_kgb22
+    USE mo_srtm_kgb23,   ONLY: srtm_kgb23
+    USE mo_srtm_kgb24,   ONLY: srtm_kgb24
+    USE mo_srtm_kgb25,   ONLY: srtm_kgb25
+    USE mo_srtm_kgb26,   ONLY: srtm_kgb26
+    USE mo_srtm_kgb27,   ONLY: srtm_kgb27
+    USE mo_srtm_kgb28,   ONLY: srtm_kgb28
+    USE mo_srtm_kgb29,   ONLY: srtm_kgb29
 
     IMPLICIT NONE
 

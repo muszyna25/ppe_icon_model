@@ -82,6 +82,8 @@ f90_files:= $(filter %.f90,$(all_files))
 inc_files:= $(filter %.inc,$(all_files))
 # Files included with the Fortran INCLUDE "filename.incf" statements:
 incf_files:= $(filter %.incf,$(all_files))
+# Files included with the pp #include "filename.interface" statements:
+incf_files+= $(filter %.interface,$(all_files))
 # C '.c' source files:
 c_files:= $(filter %.c,$(all_files))
 # CUDA '*.cu' source files:
@@ -115,6 +117,23 @@ pp_files:=
 @ART_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.f90'))
 @ART_ENABLED@inc_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.inc'))
 @ART_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.incf'))
+
+# DACE sources:
+rttov_basic_modules:=
+DACE_srcdir:= $(srcdir)/externals/dace_icon/src_for_icon
+@DACE_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.f90'))
+@DACE_ENABLED@inc_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.inc'))
+@DACE_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.incf'))
+
+# EMVORADO sources:
+@EMVORADO_ENABLED@EMVORADO_srcdir:= $(srcdir)/externals/emvorado
+@EMVORADO_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(EMVORADO_srcdir) -name '*.f90'))
+@EMVORADO_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(EMVORADO_srcdir) -name '*.incf'))
+@EMVORADO_ENABLED@@DACE_NOT_ENABLED@EMVORADO_dacefiles:= mo_fdbk.f90 mo_fdbk_io.f90 mo_fdbk_tables.f90 kind_parameters.f90 environment.f90 mo_fortran_units.f90 mo_mpi_dace.f90 mo_omp.f90 mo_netcdf_param.f90 mo_t_netcdf_file.f90 mo_t_table.f90 p_bcast.incf p_scatter_derived.incf
+@EMVORADO_ENABLED@@DACE_NOT_ENABLED@DACE_srcsubdir:= $(patsubst $(srcdir)/%,%,$(DACE_srcdir))
+@EMVORADO_ENABLED@@DACE_NOT_ENABLED@EMVORADO_dacesrc:= $(addprefix $(DACE_srcsubdir)/,$(EMVORADO_dacefiles))
+@EMVORADO_ENABLED@@DACE_NOT_ENABLED@f90_files+= $(filter %.f90,$(EMVORADO_dacesrc)) 
+@EMVORADO_ENABLED@@DACE_NOT_ENABLED@incf_non_common_files+= $(filter %.incf,$(EMVORADO_dacesrc)) 
 
 # JSBACH preprocessing:
 @JSBACH_ENABLED@JSB_srcdir:= $(srcdir)/externals/jsbach
@@ -372,7 +391,7 @@ sanitize-mod-proxies:
 # ICON-Ocean f90->f90 rules for the original files:
 @FPP_ENABLED@ICON_OCEAN_FPP= $(silent_FPP)$(FPP) $(FCFLAGS) $(ICON_OCEAN_FCFLAGS) $< >$@
 
-@FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/hamocc/%.f90: src/hammoc/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
+@FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/hamocc/%.f90: src/hamocc/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)
 @FPP_ENABLED@$(builddir)/$(FPP_subdir)/src/ocean/%.f90: src/ocean/%.f90 | $(builddir)/$(FPP_incf_files) $(dir_files)
 @FPP_ENABLED@	$(ICON_OCEAN_FPP)

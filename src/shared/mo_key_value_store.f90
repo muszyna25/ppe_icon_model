@@ -154,9 +154,9 @@ CONTAINS
 
     IF (.NOT.me%is_init) CALL finish(modname//"put", "data structure not initialized")
     IF (me%lcase_sensitive) THEN
-      CALL put_actual(key)
+      CALL put_actual(TRIM(key))
     ELSE
-      CALL put_actual(tolower(key))
+      CALL put_actual(tolower(TRIM(key)))
     END IF
   CONTAINS
 
@@ -167,11 +167,11 @@ CONTAINS
       TYPE(t_char_workaround), POINTER :: key_p
 
       ALLOCATE(key_p)
-      ALLOCATE(CHARACTER(LEN=LEN_TRIM(key)) :: key_p%c)
-      WRITE(key_p%c, "(a)") TRIM(key)
+      ALLOCATE(CHARACTER(LEN=LEN(key)) :: key_p%c)
+      WRITE(key_p%c, "(a)") key
       keyObj => key_p
 #else
-      ALLOCATE(keyObj , SOURCE=TRIM(key))
+      ALLOCATE(keyObj , SOURCE=key)
 #endif
       CALL me%table%setEntry(keyObj, valObj)
     END SUBROUTINE put_actual
@@ -365,7 +365,6 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//"output"
     TYPE(t_HashIterator) :: iterator
     CLASS(*), POINTER :: curKey, curVal
-    CHARACTER(:), ALLOCATABLE :: label_loc
     CHARACTER(:), POINTER :: ccKey, ccVal
     LOGICAL :: selector(4)
 
@@ -441,16 +440,17 @@ CONTAINS
     END SUBROUTINE output_pmsg
 
     SUBROUTINE output_stdio()
-      CHARACTER(LEN=4096) :: message_text ! message_text from mo_exception is too short
-  
+      CHARACTER(LEN=576) :: message_text ! message_text from mo_exception is too short
+
       message_text = ''
+      NULLIFY(ccVal)
       SELECT TYPE(curVal)
 #ifdef __PGI
       TYPE IS(t_char_workaround)
-        WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", curVal%c, "<"
+        ccVal => curVal%c
 #else
       TYPE IS(CHARACTER(*))
-        WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", curVal, "<"
+        ccVal => curVal
 #endif
       TYPE IS(REAL(wp))
         WRITE(message_text, "(3a,e12.5,a)") "key = >", ccKey, "< val = >", curVal, "<"
@@ -461,6 +461,13 @@ CONTAINS
       CLASS DEFAULT
         CALL finish(routine, "val: invalid type")
       END SELECT
+      IF (ASSOCIATED(ccVal)) THEN
+        IF (LEN(ccVal) .GT. 448) THEN
+          WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", ccVal(1:400), "< !TRUNCATED!"
+        ELSE
+          WRITE(message_text, "(5a)") "key = >", ccKey, "< val = >", ccVal, "<"
+        END IF
+      END IF
       IF (PRESENT(label)) THEN
         CALL message(routine, message_text)
       ELSE

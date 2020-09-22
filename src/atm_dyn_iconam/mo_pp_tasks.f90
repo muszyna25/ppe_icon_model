@@ -242,11 +242,11 @@ CONTAINS
     INTEGER                            ::        &
       &  lonlat_id, jg,                          &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
-      &  ierrstat, dim1, dim2, hintp_type
+      &  ierrstat, dim1, dim2, dim3, hintp_type
     TYPE (t_var_list_element), POINTER :: in_var, out_var, out_var_2
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE (t_lon_lat_intp),     POINTER :: ptr_int_lonlat
-    REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET      :: tmp_var(:,:,:)
     INTEGER,  ALLOCATABLE              :: tmp_int_var(:,:,:)
     REAL(wp), POINTER                  :: tmp_ptr(:,:,:)
     INTEGER,  POINTER                  :: tmp_int_ptr(:,:,:)
@@ -297,11 +297,11 @@ CONTAINS
 
     SELECT CASE (p_info%hgrid)
     CASE (GRID_UNSTRUCTURED_CELL)
-      IF (ASSOCIATED(in_var%r_ptr)) THEN
+      IF (ASSOCIATED(in_var%r_ptr) .OR. ASSOCIATED(in_var%s_ptr)) THEN
 
-        ! -----------
-        ! REAL fields
-        ! -----------
+        ! --------------------------------------
+        ! REAL and SINGLE PRECISION FLOAT fields
+        ! --------------------------------------
 
         IF (zaxisTypeList%is_2d(p_info%vgrid)) THEN
           ! For 2D variables (nproma, nblks) we first copy this to 1-level
@@ -313,16 +313,32 @@ CONTAINS
 
           var_ref_pos = 3
           IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            tmp_var(:,1,:) = in_var%r_ptr(in_var_idx,:,:,1,1)
-          CASE (2)
-            tmp_var(:,1,:) = in_var%r_ptr(:,in_var_idx,:,1,1)
-          CASE (3)
-            tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
-          CASE default
+
+          IF (ASSOCIATED(in_var%r_ptr)) THEN
+            SELECT CASE(var_ref_pos)
+            CASE (1)
+              tmp_var(:,1,:) = in_var%r_ptr(in_var_idx,:,:,1,1)
+            CASE (2)
+              tmp_var(:,1,:) = in_var%r_ptr(:,in_var_idx,:,1,1)
+            CASE (3)
+              tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
+            CASE default
+              CALL finish(routine, "internal error!")
+            END SELECT
+          ELSE IF (ASSOCIATED(in_var%s_ptr)) THEN
+            SELECT CASE(var_ref_pos)
+            CASE (1)
+              tmp_var(:,1,:) = REAL(in_var%s_ptr(in_var_idx,:,:,1,1),wp)
+            CASE (2)
+              tmp_var(:,1,:) = REAL(in_var%s_ptr(:,in_var_idx,:,1,1),wp)
+            CASE (3)
+              tmp_var(:,1,:) = REAL(in_var%s_ptr(:,:,in_var_idx,1,1),wp)
+            CASE default
+              CALL finish(routine, "internal error!")
+            END SELECT
+          ELSE
             CALL finish(routine, "internal error!")
-          END SELECT
+          ENDIF
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
@@ -339,18 +355,65 @@ CONTAINS
 
           var_ref_pos = 4
           IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            tmp_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
-          CASE (2)
-            tmp_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
-          CASE (3)
-            tmp_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
-          CASE (4)
-            tmp_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
-          CASE default
+
+          IF (ASSOCIATED(in_var%r_ptr)) THEN
+            SELECT CASE(var_ref_pos)
+            CASE (1)
+              tmp_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
+            CASE (2)
+              tmp_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
+            CASE (3)
+              tmp_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
+            CASE (4)
+              tmp_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
+            CASE default
+              CALL finish(routine, "internal error!")
+            END SELECT
+          ELSE  IF (ASSOCIATED(in_var%s_ptr)) THEN
+            SELECT CASE(var_ref_pos)
+            CASE (1)
+              dim1 = SIZE(in_var%s_ptr,2)
+              dim2 = SIZE(in_var%s_ptr,3)
+              dim3 = SIZE(in_var%s_ptr,4)
+              ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+              IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+              tmp_var(:,:,:) = REAL(in_var%s_ptr(in_var_idx,:,:,:,1), wp)
+!$OMP END PARALLEL WORKSHARE
+            CASE (2)
+              dim1 = SIZE(in_var%s_ptr,1)
+              dim2 = SIZE(in_var%s_ptr,3)
+              dim3 = SIZE(in_var%s_ptr,4)
+              ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+              IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+              tmp_var(:,:,:) = REAL(in_var%s_ptr(:,in_var_idx,:,:,1), wp)
+!$OMP END PARALLEL WORKSHARE
+            CASE (3)
+              dim1 = SIZE(in_var%s_ptr,1)
+              dim2 = SIZE(in_var%s_ptr,2)
+              dim3 = SIZE(in_var%s_ptr,4)
+              ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+              IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+              tmp_var(:,:,:) = REAL(in_var%s_ptr(:,:,in_var_idx,:,1), wp)
+!$OMP END PARALLEL WORKSHARE
+            CASE (4)
+              dim1 = SIZE(in_var%s_ptr,1)
+              dim2 = SIZE(in_var%s_ptr,2)
+              dim3 = SIZE(in_var%s_ptr,3)
+              ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+              IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+              tmp_var(:,:,:) = REAL(in_var%s_ptr(:,:,:,in_var_idx,1), wp)
+!$OMP END PARALLEL WORKSHARE
+            CASE default
+              CALL finish(routine, "internal error!")
+            END SELECT
+            tmp_ptr => tmp_var(:,:,:)
+          ELSE
             CALL finish(routine, "internal error!")
-          END SELECT
+          ENDIF
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
@@ -358,6 +421,12 @@ CONTAINS
             &   TRIM(p_info%name), tmp_ptr, nproma, &
             &   out_var%r_ptr(:,:,:,out_var_idx,1), &
             &   hintp_type)
+
+          ! clean up
+          IF (ALLOCATED(tmp_var)) THEN
+            DEALLOCATE(tmp_var, STAT=ierrstat)
+            IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation of tmp_var failed')
+          ENDIF
         END IF ! 2D
 
     ELSE IF (ASSOCIATED(in_var%i_ptr)) THEN
@@ -716,7 +785,8 @@ CONTAINS
       &  vert_intp_method, jg,                    &
       &  in_var_idx, out_var_idx, nlev, nlevp1,   &
       &  n_ipzlev, npromz, nblks, ierrstat,       &
-      &  in_var_ref_pos, out_var_ref_pos
+      &  in_var_ref_pos, out_var_ref_pos,         &
+      &  dim1, dim2, dim3
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
@@ -731,6 +801,7 @@ CONTAINS
     TYPE(t_nh_pzlev_config),   POINTER :: nh_pzlev_config
     REAL(wp),                  POINTER :: p_z3d(:,:,:), p_pres(:,:,:), p_temp(:,:,:)
     REAL(wp), ALLOCATABLE, TARGET      :: z_me(:,:,:), p_z3d_edge(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET      :: tmp_var(:,:,:)
     REAL(wp),                  POINTER :: in_z3d(:,:,:), in_z_mc(:,:,:)
     TYPE(t_int_state),         POINTER :: intp_hrz
 
@@ -857,18 +928,65 @@ CONTAINS
       in_z_mc           => z_me
     END SELECT
 
-    SELECT CASE(in_var_ref_pos)
-    CASE (1)
-      in_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
-    CASE (2)
-      in_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
-    CASE (3)
-      in_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
-    CASE (4)
-      in_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
-    CASE default
-      CALL finish(routine, "internal error!")
-    END SELECT
+    IF (ASSOCIATED(in_var%r_ptr)) THEN
+      SELECT CASE(in_var_ref_pos)
+      CASE (1)
+        in_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
+      CASE (2)
+        in_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
+      CASE (3)
+        in_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
+      CASE (4)
+        in_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
+      CASE default
+        CALL finish(routine, "internal error!")
+      END SELECT
+    ELSE IF (ASSOCIATED(in_var%s_ptr)) THEN
+      SELECT CASE(in_var_ref_pos)
+      CASE (1)
+        dim1 = SIZE(in_var%s_ptr,2)
+        dim2 = SIZE(in_var%s_ptr,3)
+        dim3 = SIZE(in_var%s_ptr,4)
+        ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+        tmp_var(:,:,:) = REAL(in_var%s_ptr(in_var_idx,:,:,:,1),wp)
+!$OMP END PARALLEL WORKSHARE
+      CASE (2)
+        dim1 = SIZE(in_var%s_ptr,1)
+        dim2 = SIZE(in_var%s_ptr,3)
+        dim3 = SIZE(in_var%s_ptr,4)
+        ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+        tmp_var(:,:,:) = REAL(in_var%s_ptr(:,in_var_idx,:,:,1),wp)
+!$OMP END PARALLEL WORKSHARE
+      CASE (3)
+        dim1 = SIZE(in_var%s_ptr,1)
+        dim2 = SIZE(in_var%s_ptr,2)
+        dim3 = SIZE(in_var%s_ptr,4)
+        ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+        tmp_var(:,:,:) = REAL(in_var%s_ptr(:,:,in_var_idx,:,1),wp)
+!$OMP END PARALLEL WORKSHARE
+      CASE (4)
+        dim1 = SIZE(in_var%s_ptr,1)
+        dim2 = SIZE(in_var%s_ptr,2)
+        dim3 = SIZE(in_var%s_ptr,3)
+        ALLOCATE(tmp_var(dim1, dim2, dim3), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS)  CALL finish (routine, 'allocation of tmp_var failed')
+!$OMP PARALLEL WORKSHARE
+        tmp_var(:,:,:) = REAL(in_var%s_ptr(:,:,:,in_var_idx,1),wp)
+!$OMP END PARALLEL WORKSHARE
+      CASE default
+        CALL finish(routine, "internal error!")
+      END SELECT
+      in_ptr => tmp_var(:,:,:) 
+    ELSE
+      CALL finish (routine, 'internal error!')
+    ENDIF
+
     SELECT CASE(out_var_ref_pos)
     CASE (1)
       out_ptr => out_var%r_ptr(out_var_idx,:,:,:,1)
@@ -971,6 +1089,10 @@ CONTAINS
       DEALLOCATE(p_z3d_edge, z_me, STAT=ierrstat)
       IF (ierrstat /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed')
     END IF
+    IF (ALLOCATED(tmp_var)) THEN
+      DEALLOCATE(tmp_var, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation of tmp_var failed')
+    ENDIF
 
   END SUBROUTINE pp_task_ipzlev
 

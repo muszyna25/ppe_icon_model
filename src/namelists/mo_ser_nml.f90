@@ -24,12 +24,13 @@ MODULE mo_ser_nml
   INTEGER ::  ser_step_advection
   INTEGER ::  ser_physics
   INTEGER ::  ser_nudging
+  INTEGER ::  ser_surface
   INTEGER ::  ser_all_debug                      !! serialize statements using ser_all anywhere for debug purposes
   LOGICAL ::  ser_debug                          !! serialize the debug calls from mo_ser_debug
 
   NAMELIST /ser_nml/ ser_graupel, ser_interface_nwp, ser_debug, ser_turbdiff_interface, ser_turbdiff, &
   &                  ser_vertdiff, ser_turbtrans_interface, ser_output_diag, ser_latbc_data, ser_dynamics, &
-  &                  ser_diffusion, ser_step_advection, ser_physics, ser_nudging, ser_all_debug
+  &                  ser_diffusion, ser_step_advection, ser_physics, ser_nudging, ser_all_debug, ser_surface
 
   CONTAINS
 
@@ -53,6 +54,7 @@ MODULE mo_ser_nml
    ser_step_advection = 0
    ser_physics = 0
    ser_nudging = 0
+   ser_surface = 0
    ser_all_debug = 0
    ser_debug = .FALSE.
 

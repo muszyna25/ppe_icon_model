@@ -78,7 +78,7 @@ return_ok()
 
 
 #==============================================================================
-# runs the scrpits 
+# runs the scripts 
 run_scripts_submit()
 {
 
@@ -132,21 +132,32 @@ run_scripts_submit()
   cd run
   EXP_FILES=`cat runscript_list`
 
-  case $submit in
-      sbatch*)
-          batch_system=slurm
-          slurm_user=`whoami`
-          typeset -A job_submitted
-      ;;
-      msub*)
-           batch_system=moab_kit
-           slurm_user=`whoami`
-           typeset -A job_submitted
+  case $HOSTNAME in
+      rcnl*)
+	  batch_system=nqsv
+	  slurm_user=`whoami`
+       	  typeset -A job_submitted
       ;;
       *)
-          batch_system=other
+	  case $submit in
+	      sbatch*)
+		  batch_system=slurm
+		  slurm_user=`whoami`
+		  typeset -A job_submitted
+	      ;;
+	      msub*)
+		  batch_system=moab_kit
+		  slurm_user=`whoami`
+		  typeset -A job_submitted
+	      ;;
+	      *)
+		  batch_system=other
+	      ;;
+	  esac
       ;;
   esac
+
+
   
   for EXP_FILE in $EXP_FILES
   do 
@@ -164,10 +175,25 @@ run_scripts_submit()
         then
             echo "echo \$? > ${EXP_FILE}.status.2" >> submit.$EXP_FILE
         fi
+
         chmod +x submit.$EXP_FILE        
         if [[ "$batch_system" = "moab_kit" ]]
         then
           jobid=$(./submit.$EXP_FILE 2>&1 | sed '/^$/d')
+        elif [[ "$batch_system" = "nqsv" ]]
+        then
+          #
+          # submit and catch jobID
+          echo "jobid=\$(($run_command) 2>&1)" > submit.$EXP_FILE
+          echo "jobid=\`echo \$jobid |awk 'match(\$0,/[0-9]+/){print substr(\$0,RSTART,RLENGTH)}'\`" >> submit.$EXP_FILE
+          # wait for job to finish and catch error status
+          echo "errstat=\$((qwait \${jobid}) 2>&1)" >> submit.$EXP_FILE
+          echo "errstat=\`echo \$errstat |awk 'match(\$0,/[0-9]+/){print substr(\$0, RSTART, RLENGTH)}'\`" >> submit.$EXP_FILE
+          echo "echo \${errstat} > ${EXP_FILE}.status.2" >> submit.$EXP_FILE
+
+          chmod +x submit.$EXP_FILE
+          # submit job
+          ./submit.$EXP_FILE &
         else
           ./submit.$EXP_FILE &
 
@@ -200,8 +226,7 @@ run_scripts_submit()
   wait
   sleep 30
 
-  echo ${pwd}
-
+  echo $(pwd)
   
   # print and check the results
   for EXP_FILE in $EXP_FILES

@@ -33,7 +33,7 @@ MODULE mo_2mom_mcrph_types
 
   ! Derived type for atmospheric variables
   TYPE ATMOSPHERE
-     REAL(wp), pointer, dimension(:,:) :: w, p, t, rho, qv
+     REAL(wp), pointer, dimension(:,:) :: w, p, t, rho, qv, zh
   END TYPE ATMOSPHERE
 
   ! Derived type for hydrometeor species including pointers to data
@@ -168,6 +168,27 @@ MODULE mo_2mom_mcrph_types
     REAL(wp) :: alf_dep, bet_dep, nin_dep, &
                 alf_imm, bet_imm, nin_imm
   END TYPE dep_imm_coeffs
+
+  ! Type declaration for a general 4D equidistant lookup table:
+  TYPE lookupt_4D
+    INTEGER :: n1  ! number of grid points in x1-direction
+    INTEGER :: n2  ! number of grid points in x2-direction
+    INTEGER :: n3  ! number of grid points in x3-direction
+    INTEGER :: n4  ! number of grid points in x4-direction
+    DOUBLE PRECISION, DIMENSION(:), POINTER :: x1  ! grid vector in x1-direction
+    DOUBLE PRECISION, DIMENSION(:), POINTER :: x2  ! grid vector in x1-direction
+    DOUBLE PRECISION, DIMENSION(:), POINTER :: x3  ! grid vector in x1-direction
+    DOUBLE PRECISION, DIMENSION(:), POINTER :: x4  ! grid vector in x1-direction
+    DOUBLE PRECISION                     :: dx1          ! dx1   (grid distance w.r.t. x1)
+    DOUBLE PRECISION                     :: dx2          ! dx2   (grid distance w.r.t. x2)
+    DOUBLE PRECISION                     :: dx3          ! dx3   (grid distance w.r.t. x3)
+    DOUBLE PRECISION                     :: dx4          ! dx4   (grid distance w.r.t. x4)
+    DOUBLE PRECISION                     :: odx1         ! one over dx 1
+    DOUBLE PRECISION                     :: odx2         ! one over dx 2
+    DOUBLE PRECISION                     :: odx3         ! one over dx 3
+    DOUBLE PRECISION                     :: odx4         ! one over dx 4
+    DOUBLE PRECISION, DIMENSION(:,:,:,:), POINTER :: ltable
+  END TYPE lookupt_4D
 
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_types'
 
