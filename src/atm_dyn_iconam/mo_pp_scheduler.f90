@@ -849,7 +849,6 @@ CONTAINS
     l_uv_vertical_intp = .FALSE.
     p_onl => first_output_name_list
     nvars = 0
-    var_names(:) = " "
     l_intp = .FALSE.
     NML_LOOP : DO WHILE (ASSOCIATED(p_onl))
       SELECT CASE (toupper(vintp_name))
@@ -884,6 +883,9 @@ CONTAINS
       END IF
       p_onl => p_onl%next
     END DO NML_LOOP
+    DO ivar = nvars+1,SIZE(var_names)
+      var_names(ivar) = " "
+    END DO
   END SUBROUTINE collect_output_variables
 
 
