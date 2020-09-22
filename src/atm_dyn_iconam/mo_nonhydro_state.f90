@@ -470,7 +470,7 @@ MODULE mo_nonhydro_state
 
     INTEGER           :: jt
     INTEGER           :: ipassive        ! loop counter
-    INTEGER           :: dummy_idx
+    INTEGER           :: dummy_idx, vntl
 
     CHARACTER(len=varname_len)      :: tracer_name
     TYPE(t_list_element), POINTER :: target_element
@@ -517,6 +517,7 @@ MODULE mo_nonhydro_state
 
     suffix = get_timelevel_string(timelev)
 
+    vntl = LEN_TRIM(vname_prefix)
     !
     ! Register a field list and apply default settings
     !
@@ -538,7 +539,7 @@ MODULE mo_nonhydro_state
     ! vn           p_prog%vn(nproma,nlev,nblks_e)
     cf_desc    = t_cf_var('normal_velocity', 'm s-1', 'velocity normal to edge', datatype_flt)
     grib2_desc = grib2_var(0, 2, 34, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-    CALL add_var( p_prog_list, TRIM(vname_prefix)//'vn'//suffix, p_prog%vn,     &
+    CALL add_var( p_prog_list, vname_prefix(1:vntl)//'vn'//suffix, p_prog%vn,     &
       &           GRID_UNSTRUCTURED_EDGE, ZA_REFERENCE, cf_desc, grib2_desc,    &
       &           vert_interp=create_vert_interp_metadata(                      &
       &             vert_intp_method=VINTP_METHOD_VN,                           &
@@ -553,7 +554,7 @@ MODULE mo_nonhydro_state
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity', datatype_flt)
     grib2_desc = grib2_var(0, 2, 9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_prog_list, TRIM(vname_prefix)//'w'//suffix, p_prog%w,      &
+    CALL add_var( p_prog_list, vname_prefix(1:vntl)//'w'//suffix, p_prog%w,      &
       &          GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF, cf_desc, grib2_desc,  &
       &          ldims=shape3d_chalf,                                          & 
       &          vert_interp=create_vert_interp_metadata(                      &
@@ -570,7 +571,7 @@ MODULE mo_nonhydro_state
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density', datatype_flt)
     grib2_desc = grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_prog_list, TRIM(vname_prefix)//'rho'//suffix, p_prog%rho,  &
+    CALL add_var( p_prog_list, vname_prefix(1:vntl)//'rho'//suffix, p_prog%rho,  &
       &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,   &
       &           ldims=shape3d_c,                                             &
       &           vert_interp=create_vert_interp_metadata(                     &
@@ -586,7 +587,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('virtual_potential_temperature', 'K', &
       &                   'virtual potential temperature', datatype_flt)
     grib2_desc = grib2_var(0, 0, 15, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_prog_list, TRIM(vname_prefix)//'theta_v'//suffix, p_prog%theta_v, &
+    CALL add_var( p_prog_list, vname_prefix(1:vntl)//'theta_v'//suffix, p_prog%theta_v, &
       &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,          &
       &           ldims=shape3d_c,                                                    &
       &           in_group=groups("nh_prog_vars","dwd_fg_atm_vars",                   &
@@ -600,7 +601,7 @@ MODULE mo_nonhydro_state
       ! exner        p_prog%exner(nproma,nlev,nblks_c)
       cf_desc    = t_cf_var('exner_pressure', '-', 'exner pressure', datatype_flt)
       grib2_desc = grib2_var(0, 3, 26, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_prog_list, TRIM(vname_prefix)//'exner'//suffix, p_prog%exner,   &
+      CALL add_var( p_prog_list, vname_prefix(1:vntl)//'exner'//suffix, p_prog%exner,   &
         &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE, cf_desc, grib2_desc,        &
         &           ldims=shape3d_c, in_group=groups("nh_prog_vars"),                 &
         &           lopenacc = .TRUE. )
@@ -648,11 +649,11 @@ MODULE mo_nonhydro_state
 
         !QV
         IF ( iqv /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqv))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqv))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqv)%p_3d,        &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'specific_humidity',              &
+            &           t_cf_var(vname_prefix(1:vntl)//'specific_humidity',              &
             &                    'kg kg-1','Specific humidity',datatype_flt),          &
             &           grib2_var( 0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ref_idx=iqv,                                                   &
@@ -697,7 +698,7 @@ MODULE mo_nonhydro_state
 
         !QC
         IF ( iqc /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqc))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqc))
           CALL add_ref( p_prog_list, 'tracer',&
             &         TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqc)%p_3d,        &
             &         GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -723,7 +724,7 @@ MODULE mo_nonhydro_state
 
         !QI
         IF ( iqi /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqi))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqi))
           CALL add_ref( p_prog_list, 'tracer',                                       &
             &         TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqi)%p_3d,        &
             &         GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -749,7 +750,7 @@ MODULE mo_nonhydro_state
 
         !QR
         IF ( iqr /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqr))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqr))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqr)%p_3d,        &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -779,7 +780,7 @@ MODULE mo_nonhydro_state
 
         !QS
         IF ( iqs /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqs))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqs))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqs)%p_3d,        &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -809,7 +810,7 @@ MODULE mo_nonhydro_state
 
         !QG
         IF ( iqg /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqg))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqg))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqg)%p_3d,        &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -838,7 +839,7 @@ MODULE mo_nonhydro_state
 
         !hail
         IF ( iqh /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqh))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqh))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqh)%p_3d,        &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -868,7 +869,7 @@ MODULE mo_nonhydro_state
 
         ! liquid water (meltwater) on graupel (shortname "QG_LIQ")
         IF ( iqgl /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqgl))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqgl))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqgl)%p_3d,       &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -897,7 +898,7 @@ MODULE mo_nonhydro_state
    
         ! liquid water (meltwater) on hail  (shortname "QH_LIQ")
         IF ( iqhl /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqhl))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqhl))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqhl)%p_3d,       &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -926,7 +927,7 @@ MODULE mo_nonhydro_state
 
         !O3
         IF ( iqt <= io3 .AND. io3 <= ntracer) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(io3))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(io3))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(io3)%p_3d,        &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -948,7 +949,7 @@ MODULE mo_nonhydro_state
 
         !CO2
         IF ( iqt <= ico2 .AND. ico2 <= ntracer) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(ico2))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(ico2))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(ico2)%p_3d,       &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -970,7 +971,7 @@ MODULE mo_nonhydro_state
 
         !CH4
         IF ( iqt <= ich4 .AND. ich4 <= ntracer ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(ich4))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(ich4))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(ich4)%p_3d,       &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -992,7 +993,7 @@ MODULE mo_nonhydro_state
 
         !N2O
         IF ( iqt <= in2o .AND. in2o <= ntracer) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(in2o))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(in2o))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(in2o)%p_3d,       &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
@@ -1015,37 +1016,37 @@ MODULE mo_nonhydro_state
 
         !ice number concentration
         IF ( iqni /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqni))
-            CALL add_ref( p_prog_list, 'tracer',                                     &
-                    & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqni)%p_3d,       &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                    & t_cf_var(TRIM(tracer_name),                                    &
-                    &  ' kg-1 ','number concentration cloud ice', datatype_flt),     &
-                    & grib2_var(0, 6, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
-                    & ref_idx=iqni,                                                  &
-                    & ldims=shape3d_c,                                               &
-                    & tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-                    &             name        = TRIM(tracer_name)//suffix,           &
-                    &             ihadv_tracer=advconf%ihadv_tracer(iqni),           &
-                    &             ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
-                    & vert_interp=create_vert_interp_metadata(                       &
-                    &             vert_intp_type=vintp_types("P","Z","I"),           &
-                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
-                    &             l_loglin=.FALSE.,                                  &
-                    &             l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-                    &             lower_limit=0._wp  ),                              & 
-                    & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-                    &                 "dwd_fg_atm_vars","mode_dwd_fg_in",            &
-                    &                 "mode_iau_ana_in","mode_iau_anaatm_in",        &
-                    &                 "mode_iau_fg_in",                              &
-                    &                 "LATBC_PREFETCH_VARS")  )
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqni))
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqni)%p_3d,       &
+            &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                             &
+            &           t_cf_var(TRIM(tracer_name),                                    &
+            &            ' kg-1 ','number concentration cloud ice', datatype_flt),     &
+            &           grib2_var(0, 6, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ref_idx=iqni,                                                  &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(tracer_name)//suffix,           &
+            &                       ihadv_tracer=advconf%ihadv_tracer(iqni),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       l_loglin=.FALSE.,                                  &
+            &                       l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+            &             lower_limit=0._wp  ),                                        &
+            &           in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+            &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
+            &                           "mode_iau_ana_in", "mode_iau_anaatm_in",       &
+            &                           "mode_iau_fg_in",                              &
+            &                           "LATBC_PREFETCH_VARS")  )
         END IF
 
 
         !QNI_NUC activated ice nuclei tracking var # per kg, local
         IF ( iqni_nuc /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqni_nuc))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqni_nuc))
 
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqni_nuc)%p_3d,   &
@@ -1074,7 +1075,7 @@ MODULE mo_nonhydro_state
 
         !rain droplet concentration
         IF ( iqnr /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqnr))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqnr))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqnr)%p_3d,       &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -1104,7 +1105,7 @@ MODULE mo_nonhydro_state
 
         !snow concentration
         IF ( iqns /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqns))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqns))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqns)%p_3d,       &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -1133,7 +1134,7 @@ MODULE mo_nonhydro_state
 
         !graupel concentration
         IF ( iqng /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqng))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqng))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqng)%p_3d,       &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -1162,7 +1163,7 @@ MODULE mo_nonhydro_state
 
         !hail concentration
         IF ( iqnh /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqnh))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqnh))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqnh)%p_3d,       &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -1192,7 +1193,7 @@ MODULE mo_nonhydro_state
         ! cloud droplet concentration
         ! QNC  pdis=0 pcat=6 pnum=28 #DWD: Number of cloud droplets per unit mass of air. paramId=502315
         IF ( iqnc /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqnc))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqnc))
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqnc)%p_3d,       &
                     & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -1221,7 +1222,7 @@ MODULE mo_nonhydro_state
 
 
         IF ( ininact /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(ininact))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(ininact))
             ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(ininact)%p_3d,    &
@@ -1247,7 +1248,7 @@ MODULE mo_nonhydro_state
 
         ! concentration of cloud condensation nuclei
         IF ( inccn /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(inccn))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(inccn))
             ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(inccn)%p_3d,      &
@@ -1272,7 +1273,7 @@ MODULE mo_nonhydro_state
         END IF
 
         IF ( ininpot /= 0 ) THEN
-            tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(ininpot))
+            tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(ininpot))
             ! NO OFFICIAL GRIB CODINGS YET! THE "255, 255, 255" HAS TO BE ADAPTED WHEN THESE CODINGS BECOME AVAILABLE!
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(ininpot)%p_3d,    &
@@ -1298,7 +1299,7 @@ MODULE mo_nonhydro_state
 
         ! EDMF: total water variance
         IF ( iqtvar /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqtvar))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqtvar))
           CALL add_ref( p_prog_list, 'tracer',                                         &
             &           TRIM(tracer_name)//suffix, p_prog%tracer_ptr(iqtvar)%p_3d,     &
             &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
@@ -1320,7 +1321,7 @@ MODULE mo_nonhydro_state
 
 
         IF ( iqtke /= 0 ) THEN
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(iqtke))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(iqtke))
           cf_desc    = t_cf_var(TRIM(tracer_name), 'm s-1',         &
             &          'turbulent velocity scale (at full levels)', datatype_flt)
           grib2_desc = grib2_var(0, 19, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1355,7 +1356,7 @@ MODULE mo_nonhydro_state
         cf_desc    = t_cf_var('specific_kinetic_energy_of_air', 'm2 s-2',         &
           &          'turbulent kinetic energy', datatype_flt)
         grib2_desc = grib2_var(0, 19, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-        CALL add_var( p_prog_list, TRIM(vname_prefix)//'tke'//suffix, p_prog%tke, &
+        CALL add_var( p_prog_list, vname_prefix(1:vntl)//'tke'//suffix, p_prog%tke, &
           &           GRID_UNSTRUCTURED_CELL, ZA_REFERENCE_HALF,                  &
           &           cf_desc, grib2_desc, ldims=shape3d_chalf,                   &
           &           tlev_source=TLEV_NNOW_RCF,                                  &
@@ -1375,7 +1376,7 @@ MODULE mo_nonhydro_state
         ! (used for example with test cases)
 
         DO jt = 1, ntracer - advection_config(p_patch%id)%npassive_tracer
-          tracer_name = TRIM(vname_prefix)//TRIM(advconf%tracer_names(jt))
+          tracer_name = vname_prefix(1:vntl)//TRIM(advconf%tracer_names(jt))
           CALL add_ref( p_prog_list, 'tracer',                                  &
             & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(jt)%p_3d,            &
             & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                &
