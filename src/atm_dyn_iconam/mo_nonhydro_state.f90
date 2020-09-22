@@ -1498,7 +1498,7 @@ MODULE mo_nonhydro_state
       ! Only add tracer fields to the tracer list
       IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
-          &                         from_var_list%p%name, in_group=groups() )
+          &                         from_var_list, in_group=groups() )
 
       element => element%next_list_element
     ENDDO for_all_list_elements
