@@ -273,7 +273,8 @@ CONTAINS
           &   TASK_COMPUTE_PARCELFREQ2,                                         &
           &   TASK_COMPUTE_LPI,     TASK_COMPUTE_CEILING, TASK_COMPUTE_HBAS_SC, &
           &   TASK_COMPUTE_HTOP_SC, TASK_COMPUTE_TWATER,  TASK_COMPUTE_Q_SEDIM, &
-          &   TASK_COMPUTE_DBZ850,  TASK_COMPUTE_SMI,     TASK_COMPUTE_SDI2)
+          &   TASK_COMPUTE_DBZ850,  TASK_COMPUTE_DBZCMAX, TASK_COMPUTE_SMI,     &
+          &   TASK_COMPUTE_SDI2)
           CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
             &    l_init_prm_diag=l_init_prm_diag, job_type=element%field%info%l_pp_scheduler_task ) 
         CASE (TASK_INTP_MSL)   
