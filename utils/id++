@@ -11,14 +11,16 @@
 use warnings;
 use strict;
 use POSIX;
+use File::Basename;
 
 my $stamp = POSIX::strftime("%Y-%m-%d %H:%M:%SZ", gmtime());
 my $user = getpwuid($<);
 
 while(<>) {
+    my $file = basename($ARGV);
     s{\$Id: \S+ (\S+) \S+ \S+ \S+ \$}
-     {join(' ', '$Id:', $ARGV, $1+1, $stamp, $user, '$')}ge;
+     {join(' ', '$Id:', $file, $1+1, $stamp, $user, '$')}ge;
     s{\$Id[: ]*\$}
-     {\$Id: $ARGV 1 $stamp $user \$}g;
+     {\$Id: $file 1 $stamp $user \$}g;
     print;
 }
