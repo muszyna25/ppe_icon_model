@@ -46,6 +46,7 @@ MODULE mo_extpar_config
   PUBLIC :: read_nc_via_cdi
   PUBLIC :: heightdiff_threshold
   PUBLIC :: lrevert_sea_height
+  PUBLIC :: pp_glacier_sso
   PUBLIC :: itype_vegetation_cycle
   PUBLIC :: extpar_filename
   PUBLIC :: extpar_varnames_map_file
@@ -79,6 +80,7 @@ MODULE mo_extpar_config
   LOGICAL  :: read_nc_via_cdi ! read netcdf input via cdi library (alternative: parallel netcdf)
   REAL(wp) :: heightdiff_threshold(max_dom)
   LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
+  LOGICAL  :: pp_glacier_sso      ! if true: postprocess SSO over glaciers to reduce contribution of mean slope
   INTEGER  :: itype_vegetation_cycle
 
   ! ExtPar input filename, may contain keywords, by default

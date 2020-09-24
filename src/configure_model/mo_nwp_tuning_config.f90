@@ -61,6 +61,7 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_gust_factor
   PUBLIC :: itune_albedo
   PUBLIC :: lcalib_clcov
+  PUBLIC :: max_calibfac_clcl
   PUBLIC :: max_freshsnow_inc
 
 
@@ -178,6 +179,9 @@ MODULE mo_nwp_tuning_config
 
   LOGICAL :: &                     ! cloud cover calibration over land points
     &  lcalib_clcov
+
+  REAL(wp) :: &                    !< maximum calibration factor for low cloud cover (CLCL)
+    &  max_calibfac_clcl
 
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc

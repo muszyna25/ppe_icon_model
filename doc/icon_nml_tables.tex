@@ -5476,7 +5476,17 @@ lcalib\_clcov&
 L&
 .TRUE.&
 &
-Apply calibration of layer-wise cloud cover diagnostics&
+Apply calibration of layer-wise cloud cover diagnostics over land in order to improve scores against SYNOP reports&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+
+\hline
+max\_calibfac\_clcl&
+R&
+4.0&
+&
+Maximum allowed calibration factor for low clouds (CLCL) &
 run\_nml:iforcing = inwp
 \tabularnewline
 
@@ -7530,15 +7540,22 @@ Type of diagnostics of synoptic near surface variables:\\
 
 %\hline
 rlam\_heat &
-R                &     1.0     & 1 &
+R                &     10.0     & 1 &
 Scaling factor of the laminar boundary layer for heat (scalars). The larger rlam\_heat, the larger is the laminar resistance. &
 \tabularnewline
 
 %\hline
 rat\_sea &
-R                &     10.0     & 1 &
+R                &     0.8     & 1 &
 Ratio of laminar scaling factors for scalars over sea and land. The larger rat\_sea, the larger is the laminar resistance 
 for a sea surface compared to a land surface. &
+\tabularnewline
+
+%\hline
+rat\_glac &
+R                &     3.0     & 1 &
+Ratio of laminar scaling factors for scalars over glaciers. The larger rat\_glac, the larger is the laminar resistance 
+over glaciers compared to other land surfaces. &
 \tabularnewline
 
 %\hline
@@ -9325,6 +9342,17 @@ R(n\_dom) &
 m &
 height difference between neighboring grid points above which additional local nabla2 diffusion is applied
 &
+\tabularnewline
+
+%\hline
+pp\_glacier\_sso&
+L &
+.TRUE. &
+ &
+Postprocess SSO standard deviation and slope over glaciers based on the ratio between grid-scale and subgrid-scale slope:
+both quantities are reduced if the subgrid-scale slope calculated in extpar largely reflects the grid-scale slope.
+&
+n\_iter\_smooth\_topo $>$ 0
 \tabularnewline
 
 %\hline

@@ -1105,12 +1105,12 @@ CONTAINS
 
       ! Pressure mask field for tropics (used for ozone reduction around 70 hPa)
       DO jk = 1, nlev_gems
-        IF (zrefp(jk) <= 5000._wp .OR. zrefp(jk) >= 10000._wp) THEN
+        IF (zrefp(jk) <= 4000._wp .OR. zrefp(jk) >= 9000._wp) THEN
           wfac_p_tr2(jk) = 0._wp
         ELSE IF (zrefp(jk) <= 7000._wp) THEN
-          wfac_p_tr2(jk) = (zrefp(jk)-5000._wp)/2000._wp
+          wfac_p_tr2(jk) = (zrefp(jk)-4000._wp)/3000._wp
         ELSE
-          wfac_p_tr2(jk) = (10000._wp-zrefp(jk))/3000._wp
+          wfac_p_tr2(jk) = (9000._wp-zrefp(jk))/2000._wp
         ENDIF
       ENDDO
 
@@ -1150,7 +1150,7 @@ CONTAINS
           o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
                      MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2>=1 .AND. im2<=5)
 
-          trfac    = 1._wp - 0.15_wp*wfac_tr(jl)*wfac_p_tr2(jk)
+          trfac    = 1._wp - 0.2_wp*wfac_tr(jl)*wfac_p_tr2(jk)
 
           zozn(JL,JK) = amo3/amd * trfac* ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
                                      (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )
@@ -1266,7 +1266,8 @@ CONTAINS
           IF ( ltuning_ozone ) THEN
             zadd_o3 = MIN(atm_phy_nwp_config(pt_patch%id)%ozone_maxinc,                   &
               ext_data%atm%o3(jc,jk,jb) * atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk) * &
-              atm_phy_nwp_config(pt_patch%id)%shapefunc_ozone(jc,jb) )
+              MERGE(atm_phy_nwp_config(pt_patch%id)%shapefunc_ozone(jc,jb), 1._wp,        &
+                    atm_phy_nwp_config(pt_patch%id)%fac_ozone(jk) > 0._wp)                )
             ext_data%atm%o3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) + zadd_o3
           ENDIF
 

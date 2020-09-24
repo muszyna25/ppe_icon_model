@@ -629,10 +629,11 @@ CONTAINS
     REAL(wp):: zlimsnow_alb            !< upper limit snow albedo depending on snow depth and roughness length
     REAL(wp):: zsnowalb_lu             !< maximum snow albedo specified in landuse table
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
-    REAL(wp):: zsnow_alb               !< snow albedo
     REAL(wp):: zsnowfrac(nproma)       !< aggregated snow-cover fraction
     REAL(wp):: wc_fraction             !< whitecap fraction
     REAL(wp):: wc_albedo               !< whitecap albedo
+
+    REAL(wp):: zsnow_alb(nproma,ntiles_total) !< snow albedo
 
     ! Auxiliaries for tile-specific calculation of direct beam albedo
     REAL(wp):: zalbvisdir_t(nproma,ntiles_total+ntiles_water)
@@ -747,13 +748,13 @@ CONTAINS
 
             ! Consider effects of aging on solar snow albedo
             !
-            zsnow_alb = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
+            zsnow_alb(jc,jt) = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
 
             IF (ntiles_lnd == 1) THEN
               ! special treatment for forests
               ! - no landuse-class specific limitation of snow albedo
               ! - instead, snow albedo is limited as a function of the forest fraction
-              zsnow_alb = zsnow_alb*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb))       &
+              zsnow_alb(jc,jt) = zsnow_alb(jc,jt)*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb))  &
                 + csalb_snow_fe * ext_data%atm%for_e(jc,jb) + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
             ENDIF
 
@@ -761,17 +762,74 @@ CONTAINS
             snow_frac = lnd_diag%snowfrac_t(jc,jb,jt)
 
             ! shortwave broadband surface albedo (white sky)
-            prm_diag%albdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+            prm_diag%albdif_t(jc,jb,jt) = snow_frac * zsnow_alb(jc,jt)  &
               &                  + (1._wp - snow_frac)* ext_data%atm%alb_dif(jc,jb)
 
             ! UV visible broadband surface albedo (white sky)
-            prm_diag%albvisdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+            prm_diag%albvisdif_t(jc,jb,jt) = snow_frac * zsnow_alb(jc,jt)  &
               &                  + (1._wp - snow_frac)* ext_data%atm%albuv_dif(jc,jb)
 
             ! near IR broadband surface albedo (white sky)
-            prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
+            prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb(jc,jt)  &
               &                  + (1._wp - snow_frac)* ext_data%atm%albni_dif(jc,jb)
 
+          ENDDO  ! ic
+
+        ENDDO  !ntiles
+
+
+        ! Albedo correction for artificially reduced snow-cover fractions (melting-rate parameterization):
+        ! The albedo of the snow-free tile is adjusted such that the tile-averaged albedo equals that obtained
+        ! without the artificial snow-cover reduction
+        DO jt = ntiles_lnd+1, ntiles_total
+
+          i_count_lnd = ext_data%atm%gp_count_t(jb,jt)
+
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+!$NEC ivdep
+          DO ic = 1, i_count_lnd
+
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+            IF (lnd_diag%snowfrac_lcu_t(jc,jb,jt) > lnd_diag%snowfrac_lc_t(jc,jb,jt) .AND. &
+                lnd_diag%snowfrac_lc_t(jc,jb,jt) > 0._wp) THEN
+
+              prm_diag%albdif_t(jc,jb,jt-ntiles_lnd) = 1._wp / (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,jt)) *     (    &
+                prm_diag%albdif_t(jc,jb,jt)*(lnd_diag%snowfrac_lcu_t(jc,jb,jt)-lnd_diag%snowfrac_lc_t(jc,jb,jt)) + &
+                prm_diag%albdif_t(jc,jb,jt-ntiles_lnd)*(1._wp-lnd_diag%snowfrac_lcu_t(jc,jb,jt))              )
+
+              prm_diag%albnirdif_t(jc,jb,jt-ntiles_lnd) = 1._wp / (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,jt)) *     (    &
+                prm_diag%albnirdif_t(jc,jb,jt)*(lnd_diag%snowfrac_lcu_t(jc,jb,jt)-lnd_diag%snowfrac_lc_t(jc,jb,jt)) + &
+                prm_diag%albnirdif_t(jc,jb,jt-ntiles_lnd)*(1._wp-lnd_diag%snowfrac_lcu_t(jc,jb,jt))              )
+
+              prm_diag%albvisdif_t(jc,jb,jt-ntiles_lnd) = 1._wp / (1._wp-lnd_diag%snowfrac_lc_t(jc,jb,jt)) *     (    &
+                prm_diag%albvisdif_t(jc,jb,jt)*(lnd_diag%snowfrac_lcu_t(jc,jb,jt)-lnd_diag%snowfrac_lc_t(jc,jb,jt)) + &
+                prm_diag%albvisdif_t(jc,jb,jt-ntiles_lnd)*(1._wp-lnd_diag%snowfrac_lcu_t(jc,jb,jt))              )
+
+            ENDIF
+
+          ENDDO  ! ic
+
+        ENDDO  !ntiles
+
+
+        DO jt = 1, ntiles_total
+
+          i_count_lnd = ext_data%atm%gp_count_t(jb,jt)
+
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
+!$NEC ivdep
+          DO ic = 1, i_count_lnd
+
+            jc = ext_data%atm%idx_lst_t(ic,jb,jt)
+
+            ! current land-cover class
+            ilu = ext_data%atm%lc_class_t(jc,jb,jt)
+
+            ! snow cover fraction
+            snow_frac = lnd_diag%snowfrac_t(jc,jb,jt)
 
             ! direct albedo (black sky) (vis and nir)
             !
@@ -795,7 +853,7 @@ CONTAINS
             ELSE IF ( direct_albedo == 3 ) THEN  ! Yang et al (2008)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
@@ -804,7 +862,7 @@ CONTAINS
 
               zalbnirdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
@@ -814,7 +872,7 @@ CONTAINS
             ELSE IF ( direct_albedo == 4 ) THEN  ! Briegleb and Ramanathan (1992)
               zalbvisdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
@@ -824,7 +882,7 @@ CONTAINS
 
               zalbnirdir_t(jc,jt) = snow_frac                                                  &
                 &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
-                &                                          zsnow_alb,                          &
+                &                                          zsnow_alb(jc,jt),                   &
                 &                                          ext_data%atm%z0_lcc(ilu),           &
                 &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
                 &                 + (1._wp-snow_frac)                                          &
@@ -885,6 +943,7 @@ CONTAINS
           ! whitecap albedo by breaking ocean waves
 
           IF (albedo_whitecap == 1) THEN
+!$NEC ivdep
             DO ic = 1, i_count_sea
               jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
@@ -1005,6 +1064,7 @@ CONTAINS
 
           IF ( albedo_whitecap == 1 .AND. .NOT. lfrozenwater ) THEN
 
+!$NEC ivdep
             DO ic = 1, i_count_sea
               jc = ext_data%atm%list_seawtr%idx(ic,jb)
 
