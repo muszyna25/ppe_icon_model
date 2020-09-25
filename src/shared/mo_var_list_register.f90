@@ -1,4 +1,4 @@
-! @par Copyright and License
+! @par Copyright and Li/cense
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
 !! its most recent form.
@@ -6,7 +6,6 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 MODULE mo_var_list_register
-
   USE mo_var_groups,       ONLY: var_groups_dyn, MAX_GROUPS
   USE mo_var_metadata_types,ONLY: t_var_metadata, var_metadata_fromBinary, &
     & var_metadata_toBinary
@@ -40,7 +39,7 @@ MODULE mo_var_list_register
 
   TYPE t_var_list_iterator
     PRIVATE
-    TYPE(t_hashIterator) :: iter
+    TYPE(t_hashIterator) :: hash_iter
     TYPE(t_var_list_ptr), PUBLIC :: cur
     LOGICAL :: anew = .TRUE.
   CONTAINS
@@ -52,7 +51,6 @@ MODULE mo_var_list_register
     PRIVATE
     LOGICAL, PUBLIC :: is_init = .FALSE.
     TYPE(t_hashTable), POINTER :: storage
-    TYPE(t_var_list_iterator) :: it
   CONTAINS
     PROCEDURE, PUBLIC :: new => new_var_list
     PROCEDURE, PUBLIC :: delete => delete_var_list
@@ -167,8 +165,8 @@ CONTAINS
 
     valid = .false.
     IF (vl_register%is_init) THEN
-      IF (this%anew) CALL this%iter%init(vl_register%storage)
-      valid = this%iter%nextEntry(keyObj, valObj)
+      IF (this%anew) CALL this%hash_iter%init(vl_register%storage)
+      valid = this%hash_iter%nextEntry(keyObj, valObj)
       IF (valid) this%cur%p => sel_var_list(valObj)
       IF (.NOT.valid) CALL iter_reset(this)
     END IF
@@ -179,20 +177,21 @@ CONTAINS
 
     NULLIFY(this%cur%p)
     this%anew = .TRUE.
-    CALL this%iter%reset()
+    CALL this%hash_iter%reset()
   END SUBROUTINE iter_reset
 
   !------------------------------------------------------------------------------------------------
   ! @return total number of (non-container) variables
   INTEGER FUNCTION total_number_of_variables(this) RESULT(nvar)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
+    CLASS(t_var_list_store), INTENT(IN) :: this
+    TYPE(t_var_list_iterator) :: iter
     TYPE(t_list_element), POINTER :: element
 
     nvar = 0
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
-    DO WHILE(iter_next(this%it))
-      element => this%it%cur%p%first_list_element
+    DO WHILE(iter_next(iter))
+      element => iter%cur%p%first_list_element
       DO WHILE (ASSOCIATED(element))
         ! Do not count element if it is a container
         IF (.NOT.element%field%info%lcontainer) nvar = nvar + 1
@@ -225,9 +224,10 @@ CONTAINS
   ! Delete all output var_lists
   SUBROUTINE delete_var_lists(this)
     CLASS(t_var_list_store), INTENT(INOUT) :: this
-    
-    DO WHILE(iter_next(this%it))
-      CALL delete_var_list(this, this%it%cur)
+    TYPE(t_var_list_iterator) :: iter
+
+    DO WHILE(iter_next(iter))
+      CALL delete_var_list(this, iter%cur)
     END DO
   END SUBROUTINE delete_var_lists
 
@@ -241,7 +241,7 @@ CONTAINS
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
     TYPE(t_var_list_ptr) :: vlp_from
     TYPE(t_list_element),     POINTER :: n_list_e, o_list_e => NULL()
-    !
+
     CALL get_var_list(this, vlp_from, from_var_list)
     IF (ASSOCIATED(vlp_from%p)) o_list_e => find_list_element(vlp_from, vname)
     IF (ASSOCIATED(o_list_e)) THEN
@@ -258,11 +258,12 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! print all var lists
   SUBROUTINE print_all_var_lists(this, lshort)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
+    CLASS(t_var_list_store), INTENT(IN) :: this
     LOGICAL, OPTIONAL, INTENT(IN) :: lshort
+    TYPE(t_var_list_iterator) :: iter
 
-    DO WHILE(iter_next(this%it))
-      CALL print_var_list(this%it%cur, lshort=lshort)
+    DO WHILE(iter_next(iter))
+      CALL print_var_list(iter%cur, lshort=lshort)
     END DO
   END SUBROUTINE print_all_var_lists
 
@@ -272,7 +273,7 @@ CONTAINS
     &                      loutputvars_only, lremap_lonlat, &
     &                      opt_vlevel_type, opt_dom_id,     &
     &                      opt_lquiet)
-    CLASS(t_var_list_store), INTENT(INOUT)  :: this
+    CLASS(t_var_list_store), INTENT(IN)  :: this
     CHARACTER(*),             INTENT(IN)    :: grp_name
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: var_name(:)
     INTEGER,                  INTENT(OUT)   :: nvars
@@ -285,7 +286,7 @@ CONTAINS
     ! 1: model levels, 2: pressure levels, 3: height level
     INTEGER, OPTIONAL,        INTENT(IN)    :: opt_vlevel_type, opt_dom_id
     LOGICAL, OPTIONAL,        INTENT(IN)    :: opt_lquiet
-    ! local variables
+    TYPE(t_var_list_iterator) :: iter
     CHARACTER(*), PARAMETER :: routine = modname//":collect_group", llmsg = " lon-lat"
     INTEGER                       :: grp_id, llmsg_len
     TYPE(t_list_element), POINTER :: element
@@ -300,16 +301,16 @@ CONTAINS
     verbose = .NOT. lquiet
 
     ! loop over all variable lists and variables
-    DO WHILE(iter_next(this%it))
+    DO WHILE(iter_next(iter))
       IF (PRESENT(opt_vlevel_type)) THEN
-        IF (this%it%cur%p%vlevel_type /= opt_vlevel_type) CYCLE
+        IF (iter%cur%p%vlevel_type /= opt_vlevel_type) CYCLE
       ENDIF
       IF (PRESENT(opt_dom_id)) THEN
         ! do not inspect variable list if its domain does not match:
-        IF (this%it%cur%p%patch_id /= opt_dom_id)  CYCLE
+        IF (iter%cur%p%patch_id /= opt_dom_id)  CYCLE
       END IF
 
-      element => this%it%cur%p%first_list_element
+      element => iter%cur%p%first_list_element
       LOOPVAR : DO WHILE (ASSOCIATED(element))
         info => element%field%info
         ! Do not inspect element if it is a container
@@ -318,7 +319,7 @@ CONTAINS
           llmsg_len = 0
           ! Skip element if we need only output variables:
           skip = loutputvars_only .AND. &
-            & (.NOT.info%loutput .OR. .NOT.this%it%cur%p%loutput)
+            & (.NOT.info%loutput .OR. .NOT.iter%cur%p%loutput)
 
           IF (lremap_lonlat) THEN
             skip = skip .OR. info%hgrid /= GRID_UNSTRUCTURED_CELL
@@ -349,7 +350,7 @@ CONTAINS
   ! Find named list element accross all knows variable lists
   !
   FUNCTION find_var_all(this, vname, opt_patch_id, opt_hgrid, opt_list, opt_cs, opt_output) RESULT(element)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
+    CLASS(t_var_list_store), INTENT(IN) :: this
     CHARACTER(*), INTENT(in) :: vname
     INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id, opt_hgrid
     TYPE(t_var_list_ptr), OPTIONAL, INTENT(OUT) :: opt_list
@@ -357,27 +358,27 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     INTEGER :: patch_id
     LOGICAL :: output, check_output
+    TYPE(t_var_list_iterator) :: iter
 
     patch_id = 1
     check_output = PRESENT(opt_output)
     IF (check_output) output = opt_output
     IF (PRESENT(opt_patch_id)) patch_id = opt_patch_id
-    DO WHILE(iter_next(this%it))
-      IF ( patch_id /= this%it%cur%p%patch_id ) CYCLE
+    DO WHILE(iter_next(iter))
+      IF ( patch_id /= iter%cur%p%patch_id ) CYCLE
       IF (check_output) THEN
-        IF (output .NEQV. this%it%cur%p%loutput) CYCLE
+        IF (output .NEQV. iter%cur%p%loutput) CYCLE
       END IF
-      element => find_list_element(this%it%cur, vname, opt_hgrid, opt_cs, opt_output)
+      element => find_list_element(iter%cur, vname, opt_hgrid, opt_cs, opt_output)
       IF (ASSOCIATED (element)) THEN
 #ifdef DEBUG_MVSTREAM
         if (my_process_is_stdio()) call &
             & print_summary('destination PATCHID:'//TRIM(int2string(patch_id)))
 #endif
-        IF (PRESENT(opt_list)) opt_list%p => this%it%cur%p
+        IF (PRESENT(opt_list)) opt_list%p => iter%cur%p
         EXIT
       END IF
     END DO
-    CALL iter_reset(this%it)
   END FUNCTION find_var_all
 
   !-----------------------------------------------------------------------------
@@ -397,6 +398,7 @@ CONTAINS
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart, loutput
     TYPE(t_var_list_ptr) :: vlp
+    TYPE(t_var_list_iterator) :: iter
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
     IF (operation .EQ. kUnpackOp) CALL delete_var_lists(this)
@@ -406,8 +408,8 @@ CONTAINS
     nelems_all = 0
     DO iv = 1, nv
       IF(operation .EQ. kPackOp) THEN
-        IF (.NOT.iter_next(this%it)) CALL finish(routine, "inconsistency")
-        vlp%p => this%it%cur%p
+        IF (.NOT.iter_next(iter)) CALL finish(routine, "inconsistency")
+        vlp%p => iter%cur%p
         ! copy the values needed for the new_var_list() CALL to local variables
         lrestart      = vlp%p%lrestart
         loutput       = vlp%p%loutput
@@ -470,7 +472,7 @@ CONTAINS
       END IF
     END DO
     IF (operation .EQ. kPackOp) THEN
-      IF (iter_next(this%it)) CALL finish(routine, "inconsistency -- second kind")
+      IF (iter_next(iter)) CALL finish(routine, "inconsistency -- second kind")
     END IF 
     CALL pmsg%packer(operation, nelems_all)
     IF (PRESENT(nv_all)) nv_all = nelems_all
@@ -479,7 +481,8 @@ CONTAINS
   !>  Detailed print-out of variable groups.
   !
   SUBROUTINE print_group_details(this, idom, opt_latex_fmt, opt_reduce_trailing_num, opt_skip_trivial)
-    CLASS(t_var_list_store), INTENT(INOUT)   :: this
+    CLASS(t_var_list_store), INTENT(IN)   :: this
+
     INTEGER, INTENT(IN)           :: idom          !< domain ID
     LOGICAL, INTENT(IN), OPTIONAL :: opt_latex_fmt !< Flag: .TRUE., if output shall be formatted for LaTeX
     LOGICAL, INTENT(IN), OPTIONAL :: opt_reduce_trailing_num !< Flag: replace trailing numbers by "*"
@@ -657,9 +660,7 @@ CONTAINS
       END IF
     END DO
     WRITE (0,*) " "
-    
     DEALLOCATE(group_names, grp_vars, grp_vars_output, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END SUBROUTINE print_group_details
-
 END MODULE mo_var_list_register
