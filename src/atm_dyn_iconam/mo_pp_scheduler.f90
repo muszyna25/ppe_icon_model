@@ -175,7 +175,7 @@ MODULE mo_pp_scheduler
     &                                   GRID_REGULAR_LONLAT, LONLAT_PREFIX
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, find_list_element, t_var_list_ptr, t_list_element
-  USE mo_var_list_register,       ONLY: vl_iter
+  USE mo_var_list_register,       ONLY: t_var_list_iterator
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, t_post_op_meta
@@ -247,10 +247,10 @@ CONTAINS
   !
   SUBROUTINE pp_scheduler_init(l_init_prm_diag)
     LOGICAL, INTENT(IN) :: l_init_prm_diag
-    ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init"
     INTEGER                          :: jg
     TYPE(t_list_element), POINTER    :: element, element_pres, next
+    TYPE(t_var_list_iterator) :: vl_iter
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
     !-------------------------------------------------------------
@@ -332,6 +332,7 @@ CONTAINS
     TYPE(t_var_list_ptr), POINTER     :: dst_varlist     !< destination variable list
     TYPE (t_lon_lat_intp), POINTER:: ptr_int_lonlat
     CHARACTER(LEN=1)              :: prefix
+    TYPE(t_var_list_iterator) :: vl_iter
 
     IF (dbg_level > 5)  CALL message(routine, "Enter")
     
@@ -481,6 +482,7 @@ CONTAINS
     INTEGER, ALLOCATABLE                  :: uv_hrz_intp_grid(:), &
       &                                      uv_hrz_intp_levs(:)
     CHARACTER(LEN=1)                      :: prefix
+    TYPE(t_var_list_iterator) :: vl_iter
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
@@ -930,6 +932,7 @@ CONTAINS
     TYPE(t_cf_var)                :: cf
     TYPE(t_grib2_var)             :: grib2
     TYPE(t_post_op_meta)          :: post_op
+    TYPE(t_var_list_iterator) :: vl_iter
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
@@ -1108,6 +1111,7 @@ CONTAINS
     TYPE(t_var_metadata_dynamic),POINTER :: info_dyn
     TYPE(t_cf_var)                       :: cf_desc
     TYPE(t_grib2_var)                    :: grib2_desc
+    TYPE(t_var_list_iterator) :: vl_iter
 
     ! define NetCDF output precision
     IF ( lnetcdf_flt64_output ) THEN
@@ -1333,7 +1337,8 @@ CONTAINS
         
           !- loop over model level variables
           ! Note that there may be several variables with different time levels,
-          ! we just add unconditionally all
+          ! we just add unconditionally all 
+          ! TODO(HB): this is n(2) complexity... mabe try to overcome...
           DO WHILE(vl_iter%next())
             ! Do not inspect lists which are disabled for output
             IF (.NOT. vl_iter%cur%p%loutput) CYCLE

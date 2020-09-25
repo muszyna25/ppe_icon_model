@@ -35,7 +35,7 @@ MODULE mo_var_list_register
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: vl_register, vl_iter
+  PUBLIC :: vl_register, t_var_list_iterator
 
   TYPE t_var_list_iterator
     PRIVATE
@@ -44,7 +44,6 @@ MODULE mo_var_list_register
     LOGICAL :: anew = .TRUE.
   CONTAINS
     PROCEDURE, PUBLIC :: next => iter_next
-    PROCEDURE, PUBLIC :: reset => iter_reset
   END TYPE t_var_list_iterator
 
   TYPE t_var_list_store
@@ -65,7 +64,6 @@ MODULE mo_var_list_register
   END TYPE t_var_list_store
 
   TYPE(t_var_list_store) :: vl_register
-  TYPE(t_var_list_iterator) :: vl_iter
   INTEGER, SAVE :: vl_new_counter = 0
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list_store'
@@ -167,18 +165,15 @@ CONTAINS
     IF (vl_register%is_init) THEN
       IF (this%anew) CALL this%hash_iter%init(vl_register%storage)
       valid = this%hash_iter%nextEntry(keyObj, valObj)
-      IF (valid) this%cur%p => sel_var_list(valObj)
-      IF (.NOT.valid) CALL iter_reset(this)
+      IF (valid) THEN
+        this%cur%p => sel_var_list(valObj)
+      ELSE ! prepare for the next loop ...
+        NULLIFY(this%cur%p)   
+        this%anew = .TRUE.
+        CALL this%hash_iter%reset()
+      END IF
     END IF
   END FUNCTION iter_next
-
-  SUBROUTINE iter_reset(this)
-    CLASS(t_var_list_iterator), INTENT(INOUT) :: this
-
-    NULLIFY(this%cur%p)
-    this%anew = .TRUE.
-    CALL this%hash_iter%reset()
-  END SUBROUTINE iter_reset
 
   !------------------------------------------------------------------------------------------------
   ! @return total number of (non-container) variables

@@ -66,7 +66,7 @@ MODULE mo_initicon_utils
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
   USE mo_var_metadata,        ONLY: get_var_name
   USE mo_var_list,            ONLY: t_list_element
-  USE mo_var_list_register,   ONLY: vl_iter
+  USE mo_var_list_register,   ONLY: t_var_list_iterator
   USE mo_var_list_element,    ONLY: level_type_ml
   USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
@@ -129,20 +129,18 @@ MODULE mo_initicon_utils
   !!
   !!
   SUBROUTINE initicon_inverse_post_op(varname, optvar_out2D, optvar_out3D)
-
     CHARACTER(len=*), INTENT(IN)      :: varname             !< var name of field to be read
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out2D(:,:)   !< 3D output field
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out3D(:,:,:) !< 2D output field
-
     ! local variables
     INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     TYPE(t_list_element), POINTER   :: element
     CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
     CHARACTER(len=100)              :: lc_varname
+    TYPE(t_var_list_iterator) :: vl_iter
+
     !-------------------------------------------------------------------------
-
-
     ! Check consistency of optional arguments
     !
     IF (PRESENT( optvar_out2D ) .AND. PRESENT( optvar_out3D )) THEN
@@ -165,7 +163,6 @@ MODULE mo_initicon_utils
         element => element%next_list_element
       END DO
     ENDDO
-    CALL vl_iter%reset()
 
     IF (.NOT.ASSOCIATED(info)) THEN
       WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
@@ -185,7 +182,6 @@ MODULE mo_initicon_utils
         CALL perform_post_op(info%post_op, optvar_out3D, opt_inverse=.TRUE.)
       ENDIF
     ENDIF
-
   END SUBROUTINE initicon_inverse_post_op
 
   !>

@@ -74,7 +74,7 @@ MODULE mo_initicon_io
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
 
   USE mo_var_metadata_types,  ONLY: t_var_metadata
-  USE mo_var_list_register,   ONLY: vl_iter
+  USE mo_var_list_register,   ONLY: t_var_list_iterator
   USE mo_var_list,            ONLY: t_list_element
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_var_groups,          ONLY: var_groups_dyn
@@ -1653,17 +1653,15 @@ MODULE mo_initicon_io
     CHARACTER(LEN=*),    INTENT(IN)    :: grp_name
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     INTEGER,             INTENT(IN)    :: jg
-
     REAL(wp), POINTER,   INTENT(INOUT), OPTIONAL :: tracer(:,:,:,:)
     TYPE(t_pi_atm_in),   INTENT(INOUT), OPTIONAL :: atm_in
     INTEGER,             INTENT(IN), OPTIONAL    :: nlev_in, nblks_c
-
-    ! local variables
     INTEGER                           :: i, grp_id, idx
     TYPE(t_list_element), POINTER     :: element
     TYPE(t_var_metadata), POINTER     :: info
     CHARACTER(:), ALLOCATABLE :: name
     REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
+    TYPE(t_var_list_iterator) :: vl_iter
 
     idx = 0
     grp_id = var_groups_dyn%group_id(grp_name)

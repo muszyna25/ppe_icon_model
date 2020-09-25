@@ -24,7 +24,7 @@ MODULE mo_restart_var_data
 #endif
   USE mo_kind,               ONLY: dp, sp
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list_register,  ONLY: vl_iter
+  USE mo_var_list_register,  ONLY: t_var_list_iterator
   USE mo_var_list,           ONLY: t_list_element, t_var_list_ptr
   USE mo_var_list_element,   ONLY: t_p_var_list_element, t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -61,6 +61,7 @@ CONTAINS
     INTEGER :: n_var, n_vl, iv, il, ierr, restartType
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_list_ptr), ALLOCATABLE :: reordered_vls(:)
+    TYPE(t_var_list_iterator) :: vl_iter
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartVarData"
 
     restartType = -1

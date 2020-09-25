@@ -63,7 +63,7 @@ MODULE mo_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
-  USE mo_var_list_register,  ONLY: vl_iter
+  USE mo_var_list_register,  ONLY: t_var_list_iterator
   USE mo_var_list,           ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -174,6 +174,7 @@ CONTAINS
 
     TYPE(t_list_element), POINTER       :: element
     TYPE(t_var_action)  , POINTER       :: action_list
+    TYPE(t_var_list_iterator) :: vl_iter
     CHARACTER(LEN=2)                    :: str_actionTyp
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)

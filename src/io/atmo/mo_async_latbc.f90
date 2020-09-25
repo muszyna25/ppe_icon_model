@@ -232,7 +232,7 @@ MODULE mo_async_latbc
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
-    USE mo_var_list_register,         ONLY: vl_register, vl_iter
+    USE mo_var_list_register,         ONLY: vl_register, t_var_list_iterator
     USE mo_var_metadata,              ONLY: get_var_name
     USE mo_var_list,                  ONLY: t_list_element
     USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
@@ -1240,6 +1240,7 @@ MODULE mo_async_latbc
       INTEGER :: i, nvar
       LOGICAL :: send, recv
       TYPE(t_list_element), POINTER :: element
+      TYPE(t_var_list_iterator) :: vl_iter
       TYPE(t_packedMessage) :: pmsg
 
       CALL p_get_bcast_role(bc_root, p_comm_work_2_pref, send, recv)

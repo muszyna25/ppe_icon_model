@@ -32,7 +32,7 @@ MODULE mo_name_list_output_printvars
   USE mo_gribout_config,                    ONLY: t_gribout_config
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_level_selection_types,             ONLY: t_level_selection
-  USE mo_var_list_register,                 ONLY: vl_iter
+  USE mo_var_list_register,                 ONLY: t_var_list_iterator
   USE mo_var_list_element,                  ONLY: t_var_list_element, level_type_ml
   USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_util_sort,                         ONLY: quicksort
@@ -226,6 +226,7 @@ CONTAINS
     CHARACTER(kind=c_char, LEN = cdi_max_name + 1) :: name
     CHARACTER(LEN=max_str_len), ALLOCATABLE        :: out_vars(:)
     CHARACTER(len=128)                             :: descr_string
+    TYPE(t_var_list_iterator) :: vl_iter
     ! ---------------------------------------------------------------------------
 
     ! generate the CDI IDs for vertical axes:
