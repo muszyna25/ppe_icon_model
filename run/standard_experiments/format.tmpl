@@ -65,6 +65,10 @@
 #%         if base_dir and source[0] != '/':
 #%           set source = '$'+base_var+'/'+source
 #%         endif
+#%       set comments = files.comments[file]|filter
+#%       for comment in comments:
+%{comment|indent(indent,true)}
+#%       endfor
 %{' '*indent}%{(method, source, file)|join(' ')|replace('%year', '${'+year_var+'}')|wordwrap(80-indent,false,false,' \\\n'+' '*(indent+4))}
 #%       endif
 #%     else:
