@@ -18,21 +18,21 @@ async def run_checks_glb(test_data, reference):
     await asyncio.gather(
         # relative difference of average:
         check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "PMSL"),    \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
+        check_rel_avg(test_data, reference, 0.00004, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
+        check_rel_avg(test_data, reference, 0.00003, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
+        check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
         check_rel_avg(test_data, reference, 0.005,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
-        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
-        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
-        check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
+        check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
+        check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
         check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ASOB_S"),   \
         check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ASOB_T"),   \
-        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
-        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "ATHB_T"),   \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
+        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "ATHB_T"),   \
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
@@ -46,21 +46,21 @@ async def run_checks_loc(test_data, reference):
     await asyncio.gather(
         # relative difference of average:
         check_rel_msd(test_data, reference, 0.001,  grb_metadata(test_data.grb, "shortName") == "PMSL"),    \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
+        check_rel_avg(test_data, reference, 0.00006, grb_metadata(test_data.grb, "shortName") == "T_G"),     \
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T"),       \
-        check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
+        check_rel_avg(test_data, reference, 0.00005, grb_metadata(test_data.grb, "shortName") == "T_2M"),    \
         check_rel_avg(test_data, reference, 0.0004, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
         check_rel_avg(test_data, reference, 0.0015, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
-        check_rel_avg(test_data, reference, 0.0003, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
+        check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
         check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
-        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
-        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
-        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
-        check_rel_avg(test_data, reference, 0.006, grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
+        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
+        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
+        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "CLCM"),     \
+        check_rel_avg(test_data, reference, 0.01,  grb_metadata(test_data.grb, "shortName") == "CLCH"),     \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_S"),   \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASOB_T"),   \
-        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
-        check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ATHB_T"),   \
+        check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ATHB_S"),   \
+        check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "ATHB_T"),   \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ALHFL_S"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "ASHFL_S"),  \
         check_rel_avg(test_data, reference, 0.002, grb_metadata(test_data.grb, "shortName") == "W_SO"),     \
