@@ -734,41 +734,15 @@ EOF
 # atmosphere namelist
 # -------------------
 cat > ${atm_namelist} << EOF
-!
-&coupling_mode_nml
-  coupled_mode     = .TRUE.
-/
-&parallel_nml
- nproma            = %{ATMO_BLOCK_SIZE}
- num_io_procs      = ${mpi_atm_io_procs}
- num_prefetch_proc = 0
- pio_type          = 0
-/
-&grid_nml
- dynamics_grid_filename = "${atmo_dyn_grid}"
-/
+%{format_namelist(namelists.NAMELIST_atm, 'coupling_mode_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'parallel_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'grid_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'run_nml')}
-&extpar_nml
- itopo            = 1           ! 1: read topography from the grid file
- itype_lwemiss    = 0
-/
-&initicon_nml
- init_mode        = 2           ! 2: initialize from IFS analysis
- ifs2icon_filename= "ifs2icon.nc"
-/
+%{format_namelist(namelists.NAMELIST_atm, 'extpar_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'initicon_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'nonhydrostatic_nml')}
-&interpol_nml
- rbf_scale_mode_ll = 1
-/
-&sleve_nml
- min_lay_thckn    = 40.         ! [m]
- top_height       = 83000.      ! [m]
- stretch_fac      = 0.9
- decay_scale_1    = 4000.       ! [m]
- decay_scale_2    = 2500.       ! [m]
- decay_exp        = 1.2
- flat_height      = 16000.      ! [m]
-/
+%{format_namelist(namelists.NAMELIST_atm, 'interpol_nml')}
+%{format_namelist(namelists.NAMELIST_atm, 'sleve_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'diffusion_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'transport_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'echam_phy_nml')}
@@ -812,16 +786,7 @@ add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./
 # Parameters for all output files
 # -------------------------------
 cat >> ${atm_namelist} << EOF
-&io_nml
-  output_nml_dict  = "dict.txt"
-  netcdf_dict      = "dict.txt"
-  itype_pres_msl   = 4
-  restart_file_type= 5
-! restart_write_mode = "joint procs multifile"  ! not necessary/useful in default r2b4 setup
-! lnetcdf_flt64_output = .TRUE.   ! 64 bit output in all files
-  lkeep_in_sync = .TRUE.          ! sync after each timestep
-! lkeep_in_sync = .FALSE.
-/
+%{format_namelist(namelists.NAMELIST_atm, 'io_nml')}
 %{format_namelist(namelists.NAMELIST_atm, 'dbg_index_nml')}
 EOF
 
