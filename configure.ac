@@ -451,6 +451,12 @@ AC_ARG_VAR([ICON_FCFLAGS],
 ICON, e.g. optimization flags])dnl
 ICON_FCFLAGS=${ICON_FCFLAGS-}
 
+AC_ARG_VAR([ICON_LDFLAGS],
+  [Fortran compiler flags to be appended to LDFLAGS when linking ICON, e.g.
+to prevent configuration-time failures of the Libtool-based bundled
+libraries])dnl
+ICON_LDFLAGS=${ICON_LDFLAGS-}
+
 AC_ARG_VAR([ICON_OCEAN_FCFLAGS],
   [Fortran compiler flags to be appended to FCFLAGS when compiling the ocean
 component of ICON @<:@default=$ICON_FCFLAGS@:>@])dnl
@@ -504,14 +510,15 @@ AC_SUBST([FC_INC_ORDER_PP_f90])
 ACX_LANG_MACRO_FLAG([AC_SUBST([FC_PP_DEF], [$acx_cv_fc_macro_flag])])
 
 dnl Generate RPATH flags:
+AC_SUBST([ICON_RPATH_LDFLAGS], [''])
 AS_VAR_IF([enable_rpaths], [yes],
   [ACX_SHLIB_FC_RPATH_FLAG
    ASX_EXTRACT_ARGS([icon_L_args], ["$LDFLAGS $LIBS"], ['-L@<:@ @:>@*'])
    for icon_L_arg in $icon_L_args; do
-     ASX_VAR_APPEND_UNIQ([LDFLAGS],
+     ASX_VAR_APPEND_UNIQ([ICON_RPATH_LDFLAGS],
        ["$acx_cv_fc_rpath_flag$icon_L_arg"], [' '])
    done
-   ACX_SHLIB_RPATH_FLAGS_CHECK])
+   ACX_SHLIB_RPATH_FLAGS_CHECK([$ICON_RPATH_LDFLAGS])])
 
 ACX_FC_ATTRIBUTE_CONTIGUOUS(
   [AS_VAR_APPEND([FCFLAGS],

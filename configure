@@ -625,6 +625,7 @@ ac_ct_CC
 CPPFLAGS
 CFLAGS
 CC
+ICON_RPATH_LDFLAGS
 FC_PP_DEF
 FC_INC_ORDER_PP_f90
 FC_INC_FLAG_PP_f90
@@ -636,6 +637,7 @@ FC_MOD_OUT
 FC_MOD_IN
 ICON_BUNDLED_FCFLAGS
 ICON_OCEAN_FCFLAGS
+ICON_LDFLAGS
 ICON_FCFLAGS
 FC_VERSION
 FC_VENDOR
@@ -762,6 +764,7 @@ FCFLAGS
 LDFLAGS
 LIBS
 ICON_FCFLAGS
+ICON_LDFLAGS
 ICON_OCEAN_FCFLAGS
 ICON_BUNDLED_FCFLAGS
 CC
@@ -1511,6 +1514,10 @@ Some influential environment variables:
   ICON_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               and linking ICON, e.g. optimization flags
+  ICON_LDFLAGS
+              Fortran compiler flags to be appended to LDFLAGS when linking
+              ICON, e.g. to prevent configuration-time failures of the
+              Libtool-based bundled libraries
   ICON_OCEAN_FCFLAGS
               Fortran compiler flags to be appended to FCFLAGS when compiling
               the ocean component of ICON [default=$ICON_FCFLAGS]
@@ -3620,6 +3627,8 @@ FC_VERSION=$acx_cv_fc_compiler_version
 
 ICON_FCFLAGS=${ICON_FCFLAGS-}
 
+ICON_LDFLAGS=${ICON_LDFLAGS-}
+
 ICON_OCEAN_FCFLAGS=${ICON_OCEAN_FCFLAGS-$ICON_FCFLAGS}
 
 ICON_BUNDLED_FCFLAGS=${ICON_BUNDLED_FCFLAGS-$ICON_FCFLAGS}
@@ -4222,6 +4231,8 @@ else
 fi
 
 
+ICON_RPATH_LDFLAGS=''
+
 if test "x$enable_rpaths" = xyes; then :
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Fortran compiler flag needed to add a directory to the runtime library search path" >&5
 $as_echo_n "checking for Fortran compiler flag needed to add a directory to the runtime library search path... " >&6; }
@@ -4251,19 +4262,20 @@ $as_echo "$acx_cv_fc_rpath_flag" >&6; }
 esac
    done
    for icon_L_arg in $icon_L_args; do
-     case ' '$LDFLAGS' ' in #(
+     case ' '$ICON_RPATH_LDFLAGS' ' in #(
   *' '"$acx_cv_fc_rpath_flag$icon_L_arg"' '*) :
      ;; #(
   ' '' ') :
-    as_fn_append LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;; #(
+    as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;; #(
   *) :
-    as_fn_append LDFLAGS ' '; as_fn_append LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;;
+    as_fn_append ICON_RPATH_LDFLAGS ' '; as_fn_append ICON_RPATH_LDFLAGS "$acx_cv_fc_rpath_flag$icon_L_arg" ;;
 esac
    done
    acx_shlib_rpath_flags_check_result=no
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether Fortran compiler accepts the automatically generated RPATH flags" >&5
 $as_echo_n "checking whether Fortran compiler accepts the automatically generated RPATH flags... " >&6; }
-
+   acx_save_LDFLAGS=$LDFLAGS
+      LDFLAGS="$ICON_RPATH_LDFLAGS $LDFLAGS"
    cat > conftest.$ac_ext <<_ACEOF
       program main
 
@@ -4274,7 +4286,7 @@ if ac_fn_fc_try_link "$LINENO"; then :
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-
+   LDFLAGS=$acx_save_LDFLAGS
    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_shlib_rpath_flags_check_result" >&5
 $as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
    if test "x$acx_shlib_rpath_flags_check_result" = xyes; then :
@@ -4282,7 +4294,7 @@ $as_echo "$acx_shlib_rpath_flags_check_result" >&6; }
 else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags
+as_fn_error $? "Fortran compiler does not accept the automatically generated RPATH flags '$ICON_RPATH_LDFLAGS'
 See \`config.log' for more details
 ${icon_usr_note}" "$LINENO" 5; }
 fi

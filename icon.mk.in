@@ -53,6 +53,8 @@ NVCFLAGS= @NVCFLAGS@
 
 # Linker flags and libraries:
 LDFLAGS= @LDFLAGS@
+ICON_LDFLAGS= @ICON_LDFLAGS@
+ICON_RPATH_LDFLAGS= @ICON_RPATH_LDFLAGS@
 BUNDLED_LIBFILES= @BUNDLED_LIBFILES@
 LIBS= @LIBS@
 
@@ -322,7 +324,7 @@ $(bindir)/icon@EXEEXT@: $(filter %.@OBJEXT@,$(shell $(DEPLIST) @deplist.config -
 
 # Common linking rule for the executables:
 $(exec_files): | $(dir_files)
-	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $+ $(LIBS)
+	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(ICON_FCFLAGS) $(LDFLAGS) $(ICON_LDFLAGS) $(ICON_RPATH_LDFLAGS) $+ $(LIBS)
 
 # Note that old versions of make (3.81 and earlier) take the first matching
 # pattern rules instead of the rule with the shortest stem. Therefore, it is
