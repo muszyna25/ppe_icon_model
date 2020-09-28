@@ -372,7 +372,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,             &
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
              &  i_startidx, i_endidx, rl_start, rl_end)
 
-        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52') ) THEN
+        IF ( (nh_test_name == 'APE_nwp' .OR. nh_test_name == 'dcmip_tc_52' .OR. nh_test_name == 'CBL_flxconst') ) THEN
 
           ! t_g = ape_sst1
 

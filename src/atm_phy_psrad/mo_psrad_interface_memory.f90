@@ -66,7 +66,10 @@ MODULE mo_psrad_interface_memory
     INTEGER  ::             &
          irad_aero,         & !< aerosol control
          no_of_levels         !< number of levels
- 
+
+    LOGICAL :: lrad_aero_diag !< switch on (.true.) aerosol
+                              !< optical properties diagnostic
+    
     TYPE(t_patch), POINTER  :: patch
 
     !! communicated once at the beginning of the run
@@ -169,8 +172,15 @@ MODULE mo_psrad_interface_memory
       & lw_dnw_clr(:,:,:),& !< Clear-sky downward longwave  at all levels
       & lw_upw_clr(:,:,:),& !< Clear-sky upward   longwave  at all levels
       & sw_dnw_clr(:,:,:),& !< Clear-sky downward shortwave at all levels
-      & sw_upw_clr(:,:,:)   !< Clear-sky upward   shortwave at all levels
- 
+      & sw_upw_clr(:,:,:),& !< Clear-sky upward   shortwave at all levels
+      & aer_aod_533 (:,:,:),& !< Aerosol optical density at 533 nm
+      & aer_ssa_533 (:,:,:),& !< Single scattering albedo at 533 nm
+      & aer_asy_533 (:,:,:),& !< Asymmetry factor at 533 nm
+      & aer_aod_2325(:,:,:),& !< Aerosol optical density at 2325 nm
+      & aer_ssa_2325(:,:,:),& !< Single scattering albedo at 2325 nm
+      & aer_asy_2325(:,:,:),& !< Asymmetry factor at 2325 nm
+      & aer_aod_9731(:,:,:)   !< Aerosol optical density at 9731 nm
+      
   END TYPE t_psrad_interface_diagnostics
   !--------------------------------------------------------------------------
 
@@ -831,6 +841,103 @@ CONTAINS
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
          &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
 
+    cf_desc    = t_cf_var('Aerosol optical density at 533 nm', &
+         &                ''                                             , &
+         &                'Aerosol optical density at 533 nm'            , &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var(field_list, prefix//'aod_533' , psrad_interface_fields%diagnostics%aer_aod_533, &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_REFERENCE     , &
+         &       cf_desc, grib2_desc                          , &
+         &       lrestart = .FALSE.                           , &
+         &       ldims=shape3d                                , &
+         &       vert_interp=create_vert_interp_metadata        &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
+         &          vert_intp_method=VINTP_METHOD_LIN)          )
+
+    cf_desc    = t_cf_var('Aerosol single scattering albedo at 533 nm', &
+         &                ''                                             , &
+         &                'Aerosol single scattering albedo at 533 nm'   , &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var(field_list, prefix//'ssa_533' , psrad_interface_fields%diagnostics%aer_ssa_533, &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_REFERENCE     , &
+         &       cf_desc, grib2_desc                          , &
+         &       lrestart = .FALSE.                           , &
+         &       ldims=shape3d                                , &
+         &       vert_interp=create_vert_interp_metadata        &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
+         &          vert_intp_method=VINTP_METHOD_LIN)          )
+
+    cf_desc    = t_cf_var('Aerosol asymmetry factor at 533 nm', &
+         &                ''                                             , &
+         &                'Aerosol asymmetry factor at 533 nm'           , &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var(field_list, prefix//'asy_533' , psrad_interface_fields%diagnostics%aer_asy_533, &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_REFERENCE     , &
+         &       cf_desc, grib2_desc                          , &
+         &       lrestart = .FALSE.                           , &
+         &       ldims=shape3d                                , &
+         &       vert_interp=create_vert_interp_metadata        &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
+         &          vert_intp_method=VINTP_METHOD_LIN)          )
+
+        cf_desc    = t_cf_var('Aerosol optical density at 2325 nm', &
+         &                ''                                             , &
+         &                'Aerosol optical density at 2325 nm'            , &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,12, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var(field_list, prefix//'aod_2325' , psrad_interface_fields%diagnostics%aer_aod_2325, &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_REFERENCE     , &
+         &       cf_desc, grib2_desc                          , &
+         &       lrestart = .FALSE.                           , &
+         &       ldims=shape3d                                , &
+         &       vert_interp=create_vert_interp_metadata        &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
+         &          vert_intp_method=VINTP_METHOD_LIN)          )
+
+    cf_desc    = t_cf_var('Aerosol single scattering albedo at 2325 nm', &
+         &                ''                                             , &
+         &                'Aerosol single scattering albedo at 2325 nm'   , &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,13, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var(field_list, prefix//'ssa_2325' , psrad_interface_fields%diagnostics%aer_ssa_2325, &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_REFERENCE     , &
+         &       cf_desc, grib2_desc                          , &
+         &       lrestart = .FALSE.                           , &
+         &       ldims=shape3d                                , &
+         &       vert_interp=create_vert_interp_metadata        &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
+         &          vert_intp_method=VINTP_METHOD_LIN)          )
+
+    cf_desc    = t_cf_var('Aerosol asymmetry factor at 2325 nm', &
+         &                ''                                             , &
+         &                'Aerosol asymmetry factor at 2325 nm'           , &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,14, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var(field_list, prefix//'asy_2325' , psrad_interface_fields%diagnostics%aer_asy_2325, &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_REFERENCE     , &
+         &       cf_desc, grib2_desc                          , &
+         &       lrestart = .FALSE.                           , &
+         &       ldims=shape3d                                , &
+         &       vert_interp=create_vert_interp_metadata        &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
+         &          vert_intp_method=VINTP_METHOD_LIN)          )
+
+        cf_desc    = t_cf_var('Aerosol optical density at 9731 nm', &
+         &                ''                                             , &
+         &                'Aerosol optical density at 9731 nm'            , &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,15, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var(field_list, prefix//'aod_9731' , psrad_interface_fields%diagnostics%aer_aod_9731, &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_REFERENCE     , &
+         &       cf_desc, grib2_desc                          , &
+         &       lrestart = .FALSE.                           , &
+         &       ldims=shape3d                                , &
+         &       vert_interp=create_vert_interp_metadata        &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
+         &          vert_intp_method=VINTP_METHOD_LIN)          )
 
   END SUBROUTINE allocate_psrad_interface_memory
   !--------------------------------------------------------------------

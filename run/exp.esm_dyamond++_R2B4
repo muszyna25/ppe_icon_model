@@ -69,8 +69,8 @@ ocean_refinement="R02B04"
 nproma_atm=48
 nproma_oce=48
 
-# initialiseOcean="fromRestart"
-initialiseOcean="fromClimatology"
+initialiseOcean="fromRestart"
+# initialiseOcean="fromClimatology"
 # initialiseOcean="FALSE"
 #
 mpi_oce_nodes=1                  # nodes for the ocean model
@@ -121,7 +121,7 @@ start_date=${start_date:="2016-08-01T00:00:00Z"}
 # restart intervals
 # -----------------
 checkpoint_interval="P1Y"
-restart_interval="P5D"
+restart_interval="P1D"
 
 # output intervals
 # ----------------
@@ -176,7 +176,7 @@ fi
 # asynchronous diagnostic output processes
 # ----------------------------------------
 
-mpi_atm_io_procs=6                 # for atmosphere (2d and 3d)
+mpi_atm_io_procs=0                 # for atmosphere (2d and 3d)
 mpi_oce_io_procs=0                 # for ocean (not working yet)
 
 # output file selection
@@ -591,7 +591,6 @@ cat > ${atm_namelist} << EOF
  nproma            = ${nproma_atm}
  num_io_procs      = ${mpi_atm_io_procs}
  num_restart_procs = 4
- io_process_stride = 12
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grid}"
@@ -643,7 +642,7 @@ cat > ${atm_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- tracer_names     = 'hus','clw','cli', 'qr', 'qi', 'qg'
+ tracer_names     = 'hus','clw','cli', 'qr', 'qs', 'qg'
  ivadv_tracer     =    3 ,   3 ,   3 ,   3 ,   3 ,   3
  itype_hlimit     =    3 ,   4 ,   4 ,   4 ,   4 ,   4
  ihadv_tracer     =   52 ,   2 ,   2 ,   2 ,   2 ,   2
@@ -653,7 +652,7 @@ cat > ${atm_namelist} << EOF
 ! domain 1
 ! --------
 !
-! atmospheric phyiscs (""=never)
+! atmospheric physics (""=never)
  echam_phy_config(1)%dt_rad = "${radTimeStep}"
  echam_phy_config(1)%dt_vdf = "${atmTimeStep}"
  echam_phy_config(1)%dt_cnv = ""
@@ -798,9 +797,10 @@ cat > ${lnd_namelist} << EOF
 /
 &jsb_hd_nml
   active               = .TRUE.
-  routing_scheme       = 'weighted_to_coast'
+  routing_scheme       = 'full'
   ic_filename          = 'ic_land_hd.nc'
   bc_filename          = 'bc_land_hd.nc'
+  read_initial_reservoirs = .TRUE.
   diag_water_budget    = .TRUE.
   debug_hd             = .FALSE.
   enforce_water_budget = .FALSE.         ! True: stop in case of water conservation problem
@@ -865,11 +865,13 @@ do
 done
     add_link_file ${datadir}/bc_ozone_historical_2014.nc                   ./bc_ozone.nc
 #
-# - tropospheric anthropogenic aerosols, simple plumes
+# - tropospheric anthropogenic aerosols, simple plumes (irad_aero=18)
 #
-add_link_file ${basedir}/data/MACv2.0-SP_v1.nc                             ./MACv2.0-SP_v1.nc
+datadir=${icon_data_poolFolder}/independent/MACv2_simple_plumes_merged
 #
-#   Kinne background aerosols are needed for the year 1850 (irad_aero=18)
+add_link_file ${datadir}/MACv2.0-SP-merged-historical-and-SSP2-45_v1.nc    ./MACv2.0-SP_v1.nc
+#
+# - Kinne background aerosols are needed for the year 1850 (irad_aero=18)
 #
 #   Here we use revised data (r0002) based on work by Sebastian Rast
 #
@@ -879,20 +881,16 @@ add_link_file ${datadir}/bc_aeropt_kinne_lw_b16_coa.nc                     ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_coa.nc                     ./
 add_link_file ${datadir}/bc_aeropt_kinne_sw_b14_fin_1850.nc                ./bc_aeropt_kinne_sw_b14_fin.nc
 #
-# - stratospheric aerosol
+# - stratospheric aerosol (CMIP6) (irad_aero=18)
 #
-datadir=${icon_data_poolFolder}/independent/aerosol_stenchikov
-year=$start_year
-while [[ $year -le $end_year ]]
-do
-  if [[ $year -le 1999 ]]
-  then
-    add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
-  else
-    add_link_file ${datadir}/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc    ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
-  fi
-  (( year = year+1 ))
-done
+datadir=${icon_data_poolFolder}/independent/CMIP6Forcing
+#
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi
+#
+add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_1850.nc       ./bc_aeropt_cmip6_volc_lw_b16_sw_b14.nc
 #
 # - sst and sic
 #
@@ -909,7 +907,7 @@ add_link_file ${datadir}/swflux_14band_cmip6_1850-2299-v3.2.nc             ./bc_
 #
 # - land parameters
 #
-datadir=${atmo_data_InputFolder}/land/r0004
+datadir=${atmo_data_InputFolder}/land/r0009
 #
 add_link_file ${datadir}/ic_land_soil_1992.nc                              ./ic_land_soil.nc
 add_link_file ${datadir}/bc_land_soil_1992.nc                              ./bc_land_soil.nc
@@ -923,7 +921,12 @@ add_link_file ${basedir}/externals/jsbach/data/lctlib_nlct21.def           ./lct
 #
 # - HD files
 #
-add_link_file ${atmo_grid_folder}/${atmo_dyn_grid}                         ./hd_mask.nc
+datadir=${atmo_data_InputFolder}/land/r0003
+#
+add_link_file ${datadir}/hdrestart_R02B04_013_G_210120_1334_with_grid_file_mask.nc ./ic_land_hd.nc
+add_link_file ${datadir}/hdpara_icon_r2b4_013_using_grid_lsmask.nc        ./bc_land_hd.nc
+add_link_file ${atmo_grid_folder}/${atmo_dyn_grid}                        ./hd_mask.nc
+
 #
 # - the atmosphere grid itself (the grid copy section below from $HGRIDDIR is ignored)
 #
@@ -1172,9 +1175,9 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'pheno_lai_box'         , 'pheno_fract_fpc_veg'         , 'hydro_fract_water_box' ,
-                    'hydro_fract_snow_box'  , 'hydro_w_skin_box'            , 'hydro_w_snow_box'      ,
-                    'hydro_w_soil_column_box'
+ ml_varlist       = 'pheno_lai_box'           , 'pheno_fract_fpc_veg'       , 'hydro_fract_water_box' ,
+                    'hydro_fract_snow_box'    , 'hydro_w_skin_box'          , 'hydro_w_snow_box'      ,
+                    'hydro_w_soil_column_box' , 'hydro_discharge_ocean_box' , ‘hydro_discharge_box’ 
 /
 EOF
 fi
@@ -1201,9 +1204,9 @@ cat > ${oce_namelist} << EOF
  nproma                      = ${nproma_oce}
  num_io_procs                = ${mpi_oce_io_procs}
  num_restart_procs           = 4
- io_process_stride           = 12
  p_test_run                  = .FALSE.
  l_fast_sum                  = .TRUE.
+ num_prefetch_proc           = 0
 /
 &grid_nml
  dynamics_grid_filename      = "${ocean_grid}"
@@ -1547,7 +1550,7 @@ add_required_file ${basedir}/run/${oce_namelist} ./
 # and the restart file. No other files are required.
 #
 if [[ "$initialiseOcean" == "fromRestart" ]]; then
-  add_link_file ${ocean_data_InputFolder}/restart/r0002/rc26_omip_restart_19840101T000000Z.mfr multifile_restart_oce.mfr
+  add_link_file ${ocean_data_InputFolder}/restart/r0002/Dyamond++_restart_oce_2010806T000000Z.mfr multifile_restart_ocean.mfr
 fi
 #
 if [[ "$initialiseOcean" == "fromClimatology" ]]; then

@@ -101,6 +101,7 @@ USE mo_psrad_forcing_memory, ONLY: construct_psrad_forcing_list
 USE mo_physical_constants,  ONLY: amd, amco2
 USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero, echam_phy_config
 USE mo_echam_rad_config,    ONLY: echam_rad_config
+USE mo_echam_vdf_config,    ONLY: echam_vdf_config
 USE mo_echam_phy_init,      ONLY: init_echam_phy_params, init_echam_phy_external, &
    &                              init_echam_phy_field, init_o3_lcariolle
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
@@ -328,6 +329,11 @@ CONTAINS
     ! init LES
     DO jg = 1 , n_dom
       IF(atm_phy_nwp_config(jg)%is_les_phy) THEN
+        CALL init_les_phy_interface(jg, p_patch(jg)       ,&
+           &                        p_int_state(jg)       ,&
+           &                        p_nh_state(jg)%metrics)
+      END IF
+      IF(echam_vdf_config(jg)%turb==2) THEN
         CALL init_les_phy_interface(jg, p_patch(jg)       ,&
            &                        p_int_state(jg)       ,&
            &                        p_nh_state(jg)%metrics)

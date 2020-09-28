@@ -69,6 +69,7 @@ MODULE mo_vertical_grid
   USE mo_nudging_config,       ONLY: nudging_config, indg_profile
   USE mo_dynamics_config,      ONLY: ldeepatmo
   USE mo_nh_deepatmo_utils,    ONLY: set_deepatmo_metrics
+  USE mo_echam_vdf_config,     ONLY: echam_vdf_config
 
   IMPLICIT NONE
 
@@ -301,6 +302,11 @@ MODULE mo_vertical_grid
         z_ddxn_z_half_e)
 
       IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+        ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
+        p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
+        p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
+      ENDIF
+      IF (echam_vdf_config(jg)%turb == 2) THEN
         ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
         p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
         p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
@@ -1732,8 +1738,9 @@ MODULE mo_vertical_grid
 
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
-      IF(atm_phy_nwp_config(jg)%is_les_phy)  &
+      IF(atm_phy_nwp_config(jg)%is_les_phy .OR. echam_vdf_config(1)%turb == 2) THEN
         CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg), jg)
+      END IF
     END DO
 
     ! Prepare vertically varying nudging (only for primary domain)
@@ -2081,12 +2088,21 @@ MODULE mo_vertical_grid
     INTEGER, INTENT(IN)                  :: jg
 
     REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
+    REAL(wp)  :: smag_constant, max_turb_scale
 
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c
     INTEGER :: nlev, nlevp1, i_startblk
 #ifdef __INTEL_COMPILER
 !DIR$ ATTRIBUTES ALIGN : 64 :: z_aux
 #endif
+
+    IF ( echam_vdf_config(1)%turb == 2 ) THEN
+      smag_constant  = echam_vdf_config(jg)%smag_constant
+      max_turb_scale = echam_vdf_config(jg)%max_turb_scale
+    ELSE
+      smag_constant  = les_config(jg)%smag_constant
+      max_turb_scale = les_config(jg)%max_turb_scale
+    END IF 
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
@@ -2115,7 +2131,7 @@ MODULE mo_vertical_grid
         DO jc = 1 , nlen
           z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
 
-          les_filter = les_config(jg)%smag_constant * MIN( les_config(jg)%max_turb_scale, &
+          les_filter = smag_constant * MIN( max_turb_scale, &
                       (p_nh%metrics%ddqz_z_half(jc,jk,jb)*p_patch%cells%area(jc,jb))**0.33333_wp )
 
           p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
