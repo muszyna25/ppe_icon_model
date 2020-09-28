@@ -526,8 +526,8 @@ CONTAINS
       CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
       ltuning_ozone     = .TRUE.
       IF (atm_phy_nwp_config(jg)%inwp_radiation == 4) THEN
-        tune_ozone_ztop   = 26000.0_wp
-        tune_ozone_zmid2  = 23000.0_wp
+        tune_ozone_ztop   = 29000.0_wp
+        tune_ozone_zmid2  = 24000.0_wp
       ELSE
         tune_ozone_ztop   = 29000.0_wp
         tune_ozone_zmid2  = 26000.0_wp
@@ -570,12 +570,6 @@ CONTAINS
             atm_phy_nwp_config(jg)%fac_ozone(jk) = tune_ozone_fac *                        &
                  & cos((z_mc_ref-tune_ozone_zmid2)/(tune_ozone_ztop-tune_ozone_zmid2)*pi_2)**2
           END IF
-        ELSE IF (atm_phy_nwp_config(jg)%inwp_radiation == 4 .AND. z_mc_ref >= tune_ozone_ztop ) THEN
-          IF ( z_mc_ref <= 1.6_wp*tune_ozone_ztop ) THEN
-            atm_phy_nwp_config(jg)%fac_ozone(jk) = -0.125_wp*MIN(1._wp,1.25e-4_wp*(z_mc_ref-tune_ozone_ztop))
-          ELSE
-            atm_phy_nwp_config(jg)%fac_ozone(jk) = -0.125_wp + 0.125_wp*MIN(1._wp,1.e-4_wp*(z_mc_ref-1.6_wp*tune_ozone_ztop))
-          ENDIF
         ELSE
           atm_phy_nwp_config(jg)%fac_ozone(jk) = 0.0_wp
         ENDIF

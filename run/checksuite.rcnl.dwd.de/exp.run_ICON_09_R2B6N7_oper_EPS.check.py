@@ -24,7 +24,7 @@ async def run_checks_glb(test_data, reference):
         check_rel_avg(test_data, reference, 0.0001, grb_metadata(test_data.grb, "shortName") == "RELHUM_2M"),    \
         check_rel_avg(test_data, reference, 0.0005, grb_metadata(test_data.grb, "shortName") == "TOT_PREC"),     \
         check_rel_avg(test_data, reference, 0.0002, grb_metadata(test_data.grb, "shortName") == "TQV"),     \
-        check_rel_avg(test_data, reference, 0.005,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
+        check_rel_avg(test_data, reference, 0.008,  grb_metadata(test_data.grb, "shortName") == "TQC_DIA"),  \
         check_rel_avg(test_data, reference, 0.001, grb_metadata(test_data.grb, "shortName") == "TQI_DIA"),  \
         check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCL"),     \
         check_rel_avg(test_data, reference, 0.005, grb_metadata(test_data.grb, "shortName") == "CLCM"),     \

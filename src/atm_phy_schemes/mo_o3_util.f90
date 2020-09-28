@@ -969,7 +969,7 @@ CONTAINS
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),&
                 o3_macc1,o3_macc2,o3_gems1,o3_gems2
     REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems),wfac_tr(ilat),&
-                wfac_p_tr(nlev_gems),wfac_p_tr2(nlev_gems),trfac,wfac2
+                wfac_p_tr(nlev_gems),wfac_p_tr2(nlev_gems),wfac_p_mst(nlev_gems),trfac,wfac2
     LOGICAL  :: lfound_all
 
 
@@ -1105,14 +1105,29 @@ CONTAINS
 
       ! Pressure mask field for tropics (used for ozone reduction around 70 hPa)
       DO jk = 1, nlev_gems
-        IF (zrefp(jk) <= 4000._wp .OR. zrefp(jk) >= 9000._wp) THEN
+        IF (zrefp(jk) <= 4500._wp .OR. zrefp(jk) >= 9000._wp) THEN
           wfac_p_tr2(jk) = 0._wp
         ELSE IF (zrefp(jk) <= 7000._wp) THEN
-          wfac_p_tr2(jk) = (zrefp(jk)-4000._wp)/3000._wp
+          wfac_p_tr2(jk) = (zrefp(jk)-4500._wp)/2500._wp
         ELSE
           wfac_p_tr2(jk) = (9000._wp-zrefp(jk))/2000._wp
         ENDIF
       ENDDO
+
+      ! Pressure mask field for ozone enhancement in the middle stratosphere around 10 hPa
+      IF (atm_phy_nwp_config(pt_patch%id)%inwp_radiation == 4) THEN
+        DO jk = 1, nlev_gems
+          IF (zrefp(jk) >= 700._wp .AND. zrefp(jk) <= 1000._wp) THEN
+            wfac_p_mst(jk) = (zrefp(jk)-700._wp)/300._wp
+          ELSE IF (zrefp(jk) >= 1000._wp .AND. zrefp(jk) <= 2000._wp) THEN
+            wfac_p_mst(jk) = (2000._wp-zrefp(jk))/1000._wp
+          ELSE
+           wfac_p_mst(jk) = 0._wp
+          ENDIF
+        ENDDO
+      ELSE
+        wfac_p_mst(:) = 0._wp
+      ENDIF
 
       ! Profile functions for accelerated ozone hole filling in November
       ! (Accomplished by taking a weighted average between November and December climatologies)
@@ -1150,7 +1165,7 @@ CONTAINS
           o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
                      MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2>=1 .AND. im2<=5)
 
-          trfac    = 1._wp - 0.2_wp*wfac_tr(jl)*wfac_p_tr2(jk)
+          trfac    = 1._wp - 0.3_wp*wfac_tr(jl)*wfac_p_tr2(jk) + 0.1_wp*wfac_p_mst(jk)
 
           zozn(JL,JK) = amo3/amd * trfac* ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
                                      (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )
