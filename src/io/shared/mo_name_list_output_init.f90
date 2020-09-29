@@ -643,7 +643,6 @@ CONTAINS
         p_onl%i_levels                 = i_levels
         p_onl%remap                    = remap
         p_onl%operation                = operation
-        p_onl%lonlat_id                = -1
         p_onl%output_start(:)          = output_start(:)
         p_onl%output_end(:)            = output_end
         p_onl%output_interval(:)       = output_interval
