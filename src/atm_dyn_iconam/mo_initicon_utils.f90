@@ -887,11 +887,7 @@ MODULE mo_initicon_utils
 !$OMP DO PRIVATE(jb,jk,je,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_e
 
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
+        nlen = MERGE( nproma, npromz_e, jb /= nblks_e)
 
         ! Wind speed
         DO jk = 1, nlev
@@ -906,11 +902,7 @@ MODULE mo_initicon_utils
 !$OMP DO PRIVATE(jb,jk,jc,nlen,exner,tempv,idx,itracer) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
-        IF (jb /= nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_c
-        ENDIF
+        nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
         ! 3D fields
         DO jk = 1, nlev
@@ -3074,12 +3066,7 @@ MODULE mo_initicon_utils
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen,rholoc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, p_patch%nblks_c
-                  
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       IF (lqnx_init(iqnc)) THEN
         DO jk = 1, p_patch%nlev
@@ -3200,12 +3187,8 @@ MODULE mo_initicon_utils
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen,qtmp0,qtmp1,rholoc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, p_patch%nblks_c
-                  
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
+
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       IF (lqnxinc_init(iqnc) .AND. lqx_avail(iqc) .AND. lqxinc_avail(iqc) .AND. qcana_mode > 0) THEN
         DO jk = 1, p_patch%nlev
