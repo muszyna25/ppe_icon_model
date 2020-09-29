@@ -113,7 +113,6 @@ MODULE mo_initicon_utils
   PUBLIC :: init_aerosol
   PUBLIC :: init_qnx_from_qx_twomom
   PUBLIC :: init_qnxinc_from_qxinc_twomom
-  PUBLIC :: get_diag_stat_str_3d
   PUBLIC :: get_diag_stat_comm_work
 
   !> type holds selection criteria for var_lists matching ilev_type and
