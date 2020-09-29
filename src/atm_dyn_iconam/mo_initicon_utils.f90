@@ -3257,7 +3257,7 @@ MODULE mo_initicon_utils
       END IF
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
     IF (qcana_mode > 0 .AND. lqnxinc_init(iqnc)) THEN
@@ -3379,7 +3379,7 @@ MODULE mo_initicon_utils
           END DO
         END DO
       END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 #ifndef NOMPI
