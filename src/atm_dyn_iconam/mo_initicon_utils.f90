@@ -3383,7 +3383,7 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL
 
 #ifndef NOMPI
-      IF (num_work_procs > 1 .AND. my_process_is_work() ) THEN
+      IF (num_work_procs > 1) THEN
         ! Global stats using MPI:
         mn           = p_min(mn          , comm=p_comm_work)
         mx           = p_max(mx          , comm=p_comm_work)
