@@ -3333,7 +3333,6 @@ MODULE mo_initicon_utils
 
     IF (my_process_is_work()) THEN
 
-      statstr(:) = ' '
       WRITE(statstr, '("min/mean/max interior domain: ",2(es12.5," / "),es12.5)') stats
 
     ELSE
