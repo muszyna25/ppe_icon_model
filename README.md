@@ -79,6 +79,9 @@ $ /path/to/icon/config/dkrz/mistral.intel --enable-openmp
 This way, you can build ICON in several different configurations, i.e. with
 different compilers and features, using the same copy of the source code.
 
+> **_NOTE:_** If you want to build and run ICON on your personal
+computer/laptop, consider using [generic configure wrappers](./config/generic).
+
 > **_NOTE:_** If there is no configure wrapper script for your platform or
 machine, refer to section [Configuration](#configuration) for information on how
 to work with the [./configure](./configure) script directly.
@@ -178,7 +181,7 @@ recommended (topologically sorted) order for the `LIBS` argument is presented in
 |  5 | [LAPACK](http://www.netlib.org/lapack/) (or analogue) | mandatory | `LDFLAGS='-L/path/to/lapack/lib' LIBS='-llapack'` (depends on the implementation) |
 |  6 | [BLAS](http://www.netlib.org/blas/) (or analogue) | mandatory | `LDFLAGS='-L/path/to/blas/lib' LIBS='-lblas'` (depends on the implementation) |
 |  7 | [MTIME](https://gitlab.dkrz.de/icon-libraries/libmtime) | `--with-external-mtime`<sup><a name="f3-back" href="#f3">3</a></sup> | `FCFLAGS='-I/path/to/mtime/include' CPPFLAGS='-I/path/to/mtime/include' LDFLAGS='-L/path/to/mtime/lib' LIBS='-lmtime'` |
-|  8 | [SERIALBOX2](https://github.com/GridTools/serialbox) | `--enable-serialization` | `FCFLAGS='-I/path/to/serialbox2/include' LDFLAGS='-L/path/to/serialbox2/lib' LIBS='-lSerialboxFortranShared'` |
+|  8 | [SERIALBOX](https://github.com/GridTools/serialbox) | `--enable-serialization` | `FCFLAGS='-I/path/to/serialbox2/include' LDFLAGS='-L/path/to/serialbox2/lib' LIBS='-lSerialboxFortran'` |
 |  9 | [CDI](https://code.mpimet.mpg.de/projects/cdi/) or CDI-PIO | `--with-external-cdi`<sup><a name="f4-back" href="#f4">4</a></sup> | `FCFLAGS='-I/path/to/libcdi/include' LDFLAGS='-L/path/to/libcdi/lib' LIBS='-lcdi_f2003 -lcdi'` (or `LIBS='-lcdi_f2003 -lcdipio -lcdi'`) |
 | 10 | [ECCODES](https://confluence.ecmwf.int/display/ECC) or [GRIB-API](https://confluence.ecmwf.int/display/GRIB/Home) | `--enable-grib2 --without-external-cdi`<sup><a name="f5-back" href="#f5">5</a></sup> | `CPPFLAGS='-I/path/to/eccodes/include' LDFLAGS='-L/path/to/eccodes/lib' LIBS='-leccodes'` (or `LIBS='-lgrib_api'`) |
 | 11 | [YAXT](https://gitlab.dkrz.de/dkrz-sw/yaxt) | `--enable-yaxt --with-external-yaxt` or `--enable-cdi-pio --with-external-yaxt`<sup><a name="f6-back" href="#f6">6</a></sup> | `FCFLAGS='-I/path/to/yaxt/include' LDFLAGS='-L/path/to/yaxt/lib' LIBS='-lyaxt'` |
@@ -384,6 +387,8 @@ compiler flags specifiying search paths (`-I<path>`) and macros
 - `LDFLAGS` &mdash; common Fortran **and** C compiler flags to be used at the
 configuration **and** building stages when linking ICON **and** the bundled
 libraries;
+- `ICON_LDFLAGS` &mdash; Fortran compiler flags to be appended to `LDFLAGS` at
+the building stage when linking ICON;
 - `LIBS` &mdash; a list of libraries (see [Table 1](#icon-deptable) for the
 recommended order) to be passed to the linker by the Fortran compiler when
 linking ICON **and** to the configure scripts of the bundled libraries (which
@@ -408,7 +413,7 @@ ICON but at the same time can break the configuration (a flag is too restrictive
 for the configure checks to pass, e.g. `-fimplicit-none` for Gfortran) or the
 functionality of the bundled libraries (e.g. the optimization level required
 for ICON is too high and leads to errors in the functionality of the bundled
-libraries) can be put to `ICON_FCFLAGS` and `ICON_CFLAGS`, respectively.
+libraries) can be put to `ICON_FCFLAGS`, `ICON_CFLAGS` or `ICON_LDFLAGS`.
 4. Special optimization flags for the ocean component of ICON can be put to
 `ICON_OCEAN_FCFLAGS`.
 5. Fortran and C compiler flags that need to be used when compiling and linking
@@ -476,9 +481,7 @@ fully compatible with some compilers. For example, the flags
 incorrectly transformed by Libtool into
 `-Wl,-Wl -Wl,"" -Wl,-rpath -Wl,-Wl -Wl,"" -Wl,<path>`. A possible solution
 for this problem is to add the flags in the form understood by NAG compiler not
-to `LDFLAGS` but to `ICON_FCFLAGS` and make sure that the bundled libraries,
-especially the Libtool-based ones, will not receive them:
-`ICON_BUNDLED_FCFLAGS=`.
+to `LDFLAGS` but to `ICON_LDFLAGS`.
 
 > **_NOTE:_** The generated `-rpath` flags are applied only at the building
 stage and for the ICON executable only. However, some of the checks performed by
@@ -1210,9 +1213,10 @@ the issue?**</a>
 Most probably, you are running ICON on an unknown (unsupported) system. In that
 case, the runscript expects input data in your home directory
 `$HOME/pool/data/ICON`. You need to request the required input files from ICON
-developers and put it to the aformentioned folder. You can also save the data to
-a different directory and override the default path by setting the environment
-variable `icon_data_rootFolder` before generating the runscripts, for example:
+developers and put them to the aformentioned folder. You can also save the data
+to a different directory and override the default path by setting the
+environment variable `icon_data_rootFolder` before generating the runscripts,
+for example:
 ```console
 $ export icon_data_rootFolder='/path/to/ICON/data'
 $ ./make_runscripts -s atm_amip_test
