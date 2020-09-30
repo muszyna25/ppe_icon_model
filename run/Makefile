@@ -32,7 +32,7 @@ install doc:
 
 all.make: check.make update
 
-update: all.clean
+update: $(CHECK_TARGET) all.clean
 	$(MV) $(CHECK_TARGET) $(ALL_TARGET)
 
 all.clean:
