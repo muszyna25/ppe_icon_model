@@ -1669,6 +1669,7 @@ CONTAINS
         CALL cdiPioConfSetIOMode(nml_io_cdi_pio_conf_handle, &
           &                      grib_mode_for_cdi_pio)
         CALL cdiPioConfSetCSRole(nml_io_cdi_pio_conf_handle, my_cdi_pio_role)
+        CALL cdiPioConfSetBatchedRMA(nml_io_cdi_pio_conf_handle, .FALSE.)
 #else
         CALL finish(routine, "ICON was compiled without CDI-PIO")
 #endif
