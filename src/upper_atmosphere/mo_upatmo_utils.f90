@@ -19,7 +19,7 @@ MODULE mo_upatmo_utils
 
   USE mo_kind,                      ONLY: wp
   USE mo_exception,                 ONLY: finish
-  USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,            ONLY: SUCCESS
   USE mo_name_list_output_types,    ONLY: t_output_name_list
   USE mo_name_list_output_config,   ONLY: is_variable_in_output_nml
   USE mo_util_string,               ONLY: int2string
@@ -129,11 +129,9 @@ CONTAINS !......................................................................
     LOGICAL, ALLOCATABLE :: mask(:)
     LOGICAL :: lmask
     INTEGER :: varsize, istart, iend, ishift, jloop, istat
-    INTEGER, PARAMETER :: MASKLEN = 20
-    CHARACTER(LEN=MASKLEN), PARAMETER :: mask_list       = "list"
-    CHARACTER(LEN=MASKLEN), PARAMETER :: mask_complement = "complement"
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':init_logical_1d'
+    CHARACTER(LEN=*), PARAMETER :: mask_list       = "list"
+    CHARACTER(LEN=*), PARAMETER :: mask_complement = "complement"
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':init_logical_1d'
 
     !---------------------------------------------------------
 
@@ -152,19 +150,19 @@ CONTAINS !......................................................................
       lmask = .TRUE.
       IF ( MINVAL(opt_ilist) < istart .OR. &
         &  MAXVAL(opt_ilist) > iend        ) THEN
-        CALL finish(TRIM(routine), "Index in opt_ilist outside index range of variable.")
+        CALL finish(routine, "Index in opt_ilist outside index range of variable.")
       ENDIF
       ALLOCATE(mask(varsize), STAT=istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Allocation of mask failed.")
+      IF (istat /= SUCCESS) CALL finish(routine, "Allocation of mask failed.")
 
       IF (PRESENT(opt_mask)) THEN
         SELECT CASE(TRIM(opt_mask))
-        CASE(TRIM(mask_list))
+        CASE(mask_list)
           mask(:) = .FALSE.
-        CASE(TRIM(mask_complement))
+        CASE(mask_complement)
           mask(:) = .TRUE.
         CASE default
-          CALL finish(TRIM(routine), "Invalid opt_mask.")
+          CALL finish(routine, "Invalid opt_mask.")
         END SELECT
       ELSE
         mask(:) = .FALSE.
@@ -189,7 +187,7 @@ CONTAINS !......................................................................
 
     IF (lmask) THEN
       DEALLOCATE(mask, STAT=istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Deallocation of mask failed.")
+      IF (istat /= SUCCESS) CALL finish(routine, "Deallocation of mask failed.")
     ENDIF
 
   END SUBROUTINE init_logical_1d
@@ -287,8 +285,7 @@ CONTAINS !......................................................................
 
     ! Local variables
     LOGICAL  :: l_present_clbnd, l_present_cubnd
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':isInInterval_integer'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':isInInterval_integer'
     !---------------------------------------------------------
 
     ! Covered (mutually exclusive) cases:
@@ -310,11 +307,11 @@ CONTAINS !......................................................................
     IF (l_present_clbnd .EQV. PRESENT(opt_olbnd)) THEN
       ! Either both a closed lower boundary and an open lower boundary 
       ! are present or none is present
-      CALL finish(TRIM(routine), "Invalid argument for lower bound.")
+      CALL finish(routine, "Invalid argument for lower bound.")
     ELSEIF (l_present_cubnd .EQV. PRESENT(opt_oubnd)) THEN
       ! Either both a closed upper boundary and an open upper boundary 
       ! are present or none is present
-      CALL finish(TRIM(routine), "Invalid argument for upper bound.")
+      CALL finish(routine, "Invalid argument for upper bound.")
     ENDIF
     
     ! Is number equal to or greater than lower bound?
@@ -351,8 +348,7 @@ CONTAINS !......................................................................
 
     ! Local variables
     LOGICAL  :: l_present_clbnd, l_present_cubnd
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':isInInterval_real'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':isInInterval_real'
     !---------------------------------------------------------
 
     ! Covered (mutually exclusive) cases:
@@ -369,11 +365,11 @@ CONTAINS !......................................................................
     IF (l_present_clbnd .EQV. PRESENT(opt_olbnd)) THEN
       ! Either both a closed lower boundary and an open lower boundary 
       ! are present or none is present
-      CALL finish(TRIM(routine), "Invalid argument for lower bound.")
+      CALL finish(routine, "Invalid argument for lower bound.")
     ELSEIF (l_present_cubnd .EQV. PRESENT(opt_oubnd)) THEN
       ! Either both a closed upper boundary and an open upper boundary 
       ! are present or none is present
-      CALL finish(TRIM(routine), "Invalid argument for upper bound.")
+      CALL finish(routine, "Invalid argument for upper bound.")
     ENDIF
     
     ! Is number equal to or greater than lower bound?
@@ -408,8 +404,7 @@ CONTAINS !......................................................................
 
     TYPE(t_varstate_set), POINTER :: set4use, set4reset
     INTEGER :: error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_init'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_init'
 
     !----------------------------------------------
 
@@ -449,7 +444,7 @@ CONTAINS !......................................................................
     set4reset => NULL()
     IF (PRESENT(optError)) optError = error
     IF (set4use%l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
     set4use   => NULL()
 
@@ -474,8 +469,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use
     INTEGER :: error
     LOGICAL :: l_finish_on_error, l_final, l_count_as_update
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_swap'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_swap'
 
     !----------------------------------------------
 
@@ -516,7 +510,7 @@ CONTAINS !......................................................................
     set4use => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END SUBROUTINE t_varstate_swap
@@ -534,8 +528,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use
     INTEGER :: error
     LOGICAL :: l_finish_on_error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_clear'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_clear'
 
     !----------------------------------------------
 
@@ -562,7 +555,7 @@ CONTAINS !......................................................................
     set4use => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END SUBROUTINE t_varstate_clear
@@ -580,8 +573,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use
     INTEGER :: error
     LOGICAL :: l_finish_on_error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_lock'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_lock'
 
     !----------------------------------------------
 
@@ -600,7 +592,7 @@ CONTAINS !......................................................................
     set4use => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END SUBROUTINE t_varstate_lock
@@ -618,8 +610,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use
     INTEGER :: error
     LOGICAL :: l_finish_on_error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_unlock'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_unlock'
 
     !----------------------------------------------
 
@@ -642,7 +633,7 @@ CONTAINS !......................................................................
     set4use => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END SUBROUTINE t_varstate_unlock
@@ -662,8 +653,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use, set4reset
     INTEGER :: error
     LOGICAL :: l_finish_on_error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_reset'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_reset'
 
     !----------------------------------------------
 
@@ -688,7 +678,7 @@ CONTAINS !......................................................................
     set4reset => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END SUBROUTINE t_varstate_reset
@@ -798,8 +788,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use
     INTEGER :: error
     LOGICAL :: l_finish_on_error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_iget'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_iget'
 
     !----------------------------------------------
 
@@ -819,7 +808,7 @@ CONTAINS !......................................................................
     set4use => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END FUNCTION t_varstate_iget
@@ -979,8 +968,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use
     INTEGER :: error
     LOGICAL :: l_finish_on_error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_lget'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_lget'
 
     !----------------------------------------------
 
@@ -1000,7 +988,7 @@ CONTAINS !......................................................................
     set4use => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END FUNCTION t_varstate_lget
@@ -1022,8 +1010,7 @@ CONTAINS !......................................................................
     TYPE(t_varstate_set), POINTER :: set4use
     INTEGER :: error, iset
     LOGICAL :: l_finish_on_error
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = modname//':t_varstate_getSet'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':t_varstate_getSet'
 
     !----------------------------------------------
 
@@ -1054,7 +1041,7 @@ CONTAINS !......................................................................
     set4use => NULL()
     IF (PRESENT(optError)) optError = error
     IF (l_finish_on_error .AND. (error /= SUCCESS)) THEN
-      CALL finish (TRIM(routine), 'Error code: '//TRIM(int2string(error)))
+      CALL finish (routine, 'Error code: '//TRIM(int2string(error)))
     ENDIF
 
   END FUNCTION t_varstate_getSet
