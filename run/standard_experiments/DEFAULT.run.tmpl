@@ -4,7 +4,7 @@
 #
 # %{mkexp_input}
 #
-# $Id: DEFAULT.run.tmpl 1 2020-09-24 09:02:44Z m221078 $
+# $Id: DEFAULT.run.tmpl 2 2020-09-30 11:40:05Z m221078 $
 #
 # %{VERSIONS_|join('\n# ')}
 #
@@ -281,15 +281,10 @@ output_oce_moc=yes      #  calc_moc is called every timestep - switch off for hi
 output_oce_ice=yes
 
 # standard debug-flux arrays at surface
-output_atm_dbg=yes
 output_oce_dbg=yes
 
 # output switches for large atm/oce files - set to "yes" if needed for standard quickplots
 #  - yes writes much output and needs more computing time at least in high resolution
-output_atm_cgrid=no     # produces 1 atm file 
-output_atm_3d=yes
-output_atm_2d=yes
-output_phy_3d=no        #  atmosphere physics, note: "yes" increases the output volume significantly!
 output_oce_def=yes      #  annual mean is sufficient
 
 # output interval for large atm/oce files, normally set to general atmos interval:
@@ -734,27 +729,7 @@ EOF
 # atmosphere namelist
 # -------------------
 cat > ${atm_namelist} << EOF
-%{format_namelist(namelists.NAMELIST_atm, 'coupling_mode_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'parallel_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'grid_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'run_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'extpar_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'initicon_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'nonhydrostatic_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'interpol_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'sleve_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'diffusion_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'transport_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_phy_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_rad_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_gwd_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_sso_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_vdf_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_cnv_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_cld_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'echam_cov_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'ccycle_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'sea_ice_nml')}
+%{format_namelist(namelists.NAMELIST_atm)}
 EOF
 
 # jsbach namelist
@@ -779,193 +754,6 @@ add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./hd_mas
 add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./
 #
 #--------------------------------------------------------------------------------------------------
-
-# (5) Define the output
-# ---------------------
-
-# Parameters for all output files
-# -------------------------------
-cat >> ${atm_namelist} << EOF
-%{format_namelist(namelists.NAMELIST_atm, 'io_nml')}
-%{format_namelist(namelists.NAMELIST_atm, 'dbg_index_nml')}
-EOF
-
-# Define output files
-# -------------------
-#
-# output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
-#
-# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
-# interpolation to pressure levels by cdo ap2pl.
-#
-if [[ "$output_atm_cgrid" == "yes" ]]; then
-  #
-  cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_cgrid"
- filename_format  = "<output_filename>_<levtype_l>"
- filetype         = 5
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${initial_date}"         ! output_start = output_end
- output_end       = "${initial_date}"         ! --> write once only irrespective of
- output_interval  = "${atm_output_interval}"  !     the output interval and
- file_interval    = "${atm_file_interval}"    !     the file interval
- ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
-/
-EOF
-fi
-
-# output atmospheric monitoring
-if [[ "$output_atm_mon" == "yes" ]]; then
-  cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_mon"
- filename_format  = "<output_filename>_<datetime2>"
- filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
- remap            = 0
- mode             = 1                                ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
- operation        = 'mean'                           ! mean over output interval
- output_grid      = .FALSE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${atm_output_interval}"
- file_interval    = "${atm_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'tas_gmean','rsdt_gmean','rsut_gmean','rlut_gmean','radtop_gmean',
-                    'prec_gmean','evap_gmean','fwfoce_gmean'
-/
-EOF
-fi
-
-# interface debug output
-if [[ "$output_atm_dbg" == "yes" ]]; then
-  cat >> ${atm_namelist} <<EOF
-&output_nml 
- filetype         = 5                                ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
- output_filename  = "${EXPNAME}_atm_dbg"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- operation        = 'mean'
- output_grid      = .TRUE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${atm_output_interval}"
- file_interval    = "${atm_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      ,
-                    'frac_wtr', 'frac_ice', 'frac_lnd', 'alake', 'lake_ice_frc',
-                    'hs_icecl', 'ts_icecl', 'qtop_icecl','qbot_icecl',
-                    'sic'     , 'sit'     , 'sic_icecl', 'sit_icecl',
-                    'clt'     , 'psl'     , 'tas'     , 'ts'      ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'tauu'    , 'tauv'    , 'albedo'  ,
-                    'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
-                    'rvds_dir','rvds_dif','rnds_dir','rnds_dif','rvus','rnus',
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 
-                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs',
-                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs',
-                    'rsus'    , 'rsuscs'  , 'rlus'    , 'rsdt'  ,
-                    'evspsbl_wtr', 'evspsbl_ice', 'evspsbl_lnd',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'sfcwind' , 'uas'     , 'vas'
-/
-EOF
-fi
-#
-# Standard AMIP output...
-#
-#
-if [[ "$output_atm_3d" == "yes" ]]; then
-  #
-  cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .FALSE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${atm_output_interval}"
- file_interval    = "${atm_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = '%{namelists.NAMELIST_atm["output_nml atm_3d"].ml_varlist|join("', '")}'
-/
-EOF
-fi
-
-
-if [[ "$output_atm_2d" == "yes" ]]; then
-  #
-  cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_atm_2d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .FALSE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${atm_output_interval}"
- file_interval    = "${atm_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = '%{namelists.NAMELIST_atm["output_nml atm_2d"].ml_varlist|join("', '")}'
-/
-EOF
-fi
-
-
-if [[ "$output_phy_3d" == "yes" ]]; then
-  #
-  cat >> ${atm_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_phy_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- filetype         = 5
- remap            = 0
- operation        = 'mean'
- output_grid      = .FALSE.
- output_start     = "${initial_date}"
- output_end       = "${final_date}"
- output_interval  = "${atm_output_interval}"
- file_interval    = "${atm_file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'ps'           , 'pfull'        ,
-                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwd'  , 'tend_ta_sso'  ,
-                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
-                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwd'  , 'tend_ua_sso'  ,
-                    'tend_ua_cnv'  ,
-                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwd'  , 'tend_va_sso'  ,
-                    'tend_va_cnv'  ,
-                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
-                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf'
-/
-EOF
-fi
-
-# jsbach output for running atm_amip experiment
-# for more jsbach output see exp.atm_amip_les
-#
-cat >> ${atm_namelist} << EOF
-%{format_namelist(namelists.NAMELIST_atm, 'output_nml lnd_basic')}
-%{format_namelist(namelists.NAMELIST_atm, 'output_nml lnd_medium')}
-%{format_namelist(namelists.NAMELIST_atm, 'output_nml lnd_full')}
-EOF
 
 #-----------------------------------------------------------------------------
 # III. OCEAN and SEA-ICE (and HAMOCC) 
