@@ -105,7 +105,6 @@ CONTAINS !......................................................................
   SUBROUTINE init_logical_1d( variable,   & !inout
     &                         value,      & !in
     &                         opt_ilist,  & !optin
-    &                         opt_istart, & !optin
     &                         opt_mask    ) !optin
     ! In/out variables
     LOGICAL,                    INTENT(INOUT) :: variable(:)  ! Logical array to be assigned with 'value'
@@ -113,10 +112,8 @@ CONTAINS !......................................................................
     INTEGER,          OPTIONAL, INTENT(IN)    :: opt_ilist(:) ! Optional list with indices of 'variable' 
                                                               ! that shall or shall not be assigned with 'value'. 
                                                               ! The indices are assumed to be 
-                                                              ! in '[opt_istart, opt_istart+size(variable)-1]', 
+                                                              ! in '[1, size(variable)]', 
                                                               ! if present, or in '[1, SIZE(variable)]' otherwise.
-    INTEGER,          OPTIONAL, INTENT(IN)    :: opt_istart   ! Optional input, if "true" index range 
-                                                              ! of 'variable' does not start with 1
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN)    :: opt_mask     ! "list" -> those indices of 'variable' stored 
                                                               ! in 'opt_ilist' are not assigned with 'value'
                                                               ! "complement" -> those indices of 'variable' 
@@ -128,7 +125,7 @@ CONTAINS !......................................................................
     ! Local variables
     LOGICAL, ALLOCATABLE :: mask(:)
     LOGICAL :: lmask
-    INTEGER :: varsize, istart, iend, ishift, jloop, istat
+    INTEGER :: varsize, jloop, istat
     CHARACTER(LEN=*), PARAMETER :: mask_list       = "list"
     CHARACTER(LEN=*), PARAMETER :: mask_complement = "complement"
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':init_logical_1d'
@@ -137,19 +134,10 @@ CONTAINS !......................................................................
 
     varsize = SIZE(variable)
 
-    IF (PRESENT(opt_istart)) THEN
-      istart = opt_istart
-    ELSE
-      istart = 1
-    ENDIF
-
-    iend   = istart + varsize - 1
-    ishift = 1 - istart
-
     IF (PRESENT(opt_ilist)) THEN
       lmask = .TRUE.
-      IF ( MINVAL(opt_ilist) < istart .OR. &
-        &  MAXVAL(opt_ilist) > iend        ) THEN
+      IF ( MINVAL(opt_ilist) < 1 .OR. &
+        &  MAXVAL(opt_ilist) > varsize        ) THEN
         CALL finish(routine, "Index in opt_ilist outside index range of variable.")
       ENDIF
       ALLOCATE(mask(varsize), STAT=istat)
@@ -169,7 +157,7 @@ CONTAINS !......................................................................
       ENDIF
 
       DO jloop = 1, SIZE(opt_ilist)
-        mask(opt_ilist(jloop) - ishift) = .NOT. mask(opt_ilist(jloop) - ishift)
+        mask(opt_ilist(jloop)) = .NOT. mask(opt_ilist(jloop))
       ENDDO
     ELSE
       lmask = .FALSE.
