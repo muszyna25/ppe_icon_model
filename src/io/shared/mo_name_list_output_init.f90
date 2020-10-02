@@ -173,8 +173,6 @@ MODULE mo_name_list_output_init
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_derived_variable_handling,         ONLY: process_statistics_stream
   USE self_vector
-  USE self_map
-  USE self_assert
 
 #ifndef __NO_ICON_ATMO__
   USE mo_vertical_coord_table,              ONLY: vct
