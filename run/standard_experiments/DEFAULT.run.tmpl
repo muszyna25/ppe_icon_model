@@ -161,7 +161,6 @@ mpi_oce_nodes=%{JOB.ocean_nodes}
 # (1) Define the model time stepping
 # ----------------------------------
 
-oceTimeStep="%{OCEAN_TIME_STEP}" # ocean time step
 couplingTimeStep="%{COUPLER_TIME_STEP}" # coupling time step
 
 #--------------------------------------------------------------------------------------------------
@@ -272,36 +271,10 @@ mpi_oce_io_procs=0      # >0 for ocean is not working yet
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-# monitoring output switches
-output_atm_mon=yes
-output_oce_mon=yes
-output_oce_moc=yes      #  calc_moc is called every timestep - switch off for high resolutions
-
-# sea ice, snow, SST and some deeper levels ocean output
-output_oce_ice=yes
-
-# standard debug-flux arrays at surface
-output_oce_dbg=yes
-
-# output switches for large atm/oce files - set to "yes" if needed for standard quickplots
-#  - yes writes much output and needs more computing time at least in high resolution
-output_oce_def=yes      #  annual mean is sufficient
-
 # output interval for large atm/oce files, normally set to general atmos interval:
 atm_output_interval_3d="$atm_output_interval"
 atm_output_interval_2d="$atm_output_interval"
 oce_output_interval_def="%{SLOW_OUTPUT_INTERVAL}"  # annual mean output for deep ocean
-#%  if WITH_OBGC is set:
-
-# output switches for HAMOCC files
-output_hamocc_mon=yes
-output_hamocc_base=yes    # very large
-output_hamocc_EU=yes      # large
-output_hamocc_sed=yes     # large
-output_hamocc_2d=yes
-output_hamocc_3d=yes
-#%  endif
-#%#
 
 #--------------------------------------------------------------------------------------------------
 
@@ -467,7 +440,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="1"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -487,7 +460,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="2"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -507,7 +480,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="3"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -526,7 +499,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="4"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -545,7 +518,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="5"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -563,7 +536,7 @@ cat > coupling.xml << EOF
             <source component_ref="2" transient_grid_ref="6"/>
             <target transient_grid_ref="6"/>
             <timestep>
-               <source>${oceTimeStep}</source>
+               <source>%{OCEAN_TIME_STEP}</source>
                <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
@@ -582,7 +555,7 @@ cat > coupling.xml << EOF
             <source component_ref="2" transient_grid_ref="7"/>
             <target transient_grid_ref="7"/>
             <timestep>
-               <source>${oceTimeStep}</source>
+               <source>%{OCEAN_TIME_STEP}</source>
                <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
@@ -601,7 +574,7 @@ cat > coupling.xml << EOF
             <source component_ref="2" transient_grid_ref="8"/>
             <target transient_grid_ref="8"/>
             <timestep>
-               <source>${oceTimeStep}</source>
+               <source>%{OCEAN_TIME_STEP}</source>
                <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
@@ -620,7 +593,7 @@ cat > coupling.xml << EOF
             <source component_ref="2" transient_grid_ref="9"/>
             <target transient_grid_ref="9"/>
             <timestep>
-               <source>${oceTimeStep}</source>
+               <source>%{OCEAN_TIME_STEP}</source>
                <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
@@ -640,7 +613,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="10"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -660,7 +633,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="11"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -679,7 +652,7 @@ cat > coupling.xml << EOF
             <target transient_grid_ref="12"/>
             <timestep>
                <source>%{ATMO_TIME_STEP}</source>
-               <target>${oceTimeStep}</target>
+               <target>%{OCEAN_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>${oce_lag}</target_timelag>
@@ -698,7 +671,7 @@ cat > coupling.xml << EOF
             <source component_ref="2" transient_grid_ref="13"/>
             <target transient_grid_ref="13"/>
             <timestep>
-               <source>${oceTimeStep}</source>
+               <source>%{OCEAN_TIME_STEP}</source>
                <target>%{ATMO_TIME_STEP}</target>
                <coupling_period operation="average">${couplingTimeStep}</coupling_period>
                <source_timelag>${oce_lag}</source_timelag>
@@ -765,226 +738,26 @@ add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./
 # --------------
 
 cat > ${oce_namelist} << EOF
-!
-&coupling_mode_nml
-  coupled_mode               = .TRUE.
-/
+%{format_namelist(namelists.NAMELIST_oce, 'coupling_mode_nml')}
 %{format_namelist(namelists.NAMELIST_oce, 'parallel_nml')}
 %{format_namelist(namelists.NAMELIST_oce, 'grid_nml')}
-&dynamics_nml
- iequations                  = -1                               ! -1: hydrost. ocean model
-/
-&run_nml
- modelTimeStep               = "${oceTimeStep}"
- output                      = 'nml'                            ! namelist controlled output scheme
- activate_sync_timers        = .TRUE.
- profiling_output            = 1                                ! aggregated: 1; detailed: 2; in files: 3
- msg_timestamp               = .FALSE.
- timers_level                = 10
- debug_check_level           = 1
- restart_filename            = "${EXPNAME}_restart_oce_<rsttime>.nc"
-/
-EOF
-# output of fixed geometry
-cat >> ${oce_namelist} << EOF
- &output_nml
-  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
-  output_filename  = "${EXPNAME}_oce_fx"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${initial_date}"                ! start date in ISO-format
-  output_end       = "${initial_date}"                ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  output_grid      = .TRUE.
-  mode             =  2                               ! 1: forecast mode (relative t-axis); 2: climate mode
-  include_last     = .false.
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c'
-/
-EOF
-#
-if [[ "$output_oce_def" == "yes" ]]; then
-   cat >> ${oce_namelist} << EOF
+%{format_namelist(namelists.NAMELIST_oce, 'dynamics_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'run_nml')}
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_fx')}
 %{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_def')}
-EOF
-fi
-
-if [[ "$output_oce_ice" == "yes" ]]; then
-  cat >> ${oce_namelist} <<EOF
 %{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_ice')}
-EOF
-fi
-#
-if [[ "$output_oce_mon" == "yes" ]]; then
-   #
-   cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype                   = 4
-  output_filename            = "${EXPNAME}_oce_mon"
-  filename_format            = "<output_filename>_<datetime2>"
-  output_start               = "${initial_date}"                ! start in ISO-format
-  output_end                 = "${final_date}"                  ! end in ISO-format
-  output_interval            = "${oce_output_interval}"
-  file_interval              = "${oce_file_interval}"
-  mode                       = 1                                ! 1: forecast mode (relative t-axis)
-                                                                ! 2: climate mode (absolute t-axis)
-  include_last               = .FALSE.
-  output_grid                = .FALSE.
-  filename_format            = "<output_filename>_<datetime2>"
-  operation                  = "mean"
-  ml_varlist                 = 'group:ocean_monitor'
-/
-EOF
-fi
-#
-if [[ "$output_oce_moc" == "yes" ]]; then
-   #
-   cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype                   = 5
-  output_filename            = "${EXPNAME}_oce_moc"
-  filename_format            = "<output_filename>_<datetime2>"
-  output_start               = "${initial_date}"                ! start in ISO-format
-  output_end                 = "${final_date}"                  ! end in ISO-format
-  output_interval            = "${oce_output_interval}"
-  file_interval              = "${oce_file_interval}"
-  mode                       = 1                                ! 1: forecast mode (relative t-axis)
-                                                                ! 2: climate mode (absolute t-axis)
-  include_last               = .FALSE.
-  output_grid                = .FALSE.
-  filename_format            = "<output_filename>_<datetime2>"
-  operation                  = "mean"
-  ml_varlist                 = 'group:ocean_moc'
-/
-EOF
-fi
-
-if [[ "$output_oce_dbg" == "yes" ]]; then
-  cat >> ${oce_namelist} <<EOF
-&output_nml
-  filetype         =  5                               ! output format: 2=GRIB2, 4=NETCDFv2, 5=NETCDFv4
-  output_filename  = "${EXPNAME}_oce_dbg"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${initial_date}"                ! start date in ISO-format
-  output_end       = "${final_date}"                  ! end date in ISO-format
-  output_interval  = "${oce_output_interval}"         ! interval in ISO-format
-  file_interval    = "${oce_file_interval}"           ! interval in ISO-format
-  output_grid      = .TRUE.
-  mode             =  1                               ! 1: forecast mode (relative t-axis); 2: climate mode
-  operation        = 'mean'                           ! mean over output interval
-  include_last     = .false.
-  m_levels         = "1,2"                            ! surface and subsurface level only
-  filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'Qtop', 'Qbot','Qbot_slow', 'zHeatOceI','heatOceI','heatOceW','draftave','zUnderIce',
-                      'mld','condep','zos','u_vint','hi','hs','conc','to','so','u',
-                      'HeatFlux_Total','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
-                      'HeatFlux_ShortWave','HeatFlux_LongWave','HeatFlux_Sensible','HeatFlux_Latent',
-                      'FrshFlux_Runoff','FrshFlux_Precipitation','FrshFlux_Evaporation','FrshFlux_SnowFall',
-                      'FrshFlux_TotalOcean','FrshFlux_VolumeIce','totalsnowfall','Wind_Speed_10m'
-/
-EOF
-fi
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_mon')}
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_moc')}
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml oce_dbg')}
 #%  if WITH_OBGC is set:
-
-## HAMMOCC output #####################################
-
-if [[ "$output_hamocc_mon" == "yes" ]]; then
-cat >> ${oce_namelist} << EOF
-&output_nml
-  output_filename  = "${EXPNAME}_hamocc_monitor"
-  filename_format  = "<output_filename>_<datetime2>"
-  output_start     = "${initial_date}"
-  output_end       = "${final_date}"
-  output_interval  = "${hamocc_output_interval}"
-  file_interval    = "${hamocc_file_interval}"
-  output_grid      = .false.
-  operation        = 'mean'
-  mode             = 1
-  ml_varlist       =  'group:HAMOCC_MONI'
-/
-EOF
-fi
-#
-if [[ "$output_hamocc_base" == "yes" ]]; then
-cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc"
-  output_start     = "${initial_date}"                ! start in ISO-format
-  output_end       = "${final_date}"                  ! end in ISO-format
-  output_interval  = "${hamocc_output_interval}"
-  file_interval    = "${hamocc_file_interval}"
-  output_grid      = .TRUE.
-  operation        = 'mean'
-  mode             = 1
-  ml_varlist       =  'group:HAMOCC_BASE'
-/
-EOF
-fi
-#
-if [[ "$output_hamocc_sed" == "yes" ]]; then
-cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_sediment"
-  output_start     = "${initial_date}"                ! start in ISO-format
-  output_end       = "${final_date}"                  ! end in ISO-format
-  output_interval  = "${hamocc_output_interval}"
-  file_interval    = "${hamocc_file_interval}"
-  output_grid      = .TRUE.
-  operation        = 'mean'
-  mode             = 1
-  ml_varlist       =  'group:HAMOCC_SED'
-/
-EOF
-fi
-#
-if [[ "$output_hamocc_3d" == "yes" ]]; then
-cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
-  output_start     = "${initial_date}"                ! start in ISO-format
-  output_end       = "${final_date}"                  ! end in ISO-format
-  output_interval  = "${hamocc_output_interval}"
-  file_interval    = "${hamocc_file_interval}"
-  output_grid      = .TRUE.
-  operation        = 'mean'
-  mode             = 1
-  ml_varlist       =  'HAMOCC_BACFRA','HAMOCC_SRED','HAMOCC_REMIN','HAMOCC_DENIT','HAMOCC_delsil','HAMOCC_delcar','HAMOCC_aou'
-/
-EOF
-fi
-#
-if [[ "$output_hamocc_EU" == "yes" ]]; then
-cat >> ${oce_namelist} << EOF
-&output_nml
-  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  filename_format  = "<output_filename>_<datetime2>"
-  output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
-  output_start     = "${initial_date}"                ! start in ISO-format
-  output_end       = "${final_date}"                  ! end in ISO-format
-  output_interval  = "${hamocc_output_interval}"
-  file_interval    = "${hamocc_file_interval}"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
-  output_grid      = .TRUE.
-  operation       = 'mean'
-  ml_varlist       =  'HAMOCC_NPP','HAMOCC_nfix','HAMOCC_dms_prod','HAMOCC_dms_bac','HAMOCC_dms_uv','HAMOCC_eu_export','HAMOCC_pho_cya','HAMOCC_cya_loss','HAMOCC_grazing','HAMOCC_remin_via_grazer','HAMOCC_exudation_phy','HAMOCC_exudation_zoo','HAMOCC_zoomor','HAMOCC_phymor','HAMOCC_plim','HAMOCC_flim','HAMOCC_nlim','HAMOCC_cTlim','HAMOCC_cLlim','HAMOCC_cPlim','HAMOCC_cFlim'
-  m_levels          ='1...%{OBGC_EUPHOTIC_LEVELS}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
-/
-EOF
-fi
-#
-if [[ "$output_hamocc_2d" == "yes" ]]; then
-cat >> ${oce_namelist} << EOF
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml hamocc_monitor')}
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml hamocc')}
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml hamocc_sediment')}
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml hamocc_3d_tendencies')}
+%{format_namelist(namelists.NAMELIST_oce, 'output_nml hamocc_EU_tendencies')}
 %{format_namelist(namelists.NAMELIST_oce, 'output_nml hamocc_2d_tendencies')}
-EOF
-fi
-##############################################################
-#%#  /////WITH_OBGC is set
 #%  endif
+EOF
 cat >> ${oce_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_oce, 'dbg_index_nml')}
 %{format_namelist(namelists.NAMELIST_oce, 'ocean_dynamics_nml')}
