@@ -207,8 +207,8 @@ atmo_dyn_grid=${atm_grid_name}.nc
 
 # start and end date+time of experiment
 # -------------------------------------
-initial_date=${initial_date:="%{INITIAL_DATE}T00:00:00Z"}
-final_date=${final_date:="%{FINAL_DATE}T00:00:00Z"}
+initial_date=${initial_date:="%{INITIAL_DATE}T00:00:00.000"}
+final_date=${final_date:="%{FINAL_DATE}T00:00:00.000"}
 
 # restart/checkpoint/output intervals
 # -----------------
@@ -233,6 +233,7 @@ hamocc_output_interval="%{OUTPUT_INTERVAL}"
 # Read and compute time control information
 
 start_date_file=$SCRIPT_DIR/$EXPNAME.date
+exp_log_file=$SCRIPT_DIR/$EXPNAME.log
 
 #%  if JOB.entry_point is set:
 if [[ -f $start_date_file ]]
@@ -244,6 +245,7 @@ then
     exit 1
 fi
 start_date=$initial_date
+rm -f $exp_log_file
 #%  else:
 read start_date < $start_date_file
 #%  endif
@@ -258,6 +260,9 @@ end_date = next_date + mtime.TimeDelta('-%{ATMO_TIME_STEP}')
 print('end_date=' + str(end_date))
 print('next_date=' + str(next_date))
 ")
+
+# Mark current run as started in log
+echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id_environ}} start >> $exp_log_file
 
 # asynchronous diagnostic output processes
 # ----------------------------------------
@@ -780,6 +785,9 @@ if [ "x${autoPostProcessing}" = "xtrue" ]; then
 fi
 
 #-----------------------------------------------------------------------------
+
+# Mark current run as successful in log
+echo $(date -u +'%Y-%m-%dT%H:%M:%SZ') ${start_date%:*} ${end_date%:*} ${%{JOB.id_environ}}  end >> $exp_log_file
 
 cd $SCRIPT_DIR
 
