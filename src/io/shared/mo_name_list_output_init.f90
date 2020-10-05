@@ -641,15 +641,15 @@ CONTAINS
         ! -- if the namelist switch "output_grid" has been enabled: add
         !    "clon, "clat", "elon", "elat", etc. to the list of variables:
         IF (p_onl%output_grid) THEN
-          CALL translate_lower_append_grid_output(p_onl%ml_varlist, p_onl%remap)
-          CALL translate_lower_append_grid_output(p_onl%pl_varlist, p_onl%remap)
-          CALL translate_lower_append_grid_output(p_onl%hl_varlist, p_onl%remap)
-          CALL translate_lower_append_grid_output(p_onl%il_varlist, p_onl%remap)
+          CALL lookup_lc_gridout(p_onl%ml_varlist, p_onl%remap)
+          CALL lookup_lc_gridout(p_onl%pl_varlist, p_onl%remap)
+          CALL lookup_lc_gridout(p_onl%hl_varlist, p_onl%remap)
+          CALL lookup_lc_gridout(p_onl%il_varlist, p_onl%remap)
         ELSE
-          CALL translate_lower_append_grid_output(p_onl%ml_varlist)
-          CALL translate_lower_append_grid_output(p_onl%pl_varlist)
-          CALL translate_lower_append_grid_output(p_onl%hl_varlist)
-          CALL translate_lower_append_grid_output(p_onl%il_varlist)
+          CALL lookup_lc_gridout(p_onl%ml_varlist)
+          CALL lookup_lc_gridout(p_onl%pl_varlist)
+          CALL lookup_lc_gridout(p_onl%hl_varlist)
+          CALL lookup_lc_gridout(p_onl%il_varlist)
         END IF
         p_onl%next => NULL()
       END DO DOM_LOOP2
@@ -662,7 +662,7 @@ CONTAINS
     CALL close_nml
   CONTAINS
 
-    SUBROUTINE translate_lower_append_grid_output(varlist, remap)
+    SUBROUTINE lookup_lc_gridout(varlist, remap)
       CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
       INTEGER, INTENT(IN), OPTIONAL :: remap
       INTEGER :: k
@@ -692,7 +692,7 @@ CONTAINS
           END SELECT
         END IF
       END IF
-    END SUBROUTINE translate_lower_append_grid_output
+    END SUBROUTINE lookup_lc_gridout
   END SUBROUTINE read_name_list_output_namelists
 
   !------------------------------------------------------------------------------------------------
