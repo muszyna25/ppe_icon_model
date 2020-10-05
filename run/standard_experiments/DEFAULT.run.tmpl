@@ -139,12 +139,6 @@ ulimit -c 0
 # (0) Basic model configuration
 # -----------------------------
 
-atmos_gridID="%{ATMO_GRID_ID}"
-atmos_refinement="%{ATMO_GRID_TYPE}"
-
-ocean_gridID="%{OCEAN_GRID_ID}"
-ocean_refinement="%{OCEAN_GRID_TYPE}"
-
 read_restart_namelists=".false."
 
 # restart=.true.    # deactivate semaphore mechanism
@@ -157,48 +151,11 @@ mpi_oce_nodes=%{JOB.ocean_nodes}
 ((mpi_oce_procs=mpi_oce_nodes * mpi_procs_pernode))
 #
 #--------------------------------------------------------------------------------------------------
-#
-# (1) Define the model time stepping
-# ----------------------------------
-
-couplingTimeStep="%{COUPLER_TIME_STEP}" # coupling time step
-
-#--------------------------------------------------------------------------------------------------
 
 # (2) unset some setting of create_target_header for mistral
 
 unset OMPI_MCA_coll_fca_enable
 unset OMPI_MCA_coll_fca_priority
-
-#--------------------------------------------------------------------------------------------------
-
-# (3) icon_data_poolFolder
-
-# Variables provided by the scripting mechanism
-
-# EXPNAME                       = name of exp. in 'exp.<name>'
-# MODEL_DIR                     = base directory, where src/, run/ etc exist
-# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
-
-# overwrite the default setting with the new path and handle daint (CSCS)
-
-if [ -d /users/icontest ]
-then
-    poolFolder_prefix=/users/icontest
-else
-    poolFolder_prefix=
-fi
-
-#icon_data_poolFolder="$poolFolder_prefix/work/mh0287/users/rene/public/mpim"
-icon_data_poolFolder="$poolFolder_prefix/pool/data/ICON/grids/private/rene/mpim"
-
-# horizontal grid(s)
-# ------------------
-atm_grid_name=icon_grid_${atmos_gridID}_${atmos_refinement}_G
-
-atmo_grid_folder=/pool/data/ICON/grids/private/rene/mpim/${atmos_gridID}  # still some private path!
-atmo_land_data_InputFolder=${icon_data_poolFolder}/${atmos_gridID}-${ocean_gridID}
-atmo_dyn_grid=${atm_grid_name}.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -355,7 +312,6 @@ EOF
 # II. ATMOSPHERE and LAND
 #-----------------------------------------------------------------------------
 #
-
 # atmosphere namelist
 # -------------------
 cat > ${atm_namelist} << EOF
@@ -368,22 +324,6 @@ EOF
 cat > ${lnd_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_lnd)}
 EOF
-
-#--------------------------------------------------------------------------------------------------
-
-# Define the atmosphere and land input
-# ------------------------------------
-
-#
-# - HD mask for interpolation of runoff
-#
-add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./hd_mask.nc
-#
-# - the atmosphere grid itself (the grid copy section below from $HGRIDDIR is ignored)
-#
-add_required_file ${atmo_grid_folder}/${atmo_dyn_grid}                  ./
-#
-#--------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 # III. OCEAN and SEA-ICE (and HAMOCC) 
@@ -398,16 +338,6 @@ cat > ${oce_namelist} << EOF
 %{format_namelist(namelists.NAMELIST_oce)}
 EOF
 
-#%  if WITH_OBGC is set:
-#
-## HAMOCC forcing files
-#
-# FIXME: this is still a private path
-datadir=/work/mh0727/m300732/input/0036/ocean/hamocc/
-add_link_file $datadir/MAHOWALDDUST_icon_grid_0036_R02B04_O_remapbil1.nc           dust.nc  # iron deposition
-add_link_file $datadir/ndepo_1-0_gr_185001-185012-clim_icon_grid_0036_R02B04_O.nc  nitrogen.nc  # nitrate deposition
-#%  endif
-#
 #-----------------------------------------------------------------------------
 
 if [ $mpi_total_procs -lt `expr $mpi_oce_procs + 1` ] ; then
@@ -772,16 +702,6 @@ if [ $finish_status = "RESTART" ] ; then
   ${submit} $this_script
 else
   [[ -f ${restartSemaphoreFilename} ]] && rm ${restartSemaphoreFilename}
-fi
-
-#-----------------------------------------------------------------------------
-# automatic call/submission of post processing if available
-if [ "x${autoPostProcessing}" = "xtrue" ]; then
-  # check if there is a postprocessing is available
-  cd ${SCRIPT_DIR}
-  targetPostProcessingScript="./post.${EXPNAME}.run"
-  [[ -x $targetPostProcessingScript ]] && ${submit} ${targetPostProcessingScript}
-  cd -
 fi
 
 #-----------------------------------------------------------------------------
