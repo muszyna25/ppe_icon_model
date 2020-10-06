@@ -201,7 +201,7 @@ MODULE mo_icon_output_tools
   SUBROUTINE prepare_output()
     USE mo_time_config,         ONLY: time_config
 
-    CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:prepare_output"
+    CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:prepare_output"
 
     TYPE(t_sim_step_info)               :: sim_step_info
     TYPE(t_key_value_store), POINTER :: restartAttributes
