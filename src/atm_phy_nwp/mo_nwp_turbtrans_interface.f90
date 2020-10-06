@@ -1037,6 +1037,17 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
     END SELECT !inwp_turb
 
+
+    ! Compute wind speed in 10m
+    ! used by mo_albedo (albedo_whitecap=1)
+    ! 
+    !$acc parallel default(present) if(lzacc)
+    !$acc loop gang vector
+    DO jc = i_startidx, i_endidx
+      prm_diag%sp_10m(jc,jb) = SQRT(prm_diag%u_10m(jc,jb)**2 + prm_diag%v_10m(jc,jb)**2 )
+    ENDDO
+    !$acc end parallel
+
   ENDDO ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

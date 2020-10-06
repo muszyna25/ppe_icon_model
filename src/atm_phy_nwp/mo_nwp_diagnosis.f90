@@ -1196,15 +1196,6 @@ CONTAINS
       ENDIF
 
 
-      ! Compute wind speed in 10m
-      ! 
-      IF (atm_phy_nwp_config(jg)%inwp_turb > 0 ) THEN
-        DO jc = i_startidx, i_endidx
-          prm_diag%sp_10m(jc,jb) = SQRT(prm_diag%u_10m(jc,jb)**2 &
-            &                    +      prm_diag%v_10m(jc,jb)**2 )
-        ENDDO
-      ENDIF
-
 
       ! Compute resolved surface drag: ps * del(orog)
  

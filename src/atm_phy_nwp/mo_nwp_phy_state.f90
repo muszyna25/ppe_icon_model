@@ -2637,7 +2637,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     grib2_desc = grib2_var(0, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'sp_10m', diag%sp_10m,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M, cf_desc, grib2_desc,       &
-      & ldims=shape2d, lrestart=.FALSE. )
+      & ldims=shape2d, lrestart=.FALSE., lopenacc=.TRUE. )
+    __acc_attach(diag%sp_10m)
 
     !tiled quantities
     ! &      diag%shfl_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
