@@ -30,7 +30,7 @@ MODULE mo_ocean_state
   USE mo_master_control,      ONLY: get_my_process_name
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_impl_constants,      ONLY: success, max_char_length, TLEV_NNEW
+  USE mo_impl_constants,      ONLY: success, TLEV_NNEW
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, use_tracer_x_height, cfl_write,&
     &                               Cartesian_Mixing , &
     &                               k_tracer_dianeutral_parameter,                                &
@@ -140,7 +140,8 @@ CONTAINS
   SUBROUTINE construct_ocean_var_lists(patch_2d)
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
 
-    CHARACTER(LEN=max_char_length) :: listname
+    CHARACTER(LEN=*), PARAMETER :: oce_rst_listname = 'ocean_restart_list', &
+      oce_dflt_listname = 'ocean_default_list'
 
     CHARACTER(len=64) :: model_name
 
@@ -150,15 +151,15 @@ CONTAINS
     !
     ! Restart list: everything belonging to that list will be written to the
     ! restart file and is ready for output
-    WRITE(listname,'(a)')  'ocean_restart_list'
-    CALL new_var_list(ocean_restart_list, listname, patch_id=patch_2d%id)
+    CALL new_var_list(ocean_restart_list, oce_rst_listname, &
+      &               patch_id=patch_2d%id)
     CALL default_var_list_settings( ocean_restart_list,             &
       & lrestart=.TRUE.,loutput=.TRUE.,&
       & model_type=TRIM(model_name) )
 
     ! default list: elements can be written to disk, but not to the restart file
-    WRITE(listname,'(a)')  'ocean_default_list'
-    CALL new_var_list(ocean_default_list, listname, patch_id=patch_2d%id)
+    CALL new_var_list(ocean_default_list, oce_dflt_listname, &
+      &               patch_id=patch_2d%id)
     CALL default_var_list_settings( ocean_default_list,            &
       & lrestart=.FALSE.,model_type=TRIM(model_name), loutput=.TRUE.)
   END SUBROUTINE construct_ocean_var_lists
@@ -769,7 +770,7 @@ CONTAINS
     !INTEGER :: i_startidx_c, i_endidx_c, i_startidx_e, i_endidx_e
     !INTEGER, PARAMETER :: max_oce_tracer = 2
     INTEGER :: oce_tracer_codes(max_oce_tracer)
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_diag'
     INTEGER :: datatype_flt, jc, blockNo, start_cell_index, end_cell_index
     REAL(wp), PARAMETER :: equator = 0.00001_wp
@@ -782,7 +783,7 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'construct diagnostic hydro ocean state...')
+    CALL message(routine, 'construct diagnostic hydro ocean state...')
 
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -2210,7 +2211,7 @@ CONTAINS
     INTEGER ::  ist  !, jtrc
     INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
     
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_ocean_nudge'
     INTEGER :: datatype_flt
 
@@ -2280,7 +2281,7 @@ CONTAINS
     
     INTEGER :: ist
     
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:destruct_hydro_ocean_aux'
     
     DEALLOCATE(ocean_nudge%data_3dimRelax_Temp, stat=ist)
@@ -2325,7 +2326,7 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'construct hydro ocean auxiliary state...')
+    CALL message(routine, 'construct hydro ocean auxiliary state...')
 
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -2422,7 +2423,7 @@ CONTAINS
 
     ALLOCATE(ocean_state_aux%bc_top_veloc_cc(nproma,alloc_cell_blocks), stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
+      CALL finish(routine,'allocation of top boundary cond cc failed')
     END IF
 
     ocean_state_aux%bc_top_veloc_cc(:,:)%x(1) = 0.0_wp
@@ -2434,21 +2435,21 @@ CONTAINS
 
      ALLOCATE(ocean_state_aux%slopes(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for slopes at cells failed')
+      CALL finish(routine, 'allocation for slopes at cells failed')
      END IF
      ocean_state_aux%slopes    (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%slopes    (:,:,:)%x(2)=0.0_wp
      ocean_state_aux%slopes    (:,:,:)%x(3)=0.0_wp
      ALLOCATE(ocean_state_aux%PgradTemperature_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for PgradTemperature_horz_center at cells failed')
+      CALL finish(routine, 'allocation for PgradTemperature_horz_center at cells failed')
      END IF
      ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(2)=0.0_wp
      ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(3)=0.0_wp
      ALLOCATE(ocean_state_aux%PgradTracer_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for PgradTracer_horz_center at cells failed')
+      CALL finish(routine, 'allocation for PgradTracer_horz_center at cells failed')
      END IF
      ocean_state_aux%PgradTracer_horz_center    (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%PgradTracer_horz_center    (:,:,:)%x(2)=0.0_wp
@@ -2456,7 +2457,7 @@ CONTAINS
 
      ALLOCATE(ocean_state_aux%PgradSalinity_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for PgradSalinity_horz_center at cells failed')
+      CALL finish(routine, 'allocation for PgradSalinity_horz_center at cells failed')
      END IF
      ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(2)=0.0_wp
@@ -2464,7 +2465,7 @@ CONTAINS
 
      ALLOCATE(ocean_state_aux%PgradDensity_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for PgradSalinity_horz_center at cells failed')
+      CALL finish(routine, 'allocation for PgradSalinity_horz_center at cells failed')
      END IF
      ocean_state_aux%PgradDensity_horz_center       (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%PgradDensity_horz_center       (:,:,:)%x(2)=0.0_wp
@@ -2472,7 +2473,7 @@ CONTAINS
 
      ALLOCATE(ocean_state_aux%diagnose_Redi_flux_temp(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for diagnose_Redi_flux_temp at cells failed')
+      CALL finish(routine, 'allocation for diagnose_Redi_flux_temp at cells failed')
      END IF
      ocean_state_aux%diagnose_Redi_flux_temp       (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%diagnose_Redi_flux_temp       (:,:,:)%x(2)=0.0_wp
@@ -2480,7 +2481,7 @@ CONTAINS
 
     ALLOCATE(ocean_state_aux%diagnose_Redi_flux_sal(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for diagnose_Redi_flux_sal at cells failed')
+      CALL finish(routine, 'allocation for diagnose_Redi_flux_sal at cells failed')
      END IF
      ocean_state_aux%diagnose_Redi_flux_sal       (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%diagnose_Redi_flux_sal       (:,:,:)%x(2)=0.0_wp
@@ -2626,7 +2627,7 @@ CONTAINS
 
     DEALLOCATE(ocean_state_aux%bc_top_veloc_cc, stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine),'deallocation of top boundary cond cc failed')
+      CALL finish(routine,'deallocation of top boundary cond cc failed')
     END IF
 
   END SUBROUTINE destruct_hydro_ocean_aux
@@ -2669,7 +2670,7 @@ CONTAINS
     ! local variables
     INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_patch_3D'
     INTEGER :: datatype_flt
 
@@ -2681,7 +2682,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    !CALL message(TRIM(routine), 'start to construct basic hydro ocean state')
+    !CALL message(routine, 'start to construct basic hydro ocean state')
 
     ! determine size of arrays
     alloc_cell_blocks = patch_3d%p_patch_2d(n_dom)%alloc_cell_blocks
