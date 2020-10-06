@@ -1468,9 +1468,7 @@ CONTAINS
           lev_idx = lev
           ! handle the case that a few levels have been selected out of
           ! the total number of levels:
-          IF (      ASSOCIATED(of%level_selection)   .AND. &
-            & (.NOT. var_ignore_level_selection)     .AND. &
-            & (info%ndims > 2)) THEN
+          IF (make_level_selection) THEN
             lev_idx = of%level_selection%global_idx(lev_idx)
           END IF
           CALL exchange_data(in_array=s_ptr(:,lev_idx,:),                 &
