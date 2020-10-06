@@ -2175,16 +2175,16 @@ CONTAINS
 
     INTEGER :: ist
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:destruct_hydro_ocean_diag'
 
     DEALLOCATE(ocean_state_diag%p_vn, stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation for p_vn failed')
+      CALL finish(routine, 'deallocation for p_vn failed')
     END IF
     DEALLOCATE(ocean_state_diag%p_vn_dual, stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation for p_vn_dual failed')
+      CALL finish(routine, 'deallocation for p_vn_dual failed')
     END IF
 !     DEALLOCATE(ocean_state_diag%ptp_vn, stat=ist)
 !     IF (ist/=success) THEN
@@ -2222,7 +2222,7 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'construct  ocean nudge...')
+    CALL message(routine, 'construct  ocean nudge...')
     
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -2315,7 +2315,7 @@ CONTAINS
     INTEGER ::  ist  !, jtrc
     INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_aux'
     INTEGER :: datatype_flt
 
