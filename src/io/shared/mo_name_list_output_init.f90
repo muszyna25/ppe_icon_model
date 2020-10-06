@@ -3170,7 +3170,7 @@ CONTAINS
       modname//"::replicate_coordinate_data_on_io_procs"
     INTEGER                       :: idom
 
-    INTEGER :: idom_log, temp(4,n_dom_out)
+    INTEGER :: idom_log, temp(5,n_dom_out)
     LOGICAL :: keep_grid_info, is_io
 
     is_io = my_process_is_io()
@@ -3184,6 +3184,7 @@ CONTAINS
         temp(2,idom) = patch_info(idom)%nblks_glb_e
         temp(3,idom) = patch_info(idom)%nblks_glb_v
         temp(4,idom) = patch_info(idom)%max_cell_connectivity
+        temp(5,idom) = patch_info(idom)%max_vertex_connectivity
       END DO
     END IF
     CALL p_bcast(temp, bcast_root, p_comm_work_2_io)
@@ -3193,6 +3194,7 @@ CONTAINS
         patch_info(idom)%nblks_glb_e = temp(2,idom)
         patch_info(idom)%nblks_glb_v = temp(3,idom)
         patch_info(idom)%max_cell_connectivity = temp(4,idom)
+        patch_info(idom)%max_vertex_connectivity = temp(5,idom)
       END IF
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         ! logical domain ID
