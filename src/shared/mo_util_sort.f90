@@ -632,8 +632,9 @@ CONTAINS
   END SUBROUTINE quicksort_permutation_int
 
 
-  SUBROUTINE swap_string(a, b, dummy)
-    CHARACTER(LEN=*),  INTENT(INOUT)  :: a,b,dummy  !< strings for in-situ swap
+  SUBROUTINE swap_string(a, b)
+    CHARACTER(LEN=*),  INTENT(INOUT)  :: a,b  !< strings for in-situ swap
+    CHARACTER(LEN=LEN(a)) :: dummy
     dummy = a
     a     = b
     b     = dummy
@@ -672,11 +673,11 @@ CONTAINS
       ! median-of-three selection of partitioning element
       IF ((r-l) > 3) THEN 
         m = (l+r)/2
-        IF (a(l)>a(m))  CALL swap_string(a(l), a(m), t)
+        IF (a(l)>a(m))  CALL swap_string(a(l), a(m))
         IF (a(l)>a(r)) THEN
-          CALL swap_string(a(l),a(r), t)
+          CALL swap_string(a(l),a(r))
         ELSE IF (a(r)>a(m)) THEN
-          CALL swap_string(a(r),a(m), t)
+          CALL swap_string(a(r),a(m))
         END IF
       END IF
 
