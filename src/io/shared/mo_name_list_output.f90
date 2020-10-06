@@ -1079,9 +1079,9 @@ CONTAINS
         ri_n_glb =  p_ri%n_glb
         p_pat    => patch_info(i_dom)%p_pat_c
       CASE (GRID_LONLAT)
-        ri_n_glb =  -1
+        ri_n_glb =  1
       CASE (GRID_ZONAL)
-        ri_n_glb =  -1
+        ri_n_glb =  180
       CASE (GRID_UNSTRUCTURED_EDGE)
         p_ri     => patch_info(i_dom)%ri(iedge)
         ri_n_glb =  p_ri%n_glb
@@ -1362,7 +1362,7 @@ CONTAINS
     TYPE (t_var_metadata), INTENT(in) :: info
 
 
-    INTEGER :: lev, lev_idx, i, n_points, nmiss
+    INTEGER :: lev, lev_idx, i, nmiss
     LOGICAL :: l_error, have_grib, lwrite_single_precision
     LOGICAL :: is_test, is_mpi_workroot
     LOGICAL :: make_level_selection
@@ -1371,35 +1371,27 @@ CONTAINS
 
     is_test = my_process_is_mpi_test()
 
-    IF (info%hgrid == GRID_LONLAT) THEN
-      n_points = 1
-    ELSE IF (info%hgrid == GRID_ZONAL) THEN
-      n_points = 180
-    ELSE
-      n_points = n_glb
-    END IF
-
     have_GRIB =      of%output_type == FILETYPE_GRB  &
       &         .OR. of%output_type == FILETYPE_GRB2
     lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
 
     IF (idata_type == iREAL) THEN
-      ALLOCATE(r_out_dp(MERGE(n_points, 0, is_mpi_workroot)))
+      ALLOCATE(r_out_dp(MERGE(n_glb, 0, is_mpi_workroot)))
     END IF
     IF ((idata_type == iREAL_sp) .OR. lwrite_single_precision) THEN
-      ALLOCATE(r_out_sp(MERGE(n_points, 0, is_mpi_workroot)))
+      ALLOCATE(r_out_sp(MERGE(n_glb, 0, is_mpi_workroot)))
     END IF
     IF (idata_type == iINTEGER) THEN
-      IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, is_mpi_workroot)))
-      IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, is_mpi_workroot)))
-      ALLOCATE(r_out_int(MERGE(n_points, 0, is_mpi_workroot)))
+      IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_glb, 0, is_mpi_workroot)))
+      IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_glb, 0, is_mpi_workroot)))
+      ALLOCATE(r_out_int(MERGE(n_glb, 0, is_mpi_workroot)))
     END IF
 
     IF(is_mpi_workroot) THEN
 
       IF (is_test) THEN
 
-        IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_points))
+        IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_glb))
 
       ELSE
 
@@ -1428,7 +1420,6 @@ CONTAINS
       ! gather the array on stdio PE and write it out there
       IF ( info%hgrid == GRID_LONLAT ) THEN
         IF (is_mpi_workroot) THEN
-          !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
           IF      (idata_type == iREAL ) THEN
             r_out_dp(:)  = r_ptr(:,1,1)
           ELSE IF (idata_type == iREAL_sp ) THEN
@@ -1448,7 +1439,7 @@ CONTAINS
             r_out_int(:) = i_ptr(lev_idx,1,:)
           END IF
         END IF
-      ELSE ! n_points
+      ELSE
         IF (idata_type == iREAL) THEN
           r_out_dp(:)  = 0._wp
 
@@ -1487,7 +1478,7 @@ CONTAINS
             &                out_array=r_out_int(:), gather_pattern=pat)
           ! FIXME: Implement and use fill_value!
         END IF
-      END IF ! n_points
+      END IF ! n_glb
 
       IF (is_mpi_workroot) THEN
 
@@ -1546,7 +1537,7 @@ CONTAINS
             CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
             ! check for correctness
             l_error = .FALSE.
-            DO i = 1, n_points
+            DO i = 1, n_glb
               IF (r_out_recv(i) /= r_out_dp(i)) THEN
                 ! do detailed print-out only for "large" errors:
                 IF (ABS(r_out_recv(i) - r_out_dp(i)) > SYNC_ERROR_PRINT_TOL) THEN
