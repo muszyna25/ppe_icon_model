@@ -303,8 +303,8 @@ CONTAINS
     CALL tmp_verticalAxisList%finalize()
 
     ! sort and remove duplicates
-    CALL remove_duplicates(out_vars(1:nout_vars), nout_vars)
     CALL quicksort(out_vars(1:nout_vars))
+    CALL remove_duplicates(out_vars(1:nout_vars), nout_vars)
 
     ! print table, but add a gap when new alphabetical letter starts:
     WRITE (0,*) "----------------------------------------------------------------------"
