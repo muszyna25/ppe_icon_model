@@ -2570,17 +2570,17 @@ CONTAINS
     ! define initial time stamp used as reference for output statistics
     CALL set_reference_time()
 
+    ! Initialize name list output, this is a collective call for all PEs
+    CALL init_name_list_output(sim_step_info)
+
 #ifdef YAC_coupling
     ! The initialisation of YAC needs to be called by all (!) MPI processes
     ! in MPI_COMM_WORLD.
-    ! construct_io_coupler needs to be called before init_name_list_output
+    ! construct_io_coupler needs to be called after init_name_list_output
     ! due to calling sequence in subroutine atmo_model for other atmosphere
     ! processes
     IF ( is_coupled_run() ) CALL construct_io_coupler ( "name_list_io" )
 #endif
-    ! Initialize name list output, this is a collective call for all PEs
-    CALL init_name_list_output(sim_step_info)
-
     ! setup of meteogram output
     DO jg =1,n_dom
       IF (meteogram_output_config(jg)%lenabled) THEN

@@ -77,9 +77,9 @@ CONTAINS
 
     ! Arguments
     !
-    TYPE(t_patch)  ,TARGET ,INTENT(in) :: patch
-    TYPE(datetime)         ,POINTER    :: datetime_old
-    REAL(wp)               ,INTENT(in) :: pdtime
+    TYPE(t_patch)  ,TARGET ,INTENT(inout) :: patch
+    TYPE(datetime)         ,POINTER       :: datetime_old
+    REAL(wp)               ,INTENT(in)    :: pdtime
 
     ! Local variables
     !
@@ -187,9 +187,9 @@ CONTAINS
        CALL message_forcing_action('vertical diffusion (vdf)'      ,&
             &                      is_in_sd_ed_interval, is_active )
        !
-       CALL omp_loop_cell_prog(patch, interface_echam_vdf      ,&
-            &                  is_in_sd_ed_interval, is_active ,&
-            &                  datetime_old, pdtime            )
+       CALL interface_echam_vdf(patch ,&
+            &                   is_in_sd_ed_interval, is_active ,&
+            &                   datetime_old, pdtime            )
        !
     END IF
 

@@ -489,9 +489,6 @@ CONTAINS
     REAL(wp)     :: zaph2m(kbdim), zqs2(kbdim), zq2m(kbdim), zfrac(kbdim)
     REAL(wp)     :: ua(kbdim)
     REAL(wp), POINTER :: pbtile(:,:)
-#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-    CONTIGUOUS :: pbtile
-#endif
 
     !$ACC DATA PRESENT( pfrc, pqm1, pzf, pzs, pcptgz, pcpt_tile, pbn_tile,     &
     !$ACC               pbhn_tile, pbh_tile, pbm_tile, pri_tile, ptm1, papm1,  &

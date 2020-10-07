@@ -269,16 +269,21 @@ do
   (( year = year+1 ))
 done
 #
-# - stratospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+# - stratospheric aerosol (CMIP6)
+datadir=/pool/data/ICON/grids/private/rene/mpim/independent/CMIP6Forcing
+#
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi	
 year=$start_year
 while [[ $year -le $end_year ]]
 do
-  if [[ $year -le 1999 ]]
+  if [[ $year -le 2014 ]]
   then
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   else
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   fi
   (( year = year+1 ))
 done

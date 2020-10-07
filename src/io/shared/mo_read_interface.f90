@@ -47,6 +47,7 @@ MODULE mo_read_interface
     &                                   netcdf_read_1D, netcdf_read_3D, &
     &                                   netcdf_read_1D_extdim_time, &
     &                                   netcdf_read_1D_extdim_extdim_time, &
+    &                                   netcdf_read_extdim_slice_extdim_extdim_extdim, &
     &                                   t_p_scatterPattern, &
     &                                   netcdf_get_missValue, &
     &                                   netcdf_read_inq_varexists
@@ -79,6 +80,7 @@ MODULE mo_read_interface
   PUBLIC :: read_1D
   PUBLIC :: read_1D_extdim_time
   PUBLIC :: read_1D_extdim_extdim_time
+  PUBLIC :: read_extdim_slice_extdim_extdim_extdim
   PUBLIC :: read_2D
   PUBLIC :: read_bcast_REAL_2D
   PUBLIC :: read_2D_int
@@ -188,6 +190,10 @@ MODULE mo_read_interface
     MODULE PROCEDURE read_bcast_REAL_1D_extdim_extdim_time
   END INTERFACE read_1D_extdim_extdim_time
 
+  INTERFACE read_extdim_slice_extdim_extdim_extdim
+    MODULE PROCEDURE read_bcast_REAL_extdim_slice_extdim_extdim_extdim
+  END INTERFACE read_extdim_slice_extdim_extdim_extdim
+  
   INTERFACE read_2D_int
     MODULE PROCEDURE read_dist_INT_2D
     MODULE PROCEDURE read_dist_INT_2D_multivar
@@ -391,6 +397,41 @@ CONTAINS
     IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
 
   END SUBROUTINE read_bcast_REAL_1D_extdim_extdim_time
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE read_bcast_REAL_extdim_slice_extdim_extdim_extdim ( &
+    file_id, variable_name, fill_array, return_pointer, dim_names, &
+    start_extdim1, end_extdim1)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:,:)
+    CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: dim_names(:)
+    INTEGER, INTENT(IN), OPTIONAL:: start_extdim1, end_extdim1
+
+    REAL(wp), POINTER            :: tmp_pointer(:,:,:,:)
+    CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_bcast_REAL_extdim_extdim_extdim_extdim_slice'
+
+    ! make variable name available on all processes
+    CALL bcast_varname(variable_name, variable_name_)
+
+    ! check whether fill_array and/or return_pointer was provided
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    ! there is only one implementation for this read routine type
+    tmp_pointer => netcdf_read_extdim_slice_extdim_extdim_extdim( &
+                          file_id, variable_name_,                &
+      &                   fill_array, dim_names,                  &
+      &                   start_extdim1, end_extdim1              )
+    IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+
+  END SUBROUTINE read_bcast_REAL_extdim_slice_extdim_extdim_extdim
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

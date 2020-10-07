@@ -1353,11 +1353,20 @@ Selects source for concentration of CFC12 \\
 echam\_phy\_config(jg)\% dt\_rad > 0.000s \tabularnewline
 %
 echam\_rad\_config(jg)\% irad\_aero & I & 2 & &
-Selects source for concentration of XYZ \\
-13: tropospheric 'Kinne' aerosols, time dependent from file \\
-14: stratospheric 'Stenchikov' aerosols, time dependent from file\\
-15: tropospheric 'Kinne' aerosols + stratospheric 'Stenchikov' aerosols, time dependent, both from file\\
-18: tropospheric natural 'Kinne' aerosols for 1850 + time dep. stratospheric 'Stenchikov' aerosols, both from file + param. time dep. antropogenic 'simple plumes' \\
+Selects source of aerosol types\\
+13: tropospheric 'Kinne' aerosols, time dependent from file 
+(if the 1850--file is linked to all simulated years, only the 
+natural background of aerosols is present)\\
+14: volcanic stratospheric aerosols for CMIP6, time dependent from file\\
+15: tropospheric 'Kinne' aerosols + volcanic stratospheric aerosols for CMIP6, 
+time dependent, both from file.
+If the 1850--file of the 'Kinne' aerosols is linked only, only the natural background is present\\
+18: tropospheric natural 'Kinne' aerosols for 1850 (the 1850--file has to be linked for all 
+years!) + time dep. volcanic stratospheric aerosols for CMIP6, both from file + param. 
+time dep. anthropogenic 'simple plumes' \\
+19: tropospheric natural 'Kinne' aerosols for 1850 
+(the 1850--file has to be linked for all years!) + 
+param. time dep. anthropogenic 'simple plumes' \\
 any other: set to zero &
 echam\_phy\_config(jg)\% dt\_rad > 0.000s \tabularnewline
 %

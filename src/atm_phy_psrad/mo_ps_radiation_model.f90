@@ -33,7 +33,7 @@ MODULE mo_ps_radiation_model
   USE mo_echam_phy_config,        ONLY: echam_phy_tc
   USE mo_echam_rad_config       , ONLY: echam_rad_config
   USE mo_bc_aeropt_kinne         ,ONLY: read_bc_aeropt_kinne
-  USE mo_bc_aeropt_stenchikov    ,ONLY: read_bc_aeropt_stenchikov
+  USE mo_bc_aeropt_cmip6_volc    ,ONLY: read_bc_aeropt_cmip6_volc
   USE mo_bc_aeropt_splumes,       ONLY: setup_bc_aeropt_splumes
 
   USE mtime,                      ONLY: datetime, timedelta, datetimeToString,      &
@@ -193,20 +193,26 @@ MODULE mo_ps_radiation_model
       !
       ! stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 14) THEN
-        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
       IF (echam_rad_config(1)%irad_aero == 15) THEN
         CALL read_bc_aeropt_kinne     (mtime_current, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
-      ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
+      ! aerosols (CMIP6) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (echam_rad_config(1)%irad_aero == 18) THEN
         CALL read_bc_aeropt_kinne     (mtime_current, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current, patch)
+        CALL read_bc_aeropt_cmip6_volc(mtime_current, patch%id)
+      END IF
+      ! tropospheric background aerosols (Kinne) and + simple plumes
+      ! (analytical, nothing to be read
+      ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
+      IF (echam_rad_config(1)%irad_aero == 19) THEN
+        CALL read_bc_aeropt_kinne     (mtime_current, patch)
       END IF
 
 !     write(0,*) method_name, " done."

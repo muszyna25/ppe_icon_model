@@ -778,7 +778,7 @@ CONTAINS
       !
       ! parameterized simple plumes of tropospheric aerosols
       !
-      IF (ANY(echam_rad_config(:)%irad_aero == 18)) THEN
+      IF (ANY(echam_rad_config(:)%irad_aero == 18 .OR. echam_rad_config(:)%irad_aero == 19)) THEN
         CALL setup_bc_aeropt_splumes
       END IF
       !
@@ -1068,7 +1068,7 @@ CONTAINS
       ! For idealized test cases
 
       SELECT CASE (nh_test_name)
-      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb','RCE_Tconst','CBL_flxconst') !Note that there is only one surface type in this case
         !
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe

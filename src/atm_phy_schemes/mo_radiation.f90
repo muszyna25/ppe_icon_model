@@ -62,15 +62,14 @@ MODULE mo_radiation
     &                                irad_o2,    mmr_o2,              &
     &                                irad_cfc11, vmr_cfc11,           &
     &                                irad_cfc12, vmr_cfc12,           &
-    &                                irad_aero,  lrad_aero_diag,      &
+    &                                irad_aero,                       &
     &                                izenith, lradforcing, islope_rad
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_newcld_optics,        ONLY: newcld_optics
   USE mo_psrad_cloud_optics,   ONLY: psrad_cloud_optics => cloud_optics
   USE mo_bc_aeropt_kinne,      ONLY: set_bc_aeropt_kinne
-  USE mo_bc_aeropt_stenchikov, ONLY: add_bc_aeropt_stenchikov
-
+  USE mo_bc_aeropt_cmip6_volc, ONLY: add_bc_aeropt_cmip6_volc
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
   USE mo_lrtm,                 ONLY: lrtm
   USE mo_psrad_gas_optics,     ONLY: psrad_precomputation => precomputation
@@ -84,7 +83,6 @@ MODULE mo_radiation
     &                                timer_radiation, timer_rrtm_prep,       &
     &                                timer_lrtm, timer_srtm, timer_rrtm_post
   USE mo_nh_testcases_nml,     ONLY: zenithang
-  USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
   USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
   USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
@@ -1333,7 +1331,9 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( current_date                        ,&
+       ! this is for rrtm radiation in the NWP part, we do not introduce
+       ! the simple plumes here
+       CALL set_bc_aeropt_kinne( current_date                        ,&
         & jg                                                        ,&
         & 1, jce           ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
@@ -1342,19 +1342,22 @@ CONTAINS
         & aer_tau_sw_vr    ,aer_piz_sw_vr         , aer_cg_sw_vr    ,&
         & aer_tau_lw_vr                                              )
     CASE (14)
-      ! set zero aerosol before adding Stenchikov aerosols
+      ! this is for rrtm radiation in the NWP part, we do not introduce
+      ! the simple plumes here
+      ! set zero aerosol before adding CMIP6 volcanic aerosols
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
+      CALL add_bc_aeropt_cmip6_volc( current_date ,jg,            1 ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
-        & pp_fl                                                     ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-    CASE (15)
+      
+   CASE (15)
       CALL set_bc_aeropt_kinne( current_date                        ,&
         & jg                                                        ,&
         & 1,   jce         ,kbdim                 ,klev             ,&
@@ -1363,26 +1366,19 @@ CONTAINS
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-      CALL add_bc_aeropt_stenchikov( current_date ,jg,           1  ,&
+      CALL add_bc_aeropt_cmip6_volc( current_date ,jg,            1 ,&      
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
         & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
-        & pp_fl                                                     ,&
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
-    CASE DEFAULT
+
+   CASE DEFAULT
       WRITE (c_irad_aero,'(i3)') irad_aero
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
                    TRIM(ADJUSTL(c_irad_aero))//' does not exist')
     END SELECT
-
-    IF (lrad_aero_diag .AND. jce >= jcs) THEN
-      CALL rad_aero_diag (                jg              , &
-      & jb              ,1               ,jce             , &
-      & kbdim           ,klev            ,jpband          , &
-      & jpsw            ,aer_tau_lw_vr   ,aer_tau_sw_vr   , &
-      & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
-    END IF
 
     IF (irad == 1 .AND. jce >= jcs) THEN
       CALL newcld_optics(                                                       &
