@@ -3248,7 +3248,7 @@ CONTAINS
 ! __SUNPRO_F95
 
     ! local variables
-    CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::init_async_name_list_output"
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::init_memory_window"
 
     INTEGER                         :: jp, i, iv, nlevs, i_log_dom, &
       &                                n_own, lonlat_id
