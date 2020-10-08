@@ -38,7 +38,7 @@ MODULE mo_ocean_diagnostics
   USE mo_math_constants,     ONLY: rad2deg, dbl_eps
   USE mo_impl_constants,     ONLY: sea_boundary,sea, &
     & min_rlcell, min_rledge, min_rlcell, &
-    & max_char_length, min_dolic
+    & min_dolic, nlat_moc
   USE mo_timer,              ONLY: timer_calc_moc, timer_start, timer_stop
   USE mo_cdi_constants,      ONLY: GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
     & GRID_UNSTRUCTURED_CELL
@@ -166,8 +166,8 @@ CONTAINS
 
     !local variable
     INTEGER :: i,ist
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_ocean_diagnostics:construct_oce_diagnostics')
+    CHARACTER(LEN=*), PARAMETER :: &
+      & routine = 'mo_ocean_diagnostics:construct_oce_diagnostics'
     !-----------------------------------------------------------------------
     INTEGER  :: nblks_e,blockNo,jc,jk, region_index,start_index,end_index
     REAL(wp) :: surface_area, surface_height, prism_vol, prism_area, column_volume
@@ -184,7 +184,7 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
 
-    CALL message (TRIM(routine), 'start')
+    CALL message (routine, 'start')
     !-----------------------------------------------------------------------
     patch_2d => patch_3D%p_patch_2d(1)
     regions => patch_3D%regio_c
@@ -442,7 +442,7 @@ CONTAINS
     ocean_region_areas%total   = global_sum_array(ocean_region_areas%total)
     CALL enable_sync_checks()
 
-    CALL message (TRIM(routine), 'end')
+    CALL message (routine, 'end')
   END SUBROUTINE construct_oce_diagnostics
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
@@ -460,14 +460,14 @@ CONTAINS
     !local variables
     INTEGER :: i,iret
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_ocean_diagnostics:destruct_oce_diagnostics')
+    CHARACTER(LEN=*), PARAMETER :: &
+      & routine = 'mo_ocean_diagnostics:destruct_oce_diagnostics'
     !-----------------------------------------------------------------------
     CALL delete_var_list(horizontal_velocity_diagnostics)
 
     IF (diagnostics_level <= 0) RETURN
 
-    CALL message (TRIM(routine), 'end')
+    CALL message (routine, 'end')
   END SUBROUTINE destruct_oce_diagnostics
   !-------------------------------------------------------------------------
 
@@ -1255,7 +1255,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: dom_cells
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_moc'
 
     !-----------------------------------------------------------------------
 
@@ -1414,7 +1414,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: cells
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_moc'
 
     !-----------------------------------------------------------------------
     mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
@@ -1524,7 +1524,7 @@ CONTAINS
 
     TYPE(t_subset_range), POINTER :: cells
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_moc')
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_moc'
 
     !-----------------------------------------------------------------------
     mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
@@ -1760,7 +1760,7 @@ CONTAINS
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells, dom_cells
 
-    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi')
+    !CHARACTER(len=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_psi'
 
     !-----------------------------------------------------------------------
 
@@ -1924,7 +1924,7 @@ CONTAINS
     TYPE(t_patch), POINTER  :: patch_2d
     TYPE(t_subset_range), POINTER :: all_edges, all_cells
 
-    !CHARACTER(len=max_char_length), PARAMETER :: routine = ('mo_ocean_diagnostics:calc_psi_vn')
+    !CHARACTER(len=*), PARAMETER :: routine = 'mo_ocean_diagnostics:calc_psi_vn'
 
     !-----------------------------------------------------------------------
 
