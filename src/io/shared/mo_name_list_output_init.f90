@@ -45,7 +45,7 @@ MODULE mo_name_list_output_init
     &                                             pio_type_cdipio,                  &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360,              &
-    &                                             INWP
+    &                                             INWP, nlat_moc
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,            &
     &                                             GRID_UNSTRUCTURED_EDGE, GRID_REGULAR_LONLAT, GRID_VERTEX,  &
     &                                             GRID_EDGE, GRID_CELL
@@ -2758,12 +2758,15 @@ CONTAINS
       CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
 
       ! Zonal 1 degree grid
-      of%cdiZonal1DegID  = gridCreate(GRID_LONLAT,180)
+      of%cdiZonal1DegID  = gridCreate(GRID_LONLAT,nlat_moc)
       CALL griddefxsize(of%cdiZonal1DegID, 1)
       CALL griddefxvals(of%cdiZonal1DegID, (/0.0_wp/))
-      CALL griddefysize(of%cdiZonal1DegID, 180)
-      ALLOCATE(p_lonlat(180))
-      DO k=1,180; p_lonlat(k) = -90.5_wp + REAL(k,KIND=wp); END DO
+      CALL griddefysize(of%cdiZonal1DegID, nlat_moc)
+      ALLOCATE(p_lonlat(nlat_moc))
+      DO k=1,nlat_moc
+        p_lonlat(k) = -90.0_wp-90._wp/REAL(nlat_moc,wp) &
+          &           + REAL(k*180,wp)/REAL(nlat_moc, wp)
+      END DO
       CALL griddefyvals(of%cdiZonal1DegID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
