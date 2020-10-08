@@ -1589,14 +1589,14 @@ CONTAINS !......................................................................
 
     ! Local variables
     REAL(wp) :: eventInterval, startDateDiff
-    INTEGER  :: istat
+    INTEGER  :: istat, tlen
     LOGICAL  :: presentLowerBound, presentUpperBound
     TYPE(datetime) :: eventStartDate, eventEndDate
     TYPE(datetime),  POINTER :: eventDate
     TYPE(timedelta), POINTER :: eventDelta, plusSlack, eventDateCorr
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: eventDeltaString
-    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: note 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':configure_nwp_event'
+    CHARACTER(len=*), PARAMETER :: its_adjusted = "It is adjusted to the"
 
     !---------------------------------------------------------
 
@@ -1609,29 +1609,37 @@ CONTAINS !......................................................................
     plusSlack     => NULL()
     eventDateCorr => NULL()
 
-    note  = "(event: "//TRIM(eventName)//", domain: "//TRIM(domainName)//")"
+#define note "(event: "//TRIM(eventName)//", domain: "//TRIM(domainName)//")"
 
     presentLowerBound = PRESENT(optLowerBound4Interval)
     presentUpperBound = PRESENT(optUpperBound4Interval)
     IF ( presentLowerBound .AND. presentUpperBound) THEN
-      IF  (optLowerBound4Interval > optUpperBound4Interval) &
-      CALL finish(routine, "Lower bound for interval is greater than upper bound " &
-        & //TRIM(note))
+      IF  (optLowerBound4Interval > optUpperBound4Interval) THEN
+        message_text = "Lower bound for interval is greater than upper bound " &
+          &       // note
+        CALL finish(routine, message_text)
+      END IF
     ENDIF
     IF (presentLowerBound) THEN
       IF (optLowerBound4Interval < 0._wp) THEN
-        CALL finish(routine, "optLowerBound4Interval has to be positive "//TRIM(note))
+        message_text = "optLowerBound4Interval has to be positive " &
+          &         // note
+        CALL finish(routine, message_text)
       ELSEIF (MOD(optLowerBound4Interval, basicInterval) > eps) THEN
-        CALL finish(routine, "optLowerBound4Interval has to be a multiple of basicInterval " &
-          & //TRIM(note))
+        message_text = "optLowerBound4Interval has to be a multiple of basicInterval " &
+          &         // note
+        CALL finish(routine, message_text)
       ENDIF
     ENDIF
     IF (presentUpperBound) THEN
       IF (optUpperBound4Interval < 0._wp) THEN
-        CALL finish(routine, "optUpperBound4Interval has to be positive "//TRIM(note))
+        message_text = "optUpperBound4Interval has to be positive " &
+          &         // note
+        CALL finish(routine, message_text)
       ELSEIF (MOD(optUpperBound4Interval, basicInterval) > eps) THEN
-        CALL finish(routine, "optUpperBound4Interval has to be a multiple of basicInterval " &
-          & //TRIM(note))
+        message_text = "optUpperBound4Interval has to be a multiple of basicInterval " &
+          &         // note
+        CALL finish(routine, message_text)
       ENDIF
     ENDIF
 
@@ -1641,26 +1649,32 @@ CONTAINS !......................................................................
 
     IF (eventIntervalIn < 0._wp) THEN
       ! A negative time interval is not allowed
-      CALL finish(routine, "Invalid eventIntervalIn "//TRIM(note))
+      message_text = "Invalid eventIntervalIn " &
+        &         // note
+      CALL finish(routine, message_text)
     ELSEIF (eventEnabled .AND. MOD(eventIntervalIn, basicInterval) > eps) THEN
       ! The event interval is not a multiple of the basic interval, 
       ! so we adjust it
       message_text = "WARNING, event interval = "                          &
         & //TRIM(ADJUSTL(real2string(eventIntervalIn, opt_fmt="(F20.3)"))) &
         & //" s is no multiple of basic interval = "                       &
-        & //TRIM(ADJUSTL(real2string(basicInterval, opt_fmt="(F20.3)")))//" s "//TRIM(note)
+        & //TRIM(ADJUSTL(real2string(basicInterval, opt_fmt="(F20.3)")))//" s "&
+        & //note
       CALL message(routine, message_text)
       ! Compute a new event interval, which is the multiple of the basic interval 
       ! closest to the original event interval 
       ! (it can be lower or greater than the original value!)
       eventInterval = MAX(1._wp, ANINT(eventIntervalIn / basicInterval)) * basicInterval
-      message_text = "It is adjusted to the"
+      message_text = its_adjusted
+      tlen = LEN(its_adjusted)
       IF (eventInterval > eventIntervalIn) THEN
-        message_text = TRIM(message_text)//" GREATER"
+        message_text(tlen+1:) = " GREATER"
+        tlen = tlen + 8
       ELSE
-        message_text = TRIM(message_text)//" LOWER"
+        message_text(tlen+1:) = " LOWER"
+        tlen = tlen + 6
       ENDIF
-      message_text = TRIM(message_text)//" value of " &
+      message_text(tlen+1:) = " value of " &
         & //TRIM(ADJUSTL(real2string(eventInterval, opt_fmt="(F20.3)")))//" s!"
       CALL message(routine, message_text)
     ELSE
@@ -1673,7 +1687,7 @@ CONTAINS !......................................................................
           & //TRIM(ADJUSTL(real2string(eventInterval, opt_fmt="(F20.3)")))          &
           & //" s is lower than optLowerBound4Interval = "                          &
           & //TRIM(ADJUSTL(real2string(optLowerBound4Interval, opt_fmt="(F20.3)"))) &
-          & //" s "//TRIM(note)
+          & //" s "//note
         CALL message(routine, message_text)
         message_text = "It is adjusted to event interval = optLowerBound4Interval"
         CALL message(routine, message_text)
@@ -1686,7 +1700,7 @@ CONTAINS !......................................................................
           & //TRIM(ADJUSTL(real2string(eventInterval, opt_fmt="(F20.3)")))          &
           & //" s is greater than optUpperBound4Interval = "                        &
           & //TRIM(ADJUSTL(real2string(optUpperBound4Interval, opt_fmt="(F20.3)"))) &
-          & //" s "//TRIM(note)
+          & //" s "//note
         CALL message(routine, message_text)
         message_text = "It is adjusted to event interval = optUpperBound4Interval"
         CALL message(routine, message_text)
@@ -1696,8 +1710,11 @@ CONTAINS !......................................................................
     ! Transform interval into date-time variable
     CALL getPTStringFromMS(INT(eventInterval * 1000._wp, i8), eventDeltaString)
     eventDelta => newTimedelta(eventDeltaString, istat)
-    IF (istat /= SUCCESS) CALL finish(routine, &
-      & "Could not transform event interval into date-time variable "//TRIM(note))
+    IF (istat /= SUCCESS) THEN
+      message_text = "Could not transform event interval into date-time variable " &
+        &         // note
+      CALL finish(routine, message_text)
+    END IF
 
     !----------------------
     ! Configure start date
@@ -1710,7 +1727,11 @@ CONTAINS !......................................................................
     ELSE
       ! We try to transform the string into a date-time variable
       eventDate => newDatetime(eventStartDateIn, istat)
-      IF (istat /= SUCCESS) CALL finish(routine, "Invalid eventStartDateIn "//TRIM(note))
+      IF (istat /= SUCCESS) THEN
+        message_text = "Invalid eventStartDateIn " &
+         &          // note
+        CALL finish(routine, message_text)
+      END IF
       eventStartDate = eventDate
       ! Difference between domainStartDate and eventStartDate in seconds
       startDateDiff = 1.0e-3_wp * REAL(getTotalMilliSecondsTimeDelta(eventStartDate - domainStartDate, &
@@ -1719,12 +1740,15 @@ CONTAINS !......................................................................
         startDateDiff = MAX(1._wp, ANINT(startDateDiff / basicInterval)) * basicInterval - startDateDiff
         CALL getPTStringFromMS(INT(startDateDiff * 1000._wp, i8), eventDeltaString)
         eventDateCorr => newTimedelta(eventDeltaString, istat)
-        IF (istat /= SUCCESS) CALL finish(routine, &
-          & "Could not transform event date correction into date-time variable "//TRIM(note))
+        IF (istat /= SUCCESS) THEN
+          message_text = "Could not transform event date correction into date-time variable " &
+            &         // note
+          CALL finish(routine, message_text)
+        END IF
         eventStartDate = eventStartDate + eventDateCorr
         CALL deallocateTimedelta(eventDateCorr)
         message_text = "WARNING, eventStartDate is adjusted to be in phase with cycle time of ICON " &
-          & //TRIM(note)
+          & // note
         CALL message(routine, message_text)
       ENDIF
       ! If the domain start date happens to be after the event start date, 
@@ -1732,7 +1756,7 @@ CONTAINS !......................................................................
       IF (domainStartDate > eventStartDate) THEN 
         eventStartDate = domainStartDate
         message_text = "WARNING, domainStartDate > eventStartDate => eventStartDate = domainStartDate " &
-          & //TRIM(note)
+          & // note
         CALL message(routine, message_text)
       ENDIF
       CALL deallocateDatetime(eventDate)
@@ -1753,14 +1777,17 @@ CONTAINS !......................................................................
     ELSE
       ! We try to transform the string into a date-time variable
       eventDate => newDatetime(eventEndDateIn, istat)
-      IF (istat /= SUCCESS) CALL finish(routine, "Invalid eventEndDateIn "//TRIM(note))
+      IF (istat /= SUCCESS) THEN
+        message_text = "Invalid eventEndDateIn " // note
+        CALL finish(routine, message_text)
+      END IF
       eventEndDate = eventDate
       ! If the domain end date happens to be before the event end date, 
       ! the latter is replaced by the former
       IF (eventEndDate > domainEndDate) THEN 
         eventEndDate = domainEndDate
         message_text = "WARNING, eventEndDate > domainEndDate => eventEndDate = domainEndDate " &
-          & //TRIM(note)
+          &         // note
         CALL message(routine, message_text)
       ENDIF
       CALL deallocateDatetime(eventDate)
@@ -1771,7 +1798,7 @@ CONTAINS !......................................................................
     IF (eventStartDate > eventEndDate) THEN
       eventStartDate = eventEndDate
       message_text = "WARNING, eventStartDate > eventEndDate => eventStartDate = eventEndDate " &
-        & //TRIM(note)
+        & // note
       CALL message(routine, message_text)
     ENDIF
 
@@ -1810,9 +1837,11 @@ CONTAINS !......................................................................
 
     CALL deallocateTimedelta(eventDelta)
     CALL deallocateTimedelta(plusSlack)
-    
+
+#undef note
+
   END SUBROUTINE configure_nwp_event
-  
+
   !==================================================================================== 
 
   !>
