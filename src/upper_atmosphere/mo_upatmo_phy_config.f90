@@ -339,10 +339,11 @@ CONTAINS !......................................................................
     TYPE(datetime) :: domStartDate, domEndDate
     REAL(wp) :: start_time_sggstn, dtime_sggstn
     INTEGER  :: jgrp, jgas, jprc, jtnd, jext
-    INTEGER  :: imode, igrp, iext
+    INTEGER  :: imode, igrp, iext, cjgadj
     INTEGER  :: istat
     LOGICAL  :: l_belowtop, l_on, l_offline, l_exist, l_enabled, l_first
-    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: vname_prefix, cjg, filename
+    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: vname_prefix, filename
+    CHARACTER(LEN=11) :: cjg
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: domTimeString
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':configure_upatmo_physics'
 
@@ -366,7 +367,8 @@ CONTAINS !......................................................................
     !                   Configuration
     !-----------------------------------------------------
 
-    cjg = TRIM(int2string(jg))
+    WRITE (cjg, '(i0)') jg
+    cjgadj = VERIFY(cjg, " ")
 
     keywords => NULL()
 
@@ -739,8 +741,8 @@ CONTAINS !......................................................................
         ! distinguishable enough, it seems that the output of such a variable is requested, 
         ! which is not allowed under these circumstances
         message_text = 'Current namelist settings do not provide output of upatmo variables '    &
-          & //'on domain '//TRIM(cjg)//', check output_nml-varlists for variables with prefix: ' &
-          & //TRIM(vname_prefix)
+          & //'on domain '//cjg(cjgadj:)//', check output_nml-varlists for variables with prefix: ' &
+          & //vname_prefix
         CALL finish(routine, message_text)
 
       ELSEIF ( .NOT. upatmo_nwp_phy_config%l_gas_stat( iUpatmoGasStat%enabled ) .AND. &
@@ -751,7 +753,7 @@ CONTAINS !......................................................................
         ! Output of all radiatively active gases (varlist-group-prefix: 'group:') is only possible, 
         ! if radiation is switched on
         message_text = 'Current namelist settings do not provide output of upatmo gases ' &
-          & //'on domain '//TRIM(cjg)//', check output_nml-varlists for: group:upatmo_rad_gases'
+          & //'on domain '//cjg(cjgadj:)//', check output_nml-varlists for: group:upatmo_rad_gases'
         CALL finish(routine, message_text)
 
       ELSEIF ( .NOT. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled ) .AND. &
@@ -761,7 +763,7 @@ CONTAINS !......................................................................
 
         ! Output of all physics tendencies is only possible, if they are switched on
         message_text = 'Current namelist settings do not provide output of upatmo tendencies ' &
-          & //'on domain '//TRIM(cjg)//', check output_nml-varlists for: group:upatmo_tendencies'
+          & //'on domain '//cjg(cjgadj:)//', check output_nml-varlists for: group:upatmo_tendencies'
         CALL finish(routine, message_text)
 
       ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
@@ -776,7 +778,7 @@ CONTAINS !......................................................................
         !   they would be indistinguishable with regard to their GRIB metadata 
         !   (at least without the specification of additional "non-standard" GRIB keys)
         message_text = 'The output of upatmo variables ' &
-          & //'(desired for domain '//TRIM(cjg)//') in the GRIB format is not possible'
+          & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
         CALL finish(routine, message_text)
 
       ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
@@ -785,7 +787,7 @@ CONTAINS !......................................................................
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 
         message_text = 'The output of upatmo gases ' &
-          & //'(desired for domain '//TRIM(cjg)//') in the GRIB format is not possible'
+          & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
         CALL finish(routine, message_text)
   
       ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
@@ -794,7 +796,7 @@ CONTAINS !......................................................................
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 
         message_text = 'The output of upatmo tendencies ' &
-          & //'(desired for domain '//TRIM(cjg)//') in the GRIB format is not possible'
+          & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
         CALL finish(routine, message_text)
         
       ENDIF
@@ -889,7 +891,7 @@ CONTAINS !......................................................................
           IF (MOD(start_time, dtime) > eps) THEN
             start_time_sggstn = MAX(1._wp, ANINT(start_time / dtime)) * dtime
             dtime_sggstn      = start_time / MAX(1._wp, ANINT(start_time / dtime))
-            message_text      = "start_time(dom"//TRIM(cjg)//") = "                &
+            message_text      = "start_time(dom"//cjg(cjgadj:)//") = "                &
               & //TRIM(ADJUSTL(real2string(start_time, opt_fmt="(F20.3)")))        &
               & //" s is no multiple of dtime = "                                  &
               & //TRIM(ADJUSTL(real2string(dtime, opt_fmt="(F20.3)")))             & 
@@ -931,7 +933,7 @@ CONTAINS !......................................................................
           &  (MOD(dt_rad_nwp, upatmo_phy_config%nwp_grp( iUpatmoGrpId%rad )%dt) > eps)            ) THEN
           message_text = "WARNING, update period dt for group "                         &
             & //TRIM(upatmo_nwp_phy_config%grp( iUpatmoGrpId%rad )%name)//" on domain " &
-            & //TRIM(cjg)//" is adjusted to evenly divide dt_rad for NWP forcing..."
+            & //cjg(cjgadj:)//" is adjusted to evenly divide dt_rad for NWP forcing..."
           CALL message(routine, message_text)
           message_text = "... its old value was " &
             & //TRIM(ADJUSTL(real2string(upatmo_phy_config%nwp_grp( iUpatmoGrpId%rad )%dt, opt_fmt="(F20.3)")))//" s"
@@ -965,7 +967,7 @@ CONTAINS !......................................................................
             &                       domainEndDate          = domEndDate,                                & !in
             &                       basicInterval          = dt_fastphy,                                & !in
             &                       eventName              = upatmo_nwp_phy_config%grp( jgrp )%name,    & !in
-            &                       domainName             = cjg,                                       & !in
+            &                       domainName             = cjg(cjgadj:),                              & !in
             &                       eventId                = upatmo_nwp_phy_config%grp( jgrp )%id,      & !in
             &                       eventEnabled           = l_enabled,                                 & !in
             &                       eventObject            = upatmo_nwp_phy_config%event_mgmt_grp,      & !inout
@@ -1018,7 +1020,7 @@ CONTAINS !......................................................................
               &                       domainEndDate          = domEndDate,                                & !in
               &                       basicInterval          = dt_fastphy,                                & !in
               &                       eventName              = upatmo_nwp_phy_config%extdat( jext )%name, & !in
-              &                       domainName             = cjg,                                       & !in
+              &                       domainName             = cjg(cjgadj:),                              & !in
               &                       eventId                = upatmo_nwp_phy_config%extdat( jext )%id,   & !in
               &                       eventEnabled           = l_enabled,                                 & !in
               &                       eventObject            = upatmo_nwp_phy_config%event_mgmt_extdat,   & !inout
