@@ -98,7 +98,7 @@ MODULE mo_ocean_diagnostics
   USE mo_name_list_output_init, ONLY: isRegistered
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
-  USE mo_ocean_check_salt , ONLY : 	calc_total_salt_content 
+  USE mo_ocean_check_salt , ONLY : calc_total_salt_content
 
   IMPLICIT NONE
 
@@ -880,7 +880,7 @@ CONTAINS
         IF (isRegistered('mlotstsq')) THEN
 
           ocean_state%p_diag%mlotstsq= &
-	       ocean_state%p_diag%mlotst*ocean_state%p_diag%mlotst
+               ocean_state%p_diag%mlotst*ocean_state%p_diag%mlotst
 
           CALL dbg_print('Diag: mlotstsq',ocean_state%p_diag%mlotstsq, &
                str_module,4,in_subset=owned_cells)
@@ -1249,9 +1249,14 @@ CONTAINS
     INTEGER :: mpi_comm
     INTEGER(i8) :: i1,i2,i3,i4
 
-    REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
-    REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
-    REAL(dp) :: local_moc(180), res_moc(180)
+    REAL(wp) :: z_lat, z_lat_deg
+    !> z_lat_dim: scale to 1 deg resolution
+    !! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
+    !!   z_lat_dim = patch_2d%edges%primal_edge_length(il_e,ib_e) / &
+    !!     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
+    REAL(wp), PARAMETER :: z_lat_dim = 1.0_wp
+    REAL(wp) :: global_moc(nlat_moc,n_zlev), atlant_moc(nlat_moc,n_zlev), pacind_moc(nlat_moc,n_zlev)
+    REAL(dp) :: local_moc(nlat_moc), res_moc(nlat_moc)
 
     TYPE(t_subset_range), POINTER :: dom_cells
 
@@ -1287,31 +1292,26 @@ CONTAINS
           IF ( patch_3D%lsm_c(jc,jk,blockNo) <= sea_boundary ) THEN
 
             ! lbrei: corresponding latitude row of 1 deg extension
-            !       1 south pole
-            !     180 north pole
+            !            1 south pole
+            ! nlat_moc=180 north pole
             z_lat = patch_2d%cells%center(jc,blockNo)%lat
             z_lat_deg = z_lat*rad2deg
-            lbrei = NINT(90.0_wp + z_lat_deg)
+            lbrei = NINT(REAL(nlat_moc, wp)*0.5_wp + z_lat_deg)
             lbrei = MAX(lbrei,1)
-            lbrei = MIN(lbrei,180)
+            lbrei = MIN(lbrei,nlat_moc)
 
             ! get neighbor edge for scaling
             !   il_e = patch_2d%cells%edge_idx(jc,blockNo,1)
             !   ib_e = patch_2d%cells%edge_blk(jc,blockNo,1)
 
-            ! z_lat_dim: scale to 1 deg resolution
-            ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
-            !   z_lat_dim = patch_2d%edges%primal_edge_length(il_e,ib_e) / &
-            !     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
-            z_lat_dim = 1.0_wp
 
             ! distribute MOC over (2*jbrei)+1 latitude rows
             !  - no weighting with latitudes done
             !  - lbrei: index of 180 X 1 deg meridional resolution
             DO lbr = -jbrei, jbrei
-              lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
-              lbrei = MAX(lbrei,1)
-              lbrei = MIN(lbrei,180)
+              lbrei = NINT(REAL(nlat_moc, wp)*0.5_wp + z_lat_deg &
+                &          + REAL(lbr, wp) * z_lat_dim)
+              lbrei = MIN(MAX(1,lbrei),nlat_moc)
 
               global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
               !  multiply with wet (or loop to bottom)
@@ -1363,7 +1363,7 @@ CONTAINS
     END DO  ! n_zlev-loop
 
     IF (my_process_is_stdio()) THEN
-      DO lbr=179,1,-1   ! fixed to 1 deg meridional resolution
+      DO lbr=nlat_moc-1,1,-1   ! fixed to 1 deg meridional resolution
 
         global_moc(lbr,:)=global_moc(lbr+1,:)+global_moc(lbr,:)
         atlant_moc(lbr,:)=atlant_moc(lbr+1,:)+atlant_moc(lbr,:)
@@ -1377,21 +1377,21 @@ CONTAINS
       idate = this_datetime%date%year*10000+this_datetime%date%month*100+this_datetime%date%day
       itime = this_datetime%time%hour*100+this_datetime%time%minute
       WRITE(message_text,*) 'Write MOC at year =',this_datetime%date%year,', date =',idate,' time =', itime
-      CALL message (TRIM(routine), message_text)
+      CALL message (routine, message_text)
 
       DO jk = 1,n_zlev
         i1=INT(idate,i8)
         i2 = INT(777,i8)
         i3 = INT(patch_3D%p_patch_1d(1)%zlev_i(jk),i8)
-        i4 = INT(180,i8)
+        i4 = INT(nlat_moc,i8)
         WRITE(moc_unit) i1,i2,i3,i4
-        WRITE(moc_unit) (global_moc(lbr,jk),lbr=1,180)
+        WRITE(moc_unit) global_moc(:,jk)
         i2 = INT(778,i8)
         WRITE(moc_unit) i1,i2,i3,i4
-        WRITE(moc_unit) (atlant_moc(lbr,jk),lbr=1,180)
+        WRITE(moc_unit) atlant_moc(:,jk)
         i2 = INT(779,i8)
         WRITE(moc_unit) i1,i2,i3,i4
-        WRITE(moc_unit) (pacind_moc(lbr,jk),lbr=1,180)
+        WRITE(moc_unit) pacind_moc(:,jk)
 
       END DO
     END IF
@@ -1402,15 +1402,17 @@ CONTAINS
     TYPE(t_patch),    TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3D
     REAL(wp), INTENT(in)  :: w(:,:,:)   ! vertical velocity (nproma,nlev+1,alloc_cell_blocks)
-    REAL(wp), INTENT(OUT) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,180)
+    REAL(wp), INTENT(OUT) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,nlat_moc)
     !
     ! local variables
     INTEGER, PARAMETER ::  latSmooth = 3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
     INTEGER :: block, level, start_index, end_index, idx, ilat, l
     INTEGER :: mpi_comm
 
-    REAL(wp) :: lat, deltaMoc, smoothWeight
-    REAL(wp) :: allmocs(3,n_zlev,180)
+    REAL(wp) :: lat, deltaMoc
+    REAL(wp), PARAMETER :: smoothWeight = 1.0_wp / REAL(2*latSmooth + 1, wp)
+
+    REAL(wp) :: allmocs(3,n_zlev,nlat_moc)
 
     TYPE(t_subset_range), POINTER :: cells
 
@@ -1426,8 +1428,6 @@ CONTAINS
     ! limit cells to in-domain because of summation
     cells   => patch_2d%cells%in_domain
 
-    smoothWeight = 1.0_wp / REAL(2*latSmooth + 1, wp)
-
     DO block = cells%start_block, cells%end_block
       CALL get_index_range(cells, block, start_index, end_index)
       DO idx = start_index, end_index
@@ -1437,19 +1437,17 @@ CONTAINS
           deltaMoc = patch_2d%cells%area(idx,block) * OceanReferenceDensity * w(idx,level,block)
 
           ! lat: corresponding latitude row of 1 deg extension
-          !       1 south pole
-          !     180 north pole
-          ilat     = NINT(90.0_wp + lat)
-          ilat     = MAX(ilat,1)
-          ilat     = MIN(ilat,180)
+          !            1 south pole
+          ! nlat_moc=180 north pole
+          ilat     = NINT(REAL(nlat_moc, wp)*0.5_wp + lat)
+          ilat     = MAX(1,MIN(ilat,nlat_moc))
 
           ! distribute MOC over (2*jbrei)+1 latitude rows
           !  - no weighting with latitudes done
           !  - lat: index of 180 X 1 deg meridional resolution
           DO l = -latSmooth, latSmooth
-            ilat = NINT(90.0_wp + lat + REAL(l, wp))
-            ilat = MAX(ilat,1)
-            ilat = MIN(ilat,180)
+            ilat = NINT(REAL(nlat_moc, wp)*0.5_wp + lat + REAL(l, wp))
+            ilat = MAX(1,MIN(ilat,nlat_moc))
 
             global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*smoothWeight
             atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*smoothWeight, 0.0_wp, patch_3D%basin_c(idx,block) == 1)
@@ -1471,7 +1469,7 @@ CONTAINS
     ! }}}
 
     ! compute partial sums along meridian
-    DO l=179,1,-1   ! fixed to 1 deg meridional resolution
+    DO l=nlat_moc-1,1,-1   ! fixed to 1 deg meridional resolution
       global_moc(:,l)=global_moc(:,l+1)+global_moc(:,l)
       atlant_moc(:,l)=atlant_moc(:,l+1)+atlant_moc(:,l)
       pacind_moc(:,l)=pacind_moc(:,l+1)+pacind_moc(:,l)
@@ -1498,19 +1496,19 @@ CONTAINS
     REAL(wp), INTENT(inout)  :: delta_so(:,:,:)   ! salinity tendency (nproma,nlev+1,alloc_cell_blocks)
     REAL(wp), INTENT(inout)  :: amoc26n(:)
 
-    REAL(wp), INTENT(inout) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,180)
+    REAL(wp), INTENT(inout) :: global_moc(:,:), atlant_moc(:,:), pacind_moc(:,:) ! (n_zlev,nlat_moc)
 
     ! implied ocean heat transport calculated from surface fluxes
-    REAL(wp), INTENT(inout) :: global_hfl(:,:), atlant_hfl(:,:), pacind_hfl(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_hfl(:,:), atlant_hfl(:,:), pacind_hfl(:,:) ! (1,nlat_moc)
 
     ! implied ocean fw transport calculated from surface fluxes
-    REAL(wp), INTENT(inout) :: global_wfl(:,:), atlant_wfl(:,:), pacind_wfl(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_wfl(:,:), atlant_wfl(:,:), pacind_wfl(:,:) ! (1,nlat_moc)
 
     ! northward ocean heat transport calculated from tendencies
-    REAL(wp), INTENT(inout) :: global_hfbasin(:,:), atlant_hfbasin(:,:), pacind_hfbasin(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_hfbasin(:,:), atlant_hfbasin(:,:), pacind_hfbasin(:,:) ! (1,nlat_moc)
 
     ! northward ocean salt transport calculated from tendencies
-    REAL(wp), INTENT(inout) :: global_sltbasin(:,:), atlant_sltbasin(:,:), pacind_sltbasin(:,:) ! (1,180)
+    REAL(wp), INTENT(inout) :: global_sltbasin(:,:), atlant_sltbasin(:,:), pacind_sltbasin(:,:) ! (1,nlat_moc)
 
     ! local variables
     INTEGER, PARAMETER ::  latSmooth = 3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
@@ -1530,7 +1528,7 @@ CONTAINS
     mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
     n=MAX(12,n_zlev) !needs at leat 12 levels to store the wfl/hfl/hfbasin variables
-    ALLOCATE(allmocs(4,n,180))
+    ALLOCATE(allmocs(4,n,nlat_moc))
 
     allmocs(:,:,:)  = 0.0_wp
 
@@ -1585,19 +1583,17 @@ CONTAINS
           ENDIF
 
           ! lat: corresponding latitude row of 1 deg extension
-          !       1 south pole
-          !     180 north pole
-          ilat     = NINT(90.0_wp + lat)
-          ilat     = MAX(ilat,1)
-          ilat     = MIN(ilat,180)
+          !            1 south pole
+          ! nlat_moc=180 north pole
+          ilat     = NINT(REAL(nlat_moc, wp)*0.5_wp + lat)
+          ilat     = MAX(1,MIN(ilat,nlat_moc))
 
           ! distribute MOC over (2*jbrei)+1 latitude rows
           !  - no weighting with latitudes done
           !  - lat: index of 180 X 1 deg meridional resolution
           DO l = -latSmooth, latSmooth
-            ilat = NINT(90.0_wp + lat + REAL(l, wp))
-            ilat = MAX(ilat,1)
-            ilat = MIN(ilat,180)
+            ilat = NINT(REAL(nlat_moc, wp)*0.5_wp + lat + REAL(l, wp))
+            ilat = MAX(1,MIN(ilat,nlat_moc))
 
             global_moc(level,ilat) =       global_moc(level,ilat) - deltaMoc*smoothWeight
             atlant_moc(level,ilat) = MERGE(atlant_moc(level,ilat) - deltaMoc*smoothWeight, &
@@ -1677,7 +1673,7 @@ CONTAINS
 
 
     ! compute partial sums along meridian
-    DO l=179,1,-1   ! fixed to 1 deg meridional resolution
+    DO l=nlat_moc-1,1,-1   ! fixed to 1 deg meridional resolution
       global_moc(:,l)=global_moc(:,l+1)+global_moc(:,l)
       atlant_moc(:,l)=atlant_moc(:,l+1)+atlant_moc(:,l)
       pacind_moc(:,l)=pacind_moc(:,l+1)+pacind_moc(:,l)
@@ -2392,8 +2388,8 @@ END SUBROUTINE diag_heat_salt_tendency
     TYPE(t_patch), POINTER        :: patch_2d
     TYPE(t_subset_range), POINTER :: owned_cells
 
-    REAL(wp), INTENT(inout) :: 	 condep(:,:)
-    REAL(wp), INTENT(in) :: 	 zgrad_rho(:,:,:)
+    REAL(wp), INTENT(inout) ::   condep(:,:)
+    REAL(wp), INTENT(in) ::      zgrad_rho(:,:,:)
 
 
     INTEGER  :: blockNo, jc, start_index, end_index
@@ -2405,7 +2401,7 @@ END SUBROUTINE diag_heat_salt_tendency
     DO blockNo = owned_cells%start_block, owned_cells%end_block
       CALL get_index_range(owned_cells, blockNo, start_index, end_index)
       DO jc =  start_index, end_index
-        	condep(jc,blockNo) = &
+                condep(jc,blockNo) = &
              REAL(calc_max_condep(zgrad_rho(jc,:,blockNo), &
              patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)),KIND=wp)
 

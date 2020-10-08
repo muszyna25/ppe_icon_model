@@ -562,6 +562,8 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MAX_NZLEVS = 100 !< max. no. of height levels
   INTEGER, PARAMETER :: MAX_NILEVS = 100 !< max. no. of isentropic levels
 
+  INTEGER, PARAMETER :: nlat_moc = 180 !< number of buckets for moc
+
   !-----------------------------------!
   !  POST PROCESSING SCHEDULER TASKS  !
   !-----------------------------------!
