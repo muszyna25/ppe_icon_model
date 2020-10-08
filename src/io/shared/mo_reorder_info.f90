@@ -35,7 +35,7 @@ MODULE mo_reorder_info
   !          "transfer_reorder_info" in the setup phase!
 
   TYPE t_reorder_info
-    INTEGER                    :: n_glb  ! Global number of points per physical patch
+    INTEGER                    :: n_glb  !< Global number of points per physical patch, per layer
     INTEGER                    :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
     !> Only set on compute PEs, set to 0 on IO PEs
     INTEGER, ALLOCATABLE       :: own_idx(:), own_blk(:)
