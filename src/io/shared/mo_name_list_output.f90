@@ -860,7 +860,7 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER                 :: routine = modname//"::write_name_list"
     INTEGER                                     :: tl, i_dom, i_log_dom, iv, jk, &
-      &                                            nlevs, nindex, lonlat_id,          &
+      &                                            nlevs, lonlat_id,          &
       &                                            idata_type
     INTEGER                                     :: ioff
 #ifndef NOMPI
@@ -992,8 +992,6 @@ CONTAINS
       ENDIF
 
 
-      nindex = MERGE(info%ncontained, 1, info%lcontained)
-
       ! determine, if this is a REAL or an INTEGER variable:
       IF (ASSOCIATED(of%var_desc(iv)%r_ptr) .OR.  &
         & ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
@@ -1007,7 +1005,7 @@ CONTAINS
       END IF
 
       CALL get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, &
-        &                      nindex, tl, of%var_desc(iv), info)
+        &                      tl, of%var_desc(iv), info)
 
       ! --------------------------------------------------------
       ! Perform post-ops (small arithmetic operations on fields)
@@ -1172,12 +1170,12 @@ CONTAINS
     last_bdry_index = p_max(max_glb_idx, p_comm_work)
   END FUNCTION get_last_bdry_index
 
-  SUBROUTINE get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, nindex, tl, var_desc, info)
+  SUBROUTINE get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, tl, var_desc, info)
     TYPE (t_var_metadata), INTENT(in) :: info
     REAL(wp), POINTER, INTENT(out) :: r_ptr(:,:,:)
     REAL(sp), POINTER, INTENT(out) :: s_ptr(:,:,:)
     INTEGER, POINTER, INTENT(out) :: i_ptr(:,:,:)
-    INTEGER, INTENT(in) :: nindex, tl
+    INTEGER, INTENT(in) :: tl
     TYPE(t_var_desc), TARGET, INTENT(in) :: var_desc
 
     REAL(wp), SAVE, TARGET :: r_dummy(1,1,1)
@@ -1187,7 +1185,7 @@ CONTAINS
     INTEGER, SAVE, TARGET :: i_dummy(1,1,1)
     INTEGER, POINTER :: i_ptr_t(:,:,:,:,:,:), i_ptr_5d(:,:,:,:,:)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_ptr_to_var_data"
-    INTEGER :: var_ref_pos
+    INTEGER :: var_ref_pos, nindex
 
     r_ptr => r_dummy
     s_ptr => s_dummy
@@ -1218,6 +1216,8 @@ CONTAINS
     ELSE
       CALL finish(routine, "Internal error!")
     END IF
+
+    nindex = MERGE(info%ncontained, 1, info%lcontained)
 
     SELECT CASE (info%ndims)
     CASE (1)
