@@ -50,7 +50,7 @@ MODULE mo_ocean_state
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,     &
-    &                               success, max_char_length, MIN_DOLIC,                  &
+    &                               success, MIN_DOLIC,                                   &
     &                               full_coriolis, beta_plane_coriolis,                   &
     &                               f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_unstructured_cell,         &
@@ -238,7 +238,6 @@ CONTAINS
     INTEGER, INTENT(IN)               :: ncheckpoints
 
     INTEGER :: status,i, alloc_cell_blocks, nblks_e,nblks_v
-    CHARACTER(LEN=max_char_length) :: var_suffix
 
     CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_checkpoints'
@@ -257,7 +256,6 @@ CONTAINS
       CALL finish('allocation of checkpoint failed!')
     END IF
     DO i=0,ncheckpoints
-        WRITE(var_suffix,'(a,i2.2)') '_',i
         ALLOCATE(checkpoint(i)%h(nproma,alloc_cell_blocks),stat=status)
         IF (status/=success) CALL finish('Could not allocate checkpoints for "h"!')
         ALLOCATE(checkpoint(i)%vn(nproma,n_zlev,nblks_e),stat=status)
