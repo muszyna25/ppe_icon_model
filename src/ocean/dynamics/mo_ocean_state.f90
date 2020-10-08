@@ -214,7 +214,7 @@ CONTAINS
         IF (timelevel .ne. nnow(1)) THEN
           CALL construct_hydro_ocean_prog(patch_3d, &
             &                             ocean_state(1)%p_prog(timelevel), &
-            &                             get_timelevel_string(timelevel))
+            &                             TRIM(get_timelevel_string(timelevel)))
        
       END IF
     END DO
@@ -652,7 +652,7 @@ CONTAINS
 
     TYPE(t_patch_3D), TARGET, INTENT(in)      :: patch_3d
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: ocean_state_prog
-    CHARACTER(LEN=4)                          :: var_suffix
+    CHARACTER(LEN=*)                          :: var_suffix
 
     INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
     INTEGER :: jtrc
@@ -667,25 +667,25 @@ CONTAINS
     nblks_e = patch_2d%nblks_e
 
       ! height
-      CALL add_var(ocean_restart_list, 'zos'//TRIM(var_suffix), ocean_state_prog%h , &
+      CALL add_var(ocean_restart_list, 'zos'//var_suffix, ocean_state_prog%h , &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,    &
-        & t_cf_var('zos'//TRIM(var_suffix), 'm', 'surface elevation at cell center', DATATYPE_FLT64,'zos'),&
+        & t_cf_var('zos'//var_suffix, 'm', 'surface elevation at cell center', DATATYPE_FLT64,'zos'),&
         & grib2_var(255, 255, 1, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,alloc_cell_blocks/), tlev_source=TLEV_NNEW,&
         & in_group=oce_tr_groups)
 
       !! normal velocity component
-      CALL add_var(ocean_restart_list,'normal_velocity'//TRIM(var_suffix),ocean_state_prog%vn,grid_unstructured_edge, &
+      CALL add_var(ocean_restart_list,'normal_velocity'//var_suffix,ocean_state_prog%vn,grid_unstructured_edge, &
         & za_depth_below_sea, &
-        & t_cf_var('vn'//TRIM(var_suffix), 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
+        & t_cf_var('vn'//var_suffix, 'm/s', 'normal velocity on edge', DATATYPE_FLT64),&
         & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/), tlev_source=TLEV_NNEW)
 
       !! Tracers
       IF ( no_tracer > 0 ) THEN
-        CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &
+        CALL add_var(ocean_restart_list, 'tracers'//var_suffix, ocean_state_prog%tracer , &
           & grid_unstructured_cell, za_depth_below_sea, &
-          & t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &
+          & t_cf_var('tracers'//var_suffix, '', '1:temperature 2:salinity', &
           & DATATYPE_FLT64),&
           & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
           & ldims=(/nproma,n_zlev,alloc_cell_blocks,no_tracer/), &
@@ -695,8 +695,8 @@ CONTAINS
         ALLOCATE(ocean_state_prog%tracer_ptr(no_tracer))
 
         DO jtrc = 1,no_tracer
-        CALL add_ref( ocean_restart_list, 'tracers'//TRIM(var_suffix),   &
-            & TRIM(oce_config%tracer_shortnames(jtrc))//TRIM(var_suffix),        &
+        CALL add_ref( ocean_restart_list, 'tracers'//var_suffix,   &
+            & TRIM(oce_config%tracer_shortnames(jtrc))//var_suffix,        &
             & ocean_state_prog%tracer_ptr(jtrc)%p,                         &
             & grid_unstructured_cell, za_depth_below_sea,                  &
             & t_cf_var(TRIM(oce_config%tracer_stdnames(jtrc)), &
@@ -732,7 +732,7 @@ CONTAINS
           ! allocate a
   !         IF (use_tracer_x_height) THEN
   !           !
-  !           CALL add_var(ocean_restart_list, 'ocean_tracers'//TRIM(var_suffix), &
+  !           CALL add_var(ocean_restart_list, 'ocean_tracers'//var_suffix, &
   !             & ocean_state_prog%ocean_tracers(jtrc)%concentration_x_height , &
   !             & grid_unstructured_cell, za_depth_below_sea, &
   !             & t_cf_var(TRIM(oce_tracer_names(jtrc))//"_x_height",  &
