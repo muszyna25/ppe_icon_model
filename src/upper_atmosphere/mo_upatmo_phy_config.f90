@@ -33,7 +33,7 @@ MODULE mo_upatmo_phy_config
     &                                    iUpatmoGasMode, iUpatmoExtdatStat, iorbit,          &
     &                                    startHeightDef, itmr_thr, iThermdynCoupling
   USE mo_upatmo_utils,             ONLY: init_logical_1d, is_variable_in_output_cond
-  USE mo_util_string,              ONLY: int2string, logical2string, real2string, &
+  USE mo_util_string,              ONLY: real2string, &
     &                                    t_keyword_list, associate_keyword,       &
     &                                    with_keywords
   USE mtime,                       ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, &
@@ -1870,13 +1870,18 @@ CONTAINS !......................................................................
     TYPE(t_upatmo_nwp_phy),    INTENT(INOUT) :: upatmo_nwp_phy_config   ! Upper-atmosphere configuration for NWP
 
     ! Local variables
-    INTEGER  :: jgrp, jprc, jgas
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: msg_prefix, cjg, cremark
+    INTEGER  :: jgrp, jprc, jgas, cjgadj, tlen, ladj_s, ladj_e, ladj_h
+    CHARACTER(LEN=13) :: cremark
+    CHARACTER(LEN=80) :: msg_prefix
+    CHARACTER(LEN=11) :: cjg
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':print_config_upatmo_physics'
+    CHARACTER(len=*), PARAMETER :: &
+      hght_msg_sfx = ', => switched off effectively!)'
 
     !---------------------------------------------------------
 
-    cjg = TRIM(int2string(jg))
+    WRITE (cjg, '(i0)') jg
+    cjgadj = VERIFY(cjg, " ")
 
     !-----------------------------------------------------
     !                "Any-case" output
@@ -1920,29 +1925,23 @@ CONTAINS !......................................................................
             CALL message(' ', message_text, adjust_right=.TRUE.)
           ENDIF
           !
-          message_text = 'Notes on output of (upper-atmosphere) variables:'
-          CALL message(routine, message_text)
-          message_text = '* only variables associated with switched on process groups ' &
-            & //'can be selected in output_nml!'
-          CALL message(' ', message_text, adjust_right=.TRUE.)
+          CALL message(routine, 'Notes on output of (upper-atmosphere) variables:')
+          CALL message(' ', '* only variables associated with switched on process groups &
+            &can be selected in output_nml!', adjust_right=.TRUE.)
           message_text = '* every variable name requires the following prefix: ' &
-            & //TRIM(upatmo_nwp_phy_config%vname_prefix)
+            & // upatmo_nwp_phy_config%vname_prefix
           CALL message(' ', message_text, adjust_right=.TRUE.)
-          message_text = '* heating rates are isobaric, not isochoric ' &
-            & //'(no matter how they are processed internally)!'
-          CALL message(' ', message_text, adjust_right=.TRUE.)
+          CALL message(' ', '* heating rates are isobaric, not isochoric &
+            &(no matter how they are processed internally)!', adjust_right=.TRUE.)
           IF (upatmo_nwp_phy_config%grp( iUpatmoGrpId%rad )%l_stat( iUpatmoPrcStat%enabled )) THEN
-            message_text = '* efficiency and scaling factors sclrlw and effrsw are multiplied ' &
-              & //'to the temperature tendencies from the standard radiation,'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
-            message_text = '  so the forcing is NOT ddt_temp_radsw and ddt_temp_radlw, ' &
-              & //'but effrsw * ddt_temp_radsw and sclrlw * ddt_temp_lw'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
+            CALL message(' ', '* efficiency and scaling factors sclrlw and effrsw are multiplied &
+              &to the temperature tendencies from the standard radiation,', adjust_right=.TRUE.)
+            CALL message(' ', '  so the forcing is NOT ddt_temp_radsw and ddt_temp_radlw, &
+              &but effrsw * ddt_temp_radsw and sclrlw * ddt_temp_lw', adjust_right=.TRUE.)
           ENDIF  !Radiation enabled?
           IF (n_dom > 1) THEN
-            message_text = '* halo cells typically contain 0s, which might be visible ' &
-              & // 'on the lateral boundary of lon-lat-regridded output of nests'
-            CALL message(' ', message_text, adjust_right=.TRUE.)
+            CALL message(' ', '* halo cells typically contain 0s, which might be visible &
+              &on the lateral boundary of lon-lat-regridded output of nests', adjust_right=.TRUE.)
           ENDIF
           
         ENDIF  !IF (jg == 1 .AND. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled ))
@@ -1972,14 +1971,15 @@ CONTAINS !......................................................................
             !*******************************************************************************
 
             IF (upatmo_echam_phy_config%l_status( iUpatmoStat%required )) THEN
-              msg_prefix = 'upatmo_config('//TRIM(cjg)//')%echam_phy%'
+              msg_prefix = 'upatmo_config('//cjg(cjgadj:)//')%echam_phy%'
+              tlen = LEN_TRIM(msg_prefix)
               !
-              message_text = TRIM(msg_prefix)//'l_constgrav: '// &
-                & TRIM(logical2string(upatmo_echam_phy_config%l_constgrav))
+              WRITE (message_text, '(2a,l7)') msg_prefix(:tlen), 'l_constgrav: ', &
+                & upatmo_echam_phy_config%l_constgrav
               CALL message(routine, message_text)
-              ! 
-              message_text = TRIM(msg_prefix)//'l_shallowatmo: '// &
-                & TRIM(logical2string(upatmo_echam_phy_config%l_shallowatmo))
+              !
+              WRITE (message_text, '(2a,l7)') msg_prefix(:tlen), 'l_shallowatmo: ', &
+                & upatmo_echam_phy_config%l_shallowatmo
               CALL message(routine, message_text)
             ENDIF
 
@@ -1988,15 +1988,15 @@ CONTAINS !......................................................................
               ! where a corresponding configuration for ECHAM is not yet implemented)
               CALL message(routine, 'Info on processes:')
               DO jprc = 1, iUpatmoPrcId%nitem
-                cremark = ' (start height = ' &
-                  & //TRIM(ADJUSTL(real2string(upatmo_echam_phy_config%start_height( jprc ), opt_fmt='(F20.1)')))//' m'
-                IF (upatmo_echam_phy_config%iendlev( jprc ) > 0) THEN
-                  cremark = TRIM(cremark)//')'
-                ELSE
-                  cremark = TRIM(cremark)//', => switched off effectively!)'
-                ENDIF
                 message_text = '* '//TRIM(upatmo_nwp_phy_config%prc( jprc )%longname) &
-                  & //TRIM(cremark)
+                  & // ' (start height = ' &
+                  & //TRIM(ADJUSTL(real2string(upatmo_echam_phy_config%start_height( jprc ), opt_fmt='(F20.1)')))//' m'
+                tlen = LEN_TRIM(message_text)
+                IF (upatmo_echam_phy_config%iendlev( jprc ) > 0) THEN
+                  message_text(tlen+1:) = ')'
+                ELSE
+                  message_text(tlen+1:) = ', => switched off effectively!)'
+                ENDIF
                 CALL message(' ', message_text, adjust_right=.TRUE.)
               ENDDO  !jprc
             ENDIF  !IF (jg == 1 .AND. upatmo_echam_phy_config%l_enabled)
@@ -2010,28 +2010,29 @@ CONTAINS !......................................................................
             !*******************************************************************************
 
             IF (upatmo_nwp_phy_config%l_status( iUpatmoStat%required )) THEN
-              msg_prefix = 'upatmo_config('//TRIM(cjg)//')%nwp_phy%'
+              msg_prefix = 'upatmo_config('//cjg(cjgadj:)//')%nwp_phy%'
+              tlen = LEN_TRIM(msg_prefix)
               !
-              message_text = TRIM(msg_prefix)//'l_constgrav: '// &
-                & TRIM(logical2string(upatmo_nwp_phy_config%l_constgrav))
-              CALL message(routine, message_text)
-              ! 
-              message_text = TRIM(msg_prefix)//'l_shallowatmo: '// &
-                & TRIM(logical2string(upatmo_nwp_phy_config%l_shallowatmo))
+              WRITE (message_text, '(2a,l7)') msg_prefix(1:tlen), 'l_constgrav: ', &
+                & upatmo_nwp_phy_config%l_constgrav
               CALL message(routine, message_text)
               !
-              message_text = 'lupatmo_phy(dom'//TRIM(cjg)//'): '// &
-                & TRIM(logical2string(lupatmo_phy))
+              WRITE (message_text, '(2a,l7)') msg_prefix(1:tlen), 'l_shallowatmo: ', &
+                & upatmo_nwp_phy_config%l_shallowatmo
               CALL message(routine, message_text)
               !
-              message_text = 'l_phy_stat(dom'//TRIM(cjg)//'): '// &
-                & TRIM(logical2string(upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled )))
+              WRITE (message_text, '(3a,l7)') 'lupatmo_phy(dom', cjg(cjgadj:), '): ', &
+                & lupatmo_phy
+              CALL message(routine, message_text)
+              !
+              WRITE (message_text, '(3a,l7)') 'l_phy_stat(dom', cjg(cjgadj:), '): ', &
+                & upatmo_nwp_phy_config%l_phy_stat(iUpatmoPrcStat%enabled)
               CALL message(routine, message_text)
             ENDIF
 
             IF (upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled )) THEN
               !
-              message_text = 'Switched on process groups on dom '//TRIM(cjg)//':'
+              message_text = 'Switched on process groups on dom '//cjg(cjgadj:)//':'
               CALL message(routine, message_text)
               DO jgrp = 1, iUpatmoGrpId%nitem
                 IF (upatmo_nwp_phy_config%grp( jgrp )%l_stat( iUpatmoPrcStat%enabled )) THEN
@@ -2040,33 +2041,34 @@ CONTAINS !......................................................................
                   ELSE
                     cremark = ' (interactive'
                   ENDIF
-                  cremark = TRIM(cremark)//', dt(namelist) = '                                              &
-                    & //TRIM(ADJUSTL(real2string(upatmo_phy_config%nwp_grp( jgrp )%dt, opt_fmt='(F20.3)'))) &
-                    & //' s, dt(used) = '                                                                   &
-                    & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%grp( jgrp )%dt, opt_fmt='(F20.3)'))) &
-                    & //' s)'
-                  message_text = '* '//TRIM(upatmo_nwp_phy_config%grp( jgrp )%longname) &
-                    & //TRIM(cremark)
+                  WRITE (message_text, '(8a)') '* ', TRIM(upatmo_nwp_phy_config%grp( jgrp )%longname),      &
+                       & TRIM(cremark),                                                                       &
+                       & ', dt(namelist) = ',                                                                 &
+                       & TRIM(ADJUSTL(real2string(upatmo_phy_config%nwp_grp( jgrp )%dt, opt_fmt='(F20.3)'))), &
+                       & ' s, dt(used) = ',                                                                   &
+                       & TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%grp( jgrp )%dt, opt_fmt='(F20.3)'))), &
+                       & ' s)'
                   CALL message(' ', message_text, adjust_right=.TRUE.)
-                  message_text = '   Info on single processes:'
-                  CALL message(' ', message_text, adjust_right=.TRUE.)
+                  CALL message(' ', '   Info on single processes:', adjust_right=.TRUE.)
                   DO jprc = 1, iUpatmoPrcId%nitem
                     IF (upatmo_nwp_phy_config%prc( jprc )%igrp == jgrp) THEN
-                      cremark = ' (start height = '                                                                       &
-                        & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%prc( jprc )%start_height, opt_fmt='(F20.1)'))) &
-                        & //' m, end height = '                                                                           &
-                        & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%prc( jprc )%end_height, opt_fmt='(F20.1)')))   &
-                        & //' m, start level = '                                                                          &
-                        & //TRIM(int2string(upatmo_nwp_phy_config%prc( jprc )%istartlev))                                 &
-                        & //', end level = '                                                                              &            
-                        & //TRIM(int2string(upatmo_nwp_phy_config%prc( jprc )%iendlev))
-                      IF (upatmo_nwp_phy_config%prc( jprc )%iendlev > 0) THEN           
-                        cremark = TRIM(cremark)//')'
-                      ELSE
-                        cremark = TRIM(cremark)//', => switched off effectively!)'
-                      ENDIF
-                      message_text = '   * '//TRIM(upatmo_nwp_phy_config%prc( jprc )%longname) &
-                        & //TRIM(cremark)
+                      WRITE (msg_prefix, '(2(f20.1))') &
+                        upatmo_nwp_phy_config%prc( jprc )%start_height, &
+                        upatmo_nwp_phy_config%prc( jprc )%end_height
+                      ladj_s = 1 + VERIFY(msg_prefix(1:20), ' ')
+                      ladj_e = 21 + VERIFY(msg_prefix(21:40), ' ')
+                      tlen = LEN_TRIM(upatmo_nwp_phy_config%prc(jprc)%longname)
+                      ladj_h = MERGE(1, LEN(hght_msg_sfx), &
+                        &            upatmo_nwp_phy_config%prc(jprc)%iendlev>0)
+                      WRITE (message_text, '(7a,i0,a,i0,a)') &
+                        & '   * ', upatmo_nwp_phy_config%prc(jprc)%longname(1:tlen),                                      &
+                        & ' (start height = ',  msg_prefix(ladj_s:20),                                                    &
+                        & ' m, end height = ',  msg_prefix(ladj_e:40),                                                    &
+                        & ' m, start level = ',                                                                           &
+                        & upatmo_nwp_phy_config%prc( jprc )%istartlev,                                                    &
+                        & ', end level = ',                                                                               &
+                        & upatmo_nwp_phy_config%prc( jprc )%iendlev,                                                      &
+                        & hght_msg_sfx(ladj_h:)
                       CALL message(' ', message_text, adjust_right=.TRUE.)
                     ENDIF  !IF (upatmo_nwp_phy_config%prc( jprc )%igrp == jgrp)
                   ENDDO  !jprc
@@ -2083,13 +2085,11 @@ CONTAINS !......................................................................
               CALL message(routine, 'Required radiatively active gases:')
               DO jgas = 1, iUpatmoGasId%nitem
                 IF (upatmo_nwp_phy_config%gas( jgas )%l_stat( iUpatmoGasStat%enabled )) THEN
+                  tlen = LEN_TRIM(upatmo_nwp_phy_config%gas( jgas )%longname)
+                  message_text = '* '//upatmo_nwp_phy_config%gas( jgas )%longname(1:tlen)
                   IF (upatmo_nwp_phy_config%gas( jgas )%imode == iUpatmoGasMode%extdat) THEN
-                    cremark = ' (external data from file)'
-                  ELSE
-                    cremark = ' '
-                  ENDIF
-                  message_text = '* '//TRIM(upatmo_nwp_phy_config%gas( jgas )%longname) &
-                    & //TRIM(cremark)
+                    message_text(tlen+3:) = ' (external data from file)'
+                  END IF
                   CALL message(' ', message_text, adjust_right=.TRUE.)
                 ENDIF  !IF (upatmo_nwp_phy_config%gas( jgas )%l_stat( iUpatmoGasStat%enabled ))
               ENDDO  !jgas
@@ -2105,8 +2105,8 @@ CONTAINS !......................................................................
             message_text = 'Thermodynamic coupling factor = ' &
               & //TRIM(ADJUSTL(real2string(upatmo_nwp_phy_config%thermdyn_cpl_fac, opt_fmt='(F6.2)')))
             CALL message(routine, message_text)
-            message_text = 'Consider heat source from heat diffusion: ' &
-              & //TRIM(logical2string(upatmo_phy_config%nwp_ldiss_from_heatdiff))
+            WRITE (message_text, '(a,l7)') 'Consider heat source from heat diffusion: ', &
+              & upatmo_phy_config%nwp_ldiss_from_heatdiff
             CALL message(routine, message_text)
 
           END SELECT  !SELECT CASE(iforcing)
