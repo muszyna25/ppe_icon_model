@@ -48,7 +48,6 @@ MODULE mo_var_metadata
   PUBLIC :: get_var_name ! return plain variable name (without timelevel)
   PUBLIC :: get_var_timelevel ! return variable timelevel (or "-1")
   PUBLIC :: get_timelevel_string ! return the default string with timelevel encoded
-  PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
 
 CONTAINS
   !------------------------------------------------------------------------------------------------
@@ -320,15 +319,6 @@ CONTAINS
       strip_timelev = vname(1:idx-1)
     END IF
   END FUNCTION strip_timelev
-
-  !------------------------------------------------------------------------------------------------
-  ! construct varname  with timelevel
-  CHARACTER(LEN=vname_len) FUNCTION get_varname_with_timelevel(varname,timelevel)
-    CHARACTER(*), INTENT(IN) :: varname
-    INTEGER, INTENT(IN) :: timelevel
-
-    get_varname_with_timelevel = TRIM(varname)//get_timelevel_string(timelevel)
-  END FUNCTION get_varname_with_timelevel
 
   !------------------------------------------------------------------------------------------------
   ! construct string for timelevel encoding into variable names
