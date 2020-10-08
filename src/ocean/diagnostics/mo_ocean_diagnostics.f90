@@ -108,7 +108,6 @@ MODULE mo_ocean_diagnostics
   INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
   INTEGER :: moc_unit  = -1 ! file handle for the global timeseries output
-  CHARACTER(LEN=max_char_length) :: diag_fname, moc_fname
   INTEGER, PARAMETER :: linecharacters  = 2048
 
   !
@@ -177,7 +176,6 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: owned_cells
     INTEGER, POINTER              :: regions(:,:)
     TYPE(t_ocean_regions)         :: ocean_regions
-    CHARACTER(LEN=max_char_length) :: listname
     INTEGER                       :: datatype_flt
 
     IF ( lnetcdf_flt64_output ) THEN
@@ -194,8 +192,8 @@ CONTAINS
     owned_cells => patch_2d%cells%owned
     nblks_e = patch_2d%nblks_e
     !-----------------------------------------------------------------------
-    WRITE(listname,'(a)')  'horizontal_velocity_diagnostics'
-    CALL new_var_list(horizontal_velocity_diagnostics, listname, patch_id=patch_2d%id)
+    CALL new_var_list(horizontal_velocity_diagnostics, &
+      &               'horizontal_velocity_diagnostics', patch_id=patch_2d%id)
     CALL default_var_list_settings( horizontal_velocity_diagnostics,            &
       & lrestart=.FALSE.,model_type=TRIM(get_my_process_name()),loutput=.TRUE. )
     !-----------------------------------------------------------------------
@@ -461,8 +459,6 @@ CONTAINS
     !
     !local variables
     INTEGER :: i,iret
-    CHARACTER(LEN=max_char_length)  :: linkname
-    CHARACTER(LEN=max_char_length)  :: message_text
 
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_ocean_diagnostics:destruct_oce_diagnostics')
