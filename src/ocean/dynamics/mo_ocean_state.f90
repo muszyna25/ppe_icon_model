@@ -191,11 +191,11 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
 
     INTEGER :: i_status, timelevel, prlength ! local prognostic array length
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_state'
 
     patch_2d => patch_3d%p_patch_2d(1)
-    CALL message(TRIM(routine), 'start to construct hydro_ocean state' )
+    CALL message(routine, 'start to construct hydro_ocean state' )
     ocean_state(1)%patch_3d => patch_3d
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
@@ -205,7 +205,7 @@ CONTAINS
     !create state array for each domain
     ALLOCATE(ocean_state(1)%p_prog(1:prlength), stat=i_status)
     IF (i_status/=success) THEN
-      CALL finish(TRIM(routine), 'allocation of progn. state array failed')
+      CALL finish(routine, 'allocation of progn. state array failed')
     END IF
 
     DO timelevel = 1,prlength
@@ -226,7 +226,7 @@ CONTAINS
     CALL construct_checkpoints(patch_2d, ocean_state(1)%p_check,ncheckpoints)
     CALL construct_adjoints(patch_2d, ocean_state(1)%p_adjoint)
 #endif    
-    CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
+    CALL message(routine,'construction of hydrostatic ocean state finished')
 
   END SUBROUTINE construct_hydro_ocean_state
   !-------------------------------------------------------------------------
@@ -240,12 +240,12 @@ CONTAINS
     INTEGER :: status,i, alloc_cell_blocks, nblks_e,nblks_v
     CHARACTER(LEN=max_char_length) :: var_suffix
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_checkpoints'
 
     !-------------------------------------------------------------------------
 
-   CALL message(TRIM(routine), 'start to construct checkpoints')
+   CALL message(routine, 'start to construct checkpoints')
 
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
     nblks_e = patch_2d%nblks_e
@@ -469,16 +469,16 @@ CONTAINS
 
     INTEGER :: jg, prlength, ist
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:destruct_hydro_ocean_state'
 
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start to destruct hydro ocean state ')
+    CALL message(routine, 'start to destruct hydro ocean state ')
 
     prlength = SIZE(ocean_state(1)%p_prog)
 
     IF (prlength==0) THEN
-      CALL finish(TRIM(routine),'prog array has length zero')
+      CALL finish(routine, 'prog array has length zero')
     END IF
 
     CALL delete_var_list(ocean_restart_list)
@@ -492,11 +492,11 @@ CONTAINS
       ist = 1
       DEALLOCATE(ocean_state(jg)%p_prog, stat=ist)
       IF (ist/=success) THEN
-        CALL finish(TRIM(routine),'deallocation of state array failed')
+        CALL finish(routine, 'deallocation of state array failed')
       END IF
     END DO
 
-    CALL message(TRIM(routine),'destruction of hydrostatic ocean state finished')
+    CALL message(routine, 'destruction of hydrostatic ocean state finished')
 
   END SUBROUTINE destruct_hydro_ocean_state
 
@@ -520,12 +520,12 @@ CONTAINS
 
     INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_base'
 
     !-------------------------------------------------------------------------
 
-    !CALL message(TRIM(routine), 'start to construct basic hydro ocean state')
+    !CALL message(routine, 'start to construct basic hydro ocean state')
 
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -626,10 +626,10 @@ CONTAINS
 
     INTEGER :: ist
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:destruct_hydro_ocean_base'
 
-    CALL message(TRIM(routine),' start to destruct hydrostatic ocean basic state')
+    CALL message(routine,' start to destruct hydrostatic ocean basic state')
 
     DEALLOCATE(v_base%zlev_m,stat=ist)
     IF (ist /= success) THEN
@@ -1812,18 +1812,18 @@ CONTAINS
       !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(ocean_state_diag%p_vn(nproma,n_zlev,alloc_cell_blocks), stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for p_vn at cells failed')
+      CALL finish(routine, 'allocation for p_vn at cells failed')
     END IF
 
     ALLOCATE(ocean_state_diag%p_vn_dual(nproma,n_zlev,nblks_v), stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for p_vn at verts failed')
+      CALL finish(routine, 'allocation for p_vn at verts failed')
     END IF
 
     !reconstrcuted velocity at edges in cartesian coordinates
     ALLOCATE(ocean_state_diag%p_mass_flux_sfc_cc(nproma,alloc_cell_blocks), stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for p_mass_flux_sfc_cc at cells failed')
+      CALL finish(routine, 'allocation for p_mass_flux_sfc_cc at cells failed')
     END IF
     ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
     ocean_state_diag%p_vn     (:,:,:)%x(1)=0.0_wp
@@ -1839,7 +1839,7 @@ CONTAINS
     !remapped velocity at cell edges
 !     ALLOCATE(ocean_state_diag%ptp_vn(nproma,n_zlev,nblks_e), stat=ist)
 !     IF (ist/=success) THEN
-!       CALL finish(TRIM(routine), 'allocation for ptp_vn at edges failed')
+!       CALL finish(routine, 'allocation for ptp_vn at edges failed')
 !     END IF
     ! initialize all components with zero (this is preliminary)
     ocean_state_diag%ptp_vn    = 0.0_wp
@@ -2206,7 +2206,7 @@ CONTAINS
     END IF
 !     DEALLOCATE(ocean_state_diag%ptp_vn, stat=ist)
 !     IF (ist/=success) THEN
-!       CALL finish(TRIM(routine), 'deallocation for ptp_vn failed')
+!       CALL finish(routine, 'deallocation for ptp_vn failed')
 !     END IF
 
   END SUBROUTINE destruct_hydro_ocean_diag
@@ -2305,7 +2305,7 @@ CONTAINS
     
     DEALLOCATE(ocean_nudge%data_3dimRelax_Temp, stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine),'deallocation of data_3dimRelax_Temp failed')
+      CALL finish(routine,'deallocation of data_3dimRelax_Temp failed')
     END IF
     
   END SUBROUTINE destruct_ocean_nudge
@@ -2645,7 +2645,7 @@ CONTAINS
 
     INTEGER :: ist
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
+    CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_state:destruct_hydro_ocean_aux'
 
     DEALLOCATE(ocean_state_aux%bc_top_veloc_cc, stat=ist)
