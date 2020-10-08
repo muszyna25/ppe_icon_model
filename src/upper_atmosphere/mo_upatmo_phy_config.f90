@@ -687,8 +687,7 @@ CONTAINS !......................................................................
       DO jext = 1, iUpatmoExtdatId%nitem
 
         CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-        filename = TRIM(upatmo_phy_config%nwp_extdat( jext )%filename)
-        filename = TRIM(with_keywords(keywords, filename))
+        filename = with_keywords(keywords, upatmo_phy_config%nwp_extdat( jext )%filename)
         upatmo_phy_config%nwp_extdat( jext )%filename = filename
         keywords => NULL()
    
@@ -702,7 +701,7 @@ CONTAINS !......................................................................
 
           IF (upatmo_nwp_phy_config%extdat( jext )%l_stat( iUpatmoExtdatStat%required )) THEN
 
-            INQUIRE(file = TRIM(upatmo_phy_config%nwp_extdat( jext )%filename), exist=l_exist)
+            INQUIRE(file = upatmo_phy_config%nwp_extdat( jext )%filename, exist=l_exist)
             
             IF (.NOT. l_exist) THEN
               message_text = 'The external data file: '                          &
