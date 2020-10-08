@@ -2127,8 +2127,8 @@ CONTAINS !......................................................................
     &                                   mtime_current ) !in
 
     ! In/out variables
-    CLASS(t_phy_prc),        INTENT(INOUT) :: prc
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current
+    CLASS(t_phy_prc), INTENT(INOUT) :: prc
+    TYPE(datetime), INTENT(IN)      :: mtime_current
 
     !---------------------------------------------------------
 
@@ -2156,8 +2156,8 @@ CONTAINS !......................................................................
     &                                  mtime_current ) !in
 
     ! In/out variables
-    CLASS(t_phy_prc),        INTENT(INOUT) :: prc
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current
+    CLASS(t_phy_prc), INTENT(INOUT) :: prc
+    TYPE(datetime), INTENT(IN)      :: mtime_current
 
     !---------------------------------------------------------
 
@@ -2212,7 +2212,7 @@ CONTAINS !......................................................................
 
     ! In/out variables
     CLASS(t_upatmo_nwp_phy), INTENT(INOUT) :: grp
-    TYPE(datetime), POINTER, INTENT(IN)    :: mtime_current
+    TYPE(datetime), INTENT(IN)             :: mtime_current
 
     !---------------------------------------------------------
 
