@@ -19,7 +19,7 @@
 date
 source ${NMPI_ROOT}/bin/necmpivars.sh
 
-set -x
+set -ex
 . /etc/profile
 
 # OpenMP settings
@@ -93,7 +93,7 @@ ln -sf $GRIDDIR/icon_grid_0044_R19B07_L_lbc.nc iconR19B7_DOM01_lbc.nc
 ln -sf $EXTPDIR/icon_extpar_0044_R19B07_L_20191119_tiles.nc extpar_iconR19B7_DOM01.nc
 
 
-rm lbcdir
+rm -f lbcdir
 ln -sf $LBCDIR lbcdir
 
 # initial conditions

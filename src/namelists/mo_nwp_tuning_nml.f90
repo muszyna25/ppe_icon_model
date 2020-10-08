@@ -62,6 +62,7 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_gust_factor => tune_gust_factor, &  
     &                               config_itune_albedo   => itune_albedo,       &
     &                               config_lcalib_clcov   => lcalib_clcov,       &
+    &                               config_max_calibfac_clcl => max_calibfac_clcl, &
     &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
   IMPLICIT NONE
@@ -176,21 +177,25 @@ MODULE mo_nwp_tuning_nml
   LOGICAL :: &                     ! cloud cover calibration over land points
     &  lcalib_clcov
 
+  REAL(wp) :: &                    !< maximum calibration factor for low cloud cover (CLCL)
+    &  max_calibfac_clcl
+
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc
 
-  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,        &
-    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,         &
-    &                      tune_entrorg, itune_albedo, max_freshsnow_inc,   &
-    &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
-    &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
-    &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
-    &                      tune_rhebc_ocean_trop, tune_rcucov_trop,         &
-    &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,        &
-    &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,&
-    &                      tune_icesedi_exp, tune_rprcon, tune_gust_factor, &
-    &                      tune_rdepths, tune_thicklayfac, tune_sgsclifac,  &
-    &                      icpl_turb_clc, tune_difrad_3dcont
+  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,            &
+    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,             &
+    &                      tune_entrorg, itune_albedo, max_freshsnow_inc,       &
+    &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land,     &
+    &                      tune_rhebc_ocean, tune_rcucov, tune_texc,            &
+    &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,    &
+    &                      tune_rhebc_ocean_trop, tune_rcucov_trop,             &
+    &                      tune_dust_abs, tune_gfrcrit, tune_grcrit,            &
+    &                      lcalib_clcov, tune_box_liq_asy, tune_capdcfac_tr,    &
+    &                      tune_icesedi_exp, tune_rprcon, tune_gust_factor,     &
+    &                      tune_rdepths, tune_thicklayfac, tune_sgsclifac,      &
+    &                      icpl_turb_clc, tune_difrad_3dcont, max_calibfac_clcl
+
 
 CONTAINS
 
@@ -302,6 +307,7 @@ CONTAINS
     tune_box_liq_asy = 3._wp       ! asymmetry factor for liquid cloud parameterization
     tune_sgsclifac   = 0._wp       ! Scaling factor for subgrid-scale contribution to diagnosed cloud ice
     lcalib_clcov     = .TRUE.      ! use calibration of layer-wise cloud cover diagnostics over land
+    max_calibfac_clcl = 4._wp      ! maximum calibration factor for low cloud cover (CLCL); affects diagnostics only
     icpl_turb_clc    = 1           ! use strong dependency of box with on rcld (with factor 4) and upper and lower limit
 
     tune_gust_factor = 8.0_wp      ! tuning factor for gust parameterization
@@ -411,6 +417,7 @@ CONTAINS
     config_tune_gust_factor      = tune_gust_factor
     config_itune_albedo          = itune_albedo
     config_lcalib_clcov          = lcalib_clcov
+    config_max_calibfac_clcl     = max_calibfac_clcl
     config_max_freshsnow_inc     = max_freshsnow_inc
 
     !$acc update device(config_tune_gust_factor)

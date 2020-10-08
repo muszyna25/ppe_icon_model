@@ -460,8 +460,8 @@ ENDDO
       ENDDO
       DO jl=kidia,kfdia
         IF(.NOT. ldland(jl) .AND. .NOT. ldlake(jl)) THEN
-          zdrain(jl)  = MIN(0.5E4_JPRB,  zdrain(jl) ) ! ... but over ocean at most 50 hPa
-          zdnoprc(jl) = MIN(2.5e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.25 g/kg
+          zdrain(jl)  = MIN(0.6E4_JPRB, zdrain(jl) ) ! ... but over ocean at most 60 hPa
+          zdnoprc(jl) = MIN(3.e-4_JPRB, zdnoprc(jl)) ! ... but over ocean at most 0.3 g/kg
         ENDIF
       ENDDO
     ELSE IF (ltuning_kessler) THEN

@@ -97,6 +97,7 @@ CONTAINS
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom  
     INTEGER  :: nlev, nlevp1                  !< number of full/half levels
+    INTEGER  :: ntracer_alloc                 !< number of allocated tracer fields
 
  !--------------------------------------------------------------------
 
@@ -116,6 +117,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
 
+    ntracer_alloc=SIZE(p_nh_prog%tracer,4)
 
     !
     ! Init prognostic variables
@@ -140,8 +142,6 @@ CONTAINS
             p_nh_prog%tracer(jc,jk,jb,1) = 0.0_wp
           ENDIF
 
-! checks whether the specified velocity field is non-divergent
-!Test         p_nh_prog%tracer(jc,jk,jb,2) = 1._wp
 
 
           ! temperature is constant
@@ -166,8 +166,7 @@ CONTAINS
 
           ! init density of moist air
           !
-          p_nh_prog%rho(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref  &
-            &                     /rd/p_nh_prog%theta_v(jc,jk,jb)
+          p_nh_prog%rho(jc,jk,jb) = p_nh_diag%pres(jc,jk,jb) / (rd * t0)
 
         ENDDO  ! jc
       ENDDO  ! jk
@@ -189,6 +188,16 @@ CONTAINS
 
         ENDDO  ! jc
       ENDDO  ! jk
+
+
+      IF (ntracer_alloc > 1) THEN
+        ! constant tracer field in order to check whether the given velocity field is non-divergent
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+           p_nh_prog%tracer(jc,jk,jb,2) = 1._wp
+          ENDDO
+        ENDDO
+      ENDIF
 
     ENDDO ! jb
 !$OMP ENDDO
@@ -243,9 +252,9 @@ CONTAINS
       &  z_ife(nproma,p_patch%nlevp1,p_patch%nblks_e)
 
     REAL(wp) ::        &                      !< density at edge points
-      &  z_rho_e(nproma,p_patch%nlev,p_patch%nblks_e), &
-      &  z_rho_ie(nproma,p_patch%nlevp1,p_patch%nblks_e)
+      &  z_rho_e(nproma,p_patch%nlev,p_patch%nblks_e)
 
+    REAL(wp) :: rho0                          !< surface density
     REAL(wp) :: z_lat                         !< geographical latitude
     REAL(wp) :: ztop                          !< model top
     INTEGER  :: jc, je, jk, jb                !< loop indices
@@ -274,14 +283,15 @@ CONTAINS
     ! Compute rho at full level edge midpoints
     CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, z_rho_e)
 
-    ! Compute rho at half level at edge midpoints
-    CALL cells2edges_scalar(p_nh_diag%rho_ic, p_patch, p_int%c_lin_e, z_rho_ie)
 
     ! syncs
     CALL sync_patch_array(SYNC_E, p_patch, z_me)
     CALL sync_patch_array(SYNC_E, p_patch, z_ife)
     CALL sync_patch_array(SYNC_E, p_patch, z_rho_e)
-    CALL sync_patch_array(SYNC_E, p_patch, z_rho_ie)
+
+
+    ! density at surface
+    rho0 = p0ref/(rd * t0)
 
     !
     ! set normal velocity field
@@ -312,7 +322,8 @@ CONTAINS
 
           ztop   = z_ife(je,1,jb)
 
-          zv(je) = -(z_rho_ie(je,nlevp1,jb)/z_rho_e(je,jk,jb))               &
+
+          zv(je) = -(rho0/z_rho_e(je,jk,jb))                                 &
             &    * (grid_sphere_radius*w0*pi) /(nhadley*ztop)                &
             &    * cos(z_lat)*sin(nhadley*z_lat)*cos(pi*z_me(je,jk,jb)/ztop) &
             &    * cos(pi*time/tau)
@@ -350,7 +361,7 @@ CONTAINS
           z_lat = p_patch%cells%center(jc,jb)%lat
 
           p_nh_prog%w(jc,jk,jb) = (w0/nhadley)                                    &
-            &       * (p_nh_diag%rho_ic(jc,nlevp1,jb)/p_nh_diag%rho_ic(jc,jk,jb)) & 
+            &       * (rho0/p_nh_diag%rho_ic(jc,jk,jb))                           & 
             &       * (-2.0_wp*SIN(nhadley*z_lat)*SIN(z_lat)                      &
             &       + nhadley*COS(z_lat)*COS(nhadley*z_lat))                      &
             &       * SIN(pi*p_metrics%z_ifc(jc,jk,jb)/p_metrics%z_ifc(jc,1,jb))  &

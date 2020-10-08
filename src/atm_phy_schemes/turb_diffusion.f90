@@ -273,6 +273,7 @@ USE turb_data, ONLY : &
     tkmmin_strat, & ! additional minimal diffusion coefficients for momentum for stratosphere
     tndsmot,      & ! vertical smoothing factor for diffusion tendencies
     frcsmot,      & ! vertical smoothing factor for TKE forcing
+    imode_frcsmot,& ! mode for TKE forcing
     epsi,         & ! relative limit of accuracy for comparison of numbers
     it_end,       & ! number of initialization iterations (>=0)
 
@@ -1144,7 +1145,7 @@ LOGICAL :: lzacc
 
   ! check if vertical smoothing of TKE forcing terms is needed
   IF (frcsmot > z0) THEN
-    IF (.NOT. PRESENT(trop_mask)) THEN
+    IF (.NOT. PRESENT(trop_mask) .OR. imode_frcsmot == 1) THEN
       lcalc_frcsmot = .TRUE.
     ELSE IF (ANY(trop_mask(ivstart:ivend) > z0)) THEN
       lcalc_frcsmot = .TRUE.
@@ -2454,7 +2455,11 @@ my_thrd_id = omp_get_thread_num()
         !>Tuning
           ! Factor for variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
           ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1:
-          fakt=MIN( z1, tkred_sfc(i)*(0.25_wp+7.5e-3_wp*(hhl(i,k)-hhl(i,ke1))) ) !low-level red.-fact.
+          IF (gz0(i) < 0.01_wp .AND. l_pat(i) > 0._wp) THEN ! glaciers
+            fakt=MIN( z1, tkred_sfc(i)*4.e-3_wp*(hhl(i,k)-hhl(i,ke1)) ) !low-level red.-fact.
+          ELSE
+            fakt=MIN( z1, tkred_sfc(i)*(0.25_wp+7.5e-3_wp*(hhl(i,k)-hhl(i,ke1))) ) !low-level red.-fact.
+          ENDIF
           fakt=MIN( 2.5_wp, MAX( 0.01_wp, fakt*xri(i,k) ) )
 
           val1=tkmmin*fakt; val2=tkhmin*fakt

@@ -24,7 +24,7 @@ MODULE mo_util_phys
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
-    &                                 vtmpc1, t3
+    &                                 vtmpc1, t3, rd_o_cpd
   USE mo_exception,             ONLY: finish, message
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
@@ -63,6 +63,8 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: iau_update_tracer
   PUBLIC :: tracer_add_phytend
+  PUBLIC :: exner_from_pres
+  PUBLIC :: theta_from_temp_and_exner
 
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_phys'
@@ -808,5 +810,33 @@ CONTAINS
 
   END SUBROUTINE tracer_add_phytend
 
+
+  !>
+  !! Compute Exner pressure from pressure
+  !!
+  ELEMENTAL FUNCTION exner_from_pres(pres) RESULT(exner)
+    
+    REAL(wp), INTENT(IN) :: pres  !< pressure [Pa]
+    REAL(wp)                exner !< Exner pressure [1]
+    
+    !---------------------------
+    
+    exner = ( pres / p0ref )**rd_o_cpd
+
+  END FUNCTION exner_from_pres
+
+  !>
+  !! Compute potential temperature from temperature and Exner pressure
+  !!
+  ELEMENTAL FUNCTION theta_from_temp_and_exner(temp, exner) RESULT(theta)
+    
+    REAL(wp), INTENT(IN) :: temp, exner  !< temperature [K] and Exner pressure [1]
+    REAL(wp)                theta        !< potential temperature [K]
+    
+    !---------------------------
+    
+    theta = temp / exner
+
+  END FUNCTION theta_from_temp_and_exner
 
 END MODULE mo_util_phys
