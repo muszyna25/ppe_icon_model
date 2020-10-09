@@ -137,6 +137,7 @@ MODULE mo_name_list_output_init
     &                                             getPTStringFromSeconds, OPERATOR(/=),           &
     &                                             mtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             mtime_year_of_360_days => year_of_360_days
+  USE mo_util_mtime,                        ONLY: mtime_timedelta_from_fseconds
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event,         &
     &                                             max_filename_str_len
@@ -1068,11 +1069,12 @@ CONTAINS
       &                                     errno
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE(t_par_output_event),  POINTER   :: ev
-    TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
-      &                                     mtime_td1, mtime_td2, mtime_td3,   &
+    TYPE(timedelta),           POINTER   :: mtime_output_interval, &
       &                                     mtime_td, mtime_day
     TYPE(datetime),            POINTER   :: mtime_datetime_start,              &
-      &                                     mtime_datetime_end, mtime_date1, mtime_date2
+         &                                  mtime_datetime_end
+    TYPE(timedelta) :: mtime_td1, mtime_td2, mtime_td3
+    TYPE(datetime) :: mtime_date1, mtime_date2
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
     INTEGER                              :: idx, istart
     LOGICAL                              :: is_io, is_stdio
@@ -1239,15 +1241,18 @@ CONTAINS
         istart = (idx-1)*3
         IF (p_onl%output_bounds(istart+1) == -1._wp) CYCLE
 
-        mtime_td1 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+1)),'(i0)'))//"S")
-        mtime_td2 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+2)),'(i0)'))//"S")
-        mtime_td3 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+3)),'(i0)'))//"S")
+        CALL mtime_timedelta_from_fseconds(p_onl%output_bounds(istart+1), &
+             sim_step_info%sim_start, mtime_td1)
+        CALL mtime_timedelta_from_fseconds(p_onl%output_bounds(istart+2), &
+             sim_step_info%sim_start, mtime_td2)
+        CALL mtime_timedelta_from_fseconds(p_onl%output_bounds(istart+3), &
+             sim_step_info%sim_start, mtime_td3)
         CALL timedeltaToString(mtime_td3, p_onl%output_interval(idx))
 
-        mtime_date1 => newDatetime(sim_step_info%sim_start)
+        mtime_date1 = sim_step_info%sim_start
         mtime_date1 = mtime_date1 + mtime_td1
         CALL datetimeToString(mtime_date1, p_onl%output_start(idx))
-        mtime_date2 => newDatetime(sim_step_info%sim_start)
+        mtime_date2 = sim_step_info%sim_start
         mtime_date2 = mtime_date2 + mtime_td2
         CALL datetimeToString(mtime_date2, p_onl%output_end(idx))
 
@@ -1257,11 +1262,6 @@ CONTAINS
             &                                      TRIM(p_onl%output_interval(idx))
         END IF
 
-        CALL deallocateTimedelta(mtime_td1)
-        CALL deallocateTimedelta(mtime_td2)
-        CALL deallocateTimedelta(mtime_td3)
-        CALL deallocateDatetime(mtime_date1)
-        CALL deallocateDatetime(mtime_date2)
       END DO
 
       !--- consistency check: do not allow output intervals < dtime:
