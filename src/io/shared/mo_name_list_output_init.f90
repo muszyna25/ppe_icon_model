@@ -1266,6 +1266,7 @@ CONTAINS
 
       !--- consistency check: do not allow output intervals < dtime:
 
+      mtime_day => newTimedelta("P1D")
       ! there may be multiple "output_bounds" intervals, consider all:
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
 
@@ -1279,7 +1280,6 @@ CONTAINS
 
           mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
           CALL timedeltaToString(mtime_td, lower_bound_str)
-          mtime_day => newTimedelta("P1D")
           IF (mtime_td > mtime_day)  THEN
             CALL finish(routine, "Internal error: dtime > 1 day!")
           END IF
@@ -1289,13 +1289,13 @@ CONTAINS
           END IF
           CALL deallocateTimedelta(mtime_output_interval)
           CALL deallocateTimeDelta(mtime_td)
-          CALL deallocateTimeDelta(mtime_day)
 
           CALL deallocateDatetime(mtime_datetime_start)
           CALL deallocateDatetime(mtime_datetime_end)
         END IF
 
       END DO INTVL_LOOP
+      CALL deallocateTimeDelta(mtime_day)
 
       p_onl => p_onl%next
     ENDDO
