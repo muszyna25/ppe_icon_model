@@ -25,12 +25,7 @@ MODULE mo_var_list_register
 #ifdef __PGI
   USE mo_util_texthash,    ONLY: t_char_workaround
 #endif
-  USE mo_hash_table,            ONLY: t_HashTable, hashTable_make, t_HashIterator
-#ifdef DEBUG_MVSTREAM
-  USE mo_util_string,      ONLY: int2string
-  USE mo_mpi,              ONLY: my_process_is_stdio
-  USE self_assert,         ONLY: print_summary
-#endif
+  USE mo_hash_table,       ONLY: t_HashTable, hashTable_make, t_HashIterator
 
   IMPLICIT NONE
   PRIVATE
@@ -366,10 +361,6 @@ CONTAINS
       END IF
       element => find_list_element(iter%cur, vname, opt_hgrid, opt_cs, opt_output)
       IF (ASSOCIATED (element)) THEN
-#ifdef DEBUG_MVSTREAM
-        if (my_process_is_stdio()) call &
-            & print_summary('destination PATCHID:'//TRIM(int2string(patch_id)))
-#endif
         IF (PRESENT(opt_list)) opt_list%p => iter%cur%p
         EXIT
       END IF
