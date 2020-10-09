@@ -172,7 +172,6 @@ MODULE mo_name_list_output_init
   USE mo_name_list_output_printvars,        ONLY: print_var_list
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
   USE mo_derived_variable_handling,         ONLY: process_statistics_stream
-  USE self_vector
 
 #ifndef __NO_ICON_ATMO__
   USE mo_vertical_coord_table,              ONLY: vct
@@ -220,7 +219,7 @@ MODULE mo_name_list_output_init
   TYPE(t_output_file),   ALLOCATABLE, TARGET :: output_file(:)
   TYPE(t_patch_info),    ALLOCATABLE, TARGET :: patch_info (:)
   TYPE(t_patch_info_ll), ALLOCATABLE, TARGET :: lonlat_info(:,:)
-  TYPE(vector), SAVE                         :: outputRegister
+  TYPE(t_key_value_store) :: outputRegister
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
@@ -241,7 +240,6 @@ MODULE mo_name_list_output_init
   !------------------------------------------------------------------------------------------------
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output_init'
-
 
 CONTAINS
 
@@ -358,7 +356,7 @@ CONTAINS
 
     ! create variable of registering output variables. should be used later for
     ! triggering computation only in case of output request
-    call outputRegister%init(verbose=.FALSE.)
+    CALL outputRegister%init(.false.)
 
     ! -- Open input file and position to first namelist 'output_nml'
 
@@ -2966,16 +2964,18 @@ CONTAINS
   END SUBROUTINE replicate_coordinate_data_on_io_procs
 #endif
 
-  SUBROUTINE registerOutputVariable(name)
-    CHARACTER(LEN=vname_len), INTENT(IN) :: name
+  SUBROUTINE registerOutputVariable(vname)
+    CHARACTER(*), INTENT(IN) :: vname
 
-    CALL outputRegister%add(text_hash_c(tolower(name)))
+    CALL outputRegister%put(vname, 1)
   END SUBROUTINE registerOutputVariable
 
-  LOGICAL FUNCTION isRegistered(name)
-    CHARACTER(LEN=*), INTENT(IN) :: name
+  LOGICAL FUNCTION isRegistered(vname)
+    CHARACTER(*), INTENT(IN) :: vname
+    INTEGER :: dummy, err
 
-    isRegistered = outputRegister%includes(text_hash_c(tolower(name)))
+    CALL outputRegister%get(vname, dummy, opt_err=err)
+    isRegistered = err .EQ. 0
   END FUNCTION
 
 
