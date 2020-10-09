@@ -2335,7 +2335,7 @@ CONTAINS
         IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
           ! Transfer reorder_info to IO PEs
           CALL transfer_reorder_info(lonlat_info(jl,jg)%ri, &
-            &    my_process_is_io(), bcast_root, p_comm_work_2_io)
+            &    is_io, bcast_root, p_comm_work_2_io)
           CALL transfer_grid_info(lonlat_info(jl,jg)%grid_info, lonlat_info(jl,jg)%ri%n_glb, lonlat_info(jl,jg)%grid_info_mode)
         ENDIF
 #endif
