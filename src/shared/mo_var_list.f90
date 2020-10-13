@@ -1341,7 +1341,7 @@ CONTAINS
 
     new_list_element%field%info%ndims                    = ndims
     new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
-    new_list_element%field%info%dom                      => this_list%p%patch_id
+    new_list_element%field%info%dom                      = this_list%p%patch_id
     IF (.NOT. referenced) THEN
       idims(1:ndims)    = new_list_element%field%info%used_dimensions(1:ndims)
       idims((ndims+1):) = 1
