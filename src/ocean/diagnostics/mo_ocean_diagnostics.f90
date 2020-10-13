@@ -108,7 +108,6 @@ MODULE mo_ocean_diagnostics
   INTEGER                     :: idt_src       = 1               ! Level of detail for 1 line debug
 
   INTEGER :: moc_unit  = -1 ! file handle for the global timeseries output
-  INTEGER, PARAMETER :: linecharacters  = 2048
 
   !
   ! PUBLIC INTERFACE
