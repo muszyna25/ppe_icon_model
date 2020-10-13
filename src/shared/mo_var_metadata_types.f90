@@ -142,7 +142,7 @@ MODULE mo_var_metadata_types
     INTEGER                    :: hgrid        = -1            ! CDI horizontal grid type
     INTEGER                    :: vgrid        = -1            ! CDI vertical grid type
     TYPE(t_subset_range)       :: subset                       ! subset for latter field access
-    INTEGER, POINTER           :: dom => NULL()                ! pointer to the variable list
+    INTEGER                    :: dom          = -1            ! domain (used to be pointer to varlist%patch_id 
     INTEGER                    :: tlev_source  = TLEV_NNOW     ! Information where to find the actual
     !                                                     timelevel for timelevel dependent variables:        
     !                                                      = 0 : nnow

@@ -280,7 +280,7 @@ CONTAINS
     CALL set_var_metadata_dyn (new_elem%info_dyn, tracer_info=tracer_info)
     new_elem%info%ndims = ndims
     new_elem%info%used_dimensions(1:ndims) = ldims(1:ndims)
-    new_elem%info%dom => list%p%patch_id
+    new_elem%info%dom = list%p%patch_id
     IF(PRESENT(info)) info => new_elem%info
     NULLIFY(new_elem%r_ptr, new_elem%s_ptr, new_elem%i_ptr, new_elem%l_ptr)
     d(1:ndims)    = new_elem%info%used_dimensions(1:ndims)
