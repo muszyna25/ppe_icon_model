@@ -1044,8 +1044,8 @@ CONTAINS
       SELECT CASE ( vert_intp_method )
       CASE ( VINTP_METHOD_VN )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_VN")
-        IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
-        IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
+        IF (.NOT. ASSOCIATED(vcoeff_lin) .OR. .NOT. ASSOCIATED(vcoeff_cub)) &
+          CALL finish(routine, "Internal error!")
         CALL uv_intp(in_ptr,                                                        & !in
           &          out_ptr,                                                       & !out
           &          in_z_mc, in_z3d,                                               & !in
@@ -1090,8 +1090,8 @@ CONTAINS
         !
       CASE (VINTP_METHOD_QV )
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
-        IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
-        IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
+        IF (.NOT. ASSOCIATED(vcoeff_lin) .OR. .NOT. ASSOCIATED(vcoeff_cub)) &
+          CALL finish(routine, "Internal error!")
         CALL qv_intp(in_ptr,                                                        & !in
           &          out_ptr,                                                       & !out
           &          in_z_mc, in_z3d, p_diag%temp,                                  & !in
