@@ -244,7 +244,7 @@ CONTAINS
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
   SUBROUTINE pp_task_lonlat(ptr_task)
-    TYPE(t_job_queue), POINTER :: ptr_task
+    TYPE(t_job_queue), TARGET :: ptr_task
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::p_task_lonlat"
     INTEGER                            ::        &
