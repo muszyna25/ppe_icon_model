@@ -251,10 +251,10 @@ CONTAINS
     ALLOCATE(srcRanks(nSrcRanks))
     srcRanks = PACK((/(i, i=0,num_work_procs-1)/), &
                      (/(rBuddy(pe_in=i)==myWrt, i=0,num_work_procs-1)/))
-    IF (nStreams > nSrcRanks) &
+    IF (nStreams .GT. num_work_procs) &
       CALL finish(routine, "more horizontal multifile chunks than worker ranks requested!")
     ! allocate patch data structure
-    ALLOCATE(me%mPatchData(n_dom*nStreams), STAT = error)
+    ALLOCATE(me%mPatchData(n_dom * nStreams), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
     me%patchData => me%mPatchData
     ckSize = (nSrcRanks + nStreams - 1)/nStreams

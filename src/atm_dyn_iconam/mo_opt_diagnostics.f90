@@ -51,10 +51,9 @@ MODULE mo_opt_diagnostics
     &                                TSTEP_CONSTANT
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                           &
     &                                GRID_CELL, GRID_REGULAR_LONLAT
-  USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr, t_list_element
+  USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_list_register,    ONLY: vl_register
-  USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
-    &                                level_type_hl, level_type_il
+  USE mo_var, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_config, ONLY: is_variable_in_output
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
@@ -64,6 +63,7 @@ MODULE mo_opt_diagnostics
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,                      &
     &                                create_hor_interp_metadata,                       &
     &                                vintp_types
+  USE mo_var,                  ONLY: t_var
   USE mo_tracer_metadata,      ONLY: create_tracer_metadata
   USE mo_statistics,           ONLY: add_fields
   USE mo_util_dbg_prnt,        ONLY: dbg_print
@@ -930,25 +930,18 @@ CONTAINS
 !DR !!! Using the POINTER attribute for area_weights(:) mysteriously leads
 !DR !!! to a bus error on NEC SX9 (tested with compiler revision 450). However,
 !DR !!! using the ALLOCATABLE attribute, instead, works.
-    REAL(wp), ALLOCATABLE          :: area_weights(:)
-    REAL(wp),              POINTER :: p_dummy(:,:,:)
-    TYPE(t_list_element),  POINTER :: new_element
+    REAL(wp), ALLOCATABLE :: area_weights(:)
+    REAL(wp), POINTER :: p_dummy(:,:,:)
+    TYPE(t_var), POINTER :: new_element
 
     ! define NetCDF output precision
-    IF ( lnetcdf_flt64_output ) THEN
-      datatype_flt = DATATYPE_FLT64
-    ELSE
-      datatype_flt = DATATYPE_FLT32
-    ENDIF
-
+    datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     ! Add area weights
     DO i=1, lonlat_data%ngrids
       DO jg=1,n_dom
         IF (lonlat_data%list(i)%l_dom(jg)) THEN
-          
           grid           => lonlat_data%list(i)%grid
           ptr_int_lonlat => lonlat_data%list(i)%intp(jg)
-          
           nblks_lonlat   =  ptr_int_lonlat%nblks_lonlat(nproma)
           var_shape = (/ nproma, 1, nblks_lonlat /)
           cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', datatype_flt)
@@ -966,7 +959,7 @@ CONTAINS
             &             hor_intp_type=HINTP_TYPE_NONE ),                    &
             &           isteptype=TSTEP_CONSTANT )
           ! link this new variable to the lon-lat grid:
-          new_element%field%info%hor_interp%lonlat_id = i
+          new_element%info%hor_interp%lonlat_id = i
           ! compute area weights:
 !CDIR NOIEXPAND
           CALL latlon_compute_area_weights(grid, earth_radius, area_weights)
@@ -981,14 +974,12 @@ CONTAINS
             ! set area weight:
             p_dummy(jc,1,jb) = area_weights(i_lat)
           END DO
-          
           DEALLOCATE(area_weights, STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
         END IF
       END DO
     END DO
   END SUBROUTINE compute_lonlat_area_weights
-    
 
 END MODULE mo_opt_diagnostics
 

@@ -14,7 +14,7 @@ MODULE mo_restart_patch_data
   USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util,              ONLY: restartBcastRoot
-  USE mo_var_list_element,          ONLY: t_p_var_list_element
+  USE mo_var,                       ONLY: t_var_ptr
 
   IMPLICIT NONE
   PRIVATE
@@ -24,7 +24,7 @@ MODULE mo_restart_patch_data
   ! this type stores all the information that we need to know about a patch and its variables
   TYPE, ABSTRACT :: t_RestartPatchData
     TYPE(t_restart_patch_description) :: description
-    TYPE(t_p_var_list_element), ALLOCATABLE :: varData(:)
+    TYPE(t_var_ptr), ALLOCATABLE :: varData(:)
     INTEGER :: restartType
   CONTAINS
     PROCEDURE :: transferToRestart => restartPatchData_transferToRestart

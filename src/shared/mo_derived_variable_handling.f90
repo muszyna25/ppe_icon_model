@@ -12,10 +12,9 @@ MODULE mo_derived_variable_handling
                               & GRID_ZONAL, GRID_UNSTRUCTURED_VERT
   USE mo_name_list_output_types, ONLY: t_output_name_list
   USE mo_zaxis_type,          ONLY: ZA_OCEAN_SEDIMENT
-  USE mo_var_list_element,    ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
-  USE mo_var_list,            ONLY: add_var, t_var_list_ptr, t_list_element
-  USE mo_var_list_element,    ONLY: t_p_var_list_element, t_var_list_element
+  USE mo_var_list,            ONLY: add_var, t_var_list_ptr
+  USE mo_var, ONLY: t_var, t_var_ptr, level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata,        ONLY: get_var_name
   USE mo_var_metadata_types,  ONLY: t_var_metadata
   USE mo_var_list_register,   ONLY: vl_register
@@ -38,7 +37,7 @@ MODULE mo_derived_variable_handling
   PUBLIC :: process_statistics_stream
 
   TYPE :: t_derivate_var
-    TYPE(t_p_var_list_element) :: dst, src(3)
+    TYPE(t_var_ptr) :: dst, src(3)
     INTEGER :: tls(3) = -999, counter = 0
   END TYPE t_derivate_var
 
@@ -111,7 +110,7 @@ CONTAINS
     TYPE(t_derivate_event), POINTER :: ederiv
     TYPE(t_derivate_event_alloctble), ALLOCATABLE :: etmp(:)
     TYPE(t_derivate_var_alloctble), ALLOCATABLE :: vderiv(:), vtmp(:)
-    TYPE(t_list_element), POINTER :: vl_elem
+    TYPE(t_var), POINTER :: vl_elem
     CHARACTER(:), ALLOCATABLE :: dname, eString
     CHARACTER(LEN=1) :: dom_string
     TYPE(t_var_list_ptr) :: src_list
@@ -221,7 +220,7 @@ CONTAINS
         & opt_hgrid=grids(k), opt_list=src_list, opt_cs=.FALSE., opt_output=.TRUE.)
       IF (ASSOCIATED(vl_elem)) THEN
         deriv%tls(1) = -1
-        deriv%src(1)%p => vl_elem%field
+        deriv%src(1)%p => vl_elem
         RETURN
       END IF
     END DO
@@ -233,7 +232,7 @@ CONTAINS
         & opt_patch_id=p_onl%dom, opt_list=src_list, opt_output=.TRUE.)
       IF (ASSOCIATED(vl_elem)) THEN
         l = l + 1
-        deriv%src(l)%p => vl_elem%field
+        deriv%src(l)%p => vl_elem
         deriv%tls(l) = tls(k)
       END IF
     END DO
@@ -258,24 +257,24 @@ CONTAINS
     __acc_attach(vl_elem%field%r_ptr)
     SELECT CASE(info%hgrid)
     CASE(GRID_UNSTRUCTURED_CELL)
-      vl_elem%field%info%subset = patch_2d%cells%owned
+      vl_elem%info%subset = patch_2d%cells%owned
     CASE(GRID_UNSTRUCTURED_EDGE)
-      vl_elem%field%info%subset = patch_2d%edges%owned
+      vl_elem%info%subset = patch_2d%edges%owned
     CASE(GRID_UNSTRUCTURED_VERT)
-      vl_elem%field%info%subset = patch_2d%verts%owned
+      vl_elem%info%subset = patch_2d%verts%owned
     END SELECT
-    vl_elem%field%info%cf%datatype = &
+    vl_elem%info%cf%datatype = &
       & MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
     IF ("" == info%cf%short_name) &
-      & vl_elem%field%info%cf%short_name = get_var_name(deriv%src(1)%p%info)
-    deriv%dst%p => vl_elem%field
+      & vl_elem%info%cf%short_name = get_var_name(deriv%src(1)%p%info)
+    deriv%dst%p => vl_elem
   END SUBROUTINE copy_var_to_list
 
   END SUBROUTINE process_mvstream
 
   SUBROUTINE perform_op(src, dest, opcode)
-    TYPE(t_var_list_element), POINTER, INTENT(IN) :: src
-    TYPE(t_var_list_element), POINTER, INTENT(INOUT) :: dest
+    TYPE(t_var), POINTER, INTENT(IN) :: src
+    TYPE(t_var), POINTER, INTENT(INOUT) :: dest
     INTEGER, INTENT(IN) :: opcode
     INTEGER :: ic, sb, eb, br
     REAL(wp), POINTER :: sd5d(:,:,:,:,:)
@@ -471,7 +470,7 @@ CONTAINS
     TYPE(t_derivate_op), INTENT(INOUT), TARGET :: bundle
     INTEGER :: tl, iv, ie, it, ne, nv, j, k, l, m
     INTEGER, POINTER :: ct
-    TYPE(t_var_list_element), POINTER :: src, dst
+    TYPE(t_var), POINTER :: src, dst
     TYPE(t_derivate_event), POINTER :: ederiv
     TYPE(datetime), POINTER :: mtime_date
     LOGICAL :: isactive

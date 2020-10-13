@@ -26,7 +26,7 @@ MODULE mo_load_singlefile_restart
   USE mo_key_value_store,    ONLY: t_key_value_store
   USE mo_restart_util,       ONLY: restartSymlinkName
   USE mo_restart_var_data,   ONLY: get_var_3d_ptr
-  USE mo_var_list_element,   ONLY: t_p_var_list_element
+  USE mo_var,                ONLY: t_var_ptr
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart_io, &
     &                              timer_load_restart_communication, timers_level
   USE mo_util_string,        ONLY: int2string
@@ -76,7 +76,7 @@ CONTAINS
 
   SUBROUTINE singlefileReadPatch(varData, modelType, p_patch, opt_ndom)
 !TODO: swich to read & distribute via mo_read_netcdf_distributed
-    TYPE(t_p_var_list_element), INTENT(in) :: varData(:)
+    TYPE(t_var_ptr), INTENT(in) :: varData(:)
     CHARACTER(*), INTENT(IN) :: modelType
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     INTEGER, INTENT(IN) :: opt_ndom

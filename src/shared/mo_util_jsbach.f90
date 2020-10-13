@@ -1185,7 +1185,8 @@ MODULE mo_jsb_varlist_iface
   USE mo_exception,          ONLY: finish
   USE mo_var_list_register,  ONLY: vl_register
   USE mo_var_list, ONLY: add_var_icon => add_var, find_list_element, &
-    & t_var_list_ptr, t_list_element, t_var_list => t_var_list_ptr
+    & t_var_list_ptr, t_var_list => t_var_list_ptr
+  USE mo_var, ONLY: t_var
   USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
   USE mo_var_groups,         ONLY: groups
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -1201,6 +1202,10 @@ MODULE mo_jsb_varlist_iface
   PUBLIC :: add_var_list_element_r2d, add_var_list_element_r3d
 
   CHARACTER(len=*), PARAMETER :: modname = 'mo_jsb_varlist_iface'
+
+  TYPE :: t_list_element
+    TYPE(t_var), POINTER :: field => NULL()
+  END TYPE t_list_element
 
 CONTAINS
 
@@ -1246,22 +1251,18 @@ CONTAINS
   END SUBROUTINE new_var_list
 
   LOGICAL FUNCTION is_variable_in_output(name, in_groups)
-
     CHARACTER(LEN=*),                     INTENT(in) :: name
     CHARACTER(len=VARNAME_LEN), OPTIONAL, INTENT(in) :: in_groups(:) ! groups to which this variable belongs to
-
     INTEGER :: i
 
     is_variable_in_output = var_in_out(name)
     IF (is_variable_in_output) RETURN
-
     IF (PRESENT(in_groups)) THEN
       DO i=1,SIZE(in_groups)
         is_variable_in_output = is_variable_in_output .OR. var_in_out('group:'//TRIM(in_groups(i)))
         IF (is_variable_in_output) EXIT
       END DO
     END IF
-
   END FUNCTION is_variable_in_output
 
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,                             &
@@ -1303,10 +1304,8 @@ CONTAINS
       ,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element           ! pointer to new var list element
-
-    TYPE (t_list_element), POINTER :: element
-
+    TYPE(t_list_element), POINTER, OPTIONAL :: new_element           ! pointer to new var list element
+    TYPE (t_var), POINTER :: element, nelem
     CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r2d'
 
     ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
@@ -1314,29 +1313,30 @@ CONTAINS
     IF (table > 0) CONTINUE
     IF (PRESENT(gdims)) CONTINUE
     IF (PRESENT(levelindx)) CONTINUE
-
     IF (PRESENT(p5)) THEN
       IF (SIZE(p5, DIM=5) > 1) &
         CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
     END IF
-
     IF (PRESENT(in_groups)) THEN
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
         tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups),                                   &
-        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
+        lopenacc=.TRUE., verbose=verbose, new_element=nelem)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
         tlev_source=tlev_source, info=info, p5=p5,                                                               &
-        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
+        lopenacc=.TRUE., verbose=verbose, new_element=nelem)
     END IF
-    element => find_list_element(this_list, TRIM(name))
-    element%field%info%ndims = 2
-    element%field%info%used_dimensions(1:2) = ldims(1:2)
-
+    ! HB: kind of hacky way: are there changes needed in jsb for t_list_element -> t_var ?
+    IF (PRESENT(new_element)) THEN
+      ALLOCATE(new_element)
+      new_element%field => nelem
+    END IF
+    nelem%info%ndims = 2
+    nelem%info%used_dimensions(1:2) = ldims(1:2)
   END SUBROUTINE add_var_list_element_r2d
 
   SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,                             &
@@ -1379,9 +1379,7 @@ CONTAINS
     CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element           ! pointer to new var list element
-
-    TYPE (t_list_element), POINTER :: element
-
+    TYPE (t_var), POINTER :: element, nelem
     CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r3d'
 
     ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
@@ -1389,29 +1387,29 @@ CONTAINS
     IF (table > 0) CONTINUE
     IF (PRESENT(gdims)) CONTINUE
     IF (PRESENT(levelindx)) CONTINUE
-
     IF (PRESENT(p5)) THEN
       IF (SIZE(p5, DIM=5) > 1) &
         CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
     END IF
-
     IF (PRESENT(in_groups)) THEN
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
         tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups),                  &
-        lopenacc=.TRUE., new_element=new_element)
+        lopenacc=.TRUE., new_element=nelem)
     ELSE
       CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
         ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
         initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
         tlev_source=tlev_source, info=info, p5=p5,                                                               &
-        lopenacc=.TRUE., verbose=verbose, new_element=new_element)
+        lopenacc=.TRUE., verbose=verbose, new_element=nelem)
     END IF
-    element => find_list_element(this_list, TRIM(name))
-    element%field%info%ndims = 3
-    element%field%info%used_dimensions(1:3) = ldims(1:3)
-
+    IF (PRESENT(new_element)) THEN
+      ALLOCATE(new_element)
+      new_element%field => nelem
+    END IF
+    nelem%info%ndims = 3
+    nelem%info%used_dimensions(1:3) = ldims(1:3)
   END SUBROUTINE add_var_list_element_r3d
 
 END MODULE mo_jsb_varlist_iface

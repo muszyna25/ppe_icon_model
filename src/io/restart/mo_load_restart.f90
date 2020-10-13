@@ -22,7 +22,7 @@ MODULE mo_load_restart
   USE mo_restart_nml_and_att,ONLY: restartAttributeList_read, ocean_initFromRestart_OVERRIDE
   USE mo_restart_util,       ONLY: restartSymlinkName
   USE mo_restart_var_data,   ONLY: createRestartVarData
-  USE mo_var_list_element,   ONLY: t_p_var_list_element
+  USE mo_var,                ONLY: t_var_ptr
   USE mo_timer,              ONLY: timer_start, timer_stop, timer_load_restart, timer_load_restart_io, &
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
@@ -153,7 +153,7 @@ CONTAINS
     END TYPE mtype_ll
     TYPE(mtype_ll), POINTER :: cur_mType, entry_mType
     INTEGER :: ndom_deopt
-    TYPE(t_p_var_list_element), ALLOCATABLE :: varData(:)
+    TYPE(t_var_ptr), ALLOCATABLE :: varData(:)
 
     IF(timers_level >= 5) CALL timer_start(timer_load_restart)
 
@@ -194,7 +194,6 @@ CONTAINS
             IF (PRESENT(opt_ndom)) ndom_deopt = opt_ndom
             CALL singlefileReadPatch(varData, cur_mType%next%a, p_patch, ndom_deopt)
         END IF
-
         DEALLOCATE(varData)
         entry_mType => cur_mType
         cur_mType => cur_mType%next

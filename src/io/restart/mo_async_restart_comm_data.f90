@@ -33,7 +33,7 @@ MODULE mo_async_restart_comm_data
     &                                p_comm_work, p_comm_work_2_restart, &
     &                                p_comm_work_restart
   HANDLE_MPI_ERROR_USE
-  USE mo_var_list_element,     ONLY: t_p_var_list_element
+  USE mo_var,                  ONLY: t_var_ptr
   USE mo_parallel_config,      ONLY: config_restart_chunk_size => restart_chunk_size
   USE mo_restart_util,   ONLY: restartbcastroot
   USE mo_timer,                ONLY: timer_start, timer_stop, timer_write_restart_communication, timers_level
@@ -254,7 +254,7 @@ CONTAINS
   SUBROUTINE asyncRestartCommData_construct(me, jg, var_data)
     CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
     INTEGER, INTENT(in) :: jg
-    TYPE(t_p_var_list_element), INTENT(IN) :: var_data(:)
+    TYPE(t_var_ptr), INTENT(IN) :: var_data(:)
     INTEGER :: i, nlevs, memWindowSize, max_nlevs, restart_chunk_size
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_construct"
     TYPE(t_reorder_info), POINTER :: ri

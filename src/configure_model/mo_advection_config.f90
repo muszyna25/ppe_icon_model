@@ -31,7 +31,8 @@ MODULE mo_advection_config
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_run_config,            ONLY: msg_level
   USE mo_expression,            ONLY: expression, parse_expression_string
-  USE mo_var_list,              ONLY: t_var_list_ptr, t_list_element, find_list_element
+  USE mo_var_list,              ONLY: t_var_list_ptr, find_list_element
+  USE mo_var, ONLY: t_var
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_var_metadata,          ONLY: get_timelevel_string
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta
@@ -773,64 +774,45 @@ CONTAINS
   !! <ncontained> otherwise.
   !
   TYPE(t_trList) FUNCTION subListExtract (from_list, extraction_rule) RESULT(obj)
-    !
     TYPE(t_var_list_ptr), INTENT(IN) :: from_list         !< variable list (metadata)
-    !
     INTERFACE
       INTEGER FUNCTION extraction_rule(info, tracer_info) RESULT(id)
         IMPORT                            :: t_var_metadata, t_tracer_meta
-        !
         TYPE (t_var_metadata), INTENT(IN) :: info             ! static info state
         CLASS(t_tracer_meta) , INTENT(IN) :: tracer_info      ! dynamic (tracer) info state
       END FUNCTION extraction_rule
     END INTERFACE
-    !
     ! local vars
     CHARACTER(*), PARAMETER :: routine = "subListExtract"
-    TYPE(t_list_element) , POINTER :: this_list_element
+    TYPE(t_var), POINTER :: element
     TYPE(t_var_metadata) , POINTER :: info             ! static info state
     CLASS(t_tracer_meta) , POINTER :: tracer_info      ! dynamic (tracer) info state
     INTEGER, ALLOCATABLE :: tmp(:)                     ! temporary array
-    INTEGER :: ist                                     ! status flag
-    INTEGER :: id
+    INTEGER :: ist, id, i
 
     ! allocate list with maximum size
-    ALLOCATE(obj%list(from_list%p%list_elements), stat=ist)
-    IF(ist/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'allocation of obj%list failed')
-    ENDIF
+    ALLOCATE(obj%list(from_list%p%nvars), stat=ist)
+    IF(ist/=SUCCESS) CALL finish (TRIM(routine), 'alloc of obj%list failed')
     ! initialize
     obj%len = 0
-
     ! Sub-list extraction (IDs only)
-    this_list_element => from_list%p%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      !
+    DO i = 1, from_list%p%nvars
+      element => from_list%p%vl(i)%p
       ! retrieve information from actual linked list element
-      !
-      info          => this_list_element%field%info
-      tracer_info   => this_list_element%field%info_dyn%tracer
-      !
+      info          => element%info
+      tracer_info   => element%info_dyn%tracer
       ! extract sublist member
       id = extraction_rule(info, tracer_info)
       IF (id /= -999) THEN
         obj%len           = obj%len+1
         obj%list(obj%len) = id
       ENDIF
-
-      this_list_element => this_list_element%next_list_element
     ENDDO
-    !
-    NULLIFY (this_list_element)
-    !
     ! contract list
     ALLOCATE(tmp(obj%len), stat=ist)
-    IF(ist/=SUCCESS) THEN
-      CALL finish (TRIM(routine), 'allocation of array tmp failed')
-    ENDIF
+    IF(ist/=SUCCESS) CALL finish (TRIM(routine), 'alloc of tmp failed')
     tmp(1:obj%len) = obj%list(1:obj%len)
-    CALL move_alloc(tmp,obj%list)
-
+    CALL MOVE_ALLOC(tmp,obj%list)
   END FUNCTION subListExtract
 
   !-----------------------------------------------------------------------------
@@ -1007,18 +989,18 @@ CONTAINS
     ENDDO
 
   CONTAINS
-    FUNCTION fget_var_list_element_r3d (this_list, name) RESULT(ptr)
+    FUNCTION fget_var_list_element_r3d (this_list, vname) RESULT(ptr)
       TYPE(t_var_list_ptr), INTENT(in) :: this_list    ! list
-      CHARACTER(len=*), INTENT(in) :: name         ! name of variable
-      REAL(dp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
-      TYPE(t_list_element), POINTER :: element
+      CHARACTER(*), INTENT(in) :: vname         ! name of variable
+      REAL(dp), POINTER    :: ptr(:,:,:)   ! reference to allocated field
+      TYPE(t_var), POINTER :: element
   
-      element => find_list_element (this_list, name)
+      element => find_list_element(this_list, vname)
       NULLIFY (ptr)
-      IF (element%field%info%lcontained) THEN
-        IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,element%field%info%ncontained,1)
+      IF (element%info%lcontained) THEN
+        IF (ASSOCIATED(element)) ptr => element%r_ptr(:,:,:,element%info%ncontained,1)
       ELSE
-        IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,1,1)
+        IF (ASSOCIATED(element)) ptr => element%r_ptr(:,:,:,1,1)
       ENDIF
     END FUNCTION fget_var_list_element_r3d
 
@@ -1038,21 +1020,15 @@ CONTAINS
     !
     CLASS(t_advection_config)             :: config_obj        !< object for which the setup will be printed
     TYPE(t_var_list_ptr)         , INTENT(IN) :: var_list_tracer   !< variable list (metadata)
-
     ! local variables
-    TYPE(t_list_element), POINTER :: tracer_list_element
     TYPE(t_var_metadata), POINTER :: info
     CLASS(t_tracer_meta), POINTER :: tracer_info
-
-    INTEGER       :: tracer_id       ! unique tracer_id
     TYPE(t_table) :: table
-    INTEGER       :: irow            ! row to fill
-    !
+    INTEGER       :: irow, tracer_id, i
     CHARACTER(LEN=3) :: str_tracer_id
     CHARACTER(LEN=3) :: str_startlev
     CHARACTER(LEN=7) :: str_substep_range
     CHARACTER(LEN=3) :: str_flag
-    !--------------------------------------------------------------------------
 
     ! could this be transformed into a table header?
     write(0,*) "Tracer meta-information for patch ", var_list_tracer%p%patch_id
@@ -1069,21 +1045,13 @@ CONTAINS
     CALL add_table_column(table, "slev")
     CALL add_table_column(table, "substep range")
 
-
     irow = 0
-
-    tracer_list_element => var_list_tracer%p%first_list_element
-
     ! print tracer meta-information
-    !
-    DO WHILE (ASSOCIATED(tracer_list_element))
-
-      info        => tracer_list_element%field%info
-      tracer_info => tracer_list_element%field%info_dyn%tracer
-
+    DO i = 1, var_list_tracer%p%nvars
+      info => var_list_tracer%p%vl(i)%p%info
+      tracer_info => var_list_tracer%p%vl(i)%p%info_dyn%tracer
 
       tracer_id = info%ncontained
-
       irow = irow + 1
       !
       CALL set_table_entry(table,irow,"VarName", TRIM(tracer_info%name))
@@ -1125,9 +1093,6 @@ CONTAINS
       ENDIF
       CALL set_table_entry(table,irow,"slev", TRIM(str_startlev))
       CALL set_table_entry(table,irow,"substep range", TRIM(str_substep_range))
-
-      ! next tracer in list
-      tracer_list_element => tracer_list_element%next_list_element
     ENDDO
 
     CALL print_table(table, opt_delimiter=' | ')

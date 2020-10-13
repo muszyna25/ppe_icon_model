@@ -115,12 +115,11 @@
       MODULE PROCEDURE get_data_3D 
     END INTERFACE
 
-
     TYPE t_read_params
       TYPE(t_inputParameters) :: cdi_params
-      INTEGER                 :: npoints
+      INTEGER                 :: npoints = 0
       INTEGER                 :: imode_asy
-      INTEGER, POINTER        :: idx_ptr(:)
+      INTEGER, POINTER        :: idx_ptr(:) => NULL()
     END TYPE t_read_params
 
 
@@ -320,29 +319,32 @@
       ! local variables
       TYPE(datetime) :: nextActive          ! next trigger date for prefetch event
       TYPE(datetime), POINTER :: latbc_read_datetime ! next input date to be read
-      INTEGER        :: ierr, nblks_c, nlev_in, jk,jb,jc, npoints_c, npoints_e
-      REAL(wp)       :: seconds,log_exner,tempv
+      INTEGER        :: ierr, nblks_c, nlev_in, jk, jb, jc
+      REAL(wp)       :: seconds
       INTEGER        :: prev_latbc_tlev
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
       CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: latbc_read_datetime_str
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::read_init_latbc_data"
       REAL(wp), ALLOCATABLE                 :: z_ifc_in(:,:,:)
-
       INTEGER, TARGET                       :: idummy(1)
-      INTEGER                               :: errno, nlevs_read, nlevs
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
       LOGICAL                               :: l_exist, is_restart
-
+      INTEGER, TARGET :: dummy(0)
       TYPE(t_read_params) :: read_params(2) ! parameters for cdi read routine, 1 = for cells, 2 = for edges
 
       is_restart = isrestart()
       ! Fill data type with parameters for cdi read routine
       IF (latbc_config%lsparse_latbc) THEN
-        read_params(icell)%npoints = SIZE(latbc%global_index%cells)
-        read_params(iedge)%npoints = SIZE(latbc%global_index%edges)
-        read_params(icell)%idx_ptr => latbc%global_index%cells
-        read_params(iedge)%idx_ptr => latbc%global_index%edges
+        IF (ALLOCATED(latbc%global_index%cells)) THEN
+          read_params(icell)%npoints = SIZE(latbc%global_index%cells)
+          read_params(iedge)%npoints = SIZE(latbc%global_index%edges)
+          read_params(icell)%idx_ptr => latbc%global_index%cells
+          read_params(iedge)%idx_ptr => latbc%global_index%edges
+        ELSE
+          read_params(icell)%idx_ptr => dummy
+          read_params(iedge)%idx_ptr => dummy
+        END IF
       ELSE
         read_params(icell)%npoints = p_patch%n_patch_cells_g
         read_params(iedge)%npoints = p_patch%n_patch_edges_g
@@ -843,7 +845,6 @@
       TYPE(datetime) :: nextActive             ! next trigger date for prefetch event
       INTEGER        :: ierr
       TYPE(datetime), POINTER :: latbc_read_datetime    ! next input date to be read
-      LOGICAL        :: done
       REAL(wp)       :: seconds
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::async_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
@@ -933,7 +934,6 @@
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
       TYPE(datetime), POINTER               :: mtime_vdate
-      LOGICAL                               :: lconst_data_only
       TYPE(datetime), POINTER               :: vDateTime_ptr  ! pointer to vDateTime
       character(len=max_datetime_str_len)   :: vDateTime_str  ! vDateTime in String format
 

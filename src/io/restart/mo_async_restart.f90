@@ -31,7 +31,7 @@ MODULE mo_async_restart
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util,              ONLY: t_restart_args
   USE mo_restart_var_data,          ONLY: get_var_3d_ptr, has_valid_time_level
-  USE mo_var_list_element,          ONLY: t_p_var_list_element
+  USE mo_var,                       ONLY: t_var_ptr
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_restart, timer_write_restart_io, &
                                         & timer_write_restart_communication, timers_level
   USE mo_mpi,                       ONLY: p_pe_work, p_comm_work, &
@@ -156,7 +156,7 @@ CONTAINS
   SUBROUTINE compute_write_var_list(commData, description, vars)
     TYPE(t_AsyncRestartCommData), INTENT(inout) :: commData
     TYPE(t_restart_patch_description), INTENT(in) :: description
-    TYPE(t_p_var_list_element), INTENT(in) :: vars(:)
+    TYPE(t_var_ptr), INTENT(in) :: vars(:)
     REAL(dp), POINTER               :: r_ptr_3d(:,:,:)
     REAL(sp), POINTER               :: s_ptr_3d(:,:,:)
     INTEGER, POINTER                :: i_ptr_3d(:,:,:)

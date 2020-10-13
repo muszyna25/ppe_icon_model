@@ -38,8 +38,8 @@ MODULE mo_advection_utils
   USE mo_fortran_tools,         ONLY: t_ptr_2d3d
   USE mo_cf_convention,         ONLY: t_cf_var
   USE mo_grib2,                 ONLY: t_grib2_var
-  USE mo_var_list,              ONLY: add_ref, find_list_element, &
-    &                                 t_var_list_ptr, t_list_element
+  USE mo_var_list, ONLY: add_ref, find_list_element, t_var_list_ptr
+  USE mo_var, ONLY: t_var
   USE mo_var_metadata_types,    ONLY: t_var_metadata,                    &
     &                                 t_vert_interp_meta,                &
     &                                 t_hor_interp_meta,                 &
@@ -182,7 +182,7 @@ CONTAINS
     CLASS(t_tracer_meta), INTENT(in), OPTIONAL :: tracer_info      ! tracer meta data
 
     ! Local variables:
-    TYPE(t_list_element), POINTER :: target_element
+    TYPE(t_var), POINTER :: target_var
     TYPE(t_var_metadata), POINTER :: target_info
 
     INTEGER :: zihadv_tracer, zivadv_tracer
@@ -192,9 +192,9 @@ CONTAINS
   !------------------------------------------------------------------
 
     ! get pointer to target element (in this case 4D tracer container)
-    target_element => find_list_element (this_list, target_name)
+    target_var => find_list_element (this_list, target_name)
     ! get tracer field metadata
-    target_info => target_element%field%info
+    target_info => target_var%info
 
     ! get index of current field in 4D container and set
     ! tracer index accordingly.

@@ -27,13 +27,12 @@ MODULE mo_name_list_output_printvars
   USE mo_impl_constants,                    ONLY: ihs_ocean, SUCCESS, vname_len
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_exception,                         ONLY: finish, message_text
-  USE mo_var_list,                          ONLY: t_list_element
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_gribout_config,                    ONLY: t_gribout_config
   USE mo_name_list_output_zaxes_types,      ONLY: t_verticalAxisList, t_verticalAxis
   USE mo_level_selection_types,             ONLY: t_level_selection
   USE mo_var_list_register,                 ONLY: t_var_list_iterator
-  USE mo_var_list_element,                  ONLY: t_var_list_element, level_type_ml
+  USE mo_var,                               ONLY: t_var, level_type_ml
   USE mo_dictionary,                        ONLY: t_dictionary
   USE mo_util_sort,                         ONLY: quicksort
   USE mo_util_string,                       ONLY: remove_duplicates, toupper, tolower, int2string
@@ -62,11 +61,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return variable name without time level or tile suffix
   !
-  FUNCTION get_var_basename(var)
-    CHARACTER(LEN=vname_len) :: get_var_basename
-    TYPE(t_var_list_element)   :: var
-    ! local variable
-    INTEGER          :: endidx
+  CHARACTER(LEN=vname_len) FUNCTION get_var_basename(var)
+    TYPE(t_var) :: var
+    INTEGER :: endidx
     CHARACTER(LEN=1) :: suffix_str
 
     ! first cut off the time level suffix:
@@ -76,9 +73,7 @@ CONTAINS
     ELSE
       endidx = endidx - 1
     END IF
-
     suffix_str = " "
-
     ! condense three-digit suffices "001, 002, 003, ..." into "*"
     ! for container variables
     IF (endidx > 3) THEN
@@ -91,7 +86,6 @@ CONTAINS
         suffix_str = "*"
       END IF
     END IF
-
     ! condense two-digit suffices "_01, _02, _03, ..." into "*"
     IF (endidx > 2) THEN
       IF ((var%info%name(endidx-2:endidx-2) == "_")    .AND. &
@@ -101,7 +95,6 @@ CONTAINS
         suffix_str = "*"
       END IF
     END IF
-
     ! condense one-digit suffices "_1, _2, _3, ..." into "_*"
     IF ((endidx > 1) .AND. (suffix_str == " ")) THEN
       IF ((var%info%name(endidx-1:endidx-1) == "_") .AND. &
@@ -110,7 +103,6 @@ CONTAINS
         suffix_str = "*"
       END IF
     END IF
-
     get_var_basename = TRIM(var%info%name(1:endidx))//suffix_str
 
   CONTAINS
@@ -118,7 +110,6 @@ CONTAINS
       CHARACTER, INTENT(IN) :: char
       is_number = (IACHAR(char) - IACHAR('0')) <= 9
     END FUNCTION is_number
-
   END FUNCTION get_var_basename
 
   !------------------------------------------------------------------------------------------------
@@ -220,9 +211,9 @@ CONTAINS
     TYPE(t_verticalAxisList), TARGET               :: tmp_verticalAxisList
     TYPE(t_verticalAxisList), POINTER              :: it
     TYPE (t_var_metadata),    POINTER              :: info
-    TYPE(t_list_element),     POINTER              :: element, next
+    TYPE(t_var),     POINTER              :: elem
     TYPE(t_cf_var),           POINTER              :: this_cf
-    INTEGER                                        :: i, nout_vars, iout_var, ierrstat
+    INTEGER                                        :: i, iv, nout_vars, iout_var, ierrstat
     CHARACTER(kind=c_char, LEN = cdi_max_name + 1) :: name
     CHARACTER(LEN=max_str_len), ALLOCATABLE        :: out_vars(:)
     CHARACTER(len=128)                             :: descr_string
@@ -252,16 +243,13 @@ CONTAINS
       IF (vl_iter%cur%p%patch_id /= print_patch_id) CYCLE
       IF(.NOT.vl_iter%cur%p%loutput) CYCLE
       IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE
-      element => vl_iter%cur%p%first_list_element
-      DO WHILE(ASSOCIATED(element))
-        IF (element%field%info%loutput) nout_vars = nout_vars + 1
-        element => element%next_list_element
+      DO iv = 1, vl_iter%cur%p%nvars
+        IF (vl_iter%cur%p%vl(iv)%P%info%loutput) nout_vars = nout_vars + 1
       END DO
     END DO
     ! allocate sufficient space
     ALLOCATE(out_vars(nout_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
     iout_var = 0
     DO WHILE(vl_iter%next())
       IF (vl_iter%cur%p%patch_id /= print_patch_id) CYCLE
@@ -269,16 +257,11 @@ CONTAINS
       IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE
       ! Do not inspect element if output is disabled
       IF(.NOT.vl_iter%cur%p%loutput) CYCLE
-
-      next => vl_iter%cur%p%first_list_element
-      DO WHILE(ASSOCIATED(next))
-        element => next
-        next => element%next_list_element
-        info => element%field%info
-
+      DO iv = 1, vl_iter%cur%p%nvars
+        elem => vl_iter%cur%p%vl(iv)%p
+        info => elem%info
         ! Do not inspect element if output is disabled
-        IF (.NOT. info%loutput) CYCLE
-        
+        IF (.NOT.info%loutput) CYCLE
         IF (info%post_op%lnew_cf) THEN
           this_cf => info%post_op%new_cf
         ELSE
@@ -289,9 +272,8 @@ CONTAINS
         ! source variable:
         IF ((LEN_TRIM(this_cf%long_name) == 0) .AND. info%lcontained) THEN
           this_cf => info%cf
-          IF (ASSOCIATED(element%field%ref_to)) THEN
-            IF (element%field%ref_to%info%ncontained > 0) &
-              & this_cf => element%field%ref_to%info%cf
+          IF (ASSOCIATED(elem%ref_to)) THEN
+            IF (elem%ref_to%info%ncontained > 0) this_cf => elem%ref_to%info%cf
           END IF
         END IF
 
@@ -311,7 +293,7 @@ CONTAINS
 
         iout_var = iout_var + 1
         WRITE (out_vars(iout_var),'(5a)')                                             &
-          &         "\varname{"//tolower(get_var_basename(element%field))//"}", &
+          &         "\varname{"//tolower(get_var_basename(elem))//"}", &
           &         ' & ',                                                            &
           &         TRIM(name),                                                       &
           &         ' & ',                                                            &

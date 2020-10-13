@@ -25,8 +25,8 @@ MODULE mo_restart_var_data
   USE mo_kind,               ONLY: dp, sp
   USE mo_util_string,        ONLY: int2string
   USE mo_var_list_register,  ONLY: t_var_list_iterator
-  USE mo_var_list,           ONLY: t_list_element, t_var_list_ptr
-  USE mo_var_list_element,   ONLY: t_p_var_list_element, t_var_list_element
+  USE mo_var_list,           ONLY: t_var_list_ptr
+  USE mo_var,                ONLY: t_var, t_var_ptr
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_var_metadata,       ONLY: get_var_timelevel
 #ifndef __NO_ICON_ATMO__
@@ -54,12 +54,12 @@ MODULE mo_restart_var_data
 CONTAINS
 
   SUBROUTINE createRestartVarData(var_data, patch_id, modelType, out_restartType)
-    TYPE(t_p_var_list_element), ALLOCATABLE, INTENT(out) :: var_data(:)
+    TYPE(t_var_ptr), ALLOCATABLE, INTENT(OUT) :: var_data(:)
     INTEGER, INTENT(in) :: patch_id
     CHARACTER(LEN = *), INTENT(IN) :: modelType
     INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
-    INTEGER :: n_var, n_vl, iv, il, ierr, restartType
-    TYPE(t_list_element), POINTER :: element
+    INTEGER :: n_var, n_vl, iv, iv2, il, ierr, restartType
+    TYPE(t_var), POINTER :: elem
     TYPE(t_var_list_ptr), ALLOCATABLE :: reordered_vls(:)
     TYPE(t_var_list_iterator) :: vl_iter
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartVarData"
@@ -71,10 +71,8 @@ CONTAINS
       n_vl = MAX(n_vl, vl_iter%cur%p%id)
       IF (wantVarlist(vl_iter%cur)) THEN
         ! check, if the list has valid restart fields
-        element => vl_iter%cur%p%first_list_element
-        DO WHILE (ASSOCIATED(element))
-          n_var = n_var + MERGE(1, 0, element%field%info%lrestart)
-          element => element%next_list_element
+        DO iv = 1, vl_iter%cur%p%nvars
+          n_var = n_var + MERGE(1, 0, vl_iter%cur%p%vl(iv)%p%info%lrestart)
         END DO
       END IF
     ENDDO
@@ -96,13 +94,12 @@ CONTAINS
       IF(restartType /= reordered_vls(il)%p%restart_type) &
         & CALL finish(routine, "var_lists contains inconsistent restart_type values")
       ! check, if the list has valid restart fields
-      element => reordered_vls(il)%p%first_list_element
-      DO WHILE (ASSOCIATED(element))
-        IF (element%field%info%lrestart) THEN
+      DO iv2 = 1, reordered_vls(il)%p%nvars
+        elem => reordered_vls(il)%p%vl(iv2)%p
+        IF (elem%info%lrestart) THEN
           iv = iv + 1
-          var_data(iv)%p => element%field
+          var_data(iv)%p => elem
         END IF
-        element => element%next_list_element
       END DO
     END DO
     IF(iv /= n_var) CALL finish(routine, "inconsistent restart variable count")
@@ -119,7 +116,7 @@ CONTAINS
   END SUBROUTINE createRestartVarData
 
   SUBROUTINE get_var_3d_ptr_dp(vd, r_ptr_3d)
-    TYPE(t_var_list_element), POINTER, INTENT(IN) :: vd
+    TYPE(t_var), POINTER, INTENT(IN) :: vd
     REAL(dp), POINTER, INTENT(OUT) :: r_ptr_3d(:,:,:)
     REAL(dp), POINTER :: r_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
@@ -163,7 +160,7 @@ CONTAINS
   END SUBROUTINE get_var_3d_ptr_dp
 
   SUBROUTINE get_var_3d_ptr_sp(vd, s_ptr_3d)
-    TYPE(t_var_list_element), POINTER, INTENT(IN) :: vd
+    TYPE(t_var), POINTER, INTENT(IN) :: vd
     REAL(sp), POINTER, INTENT(OUT) :: s_ptr_3d(:,:,:)
     REAL(sp), POINTER :: s_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos
@@ -207,7 +204,7 @@ CONTAINS
   END SUBROUTINE get_var_3d_ptr_sp
 
   SUBROUTINE get_var_3d_ptr_int(vd, i_ptr_3d)
-    TYPE(t_var_list_element), POINTER, INTENT(IN) :: vd
+    TYPE(t_var), POINTER, INTENT(IN) :: vd
     INTEGER, POINTER, INTENT(OUT) :: i_ptr_3d(:,:,:)
     INTEGER, POINTER :: i_ptr_2d(:,:)
     INTEGER :: nindex, nlevs, var_ref_pos

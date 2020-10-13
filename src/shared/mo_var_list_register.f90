@@ -10,9 +10,8 @@ MODULE mo_var_list_register
   USE mo_var_metadata_types,ONLY: t_var_metadata, var_metadata_fromBinary, &
     & var_metadata_toBinary
   USE mo_var_metadata,     ONLY: get_var_name
-  USE mo_var_list_element, ONLY: level_type_ml
-  USE mo_var_list,         ONLY: find_list_element, print_var_list, delete_list, &
-    & t_var_list_ptr, t_list_element, append_list_element, sel_var_list
+  USE mo_var, ONLY: level_type_ml, t_var
+  USE mo_var_list,         ONLY: find_list_element, t_var_list_ptr, sel_var_list
   USE mo_exception,        ONLY: message, finish
   USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
     &                            tolower, difference, find_trailing_number
@@ -49,11 +48,11 @@ MODULE mo_var_list_register
     PROCEDURE, PUBLIC :: new => new_var_list
     PROCEDURE, PUBLIC :: delete => delete_var_list
     PROCEDURE, PUBLIC :: get => get_var_list
-    PROCEDURE, PUBLIC :: find_var_all => find_var_all
-    PROCEDURE, PUBLIC :: print_all => print_all_var_lists
-    PROCEDURE, PUBLIC :: collect_group => collect_group
+    PROCEDURE, PUBLIC, NOPASS :: find_var_all => find_var_all
+    PROCEDURE, PUBLIC, NOPASS :: print_all => print_all_var_lists
+    PROCEDURE, PUBLIC, NOPASS :: collect_group => collect_group
     PROCEDURE, PUBLIC :: print_group => print_group_details
-    PROCEDURE, PUBLIC :: n_var => total_number_of_variables
+    PROCEDURE, PUBLIC, NOPASS :: n_var => total_number_of_variables
     PROCEDURE, PUBLIC :: packer => varlistPacker
     PROCEDURE, PUBLIC :: new_var_ref => add_var_reference
   END TYPE t_var_list_store
@@ -172,21 +171,18 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   ! @return total number of (non-container) variables
-  INTEGER FUNCTION total_number_of_variables(this) RESULT(nvar)
-    CLASS(t_var_list_store), INTENT(IN) :: this
+  INTEGER FUNCTION total_number_of_variables() RESULT(nvar)
     TYPE(t_var_list_iterator) :: iter
-    TYPE(t_list_element), POINTER :: element
+    INTEGER :: i
 
     nvar = 0
     ! Note that there may be several variables with different time
     ! levels, we just add unconditionally all
     DO WHILE(iter_next(iter))
-      element => iter%cur%p%first_list_element
-      DO WHILE (ASSOCIATED(element))
-        ! Do not count element if it is a container
-        IF (.NOT.element%field%info%lcontainer) nvar = nvar + 1
-        element => element%next_list_element
-      ENDDO
+      DO i = 1, iter%cur%p%nvars
+        IF (.NOT.iter%cur%p%vl(i)%p%info%lcontainer) &
+          nvar = nvar + 1
+      END DO
     ENDDO
   END FUNCTION total_number_of_variables
 
@@ -205,7 +201,7 @@ CONTAINS
       CLASS(*), POINTER :: keyObj
 
       keyObj => key
-      CALL delete_list(list)
+      CALL list%delete()
       CALL this%storage%removeEntry(keyObj)
     END SUBROUTINE remove_var_list
   END SUBROUTINE delete_var_list
@@ -223,47 +219,45 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
-  SUBROUTINE add_var_reference(this, to_var_list, vname, from_var_list, loutput, bit_precision, in_group)
-    CLASS(t_var_list_store), INTENT(INOUT)   :: this
-    TYPE(t_var_list_ptr), INTENT(inout)      :: to_var_list
-    CHARACTER(len=*), INTENT(in)             :: vname, from_var_list
-    LOGICAL,          INTENT(in),   OPTIONAL :: loutput, in_group(MAX_GROUPS)
-    INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
+  SUBROUTINE add_var_reference(this, to_vl, vname, from_vl, loutput, bit_precision, in_group)
+    CLASS(t_var_list_store), INTENT(INOUT) :: this
+    TYPE(t_var_list_ptr), INTENT(INOUT) :: to_vl
+    CHARACTER(*), INTENT(IN) :: vname, from_vl
+    LOGICAL, INTENT(in), OPTIONAL :: loutput, in_group(MAX_GROUPS)
+    INTEGER, INTENT(in), OPTIONAL :: bit_precision
     TYPE(t_var_list_ptr) :: vlp_from
-    TYPE(t_list_element),     POINTER :: n_list_e, o_list_e => NULL()
+    TYPE(t_var), POINTER :: n_e, o_e => NULL()
 
-    CALL get_var_list(this, vlp_from, from_var_list)
-    IF (ASSOCIATED(vlp_from%p)) o_list_e => find_list_element(vlp_from, vname)
-    IF (ASSOCIATED(o_list_e)) THEN
-      CALL append_list_element(to_var_list, n_list_e)
-      n_list_e%field                = o_list_e%field
-      n_list_e%field%info%allocated = .FALSE.
-      n_list_e%field%info%lrestart  = .FALSE.
-      IF (PRESENT(loutput))       n_list_e%field%info%loutput     = loutput
-      IF (PRESENT(bit_precision)) n_list_e%field%info%grib2%bits  = bit_precision
-      IF (PRESENT(in_group))      n_list_e%field%info%in_group(:) = in_group(:)
+    CALL get_var_list(this, vlp_from, from_vl)
+    IF (ASSOCIATED(vlp_from%p)) o_e => find_list_element(vlp_from, vname)
+    IF (ASSOCIATED(o_e)) THEN
+      ALLOCATE(n_e, SOURCE=o_e)
+      n_e%info%allocated = .FALSE.
+      n_e%info%lrestart  = .FALSE.
+      IF (PRESENT(loutput))       n_e%info%loutput     = loutput
+      IF (PRESENT(bit_precision)) n_e%info%grib2%bits  = bit_precision
+      IF (PRESENT(in_group))      n_e%info%in_group(:) = in_group(:)
+      CALL to_vl%register(n_e)
     ENDIF
   END SUBROUTINE add_var_reference
 
   !------------------------------------------------------------------------------------------------
   ! print all var lists
-  SUBROUTINE print_all_var_lists(this, lshort)
-    CLASS(t_var_list_store), INTENT(IN) :: this
+  SUBROUTINE print_all_var_lists(lshort)
     LOGICAL, OPTIONAL, INTENT(IN) :: lshort
     TYPE(t_var_list_iterator) :: iter
 
     DO WHILE(iter_next(iter))
-      CALL print_var_list(iter%cur, lshort=lshort)
+      CALL iter%cur%print(lshort=lshort)
     END DO
   END SUBROUTINE print_all_var_lists
 
   !> Loops over all variables and collects the variables names
   !  corresponding to the group @p grp_name
-  SUBROUTINE collect_group(this, grp_name, var_name, nvars,       &
+  SUBROUTINE collect_group(grp_name, var_name, nvars,       &
     &                      loutputvars_only, lremap_lonlat, &
     &                      opt_vlevel_type, opt_dom_id,     &
     &                      opt_lquiet)
-    CLASS(t_var_list_store), INTENT(IN)  :: this
     CHARACTER(*),             INTENT(IN)    :: grp_name
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: var_name(:)
     INTEGER,                  INTENT(OUT)   :: nvars
@@ -278,10 +272,9 @@ CONTAINS
     LOGICAL, OPTIONAL,        INTENT(IN)    :: opt_lquiet
     TYPE(t_var_list_iterator) :: iter
     CHARACTER(*), PARAMETER :: routine = modname//":collect_group", llmsg = " lon-lat"
-    INTEGER                       :: grp_id, llmsg_len
-    TYPE(t_list_element), POINTER :: element
+    INTEGER :: grp_id, llmsg_len, i
     TYPE(t_var_metadata), POINTER :: info
-    CHARACTER(LEN=vname_len)      :: name
+    CHARACTER(LEN=vname_len) :: vname
     LOGICAL                       :: lquiet, verbose, skip
 
     nvars  = 0
@@ -289,7 +282,6 @@ CONTAINS
     lquiet = .FALSE.
     IF (PRESENT(opt_lquiet))  lquiet = opt_lquiet
     verbose = .NOT. lquiet
-
     ! loop over all variable lists and variables
     DO WHILE(iter_next(iter))
       IF (PRESENT(opt_vlevel_type)) THEN
@@ -299,13 +291,11 @@ CONTAINS
         ! do not inspect variable list if its domain does not match:
         IF (iter%cur%p%patch_id /= opt_dom_id)  CYCLE
       END IF
-
-      element => iter%cur%p%first_list_element
-      LOOPVAR : DO WHILE (ASSOCIATED(element))
-        info => element%field%info
+      LOOPVAR : DO i = 1, iter%cur%p%nvars
+        info => iter%cur%p%vl(i)%p%info
         ! Do not inspect element if it is a container
         IF (.NOT. info%lcontainer .AND. info%in_group(grp_id)) THEN
-          name = get_var_name(info)
+          vname = get_var_name(info)
           llmsg_len = 0
           ! Skip element if we need only output variables:
           skip = loutputvars_only .AND. &
@@ -320,32 +310,28 @@ CONTAINS
             skip = skip .OR. &
                  (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT))
           END IF
-
           IF (.NOT. skip) THEN
             nvars = nvars + 1
-            var_name(nvars) = name
+            var_name(nvars) = vname
           ELSE IF (verbose) THEN
-            CALL message(routine, "Skipping variable "//TRIM(name)//" for " &
+            CALL message(routine, "Skipping variable "//TRIM(vname)//" for " &
                  //llmsg(1:llmsg_len)//"output.")
           END IF
         END IF
-        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
     
     CALL remove_duplicates(var_name, nvars)
   END SUBROUTINE collect_group
+
   !-----------------------------------------------------------------------------
-  !
   ! Find named list element accross all knows variable lists
-  !
-  FUNCTION find_var_all(this, vname, opt_patch_id, opt_hgrid, opt_list, opt_cs, opt_output) RESULT(element)
-    CLASS(t_var_list_store), INTENT(IN) :: this
+  FUNCTION find_var_all(vname, opt_patch_id, opt_hgrid, opt_list, opt_cs, opt_output) RESULT(element)
     CHARACTER(*), INTENT(in) :: vname
     INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id, opt_hgrid
     TYPE(t_var_list_ptr), OPTIONAL, INTENT(OUT) :: opt_list
     LOGICAL, OPTIONAL, INTENT(IN) :: opt_cs, opt_output
-    TYPE(t_list_element), POINTER :: element
+    TYPE(t_var), POINTER :: element
     INTEGER :: patch_id
     LOGICAL :: output, check_output
     TYPE(t_var_list_iterator) :: iter
@@ -377,22 +363,22 @@ CONTAINS
     TYPE(t_PackedMessage), INTENT(INOUT) :: pmsg
     LOGICAL, INTENT(IN) :: restart_only
     INTEGER, INTENT(OUT), OPTIONAL :: nv_all
-    INTEGER :: iv, nv, nelems, nelems_all, patch_id, restart_type, vlevel_type, n, ierrstat, id
+    INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, restart_type, vlevel_type, ierrstat, id
     INTEGER, ALLOCATABLE :: info_buf(:)
-    TYPE(t_list_element), POINTER   :: element, newElement
-    CHARACTER(LEN=128)              :: var_list_name
-    CHARACTER(LEN=32)               :: model_type
-    LOGICAL                         :: lrestart, loutput
+    TYPE(t_var), POINTER :: elem
+    CHARACTER(LEN=128) :: var_list_name
+    CHARACTER(LEN=32) :: model_type
+    LOGICAL :: lrestart, loutput
     TYPE(t_var_list_ptr) :: vlp
     TYPE(t_var_list_iterator) :: iter
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
     IF (operation .EQ. kUnpackOp) CALL delete_var_lists(this)
-    nv = 0
-    IF (this%is_init) nv = this%storage%getEntryCount()
-    CALL pmsg%packer(operation, nv)
-    nelems_all = 0
-    DO iv = 1, nv
+    nvl = 0
+    IF (this%is_init) nvl = this%storage%getEntryCount()
+    CALL pmsg%packer(operation, nvl)
+    nv_al = 0
+    DO ivl = 1, nvl
       IF(operation .EQ. kPackOp) THEN
         IF (.NOT.iter_next(iter)) CALL finish(routine, "inconsistency")
         vlp%p => iter%cur%p
@@ -405,13 +391,14 @@ CONTAINS
         patch_id      = vlp%p%patch_id
         restart_type  = vlp%p%restart_type
         vlevel_type   = vlp%p%vlevel_type
-        element     =>  vlp%p%first_list_element
-        nelems = 0
-        DO WHILE (ASSOCIATED(element))
-          IF(element%field%info%lrestart .OR. .NOT.restart_only) nelems = nelems + 1
-          element => element%next_list_element
-        END DO
-        nelems_all = nelems_all + nelems
+        nv = vlp%p%nvars
+        IF (restart_only) THEN
+          nv = 0
+          DO iv = 1, vlp%p%nvars
+            IF(vlp%p%vl(iv)%p%info%lrestart) nv = nv + 1
+          END DO
+        END IF
+        nv_al = nv_al + nv
       END IF
       CALL pmsg%packer(operation, lrestart)
       CALL pmsg%packer(operation, loutput)
@@ -421,17 +408,21 @@ CONTAINS
       CALL pmsg%packer(operation, patch_id)
       CALL pmsg%packer(operation, restart_type)
       CALL pmsg%packer(operation, vlevel_type)
-      CALL pmsg%packer(operation, nelems)
+      CALL pmsg%packer(operation, nv)
       IF (restart_only .AND. .NOT. lrestart) CYCLE  ! transfer only a restart var_list
-      IF (nelems .EQ. 0) CYCLE ! check if there are valid restart fields
+      IF (nv .EQ. 0) CYCLE ! check if there are valid restart fields
       IF (operation .EQ. kPackOp) THEN
-        element => vlp%p%first_list_element
-        DO WHILE (ASSOCIATED(element))
-          IF(element%field%info%lrestart .OR. .NOT.restart_only) THEN
-            info_buf = var_metadata_toBinary(element%field%info)
+        DO iv = 1, vlp%p%nvars
+          elem => vlp%p%vl(iv)%p
+          IF(elem%info%lrestart .OR. .NOT.restart_only) THEN
+            info_buf = var_metadata_toBinary(elem%info)
             CALL pmsg%pack(info_buf)
+            CALL pmsg%pack(vlp%p%tl(iv))
+            CALL pmsg%pack(vlp%p%hgrid(iv))
+            CALL pmsg%pack(vlp%p%key(iv))
+            CALL pmsg%pack(vlp%p%key_notl(iv))
+            CALL pmsg%pack(vlp%p%lout(iv))
           END IF
-          element => element%next_list_element
         END DO
       ELSE
         ! create var list
@@ -439,29 +430,31 @@ CONTAINS
           & model_type=model_type, restart_type=restart_type, &
           & vlevel_type=vlevel_type, lrestart=lrestart, loutput=loutput)
         vlp%p%id = id ! override !
+        vlp%p%nvars = nv
         ! insert elements into var list
-        DO n = 1, nelems
-          ALLOCATE(newElement, STAT=ierrstat)
+        ALLOCATE(vlp%p%vl(nv), vlp%p%tl(nv), vlp%p%hgrid(nv), &
+          & vlp%p%key(nv), vlp%p%key_notl(nv), vlp%p%lout(nv))
+        DO iv = 1, nv
+          ALLOCATE(vlp%p%vl(iv)%p, STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failure")
-          IF (n .EQ. 1) THEN
-            vlp%p%first_list_element => newElement
-          ELSE
-            element%next_list_element => newElement
-          END IF
-          element => newElement
-          NULLIFY(element%next_list_element ,element%field%r_ptr, element%field%s_ptr, &
-            &     element%field%i_ptr, element%field%l_ptr)
-          element%field%var_base_size = 0 ! Unknown here
+          elem => vlp%p%vl(iv)%p
+          NULLIFY(elem%r_ptr, elem%s_ptr, elem%i_ptr, elem%l_ptr)
+          elem%var_base_size = 0 ! Unknown here
           CALL pmsg%unpack(info_buf)
-          element%field%info = var_metadata_fromBinary(info_buf)
+          elem%info = var_metadata_fromBinary(info_buf)
+          CALL pmsg%unpack(vlp%p%tl(iv))
+          CALL pmsg%unpack(vlp%p%hgrid(iv))
+          CALL pmsg%unpack(vlp%p%key(iv))
+          CALL pmsg%unpack(vlp%p%key_notl(iv))
+          CALL pmsg%unpack(vlp%p%lout(iv))
         END DO
       END IF
     END DO
     IF (operation .EQ. kPackOp) THEN
       IF (iter_next(iter)) CALL finish(routine, "inconsistency -- second kind")
     END IF 
-    CALL pmsg%packer(operation, nelems_all)
-    IF (PRESENT(nv_all)) nv_all = nelems_all
+    CALL pmsg%packer(operation, nv_al)
+    IF (PRESENT(nv_all)) nv_all = nv_al
   END SUBROUTINE varlistPacker
 
   !>  Detailed print-out of variable groups.
@@ -475,19 +468,17 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: opt_skip_trivial        !< Flag: skip empty of single-entry groups
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::print_group_details"
-    CHARACTER(len=vname_len), ALLOCATABLE :: group_names(:)
-    CHARACTER(LEN=vname_len), ALLOCATABLE :: grp_vars(:), grp_vars_output(:)
-    INTEGER,                    ALLOCATABLE :: slen(:)
-    INTEGER                                 :: ngrp_vars, ngrp_vars_output, ierrstat, i, j, k, t
-    LOGICAL                                 :: latex_fmt, reduce_trailing_num, skip_trivial, lfound
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: grp_names(:), grp_vars(:), grp_vars_out(:)
+    INTEGER, ALLOCATABLE :: slen(:)
+    INTEGER :: ngrp_vars, ngrp_vars_out, ierrstat, i, j, k, t
+    LOGICAL :: latex_fmt, reduce_trailing_num, skip_trivial, lfound
 
     latex_fmt = .FALSE.
-    IF (PRESENT(opt_latex_fmt))  latex_fmt = opt_latex_fmt 
+    IF (PRESENT(opt_latex_fmt)) latex_fmt = opt_latex_fmt 
     reduce_trailing_num = .FALSE.
-    IF (PRESENT(opt_reduce_trailing_num))  reduce_trailing_num = opt_reduce_trailing_num 
+    IF (PRESENT(opt_reduce_trailing_num)) reduce_trailing_num = opt_reduce_trailing_num 
     skip_trivial = .FALSE.
-    IF (PRESENT(opt_skip_trivial))  skip_trivial = opt_skip_trivial 
-
+    IF (PRESENT(opt_skip_trivial)) skip_trivial = opt_skip_trivial 
     IF (latex_fmt) THEN
       WRITE (0,*) " "
       WRITE (0,*) "% ---------------------------------------"
@@ -504,36 +495,30 @@ CONTAINS
       WRITE (0,*) "---------------------------------------"
       WRITE (0,*) " "
     END IF
-
-    group_names = var_groups_dyn%alphabetical_list()
+    grp_names = var_groups_dyn%alphabetical_list()
     IF (latex_fmt) THEN
       WRITE (0,*) "% List of groups:"
-      CALL pretty_print_string_list(group_names, opt_prefix=" %    ")
+      CALL pretty_print_string_list(grp_names, opt_prefix=" %    ")
     ELSE
       WRITE (0,*) "List of groups:"
-      CALL pretty_print_string_list(group_names, opt_prefix="    ")
+      CALL pretty_print_string_list(grp_names, opt_prefix="    ")
     END IF
-    
     ! temporary variables needed for variable group parsing
-    i = total_number_of_variables(this)
-    ALLOCATE(grp_vars_output(i), grp_vars(i), STAT=ierrstat)
+    i = total_number_of_variables()
+    ALLOCATE(grp_vars_out(i), grp_vars(i), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    
-    DO i=1,SIZE(group_names)
-      
+    DO i = 1, SIZE(grp_names)
       ! for each group we collect the contained variables two times
       ! - the first time we collect *all* model level variables on
       ! the triangular grid, and the second time we collect only
       ! those variables which are available for output.
-      CALL collect_group(this, group_names(i), grp_vars, ngrp_vars,    &
+      CALL collect_group(grp_names(i), grp_vars, ngrp_vars,    &
         &               loutputvars_only = .FALSE.,              &
         &               lremap_lonlat    = .FALSE.,              &
         &               opt_vlevel_type  = level_type_ml,        &
         &               opt_dom_id       = idom,                 &
         &               opt_lquiet       = .TRUE.)
-     
       IF (ngrp_vars > 0) THEN
-        
         DO j=1,ngrp_vars
           grp_vars(j) = tolower(grp_vars(j))
         END DO
@@ -562,91 +547,77 @@ CONTAINS
           DEALLOCATE(slen)
         END IF
         CALL quicksort(grp_vars(1:ngrp_vars))
-
         IF ((skip_trivial) .AND. (ngrp_vars <= 1))  CYCLE
-               
-        CALL collect_group(this, group_names(i), grp_vars_output, ngrp_vars_output,    &
+        CALL collect_group(grp_names(i), grp_vars_out, ngrp_vars_out,    &
           &               loutputvars_only = .TRUE.,               &
           &               lremap_lonlat    = .FALSE.,              &
           &               opt_vlevel_type  = level_type_ml,        &
           &               opt_dom_id       = idom,                 &
           &               opt_lquiet       = .TRUE.)
         
-        DO j=1,ngrp_vars_output
-          grp_vars_output(j) = tolower(grp_vars_output(j))
+        DO j=1,ngrp_vars_out
+          grp_vars_out(j) = tolower(grp_vars_out(j))
         END DO
         ! (optionally) replace trailing numbers by "*"
         IF (reduce_trailing_num) THEN
-          ALLOCATE(slen(ngrp_vars_output))
-          DO j=1,ngrp_vars_output
-            slen(j) = find_trailing_number(grp_vars_output(j))
+          ALLOCATE(slen(ngrp_vars_out))
+          DO j=1,ngrp_vars_out
+            slen(j) = find_trailing_number(grp_vars_out(j))
           END DO
-          DO j=1,ngrp_vars_output
+          DO j=1,ngrp_vars_out
             t = slen(j)
             IF (t /= -1) THEN
               ! replace trailing number if any other variable of "this
               ! kind" exists:
               lfound = .FALSE.
-              INNER_LOOP2 : DO k=1,ngrp_vars_output
+              INNER_LOOP2 : DO k=1,ngrp_vars_out
                 IF (j==k)  CYCLE INNER_LOOP2
-                IF (grp_vars_output(j)(1:(t-1)) == grp_vars_output(k)(1:(slen(k)-1))) lfound = .TRUE.
+                IF (grp_vars_out(j)(1:(t-1)) == grp_vars_out(k)(1:(slen(k)-1))) lfound = .TRUE.
               END DO INNER_LOOP2
-              IF (lfound) THEN
-                grp_vars_output(j) = grp_vars_output(j)(1:(t-1))//"*"
-              END IF
+              IF (lfound) grp_vars_out(j) = grp_vars_out(j)(1:(t-1))//"*"
             END IF
           END DO
-          CALL remove_duplicates(grp_vars_output(1:ngrp_vars_output), ngrp_vars_output)
+          CALL remove_duplicates(grp_vars_out(1:ngrp_vars_out), ngrp_vars_out)
           DEALLOCATE(slen)
         END IF
-        CALL quicksort(grp_vars_output(1:ngrp_vars_output))
-
+        CALL quicksort(grp_vars_out(1:ngrp_vars_out))
         IF (latex_fmt) THEN
           DO j=1,ngrp_vars
             grp_vars(j) = "\varname{"//TRIM(grp_vars(j))//"}"
           END DO
-          DO j=1,ngrp_vars_output
-            grp_vars_output(j) = "\varname{"//TRIM(grp_vars_output(j))//"}"
+          DO j=1,ngrp_vars_out
+            grp_vars_out(j) = "\varname{"//TRIM(grp_vars_out(j))//"}"
           END DO
         END IF
-        
         WRITE (0,*) ' '
         IF (latex_fmt) THEN
-          WRITE (0,*) "\begin{varlist}{\grpname{"//TRIM(group_names(i))//"}}"
+          WRITE (0,*) "\begin{varlist}{\grpname{"//TRIM(grp_names(i))//"}}"
         ELSE
-          WRITE (0,*) 'GROUP "', TRIM(group_names(i)), '":'
+          WRITE (0,*) 'GROUP "', TRIM(grp_names(i)), '":'
         END IF
-        CALL pretty_print_string_list(grp_vars_output(1:ngrp_vars_output), opt_prefix="    ")
-        
-        CALL difference(grp_vars, ngrp_vars, grp_vars_output, ngrp_vars_output)
+        CALL pretty_print_string_list(grp_vars_out(1:ngrp_vars_out), opt_prefix="    ")
+        CALL difference(grp_vars, ngrp_vars, grp_vars_out, ngrp_vars_out)
         IF (ngrp_vars > 0) THEN
           WRITE (0,*) " "
           WRITE (0,*) "   Non-output variables:"
           WRITE (0,*) " "
-
           CALL pretty_print_string_list(grp_vars(1:ngrp_vars), opt_prefix="    ")
         END IF
-        
       ELSE
-
         IF ((skip_trivial) .AND. (ngrp_vars <= 1))  CYCLE
-
         WRITE (0,*) ' '
         IF (latex_fmt) THEN
-          WRITE (0,*) "\begin{varlist}{\grpname{"//TRIM(group_names(i))//"}}"
+          WRITE (0,*) "\begin{varlist}{\grpname{"//TRIM(grp_names(i))//"}}"
         ELSE
-          WRITE (0,*) 'GROUP "', TRIM(group_names(i)), '":'
+          WRITE (0,*) 'GROUP "', TRIM(grp_names(i)), '":'
         END IF
         WRITE (0,*) "   -- empty --"
-        
       END IF
-
-      IF (latex_fmt) THEN
-        WRITE (0,*) "\end{varlist}"
-      END IF
+      IF (latex_fmt) WRITE (0,*) "\end{varlist}"
     END DO
     WRITE (0,*) " "
-    DEALLOCATE(group_names, grp_vars, grp_vars_output, STAT=ierrstat)
+    DEALLOCATE(grp_names, grp_vars, grp_vars_out, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END SUBROUTINE print_group_details
+
 END MODULE mo_var_list_register

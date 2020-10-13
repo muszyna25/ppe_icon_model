@@ -47,7 +47,7 @@ MODULE mo_action
   USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_comm_work, p_bcast
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
-  USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
+  USE mtime,                 ONLY: t_event => event, newEvent, datetime, newDatetime,&
     &                              isCurrentEventActive, deallocateDatetime,         &
     &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
     &                              MAX_EVENTNAME_STR_LEN, timedelta, newTimedelta,   &
@@ -64,8 +64,7 @@ MODULE mo_action
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
   USE mo_var_list_register,  ONLY: t_var_list_iterator
-  USE mo_var_list,           ONLY: t_list_element
-  USE mo_var_list_element,   ONLY: t_var_list_element
+  USE mo_var,                ONLY: t_var
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_fortran_tools,      ONLY: init
 
@@ -94,9 +93,9 @@ MODULE mo_action
   ! type for generating an array of pointers of type t_var_list_element
   !
   TYPE t_var_element_ptr
-    TYPE(t_var_list_element), POINTER :: p
-    TYPE(event)             , POINTER :: event     ! event from mtime library
-    INTEGER                           :: patch_id  ! patch on which field lives
+    TYPE(t_var), POINTER :: p
+    TYPE(t_event), POINTER :: event     ! event from mtime library
+    INTEGER              :: patch_id  ! patch on which field lives
   END TYPE t_var_element_ptr
 
 
@@ -167,94 +166,61 @@ CONTAINS
   SUBROUTINE action_collect_vars(act_obj, actionTyp)
     CLASS(t_action_obj)         :: act_obj
     INTEGER      , INTENT(IN)   :: actionTyp
-
     ! local variables
-    INTEGER :: i, iact
-    INTEGER :: nvars                        ! number of variables assigned to action
-
-    TYPE(t_list_element), POINTER       :: element
-    TYPE(t_var_action)  , POINTER       :: action_list
+    INTEGER :: i, iact, iv, nv
+    TYPE(t_var), POINTER :: element
+    TYPE(t_var_action), POINTER :: action_list
     TYPE(t_var_list_iterator) :: vl_iter
     CHARACTER(LEN=2)                    :: str_actionTyp
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
   !-------------------------------------------------------------------------
 
-    ! init nvars
-    nvars = 0
-
-    ! store actionTyp
+    nv = 0
     act_obj%actionTyp = actionTyp
-
     ! loop over all variable lists and variables
-    !
     DO WHILE(vl_iter%next())
-      element => vl_iter%cur%p%first_list_element
-
-      LOOPVAR : DO WHILE(ASSOCIATED(element))
+      LOOPVAR: DO iv = 1, vl_iter%cur%p%nvars
+        element => vl_iter%cur%p%vl(iv)%p
         ! point to variable specific action list
-        action_list => element%field%info%action_list
-
+        action_list => element%info%action_list
         ! Loop over all variable-specific actions
-        !
         LOOPACTION: DO iact = 1,action_list%n_actions
-
           ! If the variable specific action fits, assign variable
           ! to the corresponding action.
           IF (action_list%action(iact)%actionTyp == actionTyp) THEN
-
             ! Add field to action object
-            nvars = nvars + 1
-            act_obj%var_element_ptr(nvars)%p => element%field
-            act_obj%var_action_index(nvars) = iact
-            act_obj%var_element_ptr(nvars)%patch_id = vl_iter%cur%p%patch_id
-
-
+            nv = nv + 1
+            act_obj%var_element_ptr(nv)%p => element
+            act_obj%var_action_index(nv) = iact
+            act_obj%var_element_ptr(nv)%patch_id = vl_iter%cur%p%patch_id
             ! Create event for this specific field
             write(str_actionTyp,'(i2)') actionTyp
             event_name = 'act_TYP'//TRIM(str_actionTyp)//'_'//TRIM(action_list%action(iact)%intvl)
-            act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
-              &                                    TRIM(event_name),                    &
-              &                                    TRIM(action_list%action(iact)%ref),  &
-              &                                    TRIM(action_list%action(iact)%start),&
-              &                                    TRIM(action_list%action(iact)%end  ),&
-              &                                    TRIM(action_list%action(iact)%intvl))
-
+            act_obj%var_element_ptr(nv)%event => newEvent(TRIM(event_name), &
+              & TRIM(action_list%action(iact)%ref), TRIM(action_list%action(iact)%start), &
+              & TRIM(action_list%action(iact)%end), TRIM(action_list%action(iact)%intvl))
           END IF
         ENDDO  LOOPACTION ! loop over variable-specific actions
-
         IF(ASSOCIATED(action_list)) action_list => NULL()
-        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
-
     ! set nvars
-    act_obj%nvars = nvars
-
-
+    act_obj%nvars = nv
     IF (msg_level >= 11) THEN
-
       ! remove duplicate variable names
       DO i=1,act_obj%nvars
         varlist(i) = TRIM(act_obj%var_element_ptr(i)%p%info%name)
       ENDDO
-      CALL remove_duplicates(varlist,nvars)
-
-      WRITE(message_text,'(a,a,a)') 'Variables assigned to action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),':'
-      DO i=1, nvars
-        IF (i==1) THEN
-          WRITE(message_text,'(a,a,a)') TRIM(message_text), " ",  TRIM(varlist(i))
-        ELSE
-          WRITE(message_text,'(a,a,a)') TRIM(message_text), ", ", TRIM(varlist(i))
-        END IF
+      CALL remove_duplicates(varlist,nv)
+      WRITE(message_text,'(a)') 'Variables assigned to action '//TRIM(ACTION_NAMES(act_obj%actionTyp))//':'
+      IF (nv .GT. 0) message_text = TRIM(message_text) // " " // TRIM(varlist(i))
+      DO i = 2, nv
+        message_text = TRIM(message_text) // ", " // TRIM(varlist(i))
       ENDDO
       CALL message('',message_text)
-
-      IF(my_process_is_stdio()) THEN
-        CALL act_obj%print_setup()
-      ENDIF
+      IF(my_process_is_stdio()) CALL act_obj%print_setup()
     ENDIF
-
   END SUBROUTINE action_collect_vars
 
 
@@ -268,17 +234,10 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2015-01-06)
   !!
   SUBROUTINE action_print_setup (act_obj)
-
     CLASS(t_action_obj)  :: act_obj  !< action for which setup will be printed
-
-    ! local variables
     TYPE(t_table)   :: table
-    INTEGER         :: ivar            ! loop counter
-    INTEGER         :: irow            ! row to fill
-    INTEGER         :: var_action_idx  ! index of current action in variable-specific action list
-    INTEGER         :: jg              ! patch loop counter
+    INTEGER         :: ivar, irow, jg, var_action_idx
     CHARACTER(LEN=2):: str_patch_id
-    !--------------------------------------------------------------------------
 
     ! table-based output
     CALL initialize_table(table)
@@ -289,16 +248,12 @@ CONTAINS
     CALL add_table_column(table, "Start date")
     CALL add_table_column(table, "End date")
     CALL add_table_column(table, "Interval")
-
     irow = 0
     ! print event info sorted by patch ID in ascending order
     DO jg = 1, n_dom
       DO ivar=1,act_obj%nvars
-
         IF (act_obj%var_element_ptr(ivar)%patch_id /= jg) CYCLE
-
         var_action_idx = act_obj%var_action_index(ivar)
-
         irow = irow + 1
         CALL set_table_entry(table,irow,"VarName", TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
         write(str_patch_id,'(i2)')  act_obj%var_element_ptr(ivar)%patch_id
@@ -313,14 +268,10 @@ CONTAINS
           &  TRIM(act_obj%var_element_ptr(ivar)%p%info%action_list%action(var_action_idx)%intvl))
       ENDDO
     ENDDO  ! jg
-
     CALL print_table(table, opt_delimiter=' | ')
     CALL finalize_table(table)
-
     WRITE (0,*) " " ! newline
   END SUBROUTINE action_print_setup
-
-
 
   !>
   !! Execute action
@@ -334,101 +285,64 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2014-09-11)
   !!
   SUBROUTINE action_execute(act_obj, slack, mtime_date)
-    !
     CLASS(t_action_obj)       :: act_obj
     REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
-    ! local variables
-    INTEGER :: ivar                        !< loop index for fields
-    INTEGER :: var_action_idx              !< Index of this particular action in
-                                           !< field-specific action list
-
-    TYPE(t_var_list_element), POINTER :: & !< Pointer to particular field
-      &  field
-    TYPE(event)             , POINTER :: & !< Pointer to variable specific event info
-      &  this_event
-    TYPE(datetime),           POINTER :: & !< Current date in mtime format
-      &  mtime_date
-
+    INTEGER :: iv, ia
+    TYPE(t_var), POINTER :: field
+    TYPE(t_event), POINTER :: event
+    TYPE(datetime), POINTER :: mtime_date
     LOGICAL :: isactive
-
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: str_slack       ! slack as string
-
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: cur_dtime_str, slack_str
     TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format
-
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:")
 
   !-------------------------------------------------------------------------
-
     ! compute allowed slack in PT-Format
     ! Use factor 999 instead of 1000, since no open interval is available
     ! needed [trigger_date, trigger_date + slack[
     ! used   [trigger_date, trigger_date + slack]
-    CALL getPTStringFromMS(INT(999.0_wp*slack,i8),str_slack)
+    CALL getPTStringFromMS(INT(999.0_wp*slack,i8), slack_str)
     ! get slack in 'timedelta'-format appropriate for isCurrentEventActive
-    p_slack => newTimedelta(str_slack)
-
-
+    p_slack => newTimedelta(slack_str)
     ! Loop over all fields attached to this action
-    DO ivar = 1, act_obj%nvars
-
-      var_action_idx = act_obj%var_action_index(ivar)
-
-      field      => act_obj%var_element_ptr(ivar)%p
-      this_event => act_obj%var_element_ptr(ivar)%event
-
-
+    DO iv = 1, act_obj%nvars
+      ia = act_obj%var_action_index(iv)
+      field => act_obj%var_element_ptr(iv)%p
+      event => act_obj%var_element_ptr(iv)%event
       ! Check whether event-pointer is associated.
-      IF (.NOT. ASSOCIATED(this_event)) THEN
-        WRITE (message_text,'(a,i2,a,a,a)')                           &
-             'WARNING: action event ', var_action_idx, ' of field ',  &
-              TRIM(field%info%name),': Event-Ptr is disassociated!'
+      IF (.NOT.ASSOCIATED(event)) THEN
+        WRITE (message_text,'(a,i2,a)') 'WARNING: action event ', ia, &
+          & ' of field ' // TRIM(field%info%name) // ': no event-ptr associated!'
         CALL message(routine,message_text)
       ENDIF
-
-
       ! Note that a second call to isCurrentEventActive will lead to
       ! a different result! Is this a bug or a feature?
       ! triggers in interval [trigger_date + slack]
-      isactive = isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack)
-
+      isactive = isCurrentEventActive(event, mtime_date, plus_slack=p_slack)
       ! Check whether the action should be triggered for variable
       ! under consideration
       IF (isactive) THEN
-
         ! store latest true triggering date
-        CALL datetimeToString(mtime_date, mtime_cur_datetime)
-        field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
+        CALL datetimeToString(mtime_date, cur_dtime_str)
+        field%info%action_list%action(ia)%lastActive = TRIM(cur_dtime_str)
         ! store latest intended triggering date
-        CALL getTriggeredPreviousEventAtDateTime(this_event, &
-          field%info%action_list%action(var_action_idx)%EventLastTriggerDate)
-
+        CALL getTriggeredPreviousEventAtDateTime(event, &
+          field%info%action_list%action(ia)%EventLastTriggerDate)
         IF (msg_level >= 12) THEN
           WRITE(message_text,'(5a,i2,a,a)') 'action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),&
             &  ' triggered for ', TRIM(field%info%name),' (PID ',               &
-            &  act_obj%var_element_ptr(ivar)%patch_id,') at ',                  &
-            &  TRIM(mtime_cur_datetime)
+            &  act_obj%var_element_ptr(iv)%patch_id, ') at ', TRIM(cur_dtime_str)
           CALL message(TRIM(routine),message_text)
         ENDIF
-
         ! perform action on element number 'ivar'
-        CALL act_obj%kernel(ivar)
-
+        CALL act_obj%kernel(iv)
       ENDIF
-
     ENDDO
-
-
     ! cleanup
-    !
     CALL deallocateTimedelta(p_slack)
-
   END SUBROUTINE action_execute
 
-
-  !>
   !! Execute action
-  !!
   !! !!! 'optimized' variant for SX-architecture                                   !!!
   !! !!! isCurrentEventActive is only executed by PE0 and broadcasted to the other !!!
   !! !!! workers on the vector engine.                                             !!!
@@ -442,122 +356,81 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2014-09-11)
   !!
   SUBROUTINE action_execute_SX(act_obj, slack, mtime_date)
-    !
     CLASS(t_action_obj)       :: act_obj
     REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
     ! local variables
-    INTEGER :: ivar                        !< loop index for fields
-    INTEGER :: var_action_idx              !< Index of this particular action in
-                                           !< field-specific action list
-
-    TYPE(t_var_list_element), POINTER :: & !< Pointer to particular field
-      &  field
-    TYPE(event)             , POINTER :: & !< Pointer to variable specific event info
-      &  this_event
-    TYPE(datetime),           POINTER :: & !< Current date in mtime format
-      &  mtime_date
-
+    INTEGER :: iv, ia
+    TYPE(t_var), POINTER :: field
+    TYPE(t_event), POINTER :: event
+    TYPE(datetime), POINTER :: mtime_date
     LOGICAL :: isactive(NMAX_VARS)
-
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: str_slack       ! slack as string
-
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: cur_dtime_str, slack_str
     TYPE(timedelta), POINTER :: p_slack                    ! slack in 'timedelta'-Format
-
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_action:")
+    CHARACTER(*), PARAMETER :: routine = "mo_action:"
 
   !-------------------------------------------------------------------------
-
-    ! init
     isactive(:) =.FALSE.
-
     ! compute allowed slack in PT-Format
     ! Use factor 999 instead of 1000, since no open interval is available
     ! needed [trigger_date, trigger_date + slack[
     ! used   [trigger_date, trigger_date + slack]
     IF (.NOT. proc0_offloading .OR. p_pe == p_io) THEN
-      CALL getPTStringFromMS(INT(999.0_wp*slack,i8),str_slack)
+      CALL getPTStringFromMS(INT(999.0_wp*slack,i8),slack_str)
       ! get slack in 'timedelta'-format appropriate for isCurrentEventActive
-      p_slack => newTimedelta(str_slack)
-
+      p_slack => newTimedelta(slack_str)
       ! Check for all action events whether they are due at the datetime given.
-      DO ivar = 1, act_obj%nvars
-
-        var_action_idx = act_obj%var_action_index(ivar)
-
-        this_event => act_obj%var_element_ptr(ivar)%event
-
+      DO iv = 1, act_obj%nvars
+        ia = act_obj%var_action_index(iv)
+        event => act_obj%var_element_ptr(iv)%event
         ! Check whether event-pointer is associated.
-        IF (.NOT. ASSOCIATED(this_event)) THEN
-          field => act_obj%var_element_ptr(ivar)%p
+        IF (.NOT.ASSOCIATED(event)) THEN
+          field => act_obj%var_element_ptr(iv)%p
           WRITE (message_text,'(a,i2,a,a,a)')                           &
-               'WARNING: action event ', var_action_idx, ' of field ',  &
+               'WARNING: action event ', ia, ' of field ',  &
                TRIM(field%info%name),': Event-Ptr is disassociated!'
           CALL message(routine,message_text)
         ENDIF
-
         ! Note that a second call to isCurrentEventActive will lead to
         ! a different result! Is this a bug or a feature?
         ! triggers in interval [trigger_date + slack]
-        isactive(ivar) = is_event_active(this_event, mtime_date, proc0_offloading, plus_slack=p_slack, opt_lasync=.TRUE.)
+        isactive(iv) = is_event_active(event, mtime_date, proc0_offloading, plus_slack=p_slack, opt_lasync=.TRUE.)
       ENDDO
-
       ! cleanup
-      !
       CALL deallocateTimedelta(p_slack)
     ENDIF
-
     ! broadcast
     IF (proc0_offloading) CALL p_bcast(isactive, p_io, p_comm_work)
-
-
     ! Loop over all fields attached to this action
-    DO ivar = 1, act_obj%nvars
-
-      ! Check whether the action should be triggered for variable
-      ! under consideration
-      IF (isactive(ivar)) THEN
-
-        var_action_idx = act_obj%var_action_index(ivar)
-
-        field      => act_obj%var_element_ptr(ivar)%p
-        this_event => act_obj%var_element_ptr(ivar)%event
-
-
+    DO iv = 1, act_obj%nvars
+      ! Check whether the action should be triggered for var under consideration
+      IF (isactive(iv)) THEN
+        ia = act_obj%var_action_index(iv)
+        field => act_obj%var_element_ptr(iv)%p
+        event => act_obj%var_element_ptr(iv)%event
         ! Check whether event-pointer is associated.
-        IF (.NOT. ASSOCIATED(this_event)) THEN
+        IF (.NOT. ASSOCIATED(event)) THEN
           WRITE (message_text,'(a,i2,a,a,a)')                           &
-               'WARNING: action event ', var_action_idx, ' of field ',  &
+               'WARNING: action event ', ia, ' of field ',  &
                 TRIM(field%info%name),': Event-Ptr is disassociated!'
           CALL message(routine,message_text)
         ENDIF
-
-
         ! store latest true triggering date
-        CALL datetimeToString(mtime_date, mtime_cur_datetime)
-        field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
+        CALL datetimeToString(mtime_date, cur_dtime_str)
+        field%info%action_list%action(ia)%lastActive = TRIM(cur_dtime_str)
         ! store latest intended triggering date
-        CALL getTriggeredPreviousEventAtDateTime(this_event, &
-          field%info%action_list%action(var_action_idx)%EventLastTriggerDate)
-
+        CALL getTriggeredPreviousEventAtDateTime(event, &
+          field%info%action_list%action(ia)%EventLastTriggerDate)
         IF (msg_level >= 12) THEN
           WRITE(message_text,'(5a,i2,a,a)') 'action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),&
             &  ' triggered for ', TRIM(field%info%name),' (PID ',               &
-            &  act_obj%var_element_ptr(ivar)%patch_id,') at ',                  &
-            &  TRIM(mtime_cur_datetime)
-          CALL message(TRIM(routine),message_text)
+            &  act_obj%var_element_ptr(iv)%patch_id,') at ', TRIM(cur_dtime_str)
+          CALL message(routine, message_text)
         ENDIF
-
         ! perform action on element number 'ivar'
-        CALL act_obj%kernel(ivar)
-
+        CALL act_obj%kernel(iv)
       ENDIF
-
     ENDDO
-
-
   END SUBROUTINE action_execute_SX
-
 
   !>
   !! Reset-action kernel
@@ -570,10 +443,7 @@ CONTAINS
   SUBROUTINE reset_kernel(act_obj, ivar)
     CLASS (t_reset_obj)  :: act_obj
     INTEGER, INTENT(IN) :: ivar    ! element number
-
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_action:reset_kernel'
-    !-------------------------------------------------------------------
+    CHARACTER(*), PARAMETER :: routine = 'mo_action:reset_kernel'
 
     ! re-set field to its pre-defined reset-value
     IF (ASSOCIATED(act_obj%var_element_ptr(ivar)%p%r_ptr)) THEN
@@ -589,7 +459,6 @@ CONTAINS
     ELSE
       CALL finish (routine, 'Field not allocated for '//TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
     ENDIF
-
   END SUBROUTINE reset_kernel
 
   !>

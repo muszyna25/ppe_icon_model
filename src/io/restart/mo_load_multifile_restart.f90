@@ -47,7 +47,7 @@ MODULE mo_load_multifile_restart
   USE mo_restart_nml_and_att,    ONLY: getAttributesForRestarting, ocean_initFromRestart_OVERRIDE
   USE mo_key_value_store,        ONLY: t_key_value_store
   USE mo_restart_var_data,       ONLY: get_var_3d_ptr, has_valid_time_level
-  USE mo_var_list_element,       ONLY: t_p_var_list_element
+  USE mo_var,                    ONLY: t_var_ptr
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_load_restart_io, timers_level, &
     &                                  timer_load_restart_comm_setup, timer_load_restart_communication, &
     &                                  timer_load_restart_get_var_id
@@ -386,7 +386,7 @@ CONTAINS
   END SUBROUTINE multifilePatchReader_construct
 
   SUBROUTINE multifilePatchReader_readData(vDat, dom)
-    TYPE(t_p_var_list_element), INTENT(in) :: vDat(:)
+    TYPE(t_var_ptr), INTENT(IN) :: vDat(:)
     INTEGER, INTENT(IN) :: dom
     INTEGER :: vId, lId, lcnt, fId, varID, pCt(SIZE(files)), vlID
     INTEGER :: rbuf_size, ofs, nxt, dummy, i, hgrid, mock_nblk
@@ -591,7 +591,7 @@ CONTAINS
   END SUBROUTINE multifilePatchReader_destruct
 
   SUBROUTINE multifileReadPatch(varData, p_patch, multifilePath)
-    TYPE(t_p_var_list_element), INTENT(in) :: varData(:)
+    TYPE(t_var_ptr), INTENT(in) :: varData(:)
     TYPE(t_patch), INTENT(in) :: p_patch
     CHARACTER(*), INTENT(IN) :: multifilePath
 

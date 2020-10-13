@@ -234,7 +234,7 @@ MODULE mo_async_latbc
     USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
     USE mo_var_list_register,         ONLY: vl_register, t_var_list_iterator
     USE mo_var_metadata,              ONLY: get_var_name
-    USE mo_var_list,                  ONLY: t_list_element
+    USE mo_var,                       ONLY: t_var
     USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary
@@ -1008,54 +1008,42 @@ MODULE mo_async_latbc
       TYPE(t_patch_data), INTENT(in) :: patch_data
       TYPE(t_dictionary), INTENT(in) :: latbc_dict
       INTEGER, INTENT(IN)            :: fileID_latbc
-
 #ifndef NOMPI
       ! local variables
       CHARACTER(*), PARAMETER        :: routine = modname//"::check_variables"
       LOGICAL                        :: lhave_ps_geop, lhave_ps, lhave_geop,           &
         &                               lhave_hhl, lhave_theta_rho, lhave_vn,          &
         &                               lhave_u, lhave_v, lhave_pres, lhave_temp
-
-      CHARACTER(LEN=vname_len)      :: current_name     !< name of current tracer
-      TYPE(t_list_element), POINTER   :: current_element  !< pointer to current element in the list
-      INTEGER                         :: current_index    !< index of current tracer in container
-      INTEGER                         :: idx, numlbc_tracer
+      CHARACTER(:), ALLOCATABLE :: cur_name     !< name of current tracer
+      INTEGER :: cur_idx, iv, idx, numlbc_tracer
+      TYPE(t_var), POINTER :: cur_var
 
          ! --- CHECK WHICH VARIABLES ARE AVAILABLE IN THE DATA SET ---
-
          ! Check if rain water (QR) is provided as input
          buffer%lread_qr = (test_cdi_varID(fileID_latbc, 'QR', latbc_dict) /= -1)
-
          ! Check if snow water (QS) is provided as input
          buffer%lread_qs = (test_cdi_varID(fileID_latbc, 'QS', latbc_dict) /= -1)
-
-
          ! initialize tracer arrays
          buffer%lread_tracer(:) = .FALSE.
          buffer%name_tracer(:) = ''
          buffer%idx_tracer(:) = -1
-
          numlbc_tracer = 0
          ! Loop through the p_tracer_list
-         current_element => p_nh_state_lists(1)%tracer_list(1)%p%first_list_element
-         DO WHILE (ASSOCIATED(current_element))
-
+         DO iv = 1, p_nh_state_lists(1)%tracer_list(1)%p%nvars
+           cur_var => p_nh_state_lists(1)%tracer_list(1)%p%vl(iv)%p
            ! Plain variable name (i.e. without TIMELEVEL_SUFFIX)
-           current_name  = tolower(get_var_name(current_element%field%info))
+           cur_name = tolower(get_var_name(cur_var%info))
            ! Index
-           current_index = current_element%field%info%ncontained
-
-           IF (current_index > iqs) THEN
+           cur_idx = cur_var%info%ncontained
+           IF (cur_idx > iqs) THEN
              numlbc_tracer = numlbc_tracer + 1
              ! Check if additional tracer variables are provided as input
              buffer%lread_tracer(numlbc_tracer) = &
-               &  (test_cdi_varID(fileID_latbc, TRIM(current_name), latbc_dict) /= -1)
+               &  (test_cdi_varID(fileID_latbc, cur_name, latbc_dict) /= -1)
              ! Save plain variable name and index
-             buffer%name_tracer(numlbc_tracer) = TRIM(current_name)
-             buffer%idx_tracer(numlbc_tracer)  = current_index
+             buffer%name_tracer(numlbc_tracer) = cur_name
+             buffer%idx_tracer(numlbc_tracer)  = cur_idx
            END IF
-
-           current_element => current_element%next_list_element
          ENDDO !Loop through p_tracer_list
 
 
@@ -1237,9 +1225,8 @@ MODULE mo_async_latbc
     SUBROUTINE replicate_data_on_pref_proc(var_data, bc_root)
       TYPE(t_var_metadata_ptr), ALLOCATABLE, INTENT(out) :: var_data(:)
       INTEGER, INTENT(IN) :: bc_root
-      INTEGER :: i, nvar
+      INTEGER :: i, iv, nvar
       LOGICAL :: send, recv
-      TYPE(t_list_element), POINTER :: element
       TYPE(t_var_list_iterator) :: vl_iter
       TYPE(t_packedMessage) :: pmsg
 
@@ -1254,12 +1241,10 @@ MODULE mo_async_latbc
       ALLOCATE(var_data(nvar))
       i = 0
       DO WHILE(vl_iter%next())
-        element => vl_iter%cur%p%first_list_element
-        DO WHILE (ASSOCIATED(element))
-          i = i + 1
-          var_data(i)%p => element%field%info
-          element => element%next_list_element
+        DO iv = 1, vl_iter%cur%p%nvars
+          var_data(iv+i)%p => vl_iter%cur%p%vl(iv)%p%info
         END DO
+        i = i + vl_iter%cur%p%nvars
       END DO
       IF (i .NE. nvar) &
         & CALL finish(modname//"::replicate_data_on_pref_proc", "inconsistent var counts")

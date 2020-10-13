@@ -65,9 +65,8 @@ MODULE mo_initicon_utils
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
   USE mo_var_metadata,        ONLY: get_var_name
-  USE mo_var_list,            ONLY: t_list_element
   USE mo_var_list_register,   ONLY: t_var_list_iterator
-  USE mo_var_list_element,    ONLY: level_type_ml
+  USE mo_var,                 ONLY: level_type_ml
   USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
     &                               OPERATOR(==), OPERATOR(+) 
@@ -135,41 +134,34 @@ MODULE mo_initicon_utils
     ! local variables
     INTEGER                         :: i              ! loop count
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
-    TYPE(t_list_element), POINTER   :: element
-    CHARACTER(len=*), PARAMETER     :: routine = 'initicon_inverse_post_op'
-    CHARACTER(len=100)              :: lc_varname
+    CHARACTER(*), PARAMETER     :: routine = 'initicon_inverse_post_op'
+    CHARACTER(:), ALLOCATABLE :: lc_varname
     TYPE(t_var_list_iterator) :: vl_iter
 
     !-------------------------------------------------------------------------
     ! Check consistency of optional arguments
-    !
     IF (PRESENT( optvar_out2D ) .AND. PRESENT( optvar_out3D )) THEN
       CALL finish(routine, 'Only one optional argument must be present')
     ELSE IF (.NOT.PRESENT( optvar_out2D ) .AND. .NOT.PRESENT( optvar_out3D )) THEN
       CALL finish(routine, 'One of 2 optional arguments must be present')
     ENDIF
-
     lc_varname = tolower(varname)
     ! get metadata information for field to be read
     NULLIFY(info)
     DO WHILE(vl_iter%next() .AND. .NOT.ASSOCIATED(info))
       ! loop only over model level variables
       IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE 
-      element => vl_iter%cur%p%first_list_element
-      DO WHILE(ASSOCIATED(element) .AND. .NOT.ASSOCIATED(info))
-        ! Check for matching name (take care of suffix of time-dependent variables):
-        IF (TRIM(lc_varname) == tolower(get_var_name(element%field%info))) &
-          & info => element%field%info
-        element => element%next_list_element
+      DO i = 1, vl_iter%cur%p%nvars
+        info => vl_iter%cur%p%vl(i)%p%info
+        IF (lc_varname == tolower(get_var_name(info))) EXIT
+        NULLIFY(info)
       END DO
     ENDDO
-
     IF (.NOT.ASSOCIATED(info)) THEN
       WRITE (message_text,'(a,a)') TRIM(varname), ' not found'
       CALL message('',message_text)
       CALL finish(routine, 'Varname does not match any of the ICON variable names')
     ENDIF
-
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN

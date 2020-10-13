@@ -71,7 +71,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run
   USE mo_var_list_register,      ONLY: vl_register
-  USE mo_var_list,               ONLY: print_var_list, add_var, t_var_list_ptr
+  USE mo_var_list,               ONLY: add_var, t_var_list_ptr
   USE mo_cdi
   use mo_cdi_constants
   use mo_zaxis_type
@@ -1669,7 +1669,7 @@ CONTAINS
         & ldims=(/nproma, n_zlev, alloc_cell_blocks/))
 
 
-    call print_var_list(varnameCheckList)
+    call varnameCheckList%print()
     call vl_register%delete(varnameCheckList)
   END SUBROUTINE checkVarlistKeys
 END MODULE mo_ocean_testbed_modules

@@ -72,11 +72,9 @@ MODULE mo_initicon_io
   USE mo_input_request_list,  ONLY: t_InputRequestList
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
-
   USE mo_var_metadata_types,  ONLY: t_var_metadata
   USE mo_var_list_register,   ONLY: t_var_list_iterator
-  USE mo_var_list,            ONLY: t_list_element
-  USE mo_var_list_element,    ONLY: level_type_ml
+  USE mo_var,                 ONLY: level_type_ml
   USE mo_var_groups,          ONLY: var_groups_dyn
   USE mo_var_metadata,        ONLY: get_var_name
 
@@ -1657,9 +1655,8 @@ MODULE mo_initicon_io
     TYPE(t_pi_atm_in),   INTENT(INOUT), OPTIONAL :: atm_in
     INTEGER,             INTENT(IN), OPTIONAL    :: nlev_in, nblks_c
     INTEGER                           :: i, grp_id, idx
-    TYPE(t_list_element), POINTER     :: element
     TYPE(t_var_metadata), POINTER     :: info
-    CHARACTER(:), ALLOCATABLE :: name
+    CHARACTER(:), ALLOCATABLE :: vname
     REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
     TYPE(t_var_list_iterator) :: vl_iter
 
@@ -1671,15 +1668,14 @@ MODULE mo_initicon_io
       IF (vl_iter%cur%p%vlevel_type /= level_type_ml) CYCLE
       ! do not inspect variable list if its domain does not match:
       IF (vl_iter%cur%p%patch_id /= jg)  CYCLE
-      element => vl_iter%cur%p%first_list_element
-      LOOPVAR : DO WHILE (ASSOCIATED(element))
-        info => element%field%info
+      LOOPVAR : DO i = 1, vl_iter%cur%p%nvars
+        info => vl_iter%cur%p%vl(i)%p%info
         ! Do not inspect element if it is a container
         IF (.NOT. info%lcontainer .AND. info%in_group(grp_id)) THEN
           idx = idx + 1
-          name = get_var_name(info)
+          vname = get_var_name(info)
           IF ( PRESENT(atm_in) ) THEN
-            atm_in%tracer(idx)%var_element => element%field
+            atm_in%tracer(idx)%var_element => vl_iter%cur%p%vl(i)%p
             ! allocate source array for vertical interpolation
             ALLOCATE(atm_in%tracer(idx)%field(nproma,nlev_in,nblks_c))
 !$OMP PARALLEL
@@ -1687,15 +1683,14 @@ MODULE mo_initicon_io
 !$OMP END PARALLEL
             ! request the first guess fields
             my_ptr3d => atm_in%tracer(idx)%field(:,:,:)
-            CALL fetch3d(params, name, jg, my_ptr3d)
+            CALL fetch3d(params, vname, jg, my_ptr3d)
           ENDIF
           IF ( PRESENT(tracer) ) THEN
             ! request the first guess fields
             my_ptr3d => tracer(:,:,:,info%ncontained)
-            CALL fetch3d(params, name, jg, my_ptr3d)
+            CALL fetch3d(params, vname, jg, my_ptr3d)
           END IF
         END IF
-        element => element%next_list_element
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1, nvar_lists
   END SUBROUTINE fetch_tracer_fg

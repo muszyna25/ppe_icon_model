@@ -7,7 +7,7 @@
 !! headers of the routines.
 #include <icon_contiguous_defines.h>
 
-MODULE mo_var_list_element
+MODULE mo_var
 
   USE mo_kind,               ONLY: dp, sp
   USE mo_var_metadata_types, ONLY: t_var_metadata, t_var_metadata_dynamic
@@ -17,7 +17,7 @@ MODULE mo_var_list_element
 
   ! export index constants: model/pressure/height levels
   PUBLIC :: level_type_ml, level_type_pl, level_type_hl, level_type_il, lev_type_str
-  PUBLIC :: t_var_list_element, t_p_var_list_element
+  PUBLIC :: t_var, t_var_ptr
 
   ! constants defining level type:
   INTEGER, PARAMETER             :: level_type_ml = 1
@@ -27,7 +27,7 @@ MODULE mo_var_list_element
   ! string defining level type:
   CHARACTER(LEN=2), PARAMETER    :: lev_type_str(4) = (/ 'ML', 'PL', 'HL', 'IL' /)
 
-  TYPE t_var_list_element
+  TYPE t_var
     REAL(dp), CONTIGUOUS_POINTER :: r_ptr(:,:,:,:,:) => NULL()
     REAL(sp), CONTIGUOUS_POINTER :: s_ptr(:,:,:,:,:) => NULL()
     INTEGER,  CONTIGUOUS_POINTER :: i_ptr(:,:,:,:,:) => NULL()
@@ -35,11 +35,11 @@ MODULE mo_var_list_element
     INTEGER                      :: var_base_size      ! generic size in bytes of variable used
     TYPE(t_var_metadata)         :: info               ! meta data for this entry
     TYPE(t_var_metadata_dynamic) :: info_dyn           ! dynamic meta data for this entry (see type description)
-    TYPE(t_var_list_element), POINTER :: ref_to => NULL()
-  END TYPE t_var_list_element
+    TYPE(t_var), POINTER :: ref_to => NULL()
+  END TYPE t_var
 
-  TYPE t_p_var_list_element
-    TYPE(t_var_list_element), POINTER :: p => NULL()
-  END TYPE t_p_var_list_element
+  TYPE t_var_ptr
+    TYPE(t_var), POINTER :: p => NULL()
+  END TYPE t_var_ptr
 
-END MODULE mo_var_list_element
+END MODULE mo_var

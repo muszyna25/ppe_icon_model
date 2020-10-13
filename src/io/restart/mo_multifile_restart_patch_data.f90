@@ -32,7 +32,7 @@ MODULE mo_multifile_restart_patch_data
     &                                       timer_write_restart_communication, timers_level,                   &
     &                                       timer_write_restart_setup, timer_write_restart_wait
   USE mo_var_metadata_types,          ONLY: t_var_metadata
-  USE mo_var_list_element,            ONLY: t_p_var_list_element
+  USE mo_var,                         ONLY: t_var_ptr
   USE mo_parallel_config,             ONLY: restart_chunk_size
   USE mo_restart_var_data,            ONLY: createRestartVarData
 
@@ -88,7 +88,7 @@ CONTAINS
     INTEGER :: curVar, jg, nLev, iType, nVar, i
     INTEGER(i8)                     :: iOffset(typeMax)
     TYPE(t_var_metadata), POINTER   :: curInfo
-    TYPE(t_p_var_list_element), ALLOCATABLE :: varReordered(:)
+    TYPE(t_var_ptr), ALLOCATABLE :: varReordered(:)
 
     IF (timers_level >= 7) CALL timer_start(timer_write_restart_setup)
     jg = me%description%id

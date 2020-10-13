@@ -75,9 +75,9 @@ MODULE mo_nonhydro_state
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
     &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
-  USE mo_var_list,             ONLY: add_var, find_list_element, &
-    &                                add_ref, t_var_list_ptr, t_list_element
+  USE mo_var_list, ONLY: add_var, find_list_element, add_ref, t_var_list_ptr
   USE mo_var_list_register,    ONLY: vl_register
+  USE mo_var,                  ONLY: t_var
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
   USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
@@ -497,8 +497,8 @@ MODULE mo_nonhydro_state
     INTEGER           :: ipassive        ! loop counter
     INTEGER           :: dummy_idx, vntl, tlen
 
-    CHARACTER(len=varname_len+LEN(suffix))      :: tracer_name
-    TYPE(t_list_element), POINTER :: target_element
+    CHARACTER(LEN=vname_len+LEN(suffix)) :: tracer_name
+    TYPE(t_var), POINTER :: target_element
     INTEGER                       :: tracer_idx
 
     LOGICAL :: ingroup(MAX_GROUPS)
@@ -1463,7 +1463,7 @@ MODULE mo_nonhydro_state
         !
         ! get pointer to target element (in this case 4D tracer container)
         target_element => find_list_element (p_prog_list, 'tracer')
-        tracer_idx = target_element%field%info%ncontained+1
+        tracer_idx = target_element%info%ncontained+1
 
         WRITE(passive_tracer_suffix,'(I2)') ipassive
         tracer_name = 'Qpassive_'//passive_tracer_suffix(1+MERGE(1,0,ipassive<=9):)
@@ -1510,53 +1510,32 @@ MODULE mo_nonhydro_state
   !!
   SUBROUTINE new_nh_state_tracer_list ( p_patch, from_var_list, p_tracer_list,  &
     &                                 listname )
-    !
     !> current patch
     TYPE(t_patch), INTENT(IN)         :: p_patch
-
     !> source list to be referenced
     TYPE(t_var_list_ptr), INTENT(IN)      :: from_var_list
-
     !> new tracer list (containing all tracers)
     TYPE(t_var_list_ptr), INTENT(INOUT)   :: p_tracer_list
-
     !> list name
     CHARACTER(len=*), INTENT(IN)      :: listname
-
     ! local variables
     TYPE (t_var_metadata), POINTER         :: from_info
     TYPE (t_var_metadata_dynamic), POINTER :: from_info_dyn
-    TYPE (t_list_element), POINTER         :: element
+    INTEGER :: iv
 
-    !--------------------------------------------------------------
-
-    !
     ! Register a field list and apply default settings
-    !
     CALL vl_register%new(p_tracer_list, TRIM(listname), patch_id=p_patch%id, &
       &               lrestart=.FALSE., loutput =.FALSE.)
-
-    !
     ! add references to all tracer fields of the source list (prognostic state)
-    !
-    element => from_var_list%p%first_list_element
-    !
-    for_all_list_elements: DO WHILE (ASSOCIATED(element))
-      !
+    for_all_list_elements: DO iv = 1, from_var_list%p%nvars
       ! retrieve information from actual linked list element
-      !
-      from_info     => element%field%info
-      from_info_dyn => element%field%info_dyn
-
+      from_info => from_var_list%p%vl(iv)%p%info
+      from_info_dyn => from_var_list%p%vl(iv)%p%info_dyn
       ! Only add tracer fields to the tracer list
       IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
         CALL vl_register%new_var_ref(p_tracer_list, from_info%name, &
           &                         from_var_list%p%name, in_group=groups() )
-
-      element => element%next_list_element
     ENDDO for_all_list_elements
-
-
   END SUBROUTINE new_nh_state_tracer_list
 
 
