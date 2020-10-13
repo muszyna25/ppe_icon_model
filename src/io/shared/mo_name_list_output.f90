@@ -2746,8 +2746,14 @@ CONTAINS
       &                               lonlat_id, i_log_dom, ierrstat,                           &
       &                               src_start, src_end
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
-    REAL(sp), ALLOCATABLE          :: var1_sp(:), var3_sp(:)
-    REAL(dp), ALLOCATABLE          :: var1_dp(:), var3_dp(:)
+    !> rma receive buffer when transferring single precision data
+    REAL(sp), ALLOCATABLE          :: var1_sp(:)
+    !> file output buffer for single layer output data to be passed to CDI
+    REAL(sp), ALLOCATABLE          :: var3_sp(:)
+    !> rma receive buffer when transferring double precision or integer data
+    REAL(dp), ALLOCATABLE          :: var1_dp(:)
+    !> file output buffer for single layer output data to be passed to CDI
+    REAL(dp), ALLOCATABLE          :: var3_dp(:)
 
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_var_metadata)          :: updated_info
