@@ -1224,11 +1224,11 @@ CONTAINS
       IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
            & CALL finish(routine, "Internal error (ndims=1, lcontained)")
       IF (ASSOCIATED(var_desc%r_ptr)) THEN
-        r_ptr => var_desc%r_ptr(:,1:1,1:1,1,1)
+        r_ptr => r_ptr_5d(:,1:1,1:1,1,1)
       ELSE IF (ASSOCIATED(var_desc%s_ptr)) THEN
-        s_ptr => var_desc%s_ptr(:,1:1,1:1,1,1)
+        s_ptr => s_ptr_5d(:,1:1,1:1,1,1)
       ELSE IF (ASSOCIATED(var_desc%i_ptr)) THEN
-        i_ptr => var_desc%i_ptr(:,1:1,1:1,1,1)
+        i_ptr => i_ptr_5d(:,1:1,1:1,1,1)
       ELSE
         CALL finish(routine, "Internal error (not found vardata pointer)")
       ENDIF
@@ -1312,13 +1312,13 @@ CONTAINS
       ELSE IF (ASSOCIATED(i_ptr_5d)) THEN
         SELECT CASE(var_ref_pos)
         CASE (1)
-          i_ptr => var_desc%i_ptr(nindex,:,:,:,1)
+          i_ptr => i_ptr_5d(nindex,:,:,:,1)
         CASE (2)
-          i_ptr => var_desc%i_ptr(:,nindex,:,:,1)
+          i_ptr => i_ptr_5d(:,nindex,:,:,1)
         CASE (3)
-          i_ptr => var_desc%i_ptr(:,:,nindex,:,1)
+          i_ptr => i_ptr_5d(:,:,nindex,:,1)
         CASE (4)
-          i_ptr => var_desc%i_ptr(:,:,:,nindex,1)
+          i_ptr => i_ptr_5d(:,:,:,nindex,1)
         END SELECT
       END IF
     CASE DEFAULT
