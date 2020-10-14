@@ -109,6 +109,7 @@ MODULE mo_name_list_output_init
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
   ! variable lists
+  USE mo_util_texthash,                     ONLY: text_hash_c
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_var_list_register,                 ONLY: vl_register, t_var_list_iterator
@@ -1799,14 +1800,14 @@ CONTAINS
     END DO
   END SUBROUTINE create_vertical_axes
 
-
   !------------------------------------------------------------------------------------------------
   SUBROUTINE add_varlist_to_output_file(of, varlist)
     TYPE (t_output_file), INTENT(INOUT) :: of
     CHARACTER(*),     INTENT(IN)    :: varlist(:)
     ! local variables:
     CHARACTER(*), PARAMETER :: routine = modname//"::add_varlist_to_output_file"
-    INTEGER :: iv, nv, tl, ivl
+    INTEGER :: iv, nv, tl, ivl, key_notl
+    CHARACTER(:), ALLOCATABLE :: vname
     LOGICAL :: found
     TYPE(t_var), POINTER :: elem
     TYPE(t_var_desc) :: var_desc   !< variable descriptor
@@ -1828,7 +1829,13 @@ CONTAINS
     END DO ! ivar
     ! Allocate array of variable descriptions
     DO iv = 1, nv
-      IF (is_grid_info_var(varlist(iv)))  CYCLE
+      IF (is_grid_info_var(varlist(iv))) CYCLE
+      IF (of%name_list%remap .EQ. REMAP_REGULAR_LATLON) THEN
+        vname = LONLAT_PREFIX//tolower(varlist(iv))
+      ELSE
+        vname = tolower(varlist(iv))
+      END IF
+      key_notl = text_hash_c(vname)
       found = .FALSE.
       CALL nullify_var_desc_ptr(var_desc)
       ! Loop over all var_lists listed in vl_list to find the variable
@@ -1846,21 +1853,20 @@ CONTAINS
           ! Do not inspect element if output is disabled
           IF (.NOT.elem%info%loutput) CYCLE
           IF (elem%info%lcontainer) CYCLE
+          IF (key_notl .NE. elem%info%key_notl) CYCLE
           IF (of%name_list%remap .EQ. REMAP_REGULAR_LATLON) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:
             IF (elem%info%hgrid .NE. GRID_REGULAR_LONLAT .OR. &
               & of%name_list%lonlat_id .NE. elem%info%hor_interp%lonlat_id) &
               & CYCLE
-            IF (LONLAT_PREFIX//tolower(varlist(iv)) /= &
-                tolower(get_var_name(elem%info))) CYCLE
           ELSE
             ! On the other hand: If no lon-lat interpolation is
             ! requested for this output file, skip all variables of
             ! this kind:
             IF (elem%info%hgrid .EQ. GRID_REGULAR_LONLAT) CYCLE
-            IF (tolower(varlist(iv)) /= tolower(get_var_name(elem%info))) CYCLE
           END IF ! (remap/=REMAP_REGULAR_LATLON)
+          IF (vname /= tolower(get_var_name(elem%info))) CYCLE
             ! register variable
           CALL registerOutputVariable(varlist(iv))
           ! register shortnames, which are used by mvstream and possibly by the users
