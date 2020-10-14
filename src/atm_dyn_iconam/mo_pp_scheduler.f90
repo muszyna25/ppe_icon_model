@@ -208,13 +208,10 @@ MODULE mo_pp_scheduler
     &                                   t_activity_status
   USE mo_fortran_tools,           ONLY: assign_if_present
   USE mo_timer,                   ONLY: timers_level, timer_start, timer_stop, timer_opt_diag_atmo
-
+  USE mo_util_texthash,           ONLY: text_hash_c
 
   IMPLICIT NONE
-
-  ! interface definition
   PRIVATE
-
 
   ! functions and subroutines
   PUBLIC :: pp_scheduler_init
@@ -223,10 +220,7 @@ MODULE mo_pp_scheduler
   PUBLIC :: new_simulation_status
 
   !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_pp_scheduler'
-
-  ! some constants (for better readability):
-  CHARACTER(*), PARAMETER :: vn_name = TRIM("vn")
+  CHARACTER(*), PARAMETER :: modname = 'mo_pp_scheduler'
 
 CONTAINS
 
@@ -306,7 +300,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::init_vn_horizontal"
     TYPE(t_var), POINTER :: elem_u, elem_v, elem, new_elem, new_elem2
-    INTEGER :: iv, shape3d_ll(3), nblks_lonlat, nlev, jg, tl
+    INTEGER :: iv, shape3d_ll(3), nblks_lonlat, nlev, jg, tl, vn_hash
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
@@ -326,6 +320,7 @@ CONTAINS
     ! and DWD0123 for hybrid parallelization)
     new_elem => NULL()
     new_elem2 => NULL()
+    vn_hash = text_hash_c('vn')
     !- loop over model level variables
     ! Note that there are several "vn" variables with different time
     ! levels, we just add unconditionally all
@@ -361,7 +356,7 @@ CONTAINS
         ! Do not inspect element if "loutput=.false."
         IF (.NOT. info%loutput) CYCLE
         ! Check for matching name
-        IF (vn_name /= tolower(get_var_name(info))) CYCLE
+        IF (vn_hash .NE. info%key_notl) CYCLE
         ! get time level
         tl = get_var_timelevel(info%name)
         suffix = ''
@@ -865,7 +860,7 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::init_vn_vertical"
     TYPE(t_var), POINTER :: elem_u, elem_v, elem, vn_elem, new_elem, new_elem2
-    INTEGER :: iv, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e, tl
+    INTEGER :: iv, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e, tl, vn_hash
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
@@ -889,6 +884,7 @@ CONTAINS
     nblks_e   = p_patch(jg)%nblks_e
     shape3d_c = (/ nproma, nlev, nblks_c /)
     shape3d_e = (/ nproma, nlev, nblks_e /)
+    vn_hash = text_hash_c('vn')
     !- loop over model level variables
     ! Note that there may be several variables with different time levels,
     ! we just add unconditionally all
@@ -908,7 +904,7 @@ CONTAINS
         IF (.NOT. info%loutput) CYCLE
         ! Check for matching name (take care of suffix of
         ! time-dependent variables):
-        IF (TRIM(vn_name) /= tolower(get_var_name(info))) CYCLE
+        IF (vn_hash .NE. info%key_notl) CYCLE
         ! get time level
         tl = get_var_timelevel(info%name)
         suffix = ''
