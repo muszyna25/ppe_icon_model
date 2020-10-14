@@ -1163,14 +1163,6 @@ MODULE mo_async_latbc
 
 
          !
-         ! Consistency checks
-         ! 
-         IF (latbc_config%init_latbc_from_fg .AND. .NOT. buffer%lread_hhl) THEN
-           CALL finish(routine, "Init LATBC from first guess requires BCs from non-hydrostatic model!")
-         END IF
-
-
-         !
          ! Write some status output:
          !
          IF (buffer%lread_theta_rho) THEN
