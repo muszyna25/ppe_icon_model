@@ -2876,11 +2876,19 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
     ! Replicate vertical coordinate table
 #ifndef __NO_ICON_ATMO__
-    IF (.NOT. is_io) ivct_len = SIZE(vct)
+    IF (.NOT. is_io) THEN
+      IF (ALLOCATED(vct)) THEN
+        ivct_len = SIZE(vct)
+      ELSE
+        ivct_len = -1
+      END IF
+    END IF
     CALL p_bcast(ivct_len, bcast_root, p_comm_work_2_io)
 
-    IF (is_io) ALLOCATE(vct(ivct_len))
-    CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
+    IF (ivct_len > 0) THEN
+      IF (is_io) ALLOCATE(vct(ivct_len))
+      CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
+    END IF
 #endif
 ! #ifndef __NO_ICON_ATMO__
     !-----------------------------------------------------------------------------------------------
