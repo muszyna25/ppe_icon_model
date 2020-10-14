@@ -706,6 +706,8 @@ CONTAINS
         ocean_state%p_diag%vn_pred(je,jk,blockNo) = ocean_state%p_prog(nold(1))%vn(je,jk,blockNo)  &
           & + dtime*(ocean_state%p_aux%g_nimd(je,jk,blockNo) &
           & - z_gradh_e(je))
+      END DO
+    END DO
         
     CALL VelocityBottomBoundaryCondition_onBlock(patch_3d, &
       & blockNo,start_edge_index, end_edge_index, &
