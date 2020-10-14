@@ -563,27 +563,57 @@ CONTAINS
 
     REAL(wp), INTENT(INOUT) :: u_ice(fem_patch%n_patch_verts)
 
-    ! local variables
-    ! Temporary variables/buffers and pad
-    REAL(wp) :: u(nproma, fem_patch%nblks_v)
-    REAL(wp) :: buffy(nproma*fem_patch%nblks_v)
-    REAL(wp), ALLOCATABLE :: pad(:)
+    ! Temporary buffer
+    REAL(wp) :: u_(nproma, fem_patch%nblks_v)
+
+    CALL copy_fem2icon(u_ice, u_, 1, 1)
+
+    CALL sync_patch_array(SYNC_V, fem_patch, u_(:,:))
+
+    CALL copy_icon2fem(u_, u_ice, 1, 1)
+  END SUBROUTINE exchange_nod2D
 
   !-------------------------------------------------------------------------
+  ! copy ice velocities to ICON variables
+  SUBROUTINE copy_fem2icon(u_ice, u_, nlev, lev_idx)
+    INTEGER, INTENT(in) :: nlev, lev_idx
+    REAL(wp), INTENT(IN) :: u_ice(fem_patch%n_patch_verts)
+    REAL(wp), INTENT(INOUT) :: u_(nproma, nlev, fem_patch%nblks_v)
+    INTEGER :: jv, jb, npad, nlast
+    DO jb = 1, fem_patch%nblks_v-1
+      DO jv = 1, nproma
+        u_(jv, lev_idx, jb) = u_ice((jb-1)*nproma + jv)
+      END DO
+    END DO
+    npad = nproma*fem_patch%nblks_v - fem_patch%n_patch_verts
+    nlast = nproma - npad
+    jb = fem_patch%nblks_v
+    DO jv = 1, nlast
+      u_(jv, lev_idx, jb) = u_ice((jb-1)*nproma + jv)
+    END DO
+    DO jv = nlast+1,nproma
+      u_(jv, lev_idx, jb) = -9999._wp
+    END DO
+  END SUBROUTINE copy_fem2icon
 
-    ! Reshape and copy ice velocities to ICON variables
-    ALLOCATE(pad(nproma*fem_patch%nblks_v - fem_patch%n_patch_verts))
-    pad = -9999._wp
-    u=RESHAPE(u_ice, SHAPE(u), pad)
-    DEALLOCATE(pad)
-
-    CALL sync_patch_array(SYNC_V, fem_patch, u(:,:))
-
-    ! Reshape and copy ice velocity to FEM model variables
-    buffy = RESHAPE(u, SHAPE(buffy))
-    u_ice = buffy(1:SIZE(u_ice))
-
-  END SUBROUTINE exchange_nod2D
+  ! Reshape and copy ice velocity to FEM model variables
+  SUBROUTINE copy_icon2fem(u_, u_ice, nlev, lev_idx)
+    INTEGER, INTENT(in) :: nlev, lev_idx
+    REAL(wp), INTENT(IN) :: u_(nproma, nlev, fem_patch%nblks_v)
+    REAL(wp), INTENT(OUT) :: u_ice(fem_patch%n_patch_verts)
+    INTEGER :: jv, jb, npad, nlast
+    DO jb = 1, fem_patch%nblks_v-1
+      DO jv = 1, nproma
+        u_ice((jb-1)*nproma + jv) = u_(jv, lev_idx, jb)
+      END DO
+    END DO
+    npad = nproma*fem_patch%nblks_v - fem_patch%n_patch_verts
+    nlast = nproma - npad
+    jb = fem_patch%nblks_v
+    DO jv = 1, nlast
+      u_ice((jb-1)*nproma + jv) = u_(jv, lev_idx, jb)
+    END DO
+  END SUBROUTINE copy_icon2fem
 
   !-------------------------------------------------------------------------
   !
