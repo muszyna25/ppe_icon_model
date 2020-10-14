@@ -402,8 +402,7 @@ CONTAINS
          end if
          end do
       ! pminus and pplus are to be known to neighbouting PE
-            call exchange_nod2D(icepminus)
-        call exchange_nod2D(icepplus)
+         CALL exchange_nod2D(icepminus, icepplus)
       !========================
       ! Limiting
       !========================
