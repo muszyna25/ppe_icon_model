@@ -47,6 +47,11 @@ MODULE mo_ice_fem_icon_init
 
   PUBLIC  :: exchange_nod2D
 
+  INTERFACE exchange_nod2d
+    MODULE PROCEDURE exchange_nod2d
+    MODULE PROCEDURE exchange_nod2Dx2
+  END INTERFACE exchange_nod2d
+
   PRIVATE :: basisfunctions_nod
   PRIVATE :: calc_f_rot
 
@@ -614,6 +619,26 @@ CONTAINS
       u_ice((jb-1)*nproma + jv) = u_(jv, lev_idx, jb)
     END DO
   END SUBROUTINE copy_icon2fem
+
+  SUBROUTINE exchange_nod2Dx2(u1_ice, u2_ice)
+
+    USE mo_sync,                ONLY: SYNC_V, sync_patch_array!, sync_patch_array_mult
+
+    REAL(wp), INTENT(INOUT) :: u1_ice(fem_patch%n_patch_verts), &
+         u2_ice(fem_patch%n_patch_verts)
+
+    ! Temporary buffer
+    REAL(wp) :: u_(nproma, 2, fem_patch%nblks_v)
+
+    CALL copy_fem2icon(u1_ice, u_, 2, 1)
+    CALL copy_fem2icon(u2_ice, u_, 2, 2)
+
+    CALL sync_patch_array(SYNC_V, fem_patch, u_)
+
+    CALL copy_icon2fem(u_, u1_ice, 2, 1)
+    CALL copy_icon2fem(u_, u2_ice, 2, 2)
+
+  END SUBROUTINE exchange_nod2Dx2
 
   !-------------------------------------------------------------------------
   !
