@@ -19,7 +19,7 @@ MODULE mo_derived_variable_handling
   USE mo_var_metadata_types,  ONLY: t_var_metadata
   USE mo_var_list_register_utils, ONLY: vlr_find
   USE mo_exception,           ONLY: finish
-  USE mtime,                  ONLY: newEvent, event, isCurrentEventActive, newDatetime, datetime
+  USE mtime,                  ONLY: newEvent, event, isCurrentEventActive, datetime
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, GRID_LONLAT, TSTEP_CONSTANT
   USE mo_util_texthash,       ONLY: text_hash_c
@@ -536,12 +536,12 @@ CONTAINS
     INTEGER, POINTER :: ct
     TYPE(t_var), POINTER :: src, dst
     TYPE(t_derivate_event), POINTER :: ederiv
-    TYPE(datetime), POINTER :: mtime_date
+    TYPE(datetime) :: mtime_date
     LOGICAL :: isactive
 
     ne = 0
     IF (ALLOCATED(bundle%events)) ne = SIZE(bundle%events)
-    mtime_date => newDatetime(time_config%tc_current_date)
+    mtime_date = time_config%tc_current_date
     DO ie = 1, ne
       ederiv => bundle%events(ie)%a
       isactive = LOGICAL(isCurrentEventActive(ederiv%mtime_event, mtime_date))
