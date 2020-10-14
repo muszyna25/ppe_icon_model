@@ -78,7 +78,7 @@ MODULE mo_ocean_check_salt
 
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
 
-  USE mo_ocean_nml,          ONLY: n_zlev, no_tracer
+  USE mo_ocean_nml,          ONLY: n_zlev, no_tracer, surface_flux_type
 
   IMPLICIT NONE
 
@@ -238,6 +238,12 @@ CONTAINS
           draftave = ice%draftave_old(cell,BLOCK)
 
         endif
+
+        !! FIXME for SF = 3, ice ocean coupling is through fluxes
+        !! so water height is h and not h - draftave
+        if (surface_flux_type .eq. 3) then
+          draftave = 0.0_wp
+        end if
 
         saltInLiquidWater(cell,BLOCK) = so(cell,1,BLOCK) &
              &                    * (thickness(cell,1,BLOCK)+h(cell,BLOCK)-draftave) &

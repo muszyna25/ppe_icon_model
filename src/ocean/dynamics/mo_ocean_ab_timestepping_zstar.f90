@@ -706,9 +706,7 @@ CONTAINS
         ocean_state%p_diag%vn_pred(je,jk,blockNo) = ocean_state%p_prog(nold(1))%vn(je,jk,blockNo)  &
           & + dtime*(ocean_state%p_aux%g_nimd(je,jk,blockNo) &
           & - z_gradh_e(je))
-      END DO
-    END DO
-    
+        
     CALL VelocityBottomBoundaryCondition_onBlock(patch_3d, &
       & blockNo,start_edge_index, end_edge_index, &
       & ocean_state%p_prog(nold(1))%vn(:,:,blockNo), &
@@ -729,7 +727,7 @@ CONTAINS
         bottom_level = patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
         !! Using a stable version for boundary modification
         !! If the velocity becomes high
-        IF ( abs( ocean_state%p_diag%vn_pred(je,bottom_level,blockNo) ) > 4. ) THEN
+        IF ( abs( ocean_state%p_diag%vn_pred(je,bottom_level,blockNo) ) > 5. ) THEN
           ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)           &
               & = ocean_state%p_diag%vn_pred(je,bottom_level,blockNo)/    &
               & ( 1.0_wp + dtime* v_params%bottom_drag_coeff*             &
@@ -1092,7 +1090,7 @@ CONTAINS
       !!ICON_OMP END PARALLEL WORKSHARE
  
       minmaxmean(:) = global_minmaxmean(values=eta_c_new, in_subset=owned_cells)
-      IF ( abs(minmaxmean(1) >  225 ) ) &
+      IF ( ( abs(minmaxmean(1) >  225 ) ) .OR. ( ISNAN(minmaxmean(1)) ) )&
             CALL finish("Surface height too large!!")
 
       IF (createSolverMatrix) &

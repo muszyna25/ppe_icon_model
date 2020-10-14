@@ -74,6 +74,8 @@ MODULE mo_ocean_surface_refactor
   USE mo_swr_absorption
   USE mo_ocean_check_salt,       ONLY: check_total_salt_content, check_total_si_volume
 
+  USE mo_mpi, only: get_my_mpi_work_id 
+
   IMPLICIT NONE
   
   PRIVATE
@@ -1085,6 +1087,7 @@ CONTAINS
     INTEGER               :: jc, jb
     INTEGER               :: i_startidx_c, i_endidx_c
     REAL(wp)              :: sss_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)              :: sst_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zunderice_old
     REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
 
@@ -1093,8 +1096,9 @@ CONTAINS
     REAL(wp) :: temp_eta, min_h
     REAL(wp) :: temp_stretch(nproma, p_patch_3d%p_patch_2d(1)%alloc_cell_blocks) 
     
-    INTEGER  :: bt_lev, jk
+    INTEGER  :: bt_lev, jk, adj_lev
     REAL(wp) :: d_c, dz_old, dz_new, extra_salt_in_col
+    REAL(wp) :: dz_ratio, adj_lev_ht
     
     REAL(wp) :: old_sss, new_sss 
 
@@ -1109,11 +1113,27 @@ CONTAINS
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
     !-----------------------------------------------------------------------
-    sss_inter(:,:)  = p_oce_sfc%sss(:,:)
-    ! freeboard before sea ice model (used for thermal boundary condition (Eq.1))
-    ! by construction, is stored in p_oce_sfc%cellThicknessUnderIce
+    sst_inter(:,:)    = p_oce_sfc%sst(:,:)
+    sss_inter(:,:)    = p_oce_sfc%sss(:,:)
     zUnderIceIni(:,:) = p_oce_sfc%cellThicknessUnderIce (:,:)
 
+    CALL dbg_print('UpdSfcSTART: oce_sfc%SST ',p_oce_sfc%SST, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcSTART: oce_sfc%SSS ',p_oce_sfc%SSS, str_module, 2, in_subset=p_patch%cells%owned)
+
+    !! For thin levels we need to adjust surface flux over multiple levels
+    !! below we compute number of levels based on arbitrary requirement
+    !! of the level that includes 11m depth
+    adj_lev    = 1
+    adj_lev_ht = p_patch_3d%p_patch_1d(1)%zlev_i(2)
+    DO jk = 1, n_zlev 
+      IF ( ( p_patch_3d%p_patch_1d(1)%zlev_i(jk) .LE. 15) .AND. &
+        & ( p_patch_3d%p_patch_1d(1)%zlev_i(jk + 1) .GT. 15) ) THEN 
+        
+         adj_lev    = jk
+         adj_lev_ht = p_patch_3d%p_patch_1d(1)%zlev_i(jk + 1)
+
+      END IF
+    END DO
 
     !!  Provide total ocean forcing:
     !    - total heat fluxes are aggregated for ice/ocean in ice thermodynamics
@@ -1127,6 +1147,19 @@ CONTAINS
     p_oce_sfc%FrshFlux_TotalSalt(:,:)   = p_oce_sfc%FrshFlux_Runoff    (:,:) &
       &                                 + p_oce_sfc%FrshFlux_TotalIce  (:,:) &
       &                                 + p_oce_sfc%FrshFlux_TotalOcean(:,:)
+
+    
+!    IF (get_my_mpi_work_id() .EQ. 359 ) THEN
+!      write(0, *) "====================================================" 
+!      write(0, *) "THIN LEVEL ALERT" 
+!      write(0, *) p_ice%draftave(4, 1), p_oce_sfc%FrshFlux_VolumeTotal(4,1)*dtime
+!      write(0, *) sst_inter(4, 1), p_oce_sfc%sst(4, 1)
+!      write(0, *) stretch_c(4, 1) 
+!      write(0, *) eta_c(4, 1), p_oce_sfc%FrshFlux_TotalIce(4, 1)*dtime  
+!      write(0, *) p_os%p_diag%kin(4, 1, 1), p_os%p_diag%kin(4, 2, 1), p_os%p_diag%kin(4, 4, 1)
+!      write(0, *) "====================================================" 
+!    END IF
+
 
     !  ******  (Thermodynamic Eq. 1)  ******
     ! Apply net surface heat flux to ocean surface (new p_oce_flx%SST)
@@ -1143,6 +1176,16 @@ CONTAINS
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
               &                    heatflux_surface_layer*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
 
+!            IF (p_oce_sfc%sst(jc,jb) > 40 ) THEN
+!              write(0, *) "====================================================" 
+!              write(0, *) "Hoch temperature" 
+!              write(0, *) jc, jb,  p_patch_3d%p_patch_1d(1)%dolic_c(jc, jb), get_my_mpi_work_id()
+!              write(0, *) sst_inter(jc,jb), p_oce_sfc%sst(jc,jb)
+!              write(0, *) p_oce_sfc%HeatFlux_Total(jc,jb), p_os%p_diag%heatabs(jc,jb)
+!              write(0, *) heatflux_surface_layer, clw, rho_ref, zUnderIceIni(jc,jb)
+!              write(0, *) p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb), stretch_c(jc,jb) 
+!            END IF
+
           ENDIF
         ENDDO
       ENDDO
@@ -1151,9 +1194,6 @@ CONTAINS
 
     CALL dbg_print('UpdSfc: eta-old', eta_c,    str_module, 1, in_subset=p_patch%cells%owned)
     ! apply volume flux to surface elevation
-    !  - add to h_old before explicit term
-    !  - change in salt concentration applied here
-    !    i.e. for salinity relaxation only, no volume flux is applied
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
@@ -1171,8 +1211,6 @@ CONTAINS
 
           h_old_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * stretch_c(jc,jb)
 
-          !******  (Thermodynamic Eq. 5)  ******
-          !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface
           temp_eta     = eta_c(jc,jb)              
 
           eta_c(jc,jb) = eta_c(jc,jb)               &
@@ -1191,43 +1229,99 @@ CONTAINS
           !! update zunderice
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) * temp_stretch(jc, jb) 
     
-          p_oce_sfc%sss(jc,jb)   = ( sss_inter(jc,jb) * zunderice_old + &
-             &          p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) / p_ice%zUnderIce(jc,jb)
+!          p_oce_sfc%sss(jc,jb)   = ( sss_inter(jc,jb) * zunderice_old + &
+!             &          p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) / p_ice%zUnderIce(jc,jb)
 
-          !! Add extra salt due to changed layers to top level only 
+          !! Calculate extra salt due to changed layers 
           extra_salt_in_col = 0.0
-          DO jk = 2, bt_lev 
+          DO jk = adj_lev + 1, bt_lev 
             dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
               & * stretch_c(jc, jb) 
             dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
               & * temp_stretch(jc, jb) 
             
             extra_salt_in_col = extra_salt_in_col + &
-              & p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) * (dz_new - dz_old)
+              & p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) * (dz_old - dz_new)
 
           END DO
+          
+          !! FIXME Test this for salt conservation
+          !! Distribute surface fluxes over multiple levels depending on
+          !! thickness ratio 
+          DO jk = 1, adj_lev
+            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * stretch_c(jc, jb) 
+            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+              & * temp_stretch(jc, jb) 
 
-          new_sss = ( p_oce_sfc%sss(jc,jb)*p_ice%zUnderIce(jc,jb) &
-             & - extra_salt_in_col )/p_ice%zUnderIce(jc,jb)
+            dz_ratio = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)/adj_lev_ht
 
-          !! Total excess salt in a column could become too large
-          !! for only the first layer to adjust. So, if SSS is affected too much
-          !! we simply distribute excess salt among all layers
-          !! FIXME: this condition is arbitrary, can it be improved?
-          IF (new_sss > 2.5) THEN
-            p_oce_sfc%sss(jc,jb) = new_sss
-          ELSE
-            DO jk = 1, bt_lev 
-              dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
-                & * stretch_c(jc, jb) 
-              dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
-                & * temp_stretch(jc, jb) 
-              
-              p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)  = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) &
-                & * (dz_old / dz_new)
-  
-            END DO
-          END IF
+            ! Distribute over 4 levels
+!            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) &
+!              &  + ( p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime ) /dz_new
+            !! 
+            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)*dz_old/dz_new &
+              &  +  dz_ratio*p_oce_sfc%FrshFlux_IceSalt(jc,jb) * dtime/dz_new &
+              &  +  dz_ratio*extra_salt_in_col/dz_new
+
+!            if ( p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) < 2 ) then
+!              write(0, *) "============================================"
+!              write(0, *) "========9999999999999999===================="
+!              write(0, *) "==LOW TRACER VALUE== ", adj_lev, adj_lev_ht
+!              write(0, *) p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2), p_oce_sfc%FrshFlux_IceSalt(jc,jb)*dtime &
+!                & , extra_salt_in_col
+!              write(0, *) jc, jk, jb, bt_lev 
+!              write(0, *) stretch_c(jc, jb), temp_stretch(jc, jb) 
+!            END IF
+          END DO  
+
+!          !! Test this for salt conservation
+!          !! Maybe do to approximately 12 m, so find out how many layers are 12m 
+!          DO jk = 2, 4 
+!            dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+!              & * stretch_c(jc, jb) 
+!            dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+!              & * temp_stretch(jc, jb) 
+!
+!            dz_ratio = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)/16.0_wp
+!
+!            ! Distribute over 4 levels
+!!            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) &
+!!              &  + dz_ratio*( - extra_salt_in_col ) /dz_new
+!            p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) = ( p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) * dz_old &
+!              &  ) /dz_new
+!
+!            if ( p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) < 1 ) then
+!              write(0, *) "============================================"
+!              write(0, *) "==LOW TRACER VALUE"
+!              write(0, *) p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2), p_oce_sfc%FrshFlux_IceSalt(jc,jb)*dtime &
+!                & , extra_salt_in_col
+!              write(0, *) jc, jk, jb, bt_lev 
+!              write(0, *) stretch_c(jc, jb), temp_stretch(jc, jb) 
+!            END IF
+!          END DO  
+
+!          new_sss = ( p_oce_sfc%sss(jc,jb)*p_ice%zUnderIce(jc,jb) &
+!             & - extra_salt_in_col )/p_ice%zUnderIce(jc,jb)
+!
+!          !! Total excess salt in a column could become too large
+!          !! for only the first layer to adjust. So, if SSS is affected too much
+!          !! we simply distribute excess salt among all layers
+!          !! FIXME: this condition is arbitrary, can it be improved?
+!          IF (new_sss > 2.5) THEN
+!            p_oce_sfc%sss(jc,jb) = new_sss
+!          ELSE
+!            DO jk = 1, bt_lev 
+!              dz_old = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+!                & * stretch_c(jc, jb) 
+!              dz_new = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc, jk, jb)&
+!                & * temp_stretch(jc, jb) 
+!              
+!              p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2)  = p_os%p_prog(nold(1))%tracer(jc, jk, jb, 2) &
+!                & * (dz_old / dz_new)
+!  
+!            END DO
+!          END IF
 
           h_new_test =  p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb)*temp_stretch(jc, jb)
           p_oce_sfc%top_dilution_coeff(jc,jb) = h_old_test/h_new_test
@@ -1238,6 +1332,9 @@ CONTAINS
           
     !! set correct cell thickness under ice
     p_oce_sfc%cellThicknessUnderIce   (:,:) = p_ice%zUnderIce(:,:)
+
+    CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST, str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS, str_module, 2, in_subset=p_patch%cells%owned)
 
 
   END SUBROUTINE apply_surface_fluxes_zstar

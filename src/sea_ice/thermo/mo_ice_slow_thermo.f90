@@ -379,7 +379,10 @@ CONTAINS
           fi3(jc,jb) =-(1._wp-sice/sss(jc,jb))*ice%newice(jc,jb)*rhoi/(rho_ref*dtime)
 
           ! total freshwater flux from sea ice thermodynamics:
-          p_oce_sfc%FrshFlux_TotalIce(jc,jb) = fi1(jc,jb) + fi2(jc,jb) + fi3(jc,jb)
+!          p_oce_sfc%FrshFlux_TotalIce(jc,jb) = fi1(jc,jb) + fi2(jc,jb) + fi3(jc,jb)
+          p_oce_sfc%FrshFlux_TotalIce(jc,jb) = -( ( SUM( ice%delhi(jc,:,jb))*rhoi &
+            & + SUM( ice%delhs(jc,:,jb) )*rhos + ice%newice(jc,jb)*rhoi)/rho_ref &
+            & - ice%totalsnowfall(jc,jb) )/dtime
 
         ENDIF
 
