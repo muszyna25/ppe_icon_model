@@ -2670,7 +2670,8 @@ CONTAINS
     END DO
 
     DO jg = 1, max_dom
-      DEALLOCATE(meteogram_output_config(jg)%station_list)
+      IF (ALLOCATED(meteogram_output_config(jg)%station_list)) &
+        DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
 
 
