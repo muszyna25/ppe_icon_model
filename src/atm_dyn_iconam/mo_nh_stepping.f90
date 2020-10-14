@@ -206,7 +206,7 @@ MODULE mo_nh_stepping
     &                                    getElapsedSimTimeInSeconds, is_event_active
   USE mo_event_manager,            ONLY: addEventGroup, getEventGroup, printEventGroup
   USE mo_phy_events,               ONLY: mtime_ctrl_physics
-  USE mo_derived_variable_handling, ONLY: update_statistics, reset_statistics
+  USE mo_derived_variable_handling, ONLY: update_statistics
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -624,7 +624,6 @@ MODULE mo_nh_stepping
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
-    CALL reset_statistics
 
     ! sample meteogram output
     DO jg = 1, n_dom
@@ -1280,9 +1279,6 @@ MODULE mo_nh_stepping
     IF (l_nml_output .AND. .NOT. bench_config%d_wnlo) THEN
       CALL write_name_list_output(jstep)
     ENDIF
-
-    CALL reset_statistics
-
 
     ! sample meteogram output
     DO jg = 1, n_dom

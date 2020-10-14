@@ -40,7 +40,6 @@ MODULE mo_icon_output_tools
        &                            timer_model_init
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
-  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_level_selection, ONLY: create_mipz_level_selections
@@ -244,8 +243,7 @@ MODULE mo_icon_output_tools
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
       IF (restartAttributes%is_init) &
-        CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-      CALL init_statistics_streams
+        & CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
       CALL create_mipz_level_selections(output_file)
       CALL create_vertical_axes(output_file)

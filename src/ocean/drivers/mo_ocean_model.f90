@@ -41,7 +41,6 @@ MODULE mo_ocean_model
   USE mo_memory_log,              ONLY: memory_log_terminate
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 create_vertical_axes, output_file
-  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_level_selection, ONLY: create_mipz_level_selections
@@ -320,10 +319,7 @@ MODULE mo_ocean_model
 
     ! Delete variable lists
 
-    IF (output_mode%l_nml) THEN
-      CALL close_name_list_output
-      CALL finish_statistics_streams
-    ENDIF
+    IF (output_mode%l_nml) CALL close_name_list_output
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN
       prev_cdi_namespace = namespaceGetActive()

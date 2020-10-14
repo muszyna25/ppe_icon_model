@@ -120,7 +120,6 @@ USE mo_sync_latbc,          ONLY: deallocate_latbc_data
 USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lhn_fields, destruct_lhn
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
-USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
 USE mo_var_list_register,   ONLY: vl_register
 USE mo_sync,                ONLY: sync_patch_array, sync_c
@@ -597,8 +596,7 @@ CONTAINS
       CALL getAttributesForRestarting(restartAttributes)
       ! get start counter for time loop from restart file:
       IF (restartAttributes%is_init) &
-           CALL restartAttributes%get("jstep", sim_step_info%jstep0)
-      CALL init_statistics_streams
+        & CALL restartAttributes%get("jstep", sim_step_info%jstep0)
       CALL init_name_list_output(sim_step_info)
 
       !---------------------------------------------------------------------
@@ -768,7 +766,6 @@ CONTAINS
       CALL message(routine, 'delete output variable lists')
       CALL close_name_list_output
       CALL message(routine, 'finish statistics streams')
-      CALL finish_statistics_streams
     END IF
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN

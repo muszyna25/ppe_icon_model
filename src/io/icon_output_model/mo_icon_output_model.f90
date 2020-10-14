@@ -45,7 +45,6 @@ MODULE mo_icon_output_model
   USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString, datetime
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups, &
     &                                 output_file
-  USE mo_derived_variable_handling, ONLY: init_statistics_streams, finish_statistics_streams
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc, write_name_list_output, istime4name_list_output
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_level_selection, ONLY: create_mipz_level_selections
@@ -218,10 +217,7 @@ MODULE mo_icon_output_model
 
     CALL destruct_icon_output_variables()
 
-    IF (output_mode%l_nml) THEN
-      CALL close_name_list_output
-      CALL finish_statistics_streams
-    ENDIF
+    IF (output_mode%l_nml) CALL close_name_list_output
 #ifdef HAVE_CDI_PIO
     IF (pio_type == pio_type_cdipio) THEN
       prev_cdi_namespace = namespaceGetActive()
