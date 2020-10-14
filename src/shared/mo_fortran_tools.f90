@@ -1826,7 +1826,7 @@ CONTAINS
     TYPE(c_ptr) :: cptr
     out_shape(1:5) = SHAPE(ptr_in)
     cptr = C_LOC(ptr_in)
-    DO i = 6, new_dim_rank, -1
+    DO i = 6, new_dim_rank+1, -1
       out_shape(i) = out_shape(i-1)
     END DO
     out_shape(new_dim_rank) = 1
@@ -1853,7 +1853,7 @@ CONTAINS
     TYPE(c_ptr) :: cptr
     out_shape(1:5) = SHAPE(ptr_in)
     cptr = C_LOC(ptr_in)
-    DO i = 6, new_dim_rank, -1
+    DO i = 6, new_dim_rank+1, -1
       out_shape(i) = out_shape(i-1)
     END DO
     out_shape(new_dim_rank) = 1
@@ -1880,7 +1880,7 @@ CONTAINS
     TYPE(c_ptr) :: cptr
     out_shape(1:5) = SHAPE(ptr_in)
     cptr = C_LOC(ptr_in)
-    DO i = 6, new_dim_rank, -1
+    DO i = 6, new_dim_rank+1, -1
       out_shape(i) = out_shape(i-1)
     END DO
     out_shape(new_dim_rank) = 1
