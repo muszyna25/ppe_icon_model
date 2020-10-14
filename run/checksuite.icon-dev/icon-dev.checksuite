@@ -837,6 +837,8 @@ if string_in_list $MD $CMODES; then
 
             N_NODES=`grep "no_of_nodes=" exp.${SCRIPT}.run`
             eval N_NODES=\""${N_NODES#'no_of_nodes='}"\"
+            OMP_NUM_THREADS=`grep "export OMP_NUM_THREADS=" exp.${SCRIPT}.run`
+            eval OMP_NUM_THREADS=\""${OMP_NUM_THREADS#'export OMP_NUM_THREADS='}"\"
             N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
             eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
             N_PROCS=$(( N_NODES * N_PPNODE ))
@@ -969,6 +971,7 @@ if string_in_list $MD $CMODES; then
                 # since the mistral script dynamically adapts the
                 # number of tasks to the number of threads, these need
                 # to be fixed too
+                OMP_NUM_THREADS=$N_OMP_NUM_THREADS
                 N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
                 eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
 
