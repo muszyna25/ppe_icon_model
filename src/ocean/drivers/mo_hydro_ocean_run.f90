@@ -249,7 +249,7 @@ CONTAINS
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
     IF (n_dom > 1 ) THEN
-      CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
+      CALL finish(routine, ' N_DOM > 1 is not allowed')
     END IF
     jg = n_dom
 
@@ -352,7 +352,7 @@ CONTAINS
 
         CALL datetimeToString(current_time, datestring)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
-        CALL message (TRIM(routine), message_text)
+        CALL message (routine, message_text)
               
 !        IF (lcheck_salt_content) CALL check_total_salt_content(100,ocean_state(jg)%p_prog(nold(1))%tracer(:,:,:,2), patch_2d, &
 !         ocean_state(jg)%p_prog(nold(1))%h(:,:), patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,:),&
@@ -447,7 +447,7 @@ CONTAINS
            & sea_ice=sea_ice,            &
            & jstep=jstep, jstep0=jstep0, &
            & force_output=.true.)
-          CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
+          CALL finish(routine, 'solve_free_surface_eq_ab  returned error')
         ENDIF
         
         stop_timer(timer_solve_ab,1)
