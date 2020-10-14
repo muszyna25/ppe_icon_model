@@ -3080,17 +3080,25 @@ CONTAINS
 
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_var_groups_dyn
-    LOGICAL :: is_io
+    LOGICAL :: is_io, vct_needs_bcast
 
     is_io = my_process_is_io()
     !-----------------------------------------------------------------------------------------------
     ! Replicate vertical coordinate table
 #ifndef __NO_ICON_ATMO__
-    IF (.NOT. is_io) ivct_len = SIZE(vct)
+    IF (.NOT. is_io) THEN
+      IF (ALLOCATED(vct)) THEN
+        ivct_len = SIZE(vct)
+      ELSE
+        ivct_len = -1
+      END IF
+    END IF
     CALL p_bcast(ivct_len, bcast_root, p_comm_work_2_io)
 
-    IF (is_io) ALLOCATE(vct(ivct_len))
-    CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
+    IF (ivct_len > 0) THEN
+      IF (is_io) ALLOCATE(vct(ivct_len))
+      CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
+    END IF
 #endif
 
     CALL replicate_var_lists(p_comm_work_2_io, bcast_root, .NOT. is_io)
