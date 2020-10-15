@@ -239,10 +239,12 @@ CONTAINS
         IF (.NOT.desc%l_dom_active) CYCLE
         IF (p_pe_work .NE. MOD(desc%id-1, process_mpi_restart_size)) CYCLE
       END IF
-      IF (lIsWriteProcess .AND. .NOT.ALLOCATED(rAttribs)) &
-        & CALL me%defineRestartAttributes(rAttribs, rArgs)
-      CALL desc%updateVGrids()
-      IF (lIsWriteProcess) CALL restartfile_open()
+      IF (lIsWriteProcess) THEN
+        IF (.NOT.ALLOCATED(rAttribs)) &
+          & CALL me%defineRestartAttributes(rAttribs, rArgs)
+        CALL desc%updateVGrids()
+        CALL restartfile_open()
+      END IF
       IF (ALLOCATED(me%sPatchData)) THEN
         CALL me%sPatchData(jg)%writeData(cdiIds%fHndl)
 #ifndef NOMPI
