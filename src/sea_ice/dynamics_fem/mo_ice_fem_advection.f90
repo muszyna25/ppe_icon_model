@@ -252,7 +252,7 @@ CONTAINS
 
       integer   :: tr_array_id
       integer   :: icoef(3,3),m,n,q, elem,elnodes(3),row
-      real(wp), allocatable, dimension(:) :: tmax, tmin
+      real(wp), dimension(myDim_nod2D) :: tmax, tmin
       real(wp)  :: vol, flux, ae, gamma
 
 
@@ -266,8 +266,6 @@ CONTAINS
      ! it takes memory and time. For every element
      ! we need its antidiffusive contribution to
      ! each of its 3 nodes
-
-     allocate(tmax(myDim_nod2D), tmin(myDim_nod2D))
 
      ! Auxiliary elemental operator (mass matrix- lumped mass matrix)
        icoef=1
@@ -455,7 +453,6 @@ CONTAINS
        END IF
 
        CALL exchange_nod2D(m_ice, a_ice, m_snow)
-         deallocate(tmin, tmax)
   end subroutine ice_fem_fct
   !-------------------------------------------------------------------------
 
