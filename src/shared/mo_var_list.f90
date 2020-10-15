@@ -387,7 +387,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     REAL(dp), POINTER, INTENT(OUT) :: ptr(:,:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(4)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -458,7 +458,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element, tracer_info, &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     REAL(dp), POINTER, INTENT(OUT) :: ptr(:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(2)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -494,7 +494,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     REAL(dp), POINTER, INTENT(OUT) :: ptr(:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(1)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -529,7 +529,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     REAL(sp), POINTER, INTENT(OUT) :: ptr(:,:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(4)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -564,7 +564,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element, tracer_info, &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     REAL(sp), POINTER, INTENT(OUT) :: ptr(:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(:)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -600,7 +600,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element, tracer_info, &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     REAL(sp), POINTER, INTENT(OUT) :: ptr(:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(2)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -636,7 +636,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     REAL(sp), POINTER, INTENT(OUT) :: ptr(:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(1)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -671,7 +671,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     INTEGER, POINTER, INTENT(OUT) :: ptr(:,:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(4)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -705,7 +705,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     INTEGER, POINTER, INTENT(OUT) :: ptr(:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(3)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -739,7 +739,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     INTEGER, POINTER, INTENT(OUT) :: ptr(:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(2)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -773,7 +773,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     INTEGER, POINTER, INTENT(OUT) :: ptr(:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(1)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -807,7 +807,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     LOGICAL, POINTER, INTENT(OUT) :: ptr(:,:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(4)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -842,7 +842,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     LOGICAL, POINTER, INTENT(OUT) :: ptr(:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(3)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -877,7 +877,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     LOGICAL, POINTER, INTENT(OUT) :: ptr(:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(2)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -912,7 +912,7 @@ CONTAINS
     & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: varname
+    CHARACTER(*), INTENT(IN) :: varname
     LOGICAL, POINTER, INTENT(OUT) :: ptr(:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ldims(1)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -950,7 +950,7 @@ CONTAINS
     & missval_s, missval_i, resetval_r, resetval_s, resetval_i, idx_tracer)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     TYPE(t_var), INTENT(OUT), POINTER :: target_element, new_list_element
-    CHARACTER(len=*), INTENT(IN) :: target_name, refname
+    CHARACTER(*), INTENT(IN) :: target_name, refname
     INTEGER, INTENT(IN) :: hgrid, vgrid, ref_idx, ldims(:), dtype
     INTEGER, INTENT(OUT) :: icontainer
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -1087,7 +1087,7 @@ CONTAINS
     & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: target_name, refname
+    CHARACTER(*), INTENT(IN) :: target_name, refname
     REAL(dp), POINTER :: ptr(:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ref_idx, ldims(3)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -1150,7 +1150,7 @@ CONTAINS
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class,     &
     & idx_tracer, idx_diag)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: target_name, refname
+    CHARACTER(*), INTENT(IN) :: target_name, refname
     REAL(dp), POINTER :: ptr(:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ref_idx, ldims(2)
     TYPE(t_cf_var), INTENT(IN) :: cf                  
@@ -1210,7 +1210,7 @@ CONTAINS
     & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: target_name, refname
+    CHARACTER(*), INTENT(IN) :: target_name, refname
     REAL(sp), POINTER :: ptr(:,:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ref_idx, ldims(3)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -1272,7 +1272,7 @@ CONTAINS
     & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: target_name, refname
+    CHARACTER(*), INTENT(IN) :: target_name, refname
     REAL(sp), POINTER :: ptr(:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ref_idx, ldims(2)
     TYPE(t_cf_var), INTENT(IN) :: cf
@@ -1332,8 +1332,8 @@ CONTAINS
     & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
-    CHARACTER(len=*), INTENT(IN) :: target_name, refname
-    INTEGER(sp), POINTER :: ptr(:,:)
+    CHARACTER(*), INTENT(IN) :: target_name, refname
+    INTEGER, POINTER :: ptr(:,:)
     INTEGER, INTENT(IN) :: hgrid, vgrid, ref_idx, ldims(2)
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
