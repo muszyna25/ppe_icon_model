@@ -52,6 +52,7 @@ MODULE mo_ice_fem_icon_init
   INTERFACE exchange_nod2d
     MODULE PROCEDURE exchange_nod2d
     MODULE PROCEDURE exchange_nod2Dx2
+    MODULE PROCEDURE exchange_nod2Dx3
   END INTERFACE exchange_nod2d
 
   PRIVATE :: basisfunctions_nod
@@ -636,6 +637,25 @@ CONTAINS
     CALL copy_icon2fem(u_, u2_ice, 2, 2)
 
   END SUBROUTINE exchange_nod2Dx2
+
+  SUBROUTINE exchange_nod2Dx3(u1_ice, u2_ice, u3_ice)
+    REAL(wp), INTENT(INOUT) :: u1_ice(fem_patch%n_patch_verts), &
+         u2_ice(fem_patch%n_patch_verts), u3_ice(fem_patch%n_patch_verts)
+
+    ! Temporary buffer
+    REAL(wp) :: u_(nproma, 3, fem_patch%nblks_v)
+
+    CALL copy_fem2icon(u1_ice, u_, 3, 1)
+    CALL copy_fem2icon(u2_ice, u_, 3, 2)
+    CALL copy_fem2icon(u3_ice, u_, 3, 3)
+
+    CALL sync_patch_array(SYNC_V, fem_patch, u_)
+
+    CALL copy_icon2fem(u_, u1_ice, 3, 1)
+    CALL copy_icon2fem(u_, u2_ice, 3, 2)
+    CALL copy_icon2fem(u_, u3_ice, 3, 3)
+
+  END SUBROUTINE exchange_nod2Dx3
 
   !-------------------------------------------------------------------------
   !

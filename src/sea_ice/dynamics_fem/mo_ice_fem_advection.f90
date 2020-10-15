@@ -164,9 +164,7 @@ CONTAINS
          da_ice(row)=rhs_a(row)/lmass_matrix(row)
          dm_snow(row)=rhs_mis(row)/lmass_matrix(row)
       end do
-         call exchange_nod2D(dm_ice)
-         call exchange_nod2D(da_ice)
-         call exchange_nod2D(dm_snow)
+      CALL exchange_nod2D(dm_ice, da_ice, dm_snow)
       !iterate
       do n=1,num_iter_solve-1
          do m=1,myDim_nod2D
@@ -188,9 +186,7 @@ CONTAINS
             da_ice(row)=a_icel(row)
         dm_snow(row)=m_snowl(row)
          end do
-         call exchange_nod2D(dm_ice)
-         call exchange_nod2D(da_ice)
-         call exchange_nod2D(dm_snow)
+         CALL exchange_nod2D(dm_ice, da_ice, dm_snow)
       end do
 
   end subroutine ice_solve_high_order
@@ -234,9 +230,7 @@ CONTAINS
                   m_snow(location(1:cn))))/lmass_matrix(row) + &
               (1.-gamma)*m_snow(row)
      end do
-         call exchange_nod2D(m_icel)
-         call exchange_nod2D(a_icel)
-         call exchange_nod2D(m_snowl)
+     CALL exchange_nod2D(m_icel, a_icel, m_snowl)
             ! Low-order solution must be known to neighbours
 
   end subroutine ice_solve_low_order
@@ -458,11 +452,9 @@ CONTAINS
             m_snow(n)=m_snow(n)+icefluxes(m,q)
             end do
          end do
-             end if
+       END IF
 
-            call exchange_nod2D(m_ice)
-        call exchange_nod2D(a_ice)
-        call exchange_nod2D(m_snow)
+       CALL exchange_nod2D(m_ice, a_ice, m_snow)
          deallocate(tmin, tmax)
   end subroutine ice_fem_fct
   !-------------------------------------------------------------------------
