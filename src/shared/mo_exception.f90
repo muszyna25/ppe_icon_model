@@ -206,6 +206,7 @@ CONTAINS
 
     CHARACTER (len=*), INTENT(in) :: name
     CHARACTER (len=*), INTENT(in) :: text
+    !> unit to write to, defaults to standard error
     INTEGER,           INTENT(in), OPTIONAL :: out
     INTEGER,           INTENT(in), OPTIONAL :: level
     LOGICAL,           INTENT(in), OPTIONAL :: all_print
