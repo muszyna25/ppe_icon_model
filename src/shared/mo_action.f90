@@ -46,8 +46,8 @@ MODULE mo_action
   USE mo_kind,               ONLY: wp, i8
   USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_comm_work, p_bcast
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
-  USE mtime,                 ONLY: t_event => event, newEvent, datetime, newDatetime,&
+  USE mo_impl_constants,     ONLY: vname_len
+  USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,&
     &                              isCurrentEventActive, deallocateDatetime,         &
     &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
     &                              MAX_EVENTNAME_STR_LEN, timedelta, newTimedelta,   &
@@ -71,41 +71,29 @@ MODULE mo_action
   IMPLICIT NONE
   PRIVATE
 
-  ! VARIABLES/OBJECTS
   PUBLIC :: reset_act
-
-  ! Functions/Subroutines
   PUBLIC :: getActiveAction, new_action, actions
-
-  ! PARAMETER
   PUBLIC :: ACTION_NAMES
 
   INTEGER, PARAMETER :: NMAX_VARS = 100 ! maximum number of fields that can be
                                         ! assigned to a single action
-
   ! List of available action types
-  !
   INTEGER, PARAMETER, PUBLIC :: ACTION_RESET = 1   ! re-set field to 0
-  !
   ! corresponding array of action names
   CHARACTER(LEN=10), PARAMETER :: ACTION_NAMES(1) =(/"RESET     "/)
 
   ! type for generating an array of pointers of type t_var_list_element
-  !
   TYPE t_var_element_ptr
     TYPE(t_var), POINTER :: p
-    TYPE(t_event), POINTER :: event     ! event from mtime library
+    TYPE(event), POINTER :: mevent     ! event from mtime library
     INTEGER              :: patch_id  ! patch on which field lives
   END TYPE t_var_element_ptr
 
-
   ! base type for action objects
-  !
   TYPE, abstract:: t_action_obj
     INTEGER                    :: actionTyp                   ! Type of action
     TYPE(t_var_element_ptr)    :: var_element_ptr(NMAX_VARS)  ! assigned variables
     INTEGER                    :: var_action_index(NMAX_VARS) ! index in var_element_ptr(10)%action
-
     INTEGER                    :: nvars                 ! number of variables for which
                                                         ! this action is to be performed
   CONTAINS
@@ -117,7 +105,6 @@ MODULE mo_action
     PROCEDURE :: execute    => action_execute       ! execute action object
 #endif
     PROCEDURE :: print_setup=> action_print_setup   ! Screen print out of action object setup
-    !
     ! deferred routine for action specific kernel (to be defined in extended type)
     PROCEDURE(kernel), deferred :: kernel
   END TYPE t_action_obj
@@ -132,16 +119,13 @@ MODULE mo_action
   END INTERFACE
 
   ! extension of the action base type for the purpose of creating objects of that type.
-  !
   ! create specific type for reset-action
-  !
   TYPE, extends(t_action_obj) :: t_reset_obj
   CONTAINS
     PROCEDURE :: kernel => reset_kernel     ! type-specific action kernel (to be defined by user)
   END TYPE t_reset_obj
 
   ! create action object
-  !
   TYPE(t_reset_obj) :: reset_act  ! action which resets field to resetval%rval
 
 CONTAINS
@@ -197,7 +181,7 @@ CONTAINS
             ! Create event for this specific field
             write(str_actionTyp,'(i2)') actionTyp
             event_name = 'act_TYP'//TRIM(str_actionTyp)//'_'//TRIM(action_list%action(iact)%intvl)
-            act_obj%var_element_ptr(nv)%event => newEvent(TRIM(event_name), &
+            act_obj%var_element_ptr(nv)%mevent => newEvent(TRIM(event_name), &
               & TRIM(action_list%action(iact)%ref), TRIM(action_list%action(iact)%start), &
               & TRIM(action_list%action(iact)%end), TRIM(action_list%action(iact)%intvl))
           END IF
@@ -289,7 +273,7 @@ CONTAINS
     REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
     INTEGER :: iv, ia
     TYPE(t_var), POINTER :: field
-    TYPE(t_event), POINTER :: event
+    TYPE(event), POINTER :: mevent
     TYPE(datetime), POINTER :: mtime_date
     LOGICAL :: isactive
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: cur_dtime_str, slack_str
@@ -308,9 +292,9 @@ CONTAINS
     DO iv = 1, act_obj%nvars
       ia = act_obj%var_action_index(iv)
       field => act_obj%var_element_ptr(iv)%p
-      event => act_obj%var_element_ptr(iv)%event
+      mevent => act_obj%var_element_ptr(iv)%mevent
       ! Check whether event-pointer is associated.
-      IF (.NOT.ASSOCIATED(event)) THEN
+      IF (.NOT.ASSOCIATED(mevent)) THEN
         WRITE (message_text,'(a,i2,a)') 'WARNING: action event ', ia, &
           & ' of field ' // TRIM(field%info%name) // ': no event-ptr associated!'
         CALL message(routine,message_text)
@@ -318,7 +302,7 @@ CONTAINS
       ! Note that a second call to isCurrentEventActive will lead to
       ! a different result! Is this a bug or a feature?
       ! triggers in interval [trigger_date + slack]
-      isactive = isCurrentEventActive(event, mtime_date, plus_slack=p_slack)
+      isactive = isCurrentEventActive(mevent, mtime_date, plus_slack=p_slack)
       ! Check whether the action should be triggered for variable
       ! under consideration
       IF (isactive) THEN
@@ -326,7 +310,7 @@ CONTAINS
         CALL datetimeToString(mtime_date, cur_dtime_str)
         field%info%action_list%action(ia)%lastActive = TRIM(cur_dtime_str)
         ! store latest intended triggering date
-        CALL getTriggeredPreviousEventAtDateTime(event, &
+        CALL getTriggeredPreviousEventAtDateTime(mevent, &
           field%info%action_list%action(ia)%EventLastTriggerDate)
         IF (msg_level >= 12) THEN
           WRITE(message_text,'(5a,i2,a,a)') 'action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),&
@@ -361,7 +345,7 @@ CONTAINS
     ! local variables
     INTEGER :: iv, ia
     TYPE(t_var), POINTER :: field
-    TYPE(t_event), POINTER :: event
+    TYPE(event), POINTER :: mevent
     TYPE(datetime), POINTER :: mtime_date
     LOGICAL :: isactive(NMAX_VARS)
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: cur_dtime_str, slack_str
@@ -381,9 +365,9 @@ CONTAINS
       ! Check for all action events whether they are due at the datetime given.
       DO iv = 1, act_obj%nvars
         ia = act_obj%var_action_index(iv)
-        event => act_obj%var_element_ptr(iv)%event
+        mevent => act_obj%var_element_ptr(iv)%mevent
         ! Check whether event-pointer is associated.
-        IF (.NOT.ASSOCIATED(event)) THEN
+        IF (.NOT.ASSOCIATED(mevent)) THEN
           field => act_obj%var_element_ptr(iv)%p
           WRITE (message_text,'(a,i2,a,a,a)')                           &
                'WARNING: action event ', ia, ' of field ',  &
@@ -393,7 +377,7 @@ CONTAINS
         ! Note that a second call to isCurrentEventActive will lead to
         ! a different result! Is this a bug or a feature?
         ! triggers in interval [trigger_date + slack]
-        isactive(iv) = is_event_active(event, mtime_date, proc0_offloading, plus_slack=p_slack, opt_lasync=.TRUE.)
+        isactive(iv) = is_event_active(mevent, mtime_date, proc0_offloading, plus_slack=p_slack, opt_lasync=.TRUE.)
       ENDDO
       ! cleanup
       CALL deallocateTimedelta(p_slack)
@@ -406,9 +390,9 @@ CONTAINS
       IF (isactive(iv)) THEN
         ia = act_obj%var_action_index(iv)
         field => act_obj%var_element_ptr(iv)%p
-        event => act_obj%var_element_ptr(iv)%event
+        mevent => act_obj%var_element_ptr(iv)%mevent
         ! Check whether event-pointer is associated.
-        IF (.NOT. ASSOCIATED(event)) THEN
+        IF (.NOT. ASSOCIATED(mevent)) THEN
           WRITE (message_text,'(a,i2,a,a,a)')                           &
                'WARNING: action event ', ia, ' of field ',  &
                 TRIM(field%info%name),': Event-Ptr is disassociated!'
@@ -418,7 +402,7 @@ CONTAINS
         CALL datetimeToString(mtime_date, cur_dtime_str)
         field%info%action_list%action(ia)%lastActive = TRIM(cur_dtime_str)
         ! store latest intended triggering date
-        CALL getTriggeredPreviousEventAtDateTime(event, &
+        CALL getTriggeredPreviousEventAtDateTime(mevent, &
           field%info%action_list%action(ia)%EventLastTriggerDate)
         IF (msg_level >= 12) THEN
           WRITE(message_text,'(5a,i2,a,a)') 'action ',TRIM(ACTION_NAMES(act_obj%actionTyp)),&
