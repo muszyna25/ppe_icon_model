@@ -51,7 +51,7 @@ MODULE mo_var_list_register
     PROCEDURE, PUBLIC, NOPASS :: find_var_all => find_var_all
     PROCEDURE, PUBLIC, NOPASS :: print_all => print_all_var_lists
     PROCEDURE, PUBLIC, NOPASS :: collect_group => collect_group
-    PROCEDURE, PUBLIC :: print_group => print_group_details
+    PROCEDURE, PUBLIC, NOPASS :: print_group => print_group_details
     PROCEDURE, PUBLIC, NOPASS :: n_var => total_number_of_variables
     PROCEDURE, PUBLIC :: packer => varlistPacker
     PROCEDURE, PUBLIC :: new_var_ref => add_var_reference
@@ -459,9 +459,7 @@ CONTAINS
 
   !>  Detailed print-out of variable groups.
   !
-  SUBROUTINE print_group_details(this, idom, opt_latex_fmt, opt_reduce_trailing_num, opt_skip_trivial)
-    CLASS(t_var_list_store), INTENT(IN)   :: this
-
+  SUBROUTINE print_group_details(idom, opt_latex_fmt, opt_reduce_trailing_num, opt_skip_trivial)
     INTEGER, INTENT(IN)           :: idom          !< domain ID
     LOGICAL, INTENT(IN), OPTIONAL :: opt_latex_fmt !< Flag: .TRUE., if output shall be formatted for LaTeX
     LOGICAL, INTENT(IN), OPTIONAL :: opt_reduce_trailing_num !< Flag: replace trailing numbers by "*"
