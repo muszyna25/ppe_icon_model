@@ -29,6 +29,7 @@ MODULE mo_ice_fem_advection
 
   USE mo_ice_fem_mesh
   USE mo_ice_fem_types
+  USE mo_ice_fem_icon_init,         ONLY: exchange_nod2D
 
   IMPLICIT NONE
 
@@ -152,9 +153,6 @@ CONTAINS
   !! Imported from FESIM by Vladimir Lapin, MPI-M (2017-04)
   !
   subroutine ice_solve_high_order
-    
-      USE mo_ice_fem_icon_init,          ONLY: exchange_nod2D
-      
       implicit none
       !
       integer                           :: n,clo,clo2,cn,location(100),row,m
@@ -213,8 +211,6 @@ CONTAINS
   !
   subroutine ice_solve_low_order
 
-      USE mo_ice_fem_icon_init,         ONLY: exchange_nod2D
-      
       implicit none
       integer       :: m, row, clo, clo2, cn, location(100)
       real(wp)      :: gamma
@@ -258,9 +254,6 @@ CONTAINS
   !! Imported from FESIM by Vladimir Lapin, MPI-M (2017-04)
   !
   subroutine ice_fem_fct(tr_array_id)
-
-      USE mo_ice_fem_icon_init,         ONLY: exchange_nod2D
-      
       implicit none
 
       integer   :: tr_array_id

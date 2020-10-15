@@ -36,6 +36,8 @@ MODULE mo_ice_fem_icon_init
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
 
+  USE mo_sync,                ONLY: sync_v, sync_patch_array
+
 
   IMPLICIT NONE
 
@@ -564,8 +566,6 @@ CONTAINS
   !
   SUBROUTINE exchange_nod2D(u_ice)
 
-    USE mo_sync,                ONLY: SYNC_V, sync_patch_array!, sync_patch_array_mult
-
     REAL(wp), INTENT(INOUT) :: u_ice(fem_patch%n_patch_verts)
 
     ! Temporary buffer
@@ -621,9 +621,6 @@ CONTAINS
   END SUBROUTINE copy_icon2fem
 
   SUBROUTINE exchange_nod2Dx2(u1_ice, u2_ice)
-
-    USE mo_sync,                ONLY: SYNC_V, sync_patch_array!, sync_patch_array_mult
-
     REAL(wp), INTENT(INOUT) :: u1_ice(fem_patch%n_patch_verts), &
          u2_ice(fem_patch%n_patch_verts)
 
