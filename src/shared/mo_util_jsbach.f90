@@ -1184,7 +1184,7 @@ MODULE mo_jsb_varlist_iface
   USE mo_kind,               ONLY: wp, dp
   USE mo_exception,          ONLY: finish
   USE mo_var_list_register,  ONLY: vl_register
-  USE mo_var_list, ONLY: add_var_icon => add_var, find_list_element, &
+  USE mo_var_list, ONLY: add_var_icon => add_var, &
     & t_var_list_ptr, t_var_list => t_var_list_ptr
   USE mo_var, ONLY: t_var
   USE mo_name_list_output_config, ONLY: var_in_out => is_variable_in_output
@@ -1305,7 +1305,7 @@ CONTAINS
     CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL :: new_element           ! pointer to new var list element
-    TYPE (t_var), POINTER :: element, nelem
+    TYPE (t_var), POINTER :: nelem
     CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r2d'
 
     ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
@@ -1379,7 +1379,7 @@ CONTAINS
     CHARACTER(len=VARNAME_LEN), INTENT(in), OPTIONAL :: in_groups(:)  ! groups to which a variable belongs
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element           ! pointer to new var list element
-    TYPE (t_var), POINTER :: element, nelem
+    TYPE (t_var), POINTER :: nelem
     CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r3d'
 
     ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
