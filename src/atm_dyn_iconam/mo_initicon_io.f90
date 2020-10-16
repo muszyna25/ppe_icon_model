@@ -73,7 +73,7 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero, atm_phy_nwp_config
   USE mo_var_metadata_types,  ONLY: t_var_metadata
-  USE mo_var_list_register,   ONLY: t_var_list_iterator
+  USE mo_var_list_register,   ONLY: t_vl_register_iter
   USE mo_var,                 ONLY: level_type_ml
   USE mo_var_groups,          ONLY: var_groups_dyn
   USE mo_var_metadata,        ONLY: get_var_name
@@ -1658,7 +1658,7 @@ MODULE mo_initicon_io
     TYPE(t_var_metadata), POINTER     :: info
     CHARACTER(:), ALLOCATABLE :: vname
     REAL(wp), POINTER                 :: my_ptr3d(:,:,:)
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     idx = 0
     grp_id = var_groups_dyn%group_id(grp_name)

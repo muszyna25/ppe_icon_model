@@ -175,7 +175,7 @@ MODULE mo_pp_scheduler
     &                                   GRID_REGULAR_LONLAT, LONLAT_PREFIX
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, find_list_element, t_var_list_ptr
-  USE mo_var_list_register,       ONLY: t_var_list_iterator
+  USE mo_var_list_register,       ONLY: t_vl_register_iter
   USE mo_var, ONLY: t_var, level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, t_post_op_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id,          &
@@ -242,7 +242,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init"
     INTEGER :: jg, iv
     TYPE(t_var), POINTER :: elem, elem_pres
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
     !-------------------------------------------------------------
@@ -312,7 +312,7 @@ CONTAINS
     TYPE(t_var_list_ptr), POINTER     :: dst_varlist     !< destination variable list
     TYPE (t_lon_lat_intp), POINTER:: ptr_int_lonlat
     CHARACTER(LEN=1)              :: prefix
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     IF (dbg_level > 5)  CALL message(routine, "Enter")
     
@@ -448,7 +448,7 @@ CONTAINS
     INTEGER, ALLOCATABLE                  :: uv_hrz_intp_grid(:), &
       &                                      uv_hrz_intp_levs(:)
     CHARACTER(LEN=1)                      :: prefix
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
 
@@ -869,7 +869,7 @@ CONTAINS
     TYPE(t_cf_var)                :: cf
     TYPE(t_grib2_var)             :: grib2
     TYPE(t_post_op_meta)          :: post_op
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     if (dbg_level > 5)  CALL message(routine, "Enter")
     ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
@@ -1020,7 +1020,7 @@ CONTAINS
     TYPE(t_var_metadata_dynamic),POINTER :: info_dyn
     TYPE(t_cf_var)                       :: cf_desc
     TYPE(t_grib2_var)                    :: grib2_desc
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     ! define NetCDF output precision
     datatype_flt = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)

@@ -65,7 +65,7 @@ MODULE mo_initicon_utils
   USE mo_post_op,             ONLY: perform_post_op
   USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
   USE mo_var_metadata,        ONLY: get_var_name
-  USE mo_var_list_register,   ONLY: t_var_list_iterator
+  USE mo_var_list_register,   ONLY: t_vl_register_iter
   USE mo_var,                 ONLY: level_type_ml
   USE sfc_flake,              ONLY: flake_coldinit
   USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
@@ -136,7 +136,7 @@ MODULE mo_initicon_utils
     TYPE(t_var_metadata), POINTER   :: info           ! variable metadata
     CHARACTER(*), PARAMETER     :: routine = 'initicon_inverse_post_op'
     CHARACTER(:), ALLOCATABLE :: lc_varname
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     !-------------------------------------------------------------------------
     ! Check consistency of optional arguments

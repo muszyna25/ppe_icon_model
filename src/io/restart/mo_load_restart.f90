@@ -27,7 +27,7 @@ MODULE mo_load_restart
     & timer_load_restart_comm_setup, timer_load_restart_communication, &
     & timer_load_restart_get_var_id, timers_level
   USE mo_util_string,        ONLY: separator, toCharacter
-  USE mo_var_list_register,  ONLY: t_var_list_iterator
+  USE mo_var_list_register,  ONLY: t_vl_register_iter
   USE mo_master_control,     ONLY: get_my_process_name
 
   IMPLICIT NONE
@@ -210,7 +210,7 @@ CONTAINS
     SUBROUTINE getModelTypes()
       INTEGER :: lm
       LOGICAL :: skip
-      TYPE(t_var_list_iterator) :: vl_iter
+      TYPE(t_vl_register_iter) :: vl_iter
 
       DO WHILE(vl_iter%next())
         IF (vl_iter%cur%p%patch_id .NE. p_patch%id) CYCLE

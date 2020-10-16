@@ -29,16 +29,30 @@ MODULE mo_var_list_register
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: vl_register, t_var_list_iterator
+  PUBLIC :: vl_register, t_vl_register_iter
 
-  TYPE t_var_list_iterator
+  TYPE t_vl_register_iter
     PRIVATE
     TYPE(t_hashIterator) :: hash_iter
+#ifdef HAVE_CDI_ORDERING_DEFECT
+    INTEGER :: cur_idx = -1
+#endif
     TYPE(t_var_list_ptr), PUBLIC :: cur
     LOGICAL :: anew = .TRUE.
   CONTAINS
+#ifdef HAVE_CDI_ORDERING_DEFECT
+    PROCEDURE, PUBLIC :: next_workaround => iter_next_workaround
+#endif
     PROCEDURE, PUBLIC :: next => iter_next
-  END TYPE t_var_list_iterator
+  END TYPE t_vl_register_iter
+
+#ifdef HAVE_CDI_ORDERING_DEFECT
+  INTEGER, SAVE :: vl_new_counter = 0,  &
+    &              vl_del_counter = 0,  &
+    &              vl_nc_lastup   = -1, &
+    &              vl_dc_lastup   = -1
+  TYPE(t_var_list_ptr), ALLOCATABLE :: vl_vec_reordered(:)
+#endif
 
   TYPE t_var_list_store
     PRIVATE
@@ -58,9 +72,8 @@ MODULE mo_var_list_register
   END TYPE t_var_list_store
 
   TYPE(t_var_list_store) :: vl_register
-  INTEGER, SAVE :: vl_new_counter = 0
 
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_list_store'
+  CHARACTER(*), PARAMETER :: modname = 'mo_var_list_store'
 
 CONTAINS
   !------------------------------------------------------------------------------------------------
@@ -87,10 +100,14 @@ CONTAINS
     CALL get_var_list(this, list, vlname)
     IF (ASSOCIATED(list%p)) CALL finish('new_var_list', ' >'//vlname(1:vln_len)//'< already in use.')
     ALLOCATE(list%p)
+#ifdef HAVE_CDI_ORDERING_DEFECT
     vl_new_counter = vl_new_counter + 1
+#endif
     CALL put_var_list(tolower(vlname(1:vln_len)))
     ! set default list characteristics
+#ifdef HAVE_CDI_ORDERING_DEFECT
     list%p%id       = vl_new_counter
+#endif
     list%p%name     = vlname(1:vln_len)
     list%p%post_suf = '_'//vlname(1:vln_len)
     list%p%rest_suf = list%p%post_suf
@@ -151,8 +168,65 @@ CONTAINS
     END FUNCTION get_valObj
   END SUBROUTINE get_var_list
 
+#ifdef HAVE_CDI_ORDERING_DEFECT
+  LOGICAL FUNCTION iter_next_workaround(this) RESULT(valid)
+    CLASS(t_vl_register_iter), INTENT(INOUT) :: this
+    CLASS(*), POINTER :: keyObj, valObj
+
+    valid = .false.
+    IF (vl_register%is_init) THEN
+      IF (vl_new_counter .NE. vl_nc_lastup .OR. &
+        & vl_del_counter .NE. vl_dc_lastup) THEN
+        IF (.NOT.this%anew) &
+          & CALL finish("vl_iter_next", "impossible, go away!")
+        CALL construct_ordered_vl_vector()
+        vl_nc_lastup = vl_new_counter
+        vl_dc_lastup = vl_del_counter
+      END IF
+      IF (this%anew) THEN
+        this%cur_idx = 0
+        this%anew = .false.
+      END IF
+      this%cur_idx = this%cur_idx + 1
+      IF (this%cur_idx .LE. SIZE(vl_vec_reordered)) THEN
+        valid = .true.
+        this%cur%p => vl_vec_reordered(this%cur_idx)%p
+      ELSE
+        NULLIFY(this%cur%p)
+        this%anew = .true.
+      END IF
+    END IF
+  END FUNCTION iter_next_workaround
+
+  SUBROUTINE construct_ordered_vl_vector()
+    TYPE(t_var_list_ptr), ALLOCATABLE :: tmp(:)
+    INTEGER :: max_id, i_vl, i, n_vl
+    TYPE(t_vl_register_iter) :: iter
+
+    IF (ALLOCATED(vl_vec_reordered)) DEALLOCATE(vl_vec_reordered)
+    n_vl = 0
+    max_id = 0
+    DO WHILE(iter_next(iter))
+      n_vl = n_vl + 1
+      max_id = MAX(max_id, iter%cur%p%id)
+    ENDDO
+    ALLOCATE(tmp(max_id), vl_vec_reordered(n_vl))
+    DO WHILE(iter_next(iter))
+      tmp(iter%cur%p%id)%p => iter%cur%p
+    ENDDO
+    i_vl = 0
+    DO i = 1, max_id
+      IF (ASSOCIATED(tmp(i)%p)) THEN
+        i_vl = i_vl + 1
+        vl_vec_reordered(i_vl)%p => tmp(i)%p
+      END IF
+    END DO
+    IF (i_vl .NE. n_vl) CALL finish("construct_ordered_vl_vector", "inconsistency")
+  END SUBROUTINE construct_ordered_vl_vector
+#endif
+
   LOGICAL FUNCTION iter_next(this) RESULT(valid)
-    CLASS(t_var_list_iterator), INTENT(INOUT) :: this
+    CLASS(t_vl_register_iter), INTENT(INOUT) :: this
     CLASS(*), POINTER :: keyObj, valObj
 
     valid = .false.
@@ -163,7 +237,7 @@ CONTAINS
         this%cur%p => sel_var_list(valObj)
       ELSE ! prepare for the next loop ...
         NULLIFY(this%cur%p)   
-        this%anew = .TRUE.
+        this%anew = .true.
         CALL this%hash_iter%reset()
       END IF
     END IF
@@ -172,7 +246,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! @return total number of (non-container) variables
   INTEGER FUNCTION total_number_of_variables() RESULT(nvar)
-    TYPE(t_var_list_iterator) :: iter
+    TYPE(t_vl_register_iter) :: iter
     INTEGER :: i
 
     nvar = 0
@@ -203,6 +277,9 @@ CONTAINS
       keyObj => key
       CALL list%delete()
       CALL this%storage%removeEntry(keyObj)
+#ifdef HAVE_CDI_ORDERING_DEFECT
+      vl_del_counter = vl_del_counter + 1
+#endif
     END SUBROUTINE remove_var_list
   END SUBROUTINE delete_var_list
 
@@ -210,7 +287,7 @@ CONTAINS
   ! Delete all output var_lists
   SUBROUTINE delete_var_lists(this)
     CLASS(t_var_list_store), INTENT(INOUT) :: this
-    TYPE(t_var_list_iterator) :: iter
+    TYPE(t_vl_register_iter) :: iter
 
     DO WHILE(iter_next(iter))
       CALL delete_var_list(this, iter%cur)
@@ -245,7 +322,7 @@ CONTAINS
   ! print all var lists
   SUBROUTINE print_all_var_lists(lshort)
     LOGICAL, OPTIONAL, INTENT(IN) :: lshort
-    TYPE(t_var_list_iterator) :: iter
+    TYPE(t_vl_register_iter) :: iter
 
     DO WHILE(iter_next(iter))
       CALL iter%cur%print(lshort=lshort)
@@ -270,7 +347,7 @@ CONTAINS
     ! 1: model levels, 2: pressure levels, 3: height level
     INTEGER, OPTIONAL,        INTENT(IN)    :: opt_vlevel_type, opt_dom_id
     LOGICAL, OPTIONAL,        INTENT(IN)    :: opt_lquiet
-    TYPE(t_var_list_iterator) :: iter
+    TYPE(t_vl_register_iter) :: iter
     CHARACTER(*), PARAMETER :: routine = modname//":collect_group", llmsg = " lon-lat"
     INTEGER :: grp_id, llmsg_len, i
     TYPE(t_var_metadata), POINTER :: info
@@ -283,7 +360,11 @@ CONTAINS
     IF (PRESENT(opt_lquiet))  lquiet = opt_lquiet
     verbose = .NOT. lquiet
     ! loop over all variable lists and variables
+#ifdef HAVE_CDI_ORDERING_DEFECT 
+    DO WHILE(iter_next_workaround(iter))
+#else
     DO WHILE(iter_next(iter))
+#endif
       IF (PRESENT(opt_vlevel_type)) THEN
         IF (iter%cur%p%vlevel_type /= opt_vlevel_type) CYCLE
       ENDIF
@@ -334,7 +415,7 @@ CONTAINS
     TYPE(t_var), POINTER :: element
     INTEGER :: patch_id
     LOGICAL :: output, check_output
-    TYPE(t_var_list_iterator) :: iter
+    TYPE(t_vl_register_iter) :: iter
 
     patch_id = 1
     check_output = PRESENT(opt_output)
@@ -363,14 +444,17 @@ CONTAINS
     TYPE(t_PackedMessage), INTENT(INOUT) :: pmsg
     LOGICAL, INTENT(IN) :: restart_only
     INTEGER, INTENT(OUT), OPTIONAL :: nv_all
-    INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, restart_type, vlevel_type, ierrstat, id
+    INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, restart_type, vlevel_type, ierrstat
+#ifdef HAVE_CDI_ORDERING_DEFECT
+    INTEGER :: id
+#endif
     INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_var), POINTER :: elem
     CHARACTER(LEN=128) :: var_list_name
     CHARACTER(LEN=32) :: model_type
     LOGICAL :: lrestart, loutput
     TYPE(t_var_list_ptr) :: vlp
-    TYPE(t_var_list_iterator) :: iter
+    TYPE(t_vl_register_iter) :: iter
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
     IF (operation .EQ. kUnpackOp) CALL delete_var_lists(this)
@@ -386,7 +470,9 @@ CONTAINS
         lrestart      = vlp%p%lrestart
         loutput       = vlp%p%loutput
         var_list_name = vlp%p%name
+#ifdef HAVE_CDI_ORDERING_DEFECT
         id            = vlp%p%id
+#endif
         model_type    = vlp%p%model_type
         patch_id      = vlp%p%patch_id
         restart_type  = vlp%p%restart_type
@@ -403,7 +489,9 @@ CONTAINS
       CALL pmsg%packer(operation, lrestart)
       CALL pmsg%packer(operation, loutput)
       CALL pmsg%packer(operation, var_list_name)
+#ifdef HAVE_CDI_ORDERING_DEFECT
       CALL pmsg%packer(operation, id)
+#endif
       CALL pmsg%packer(operation, model_type)
       CALL pmsg%packer(operation, patch_id)
       CALL pmsg%packer(operation, restart_type)
@@ -429,7 +517,9 @@ CONTAINS
         CALL new_var_list(this, vlp, var_list_name, patch_id=patch_id, &
           & model_type=model_type, restart_type=restart_type, &
           & vlevel_type=vlevel_type, lrestart=lrestart, loutput=loutput)
+#ifdef HAVE_CDI_ORDERING_DEFECT
         vlp%p%id = id ! override !
+#endif
         vlp%p%nvars = nv
         ! insert elements into var list
         ALLOCATE(vlp%p%vl(nv), vlp%p%tl(nv), vlp%p%hgrid(nv), &

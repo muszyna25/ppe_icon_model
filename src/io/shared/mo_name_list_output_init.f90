@@ -112,7 +112,7 @@ MODULE mo_name_list_output_init
   USE mo_util_texthash,                     ONLY: text_hash_c
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
-  USE mo_var_list_register,                 ONLY: vl_register, t_var_list_iterator
+  USE mo_var_list_register,                 ONLY: vl_register, t_vl_register_iter
   USE mo_var,                               ONLY: t_var
   USE mo_var_metadata,                      ONLY: get_var_timelevel, get_var_name
   USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
@@ -1812,7 +1812,7 @@ CONTAINS
     TYPE(t_var), POINTER :: elem
     TYPE(t_var_desc) :: var_desc   !< variable descriptor
     TYPE(t_cf_var), POINTER :: this_cf
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
 
     ! Get the number of variables in varlist
     nv = 0

@@ -51,15 +51,17 @@ MODULE mo_var_list
     INTEGER(i8) :: memory_used = 0_i8
     CHARACTER(len=8) :: post_suf = '', rest_suf = '', init_suf = '', &
       & model_type = 'atm' ! model type (default is 'atm' for reasons)
-    INTEGER :: id = -1, list_elements = 0, patch_id = -1, nvars = 0, &
-      & output_type = -1, restart_type = -1, compression_type = -1, &
-      & vlevel_type = level_type_ml
+    INTEGER :: patch_id = -1, nvars = 0, vlevel_type = level_type_ml, &
+      & output_type = -1, restart_type = -1, compression_type = -1
     LOGICAL :: loutput = .TRUE., lrestart = .FALSE., linitial = .FALSE., &
       & restart_opened = .FALSE., output_opened = .FALSE., lmiss = .FALSE., &
       & lmask_boundary = .TRUE. , first = .FALSE.
     TYPE(t_var_ptr), ALLOCATABLE :: vl(:)
     LOGICAL, ALLOCATABLE :: lout(:)
     INTEGER, ALLOCATABLE :: tl(:), hgrid(:), key(:), key_notl(:)
+#ifdef HAVE_CDI_ORDERING_DEFECT
+    INTEGER :: id = -1
+#endif
   END TYPE t_var_list
 
   TYPE t_var_list_ptr
@@ -198,7 +200,6 @@ CONTAINS
     this%p%key(nv) = text_hash_c(TRIM(new_elem%info%name))
     this%p%key_notl(nv) = text_hash_c(tolower(new_elem%info%name))
     this%p%lout(nv) = new_elem%info%loutput
-    this%p%list_elements = nv
     this%p%nvars = nv
   END SUBROUTINE register_list_element
 

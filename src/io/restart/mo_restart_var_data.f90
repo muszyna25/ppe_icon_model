@@ -24,7 +24,7 @@ MODULE mo_restart_var_data
 #endif
   USE mo_kind,               ONLY: dp, sp
   USE mo_util_string,        ONLY: int2string
-  USE mo_var_list_register,  ONLY: t_var_list_iterator
+  USE mo_var_list_register,  ONLY: t_vl_register_iter
   USE mo_var_list,           ONLY: t_var_list_ptr
   USE mo_var,                ONLY: t_var, t_var_ptr
   USE mo_var_metadata_types, ONLY: t_var_metadata
@@ -49,7 +49,7 @@ MODULE mo_restart_var_data
     MODULE PROCEDURE get_var_3d_ptr_int
   END INTERFACE get_var_3d_ptr
 
-  CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_var_data"
+  CHARACTER(*), PARAMETER :: modname = "mo_restart_var_data"
 
 CONTAINS
 
@@ -60,17 +60,14 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
     INTEGER :: n_var, n_vl, iv, iv2, il, ierr, restartType
     TYPE(t_var), POINTER :: elem
-    TYPE(t_var_list_ptr), ALLOCATABLE :: reordered_vls(:)
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartVarData"
 
     restartType = -1
     n_var = 0
     n_vl = 0
     DO WHILE(vl_iter%next())
-      n_vl = MAX(n_vl, vl_iter%cur%p%id)
       IF (wantVarlist(vl_iter%cur)) THEN
-        ! check, if the list has valid restart fields
         DO iv = 1, vl_iter%cur%p%nvars
           n_var = n_var + MERGE(1, 0, vl_iter%cur%p%vl(iv)%p%info%lrestart)
         END DO
@@ -79,23 +76,20 @@ CONTAINS
 #ifdef DEBUG
     WRITE(nerr, "(a)") routine//': numvars = '//TRIM(int2string(n_var))
 #endif
-    ! allocate the array of restart variables
-    ALLOCATE(var_data(n_var), reordered_vls(n_vl), STAT = ierr)
+    ALLOCATE(var_data(n_var), STAT = ierr)
     IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    ! fill the array of restart variables
-    DO WHILE(vl_iter%next())
-      reordered_vls(vl_iter%cur%p%id)%p => vl_iter%cur%p 
-    END DO
     iv = 0
-    DO il = 1, n_vl
-      IF (.NOT.ASSOCIATED(reordered_vls(il)%p)) CYCLE
-      IF(.NOT.wantVarlist(reordered_vls(il))) CYCLE
-      IF(restartType == -1) restartType = reordered_vls(il)%p%restart_type
-      IF(restartType /= reordered_vls(il)%p%restart_type) &
-        & CALL finish(routine, "var_lists contains inconsistent restart_type values")
-      ! check, if the list has valid restart fields
-      DO iv2 = 1, reordered_vls(il)%p%nvars
-        elem => reordered_vls(il)%p%vl(iv2)%p
+#ifdef HAVE_CDI_ORDERING_DEFECT
+    DO WHILE(vl_iter%next_workaround())
+#else
+    DO WHILE(vl_iter%next())
+#endif
+      IF(.NOT.wantVarlist(vl_iter%cur)) CYCLE
+      IF(restartType == -1) restartType = vl_iter%cur%p%restart_type
+      IF(restartType /= vl_iter%cur%p%restart_type) &
+        & CALL finish(routine, "found inconsistent restart_type values")
+      DO iv2 = 1, vl_iter%cur%p%nvars
+        elem => vl_iter%cur%p%vl(iv2)%p
         IF (elem%info%lrestart) THEN
           iv = iv + 1
           var_data(iv)%p => elem

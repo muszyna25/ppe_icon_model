@@ -63,7 +63,7 @@ MODULE mo_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
   USE mo_parallel_config,    ONLY: proc0_offloading
-  USE mo_var_list_register,  ONLY: t_var_list_iterator
+  USE mo_var_list_register,  ONLY: t_vl_register_iter
   USE mo_var,                ONLY: t_var
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_fortran_tools,      ONLY: init
@@ -154,7 +154,7 @@ CONTAINS
     INTEGER :: i, iact, iv, nv
     TYPE(t_var), POINTER :: element
     TYPE(t_var_action), POINTER :: action_list
-    TYPE(t_var_list_iterator) :: vl_iter
+    TYPE(t_vl_register_iter) :: vl_iter
     CHARACTER(LEN=2)                    :: str_actionTyp
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN):: event_name
     CHARACTER(LEN=vname_len)            :: varlist(NMAX_VARS)
