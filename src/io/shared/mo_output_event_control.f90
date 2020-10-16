@@ -164,6 +164,7 @@ CONTAINS
     ! then we add the offset "jstep0" (nonzero for restart cases):
     step        = step + step_offset
 
+    CALL deallocateTimeDelta(vlsec)
   END SUBROUTINE compute_step
 
 
