@@ -40,7 +40,8 @@ MODULE mo_output_event_control
   USE mo_output_event_types, ONLY: t_sim_step_info, t_event_step_data
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords,    &
     &                              int2string, tolower
-  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDHHMMSS, FMT_DDDHHMMSS
+  USE mo_util_mtime,         ONLY: mtime_utils, FMT_DDHHMMSS, FMT_DDDHHMMSS, &
+       mtime_timedelta_from_fseconds
   USE mo_name_list_output_types, ONLY: t_fname_metadata
 
 
@@ -141,19 +142,14 @@ CONTAINS
     ! local variables
     REAL                                 :: intvlmillisec
     TYPE(datetime)                       :: mtime_step
-    CHARACTER(len=max_timedelta_str_len) :: td_string
-    TYPE(divisionquotienttimespan)       :: tq     
-    TYPE(timedelta), POINTER             :: vlsec => NULL()
+    TYPE(divisionquotienttimespan)       :: tq
+    TYPE(timedelta) :: vlsec
 
     ! first, we compute the dynamic time step which is equal or larger than
     ! the desired date "mtime_current"
     ! intvlsec    = REAL(dtime)
     ! step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
-
-    intvlmillisec = ANINT(dtime*1000._wp)
-    CALL getPTStringFromMS(INT(intvlmillisec,i8), td_string)
-    !CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
-    vlsec => newtimedelta(td_string)
+    CALL mtime_timedelta_from_fseconds(dtime, mtime_begin, vlsec)
 
     CALL divideDatetimeDifferenceInSeconds(mtime_current, mtime_begin, vlsec, tq)
 
@@ -164,7 +160,6 @@ CONTAINS
     ! then we add the offset "jstep0" (nonzero for restart cases):
     step        = step + step_offset
 
-    CALL deallocateTimeDelta(vlsec)
   END SUBROUTINE compute_step
 
 
