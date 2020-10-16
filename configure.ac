@@ -273,6 +273,14 @@ AC_ARG_ENABLE([intel-consistency],
      [enable_intel_consistency=yes])],
   [enable_intel_consistency=auto])
 
+AC_ARG_ENABLE([memory-tracing],
+  [AC_HELP_STRING([--enable-memory-tracing],
+     [enable native dynamic memory tracing facility
+@<:@default=no@:>@])],
+  [AS_CASE([$enableval],[yes|mtrace], [],
+     [enable_memory_tracing=no])],
+  [enable_memory_tracing=no])
+
 AC_ARG_ENABLE([vectorized-lrtm],
   [AC_HELP_STRING([--enable-vectorized-lrtm],
      [enable the parallelization-invariant version of LRTM
@@ -1707,6 +1715,14 @@ library ($icon_subdir_unique_file) in '$icon_subdir_srcdir': either disable dnl
 GPU support (--disable-gpu) or provide an external version of CUB library dnl
 (--with-external-cub) by setting NVCFLAGS accordingly])])
       AS_VAR_APPEND([NVCFLAGS], [" -I${srcdir}/externals/cub"])])])
+
+AS_IF([test "x$enable_memory_tracing" = xyes],
+  [AC_MSG_NOTICE([detecting memory tracing facility])
+   AC_LANG_PUSH([C])
+   AC_CHECK_FUNC([mtrace], [enable_memory_tracing=mtrace])
+   AC_LANG_POP([C])])
+AS_CASE([$enable_memory_tracing],
+  [mtrace], [AS_VAR_APPEND([FCFLAGS], [" ${FC_PP_DEF}ICON_MEMORY_TRACING=1"])])
 
 ##################### PREPROCESSORS AND AUXILIARY COMMANDS #####################
 
