@@ -36,7 +36,7 @@ MODULE mo_nwp_turbdiff_interface
     &                                  max_ntracer
   USE mo_impl_constants_grf,     ONLY: grf_bdywidth_c
   USE mo_loopindices,            ONLY: get_indices_c
-  USE mo_physical_constants,     ONLY: alv, grav, vtmpc1, rd
+  USE mo_physical_constants,     ONLY: alv, grav, vtmpc1, rd, cpd, cvd
   USE mo_ext_data_types,         ONLY: t_external_data
   USE mo_nonhydro_types,         ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,          ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -121,6 +121,8 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
   INTEGER :: jc,jk,jb,jg      !loop indices
 
   ! local variables for turbdiff
+
+  REAL(wp), PARAMETER :: cpd_o_cvd = cpd/cvd
 
   INTEGER :: ierrstat=0
   INTEGER :: nzprv=1
@@ -869,7 +871,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
              &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
         p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
-         &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+         &  + cpd_o_cvd * tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
         p_diag%v(jc,jk,jb) = p_diag%v(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_v_turb(jc,jk,jb)
       ENDDO

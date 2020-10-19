@@ -163,6 +163,12 @@ CONTAINS
     ecrad_single_level%solar_irradiance = 1._wp            !< Obtain normalized fluxes which corresponds to the 
                                                            !< transmissivity needed in the following
 
+    IF (ecrad_conf%use_spectral_solar_scaling) THEN
+      ALLOCATE(ecrad_single_level%spectral_solar_scaling(ecrad_conf%n_bands_sw))
+      ecrad_single_level%spectral_solar_scaling = (/  1.0_wp, 1.0_wp, 1.0_wp, 1.0478_wp, 1.0404_wp, 1.0317_wp, &
+         &   1.0231_wp, 1.0054_wp, 0.98413_wp, 0.99863_wp, 0.99907_wp, 0.90589_wp, 0.92213_wp, 1.0_wp /)
+    ENDIF
+
     CALL ecrad_thermodynamics%allocate(nproma, nlev, use_h2o_sat=.false., rrtm_pass_temppres_fl=.true.)
 
     CALL ecrad_gas%allocate(nproma, nlev)
@@ -460,6 +466,12 @@ CONTAINS
     CALL ecrad_single_level%allocate(nproma, 2, 1, .true.) !< use_sw_albedo_direct, 2 bands
     ecrad_single_level%solar_irradiance = 1._wp            !< Obtain normalized fluxes which corresponds to the 
                                                            !< transmissivity needed in the following
+
+    IF (ecrad_conf%use_spectral_solar_scaling) THEN
+      ALLOCATE(ecrad_single_level%spectral_solar_scaling(ecrad_conf%n_bands_sw))
+      ecrad_single_level%spectral_solar_scaling = (/  1.0_wp, 1.0_wp, 1.0_wp, 1.0478_wp, 1.0404_wp, 1.0317_wp, &
+         &   1.0231_wp, 1.0054_wp, 0.98413_wp, 0.99863_wp, 0.99907_wp, 0.90589_wp, 0.92213_wp, 1.0_wp /)
+    ENDIF
 
     CALL ecrad_thermodynamics%allocate(nproma, nlev_rg, use_h2o_sat=.false., rrtm_pass_temppres_fl=.true.)
 

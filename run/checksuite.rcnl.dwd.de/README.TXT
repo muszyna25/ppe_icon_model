@@ -24,7 +24,7 @@ DWD Setup for BuildBot (on SX-AURORA)
 
 h1. DWD Setup for BuildBot
 
-The "nec" experiment list contains a set of medium-size test cases which
+The "dwd" experiment list contains a set of medium-size test cases which
 
 * are executed on the DWD machine only (all other builders inactive),
 * consist of plain PBSpro run scripts and do not use the usual BuildBot macros.
@@ -35,12 +35,12 @@ h2. Running the DWD Tests
 Select the following parameters on the Buildbot web site (https://buildbot.dkrz.de/builders):
 
 | Repository: | git@gitlab.dkrz.de:icon-nwp.git |
-| Properties: | Name: "list" ; value: "nec"     |
+| Properties: | Name: "list" ; value: "dwd"     |
 
 
 h2. Creating New DWD Tests
 
-The DWD experiment list "nec" uses the "plain run script mechanism" that has been implemented by Leonidas and Ralf.
+The DWD experiment list "dwd" uses the "plain run script mechanism" that has been implemented by Leonidas and Ralf.
 When importing existing scripts, only a few adjustments are necessary.
 
 
@@ -70,13 +70,13 @@ qstat -Q -f <queue name>
 </pre>
 
 
-h3. Registering Tests in the "nec" Experiment List
+h3. Registering Tests in the "dwd" Experiment List
 
 New tests can be registered by extending the script
-scripts/buildbot_scripts/create_list_nec
+scripts/buildbot_scripts/create_list_dwd
 as follows
 <pre>
-$addexp checksuite.rcnl.dwd.de/<test name> --list $listname
+$addexp checksuite.rcnl.dwd.de/<test name> --builders DWD_nec --list $listname
 </pre>
 Note that <test name> is the full name, including the prefix "exp." and the suffix ".run".
 

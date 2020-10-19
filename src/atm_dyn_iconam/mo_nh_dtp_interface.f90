@@ -41,7 +41,6 @@ MODULE mo_nh_dtp_interface
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
   USE mo_advection_config,   ONLY: advection_config, t_trList
-  USE mo_initicon_config,    ONLY: is_iau_active, iau_wgt_adv
   USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
   USE mo_fortran_tools,      ONLY: init
 #ifdef _OPENACC
@@ -55,6 +54,7 @@ MODULE mo_nh_dtp_interface
 
   PUBLIC :: prepare_tracer
   PUBLIC :: compute_airmass
+
 
 #if defined( _OPENACC )
 #if defined(__NH_DTP_DIFFUSSION_NOACC)
@@ -503,105 +503,69 @@ CONTAINS
 
 
   !>
-  !! Compute updated air mass within grid cell
+  !! Compute air mass within grid cell
   !!
-  !! Compute updated air mass within grid cell. Note that here, the air mass is defined
-  !! as \rho*\Delta z [kg m-2]. Thus, in order to get the true grid cell air mass one has to
-  !! multiply with the grid cell area.
+  !! Compute air mass within grid cell. Note that here, the air mass is defined
+  !! as \rho*\Delta z [kg m-2]. Computing the true grid cell air mass 
+  !! requires an additional multiplication with the grid cell area.
   !!
   !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2014-03-15)
+  !! Initial revision by Daniel Reinert, DWD (2020-01-29)
   !!
-  SUBROUTINE compute_airmass (p_patch, p_metrics, p_prog, p_nh_diag, itlev)
+  SUBROUTINE compute_airmass (p_patch, p_metrics, rho, airmass)
 
-    TYPE(t_patch)   ,  INTENT(IN)     :: p_patch
-    TYPE(t_nh_metrics),INTENT(IN)     :: p_metrics
-    TYPE(t_nh_prog) ,  INTENT(IN)     :: p_prog
-    TYPE(t_nh_diag),   INTENT(INOUT)  :: p_nh_diag
-    INTEGER         ,  INTENT(IN)     :: itlev   ! 1: computation of time level now
-                                                 ! 2: computation of time level new
+    TYPE(t_patch),      INTENT(IN   ) :: p_patch
+    TYPE(t_nh_metrics), INTENT(IN   ) :: p_metrics
+    REAL(wp),           INTENT(IN   ) :: rho(:,:,:)      ! air density [kg m-3]
+    REAL(wp),           INTENT(INOUT) :: airmass(:,:,:)  ! air mass    [kg m-2]
 
     INTEGER :: nlev                  ! number of vertical levels
     INTEGER :: i_rlstart, i_rlend, i_startblk, i_endblk
     INTEGER :: i_startidx, i_endidx
-    INTEGER :: i_nchdom
     INTEGER :: jc,jk,jb
   !---------------------------------------------------------!
 
     ! number of vertical levels
     nlev = p_patch%nlev
 
-    ! number of child domains
-    i_nchdom = MAX(1,p_patch%n_childdom)
-
     ! halo points must be included !
     i_rlstart  = 1
     i_rlend    = min_rlcell
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+    i_startblk = p_patch%cells%start_block(i_rlstart)
+    i_endblk   = p_patch%cells%end_block(i_rlend)
 
-!$ACC DATA PRESENT( p_prog%rho, p_metrics%ddqz_z_full, p_nh_diag%airmass_now, p_nh_diag%airmass_new ), &
-!$ACC      IF( i_am_accel_node .AND. acc_on )
 
-!$ACC UPDATE DEVICE( p_prog%rho, p_metrics%ddqz_z_full ),                                              &
-!$ACC        IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
+!$ACC DATA PRESENT( rho, airmass, p_metrics%ddqz_z_full ), IF( i_am_accel_node .AND. acc_on )
+
+!$ACC UPDATE DEVICE( rho, p_metrics%ddqz_z_full ), IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
-         &                 i_startidx, i_endidx, i_rlstart, i_rlend)
+      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
+        &                 i_startidx, i_endidx, i_rlstart, i_rlend)
 
-       IF (itlev == 1) THEN
 !$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-         DO jk = 1, nlev
-!DIR$ IVDEP
-           DO jc= i_startidx, i_endidx
-             p_nh_diag%airmass_now(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) &
-               &                             * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
-           ENDDO  ! jc
-         ENDDO  ! jk
+      !$ACC LOOP GANG VECTOR COLLAPSE(2)
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          airmass(jc,jk,jb) = rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) &
+            &               * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
+        ENDDO  ! jc
+      ENDDO  ! jk
 !$ACC END PARALLEL
-       ELSE !  itlev = 2
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-         !$ACC LOOP GANG VECTOR COLLAPSE(2)
-         DO jk = 1, nlev
-!DIR$ IVDEP
-           DO jc= i_startidx, i_endidx
-             p_nh_diag%airmass_new(jc,jk,jb) = p_prog%rho(jc,jk,jb)*p_metrics%ddqz_z_full(jc,jk,jb) &
-               &                             * p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
-           ENDDO  ! jc
-         ENDDO  ! jk
-!$ACC END PARALLEL
-         IF (is_iau_active) THEN ! Correct 'old' air mass for IAU density increments
-!$ACC PARALLEL DEFAULT(PRESENT) IF( i_am_accel_node .AND. acc_on )
-           !$ACC LOOP GANG VECTOR COLLAPSE(2)
-           DO jk = 1, nlev
-!DIR$ IVDEP
-             DO jc= i_startidx, i_endidx
-               p_nh_diag%airmass_now(jc,jk,jb) = p_nh_diag%airmass_now(jc,jk,jb) + &
-                 iau_wgt_adv*p_metrics%ddqz_z_full(jc,jk,jb)*p_nh_diag%rho_incr(jc,jk,jb) * &
-                 p_metrics%deepatmo_t1mc(jk,idamtr%t1mc%vol)
-             ENDDO  ! jc
-           ENDDO  ! jk
-!$ACC END PARALLEL
-         ENDIF
-       ENDIF
 
     ENDDO ! jb
 !$OMP ENDDO NOWAIT
 !$OMP END PARALLEL
 
-!$ACC UPDATE HOST( p_nh_diag%airmass_now ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
-!$ACC UPDATE HOST( p_nh_diag%airmass_new ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate .AND. (itlev==2) )
+!$ACC UPDATE HOST( airmass ) IF( i_am_accel_node .AND. acc_on .AND. acc_validate )
 
 !$ACC END DATA
 
   END SUBROUTINE compute_airmass
-
 
 END MODULE mo_nh_dtp_interface
 
