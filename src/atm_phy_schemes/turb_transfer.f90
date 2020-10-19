@@ -253,6 +253,7 @@ USE turb_data, ONLY : &
     rat_can,      & ! factor for the canopy height
     rat_sea,      & ! ratio of laminar scaling factors for heat over sea and land
     rat_lam,      & ! ratio of laminar scaling factors for vapour and heat
+    rat_glac,     & ! ratio of laminar scaling factors for heat over glaciers
 
     z0m_dia,      & ! roughness length of a typical synoptic station
 
@@ -1272,12 +1273,12 @@ my_thrd_id = omp_get_thread_num()
          DO i=ivstart, ivend
             ! stability-dependent minimum velocity serving as lower limit on surface TKE
             ! (parameterizes small-scale circulations developing over a strongly heated surface;
-            ! tuned to get 1 m/s when the land surface is about 10 K warmer than the air in the
+            ! tuned to get 0.75 m/s when the land surface is at least 7.5 K warmer than the air in the
             ! lowest model level; nothing is set over water because this turned out to induce
             ! detrimental effects in NH winter)
 
-            velmin(i) = MAX( vel_min, fr_land(i)*(t_g(i)/epr_2d(i) - t(i,ke)/epr(i,ke))/ &
-                        LOG(2.e3_wp*h_atm_2d(i)) )
+            velmin(i) = MAX( vel_min, MIN(0.75_wp, fr_land(i)*(t_g(i)/epr_2d(i) - t(i,ke)/epr(i,ke))/ &
+                        LOG(2.e3_wp*h_atm_2d(i))) )
          END DO
          !$acc end parallel
 !>Tuning: his kind of correction can be substituded by a less ad-hoc approach.
@@ -1480,7 +1481,8 @@ my_thrd_id = omp_get_thread_num()
 !           Effektiven Widerstandslaengen der Rauhigkeits-Schicht:
 
             dz_sg_m(i)=rlam_mom*z_surf
-            dz_sg_h(i)=fakt*rlam_heat*z_surf*(rin_h/rin_m)
+            dz_sg_h(i)=fakt*rlam_heat*z_surf*(rin_h/rin_m) * &
+              MERGE(rat_glac, 1._wp, gz0(i)<0.01_wp .AND. fr_land(i)>=0.5_wp)  ! enhanced by a factor of 'rat_glac' over glaciers
 
           ! ohne lam. Grenzschicht fuer Skalare:
             dz_g0_h(i)=z_surf*LOG(rin_m)
@@ -1623,7 +1625,7 @@ my_thrd_id = omp_get_thread_num()
             tfh(i)=dz_0a_h(i)/dz_sa_h(i)
 
 !           Reduktionsfaktor fuer die Verdunstung aufgrund eines um den Faktor 'rat_lam'
-!           gegenueber fuehlbarer Waerme vergroesserten laminaren Transpostwiderstandes:
+!           gegenueber fuehlbarer Waerme vergroesserten laminaren Transportwiderstandes:
 
             tfv(i)=z1/(z1+(rat_lam-z1)*dz_sg_h(i)/dz_sa_h(i))
          END DO

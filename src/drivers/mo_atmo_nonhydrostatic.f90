@@ -178,7 +178,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, jt, ist, jgroup
+    INTEGER :: jg, jt, ist
 
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
@@ -256,7 +256,7 @@ CONTAINS
 
     ! Now allocate memory for the states
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
-      &                     l_pres_msl=var_in_output(:)%pres_msl, l_omega=var_in_output(:)%omega)
+      &                     var_in_output=var_in_output(:))
 
     ! Add optional diagnostic variable lists (might remain empty)
     CALL construct_opt_diag(p_patch(1:), .TRUE.)

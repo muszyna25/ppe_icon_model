@@ -25,7 +25,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-MODULE mo_smooth_topo
+MODULE mo_process_topo
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text
@@ -37,15 +37,16 @@ MODULE mo_smooth_topo
   USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,           &
     &                              heightdiff_threshold, hgtdiff_max_smooth_topo, &
     &                              lrevert_sea_height
-  USE mo_impl_constants,     ONLY: min_rlcell
+  USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
   USE mo_math_laplace,       ONLY: nabla2_scalar, nabla4_scalar
+  USE mo_intp_rbf,           ONLY: rbf_interpol_c2grad
 
   IMPLICIT NONE
 
   PRIVATE
 
   PUBLIC :: smooth_topo 
-  PUBLIC :: smooth_topo_real_data
+  PUBLIC :: smooth_topo_real_data, postproc_glacier_sso
 
 CONTAINS
 
@@ -392,6 +393,77 @@ CONTAINS
   END SUBROUTINE smooth_topo_real_data
 
 
+  !-----------------------------------------------------------------------
+  !>
+  !! Reduce SSO stdh and slope over glaciers depending on the ratio between SSO slope and resolved slope
+  !!
+  !! This should preferably done in extpar, but the results with a globally modified calculation of 
+  !! the SSO parameters (by removing the grid-scale slope before calculating stdh and SSO-slope) 
+  !! were quite ambivalent
+  !!
+  !! @par Revision History
+  !! Developed by G. Zaengl  (2020-07-13).
+  !!
+  SUBROUTINE postproc_glacier_sso (p_patch, p_int, fr_glac, topography_c, sso_stdh, sso_sigma)
 
-END MODULE mo_smooth_topo
+    TYPE(t_patch)      , INTENT(INOUT) :: p_patch
+    TYPE(t_int_state)  , INTENT(IN)    :: p_int
+    REAL(wp)           , INTENT(IN)    :: fr_glac(:,:)
+    REAL(wp)           , INTENT(IN)    :: topography_c(:,:)
+    REAL(wp)           , INTENT(INOUT) :: sso_stdh(:,:)
+    REAL(wp)           , INTENT(INOUT) :: sso_sigma(:,:)
+
+    ! local variables
+    INTEGER  :: jb, jc
+    INTEGER  :: i_startblk, i_endblk, nblks_c, i_startidx, i_endidx
+    REAL(wp), DIMENSION(nproma,1,p_patch%nblks_c) :: z_topo_c, slope_x, slope_y, slope
+    REAL(wp) :: glac_fac, slope_fac, red_fac
+
+
+    nblks_c    = p_patch%nblks_c
+
+    i_startblk = p_patch%cells%start_block(2)
+    i_endblk   = p_patch%cells%end_block(min_rlcell_int)
+
+    z_topo_c(:,1,:) = topography_c(:,:)
+
+
+    ! compute grid-scale slope
+    !
+    CALL rbf_interpol_c2grad(z_topo_c, p_patch, p_int, slope_x, slope_y)
+
+    DO jb = i_startblk,i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, 2, min_rlcell_int)
+
+      DO jc=i_startidx, i_endidx
+        slope(jc,1,jb) = SQRT(slope_x(jc,1,jb)**2 + slope_y(jc,1,jb)**2)
+      ENDDO
+
+    ENDDO
+
+    CALL sync_patch_array(SYNC_C, p_patch, slope)
+
+    ! Reduce SSO stdh and slope depending on the glacier fration and the ratio between SSO slope and grid-scale slope
+    DO jb = i_startblk,nblks_c
+
+      CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, i_startidx, i_endidx, 2)
+
+      DO jc = i_startidx, i_endidx
+
+        glac_fac = MAX(0._wp, 2._wp*(fr_glac(jc,jb) - 0.5_wp))
+        slope_fac = MIN(1._wp, slope(jc,1,jb)/(1.e-4_wp + sso_sigma(jc,jb)))
+        red_fac = (1._wp - 0.6_wp*glac_fac*slope_fac)
+
+        sso_stdh(jc,jb)  = red_fac*sso_stdh(jc,jb)
+        sso_sigma(jc,jb) = red_fac*sso_sigma(jc,jb)
+
+      ENDDO
+    ENDDO
+
+
+  END SUBROUTINE postproc_glacier_sso
+
+
+END MODULE mo_process_topo
 

@@ -38,7 +38,7 @@ MODULE mo_atmo_model
 #endif
 #endif
   USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,                  &
-    &                                   update_nproma_on_device, num_io_procs, proc0_offloading, &
+    &                                   update_nproma_on_device, num_io_procs, proc0_shift, &
     &                                   num_prefetch_proc, pio_type, num_io_procs_radar
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
@@ -334,7 +334,7 @@ CONTAINS
          &                          pio_type,                                     &
          &                          num_io_procs_radar=num_io_procs_radar,        &
          &                          radar_flag_doms_model=luse_radarfwo(1:n_dom), &
-         &                          detached_pio=proc0_offloading)
+         &                          num_dio_procs=proc0_shift)
 
 #ifdef _OPENACC
     CALL update_nproma_on_device( my_process_is_work() )

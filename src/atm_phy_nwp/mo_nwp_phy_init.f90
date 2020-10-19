@@ -1736,6 +1736,12 @@ END SUBROUTINE init_nwp_phy
 
       CALL specccn_segalkhain_simple (nproma, i_startidx, i_endidx, zncn(:,nlev), prm_diag%cloud_num(:,jb))
 
+      ! Impose lower limit on cloud_num over land
+      DO jc = i_startidx, i_endidx
+        IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. ext_data%atm%llake_c(jc,jb)) &
+          prm_diag%cloud_num(jc,jb) = MAX(175.e6_wp,prm_diag%cloud_num(jc,jb))
+      ENDDO
+
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL

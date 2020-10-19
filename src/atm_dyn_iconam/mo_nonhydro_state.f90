@@ -43,7 +43,9 @@ MODULE mo_nonhydro_state
     &                                MODE_IAU, MODE_IAU_OLD,                         &
     &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,              &
     &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,          &
-    &                                HINTP_TYPE_LONLAT_BCTR
+    &                                HINTP_TYPE_LONLAT_BCTR,                         &
+    &                                TASK_COMPUTE_VOR_U, TASK_COMPUTE_VOR_V,         &
+    &                                TASK_COMPUTE_BVF2, TASK_COMPUTE_PARCELFREQ2
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                                GRID_UNSTRUCTURED_VERT, GRID_CELL, GRID_EDGE,   &
     &                                GRID_VERTEX
@@ -64,7 +66,8 @@ MODULE mo_nonhydro_state
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
     &                                iqgl, iqhl,                                &
     &                                iqtke, nqtendphy, ltestcase, lart
-  USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output
+  USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output, &
+    &                                t_var_in_output
   USE mo_limarea_config,       ONLY: latbc_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
@@ -142,7 +145,7 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, l_pres_msl, l_omega)
+  SUBROUTINE construct_nh_state(p_patch, p_nh_state, p_nh_state_lists, n_timelevels, var_in_output)
 !
     TYPE(t_patch),     INTENT(IN)   ::        & ! patch
       &  p_patch(n_dom)
@@ -152,8 +155,8 @@ MODULE mo_nonhydro_state
       &  p_nh_state_lists(n_dom)
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
-    LOGICAL, INTENT(IN) :: l_pres_msl(:) !< Flag. TRUE if computation of mean sea level pressure desired
-    LOGICAL, INTENT(IN) :: l_omega(:)    !< Flag. TRUE if computation of vertical velocity desired
+    TYPE(t_var_in_output), INTENT(IN) ::      & !< switches for optional diagnostics
+      &  var_in_output(:)
 
     INTEGER  :: ntl,      &! local number of timelevels
                 ntl_pure, &! local number of timelevels (without any extra timelevs)
@@ -256,7 +259,7 @@ MODULE mo_nonhydro_state
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
       CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
-        &  p_nh_state_lists(jg)%diag_list, listname, l_pres_msl(jg), l_omega(jg) )
+        &  p_nh_state_lists(jg)%diag_list, listname, var_in_output(jg))
 
       ! art: add ART diagnostics to diag list
       IF (lart) THEN
@@ -1517,7 +1520,7 @@ MODULE mo_nonhydro_state
   !! - added pressure on interfaces
   !!
   SUBROUTINE new_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &
-    &                                 listname, l_pres_msl, l_omega )
+    &                                 listname, var_in_output )
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
       &  p_patch
@@ -1529,9 +1532,8 @@ MODULE mo_nonhydro_state
       &  p_diag_list
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
-    LOGICAL, INTENT(IN)               :: &  !< Flag. If .TRUE., compute mean sea level pressure
-      &  l_pres_msl
-    LOGICAL, INTENT(IN) :: l_omega !< Flag. TRUE if computation of vertical velocity desired
+    TYPE(t_var_in_output), INTENT(IN) :: &  !< optional diagnostic switches
+      &  var_in_output
 
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
@@ -1698,6 +1700,10 @@ MODULE mo_nonhydro_state
     &       p_diag%pres_avg, &
     &       p_diag%temp_avg, &
     &       p_diag%qv_avg, &
+    &       p_diag%vor_u, &
+    &       p_diag%vor_v, &
+    &       p_diag%bvf2, &
+    &       p_diag%parcelfreq2, &
     &       p_diag%nsteps_avg, &
     &       p_diag%extra_2d, &
     &       p_diag%extra_3d)
@@ -1871,23 +1877,6 @@ MODULE mo_nonhydro_state
       __acc_attach(p_diag%ddt_pres_sfc)
     ENDIF
 
-    ! pres_msl           p_diag%pres_msl(nproma,nblks_c)
-    !
-    ! Note: This task is registered for the post-processing scheduler
-    !        which takes care of the regular update.
-    !
-    IF (l_pres_msl) THEN
-      cf_desc    = t_cf_var('mean sea level pressure', 'Pa', &
-        &                   'mean sea level pressure', datatype_flt)
-      grib2_desc = grib2_var(0, 3, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list, 'pres_msl', p_diag%pres_msl,                     &
-        &           GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,      &
-        &           ldims=shape2d_c, lrestart=.FALSE.,                            &
-        &           l_pp_scheduler_task=TASK_INTP_MSL,                            &
-        &           lopenacc = .TRUE. )
-      __acc_attach(p_diag%pres_msl)
-    END IF
-
     ! temp         p_diag%temp(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('air_temperature', 'K', 'Temperature', datatype_flt)
@@ -1981,29 +1970,6 @@ MODULE mo_nonhydro_state
                 &             vert_intp_method=VINTP_METHOD_LIN ),              &
                 & lopenacc = .TRUE. )
     __acc_attach(p_diag%dpres_mc)
-
-    ! vertical velocity ( omega=dp/dt ) 
-    !
-    ! Note: This task is registered for the post-processing scheduler
-    !       which takes care of the regular update:
-    ! 
-    IF (l_omega) THEN
-      cf_desc    = t_cf_var('omega', 'Pa s-1', 'vertical velocity', datatype_flt)
-      grib2_desc = grib2_var(0, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( p_diag_list,                                                     &
-                    & "omega", p_diag%omega,                                         &
-                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
-                    & cf_desc, grib2_desc,                                           &
-                    & ldims=shape3d_c,                                               &
-                    & vert_interp=create_vert_interp_metadata(                       &
-                    &             vert_intp_type=vintp_types("P","Z","I"),           &
-                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
-                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
-                    & in_group=groups("atmo_derived_vars"),                          &
-                    & l_pp_scheduler_task=TASK_COMPUTE_OMEGA, lrestart=.FALSE.,      &
-                    & lopenacc = .TRUE. )
-      __acc_attach(p_diag%omega)
-    END IF
 
 
     ! div          p_diag%div(nproma,nlev,nblks_c)
@@ -3029,6 +2995,148 @@ MODULE mo_nonhydro_state
       __acc_attach(p_diag%nsteps_avg)
 
     ENDIF
+
+    !----------------------
+    ! optional diagnostics
+    !----------------------
+
+    ! pres_msl           p_diag%pres_msl(nproma,nblks_c)
+    !
+    ! Note: This task is registered for the post-processing scheduler
+    !        which takes care of the regular update.
+    !
+    IF (var_in_output%pres_msl) THEN
+      cf_desc    = t_cf_var('mean sea level pressure', 'Pa', &
+        &                   'mean sea level pressure', datatype_flt)
+      grib2_desc = grib2_var(0, 3, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'pres_msl', p_diag%pres_msl,                     &
+        &           GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,      &
+        &           ldims=shape2d_c, lrestart=.FALSE.,                            &
+        &           l_pp_scheduler_task=TASK_INTP_MSL,                            &
+        &           lopenacc = .TRUE. )
+      __acc_attach(p_diag%pres_msl)
+    END IF
+
+    ! vertical velocity ( omega=dp/dt ) 
+    !
+    ! Note: This task is registered for the post-processing scheduler
+    !       which takes care of the regular update:
+    ! 
+    IF (var_in_output%omega) THEN
+      cf_desc    = t_cf_var('omega', 'Pa s-1', 'vertical velocity', datatype_flt)
+      grib2_desc = grib2_var(0, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "omega", p_diag%omega,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & in_group=groups("atmo_derived_vars"),                          &
+                    & l_pp_scheduler_task=TASK_COMPUTE_OMEGA, lrestart=.FALSE.,      &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%omega)
+    END IF
+
+    ! zonal component of relative vorticity  p_diag%vor_u(nproma,nlev,nblks_c)
+    ! (GRIB2: we use the available local DWD definition for ecCodes shortname 'VORTIC_U')
+    ! 
+    IF (var_in_output%vor_u) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for vor_u.")
+#endif
+      cf_desc    = t_cf_var('vor_u', 's-1', 'zonal component of relative vorticity', datatype_flt)
+      grib2_desc = grib2_var(0, 2, 198, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "vor_u", p_diag%vor_u,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_VOR_U, lrestart=.FALSE.,      &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%vor_u)
+    END IF
+
+    ! meridional component of relative vorticity  p_diag%vor_v(nproma,nlev,nblks_c)
+    ! (GRIB2: we use the available local DWD definition for ecCodes shortname 'VORTIC_V')
+    ! 
+    IF (var_in_output%vor_v) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for vor_v.")
+#endif
+      cf_desc    = t_cf_var('vor_v', 's-1', 'meridional component of relative vorticity', datatype_flt)
+      grib2_desc = grib2_var(0, 2, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "vor_v", p_diag%vor_v,                                         &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_VOR_V, lrestart=.FALSE.,      &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%vor_v)
+    END IF
+
+    ! square of Brunt-Vaisala frequency  p_diag%bvf2(nproma,nlev,nblks_c)
+    ! (GRIB2: this diagnostic is neither required for operational use 
+    ! nor for some other "official" purpose, 
+    ! so we use the available local DWD definition for ecCodes shortname 'DUMMY_70' for the time being)
+    ! 
+    IF (var_in_output%bvf2) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for bvf2.")
+#endif
+      cf_desc    = t_cf_var('bvf2', 's-2', 'square of Brunt-Vaisala frequency', datatype_flt)
+      grib2_desc = grib2_var(0, 254, 70, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "bvf2", p_diag%bvf2,                                           &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_BVF2, lrestart=.FALSE.,       &
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%bvf2)
+    END IF
+
+    ! square of general air parcel oscillation frequency  p_diag%parcelfreq2(nproma,nlev,nblks_c)
+    ! (GRIB2: this diagnostic is neither required for operational use 
+    ! nor for some other "official" purpose, 
+    ! so we use the available local DWD definition for ecCodes shortname 'DUMMY_71' for the time being)
+    ! 
+    IF (var_in_output%parcelfreq2) THEN
+#ifdef _OPENACC
+      CALL finish("mo_nonhydro_state::new_nh_state_diag_list", "No Open-ACC parallelization available for parcelfreq2.")
+#endif
+      cf_desc    = t_cf_var('parcelfreq2', 's-2', 'square of air parcel oscillation frequency', datatype_flt)
+      grib2_desc = grib2_var(0, 254, 71, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list,                                                     &
+                    & "parcelfreq2", p_diag%parcelfreq2,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                          &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d_c,                                               &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE., l_extrapol=.FALSE.),             &
+                    & l_pp_scheduler_task=TASK_COMPUTE_PARCELFREQ2, lrestart=.FALSE.,&
+                    & lopenacc = .TRUE. )
+      __acc_attach(p_diag%parcelfreq2)
+    END IF
+
+    !---------------------- End of optional diagnostics ----------------------
 
 
     IF(inextra_2d > 0) THEN

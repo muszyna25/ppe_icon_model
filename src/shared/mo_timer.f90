@@ -246,6 +246,13 @@ MODULE mo_timer
        &    timer_radar_out      , & 
        &    timer_radar_barrier
 
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  PUBLIC :: timer_opt_diag_atmo,             &
+    &       timer_opt_diag_atmo_vor,         &
+    &       timer_opt_diag_atmo_bvf2,        &
+    &       timer_opt_diag_atmo_parcelfreq2
+
   ! low level timing routine
   PUBLIC :: tic, toc
   PUBLIC :: timer_ls_forcing 
@@ -463,6 +470,13 @@ MODULE mo_timer
        &     timer_radar_comppolar, &
        &     timer_radar_out      , & 
        &     timer_radar_barrier
+
+  ! Timers for optional diagnostics
+  ! Model atmosphere
+  INTEGER :: timer_opt_diag_atmo,             &
+    &        timer_opt_diag_atmo_vor,         &
+    &        timer_opt_diag_atmo_bvf2,        &
+    &        timer_opt_diag_atmo_parcelfreq2
 
 
 CONTAINS
@@ -925,6 +939,13 @@ CONTAINS
       timer_radar_out       = new_timer("EMVORADO_output")
       timer_radar_barrier   = new_timer("EMVORADO_barrier_waiting")
     END IF
+
+    ! Timers for optional diagnostics
+    ! Model atmosphere
+    timer_opt_diag_atmo             = new_timer("optional_diagnostics_atmosphere")
+    timer_opt_diag_atmo_vor         = new_timer("opt_diag_atmo_vorticity")
+    timer_opt_diag_atmo_bvf2        = new_timer("opt_diag_atmo_bruntvaisala")
+    timer_opt_diag_atmo_parcelfreq2 = new_timer("opt_diag_atmo_parcelfrequency")
 
   END SUBROUTINE init_timer
 
