@@ -119,9 +119,6 @@ CONTAINS
    !write(0,*) "write ....."
 
     !------------------------------------------------------------------
-
-    IF (output_mode%l_nml) CALL write_name_list_output(out_step)
-
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)
     WRITE(message_text,'(a,a)') 'Write output at:', TRIM(datestring)
