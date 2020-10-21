@@ -55,23 +55,22 @@ MODULE mo_var_list_register
 #endif
 
   TYPE t_var_list_store
-    PRIVATE
-    LOGICAL, PUBLIC :: is_init = .FALSE.
+    LOGICAL :: is_init = .FALSE.
     TYPE(t_hashTable), POINTER :: storage
   CONTAINS
-    PROCEDURE, PUBLIC :: new => new_var_list
-    PROCEDURE, PUBLIC :: delete => delete_var_list
-    PROCEDURE, PUBLIC :: get => get_var_list
-    PROCEDURE, PUBLIC, NOPASS :: find_var_all => find_var_all
-    PROCEDURE, PUBLIC, NOPASS :: print_all => print_all_var_lists
-    PROCEDURE, PUBLIC, NOPASS :: collect_group => collect_group
-    PROCEDURE, PUBLIC, NOPASS :: print_group => print_group_details
-    PROCEDURE, PUBLIC, NOPASS :: n_var => total_number_of_variables
-    PROCEDURE, PUBLIC :: packer => varlistPacker
-    PROCEDURE, PUBLIC :: new_var_ref => add_var_reference
+    PROCEDURE, NOPASS :: new => new_var_list
+    PROCEDURE, NOPASS :: delete => delete_var_list
+    PROCEDURE, NOPASS :: get => get_var_list
+    PROCEDURE, NOPASS :: find_var_all => find_var_all
+    PROCEDURE, NOPASS :: print_all => print_all_var_lists
+    PROCEDURE, NOPASS :: collect_group => collect_group
+    PROCEDURE, NOPASS :: print_group => print_group_details
+    PROCEDURE, NOPASS :: n_var => total_number_of_variables
+    PROCEDURE, NOPASS :: packer => varlistPacker
+    PROCEDURE, NOPASS :: new_var_ref => add_var_reference
   END TYPE t_var_list_store
 
-  TYPE(t_var_list_store) :: vl_register
+  TYPE(t_var_list_store) :: vl_register ! the only ever instance of this type
 
   CHARACTER(*), PARAMETER :: modname = 'mo_var_list_store'
 
@@ -79,10 +78,9 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! Create a new memory buffer / output var_list
   ! Get a pointer to the new var_list
-  SUBROUTINE new_var_list(this, list, vlname, output_type, restart_type,    &
+  SUBROUTINE new_var_list(list, vlname, output_type, restart_type,    &
     & post_suf, rest_suf, init_suf, loutput, lrestart, linitial, patch_id,          &
     & vlevel_type, model_type, filename, compression_type)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
     TYPE(t_var_list_ptr), INTENT(OUT) :: list    ! anchor
     CHARACTER(*), INTENT(IN) :: vlname         ! name of output var_list
     INTEGER, INTENT(IN), OPTIONAL :: output_type, restart_type, patch_id, vlevel_type, compression_type
@@ -93,11 +91,11 @@ CONTAINS
     vln_len = LEN_TRIM(vlname)
     CALL message('','')
     CALL message('','adding new var_list '//vlname(1:vln_len))
-    IF (.NOT.this%is_init) THEN
-      this%storage => hashTable_make(text_hash, text_isEqual)
-      this%is_init = .TRUE.
+    IF (.NOT.vl_register%is_init) THEN
+      vl_register%storage => hashTable_make(text_hash, text_isEqual)
+      vl_register%is_init = .TRUE.
     END IF
-    CALL get_var_list(this, list, vlname)
+    CALL get_var_list(list, vlname)
     IF (ASSOCIATED(list%p)) CALL finish('new_var_list', ' >'//vlname(1:vln_len)//'< already in use.')
     ALLOCATE(list%p)
 #ifdef HAVE_CDI_ORDERING_DEFECT
@@ -143,14 +141,13 @@ CONTAINS
       ALLOCATE(keyObj, SOURCE=key)
 #endif
       valObj => list%p
-      CALL this%storage%setEntry(keyObj, valObj)
+      CALL vl_register%storage%setEntry(keyObj, valObj)
     END SUBROUTINE put_var_list
   END SUBROUTINE new_var_list
 
   !------------------------------------------------------------------------------------------------
   ! Get a reference to a memory buffer/output var_list
-  SUBROUTINE get_var_list(this, list, vlname)
-    CLASS(t_var_list_store), INTENT(IN) :: this
+  SUBROUTINE get_var_list(list, vlname)
     TYPE(t_var_list_ptr), INTENT(OUT) :: list ! pointer
     CHARACTER(*), INTENT(IN) :: vlname
     CLASS(*), POINTER :: valObj
@@ -164,7 +161,7 @@ CONTAINS
       CLASS(*), POINTER :: keyObj, valObj
 
       keyObj => key
-      valObj => this%storage%getEntry(keyObj)
+      valObj => vl_register%storage%getEntry(keyObj)
     END FUNCTION get_valObj
   END SUBROUTINE get_var_list
 
@@ -262,8 +259,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   ! Delete an output var_list, nullify the associated pointer
-  SUBROUTINE delete_var_list(this, list)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
+  SUBROUTINE delete_var_list(list)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: list
 
     IF (ASSOCIATED(list%p)) & ! Cray needs this to happen in an extra subroutine
@@ -276,7 +272,7 @@ CONTAINS
 
       keyObj => key
       CALL list%delete()
-      CALL this%storage%removeEntry(keyObj)
+      CALL vl_register%storage%removeEntry(keyObj)
 #ifdef HAVE_CDI_ORDERING_DEFECT
       vl_del_counter = vl_del_counter + 1
 #endif
@@ -285,19 +281,17 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   ! Delete all output var_lists
-  SUBROUTINE delete_var_lists(this)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
+  SUBROUTINE delete_var_lists()
     TYPE(t_vl_register_iter) :: iter
 
     DO WHILE(iter_next(iter))
-      CALL delete_var_list(this, iter%cur)
+      CALL delete_var_list(iter%cur)
     END DO
   END SUBROUTINE delete_var_lists
 
   !------------------------------------------------------------------------------------------------
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
-  SUBROUTINE add_var_reference(this, to_vl, vname, from_vl, loutput, bit_precision, in_group)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
+  SUBROUTINE add_var_reference(to_vl, vname, from_vl, loutput, bit_precision, in_group)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: to_vl
     CHARACTER(*), INTENT(IN) :: vname, from_vl
     LOGICAL, INTENT(in), OPTIONAL :: loutput, in_group(MAX_GROUPS)
@@ -305,7 +299,7 @@ CONTAINS
     TYPE(t_var_list_ptr) :: vlp_from
     TYPE(t_var), POINTER :: n_e, o_e => NULL()
 
-    CALL get_var_list(this, vlp_from, from_vl)
+    CALL get_var_list(vlp_from, from_vl)
     IF (ASSOCIATED(vlp_from%p)) o_e => find_list_element(vlp_from, vname)
     IF (ASSOCIATED(o_e)) THEN
       ALLOCATE(n_e, SOURCE=o_e)
@@ -438,8 +432,7 @@ CONTAINS
   ! (Un)pack the var_lists
   ! This IS needed for the restart modules that need to communicate the
   ! var_lists from the worker PEs to dedicated restart PEs.
-  SUBROUTINE varlistPacker(this, operation, pmsg, restart_only, nv_all)
-    CLASS(t_var_list_store), INTENT(INOUT) :: this
+  SUBROUTINE varlistPacker(operation, pmsg, restart_only, nv_all)
     INTEGER, INTENT(IN) :: operation
     TYPE(t_PackedMessage), INTENT(INOUT) :: pmsg
     LOGICAL, INTENT(IN) :: restart_only
@@ -457,9 +450,9 @@ CONTAINS
     TYPE(t_vl_register_iter) :: iter
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
 
-    IF (operation .EQ. kUnpackOp) CALL delete_var_lists(this)
+    IF (operation .EQ. kUnpackOp) CALL delete_var_lists()
     nvl = 0
-    IF (this%is_init) nvl = this%storage%getEntryCount()
+    IF (vl_register%is_init) nvl = vl_register%storage%getEntryCount()
     CALL pmsg%packer(operation, nvl)
     nv_al = 0
     DO ivl = 1, nvl
@@ -514,7 +507,7 @@ CONTAINS
         END DO
       ELSE
         ! create var list
-        CALL new_var_list(this, vlp, var_list_name, patch_id=patch_id, &
+        CALL new_var_list(vlp, var_list_name, patch_id=patch_id, &
           & model_type=model_type, restart_type=restart_type, &
           & vlevel_type=vlevel_type, lrestart=lrestart, loutput=loutput)
 #ifdef HAVE_CDI_ORDERING_DEFECT
