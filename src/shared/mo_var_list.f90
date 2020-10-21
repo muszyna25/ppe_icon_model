@@ -56,9 +56,9 @@ MODULE mo_var_list
     LOGICAL :: loutput = .TRUE., lrestart = .FALSE., linitial = .FALSE., &
       & restart_opened = .FALSE., output_opened = .FALSE., lmiss = .FALSE., &
       & lmask_boundary = .TRUE. , first = .FALSE.
-    TYPE(t_var_ptr), ALLOCATABLE :: vl(:)
-    LOGICAL, ALLOCATABLE :: lout(:)
     INTEGER, ALLOCATABLE :: tl(:), hgrid(:), key(:), key_notl(:)
+    LOGICAL, ALLOCATABLE :: lout(:)
+    TYPE(t_var_ptr), ALLOCATABLE :: vl(:)
 #ifdef HAVE_CDI_ORDERING_DEFECT
     INTEGER :: id = -1
 #endif
@@ -157,41 +157,38 @@ CONTAINS
   SUBROUTINE register_list_element(this, new_elem)
     CLASS(t_var_list_ptr), INTENT(INOUT) :: this
     TYPE(t_var), INTENT(IN), POINTER :: new_elem
-    INTEGER :: i, na , nv
-    TYPE(t_var_ptr), ALLOCATABLE :: tmp(:)
+    INTEGER :: iv, na , nv
+    TYPE(t_var_ptr), ALLOCATABLE :: vtmp(:)
+    CHARACTER(*), PARAMETER :: routine = modname//":register_list_element"
     INTEGER, ALLOCATABLE :: itmp1(:), itmp2(:), itmp3(:), itmp4(:)
     LOGICAL, ALLOCATABLE :: ltmp(:)
 
-    IF (.NOT.ASSOCIATED(this%p)) &
-      & CALL finish(modname//":register_list_element", "not a valid var_list")
+    IF (.NOT.ASSOCIATED(this%p)) CALL finish(routine, "not a valid var_list")
     na = 0
     nv = this%p%nvars
-    IF (nv .GT. 0) THEN
-      IF (SIZE(this%p%vl) .EQ. nv) THEN !need to grow
-        na = SIZE(this%p%vl) + 4
-        CALL MOVE_ALLOC(this%p%vl, tmp)
-        CALL MOVE_ALLOC(this%p%tl, itmp1)
-        CALL MOVE_ALLOC(this%p%hgrid, itmp2)
-        CALL MOVE_ALLOC(this%p%key, itmp3)
-        CALL MOVE_ALLOC(this%p%key_notl, itmp4)
-        CALL MOVE_ALLOC(this%p%lout, ltmp)
-      END IF
-    ELSE
-      na = 12
+    IF (nv .EQ. 0) THEN
+      na = 16
+    ELSE IF (SIZE(this%p%vl) .EQ. nv) THEN
+      na = nv + MAX(8, nv / 8)
     END IF
     IF (na .GT. 0) THEN
-      ALLOCATE(this%p%vl(na), this%p%tl(na), this%p%hgrid(na), &
-        & this%p%key(na), this%p%key_notl(na), this%p%lout(na))
-      IF (ALLOCATED(tmp)) THEN
-        this%p%tl(1:nv) = itmp1
-        this%p%hgrid(1:nv) = itmp2
-        this%p%key(1:nv) = itmp3
-        this%p%key_notl(1:nv) = itmp4
-        this%p%lout(1:nv) = ltmp
-        DO i = 1, nv
-          this%p%vl(i)%p => tmp(i)%p
+      ALLOCATE(itmp1(na), itmp2(na), itmp3(na), itmp4(na), ltmp(na), vtmp(na))
+      IF (nv .GT. 0) THEN
+        itmp1(1:nv) = this%p%tl(1:nv)
+        itmp2(1:nv) = this%p%hgrid(1:nv)
+        itmp3(1:nv) = this%p%key(1:nv)
+        itmp4(1:nv) = this%p%key_notl(1:nv)
+        ltmp(1:nv) = this%p%lout(1:nv)
+        DO iv = 1, nv
+          vtmp(iv)%p => this%p%vl(iv)%p
         END DO
       END IF
+      CALL MOVE_ALLOC(itmp1, this%p%tl)
+      CALL MOVE_ALLOC(itmp2, this%p%hgrid)
+      CALL MOVE_ALLOC(itmp3, this%p%key)
+      CALL MOVE_ALLOC(itmp4, this%p%key_notl)
+      CALL MOVE_ALLOC(ltmp, this%p%lout)
+      CALL MOVE_ALLOC(vtmp, this%p%vl)
     END IF
     nv = nv + 1
     this%p%vl(nv)%p => new_elem
