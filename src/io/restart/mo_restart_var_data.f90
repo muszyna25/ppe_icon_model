@@ -55,54 +55,41 @@ CONTAINS
 
   SUBROUTINE createRestartVarData(var_data, patch_id, modelType, out_restartType)
     TYPE(t_var_ptr), ALLOCATABLE, INTENT(OUT) :: var_data(:)
-    INTEGER, INTENT(in) :: patch_id
-    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    INTEGER, INTENT(IN) :: patch_id
+    CHARACTER(*), INTENT(IN) :: modelType
     INTEGER, OPTIONAL, INTENT(OUT) :: out_restartType
-    INTEGER :: n_var, n_vl, iv, iv2, il, ierr, restartType
-    TYPE(t_var), POINTER :: elem
+    INTEGER :: n_var, nv, iv, ierr, rsType
     TYPE(t_vl_register_iter) :: vl_iter
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartVarData"
+    CHARACTER(*), PARAMETER :: routine = modname//":createRestartVarData"
 
-    restartType = -1
+    rsType = -1
     n_var = 0
-    n_vl = 0
     DO WHILE(vl_iter%next())
-      IF (wantVarlist(vl_iter%cur)) THEN
-        DO iv = 1, vl_iter%cur%p%nvars
-          n_var = n_var + MERGE(1, 0, vl_iter%cur%p%vl(iv)%p%info%lrestart)
-        END DO
-      END IF
+      IF (.NOT.vl_iter%cur%p%lrestart) CYCLE
+      IF (vl_iter%cur%p%patch_id .NE. patch_id) CYCLE
+      IF (vl_iter%cur%p%model_type /= modelType) CYCLE
+      DO iv = 1, vl_iter%cur%p%nvars
+        n_var = n_var + MERGE(1, 0, vl_iter%cur%p%vl(iv)%p%info%lrestart)
+      END DO
     ENDDO
-#ifdef DEBUG
-    WRITE(nerr, "(a)") routine//': numvars = '//TRIM(int2string(n_var))
-#endif
     ALLOCATE(var_data(n_var), STAT = ierr)
     IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    iv = 0
+    nv = 0
     DO WHILE(vl_iter%next())
-      IF(.NOT.wantVarlist(vl_iter%cur)) CYCLE
-      IF(restartType == -1) restartType = vl_iter%cur%p%restart_type
-      IF(restartType /= vl_iter%cur%p%restart_type) &
+      IF (.NOT.vl_iter%cur%p%lrestart) CYCLE
+      IF (vl_iter%cur%p%patch_id .NE. patch_id) CYCLE
+      IF (vl_iter%cur%p%model_type /= modelType) CYCLE
+      IF (rsType .EQ. -1) rsType = vl_iter%cur%p%restart_type
+      IF (rsType .NE. vl_iter%cur%p%restart_type) &
         & CALL finish(routine, "found inconsistent restart_type values")
-      DO iv2 = 1, vl_iter%cur%p%nvars
-        elem => vl_iter%cur%p%vl(iv2)%p
-        IF (elem%info%lrestart) THEN
-          iv = iv + 1
-          var_data(iv)%p => elem
-        END IF
+      DO iv = 1, vl_iter%cur%p%nvars
+        IF (.NOT.vl_iter%cur%p%vl(iv)%p%info%lrestart) CYCLE
+        nv = nv + 1
+        var_data(nv)%p => vl_iter%cur%p%vl(iv)%p
       END DO
     END DO
-    IF(iv /= n_var) CALL finish(routine, "inconsistent restart variable count")
-    IF (PRESENT(out_restartType)) out_restartType = restartType
-  CONTAINS
-
-    LOGICAL FUNCTION wantVarlist(varlist)
-      TYPE(t_var_list_ptr), INTENT(IN) :: varlist
-  
-      wantVarlist = varlist%p%lrestart &
-        .AND. varlist%p%patch_id == patch_id &
-        .AND. varlist%p%model_type == modelType
-    END FUNCTION wantVarlist
+    IF(nv /= n_var) CALL finish(routine, "inconsistent restart variable count")
+    IF (PRESENT(out_restartType)) out_restartType = rsType
   END SUBROUTINE createRestartVarData
 
   SUBROUTINE get_var_3d_ptr_dp(vd, r_ptr_3d)

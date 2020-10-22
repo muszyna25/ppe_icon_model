@@ -30,17 +30,14 @@ MODULE mo_var_metadata
     &  t_var_metadata_dynamic
   USE mo_util_string,        ONLY: toupper
   USE mo_action_types,       ONLY: t_var_action
-  USE mo_util_texthash,      ONLY: text_hash_c
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_tracer_metadata,    ONLY: create_tracer_metadata
-  USE mo_util_string,        ONLY: tolower
   USE mo_impl_constants,     ONLY: TIMELEVEL_SUFFIX, MAX_TIME_LEVELS, vname_len
 
   IMPLICIT NONE
   PRIVATE
 
-  !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata'
+  CHARACTER(*), PARAMETER :: modname = 'mo_var_metadata'
 
   PUBLIC :: create_hor_interp_metadata, create_vert_interp_metadata
   PUBLIC :: post_op, vintp_types, vintp_type_id, set_var_metadata
@@ -182,54 +179,28 @@ CONTAINS
   !
   ! Set each parameter in data type var_metadata if the respective
   ! optional parameter is present.
-  SUBROUTINE set_var_metadata (info,                                           &
-         &                     name, hgrid, vgrid, cf, grib2, ldims,           &
-         &                     loutput, lcontainer, lrestart, lrestart_cont,   &
-         &                     initval, isteptype, resetval, lmiss, missval,   &
-         &                     tlev_source, vert_interp,                       &
-         &                     hor_interp, in_group, verbose,                  &
-         &                     l_pp_scheduler_task, post_op, action_list,      &
-         &                     var_class, data_type, idx_tracer, idx_diag,     &
-         &                     lopenacc)
-    TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
-    CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
-    INTEGER,                 INTENT(in), OPTIONAL :: hgrid         ! horizontal grid type used
-    INTEGER,                 INTENT(in), OPTIONAL :: vgrid         ! vertical grid type used
-    TYPE(t_cf_var),          INTENT(in), OPTIONAL :: cf            ! CF convention
-    TYPE(t_grib2_var),       INTENT(in), OPTIONAL :: grib2         ! GRIB2
-    INTEGER,                 INTENT(in)           :: ldims(:)      ! used dimensions
-    LOGICAL,                 INTENT(in), OPTIONAL :: loutput       ! into output var_list
-    LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer    ! true if container
-    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart      ! restart file flag
-    LOGICAL,                 INTENT(in), OPTIONAL :: lrestart_cont ! continue on restart
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: initval       ! value if var not available
-    INTEGER,                 INTENT(in), OPTIONAL :: isteptype     ! type of statistical processing
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: resetval      ! reset value
-    LOGICAL,                 INTENT(in), OPTIONAL :: lmiss         ! missing value flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval       ! missing value
-    INTEGER,                 INTENT(in), OPTIONAL :: tlev_source   ! actual TL for TL dependent vars
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(:)          ! groups to which a variable belongs
-    LOGICAL,                 INTENT(in), OPTIONAL :: verbose
-    INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
-    TYPE(t_post_op_meta),    INTENT(in), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
-    TYPE(t_var_action),      INTENT(in), OPTIONAL :: action_list   !< regularly triggered events
-    INTEGER,                 INTENT(in), OPTIONAL :: var_class     ! variable class/species
-    INTEGER,                 INTENT(IN), OPTIONAL :: data_type     ! variable data type
-    INTEGER,                 INTENT(IN), OPTIONAL :: idx_tracer    ! index of tracer in tracer container 
-    INTEGER,                 INTENT(IN), OPTIONAL :: idx_diag      ! index of tracer in diagnostics container 
-    LOGICAL,                 INTENT(IN), OPTIONAL :: lopenacc      ! variable data type
-    !LOGICAL :: lverbose
+  SUBROUTINE set_var_metadata (info, ldims, name, hgrid, vgrid, cf, grib2, &
+    & loutput, lcontainer, lrestart, lrestart_cont, initval, isteptype,    &
+    & resetval, lmiss, missval, tlev_source, vert_interp, hor_interp,      &
+    & in_group, l_pp_scheduler_task, post_op, action_list, var_class,      &
+    & data_type, idx_tracer, idx_diag, lopenacc)
+    TYPE(t_var_metadata), INTENT(INOUT) :: info
+    INTEGER, INTENT(IN) :: ldims(:)
+    CHARACTER(*), INTENT(IN), OPTIONAL :: name
+    INTEGER, INTENT(IN), OPTIONAL :: hgrid, vgrid, isteptype, tlev_source, &
+      & l_pp_scheduler_task, var_class, data_type, idx_tracer, idx_diag
+    TYPE(t_cf_var), INTENT(IN), OPTIONAL :: cf
+    TYPE(t_grib2_var), INTENT(IN), OPTIONAL :: grib2
+    LOGICAL, OPTIONAL, INTENT(IN) :: loutput, lcontainer, lrestart, lmiss, &
+      & lrestart_cont, in_group(:), lopenacc
+    TYPE(t_union_vals), INTENT(IN), OPTIONAL :: initval, resetval, missval
+    TYPE(t_vert_interp_meta),INTENT(IN), OPTIONAL :: vert_interp   ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(IN), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
+    TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
+    TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list   !< regularly triggered events
 
     ! set flags from optional parameters
-    !lverbose = .FALSE.
-    IF (PRESENT(name)) THEN
-      info%name      = name
-      info%key = text_hash_c(TRIM(name))
-      info%key_notl = text_hash_c(tolower(strip_timelev(name)))
-    END IF
-    !IF (PRESENT(verbose))       lverbose             = verbose
+    IF (PRESENT(name))          info%name      = name
     IF (PRESENT(data_type))     info%data_type       = data_type
     ! set components describing the 'Content of the field'
     IF (PRESENT(var_class))     info%var_class       = var_class
@@ -268,7 +239,6 @@ CONTAINS
     IF (PRESENT(lopenacc))      info%lopenacc      = lopenacc
     ! perform consistency checks on variable's meta-data:
     CALL check_metadata_consistency()
-    !LK    IF (lverbose) CALL print_var_metadata (info)
   CONTAINS
 
     SUBROUTINE check_metadata_consistency()
@@ -281,10 +251,8 @@ CONTAINS
     END SUBROUTINE check_metadata_consistency
 
   END SUBROUTINE set_var_metadata
-  !------------------------------------------------------------------------------------------------
-  !
+
   ! Set dynamic metadata, i.e. polymorphic tracer metadata
-  !
   SUBROUTINE set_var_metadata_dyn(this_info_dyn,tracer_info)
     TYPE(t_var_metadata_dynamic),INTENT(INOUT) :: this_info_dyn
     CLASS(t_tracer_meta), INTENT(IN), OPTIONAL :: tracer_info
@@ -300,27 +268,19 @@ CONTAINS
     ENDIF
   END SUBROUTINE set_var_metadata_dyn
 
-  !------------------------------------------------------------------------------------------------
   !> @return Plain variable name (i.e. without TIMELEVEL_SUFFIX)
   CHARACTER(LEN=vname_len) FUNCTION get_var_name(info)
     TYPE(t_var_metadata), INTENT(IN) :: info
-
-    get_var_name = strip_timelev(info%name)
-  END FUNCTION get_var_name
-
-  CHARACTER(LEN=vname_len) FUNCTION strip_timelev(vname)
-    CHARACTER(*), INTENT(IN)   :: vname
     INTEGER :: idx
 
-    idx = INDEX(vname,TIMELEVEL_SUFFIX)
+    idx = INDEX(info%name,TIMELEVEL_SUFFIX)
     IF (idx .EQ. 0) THEN
-      strip_timelev = vname
+      get_var_name = info%name
     ELSE
-      strip_timelev = vname(1:idx-1)
+      get_var_name = info%name(1:idx-1)
     END IF
-  END FUNCTION strip_timelev
+  END FUNCTION get_var_name
 
-  !------------------------------------------------------------------------------------------------
   ! construct string for timelevel encoding into variable names
   CHARACTER(len=4) FUNCTION get_timelevel_string(timelevel)
     INTEGER, INTENT(IN) :: timelevel
@@ -328,7 +288,6 @@ CONTAINS
     WRITE(get_timelevel_string,'("'//TIMELEVEL_SUFFIX//'",i1)') timelevel
   END FUNCTION get_timelevel_string
 
-  !------------------------------------------------------------------------------------------------
   !> @return time level (extracted from time level suffix) or "-1"
   INTEGER FUNCTION get_var_timelevel(vname) RESULT(tl)
     CHARACTER(*), INTENT(IN) :: vname
@@ -343,5 +302,5 @@ CONTAINS
         & CALL finish(routine, 'Illegal time level in '//TRIM(vname))
     END IF
   END FUNCTION get_var_timelevel
-END MODULE mo_var_metadata
 
+END MODULE mo_var_metadata

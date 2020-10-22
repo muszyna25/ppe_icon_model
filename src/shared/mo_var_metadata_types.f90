@@ -23,13 +23,10 @@ MODULE mo_var_metadata_types
   IMPLICIT NONE
   PRIVATE
 
-  !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata_types'
+  CHARACTER(*), PARAMETER :: modname = 'mo_var_metadata_types'
 
   ! ---------------------------------------------------------------
   ! CONSTANTS
-  ! ---------------------------------------------------------------
-
 
   ! list of vertical interpolation types
   ! 
@@ -63,10 +60,8 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC :: CLASS_DISTR_STAT    = 8   !< variable based on a distribuition function (PDT 67)
                                                           !< statistical process
 
-
   ! ---------------------------------------------------------------
   ! META-DATA TYPE DEFINITIONS
-  ! ---------------------------------------------------------------
 
   TYPE t_union_vals
     REAL(dp) :: rval = 0._dp
@@ -91,7 +86,6 @@ MODULE mo_var_metadata_types
     REAL(wp) :: lower_limit = 0._wp, extrapol_dist
   END TYPE t_vert_interp_meta
 
-
   !> data specific for horizontal interpolation.
   TYPE t_hor_interp_meta
     INTEGER :: hor_intp_type = HINTP_TYPE_LONLAT_RBF ! NONE/RBF/Nearest-Neighbor/...
@@ -112,78 +106,56 @@ MODULE mo_var_metadata_types
   !
   TYPE t_post_op_meta
     INTEGER                    :: ipost_op_type = POST_OP_NONE !< type of post-processing operation
-    !
     LOGICAL                    :: lnew_cf       = .FALSE.
     TYPE(t_cf_var)             :: new_cf        = t_cf_var('', '', '', -1) !< CF information of modified field
     LOGICAL                    :: lnew_grib2    = .FALSE.
     TYPE(t_grib2_var)          :: new_grib2 !< GRIB2 information of modified field
-    !
     TYPE(t_union_vals)         :: arg1 !< post-op argument (e.g. scaling factor)
   END TYPE t_post_op_meta
 
 
   TYPE t_var_metadata
-    !
-    INTEGER                    :: key = 0, key_notl = 0              ! hash value of name
     CHARACTER(len=vname_len)   :: name        = ''             ! variable name
     INTEGER                    :: var_class   = CLASS_DEFAULT  ! variable type
-    !                                                          ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
     INTEGER                    :: data_type   = -1             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
-    !
     TYPE(t_cf_var)             :: cf          = t_cf_var('', '', '', -1)  ! CF convention information 
     TYPE(t_grib2_var)          :: grib2  ! GRIB2 related information
-    !
     LOGICAL                    :: allocated   = .FALSE.        ! allocation status
     INTEGER                    :: ndims       = 0              ! number of dimensions used
     INTEGER                    :: used_dimensions(5) = 0       ! final dimensions of variable
-    ! 
     LOGICAL                    :: lrestart    = .FALSE.        ! write field to restart
     LOGICAL                    :: loutput     = .TRUE.         ! write field to output
     INTEGER                    :: isteptype   = TSTEP_INSTANT  ! Type of statistical processing
-    !                                          
     TYPE(t_union_vals)         :: resetval                     ! reset value for accumulated fields
     LOGICAL                    :: lrestart_cont = .FALSE.      ! continue if not in restart file     
     LOGICAL                    :: lrestart_read = .FALSE.      ! field has been set from restart file
     TYPE(t_union_vals)         :: initval                      ! value if not in restart file
-    !     
     LOGICAL                    :: lcontainer   = .FALSE.       ! true, if this is a container
     LOGICAL                    :: lcontained   = .FALSE.       ! true, if this is in a container
     INTEGER                    :: ncontained   = 0             ! index in container
     INTEGER                    :: maxcontained = 0             ! container size   
     INTEGER                    :: var_ref_pos  = -1            ! for containers: dimension index for references
-    !
     INTEGER                    :: hgrid        = -1            ! CDI horizontal grid type
     INTEGER                    :: vgrid        = -1            ! CDI vertical grid type
     TYPE(t_subset_range)       :: subset                       ! subset for latter field access
     INTEGER, POINTER           :: dom => NULL()                ! pointer to the variable list
-    !
     INTEGER                    :: tlev_source  = TLEV_NNOW     ! Information where to find the actual
     !                                                     timelevel for timelevel dependent variables:        
     !                                                      = 0 : nnow
     !                                                      = 1 : nnow_rcf
     !                                                      ... more may follow
-    !
     INTEGER                    :: cdiVarID     = CDI_UNDEFID
     INTEGER                    :: cdiGridID    = CDI_UNDEFID
-    !
-    ! Metadata for "post-ops" (small arithmetic operations)
-    !
     TYPE(t_post_op_meta)       :: post_op               !<  "post-op" (small arithmetic operations) for this variable
-    !
-    ! Metadata for "actions" (regularly triggered events)
-    !
     TYPE(t_var_action)         :: action_list
-    !
     ! Metadata for vertical/horizontal interpolation
     !
     ! Note that setting these parameters to non-default values does
     ! not mean that interpolation is actually performed for this
     ! variables (this is controlled by namelist settings) but only
     ! that this is possible!
-    !
     TYPE(t_vert_interp_meta)   :: vert_interp 
     TYPE(t_hor_interp_meta)    :: hor_interp 
-    !
     ! meta data containing the groups to which a variable belongs
     LOGICAL :: in_group(MAX_GROUPS)
 
@@ -196,7 +168,6 @@ MODULE mo_var_metadata_types
     LOGICAL                    :: lmiss = .FALSE.           ! flag: true, if variable should be initialized with missval
     TYPE(t_union_vals)         :: missval                   ! missing value
     LOGICAL                    :: lmask_boundary = .FALSE.  ! flag: true, if interpolation zone should be masked *in output*
-
     ! Index of tracer in tracer and in diagnostics container
     INTEGER                    :: idx_tracer   = -1         !< index of tracer in tracer container
     INTEGER                    :: idx_diag     = -1         !< index of tracer in diagnostics container

@@ -1313,22 +1313,21 @@ CONTAINS
     IF (table > 0) CONTINUE
     IF (PRESENT(gdims)) CONTINUE
     IF (PRESENT(levelindx)) CONTINUE
+    IF (PRESENT(verbose)) CONTINUE
     IF (PRESENT(p5)) THEN
       IF (SIZE(p5, DIM=5) > 1) &
         CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
     END IF
     IF (PRESENT(in_groups)) THEN
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, in_group=groups(in_groups),                                   &
-        lopenacc=.TRUE., verbose=verbose, new_element=nelem)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, in_group=groups(in_groups), lopenacc=.TRUE., new_element=nelem)
     ELSE
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5,                                                               &
-        lopenacc=.TRUE., verbose=verbose, new_element=nelem)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, lopenacc=.TRUE., new_element=nelem)
     END IF
     ! HB: kind of hacky way: are there changes needed in jsb for t_list_element -> t_var ?
     IF (PRESENT(new_element)) THEN
@@ -1380,29 +1379,28 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element           ! pointer to new var list element
     TYPE (t_var), POINTER :: nelem
-    CHARACTER(len=*), PARAMETER :: routine = modname//':add_var_list_element_r3d'
+    CHARACTER(*), PARAMETER :: routine = modname//':add_var_list_element_r3d'
 
     ! These variables are not used for ICON, but avoid compiler warnings about dummy arguments not being used
     IF (code > 0) CONTINUE
     IF (table > 0) CONTINUE
     IF (PRESENT(gdims)) CONTINUE
     IF (PRESENT(levelindx)) CONTINUE
+    IF (PRESENT(verbose)) CONTINUE
     IF (PRESENT(p5)) THEN
       IF (SIZE(p5, DIM=5) > 1) &
         CALL finish(TRIM(routine), 'p5: only four dimensions allowed currently because of ECHAM compatibility')
     END IF
     IF (PRESENT(in_groups)) THEN
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5, verbose=verbose, in_group=groups(in_groups),                  &
-        lopenacc=.TRUE., new_element=nelem)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, in_group=groups(in_groups), lopenacc=.TRUE., new_element=nelem)
     ELSE
-      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, &
-        ldims=ldims, loutput=loutput, lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont,     &
-        initval=initval_r, isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r,             &
-        tlev_source=tlev_source, info=info, p5=p5,                                                               &
-        lopenacc=.TRUE., verbose=verbose, new_element=nelem)
+      CALL add_var_icon(this_list, TRIM(name), ptr, hgrid, vgrid, cf, grib2, ldims, loutput=loutput, &
+        lcontainer=lcontainer, lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval_r,    &
+        isteptype=isteptype, resetval=resetval_r, lmiss=lmiss, missval=missval_r, info=info, p5=p5,  &
+        tlev_source=tlev_source, lopenacc=.TRUE., new_element=nelem)
     END IF
     IF (PRESENT(new_element)) THEN
       ALLOCATE(new_element)

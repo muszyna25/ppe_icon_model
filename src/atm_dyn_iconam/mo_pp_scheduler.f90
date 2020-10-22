@@ -356,7 +356,7 @@ CONTAINS
         ! Do not inspect element if "loutput=.false."
         IF (.NOT. info%loutput) CYCLE
         ! Check for matching name
-        IF (vn_hash .NE. info%key_notl) CYCLE
+        IF (vn_hash .NE. vl_iter%cur%p%key_notl(iv)) CYCLE
         ! get time level
         tl = get_var_timelevel(info%name)
         suffix = ''
@@ -904,7 +904,7 @@ CONTAINS
         IF (.NOT. info%loutput) CYCLE
         ! Check for matching name (take care of suffix of
         ! time-dependent variables):
-        IF (vn_hash .NE. info%key_notl) CYCLE
+        IF (vn_hash .NE.  vl_iter%cur%p%key_notl(iv)) CYCLE
         ! get time level
         tl = get_var_timelevel(info%name)
         suffix = ''

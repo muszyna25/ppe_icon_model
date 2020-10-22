@@ -11,7 +11,7 @@ MODULE mo_var_list_register
     & var_metadata_toBinary
   USE mo_var_metadata,     ONLY: get_var_name
   USE mo_var, ONLY: level_type_ml, t_var
-  USE mo_var_list,         ONLY: find_list_element, t_var_list_ptr, sel_var_list
+  USE mo_var_list,         ONLY: find_list_element, t_var_list_ptr
   USE mo_exception,        ONLY: message, finish
   USE mo_util_string,      ONLY: remove_duplicates, pretty_print_string_list, &
     &                            tolower, difference, find_trailing_number
@@ -131,7 +131,6 @@ CONTAINS
 
   LOGICAL FUNCTION iter_next(this) RESULT(valid)
     CLASS(t_vl_register_iter), INTENT(INOUT) :: this
-    CLASS(*), POINTER :: keyObj, valObj
 
     valid = .false.
     IF (vl_register%last_id .GT. 0) THEN
@@ -174,12 +173,14 @@ CONTAINS
   SUBROUTINE delete_var_lists()
     TYPE(t_vl_register_iter) :: iter
 
-    DO WHILE(iter_next(iter))
-      CALL delete_var_list(iter%cur)
-    END DO
-    DEALLOCATE(vl_register%storage)
-    CALL vl_register%map%destruct()
-    vl_register%last_id = 0
+    IF (vl_register%last_id .NE. 0) THEN
+      DO WHILE(iter_next(iter))
+        CALL delete_var_list(iter%cur)
+      END DO
+      DEALLOCATE(vl_register%storage)
+      CALL vl_register%map%destruct()
+      vl_register%last_id = 0
+    END IF
   END SUBROUTINE delete_var_lists
 
   !------------------------------------------------------------------------------------------------

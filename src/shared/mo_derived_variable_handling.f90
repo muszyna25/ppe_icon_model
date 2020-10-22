@@ -525,14 +525,12 @@ CONTAINS
 
   SUBROUTINE update_mvstream(bundle)
     TYPE(t_derivate_op), INTENT(INOUT), TARGET :: bundle
-    INTEGER :: tl, iv, ie, it, ne, nv, j, k, l, m
+    INTEGER :: tl, iv, ie, it, ne, nv
     INTEGER, POINTER :: ct
     TYPE(t_var), POINTER :: src, dst
     TYPE(t_derivate_event), POINTER :: ederiv
     TYPE(datetime), POINTER :: mtime_date
     LOGICAL :: isactive
-    REAL(wp) :: weight
-    CHARACTER(*), PARAMETER :: routine = modname//"::update_statistics"
 
     ne = 0
     IF (ALLOCATED(bundle%events)) ne = SIZE(bundle%events)
@@ -549,7 +547,6 @@ CONTAINS
         IF (ederiv%vars(iv)%a%tls(1) .NE. -1) THEN
           tl = metainfo_get_timelevel(dst%info, dst%info%dom)
           it = MAXLOC(MERGE(1, 0, tl .EQ. ederiv%vars(iv)%a%tls(:)), 1)
-          IF (it .EQ. 0) CALL finish(routine, "time-level for not found")
           src => ederiv%vars(iv)%a%src(it)%p
         END IF
         IF (ct .EQ. 0) THEN ! initial assignment

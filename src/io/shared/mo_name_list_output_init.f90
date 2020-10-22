@@ -1857,7 +1857,7 @@ CONTAINS
           ! Do not inspect element if output is disabled
           IF (.NOT.elem%info%loutput) CYCLE
           IF (elem%info%lcontainer) CYCLE
-          IF (key_notl .NE. elem%info%key_notl) CYCLE
+          IF (key_notl .NE. vl_iter%cur%p%key_notl(ivl)) CYCLE
           IF (of%name_list%remap .EQ. REMAP_REGULAR_LATLON) THEN
             ! If lon-lat variable is requested, skip variable if it
             ! does not correspond to the same lon-lat grid:

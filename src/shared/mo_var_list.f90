@@ -27,7 +27,7 @@ MODULE mo_var_list
   USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata, &
     &                            set_var_metadata, set_var_metadata_dyn, &
-    &                            get_var_timelevel
+    &                            get_var_timelevel, get_var_name
   USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   USE mo_var,              ONLY: t_var, t_var_ptr, level_type_ml
   USE mo_exception,        ONLY: message, finish, message_text
@@ -41,11 +41,10 @@ MODULE mo_var_list
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: add_var, add_ref
-  PUBLIC :: find_list_element
-  PUBLIC :: t_var_list_ptr, sel_var_list
+  PUBLIC :: add_var, add_ref, find_list_element
+  PUBLIC :: t_var_list_ptr
 
-  TYPE t_var_list
+  TYPE :: t_var_list
     CHARACTER(len=256) :: filename = ''
     CHARACTER(len=128) :: name = ''
     INTEGER(i8) :: memory_used = 0_i8
@@ -61,13 +60,13 @@ MODULE mo_var_list
     TYPE(t_var_ptr), ALLOCATABLE :: vl(:)
   END TYPE t_var_list
 
-  TYPE t_var_list_ptr
+  TYPE :: t_var_list_ptr
     TYPE(t_var_list), POINTER :: p => NULL()
   CONTAINS
     PROCEDURE :: register => register_list_element
     PROCEDURE :: delete => delete_list
     PROCEDURE :: print => print_var_list
-  END type t_var_list_ptr
+  END TYPE t_var_list_ptr
 
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
@@ -101,22 +100,7 @@ MODULE mo_var_list
 
 CONTAINS
 
-  FUNCTION sel_var_list(obj) RESULT(vl)
-    CLASS(*), POINTER, INTENT(IN) :: obj
-    TYPE(t_var_list), POINTER :: vl
-
-    NULLIFY(vl)
-    IF (ASSOCIATED(obj)) THEN
-      SELECT TYPE(obj)
-      TYPE IS(t_var_list)
-        vl => obj
-      END SELECT
-    END IF
-  END FUNCTION sel_var_list
-
-  !-----------------------------------------------------------------------------
   ! remove all elements of a linked list
-  ! check if all elements are removed
   SUBROUTINE delete_list(this)
     CLASS(t_var_list_ptr), INTENT(INOUT) :: this
     INTEGER :: i, n
@@ -151,9 +135,9 @@ CONTAINS
 
   !-----------------------------------------------------------------------------
   ! add a list element to the linked list
-  SUBROUTINE register_list_element(this, new_elem)
+  SUBROUTINE register_list_element(this, varp)
     CLASS(t_var_list_ptr), INTENT(INOUT) :: this
-    TYPE(t_var), INTENT(IN), POINTER :: new_elem
+    TYPE(t_var), INTENT(IN), POINTER :: varp
     INTEGER :: iv, na , nv
     TYPE(t_var_ptr), ALLOCATABLE :: vtmp(:)
     CHARACTER(*), PARAMETER :: routine = modname//":register_list_element"
@@ -161,6 +145,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: ltmp(:)
 
     IF (.NOT.ASSOCIATED(this%p)) CALL finish(routine, "not a valid var_list")
+    IF (.NOT.ASSOCIATED(varp)) CALL finish(routine, "not a valid var")
     na = 0
     nv = this%p%nvars
     IF (nv .EQ. 0) THEN
@@ -188,12 +173,12 @@ CONTAINS
       CALL MOVE_ALLOC(vtmp, this%p%vl)
     END IF
     nv = nv + 1
-    this%p%vl(nv)%p => new_elem
-    this%p%tl(nv) = get_var_timelevel(new_elem%info%name)
-    this%p%hgrid(nv) = new_elem%info%hgrid
-    this%p%key(nv) = text_hash_c(TRIM(new_elem%info%name))
-    this%p%key_notl(nv) = text_hash_c(tolower(new_elem%info%name))
-    this%p%lout(nv) = new_elem%info%loutput
+    this%p%vl(nv)%p => varp
+    this%p%tl(nv) = get_var_timelevel(varp%info%name)
+    this%p%hgrid(nv) = varp%info%hgrid
+    this%p%key(nv) = text_hash_c(TRIM(varp%info%name))
+    this%p%key_notl(nv) = text_hash_c(tolower(get_var_name(varp%info)))
+    this%p%lout(nv) = varp%info%loutput
     this%p%nvars = nv
   END SUBROUTINE register_list_element
 
@@ -212,14 +197,13 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   ! Create a list new entry
-  SUBROUTINE add_var_list_element_5d(data_type, list, varname,         &
-    &   hgrid, vgrid, cf, grib2, ldims, new_elem, loutput, lcontainer,  &
-    &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,                 &
-    &   info, vert_interp, hor_interp, in_group, verbose,                       &
-    &   l_pp_scheduler_task, post_op, action_list, tracer_info,                 &
-    &   p5_r, p5_s, p5_i, p5_l, initval_r, initval_s, initval_i, initval_l,     &
-    &   resetval_r, resetval_s, resetval_i, resetval_l, new_element,           &
-    &   missval_r, missval_s, missval_i, missval_l, var_class, lopenacc )
+  SUBROUTINE add_var_list_element_5d(data_type, list, varname, hgrid, vgrid, &
+    & cf, grib2, ldims, new_elem, loutput, lcontainer, lrestart,             &
+    & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,       &
+    & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,       &
+    & tracer_info, p5_r, p5_s, p5_i, p5_l, initval_r, initval_s, initval_i,  &
+    & initval_l, resetval_r, resetval_s, resetval_i, resetval_l, new_element,&
+    & missval_r, missval_s, missval_i, missval_l, var_class, lopenacc)
     INTEGER, INTENT(IN) :: data_type, hgrid, vgrid, ldims(:)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: list
     CHARACTER(*), INTENT(IN) :: varname
@@ -227,7 +211,7 @@ CONTAINS
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     TYPE(t_var), POINTER, INTENT(OUT) :: new_elem
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, lrestart_cont, &
-      & lmiss, in_group(:), verbose, initval_l, resetval_l, missval_l, lopenacc
+      & lmiss, in_group(:), initval_l, resetval_l, missval_l, lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, tlev_source, l_pp_scheduler_task, &
       & initval_i, resetval_i, missval_i, var_class
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -286,16 +270,14 @@ CONTAINS
     IF (PRESENT(resetval_s)) resetval%sval = resetval_s
     IF (PRESENT(resetval_i)) resetval%ival = resetval_i
     IF (PRESENT(resetval_l)) resetval%lval = resetval_l
-    CALL set_var_metadata(new_elem%info,                      &
-         name=varname, hgrid=hgrid, vgrid=vgrid, cf=cf, grib2=grib2,            &
-         ldims=ldims(1:ndims), loutput=loutput, lcontainer=lcontainer,       &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,    &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                &
-         missval=missval, tlev_source=tlev_source,                           &
-         vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group,  &
-         verbose=verbose, l_pp_scheduler_task=l_pp_scheduler_task,           &
-         post_op=post_op, action_list=action_list, var_class=var_class,      &
-         data_type=data_type, lopenacc=lopenacc )
+    CALL set_var_metadata(new_elem%info, ldims, name=varname,       &
+      & hgrid=hgrid, vgrid=vgrid, cf=cf, grib2=grib2, loutput=loutput,       &
+      & lcontainer=lcontainer, lrestart=lrestart, missval=missval,           &
+      & lrestart_cont=lrestart_cont, initval=initval, isteptype=isteptype,   &
+      & resetval=resetval, tlev_source=tlev_source, vert_interp=vert_interp, &
+      & hor_interp=hor_interp, l_pp_scheduler_task=l_pp_scheduler_task,      &
+      & post_op=post_op, action_list=action_list, var_class=var_class,       &
+      & data_type=data_type, lopenacc=lopenacc, lmiss=lmiss, in_group=in_group)
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_elem%info_dyn, tracer_info=tracer_info)
     new_elem%info%ndims = ndims
@@ -379,7 +361,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r4d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -388,7 +370,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(dp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -401,20 +383,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(REAL_T, this_list, varname,           &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer,    &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info,    &
-      &   vert_interp, hor_interp, in_group, verbose,                      &
-      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,              &
-      &   initval_r=initval, resetval_r=resetval, missval_r=missval,       &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(REAL_T, this_list, varname, hgrid, vgrid, &
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%r_ptr(:,:,:,:,1)
   END SUBROUTINE add_var_list_element_r4d
 
   SUBROUTINE add_var_list_element_r3d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element, tracer_info, &
+    & p5, vert_interp, hor_interp, in_group, new_element, tracer_info, &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -423,7 +404,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(dp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -437,20 +418,20 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(REAL_T, this_list, varname,               &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer,        &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,              &
-      &   info, vert_interp, hor_interp, in_group, verbose,                    &
-      &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
-      &   p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,  &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(REAL_T, this_list, varname, hgrid, vgrid, &
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element,   &
+      & tracer_info=tracer_info)
     ptr => element%r_ptr(:,:,:,1,1)
   END SUBROUTINE add_var_list_element_r3d
 
   SUBROUTINE add_var_list_element_r2d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element, tracer_info, &
+    & p5, vert_interp, hor_interp, in_group, new_element, tracer_info, &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -459,7 +440,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(dp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -473,20 +454,20 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(REAL_T, this_list, varname,               &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer,        &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,              &
-      &   info, vert_interp, hor_interp, in_group, verbose,                    &
-      &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
-      &   p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,  &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(REAL_T, this_list, varname, hgrid, vgrid, &
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element,   &
+      & tracer_info=tracer_info)
     ptr => element%r_ptr(:,:,1,1,1)
   END SUBROUTINE add_var_list_element_r2d
 
   SUBROUTINE add_var_list_element_r1d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -495,7 +476,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(dp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -508,20 +489,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(REAL_T, this_list, varname,        &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,           &
-      &   initval_r=initval, resetval_r=resetval, missval_r=missval,    &
-      &   var_class=var_class,lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(REAL_T, this_list, varname, hgrid, vgrid, &
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_r=p5, initval_r=initval, resetval_r=resetval, missval_r=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%r_ptr(:,1,1,1,1)
   END SUBROUTINE add_var_list_element_r1d
 
   SUBROUTINE add_var_list_element_s4d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -530,7 +510,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(sp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -543,20 +523,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(SINGLE_T, this_list, varname,         &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer,    &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info,    &
-      &   vert_interp, hor_interp, in_group, verbose,                      &
-      &   l_pp_scheduler_task, post_op, action_list, p5_s=p5,              &
-      &   initval_s=initval, resetval_s=resetval, missval_s=missval,       &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(SINGLE_T, this_list, varname, hgrid, vgrid,&
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%s_ptr(:,:,:,:,1)
   END SUBROUTINE add_var_list_element_s4d
 
   SUBROUTINE add_var_list_element_s3d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element, tracer_info, &
+    & p5, vert_interp, hor_interp, in_group, new_element, tracer_info, &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -565,7 +544,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(sp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -579,20 +558,20 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(SINGLE_T, this_list, varname,             &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer,        &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,              &
-      &   info, vert_interp, hor_interp, in_group, verbose,                    &
-      &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
-      &   p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,  &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(SINGLE_T, this_list, varname, hgrid, vgrid,&
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element,   &
+      & tracer_info=tracer_info)
     ptr => element%s_ptr(:,:,:,1,1)
   END SUBROUTINE add_var_list_element_s3d
 
   SUBROUTINE add_var_list_element_s2d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element, tracer_info, &
+    & p5, vert_interp, hor_interp, in_group, new_element, tracer_info, &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -601,7 +580,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(sp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -615,20 +594,20 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(SINGLE_T, this_list, varname,             &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer,        &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,              &
-      &   info, vert_interp, hor_interp, in_group, verbose,                    &
-      &   l_pp_scheduler_task, post_op, action_list, tracer_info=tracer_info,  &
-      &   p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,  &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(SINGLE_T, this_list, varname, hgrid, vgrid,&
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element,   &
+      & tracer_info=tracer_info)
     ptr => element%s_ptr(:,:,1,1,1)
   END SUBROUTINE add_var_list_element_s2d
 
   SUBROUTINE add_var_list_element_s1d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -637,7 +616,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     REAL(sp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -650,20 +629,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(SINGLE_T, this_list, varname,      &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_s=p5,           &
-      &   initval_s=initval, resetval_s=resetval, missval_s=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(SINGLE_T, this_list, varname, hgrid, vgrid,& 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_s=p5, initval_s=initval, resetval_s=resetval, missval_s=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%s_ptr(:,1,1,1,1)
   END SUBROUTINE add_var_list_element_s1d
 
   SUBROUTINE add_var_list_element_i4d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -672,7 +650,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class, initval, resetval, missval
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -684,20 +662,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(INT_T, this_list, varname,         &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
-      &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(INT_T, this_list, varname, hgrid, vgrid,  & 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_i=p5, initval_i=initval, resetval_i=resetval, missval_i=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%i_ptr(:,:,:,:,1)
   END SUBROUTINE add_var_list_element_i4d
 
   SUBROUTINE add_var_list_element_i3d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -706,7 +683,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class, initval, resetval, missval
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -718,20 +695,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(INT_T, this_list, varname,         &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
-      &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(INT_T, this_list, varname, hgrid, vgrid,  & 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_i=p5, initval_i=initval, resetval_i=resetval, missval_i=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%i_ptr(:,:,:,1,1)
   END SUBROUTINE add_var_list_element_i3d
 
   SUBROUTINE add_var_list_element_i2d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -740,7 +716,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class, initval, resetval, missval
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -752,20 +728,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(INT_T, this_list, varname,         &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
-      &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(INT_T, this_list, varname, hgrid, vgrid,  & 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_i=p5, initval_i=initval, resetval_i=resetval, missval_i=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%i_ptr(:,:,1,1,1)
   END SUBROUTINE add_var_list_element_i2d
 
   SUBROUTINE add_var_list_element_i1d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -774,7 +749,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
-      & lrestart_cont, lmiss, in_group(:), verbose, lopenacc
+      & lrestart_cont, lmiss, in_group(:), lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class, initval, resetval, missval
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -786,20 +761,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(INT_T, this_list, varname,         &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_i=p5,           &
-      &   initval_i=initval, resetval_i=resetval, missval_i=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(INT_T, this_list, varname, hgrid, vgrid,  &
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_i=p5, initval_i=initval, resetval_i=resetval, missval_i=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%i_ptr(:,1,1,1,1)
   END SUBROUTINE add_var_list_element_i1d
 
   SUBROUTINE add_var_list_element_l4d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -809,7 +783,7 @@ CONTAINS
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
       & lrestart_cont, initval, resetval, lmiss, missval, in_group(:), &
-      & verbose, lopenacc
+      & lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -821,20 +795,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(BOOL_T, this_list, varname,        &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
-      &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(BOOL_T, this_list, varname, hgrid, vgrid, & 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_l=p5, initval_l=initval, resetval_l=resetval, missval_l=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%l_ptr(:,:,:,:,1)
   END SUBROUTINE add_var_list_element_l4d
 
   SUBROUTINE add_var_list_element_l3d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -844,7 +817,7 @@ CONTAINS
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
       & lrestart_cont, initval, resetval, lmiss, missval, in_group(:), &
-      & verbose, lopenacc
+      & lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -856,20 +829,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(BOOL_T, this_list, varname,        &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
-      &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(BOOL_T, this_list, varname, hgrid, vgrid, & 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_l=p5, initval_l=initval, resetval_l=resetval, missval_l=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%l_ptr(:,:,:,1,1)
   END SUBROUTINE add_var_list_element_l3d
 
   SUBROUTINE add_var_list_element_l2d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -879,7 +851,7 @@ CONTAINS
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
       & lrestart_cont, initval, resetval, lmiss, missval, in_group(:), &
-      & verbose, lopenacc
+      & lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -891,20 +863,19 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(BOOL_T, this_list, varname,        &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
-      &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(BOOL_T, this_list, varname, hgrid, vgrid, & 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_l=p5, initval_l=initval, resetval_l=resetval, missval_l=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%l_ptr(:,:,1,1,1)
   END SUBROUTINE add_var_list_element_l2d
 
   SUBROUTINE add_var_list_element_l1d(this_list, varname, ptr, hgrid, vgrid, &
     & cf, grib2, ldims, loutput, lcontainer, lrestart, lrestart_cont,     &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, info,    &
-    & p5, vert_interp, hor_interp, in_group, verbose, new_element,        &
+    & p5, vert_interp, hor_interp, in_group, new_element,        &
     & l_pp_scheduler_task, post_op, action_list, var_class, lopenacc)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: varname
@@ -914,7 +885,7 @@ CONTAINS
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lcontainer, lrestart, &
       & lrestart_cont, initval, resetval, lmiss, missval, in_group(:), &
-      & verbose, lopenacc
+      & lopenacc
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, l_pp_scheduler_task, &
       & tlev_source, var_class
     TYPE(t_var_metadata), POINTER, OPTIONAL :: info
@@ -926,13 +897,12 @@ CONTAINS
     TYPE(t_var_action), INTENT(IN), OPTIONAL :: action_list
     TYPE(t_var), POINTER :: element
 
-    CALL add_var_list_element_5d(BOOL_T, this_list, varname,        &
-      &   hgrid, vgrid, cf, grib2, ldims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_l=p5,           &
-      &   initval_l=initval, resetval_l=resetval, missval_l=missval,    &
-      &   var_class=var_class, lopenacc=lopenacc, new_element=new_element)
+    CALL add_var_list_element_5d(BOOL_T, this_list, varname, hgrid, vgrid, & 
+      & cf, grib2, ldims, element, loutput, lcontainer, lrestart,          &
+      & lrestart_cont, isteptype, lmiss, tlev_source, info, vert_interp,   &
+      & hor_interp, in_group, l_pp_scheduler_task, post_op, action_list,   &
+      & p5_l=p5, initval_l=initval, resetval_l=resetval, missval_l=missval,&
+      & var_class=var_class, lopenacc=lopenacc, new_element=new_element)
     ptr => element%l_ptr(:,1,1,1,1)
   END SUBROUTINE add_var_list_element_l1d
 
@@ -940,7 +910,7 @@ CONTAINS
     & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, ldims, &
     & dtype, icontainer, loutput, lrestart, lrestart_cont, isteptype, lmiss,    &
     & tlev_source, tracer_info, info, vert_interp, hor_interp, in_group,        &
-    & verbose, new_element, l_pp_scheduler_task, post_op, action_list, idx_diag,&
+    & new_element, l_pp_scheduler_task, post_op, action_list, idx_diag,&
     & var_class, opt_var_ref_pos, initval_r, initval_s, initval_i, missval_r,   &
     & missval_s, missval_i, resetval_r, resetval_s, resetval_i, idx_tracer)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
@@ -951,7 +921,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, lrestart_cont, &
-      & lmiss, in_group(:), verbose
+      & lmiss, in_group(:)
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, tlev_source, var_class, &
       & l_pp_scheduler_task, opt_var_ref_pos, idx_tracer, idx_diag
     REAL(dp), INTENT(IN), OPTIONAL :: initval_r, resetval_r, missval_r
@@ -1042,14 +1012,14 @@ CONTAINS
     IF (PRESENT(resetval_r)) resetvalt%rval = resetval_r
     IF (PRESENT(resetval_s)) resetvalt%sval = resetval_s
     IF (PRESENT(resetval_i)) resetvalt%ival = resetval_i
-    CALL set_var_metadata (ref_info, name=refname, hgrid=hgrid, vgrid=vgrid, &
-      & cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lrestart=lrestart, &
-      & lrestart_cont=lrestart_cont, initval=initvalt, isteptype=isteptype,  &
-      & resetval=resetvalt, lmiss=lmiss, missval=missvalt, verbose=verbose,  &
-      & tlev_source=tlev_source, vert_interp=vert_interp, in_group=in_group, &
-      & hor_interp=hor_interp, l_pp_scheduler_task=l_pp_scheduler_task,      &
-      & post_op=post_op, action_list=action_list, var_class=var_class,       &
-      & idx_tracer=idx_tracer, idx_diag=idx_diag, data_type=dtype)
+    CALL set_var_metadata(ref_info, ldims, name=refname, hgrid=hgrid, &
+      & vgrid=vgrid, cf=cf, grib2=grib2, loutput=loutput, lrestart=lrestart,   &
+      & missval=missvalt, lrestart_cont=lrestart_cont, initval=initvalt,       &
+      & isteptype=isteptype, resetval=resetvalt, tlev_source=tlev_source,      &
+      & vert_interp=vert_interp, hor_interp=hor_interp, post_op=post_op,       &
+      & l_pp_scheduler_task=l_pp_scheduler_task, action_list=action_list,      &
+      & var_class=var_class, data_type=dtype, lmiss=lmiss, in_group=in_group,  &
+      & idx_tracer=idx_tracer, idx_diag=idx_diag)
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn(new_list_element%info_dyn, tracer_info=tracer_info)
     ref_info%ndims = ndims
@@ -1079,7 +1049,7 @@ CONTAINS
   SUBROUTINE add_var_list_reference_r3d(this_list, target_name, refname, ptr,       &
     & hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput, lrestart, lrestart_cont, &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, tracer_info,    &
-    & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
+    & info, vert_interp, hor_interp, in_group, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: target_name, refname
@@ -1088,7 +1058,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, lrestart_cont, &
-      & lmiss, in_group(:), verbose
+      & lmiss, in_group(:)
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, tlev_source, var_class, &
       & l_pp_scheduler_task, opt_var_ref_pos
     REAL(dp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -1105,13 +1075,12 @@ CONTAINS
 
     CALL add_var_list_reference_util(target_element, new_list_element,     &
       & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, &
-      & ldims, REAL_T, icontainer, loutput=loutput, lrestart=lrestart,     &
+      & ldims, REAL_T, icontainer, loutput=loutput, lrestart=lrestart,      &
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
-      & verbose=verbose, new_element=new_element,                          &
-      & l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,          &
-      & action_list=action_list, var_class=var_class,                      &
+      & new_element=new_element, l_pp_scheduler_task=l_pp_scheduler_task,  &
+      & post_op=post_op, action_list=action_list, var_class=var_class,     &
       & opt_var_ref_pos=opt_var_ref_pos, initval_r=initval,                &
       & missval_r=missval, resetval_r=resetval)
     IF (.NOT. ASSOCIATED(target_element%r_ptr)) &
@@ -1141,7 +1110,7 @@ CONTAINS
   SUBROUTINE add_var_list_reference_r2d(this_list, target_name, refname, ptr,    &
     & hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput, lrestart, lrestart_cont, &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, tracer_info,    &
-    & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
+    & info, vert_interp, hor_interp, in_group, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class,     &
     & idx_tracer, idx_diag)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
@@ -1151,7 +1120,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf                  
     TYPE(t_grib2_var), INTENT(IN) :: grib2               
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, lrestart_cont, &
-      & lmiss, in_group(:), verbose
+      & lmiss, in_group(:)
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, tlev_source, var_class, &
       & l_pp_scheduler_task, opt_var_ref_pos, idx_tracer, idx_diag
     REAL(dp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -1168,15 +1137,15 @@ CONTAINS
 
     CALL add_var_list_reference_util(target_element, new_list_element,     &
       & this_list, target_name, refname, hgrid, vgrid, cf, grib2, ref_idx, &
-      & ldims, REAL_T, icontainer, loutput=loutput, lrestart=lrestart,     &
+      & ldims, REAL_T, icontainer, loutput=loutput, lrestart=lrestart,      &
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
-      & verbose=verbose, new_element=new_element,                          &
-      & l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,          &
-      & action_list=action_list, var_class=var_class, idx_diag=idx_diag,   &
+      & new_element=new_element, l_pp_scheduler_task=l_pp_scheduler_task,  &
+      & post_op=post_op, action_list=action_list, var_class=var_class,     &
       & opt_var_ref_pos=opt_var_ref_pos, initval_r=initval,                &
-      & missval_r=missval, resetval_r=resetval, idx_tracer=idx_tracer)
+      & missval_r=missval, resetval_r=resetval, idx_tracer=idx_tracer,     &
+      & idx_diag=idx_diag)
     IF (.NOT. ASSOCIATED(target_element%r_ptr)) &
       & CALL finish(routine, TRIM(refname)//' not created.')
     SELECT CASE(new_list_element%info%var_ref_pos)
@@ -1202,7 +1171,7 @@ CONTAINS
   SUBROUTINE add_var_list_reference_s3d(this_list, target_name, refname, ptr,    &
     & hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput, lrestart, lrestart_cont, &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, tracer_info,    &
-    & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
+    & info, vert_interp, hor_interp, in_group, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: target_name, refname
@@ -1211,7 +1180,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, lrestart_cont, &
-      & lmiss, in_group(:), verbose
+      & lmiss, in_group(:)
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, tlev_source, var_class, &
       & l_pp_scheduler_task, opt_var_ref_pos
     REAL(sp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -1232,9 +1201,8 @@ CONTAINS
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
-      & verbose=verbose, new_element=new_element,                          &
-      & l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,          &
-      & action_list=action_list, var_class=var_class,                      &
+      & new_element=new_element, l_pp_scheduler_task=l_pp_scheduler_task,  &
+      & post_op=post_op, action_list=action_list, var_class=var_class,     &
       & opt_var_ref_pos=opt_var_ref_pos, initval_s=initval,                &
       & missval_s=missval, resetval_s=resetval)
     IF (.NOT. ASSOCIATED(target_element%s_ptr)) &
@@ -1264,7 +1232,7 @@ CONTAINS
   SUBROUTINE add_var_list_reference_s2d(this_list, target_name, refname, ptr,    &
     & hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput, lrestart, lrestart_cont, &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, tracer_info,    &
-    & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
+    & info, vert_interp, hor_interp, in_group, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: target_name, refname
@@ -1273,7 +1241,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, lrestart_cont, &
-      & lmiss, in_group(:), verbose
+      & lmiss, in_group(:)
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, tlev_source, var_class, &
       & l_pp_scheduler_task, opt_var_ref_pos
     REAL(sp), INTENT(IN), OPTIONAL :: initval, resetval, missval
@@ -1294,9 +1262,8 @@ CONTAINS
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
-      & verbose=verbose, new_element=new_element,                          &
-      & l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,          &
-      & action_list=action_list, var_class=var_class,                      &
+      & new_element=new_element, l_pp_scheduler_task=l_pp_scheduler_task,  &
+      & post_op=post_op, action_list=action_list, var_class=var_class,     &
       & opt_var_ref_pos=opt_var_ref_pos, initval_s=initval,                &
       & missval_s=missval, resetval_s=resetval)
     IF (.NOT. ASSOCIATED(target_element%s_ptr)) &
@@ -1324,7 +1291,7 @@ CONTAINS
   SUBROUTINE add_var_list_reference_i2d(this_list, target_name, refname, ptr,    &
     & hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput, lrestart, lrestart_cont, &
     & initval, isteptype, resetval, lmiss, missval, tlev_source, tracer_info,    &
-    & info, vert_interp, hor_interp, in_group, verbose, new_element,             &
+    & info, vert_interp, hor_interp, in_group, new_element,             &
     & l_pp_scheduler_task, post_op, action_list, opt_var_ref_pos, var_class)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: this_list
     CHARACTER(*), INTENT(IN) :: target_name, refname
@@ -1333,7 +1300,7 @@ CONTAINS
     TYPE(t_cf_var), INTENT(IN) :: cf
     TYPE(t_grib2_var), INTENT(IN) :: grib2
     LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, lrestart_cont, &
-      & lmiss, in_group(:), verbose
+      & lmiss, in_group(:)
     INTEGER, INTENT(IN), OPTIONAL :: isteptype, tlev_source, var_class, &
       & l_pp_scheduler_task, opt_var_ref_pos, initval, resetval, missval
     CLASS(t_tracer_meta), INTENT(IN), OPTIONAL :: tracer_info
@@ -1353,9 +1320,8 @@ CONTAINS
       & lrestart_cont=lrestart_cont, isteptype=isteptype, lmiss=lmiss,     &
       & tlev_source=tlev_source, tracer_info=tracer_info, info=info,       &
       & vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group, &
-      & verbose=verbose, new_element=new_element,                          &
-      & l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,          &
-      & action_list=action_list, var_class=var_class,                      &
+      & new_element=new_element, l_pp_scheduler_task=l_pp_scheduler_task,  &
+      & post_op=post_op, action_list=action_list, var_class=var_class,     &
       & opt_var_ref_pos=opt_var_ref_pos, initval_i=initval,                &
       & missval_i=missval, resetval_i=resetval)
     IF (.NOT. ASSOCIATED(target_element%i_ptr)) &
@@ -1430,10 +1396,9 @@ CONTAINS
         ENDIF
       ELSE
         IF (info%name /= '' .AND. .NOT. info%lcontainer) THEN
-          WRITE (message_text,'(a,a)')       &
-               'Table entry name                            : ', TRIM(info%name)
+          message_text = 'Table entry name                            : '//TRIM(info%name)
           CALL message('', message_text)
-          WRITE (keytext,'(i32.1)') info%key
+          WRITE (keytext,'(i32.1)') this%p%key(j)
           WRITE (message_text,'(a,a)')       &
                'Key entry                                   : ', TRIM(keytext)
           CALL message('', message_text)
