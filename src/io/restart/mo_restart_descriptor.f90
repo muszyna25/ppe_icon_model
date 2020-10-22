@@ -27,7 +27,7 @@ MODULE mo_restart_descriptor
   USE mo_restart_util, ONLY: t_restart_args, create_restart_file_link, &
     & getRestartFilename, restartBcastRoot
   USE mo_restart_var_data,          ONLY: has_valid_time_level
-  USE mo_var_list_register,         ONLY: vl_register
+  USE mo_var_list_register,         ONLY: vlr_packer
   USE mo_upatmo_flowevent_utils,    ONLY: t_upatmoRestartAttributes, upatmoRestartAttributesSet
   USE mo_cdi_ids,                   ONLY: t_CdiIds
   USE mo_cdi,                       ONLY: FILETYPE_NC2, FILETYPE_NC4
@@ -122,9 +122,9 @@ CONTAINS
     CALL p_bcast(me%modelType, bcast_root, p_comm_work_2_restart)
     CALL p_bcast(n_dom, bcast_root, p_comm_work_2_restart)
     CALL p_get_bcast_role(bcast_root, p_comm_work_2_restart, lIsSender, lIsReceiver)
-    IF(lIsSender) CALL vl_register%packer(kPackOp, packedMessage, .TRUE.)
+    IF(lIsSender) CALL vlr_packer(kPackOp, packedMessage, .TRUE.)
     CALL packedMessage%bcast(bcast_root, p_comm_work_2_restart)
-    IF(lIsReceiver) CALL vl_register%packer(kUnpackOp, packedMessage, .TRUE.)
+    IF(lIsReceiver) CALL vlr_packer(kUnpackOp, packedMessage, .TRUE.)
     CALL bcastNamelistStore(bcast_root, p_comm_work_2_restart)
 #endif
   END SUBROUTINE restartDescriptor_transferGlobalParameters

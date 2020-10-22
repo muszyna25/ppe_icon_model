@@ -121,7 +121,7 @@ USE mo_radar_data_state,    ONLY: radar_data, init_radar_data, construct_lhn, lh
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_comm_work_only, my_process_is_work_only
-USE mo_var_list_register,   ONLY: vl_register
+USE mo_var_list_register,   ONLY: vlr_print_groups
 USE mo_sync,                ONLY: sync_patch_array, sync_c
 USE mo_upatmo_setup,        ONLY: upatmo_initialize, upatmo_finalize
 USE mo_nudging_config,      ONLY: l_global_nudging
@@ -686,7 +686,7 @@ CONTAINS
 
     ! variable group information
     IF (my_process_is_stdio() .AND. (msg_level >= 15)) &
-      & CALL vl_register%print_group(idom=1, opt_latex_fmt=.TRUE., &
+      & CALL vlr_print_groups(idom=1, opt_latex_fmt=.TRUE., &
           & opt_reduce_trailing_num=.TRUE., opt_skip_trivial=.TRUE.)
 
     IF (timers_level > 1) CALL timer_stop(timer_model_init)

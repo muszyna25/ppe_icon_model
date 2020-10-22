@@ -54,7 +54,7 @@ MODULE mo_echam_phy_memory
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_action,              ONLY: ACTION_RESET, new_action, actions
   USE mo_cf_convention,       ONLY: t_cf_var
@@ -728,8 +728,8 @@ CONTAINS
     ndomain = SIZE(prm_field)
 
     DO jg = 1,ndomain
-      CALL vl_register%delete(prm_field_list(jg))
-      CALL vl_register%delete(prm_tend_list (jg))
+      CALL vlr_del(prm_field_list(jg))
+      CALL vlr_del(prm_tend_list (jg))
     ENDDO
 
     DEALLOCATE( prm_field_list, prm_tend_list, STAT=ist )
@@ -792,7 +792,7 @@ CONTAINS
     !$ACC ENTER DATA COPYIN( field )
     ! Register a field list and apply default settings
 
-    CALL vl_register%new(field_list, listname, patch_id=jg ,lrestart=.TRUE.)
+    CALL vlr_add(field_list, listname, patch_id=jg ,lrestart=.TRUE.)
 
     !------------------------------
     ! Metrics
@@ -4320,7 +4320,7 @@ CONTAINS
 
     !$ACC ENTER DATA COPYIN( tend )
 
-    CALL vl_register%new(tend_list, listname, patch_id=jg ,lrestart=.FALSE.)
+    CALL vlr_add(tend_list, listname, patch_id=jg ,lrestart=.FALSE.)
 
     !------------------------------
     ! Temperature tendencies

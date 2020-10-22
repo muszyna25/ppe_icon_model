@@ -29,7 +29,7 @@ MODULE mo_ocean_hamocc_couple_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_var_groups,          ONLY: groups 
   USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_metadata,        ONLY: get_timelevel_string
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_FLT32 => CDI_DATATYPE_FLT32, &
@@ -126,7 +126,7 @@ CONTAINS
       datatype_flt = DATATYPE_FLT32
     ENDIF
  
-    CALL vl_register%new(hamocc_ocean_state_list, 'hamocc_ocean_state_list', &
+    CALL vlr_add(hamocc_ocean_state_list, 'hamocc_ocean_state_list', &
       & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,           &
       & model_type='hamocc')
 
@@ -287,7 +287,7 @@ CONTAINS
    !-------------------------------------------------------------------------
    SUBROUTINE destruct_hamocc_ocean_state()
    
-      CALL vl_register%delete(hamocc_ocean_state_list)
+      CALL vlr_del(hamocc_ocean_state_list)
    
    END SUBROUTINE destruct_hamocc_ocean_state
    !-------------------------------------------------------------------------

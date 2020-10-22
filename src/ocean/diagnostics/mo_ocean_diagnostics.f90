@@ -81,7 +81,7 @@ MODULE mo_ocean_diagnostics
     & verticallyIntegrated_field
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_var_list,           ONLY: add_var, add_ref, t_var_list_ptr
-  USE mo_var_list_register,  ONLY: vl_register
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_var_groups,         ONLY: groups
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
@@ -185,7 +185,7 @@ CONTAINS
     owned_cells => patch_2d%cells%owned
     nblks_e = patch_2d%nblks_e
     !-----------------------------------------------------------------------
-    CALL vl_register%new(horizontal_velocity_diagnostics, 'horizontal_velocity_diagnostics', &
+    CALL vlr_add(horizontal_velocity_diagnostics, 'horizontal_velocity_diagnostics', &
       & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE.,                           &
       & model_type=TRIM(get_my_process_name()))
     !-----------------------------------------------------------------------
@@ -455,7 +455,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: &
       & routine = 'mo_ocean_diagnostics:destruct_oce_diagnostics'
     !-----------------------------------------------------------------------
-    CALL vl_register%delete(horizontal_velocity_diagnostics)
+    CALL vlr_del(horizontal_velocity_diagnostics)
 
     IF (diagnostics_level <= 0) RETURN
 

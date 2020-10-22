@@ -26,7 +26,7 @@ MODULE mo_input_instructions
     USE mo_util_string,        ONLY: difference, add_to_list, one_of
     USE mo_util_table,         ONLY: t_table, initialize_table, add_table_column, set_table_entry,  &
       &                              print_table, finalize_table
-    USE mo_var_list_register,  ONLY: vl_register
+    USE mo_var_list_register,  ONLY: vlr_group
 
     IMPLICIT NONE
     PRIVATE
@@ -165,21 +165,21 @@ CONTAINS
 
         SELECT CASE(init_mode)
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
-                CALL vl_register%group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
-                CALL vl_register%group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_dwd_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
                 CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU)
-                CALL vl_register%group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
-                CALL vl_register%group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('tracer_fg_in', tracerGroup, tracerGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
                 ! fgGroup += tracerGroup
                 CALL add_to_list(outGroup, outGroupSize, tracerGroup, tracerGroupSize)
             CASE(MODE_IAU_OLD)
-                CALL vl_register%group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_old_fg_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COMBINED)
-                CALL vl_register%group('mode_combined_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_combined_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_COSMO)
-                CALL vl_register%group('mode_cosmo_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_cosmo_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
@@ -212,11 +212,11 @@ CONTAINS
 
         SELECT CASE(init_mode)
             CASE(MODE_DWDANA, MODE_ICONVREMAP)
-                CALL vl_register%group('mode_dwd_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_dwd_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_IAU)
-                CALL vl_register%group('mode_iau_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE(MODE_IAU_OLD)
-                CALL vl_register%group('mode_iau_old_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_old_ana_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT
@@ -229,7 +229,7 @@ CONTAINS
 
         SELECT CASE(init_mode)
             CASE(MODE_IAU, MODE_IAU_OLD)
-                CALL vl_register%group('mode_iau_anaatm_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
+                CALL vlr_group('mode_iau_anaatm_in', outGroup, outGroupSize, loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
             CASE DEFAULT
                 outGroupSize = 0
         END SELECT

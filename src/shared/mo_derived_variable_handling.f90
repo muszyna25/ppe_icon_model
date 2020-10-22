@@ -17,7 +17,7 @@ MODULE mo_derived_variable_handling
   USE mo_var, ONLY: t_var, t_var_ptr, level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata,        ONLY: get_var_name
   USE mo_var_metadata_types,  ONLY: t_var_metadata
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_find
   USE mo_exception,           ONLY: finish
   USE mtime,                  ONLY: newEvent, event, isCurrentEventActive, newDatetime, datetime
   USE mo_time_config,         ONLY: time_config
@@ -170,7 +170,7 @@ CONTAINS
         dname = TRIM(in_varlist(iv)) // dlim // bundle%opname // dlim // &
           & TRIM(p_onl%output_interval(1)) // dlim // TRIM(p_onl%output_start(1)) &
           & // dlim // 'DOM' // dom_string
-        vl_elem => vl_register%find(dname, opt_patch_id=p_onl%dom)
+        vl_elem => vlr_find(dname, opt_patch_id=p_onl%dom)
         IF (.NOT.ASSOCIATED(vl_elem)) THEN !not found -->> create a new one
           ALLOCATE(vderiv(nv_new+1)%a) ! staging a new var entry
           CALL find_src_element(TRIM(in_varlist(iv)), vderiv(nv_new+1)%a)
@@ -203,7 +203,7 @@ CONTAINS
       & GRID_UNSTRUCTURED_VERT, GRID_LONLAT, GRID_ZONAL]
 
     DO k = 1, 5 ! scan for simple (instant) variable
-      vl_elem => vl_register%find(vname, opt_patch_id=p_onl%dom, &
+      vl_elem => vlr_find(vname, opt_patch_id=p_onl%dom, &
         & opt_hgrid=grids(k), opt_list=src_list, opt_cs=.FALSE., opt_output=.TRUE.)
       IF (ASSOCIATED(vl_elem)) THEN
         deriv%tls(1) = -1
@@ -215,7 +215,7 @@ CONTAINS
     tls = [nold(1), nnow(1), nnew(1)]
     DO k = 1, 3 ! scan for time-levels of variable
       WRITE(tl_suff, '(a3,i1)') TIMELEVEL_SUFFIX, tls(k)
-      vl_elem => vl_register%find(vname//tl_suff, &
+      vl_elem => vlr_find(vname//tl_suff, &
         & opt_patch_id=p_onl%dom, opt_list=src_list, opt_output=.TRUE.)
       IF (ASSOCIATED(vl_elem)) THEN
         l = l + 1

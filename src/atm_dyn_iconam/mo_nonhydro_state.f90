@@ -76,7 +76,7 @@ MODULE mo_nonhydro_state
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
     &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
   USE mo_var_list, ONLY: add_var, find_list_element, add_ref, t_var_list_ptr
-  USE mo_var_list_register,    ONLY: vl_register
+  USE mo_var_list_register,    ONLY: vlr_add, vlr_del, vlr_add_vref
   USE mo_var,                  ONLY: t_var
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
   USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic
@@ -366,24 +366,24 @@ MODULE mo_nonhydro_state
 
       ! delete reference state list elements
       IF ( ltestcase ) THEN
-        CALL vl_register%delete(p_nh_state_lists(jg)%ref_list)
+        CALL vlr_del(p_nh_state_lists(jg)%ref_list)
       ENDIF
 
       ! delete diagnostic state list elements
-      CALL vl_register%delete(p_nh_state_lists(jg)%diag_list)
+      CALL vlr_del(p_nh_state_lists(jg)%diag_list)
 
       ! delete metrics state list elements
-      CALL vl_register%delete(p_nh_state_lists(jg)%metrics_list)
+      CALL vlr_del(p_nh_state_lists(jg)%metrics_list)
 
 
       ! delete prognostic state list elements
       DO jt = 1, ntl_prog
-        CALL vl_register%delete(p_nh_state_lists(jg)%prog_list(jt))
+        CALL vlr_del(p_nh_state_lists(jg)%prog_list(jt))
       ENDDO
 
       ! delete tracer list list elements
       DO jt = 1, ntl_tra
-        CALL vl_register%delete(p_nh_state_lists(jg)%tracer_list(jt))
+        CALL vlr_del(p_nh_state_lists(jg)%tracer_list(jt))
       ENDDO
 
 !$ACC EXIT DATA DELETE(p_nh_state(jg)%prog, p_nh_state(jg)%metrics, p_nh_state(jg)%ref, p_nh_state(jg)%diag )
@@ -546,7 +546,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(p_prog_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
+    CALL vlr_add(p_prog_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
 
     !------------------------------
     ! Ensure that all pointers have a defined association status
@@ -1524,7 +1524,7 @@ MODULE mo_nonhydro_state
     INTEGER :: iv
 
     ! Register a field list and apply default settings
-    CALL vl_register%new(p_tracer_list, TRIM(listname), patch_id=p_patch%id, &
+    CALL vlr_add(p_tracer_list, TRIM(listname), patch_id=p_patch%id, &
       &               lrestart=.FALSE., loutput =.FALSE.)
     ! add references to all tracer fields of the source list (prognostic state)
     for_all_list_elements: DO iv = 1, from_var_list%p%nvars
@@ -1533,8 +1533,8 @@ MODULE mo_nonhydro_state
       from_info_dyn => from_var_list%p%vl(iv)%p%info_dyn
       ! Only add tracer fields to the tracer list
       IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) &
-        CALL vl_register%new_ref(p_tracer_list, from_info%name, &
-          &                         from_var_list%p%name, in_group=groups() )
+        CALL vlr_add_vref(p_tracer_list, from_info%name, &
+          &               from_var_list%p%name, in_group=groups())
     ENDDO for_all_list_elements
   END SUBROUTINE new_nh_state_tracer_list
 
@@ -1745,7 +1745,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(p_diag_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
+    CALL vlr_add(p_diag_list, TRIM(listname), patch_id=p_patch%id, lrestart=.TRUE.)
 
     ! u           p_diag%u(nproma,nlev,nblks_c)
     !
@@ -3341,7 +3341,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(p_ref_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
+    CALL vlr_add(p_ref_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! vn_ref     p_ref%vn_ref(nproma,nlev,nblks_c)
     !
@@ -3558,7 +3558,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(p_metrics_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
+    CALL vlr_add(p_metrics_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! geometric height at the vertical interface of cells
     ! z_ifc        p_metrics%z_ifc(nproma,nlevp1,nblks_c)

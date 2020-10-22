@@ -65,7 +65,7 @@ MODULE mo_nwp_lnd_state
   USE mo_io_config,            ONLY: lnetcdf_flt64_output, runoff_interval
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_var_list,             ONLY: add_var, add_ref, t_var_list_ptr
-  USE mo_var_list_register,    ONLY: vl_register
+  USE mo_var_list_register,    ONLY: vlr_add, vlr_del
   USE mo_var_groups,           ONLY: groups
   USE mo_var_metadata_types,   ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_TILE_LAND
   USE mo_var_metadata,         ONLY: create_hor_interp_metadata, &
@@ -281,18 +281,18 @@ MODULE mo_nwp_lnd_state
 
       DO jt = 1, ntl
         ! delete prognostic state list elements
-        CALL vl_register%delete(p_lnd_state(jg)%lnd_prog_nwp_list(jt))
+        CALL vlr_del(p_lnd_state(jg)%lnd_prog_nwp_list(jt))
       ENDDO
 
       IF (lseaice .OR. llake) THEN
         DO jt = 1, ntl
           ! delete prognostic state list elements
-          CALL vl_register%delete(p_lnd_state(jg)%wtr_prog_nwp_list(jt))
+          CALL vlr_del(p_lnd_state(jg)%wtr_prog_nwp_list(jt))
         ENDDO
       ENDIF
 
       ! delete diagnostic state list elements
-      CALL vl_register%delete(p_lnd_state(jg)%lnd_diag_nwp_list)
+      CALL vlr_del(p_lnd_state(jg)%lnd_diag_nwp_list)
 
       !$ACC EXIT DATA DELETE(p_lnd_state(jg)%prog_lnd)
       ! destruct state lists and arrays
@@ -419,7 +419,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
+    CALL vlr_add(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 
@@ -1031,7 +1031,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
+    CALL vlr_add(prog_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 
@@ -1316,7 +1316,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(diag_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
+    CALL vlr_add(diag_list, TRIM(listname), patch_id=p_jg, lrestart=.TRUE.)
 
     !------------------------------
 

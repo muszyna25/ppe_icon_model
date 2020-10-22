@@ -26,7 +26,7 @@ MODULE mo_ser_all
   USE mo_var_metadata_types, ONLY: t_var_metadata
   USE mo_model_domain,       ONLY: t_patch
   USE mo_var_list,           ONLY: t_var_list_ptr, t_list_element
-  USE mo_var_list_register,  ONLY: vl_register
+  USE mo_var_list_register,  ONLY: vlr_get
   USE mo_run_config,         ONLY: iforcing
   USE mo_impl_constants,     ONLY: inwp
   USE mo_ser_nml,            ONLY: ser_output_diag, ser_latbc_data, ser_dynamics, ser_diffusion, ser_step_advection, &
@@ -102,7 +102,7 @@ MODULE mo_ser_all
       WRITE(listname, '(a,i2.2)') TRIM(listname), timelev
     END IF
 
-    CALL vl_register%get(list, listname)
+    CALL vlr_get(list, listname)
 
     element => list%p%first_list_element
     for_all_list_elements: DO WHILE (ASSOCIATED(element))

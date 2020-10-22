@@ -63,7 +63,7 @@ MODULE mo_ocean_state
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew, nold, nnow
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_list,            ONLY: add_var, add_ref, t_var_list_ptr
   USE mo_var_metadata,        ONLY: get_timelevel_string
   USE mo_var_groups,          ONLY: groups, MAX_GROUPS
@@ -143,12 +143,12 @@ CONTAINS
     !
     ! Restart list: everything belonging to that list will be written to the
     ! restart file and is ready for output
-    CALL vl_register%new(ocean_restart_list, 'ocean_restart_list', &
+    CALL vlr_add(ocean_restart_list, 'ocean_restart_list', &
       & patch_id=patch_2d%id, lrestart=.TRUE., loutput=.TRUE.,  &
       & model_type=model_name)
 
     ! default list: elements can be written to disk, but not to the restart file
-    CALL vl_register%new(ocean_default_list, 'ocean_default_list', &
+    CALL vlr_add(ocean_default_list, 'ocean_default_list', &
       & patch_id=patch_2d%id, lrestart=.FALSE., loutput=.TRUE., &
       & model_type=model_name)
   END SUBROUTINE construct_ocean_var_lists
@@ -468,8 +468,8 @@ CONTAINS
       CALL finish(routine, 'prog array has length zero')
     END IF
 
-    CALL vl_register%delete(ocean_restart_list)
-    CALL vl_register%delete(ocean_default_list)
+    CALL vlr_del(ocean_restart_list)
+    CALL vlr_del(ocean_default_list)
 
     DO jg = 1, n_dom
       CALL destruct_hydro_ocean_diag(ocean_state(jg)%p_diag)

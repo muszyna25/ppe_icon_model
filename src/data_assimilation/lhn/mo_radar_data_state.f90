@@ -36,7 +36,7 @@ MODULE mo_radar_data_state
     &                              p_comm_work
   USE mo_radar_data_types,   ONLY: t_radar_fields,t_radar_td_fields, t_radar_ct_fields, t_lhn_diag
   USE mo_var_list,           ONLY: add_var, t_var_list_ptr
-  USE mo_var_list_register,  ONLY: vl_register
+  USE mo_var_list_register,  ONLY: vlr_add, vlr_del
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32,                 &
@@ -291,7 +291,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(p_radar_ct_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
+    CALL vlr_add(p_radar_ct_list, TRIM(listname), patch_id=p_patch%id, lrestart=.FALSE.)
 
     ! radar blacklist at cell center
     !
@@ -360,7 +360,7 @@ CONTAINS
 
     ! Register a field list and apply default settings
     !
-    CALL vl_register%new(p_radar_td_list, TRIM(listname), patch_id=p_patch%id, &
+    CALL vlr_add(p_radar_td_list, TRIM(listname), patch_id=p_patch%id, &
       &               lrestart=.FALSE., loutput=.FALSE.)
 
     ! radobs       p_radar_td%obs(nproma,nblks_c,nobs_times)
@@ -418,13 +418,13 @@ CONTAINS
 
     DO jg = 1,n_dom
       ! Delete list of constant in time atmospheric elements
-      CALL vl_register%delete(radar_data(jg)%radar_ct_list)
+      CALL vlr_del(radar_data(jg)%radar_ct_list)
     ENDDO
 
     IF (iforcing > 1 ) THEN
     DO jg = 1,n_dom
       ! Delete list of time-dependent atmospheric elements
-      CALL vl_register%delete(radar_data(jg)%radar_td_list)
+      CALL vlr_del(radar_data(jg)%radar_td_list)
     ENDDO
     END IF
 

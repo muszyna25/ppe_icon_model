@@ -232,7 +232,7 @@ MODULE mo_async_latbc
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
-    USE mo_var_list_register,         ONLY: vl_register, t_vl_register_iter
+    USE mo_var_list_register,         ONLY: vlr_packer, vlr_group, t_vl_register_iter
     USE mo_var_metadata,              ONLY: get_var_name
     USE mo_var,                       ONLY: t_var
     USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
@@ -810,7 +810,7 @@ MODULE mo_async_latbc
       ! loop over all variables and collects the variables names
       ! corresponding to the group "LATBC_PREFETCH_VARS"
 
-      CALL vl_register%group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, &
+      CALL vlr_group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, &
         &                            loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
 
       ! allocate the number of vertical levels and other fields with
@@ -1231,10 +1231,10 @@ MODULE mo_async_latbc
       TYPE(t_packedMessage) :: pmsg
 
       CALL p_get_bcast_role(bc_root, p_comm_work_2_pref, send, recv)
-      IF (send) CALL vl_register%packer(kPackOp, pmsg, .FALSE., nvar)
+      IF (send) CALL vlr_packer(kPackOp, pmsg, .FALSE., nvar)
       CALL pmsg%bcast(bc_root, p_comm_work_2_pref)
       IF (recv) THEN
-        CALL vl_register%packer(kUnpackOp, pmsg, .FALSE., nvar)
+        CALL vlr_packer(kUnpackOp, pmsg, .FALSE., nvar)
       ELSE
         CALL p_bcast(nvar, 0, comm=p_comm_work)
       END IF

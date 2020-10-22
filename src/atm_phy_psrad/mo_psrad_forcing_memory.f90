@@ -31,7 +31,7 @@ MODULE mo_psrad_forcing_memory
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_model_domain,        ONLY: t_patch
   USE mo_var_list,            ONLY: add_var, t_var_list_ptr
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
@@ -190,7 +190,7 @@ CONTAINS
     ndomain = SIZE(prm_psrad_forcing)
 
     DO jg = 1,ndomain
-      CALL vl_register%delete(prm_psrad_forcing_list(jg))
+      CALL vlr_del(prm_psrad_forcing_list(jg))
     ENDDO
 
     DEALLOCATE( prm_psrad_forcing_list, STAT=ist )
@@ -244,7 +244,7 @@ CONTAINS
 
     ! Register a field list and apply default settings
 
-    CALL vl_register%new(field_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
+    CALL vlr_add(field_list, TRIM(listname), patch_id=k_jg, lrestart=.TRUE.)
 
     ! Auxiliary flux variables
     IF (lradforcing(2)) THEN

@@ -25,42 +25,33 @@ MODULE mo_var_list_register
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: vl_register, t_vl_register_iter
+  PUBLIC :: t_vl_register_iter
+  PUBLIC :: vlr_add, vlr_get, vlr_del, vlr_add_vref, vlr_find
+  PUBLIC :: vlr_print_groups, vlr_packer, vlr_group, vlr_print_vls
 
   TYPE t_vl_register_iter
-    PRIVATE
-    INTEGER :: cur_idx = -1
+    INTEGER, PRIVATE :: cur_idx = -1
     TYPE(t_var_list_ptr), PUBLIC :: cur
-    LOGICAL :: anew = .TRUE.
+    LOGICAL, PRIVATE :: anew = .TRUE.
   CONTAINS
     PROCEDURE, PUBLIC :: next => iter_next
   END TYPE t_vl_register_iter
 
-  TYPE t_var_list_store
-    INTEGER, PRIVATE :: last_id = 0
-    TYPE(t_key_value_store), PRIVATE :: map
-    TYPE(t_var_list_ptr), ALLOCATABLE, PRIVATE :: storage(:)
-  CONTAINS
-    PROCEDURE, NOPASS :: new => new_var_list
-    PROCEDURE, NOPASS :: delete => delete_var_list
-    PROCEDURE, NOPASS :: get => get_var_list
-    PROCEDURE, NOPASS :: find => find_var_all
-    PROCEDURE, NOPASS :: print_all => print_all_var_lists
-    PROCEDURE, NOPASS :: group => collect_group
-    PROCEDURE, NOPASS :: print_group => print_group_details
-    PROCEDURE, NOPASS :: packer => varlistPacker
-    PROCEDURE, NOPASS :: new_ref => add_var_reference
-  END TYPE t_var_list_store
+  INTERFACE vlr_del
+    MODULE PROCEDURE :: vlr_delete_single
+    MODULE PROCEDURE :: vlr_delete_all
+  END INTERFACE vlr_del
 
-  TYPE(t_var_list_store) :: vl_register ! the only ever instance of this type
-
+  INTEGER, SAVE :: last_id = 0
+  TYPE(t_key_value_store) :: map
+  TYPE(t_var_list_ptr), ALLOCATABLE :: storage(:)
   CHARACTER(*), PARAMETER :: modname = 'mo_var_list_store'
 
 CONTAINS
   !------------------------------------------------------------------------------------------------
   ! Create a new memory buffer / output var_list
   ! Get a pointer to the new var_list
-  SUBROUTINE new_var_list(list, vlname, output_type, restart_type,    &
+  SUBROUTINE vlr_add(list, vlname, output_type, restart_type,    &
     & post_suf, rest_suf, init_suf, loutput, lrestart, linitial, patch_id,          &
     & vlevel_type, model_type, filename, compression_type)
     TYPE(t_var_list_ptr), INTENT(OUT) :: list    ! anchor
@@ -74,15 +65,15 @@ CONTAINS
     vln_len = LEN_TRIM(vlname)
     CALL message('','')
     CALL message('','adding new var_list '//vlname(1:vln_len))
-    IF (vl_register%last_id .EQ. 0) THEN
-      ALLOCATE(vl_register%storage(8))
-      CALL vl_register%map%init(.false.)
+    IF (last_id .EQ. 0) THEN
+      ALLOCATE(storage(8))
+      CALL map%init(.false.)
     END IF
-    CALL get_var_list(list, vlname)
+    CALL vlr_get(list, vlname)
     IF (ASSOCIATED(list%p)) CALL finish('new_var_list', ' >'//vlname(1:vln_len)//'< already in use.')
     ALLOCATE(list%p)
-    vl_register%last_id = vl_register%last_id + 1
-    CALL vl_register%map%put(vlname, vl_register%last_id)
+    last_id = last_id + 1
+    CALL map%put(vlname, last_id)
     ! set default list characteristics
     list%p%name     = vlname(1:vln_len)
     list%p%post_suf = '_'//vlname(1:vln_len)
@@ -103,46 +94,44 @@ CONTAINS
     IF (PRESENT(filename))         list%p%filename         = filename
     IF (PRESENT(compression_type)) list%p%compression_type = compression_type
     IF (PRESENT(model_type))       list%p%model_type       = model_type
-    IF (SIZE(vl_register%storage) .LT. vl_register%last_id) THEN
-      CALL MOVE_ALLOC(vl_register%storage, tmp_stor)
-      ALLOCATE(vl_register%storage(SIZE(tmp_stor) + 8))
+    IF (SIZE(storage) .LT. last_id) THEN
+      CALL MOVE_ALLOC(storage, tmp_stor)
+      ALLOCATE(storage(SIZE(tmp_stor) + 8))
       DO ivl = 1, SIZE(tmp_stor)
-        IF (ASSOCIATED(tmp_stor(ivl)%p)) &
-          & vl_register%storage(ivl)%p => tmp_stor(ivl)%p
+        IF (ASSOCIATED(tmp_stor(ivl)%p)) storage(ivl)%p => tmp_stor(ivl)%p
       END DO
     END IF
-    vl_register%storage(vl_register%last_id)%p => list%p
-  END SUBROUTINE new_var_list
+    storage(last_id)%p => list%p
+  END SUBROUTINE vlr_add
 
-  !------------------------------------------------------------------------------------------------
   ! Get a reference to a memory buffer/output var_list
-  SUBROUTINE get_var_list(list, vlname)
+  SUBROUTINE vlr_get(list, vlname)
     TYPE(t_var_list_ptr), INTENT(OUT) :: list ! pointer
     CHARACTER(*), INTENT(IN) :: vlname
     INTEGER :: ivl, ierr
 
-    CALL vl_register%map%get(vlname, ivl, ierr)
+    CALL map%get(vlname, ivl, ierr)
     NULLIFY(list%p)
     IF (ierr .EQ. 0) THEN
-      IF (ASSOCIATED(vl_register%storage(ivl)%p)) &
-        list%p => vl_register%storage(ivl)%p
+      IF (ASSOCIATED(storage(ivl)%p)) &
+        list%p => storage(ivl)%p
     END IF
-  END SUBROUTINE get_var_list
+  END SUBROUTINE vlr_get
 
   LOGICAL FUNCTION iter_next(this) RESULT(valid)
     CLASS(t_vl_register_iter), INTENT(INOUT) :: this
 
     valid = .false.
-    IF (vl_register%last_id .GT. 0) THEN
+    IF (last_id .GT. 0) THEN
       IF (this%anew) THEN
         this%cur_idx = 0
         this%anew = .false.
       END IF
-      DO WHILE(this%cur_idx .LT. SIZE(vl_register%storage) .AND. .NOT.valid)
+      DO WHILE(this%cur_idx .LT. SIZE(storage) .AND. .NOT.valid)
         this%cur_idx = this%cur_idx + 1
-        IF (ASSOCIATED(vl_register%storage(this%cur_idx)%p)) THEN
+        IF (ASSOCIATED(storage(this%cur_idx)%p)) THEN
           valid = .true.
-          this%cur%p => vl_register%storage(this%cur_idx)%p
+          this%cur%p => storage(this%cur_idx)%p
         END IF
       END DO
       IF (.NOT.valid) THEN
@@ -152,40 +141,37 @@ CONTAINS
     END IF
   END FUNCTION iter_next
 
-  !------------------------------------------------------------------------------------------------
   ! Delete an output var_list, nullify the associated pointer
-  SUBROUTINE delete_var_list(list)
+  SUBROUTINE vlr_delete_single(list)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: list
     INTEGER :: ivl, ierr
 
     IF (ASSOCIATED(list%p)) THEN
-      CALL vl_register%map%get(list%p%name, ivl, ierr)
+      CALL map%get(list%p%name, ivl, ierr)
       IF (ierr .NE. 0) CALL finish(modname//":delete_var_list", &
         & "var_list <" // TRIM(list%p%name) // "> not registered")
       CALL list%delete()
-      DEALLOCATE(vl_register%storage(ivl)%p)
+      DEALLOCATE(storage(ivl)%p)
       NULLIFY(list%p)
     END IF
-  END SUBROUTINE delete_var_list
+  END SUBROUTINE vlr_delete_single
 
-  !------------------------------------------------------------------------------------------------
   ! Delete all output var_lists
-  SUBROUTINE delete_var_lists()
+  SUBROUTINE vlr_delete_all()
     TYPE(t_vl_register_iter) :: iter
 
-    IF (vl_register%last_id .NE. 0) THEN
+    IF (last_id .NE. 0) THEN
       DO WHILE(iter_next(iter))
-        CALL delete_var_list(iter%cur)
+        CALL vlr_delete_single(iter%cur)
       END DO
-      DEALLOCATE(vl_register%storage)
-      CALL vl_register%map%destruct()
-      vl_register%last_id = 0
+      DEALLOCATE(storage)
+      CALL map%destruct()
+      last_id = 0
     END IF
-  END SUBROUTINE delete_var_lists
+  END SUBROUTINE vlr_delete_all
 
-  !------------------------------------------------------------------------------------------------
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
-  SUBROUTINE add_var_reference(to_vl, vname, from_vl, loutput, bit_precision, in_group)
+  SUBROUTINE vlr_add_vref(to_vl, vname, from_vl, loutput, bit_precision, in_group)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: to_vl
     CHARACTER(*), INTENT(IN) :: vname, from_vl
     LOGICAL, INTENT(in), OPTIONAL :: loutput, in_group(MAX_GROUPS)
@@ -193,7 +179,7 @@ CONTAINS
     TYPE(t_var_list_ptr) :: vlp_from
     TYPE(t_var), POINTER :: n_e, o_e => NULL()
 
-    CALL get_var_list(vlp_from, from_vl)
+    CALL vlr_get(vlp_from, from_vl)
     IF (ASSOCIATED(vlp_from%p)) o_e => find_list_element(vlp_from, vname)
     IF (ASSOCIATED(o_e)) THEN
       ALLOCATE(n_e, SOURCE=o_e)
@@ -204,22 +190,21 @@ CONTAINS
       IF (PRESENT(in_group))      n_e%info%in_group(:) = in_group(:)
       CALL to_vl%register(n_e)
     ENDIF
-  END SUBROUTINE add_var_reference
+  END SUBROUTINE vlr_add_vref
 
-  !------------------------------------------------------------------------------------------------
   ! print all var lists
-  SUBROUTINE print_all_var_lists(lshort)
+  SUBROUTINE vlr_print_vls(lshort)
     LOGICAL, OPTIONAL, INTENT(IN) :: lshort
     TYPE(t_vl_register_iter) :: iter
 
     DO WHILE(iter_next(iter))
       CALL iter%cur%print(lshort=lshort)
     END DO
-  END SUBROUTINE print_all_var_lists
+  END SUBROUTINE vlr_print_vls
 
   !> Loops over all variables and collects the variables names
   !  corresponding to the group @p grp_name
-  SUBROUTINE collect_group(grp_name, var_name, nvars,       &
+  SUBROUTINE vlr_group(grp_name, var_name, nvars,       &
     &                      loutputvars_only, lremap_lonlat, &
     &                      opt_vlevel_type, opt_dom_id)
     CHARACTER(*), INTENT(IN) :: grp_name
@@ -257,11 +242,10 @@ CONTAINS
       ENDDO ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
     CALL remove_duplicates(var_name, nvars)
-  END SUBROUTINE collect_group
+  END SUBROUTINE vlr_group
 
-  !-----------------------------------------------------------------------------
   ! Find named list element accross all knows variable lists
-  FUNCTION find_var_all(vname, opt_patch_id, opt_hgrid, opt_list, opt_cs, opt_output) RESULT(element)
+  FUNCTION vlr_find(vname, opt_patch_id, opt_hgrid, opt_list, opt_cs, opt_output) RESULT(element)
     CHARACTER(*), INTENT(in) :: vname
     INTEGER, OPTIONAL, INTENT(IN) :: opt_patch_id, opt_hgrid
     TYPE(t_var_list_ptr), OPTIONAL, INTENT(OUT) :: opt_list
@@ -286,13 +270,10 @@ CONTAINS
         EXIT
       END IF
     END DO
-  END FUNCTION find_var_all
+  END FUNCTION vlr_find
 
-  !-----------------------------------------------------------------------------
-  ! (Un)pack the var_lists
-  ! This IS needed for the restart modules that need to communicate the
-  ! var_lists from the worker PEs to dedicated restart PEs.
-  SUBROUTINE varlistPacker(operation, pmsg, restart_only, nv_all)
+  ! (Un)pack the var_lists to a t_packed_message
+  SUBROUTINE vlr_packer(operation, pmsg, restart_only, nv_all)
     INTEGER, INTENT(IN) :: operation
     TYPE(t_PackedMessage), INTENT(INOUT) :: pmsg
     LOGICAL, INTENT(IN) :: restart_only
@@ -307,8 +288,8 @@ CONTAINS
     TYPE(t_vl_register_iter) :: iter
     CHARACTER(*), PARAMETER :: routine = modname//':varlistPacker'
 
-    IF (operation .EQ. kUnpackOp) CALL delete_var_lists()
-    nvl = vl_register%last_id
+    IF (operation .EQ. kUnpackOp) CALL vlr_delete_all()
+    nvl = last_id
     CALL pmsg%packer(operation, nvl)
     nv_al = 0
     l_end = .false.
@@ -363,7 +344,7 @@ CONTAINS
         END DO
       ELSE
         ! create var list
-        CALL new_var_list(vlp, var_list_name, patch_id=patch_id, &
+        CALL vlr_add(vlp, var_list_name, patch_id=patch_id, &
           & model_type=model_type, restart_type=restart_type, &
           & vlevel_type=vlevel_type, lrestart=lrestart, loutput=loutput)
         vlp%p%nvars = nv
@@ -391,10 +372,10 @@ CONTAINS
     END IF 
     CALL pmsg%packer(operation, nv_al)
     IF (PRESENT(nv_all)) nv_all = nv_al
-  END SUBROUTINE varlistPacker
+  END SUBROUTINE vlr_packer
 
   !>  Detailed print-out of variable groups.
-  SUBROUTINE print_group_details(idom, opt_latex_fmt, opt_reduce_trailing_num, opt_skip_trivial)
+  SUBROUTINE vlr_print_groups(idom, opt_latex_fmt, opt_reduce_trailing_num, opt_skip_trivial)
     INTEGER, INTENT(IN)           :: idom          !< domain ID
     LOGICAL, INTENT(IN), OPTIONAL :: opt_latex_fmt !< Flag: .TRUE., if output shall be formatted for LaTeX
     LOGICAL, INTENT(IN), OPTIONAL :: opt_reduce_trailing_num !< Flag: replace trailing numbers by "*"
@@ -444,11 +425,8 @@ CONTAINS
       ! - the first time we collect *all* model level variables on
       ! the triangular grid, and the second time we collect only
       ! those variables which are available for output.
-      CALL collect_group(grp_names(i), grp_vars, ngrp_vars,    &
-        &               loutputvars_only = .FALSE.,              &
-        &               lremap_lonlat    = .FALSE.,              &
-        &               opt_vlevel_type  = level_type_ml,        &
-        &               opt_dom_id       = idom)
+      CALL vlr_group(grp_names(i), grp_vars, ngrp_vars, opt_dom_id=idom, &
+        & loutputvars_only=.FALSE., lremap_lonlat=.FALSE., opt_vlevel_type=level_type_ml)
       IF (ngrp_vars > 0) THEN
         DO j=1,ngrp_vars
           grp_vars(j) = tolower(grp_vars(j))
@@ -479,11 +457,8 @@ CONTAINS
         END IF
         CALL quicksort(grp_vars(1:ngrp_vars))
         IF ((skip_trivial) .AND. (ngrp_vars <= 1))  CYCLE
-        CALL collect_group(grp_names(i), grp_vars_out, ngrp_vars_out,    &
-          &               loutputvars_only = .TRUE.,               &
-          &               lremap_lonlat    = .FALSE.,              &
-          &               opt_vlevel_type  = level_type_ml,        &
-          &               opt_dom_id       = idom)
+        CALL vlr_group(grp_names(i), grp_vars_out, ngrp_vars_out, opt_dom_id=idom, &
+          & loutputvars_only=.TRUE., lremap_lonlat=.FALSE., opt_vlevel_type=level_type_ml)
         DO j=1,ngrp_vars_out
           grp_vars_out(j) = tolower(grp_vars_out(j))
         END DO
@@ -547,6 +522,6 @@ CONTAINS
     WRITE (0,*) " "
     DEALLOCATE(grp_names, grp_vars, grp_vars_out, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-  END SUBROUTINE print_group_details
+  END SUBROUTINE vlr_print_groups
 
 END MODULE mo_var_list_register

@@ -10,7 +10,7 @@ MODULE mo_var_list_gpu
   USE mo_impl_constants,      ONLY: REAL_T, SINGLE_T, INT_T, BOOL_T
   USE mo_var_metadata_types,  ONLY: t_var_metadata
   USE mo_var_list,            ONLY: t_var_list_ptr, t_list_element
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_get
   USE mo_util_string,         ONLY: int2string
 
   IMPLICIT NONE
@@ -41,7 +41,7 @@ CONTAINS
       & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(domain)) // &
       & MERGE(TRIM(substr),                 '', PRESENT(substr)) // &
       & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(timelev))
-    CALL vl_register%get(list, listname)
+    CALL vlr_get(list, listname)
 
     element => list%p%first_list_element
     for_all_list_elements: DO WHILE (ASSOCIATED(element))
@@ -79,7 +79,7 @@ CONTAINS
       & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(domain)) // &
       & MERGE(TRIM(substr),                 '', PRESENT(substr)) // &
       & MERGE(int2string(domain, "(i2.2)"), '', PRESENT(timelev))
-    CALL vl_register%get(list, listname)
+    CALL vlr_get(list, listname)
 
     element => list%p%first_list_element
     for_all_list_elements: DO WHILE (ASSOCIATED(element))

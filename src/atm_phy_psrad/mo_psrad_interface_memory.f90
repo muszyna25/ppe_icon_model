@@ -25,7 +25,7 @@ MODULE mo_psrad_interface_memory
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mtime,                  ONLY: datetime
   USE mo_var_list,            ONLY: add_var, t_var_list_ptr
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
@@ -257,7 +257,7 @@ CONTAINS
     CALL message(TRIM(method_name),'Destruction of psrad_interface_memory started.')
 
     DO jg = 1,number_of_patches
-      CALL vl_register%delete(psrad_interface_memory_list(jg))
+      CALL vlr_del(psrad_interface_memory_list(jg))
     ENDDO
 
     DEALLOCATE( psrad_interface_memory, STAT=status )
@@ -315,7 +315,7 @@ CONTAINS
     shape3d_layer_interfaces = (/nproma,no_of_levels+1,alloc_cell_blocks/)
 
     ! Register a field list and apply default settings
-    CALL vl_register%new(field_list,TRIM(listname), patch_id=jg, lrestart=.FALSE.)
+    CALL vlr_add(field_list,TRIM(listname), patch_id=jg, lrestart=.FALSE.)
 
     !----------------------
     ! const variables
