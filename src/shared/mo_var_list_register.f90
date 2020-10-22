@@ -44,12 +44,12 @@ MODULE mo_var_list_register
     PROCEDURE, NOPASS :: new => new_var_list
     PROCEDURE, NOPASS :: delete => delete_var_list
     PROCEDURE, NOPASS :: get => get_var_list
-    PROCEDURE, NOPASS :: find_var_all => find_var_all
+    PROCEDURE, NOPASS :: find => find_var_all
     PROCEDURE, NOPASS :: print_all => print_all_var_lists
-    PROCEDURE, NOPASS :: collect_group => collect_group
+    PROCEDURE, NOPASS :: group => collect_group
     PROCEDURE, NOPASS :: print_group => print_group_details
     PROCEDURE, NOPASS :: packer => varlistPacker
-    PROCEDURE, NOPASS :: new_var_ref => add_var_reference
+    PROCEDURE, NOPASS :: new_ref => add_var_reference
   END TYPE t_var_list_store
 
   TYPE(t_var_list_store) :: vl_register ! the only ever instance of this type

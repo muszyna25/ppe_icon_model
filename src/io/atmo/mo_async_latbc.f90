@@ -810,7 +810,7 @@ MODULE mo_async_latbc
       ! loop over all variables and collects the variables names
       ! corresponding to the group "LATBC_PREFETCH_VARS"
 
-      CALL vl_register%collect_group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, &
+      CALL vl_register%group(LATBC_PREFETCH_VARS, grp_vars, ngrp_prefetch_vars, &
         &                            loutputvars_only=.FALSE., lremap_lonlat=.FALSE.)
 
       ! allocate the number of vertical levels and other fields with

@@ -831,7 +831,7 @@ CONTAINS
           END IF
           ! loop over all variables and collects the variables names
           ! corresponding to the group "grp_name"
-          CALL vl_register%collect_group(grp_name, grp_vars, ngrp_vars, &
+          CALL vl_register%collect(grp_name, grp_vars, ngrp_vars, &
             &               loutputvars_only = .TRUE., &
             &               lremap_lonlat    = (p_onl%remap == REMAP_REGULAR_LATLON), &
             &               opt_vlevel_type  = i_typ, &

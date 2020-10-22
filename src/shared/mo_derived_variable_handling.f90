@@ -170,7 +170,7 @@ CONTAINS
         dname = TRIM(in_varlist(iv)) // dlim // bundle%opname // dlim // &
           & TRIM(p_onl%output_interval(1)) // dlim // TRIM(p_onl%output_start(1)) &
           & // dlim // 'DOM' // dom_string
-        vl_elem => vl_register%find_var_all(dname, opt_patch_id=p_onl%dom)
+        vl_elem => vl_register%find(dname, opt_patch_id=p_onl%dom)
         IF (.NOT.ASSOCIATED(vl_elem)) THEN !not found -->> create a new one
           ALLOCATE(vderiv(nv_new+1)%a) ! staging a new var entry
           CALL find_src_element(TRIM(in_varlist(iv)), vderiv(nv_new+1)%a)
@@ -203,7 +203,7 @@ CONTAINS
       & GRID_UNSTRUCTURED_VERT, GRID_LONLAT, GRID_ZONAL]
 
     DO k = 1, 5 ! scan for simple (instant) variable
-      vl_elem => vl_register%find_var_all(vname, opt_patch_id=p_onl%dom, &
+      vl_elem => vl_register%find(vname, opt_patch_id=p_onl%dom, &
         & opt_hgrid=grids(k), opt_list=src_list, opt_cs=.FALSE., opt_output=.TRUE.)
       IF (ASSOCIATED(vl_elem)) THEN
         deriv%tls(1) = -1
@@ -215,7 +215,7 @@ CONTAINS
     tls = [nold(1), nnow(1), nnew(1)]
     DO k = 1, 3 ! scan for time-levels of variable
       WRITE(tl_suff, '(a3,i1)') TIMELEVEL_SUFFIX, tls(k)
-      vl_elem => vl_register%find_var_all(vname//tl_suff, &
+      vl_elem => vl_register%find(vname//tl_suff, &
         & opt_patch_id=p_onl%dom, opt_list=src_list, opt_output=.TRUE.)
       IF (ASSOCIATED(vl_elem)) THEN
         l = l + 1
