@@ -20,11 +20,7 @@ MODULE mo_var_list_register
   USE mo_io_config,        ONLY: restart_file_type
   USE mo_packed_message,   ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_sort,        ONLY: quicksort
-  USE mo_util_texthash,    ONLY: text_hash, text_isEqual
-#ifdef __PGI
-  USE mo_util_texthash,    ONLY: t_char_workaround
-#endif
-  USE mo_hash_table,       ONLY: t_HashTable, hashTable_make, t_HashIterator
+  USE mo_key_value_store,  ONLY: t_key_value_store
 
   IMPLICIT NONE
   PRIVATE
@@ -33,30 +29,17 @@ MODULE mo_var_list_register
 
   TYPE t_vl_register_iter
     PRIVATE
-    TYPE(t_hashIterator) :: hash_iter
-#ifdef HAVE_CDI_ORDERING_DEFECT
     INTEGER :: cur_idx = -1
-#endif
     TYPE(t_var_list_ptr), PUBLIC :: cur
     LOGICAL :: anew = .TRUE.
   CONTAINS
-#ifdef HAVE_CDI_ORDERING_DEFECT
-    PROCEDURE, PUBLIC :: next_workaround => iter_next_workaround
-#endif
     PROCEDURE, PUBLIC :: next => iter_next
   END TYPE t_vl_register_iter
 
-#ifdef HAVE_CDI_ORDERING_DEFECT
-  INTEGER, SAVE :: vl_new_counter = 0,  &
-    &              vl_del_counter = 0,  &
-    &              vl_nc_lastup   = -1, &
-    &              vl_dc_lastup   = -1
-  TYPE(t_var_list_ptr), ALLOCATABLE :: vl_vec_reordered(:)
-#endif
-
   TYPE t_var_list_store
-    LOGICAL :: is_init = .FALSE.
-    TYPE(t_hashTable), POINTER :: storage
+    INTEGER, PRIVATE :: last_id = 0
+    TYPE(t_key_value_store), PRIVATE :: map
+    TYPE(t_var_list_ptr), ALLOCATABLE, PRIVATE :: storage(:)
   CONTAINS
     PROCEDURE, NOPASS :: new => new_var_list
     PROCEDURE, NOPASS :: delete => delete_var_list
@@ -65,7 +48,6 @@ MODULE mo_var_list_register
     PROCEDURE, NOPASS :: print_all => print_all_var_lists
     PROCEDURE, NOPASS :: collect_group => collect_group
     PROCEDURE, NOPASS :: print_group => print_group_details
-    PROCEDURE, NOPASS :: n_var => total_number_of_variables
     PROCEDURE, NOPASS :: packer => varlistPacker
     PROCEDURE, NOPASS :: new_var_ref => add_var_reference
   END TYPE t_var_list_store
@@ -84,28 +66,24 @@ CONTAINS
     TYPE(t_var_list_ptr), INTENT(OUT) :: list    ! anchor
     CHARACTER(*), INTENT(IN) :: vlname         ! name of output var_list
     INTEGER, INTENT(IN), OPTIONAL :: output_type, restart_type, patch_id, vlevel_type, compression_type
-    CHARACTER(len=*), INTENT(IN), OPTIONAL :: post_suf, rest_suf, init_suf, model_type, filename
-    LOGICAL,          INTENT(IN), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
-    INTEGER :: vln_len
+    CHARACTER(*), INTENT(IN), OPTIONAL :: post_suf, rest_suf, init_suf, model_type, filename
+    LOGICAL, INTENT(IN), OPTIONAL :: loutput, lrestart, linitial  ! in standard output/restart/initial file
+    INTEGER :: vln_len, ivl
+    TYPE(t_var_list_ptr), ALLOCATABLE :: tmp_stor(:)
 
     vln_len = LEN_TRIM(vlname)
     CALL message('','')
     CALL message('','adding new var_list '//vlname(1:vln_len))
-    IF (.NOT.vl_register%is_init) THEN
-      vl_register%storage => hashTable_make(text_hash, text_isEqual)
-      vl_register%is_init = .TRUE.
+    IF (vl_register%last_id .EQ. 0) THEN
+      ALLOCATE(vl_register%storage(8))
+      CALL vl_register%map%init(.false.)
     END IF
     CALL get_var_list(list, vlname)
     IF (ASSOCIATED(list%p)) CALL finish('new_var_list', ' >'//vlname(1:vln_len)//'< already in use.')
     ALLOCATE(list%p)
-#ifdef HAVE_CDI_ORDERING_DEFECT
-    vl_new_counter = vl_new_counter + 1
-#endif
-    CALL put_var_list(tolower(vlname(1:vln_len)))
+    vl_register%last_id = vl_register%last_id + 1
+    CALL vl_register%map%put(vlname, vl_register%last_id)
     ! set default list characteristics
-#ifdef HAVE_CDI_ORDERING_DEFECT
-    list%p%id       = vl_new_counter
-#endif
     list%p%name     = vlname(1:vln_len)
     list%p%post_suf = '_'//vlname(1:vln_len)
     list%p%rest_suf = list%p%post_suf
@@ -125,24 +103,15 @@ CONTAINS
     IF (PRESENT(filename))         list%p%filename         = filename
     IF (PRESENT(compression_type)) list%p%compression_type = compression_type
     IF (PRESENT(model_type))       list%p%model_type       = model_type
-  CONTAINS
-
-    SUBROUTINE put_var_list(key) ! Cray needs this to happen in an extra subroutine
-      CHARACTER(*), INTENT(IN) :: key
-      CLASS(*), POINTER :: keyObj, valObj
-#ifdef __PGI
-      TYPE(t_char_workaround), POINTER :: key_p
-
-      ALLOCATE(key_p)
-      ALLOCATE(CHARACTER(LEN=LEN(key)) :: key_p%c)
-      WRITE(key_p%c, "(a)") key
-      keyObj => key_p
-#else
-      ALLOCATE(keyObj, SOURCE=key)
-#endif
-      valObj => list%p
-      CALL vl_register%storage%setEntry(keyObj, valObj)
-    END SUBROUTINE put_var_list
+    IF (SIZE(vl_register%storage) .LT. vl_register%last_id) THEN
+      CALL MOVE_ALLOC(vl_register%storage, tmp_stor)
+      ALLOCATE(vl_register%storage(SIZE(tmp_stor) + 8))
+      DO ivl = 1, SIZE(tmp_stor)
+        IF (ASSOCIATED(tmp_stor(ivl)%p)) &
+          & vl_register%storage(ivl)%p => tmp_stor(ivl)%p
+      END DO
+    END IF
+    vl_register%storage(vl_register%last_id)%p => list%p
   END SUBROUTINE new_var_list
 
   !------------------------------------------------------------------------------------------------
@@ -150,133 +119,54 @@ CONTAINS
   SUBROUTINE get_var_list(list, vlname)
     TYPE(t_var_list_ptr), INTENT(OUT) :: list ! pointer
     CHARACTER(*), INTENT(IN) :: vlname
-    CLASS(*), POINTER :: valObj
+    INTEGER :: ivl, ierr
 
-    valObj => get_valObj(tolower(vlname)) ! Cray needs this to happen in an extra function
-    IF (ASSOCIATED(valObj)) list%p => sel_var_list(valObj)
-  CONTAINS
-
-    FUNCTION get_valObj(key) RESULT(valObj)
-      CHARACTER(*), INTENT(IN), TARGET :: key
-      CLASS(*), POINTER :: keyObj, valObj
-
-      keyObj => key
-      valObj => vl_register%storage%getEntry(keyObj)
-    END FUNCTION get_valObj
-  END SUBROUTINE get_var_list
-
-#ifdef HAVE_CDI_ORDERING_DEFECT
-  LOGICAL FUNCTION iter_next_workaround(this) RESULT(valid)
-    CLASS(t_vl_register_iter), INTENT(INOUT) :: this
-    CLASS(*), POINTER :: keyObj, valObj
-
-    valid = .false.
-    IF (vl_register%is_init) THEN
-      IF (vl_new_counter .NE. vl_nc_lastup .OR. &
-        & vl_del_counter .NE. vl_dc_lastup) THEN
-        IF (.NOT.this%anew) &
-          & CALL finish("vl_iter_next", "impossible, go away!")
-        CALL construct_ordered_vl_vector()
-        vl_nc_lastup = vl_new_counter
-        vl_dc_lastup = vl_del_counter
-      END IF
-      IF (this%anew) THEN
-        this%cur_idx = 0
-        this%anew = .false.
-      END IF
-      this%cur_idx = this%cur_idx + 1
-      IF (this%cur_idx .LE. SIZE(vl_vec_reordered)) THEN
-        valid = .true.
-        this%cur%p => vl_vec_reordered(this%cur_idx)%p
-      ELSE
-        NULLIFY(this%cur%p)
-        this%anew = .true.
-      END IF
+    CALL vl_register%map%get(vlname, ivl, ierr)
+    NULLIFY(list%p)
+    IF (ierr .EQ. 0) THEN
+      IF (ASSOCIATED(vl_register%storage(ivl)%p)) &
+        list%p => vl_register%storage(ivl)%p
     END IF
-  END FUNCTION iter_next_workaround
-
-  SUBROUTINE construct_ordered_vl_vector()
-    TYPE(t_var_list_ptr), ALLOCATABLE :: tmp(:)
-    INTEGER :: max_id, i_vl, i, n_vl
-    TYPE(t_vl_register_iter) :: iter
-
-    IF (ALLOCATED(vl_vec_reordered)) DEALLOCATE(vl_vec_reordered)
-    n_vl = 0
-    max_id = 0
-    DO WHILE(iter_next(iter))
-      n_vl = n_vl + 1
-      max_id = MAX(max_id, iter%cur%p%id)
-    ENDDO
-    ALLOCATE(tmp(max_id), vl_vec_reordered(n_vl))
-    DO WHILE(iter_next(iter))
-      tmp(iter%cur%p%id)%p => iter%cur%p
-    ENDDO
-    i_vl = 0
-    DO i = 1, max_id
-      IF (ASSOCIATED(tmp(i)%p)) THEN
-        i_vl = i_vl + 1
-        vl_vec_reordered(i_vl)%p => tmp(i)%p
-      END IF
-    END DO
-    IF (i_vl .NE. n_vl) CALL finish("construct_ordered_vl_vector", "inconsistency")
-  END SUBROUTINE construct_ordered_vl_vector
-#endif
+  END SUBROUTINE get_var_list
 
   LOGICAL FUNCTION iter_next(this) RESULT(valid)
     CLASS(t_vl_register_iter), INTENT(INOUT) :: this
     CLASS(*), POINTER :: keyObj, valObj
 
     valid = .false.
-    IF (vl_register%is_init) THEN
-      IF (this%anew) CALL this%hash_iter%init(vl_register%storage)
-      valid = this%hash_iter%nextEntry(keyObj, valObj)
-      IF (valid) THEN
-        this%cur%p => sel_var_list(valObj)
-      ELSE ! prepare for the next loop ...
-        NULLIFY(this%cur%p)   
+    IF (vl_register%last_id .GT. 0) THEN
+      IF (this%anew) THEN
+        this%cur_idx = 0
+        this%anew = .false.
+      END IF
+      DO WHILE(this%cur_idx .LT. SIZE(vl_register%storage) .AND. .NOT.valid)
+        this%cur_idx = this%cur_idx + 1
+        IF (ASSOCIATED(vl_register%storage(this%cur_idx)%p)) THEN
+          valid = .true.
+          this%cur%p => vl_register%storage(this%cur_idx)%p
+        END IF
+      END DO
+      IF (.NOT.valid) THEN
+        NULLIFY(this%cur%p)
         this%anew = .true.
-        CALL this%hash_iter%reset()
       END IF
     END IF
   END FUNCTION iter_next
 
   !------------------------------------------------------------------------------------------------
-  ! @return total number of (non-container) variables
-  INTEGER FUNCTION total_number_of_variables() RESULT(nvar)
-    TYPE(t_vl_register_iter) :: iter
-    INTEGER :: i
-
-    nvar = 0
-    ! Note that there may be several variables with different time
-    ! levels, we just add unconditionally all
-    DO WHILE(iter_next(iter))
-      DO i = 1, iter%cur%p%nvars
-        IF (.NOT.iter%cur%p%vl(i)%p%info%lcontainer) &
-          nvar = nvar + 1
-      END DO
-    ENDDO
-  END FUNCTION total_number_of_variables
-
-  !------------------------------------------------------------------------------------------------
   ! Delete an output var_list, nullify the associated pointer
   SUBROUTINE delete_var_list(list)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: list
+    INTEGER :: ivl, ierr
 
-    IF (ASSOCIATED(list%p)) & ! Cray needs this to happen in an extra subroutine
-      & CALL remove_var_list(tolower(list%p%name))
-  CONTAINS
-
-    SUBROUTINE remove_var_list(key)
-      CHARACTER(*), INTENT(IN), TARGET :: key
-      CLASS(*), POINTER :: keyObj
-
-      keyObj => key
+    IF (ASSOCIATED(list%p)) THEN
+      CALL vl_register%map%get(list%p%name, ivl, ierr)
+      IF (ierr .NE. 0) CALL finish(modname//":delete_var_list", &
+        & "var_list <" // TRIM(list%p%name) // "> not registered")
       CALL list%delete()
-      CALL vl_register%storage%removeEntry(keyObj)
-#ifdef HAVE_CDI_ORDERING_DEFECT
-      vl_del_counter = vl_del_counter + 1
-#endif
-    END SUBROUTINE remove_var_list
+      DEALLOCATE(vl_register%storage(ivl)%p)
+      NULLIFY(list%p)
+    END IF
   END SUBROUTINE delete_var_list
 
   !------------------------------------------------------------------------------------------------
@@ -287,6 +177,9 @@ CONTAINS
     DO WHILE(iter_next(iter))
       CALL delete_var_list(iter%cur)
     END DO
+    DEALLOCATE(vl_register%storage)
+    CALL vl_register%map%destruct()
+    vl_register%last_id = 0
   END SUBROUTINE delete_var_lists
 
   !------------------------------------------------------------------------------------------------
@@ -327,75 +220,41 @@ CONTAINS
   !  corresponding to the group @p grp_name
   SUBROUTINE collect_group(grp_name, var_name, nvars,       &
     &                      loutputvars_only, lremap_lonlat, &
-    &                      opt_vlevel_type, opt_dom_id,     &
-    &                      opt_lquiet)
-    CHARACTER(*),             INTENT(IN)    :: grp_name
+    &                      opt_vlevel_type, opt_dom_id)
+    CHARACTER(*), INTENT(IN) :: grp_name
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: var_name(:)
-    INTEGER,                  INTENT(OUT)   :: nvars
-    ! loutputvars_only: If set to .TRUE. all variables in the group
-    ! which have the the loutput flag equal to .FALSE. are skipped.
-    LOGICAL,                  INTENT(IN)    :: loutputvars_only
-    ! lremap_lonlat: If set to .TRUE. only variables in the group
-    ! which can be interpolated onto lon-lat grids are considered.
-    LOGICAL,                  INTENT(IN)    :: lremap_lonlat
-    ! 1: model levels, 2: pressure levels, 3: height level
-    INTEGER, OPTIONAL,        INTENT(IN)    :: opt_vlevel_type, opt_dom_id
-    LOGICAL, OPTIONAL,        INTENT(IN)    :: opt_lquiet
+    INTEGER, INTENT(OUT) :: nvars
+    LOGICAL, INTENT(IN) :: loutputvars_only, lremap_lonlat
+    INTEGER, OPTIONAL, INTENT(IN) :: opt_vlevel_type, opt_dom_id
     TYPE(t_vl_register_iter) :: iter
-    CHARACTER(*), PARAMETER :: routine = modname//":collect_group", llmsg = " lon-lat"
-    INTEGER :: grp_id, llmsg_len, i
+    CHARACTER(*), PARAMETER :: routine = modname//":collect_group"
+    INTEGER :: grp_id, i
     TYPE(t_var_metadata), POINTER :: info
-    CHARACTER(LEN=vname_len) :: vname
-    LOGICAL                       :: lquiet, verbose, skip
 
     nvars  = 0
     grp_id = var_groups_dyn%group_id(grp_name)
-    lquiet = .FALSE.
-    IF (PRESENT(opt_lquiet))  lquiet = opt_lquiet
-    verbose = .NOT. lquiet
-    ! loop over all variable lists and variables
-#ifdef HAVE_CDI_ORDERING_DEFECT 
-    DO WHILE(iter_next_workaround(iter))
-#else
     DO WHILE(iter_next(iter))
-#endif
       IF (PRESENT(opt_vlevel_type)) THEN
         IF (iter%cur%p%vlevel_type /= opt_vlevel_type) CYCLE
       ENDIF
       IF (PRESENT(opt_dom_id)) THEN
-        ! do not inspect variable list if its domain does not match:
         IF (iter%cur%p%patch_id /= opt_dom_id)  CYCLE
       END IF
-      LOOPVAR : DO i = 1, iter%cur%p%nvars
+      DO i = 1, iter%cur%p%nvars
         info => iter%cur%p%vl(i)%p%info
-        ! Do not inspect element if it is a container
-        IF (.NOT. info%lcontainer .AND. info%in_group(grp_id)) THEN
-          vname = get_var_name(info)
-          llmsg_len = 0
-          ! Skip element if we need only output variables:
-          skip = loutputvars_only .AND. &
-            & (.NOT.info%loutput .OR. .NOT.iter%cur%p%loutput)
-
-          IF (lremap_lonlat) THEN
-            skip = skip .OR. info%hgrid /= GRID_UNSTRUCTURED_CELL
-            llmsg_len = LEN(llmsg)
-          ELSE
-            ! If no lon-lat interpolation is requested for this output file,
-            ! skip all variables of this kind:
-            skip = skip .OR. &
-                 (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT))
-          END IF
-          IF (.NOT. skip) THEN
-            nvars = nvars + 1
-            var_name(nvars) = vname
-          ELSE IF (verbose) THEN
-            CALL message(routine, "Skipping variable "//TRIM(vname)//" for " &
-                 //llmsg(1:llmsg_len)//"output.")
-          END IF
+        IF (info%lcontainer .OR. .NOT.info%in_group(grp_id)) CYCLE
+        IF (loutputvars_only .AND. (.NOT.info%loutput .OR. &
+          & .NOT.iter%cur%p%loutput)) CYCLE
+        IF (lremap_lonlat) THEN
+          IF (info%hgrid .NE. GRID_UNSTRUCTURED_CELL) CYCLE
+        ELSE
+          IF (loutputvars_only .AND. (info%hgrid == GRID_REGULAR_LONLAT)) &
+            & CYCLE
         END IF
-      ENDDO LOOPVAR ! loop over vlist "i"
+        nvars = nvars + 1
+        var_name(nvars) = get_var_name(info)
+      ENDDO ! loop over vlist "i"
     ENDDO ! i = 1, SIZE(var_lists)
-    
     CALL remove_duplicates(var_name, nvars)
   END SUBROUTINE collect_group
 
@@ -438,34 +297,31 @@ CONTAINS
     LOGICAL, INTENT(IN) :: restart_only
     INTEGER, INTENT(OUT), OPTIONAL :: nv_all
     INTEGER :: ivl, nvl, iv, nv, nv_al, patch_id, restart_type, vlevel_type, ierrstat
-#ifdef HAVE_CDI_ORDERING_DEFECT
-    INTEGER :: id
-#endif
     INTEGER, ALLOCATABLE :: info_buf(:)
     TYPE(t_var), POINTER :: elem
     CHARACTER(LEN=128) :: var_list_name
     CHARACTER(LEN=32) :: model_type
-    LOGICAL :: lrestart, loutput
+    LOGICAL :: lrestart, loutput, l_end
     TYPE(t_var_list_ptr) :: vlp
     TYPE(t_vl_register_iter) :: iter
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':varlistPacker'
+    CHARACTER(*), PARAMETER :: routine = modname//':varlistPacker'
 
     IF (operation .EQ. kUnpackOp) CALL delete_var_lists()
-    nvl = 0
-    IF (vl_register%is_init) nvl = vl_register%storage%getEntryCount()
+    nvl = vl_register%last_id
     CALL pmsg%packer(operation, nvl)
     nv_al = 0
+    l_end = .false.
     DO ivl = 1, nvl
       IF(operation .EQ. kPackOp) THEN
-        IF (.NOT.iter_next(iter)) CALL finish(routine, "inconsistency")
+        IF (.NOT.iter_next(iter)) THEN
+          l_end = .true.
+          EXIT
+        END IF
         vlp%p => iter%cur%p
         ! copy the values needed for the new_var_list() CALL to local variables
         lrestart      = vlp%p%lrestart
         loutput       = vlp%p%loutput
         var_list_name = vlp%p%name
-#ifdef HAVE_CDI_ORDERING_DEFECT
-        id            = vlp%p%id
-#endif
         model_type    = vlp%p%model_type
         patch_id      = vlp%p%patch_id
         restart_type  = vlp%p%restart_type
@@ -479,12 +335,11 @@ CONTAINS
         END IF
         nv_al = nv_al + nv
       END IF
+      CALL pmsg%packer(operation, l_end)
+      IF (l_end) EXIT
       CALL pmsg%packer(operation, lrestart)
       CALL pmsg%packer(operation, loutput)
       CALL pmsg%packer(operation, var_list_name)
-#ifdef HAVE_CDI_ORDERING_DEFECT
-      CALL pmsg%packer(operation, id)
-#endif
       CALL pmsg%packer(operation, model_type)
       CALL pmsg%packer(operation, patch_id)
       CALL pmsg%packer(operation, restart_type)
@@ -510,9 +365,6 @@ CONTAINS
         CALL new_var_list(vlp, var_list_name, patch_id=patch_id, &
           & model_type=model_type, restart_type=restart_type, &
           & vlevel_type=vlevel_type, lrestart=lrestart, loutput=loutput)
-#ifdef HAVE_CDI_ORDERING_DEFECT
-        vlp%p%id = id ! override !
-#endif
         vlp%p%nvars = nv
         ! insert elements into var list
         ALLOCATE(vlp%p%vl(nv), vlp%p%tl(nv), vlp%p%hgrid(nv), &
@@ -541,7 +393,6 @@ CONTAINS
   END SUBROUTINE varlistPacker
 
   !>  Detailed print-out of variable groups.
-  !
   SUBROUTINE print_group_details(idom, opt_latex_fmt, opt_reduce_trailing_num, opt_skip_trivial)
     INTEGER, INTENT(IN)           :: idom          !< domain ID
     LOGICAL, INTENT(IN), OPTIONAL :: opt_latex_fmt !< Flag: .TRUE., if output shall be formatted for LaTeX
@@ -553,39 +404,38 @@ CONTAINS
     INTEGER, ALLOCATABLE :: slen(:)
     INTEGER :: ngrp_vars, ngrp_vars_out, ierrstat, i, j, k, t
     LOGICAL :: latex_fmt, reduce_trailing_num, skip_trivial, lfound
+    CHARACTER(:), ALLOCATABLE :: lx_pre
+    TYPE(t_vl_register_iter) :: iter
 
     latex_fmt = .FALSE.
-    IF (PRESENT(opt_latex_fmt)) latex_fmt = opt_latex_fmt 
+    IF (PRESENT(opt_latex_fmt)) latex_fmt = opt_latex_fmt
+    lx_pre = ''
+    IF (latex_fmt) lx_pre = ' %'
     reduce_trailing_num = .FALSE.
     IF (PRESENT(opt_reduce_trailing_num)) reduce_trailing_num = opt_reduce_trailing_num 
     skip_trivial = .FALSE.
-    IF (PRESENT(opt_skip_trivial)) skip_trivial = opt_skip_trivial 
+    IF (PRESENT(opt_skip_trivial)) skip_trivial = opt_skip_trivial
+    WRITE (0,*) " "
+    WRITE (0,*) lx_pre//"---------------------------------------"
+    WRITE (0,'(a,i0,a)') lx_pre//" Variable group info (for domain #", idom, "):"
+    WRITE (0,*) lx_pre//"---------------------------------------"
     IF (latex_fmt) THEN
-      WRITE (0,*) " "
-      WRITE (0,*) "% ---------------------------------------"
-      WRITE (0,'(a,i0,a)') " % Variable group info (for domain #", idom, "):"
-      WRITE (0,*) "% ---------------------------------------"
       WRITE (0,*) "% "
       WRITE (0,*) "% LaTeX formatted output, requires suitable environment 'varlist' and"
       WRITE (0,*) "% macros 'varname' and 'grpname'."
-      WRITE (0,*) " "
-    ELSE
-      WRITE (0,*) " "
-      WRITE (0,*) "---------------------------------------"
-      WRITE (0,'(a,i0,a)') " Variable group info (for domain #", idom, "):"
-      WRITE (0,*) "---------------------------------------"
-      WRITE (0,*) " "
     END IF
+    WRITE (0,*) " "
     grp_names = var_groups_dyn%alphabetical_list()
-    IF (latex_fmt) THEN
-      WRITE (0,*) "% List of groups:"
-      CALL pretty_print_string_list(grp_names, opt_prefix=" %    ")
-    ELSE
-      WRITE (0,*) "List of groups:"
-      CALL pretty_print_string_list(grp_names, opt_prefix="    ")
-    END IF
+    WRITE (0,*) lx_pre//"List of groups:"
+    CALL pretty_print_string_list(grp_names, opt_prefix=lx_pre//"    ")
     ! temporary variables needed for variable group parsing
-    i = total_number_of_variables()
+    i = 0
+    DO WHILE(iter_next(iter))
+      DO j = 1, iter%cur%p%nvars
+        IF (.NOT.iter%cur%p%vl(j)%p%info%lcontainer) &
+          i = i + 1
+      END DO
+    END DO
     ALLOCATE(grp_vars_out(i), grp_vars(i), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO i = 1, SIZE(grp_names)
@@ -597,8 +447,7 @@ CONTAINS
         &               loutputvars_only = .FALSE.,              &
         &               lremap_lonlat    = .FALSE.,              &
         &               opt_vlevel_type  = level_type_ml,        &
-        &               opt_dom_id       = idom,                 &
-        &               opt_lquiet       = .TRUE.)
+        &               opt_dom_id       = idom)
       IF (ngrp_vars > 0) THEN
         DO j=1,ngrp_vars
           grp_vars(j) = tolower(grp_vars(j))
@@ -633,9 +482,7 @@ CONTAINS
           &               loutputvars_only = .TRUE.,               &
           &               lremap_lonlat    = .FALSE.,              &
           &               opt_vlevel_type  = level_type_ml,        &
-          &               opt_dom_id       = idom,                 &
-          &               opt_lquiet       = .TRUE.)
-        
+          &               opt_dom_id       = idom)
         DO j=1,ngrp_vars_out
           grp_vars_out(j) = tolower(grp_vars_out(j))
         END DO

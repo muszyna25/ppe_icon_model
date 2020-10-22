@@ -109,7 +109,6 @@ MODULE mo_name_list_output_init
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_nml_annotate,                      ONLY: temp_defaults, temp_settings
   ! variable lists
-  USE mo_util_texthash,                     ONLY: text_hash_c
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_var_list_register,                 ONLY: vl_register, t_vl_register_iter
@@ -756,17 +755,22 @@ CONTAINS
   !        simply not removed!
   !
   SUBROUTINE parse_variable_groups()
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::parse_variable_groups"
-    !
     CHARACTER(LEN=vname_len), ALLOCATABLE :: varlist(:), grp_vars(:)
     CHARACTER(LEN=vname_len)              :: vname, grp_name
-    INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
-      &                                        ivar, ntotal_vars, jvar, i,        &
-      &                                        nsubtract_vars, tlen, ninserted
+    INTEGER :: nvars, ngrp_vars, i_typ, ierrstat, ivar, ntotal_vars, &
+      & jvar, i, nsubtract_vars, tlen, ninserted
     CHARACTER(LEN=vname_len),  POINTER      :: in_varlist(:)
-    TYPE (t_output_name_list), POINTER      :: p_onl
+    TYPE(t_output_name_list), POINTER      :: p_onl
+    TYPE(t_vl_register_iter) :: vl_iter
+    CHARACTER(*), PARAMETER :: routine = modname//"::parse_variable_groups"
 
-    ntotal_vars = vl_register%n_var()
+    ntotal_vars = 0
+    DO WHILE(vl_iter%next())
+      DO i = 1, vl_iter%cur%p%nvars
+        IF (.NOT.vl_iter%cur%p%vl(i)%p%info%lcontainer) &
+          ntotal_vars = ntotal_vars + 1
+      END DO
+    END DO
     ! temporary variables needed for variable group parsing
     ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')

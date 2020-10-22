@@ -79,11 +79,7 @@ CONTAINS
     ALLOCATE(var_data(n_var), STAT = ierr)
     IF(ierr /= SUCCESS) CALL finish(routine, "memory allocation failed")
     iv = 0
-#ifdef HAVE_CDI_ORDERING_DEFECT
-    DO WHILE(vl_iter%next_workaround())
-#else
     DO WHILE(vl_iter%next())
-#endif
       IF(.NOT.wantVarlist(vl_iter%cur)) CYCLE
       IF(restartType == -1) restartType = vl_iter%cur%p%restart_type
       IF(restartType /= vl_iter%cur%p%restart_type) &

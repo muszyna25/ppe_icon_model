@@ -59,9 +59,6 @@ MODULE mo_var_list
     INTEGER, ALLOCATABLE :: tl(:), hgrid(:), key(:), key_notl(:)
     LOGICAL, ALLOCATABLE :: lout(:)
     TYPE(t_var_ptr), ALLOCATABLE :: vl(:)
-#ifdef HAVE_CDI_ORDERING_DEFECT
-    INTEGER :: id = -1
-#endif
   END TYPE t_var_list
 
   TYPE t_var_list_ptr
