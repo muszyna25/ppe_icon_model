@@ -234,7 +234,7 @@ CONTAINS !......................................................................
     INTEGER  :: jg, jg_ordered, jg_ref, jg_aux
     INTEGER  :: nlev, nlevp1, nshift_total, n_dom_shift
     LOGICAL  :: l_upatmo_phy
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':configure_upatmo'
 
     !---------------------------------------------------------
@@ -249,11 +249,11 @@ CONTAINS !......................................................................
       ! For domain-dependent fields the max. range of allocation 
       ! with which we can reckon is '0:max_dom'
       !                              -
-      CALL finish(TRIM(routine), 'Something has changed regarding n_dom_start.' )
+      CALL finish(routine, 'Something has changed regarding n_dom_start.' )
     ELSEIF (.NOT. PRESENT(vct_a)) THEN
       ! For the setup of the upper-atmosphere extrapolation, we need 'vct_a', 
       ! and we take its absence as an indicator that it has not been allocated yet
-      CALL finish(TRIM(routine), 'vct_a still uninitialized.')
+      CALL finish(routine, 'vct_a still uninitialized.')
     ENDIF
 
     ! Some of the settings below (especially for the upper-atmosphere extrapolation) 
@@ -291,17 +291,17 @@ CONTAINS !......................................................................
       IF ((jg < n_dom_start) .OR. (jg > n_dom)) THEN
         ! Some rudimentary checks of the reordering 
         ! of the domain sequence may be in order
-        CALL finish(TRIM(routine), "Domain index jg has unexpected value.")
+        CALL finish(routine, "Domain index jg has unexpected value.")
       ELSEIF ((jg_ordered == n_dom_start) .AND. (jg /= 1)) THEN
-        CALL finish(TRIM(routine), "First domain to be configured has to be jg=1.")
+        CALL finish(routine, "First domain to be configured has to be jg=1.")
       ELSEIF (.NOT. upatmo_config(jg)%l_status(iUpatmoStat%checked)) THEN
         ! (Just to make sure. Actually it should have been set to .true. 
         ! right after the allocation of 'upatmo_config')
-        CALL finish(TRIM(routine), "Check calling sequence: check_upatmo -> configure_upatmo.")  
+        CALL finish(routine, "Check calling sequence: check_upatmo -> configure_upatmo.")
       ELSEIF (.NOT. upatmo_config(jg)%exp%l_initicon_config) THEN
         ! For the final configuration of the upper-atmosphere extrapolation it is required 
         ! that the preliminary configuration in 'src/configure_model/mo_initicon_config' has taken place
-        CALL finish(TRIM(routine), "Check calling sequence: configure_initicon -> configure_upatmo.")
+        CALL finish(routine, "Check calling sequence: configure_initicon -> configure_upatmo.")
       ENDIF
 
       !-----------------------------------------------------
@@ -561,7 +561,7 @@ CONTAINS !......................................................................
     INTEGER :: jk, jks
     LOGICAL :: l_found
     LOGICAL :: l_present_ref, l_configured_ref, l_expol_ref
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':configure_upatmo_extrapolation'
 
     !---------------------------------------------------------
@@ -576,7 +576,7 @@ CONTAINS !......................................................................
     !-----------------------------------------------------
 
     ! Actually, vct_a is only optional, because it is already optional one level higher
-    IF (.NOT. PRESENT(vct_a)) CALL finish(TRIM(routine), 'vct_a has to be present.')
+    IF (.NOT. PRESENT(vct_a)) CALL finish(routine, 'vct_a has to be present.')
 
     IF (PRESENT(opt_upatmo_config_ref)) THEN
       l_present_ref    = .TRUE.
@@ -591,11 +591,11 @@ CONTAINS !......................................................................
     IF (l_present_ref .EQV. (jg == jg_ref)) THEN
       ! The reference configuration has to be present, 
       ! if the current domain is not the reference domain, but only then
-      CALL finish(TRIM(routine), "Presence/absence of optional reference has to coincide with jg/=jg_ref/jg=jg_ref.")
+      CALL finish(routine, "Presence/absence of optional reference has to coincide with jg/=jg_ref/jg=jg_ref.")
     ELSEIF (l_present_ref .AND. (.NOT. l_configured_ref)) THEN
       ! The reference domain should be the first one, 
       ! which enters this subroutine
-      CALL finish(TRIM(routine), "Optional reference is present, but not yet configured.")
+      CALL finish(routine, "Optional reference is present, but not yet configured.")
     ENDIF
 
     !-----------------------------------------------------
@@ -640,7 +640,7 @@ CONTAINS !......................................................................
           EXIT
         ENDIF
       ENDDO  !jk
-      IF (.NOT. l_found) CALL finish(TRIM(routine), 'Could not find nexpollev.')
+      IF (.NOT. l_found) CALL finish(routine, 'Could not find nexpollev.')
       ! Just to make sure
       upatmo_config%exp%nexpollev = MIN( MAX( 1, upatmo_config%exp%nexpollev ), nlev )
     ELSEIF (upatmo_config%exp%l_expol .AND. (jg/=jg_ref)) THEN
@@ -694,7 +694,7 @@ CONTAINS !......................................................................
     ! Local variables
     LOGICAL :: l_onlyPrimDom
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: msg_prefix
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':print_config'
 
     !---------------------------------------------------------
@@ -708,23 +708,23 @@ CONTAINS !......................................................................
 
     ! Deep atmosphere:
     IF (l_onlyPrimDom .AND. upatmo_config%dyn%l_status(iUpatmoStat%required)) THEN
-      CALL message(TRIM(routine), "Deep-atmosphere modification of non-hydrostatic atmosphere switched on.")
-      CALL message(TRIM(routine), "Please note: for efficiency reasons and code economy"// &
+      CALL message(routine, "Deep-atmosphere modification of non-hydrostatic atmosphere switched on.")
+      CALL message(routine, "Please note: for efficiency reasons and code economy"// &
         & " the deep-atmosphere modification of the dynamical core disregards:")
       CALL message("", " - horizontal variation of grid layer heights due to terrain")
       CALL message("", " - any kind of diffusion, damping and the like (including LES physics)")
       CALL message("", " - special numerical 'tricks' beyond the main dynamics line,"//&
         & " such as sub-stepping for tracer advection")
       CALL message("", " - the feedback procedures for state relaxation between domains")
-      IF (iforcing /= inoforcing) CALL message(TRIM(routine), "Please note: no physics parameterization"// &
+      IF (iforcing /= inoforcing) CALL message(routine, "Please note: no physics parameterization"// &
         & " is modified for the deep atmosphere!")
     ENDIF
 
     ! Miscellaneous:
     IF (l_onlyPrimDom .AND. upatmo_config%l_status(iUpatmoStat%required)) THEN
-      CALL message(TRIM(routine), "(Info: most upper-atmosphere-related message output requires msg_level >= " & 
+      CALL message(routine, "(Info: most upper-atmosphere-related message output requires msg_level >= " &
         & //TRIM(int2string(imsg_thr%high))//")")
-      CALL message(TRIM(routine), "(Info: most upper-atmosphere-related timers require timers_level >= " &
+      CALL message(routine, "(Info: most upper-atmosphere-related timers require timers_level >= " &
         & //TRIM(int2string(itmr_thr%med))//")")
     ENDIF
 
@@ -752,15 +752,15 @@ CONTAINS !......................................................................
             ! 
             message_text = TRIM(msg_prefix)//'l_constgrav: '// &
               & TRIM(logical2string(upatmo_config%dyn%l_constgrav))
-            CALL message(TRIM(routine), TRIM(message_text))
+            CALL message(routine, TRIM(message_text))
             !
             message_text = TRIM(msg_prefix)//'l_centrifugal: '// &
               & TRIM(logical2string(upatmo_config%dyn%l_centrifugal))
-            CALL message(TRIM(routine), TRIM(message_text))
+            CALL message(routine, TRIM(message_text))
             !
             message_text = TRIM(msg_prefix)//'l_initonzgpot: '// &
               & TRIM(logical2string(upatmo_config%dyn%l_initonzgpot))
-            CALL message(TRIM(routine), TRIM(message_text))
+            CALL message(routine, TRIM(message_text))
           ENDIF
 
           ! Upper-atmosphere extrapolation:
@@ -768,11 +768,11 @@ CONTAINS !......................................................................
             msg_prefix = 'upatmo-expol('//TRIM(int2string(jg))//'): '
             message_text = TRIM(msg_prefix)//'nexpollev: '// &
               & TRIM(int2string(upatmo_config%exp%nexpollev))
-            CALL message(TRIM(routine), TRIM(message_text))
+            CALL message(routine, TRIM(message_text))
             message_text = TRIM(msg_prefix)//'interface height above which extrapolation '// &
               & 'potentially takes place: '//                                                &
               & TRIM(real2string(vct_a(upatmo_config%exp%nexpollev + nshift_total)))
-            CALL message(TRIM(routine), TRIM(message_text))
+            CALL message(routine, TRIM(message_text))
           ENDIF
 
         ENDIF  !imsg_thr%high
@@ -807,7 +807,7 @@ CONTAINS !......................................................................
     ! Local variables
     INTEGER :: jg
     INTEGER :: istat
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':destruct_upatmo'
 
     !---------------------------------------------------------
@@ -825,7 +825,7 @@ CONTAINS !......................................................................
         ENDIF
       ENDDO  !jg
       DEALLOCATE(upatmo_config, STAT=istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Deallocation of upatmo_config failed.")
+      IF (istat /= SUCCESS) CALL finish(routine, "Deallocation of upatmo_config failed.")
     ENDIF
 
   END SUBROUTINE destruct_upatmo
@@ -882,7 +882,7 @@ CONTAINS !......................................................................
 
     ! Local variables
     INTEGER :: jg, istat
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':check_upatmo'
 
     !------------------------------------------------
@@ -897,12 +897,12 @@ CONTAINS !......................................................................
       
       IF (iforcing /= inwp) THEN
         ! ... the NWP-mode should be switched on
-        CALL finish(TRIM(routine), & 
+        CALL finish(routine, &
           & "nwp_phy_nml: lupatmo_phy only available, if run_nml: iforcing = inwp = "//TRIM(int2string(inwp)))    
       ELSEIF (.NOT. ANY((/MODE_DWDANA, MODE_IFSANA, MODE_COMBINED/) == init_mode)) THEN
         ! ... only initialization with IFS or DWD analyses is allowed
         ! (it has not yet been figured out, how to include the upper-atmosphere physics into the IAU-infrastructure)
-        CALL finish(TRIM(routine), &
+        CALL finish(routine, &
           & "NWP + upper-atmosphere physics exclusively allowed for MODE_DWDANA = "// TRIM(int2string(MODE_DWDANA)) & 
           & // ", MODE_IFSANA = "//TRIM(int2string(MODE_IFSANA))                                                    &
           & // " and MODE_COMBINED = "//TRIM(int2string(MODE_COMBINED)))
@@ -912,21 +912,21 @@ CONTAINS !......................................................................
       DO jg = 1, n_dom
         ! A turbulence model has to be switched on (otherwise upper-atmosphere wind tendencies will not be accumulated)
         IF (lupatmo_phy(jg) .AND. inwp_turb(jg) == 0) THEN
-          CALL finish(TRIM(routine), "Upper-atmosphere physics require inwp_turb > 0 in dom "//&
+          CALL finish(routine, "Upper-atmosphere physics require inwp_turb > 0 in dom "//&
             & TRIM(int2string(jg)))
         ENDIF
         ! Some diagnostic variables, such as the cosine of the solar zenith angle, are computed by 
         ! the 'standard' radiation schemes, and they are required by the upper-atmosphere radiation schemes as well, 
         ! so we have to make sure that some standard scheme is switched on
         IF (lupatmo_phy(jg) .AND. inwp_radiation(jg) == 0) THEN
-          CALL finish(TRIM(routine), "Upper-atmosphere physics require inwp_radiation > 0 in dom "//&
+          CALL finish(routine, "Upper-atmosphere physics require inwp_radiation > 0 in dom "//&
             & TRIM(int2string(jg)))
         ENDIF
       ENDDO  !jg
 
       ! ... OpenACC-parallelization is not available in combination with upper-atmosphere physics in NWP mode
 #ifdef _OPENACC
-      CALL finish(TRIM(routine), "Upper-atmosphere physics (NWP) are not available in combination with Open-ACC.")
+      CALL finish(routine, "Upper-atmosphere physics (NWP) are not available in combination with Open-ACC.")
 #endif
 
     ELSEIF (ANY(lupatmo_phy(2:max_dom))) THEN
@@ -937,7 +937,7 @@ CONTAINS !......................................................................
       ! is not possible for the time being. This is because 'lupatmo_phy' has only two states, 
       ! so that domain skipping cannot be implemented into 'src/namelists/mo_nwp_phy_nml' 
       ! in a way comparable to the integer switches, such as 'inwp_satad'.
-      CALL finish(TRIM(routine), "Something is wrong with setting of lupatmo_phy in mo_nwp_phy_nml.") 
+      CALL finish(routine, "Something is wrong with setting of lupatmo_phy in mo_nwp_phy_nml.")
 
     ENDIF    
 
@@ -950,46 +950,46 @@ CONTAINS !......................................................................
       ! If deep-atmosphere dynamics have been switched on ...
       IF (iequations /= inh_atmosphere) THEN
         ! ... only the non-hydrostatic set of equations is allowed
-        CALL finish(TRIM(routine), &
+        CALL finish(routine, &
           & "Deep-atmosphere configuration is not available for other than the non-hydrostatic equations.")
       ELSEIF(.NOT. ANY((/inoforcing, inwp, iecham/) == iforcing)) THEN
         ! ... only no physics forcing, ECHAM forcing or NWP forcing are allowed
-        CALL finish(TRIM(routine), &
+        CALL finish(routine, &
           & "Deep-atmosphere configuration is not available for all forcings but iforcing = "// &
           & TRIM(int2string(inoforcing))//', or '//TRIM(int2string(iecham))//', or '//TRIM(int2string(inwp))//'.')
       ELSEIF (ltestcase .AND. (.NOT. (TRIM(nh_test_name) == 'dcmip_bw_11' .OR. TRIM(nh_test_name) == 'lahade'))) THEN
         ! ... most test cases are not available for the time being
         ! (only the baroclinic wave test case of Ullrich et al. (2014),
         ! and the lahade-testcase are currently intended to test the deep-atmosphere equations)
-        CALL finish(TRIM(routine), &
+        CALL finish(routine, &
           & "Deep-atmosphere configuration is not available for all test cases but dcmip_bw_11 and lahade.")
       ELSEIF (is_plane_torus) THEN 
         ! ... the torus configuration is not available for the time being (-> no spherical geometry)
-        CALL finish(TRIM(routine), &
+        CALL finish(routine, &
           & "Deep-atmosphere configuration is not available in combination with the torus mode.")
       ENDIF
 
       ! ... the limited-area mode requires a warning for the time being
       IF (l_limited_area) THEN 
-        CALL message(TRIM(routine), "WARNING, are the deep-atmosphere dynamics really necessary,"// &
+        CALL message(routine, "WARNING, are the deep-atmosphere dynamics really necessary,"// &
           & " and consistent with the driving model?")
       ENDIF
 
       ! ... a run in combination with ART necessitates at least a warning for the time being
       IF (lart) THEN 
-        CALL message(TRIM(routine), "WARNING, (dynamical) cross-consistency/compatibility of ART"// &
+        CALL message(routine, "WARNING, (dynamical) cross-consistency/compatibility of ART"// &
           & " in combination with the deep atmosphere has not been checked!")
       ENDIF
 
       ! ... the computation of the output variable 'potential vorticity' is not modified 
       ! for the deep atmosphere for the time being
       IF (is_variable_in_output(first_output_name_list, var_name="pv")) THEN
-        CALL message(TRIM(routine),'WARNING, PV-computation is not modified for deep atmosphere!')
+        CALL message(routine,'WARNING, PV-computation is not modified for deep atmosphere!')
       ENDIF
 
       ! ... OpenACC-parallelization is not available in combination with the deep-atmosphere configuration
 #ifdef _OPENACC
-      CALL finish(TRIM(routine), "Deep-atmosphere configuration is not available in combination with Open-ACC.")
+      CALL finish(routine, "Deep-atmosphere configuration is not available in combination with Open-ACC.")
 #endif
 
     ENDIF  !IF (ldeepatmo)
@@ -1004,11 +1004,11 @@ CONTAINS !......................................................................
         & ANY(upatmo_exp_config(:)%expol_start_height < flat_height)) THEN
         ! Upper-atmosphere extrapolation: start height above which extrapolation takes place 
         ! should not lie below 'flat_height'
-        CALL finish(TRIM(routine), &
+        CALL finish(routine, &
           & "Upper-atmosphere extrapolation: start height has to be above flat_height.")
       ELSEIF (l_limited_area) THEN
         ! This type of extrapolation is not intended for the limited-area mode
-        CALL finish(TRIM(routine), &
+        CALL finish(routine, &
           & "The limited-area mode requires: itype_vert_expol = "//int2string(ivexpol%lin))
       ENDIF
 
@@ -1019,12 +1019,12 @@ CONTAINS !......................................................................
     !---------------
 
     IF (ALLOCATED(upatmo_config)) THEN
-      CALL finish(TRIM(routine), "Error in calling sequence: upatmo_config is already allocated.")
+      CALL finish(routine, "Error in calling sequence: upatmo_config is already allocated.")
     ELSE
       ! Some of the variables in 'upatmo_config' might be necessary for a coarser radiation grid as well, 
       ! so the index range starts with 'n_dom_start' (which is zero, if a coarser radiation grid is used).
       ALLOCATE(upatmo_config(n_dom_start:n_dom), STAT=istat)
-      IF (istat /= SUCCESS) CALL finish(TRIM(routine), "Allocation of upatmo_config failed.")
+      IF (istat /= SUCCESS) CALL finish(routine, "Allocation of upatmo_config failed.")
     ENDIF
 
     !---------------
