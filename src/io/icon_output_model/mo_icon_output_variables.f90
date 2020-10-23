@@ -53,7 +53,7 @@ MODULE mo_icon_output_variables
   USE mo_math_types,          ONLY: t_cartesian_coordinates, t_geographical_coordinates
   USE mo_var_list,            ONLY: add_var,                  &
     &                               add_ref, t_var_list_ptr
-  USE mo_var_list_register,   ONLY: vl_register
+  USE mo_var_list_register,   ONLY: vlr_add, vlr_del
   USE mo_var_metadata,        ONLY: get_timelevel_string
   USE mo_var_groups,          ONLY: groups 
   USE mo_cf_convention
@@ -118,7 +118,7 @@ CONTAINS
     ! IMO the number of variable lists should be as small as possible
     ! default list: elements can be written to disk, but not to the restart file
     WRITE(listname,'(a)')  'output_default_list'
-    CALL vl_register%new(output_default_list, listname, patch_id=patch_2d%id, &
+    CALL vlr_add(output_default_list, listname, patch_id=patch_2d%id, &
       & lrestart=.FALSE.,model_type=TRIM(model_name), loutput=.TRUE.)
 
     ! add an output variable
@@ -142,7 +142,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(method_name), 'starting...')
 
-    CALL vl_register%delete(output_default_list)
+    CALL vlr_del(output_default_list)
 
     !The 3D-icon_output version of previous calls
     CALL destruct_patches( patch_3d%p_patch_2d )
