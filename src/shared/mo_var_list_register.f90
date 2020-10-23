@@ -28,11 +28,6 @@ MODULE mo_var_list_register
     PROCEDURE, PUBLIC :: next => iter_next
   END TYPE t_vl_register_iter
 
-  INTERFACE vlr_del
-    MODULE PROCEDURE :: vlr_delete_single
-    MODULE PROCEDURE :: vlr_delete_all
-  END INTERFACE vlr_del
-
   INTEGER, SAVE :: last_id = 0
   TYPE(t_key_value_store) :: map
   TYPE(t_var_list_ptr), ALLOCATABLE :: storage(:)
@@ -133,7 +128,7 @@ CONTAINS
   END FUNCTION iter_next
 
   ! Delete an output var_list, nullify the associated pointer
-  SUBROUTINE vlr_delete_single(list)
+  SUBROUTINE vlr_del(list)
     TYPE(t_var_list_ptr), INTENT(INOUT) :: list
     INTEGER :: ivl, ierr
 
@@ -145,21 +140,7 @@ CONTAINS
       DEALLOCATE(storage(ivl)%p)
       NULLIFY(list%p)
     END IF
-  END SUBROUTINE vlr_delete_single
-
-  ! Delete all output var_lists
-  SUBROUTINE vlr_delete_all()
-    TYPE(t_vl_register_iter) :: iter
-
-    IF (last_id .NE. 0) THEN
-      DO WHILE(iter_next(iter))
-        CALL vlr_delete_single(iter%cur)
-      END DO
-      DEALLOCATE(storage)
-      CALL map%destruct()
-      last_id = 0
-    END IF
-  END SUBROUTINE vlr_delete_all
+  END SUBROUTINE vlr_del
 
   ! (Un)pack the var_lists to a t_packed_message
   SUBROUTINE vlr_packer(op, pmsg, nv_all)
@@ -176,7 +157,8 @@ CONTAINS
     TYPE(t_vl_register_iter) :: iter
     CHARACTER(*), PARAMETER :: routine = modname//':varlistPacker'
 
-    IF (op .EQ. kUnpackOp) CALL vlr_del()
+    IF (op .EQ. kUnpackOp .AND. last_id .NE. 0) &
+      & CALL finish(routine, "var_list_register must be empty if receiver")
     nvl = last_id
     CALL pmsg%packer(op, nvl)
     nv_al = 0
