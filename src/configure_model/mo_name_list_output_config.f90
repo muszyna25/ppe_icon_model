@@ -134,7 +134,7 @@ CONTAINS
 
     !> head output namelist list
     TYPE(t_output_name_list), POINTER :: first_output_name_list
-    TYPE(t_key_value_store), POINTER, INTENT(INOUT)  :: ptr_outvar
+    TYPE(t_key_value_store), INTENT(INOUT)  :: ptr_outvar
     INTEGER, INTENT(IN), OPTIONAL :: jg
 
     ! local variables
