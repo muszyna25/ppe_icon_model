@@ -101,25 +101,25 @@ CONTAINS
     var_name_u = toupper(var_name)
     DO ivar=1,max_var_ml
       IF (p_onl%ml_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%ml_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%ml_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
     DO ivar=1,max_var_pl
       IF (p_onl%pl_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%pl_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%pl_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
     DO ivar=1,max_var_hl
       IF (p_onl%hl_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%hl_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%hl_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
     DO ivar=1,max_var_il
       IF (p_onl%il_varlist(ivar) /= ' ') THEN
-        retval = toupper(TRIM(p_onl%il_varlist(ivar))) == var_name_u
+        retval = toupper(p_onl%il_varlist(ivar)) == var_name_u
         IF (retval) RETURN
       END IF
     END DO
