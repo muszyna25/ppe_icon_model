@@ -16,7 +16,6 @@
 MODULE mo_nh_testcase_check
 
   USE mo_kind,                     ONLY: wp
-  USE mo_impl_constants,           ONLY: MAX_CHAR_LENGTH
   USE mo_nh_testcases_nml,         ONLY: nh_test_name
   USE mo_dynamics_config,          ONLY: ldeepatmo, lcoriolis
   USE mo_nonhydrostatic_config,    ONLY: l_open_ubc, ivctype
@@ -49,7 +48,7 @@ CONTAINS
   SUBROUTINE check_nh_testcase()
 
     ! Local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':check_nh_testcase'
     
     !--------------------------------------------------------------

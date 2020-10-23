@@ -239,7 +239,7 @@ CONTAINS
 
     LOGICAL :: lmessage
  
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':init_nh_lahade'
 
     !----------------------------------------------------------------------------
@@ -261,8 +261,12 @@ CONTAINS
       ! gravity is switched off -> air is homogeneous gas trapped 
       ! between concentrical spherical bottom shell and spherical lid shell
 
-      IF (lmessage) CALL message(TRIM(routine), &
-        & 'Setup of lahade-testcase: "spherical sound wave" on domain '//TRIM(int2string(jg))//' started')
+      IF (lmessage) THEN
+        WRITE (message_text, '(a,i0,a)') &
+          'Setup of lahade-testcase: "spherical sound wave" on domain ', jg, &
+          ' started'
+        CALL message(routine, message_text)
+      END IF
 
       !-----------------
       ! 0th Preparation
@@ -320,7 +324,7 @@ CONTAINS
           WRITE(message_text, '(a,E12.6)') 'The simulation would likely become unstable. ' // &
             & 'Please, choose for dtime a value smaller than ', & 
             & z_dtime_dyn_ubound * REAL( ndyn_substeps, wp ) / grid_rescale_factor
-          CALL finish(TRIM(routine),TRIM(message_text))        
+          CALL finish(routine, message_text)
         ENDIF
       ENDIF  !IF (jg == 1)
 
@@ -594,65 +598,68 @@ CONTAINS
       ! Print some information
       IF (lmessage .AND. jg==1) THEN
         WRITE(message_text, '(a)') 'Some info:'
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f10.2)') 'Radius of Earth [m]: ', earth_radius
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f10.2)') 'Radius of model Earth [m]: ', grid_sphere_radius
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.10)') 'Angular velocity of Earth [rad/s]: ', earth_angular_velocity
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.10)') 'Angular velocity of model Earth [rad/s]: ', grid_angular_velocity
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,E10.4)') 'Gravitational acceleration of model Earth [m/s2]: ', grav
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.7)') 'Background temperature [K]: ', z_bkg_temp
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.5)') 'Background pressure [Pa]: ', z_bkg_pres
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.9)') 'Background density [kg/m3]: ', z_bkg_rho
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.7)') 'Max. magnitude of background wind [m/s]: ', z_bkg_vn_max
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.9)') 'Sound wave temperature amplitude [K]: ', z_ptb_amp_temp
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f16.9)') 'Sound wave pressure amplitude [Pa]: ', z_ptb_amp_pres
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.9)') 'Sound wave density amplitude [kg/m3]: ', z_ptb_amp_rho
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.9)') 'Sound wave velocity amplitude [m/s]: ', z_ptb_amp_vr
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.7)') 'Speed of sound [m/s]: ', z_cs
-        CALL message(TRIM(routine),TRIM(message_text))
-        
+        CALL message(routine, message_text)
+
         WRITE(message_text, '(a,f12.7)') 'Model time step [s]: ', upatmo_config%dt_fastphy
-        CALL message(TRIM(routine),TRIM(message_text))
+        CALL message(routine, message_text)
 
         WRITE(message_text, '(a,f12.7)') 'Actual model dynamics time step [s]: ', z_dtime_dyn_given
-        CALL message(TRIM(routine),TRIM(message_text))
+        CALL message(routine, message_text)
 
         WRITE(message_text, '(a,f12.7)') 'Upper bound for model dynamics time step [s]: ', z_dtime_dyn_ubound
-        CALL message(TRIM(routine),TRIM(message_text))
+        CALL message(routine, message_text)
       ENDIF
 
-      IF (lmessage) CALL message(TRIM(routine), &
-        & 'Setup of lahade-testcase: "spherical sound wave" on domain '//TRIM(int2string(jg))//' finished')
-      
+      IF (lmessage) THEN
+        WRITE (message_text, '(a,i0,a)') &
+          'Setup of lahade-testcase: "spherical sound wave" on domain ', jg, &
+          ' finished'
+        CALL message(routine, message_text)
+      END IF
     CASE default
-      CALL finish(TRIM(routine),'invalid lahade%icase')
+      CALL finish(routine, 'invalid lahade%icase')
     END SELECT
 
     !-----------------------------------------------------------
@@ -726,7 +733,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER :: nlev
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = modname//':nh_lahade_interface'
 
     !----------------------------------------------------------------------------
@@ -751,9 +758,13 @@ CONTAINS
         ! gravity is switched off -> air is homogeneous gas trapped 
         ! between concentrical spherical bottom shell and spherical lid shell
 
-        IF (msg_level >= imsg_thr%high) CALL message(TRIM(routine), &
-          & 'Update of lahade-testcase: "spherical sound wave" on domain '//TRIM(int2string(jg))//' started') 
-        
+        IF (msg_level >= imsg_thr%high) THEN
+          WRITE (message_text, '(a,i0,a)') &
+            'Update of lahade-testcase: "spherical sound wave" on domain ', jg,&
+            ' started'
+          CALL message(routine, message_text)
+        END IF
+
         !----------------------------------------------
         !                 Preparation
         !----------------------------------------------
@@ -813,7 +824,7 @@ CONTAINS
           ! Pressure
           z_ptb_amp_var = ( cpd / cvd ) * ( z_ptb_amp_vr / z_cs ) * z_bkg_pres
         CASE default
-          CALL finish(TRIM(routine),'invalid lahade%ivarout')
+          CALL finish(routine, 'invalid lahade%ivarout')
         END SELECT
         
         ! Looping
@@ -907,11 +918,14 @@ CONTAINS
 !$OMP ENDDO
 !$OMP END PARALLEL
 
-        IF (msg_level >= imsg_thr%high) CALL message(TRIM(routine), &
-          & 'Update of lahade-testcase: "spherical sound wave" on domain '//TRIM(int2string(jg))//' finished') 
-
+        IF (msg_level >= imsg_thr%high) THEN
+          WRITE (message_text, '(a,i0,a)') &
+            'Update of lahade-testcase: "spherical sound wave" on domain ', &
+            jg, ' finished'
+          CALL message(routine, message_text)
+        END IF
       CASE default
-        CALL finish(TRIM(routine),'invalid lahade%icase')
+        CALL finish(routine, 'invalid lahade%icase')
       END SELECT
         
     ENDIF  !Is output due?
@@ -977,6 +991,7 @@ CONTAINS
     REAL(wp) :: z_small_number
 
     LOGICAL  :: lupatmo_checked, lcentrifugal
+    INTEGER :: tlen
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':check_nh_lahade'
 
@@ -1004,60 +1019,60 @@ CONTAINS
         
       ! This subroutine should have been called before 'check_upatmo'
       IF (lupatmo_checked) THEN
-        CALL finish(TRIM(routine),'check_upatmo should be called after this subroutine')
+        CALL finish(routine, 'check_upatmo should be called after this subroutine')
       ENDIF
       ! Deep-atmosphere dynamics have to be switched on
       IF (.NOT. ldeepatmo) THEN
         ldeepatmo = .TRUE.
-        CALL message(TRIM(routine),'WARNING! ldeepatmo set to .true.')
+        CALL message(routine, 'WARNING! ldeepatmo set to .true.')
       ENDIF
       ! Since the model top height 'top_height' is required in the following, 
       ! only the vertical SLEVE-coordinates are allowed, 
       ! and since this is a more sever namelist switch, 
       ! it seems more secure to stop the program, if necessary
-      IF (ivctype/=2) CALL finish(TRIM(routine),'only SLEVE-coordinates (ivctype=2) are allowed for this testcase')
+      IF (ivctype/=2) CALL finish(routine, 'only SLEVE-coordinates (ivctype=2) are allowed for this testcase')
       ! For this testcase a const. vertical layer thickness seems reasonable
       ! (see 'atm_dyn_iconam/mo_init_vgrid: init_sleve_coord')
       IF (min_lay_thckn > 0._wp) THEN
         min_lay_thckn = 0._wp
-        CALL message(TRIM(routine),'WARNING! min_lay_thckn set to 0')
+        CALL message(routine, 'WARNING! min_lay_thckn set to 0')
       ENDIF
       ! No gravitational acceleration
       lahade%lzerograv = .TRUE. 
       ! Coriolis acceleration has to be switched on
       IF (.NOT. lcoriolis) THEN
         lcoriolis = .TRUE.
-        CALL message(TRIM(routine),'WARNING! lcoriolis set to .true.')
+        CALL message(routine, 'WARNING! lcoriolis set to .true.')
       ENDIF      
       ! Centrifugal acceleration has to be switched on 
       IF (.NOT. lcentrifugal) THEN
         upatmo_dyn_config(:)%lcentrifugal = .TRUE.
-        CALL message(TRIM(routine),'WARNING! lcentrifugal set to .true.')
+        CALL message(routine, 'WARNING! lcentrifugal set to .true.')
       ENDIF
       ! Rigid-lid boundary condition at model top
       IF (l_open_ubc) THEN
         l_open_ubc = .FALSE.
-        CALL message(TRIM(routine),'WARNING! l_open_ubc set to .false.')
+        CALL message(routine, 'WARNING! l_open_ubc set to .false.')
       ENDIF
       ! Only analytical topography
       IF (itopo /= 0) THEN 
         itopo = 0
-        CALL message(TRIM(routine),'WARNING! itopo set to 0')
+        CALL message(routine, 'WARNING! itopo set to 0')
       ENDIF
       ! No physics forcing
       IF (iforcing /= inoforcing) THEN 
         iforcing = inoforcing
-        CALL message(TRIM(routine),'WARNING! iforcing set to 0')
+        CALL message(routine, 'WARNING! iforcing set to 0')
       ENDIF
       ! No tracer transport
       IF (ltransport) THEN 
         ltransport = .FALSE.
-        CALL message(TRIM(routine),'WARNING! ltransport set to .false.')
+        CALL message(routine, 'WARNING! ltransport set to .false.')
       ENDIF
       ! For this testcase no vertical nesting should take place, 
       ! and since this is a more sever namelist switch, 
       ! it seems more secure to stop the program, if necessary
-      IF (lvert_nest) CALL finish(TRIM(routine),'vertical grid nesting (lvert_nest=.true.) not allowed for this testcase')
+      IF (lvert_nest) CALL finish(routine, 'vertical grid nesting (lvert_nest=.true.) not allowed for this testcase')
 
       !-------------------------------------------------------------------------------------------------
       ! 2nd Unit conversion of namelist entries to which it applies
@@ -1110,7 +1125,7 @@ CONTAINS
       IF (lahade%lzerograv .AND. grav > z_small_number) THEN
         WRITE(message_text, '(a)') 'This testcase requires grav=0. ' // &
           & 'Please, set this parameter in src/shared/mo_physical_constants to a very small value and recompile.'
-        CALL finish(TRIM(routine),TRIM(message_text))
+        CALL finish(routine, message_text)
       ENDIF
 
       !---------------------------------------------------
@@ -1120,48 +1135,49 @@ CONTAINS
       IF (ABS(grid_sphere_radius/earth_radius - grid_rescale_factor) > z_small_number) THEN
         WRITE(message_text, '(a)') 'Wrong subroutine sequence, ' // &
           & 'grid_sphere_radius has not been rescaled yet.'
-        CALL finish(TRIM(routine),TRIM(message_text))
+        CALL finish(routine, message_text)
       ENDIF
 
     CASE default
-      CALL finish(TRIM(routine),'invalid lahade%icase')
+      CALL finish(routine, 'invalid lahade%icase')
     END SELECT
 
     ! Check, if the output of the analytical solution of a perturbation quantity is required
-    IF (LEN_TRIM(lahade%output_ptb_var) > 0) THEN
-      SELECT CASE(TRIM(lahade%output_ptb_var))
+    tlen = LEN_TRIM(lahade%output_ptb_var)
+    IF (tlen > 0) THEN
+      SELECT CASE(lahade%output_ptb_var(1:tlen))
       CASE("temp")
         ! Output analytical solution for temperature perturbation
         lahade%ivarout = ilahade%varout%temp
-        CALL message(TRIM(routine), 'Temperature perturbations have been selected for output &
+        CALL message(routine, 'Temperature perturbations have been selected for output &
           &in extra_3d1 (numerical solution) and extra_3d2 (analytical solution).')
       CASE("rho")
         ! Output analytical solution for density perturbation
         lahade%ivarout = ilahade%varout%rho
-        CALL message(TRIM(routine), 'Density perturbations have been selected for output &
+        CALL message(routine, 'Density perturbations have been selected for output &
           &in extra_3d1 (numerical solution) and extra_3d2 (analytical solution).')
       CASE("pres")
         ! Output analytical solution for pressure perturbation
         lahade%ivarout = ilahade%varout%pres
-        CALL message(TRIM(routine), 'Pressure perturbations have been selected for output &
+        CALL message(routine, 'Pressure perturbations have been selected for output &
           &in extra_3d1 (numerical solution) and extra_3d2 (analytical solution).')
       CASE default
-        CALL finish(TRIM(routine),'invalid lahade%output_ptb_var')
+        CALL finish(routine, 'invalid lahade%output_ptb_var')
       END SELECT
       ! The diagnostic field 'p_diag%extra_3d(nproma,nlev,nblks_c,inextra_3d)' has to be allocated: 
       ! - 'extra_3d1': numerical solution for the sound-wave-perturbation-variable
       ! - 'extra_3d2': analytical solution for the sound-wave-perturbation-variable
       IF (inextra_3d > 0) THEN
-        CALL message(TRIM(routine),'WARNING! your entry for inextra_3d has been overwritten by 2.')
+        CALL message(routine, 'WARNING! your entry for inextra_3d has been overwritten by 2.')
       ENDIF
       inextra_3d = 2
       ! 'extra_3d1' and 'extra_3d2' should have been added to the 'output_nml: ml_varlist' of choice
       IF (.NOT. l_nml) THEN
-        CALL finish(TRIM(routine),'an entry to lahade%output_ptb_var requires &
+        CALL finish(routine, 'an entry to lahade%output_ptb_var requires &
           &run_nml: output = ..., "nml", ...')
       ELSEIF ((.NOT. is_variable_in_output(first_output_name_list, var_name="extra_3d1")) .OR. &
         &     (.NOT. is_variable_in_output(first_output_name_list, var_name="extra_3d2"))      ) THEN
-        CALL finish(TRIM(routine),'an entry to lahade%output_ptb_var requires &
+        CALL finish(routine, 'an entry to lahade%output_ptb_var requires &
           &output_nml: ml_varlist = ..., "extra_3d1", "extra_3d2",...')
       ENDIF
       ! The computation of the analytical solution requires 'nh_lahade_interface' 
