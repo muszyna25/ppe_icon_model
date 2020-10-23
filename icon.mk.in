@@ -74,9 +74,15 @@ silent_SB2=     @echo "  SB2PP   " $@;
 silent_none=    @
 endif
 
+# Recursive file search function. Ignores subdirectories and files starting with
+# a dot character. Receives two arguments:
+#   1) a space-separated list of directories to search in;
+#   2) a space-separated list of name patterns to search for.
+find_files= $(shell find $(1) \! \( -type d -o -name '.*' -o -path '*/.*' \) -a \( $(foreach pattern,$(2),-name $(pattern) -o) -false \))
+
 # Path suffixes (i.e. without $(srcdir) prefix) of the source files:
 src_roots:= $(addprefix $(srcdir)/,$(subdirs))
-all_files:= $(patsubst $(srcdir)/%,%,$(shell find $(src_roots) -name '*.f90' -o -name '*.inc' -o -name '*.incf' -o -name '*.c' -o -name '*.cu'))
+all_files:= $(patsubst $(srcdir)/%,%,$(call find_files,$(src_roots),'*.f90' '*.inc' '*.incf' '*.c' '*.cu'))
 
 # Fortran '.f90' source files:
 f90_files:= $(filter %.f90,$(all_files))
@@ -84,8 +90,6 @@ f90_files:= $(filter %.f90,$(all_files))
 inc_files:= $(filter %.inc,$(all_files))
 # Files included with the Fortran INCLUDE "filename.incf" statements:
 incf_files:= $(filter %.incf,$(all_files))
-# Files included with the pp #include "filename.interface" statements:
-incf_files+= $(filter %.interface,$(all_files))
 # C '.c' source files:
 c_files:= $(filter %.c,$(all_files))
 # CUDA '*.cu' source files:
@@ -116,21 +120,25 @@ pp_files:=
 
 # ART sources:
 @ART_ENABLED@ART_srcdir:= $(srcdir)/externals/art
-@ART_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.f90'))
-@ART_ENABLED@inc_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.inc'))
-@ART_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(ART_srcdir) -name '*.incf'))
+@ART_ENABLED@ART_all_files:= $(patsubst $(srcdir)/%,%,$(call find_files,$(ART_srcdir),'*.f90' '*.inc' '*.incf'))
+@ART_ENABLED@f90_files+= $(filter %.f90,$(ART_all_files))
+@ART_ENABLED@inc_non_common_files+= $(filter %.inc,$(ART_all_files))
+@ART_ENABLED@incf_non_common_files+= $(filter %.incf,$(ART_all_files))
 
 # DACE sources:
-rttov_basic_modules:=
 DACE_srcdir:= $(srcdir)/externals/dace_icon/src_for_icon
-@DACE_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.f90'))
-@DACE_ENABLED@inc_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.inc'))
-@DACE_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(DACE_srcdir) -name '*.incf'))
+@DACE_ENABLED@DACE_all_files:= $(patsubst $(srcdir)/%,%,$(call find_files,$(DACE_srcdir),'*.f90' '*.inc' '*.incf'))
+@DACE_ENABLED@f90_files+= $(filter %.f90,$(DACE_all_files))
+@DACE_ENABLED@inc_non_common_files+= $(filter %.inc,$(DACE_all_files))
+# TODO: the following needs a fix because most of DACE's *.incf files are
+# included with the preprocessor #include directives:
+@DACE_ENABLED@incf_non_common_files+= $(filter %.incf,$(DACE_all_files))
 
 # EMVORADO sources:
 @EMVORADO_ENABLED@EMVORADO_srcdir:= $(srcdir)/externals/emvorado
-@EMVORADO_ENABLED@f90_files+= $(patsubst $(srcdir)/%,%,$(shell find $(EMVORADO_srcdir) -name '*.f90'))
-@EMVORADO_ENABLED@incf_non_common_files+= $(patsubst $(srcdir)/%,%,$(shell find $(EMVORADO_srcdir) -name '*.incf'))
+@EMVORADO_ENABLED@EMVORADO_all_files:= $(patsubst $(srcdir)/%,%,$(call find_files,$(EMVORADO_srcdir),'*.f90' '*.incf'))
+@EMVORADO_ENABLED@f90_files+= $(filter %.f90,$(EMVORADO_all_files))
+@EMVORADO_ENABLED@incf_non_common_files+= $(filter %.incf,$(EMVORADO_all_files))
 @EMVORADO_ENABLED@@DACE_NOT_ENABLED@EMVORADO_dacefiles:= mo_fdbk.f90 mo_fdbk_io.f90 mo_fdbk_tables.f90 kind_parameters.f90 environment.f90 mo_fortran_units.f90 mo_mpi_dace.f90 mo_omp.f90 mo_netcdf_param.f90 mo_t_netcdf_file.f90 mo_t_table.f90 p_bcast.incf p_scatter_derived.incf
 @EMVORADO_ENABLED@@DACE_NOT_ENABLED@DACE_srcsubdir:= $(patsubst $(srcdir)/%,%,$(DACE_srcdir))
 @EMVORADO_ENABLED@@DACE_NOT_ENABLED@EMVORADO_dacesrc:= $(addprefix $(DACE_srcsubdir)/,$(EMVORADO_dacefiles))
@@ -140,7 +148,7 @@ DACE_srcdir:= $(srcdir)/externals/dace_icon/src_for_icon
 # JSBACH preprocessing:
 @JSBACH_ENABLED@JSB_srcdir:= $(srcdir)/externals/jsbach
 @JSBACH_ENABLED@JSB_subdir:= $(ppdir)/jsb
-@JSBACH_ENABLED@JSB_f90_files:= $(patsubst $(JSB_srcdir)/%,$(JSB_subdir)/%,$(shell find $(JSB_srcdir)/src -name '*.f90'))
+@JSBACH_ENABLED@JSB_f90_files:= $(patsubst $(JSB_srcdir)/%,$(JSB_subdir)/%,$(call find_files,$(JSB_srcdir)/src,'*.f90'))
 @JSBACH_ENABLED@JSB_src_prefix:= $(JSB_subdir)/
 @JSBACH_ENABLED@f90_files+= $(JSB_f90_files)
 @JSBACH_ENABLED@pp_files+= $(JSB_f90_files)
