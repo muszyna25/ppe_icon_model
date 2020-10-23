@@ -111,7 +111,8 @@ MODULE mo_name_list_output_init
   ! variable lists
   USE mo_var_groups,                        ONLY: var_groups_dyn
   USE mo_var_metadata_types,                ONLY: t_var_metadata
-  USE mo_var_list_register,                 ONLY: vlr_group, vlr_packer, t_vl_register_iter
+  USE mo_var_list_register_utils,           ONLY: vlr_group
+  USE mo_var_list_register,                 ONLY: t_vl_register_iter, vlr_packer
   USE mo_var,                               ONLY: t_var
   USE mo_var_metadata,                      ONLY: get_var_timelevel, get_var_name
   USE mo_packed_message,                    ONLY: t_packedMessage, kPackOp, kUnpackOp
@@ -2837,9 +2838,9 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
     CALL p_get_bcast_role(bcast_root, p_comm_work_2_io, lIsSender, lIsReceiver)
-    IF(lIsSender) CALL vlr_packer(kPackOp, pmsg, .FALSE.)
+    IF(lIsSender) CALL vlr_packer(kPackOp, pmsg)
     CALL pmsg%bcast(bcast_root, p_comm_work_2_io)
-    IF(lIsReceiver) CALL vlr_packer(kUnpackOp, pmsg, .FALSE.)
+    IF(lIsReceiver) CALL vlr_packer(kUnpackOp, pmsg)
 
     ! var_groups_dyn is required in function 'group_id', which is called in
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.

@@ -76,7 +76,8 @@ MODULE mo_nonhydro_state
     &                                iso8601_end_timedelta_avg_fg, iso8601_interval_avg_fg, &
     &                                qcana_mode, qiana_mode, qrsgana_mode, icpl_da_sfcevap
   USE mo_var_list, ONLY: add_var, find_list_element, add_ref, t_var_list_ptr
-  USE mo_var_list_register,    ONLY: vlr_add, vlr_del, vlr_add_vref
+  USE mo_var_list_register, ONLY: vlr_add, vlr_del
+  USE mo_var_list_register_utils, ONLY: vlr_add_vref
   USE mo_var,                  ONLY: t_var
   USE mo_var_groups,           ONLY: MAX_GROUPS, groups
   USE mo_var_metadata_types,   ONLY: t_var_metadata, t_var_metadata_dynamic

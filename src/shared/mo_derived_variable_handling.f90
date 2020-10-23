@@ -17,7 +17,7 @@ MODULE mo_derived_variable_handling
   USE mo_var, ONLY: t_var, t_var_ptr, level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata,        ONLY: get_var_name
   USE mo_var_metadata_types,  ONLY: t_var_metadata
-  USE mo_var_list_register,   ONLY: vlr_find
+  USE mo_var_list_register_utils, ONLY: vlr_find
   USE mo_exception,           ONLY: finish
   USE mtime,                  ONLY: newEvent, event, isCurrentEventActive, newDatetime, datetime
   USE mo_time_config,         ONLY: time_config

@@ -232,7 +232,8 @@ MODULE mo_async_latbc
     USE mo_intp_data_strc,            ONLY: p_int_state
     USE mo_ext_data_state,            ONLY: ext_data
     USE mo_var_metadata_types,        ONLY: t_var_metadata_ptr
-    USE mo_var_list_register,         ONLY: vlr_packer, vlr_group, t_vl_register_iter
+    USE mo_var_list_register_utils,   ONLY: vlr_group
+    USE mo_var_list_register,         ONLY: t_vl_register_iter, vlr_packer
     USE mo_var_metadata,              ONLY: get_var_name
     USE mo_var,                       ONLY: t_var
     USE mo_packed_message,            ONLY: t_packedMessage, kPackOp, kUnpackOp
@@ -1231,10 +1232,10 @@ MODULE mo_async_latbc
       TYPE(t_packedMessage) :: pmsg
 
       CALL p_get_bcast_role(bc_root, p_comm_work_2_pref, send, recv)
-      IF (send) CALL vlr_packer(kPackOp, pmsg, .FALSE., nvar)
+      IF (send) CALL vlr_packer(kPackOp, pmsg, nvar)
       CALL pmsg%bcast(bc_root, p_comm_work_2_pref)
       IF (recv) THEN
-        CALL vlr_packer(kUnpackOp, pmsg, .FALSE., nvar)
+        CALL vlr_packer(kUnpackOp, pmsg, nvar)
       ELSE
         CALL p_bcast(nvar, 0, comm=p_comm_work)
       END IF

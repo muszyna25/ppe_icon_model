@@ -188,7 +188,7 @@ MODULE mo_nh_stepping
                                          sampl_freq_step, les_cloud_diag
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
-  USE mo_var_list_register,        ONLY: vlr_print_vls
+  USE mo_var_list_register_utils,  ONLY: vlr_print_vls
   USE mo_async_latbc_utils,        ONLY: recv_latbc_data, update_lin_interpolation
   USE mo_async_latbc_types,        ONLY: t_latbc_data
   USE mo_nonhydro_types,           ONLY: t_nh_state

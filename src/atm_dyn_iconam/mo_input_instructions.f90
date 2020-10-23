@@ -26,7 +26,7 @@ MODULE mo_input_instructions
     USE mo_util_string,        ONLY: difference, add_to_list, one_of
     USE mo_util_table,         ONLY: t_table, initialize_table, add_table_column, set_table_entry,  &
       &                              print_table, finalize_table
-    USE mo_var_list_register,  ONLY: vlr_group
+    USE mo_var_list_register_utils, ONLY: vlr_group
 
     IMPLICIT NONE
     PRIVATE
