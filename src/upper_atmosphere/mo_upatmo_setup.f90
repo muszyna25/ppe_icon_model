@@ -17,7 +17,7 @@
 MODULE mo_upatmo_setup
 
   USE mo_exception,               ONLY: message, finish
-  USE mo_impl_constants,          ONLY: MAX_CHAR_LENGTH
+  USE mo_io_units,                ONLY: filename_max
   USE mo_upatmo_impl_const,       ONLY: imsg_thr, itmr_thr, iUpatmoPrcStat
   USE mo_model_domain,            ONLY: t_patch
   USE mo_master_config,           ONLY: getModelBaseDir, isRestart
@@ -64,8 +64,8 @@ CONTAINS
 
     ! Local variables
     LOGICAL  :: lmessage, ltimer, lrestart
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: model_base_dir
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=filename_max) :: model_base_dir
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':upatmo_initialize'
     
     !---------------------------------------------------------
@@ -81,10 +81,10 @@ CONTAINS
     ! 'upatmo_config' should have been allocated in 'src/namelists/mo_upatmo_nml: check_upatmo', 
     ! which should have been called before this subroutine
     IF (.NOT. ALLOCATED(upatmo_config)) THEN
-      CALL finish(TRIM(routine), "Check calling sequence: upatmo_config is not allocated.")
+      CALL finish(routine, "Check calling sequence: upatmo_config is not allocated.")
     ENDIF
 
-    IF (lmessage) CALL message(TRIM(routine), 'Initialization of upper atmosphere started')
+    IF (lmessage) CALL message(routine, 'Initialization of upper atmosphere started')
 
     !---------------------------------------------------------------------
     !          Construct the upper-atmosphere configuration type
@@ -140,7 +140,7 @@ CONTAINS
     ! Please see 'src/atm_phy_nwp/mo_nwp_phy_init: init_nwp_phy' 
     ! for call of 'src/upper_atmosphere/mo_upatmo_phy_setup: init_upatmo_phy_nwp'
     
-    IF (lmessage) CALL message(TRIM(routine), 'Initialization of upper atmosphere finished')
+    IF (lmessage) CALL message(routine, 'Initialization of upper atmosphere finished')
 
     IF (ltimer) THEN 
       CALL timer_stop(timer_upatmo_constr)
@@ -162,7 +162,7 @@ CONTAINS
     ! Local variables
     INTEGER  :: jg
     LOGICAL  :: lmessage, ltimer
-    CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':upatmo_finalize'
     
     !---------------------------------------------------------
@@ -177,10 +177,10 @@ CONTAINS
 
     ! 'upatmo_config' should have been allocated
     IF (.NOT. ALLOCATED(upatmo_config)) THEN
-      CALL finish(TRIM(routine), "Error: upatmo_config is not allocated.")
+      CALL finish(routine, "Error: upatmo_config is not allocated.")
     ENDIF
 
-    IF (lmessage) CALL message(TRIM(routine), 'Finalization of upper atmosphere started')
+    IF (lmessage) CALL message(routine, 'Finalization of upper atmosphere started')
 
     !---------------------------------------------------------------------
     !      Finalize the upper-atmosphere physics parameterizations
@@ -210,7 +210,7 @@ CONTAINS
     CALL destruct_upatmo( n_dom_start = n_dom_start, & !in
       &                   n_dom       = n_dom        ) !in
 
-    IF (lmessage) CALL message(TRIM(routine), 'Finalization of upper atmosphere finished')
+    IF (lmessage) CALL message(routine, 'Finalization of upper atmosphere finished')
 
     IF (ltimer) THEN 
       CALL timer_stop(timer_upatmo_destr)
