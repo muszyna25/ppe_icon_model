@@ -21,14 +21,12 @@ MODULE mo_upatmo_config
 
   USE mo_kind,                     ONLY: wp
   USE mo_exception,                ONLY: message, message_text, finish
-  USE mo_impl_constants,           ONLY: max_dom, MAX_CHAR_LENGTH,   &
+  USE mo_impl_constants,           ONLY: max_dom,                    &
     &                                    MODE_IFSANA, MODE_COMBINED, &
     &                                    MODE_DWDANA, inoforcing,    &
     &                                    SUCCESS, inwp, iecham,      &
     &                                    inh_atmosphere, ivexpol
   USE mo_model_domain,             ONLY: t_patch
-  USE mo_util_string,              ONLY: int2string, logical2string, &
-    &                                    real2string
   USE mo_upatmo_impl_const,        ONLY: iUpatmoStat, imsg_thr, itmr_thr, &
     &                                    iUpatmoGrpId, iUpatmoPrcStat,    &
     &                                    iUpatmoExtdatStat
@@ -693,7 +691,6 @@ CONTAINS !......................................................................
 
     ! Local variables
     LOGICAL :: l_onlyPrimDom
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: msg_prefix
     CHARACTER(LEN=*), PARAMETER ::  &
       &  routine = modname//':print_config'
 
@@ -722,10 +719,14 @@ CONTAINS !......................................................................
 
     ! Miscellaneous:
     IF (l_onlyPrimDom .AND. upatmo_config%l_status(iUpatmoStat%required)) THEN
-      CALL message(routine, "(Info: most upper-atmosphere-related message output requires msg_level >= " &
-        & //TRIM(int2string(imsg_thr%high))//")")
-      CALL message(routine, "(Info: most upper-atmosphere-related timers require timers_level >= " &
-        & //TRIM(int2string(itmr_thr%med))//")")
+      WRITE (message_text, '(a,i0,a)') &
+        "(Info: most upper-atmosphere-related message output requires &
+        &msg_level >= ", imsg_thr%high, ")"
+      CALL message(routine, message_text)
+      WRITE (message_text, '(a,i0,a)') &
+        "(Info: most upper-atmosphere-related timers require timers_level >= ",&
+        itmr_thr%med, ")"
+      CALL message(routine, message_text)
     ENDIF
 
     IF (msg_level >= imsg_thr%low) THEN
@@ -748,31 +749,34 @@ CONTAINS !......................................................................
 
           ! Deep atmosphere:
           IF (upatmo_config%dyn%l_status(iUpatmoStat%required)) THEN
-            msg_prefix = 'upatmo_config('//TRIM(int2string(jg))//')%dyn%'
-            ! 
-            message_text = TRIM(msg_prefix)//'l_constgrav: '// &
-              & TRIM(logical2string(upatmo_config%dyn%l_constgrav))
-            CALL message(routine, TRIM(message_text))
+#define msg_prefix 'upatmo_config(', jg, ')%dyn%'
             !
-            message_text = TRIM(msg_prefix)//'l_centrifugal: '// &
-              & TRIM(logical2string(upatmo_config%dyn%l_centrifugal))
-            CALL message(routine, TRIM(message_text))
+            WRITE (message_text, '(a,i0,2a,l1)') &
+              msg_prefix, 'l_constgrav: ', upatmo_config%dyn%l_constgrav
+            CALL message(routine, message_text)
             !
-            message_text = TRIM(msg_prefix)//'l_initonzgpot: '// &
-              & TRIM(logical2string(upatmo_config%dyn%l_initonzgpot))
-            CALL message(routine, TRIM(message_text))
+            WRITE (message_text, '(a,i0,2a,l1)') &
+              msg_prefix, 'l_centrifugal: ', upatmo_config%dyn%l_centrifugal
+            CALL message(routine, message_text)
+            !
+            WRITE (message_text, '(a,i0,2a,l1)') &
+              msg_prefix, 'l_initonzgpot: ', upatmo_config%dyn%l_initonzgpot
+            CALL message(routine, message_text)
+#undef msg_prefix
           ENDIF
 
           ! Upper-atmosphere extrapolation:
           IF (upatmo_config%exp%l_status(iUpatmoStat%required) .AND. PRESENT(vct_a)) THEN
-            msg_prefix = 'upatmo-expol('//TRIM(int2string(jg))//'): '
-            message_text = TRIM(msg_prefix)//'nexpollev: '// &
-              & TRIM(int2string(upatmo_config%exp%nexpollev))
-            CALL message(routine, TRIM(message_text))
-            message_text = TRIM(msg_prefix)//'interface height above which extrapolation '// &
-              & 'potentially takes place: '//                                                &
-              & TRIM(real2string(vct_a(upatmo_config%exp%nexpollev + nshift_total)))
-            CALL message(routine, TRIM(message_text))
+#define msg_prefix 'upatmo-expol(', jg, '): '
+            WRITE (message_text, '(a,i0,2a,i0)') &
+              msg_prefix, 'nexpollev: ', upatmo_config%exp%nexpollev
+            CALL message(routine, message_text)
+            WRITE (message_text, '(a,i0,2a,g32.5)') &
+              msg_prefix, 'interface height above which extrapolation &
+              &potentially takes place: ', &
+              vct_a(upatmo_config%exp%nexpollev + nshift_total)
+            CALL message(routine, message_text)
+#undef msg_prefix
           ENDIF
 
         ENDIF  !imsg_thr%high
@@ -897,30 +901,33 @@ CONTAINS !......................................................................
       
       IF (iforcing /= inwp) THEN
         ! ... the NWP-mode should be switched on
-        CALL finish(routine, &
-          & "nwp_phy_nml: lupatmo_phy only available, if run_nml: iforcing = inwp = "//TRIM(int2string(inwp)))    
+        WRITE (message_text, '(a,i0)') "nwp_phy_nml: lupatmo_phy only &
+          &available, if run_nml: iforcing = inwp = ", inwp
+        CALL finish(routine, message_text)
       ELSEIF (.NOT. ANY((/MODE_DWDANA, MODE_IFSANA, MODE_COMBINED/) == init_mode)) THEN
         ! ... only initialization with IFS or DWD analyses is allowed
         ! (it has not yet been figured out, how to include the upper-atmosphere physics into the IAU-infrastructure)
-        CALL finish(routine, &
-          & "NWP + upper-atmosphere physics exclusively allowed for MODE_DWDANA = "// TRIM(int2string(MODE_DWDANA)) & 
-          & // ", MODE_IFSANA = "//TRIM(int2string(MODE_IFSANA))                                                    &
-          & // " and MODE_COMBINED = "//TRIM(int2string(MODE_COMBINED)))
+        WRITE (message_text, '(3(a,i0))') "NWP + upper-atmosphere physics &
+          &exclusively allowed for MODE_DWDANA = ", MODE_DWDANA, &
+          ", MODE_IFSANA = ", MODE_IFSANA, " and MODE_COMBINED = ",MODE_COMBINED
+        CALL finish(routine, message_text)
       ENDIF
 
       ! Domain-wise checks
       DO jg = 1, n_dom
         ! A turbulence model has to be switched on (otherwise upper-atmosphere wind tendencies will not be accumulated)
         IF (lupatmo_phy(jg) .AND. inwp_turb(jg) == 0) THEN
-          CALL finish(routine, "Upper-atmosphere physics require inwp_turb > 0 in dom "//&
-            & TRIM(int2string(jg)))
+          WRITE (message_text, '(a,i0)') &
+            "Upper-atmosphere physics require inwp_turb > 0 in dom ", jg
+          CALL finish(routine, message_text)
         ENDIF
         ! Some diagnostic variables, such as the cosine of the solar zenith angle, are computed by 
         ! the 'standard' radiation schemes, and they are required by the upper-atmosphere radiation schemes as well, 
         ! so we have to make sure that some standard scheme is switched on
         IF (lupatmo_phy(jg) .AND. inwp_radiation(jg) == 0) THEN
-          CALL finish(routine, "Upper-atmosphere physics require inwp_radiation > 0 in dom "//&
-            & TRIM(int2string(jg)))
+          WRITE (message_text, '(a,i0)') &
+            "Upper-atmosphere physics require inwp_radiation > 0 in dom ", jg
+          CALL finish(routine, message_text)
         ENDIF
       ENDDO  !jg
 
@@ -954,10 +961,11 @@ CONTAINS !......................................................................
           & "Deep-atmosphere configuration is not available for other than the non-hydrostatic equations.")
       ELSEIF(.NOT. ANY((/inoforcing, inwp, iecham/) == iforcing)) THEN
         ! ... only no physics forcing, ECHAM forcing or NWP forcing are allowed
-        CALL finish(routine, &
-          & "Deep-atmosphere configuration is not available for all forcings but iforcing = "// &
-          & TRIM(int2string(inoforcing))//', or '//TRIM(int2string(iecham))//', or '//TRIM(int2string(inwp))//'.')
-      ELSEIF (ltestcase .AND. (.NOT. (TRIM(nh_test_name) == 'dcmip_bw_11' .OR. TRIM(nh_test_name) == 'lahade'))) THEN
+        WRITE (message_text, '(3(a,i0),a)') "Deep-atmosphere configuration is &
+          &not available for all forcings but iforcing = ", inoforcing, &
+          ', or ', iecham, ', or ', inwp, '.'
+        CALL finish(routine, message_text)
+      ELSEIF (ltestcase .AND. (.NOT. (nh_test_name == 'dcmip_bw_11' .OR. nh_test_name == 'lahade'))) THEN
         ! ... most test cases are not available for the time being
         ! (only the baroclinic wave test case of Ullrich et al. (2014),
         ! and the lahade-testcase are currently intended to test the deep-atmosphere equations)
@@ -1008,8 +1016,9 @@ CONTAINS !......................................................................
           & "Upper-atmosphere extrapolation: start height has to be above flat_height.")
       ELSEIF (l_limited_area) THEN
         ! This type of extrapolation is not intended for the limited-area mode
-        CALL finish(routine, &
-          & "The limited-area mode requires: itype_vert_expol = "//int2string(ivexpol%lin))
+        WRITE (message_text, '(a,i0)') &
+          "The limited-area mode requires: itype_vert_expol = ", ivexpol%lin
+        CALL finish(routine, message_text)
       ENDIF
 
     ENDIF  !IF (itype_vert_expol == ivexpol%upatmo)
