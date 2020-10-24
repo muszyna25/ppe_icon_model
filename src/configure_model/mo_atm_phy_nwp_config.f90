@@ -241,7 +241,7 @@ CONTAINS
     ! local
     INTEGER :: jg, jk, jk_shift, jb, jc
     INTEGER :: error
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &      routine = modname//":configure_atm_phy_nwp"
     REAL(wp) :: z_mc_ref
     REAL(wp) :: &                             ! time-intervals for calling various 
@@ -344,21 +344,21 @@ CONTAINS
 
         ! convection should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_convection>0)THEN
-          CALL message(TRIM(routine),'Turning off convection for LES!')
+          CALL message(routine, 'Turning off convection for LES!')
           atm_phy_nwp_config(jg)%inwp_convection  = 0
           atm_phy_nwp_config(jg)%lenabled(itconv) = .FALSE.
         END IF
 
         ! SSO should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_sso>0)THEN
-          CALL message(TRIM(routine),'Turning off SSO scheme for LES!')
+          CALL message(routine, 'Turning off SSO scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_sso = 0
           atm_phy_nwp_config(jg)%lenabled(itsso)= .FALSE.
         END IF
 
         ! GWD should be turned off for LES
         IF(atm_phy_nwp_config(jg)%inwp_gwd>0)THEN
-          CALL message(TRIM(routine),'Turning off GWD scheme for LES!')
+          CALL message(routine, 'Turning off GWD scheme for LES!')
           atm_phy_nwp_config(jg)%inwp_gwd = 0
           atm_phy_nwp_config(jg)%lenabled(itgwd) =.FALSE.
         END IF
@@ -390,7 +390,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_conv,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Convection timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_conv = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_conv,  &
           &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -398,7 +398,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_ccov,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Cloud-cover timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_ccov = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_ccov,  &
           &                                                  atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -406,7 +406,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_sso,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': SSO timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_sso = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_sso,    &
           &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -414,7 +414,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_gwd,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': GWD timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_gwd = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_gwd,    &
                                                             atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -422,7 +422,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_fastphy)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Radiation timestep is not a multiple of advection step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
           &                                                 atm_phy_nwp_config(jg)%dt_fastphy)
       ENDIF
@@ -442,7 +442,7 @@ CONTAINS
         IF (atm_phy_nwp_config(jg)%dt_ccov /= atm_phy_nwp_config(jg)%dt_conv) THEN
           WRITE(message_text,'(a,f7.2,a,f7.2,a)') 'Timesteps for cloud-cover and convection differ. (', &
             &   atm_phy_nwp_config(jg)%dt_ccov,'/', atm_phy_nwp_config(jg)%dt_conv,'). Resetting dt_ccov...'
-          CALL message(TRIM(routine), message_text)
+          CALL message(routine, message_text)
           atm_phy_nwp_config(jg)%dt_ccov = atm_phy_nwp_config(jg)%dt_conv
         ENDIF
       ENDIF
@@ -451,7 +451,7 @@ CONTAINS
       ! cloud cover is called every turbulence time step
       IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
         WRITE(message_text,'(a)') 'EDMF DUALM selected => Resetting dt_ccov to dt_fastphy.'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)% dt_ccov = atm_phy_nwp_config(jg)% dt_fastphy
       ENDIF
 
@@ -460,7 +460,7 @@ CONTAINS
       IF (isModulo(atm_phy_nwp_config(jg)%dt_rad,atm_phy_nwp_config(jg)%dt_ccov)) THEN
         WRITE(message_text,'(a,i2,a)') 'DOM ',jg, &
           &                            ': Radiation timestep is not a multiple of cloud-cover step => rounded up!'
-        CALL message(TRIM(routine), message_text)
+        CALL message(routine, message_text)
         atm_phy_nwp_config(jg)%dt_rad = roundToNextMultiple(atm_phy_nwp_config(jg)%dt_rad,    &
           &                                                 atm_phy_nwp_config(jg)%dt_ccov)
       ENDIF
@@ -511,7 +511,7 @@ CONTAINS
     ! Settings for ozone tuning, depending on option for ozone climatology
     SELECT CASE (irad_o3)
     CASE (7)  ! GEMS climatology
-      CALL message(TRIM(routine), 'Use GEMS ozone climatology with tuning')
+      CALL message(routine, 'Use GEMS ozone climatology with tuning')
       ltuning_ozone     = .TRUE.
       tune_ozone_ztop   = 30000.0_wp
       tune_ozone_zmid2  = 15000.0_wp
@@ -523,7 +523,7 @@ CONTAINS
       tune_ozone_maxinc = 2.e-6_wp ! maximum absolute change of O3 mixing ratio
                                    ! this value is about 12% of the climatological maximum in the tropics
     CASE (79,97) ! Blending between GEMS and MACC climatologies
-      CALL message(TRIM(routine), 'Use blending between GEMS and MACC ozone climatologies with tuning')
+      CALL message(routine, 'Use blending between GEMS and MACC ozone climatologies with tuning')
       ltuning_ozone     = .TRUE.
       IF (atm_phy_nwp_config(jg)%inwp_radiation == 4) THEN
         tune_ozone_ztop   = 29000.0_wp
