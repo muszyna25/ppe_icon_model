@@ -452,7 +452,7 @@ CONTAINS
     ! check if the name string matches the name of the currently
     ! opened interval:
     nlen = MIN(FILENAME_MAX, LEN(name))
-    IF (TRIM(name(1:nlen)) /= TRIM(list%intvl(list%current_idx)%annotation(1:nlen))) THEN
+    IF (name(1:nlen) /= list%intvl(list%current_idx)%annotation(1:nlen)) THEN
       CALL finish(routine, "Internal error: String does not match the currently opened interval!")
     END IF
     ! save current time stamp:
@@ -588,11 +588,11 @@ CONTAINS
       
       CALL ps_define_header(psfile)
       CALL ps_define_routines(psfile)
-      CALL ps_define_constants(psfile, TRIM(title_str))
+      CALL ps_define_constants(psfile, title_str)
       CALL ps_define_prologue(psfile)
       ! loop over all PEs
       DO j=1,SIZE(global_list%pe_names)
-        CALL ps_define_newrow(psfile, TRIM(global_list%pe_names(j)))
+        CALL ps_define_newrow(psfile, global_list%pe_names(j))
         ! loop over all intervals for PE "i":
         start_idx = global_list%start_idx(j)
         end_idx   = global_list%list%nentries
