@@ -25,7 +25,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_run_config,          ONLY: msg_level, timers_level
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: filename_max
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
+  USE mo_impl_constants,      ONLY: max_dom, itconv, itccov,  &
     &                               itrad, itradheat, itsso, itgscp, itsatad,  &
     &                               itturb, itsfc, itgwd, itfastphy,           &
     &                               iphysproc, iphysproc_short, ismag, iedmf,  &
@@ -1154,23 +1154,23 @@ CONTAINS
     TYPE(t_table)   :: table
     INTEGER         :: irow            ! row to fill
     INTEGER         :: i               ! loop index
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: dt_str, dt_str_orig
-    INTEGER                        :: idx_arr(iphysproc_short)
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: proc_names(iphysproc_short)
+    CHARACTER(LEN=64) :: dt_str, dt_str_orig
+    INTEGER, PARAMETER :: idx_arr(iphysproc_short) &
+         = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
+    CHARACTER(LEN=7), PARAMETER :: proc_names(iphysproc_short) &
+      &                     = (/ "fastphy", &
+      &                          "conv   ", &
+      &                          "ccov   ", &
+      &                          "rad    ", &
+      &                          "sso    ", &
+      &                          "gwd    " /)
     !--------------------------------------------------------------------------
 
     ! will only be executed by stdio process
     IF(.NOT. my_process_is_stdio()) RETURN
 
     ! Initialize index-arrax and string-array
-    idx_arr = (/itfastphy,itconv,itccov,itrad,itsso,itgwd/)
     !
-    proc_names(itfastphy) = "fastphy"
-    proc_names(itconv)    = "conv"
-    proc_names(itccov)    = "ccov"
-    proc_names(itrad)     = "rad"
-    proc_names(itsso)     = "sso"
-    proc_names(itgwd)     = "gwd"
 
     ! could this be transformed into a table header?
     write(0,*) "Time intervals for calling NWP physics on patch ", pid
@@ -1188,13 +1188,12 @@ CONTAINS
       IF (atm_phy_nwp_config%lenabled(i)) THEN
         irow=irow+1
         CALL set_table_entry(table,irow,"Process", TRIM(proc_names(i)))
-        WRITE(dt_str,'(f7.2)') dt_phy(i)
         IF (dt_phy(i) /= dt_phy_orig(i)) THEN
-          WRITE(dt_str_orig,'(f7.2)') dt_phy_orig(i)
-          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str_orig)//' => '//TRIM(dt_str))
+          WRITE(dt_str,'(f7.2,a,f7.2)') dt_phy_orig(i), ' => ', dt_phy(i)
         ELSE
-          CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str))
+          WRITE(dt_str,'(f7.2)') dt_phy(i)
         ENDIF
+        CALL set_table_entry(table,irow,"dt user [=> final]", TRIM(dt_str))
       ENDIF
 
     ENDDO
