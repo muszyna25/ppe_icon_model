@@ -3380,18 +3380,16 @@ CONTAINS
       END DO
     END IF
 
-    IF(use_async_name_list_io) THEN
-      DO i = 1, SIZE(output_file)
-        CALL mpi_win_free(output_file(i)%mem_win%mpi_win, ierror)
-          IF (use_dp_mpi2io) THEN
-            CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_dp, ierror)
-          ELSE
-            CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_sp, ierror)
-          END IF
-        CALL mpi_win_free(output_file(i)%mem_win%mpi_win_metainfo, ierror)
-        IF (p_pe_work == 0) CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
-      END DO
-    END IF
+    DO i = 1, SIZE(output_file)
+      CALL mpi_win_free(output_file(i)%mem_win%mpi_win, ierror)
+      IF (use_dp_mpi2io) THEN
+        CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_dp, ierror)
+      ELSE
+        CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_sp, ierror)
+      END IF
+      CALL mpi_win_free(output_file(i)%mem_win%mpi_win_metainfo, ierror)
+      IF (p_pe_work == 0) CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_metainfo_pe0, ierror)
+    END DO
   END SUBROUTINE compute_shutdown_async_io
 #endif
 
