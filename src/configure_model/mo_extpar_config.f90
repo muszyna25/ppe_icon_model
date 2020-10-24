@@ -126,7 +126,7 @@ CONTAINS
     CALL associate_keyword("<idom>",   TRIM(int2string(idom, "(i2.2)")), keywords)
     ! replace keywords in "extpar_filename", which is by default
     ! extpar_filename = "<path>extpar_<gridfile>"
-    result_str = TRIM(with_keywords(keywords, TRIM(extpar_filename)))
+    result_str = with_keywords(keywords, TRIM(extpar_filename))
 
   END FUNCTION generate_filename
 !-----------------------------------------------------------------------
