@@ -429,10 +429,10 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  modname//"::pp_scheduler_init_lonlat"
     INTEGER :: iv, jg, ndom, ierrstat, ivar, i, j, nvars_ll, nblks_lonlat, &
       & ilev_type, max_var, ilev, n_uv_hrz_intp, var_shape(5)
-    LOGICAL                               :: l_horintp, lvar_present
+    LOGICAL                               :: l_horintp
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
-    TYPE(t_var_list_ptr),          POINTER    :: p_opt_diag_list
+    TYPE(t_var_list_ptr),      POINTER    :: p_opt_diag_list
     REAL(wp), POINTER                     :: p_opt_field_r3d(:,:,:)
     INTEGER,  POINTER                     :: p_opt_field_i3d(:,:,:)
     TYPE(t_var), POINTER :: elem, new_elem
@@ -509,16 +509,13 @@ CONTAINS
             IF (varlist(ivar) == ' ')             CYCLE
             IF (is_grid_info_var(varlist(ivar)))  CYCLE
             ! check, if have not yet registered this variable:
-            lvar_present = .FALSE.
             DUPLICATE_LOOP : DO i=1,nvars_ll
               IF ((ll_varlist(i) == varlist(ivar))   .AND. &
                 & (ll_vargrid(i) == p_onl%lonlat_id) .AND. &
                 & (ll_varlevs(i) == ilev_type)) THEN
-                lvar_present = .TRUE.
-                EXIT DUPLICATE_LOOP
+                CYCLE ivar_loop
               END IF
             END DO DUPLICATE_LOOP
-            IF (lvar_present) CYCLE
 
             nvars_ll=nvars_ll+1
             ll_varlist(nvars_ll) = varlist(ivar)
