@@ -980,10 +980,9 @@ CONTAINS
     CHARACTER,    PARAMETER :: init_names(3) = &
       &  (/ 'z', 'p', 'i' /)
     INTEGER                            :: &
-      &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i,      &
+      &  jg, ndom, ibits, ierrstat, ivar, i, isteptype, iv, &
       &  iaxis, vgrid, nlev, nvars_pl, nvars_hl, nvars_il, nvars,   &
-      &  job_type, z_id, p_id, i_id, shape3d(3), datatype_flt,      &
-      &  isteptype, iv
+      &  job_type, shape3d(3), datatype_flt, intp_id
     LOGICAL                            :: &
       &  l_intp_p, l_intp_z, l_intp_i, found, &
       &  l_uv_vertical_intp_z, l_uv_vertical_intp_p, l_uv_vertical_intp_i, &
@@ -1023,12 +1022,7 @@ CONTAINS
          &   il_varlist(ndom*max_var_il), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ! list indices for the vertical interpolation types:
-!CDIR NOIEXPAND
-    z_id = vintp_type_id("Z")
-!CDIR NOIEXPAND
-    p_id = vintp_type_id("P")
-!CDIR NOIEXPAND
-    i_id = vintp_type_id("I")
+    shape3d(1) = nproma
     DOM_LOOP : DO jg=1,ndom
       IF (dbg_level > 8)  CALL message(routine, "DOM "//int2string(jg))
       !-- check if any output name list requests p- or z- or i-level 
@@ -1073,20 +1067,19 @@ CONTAINS
       p_opt_diag_list_i => p_nh_opt_diag(jg)%opt_diag_list_i
       ibits     = DATATYPE_PACK16   ! "entropy" of horizontal slice
       ! predefined array shapes
-      nblks_c   = p_patch(jg)%nblks_c
-      nblks_v   = p_patch(jg)%nblks_v
+      shape3d(3) = p_patch(jg)%nblks_c
       ! add new variable fields for the z/p/i-axis, based on the
       ! meta-data of an existing variable field (which is defined on
       ! model/half levels):
       IF (l_intp_z) THEN
-        shape3d = (/ nproma, nh_pzlev_config(jg)%zlevels%nvalues, nblks_c /)
+        shape3d(2) = nh_pzlev_config(jg)%zlevels%nvalues
         CALL copy_variable("temp", p_nh_state_lists(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_temp, p_opt_diag_list_z)
         CALL copy_variable("pres", p_nh_state_lists(jg)%diag_list, ZA_ALTITUDE, shape3d, &
           &                p_diag_pz%z_pres, p_opt_diag_list_z)
       END IF
       IF (l_intp_p) THEN
-        shape3d = (/ nproma, nh_pzlev_config(jg)%plevels%nvalues, nblks_c /)
+        shape3d(2) = nh_pzlev_config(jg)%plevels%nvalues
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', datatype_flt)
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
@@ -1096,7 +1089,7 @@ CONTAINS
           &                p_diag_pz%p_temp, p_opt_diag_list_p)
       END IF
       IF (l_intp_i) THEN
-        shape3d = (/ nproma, nh_pzlev_config(jg)%ilevels%nvalues, nblks_c /)
+        shape3d(2) = nh_pzlev_config(jg)%ilevels%nvalues
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', datatype_flt)
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
@@ -1159,8 +1152,9 @@ CONTAINS
 
       !-- loop over requested p-, z-, and i-level variables, add variables
       !-- ("add_var") and register interpolation tasks:
-      DO iaxis=1,3
-        IF (iaxis == 1) THEN
+      DO iaxis = 1, 3
+        SELECT CASE(iaxis)
+        CASE(1)
           prefix  =  "z-level"
           varlist => hl_varlist
           nvars   =  nvars_hl
@@ -1169,8 +1163,9 @@ CONTAINS
           p_opt_diag_list => p_opt_diag_list_z
           job_type = TASK_INTP_VER_ZLEV
           l_uv_vertical_intp = l_uv_vertical_intp_z
-        END IF
-        IF (iaxis == 2) THEN
+!CDIR NOIEXPAND
+          intp_id = vintp_type_id("Z")
+        CASE(2)
           prefix  =  "p-level"
           varlist => pl_varlist
           nvars   =  nvars_pl
@@ -1179,8 +1174,9 @@ CONTAINS
           p_opt_diag_list => p_opt_diag_list_p
           job_type = TASK_INTP_VER_PLEV
           l_uv_vertical_intp = l_uv_vertical_intp_p
-        END IF
-        IF (iaxis == 3) THEN
+!CDIR NOIEXPAND
+          intp_id = vintp_type_id("P")
+        CASE(3)
           prefix  =  "i-level"
           varlist => il_varlist
           nvars   =  nvars_il
@@ -1189,18 +1185,19 @@ CONTAINS
           p_opt_diag_list => p_opt_diag_list_i
           job_type = TASK_INTP_VER_ILEV
           l_uv_vertical_intp = l_uv_vertical_intp_i
-        END IF
-
+!CDIR NOIEXPAND
+          intp_id = vintp_type_id("I")
+        END SELECT
+        shape3d(2) = nlev
         !-- if "u", "v" appear in the variable list...
-        IF (l_uv_vertical_intp) THEN
+        IF (l_uv_vertical_intp) &
           ! for each time level, create a new z/p/i-variable "vn",
           ! create new cell-based variables "u", "v" on the same
           ! vertical axis, create a post-processing task for vertical
           ! interpolation of "vn", create a post-processing task for
           ! edge2cell interpolation "vn" -> "u","v":
-          CALL init_vn_vertical(jg, job_type, prefix, l_init_prm_diag, &
+          & CALL init_vn_vertical(jg, job_type, prefix, l_init_prm_diag, &
             &                   nlev, vgrid, p_opt_diag_list)
-        END IF
 
         DO ivar=1,nvars
           IF (dbg_level > 8) &
@@ -1220,7 +1217,7 @@ CONTAINS
             IF (vl_iter%cur%p%patch_id /= jg) CYCLE
 
             DO iv = 1, vl_iter%cur%p%nvars
-              elem => vl_iter%cur%p%vl(iv)%p
+              elem     => vl_iter%cur%p%vl(iv)%p
               info     => elem%info
               info_dyn => elem%info_dyn
               ! Do not inspect element if it is a container
@@ -1228,34 +1225,19 @@ CONTAINS
               ! Do not inspect element if "loutput=.false."
               IF (.NOT. info%loutput) CYCLE
               ! Inspect element only if vertical interpolation matches
-              IF (iaxis == 1) THEN
-                IF (.NOT. info%vert_interp%vert_intp_type(z_id)) CYCLE
-              ELSE IF (iaxis == 2) THEN
-                IF (.NOT. info%vert_interp%vert_intp_type(p_id)) CYCLE
-              ELSE IF (iaxis == 3) THEN
-                IF (.NOT. info%vert_interp%vert_intp_type(i_id)) CYCLE
-              END IF
+              IF (.NOT. info%vert_interp%vert_intp_type(intp_id)) CYCLE
               ! Check for matching name (take care of suffix of
               ! time-dependent variables):
               IF (TRIM(varlist(ivar)) /= tolower(get_var_name(info))) CYCLE
               ! Found it, add it to the variable list of optional
               ! diagnostics
-              IF ( (info%used_dimensions(1) /= nproma)  .OR.   &
-                &  ((info%used_dimensions(3) /= nblks_c) .AND. &
-                &   (info%used_dimensions(3) /= nblks_v)) ) THEN
-                CALL finish(routine, "Unexpected field size!")
-              END IF
-              ! Note: Even vertex-based variables are interpolated
-              ! onto a cell-based variable, since we interpolate the
-              ! vertex-based vars to cell-based vars first:
-              shape3d  = (/ info%used_dimensions(1), nlev, nblks_c /)
 
+              IF (ANY(info%used_dimensions(1:3:2) .NE. shape3d(1:3:2))) &
+                & CALL finish(routine, "Unexpected field size!")
               ! fields interpolated to pressure levels are time
               ! dependent, rather than constant in time:
-              isteptype = info%isteptype
-              IF ((isteptype==TSTEP_CONSTANT) .AND. (l_intp_p .OR. l_intp_i)) THEN
-                isteptype=TSTEP_INSTANT
-              END IF
+              isteptype = MERGE(TSTEP_INSTANT, info%isteptype, &
+                & info%isteptype .EQ. TSTEP_CONSTANT .AND. (l_intp_p .OR. l_intp_i))
 
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,    &
                 &           info%hgrid, vgrid, info%cf, info%grib2,         &
@@ -1280,7 +1262,7 @@ CONTAINS
               task%job_type                    =  job_type
               task%activity                    =  new_activity_status(l_output_step=.TRUE.)
               task%activity%check_dom_active   =  .TRUE.
-              task%activity%i_timelevel        =  get_var_timelevel(elem%info%name)
+              task%activity%i_timelevel        =  get_var_timelevel(info%name)
               task%data_input%jg               =  jg 
               task%data_input%p_patch          => p_patch(jg)          
               task%data_input%p_int_state      => p_int_state(jg)
@@ -1290,7 +1272,7 @@ CONTAINS
               IF (l_init_prm_diag) THEN
                 task%data_input%prm_diag       => prm_diag(jg)
               ELSE
-                task%data_input%prm_diag       => NULL() 
+                task%data_input%prm_diag       => NULL()
               END IF
               task%data_input%var  => elem       ! set input variable
               task%data_output%var => new_elem   ! set output variable
