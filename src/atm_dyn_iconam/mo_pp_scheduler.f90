@@ -749,7 +749,7 @@ CONTAINS
     INTEGER, INTENT(IN)      :: max_var                         !< maximum no. of variables
     INTEGER, INTENT(OUT)     :: nvars                           !< actual no. of variables
     LOGICAL, INTENT(OUT)     :: l_intp                          !< Flag. .FALSE. if there is no variable
-    CHARACTER(LEN=vname_len), INTENT(INOUT) :: var_names(:)     !< list of variable names (strings)
+    CHARACTER(LEN=vname_len), INTENT(OUT) :: var_names(:)     !< list of variable names (strings)
     LOGICAL, INTENT(OUT)     :: l_uv_vertical_intp              !< Flag. .TRUE., if "u" or "v" contained
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  modname//"::collect_output_variables"
