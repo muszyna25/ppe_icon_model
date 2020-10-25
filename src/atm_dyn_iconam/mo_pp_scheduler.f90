@@ -194,7 +194,7 @@ MODULE mo_pp_scheduler
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var, grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
-    &                                   difference, toupper, tolower
+    &                                   difference, tolower
   USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
     &                                   GRID_UNSTRUCTURED,TSTEP_INSTANT, TSTEP_CONSTANT
   USE mo_zaxis_type,              ONLY: ZA_ALTITUDE, ZA_PRESSURE, ZA_ISENTROPIC, zaxisTypeList
@@ -742,10 +742,10 @@ CONTAINS
   !---------------------------------------------------------------
   !> (Internal) Utility routine, collecting variable names from output
   !  namelist.
-  SUBROUTINE collect_output_variables(jg, vintp_name, max_var, &
-    &                                 nvars, l_intp, var_names, l_uv_vertical_intp)
+  SUBROUTINE collect_output_variables(jg, vintp, max_var, nvars, &
+    &                                 l_intp, var_names, l_uv_vertical_intp)
     INTEGER, INTENT(IN)      :: jg                              !< current domain
-    CHARACTER(LEN=*), INTENT(IN) :: vintp_name                  !< "P", "Z", "I"
+    INTEGER, INTENT(IN) :: vintp                  !< level_type_{pl|hl|il}
     INTEGER, INTENT(IN)      :: max_var                         !< maximum no. of variables
     INTEGER, INTENT(OUT)     :: nvars                           !< actual no. of variables
     LOGICAL, INTENT(OUT)     :: l_intp                          !< Flag. .FALSE. if there is no variable
@@ -762,17 +762,16 @@ CONTAINS
     p_onl => first_output_name_list
     nvars = 0
     l_intp = .FALSE.
-    NML_LOOP : DO
-      IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP
-      SELECT CASE (TRIM(toupper(vintp_name)))
-      CASE ("Z")
+    IF (.NOT.ANY(vintp .EQ. [level_type_hl, level_type_pl, level_type_il])) &
+      & CALL finish(routine, "Internal error!")
+    NML_LOOP : DO WHILE (ASSOCIATED(p_onl))
+      SELECT CASE (vintp)
+      CASE (level_type_hl)
         nml_varlist => p_onl%hl_varlist
-      CASE ("P")
+      CASE (level_type_pl)
         nml_varlist => p_onl%pl_varlist
-      CASE ("I")
+      CASE (level_type_il)
         nml_varlist => p_onl%il_varlist
-      CASE DEFAULT
-        CALL finish(routine, "Internal error!")
       END SELECT
 
       IF (dbg_level >= 21)  WRITE (0,*) nml_varlist 
@@ -1035,13 +1034,13 @@ CONTAINS
       !-- check if any output name list requests p- or z- or i-level 
       !-- interpolation for this domain, collect the list of variables
       ! loop in search of pressure-level interpolation      
-      CALL collect_output_variables(jg, "P", max_var_pl, &                                ! in
+      CALL collect_output_variables(jg, level_type_pl, max_var_pl, &                      ! in
         &                           nvars_pl, l_intp_p, pl_varlist, l_uv_vertical_intp_p) ! out
       ! loop in search of height-level interpolation
-      CALL collect_output_variables(jg, "Z", max_var_hl, &                                ! in
+      CALL collect_output_variables(jg, level_type_hl, max_var_hl, &                      ! in
         &                           nvars_hl, l_intp_z, hl_varlist, l_uv_vertical_intp_z) ! out
       ! loop in search of i-level interpolation
-      CALL collect_output_variables(jg, "I", max_var_il, &                                ! in
+      CALL collect_output_variables(jg, level_type_il, max_var_il, &                      ! in
         &                           nvars_il, l_intp_i, il_varlist, l_uv_vertical_intp_i) ! out
       ! now, we have total variables lists "hl_varlist(1:nvars_hl)"
       ! and "pl_varlist(1:nvars_pl)" and "il_varlist(1:nvars_il)"
