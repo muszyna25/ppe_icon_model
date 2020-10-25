@@ -578,7 +578,6 @@ CONTAINS
     INTEGER                               :: &
       &  ndom, ierrstat, ivar, i, j, nvars_ll, &
       &  ilev_type, max_var, ilev, n_uv_hrz_intp
-    LOGICAL                               :: lvar_present
     TYPE (t_output_name_list), POINTER    :: p_onl
     TYPE(t_job_queue),         POINTER    :: task
     CHARACTER(LEN=vname_len),  POINTER    :: varlist(:)
@@ -646,16 +645,13 @@ CONTAINS
             IF (varlist(ivar) == ' ')             CYCLE
             IF (is_grid_info_var(varlist(ivar)))  CYCLE
             ! check, if have not yet registered this variable:
-            lvar_present = .FALSE.
             DUPLICATE_LOOP : DO i=1,nvars_ll
               IF ((ll_varlist(i) == varlist(ivar))   .AND. &
                 & (ll_vargrid(i) == p_onl%lonlat_id) .AND. &
                 & (ll_varlevs(i) == ilev_type)) THEN
-                lvar_present = .TRUE.
-                EXIT DUPLICATE_LOOP
+                CYCLE ivar_loop
               END IF
             END DO DUPLICATE_LOOP
-            IF (lvar_present) CYCLE
 
             nvars_ll=nvars_ll+1
             ll_varlist(nvars_ll) = varlist(ivar)
