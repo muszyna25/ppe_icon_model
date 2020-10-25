@@ -187,7 +187,8 @@ MODULE mo_pp_scheduler
   USE mo_nwp_phy_state,           ONLY: prm_diag
   USE mo_nh_pzlev_config,         ONLY: nh_pzlev_config
   USE mo_name_list_output_config, ONLY: first_output_name_list
-  USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var
+  USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var, &
+    &                                   remap_regular_latlon
   USE mo_parallel_config,         ONLY: nproma
   USE mo_io_config,               ONLY: lnetcdf_flt64_output
   USE mo_cf_convention,           ONLY: t_cf_var
@@ -502,7 +503,7 @@ CONTAINS
       
         ! Selection criterion: 
         ! - lon-lat interpolation is requested
-        IF (p_onl%remap == 1) THEN
+        IF (p_onl%remap == remap_regular_latlon) THEN
 
           ivar_loop: DO ivar=1,max_var
             IF (varlist(ivar) == ' ')             CYCLE
