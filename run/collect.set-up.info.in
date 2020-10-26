@@ -46,7 +46,7 @@ case "$use_host" in
   daint*|tave*|santis*|kesch*) use_site=cscs.ch ;;
   ic2*|uc1*|fh2*) use_site=kit.edu ;;
   xc*|rcnl*|oflws*) use_site=dwd.de ;;
-  mpipc*mpimet.mpg.de|breeze*mpimet.mpg.de) use_site=mpg.de ;;
+  mpipc*mpimet.mpg.de|schefflera*mpimet.mpg.de|breeze*mpimet.mpg.de) use_site=mpg.de ;;
   *) use_site='local.net' ;;
 esac
 test x"$ICON_DOCKER" = x1 && use_site=docker
