@@ -273,7 +273,7 @@ SUBROUTINE cloudice (             &
   !xxx: this should become a module variable, e.g. in a new module mo_gscp_data.f90
   qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
 #endif
-  prr_gsp,prs_gsp,                   & !! surface precipitation rates
+  prr_gsp,prs_gsp,pri_gsp,           & !! surface precipitation rates
 #ifdef __COSMO__
   tinc_lh,                           & !  t-increment due to latent heat 
   pstoph,                            & !  stochastic multiplier of physics tendencies
@@ -368,6 +368,7 @@ SUBROUTINE cloudice (             &
   REAL(KIND=wp), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp,             & !! precipitation rate of snow, grid-scale        (kg/(m2*s))
+    pri_gsp,             & !! precipitation rate of cloud ice, grid-scale   (kg/(m2*s))
     qnc                    !! cloud number concentration
 
   REAL(KIND=wp), DIMENSION(:,:), INTENT(INOUT), OPTIONAL ::   &     ! dim (ie,ke)
@@ -621,6 +622,7 @@ SUBROUTINE cloudice (             &
 ! Delete precipitation fluxes from previous timestep
     prr_gsp (:) = 0.0_wp
     prs_gsp (:) = 0.0_wp
+    pri_gsp (:) = 0.0_wp
     zpkr    (:) = 0.0_wp
     zpks    (:) = 0.0_wp
     zpki    (:) = 0.0_wp
@@ -1483,7 +1485,8 @@ SUBROUTINE cloudice (             &
           ! Precipitation fluxes at the ground
           prr_gsp(iv) = 0.5_wp * (qrg*rhog*zvzr(iv) + zpkr(iv))
           IF (lsedi_ice .OR. lorig_icon) THEN
-            prs_gsp(iv) = 0.5_wp * (rhog*(qsg*zvzs(iv)+qig*zvzi(iv)) + zpks(iv)+zpki(iv))
+            prs_gsp(iv) = 0.5_wp * (rhog*qsg*zvzs(iv) + zpks(iv))
+            pri_gsp(iv) = 0.5_wp * (rhog*qig*zvzi(iv) + zpki(iv))
           ELSE
             prs_gsp(iv) = 0.5_wp * (qsg*rhog*zvzs(iv) + zpks(iv))
           END IF

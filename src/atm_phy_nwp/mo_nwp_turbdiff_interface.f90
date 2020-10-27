@@ -868,6 +868,12 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
     DO jk = 1, nlev
 !DIR$ IVDEP
       DO jc = i_startidx, i_endidx
+      
+        prm_nwp_tend%ddt_u_turb(jc,jk,jb) = &
+          SIGN(MIN(0.1_wp,ABS(prm_nwp_tend%ddt_u_turb(jc,jk,jb))),prm_nwp_tend%ddt_u_turb(jc,jk,jb))
+        prm_nwp_tend%ddt_v_turb(jc,jk,jb) = &
+          SIGN(MIN(0.1_wp,ABS(prm_nwp_tend%ddt_v_turb(jc,jk,jb))),prm_nwp_tend%ddt_v_turb(jc,jk,jb))
+
         p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
              &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
         p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &

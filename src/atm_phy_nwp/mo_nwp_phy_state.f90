@@ -393,18 +393,24 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     __acc_attach(diag%graupel_gsp_rate)
     ENDIF
 
-    !For two moment microphysics
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (4,5,6,7)
+    CASE (1,2,4,5,6,7)
 
        ! &      diag%ice_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp_rate', 'kg m-2 s-1', 'gridscale ice rate', &
         &                   datatype_flt)
+      ! Note (GZ): the current grib encoding pertains to ice pellets and is thus inappropriate
       grib2_desc = grib2_var(0, 1, 68, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'ice_gsp_rate', diag%ice_gsp_rate,              &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, isteptype=TSTEP_INSTANT )
-      
+                  & ldims=shape2d, isteptype=TSTEP_INSTANT, lopenacc=.TRUE.  )
+      __acc_attach(diag%ice_gsp_rate)
+    END SELECT
+
+    !For two moment microphysics
+    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
+    CASE (4,5,6,7)
+
        ! &      diag%hail_gsp_rate(nproma,nblks_c)
       cf_desc    = t_cf_var('hail_gsp_rate', 'kg m-2 s-1', 'gridscale hail rate', &
         &                   datatype_flt)
@@ -556,14 +562,16 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
     ENDIF
 
     SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
-    CASE (4,5,6,7)
+    CASE (1,2,4,5,6,7)
 
        ! &      diag%ice_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('ice_gsp', 'kg m-2', 'gridscale ice', datatype_flt)
+      ! Note (GZ): the current grib encoding pertains to ice pellets and is thus inappropriate
       grib2_desc = grib2_var(0, 1, 68, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, 'ice_gsp', diag%ice_gsp,                        &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,   &
-                  & ldims=shape2d, in_group=groups("precip_vars"),             &
+                  & ldims=shape2d,                                             &
+             !!!  & in_group=groups("precip_vars"), !! GZ: removed from group until correct grib encoding is available
                   & isteptype=TSTEP_ACCUM,                                     &
                   & hor_interp=create_hor_interp_metadata(                     &
                   &    hor_intp_type=HINTP_TYPE_LONLAT_BCTR,                   &
@@ -572,7 +580,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,    &
                   & action_list=actions(new_action(ACTION_RESET,precip_interval(k_jg))), &
                   & lopenacc=.TRUE. )
     __acc_attach(diag%ice_gsp)
-      
+    END SELECT
+
+    SELECT CASE (atm_phy_nwp_config(k_jg)%inwp_gscp)
+    CASE (4,5,6,7)
 
        ! &      diag%hail_gsp(nproma,nblks_c)
       cf_desc    = t_cf_var('hail_gsp', 'kg m-2', 'gridscale hail', datatype_flt)
