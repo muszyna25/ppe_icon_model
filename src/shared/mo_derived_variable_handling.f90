@@ -489,10 +489,10 @@ CONTAINS
     get_real_varname = mean_varname(1:INDEX(mean_varname,separator)-1)
   END FUNCTION get_real_varname
  
-  SUBROUTINE process_mvstream(p_onl,i_typ, sim_step_info, patch_2d, &
+  SUBROUTINE process_mvstream(p_onl, in_varlist, sim_step_info, patch_2d, &
            & stat, operation)
-    TYPE (t_output_name_list), target  :: p_onl
-    INTEGER                            :: i_typ
+    TYPE (t_output_name_list) :: p_onl
+    CHARACTER(LEN=vname_len), INTENT(inout) :: in_varlist(:)
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE(t_patch), INTENT(IN)          :: patch_2d
 
@@ -500,7 +500,6 @@ CONTAINS
     CHARACTER(len=*), intent(in) :: operation
 
     !-----------------------------------------------------------------------------
-    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat
     INTEGER :: timelevel, timelevels(3)
     TYPE(vector_ref) :: statisticVariables, prognosticVariables
@@ -529,11 +528,6 @@ CONTAINS
       ! temporary variables needed for variable group parsing
       ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
-      IF (i_typ == level_type_ml) in_varlist => p_onl%ml_varlist
-      IF (i_typ == level_type_pl) in_varlist => p_onl%pl_varlist
-      IF (i_typ == level_type_hl) in_varlist => p_onl%hl_varlist
-      IF (i_typ == level_type_il) in_varlist => p_onl%il_varlist
 
       ! count variables {{{
       output_variables = 0
@@ -635,16 +629,20 @@ CONTAINS
 #endif
 
   END SUBROUTINE process_mvstream
-  SUBROUTINE process_statistics_stream(p_onl, i_typ, sim_step_info, patch_2d)
-    TYPE (t_output_name_list), target  :: p_onl
-    INTEGER                            :: i_typ
+  SUBROUTINE process_statistics_stream(p_onl, in_varlist, sim_step_info, &
+    &                                  patch_2d)
+    TYPE (t_output_name_list), TARGET  :: p_onl
+    CHARACTER(LEN=vname_len), INTENT(inout) :: in_varlist(:)
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE(t_patch), INTENT(IN)          :: patch_2d
 
-    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, stt_mean, MEAN)
-    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, stt_max, MAX)
-    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, stt_min, MIN)
-    CALL process_mvstream(p_onl,i_typ,sim_step_info, patch_2d, stt_square, &
+    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_mean, &
+      &                   MEAN)
+    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_max, &
+      &                   MAX)
+    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_min, &
+      &                   MIN)
+    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_square,&
       &                   SQUARE)
   END SUBROUTINE process_statistics_stream
 
