@@ -61,6 +61,7 @@ MODULE mo_sync_restart
   USE mo_restart_util,              ONLY: t_restart_args
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_restart, timer_write_restart_io, &
                                         & timer_write_restart_communication, timers_level
+  USE mo_sync_restart_patch_data,   ONLY: t_syncPatchData
 
   IMPLICIT NONE
 
@@ -97,11 +98,10 @@ CONTAINS
       CALL timer_stop(timer_write_restart_communication)
     END IF
     me%modelType = modelType
-    ALLOCATE(me%sPatchData(n_dom), STAT = error)
+    ALLOCATE(t_SyncPatchData :: me%patchData(n_dom), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    me%patchData => me%sPatchData
     DO jg = 1, n_dom
-      CALL me%sPatchData(jg)%construct(modelType, jg)
+      CALL me%patchData(jg)%construct(modelType, jg)
     END DO
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE syncRestartDescriptor_construct
@@ -116,7 +116,7 @@ CONTAINS
 
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)
     DO jg = 1, n_dom
-      CALL me%sPatchData(jg)%description%setTimeLevels() !update the time levels
+      CALL me%patchData(jg)%description%setTimeLevels() !update the time levels
     END DO
     CALL restartArgs%construct(this_datetime, jstep, me%modelType, opt_output_jfile)
     CALL me%writeFiles(restartArgs, isSync=.true.)
@@ -129,10 +129,11 @@ CONTAINS
     INTEGER :: i
 
     IF(timers_level >= 5) CALL timer_start(timer_write_restart)
-    IF (ALLOCATED(me%sPatchData)) THEN
-      DO i = 1, SIZE(me%sPatchData, 1)
-        CALL me%sPatchData(i)%destruct()
+    IF (ALLOCATED(me%patchData)) THEN
+      DO i = 1, SIZE(me%patchData, 1)
+        CALL me%patchData(i)%destruct()
       END DO
+      DEALLOCATE(me%patchData)
     END IF
     IF(timers_level >= 5) CALL timer_stop(timer_write_restart)
   END SUBROUTINE syncRestartDescriptor_destruct

@@ -86,7 +86,7 @@ CONTAINS
   SUBROUTINE syncPatchData_destruct(me)
     CLASS(t_SyncPatchData), INTENT(INOUT) :: me
 
-    IF (ALLOCATED(me%varData)) DEALLOCATE(me%varData)
+    IF(ALLOCATED(me%varData)) DEALLOCATE(me%varData)
   END  SUBROUTINE syncPatchData_destruct
 
   SUBROUTINE syncPatchData_construct(me, modelType, jg)
