@@ -490,14 +490,13 @@ CONTAINS
   END FUNCTION get_real_varname
  
   SUBROUTINE process_mvstream(p_onl, in_varlist, sim_step_info, patch_2d, &
-           & stat, operation)
+           & stat)
     TYPE (t_output_name_list) :: p_onl
     CHARACTER(LEN=vname_len), INTENT(inout) :: in_varlist(:)
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE(t_patch), INTENT(IN)          :: patch_2d
 
     TYPE(stat_state), INTENT(inout) :: stat
-    CHARACTER(len=*), intent(in) :: operation
 
     !-----------------------------------------------------------------------------
     INTEGER :: ntotal_vars, output_variables,i,ierrstat
@@ -517,109 +516,102 @@ CONTAINS
     IF (my_process_is_stdio()) CALL print_routine(routine,'start')
 #endif
 
-    IF (operation .EQ. p_onl%operation) THEN
+#ifdef DEBUG_MVSTREAM
+    IF (my_process_is_stdio()) CALL print_routine(routine,'found "'//TRIM(p_onl%operation)//'" operation')
+#endif
+    CALL statStreamCrossCheck(p_onl)
+
+    ntotal_vars = total_number_of_variables()
+    ! temporary variables needed for variable group parsing
+    ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    ! count variables {{{
+    output_variables = 0
+    DO WHILE (in_varlist(output_variables+1) /= ' ')
+      output_variables = output_variables + 1
+    END DO
+
+    IF (output_variables > 0)  varlist(1:output_variables) = in_varlist(1:output_variables)
+    varlist((output_variables+1):ntotal_vars) = " "
+    ! }}}
+
+    ! uniq identifier for an event based on output start/end/interval
+    eventKey = get_event_key(p_onl)
+    ! this has the advantage that we can compute a uniq id without creating
+    ! the event itself
 
 #ifdef DEBUG_MVSTREAM
-      IF (my_process_is_stdio()) CALL print_routine(routine,'found "'//trim(operation)//'" operation')
+    IF (my_process_is_stdio()) CALL print_summary('eventKey:'//TRIM(eventKey))
 #endif
-      CALL statStreamCrossCheck(p_onl)
 
-      ntotal_vars = total_number_of_variables()
-      ! temporary variables needed for variable group parsing
-      ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ! fill main dictionary of variables for different events
+    CALL setup_statistics_events_and_lists(stat%Map, &
+         & eventKey, &
+         & statisticVariables, &
+         & stat%Events, &
+         & stat%Events_Activity, &
+         & p_onl)
 
-      ! count variables {{{
-      output_variables = 0
-      DO WHILE (in_varlist(output_variables+1) /= ' ')
-        output_variables = output_variables + 1
-      END DO
+    ! create adhoc copies of all variables for later accumulation
+    !
+    ! varlist MUST by a list of add_var-identifiers, i.e. the given name
+    DO i=1, output_variables
+      ! collect data variables only
+      ! variables names like 'grid:clon' which should be excluded
+      IF ( INDEX(varlist(i),':') > 0) CYCLE
 
-      IF (output_variables > 0)  varlist(1:output_variables) = in_varlist(1:output_variables)
-      varlist((output_variables+1):ntotal_vars) = " "
-      ! }}}
+      ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
+      ! names consist of original spot-value names PLUS event information (start + interval of output)
+      ! TODO: unify with eventKey definition if possible
+      dest_element_name = get_statistics_varname(varlist(i),p_onl)
+      dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
+#ifdef DEBUG_MVSTREAM
+      IF (my_process_is_stdio()) CALL print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.TRUE.)
+#endif
+      IF (.NOT. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
+        ! find existing source variable on all possible ICON grids with the identical name
+        CALL find_src_element(src_element, varlist(i), dest_element_name, p_onl%dom, src_list, &
+             & stat%Prognostics, stat%prognostic_pointers)
+        ! avoid mean processing for instantaneous fields
+        IF (TSTEP_CONSTANT .EQ. src_element%field%info%isteptype) CYCLE
 
-      ! uniq identifier for an event based on output start/end/interval
-      eventKey = get_event_key(p_onl)
-      ! this has the advantage that we can compute a uniq id without creating
-      ! the event itself
+        ! add new mean variable, copy the meta-data from the existing variable
+        ! 1. copy the source variable to destination pointer
+        dest_element => copy_var_to_list(src_list,dest_element_name,src_element, patch_2d)
 
 #ifdef DEBUG_MVSTREAM
-      IF (my_process_is_stdio()) CALL print_summary('eventKey:'//trim(eventKey))
+        CALL print_src_dest_info(src_element, dest_element, dest_element_name, in_varlist, i)
 #endif
 
-      ! fill main dictionary of variables for different events
-       CALL setup_statistics_events_and_lists(stat%Map, &
-                                           & eventKey, &
-                                           & statisticVariables, &
-                                           & stat%Events, &
-                                           & stat%Events_Activity, &
-                                           & p_onl)
+        ! set output to double precission if necessary
+        dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
-      ! create adhoc copies of all variables for later accumulation
-      !
-      ! varlist MUST by a list of add_var-identifiers, i.e. the given name
-      DO i=1, output_variables
-        ! collect data variables only
-        ! variables names like 'grid:clon' which should be excluded
-        IF ( INDEX(varlist(i),':') > 0) CYCLE
+        ! 2. update the nc-shortname to internal name of the source variable unless it is already set by the user
+        IF("" == dest_element%field%info%cf%short_name) dest_element%field%info%cf%short_name = get_var_name(src_element%field)
 
-        ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
-        ! names consist of original spot-value names PLUS event information (start + interval of output)
-        ! TODO: unify with eventKey definition if possible
-        dest_element_name = get_statistics_varname(varlist(i),p_onl)
-        dest_element => find_element(trim(dest_element_name),opt_patch_id=p_onl%dom)
-#ifdef DEBUG_MVSTREAM
-        IF (my_process_is_stdio()) CALL print_summary('destination variable NAME:'//TRIM(dest_element_name),stderr=.true.)
-#endif
-        IF (.NOT. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
-          ! find existing source variable on all possible ICON grids with the identical name
-          CALL find_src_element(src_element, varlist(i), dest_element_name, p_onl%dom, src_list, &
-            & stat%Prognostics, stat%prognostic_pointers)
-          ! avoid mean processing for instantaneous fields
-          IF (TSTEP_CONSTANT .eq. src_element%field%info%isteptype) CYCLE
-
-          ! add new mean variable, copy the meta-data from the existing variable
-          ! 1. copy the source variable to destination pointer
-          dest_element => copy_var_to_list(src_list,dest_element_name,src_element, patch_2d)
-
-#ifdef DEBUG_MVSTREAM
-          CALL print_src_dest_info(src_element, dest_element, dest_element_name, in_varlist, i)
-#endif
-
-          ! set output to double precission if necessary
-          dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
-
-          ! 2. update the nc-shortname to internal name of the source variable unless it is already set by the user
-          IF("" == dest_element%field%info%cf%short_name) dest_element%field%info%cf%short_name = get_var_name(src_element%field)
-
-          ! Collect variable pointers for source and destination in the same list {{{
-          CALL statisticVariables%add(src_element)
-          CALL statisticVariables%add(dest_element)
-          ! collect the counter for each destination in a separate list
-          CALL stat%var_counter%add(dest_element%field%info%name,0)
+        ! Collect variable pointers for source and destination in the same list {{{
+        CALL statisticVariables%add(src_element)
+        CALL statisticVariables%add(dest_element)
+        ! collect the counter for each destination in a separate list
+        CALL stat%var_counter%add(dest_element%field%info%name,0)
 
         ! replace existince varname in output_nml with the meanStream Variable
 #ifdef DEBUG_MVSTREAM
-          IF ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|',&
-              & stderr=.true.)
-          IF ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|',&
-              & stderr=.true.)
+        IF ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//TRIM(dest_element%field%info%name)//'|',&
+             & stderr=.true.)
+        IF ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//TRIM(dest_element%field%info%cf%short_name)//'|',&
+             & stderr=.true.)
 #endif
-        END IF
-        in_varlist(i) = dest_element%field%info%name
-      END DO
-      CALL stat%Map%add(eventKey,statisticVariables)
+      END IF
+      in_varlist(i) = dest_element%field%info%name
+    END DO
+    CALL stat%Map%add(eventKey,statisticVariables)
 #ifdef DEBUG_MVSTREAM
-      IF (my_process_is_stdio()) CALL print_error(routine//": stat%Prognostics%to_string()")
-      IF (my_process_is_stdio()) CALL print_error(stat%Prognostics%to_string())
+    IF (my_process_is_stdio()) CALL print_error(routine//": stat%Prognostics%to_string()")
+    IF (my_process_is_stdio()) CALL print_error(stat%Prognostics%to_string())
 #endif
-      DEALLOCATE(varlist)
-    ELSE
-#ifdef DEBUG_MVSTREAM
-      IF (my_process_is_stdio()) CALL print_routine(routine,'NO "statistic" operation found')
-#endif
-    END IF
+    DEALLOCATE(varlist)
 
 #ifdef DEBUG_MVSTREAM
     IF (my_process_is_stdio()) THEN
@@ -636,14 +628,24 @@ CONTAINS
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
     TYPE(t_patch), INTENT(IN)          :: patch_2d
 
-    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_mean, &
-      &                   MEAN)
-    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_max, &
-      &                   MAX)
-    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_min, &
-      &                   MIN)
-    CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, stt_square,&
-      &                   SQUARE)
+    SELECT CASE (p_onl%operation)
+    CASE (mean)
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+        &                   stt_mean)
+    CASE (max)
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+        &                   stt_max)
+    CASE (min)
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+        &                   stt_min)
+    CASE (square)
+      CALL process_mvstream(p_onl,in_varlist,sim_step_info, patch_2d, &
+           &                stt_square)
+    CASE default
+#ifdef DEBUG_MVSTREAM
+      IF (my_process_is_stdio()) CALL print_routine(routine,'NO "statistic" operation found')
+#endif
+    END SELECT
   END SUBROUTINE process_statistics_stream
 
   ! methods needed for update statistics each timestep
