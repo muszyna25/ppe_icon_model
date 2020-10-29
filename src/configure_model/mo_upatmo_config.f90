@@ -195,7 +195,6 @@ CONTAINS !......................................................................
     &                          model_base_dir,         & !in
     &                          msg_level,              & !in
     &                          timers_level,           & !in
-    &                          first_output_name_list, & !in
     &                          vct_a                   ) !(opt)in
 
     ! In/out variables
@@ -224,7 +223,6 @@ CONTAINS !......................................................................
     CHARACTER(LEN=*),   INTENT(IN) :: model_base_dir         ! Path for input files
     INTEGER,            INTENT(IN) :: msg_level              ! Message level
     INTEGER,            INTENT(IN) :: timers_level           ! Control parameter for timer
-    TYPE(t_output_name_list), POINTER :: first_output_name_list  ! Pointer to a linked list of output name lists
     REAL(wp), OPTIONAL, INTENT(IN) :: vct_a(:)               ! (nlev+1) Nominal heights of grid layer interfaces
 
     ! Local variables
@@ -370,7 +368,6 @@ CONTAINS !......................................................................
         &                            yr_perp                 = yr_perp(jg_aux),                      & !in
         &                            nlev                    = nlev,                                 & !in
         &                            nshift_total            = nshift_total,                         & !in
-        &                            first_output_name_list  = first_output_name_list,               & !in
         &                            tc_exp_startdate        = tc_exp_startdate,                     & !in
         &                            tc_exp_stopdate         = tc_exp_stopdate,                      & !in
         &                            start_time              = start_time(jg_aux),                   & !in
@@ -855,8 +852,7 @@ CONTAINS !......................................................................
     &                      nh_test_name,          & !in
     &                      init_mode,             & !in
     &                      inwp_turb,             & !in
-    &                      inwp_radiation,        & !in
-    &                      first_output_name_list ) !in
+    &                      inwp_radiation)          !in
 
     ! In/out variables
     INTEGER,                               INTENT(IN)    :: n_dom_start            ! Start index of domains
@@ -881,8 +877,6 @@ CONTAINS !......................................................................
     INTEGER,                               INTENT(IN)    :: init_mode              ! Initialization mode 
     INTEGER,                               INTENT(IN)    :: inwp_turb(:)           ! Switch for turbulence scheme (NWP)
     INTEGER,                               INTENT(IN)    :: inwp_radiation(:)      ! Switch for radiation scheme (NWP)
-    TYPE(t_output_name_list),              POINTER       :: first_output_name_list ! Pointer to a linked list 
-                                                                                   ! of output name lists
 
     ! Local variables
     INTEGER :: jg, istat
@@ -991,7 +985,7 @@ CONTAINS !......................................................................
 
       ! ... the computation of the output variable 'potential vorticity' is not modified 
       ! for the deep atmosphere for the time being
-      IF (is_variable_in_output(first_output_name_list, var_name="pv")) THEN
+      IF (is_variable_in_output(var_name="pv")) THEN
         CALL message(routine,'WARNING, PV-computation is not modified for deep atmosphere!')
       ENDIF
 

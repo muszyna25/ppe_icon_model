@@ -115,8 +115,7 @@ USE mo_io_config,            ONLY: lflux_avg, lnetcdf_flt64_output, gust_interva
   &                                celltracks_interval, echotop_meta, &
   &                                maxt_interval, precip_interval, t_var_in_output
 USE mtime,                   ONLY: max_timedelta_str_len, getPTStringFromMS
-USE mo_name_list_output_config, ONLY: &
-  &                                first_output_name_list, is_variable_in_output
+USE mo_name_list_output_config, ONLY: is_variable_in_output
 
 #include "add_var_acc_macro.inc"
 
@@ -3944,7 +3943,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     END IF
 
     IF (atm_phy_nwp_config(k_jg)%is_les_phy .OR. &
-        is_variable_in_output(first_output_name_list, var_name="ddt_temp_gscp")) THEN
+        is_variable_in_output(var_name="ddt_temp_gscp")) THEN
       ! &      phy_tend%ddt_temp_gscp(nproma,nlev,nblks)
       cf_desc    = t_cf_var('ddt_temp_gscp', 'K s-1', &
            &                            'microphysical temperature tendency', datatype_flt)
@@ -4247,12 +4246,12 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     ! --- Microphysics moist tracer tendencies
 
-    IF ( is_variable_in_output(first_output_name_list, var_name="ddt_qv_gscp") .OR.   &
-      &  is_variable_in_output(first_output_name_list, var_name="ddt_qc_gscp") .OR.   &
-      &  is_variable_in_output(first_output_name_list, var_name="ddt_qi_gscp") .OR.   &
-      &  is_variable_in_output(first_output_name_list, var_name="ddt_qr_gscp") .OR.   &
-      &  is_variable_in_output(first_output_name_list, var_name="ddt_qs_gscp") .OR.   &
-      &  is_variable_in_output(first_output_name_list, var_name="ddt_qg_gscp") ) THEN
+    IF ( is_variable_in_output(var_name="ddt_qv_gscp") .OR.   &
+      &  is_variable_in_output(var_name="ddt_qc_gscp") .OR.   &
+      &  is_variable_in_output(var_name="ddt_qi_gscp") .OR.   &
+      &  is_variable_in_output(var_name="ddt_qr_gscp") .OR.   &
+      &  is_variable_in_output(var_name="ddt_qs_gscp") .OR.   &
+      &  is_variable_in_output(var_name="ddt_qg_gscp") ) THEN
       cf_desc    = t_cf_var('ddt_tracer_gscp', 's-1', &
            &                            'microphysics tendency of tracers', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)

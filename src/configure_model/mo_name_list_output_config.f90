@@ -181,11 +181,10 @@ CONTAINS
   !!       function can be called with "group:gname" as var_name and it will return .TRUE. if
   !!       "group:gname" is in an output namelist. Same with "tiles:".
   !!
-  FUNCTION is_variable_in_output(first_output_name_list, var_name) RESULT(retval)
+  FUNCTION is_variable_in_output(var_name) RESULT(retval)
     LOGICAL :: retval
 
     !> head output namelist list
-    TYPE(t_output_name_list), POINTER :: first_output_name_list
     CHARACTER(LEN=*), INTENT(IN)  :: var_name   !< variable name
 
     ! local variables
@@ -210,11 +209,9 @@ CONTAINS
   !! @return .TRUE. if output for a given variable is due for a specific domain in any
   !!         output namelist.
   !!
-  FUNCTION is_variable_in_output_dom(first_output_name_list, var_name, jg) RESULT(retval)
+  FUNCTION is_variable_in_output_dom(var_name, jg) RESULT(retval)
     LOGICAL :: retval
 
-    !> head output namelist list
-    TYPE(t_output_name_list), POINTER :: first_output_name_list
     CHARACTER(LEN=*), INTENT(IN)  :: var_name   !< variable name
     INTEGER, INTENT(in)           :: jg         !< domain index
 

@@ -86,7 +86,7 @@ USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
-USE mo_name_list_output_config,   ONLY: first_output_name_list, is_variable_in_output
+USE mo_name_list_output_config,   ONLY: is_variable_in_output
 USE mo_name_list_output_init, ONLY:  init_name_list_output,        &
   &                                  parse_variable_groups,        &
   &                                  collect_requested_ipz_levels, &
@@ -636,21 +636,21 @@ CONTAINS
 
     IF (iforcing == inwp) THEN
         atm_phy_nwp_config(1:n_dom)%lcalc_moist_integral_avg = &
-        is_variable_in_output(first_output_name_list, var_name="clct_avg")        .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg01") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg02") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+        is_variable_in_output(var_name="clct_avg")        .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg01") .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg02") .OR. &
+        is_variable_in_output(var_name="tracer_vi_avg03") .OR. &
+        is_variable_in_output(var_name="avg_qv")          .OR. &
+        is_variable_in_output(var_name="avg_qc")          .OR. &
+        is_variable_in_output(var_name="avg_qi")
 
         atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
-        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
-        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
-        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
-        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+        is_variable_in_output(var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(var_name="adrag_v_grid")
      ENDIF
 
     !Anurag Dipankar, MPIM (2015-08-01): always call this routine

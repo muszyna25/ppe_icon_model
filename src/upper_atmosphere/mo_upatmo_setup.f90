@@ -31,7 +31,6 @@ MODULE mo_upatmo_setup
   USE mo_time_config,             ONLY: time_config
   USE mo_echam_rad_config,        ONLY: echam_rad_config
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config
-  USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_parallel_config,         ONLY: nproma
   USE mo_vertical_coord_table,    ONLY: vct_a
   USE mo_timer,                   ONLY: timers_level, timer_start, timer_stop,   & 
@@ -118,7 +117,6 @@ CONTAINS
       &                    model_base_dir         = model_base_dir,                    & !in
       &                    msg_level              = msg_level,                         & !in
       &                    timers_level           = timers_level,                      & !in
-      &                    first_output_name_list = first_output_name_list,            & !in
       &                    vct_a                  = vct_a                              ) !(opt)in
 
     !---------------------------------------------------------------------

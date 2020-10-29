@@ -45,8 +45,7 @@ MODULE mo_echam_phy_memory
   USE mo_fortran_tools,       ONLY: t_ptr_2d, t_ptr_3d
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
-  USE mo_name_list_output_config,   ONLY: first_output_name_list, &
-    &                                     is_variable_in_output
+  USE mo_name_list_output_config,   ONLY: is_variable_in_output
   USE mtime,                  ONLY: OPERATOR(>)
   USE mo_time_config,         ONLY: time_config
   USE mo_echam_phy_config,    ONLY: echam_phy_tc, dt_zero
@@ -2177,7 +2176,7 @@ CONTAINS
     __acc_attach(field%ts_rad_rt)
 
     IF (echam_phy_tc(jg)%dt_vdf > time_config%tc_dt_dyn(jg) .OR.                            &
-      & is_variable_in_output(first_output_name_list, var_name=prefix//'q_snocpymlt')) THEN
+      & is_variable_in_output(var_name=prefix//'q_snocpymlt')) THEN
        cf_desc    = t_cf_var('q_snocpymlt', 'W/m2', 'heating for snow melt on canopy', datatype_flt)
        grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'q_snocpymlt', field%q_snocpymlt,    &
@@ -2187,7 +2186,7 @@ CONTAINS
        __acc_attach(field%q_snocpymlt)
     END IF
 
-    IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rlw_impl')) THEN
+    IF (is_variable_in_output(var_name=prefix//'q_rlw_impl')) THEN
        cf_desc    = t_cf_var('q_rlw_impl', 'W/m2', 'heating correction due to implicit land surface coupling', datatype_flt)
        grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'q_rlw_impl', field%q_rlw_impl,    &
@@ -2496,7 +2495,7 @@ CONTAINS
                 & lopenacc=.TRUE.)
     __acc_attach(field%acdnc)
 
-    IF (is_variable_in_output(first_output_name_list, var_name=prefix//'hur')) THEN
+    IF (is_variable_in_output(var_name=prefix//'hur')) THEN
        cf_desc    = t_cf_var('relative_humidity', '', 'relative humidity', datatype_flt)
        grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'hur', field%hur   ,                               &
@@ -2624,7 +2623,7 @@ CONTAINS
                 & lopenacc=.TRUE.)
     __acc_attach(field%rtype)
 
-    IF (is_variable_in_output(first_output_name_list, var_name=prefix//'topmax')) THEN
+    IF (is_variable_in_output(var_name=prefix//'topmax')) THEN
        cf_desc    = t_cf_var('topmax', 'Pa', 'maximum height of convective cloud tops', &
             &                datatype_flt)
        grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2739,7 +2738,7 @@ CONTAINS
 
     __acc_attach(field%qconv)
 
-    IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_phy')) THEN
+    IF (is_variable_in_output(var_name=prefix//'q_phy')) THEN
        CALL add_var( field_list, prefix//'q_phy', field%q_phy,                       &
                    & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                    & t_cf_var('q_phy', 'W m-2',                                      &
@@ -2755,7 +2754,7 @@ CONTAINS
        __acc_attach(field%q_phy)
     END IF
 
-    IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_phy_vi')) THEN
+    IF (is_variable_in_output(var_name=prefix//'q_phy_vi')) THEN
        CALL add_var( field_list, prefix//'q_phy_vi', field%q_phy_vi,                 &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                    & t_cf_var('q_phy_vi', 'W m-2',                                   &
@@ -2770,7 +2769,7 @@ CONTAINS
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rad')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_rad')) THEN
           CALL add_var( field_list, prefix//'q_rlw', field%q_rad,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_rad', 'W m-2',                                      &
@@ -2786,7 +2785,7 @@ CONTAINS
           __acc_attach(field%q_rad)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rad_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_rad_vi')) THEN
           CALL add_var( field_list, prefix//'q_rad_vi', field%q_rad_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_rlw_vi', 'W m-2',                                   &
@@ -2799,7 +2798,7 @@ CONTAINS
           __acc_attach(field%q_rad_vi)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rlw')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_rlw')) THEN
           CALL add_var( field_list, prefix//'q_rlw', field%q_rlw,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_rlw', 'W m-2',                                      &
@@ -2815,7 +2814,7 @@ CONTAINS
           __acc_attach(field%q_rlw)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rlw_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_rlw_vi')) THEN
           CALL add_var( field_list, prefix//'q_rlw_vi', field%q_rlw_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_rlw_vi', 'W m-2',                                   &
@@ -2828,7 +2827,7 @@ CONTAINS
           __acc_attach(field%q_rlw_vi)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rsw')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_rsw')) THEN
           CALL add_var( field_list, prefix//'q_rsw', field%q_rsw,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_rsw', 'W m-2',                                      &
@@ -2844,7 +2843,7 @@ CONTAINS
           __acc_attach(field%q_rsw)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_rsw_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_rsw_vi')) THEN
           CALL add_var( field_list, prefix//'q_rsw_vi', field%q_rsw_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_rsw_vi', 'W m-2',                                   &
@@ -2862,7 +2861,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_vdf > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_vdf > time_config%tc_dt_dyn(jg) .OR.                     &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'q_vdf')) THEN
+         & is_variable_in_output(var_name=prefix//'q_vdf')) THEN
           CALL add_var( field_list, prefix//'q_vdf', field%q_vdf,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_vdf', 'W m-2',                                      &
@@ -2878,7 +2877,7 @@ CONTAINS
           __acc_attach(field%q_vdf)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_vdf_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_vdf_vi')) THEN
           CALL add_var( field_list, prefix//'q_vdf_vi', field%q_vdf_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_vdf_vi', 'W m-2',                                   &
@@ -2896,7 +2895,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_cnv > time_config%tc_dt_dyn(jg) .OR.                     &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'q_cnv')) THEN
+         & is_variable_in_output(var_name=prefix//'q_cnv')) THEN
           CALL add_var( field_list, prefix//'q_cnv', field%q_cnv,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_cnv', 'W m-2',                                      &
@@ -2912,7 +2911,7 @@ CONTAINS
           __acc_attach(field%q_cnv)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_cnv_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_cnv_vi')) THEN
           CALL add_var( field_list, prefix//'q_cnv_vi', field%q_cnv_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_cnv_vi', 'W m-2',                                   &
@@ -2930,7 +2929,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_cld > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_cld > time_config%tc_dt_dyn(jg) .OR.                     &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'q_cld')) THEN
+         & is_variable_in_output(var_name=prefix//'q_cld')) THEN
           CALL add_var( field_list, prefix//'q_cld', field%q_cld,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_cld', 'W m-2',                                      &
@@ -2946,7 +2945,7 @@ CONTAINS
           __acc_attach(field%q_cld)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_cld_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_cld_vi')) THEN
           CALL add_var( field_list, prefix//'q_cld_vi', field%q_cld_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_cld_vi', 'W m-2',                                   &
@@ -2964,7 +2963,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_gwd > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_gwd > time_config%tc_dt_dyn(jg) .OR.                     &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'q_gwd')) THEN
+         & is_variable_in_output(var_name=prefix//'q_gwd')) THEN
           CALL add_var( field_list, prefix//'q_gwd', field%q_gwd,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_gwd', 'W m-2',                                      &
@@ -2980,7 +2979,7 @@ CONTAINS
           __acc_attach(field%q_gwd)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_gwd_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_gwd_vi')) THEN
           CALL add_var( field_list, prefix//'q_gwd_vi', field%q_gwd_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_gwd_vi', 'W m-2',                                   &
@@ -2998,7 +2997,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_sso > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_sso > time_config%tc_dt_dyn(jg) .OR.                     &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'q_sso')) THEN
+         & is_variable_in_output(var_name=prefix//'q_sso')) THEN
           CALL add_var( field_list, prefix//'q_sso', field%q_sso,                       &
                       & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                           &
                       & t_cf_var('q_sso', 'W m-2',                                      &
@@ -3014,7 +3013,7 @@ CONTAINS
           __acc_attach(field%q_sso)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'q_sso_vi')) THEN
+       IF (is_variable_in_output(var_name=prefix//'q_sso_vi')) THEN
           CALL add_var( field_list, prefix//'q_sso_vi', field%q_sso_vi,                 &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('q_sso_vi', 'W m-2',                                   &
@@ -3071,7 +3070,7 @@ CONTAINS
        !---------------------------
        ! Sub grid scale orographic effects (sso)
        !---------------------------
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'tauu_sso')) THEN
+       IF (is_variable_in_output(var_name=prefix//'tauu_sso')) THEN
           CALL add_var( field_list, prefix//'tauu_sso', field%u_stress_sso,             &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('u_stress_sso', 'N m-2',                               &
@@ -3085,7 +3084,7 @@ CONTAINS
           __acc_attach(field%u_stress_sso)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'tauv_sso')) THEN
+       IF (is_variable_in_output(var_name=prefix//'tauv_sso')) THEN
           CALL add_var( field_list, prefix//'tauv_sso', field%v_stress_sso,             &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('v_stress_sso', 'N m-2',                               &
@@ -3099,7 +3098,7 @@ CONTAINS
           __acc_attach(field%v_stress_sso)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'diss_sso')) THEN
+       IF (is_variable_in_output(var_name=prefix//'diss_sso')) THEN
           CALL add_var( field_list, prefix//'diss_sso', field%dissipation_sso,          &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
                       & t_cf_var('dissipation_sso', 'missing',                          &
@@ -3124,7 +3123,7 @@ CONTAINS
      !shapesfc = (/kproma, ksfc_type, kblks/)
      ! shapesfc = (/kproma, kblks, ksfc_type/)
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ri_atm')) THEN
+      IF (is_variable_in_output(var_name=prefix//'ri_atm')) THEN
          cf_desc    = t_cf_var('richardson_number', ' ', 'moist Richardson number', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'ri_atm', field%ri_atm,              &
@@ -3134,7 +3133,7 @@ CONTAINS
          __acc_attach(field%ri_atm)
       END IF
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'mixlen')) THEN
+      IF (is_variable_in_output(var_name=prefix//'mixlen')) THEN
          cf_desc    = t_cf_var('mixing_length', 'm', 'mixing_length', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'mixlen', field%mixlen,              &
@@ -3164,7 +3163,7 @@ CONTAINS
       __acc_attach(field%tottem1)
       
       ! REMARK: required for art emmision handling
-      !IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfm')) THEN      
+      !IF (is_variable_in_output(var_name=prefix//'cfm')) THEN
       cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'cfm', field%cfm,                      &
@@ -3178,7 +3177,7 @@ CONTAINS
       contvar_is_in_output = .FALSE.
       DO jsfc = 1,ksfc_type
          varname=prefix//'cfm_'//csfc(jsfc)
-         IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+         IF (is_variable_in_output(var_name=TRIM(varname))) THEN
             contvar_is_in_output = .TRUE.
          END IF
       END DO
@@ -3197,7 +3196,7 @@ CONTAINS
       !
       DO jsfc = 1,ksfc_type
          varname=prefix//'cfm_'//csfc(jsfc)
-         IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+         IF (is_variable_in_output(var_name=TRIM(varname))) THEN
             CALL add_ref( field_list, prefix//'cfm_tile',                              &
                         & TRIM(varname), field%cfm_tile_ptr(jsfc)%p,                   &
                         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
@@ -3210,7 +3209,7 @@ CONTAINS
 
 
       ! REMARK: required for art sedimentation handling
-      !IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfh')) THEN
+      !IF (is_variable_in_output(var_name=prefix//'cfh')) THEN
       cf_desc    = t_cf_var('turb_exchng_coeff_heat', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'cfh', field%cfh,                      &
@@ -3223,7 +3222,7 @@ CONTAINS
       contvar_is_in_output = .FALSE.
       DO jsfc = 1,ksfc_type
          varname=prefix//'cfh_'//csfc(jsfc)
-         IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+         IF (is_variable_in_output(var_name=TRIM(varname))) THEN
             contvar_is_in_output = .TRUE.
          END IF
       END DO
@@ -3242,7 +3241,7 @@ CONTAINS
       !
       DO jsfc = 1,ksfc_type
          varname=prefix//'cfh_'//csfc(jsfc)
-         IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+         IF (is_variable_in_output(var_name=TRIM(varname))) THEN
             CALL add_ref( field_list, prefix//'cfh_tile',                              &
                         & TRIM(varname), field%cfh_tile_ptr(jsfc)%p,                   &
                         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
@@ -3255,7 +3254,7 @@ CONTAINS
       END DO
 
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfv')) THEN
+      IF (is_variable_in_output(var_name=prefix//'cfv')) THEN
          cf_desc    = t_cf_var('turb_exchng_coeff_water_var', '', '', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'cfv', field%cfv,                      &
@@ -3265,7 +3264,7 @@ CONTAINS
          __acc_attach(field%cfv)
       END IF
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfv')) THEN
+      IF (is_variable_in_output(var_name=prefix//'cfv')) THEN
          cf_desc    = t_cf_var('turb_exchng_coeff_totte', '', '', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'cftotte', field%cftotte,              &
@@ -3275,7 +3274,7 @@ CONTAINS
          __acc_attach(field%cftotte)
       END IF
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'cfthv')) THEN
+      IF (is_variable_in_output(var_name=prefix//'cfthv')) THEN
          cf_desc    = t_cf_var('turb_exchng_coeff_thv', '', '', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'cfthv', field%cfthv,                  &
@@ -3293,7 +3292,7 @@ CONTAINS
                   & lopenacc=.TRUE.)
       __acc_attach(field%coriol)
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'hdtcbl')) THEN
+      IF (is_variable_in_output(var_name=prefix//'hdtcbl')) THEN
          cf_desc    = t_cf_var('height_pbl_top', 'm', 'height of PBL top', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'hdtcbl', field%hdtcbl,              &
@@ -3360,7 +3359,7 @@ CONTAINS
                   & lopenacc=.TRUE.)
       __acc_attach(field%ustar)
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'wstar')) THEN
+      IF (is_variable_in_output(var_name=prefix//'wstar')) THEN
          cf_desc    = t_cf_var('conv_velocity_scale', 'm s-1', 'convective velocity scale', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
          CALL add_var( field_list, prefix//'wstar', field%wstar,                &
@@ -3391,7 +3390,7 @@ CONTAINS
       END DO
 
 
-      IF (is_variable_in_output(first_output_name_list, var_name=prefix//'kedisp')) THEN
+      IF (is_variable_in_output(var_name=prefix//'kedisp')) THEN
          cf_desc    = t_cf_var('vert_int_dissip_kin_energy', 'W/m2',            &
                      &         'vert. integr. dissip. kin. energy', datatype_flt)
          grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -3553,7 +3552,7 @@ CONTAINS
     contvar_is_in_output = .FALSE.
     DO jsfc = 1,ksfc_type
        varname=prefix//'qs_sfc_'//csfc(jsfc)
-       IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+       IF (is_variable_in_output(var_name=TRIM(varname))) THEN
           contvar_is_in_output = .TRUE.
        END IF
     END DO
@@ -3572,7 +3571,7 @@ CONTAINS
     !
     DO jsfc = 1,ksfc_type
        varname=prefix//'qs_sfc_'//csfc(jsfc)
-       IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+       IF (is_variable_in_output(var_name=TRIM(varname))) THEN
           CALL add_ref( field_list, prefix//'qs_sfc_tile',                           &
                       & TRIM(varname), field%qs_sfc_tile_ptr(jsfc)%p,                &
                       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
@@ -4376,7 +4375,7 @@ CONTAINS
 
     IF ( echam_phy_tc(jg)%dt_rad > dt_zero ) THEN
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_rsw')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_rsw')) THEN
           cf_desc    = t_cf_var('temperature_tendency_rsw', 'K s-1',                           &
                       &         'temperature tendency due to shortwave radiation (cp)',        &
                       &         datatype_flt)
@@ -4391,7 +4390,7 @@ CONTAINS
           __acc_attach(tend%  ta_rsw)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_rlw')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_rlw')) THEN
           cf_desc    = t_cf_var('temperature_tendency_rlw', 'K s-1',                           &
                       &         'temperature tendency due to longwave radiation (cp)',         &
                       &         datatype_flt)
@@ -4406,7 +4405,7 @@ CONTAINS
           __acc_attach(tend%  ta_rlw)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_rad')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_rad')) THEN
           cf_desc    = t_cf_var('temperature_tendency_rad', 'K s-1',                           &
                       &         'temperature tendency due to radiation (cp)',                  &
                       &         datatype_flt)
@@ -4423,7 +4422,7 @@ CONTAINS
        !
     END IF
 
-    IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_rlw_impl')) THEN
+    IF (is_variable_in_output(var_name=prefix//'ta_rlw_impl')) THEN
        cf_desc    = t_cf_var('temperature_tendency_rlw_impl', 'K s-1',                      &
                    &         'temperature tendency due to LW rad. due to implicit land surface temperature change (cp)', &
                    &         datatype_flt)
@@ -4437,7 +4436,7 @@ CONTAINS
 
     IF ( echam_phy_tc(jg)%dt_cld > dt_zero ) THEN
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_cld')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_cld')) THEN
           cf_desc    = t_cf_var('temperature_tendency_cloud', 'K s-1',                         &
                       &         'temperature tendency due to large scale cloud processes (cp)',&
                       &         datatype_flt)
@@ -4456,7 +4455,7 @@ CONTAINS
 
     IF ( echam_phy_tc(jg)%dt_mig > dt_zero ) THEN
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_mig')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_mig')) THEN
           cf_desc    = t_cf_var('temperature_tendency_graupel', 'K s-1',                       &
                       &         'temperature tendency due to graupel processes (cp)',          &
                       &         datatype_flt)
@@ -4475,7 +4474,7 @@ CONTAINS
 
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_cnv')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_cnv')) THEN
           cf_desc    = t_cf_var('temperature_tendency_convective', 'K s-1',                    &
                       &         'temperature tendency due to convective cloud processes (cp)', &
                       &         datatype_flt)
@@ -4494,7 +4493,7 @@ CONTAINS
 
     IF ( echam_phy_tc(jg)%dt_vdf > dt_zero ) THEN
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_vdf')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_vdf')) THEN
           cf_desc    = t_cf_var('temperature_tendency_turbulent', 'K s-1',                     &
                       &         'temperature tendency due to vertical diffusion (cp)',         &
                       &         datatype_flt)
@@ -4509,7 +4508,7 @@ CONTAINS
           __acc_attach(tend%  ta_vdf)
        END IF
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_sfc')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_sfc')) THEN
           cf_desc    = t_cf_var('temperature_tendency_surface',   'K s-1',                     &
                       &         'temperature tendency due to surface porcesses (cp)',          &
                       &         datatype_flt)
@@ -4525,7 +4524,7 @@ CONTAINS
 
     IF ( echam_phy_tc(jg)%dt_gwd > dt_zero ) THEN
        !
-       IF (is_variable_in_output(first_output_name_list, var_name=prefix//'ta_gwd')) THEN
+       IF (is_variable_in_output(var_name=prefix//'ta_gwd')) THEN
           cf_desc    = t_cf_var('temperature_tendency_Hines_gw', 'K s-1',                      &
                       &         'temperature tendency due to non-orogr. gravity waves (cp)',   &
                       &         datatype_flt)
@@ -4545,7 +4544,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_sso > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_sso > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'ta_sso')) THEN
+         & is_variable_in_output(var_name=prefix//'ta_sso')) THEN
           cf_desc    = t_cf_var('temperature_tendency_sso', 'K s-1',                           &
                       &         'temperature tendency due to sub grid scale orography (cp)',   &
                       &         datatype_flt)
@@ -4610,7 +4609,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_cnv > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'ua_cnv')) THEN
+         & is_variable_in_output(var_name=prefix//'ua_cnv')) THEN
           cf_desc    = t_cf_var('u_wind_tendency_convective', 'm s-2',                         &
                       &         'u-wind tendency due to convective cloud processes',           &
                       &         datatype_flt)
@@ -4630,7 +4629,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_vdf > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_vdf > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'ua_vdf')) THEN
+         & is_variable_in_output(var_name=prefix//'ua_vdf')) THEN
           cf_desc    = t_cf_var('u_wind_tendency_turbulent', 'm s-2',                          &
                       &         'u-wind tendency due to vertical diffusion',                   &
                       &         datatype_flt)
@@ -4650,7 +4649,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_gwd > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_gwd > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'ua_gwd')) THEN
+         & is_variable_in_output(var_name=prefix//'ua_gwd')) THEN
           cf_desc    = t_cf_var('u_wind_tendency_nonoro_gw', 'm s-2',                          &
                       &         'u-wind tendency due to non-orographic gravity waves',         &
                       &         datatype_flt)
@@ -4670,7 +4669,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_sso > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_sso > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'ua_sso')) THEN
+         & is_variable_in_output(var_name=prefix//'ua_sso')) THEN
           cf_desc    = t_cf_var('u_wind_tendency_sso', 'm s-2',                                &
                       &         'u-wind tendency due to sub grid scale orography',             &
                       &         datatype_flt)
@@ -4735,7 +4734,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_cnv > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_cnv > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'va_cnv')) THEN
+         & is_variable_in_output(var_name=prefix//'va_cnv')) THEN
           cf_desc    = t_cf_var('v_wind_tendency', 'm s-2',                                    &
                       &         'v-wind tendency due to convective cloud processes',           &
                       &         datatype_flt)
@@ -4755,7 +4754,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_vdf > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_vdf > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'va_vdf')) THEN
+         & is_variable_in_output(var_name=prefix//'va_vdf')) THEN
           cf_desc    = t_cf_var('v_wind_tendency_turbulent', 'm s-2',                          &
                       &         'v-wind tendency due to vertical diffusion',                   &
                       &         datatype_flt)
@@ -4775,7 +4774,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_gwd > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_gwd > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'va_gwd')) THEN
+         & is_variable_in_output(var_name=prefix//'va_gwd')) THEN
           cf_desc    = t_cf_var('v_wind_tendency_Hines_gw', 'm s-2',                           &
                       &         'v-wind tendency due to non-orographic gravity waves',         &
                       &         datatype_flt)
@@ -4795,7 +4794,7 @@ CONTAINS
     IF ( echam_phy_tc(jg)%dt_sso > dt_zero ) THEN
        !
        IF (echam_phy_tc(jg)%dt_sso > time_config%tc_dt_dyn(jg) .OR.                            &
-         & is_variable_in_output(first_output_name_list, var_name=prefix//'va_sso')) THEN
+         & is_variable_in_output(var_name=prefix//'va_sso')) THEN
           cf_desc    = t_cf_var('v_wind_tendency_sso', 'm s-2',                                &
                       &         'v-wind tendency due to sub grid scale orography',             &
                       &         datatype_flt)
@@ -4864,7 +4863,7 @@ CONTAINS
        DO jtrc = 1,ktracer
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_cld'
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
        END DO
@@ -4896,7 +4895,7 @@ CONTAINS
             grib2_tmp = grib2_var(0, 1,  255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           END SELECT
           !
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_cld',                                        &
                          & TRIM(varname), tend%qtrc_cld_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
@@ -4922,7 +4921,7 @@ CONTAINS
        DO jtrc = 1,ktracer
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mig'
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
        END DO
@@ -4948,15 +4947,15 @@ CONTAINS
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mig'
           !
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
             ! GRIB2 code triplet for mig tendencies
              SELECT CASE (trcname)
              CASE ('hus')
-                grib2_tmp = grib2_var(0, 1, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)                 
+                grib2_tmp = grib2_var(0, 1, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
              CASE ('clw')
-                grib2_tmp = grib2_var(0, 6, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)                 
+                grib2_tmp = grib2_var(0, 6, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
              CASE ('cli')
-                grib2_tmp = grib2_var(0, 6, 213, ibits, GRID_UNSTRUCTURED, GRID_CELL)                 
+                grib2_tmp = grib2_var(0, 6, 213, ibits, GRID_UNSTRUCTURED, GRID_CELL)
              CASE default
                 grib2_tmp = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
              END SELECT
@@ -4985,7 +4984,7 @@ CONTAINS
        DO jtrc = 1,ktracer
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_cnv'
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
        END DO
@@ -5011,7 +5010,7 @@ CONTAINS
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_cnv'
           !
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              SELECT CASE (trcname)
              CASE ('hus')
                grib2_tmp = grib2_var(0, 1,  208, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -5044,7 +5043,7 @@ CONTAINS
        DO jtrc = 1,ktracer
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_vdf'
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
        END DO
@@ -5081,7 +5080,7 @@ CONTAINS
             grib2_tmp = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
           END SELECT
           !
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_vdf',                                        &
                          & TRIM(varname), tend%qtrc_vdf_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
@@ -5107,7 +5106,7 @@ CONTAINS
        DO jtrc = 1,ktracer
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mox'
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
        END DO
@@ -5133,7 +5132,7 @@ CONTAINS
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_mox'
           !
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_mox',                                        &
                          & TRIM(varname), tend%qtrc_mox_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &
@@ -5159,7 +5158,7 @@ CONTAINS
        DO jtrc = 1,ktracer
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_car'
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              contvar_is_in_output = .TRUE.
           END IF
        END DO
@@ -5185,7 +5184,7 @@ CONTAINS
           trcname = advection_config(jg)%tracer_names(jtrc)
           varname = prefix//'q'//TRIM(trcname)//'_car'
           !
-          IF (is_variable_in_output(first_output_name_list, var_name=TRIM(varname))) THEN
+          IF (is_variable_in_output(var_name=TRIM(varname))) THEN
              CALL add_ref( tend_list, prefix//'qtrc_car',                                        &
                          & TRIM(varname), tend%qtrc_car_ptr(jtrc)%p,                             &
                          & GRID_UNSTRUCTURED_CELL, ZA_REFERENCE,                                 &

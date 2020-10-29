@@ -29,7 +29,7 @@ MODULE mo_nonhydrostatic_config
   USE mo_exception,               ONLY: message, message_text
   USE mo_vertical_coord_table,    ONLY: vct_a
   USE mo_run_config,              ONLY: msg_level
-  USE mo_name_list_output_config, ONLY: first_output_name_list, is_variable_in_output
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
 
   IMPLICIT NONE
 
@@ -212,7 +212,7 @@ CONTAINS
 
 
     ! check whether dpsdt should be computed for output purposes
-    lcalc_dpsdt = (is_variable_in_output(first_output_name_list, var_name='ddt_pres_sfc')) &
+    lcalc_dpsdt = (is_variable_in_output(var_name='ddt_pres_sfc')) &
       &           .OR. (msg_level >= 11)
 
   END SUBROUTINE configure_nonhydrostatic

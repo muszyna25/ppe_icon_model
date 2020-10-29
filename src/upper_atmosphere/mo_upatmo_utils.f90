@@ -21,7 +21,7 @@ MODULE mo_upatmo_utils
   USE mo_exception,                 ONLY: finish
   USE mo_impl_constants,            ONLY: SUCCESS
   USE mo_name_list_output_types,    ONLY: t_output_name_list
-  USE mo_name_list_output_config,   ONLY: is_variable_in_output_nml
+  USE mo_name_list_output_config,   ONLY: first_output_name_list, is_variable_in_output_nml
   USE mo_util_string,               ONLY: int2string
 
   IMPLICIT NONE
@@ -186,14 +186,12 @@ CONTAINS !......................................................................
   !! Copy of 'src/configure_model/mo_name_list_output_config: is_variable_in_output', 
   !! where (optional) conditions have to be met.
   !!
-  FUNCTION is_variable_in_output_cond( first_output_name_list, &
-    &                                  var_name,               & 
+  FUNCTION is_variable_in_output_cond( var_name,               &
     &                                  opt_dom,                &
     &                                  opt_filetype            ) RESULT(retval)
 
     ! In/out variables
     LOGICAL                                        :: retval
-    TYPE(t_output_name_list), POINTER              :: first_output_name_list ! Head output namelist list
     CHARACTER(LEN=*),                   INTENT(IN) :: var_name               ! Variable name
     ! Optional conditions:
     INTEGER,                  OPTIONAL, INTENT(IN) :: opt_dom(:)             ! Domain

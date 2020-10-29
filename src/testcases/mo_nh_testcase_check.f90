@@ -25,7 +25,6 @@ MODULE mo_nh_testcase_check
   USE mo_grid_config,              ONLY: grid_sphere_radius, grid_angular_velocity, & 
     &                                    grid_rescale_factor
   USE mo_io_config,                ONLY: inextra_3d
-  USE mo_name_list_output_config,  ONLY: first_output_name_list
   USE mo_nh_lahade,                ONLY: check_nh_lahade
   USE mo_upatmo_config,            ONLY: upatmo_dyn_config, upatmo_config
 
@@ -64,7 +63,6 @@ CONTAINS
       CALL check_nh_lahade(lvert_nest=lvert_nest, l_nml=output_mode%l_nml, ivctype=ivctype, &  !in
         &                  top_height=top_height, grid_sphere_radius=grid_sphere_radius,    &  !in
         &                  grid_rescale_factor=grid_rescale_factor,                         &  !in
-        &                  first_output_name_list=first_output_name_list,                   &  !in
         &                  ldeepatmo=ldeepatmo, lcoriolis=lcoriolis, l_open_ubc=l_open_ubc, &  !inout
         &                  ltransport=ltransport, itopo=itopo, iforcing=iforcing,           &  !inout
         &                  inextra_3d=inextra_3d, min_lay_thckn=min_lay_thckn,              &  !inout

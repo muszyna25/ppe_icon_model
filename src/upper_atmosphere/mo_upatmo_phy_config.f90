@@ -281,7 +281,6 @@ CONTAINS !......................................................................
     &                                  yr_perp,                 & !in
     &                                  nlev,                    & !in
     &                                  nshift_total,            & !in
-    &                                  first_output_name_list,  & !in
     &                                  tc_exp_startdate,        & !in
     &                                  tc_exp_stopdate,         & !in
     &                                  start_time,              & !in
@@ -315,7 +314,6 @@ CONTAINS !......................................................................
     INTEGER,                   INTENT(IN)    :: yr_perp                 ! Year, for which Earth orbit is perpetuated
     INTEGER,                   INTENT(IN)    :: nlev                    ! Number of vertical grid layers
     INTEGER,                   INTENT(IN)    :: nshift_total            ! Shift of vertical grid index for vertical nesting
-    TYPE(t_output_name_list),  POINTER       :: first_output_name_list  ! Pointer to a linked list of output name lists
     TYPE(datetime),            INTENT(IN)    :: tc_exp_startdate        ! Experiment start date
     TYPE(datetime),            INTENT(IN)    :: tc_exp_stopdate         ! Experiment end date
     REAL(wp),                  INTENT(IN)    :: start_time              ! Time at which execution of domain starts
@@ -732,8 +730,7 @@ CONTAINS !......................................................................
       vname_prefix = upatmo_nwp_phy_config%vname_prefix
       IF ( .NOT. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled ) .AND. &
         &  (LEN_TRIM(vname_prefix) > 0)                                     .AND. &
-        &  is_variable_in_output_cond( first_output_name_list,                    &
-        &                              var_name=vname_prefix,                     &
+        &  is_variable_in_output_cond( var_name=vname_prefix,                     &
         &                              opt_dom=(/jg/) )                           ) THEN
 
         ! Provided the prefix for upper-atmosphere physics variable names has been chosen 
@@ -745,8 +742,7 @@ CONTAINS !......................................................................
         CALL finish(routine, message_text)
 
       ELSEIF ( .NOT. upatmo_nwp_phy_config%l_gas_stat( iUpatmoGasStat%enabled ) .AND. &
-        &  is_variable_in_output_cond( first_output_name_list,                    &
-        &                              var_name="group:upatmo_rad_gases",         &
+        &  is_variable_in_output_cond( var_name="group:upatmo_rad_gases",         &
         &                              opt_dom=(/jg/) )                           ) THEN
 
         ! Output of all radiatively active gases (varlist-group-prefix: 'group:') is only possible, 
@@ -756,8 +752,7 @@ CONTAINS !......................................................................
         CALL finish(routine, message_text)
 
       ELSEIF ( .NOT. upatmo_nwp_phy_config%l_phy_stat( iUpatmoPrcStat%enabled ) .AND. &
-        &  is_variable_in_output_cond( first_output_name_list,                    &
-        &                              var_name="group:upatmo_tendencies",        &
+        &  is_variable_in_output_cond( var_name="group:upatmo_tendencies",        &
         &                              opt_dom=(/jg/) )                           ) THEN
 
         ! Output of all physics tendencies is only possible, if they are switched on
@@ -765,8 +760,7 @@ CONTAINS !......................................................................
           & //'on domain '//cjg(cjgadj:)//', check output_nml-varlists for: group:upatmo_tendencies'
         CALL finish(routine, message_text)
 
-      ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
-        &                                  var_name=vname_prefix,                          &
+      ELSEIF ( is_variable_in_output_cond( var_name=vname_prefix,                          &
         &                                  opt_dom=(/jg/),                                 &
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 
@@ -780,8 +774,7 @@ CONTAINS !......................................................................
           & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
         CALL finish(routine, message_text)
 
-      ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
-        &                                  var_name="group:upatmo_rad_gases",              &
+      ELSEIF ( is_variable_in_output_cond( var_name="group:upatmo_rad_gases",              &
         &                                  opt_dom=(/jg/),                                 &
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 
@@ -789,8 +782,7 @@ CONTAINS !......................................................................
           & //'(desired for domain '//cjg(cjgadj:)//') in the GRIB format is not possible'
         CALL finish(routine, message_text)
   
-      ELSEIF ( is_variable_in_output_cond( first_output_name_list,                         &
-        &                                  var_name="group:upatmo_tendencies",             &
+      ELSEIF ( is_variable_in_output_cond( var_name="group:upatmo_tendencies",             &
         &                                  opt_dom=(/jg/),                                 &
         &                                  opt_filetype =(/FILETYPE_GRB, FILETYPE_GRB2/) ) ) THEN
 

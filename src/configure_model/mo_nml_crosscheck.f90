@@ -85,7 +85,7 @@ MODULE mo_nml_crosscheck
   USE mo_nudging_config,           ONLY: nudging_config, indg_type
   USE mo_nudging_nml,              ONLY: check_nudging
   USE mo_upatmo_config,            ONLY: check_upatmo
-  USE mo_name_list_output_config,  ONLY: first_output_name_list, is_variable_in_output_dom
+  USE mo_name_list_output_config,  ONLY: is_variable_in_output_dom
   USE mo_nh_testcase_check,        ONLY: check_nh_testcase
   USE mo_art_init_interface,       ONLY: art_calc_ntracer_and_names
 
@@ -868,13 +868,13 @@ CONTAINS
           echotop_meta(jg)%nechotop = echotop_meta(jg)%nechotop + 1
         END IF
       END DO
-      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotop" , jg=jg) .AND. &
+      IF ( is_variable_in_output_dom(var_name="echotop" , jg=jg) .AND. &
            echotop_meta(jg)%nechotop == 0 ) THEN
         WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotop" in ml_varlist on domain ', jg, &
              ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
         CALL finish(routine, message_text)
       END IF
-      IF ( is_variable_in_output_dom( first_output_name_list, var_name="echotopinm" , jg=jg) .AND. &
+      IF ( is_variable_in_output_dom(var_name="echotopinm" , jg=jg) .AND. &
            echotop_meta(jg)%nechotop == 0 ) THEN
         WRITE (message_text, '(a,i2,a,i2.2,a)') 'output of "echotopinm" in ml_varlist on domain ', jg, &
              ' not possible due to invalid echotop_meta(', jg, ')%dbzthresh specification'
@@ -967,7 +967,7 @@ CONTAINS
       &                atm_phy_nwp_config(:)%lupatmo_phy, is_plane_torus, l_limited_area, &
       &                lart, ivctype, flat_height, itype_vert_expol, ltestcase,           &
       &                nh_test_name, init_mode, atm_phy_nwp_config(:)%inwp_turb,          &
-      &                atm_phy_nwp_config(:)%inwp_radiation, first_output_name_list       )
+      &                atm_phy_nwp_config(:)%inwp_radiation)
 
 
     ! ********************************************************************************

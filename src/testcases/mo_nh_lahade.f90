@@ -948,7 +948,6 @@ CONTAINS
     &                          top_height,             &  !in 
     &                          grid_sphere_radius,     &  !in
     &                          grid_rescale_factor,    &  !in
-    &                          first_output_name_list, &  !in
     &                          ldeepatmo,              &  !inout
     &                          lcoriolis,              &  !inout
     &                          l_open_ubc,             &  !inout
@@ -969,8 +968,6 @@ CONTAINS
     REAL(wp),                 INTENT(IN)    :: top_height             ! Height of model top
     REAL(wp),                 INTENT(IN)    :: grid_sphere_radius     ! (Rescaled) Earth radius
     REAL(wp),                 INTENT(IN)    :: grid_rescale_factor    ! Rescale factor
-    TYPE(t_output_name_list), POINTER       :: first_output_name_list ! Pointer to a linked list 
-                                                                      ! of output name lists    
     LOGICAL,                  INTENT(INOUT) :: ldeepatmo              ! Switch for deep-atmosphere dynamics
     LOGICAL,                  INTENT(INOUT) :: lcoriolis              ! Switch for Coriolis acceleration
     LOGICAL,                  INTENT(INOUT) :: l_open_ubc             ! Switch for open upper boundary condition
@@ -1175,8 +1172,8 @@ CONTAINS
       IF (.NOT. l_nml) THEN
         CALL finish(routine, 'an entry to lahade%output_ptb_var requires &
           &run_nml: output = ..., "nml", ...')
-      ELSEIF ((.NOT. is_variable_in_output(first_output_name_list, var_name="extra_3d1")) .OR. &
-        &     (.NOT. is_variable_in_output(first_output_name_list, var_name="extra_3d2"))      ) THEN
+      ELSEIF ((.NOT. is_variable_in_output(var_name="extra_3d1")) .OR. &
+        &     (.NOT. is_variable_in_output(var_name="extra_3d2"))      ) THEN
         CALL finish(routine, 'an entry to lahade%output_ptb_var requires &
           &output_nml: ml_varlist = ..., "extra_3d1", "extra_3d2",...')
       ENDIF

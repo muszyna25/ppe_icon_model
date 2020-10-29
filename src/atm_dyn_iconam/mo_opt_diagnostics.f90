@@ -57,7 +57,7 @@ MODULE mo_opt_diagnostics
     &                                new_var_list, delete_var_list, add_var, add_ref
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,                     &
     &                                level_type_hl, level_type_il
-  USE mo_name_list_output_config,ONLY: first_output_name_list, is_variable_in_output
+  USE mo_name_list_output_config, ONLY: is_variable_in_output
   USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
@@ -319,7 +319,7 @@ CONTAINS
     p_acc%l_any_m = .FALSE.
 
     ! PROGS {{{
-    p_acc%l_ua_m  = is_variable_in_output(first_output_name_list, var_name="ua_m")
+    p_acc%l_ua_m  = is_variable_in_output(var_name="ua_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ua_m
     IF (p_acc%l_ua_m) THEN
        cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', datatype_flt)
@@ -332,7 +332,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_va_m  = is_variable_in_output(first_output_name_list, var_name="va_m")
+    p_acc%l_va_m  = is_variable_in_output(var_name="va_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_va_m
     IF (p_acc%l_va_m) THEN
        cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind (time mean)', datatype_flt)
@@ -345,7 +345,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_wa_m  = is_variable_in_output(first_output_name_list, var_name="wa_m")
+    p_acc%l_wa_m  = is_variable_in_output(var_name="wa_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wa_m
     IF (p_acc%l_wa_m) THEN
        cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity (time mean)', datatype_flt)
@@ -359,7 +359,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_rho_m = is_variable_in_output(first_output_name_list, var_name="rho_m")
+    p_acc%l_rho_m = is_variable_in_output(var_name="rho_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rho_m
     IF (p_acc%l_rho_m) THEN
        cf_desc    = t_cf_var('air_density', 'kg m-3', 'density (time mean)', datatype_flt)
@@ -373,7 +373,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_ta_m  = is_variable_in_output(first_output_name_list, var_name="ta_m")
+    p_acc%l_ta_m  = is_variable_in_output(var_name="ta_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ta_m
     IF (p_acc%l_ta_m) THEN
        cf_desc    = t_cf_var('air temperature', 'K', 'Temperature', datatype_flt)
@@ -387,7 +387,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean"))
     END IF
 
-    p_acc%l_ps_m  = is_variable_in_output(first_output_name_list, var_name="ps_m")
+    p_acc%l_ps_m  = is_variable_in_output(var_name="ps_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ps_m
     IF (p_acc%l_ps_m) THEN
        cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure (time mean)', datatype_flt)
@@ -398,7 +398,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_psl_m = is_variable_in_output(first_output_name_list, var_name="psl_m")
+    p_acc%l_psl_m = is_variable_in_output(var_name="psl_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_psl_m
     IF (p_acc%l_psl_m) THEN
        cf_desc    = t_cf_var('mean sea level pressure', 'Pa',                      &
@@ -410,7 +410,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_pfull_m = is_variable_in_output(first_output_name_list, var_name="pfull_m")
+    p_acc%l_pfull_m = is_variable_in_output(var_name="pfull_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_pfull_m
     IF (p_acc%l_pfull_m) THEN
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at full level (time mean)', datatype_flt)
@@ -424,7 +424,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_phalf_m = is_variable_in_output(first_output_name_list, var_name="phalf_m")
+    p_acc%l_phalf_m = is_variable_in_output(var_name="phalf_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_phalf_m
     IF (p_acc%l_phalf_m) THEN
        cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at half level (time mean)', datatype_flt)
@@ -438,7 +438,7 @@ CONTAINS
                    & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    p_acc%l_wap_m = is_variable_in_output(first_output_name_list, var_name="wap_m")
+    p_acc%l_wap_m = is_variable_in_output(var_name="wap_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wap_m
     IF (p_acc%l_wap_m) THEN
        cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity (time mean)', datatype_flt)
@@ -458,9 +458,9 @@ CONTAINS
     ! TRACERS {{{
     ! support qv,qc,qi because they are always there
     IF (ntracer > 0) THEN
-       p_acc%l_tracer_m = is_variable_in_output(first_output_name_list, var_name="hus_m") .OR. &
-                        & is_variable_in_output(first_output_name_list, var_name="clw_m") .OR. &
-                        & is_variable_in_output(first_output_name_list, var_name="cli_m")
+       p_acc%l_tracer_m = is_variable_in_output(var_name="hus_m") .OR. &
+                        & is_variable_in_output(var_name="clw_m") .OR. &
+                        & is_variable_in_output(var_name="cli_m")
        p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tracer_m
        IF (p_acc%l_tracer_m) THEN
           cf_desc    = t_cf_var('tracer', 'kg kg-1', 'air tracer (time mean)', datatype_flt)
