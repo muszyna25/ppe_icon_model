@@ -1199,6 +1199,7 @@ CONTAINS
     ! If the user has set values for "output_bounds", we compute the
     ! "output_start" / "output_end" / "output_interval" from this
     ! info:
+    mtime_day => newTimedelta("P1D")
     p_onl => first_output_name_list
     DO WHILE (ASSOCIATED(p_onl))
       ! there may be multiple "output_bounds" intervals, consider all:
@@ -1231,7 +1232,6 @@ CONTAINS
 
       !--- consistency check: do not allow output intervals < dtime:
 
-      mtime_day => newTimedelta("P1D")
       ! there may be multiple "output_bounds" intervals, consider all:
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
 
@@ -1260,10 +1260,10 @@ CONTAINS
         END IF
 
       END DO INTVL_LOOP
-      CALL deallocateTimeDelta(mtime_day)
 
       p_onl => p_onl%next
     ENDDO
+    CALL deallocateTimeDelta(mtime_day)
 
     ! Get the number of output files needed (by counting the domains per name list)
 
