@@ -1265,6 +1265,8 @@ CONTAINS
     ENDDO
     CALL deallocateTimeDelta(mtime_day)
 
+    IF (my_process_is_work()) CALL build_mvstream_var_assoc(sim_step_info)
+
     ! Get the number of output files needed (by counting the domains per name list)
 
     p_onl => first_output_name_list
@@ -1469,10 +1471,6 @@ CONTAINS
           p_of%io_proc_id      = -1 ! undefined MPI rank
           p_of%pe_placement    = pe_placement(ifile_partition)
 
-          IF ( is_work ) THEN ! avoid addidional io or restart processes
-            CALL process_statistics_stream(p_onl,varlist_ptr,sim_step_info, p_patch(log_patch_id))
-          ENDIF
-
           CALL add_varlist_to_output_file(p_of, varlist_ptr)
 
         END DO ! ifile_partition
@@ -1483,6 +1481,40 @@ CONTAINS
 
     ENDDO LOOP_NML
   END SUBROUTINE output_name_lists_to_files
+
+  ! wire up namelist mvstream associations
+  SUBROUTINE build_mvstream_var_assoc(sim_step_info)
+    TYPE(t_sim_step_info), INTENT(IN) :: sim_step_info
+    TYPE(t_output_name_list), POINTER :: p_onl
+    CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
+    INTEGER :: idom, i_typ, log_patch_id
+    p_onl => first_output_name_list
+    LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
+      idom = p_onl%dom ! domain for which this name list should be used
+      ! non-existent domains are simply ignored:
+      IF (idom <= n_dom_out) THEN
+        log_patch_id = patch_info(idom)%log_patch_id
+
+        ! Loop over model/pressure/height levels
+        DO i_typ = 1, 4
+          ! Check if name_list has variables of corresponding type
+          SELECT CASE(i_typ)
+          CASE (level_type_ml)
+            varlist_ptr  => p_onl%ml_varlist
+          CASE (level_type_pl)
+            varlist_ptr  => p_onl%pl_varlist
+          CASE (level_type_hl)
+            varlist_ptr  => p_onl%hl_varlist
+          CASE (level_type_il)
+            varlist_ptr  => p_onl%il_varlist
+          END SELECT
+          IF (varlist_ptr(1) /= ' ') &
+            CALL process_statistics_stream(p_onl, varlist_ptr, sim_step_info, p_patch(log_patch_id))
+        END DO
+      END IF ! i_typ
+      p_onl => p_onl%next
+    END DO LOOP_NML
+  END SUBROUTINE build_mvstream_var_assoc
 
   SUBROUTINE assign_output_task(io_proc_id, pe_placement)
     INTEGER, INTENT(out) :: io_proc_id(:)
