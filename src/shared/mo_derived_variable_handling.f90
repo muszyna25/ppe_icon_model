@@ -507,7 +507,6 @@ CONTAINS
     TYPE(t_event_wrapper) :: event_wrapper
     CLASS(*), pointer :: myBuffer
     TYPE(t_list_element), POINTER :: src_element, dest_element
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
     LOGICAL :: foundPrognostic
     TYPE(t_var_list), POINTER :: src_list
@@ -522,19 +521,11 @@ CONTAINS
 #endif
     CALL statStreamCrossCheck(p_onl)
 
-    ntotal_vars = total_number_of_variables()
-    ! temporary variables needed for variable group parsing
-    ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
     ! count variables {{{
     output_variables = 0
     DO WHILE (in_varlist(output_variables+1) /= ' ')
       output_variables = output_variables + 1
     END DO
-
-    IF (output_variables > 0)  varlist(1:output_variables) = in_varlist(1:output_variables)
-    varlist((output_variables+1):ntotal_vars) = " "
     ! }}}
 
     ! uniq identifier for an event based on output start/end/interval
@@ -560,7 +551,7 @@ CONTAINS
     DO i=1, output_variables
       ! collect data variables only
       ! variables names like 'grid:clon' which should be excluded
-      IF ( INDEX(varlist(i),':') > 0) CYCLE
+      IF ( INDEX(in_varlist(i),':') > 0) CYCLE
 
       ! check for already created meanStream variable (maybe from another output_nml with the same output_interval)
       ! names consist of original spot-value names PLUS event information (start + interval of output)
@@ -572,7 +563,7 @@ CONTAINS
 #endif
       IF (.NOT. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
         ! find existing source variable on all possible ICON grids with the identical name
-        CALL find_src_element(src_element, varlist(i), dest_element_name, p_onl%dom, src_list, &
+        CALL find_src_element(src_element, in_varlist(i), dest_element_name, p_onl%dom, src_list, &
              & stat%Prognostics, stat%prognostic_pointers)
         ! avoid mean processing for instantaneous fields
         IF (TSTEP_CONSTANT .EQ. src_element%field%info%isteptype) CYCLE
@@ -612,7 +603,6 @@ CONTAINS
     IF (my_process_is_stdio()) CALL print_error(routine//": stat%Prognostics%to_string()")
     IF (my_process_is_stdio()) CALL print_error(stat%Prognostics%to_string())
 #endif
-    DEALLOCATE(varlist)
 
 #ifdef DEBUG_MVSTREAM
     IF (my_process_is_stdio()) THEN
