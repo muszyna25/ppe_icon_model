@@ -7,7 +7,7 @@
 !! headers of the routines.
 MODULE mo_util_texthash
 
-  USE ISO_C_BINDING, ONLY: C_INT, C_SIZE_T, C_CHAR, C_NULL_CHAR, C_INT32_T
+  USE ISO_C_BINDING, ONLY: C_INT, C_SIZE_T, C_CHAR, C_INT32_T
   USE mo_exception,  ONLY: finish
 
   IMPLICIT NONE
@@ -70,7 +70,7 @@ CONTAINS
     CHARACTER(:), POINTER :: key_p
 
     key_p => sel_char(key, routine, "Unknown type for key.")
-    hash = INT(util_hashword(key_p//C_NULL_CHAR, INT(LEN(key_p), C_SIZE_T), 0_C_INT32_T), C_INT)
+    hash = INT(util_hashword(key_p, INT(LEN(key_p), C_SIZE_T), 0_C_INT32_T), C_INT)
   END FUNCTION text_hash
 
   LOGICAL FUNCTION text_isEqual(keyA, keyB) RESULT(is_equal)
