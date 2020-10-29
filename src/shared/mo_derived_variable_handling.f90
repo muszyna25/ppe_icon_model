@@ -464,8 +464,8 @@ CONTAINS
   !! return internal name for accumulation variables
   !!
   FUNCTION get_statistics_varname(varname,output_setup)
-    CHARACTER(LEN=VARNAME_LEN)  :: varname
-    TYPE(t_output_name_list) :: output_setup
+    CHARACTER(LEN=VARNAME_LEN), INTENT(in) :: varname
+    TYPE(t_output_name_list), INTENT(in) :: output_setup
 
     CHARACTER(LEN=VARNAME_LEN)  :: get_statistics_varname
 
