@@ -721,7 +721,8 @@ MODULE mo_nh_torus_exp
     REAL(wp), DIMENSION(ptr_patch%nlev) :: theta_in, qv_in, qc_in, tmp
     INTEGER  :: jc,jk,jb   !< loop indices
     INTEGER  :: nblks_c,npromz_c
-    INTEGER  :: nlev, nlevp1                  
+    INTEGER  :: nlev, nlevp1
+    LOGICAL  :: qc_fail, is_2d_bubble
     INTEGER  :: nlen, jg, itr
 
     REAL(wp), DIMENSION(3) :: x_bubble 
@@ -819,6 +820,10 @@ MODULE mo_nh_torus_exp
     !the th0 ratio
     inv_th0 = 1._wp / 300._wp
 
+    qc_fail = .FALSE.
+    is_2d_bubble = nh_test_name == '2D_BUBBLE'
+
+
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -831,7 +836,7 @@ MODULE mo_nh_torus_exp
           x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
           x_loc(3) = ptr_metrics%z_mc(jc,jk,jb)/bub_ver_width
             
-          IF(nh_test_name.eq.'2D_BUBBLE')THEN
+          IF (is_2d_bubble) THEN
            x_c(2)   = x_loc(2)
           END IF
 
@@ -849,8 +854,8 @@ MODULE mo_nh_torus_exp
              temp_new = th_new * ptr_nh_prog%exner(jc,jk,jb)
              qv_new   = spec_humi(sat_pres_water(temp_new),pres_new)
              qc_new   = qv_in(jk) + qc_in(jk) - qv_new
+             qc_fail = qc_fail .OR. qc_new < 0._wp
 
-             IF(qc_new<0._wp)CALL finish(TRIM(routine), 'qc < 0')
             END DO
 
             !assign values to proper prog vars
@@ -864,6 +869,7 @@ MODULE mo_nh_torus_exp
       END DO
     END DO 
 
+    if (qc_fail) CALL finish(routine, 'qc < 0')
 
     !calculate some of the variables
     DO jb = 1, nblks_c
