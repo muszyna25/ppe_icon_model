@@ -300,7 +300,7 @@
    DO  jl = 1, nlayers_poly
      WRITE(message_text,'(10x,i4,4e18.10)') jl, &
                              & pres_poly(jl), t_poly(jl), rh_poly(jl), qv_poly(jl)
-     CALL message('',TRIM(message_text))
+     CALL message('', message_text)
    END DO
 
   ENDIF ! msg_level >= 5
