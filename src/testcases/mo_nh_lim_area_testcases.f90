@@ -307,13 +307,15 @@
 
 ! set the corresponding layer for all the model points
 
-jglayer(:,:,:)=0  
-!$OMP PARALLEL 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jk,jc,nlen,z_h,jl)
     DO jb = 1, nblks_c
       nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
 
       DO jk = nlev, 1, -1
+         DO jc = 1,nproma
+           jglayer(jc, jk, jb) = 0
+         END DO
          DO jc = 1, nlen
 
             z_h = p_metrics%z_mc(jc,jk,jb)
