@@ -142,8 +142,8 @@ DACE_srcdir:= $(srcdir)/externals/dace_icon/src_for_icon
 @EMVORADO_ENABLED@@DACE_NOT_ENABLED@EMVORADO_dacefiles:= mo_fdbk.f90 mo_fdbk_io.f90 mo_fdbk_tables.f90 kind_parameters.f90 environment.f90 mo_fortran_units.f90 mo_mpi_dace.f90 mo_omp.f90 mo_netcdf_param.f90 mo_t_netcdf_file.f90 mo_t_table.f90 p_bcast.incf p_scatter_derived.incf
 @EMVORADO_ENABLED@@DACE_NOT_ENABLED@DACE_srcsubdir:= $(patsubst $(srcdir)/%,%,$(DACE_srcdir))
 @EMVORADO_ENABLED@@DACE_NOT_ENABLED@EMVORADO_dacesrc:= $(addprefix $(DACE_srcsubdir)/,$(EMVORADO_dacefiles))
-@EMVORADO_ENABLED@@DACE_NOT_ENABLED@f90_files+= $(filter %.f90,$(EMVORADO_dacesrc)) 
-@EMVORADO_ENABLED@@DACE_NOT_ENABLED@incf_non_common_files+= $(filter %.incf,$(EMVORADO_dacesrc)) 
+@EMVORADO_ENABLED@@DACE_NOT_ENABLED@f90_files+= $(filter %.f90,$(EMVORADO_dacesrc))
+@EMVORADO_ENABLED@@DACE_NOT_ENABLED@incf_non_common_files+= $(filter %.incf,$(EMVORADO_dacesrc))
 
 # JSBACH preprocessing:
 @JSBACH_ENABLED@JSB_srcdir:= $(srcdir)/externals/jsbach

@@ -114,6 +114,8 @@ MODULE mo_turbdiff_config
       &  rlam_mom  !
     REAL(wp):: &   ! scaling correction factor for laminar layers of water surfaces
       &  rat_sea   ! 
+    REAL(wp):: &   ! scaling correction factor for laminar layers of glacier surfaces
+      &  rat_glac  ! 
     REAL(wp):: &   ! time smoothing factor for TKE
       &  tkesmot   ! 
     REAL(wp):: &   ! vertical smoothing factor of TKE forcing terms

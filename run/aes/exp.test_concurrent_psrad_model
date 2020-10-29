@@ -250,6 +250,7 @@ cat > ${atmo_namelist} << EOF
 ! domain 1
 ! --------
 !
+ echam_rad_config(1)%lrad_aero_diag = .true.
  echam_rad_config(1)%isolrad    =  1
  echam_rad_config(1)%irad_h2o   =  1
  echam_rad_config(1)%irad_co2   =  4
@@ -428,16 +429,21 @@ add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./
 add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./
 add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1865.nc             ./bc_aeropt_kinne_sw_b14_fin.nc
 #
-# - stratospheric aerosol
-datadir=${icon_data_poolFolder}/aerosol/stenchikov
+# - stratospheric aerosol (CMIP6)
+datadir=/pool/data/ICON/grids/private/rene/mpim/independent/CMIP6Forcing
+#
+if [ ! -d $datadir ]; then
+  echo 'directory '$datadir' for stratospheric aerosol data does not exist'
+  exit -1
+fi	
 year=$start_year
 while [[ $year -le $end_year ]]
 do
-  if [[ $year -le 1999 ]]
+  if [[ $year -le 2014 ]]
   then
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   else
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
+    add_link_file $datadir/bc_aeropt_cmip6_volc_lw_b16_sw_b14_2014.nc     ./bc_aeropt_cmip6_volc_lw_b16_sw_b14_${year}.nc
   fi
   (( year = year+1 ))
 done
@@ -642,6 +648,30 @@ if [[ "$output_trc_3d" == "yes" ]]; then
 EOF
 fi
 
+output_aer_3d=yes # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml                   
+#                                                                                          
+if [[ "$output_aer_3d" == "yes" ]]; then
+  #                                                                                        
+  cat >> ${atmo_namelist} <<EOF
+EOF                                                            
+&output_nml                                                                                
+ output_filename  = "${EXPNAME}_aer_3d"                                                    
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"                            
+ filetype         = 5                                                                      
+ remap            = 0                                                                      
+ output_grid      = .TRUE.                                                                 
+ output_start     = "${start_date}"                                                        
+output_end       = "${end_date}"                                                           
+ output_interval  = "${output_interval}"                                                   
+ file_interval    = "${file_interval}"                                                     
+ include_last     = .FALSE.                                                                
+ ml_varlist       = 'ps'          , 'pfull'       , 'zg'          ,                        
+                    'aer_aod_533' , 'aer_ssa_533',  'aer_asy_533' ,                        
+                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325',                        
+                    'aer_aod_9731',                                                        
+/                                                                                          
+EOF                                                                                        
+fi
 
 # Currently, the JSBACH output_nml's need to be added to atmo_namelist, but this should 
 # eventually be handled by the lnd_namelist file. 

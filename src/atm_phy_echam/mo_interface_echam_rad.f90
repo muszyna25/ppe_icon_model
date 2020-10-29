@@ -136,7 +136,15 @@ CONTAINS
               & nir_dn_dff_sfc = field%rnds_dif_rt(:,:)   ,&!< out  all-sky downward diffuse near-IR radiation at surface
               & vis_up_sfc     = field%rvus_rt    (:,:)   ,&!< out  all-sky upward visible radiation at surface
               & par_up_sfc     = field%rpus_rt    (:,:)   ,&!< out  all-sky upward PAR     radiation at surfac
-              & nir_up_sfc     = field%rnus_rt    (:,:)    )!< out  all-sky upward near-IR radiation at surface
+              & nir_up_sfc     = field%rnus_rt    (:,:)   ,&!< out  all-sky upward near-IR radiation at surface
+              & aer_aod_533    = field%aer_aod_533 (:,:,:),&!< out  aerosol optical density at 533 nm
+              & aer_ssa_533    = field%aer_ssa_533 (:,:,:),&!< out  single scattering albedo at 533 nm
+              & aer_asy_533    = field%aer_asy_533 (:,:,:),&!< out  asymmetrie factor at 533 nm
+              & aer_aod_2325   = field%aer_aod_2325(:,:,:),&!< out  aerosol optical density at 2325 nm
+              & aer_ssa_2325   = field%aer_ssa_2325(:,:,:),&!< out  single scattering albedo at 2325 nm
+              & aer_asy_2325   = field%aer_asy_2325(:,:,:),&!< out  asymmetrie factor at 2325 nm
+              & aer_aod_9731   = field%aer_aod_9731(:,:,:) &!< out  aerosol optical density at 9731
+              )
           !
           END IF
           !
@@ -168,6 +176,14 @@ CONTAINS
           ! total cloud cover diagnostics
           field%aclcov(:,:)      = 0.0_wp !< out  total cloud cover
           !
+          ! aerosol optical properties diagnostics
+          field%aer_aod_533 (:,:,:) = 0.0_wp
+          field%aer_ssa_533 (:,:,:) = 0.0_wp
+          field%aer_asy_533 (:,:,:) = 0.0_wp
+          field%aer_aod_2325(:,:,:) = 0.0_wp
+          field%aer_ssa_2325(:,:,:) = 0.0_wp
+          field%aer_asy_2325(:,:,:) = 0.0_wp
+          field%aer_aod_9731(:,:,:) = 0.0_wp
        !
        END IF
 

@@ -180,6 +180,8 @@ CONTAINS
     ecrad_conf%do_surface_sw_spectral_flux = .true.       !< Save the surface downwelling shortwave fluxes in each band
                                                           !< Needed for photosynthetic active radiation
     !
+    ecrad_conf%use_spectral_solar_scaling  = .true.       !< Apply correction to solar spectrum in order to match recent measurements
+    !
     ecrad_conf%do_fu_lw_ice_optics_bug     = .false.      !< In the IFS environment there was a bug in the Fu longwave
                                                           !< ice optics producing better results than the fixed version
     !

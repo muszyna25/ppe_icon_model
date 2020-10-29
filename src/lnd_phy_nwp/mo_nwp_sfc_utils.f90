@@ -2007,7 +2007,7 @@ CONTAINS
         !$acc parallel if(lzacc)
         !$acc loop gang vector
         DO ic = istart, iend
-          snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-30000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
+          snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-20000._wp*MAX(0._wp,z0(ic)-0.02_wp)*meltrate(ic)))
         ENDDO
         !$acc end parallel
       ENDIF

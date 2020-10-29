@@ -404,6 +404,21 @@ MODULE mo_nh_stepping
     END IF
   END IF
 
+  IF (iforcing == inwp .AND. lart) THEN
+    DO jg=1, n_dom
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+      CALL art_init_atmo_tracers_nwp(                     &
+           &  jg,                                         &
+           &  mtime_current,                              &
+           &  p_nh_state(jg),                             &
+           &  ext_data(jg),                               &
+           &  prm_diag(jg),                               &
+           &  p_nh_state(jg)%prog(nnow(jg)),              &
+           &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,   &
+           &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
+    ENDDO
+  END IF
+
   ! Save initial state if IAU iteration mode is chosen
   IF (iterate_iau .AND. .NOT. isRestart()) THEN
     CALL save_initial_state(p_patch(1:), p_nh_state, prm_diag, p_lnd_state, ext_data)
@@ -430,20 +445,6 @@ MODULE mo_nh_stepping
            & ext_data(jg)                          ,&
            & phy_params(jg), mtime_current         ,&
            & prm_upatmo(jg)                         )
-
-
-      IF (lart) THEN
-        CALL art_init_atmo_tracers_nwp(                     &
-               &  jg,                                       &
-               &  mtime_current,                            &
-               &  p_nh_state(jg),                           &
-               &  ext_data(jg),                             &
-               &  prm_diag(jg),                             &
-               &  p_nh_state(jg)%prog(nnow(jg)),            &
-               &  p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-               &  p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)) )
-      END IF
-
 
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
@@ -1737,7 +1738,6 @@ MODULE mo_nh_stepping
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
-            &                         datetime_local(jg)%ptr,      &  !in
             &                         p_patch(jg),                 &  !in 
             &                         p_nh_state(jg),              &  !inout
             &                         p_int_state(jg),             &  !in
@@ -2160,7 +2160,6 @@ MODULE mo_nh_stepping
           CALL nh_testcase_interface( nstep_global,                &  !in
             &                         dt_loc,                      &  !in
             &                         sim_time,                    &  !in
-            &                         datetime_local(jg)%ptr,      &  !in
             &                         p_patch(jg),                 &  !in 
             &                         p_nh_state(jg),              &  !inout
             &                         p_int_state(jg),             &  !in
@@ -2461,6 +2460,18 @@ MODULE mo_nh_stepping
                 & phy_params(jgc), datetime_local(jgc)%ptr,&
                 & prm_upatmo(jgc)                         ,&
                 & lnest_start=.TRUE.                       )
+
+              IF (lart) THEN
+                CALL art_init_atmo_tracers_nwp(                         &
+                       &  jgc,                                          &
+                       &  datetime_local(jgc)%ptr,                      &
+                       &  p_nh_state(jgc),                              &
+                       &  ext_data(jgc),                                &
+                       &  prm_diag(jgc),                                &
+                       &  p_nh_state(jgc)%prog(nnow(jgc)),              &
+                       &  p_nh_state(jgc)%prog(nnow_rcf(jgc))%tracer,   &
+                       &  p_nh_state_lists(jgc)%prog_list(nnow_rcf(jgc)) )
+              END IF
 
               CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))

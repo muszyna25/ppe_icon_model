@@ -175,11 +175,12 @@ INTEGER            ::        &
 
 REAL (KIND=wp)     ::        &
   rlam_mom     =  0.0_wp,    & ! scaling factor of the laminar boundary layer for momentum
-  rlam_heat    =  1.0_wp,    & ! scaling factor of the laminar boundary layer for heat
+  rlam_heat    = 10.0_wp,    & ! scaling factor of the laminar boundary layer for heat
 
   rat_lam      =  1.0_wp,    & ! ratio of laminar scaling factors for vapour and heat
   rat_can      =  1.0_wp,    & ! ratio of canopy height over z0m
-  rat_sea      = 10.0_wp,    & ! ratio of laminar scaling factors for heat over sea and land
+  rat_sea      =  0.8_wp,    & ! ratio of laminar scaling factors for heat over sea and land
+  rat_glac     =  3.0_wp,    & ! ratio of laminar scaling factors for heat for glaciers
 
   z0m_dia      =  0.2_wp,    & ! roughness length of a typical synoptic station [m]
 

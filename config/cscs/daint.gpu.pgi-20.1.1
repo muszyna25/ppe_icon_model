@@ -5,7 +5,7 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")"; pwd)
 ICON_DIR=$(cd "${SCRIPT_DIR}/../.."; pwd)
 
-MODULES='modules craype cdt PrgEnv-pgi pgi-icon/20.1.1 gcc cce cray-mpich cray-netcdf cray-hdf5 cudatoolkit'
+MODULES='modules craype cdt/20.08 PrgEnv-pgi pgi-icon/20.1.1 gcc cce cray-mpich cray-netcdf cray-hdf5 cudatoolkit'
 
 XML2_ROOT='/apps/daint/UES/jenkins/6.0.UP07/gpu/easybuild/software/libxml2/2.9.7-CrayGNU-18.08'
 XML2_LIBS='-lxml2'

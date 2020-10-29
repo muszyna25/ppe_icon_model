@@ -343,6 +343,29 @@ SUBROUTINE organize_lhn ( &
     tt_lheat(:,:,jb) = 0._wp
   END DO
 !$OMP END DO
+
+  ! diagnose freezing level - this is otherwise done only at output times
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, i_rlstart, i_rlend)
+
+    prm_diag%hzerocl(i_startidx:i_endidx,jb) = p_metrics%z_ifc(i_startidx:i_endidx,nlev+1,jb)
+
+    DO jk = kstart_moist(jg)+1, nlev
+      DO jc = i_startidx, i_endidx 
+        IF ( prm_diag%hzerocl(jc,jb) /= p_metrics%z_ifc(jc,nlev+1,jb)) THEN ! freezing level found
+          CYCLE
+        ELSE IF (pt_diag%temp(jc,jk-1,jb) < tmelt .AND. pt_diag%temp(jc,jk,jb) >= tmelt) THEN
+          prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -            &
+         &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
+         &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
+         &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
+        END IF
+      ENDDO
+    ENDDO
+  ENDDO
+!$OMP END DO
 !$OMP END PARALLEL
 
   IF (my_process_is_stdio() .AND. (assimilation_config(jg)%lhn_diag) ) THEN
