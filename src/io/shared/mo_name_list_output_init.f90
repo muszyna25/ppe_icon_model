@@ -889,7 +889,7 @@ CONTAINS
   SUBROUTINE parse_variable_groups()
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::parse_variable_groups"
     !
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:), new_varlist(:)
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:), grp_vars(:)
     CHARACTER(LEN=VARNAME_LEN)              :: vname, grp_name
     INTEGER                                 :: nvars, ngrp_vars, i_typ, ierrstat, &
       &                                        ivar, ntotal_vars, jvar, i,        &
@@ -899,8 +899,7 @@ CONTAINS
 
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
-    ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), &
-      &      new_varlist(ntotal_vars), STAT=ierrstat)
+    ALLOCATE(varlist(ntotal_vars), grp_vars(ntotal_vars), stat=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! -- loop over all output namelists
@@ -962,10 +961,7 @@ CONTAINS
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
-            CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
-              &               TRIM(vname),                       &
-              &               grp_vars(1:ngrp_vars), new_varlist)
-            varlist(:) = new_varlist(:)
+            CALL insert_group(varlist, vname, grp_vars(1:ngrp_vars))
 
             ! status output
             IF (msg_level >= 12) THEN
@@ -991,10 +987,7 @@ CONTAINS
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
-            CALL insert_group(varlist, VARNAME_LEN, ntotal_vars, &
-              &               GRP_PREFIX//TRIM(grp_name),  &
-              &               grp_vars(1:ngrp_vars), new_varlist)
-            varlist(:) = new_varlist(:)
+            CALL insert_group(varlist, vname, grp_vars(1:ngrp_vars))
 
             ! status output
             IF (msg_level >= 12) THEN
@@ -1033,7 +1026,7 @@ CONTAINS
 
     END DO ! p_onl
 
-    DEALLOCATE(varlist, grp_vars, new_varlist, STAT=ierrstat)
+    DEALLOCATE(varlist, grp_vars, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
   END SUBROUTINE parse_variable_groups
 

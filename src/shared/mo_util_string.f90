@@ -688,45 +688,76 @@ CONTAINS
   ! whole group of variables (like "tracers"), for example by
   ! group_list="Q1", "Q2", etc.
   !
-  ! @param[in]  varlist    original array of strings (variable names)
-  ! @param[in]  vname_len  length of each string
-  ! @param[in]  n          length of list
+  ! @param[inout]  varlist    original array of strings (variable names)
   ! @param[in]  group_name substitution keyword (i.e. variable group name)
   ! @param[in]  group_list array of strings that will be inserted
   !
   ! @return     contents of @p varlist where @p group_name has been replaced.
   !------------------------------------------------------------------------------
-  SUBROUTINE insert_group(varlist, vname_len, n, group_name, group_list, result_list)
-    INTEGER,                        INTENT(IN)    :: vname_len, n
-    CHARACTER(LEN=vname_len),       INTENT(OUT)   :: result_list(n)
-    CHARACTER(LEN=*),               INTENT(IN)    :: varlist(:), group_list(:)
+  SUBROUTINE insert_group(varlist, group_name, group_list)
+    CHARACTER(LEN=*),               INTENT(INOUT) :: varlist(:)
+    CHARACTER(LEN=*),               INTENT(IN)    :: group_list(:)
     CHARACTER(LEN=*),               INTENT(IN)    :: group_name
     ! local variables
-    INTEGER :: i,j,k,m,ngroups
+    INTEGER :: i,j,k,m,n,ngroups,src_pos(SIZE(varlist)+SIZE(group_list)), &
+         insert_ofs(SIZE(group_list))
+    LOGICAL :: inserted
     CHARACTER(len=LEN_TRIM(group_name)) :: group_name_uc
 
-    k=0
-    ngroups = SIZE(group_list)
     m = SIZE(varlist)
     IF (m > 0) THEN
-      group_name_uc = toupper(group_name)
-      DO i=1,m
-        IF (varlist(i) == ' ') EXIT
-        IF (toupper(varlist(i)) == group_name_uc) THEN
-          DO j=1,ngroups
-            k = k+1
-            result_list(k) = group_list(j)
-          END DO
-        ELSE
-          k = k+1
-          result_list(k) = varlist(i)
+      k = 0
+      ! determine number of variables in group_list not yet in varlist
+      ngroups = 0
+      DO j = 1, SIZE(group_list)
+        IF (ALL(varlist(1:nused) /= group_list(j))) THEN
+          ngroups = ngroups + 1
+          insert_ofs(ngroups) = j
         END IF
       END DO
-      CALL remove_duplicates(result_list, k )
+      group_name_uc = toupper(group_name)
+      inserted = .FALSE.
+      scan_cpy_src: DO i = 1, m
+        IF (varlist(i) == ' ') EXIT
+        IF (toupper(varlist(i)) == group_name_uc) THEN
+          IF (.NOT. inserted) THEN
+            DO j = 1,ngroups
+              src_pos(n+j) = -j
+            END DO
+            n = n + ngroups
+            inserted = .TRUE.
+          END IF
+        ELSE
+          n = n + 1
+          src_pos(n) = i
+        END IF
+      END DO scan_cpy_src
+      m = i - 1
+      IF (n < m) THEN
+        DO i = n, 1, -1
+          k = src_pos(i)
+          IF (k <= i) THEN
+            DO j = i+1, n
+              varlist(j) = varlist(src_pos(j))
+            END DO
+            DO j=n+1,m
+              varlist(j) = " "
+            END DO
+            n = i
+            EXIT
+          END IF
+        END DO
+      END IF
+      DO i = n, 1, -1
+        k = src_pos(i)
+        IF (k < 0) THEN
+          varlist(i) = group_list(-k)
+        ELSE IF (k > 0) THEN
+          varlist(i) = varlist(k)
+        END IF
+      END DO
+      CALL remove_duplicates(varlist, n)
     END IF
-    DO i=k+1,n
-      result_list(i) = " "
-    END DO
 
   END SUBROUTINE insert_group
 
